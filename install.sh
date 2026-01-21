@@ -922,17 +922,55 @@ install_codex() {
     fi
 }
 
+
+install_opencode_refs() {
+    local target_root="$1"
+    local target="$target_root/.opencode"
+    
+    # Ensure .opencode exists
+    mkdir -p "$target"
+
+    # Install reference commands (remove first to ensure clean state)
+    if [ -d "$target/_ref_commands" ]; then
+        rm -rf "$target/_ref_commands"
+    fi
+    mkdir -p "$target/_ref_commands"
+    
+    echo "  - Installing OpenCode reference commands to .opencode/_ref_commands..."
+    
+    # Prefer command (singular) as it matches source
+    if [ -d "$REPO_ROOT/opencode/command" ]; then
+        cp -r "$REPO_ROOT/opencode/command/"* "$target/_ref_commands/"
+    elif [ -d "$REPO_ROOT/opencode/commands" ]; then
+        cp -r "$REPO_ROOT/opencode/commands/"* "$target/_ref_commands/"
+    fi
+
+    # Create README in _ref_commands
+    cat > "$target/_ref_commands/README.md" << "EOF"
+# Reference Commands
+
+These commands are provided for reference only and are not intended to be used directly from this directory.
+The authoritative commands are installed and loaded from `~/.config/opencode/command/`.
+
+These files are here so you can reference them in prompts if needed (e.g. "follow the pattern in .opencode/_ref_commands/cmd:graduate.md").
+EOF
+}
+
+
 install_opencode() {
     local target_root="$1"
     local target="$target_root/.opencode"
     local is_update=false
     local opencode_config_dir="$HOME/.config/opencode"
 
+    # Ensure reference commands are installed (User requested this always happens)
+    install_opencode_refs "$target_root"
+
     # Ensure project-level AGENTS.md / house rules if requested
     ensure_project_agents "$target_root"
 
     # Detect if this is an update
-    if [ -d "$target" ]; then
+    if [ -d "$target/commands" ]; then
         is_update=true
         echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
         echo -e "${GREEN}  Updating OpenCode Configuration${NC}"
@@ -981,19 +1019,30 @@ install_opencode() {
         cp -r "$REPO_ROOT/opencode/skill/playwright-skill"/* "$opencode_config_dir/skill/playwright-skill/"
     fi
 
-    # Install commands (remove first to ensure clean state)
-    echo "  - Installing commands..."
+    # Install ACTIVE commands (remove first to ensure clean state)
+    echo "  - Installing active commands to .opencode/commands..."
     if [ -d "$target/commands" ]; then
         rm -rf "$target/commands"
     fi
-    cp -r "$REPO_ROOT/opencode/commands" "$target/"
+    mkdir -p "$target/commands"
+    
+    if [ -d "$REPO_ROOT/opencode/command" ]; then
+        cp -r "$REPO_ROOT/opencode/command/"* "$target/commands/"
+    elif [ -d "$REPO_ROOT/opencode/commands" ]; then
+        cp -r "$REPO_ROOT/opencode/commands/"* "$target/commands/"
+    fi
 
     # Install agents (remove first to ensure clean state)
     echo "  - Installing agents..."
     if [ -d "$target/agents" ]; then
         rm -rf "$target/agents"
     fi
-    cp -r "$REPO_ROOT/opencode/agents" "$target/"
+    mkdir -p "$target/agents"
+    if [ -d "$REPO_ROOT/opencode/agent" ]; then
+        cp -r "$REPO_ROOT/opencode/agent/"* "$target/agents/"
+    elif [ -d "$REPO_ROOT/opencode/agents" ]; then
+        cp -r "$REPO_ROOT/opencode/agents/"* "$target/agents/"
+    fi
 
     # Install documentation to target root
     echo "  - Installing documentation..."
@@ -1099,6 +1148,8 @@ case "$INSTALL_MODE" in
         install_codex "$TARGET_DIR"
         echo ""
         install_gemini "$TARGET_DIR"
+        echo ""
+        install_opencode_refs "$TARGET_DIR"
         ;;
     --claude)
         install_claude "$TARGET_DIR"
