@@ -1,4 +1,4 @@
-description = ""Batch fetch documentation from markdown lists containing multiple libraries and frameworks""
+description = "Batch fetch documentation from markdown lists containing multiple libraries and frameworks"
 prompt = """
 
 # Batch Documentation Fetch Command
