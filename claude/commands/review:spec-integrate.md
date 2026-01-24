@@ -13,7 +13,20 @@ Integrate all reviewer comments from a multi-model specification review into the
 
 ### 1. Read and Catalog All Comments
 
-Read the specification and extract all HTML comments from reviewers. Catalog each comment by:
+Read the specification and extract all review tags from reviewers. Scan for inline review tags using the format:
+
+- Preferred format with explicit section:
+  ```markdown
+  [REVIEW:Reviewer Name] SECTION "Section Title": comment text [/REVIEW]
+  ```
+- Supported fallback without explicit section:
+  ```markdown
+  [REVIEW:Reviewer Name] comment text [/REVIEW]
+  ```
+
+For comments without a section marker, associate the comment with the nearest following section header.
+
+Catalog each comment by:
 - **Reviewer**: Claude, Gemini, Codex, GPT, or other identifiers
 - **Type**: Question, concern, suggestion, missing requirement, feasibility issue
 - **Section**: Which part of the spec it references
@@ -76,9 +89,14 @@ Recommendation: B seems appropriate given the complexity, but this affects scope
 
 For each resolved comment:
 
-1. **Update the specification** - Modify the relevant section to address the feedback
-2. **Remove the comment** - Delete the HTML comment after integration
-3. **Add clarifying content** - Where comments identified gaps, add the missing information
+1. **Locate the section** in the specification that was referenced
+2. **Update the specification** - Insert a review tag at the beginning of the referenced section with the integrated feedback:
+   ```markdown
+   [REVIEW:Integrated {reviewer_name} feedback] {resolved feedback} [/REVIEW]
+   ```
+3. **Add clarifying content** - Where comments identified gaps, add the missing information to the specification text
+4. **Modify the relevant section** - Update to address the feedback directly in the section content
+5. **Remove the original inline comment** - Delete the resolved inline review comment from the spec
 
 Integration principles:
 - Preserve the spec's voice and structure
@@ -113,7 +131,7 @@ At the end of the specification, add or update a "Review Resolution Log" section
 
 After integration:
 - Re-read the full specification for coherence
-- Verify no HTML comments remain (all should be resolved)
+- Verify all sections referenced in comments have been addressed
 - Check that all reviewer concerns are addressed
 - Ensure the spec is internally consistent
 
@@ -145,10 +163,11 @@ Provide the user with:
 ## Output
 
 The specification file should be updated in place with:
-- All reviewer comments removed
-- Feedback integrated into relevant sections
+- All feedback integrated from inline review comments
 - Review Resolution Log added/updated
 - Clean, coherent specification ready for implementation
+
+The inline review comments should be deleted after successful integration. If integration fails, keep the inline comments for debugging.
 
 ---
 

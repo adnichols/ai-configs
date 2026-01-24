@@ -5,7 +5,7 @@ argument-hint: <path to specification>
 
 # Multi-Model Specification Review
 
-Review the specification document and provide critical feedback as HTML comments annotated with your identity.
+Review the specification document and provide critical feedback as inline review tags annotated with your identity.
 
 **Specification to review:** $ARGUMENTS
 
@@ -14,6 +14,10 @@ Review the specification document and provide critical feedback as HTML comments
 You are **Claude** reviewing this specification. All comments you add must be clearly attributed to you.
 
 ## Process
+
+### 0. Confirm Reviewer Identity
+
+Use **Claude** as the reviewer name for all comment labels.
 
 ### 1. Read the Specification
 
@@ -45,10 +49,10 @@ Ask about:
 
 ### 4. Add Critical Feedback as Comments
 
-Insert HTML comments directly into the specification document. Format each comment as:
+Insert review tags directly into the specification document. Format each comment as:
 
-```html
-<!-- [Claude] Your critical feedback here. Be specific and actionable. -->
+```markdown
+[REVIEW:Claude] Your critical feedback here. Be specific and actionable. [/REVIEW]
 ```
 
 ### Comment Guidelines
@@ -77,8 +81,8 @@ If you see comments from other reviewers (Gemini, Codex, GPT, etc.), you may:
 
 Format responses to other reviewers:
 
-```html
-<!-- [Claude] RE: [OtherReviewer] - Your response to their comment -->
+```markdown
+[REVIEW:Claude] RE: [OtherReviewer] - Your response to their comment [/REVIEW]
 ```
 
 ### 6. Summary
@@ -98,17 +102,17 @@ Place comments:
 
 ## Example Comments
 
-```html
-<!-- [Claude] This success criteria is not measurable. Consider adding specific
-metrics like "response time < 200ms" or "support 1000 concurrent users". -->
+```markdown
+[REVIEW:Claude] This success criteria is not measurable. Consider adding specific
+metrics like "response time < 200ms" or "support 1000 concurrent users". [/REVIEW]
 
-<!-- [Claude] The security section doesn't address rate limiting. Based on
+[REVIEW:Claude] The security section doesn't address rate limiting. Based on
 examining src/middleware/auth.ts, the existing auth middleware doesn't include
-rate limiting - this needs to be explicitly addressed. -->
+rate limiting - this needs to be explicitly addressed. [/REVIEW]
 
-<!-- [Claude] RE: [Gemini] - I disagree that this is over-engineered. The
+[REVIEW:Claude] RE: [Gemini] - I disagree that this is over-engineered. The
 existing codebase in src/services/ follows this same pattern for similar
-complexity features. -->
+complexity features. [/REVIEW]
 ```
 
 ## Critical Mindset

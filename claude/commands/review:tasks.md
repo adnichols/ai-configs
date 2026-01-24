@@ -48,17 +48,17 @@ For each task and subtask, verify:
 
 ### 3. Add Comments for Inaccuracies
 
-Insert HTML comments directly into the task list document for any inaccuracies found:
+Insert review tags directly into the task list document for any inaccuracies found:
 
-```html
-<!-- [Claude] INCORRECT: Task says "create new auth middleware" but spec says
-"extend existing auth middleware in src/middleware/auth.ts". -->
+```markdown
+[REVIEW:Claude] INCORRECT: Task says "create new auth middleware" but spec says
+"extend existing auth middleware in src/middleware/auth.ts". [/REVIEW]
 
-<!-- [Claude] SCOPE DRIFT: This task adds rate limiting but the specification
-explicitly excludes rate limiting from this phase. -->
+[REVIEW:Claude] SCOPE DRIFT: This task adds rate limiting but the specification
+explicitly excludes rate limiting from this phase. [/REVIEW]
 
-<!-- [Claude] MISINTERPRETATION: Spec requires "soft delete" (set deleted_at)
-but task describes "hard delete" (remove from database). -->
+[REVIEW:Claude] MISINTERPRETATION: Spec requires "soft delete" (set deleted_at)
+but task describes "hard delete" (remove from database). [/REVIEW]
 ```
 
 ### Comment Types
@@ -73,8 +73,8 @@ but task describes "hard delete" (remove from database). -->
 
 If you see comments from other reviewers (Gemini, Codex, GPT, etc.):
 
-```html
-<!-- [Claude] RE: [Gemini] - I agree this is incorrect. The spec clearly states... -->
+```markdown
+[REVIEW:Claude] RE: [Gemini] - I agree this is incorrect. The spec clearly states... [/REVIEW]
 ```
 
 ## Comment Guidelines
@@ -101,21 +101,21 @@ Place comments:
 
 ## Example Comments
 
-```html
-<!-- [Claude] INCORRECT: Task 2.3 says "add JWT validation" but spec section 3.2
-explicitly states "use session-based auth, not JWT". -->
+```markdown
+[REVIEW:Claude] INCORRECT: Task 2.3 says "add JWT validation" but spec section 3.2
+explicitly states "use session-based auth, not JWT". [/REVIEW]
 
-<!-- [Claude] WRONG REFERENCE: Task references "src/services/userService.ts" but
-codebase analysis shows this is "src/services/user.service.ts". -->
+[REVIEW:Claude] WRONG REFERENCE: Task references "src/services/userService.ts" but
+codebase analysis shows this is "src/services/user.service.ts". [/REVIEW]
 
-<!-- [Claude] SCOPE DRIFT: The specification's "Excluded" section lists "admin
-dashboard" but Task 4.2 includes admin UI components. -->
+[REVIEW:Claude] SCOPE DRIFT: The specification's "Excluded" section lists "admin
+dashboard" but Task 4.2 includes admin UI components. [/REVIEW]
 
-<!-- [Claude] MISINTERPRETATION: Spec says "cache for 5 minutes" but task says
-"cache indefinitely with manual invalidation". -->
+[REVIEW:Claude] MISINTERPRETATION: Spec says "cache for 5 minutes" but task says
+"cache indefinitely with manual invalidation". [/REVIEW]
 
-<!-- [Claude] RE: [Codex] - Confirmed. The API response shape in Task 3.1 doesn't
-match the interface defined in the specification's Technical Details section. -->
+[REVIEW:Claude] RE: [Codex] - Confirmed. The API response shape in Task 3.1 doesn't
+match the interface defined in the specification's Technical Details section. [/REVIEW]
 ```
 
 ## Summary
