@@ -8,7 +8,6 @@ This directory contains installable Claude Code configurations including agents,
 - **commands/** - Custom slash commands for workflows
 - **scripts/** - Shared utility scripts used by commands
 - **settings.local.json** - Claude Code project-level settings
-- **mcp-servers.json** - MCP (Model Context Protocol) server definitions
 
 ## Installation
 
@@ -26,35 +25,6 @@ bash /path/to/adn-claude-configs/install.sh --claude ~
 ```
 
 This will copy all configurations to `~/.claude/` for global access.
-
-## MCP Servers
-
-The `mcp-servers.json` file contains MCP server configurations. To use these servers:
-
-1. **For Claude Desktop App**: Merge contents into:
-   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   - Linux: `~/.config/Claude/claude_desktop_config.json`
-   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-2. **For Claude Code**: The servers are automatically available when installed in a project's `.claude/` directory. Ensure your global Claude Code settings have:
-   ```json
-   {
-     "enableAllProjectMcpServers": true
-   }
-   ```
-
-### Example MCP Server Configuration
-
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
-    }
-  }
-}
-```
 
 ## Settings
 

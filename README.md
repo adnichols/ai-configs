@@ -86,7 +86,6 @@ adn-claude-configs/
 │   ├── commands/            # Slash commands
 │   ├── scripts/             # Shared utility scripts
 │   ├── settings.local.json  # Claude Code settings template
-│   └── mcp-servers.json     # MCP server definitions
 ├── gemini/                   # Gemini CLI configuration
 │   ├── commands/            # Gemini commands (TOML)
 │   └── GEMINI.template.md   # Gemini context template
@@ -372,17 +371,9 @@ The `/doc:fetch` command transforms scattered online documentation into locally 
 
 ## 🔌 MCP Server Configuration
 
-This repository includes pre-configured MCP (Model Context Protocol) server definitions.
+This repository includes MCP (Model Context Protocol) server definitions for Codex.
 
-### For Claude Code
-
-MCP servers are defined in `claude/mcp-servers.json`. To use them:
-
-1. **Project-level**: Installed automatically to `.claude/mcp-servers.json`
-2. **Claude Desktop App**: Merge into `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
-3. **Global Claude Code**: Ensure `enableAllProjectMcpServers: true` in `~/.claude/settings.json`
-
-### For Codex
+### Codex
 
 MCP servers are defined in `codex/mcp-servers.toml`. To use them:
 
@@ -392,18 +383,6 @@ MCP servers are defined in `codex/mcp-servers.toml`. To use them:
 ### Example MCP Servers
 
 The repository includes the Playwright MCP server by default. Add more as needed:
-
-```json
-// Claude Code (JSON)
-{
-  "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
-    }
-  }
-}
-```
 
 ```toml
 # Codex (TOML)

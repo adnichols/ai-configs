@@ -12,7 +12,6 @@ This is a Claude Code, Codex, and Gemini CLI configuration repository containing
   - `commands/` - Slash commands for task processing and code management
   - `scripts/` - Helper scripts for documentation and utilities
   - `settings.local.json` - Claude Code project settings
-  - `mcp-servers.json` - MCP server definitions
 - **gemini/**: Gemini CLI configuration
   - `commands/` - Gemini commands (TOML)
   - `GEMINI.template.md` - Gemini context template
@@ -279,7 +278,7 @@ All agents reference CLAUDE.md for:
 
 ## MCP Server Configuration
 
-MCP servers are pre-configured in `claude/mcp-servers.json` and `codex/mcp-servers.toml`:
+MCP servers are pre-configured in `codex/mcp-servers.toml`:
 
 - **Playwright**: Browser automation and testing
 - **Context7**: Up-to-date library documentation fetching (used by `/doc:fetch` and spec creation)
