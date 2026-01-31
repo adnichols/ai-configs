@@ -2,7 +2,7 @@
 name: playwright-runner
 description: Run Playwright E2E tests in isolated PTY session with real-time failure streaming
 mode: subagent
-model: google/gemini-2.5-flash
+model: local-proxy/antigravity/gemini-3-flash
 permission:
   skill:
     "playwright-*": "allow"

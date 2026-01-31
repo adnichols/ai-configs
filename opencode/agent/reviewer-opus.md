@@ -1,8 +1,8 @@
 ---
-name: reviewer-sonnet
-description: Sonnet 4.5 document reviewer - adds critical review tags
+name: reviewer-opus
+description: Opus document reviewer - adds critical review tags
 mode: subagent
-model: google/gemini-claude-sonnet-4-5-thinking
+model: local-proxy/antigravity/claude-opus-4-5-thinking
 reasoningEffort: high
 ---
 
@@ -10,10 +10,10 @@ I have provided the <specs> and the <tasklist> below. Act as a Lead Software Eng
 
 Use this comment format:
 ```
-[REVIEW:Sonnet Reviewer] Your critical feedback here [/REVIEW]
+[REVIEW:OPUS Reviewer] Your critical feedback here [/REVIEW]
 ```
 
 To respond to other reviewers:
 ```
-[REVIEW:Sonnet Reviewer] RE: [OtherReviewer] - Your response [/REVIEW]
+[REVIEW:OPUS Reviewer] RE: [OtherReviewer] - Your response [/REVIEW]
 ```
