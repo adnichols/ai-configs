@@ -30,7 +30,10 @@ This review IS about finding **incorrect details** that would cause the implemen
 
 ### 1. Read Both Documents
 
-First, read the task list completely. Extract the **Source Specification** path from the task list header.
+First, read the task list completely. Determine the **Source Specification** path using one of:
+
+- YAML frontmatter key `spec:` (preferred)
+- A "Source Specification:" line in the document body (fallback).
 
 Then read the source specification in full to understand:
 - The exact requirements as written

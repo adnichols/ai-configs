@@ -1,25 +1,25 @@
 ---
 description: Post-implementation verification using multi-agent review (GLM, Kimi, Llama Maverick)
-argument-hint: "<path to task list>"
+argument-hint: "<slug | thoughts/plans/<slug>/ | path/to/tasks.md>"
 ---
 
 # Multi-Agent Validation
 
 Verify that a task list was correctly executed using parallel review from GLM 4.7, Kimi K2, and Llama Maverick.
 
-Task file: $ARGUMENTS
+Target: $ARGUMENTS
 
 ## Process
 
 ### 1. Locate and Read Documents
 
-If no argument provided, use the current active task list or search `thoughts/` for the most recent `task.md`.
+If no argument provided, search `thoughts/plans/` for the most recently modified `tasks.md`.
 
 Read the task file completely. Extract:
 - All tasks and subtasks (items starting with `- [ ]` or `- [x]`)
 - Any context or requirements blocks
 - "Implementation Files" or "Relevant Files" if listed
-- **Source Specification** path from the task list header
+- **Source Specification** path from YAML frontmatter `spec:` (preferred), or from the document body as a fallback
 
 Read the source specification completely to understand:
 - Requirements and constraints
@@ -40,16 +40,16 @@ git log --oneline -20
 git diff --stat HEAD~10
 
 # Test results (project-specific)
-pnpm test:unit
+# (Run the repository's primary test command(s) when available; treat as supporting evidence)
 
 # E2E tests if available
 # pnpm test:e2e  # (requires PLAYWRIGHT=True pnpm dev)
 
 # Build status
-pnpm build
+# (Run the repository's build command when available; treat as supporting evidence)
 
 # Lint status
-pnpm lint
+# (Run the repository's lint command when available; treat as supporting evidence)
 ```
 
 **Capture all output in a shared evidence block** to distribute to all reviewers.

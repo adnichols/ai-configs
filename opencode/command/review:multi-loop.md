@@ -20,7 +20,10 @@ Keep reviewing and integrating corrections until the task list converges (no new
 ### Initialization
 
 1. Read the task list to confirm it exists
-2. Extract the **Source Specification** path
+2. Determine the **Source Specification** path using one of:
+
+- YAML frontmatter key `spec:` (preferred)
+- A "Source Specification:" line in the document body (fallback)
 3. Set `iteration = 1`
 4. Set `total_corrections = 0`
 

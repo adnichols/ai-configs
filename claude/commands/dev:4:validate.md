@@ -1,24 +1,41 @@
 ---
-description: Post-implementation verification against task list
-argument-hint: [task file path]
+description: Post-implementation verification against a plan bundle (spec.md + tasks.md)
+argument-hint: "<slug | thoughts/plans/<slug>/ | path/to/tasks.md>"
 ---
 
-# Validate Implementation
+# Validate Implementation (Plan Bundle)
 
-Verify that a task list was correctly executed. This provides independent verification after implementation.
+Verify that a plan bundle task list was correctly executed. This is independent verification after implementation.
 
-Task file: $ARGUMENTS
+Target: $ARGUMENTS
 
 ## Process
 
-### 1. Locate and Read Task List
+### 1. Locate Bundle and Read Inputs
 
-If no argument provided, use the current active task list or search `thoughts/` for the most recent `task.md`.
+If no argument provided, search `thoughts/plans/` for the most recently modified `tasks.md`.
 
-Read the task file completely. Extract:
+Resolve to:
+
+- `spec_path` (must be `spec.md`)
+- `tasks_path` (must be `tasks.md`)
+
+Resolution rules:
+
+- If argument is a slug: `thoughts/plans/<slug>/spec.md` and `thoughts/plans/<slug>/tasks.md`
+- If argument is a directory: `<dir>/spec.md` and `<dir>/tasks.md`
+- If argument is a `tasks.md` path: read YAML frontmatter and use `spec:` to locate `spec.md`
+
+Read `tasks_path` completely. Extract:
+
 - All tasks and subtasks (items starting with `- [ ]` or `- [x]`)
-- Any context or requirements blocks
-- "Relevant Files" if listed
+- `## Deviations Log` entries
+
+Read `spec_path` completely. Extract:
+
+- Goal / non-goals
+- Acceptance criteria
+- Verification strategy (manual checks + expected behavior)
 
 ### 2. Gather Implementation Evidence
 
@@ -27,61 +44,39 @@ Run verification commands:
 ```bash
 # Git history for changes
 git log --oneline -20
+
+# Scope / change shape
 git diff --stat HEAD~10
-
-# Check for test results
-# (Run project-specific test commands from CLAUDE.md)
-
-# Check for build success
-# (Run project-specific build commands from CLAUDE.md)
 ```
+
+Run project-specific validation commands when available (tests/build/lint). Treat them as supporting evidence.
 
 ### 3. Verify Tasks
 
-For each top-level task in the list:
+For each top-level task and phase:
 
-1. **Check Completion Status**
-   - Is the task marked as completed (`[x]`)?
-   - Are all subtasks completed?
+1. Check completion status
+   - Is it marked `[x]`?
+   - Are all required subtasks `[x]`?
 
-2. **Verify Deliverables**
-   - If the task implies creating code, does that code exist?
-   - If the task implies a fix, is there a regression test?
+2. Verify deliverables
+   - If it implies code/config, does it exist and match intent?
 
-3. **Run Automated Verification**
-   - Execute relevant tests
-   - Verify build passes
+3. Validate against acceptance criteria
+   - Prefer behavioral evidence and manual verification steps when defined.
+   - Use tests/build/lint as supporting evidence.
 
-4. **Assess Scope**
-   - Did the implementation stay within the scope of the task?
-   - Are there unrequested changes?
+4. Assess scope
+   - Did the implementation materially diverge from the bundle intent?
+   - Are there unrequested changes that should be documented?
 
-### Parallel Verification Strategy
+#### Tests Policy (Validation Perspective)
 
-Use the Task tool to spawn parallel verification subagents for efficient task-by-task validation.
-
-#### Subagent Delegation
-
-For each major task/phase, spawn a Task agent with `subagent_type=Explore`:
-
-```
-Task: Verify Phase [N] - [Phase Name]
-- Check all subtasks marked complete
-- Verify code changes exist for specified files
-- Run relevant tests for this phase
-- Confirm implementation matches spec requirements
-- Report: status, evidence, issues found
-```
-
-#### Orchestrator Responsibilities
-
-The parent agent (you) handles:
-- Running global verification commands (build, lint)
-- Coordinating per-phase verification subagents  
-- Synthesizing individual reports into final validation
-- Generating the validation report document
-
-Wait for ALL verification subagents to complete before synthesizing the final report.
+- Do not treat "tests passing" as the definition of working code.
+- If tests fail, reconcile the failure against acceptance criteria + observed behavior:
+  - If code is correct and the test is wrong/outdated, recommend fixing the test.
+  - If the test reveals a real bug, recommend fixing product code.
+  - Do not recommend changing product code merely to make tests pass.
 
 ### 4. Generate Validation Report
 
@@ -94,44 +89,42 @@ author: [claude]
 git_commit: [Commit hash]
 type: validation
 status: [pass|fail|partial]
-task_file: [Path to validated task file]
+bundle: [thoughts/plans/<slug>/]
+spec_file: [spec_path]
+task_file: [tasks_path]
 ---
 
 # Validation Report
 
-## Source Task List
-`[Path to task file]`
+## Source Bundle
+- Spec: `[spec_path]`
+- Tasks: `[tasks_path]`
 
 ## Validation Summary
 
-| Task | Status | Notes |
+| Item | Status | Notes |
 |------|--------|-------|
-| [Task Name] | [pass/fail] | [Brief note] |
-| [Task Name] | [pass/fail] | [Brief note] |
+| Phase 1 | [pass/fail/partial] | ... |
+| Phase 2 | [pass/fail/partial] | ... |
 
 **Overall Status**: [PASS / FAIL / PARTIAL]
 
 ## Detailed Findings
 
-### [Task Name]
-
-**Status:** [Completed/Incomplete]
+### Phase N
 
 **Verification:**
-- [ ] Task marked complete
-- [ ] Requirements met
-- [ ] Tests pass
+- [ ] Tasks marked complete
+- [ ] Acceptance criteria met (behavioral evidence)
+- [ ] Automated checks (optional / supporting)
 
 **Evidence:**
 - [Cite file changes or logs]
 
-### [Task Name]
-...
-
 ## Deviations & Issues
 
 ### Unexpected Changes
-- [Changes not in task list]
+- [Changes not in tasks/spec]
 
 ### Missing Items
 - [Tasks marked complete but missing evidence]
@@ -143,67 +136,13 @@ task_file: [Path to validated task file]
 [Next steps]
 ```
 
-### 5. User Engagement for Concerning Patterns
+### 5. User Engagement
 
-When validation reveals issues that require user input, use **AskUserQuestion** before finalizing the report.
+When validation reveals issues that require user input, use `question` before finalizing the report.
 
-**Failure Resolution Question (when validation fails):**
-```
-Question: "Validation found [N] issues. How should we proceed?"
-Header: "Issues"
-Options:
-- Fix issues before finalizing (return to implementation)
-- Mark as known issues and proceed
-- Let me explain the issues in detail first
-```
+Always engage the user when:
 
-**Ambiguous Results Question (when evidence is unclear):**
-```
-Question: "I found [behavior] but I'm uncertain if it meets the requirement. Can you clarify?"
-Header: "Clarify"
-Options:
-- Yes, this meets the requirement
-- No, this needs to be fixed
-- Show me more details
-```
-
-**Scope Deviation Question (when implementation differs from plan):**
-```
-Question: "The implementation includes [unexpected change]. Should this be documented as intentional?"
-Header: "Deviation"
-Options:
-- Yes, it's an intentional improvement
-- No, it should be reverted
-- Mark for follow-up review
-```
-
-**Missing Evidence Question (when deliverables can't be verified):**
-```
-Question: "I can't find evidence for [task]. Help me locate it or confirm status?"
-Header: "Missing"
-Options:
-- Point me to the right location
-- The task was completed differently
-- The task wasn't completed (reopen it)
-```
-
-### When to Engage During Validation
-
-**Always Engage:**
 - Validation status is FAIL or PARTIAL
-- Major deviations from spec found
 - Evidence is ambiguous or missing
-- User decisions are needed to classify findings
-
-**Present Report Without Blocking:**
-- All validations pass cleanly
-- Minor deviations documented in Deviations Log
-- Clear evidence exists for all completed tasks
-
-### 6. Present Report
-
-Present findings to user:
-- Overall pass/fail status
-- Key deviations found
-- Manual tests needed
-- Any engagement questions from step 5
+- There are multiple viable interpretations of acceptance criteria
+- Scope drift is detected and needs classification

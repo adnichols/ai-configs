@@ -1,133 +1,52 @@
 ---
-description: Post-implementation verification against task list
-argument-hint: [task file path]
+description: Post-implementation verification against a plan bundle (spec.md + tasks.md)
+argument-hint: "<slug | thoughts/plans/<slug>/ | path/to/tasks.md>"
 ---
 
-# Validate Implementation
+# Validate Implementation (Plan Bundle)
 
-Verify that a task list was correctly executed. This provides independent verification after implementation.
+Verify that a plan bundle task list was correctly executed.
 
-Task file: $ARGUMENTS
+Target: $ARGUMENTS
 
 ## Process
 
-### 1. Locate and Read Task List
+### 1. Locate Bundle and Read Inputs
 
-If no argument provided, use the current active task list or search `thoughts/` for the most recent `task.md`.
+If no argument provided, search `thoughts/plans/` for the most recently modified `tasks.md`.
 
-Read the task file completely. Extract:
-- All tasks and subtasks (items starting with `- [ ]` or `- [x]`)
-- Any context or requirements blocks
-- "Relevant Files" if listed
+Resolve to `spec_path` and `tasks_path`:
 
-### 2. Gather Implementation Evidence
+- Slug: `thoughts/plans/<slug>/spec.md` and `thoughts/plans/<slug>/tasks.md`
+- Directory: `<dir>/spec.md` and `<dir>/tasks.md`
+- `tasks.md` path: read YAML frontmatter `spec:`
 
-Run verification commands:
+Read `spec_path` and `tasks_path` completely.
+
+### 2. Gather Evidence
+
+Use git to understand what changed:
 
 ```bash
-# Git history for changes
 git log --oneline -20
 git diff --stat HEAD~10
-
-# Check for test results
-# (Run project-specific test commands)
-
-# Check for build success
-# (Run project-specific build commands)
 ```
 
-### 3. Verify Tasks
+Run project-specific tests/build/lint if available. Treat them as supporting evidence, not correctness.
 
-For each top-level task in the list:
+### 3. Validate Results
 
-1. **Check Completion Status**
-   - Is the task marked as completed (`[x]`)?
-   - Are all subtasks completed?
+- Check tasks are marked `[x]` only when completed.
+- Validate outcomes against acceptance criteria and manual verification steps.
+- If tests fail, reconcile vs acceptance criteria + observed behavior. Do not propose product-code changes purely to satisfy a suspect test.
 
-2. **Verify Deliverables**
-   - If the task implies creating code, does that code exist?
-   - If the task implies a fix, is there a regression test?
+### 4. Write Validation Report
 
-3. **Run Automated Verification**
-   - Execute relevant tests
-   - Verify build passes
+Write: `thoughts/validation/YYYY-MM-DD-validation.md`
 
-4. **Assess Scope**
-   - Did the implementation stay within the scope of the task?
-   - Are there unrequested changes?
+Include:
 
-### 4. Verify Each Phase
-
-For each major task/phase:
-- Check all subtasks marked complete
-- Verify code changes exist for specified files
-- Run relevant tests for this phase
-- Confirm implementation matches spec requirements
-- Report: status, evidence, issues found
-
-### 5. Generate Validation Report
-
-Create document at: `thoughts/validation/YYYY-MM-DD-validation.md`
-
-```markdown
----
-date: [ISO timestamp]
-author: [codex]
-git_commit: [Commit hash]
-type: validation
-status: [pass|fail|partial]
-task_file: [Path to validated task file]
----
-
-# Validation Report
-
-## Source Task List
-`[Path to task file]`
-
-## Validation Summary
-
-| Task | Status | Notes |
-|------|--------|-------|
-| [Task Name] | [pass/fail] | [Brief note] |
-| [Task Name] | [pass/fail] | [Brief note] |
-
-**Overall Status**: [PASS / FAIL / PARTIAL]
-
-## Detailed Findings
-
-### [Task Name]
-
-**Status:** [Completed/Incomplete]
-
-**Verification:**
-- [ ] Task marked complete
-- [ ] Requirements met
-- [ ] Tests pass
-
-**Evidence:**
-- [Cite file changes or logs]
-
-### [Task Name]
-...
-
-## Deviations & Issues
-
-### Unexpected Changes
-- [Changes not in task list]
-
-### Missing Items
-- [Tasks marked complete but missing evidence]
-
-## Manual Verification Required
-- [ ] [Item 1]
-
-## Recommendations
-[Next steps]
-```
-
-### 6. Present Report
-
-Present findings to user:
-- Overall pass/fail status
-- Key deviations found
-- Manual tests needed
+- Bundle paths (`spec_path`, `tasks_path`)
+- Overall status (PASS/FAIL/PARTIAL)
+- Phase-by-phase findings
+- Manual verification still required
