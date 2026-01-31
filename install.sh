@@ -42,7 +42,7 @@ print_usage() {
     echo ""
     echo "Notes:"
     echo "  - OpenCode does NOT auto-install opencode.json (copy config-template.json manually if needed)"
-    echo "  - When using --opencode or --all, prompts and skills are installed to ~/.config/opencode"
+    echo "  - When using --opencode or --all, commands, prompts, and skills are installed to ~/.config/opencode"
     echo "  - In non-interactive mode, existing configs are preserved automatically"
     echo ""
     echo "Examples:"
@@ -816,11 +816,8 @@ install_opencode() {
     local is_update=false
     local opencode_config_dir="$HOME/.config/opencode"
 
-    # Ensure reference commands are installed (User requested this always happens)
-    install_opencode_refs "$target_root"
-
     # Detect if this is an update
-    if [ -d "$target/commands" ]; then
+    if [ -d "$target" ]; then
         is_update=true
         echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
         echo -e "${GREEN}  Updating OpenCode Configuration${NC}"
@@ -836,16 +833,25 @@ install_opencode() {
         mkdir -p "$target"
     fi
 
+    # Ensure reference commands are installed (User requested this always happens)
+    install_opencode_refs "$target_root"
+
+    # Remove legacy project-local commands directory (commands are now global)
+    if [ -d "$target/commands" ]; then
+        rm -rf "$target/commands"
+    fi
+
     # Create OpenCode config directory structure
     echo "  - Creating OpenCode config directory structure..."
     mkdir -p "$opencode_config_dir"
     mkdir -p "$opencode_config_dir/prompts"
     mkdir -p "$opencode_config_dir/skill/playwright-skill/lib"
     mkdir -p "$opencode_config_dir/plugin"
+    mkdir -p "$opencode_config_dir/command"
 
     # Install prompts
     echo "  - Installing OpenCode prompts..."
-    if [ -d "$opencode_config_dir/prompts" ] && [ "$(ls -A $opencode_config_dir/prompts 2>/dev/null)" ]; then
+    if [ -d "$opencode_config_dir/prompts" ] && [ "$(ls -A "$opencode_config_dir/prompts" 2>/dev/null)" ]; then
         if ask_overwrite_permission "$opencode_config_dir/prompts" "OpenCode prompts directory"; then
             rm -rf "$opencode_config_dir/prompts"
         else
@@ -869,17 +875,20 @@ install_opencode() {
         cp -r "$REPO_ROOT/opencode/skill/playwright-skill"/* "$opencode_config_dir/skill/playwright-skill/"
     fi
 
-    # Install ACTIVE commands (remove first to ensure clean state)
-    echo "  - Installing active commands to .opencode/commands..."
-    if [ -d "$target/commands" ]; then
-        rm -rf "$target/commands"
+    # Install commands (authoritative global location)
+    echo "  - Installing OpenCode commands to ~/.config/opencode/command..."
+    if [ -d "$opencode_config_dir/command" ] && [ "$(ls -A "$opencode_config_dir/command" 2>/dev/null)" ]; then
+        if ask_overwrite_permission "$opencode_config_dir/command" "OpenCode commands directory"; then
+            rm -rf "$opencode_config_dir/command"
+        else
+            echo "  - Preserved existing commands directory"
+        fi
     fi
-    mkdir -p "$target/commands"
-    
+    mkdir -p "$opencode_config_dir/command"
     if [ -d "$REPO_ROOT/opencode/command" ]; then
-        cp -r "$REPO_ROOT/opencode/command/"* "$target/commands/"
+        cp -r "$REPO_ROOT/opencode/command/"* "$opencode_config_dir/command/"
     elif [ -d "$REPO_ROOT/opencode/commands" ]; then
-        cp -r "$REPO_ROOT/opencode/commands/"* "$target/commands/"
+        cp -r "$REPO_ROOT/opencode/commands/"* "$opencode_config_dir/command/"
     fi
 
     # Install agents (remove first to ensure clean state)
@@ -906,7 +915,7 @@ install_opencode() {
     echo ""
     echo "Note: OpenCode configuration file opencode.json is not auto-installed"
     echo "      Copy opencode/config-template.json to your repo root and customize as needed"
-    echo "      Prompts and skills installed to $HOME/.config/opencode"
+    echo "      Commands, prompts, and skills installed to $HOME/.config/opencode"
     echo "      Documentation installed to $target_root/OPENCODE_ONBOARDING.md"
 }
 

@@ -624,7 +624,7 @@ If you encounter issues not covered here:
 
 After completing onboarding:
 
-1. **Explore the repository**: Check the `opencode/agents/` and `opencode/commands/` directories for customized agents and commands
+1. **Explore the repository**: Check the `opencode/agent/` and `opencode/command/` directories for customized agents and commands
 2. **Create your first session**: `cd /your/project && opencode`
 3. **Try the Playwright skill**: Ask OpenCode to "Create a Playwright test for example.com"
 4. **Explore models**: Try different models with `opencode --model provider/model --message "test"`

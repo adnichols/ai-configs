@@ -404,4 +404,4 @@ args = ["-y", "@playwright/mcp@latest"]
 
 ---
 
-**Need help?** Check the documentation files above, review `claude/commands/README.md` or `opencode/commands/README.md` for detailed workflow guidance, or use the specialized agents for specific tasks.
+**Need help?** Check the documentation files above, review `claude/commands/README.md` or `opencode/command/README.md` for detailed workflow guidance, or use the specialized agents for specific tasks.
