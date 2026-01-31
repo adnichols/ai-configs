@@ -15,7 +15,10 @@ Orchestrate parallel task list reviews from Qwen3-Thinking, Kimi K2, and DeepSee
 
 First, verify the task list file exists:
 - Read the task list to confirm it's accessible
-- Extract the **Source Specification** path from the task list header
+- Determine the **Source Specification** path using one of:
+
+- YAML frontmatter key `spec:` (preferred)
+- A "Source Specification:" line in the document body (fallback)
 - Verify the source specification file exists and is readable
 - Generate unique comment file paths for each reviewer:
   - `{task_path}.review-qwen.md`

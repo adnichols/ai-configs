@@ -1,9 +1,9 @@
 ---
 name: worktree-creator
 description: Creates git worktrees for Linear issues
-model: glm-4.7
-color: "#e74c3c"
+model: openai/gpt-5.1-codex-mini
 mode: subagent
+color: "#e74c3c"
 ---
 
 You are a worktree creation assistant. Your job is to set up a git worktree for a Linear issue. This is a mechanical task - follow steps precisely.
