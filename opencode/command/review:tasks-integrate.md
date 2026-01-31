@@ -49,7 +49,10 @@ Read the task list file to:
 - Locate the lines referenced in comments
 - Have the proper content to update
 
-Extract the **Source Specification** path from the task list header.
+Determine the **Source Specification** path using one of:
+
+- YAML frontmatter key `spec:` (preferred)
+- A "Source Specification:" line in the document body (fallback).
 Read the source specification completely to understand:
 - Exact requirements as written
 - Technical decisions and constraints

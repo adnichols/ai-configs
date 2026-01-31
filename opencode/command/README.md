@@ -4,21 +4,6 @@
 
 This directory contains a comprehensive set of commands that support a complete development workflow from requirements to implementation and quality assurance. All commands are at the root level with colon-delimited namespacing.
 
-## Antigravity (Global Workflows)
-
-To use these commands as Antigravity `/...` workflows, generate global workflow wrappers:
-
-```bash
-python3 opencode/scripts/sync_antigravity_workflows.py
-```
-
-This writes workflows to `~/.gemini/antigravity/global_workflows/` using safer names:
-
-- Command `cmd:research.md` becomes Antigravity workflow `/oc-cmd-research`
-- `:` is replaced with `-` and all workflows are prefixed with `oc-` to avoid collisions
-
-Restart Antigravity after syncing so it reloads the global workflows.
-
 ### Core Workflow Commands
 
 **PRD Workflow:**
