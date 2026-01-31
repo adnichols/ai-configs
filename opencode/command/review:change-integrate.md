@@ -1,6 +1,6 @@
 ---
 description: Integrate review comments into a change (specification + tasks) and re-align tasks to the integrated spec
-argument-hint: "<path to spec> <path to tasks>"
+argument-hint: "<path to spec> <path to tasks> | <directory containing spec.md and tasks.md> | <plan slug>"
 ---
 
 # Integrate Change Review Comments (Spec + Tasks)
@@ -15,13 +15,31 @@ The **specification is the authority**. Integrate spec feedback first, then upda
 
 ## Process
 
-### 0. Resolve Inputs
+### 0. Resolve Inputs (Files, Directory, or Slug)
 
-Parse `$ARGUMENTS` into:
-- `spec_path` (first argument)
-- `tasks_path` (second argument)
+`$ARGUMENTS` can be:
+- Two explicit file paths: `<spec_path> <tasks_path>`
+- A single directory path containing both files (recommended): `<dir_path>`
+- A single plan slug (recommended): `<slug>` (example: `drizzle-prod-migrations-hardening`)
 
-If either path is missing/ambiguous, ask the user for the exact two paths before proceeding.
+Normalize inputs:
+- If an argument starts with `@`, treat it as a workspace-relative path and strip the leading `@`.
+- If an argument ends with `/`, treat it as a directory path.
+
+Resolution rules:
+- If two arguments are provided and both are files, use them as-is.
+- If a single argument is provided and it is a directory, find the spec and tasks files inside it (non-recursive) using these defaults:
+  - Spec candidates (priority order): `spec.md`, `specification.md`
+  - Tasks candidates (priority order): `tasks.md`, `task.md`, `task-list.md`
+- If a single argument is provided and it is a file:
+  - If it looks like a spec file (`spec*.md`), infer tasks from the same directory using the tasks candidate list.
+  - If it looks like a tasks file (`tasks*.md` or `task*.md`), infer spec from the same directory using the spec candidate list.
+- If a single argument is provided and it does not resolve to an existing file/directory, treat it as a slug and resolve to a directory:
+  - First try `thoughts/plans/<slug>/`
+  - Otherwise search under `thoughts/` for a directory named `<slug>`
+
+If multiple candidates match or a file is missing, ask the user for two explicit file paths and list the candidates you found.
+If exactly one spec and one tasks file are found, proceed without asking for confirmation, and restate the resolved paths before making edits.
 
 ### 1. Read Both Documents
 
