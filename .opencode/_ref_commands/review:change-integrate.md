@@ -1,151 +1,89 @@
 ---
-description: Integrate review comments into a change (specification + tasks) and re-align tasks to the integrated spec
-argument-hint: "<path to spec> <path to tasks> | <directory containing spec.md and tasks.md> | <plan slug>"
+description: Integrate review comments into a change plan (single-file spec + phases + progress)
+argument-hint: '<path to plan.md | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
 ---
 
-# Integrate Change Review Comments (Spec + Tasks)
+# Integrate Change Review Comments (Single Plan File)
 
-Integrate all inline review comments across the specification and task list, producing a clean spec and a task list that accurately reflects the updated spec.
+Integrate all inline review comments in the change plan, producing a clean, updated plan.
 
-**Inputs:** $ARGUMENTS
+Inputs: $ARGUMENTS
 
 ## Core Rule
 
-The **specification is the authority**. Integrate spec feedback first, then update tasks to match the integrated spec.
+The plan is the authority. Integrate feedback into the plan while preserving progress state.
 
 ## Process
 
-### 0. Resolve Inputs (Files, Directory, or Slug)
+### 0) Resolve Inputs
 
-`$ARGUMENTS` can be:
-- Two explicit file paths: `<spec_path> <tasks_path>`
-- A single directory path containing both files (recommended): `<dir_path>`
-- A single plan slug (recommended): `<slug>` (example: `drizzle-prod-migrations-hardening`)
+Preferred input:
 
-Normalize inputs:
-- If an argument starts with `@`, treat it as a workspace-relative path and strip the leading `@`.
-- If an argument ends with `/`, treat it as a directory path.
+- A single plan file: `thoughts/plans/<slug>.md`
 
-Resolution rules:
-- If two arguments are provided and both are files, use them as-is.
-- If a single argument is provided and it is a directory, find the spec and tasks files inside it (non-recursive) using these defaults:
-  - Spec candidates (priority order): `spec.md`, `specification.md`
-  - Tasks candidates (priority order): `tasks.md`, `task.md`, `task-list.md`
-- If a single argument is provided and it is a file:
-  - If it looks like a spec file (`spec*.md`), infer tasks from the same directory using the tasks candidate list.
-  - If it looks like a tasks file (`tasks*.md` or `task*.md`), infer spec from the same directory using the spec candidate list.
-- If a single argument is provided and it does not resolve to an existing file/directory, treat it as a slug and resolve to a directory:
-  - First try `thoughts/plans/<slug>/`
-  - Otherwise search under `thoughts/` for a directory named `<slug>`
+Accept legacy inputs for migration only:
 
-If multiple candidates match or a file is missing, ask the user for two explicit file paths and list the candidates you found.
-If exactly one spec and one tasks file are found, proceed without asking for confirmation, and restate the resolved paths before making edits.
+- `<spec_path> <tasks_path>`
+- A directory containing `spec.md` and `tasks.md`
 
-### 1. Read Both Documents
+Rules:
 
-Read `spec_path` fully, then read `tasks_path` fully.
+- If `$ARGUMENTS` starts with `@`, strip the leading `@` and treat as workspace-relative.
+- If a single argument is an existing `.md` file, treat it as `plan_path`.
+- If a single argument is a slug, resolve to `thoughts/plans/<slug>.md`.
+- If the plan file does not exist but a legacy bundle exists for the slug, migrate to `thoughts/plans/<slug>.md` (do not modify legacy files) and integrate into the migrated plan.
 
-While reading, note:
-- Any inline review tags
-- Any references from the tasks file back to the spec (frontmatter `spec:` or "Source Specification:" line)
+If multiple candidates match or a required file is missing, ask for an explicit plan file path.
 
-If the task list references a different spec path than `spec_path`, treat `spec_path` as canonical and plan to update the task list's reference to match it.
+### 1) Read Plan
 
-### 2. Extract Inline Review Comments (Both Files)
+Read `plan_path` fully.
 
-Scan both files for inline review tags (accept all of these):
+Preserve:
 
-Section-anchored (preferred for specs):
-```markdown
-[REVIEW:Reviewer Name] SECTION "Section Title": comment text [/REVIEW]
-```
+- Any completed checkboxes in `## Progress` and their IDs (do not renumber)
 
-Line-anchored (preferred for tasks):
-```markdown
-[REVIEW:Reviewer Name] LINE 42: comment text [/REVIEW]
-```
+### 2) Extract Inline Review Comments
 
-Fallback:
+Scan for inline review tags:
+
 ```markdown
 [REVIEW:Reviewer Name] comment text [/REVIEW]
 [REVIEW] comment text [/REVIEW]
 ```
 
-Anchoring rules:
-- Spec comments without `SECTION "..."`: attach to the nearest following header.
-- Task comments without `LINE N`: attach to the nearest following task line.
+If no inline review comments exist, inform the user and abort (nothing to integrate).
 
-If no inline review comments exist in either file, inform the user and abort (nothing to integrate).
-
-### 3. Build a Single Working Catalog
-
-Create one working list of all feedback items with:
-- File (`spec` or `tasks`)
-- Reviewer (or `Unspecified`)
-- Anchor (SECTION/LINE/nearest header/nearest task)
-- Category (use whatever the reviewer wrote; normalize mentally to: GAP / RISK / AMBIGUITY / INCORRECT / SCOPE DRIFT / MISINTERPRETATION / CONTRADICTION / WRONG REFERENCE)
-- What must change (spec text change, task correction, or both)
-
-Important: if a task comment reveals a spec ambiguity or missing requirement, treat that as a spec integration item first.
-
-### 4. Explore Codebase Only When Needed
+### 3) Explore Codebase Only When Needed
 
 For any feedback that depends on feasibility or existing patterns, explore the codebase to resolve it.
-Use the Task tool with `subagent_type=Explore` for fast repo research.
 
-### 5. Triage by Confidence + Batch Questions
+Use the Task tool with `subagent_type=Explore`.
 
-High confidence: resolve autonomously.
-Low confidence (scope/product decisions, competing tradeoffs, spec ambiguity): batch into a single set of user questions (group related items).
+### 4) Integrate Updates
 
-### 6. Integrate Into the Specification (First)
+- Apply edits directly to the plan.
+- Remove each resolved inline review comment.
+- If feedback implies adding or changing requirements, update:
+  - Goal/Non-goals / Acceptance Criteria
+  - The impacted phase(s) `### End State` / `### Work` / `### Verify`
+  - `Resume Instructions (Agent)` if needed
+- Append a new entry to `## Plan Changelog` describing what changed.
 
-For each spec-side item (and any task-side item that implies a spec change):
-1. Locate the referenced section (or the nearest header anchor).
-2. Update the spec to address the concern directly (add missing requirements, clarify success criteria, resolve contradictions).
-3. Optionally add a short integration marker at the start of the section:
-   ```markdown
-   [REVIEW:Integrated feedback] {1-sentence description of what was resolved} [/REVIEW]
-   ```
-4. Remove the original inline review comment once resolved.
+### 5) Final Validation
 
-### 7. Update the Task List to Match the Integrated Spec (Second)
-
-Now treat the integrated spec as the source of truth and update `tasks_path`:
-
-1. Ensure the task list's source-spec reference matches `spec_path` (update frontmatter `spec:` if present, otherwise update/add the "Source Specification:" line).
-2. For each task comment:
-   - Verify against the integrated spec
-   - Apply the appropriate fix (rewrite/remove/correct references) so the task matches the spec exactly
-   - Remove the inline review comment once resolved
-3. Do an additional pass over the tasks to catch silent drift introduced by spec integration (tasks that are now incorrect even if no comment exists).
-
-### 8. Final Validation (Both Files)
-
-Re-read both documents and verify:
-- No `[REVIEW:...]` comments remain in either file
-- The task list matches the integrated spec (no scope drift, no contradictions)
-- Any spec changes that affect task ordering/dependencies are reflected in task sequencing
-
-If integration fails mid-way, keep remaining inline review comments so the user can manually reconcile.
-
-### 9. Summary Report
-
-Report:
-- Paths integrated (`spec_path`, `tasks_path`)
-- Total comments processed, split by file and reviewer
-- Key autonomous decisions made (brief)
-- Any user decisions requested/used
-- Confirmation that inline review comments were removed from both files
-- Whether the change is now ready for implementation
+- No `[REVIEW:...]` comments remain.
+- `## Progress` still corresponds to the phase headers.
+- Each acceptance criterion has at least one verification step.
 
 ---
 
-## ➡️ Next Step
+## Next Step
 
 After successful integration:
+
 ```
-/dev:3:process-tasks <path to tasks>
+/dev:run <plan path | plan slug>
 ```
 
 Stop there; do not proceed automatically.

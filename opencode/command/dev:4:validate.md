@@ -1,41 +1,40 @@
 ---
-description: Post-implementation verification against a plan bundle (spec.md + tasks.md)
-argument-hint: "<slug | thoughts/plans/<slug>/ | path/to/tasks.md>"
+description: Post-implementation verification against a single plan file (spec + phases + progress)
+argument-hint: '<slug | thoughts/plans/<slug>.md | path/to/plan.md>'
 ---
 
-# Validate Implementation (Plan Bundle)
+# Validate Implementation (Single Plan File)
 
-Verify that a plan bundle task list was correctly executed. This is independent verification after implementation.
+Verify that a single plan file was correctly executed. This is independent verification after implementation.
 
 Target: $ARGUMENTS
 
 ## Process
 
-### 1. Locate Bundle and Read Inputs
+### 1. Locate Plan and Read Inputs
 
-If no argument provided, search `thoughts/plans/` for the most recently modified `tasks.md`.
+If no argument provided, search `thoughts/plans/` for the most recently modified `*.md` plan file.
 
 Resolve to:
 
-- `spec_path` (must be `spec.md`)
-- `tasks_path` (must be `tasks.md`)
+- `plan_path`
 
 Resolution rules:
 
-- If argument is a slug: `thoughts/plans/<slug>/spec.md` and `thoughts/plans/<slug>/tasks.md`
-- If argument is a directory: `<dir>/spec.md` and `<dir>/tasks.md`
-- If argument is a `tasks.md` path: read YAML frontmatter and use `spec:` to locate `spec.md`
+- If argument is a slug: `thoughts/plans/<slug>.md`
+- If argument is a `*.md` file path: use it as-is
 
-Read `tasks_path` completely. Extract:
+Legacy support (read-only; do not modify legacy files):
 
-- All tasks and subtasks (items starting with `- [ ]` or `- [x]`)
-- `## Deviations Log` entries
+- If `thoughts/plans/<slug>.md` does not exist but `thoughts/plans/<slug>/spec.md` exists, treat this as a legacy bundle and validate against `spec.md` as intent and `tasks.md` as progress.
 
-Read `spec_path` completely. Extract:
+Read `plan_path` completely. Extract:
 
 - Goal / non-goals
 - Acceptance criteria
-- Verification strategy (manual checks + expected behavior)
+- Phases and their `### Verify` sections
+- `## Progress` completion state
+- `## Decisions / Deviations Log` entries
 
 ### 2. Gather Implementation Evidence
 
@@ -51,23 +50,19 @@ git diff --stat HEAD~10
 
 Run project-specific validation commands when available (tests/build/lint). Treat them as supporting evidence.
 
-### 3. Verify Tasks
+### 3. Verify Outcomes
 
-For each top-level task and phase:
+For each phase in `## Progress`:
 
 1. Check completion status
    - Is it marked `[x]`?
-   - Are all required subtasks `[x]`?
-
 2. Verify deliverables
    - If it implies code/config, does it exist and match intent?
-
 3. Validate against acceptance criteria
    - Prefer behavioral evidence and manual verification steps when defined.
    - Use tests/build/lint as supporting evidence.
-
 4. Assess scope
-   - Did the implementation materially diverge from the bundle intent?
+   - Did the implementation materially diverge from the plan intent?
    - Are there unrequested changes that should be documented?
 
 #### Tests Policy (Validation Perspective)
@@ -89,16 +84,13 @@ author: [opencode]
 git_commit: [Commit hash]
 type: validation
 status: [pass|fail|partial]
-bundle: [thoughts/plans/<slug>/]
-spec_file: [spec_path]
-task_file: [tasks_path]
+plan_file: [plan_path]
 ---
 
 # Validation Report
 
-## Source Bundle
-- Spec: `[spec_path]`
-- Tasks: `[tasks_path]`
+## Source Plan
+- Plan: `[plan_path]`
 
 ## Validation Summary
 
@@ -107,27 +99,28 @@ task_file: [tasks_path]
 | Phase 1 | [pass/fail/partial] | ... |
 | Phase 2 | [pass/fail/partial] | ... |
 
-**Overall Status**: [PASS / FAIL / PARTIAL]
+Overall Status: [PASS / FAIL / PARTIAL]
 
 ## Detailed Findings
 
 ### Phase N
 
-**Verification:**
-- [ ] Tasks marked complete
+Verification:
+- [ ] Progress marked complete
 - [ ] Acceptance criteria met (behavioral evidence)
+- [ ] Phase verify steps executed / reproducible
 - [ ] Automated checks (optional / supporting)
 
-**Evidence:**
+Evidence:
 - [Cite file changes or logs]
 
 ## Deviations & Issues
 
 ### Unexpected Changes
-- [Changes not in tasks/spec]
+- [Changes not in plan]
 
 ### Missing Items
-- [Tasks marked complete but missing evidence]
+- [Phases marked complete but missing evidence]
 
 ## Manual Verification Required
 - [ ] [Item 1]
