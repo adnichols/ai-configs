@@ -776,136 +776,98 @@ install_codex() {
 }
 
 
-install_opencode_refs() {
-    local target_root="$1"
-    local target="$target_root/.opencode"
-    
-    # Ensure .opencode exists
-    mkdir -p "$target"
-
-    # Install reference commands (remove first to ensure clean state)
-    if [ -d "$target/_ref_commands" ]; then
-        rm -rf "$target/_ref_commands"
-    fi
-    mkdir -p "$target/_ref_commands"
-    
-    echo "  - Installing OpenCode reference commands to .opencode/_ref_commands..."
-    
-    # Prefer command (singular) as it matches source
-    if [ -d "$REPO_ROOT/opencode/command" ]; then
-        cp -r "$REPO_ROOT/opencode/command/"* "$target/_ref_commands/"
-    elif [ -d "$REPO_ROOT/opencode/commands" ]; then
-        cp -r "$REPO_ROOT/opencode/commands/"* "$target/_ref_commands/"
-    fi
-
-    # Create README in _ref_commands
-    cat > "$target/_ref_commands/README.md" << "EOF"
-# Reference Commands
-
-These commands are provided for reference only and are not intended to be used directly from this directory.
-The authoritative commands are installed and loaded from `~/.config/opencode/command/`.
-
-These files are here so you can reference them in prompts if needed (e.g. "follow the pattern in .opencode/_ref_commands/cmd:graduate.md").
-EOF
-}
-
-
 install_opencode() {
     local target_root="$1"
-    local target="$target_root/.opencode"
     local is_update=false
     local opencode_config_dir="$HOME/.config/opencode"
+    local opencode_prompts_dir="$opencode_config_dir/prompts"
+    local opencode_plugin_dir="$opencode_config_dir/plugin"
+    local opencode_commands_dir="$opencode_config_dir/commands"
+    local opencode_agents_dir="$opencode_config_dir/agents"
+    local opencode_skills_dir="$opencode_config_dir/skills"
+    local legacy_command_dir="$opencode_config_dir/command"
+    local legacy_agent_dir="$opencode_config_dir/agent"
+    local legacy_skill_dir="$opencode_config_dir/skill"
+
+    # This is a home-directory install only. Do not write into the repo.
+    # (target_root is accepted for CLI parity with other installers.)
+
+    remove_legacy_dir() {
+        local legacy_dir="$1"
+        local label="$2"
+
+        # Legacy singular dirs are always removed to avoid interactive prompts and
+        # ensure a single canonical layout under ~/.config/opencode/{commands,agents,skills}.
+        if [ -L "$legacy_dir" ]; then
+            rm -f "$legacy_dir"
+            return
+        fi
+        if [ -e "$legacy_dir" ]; then
+            echo "  - Removing legacy OpenCode $label directory..."
+            rm -rf "$legacy_dir"
+        fi
+    }
+
 
     # Detect if this is an update
-    if [ -d "$target" ]; then
+    if [ -d "$opencode_config_dir" ]; then
         is_update=true
         echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
         echo -e "${GREEN}  Updating OpenCode Configuration${NC}"
         echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
         echo ""
-        echo -e "${GREEN}Updating OpenCode configuration at $target${NC}"
+        echo -e "${GREEN}Updating OpenCode configuration at $opencode_config_dir${NC}"
     else
         echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
         echo -e "${GREEN}  Installing OpenCode Configuration${NC}"
         echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
         echo ""
-        echo -e "${GREEN}Installing OpenCode configuration to $target${NC}"
-        mkdir -p "$target"
-    fi
-
-    # Ensure reference commands are installed (User requested this always happens)
-    install_opencode_refs "$target_root"
-
-    # Remove legacy project-local commands directory (commands are now global)
-    if [ -d "$target/commands" ]; then
-        rm -rf "$target/commands"
+        echo -e "${GREEN}Installing OpenCode configuration to $opencode_config_dir${NC}"
+        mkdir -p "$opencode_config_dir"
     fi
 
     # Create OpenCode config directory structure
     echo "  - Creating OpenCode config directory structure..."
-    mkdir -p "$opencode_config_dir"
-    mkdir -p "$opencode_config_dir/prompts"
-    mkdir -p "$opencode_config_dir/skill/playwright-skill/lib"
-    mkdir -p "$opencode_config_dir/plugin"
-    mkdir -p "$opencode_config_dir/command"
+    mkdir -p "$opencode_prompts_dir"
+    mkdir -p "$opencode_plugin_dir"
+
+    # Cleanup / migrate legacy singular directories
+    remove_legacy_dir "$legacy_command_dir" "commands"
+    remove_legacy_dir "$legacy_agent_dir" "agents"
+    remove_legacy_dir "$legacy_skill_dir" "skills"
 
     # Install prompts
     echo "  - Installing OpenCode prompts..."
-    if [ -d "$opencode_config_dir/prompts" ] && [ "$(ls -A "$opencode_config_dir/prompts" 2>/dev/null)" ]; then
-        if ask_overwrite_permission "$opencode_config_dir/prompts" "OpenCode prompts directory"; then
-            rm -rf "$opencode_config_dir/prompts"
-        else
-            echo "  - Preserved existing prompts directory"
-        fi
-    fi
-    mkdir -p "$opencode_config_dir/prompts"
-    cp "$REPO_ROOT/opencode/prompts/glm-reasoning.md" "$opencode_config_dir/prompts/" 2>/dev/null || true
-
-    # Install skills
-    echo "  - Installing OpenCode skills..."
-    if [ -d "$opencode_config_dir/skill/playwright-skill" ]; then
-        if ask_overwrite_permission "$opencode_config_dir/skill/playwright-skill" "OpenCode playwright-skill directory"; then
-            rm -rf "$opencode_config_dir/skill/playwright-skill"
-        else
-            echo "  - Preserved existing playwright-skill directory"
-        fi
-    fi
-    mkdir -p "$opencode_config_dir/skill/playwright-skill"
-    if [ -d "$REPO_ROOT/opencode/skill/playwright-skill" ]; then
-        cp -r "$REPO_ROOT/opencode/skill/playwright-skill"/* "$opencode_config_dir/skill/playwright-skill/"
-    fi
+    mkdir -p "$opencode_prompts_dir"
+    cp "$REPO_ROOT/opencode/prompts/glm-reasoning.md" "$opencode_prompts_dir/" 2>/dev/null || true
 
     # Install commands (authoritative global location)
-    echo "  - Installing OpenCode commands to ~/.config/opencode/command..."
-    if [ -d "$opencode_config_dir/command" ] && [ "$(ls -A "$opencode_config_dir/command" 2>/dev/null)" ]; then
-        if ask_overwrite_permission "$opencode_config_dir/command" "OpenCode commands directory"; then
-            rm -rf "$opencode_config_dir/command"
-        else
-            echo "  - Preserved existing commands directory"
-        fi
-    fi
-    mkdir -p "$opencode_config_dir/command"
-    if [ -d "$REPO_ROOT/opencode/command" ]; then
-        cp -r "$REPO_ROOT/opencode/command/"* "$opencode_config_dir/command/"
-    elif [ -d "$REPO_ROOT/opencode/commands" ]; then
-        cp -r "$REPO_ROOT/opencode/commands/"* "$opencode_config_dir/command/"
+    echo "  - Installing OpenCode commands to ~/.config/opencode/commands..."
+    rm -rf "$opencode_commands_dir"
+    mkdir -p "$opencode_commands_dir"
+    if [ -d "$REPO_ROOT/opencode/commands" ]; then
+        cp -r "$REPO_ROOT/opencode/commands/"* "$opencode_commands_dir/"
     fi
 
-    # Install agents (remove first to ensure clean state)
-    echo "  - Installing agents..."
-    if [ -d "$target/agents" ]; then
-        rm -rf "$target/agents"
-    fi
-    mkdir -p "$target/agents"
-    if [ -d "$REPO_ROOT/opencode/agent" ]; then
-        cp -r "$REPO_ROOT/opencode/agent/"* "$target/agents/"
-    elif [ -d "$REPO_ROOT/opencode/agents" ]; then
-        cp -r "$REPO_ROOT/opencode/agents/"* "$target/agents/"
+    # Install agents
+    echo "  - Installing OpenCode agents to ~/.config/opencode/agents..."
+    rm -rf "$opencode_agents_dir"
+    mkdir -p "$opencode_agents_dir"
+    if [ -d "$REPO_ROOT/opencode/agents" ]; then
+        cp -r "$REPO_ROOT/opencode/agents/"* "$opencode_agents_dir/"
     fi
 
-    # Install documentation to target root
-    echo "  - Installing documentation..."
-    cp "$REPO_ROOT/opencode/OPENCODE_ONBOARDING.md" "$target_root/"
+    # Install skills
+    echo "  - Installing OpenCode skills to ~/.config/opencode/skills..."
+    rm -rf "$opencode_skills_dir"
+    mkdir -p "$opencode_skills_dir"
+    if [ -d "$REPO_ROOT/opencode/skills" ]; then
+        cp -r "$REPO_ROOT/opencode/skills/"* "$opencode_skills_dir/"
+    fi
+
+    # Install documentation to home config (not the repo)
+    echo "  - Installing OpenCode documentation..."
+    cp "$REPO_ROOT/opencode/OPENCODE_ONBOARDING.md" "$opencode_config_dir/OPENCODE_ONBOARDING.md" 2>/dev/null || true
 
     if [ "$is_update" = true ]; then
         echo -e "${GREEN}✓ OpenCode update complete${NC}"
@@ -915,8 +877,8 @@ install_opencode() {
     echo ""
     echo "Note: OpenCode configuration file opencode.json is not auto-installed"
     echo "      Copy opencode/config-template.json to your repo root and customize as needed"
-    echo "      Commands, prompts, and skills installed to $HOME/.config/opencode"
-    echo "      Documentation installed to $target_root/OPENCODE_ONBOARDING.md"
+    echo "      Commands, agents, prompts, and skills installed to $HOME/.config/opencode"
+    echo "      Documentation installed to $HOME/.config/opencode/OPENCODE_ONBOARDING.md"
 }
 
 install_gemini() {
@@ -1008,7 +970,7 @@ case "$INSTALL_MODE" in
         echo ""
         install_gemini "$TARGET_DIR"
         echo ""
-        install_opencode_refs "$TARGET_DIR"
+        install_opencode "$TARGET_DIR"
         ;;
     --claude)
         install_claude "$TARGET_DIR"

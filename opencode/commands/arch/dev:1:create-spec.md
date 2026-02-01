@@ -513,6 +513,10 @@ A successful specification should:
 
 ## ➡️ Next Steps
 
+This command ends after saving the specification.
+
+Do not run any of the commands below as part of `dev:1:create-spec`; they are for the user to run later in separate commands.
+
 ### Recommended: Multi-Model Review
 
 Before generating tasks, consider having multiple AI models review the specification for critical feedback:

@@ -92,8 +92,10 @@ Create the OpenCode configuration directory structure:
 mkdir -p ~/.config/opencode
 
 # Create subdirectories
+mkdir -p ~/.config/opencode/agents
+mkdir -p ~/.config/opencode/commands
 mkdir -p ~/.config/opencode/prompts
-mkdir -p ~/.config/opencode/skill/playwright-skill/lib
+mkdir -p ~/.config/opencode/skills/playwright-skill/lib
 mkdir -p ~/.config/opencode/plugin
 ```
 
@@ -101,7 +103,7 @@ mkdir -p ~/.config/opencode/plugin
 
 ```bash
 ls -la ~/.config/opencode/
-# Should show: prompts/, skill/, plugin/
+# Should show: agents/, commands/, prompts/, skills/, plugin/
 ```
 
 ---
@@ -137,10 +139,10 @@ cp ./opencode/prompts/glm-reasoning.md ~/.config/opencode/prompts/glm-reasoning.
 Copy the Playwright skill directory recursively:
 
 ```bash
-# Source: ./opencode/skill/playwright-skill/
-# Destination: ~/.config/opencode/skill/playwright-skill/
+# Source: ./opencode/skills/playwright-skill/
+# Destination: ~/.config/opencode/skills/playwright-skill/
 
-cp -r ./opencode/skill/playwright-skill/ ~/.config/opencode/skill/playwright-skill/
+cp -r ./opencode/skills/playwright-skill/ ~/.config/opencode/skills/playwright-skill/
 ```
 
 ### Verification
@@ -153,13 +155,13 @@ test -f ~/.config/opencode/opencode.json && echo "✅ opencode.json exists"
 test -f ~/.config/opencode/prompts/glm-reasoning.md && echo "✅ glm-reasoning.md exists"
 
 # Verify playwright skill exists
-test -d ~/.config/opencode/skill/playwright-skill && echo "✅ playwright-skill directory exists"
+test -d ~/.config/opencode/skills/playwright-skill && echo "✅ playwright-skill directory exists"
 
 # Verify skill files
-test -f ~/.config/opencode/skill/playwright-skill/package.json && echo "✅ package.json exists"
-test -f ~/.config/opencode/skill/playwright-skill/run.js && echo "✅ run.js exists"
-test -f ~/.config/opencode/skill/playwright-skill/SKILL.md && echo "✅ SKILL.md exists"
-test -f ~/.config/opencode/skill/playwright-skill/lib/helpers.js && echo "✅ lib/helpers.js exists"
+test -f ~/.config/opencode/skills/playwright-skill/package.json && echo "✅ package.json exists"
+test -f ~/.config/opencode/skills/playwright-skill/run.js && echo "✅ run.js exists"
+test -f ~/.config/opencode/skills/playwright-skill/SKILL.md && echo "✅ SKILL.md exists"
+test -f ~/.config/opencode/skills/playwright-skill/lib/helpers.js && echo "✅ lib/helpers.js exists"
 ```
 
 ---
@@ -169,7 +171,7 @@ test -f ~/.config/opencode/skill/playwright-skill/lib/helpers.js && echo "✅ li
 Install the npm dependencies for the Playwright skill:
 
 ```bash
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 npm install
 ```
 
@@ -179,7 +181,7 @@ This will install:
 ### Verification
 
 ```bash
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 test -d node_modules && echo "✅ node_modules exists"
 test -d node_modules/playwright && echo "✅ Playwright installed"
 ```
@@ -191,7 +193,7 @@ test -d node_modules/playwright && echo "✅ Playwright installed"
 Install the Chromium browser for Playwright:
 
 ```bash
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 npx playwright install chromium
 ```
 
@@ -204,7 +206,7 @@ This downloads and installs the Chromium browser binaries required for automatio
 If you prefer, you can run the setup script instead:
 
 ```bash
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 npm run setup
 ```
 
@@ -213,7 +215,7 @@ This runs both `npm install` and `npx playwright install chromium` in one comman
 ### Verification
 
 ```bash
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 npx playwright --version
 # Expected output: Version 1.57.0 or higher
 ```
@@ -391,7 +393,7 @@ const { chromium } = require('playwright');
 EOF
 
 # Run the test with the skill's executor
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 node run.js /tmp/test-playwright.js
 ```
 
@@ -522,11 +524,11 @@ uvx --from "git+https://github.com/oraios/serena" serena-mcp-server --help
 
 ```bash
 # Check if Playwright is installed
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 test -f node_modules/playwright/package.json || echo "Playwright not installed"
 
 # Reinstall dependencies
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 rm -rf node_modules package-lock.json
 npm install
 npx playwright install chromium
@@ -579,7 +581,7 @@ uvx --from "git+https://github.com/oraios/serena" serena-mcp-server --enable-web
 **Solutions:**
 
 ```bash
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 npx playwright install chromium
 
 # Force reinstall
@@ -600,11 +602,11 @@ npx playwright install --dry-run
 chmod 755 ~/.config/opencode
 chmod 644 ~/.config/opencode/*.json
 chmod 644 ~/.config/opencode/prompts/*.md
-chmod -R 755 ~/.config/opencode/skill/
+chmod -R 755 ~/.config/opencode/skills/
 
 # Or recreate with correct permissions
 rm -rf ~/.config/opencode
-mkdir -p ~/.config/opencode/{prompts,skill/playwright-skill/lib,plugin}
+mkdir -p ~/.config/opencode/{agents,commands,prompts,skills/playwright-skill/lib,plugin}
 ```
 
 ---
@@ -624,7 +626,7 @@ If you encounter issues not covered here:
 
 After completing onboarding:
 
-1. **Explore the repository**: Check the `opencode/agent/` and `opencode/command/` directories for customized agents and commands
+1. **Explore the repository**: Check the `opencode/agents/` and `opencode/commands/` directories for customized agents and commands
 2. **Create your first session**: `cd /your/project && opencode`
 3. **Try the Playwright skill**: Ask OpenCode to "Create a Playwright test for example.com"
 4. **Explore models**: Try different models with `opencode --model provider/model --message "test"`
@@ -648,7 +650,7 @@ Custom prompt for GLM-4.7 with preserved thinking protocol:
 - Execution rules with thinking blocks
 - Architectural consistency focus
 
-### ~/.config/opencode/skill/playwright-skill/
+### ~/.config/opencode/skills/playwright-skill/
 
 Browser automation skill:
 - **package.json**: Dependencies and setup scripts

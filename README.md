@@ -40,7 +40,7 @@ bash /path/to/adn-claude-configs/install.sh --all
 #### Option 2: Install Globally (to Home Directory)
 
 ```bash
-# Install to ~/.claude, ~/.gemini, ~/.codex, and ~/.opencode for global access
+# Install to ~/.claude, ~/.gemini, ~/.codex, and ~/.config/opencode for global access
 bash /path/to/adn-claude-configs/install.sh --all ~
 ```
 
@@ -94,7 +94,9 @@ adn-claude-configs/
 │   ├── config.toml          # Codex configuration template
 │   └── mcp-servers.toml     # MCP server definitions
 ├── opencode/                 # OpenCode configuration
-│   └── commands/            # OpenCode slash commands
+│   ├── agents/              # OpenCode agents
+│   ├── commands/            # OpenCode slash commands
+│   └── skills/              # OpenCode skills
 ├── tools/                    # Distributable CLI tools
 │   └── ltui/                # Linear CLI for AI agents
 ├── skills/                   # Claude Code skills
@@ -404,4 +406,4 @@ args = ["-y", "@playwright/mcp@latest"]
 
 ---
 
-**Need help?** Check the documentation files above, review `claude/commands/README.md` or `opencode/command/README.md` for detailed workflow guidance, or use the specialized agents for specific tasks.
+**Need help?** Check the documentation files above, review `claude/commands/README.md` or `opencode/commands/README.md` for detailed workflow guidance, or use the specialized agents for specific tasks.
