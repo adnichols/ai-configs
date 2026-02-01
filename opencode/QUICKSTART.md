@@ -32,15 +32,17 @@ If you prefer manual installation or need to troubleshoot:
 
 ```bash
 # 1. Create directories
-mkdir -p ~/.config/opencode/{prompts,skill/playwright-skill/lib,plugin}
+mkdir -p ~/.config/opencode/{agents,commands,prompts,skills/playwright-skill/lib,plugin}
 
 # 2. Copy config files
 cp opencode/config-template.json ~/.config/opencode/opencode.json
 cp opencode/prompts/glm-reasoning.md ~/.config/opencode/prompts/
-cp -r opencode/skill/playwright-skill/ ~/.config/opencode/skill/
+cp -r opencode/skills/playwright-skill/ ~/.config/opencode/skills/
+cp -r opencode/commands/ ~/.config/opencode/commands/
+cp -r opencode/agents/ ~/.config/opencode/agents/
 
 # 3. Install Playwright dependencies
-cd ~/.config/opencode/skill/playwright-skill
+cd ~/.config/opencode/skills/playwright-skill
 npm run setup
 
 # 4. Configure API keys
@@ -63,7 +65,7 @@ cd /tmp && opencode
 - `opencode/OPENCODE_ONBOARDING.md` - Comprehensive onboarding guide (use this!)
 - `opencode/config-template.json` - OpenCode configuration template
 - `opencode/prompts/glm-reasoning.md` - GLM thinking prompt
-- `opencode/skill/playwright-skill/` - Browser automation skill
+- `opencode/skills/playwright-skill/` - Browser automation skill
 
 ## For Other Repositories
 

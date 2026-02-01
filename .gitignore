@@ -50,6 +50,9 @@ venv.bak/
 .claude/commands/
 .claude/scripts/
 
+# OpenCode local artifacts (do not commit)
+.opencode/
+
 # Tool build artifacts
 tools/*/dist/
 tools/*/node_modules/

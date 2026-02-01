@@ -1,19 +1,17 @@
 ---
-description: Reflect on a completed phase and propagate decisions into future phases (bundle-aware)
-argument-hint: "<slug | thoughts/plans/<slug>/ | path/to/tasks.md> [--phase N] [--dry-run]"
+description: Reflect on a completed phase and propagate decisions into future phases (single plan file)
+argument-hint: '<slug | thoughts/plans/<slug>.md | path/to/plan.md> [--phase N] [--dry-run]'
 ---
 
-# Phase Reflection (Bundle)
+# Phase Reflection (Single Plan File)
 
-After a phase is completed, evaluate what changed versus the plan and update `spec.md` and `tasks.md` to reflect reality.
-
-This is adapted from `claude/commands/dev:5:phase-review.md`, but operates on a single `spec.md` + `tasks.md` bundle.
+After a phase is completed, evaluate what changed versus the plan and update the plan file to reflect reality.
 
 ## Inputs
 
 `$ARGUMENTS` may include:
 
-- A slug, bundle directory, or `tasks.md` path
+- A slug or plan path
 - Optional `--phase N`
 - Optional `--dry-run`
 
@@ -25,35 +23,30 @@ PARSE -> READ -> GATHER_EVIDENCE -> EXTRACT_DECISIONS -> ANALYZE_IMPACT -> PROPO
 
 ## Process
 
-### 1) Resolve Bundle and Phase
+### 1) Resolve Plan and Phase
 
 Resolve:
 
-- `spec_path`: `thoughts/plans/<slug>/spec.md`
-- `tasks_path`: `thoughts/plans/<slug>/tasks.md`
+- `plan_path`: `thoughts/plans/<slug>.md` (or the provided path)
 
 Determine the completed phase:
 
 - If `--phase N` provided, use Phase N.
-- Otherwise pick the highest phase where all tasks are `[x]`.
+- Otherwise pick the highest phase that is marked complete in `## Progress`.
 
-### 2) Read Files
+### 2) Read Plan
 
-Read fully:
+Read `plan_path` fully. Extract:
 
-- `spec_path`
-- `tasks_path`
-
-Extract:
-
-- The Phase N section from `spec.md`
-- The Phase N tasks and any Phase N entries in `## Deviations Log` from `tasks.md`
+- The Phase N section
+- Any Phase N-related entries in `## Decisions / Deviations Log`
+- The phase verify steps
 
 ### 3) Gather Evidence
 
 Prioritize:
 
-1. `tasks.md` Deviations Log entries for the phase
+1. `## Decisions / Deviations Log` entries relevant to the phase
 2. Git history/diff relevant to the phase (recent commits, changed files)
 3. Any linked artifacts (handoffs, validation reports)
 
@@ -71,34 +64,33 @@ If decisions are not explicitly logged, infer them carefully and mark them low-c
 
 ### 5) Propose Updates
 
-Update the bundle in a way that reduces future ambiguity:
+Update the plan to reduce future ambiguity:
 
-A) Phase Retrospective (append to `spec.md`)
+A) Phase Retrospective (within the phase section)
 
-- Append (or update) a `## Phase Retrospective` section in `spec.md` containing:
-  - Phase N status: completed as specified / completed with modifications / partially completed
+- Add (or update) a `### Retrospective` subsection in the Phase N section containing:
+  - Status: completed as specified / completed with modifications / partially completed
   - Key decisions + rationale
   - Evidence pointers (paths/commits)
   - Learnings for next phases
 
-B) Propagate to Future Phases (in `spec.md`)
+B) Propagate to Future Phases
 
-For each future phase section impacted by a decision, insert an inline HTML annotation above the affected subsection:
+For each future phase impacted by a decision, insert an inline HTML annotation above the affected subsection:
 
 ```html
 <!-- PROPAGATED from Phase N (YYYY-MM-DD):
 Decision: D#: <title>
 Impact: <what changed>
 Action: <what future implementer should do>
-Source: <tasks.md or commit/handoff>
+Source: <plan log entry or commit/handoff>
 -->
 ```
 
-C) Update Future Tasks (in `tasks.md`)
+C) Update Progress/Verification Text
 
-- Add, clarify, or reorder future-phase tasks to align with the propagated reality.
-- NEVER change already-completed tasks.
-- Preserve task IDs; only append new IDs.
+- If the phase verify steps were wrong or incomplete, correct them.
+- Do not uncheck completed progress items.
 
 ### 6) Approval and Apply
 
@@ -106,10 +98,9 @@ If `--dry-run`, print an inventory of exact edits and stop.
 
 Otherwise:
 
-- Auto-apply high-confidence updates grounded in Deviations Log.
+- Auto-apply high-confidence updates grounded in logged decisions and evidence.
 - Use `question` for low-confidence updates, scope changes, or requirement-affecting decisions.
 
 ## Output
 
-- `spec.md` updated with Phase Retrospective and propagated annotations
-- `tasks.md` updated for future phases (if needed)
+- `plan_path` updated with phase retrospective and propagated annotations
