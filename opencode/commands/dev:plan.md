@@ -11,24 +11,6 @@ This command produces (or updates):
 
 - `thoughts/plans/<slug>.md`
 
-## Non-Negotiable Guardrails (Plan-Only)
-
-You are in PLAN-ONLY mode.
-
-Forbidden:
-- Editing or creating product code files (anything outside `thoughts/plans/`)
-- Running implementation steps (installs, builds, migrations, dev servers, refactors)
-- Executing the plan you just wrote (do NOT start Phase 1; `/dev:run` is a separate command)
-- Creating tasks/PRs/commits or otherwise moving toward implementation
-
-Allowed:
-- Read-only codebase inspection (search, read files, git history inspection)
-- Asking clarifying questions
-- Producing ONE output artifact: the plan document
-
-Stop condition:
-- After writing `thoughts/plans/<slug>.md`, STOP. Do not proceed into execution.
-
 ## Inputs
 
 Argument (`$ARGUMENTS`) is either:
@@ -106,12 +88,11 @@ Write (or update) `plan_path` with:
   - Tests are supporting evidence, not the definition of correctness.
   - Do not change product code merely to satisfy a failing test when acceptance criteria + observed behavior indicate correctness.
 - Resume Instructions (Agent)
-  - These instructions apply ONLY when executing via `/dev:run`, not while creating/updating the plan.
-  - When executing: read this document fully.
-  - When executing: identify the first unchecked item in `## Progress`.
-  - When executing: proceed autonomously phase-by-phase.
-  - When executing: update `## Progress` only when a phase is complete; do not stop after updating progress.
-  - When executing: ask the user only for an unresolvable decision.
+  - Read this document fully.
+  - Identify the first unchecked item in `## Progress`.
+  - Proceed autonomously phase-by-phase.
+  - Update `## Progress` only when a phase is complete; do not stop after updating progress.
+  - Ask the user only for an unresolvable decision.
 - Progress
   - A small checkbox list (4-10 items max).
   - Stable IDs (`P1`, `P2`, ...) that correspond to phase headers.
@@ -136,6 +117,3 @@ Before finishing:
   - `/review:change thoughts/plans/<slug>.md`
 - Execute:
   - `/dev:run thoughts/plans/<slug>.md`
-
-IMPORTANT:
-- Do not execute `/dev:run` as part of this command. This command ends after writing the plan.
