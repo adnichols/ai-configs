@@ -1,6 +1,5 @@
 ---
-description: Deprecated (use change plan review)
-argument-hint: '<path to plan.md | plan slug>'
+description: Deprecated (use change plan review). Usage: <path to plan.md | plan slug>
 ---
 
 # Deprecated

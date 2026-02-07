@@ -30,6 +30,7 @@ This directory contains a comprehensive set of commands that support a complete 
 11. **`cmd:commit-push.md`** - Commit all changes and push to GitHub
 12. **`cmd:create-pr.md`** - Create a pull request
 13. **`cmd:start-linear-issue.md`** - Start work on a Linear issue with branch management
+14. **`cmd:review-pr-comments.md`** - Review and address GitHub PR comments since last commit
 
 ## Command Workflows
 
@@ -73,7 +74,7 @@ This directory contains a comprehensive set of commands that support a complete 
 ### Unified Task Processing
 The **`/3:process-tasks`** command works for both PRD and spec workflows:
 - **Auto-detects** source type (PRD vs specification) from YAML front-matter
-- Uses fidelity-preserving agents (developer-fidelity, quality-reviewer-fidelity)
+- Uses fidelity-preserving agents (developer, quality-reviewer)
 - Supports complexity levels (simple/standard/comprehensive) for specs
 - Supports both "Relevant Files" (PRD) and "Implementation Files" (spec) sections
 - Validates based on source document requirements
@@ -82,7 +83,7 @@ The **`/3:process-tasks`** command works for both PRD and spec workflows:
 All workflow commands follow strict fidelity preservation:
 - **Exact Scope Implementation**: Build only what's specified in source documents
 - **No Scope Creep**: Zero additions beyond explicit requirements
-- **Fidelity Agents**: Always use developer-fidelity and quality-reviewer-fidelity
+- **Fidelity Agents**: Always use developer and quality-reviewer
 - **Question Ambiguity**: Ask for clarification rather than making assumptions
 - **Source Reference**: Constantly reference source document to prevent drift
 
@@ -165,13 +166,13 @@ All commands use consistent:
 
 ## Fidelity-Preserving Agents
 
-### developer-fidelity
+### developer
 - Implements EXACTLY what's specified in source documents
 - Adds NO tests, security, or features beyond specification requirements
 - Questions ambiguity rather than making assumptions
 - Used by all task processing workflows
 
-### quality-reviewer-fidelity
+### quality-reviewer
 - Reviews implementation against specification requirements ONLY
 - Does NOT require additional security, testing, or compliance beyond specification
 - Validates fidelity preservation and prevents scope creep
@@ -204,15 +205,29 @@ commands/
 ├── cmd:commit-push.md
 ├── cmd:create-pr.md
 ├── cmd:start-linear-issue.md
+├── cmd:review-pr-comments.md
 └── _lib/ (helper scripts)
 ```
 
 ## File Outputs
 
-- **PRDs**: `/tasks/prd-[feature-name].md`
-- **Task Lists**: `/tasks/tasks-[source-name].md`
-- **Simplification Plans**: `/tasks/simplify-[target].md`
-- **Task Processing**: Updates existing task files in place
+All working artifacts are stored in the `thoughts/` directory:
+
+- **PRDs**: `thoughts/plans/prd-[feature-name].md`
+- **Specifications**: `thoughts/specs/spec-[idea-name].md`
+- **Task Lists**: `thoughts/plans/tasks-[source-name].md`
+- **Simplification Plans**: `thoughts/plans/simplify-plan-[target].md`
+- **Research Documents**: `thoughts/research/YYYY-MM-DD-[description].md`
+- **Handoffs**: `thoughts/handoffs/[TICKET]/YYYY-MM-DD_HH-MM-SS_description.md`
+- **Validation Reports**: `thoughts/validation/YYYY-MM-DD-[description].md`
+- **Debug Investigations**: `thoughts/debug/YYYY-MM-DD-[description].md`
+- **Linear Notes**: `thoughts/linear/[ISSUE-KEY].md`
+
+Completed features are graduated to permanent documentation:
+- **spec/architecture/[feature].md**: Feature architecture documents
+- **spec/architecture/README.md**: Architecture index table
+- **spec/adr-log.md**: Architectural decision records
+- **CHANGELOG.md**: Implementation summaries
 
 ## Integration Notes
 

@@ -3,7 +3,7 @@ description: Run a change review using Gemini 3 Pro
 argument-hint: '<path to plan.md | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
 agent: build
 subtask: true
-model: local-proxy/antigravity/gemini-3-pro-preview
+model: github-copilot/gemini-3-pro-preview
 ---
 
 Your reviewer name is GEMINI 
@@ -23,6 +23,17 @@ To respond to other reviewers:
 Review the provided change plan as a cohesive unit. Your goal is to ensure the plan is solid and executable without scope creep or error.
 
 Documents to review: $ARGUMENTS
+
+## Scope (Review-Only; Do Not Integrate)
+
+This command is review-only.
+
+- Only modify the plan by inserting inline `[REVIEW:...] ... [/REVIEW]` comments.
+- Do not change any other plan content (do not fix, rewrite, or reorganize anything).
+- Do not remove or resolve review comments.
+- Do not run follow-up commands (including `/review:change-integrate`).
+- After adding comments and providing the summary, stop.
+
 
 ## Process
 
@@ -122,10 +133,10 @@ After adding comments to the plan, provide a single summary:
 
 ---
 
-## Next Command
+## Manual Follow-up (User-Run Only)
 
-Integrate the feedback:
+If the user asks to integrate comments into a clean plan, they should run:
 
-```
-/review:change-integrate <plan path | plan slug>
-```
+`/review:change-integrate <plan path | plan slug>`
+
+Stop after the summary; do not proceed automatically.

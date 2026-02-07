@@ -1,6 +1,6 @@
 ---
 description: Isolated code review in separate worktree
-argument-hint: [username:branch]
+argument-hint: "[username:branch]"
 ---
 
 # Local Code Review
@@ -81,7 +81,7 @@ Create `thoughts/prs/review-YYYY-MM-DD-branch.md` in the worktree:
 ```markdown
 ---
 date: [ISO timestamp]
-reviewer: [codex]
+reviewer: [claude]
 branch: [branch name]
 type: code-review
 status: in_progress

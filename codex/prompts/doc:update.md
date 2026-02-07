@@ -1,6 +1,6 @@
 ---
 description: Update existing core documentation (README, TESTING, CLAUDE.md) for completed features
-argument-hint: [@feature-files]
+argument-hint: "[@feature-files]"
 ---
 
 # Rule: Core Documentation Updates

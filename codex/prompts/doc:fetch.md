@@ -7,7 +7,11 @@ argument-hint: "[library_name] [--version VERSION] [--topic TOPIC] [--url URL]"
 
 Fetch documentation for programming libraries, frameworks, languages, and toolsets. This command uses **Context7 MCP** as the primary source for up-to-date, version-specific documentation, with fallback to direct URL fetching. Think harder.
 
-The package name will be provided via $ARGUMENTS
+## Input
+
+Library name and options: $ARGUMENTS
+
+The user will provide:
 
 ## Usage
 
@@ -78,7 +82,9 @@ After successful fetch, update CLAUDE.md's "Available Documentation" section to 
 
 ## Context7 Integration
 
-Context7 MCP is pre-configured in this repository. It provides:
+**REQUIREMENT**: The Context7 MCP server must be configured in your OPENCODE environment to use this method. If not available, the command will automatically fall back to URL-based fetching.
+
+Context7 MCP provides:
 
 - **Real-time documentation**: Fetches current docs, not stale training data
 - **Version-specific**: Can target specific library versions
@@ -93,6 +99,14 @@ Context7 supports most popular libraries. To check if a library is available:
 1. Try resolve-library-id with the library name
 2. If it returns a valid ID, the library is supported
 3. If not, use the --url fallback method
+```
+
+### Installation
+
+To enable Context7 MCP, install and configure it in your OPENCODE environment:
+
+```bash
+npx @upstash/context7-mcp
 ```
 
 ### Example Context7 Workflow

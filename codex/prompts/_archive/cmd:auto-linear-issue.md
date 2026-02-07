@@ -1,6 +1,5 @@
 ---
-description: Fully execute a Linear issue autonomously from worktree setup through PR submission
-argument-hint: ISSUE_KEY [BASE_BRANCH]
+description: Fully execute a Linear issue autonomously from worktree setup through PR submission. Usage: ISSUE_KEY [BASE_BRANCH]
 ---
 
 Stand up a dedicated worktree for the given Linear issue and carry the fix to completion with minimal operator interaction. Accept the Linear issue key as the first argument (for example `NOD-123`). Optionally accept a second argument that overrides the default base branch (`origin/main`).

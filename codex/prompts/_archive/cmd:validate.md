@@ -1,6 +1,5 @@
 ---
-description: Post-implementation verification against task list
-argument-hint: [task file path]
+description: Post-implementation verification against task list. Usage: [task file path]
 ---
 
 # Validate Implementation

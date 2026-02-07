@@ -1,6 +1,5 @@
 ---
-description: Convert specification to executable task list with collaborative fidelity
-argument-hint: [Specification File Path]
+description: Convert specification to executable task list with collaborative fidelity. Usage: [Specification File Path]
 ---
 
 # Rule: Specification to Task Conversion with Collaborative Fidelity

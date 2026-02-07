@@ -1,6 +1,5 @@
 ---
-description: Process tasks in a task list with fidelity-preserving approach
-argument-hint: [Files]
+description: Process tasks in a task list with fidelity-preserving approach. Usage: [Files]
 ---
 
 # Instructions

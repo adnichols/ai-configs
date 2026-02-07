@@ -1,6 +1,6 @@
 ---
-description: Bootstrap a dedicated worktree and branch for a Linear issue with local config parity
-argument-hint: ISSUE_KEY [BASE_BRANCH]
+description: Bootstrap a dedicated worktree and branch for a Linear issue
+argument-hint: "ISSUE_KEY [BASE_BRANCH]"
 ---
 
 Create a worktree for a Linear issue. Uses the @worktree-creator agent (haiku model) for fast, cost-effective execution.
@@ -22,6 +22,18 @@ Create a worktree for a Linear issue. Uses the @worktree-creator agent (haiku mo
      /cmd:start-linear-issue NOD-123 origin/develop
    ```
 
-3. Spawn the @worktree-creator agent with the issue key and optional base branch.
+3. Spawn the worktree-creator agent with the issue key and optional base branch:
+
+```
+Task(
+  subagent_type="worktree-creator",
+  description="Create git worktree for Linear issue",
+  prompt=f"""Create a git worktree for Linear issue {ISSUE_KEY}.
+
+Base branch: {BASE_BRANCH:-origin/main}
+
+Follow the worktree-creator agent instructions precisely."""
+)
+```
 
 4. After the agent completes, switch to the new worktree directory.

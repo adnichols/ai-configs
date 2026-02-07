@@ -1,6 +1,5 @@
 ---
-description: Provide critical feedback on a specification (inline comments or file output)
-argument-hint: <path to specification> [--output <output-path>]
+description: Provide critical feedback on a specification (inline comments or file output). Usage: <path to specification> [--output <output-path>]
 ---
 
 # Multi-Model Specification Review

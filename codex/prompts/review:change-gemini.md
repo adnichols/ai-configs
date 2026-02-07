@@ -1,7 +1,22 @@
 ---
-description: Comprehensive review of a change plan (single-file spec + phases + progress) for accuracy and completeness
+description: Run a change review using Gemini 3 Pro
 argument-hint: '<path to plan.md | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
+agent: build
+subtask: true
+model: local-proxy/antigravity/gemini-3-pro-preview
 ---
+
+Your reviewer name is GEMINI 
+
+Use this comment format:
+```
+[REVIEW:GEMINI] Your critical feedback here [/REVIEW]
+```
+
+To respond to other reviewers:
+```
+[REVIEW:GEMINI] RE: [OtherReviewer] - Your response [/REVIEW]
+```
 
 # Change Review (Single Plan File)
 
@@ -19,10 +34,6 @@ This command is review-only.
 - Do not run follow-up commands (including `/review:change-integrate`).
 - After adding comments and providing the summary, stop.
 
-
-## Your Identity
-
-If you selected a reviewer subagent, use its friendly name for comment attribution (e.g., `[REVIEW:SecurityBot]`). If no subagent is selected, use OPENCODE.
 
 ## Process
 

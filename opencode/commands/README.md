@@ -22,15 +22,19 @@ This directory contains a comprehensive set of commands that support a complete 
 7. **`doc:fetch-batch.md`** - Batch fetch documentation from markdown lists
 8. **`doc:update.md`** - Post-implementation documentation generation
 
+### Test Orchestration Commands
+9. **`test:run-playwright.md`** - Run Playwright in PTY, stream failures, and spawn live fixer subagents
+10. **`test:run-playwright:all.md`** - Run full Playwright suite (`test:e2e:all`) in PTY with live fixer orchestration
+
 ### Simplification Commands
-9. **`simplify:1:create-plan.md`** - Generate code simplification plans
-10. **`simplify:2:process-plan.md`** - Execute approved simplification plans
+11. **`simplify:1:create-plan.md`** - Generate code simplification plans
+12. **`simplify:2:process-plan.md`** - Execute approved simplification plans
 
 ### Git Utility Commands
-11. **`cmd:commit-push.md`** - Commit all changes and push to GitHub
-12. **`cmd:create-pr.md`** - Create a pull request
-13. **`cmd:start-linear-issue.md`** - Start work on a Linear issue with branch management
-14. **`cmd:review-pr-comments.md`** - Review and address GitHub PR comments since last commit
+13. **`cmd:commit-push.md`** - Commit all changes and push to GitHub
+14. **`cmd:create-pr.md`** - Create a pull request
+15. **`cmd:start-linear-issue.md`** - Start work on a Linear issue with branch management
+16. **`cmd:review-pr-comments.md`** - Review and address GitHub PR comments since last commit
 
 ## Command Workflows
 
@@ -193,6 +197,8 @@ All commands are flat at the root level:
 ```
 commands/
 ├── 3:process-tasks.md (unified processor)
+├── test:run-playwright:all.md
+├── test:run-playwright.md
 ├── prd:1:create-prd.md
 ├── prd:2:gen-tasks.md
 ├── spec:1:create-spec.md
@@ -244,6 +250,7 @@ Commands use colon-delimited namespacing:
 - `prd:[phase]:` - PRD workflow commands (e.g., `prd:1:create-prd`)
 - `spec:[phase]:` - Specification workflow commands (e.g., `spec:1:create-spec`)
 - `doc:` - Documentation commands
+- `test:` - Test orchestration commands
 - `simplify:[phase]:` - Code simplification commands (e.g., `simplify:1:create-plan`)
 - `cmd:` - Git and utility commands (e.g., `cmd:commit-push`, `cmd:start-linear-issue`)
 - `[number]:` - Cross-workflow phase commands (e.g., `3:process-tasks`)

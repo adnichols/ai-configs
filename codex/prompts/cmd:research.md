@@ -1,6 +1,6 @@
 ---
 description: Research codebase area without planning commitment
-argument-hint: [area or topic to research]
+argument-hint: "[area or topic to research]"
 ---
 
 # Research Codebase
@@ -23,7 +23,7 @@ Your job is to document the codebase **as it exists today**:
 ### 1. Read Mentioned Files First
 
 If the user mentions specific files:
-- Read them FULLY (no limit/offset) before further research
+- Read them FULLY (no limit/offset) before spawning sub-tasks
 - This ensures full context before decomposing research
 
 ### 2. Analyze and Decompose
@@ -34,27 +34,31 @@ Break down the research question into:
 - Connections to trace
 - Directories and files to explore
 
-### 3. Research Different Aspects
+Create a research plan using `todowrite`.
 
-Investigate different aspects of the topic:
+### 3. Spawn Parallel Research Tasks
 
-**Find WHERE components live**
+Use the Task tool with `subagent_type=explore` to research different aspects concurrently:
+
+```
+Task: Find WHERE components live
 - Search for file patterns
 - Locate key modules and entry points
 
-**Understand HOW code works**
+Task: Understand HOW code works
 - Read specific implementations
 - Trace data flow
 
-**Find PATTERNS**
+Task: Find PATTERNS
 - Look for similar implementations
 - Document conventions used
+```
 
-Each investigation should return specific file:line references.
+Each task should return specific file:line references.
 
 ### 4. Synthesize Findings
 
-After completing research:
+Wait for ALL sub-agents to complete, then:
 - Compile all findings
 - Connect findings across components
 - Include specific file paths and line numbers
@@ -76,7 +80,7 @@ Use this template:
 ```markdown
 ---
 date: [ISO timestamp]
-author: [codex]
+author: [Your name or "claude"]
 git_commit: [Commit hash]
 branch: [Branch name]
 repository: [Repository name]
@@ -133,19 +137,22 @@ If user has follow-up questions:
 - Append to same document
 - Update `last_updated` in frontmatter
 - Add new section: `## Follow-up Research [timestamp]`
+- Spawn new sub-agents as needed
 
 ## Guidelines
 
+- Use parallel Task agents with `subagent_type=explore` for efficiency
 - Focus on concrete file paths and line numbers
 - Document cross-component connections
 - Research documents should be self-contained
+- Keep main agent focused on synthesis
 - Document patterns and usage as they exist
 
 ## Output Location
 
 `thoughts/research/YYYY-MM-DD-description.md`
 
-This document can later be referenced by `/spec:1:create-spec` or `/prd:1:create-prd` if implementation is decided.
+This document can later be referenced by `/dev:1:create-spec` or `/dev:0:create-prd` if implementation is decided.
 
 ---
 
@@ -153,5 +160,5 @@ This document can later be referenced by `/spec:1:create-spec` or `/prd:1:create
 
 When ready to proceed with implementation, run:
 ```
-/spec:1:create-spec
+/dev:1:create-spec
 ```

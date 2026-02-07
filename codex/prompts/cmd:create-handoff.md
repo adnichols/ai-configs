@@ -76,16 +76,28 @@ type: implementation_strategy
 
 ### 3. Approve and Sync
 
-Once this is completed, you should respond to the user with:
+Once this is completed, you should respond to the user with the template between <template_response></template_response> XML tags. do NOT include the tags in your response.
 
-```
+<template_response>
 Handoff created and synced! You can resume from this handoff in a new session with the following command:
 
+```bash
 /cmd:resume-handoff path/to/handoff.md
 ```
+</template_response>
+
+for example (between <example_response></example_response> XML tags - do NOT include these tags in your actual response to the user)
+
+<example_response>
+Handoff created and synced! You can resume from this handoff in a new session with the following command:
+
+```bash
+/cmd:resume-handoff thoughts/handoffs/NOD-2166/2025-01-08_13-44-55_NOD-2166_create-context-compaction.md
+```
+</example_response>
 
 ---
-## Additional Notes & Instructions
+##.  Additional Notes & Instructions
 - **more information, not less**. This is a guideline that defines the minimum of what a handoff should be. Always feel free to include more information if necessary.
 - **be thorough and precise**. include both top-level objectives, and lower-level details as necessary.
 - **avoid excessive code snippets**. While a brief snippet to describe some key change is important, avoid large code blocks or diffs; do not include one unless it's necessary (e.g. pertains to an error you're debugging). Prefer using `/path/to/file.ext:line` references that an agent can follow later when it's ready, e.g. `packages/dashboard/src/app/dashboard/page.tsx:12-24`

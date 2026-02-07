@@ -1,6 +1,5 @@
 ---
-description: "Batch fetch documentation from markdown lists containing multiple libraries and frameworks"
-argument-hint: "[markdown_content] [--dry-run] [--parallel] [--skip-existing] [--update] [--format FORMAT]"
+description: "Batch fetch documentation from markdown lists containing multiple libraries and frameworks". Usage: [markdown_content] [--dry-run] [--parallel] [--skip-existing] [--update] [--format FORMAT]
 ---
 
 # Batch Documentation Fetch Command
