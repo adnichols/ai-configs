@@ -69,7 +69,7 @@ Many of the Codex prompts in this repo assume that application repositories defi
 
 ### Execution
 
-- Always do implementation work on a non-`main` branch; create a branch if needed and follow the project’s naming conventions.
+- Prefer working on a branch for larger or riskier changes, but committing directly to `main` is acceptable for small, low-risk updates in this repo.
 - Run the repository’s primary test command(s) before committing any change that touches behavior, plus any additional checks (lint, build, etc.) defined in the project’s AGENTS.md or TESTING.md.
 - When working from task lists or simplification plans:
   - After completing a listed sub-task or step, immediately change its checkbox from `[ ]` to `[x]` in the same file.
@@ -92,8 +92,8 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
 ### Execution
 
 - **Branches**
-  - Do implementation work on a non-`main` branch.
-  - Branch naming convention: `TODO` (e.g., `feature/<short-summary>`, `issue/<ticket-id>`).
+  - Branches are recommended for larger changes, but commits directly to `main` are allowed in this repo.
+  - If using a branch, naming convention: `TODO` (e.g., `feature/<short-summary>`, `issue/<ticket-id>`).
 
 - **Testing & Validation**
   - Primary test command(s): `TODO` (e.g., `npm test`, `pytest`, `cargo test`).
