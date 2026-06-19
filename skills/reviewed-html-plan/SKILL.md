@@ -1,6 +1,6 @@
 ---
 name: reviewed-html-plan
-description: Create and gate execution-ready HTML development plans through the local plan-review browser tool, PM product-intent review, and read-only Claude Code plus Codex plan reviews. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered for browser feedback before implementation.
+description: Create and gate execution-ready HTML development plans through the local plan-review browser tool, PM product-intent review, and read-only GPT plus GLM Pi subagent plan reviews. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered for browser feedback before implementation.
 ---
 
 # Reviewed HTML Plan Workflow
@@ -16,8 +16,8 @@ Load and follow these skills when this workflow reaches their surface:
 - `planning-workflow` for the plan-writing contract and execution-readiness bar.
 - `html-plan-reviewer` for HTML plan structure, dark-mode requirements, registration, canonical plan-review URLs, comment monitoring, claim/ack/resolve behavior, and source sync.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
-- `codex-review-partner` for the read-only Codex plan-review pass.
-- `claude-code-review` for the read-only Claude Code plan-review pass.
+- Pi `quality-reviewer` for the read-only GPT plan-review pass.
+- Pi `quality-reviewer-glm` for the read-only GLM plan-review pass.
 - Domain skills required by the target repository guidance, stack, or plan surface.
 
 If a required review tool is unavailable, follow the relevant skill's remediation first. Stop only when the dependency cannot be restored safely or the next step requires a real product decision.
@@ -78,7 +78,7 @@ Use `html-plan-reviewer` as the sole source for current `plan-review` commands a
 4. Share the canonical full review URL after applying the URL rules from `html-plan-reviewer`; never show a loopback URL or relative path to the user.
 5. Immediately drain pending comments and start the queue-backed monitor from `agentInstructions` unless the user explicitly says not to monitor. In Pi, start the waiting listener with the `process` tool. A successful listener exit means a comment was claimed; process and ack it before starting a fresh listener. Treat low-level watch streams as debug-only unless the returned service instructions say otherwise.
 
-If browser feedback has not yet been provided, stop after sharing the review URL with the comment monitor running and tell the user to annotate the plan and then say feedback is ready. Do not proceed to Claude/Codex or PM gates until the user says feedback is ready, unless the user explicitly says to skip human browser feedback.
+If browser feedback has not yet been provided, stop after sharing the review URL with the comment monitor running and tell the user to annotate the plan and then say feedback is ready. Do not proceed to GPT/GLM or PM gates until the user says feedback is ready, unless the user explicitly says to skip human browser feedback.
 
 ### 4. Process browser feedback
 
@@ -115,13 +115,13 @@ Default behavior is corrective: reshape the HTML plan directly when the right di
 
 After material PM edits, ensure the review URL still points at the latest plan and the plan remains browser-reviewable.
 
-### 6. Read-only Claude Code and Codex plan reviews
+### 6. Read-only GPT and GLM Pi subagent plan reviews
 
 Run both reviewers before execution, and keep them read-only.
 
-#### Codex
+#### GPT
 
-Use `codex-review-partner` in `plan-review` mode. The review input should include:
+Use the Pi `quality-reviewer` subagent for the GPT review leg. The review input should include:
 
 - plan path and review URL,
 - source request or issue summary,
@@ -129,11 +129,12 @@ Use `codex-review-partner` in `plan-review` mode. The review input should includ
 - product-intent path when present,
 - readiness rubric,
 - known non-goals,
-- instruction to avoid adjacent implementation expansion.
+- instruction to avoid adjacent implementation expansion,
+- instruction not to edit files.
 
-#### Claude Code
+#### GLM
 
-Use `claude-code-review` through its canonical private-tmux interactive launcher. Prompt Claude Code to review the plan read-only and return structured output. Do not ask Claude to edit files, and do not use alternate Claude transports.
+Use the Pi `quality-reviewer-glm` subagent for the GLM review leg with high/xhigh thinking when supported. Give it the same bounded read-only prompt. Do not ask GLM to edit files.
 
 Ask both reviewers for one of these verdicts:
 
@@ -147,7 +148,7 @@ Normalize fuzzy reviewer output by substance. Treat a review as ready only when 
 
 ### 7. Integrate and iterate to execution-ready
 
-For every Claude/Codex finding, triage before editing:
+For every GPT/GLM finding, triage before editing:
 
 ```text
 Finding | Source | Classification | Decision | Evidence
@@ -161,7 +162,7 @@ Use these classifications:
 - `OUT_OF_SCOPE_FOLLOW_UP`: do not add to this plan only when it is outside the plan, not required for truthful verification, and not an acceptance-criteria/BDD gap; record it with evidence and a tracking destination if useful.
 - `DISAGREE_REPO_EVIDENCE`: do not change the plan; record the evidence if the disagreement matters.
 
-After fixing readiness blockers, rerun both Claude Code and Codex plan reviews. Repeat until both agree by substance that the plan is execution-ready. When they do, re-register the same HTML plan with truthful ready metadata using the current `html-plan-reviewer` registration flow.
+After fixing readiness blockers, rerun both GPT and GLM plan reviews. Repeat until both agree by substance that the plan is execution-ready. When they do, re-register the same HTML plan with truthful ready metadata using the current `html-plan-reviewer` registration flow.
 
 #### Independent sign-off gate (do not self-certify)
 
@@ -188,13 +189,13 @@ If AI reviews materially reshape product intent, run one final PM check before d
 Before final output, inspect the HTML plan for obvious handoff blockers:
 
 - unresolved browser-review comments remain in the queue,
-- the plan-review service metadata has not been re-registered with `--execution-ready true` after successful Claude Code and Codex plan reviews,
+- the plan-review service metadata has not been re-registered with `--execution-ready true` after successful GPT and GLM plan reviews,
 - unresolved inline review markers or unresolved question sections remain,
 - status is not `execution-ready`,
 - `Progress` or resume instructions are missing,
 - an active phase is missing `End State`, `Tests first`, `Expected files`, `Work`, or `Verify`,
 - verification commands are stale or not copy/paste ready,
-- Claude Code or Codex did not agree by substance that the plan is ready,
+- GPT or GLM did not agree by substance that the plan is ready,
 - PM review left unresolved product-intent or user-impact gaps.
 
 Do not start implementation as part of this skill.
@@ -212,8 +213,8 @@ Review URL: <canonical plan-review URL>
 ### Gates completed
 - Browser feedback: <processed / skipped by request / blocked>
 - PM review: <ready / reshaped plan / blocked>
-- Codex review: <verdict>
-- Claude Code review: <verdict>
+- GPT review: <verdict>
+- GLM review: <verdict>
 
 ### Changes made during review
 - ...

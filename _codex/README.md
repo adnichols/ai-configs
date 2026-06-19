@@ -43,3 +43,5 @@ Canonical continuation after a reviewed plan is ready:
 
 - `/skill:adn-dev-wf <plan>`
 - `/dev:run <plan>` for direct execution-only handoff
+
+Plan-reviewer browser action comments are routed through shared skills installed to `~/.agents/skills`: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests.

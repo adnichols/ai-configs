@@ -389,6 +389,26 @@
       "notes": "Workflow guidance for the standalone `Nodaste-Lab/plan-reviewer` service; includes long-running watcher guidance for plan-review comment monitoring. The daemon, CLI, and Homebrew formula are not vendored in ai-configs.",
       "sourceType": "repo"
     },
+    "plan-reviewer-build": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [
+        "codex",
+        "pi"
+      ],
+      "canonicalSource": "skills/plan-reviewer-build",
+      "notes": "Codex/Pi: handles plan-reviewer Build Plan request comments by delegating explicit execution-ready plan paths to scoped-plan-run.",
+      "sourceType": "repo"
+    },
+    "plan-reviewer-execution-ready": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [
+        "codex",
+        "pi"
+      ],
+      "canonicalSource": "skills/plan-reviewer-execution-ready",
+      "notes": "Codex/Pi: handles plan-reviewer execution-ready request comments by running the installed runtime's independent readiness review gates for an explicit plan path.",
+      "sourceType": "repo"
+    },
     "internal-comms": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -569,7 +589,7 @@
         "pi"
       ],
       "canonicalSource": "skills/reviewed-html-plan",
-      "notes": "Pi-only: creates and gates HTML plans through plan-review browser feedback, PM product-intent review, and read-only Claude Code plus Codex plan reviews before execution.",
+      "notes": "Pi-only: creates and gates HTML plans through plan-review browser feedback, PM product-intent review, and read-only GPT plus GLM Pi subagent plan reviews before execution.",
       "sourceType": "repo"
     },
     "review-change-integrate": {
@@ -619,7 +639,7 @@
         "pi"
       ],
       "canonicalSource": "skills/scoped-plan-run",
-      "notes": "Codex/Pi: executes existing plans through bounded implementation, scoped Claude/Codex reviews, fixes, verification, push, PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
+      "notes": "Codex/Pi: executes existing plans through bounded implementation, scoped GPT/GLM Pi quality-reviewer subagent reviews, fixes, verification, push, PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
       "sourceType": "repo"
     },
     "signing-entitlements": {

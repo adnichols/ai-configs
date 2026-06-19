@@ -19,7 +19,7 @@ These resources are installed by `install.sh` to Pi's global agent directory. Th
 - repo-managed model entries: merged from `_pi/models.json` into `~/.pi/agent/models.json` without replacing local API keys
 - package-managed Pi installs: registered via `pi install` / `pi update` and visible in `pi list`
 
-Shared browser automation skills like `brave-cdp` and `chrome-cdp` are not Pi packages; they install through the shared `~/.agents/skills` surface from `skills/install-matrix.json`.
+Shared browser automation skills like `brave-cdp` and `chrome-cdp` are not Pi packages; they install through the shared `~/.agents/skills` surface from `skills/install-matrix.json`. Plan-reviewer browser action comments also route through shared skills there: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests.
 
 `pi list` only shows the package-managed set; it does not list repo-managed files like `todo.ts`, `simple-multi-status.ts`, `pi-plan-mode`, or `pi-prd-mode`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
 
@@ -130,7 +130,7 @@ This repo now ships a maintained `pi-plan-mode` extension that:
 - defaults active browser-reviewed plans to `thoughts/plans/<slug>.html` while still accepting explicit legacy Markdown plan paths,
 - displays the current registered plan-review URL in the plan-mode widget when available,
 - allows the narrow `plan-review` registration/comment commands and the `process` tool needed for queue-backed browser comment iteration,
-- steers HTML plan edits toward `/dev:reviewed-html-plan` for registration, browser feedback, PM review, and Claude/Codex plan review,
+- steers HTML plan edits toward `/dev:reviewed-html-plan` for registration, browser feedback, PM review, and GPT/GLM Pi subagent plan review,
 - keeps `/review:plan` and `/review:plan-adversarial` available as explicit inline review paths, with HTML plans accepted as first-class inputs,
 - leaves execution handoff manual via `/cmd:execute-plan <plan> --target ...` so Pi can launch from a fresh session without popping a menu,
 - reminds the operator to stop the active plan-review comment listener before execution,
@@ -236,7 +236,7 @@ Example installed agents:
 
 ### Canonical workflow
 - `adn-dev-wf` — end-to-end reviewed-plan workflow from plan creation through direct execution and PM follow-up
-- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in plan-review, follows service-returned `agentInstructions`, starts the queue-backed comment monitor, processes browser feedback, runs PM plus Claude/Codex plan reviews, and stops at execution-ready handoff
+- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in plan-review, follows service-returned `agentInstructions`, starts the queue-backed comment monitor, processes browser feedback, runs PM plus GPT/GLM Pi subagent plan reviews, and stops at execution-ready handoff
 
 ### Dev / execution
 - `dev:run` — direct high-reasoning execution with one `quality-reviewer` pass after each phase
@@ -298,7 +298,7 @@ Canonical browser-reviewed HTML plan flow:
 
 ```text
 /dev:plan <plan>
-/dev:reviewed-html-plan <plan>    # register, monitor browser comments, PM-review, and run Claude/Codex plan reviews
+/dev:reviewed-html-plan <plan>    # register, monitor browser comments, PM-review, and run GPT/GLM plan reviews
 /cmd:execute-plan <plan>
 ```
 

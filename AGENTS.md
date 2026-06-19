@@ -222,7 +222,7 @@ Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
 - `/skill:adn-dev-wf <task | plan>` is the canonical single-entry workflow.
 - It internally owns plan refresh, blocker-only review, review integration, direct execution, and bounded implementation-stage PM follow-up.
-- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for plan-review feedback plus PM, Claude Code, and Codex plan review; it must register through `plan-review`, follow returned `agentInstructions`, and start the queue-backed comment monitor.
+- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for plan-review feedback plus PM and GPT/GLM Pi subagent plan review; it must register through `plan-review`, follow returned `agentInstructions`, and start the queue-backed comment monitor.
 - `skills/html-plan-reviewer/SKILL.md` is the sole source for concrete `plan-review` commands, readiness metadata, canonical URL rules, and comment monitor mechanics; other planning skills should reference it instead of duplicating command recipes.
 - `/skill:dev-plan <task>` remains available for planning-only work.
 - `/dev:run <plan>` remains available when you already have an execution-ready reviewed plan and want execution only.
@@ -291,7 +291,7 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 
 **Reviews:**
 - `/skill:adn-dev-wf` — Canonical reviewed-plan development workflow
-- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans, process plan-review feedback, run PM plus Claude Code and Codex plan reviews, and stop at execution-ready handoff
+- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans, process plan-review feedback, run PM plus GPT/GLM Pi subagent plan reviews, and stop at execution-ready handoff
 - `/skill:omp-review-partner` — Use OMP with OpenCode Zen Kimi models for read-only plan and implementation reviews
 - `/skill:review-change` — Review code changes against plan
 - `/skill:review-change-integrate` — Integrate code-review feedback
