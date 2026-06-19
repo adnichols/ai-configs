@@ -73,7 +73,7 @@ Find critical flaws → Verify against production scenarios → Provide actionab
 
 1. **Verify Error Handling**
 
-   ```
+   ```python
    # MUST flag this pattern:
    result = operation()  # Ignoring potential error!
 
@@ -85,7 +85,7 @@ Find critical flaws → Verify against production scenarios → Provide actionab
 
 2. **Check Concurrency Safety**
 
-   ```
+   ```python
    # MUST flag this pattern:
    class Worker:
        count = 0  # Shared mutable state!

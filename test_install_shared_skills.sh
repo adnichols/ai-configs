@@ -261,12 +261,16 @@ assert_shared_skill_install_state() {
   [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" ]] || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'quality-reviewer-glm' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" '"repo": "ai-configs"' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" '"source": "skills/plan-reviewer-execution-ready"' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" '"managed": true' || return 1
 
   [[ -f "$home/.agents/skills/plan-reviewer-build/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" ]] || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-build/SKILL.md" 'scoped-plan-run' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" '"repo": "ai-configs"' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" '"source": "skills/plan-reviewer-build"' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" '"managed": true' || return 1
 
   [[ -f "$home/.agents/skills/algorithmic-art/SKILL.md" ]] || return 1
   assert_file_contains "$home/.agents/skills/algorithmic-art/SKILL.md" 'external package=anthropics/skills skill=algorithmic-art' || return 1

@@ -23,11 +23,9 @@ If the plan path is missing, ambiguous, or not a readable file in the current re
 ## Required behavior
 
 1. Read the full plan and repo guidance.
-2. Confirm the plan is execution-ready. Do not implement a browser-review-ready, research-ready, draft, or blocked plan.
-3. Stop if the plan has unresolved product questions or vague acceptance criteria that prevent scope enforcement.
-4. Invoke the installed `scoped-plan-run` workflow with the explicit plan path.
-5. Keep the plan-review comment claim active until the build workflow has either started with durable run state or reported a real blocker.
-6. Ack/resolve the plan-reviewer request comment only after the scoped run has durable state, a PR URL, or a clear blocker.
+2. Invoke the installed `scoped-plan-run` workflow with the explicit plan path.
+3. Keep the plan-review comment claim active until the build workflow has either started with durable run state or reported a real blocker.
+4. Ack/resolve the plan-reviewer request comment only after the scoped run has durable state, a PR URL, or a clear blocker.
 
 ## Invocation
 

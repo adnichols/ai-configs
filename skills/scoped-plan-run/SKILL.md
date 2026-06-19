@@ -297,8 +297,8 @@ fetch_state() {
   gh pr view "$pr" --repo "$repo" \
     --json url,number,state,baseRefName,headRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,comments,reviews \
     > "$state_dir/pr.json"
-  gh api "repos/$repo/issues/$pr/comments" > "$state_dir/issue-comments.json"
-  gh api "repos/$repo/pulls/$pr/comments" > "$state_dir/review-comments.json"
+  gh api --paginate --slurp "repos/$repo/issues/$pr/comments" | jq 'add' > "$state_dir/issue-comments.json"
+  gh api --paginate --slurp "repos/$repo/pulls/$pr/comments" | jq 'add' > "$state_dir/review-comments.json"
 }
 
 snapshot_feedback() {
@@ -327,7 +327,7 @@ while true; do
     echo "$ts FEEDBACK_CHANGED snapshot=$state_dir/feedback.current.json"
   fi
 
-  merge=$(jq -r '.mergeable + "/" + .mergeStateStatus' "$state_dir/pr.json")
+  merge=$(jq -r '(.mergeable // "UNKNOWN") + "/" + (.mergeStateStatus // "UNKNOWN")' "$state_dir/pr.json")
   comments=$(jq 'length' "$state_dir/issue-comments.json")
   review_comments=$(jq 'length' "$state_dir/review-comments.json")
   reviews=$(jq '.reviews | length' "$state_dir/pr.json")
