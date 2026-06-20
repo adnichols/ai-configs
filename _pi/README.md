@@ -56,6 +56,7 @@ Installed layout:
 │   ├── developer-mid.md
 │   ├── developer-mm.md
 │   ├── quality-reviewer.md
+│   ├── quality-reviewer-glm.md
 │   └── ...
 └── extensions/
     ├── pi-plan-mode/
@@ -226,6 +227,7 @@ Example installed agents:
 - `developer-mid`
 - `developer-mm`
 - `quality-reviewer`
+- `quality-reviewer-glm`
 - `research`
 - `plan-gpt5.5`
 - `reviewer-plan-adversarial-gpt5.5`
@@ -240,6 +242,7 @@ Example installed agents:
 
 ### Dev / execution
 - `dev:run` — direct high-reasoning execution with one `quality-reviewer` pass after each phase
+- `pre-pr-implementation-review` — GPT-5.5 plus GLM-5.2 pre-PR implementation review loop until in-scope P1/P2 issues are resolved
 
 ### Git / workflow
 - `cmd-create-pr`
@@ -265,6 +268,7 @@ Example installed agents:
 - `review-change-kimi`
 - `review-change-opus`
 - `review-change-claude-code` — Claude Code review-only pass through the shared private-tmux interactive launcher
+- `pre-pr-implementation-review` — runnable independently or automatically from `scoped-plan-run` before PR creation
 
 ## Usage
 
@@ -285,6 +289,7 @@ Prompt templates:
 /review:change-kimi thoughts/plans/my-plan.html
 /review:change-opus thoughts/plans/my-plan.html
 /review:change-claude-code thoughts/plans/my-plan.html
+/skill:pre-pr-implementation-review thoughts/plans/my-plan.html
 /skill:adn-dev-wf thoughts/plans/my-plan.html
 /dev:plan-from-prd thoughts/plans/prd-my-feature.md
 /cmd:send-plan-to-doct thoughts/plans/my-plan.md
@@ -317,6 +322,7 @@ Use `/dev:pm-review <plan> implementation` after execution when you want a corre
 
 - It is the canonical wrapper for choosing between `/skill:adn-dev-wf <plan>` and `/dev:run <plan>`.
 - `/skill:adn-dev-wf` is the canonical reviewed-plan continuation and can resume from an existing reviewed plan; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
+- `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `scoped-plan-run` after scoped implementation reviews and before PR creation.
 - In Pi `/plan` mode, the extension offers both execution paths as post-review exit choices and stages this handoff command for the selected target.
 - When that extension path is used, `/plan` mode is disabled before execution so planning-only tool restrictions do not leak into implementation.
 - In Pi, the handoff command starts a fresh session and then launches the selected execution flow from that clean context.

@@ -33,6 +33,8 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 **Rationale:** MCP tool wrapping introduces unnecessary latency and may produce inconsistent results. Native Codex tools are optimized for the local filesystem and provide superior performance.
 
 ## Review & Fidelity Safeguards
+- `quality-reviewer` (gpt-5.5; `_pi/agents/quality-reviewer.md`) — Pi production-safety review for real issues (security, data loss, regressions, performance).
+- `quality-reviewer-glm` (GLM-5.2 Cloud; `_pi/agents/quality-reviewer-glm.md`) — Pi GLM implementation reviewer for the pre-PR GPT/GLM gate.
 - `quality-reviewer` (sonnet; `_opencode/agents/quality-reviewer.md`) — Reviews code for real issues (security, data loss, performance) with measurable impact focus.
 - `quality-reviewer` (inherits workspace default model; `_claude/agents/quality-reviewer.md`) — Production safety review covering security, data loss, regressions, and performance.
 - `quality-reviewer-fidelity` (sonnet; `_claude/agents/quality-reviewer-fidelity.md`) — Ensures code matches specification requirements exactly with no scope expansion.
@@ -205,6 +207,7 @@ Pi now supports both:
 # Development
 /skill:cmd-research "how does X work"
 /skill:cmd-debug "issue description"
+/skill:pre-pr-implementation-review thoughts/plans/<plan>.html
 
 # Context
 /skill:cmd-create-handoff "pausing work"
@@ -295,6 +298,7 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:omp-review-partner` — Use OMP with OpenCode Zen Kimi models for read-only plan and implementation reviews
 - `/skill:review-change` — Review code changes against plan
 - `/skill:review-change-integrate` — Integrate code-review feedback
+- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus GLM-5.2 pre-PR implementation review until in-scope P1/P2 issues are resolved
 
 ### Configuration
 

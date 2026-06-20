@@ -537,6 +537,15 @@
       "notes": "Existing canonical skill retained; OpenCode and Pi copies are identical.",
       "sourceType": "repo"
     },
+    "pre-pr-implementation-review": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [
+        "pi"
+      ],
+      "canonicalSource": "skills/pre-pr-implementation-review",
+      "notes": "Pi-only: runs GPT-5.5 plus GLM-5.2 implementation review loops until all in-scope P1/P2 issues are resolved before PR creation.",
+      "sourceType": "repo"
+    },
     "repo-agents-bootstrap": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -619,7 +628,7 @@
         "pi"
       ],
       "canonicalSource": "skills/scoped-plan-run",
-      "notes": "Codex/Pi: executes existing plans through bounded implementation, scoped Claude/Codex reviews, fixes, verification, push, PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
+      "notes": "Codex/Pi: executes existing plans through bounded implementation, scoped Claude/Codex reviews, Pi GPT/GLM pre-PR implementation review when applicable, fixes, verification, push, PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
       "sourceType": "repo"
     },
     "signing-entitlements": {
