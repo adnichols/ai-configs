@@ -5,8 +5,10 @@ Current roster of bespoke Claude, Codex, and Pi agents defined in this repositor
 ## Pi Subagents (Implementation)
 Located under `_pi/agents/` and invoked via Pi subagent system:
 
+- `general-glm` (ollama/glm-5.2:cloud; `_pi/agents/general-glm.md`) — General-purpose GLM subagent for research, coding, debugging, and other delegated tasks.
 - `developer-mid` (gpt-5.5-mini; `_pi/agents/developer-mid.md`) — Default implementation agent for standard complexity work. Cost-effective for most tasks.
 - `developer-high` (gpt-5.5; `_pi/agents/developer-high.md`) — High-capability implementation agent for complex scenarios (multi-file refactoring, algorithmic challenges, concurrent systems, complex domain logic).
+- `developer-glm` (opencode/glm-5; `_pi/agents/developer-glm.md`) — GLM implementation agent for specification-driven coding work.
 - `developer-mm` (MiniMax; `_pi/agents/developer-mm.md`) — Alternative implementation agent using MiniMax model.
 
 ## Implementation & Architecture (Claude/Codex)
