@@ -35,6 +35,12 @@ In adversarial posture:
 - keep the search scope-bound to the current change and its acceptance criteria
 - do not turn the pass into unrelated whole-product cleanup
 
+Regardless of posture, every reviewer must also run these checks on the first pass — not only after an escape:
+- generic key-name matching/remapping/rewriting where the key name may not uniquely determine the value's type or target (test non-target variants: numbers, booleans, objects, unrelated strings)
+- fail-closed/bail paths reachable by valid, schema-conformant input (failing closed on valid input is a real failure, not a safe deferral)
+- producer/consumer and round-trip parity (import vs export, encode vs decode, rewrite vs collect)
+When one instance is found, enumerate siblings (other call sites, other shapes, the inverse direction of the boundary) and report the family, not just the first instance.
+
 ### 3. Spawn Quality Reviewers
 
 Use `subagent` with `quality-reviewer` agent:

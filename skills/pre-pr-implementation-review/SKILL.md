@@ -49,6 +49,15 @@ Also classify every finding with the scoped-plan-run labels when a plan is prese
 
 When no plan is present, treat issues introduced by the current diff as in scope. Do not fix unrelated pre-existing issues unless the user explicitly expands scope.
 
+### What "out of scope" may not hide
+
+A finding is in scope — regardless of whether the affected code predates this branch — when any of these hold:
+
+- This diff creates, extends, or routes new inputs to a shared primitive (collector, rewriter, mapper, scanner, serializer, validator). That primitive's correctness across every input this diff can now feed it is in scope. "Not introduced by this branch" does not apply to a primitive whose reachable input domain this branch changed.
+- The issue is a fail-closed/bail/reject path reachable by valid, schema-conformant input. Failing closed on valid input is a P1/P2 regression, not a deferrable follow-up. "Fail-closed" justifies deferral only when the closed path is reachable solely by invalid input.
+
+A finding may be classified `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an existing test — or add one — proving the deferred input class is actually handled or genuinely unreachable. A deferral whose justification is "fail-closed" or "pre-existing," without that evidence, is not valid; treat it as in scope.
+
 ## Review loop
 
 ### 1. Prepare the review packet
@@ -109,7 +118,10 @@ Check especially:
 - API contract, schema, CLI, MCP, UI, or test fixture drift
 - missing error handling or misleading verification
 - acceptance criteria that are only partially implemented
-- sibling instances of any discovered failure pattern
+- generic key-name matching/remapping/rewriting where the key name may not uniquely determine the value's type or target (construct non-target counterexamples: numbers, booleans, objects, unrelated strings)
+- fail-closed/bail paths reachable by valid, schema-conformant input
+- producer/consumer and round-trip parity (import vs export, encode vs decode, rewrite vs collect)
+- sibling instances of any discovered failure pattern, in this diff and the inverse direction of any boundary it touches — enumerate the family, not just the first instance
 
 Return exactly one verdict:
 - VERDICT: P1_P2_FOUND
@@ -132,7 +144,7 @@ For each finding:
 - Fix `P1`/`P2` findings classified `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`.
 - Stop for user input on `QUESTION` findings that affect a P1/P2 decision.
 - Do not fix `P3` findings in this loop unless they are trivial and directly part of a P1/P2 fix.
-- Document `OUT_OF_SCOPE_FOLLOW_UP` findings with evidence and a tracking destination when they are real.
+- Document `OUT_OF_SCOPE_FOLLOW_UP` findings with evidence, a tracking destination, and a cited test proving the deferred input class is handled or genuinely unreachable. If you cannot cite or add such a test, treat the finding as in scope rather than deferring it.
 - Verify reviewer claims against the code before changing anything; false positives should be recorded as rejected with evidence.
 
 ### 4. Fix, verify, and rereview until clean

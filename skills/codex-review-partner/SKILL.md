@@ -75,7 +75,7 @@ Keep the input file concrete and bounded:
 - what kind of review you want
 - any repo-specific constraints or acceptance criteria
 
-For `adversarial-implementation-review`, include the PR feedback that escaped earlier review, the direct fix, and your hypothesis about the failure family. Ask Codex to search the full current PR diff for sibling issues, partial fixes, missing tests, and nearby plan-bound failures. This is not a license for broad unrelated audits; it is a more skeptical pass over the PR's assumptions after a missed defect signal.
+For `adversarial-implementation-review`, include the PR feedback that escaped earlier review, the direct fix, and your hypothesis about the failure family — but pass the direct fix and failure-family hypothesis as claims to verify or refute, not as established facts, and ask Codex to re-derive the invariant from the code/schema rather than trusting them. Ask Codex to search the full current PR diff for sibling issues, partial fixes, missing tests, and nearby plan-bound failures, including the inverse direction of any serialization/reference boundary the fix touches. This is not a license for broad unrelated audits; it is a more skeptical pass over the PR's assumptions after a missed defect signal.
 
 For templates, see `references/prompt-templates.md`.
 

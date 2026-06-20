@@ -13,11 +13,11 @@ Files:
 - path/to/file1
 - path/to/file2
 
-Changed behavior:
+Changed behavior (author claims — verify against the code, do not assume true):
 - <bullet>
 - <bullet>
 
-Checks already run:
+Checks already run (claims to confirm, not evidence of correctness):
 - <command/result>
 
 Review for:
@@ -26,6 +26,9 @@ Review for:
 - edge cases
 - test gaps
 - maintainability
+- generic key-name matching/remapping where the key name may not uniquely determine the value's type or target (test non-target variants)
+- fail-closed/bail paths reachable by valid input
+- producer/consumer and round-trip parity (import vs export, encode vs decode)
 
 If you find issues, rank them by severity and cite files/lines when possible.
 ```
@@ -48,19 +51,22 @@ Current PR diff:
   - path/to/file1
   - path/to/file2
 
-Escaped PR feedback:
+Escaped PR feedback (treat the direct fix and suspected family as claims to verify or refute, not facts; re-derive the invariant from the code/schema):
 - Reviewer/comment URL: <url>
 - Direct issue: <summary>
 - Direct fix: <summary or commit>
 - Suspected failure family: <edge case / contract / callsite / validation / state / security / data-loss / test-gap pattern>
 
-Checks already run:
+Checks already run (claims to confirm, not evidence of correctness):
 - <command/result>
 
 Review adversarially for:
 - sibling callsites or analogous code paths with the same problem
 - repeated assumptions or partial fixes
 - missing tests that allowed the escaped issue through
+- generic key-name matching/remapping where the key name may not uniquely determine the value's type or target (test non-target variants: numbers, booleans, objects, unrelated strings)
+- fail-closed/bail paths reachable by valid, schema-conformant input
+- producer/consumer and round-trip parity (import vs export, encode vs decode, rewrite vs collect)
 - boundary, lifecycle, concurrency, auth, migration, or data-loss variants relevant to this plan
 - evidence that the fix addresses the root cause rather than one symptom
 

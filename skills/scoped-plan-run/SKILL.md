@@ -74,6 +74,13 @@ Use this acceptance test for any non-obvious finding:
 
 If the answer to all three is no, it may be left out of this PR only after it is documented as an `OUT_OF_SCOPE_FOLLOW_UP` with evidence, owner/destination, and a durable record in the PR body plus the plan deviation log or repo discovery ledger. If any answer is yes, fix it now; do not label it deferred.
 
+Two refinements override a naive "not introduced by this branch" reading of question 3:
+
+- If this diff creates, extends, or routes new inputs to a shared primitive (collector, rewriter, mapper, scanner, serializer, validator), that primitive's correctness across every input this diff can now feed it is in scope even if the primitive predates the branch.
+- A fail-closed/bail/reject path reachable by valid, schema-conformant input is in scope when this diff can route valid input to it; "it fails closed" is not a reason to defer. Deferral on fail-closed grounds is valid only when the closed path is reachable solely by invalid input.
+
+A finding may be deferred as `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an existing test — or add one — proving the deferred input class is handled or genuinely unreachable. A "fail-closed" or "pre-existing" deferral without that evidence is not valid.
+
 ## Workflow
 
 ### 1. Establish Run State
@@ -172,7 +179,7 @@ Finding | Source | Classification | Decision | Evidence
 For each scoped reviewer finding:
 
 - Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`.
-- Record `OUT_OF_SCOPE_FOLLOW_UP` without fixing it only after documenting why it is outside this plan and where it will be tracked.
+- Record `OUT_OF_SCOPE_FOLLOW_UP` without fixing it only after documenting why it is outside this plan, where it will be tracked, and a cited test proving the deferred input class is handled or unreachable. Without that test evidence, treat it as in scope.
 - Stop and ask the user for `QUESTION`.
 
 Do not implement fixes directly from reviewer prose. Convert them through this triage step first.
@@ -397,6 +404,14 @@ Scope contract:
 <goal, acceptance criteria, in-scope, out-of-scope, verification>
 
 Review only whether this diff correctly implements the plan.
+Treat the plan/scope, any author summary, and prior verification results as product intent and claims to verify — not proof of implementation correctness. Re-derive the key invariant from the code, schema, and types.
+
+On this first pass (not only after an escape), also check:
+- generic key-name matching/remapping/rewriting where the key name may not uniquely determine the value's type or target — construct non-target counterexamples (numbers, booleans, objects, unrelated strings) and confirm each is handled
+- fail-closed/bail paths reachable by valid, schema-conformant input
+- producer/consumer and round-trip parity (import vs export, encode vs decode, rewrite vs collect)
+When you find one instance, enumerate its siblings (other call sites, other shapes, the inverse direction of the boundary) and report the family.
+
 Classify every finding as exactly one of:
 - IN_PLAN
 - PLAN_PREREQUISITE
@@ -405,7 +420,7 @@ Classify every finding as exactly one of:
 - QUESTION
 
 Do not recommend unrelated cleanup, hardening, new features, or broad product audits.
-If you notice adjacent problems, list them only as OUT_OF_SCOPE_FOLLOW_UP and explain why they are outside this plan.
+For an adjacent problem, first decide its severity and whether this diff can reach it, then classify. A problem this diff can trigger — including through a primitive it extends, or a fail-closed path reachable by valid input — is in scope even if the affected code predates the branch. Only problems genuinely unreachable from this diff go under OUT_OF_SCOPE_FOLLOW_UP, with the reason, a tracking destination, and a cited test showing the input is handled or unreachable.
 Do not put IN_PLAN, PLAN_PREREQUISITE, REGRESSION_FROM_THIS_DIFF, QUESTION, BDD gaps, verification gaps, implicit-only coverage, or plan-required work in a deferred/out-of-scope section.
 
 Return one verdict:
