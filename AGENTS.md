@@ -5,8 +5,10 @@ Current roster of bespoke Claude, Codex, and Pi agents defined in this repositor
 ## Pi Subagents (Implementation)
 Located under `_pi/agents/` and invoked via Pi subagent system:
 
+- `general-glm` (ollama/glm-5.2:cloud; `_pi/agents/general-glm.md`) — General-purpose GLM subagent for research, coding, debugging, and other delegated tasks.
 - `developer-mid` (gpt-5.5-mini; `_pi/agents/developer-mid.md`) — Default implementation agent for standard complexity work. Cost-effective for most tasks.
 - `developer-high` (gpt-5.5; `_pi/agents/developer-high.md`) — High-capability implementation agent for complex scenarios (multi-file refactoring, algorithmic challenges, concurrent systems, complex domain logic).
+- `developer-glm` (opencode/glm-5; `_pi/agents/developer-glm.md`) — GLM implementation agent for specification-driven coding work.
 - `developer-mm` (MiniMax; `_pi/agents/developer-mm.md`) — Alternative implementation agent using MiniMax model.
 
 ## Implementation & Architecture (Claude/Codex)
@@ -33,6 +35,7 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 **Rationale:** MCP tool wrapping introduces unnecessary latency and may produce inconsistent results. Native Codex tools are optimized for the local filesystem and provide superior performance.
 
 ## Review & Fidelity Safeguards
+- `quality-reviewer-glm` (ollama/glm-5.2:cloud; `_pi/agents/quality-reviewer-glm.md`) — Independent Pi GLM review gate for scoped implementation and execution-ready plan reviews.
 - `quality-reviewer` (sonnet; `_opencode/agents/quality-reviewer.md`) — Reviews code for real issues (security, data loss, performance) with measurable impact focus.
 - `quality-reviewer` (inherits workspace default model; `_claude/agents/quality-reviewer.md`) — Production safety review covering security, data loss, regressions, and performance.
 - `quality-reviewer-fidelity` (sonnet; `_claude/agents/quality-reviewer-fidelity.md`) — Ensures code matches specification requirements exactly with no scope expansion.
@@ -222,7 +225,7 @@ Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
 - `/skill:adn-dev-wf <task | plan>` is the canonical single-entry workflow.
 - It internally owns plan refresh, blocker-only review, review integration, direct execution, and bounded implementation-stage PM follow-up.
-- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for plan-review feedback plus PM, Claude Code, and Codex plan review; it must register through `plan-review`, follow returned `agentInstructions`, and start the queue-backed comment monitor.
+- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for plan-review feedback plus PM and GPT/GLM Pi subagent plan review; it must register through `plan-review`, follow returned `agentInstructions`, and start the queue-backed comment monitor.
 - `skills/html-plan-reviewer/SKILL.md` is the sole source for concrete `plan-review` commands, readiness metadata, canonical URL rules, and comment monitor mechanics; other planning skills should reference it instead of duplicating command recipes.
 - `/skill:dev-plan <task>` remains available for planning-only work.
 - `/dev:run <plan>` remains available when you already have an execution-ready reviewed plan and want execution only.
@@ -291,7 +294,7 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 
 **Reviews:**
 - `/skill:adn-dev-wf` — Canonical reviewed-plan development workflow
-- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans, process plan-review feedback, run PM plus Claude Code and Codex plan reviews, and stop at execution-ready handoff
+- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans, process plan-review feedback, run PM plus GPT/GLM Pi subagent plan reviews, and stop at execution-ready handoff
 - `/skill:omp-review-partner` — Use OMP with OpenCode Zen Kimi models for read-only plan and implementation reviews
 - `/skill:review-change` — Review code changes against plan
 - `/skill:review-change-integrate` — Integrate code-review feedback

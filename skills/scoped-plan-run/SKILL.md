@@ -1,15 +1,15 @@
 ---
 name: scoped-plan-run
-description: Execute an existing implementation plan persistently through code changes, scoped Claude and Codex reviews, fixes, verification, commit, push, PR creation, and Codex/Pi goal-backed PR monitoring until feedback is addressed, Codex approves with a :thumbsup:, and the PR is mergeable without expanding beyond the plan's stated scope.
+description: Execute an existing implementation plan persistently through code changes, scoped runtime-native quality reviews, fixes, verification, commit, push, PR creation, and PR monitoring until feedback is addressed and the PR is mergeable without expanding beyond the plan's stated scope.
 ---
 
 # Scoped Plan Run
 
-Use this skill when the user has a plan file and wants it implemented all the way to a pull request with both Claude and Codex review, while preventing reviewer-driven scope creep.
+Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates, while preventing reviewer-driven scope creep.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
-This skill is goal-backed in Codex and Pi. A scoped plan run is not complete at PR creation; it remains active until the PR satisfies the post-PR completion criteria. In Codex, back this with the Codex goal tools. In Pi, back this with the todo tool plus explicit working notes/handoff state so the monitoring obligation survives normal turn-to-turn execution.
+This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the PR satisfies the post-PR completion criteria. In Pi, back this with the todo tool plus explicit working notes/handoff state. In Codex, back this with Codex goal/task state and the installed Codex prompts so the monitoring obligation survives normal turn-to-turn execution.
 
 ## Invocation
 
@@ -24,17 +24,15 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not implement if the request is plan-only, review-only, or investigation-only.
 - Do not run destructive git commands unless the user explicitly requested them.
 - Do not fix adjacent issues just because a reviewer found them.
-- Do not let Claude or Codex edit files during review. Reviews are read-only.
+- Do not let reviewer subagents edit files during review. Reviews are read-only.
 - Do not ask reviewers to review the whole product for open-ended problems.
 - Do not proceed past a blocked plan decision by silently choosing a larger scope.
 - Do not silently defer work that is required by the plan, required for verification, or introduced by this branch; fix it before merge or stop with a blocker.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
 - Do not mark the active run state complete just because the implementation PR exists.
-- Do not mark the active run state complete until PR feedback has been monitored and addressed, the PR is mergeable with the destination branch, and Codex has provided a `:thumbsup:` on the original PR description.
-- Treat actionable Codex PR feedback after local reviews as a review escape: the earlier review cycle missed something, so the next local review cycle must become scope-bound adversarial review instead of only patching the commented issue.
-- Do not mark the active run state blocked or stop monitoring merely because PR feedback or the qualifying Codex `:thumbsup:` is slow to arrive. Treat slow review response as a wait state that requires continued polling, not as a blocker.
-- Do not create, add, request, simulate, or otherwise manufacture the required Codex `:thumbsup:` from inside this skill, this workflow, this execution, or any account controlled by the executing agent. That approval signal exists only to prove an external PR reviewer accepted the current PR state.
-- Do not treat a self-authored reaction, local review verdict, chat transcript, manual note, or workflow-generated approval substitute as satisfying the Codex `:thumbsup:` criterion. If the executing agent accidentally or incorrectly adds such a reaction, remove it immediately, disclose the incident, and continue monitoring as incomplete.
+- Do not mark the active run state complete until PR feedback has been monitored and addressed and the PR is mergeable with the destination branch.
+- Treat actionable PR feedback after local reviews as a review escape: the earlier review cycle missed something, so the next local review cycle must become scope-bound adversarial review instead of only patching the commented issue.
+- Do not mark the active run state blocked or stop monitoring merely because PR feedback is slow to arrive. Treat slow review response as a wait state that requires continued polling, not as a blocker.
 
 ## Scope Contract
 
@@ -53,7 +51,7 @@ Stop before implementation if:
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
-- Claude and Codex review are required but one is unavailable and the user has not waived it.
+- a required runtime-native review gate is unavailable and the user has not waived it. In Pi this means `quality-reviewer` and `quality-reviewer-glm`; in Codex this means the installed Codex execution/review prompts needed to perform scoped implementation review.
 
 ## Scope Classification
 
@@ -79,12 +77,10 @@ If the answer to all three is no, it may be left out of this PR only after it is
 
 ### 1. Establish Run State
 
-1. Check whether a scoped-plan-run goal or task state is already active.
-2. If no compatible run state is active, create one before implementation begins.
-   - In Codex, use the Codex goal tools for this lifecycle. Do not treat the goal as a checklist in notes only.
-   - In Pi, use the todo tool to create an explicit lifecycle task set before implementation. Keep exactly one active item at a time and include a final post-PR monitoring item that cannot be marked done until all completion criteria are satisfied.
+1. Check whether a scoped-plan-run task/goal state is already active.
+2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use the todo tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR monitoring item that cannot be marked done until all completion criteria are satisfied.
 3. The objective must require both:
-   - executing the specified plan through implementation, verification, review, commit, push, and PR creation;
+   - executing the specified plan through implementation, verification, runtime-native scoped review, commit, push, and PR creation;
    - monitoring the PR after creation until the post-PR completion criteria are satisfied.
 4. If an active run state already exists and it is compatible with this scoped plan run, continue under it and state the compatibility in working notes.
 5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before creating a new one.
@@ -92,12 +88,10 @@ If the answer to all three is no, it may be left out of this PR only after it is
 Use this objective shape:
 
 ```text
-Execute <plan path> through scoped implementation, verification, reviews, commit, push, PR creation, and persistent post-PR monitoring. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked, monitoring has continued until an external reviewer provides the qualifying Codex :thumbsup: on the original PR description for the current PR state, the :thumbsup: was not provided by this skill/workflow/execution or any account controlled/requested by the executing agent, and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback or the qualifying :thumbsup: takes a long time to arrive.
+Execute <plan path> through scoped implementation, verification, runtime-native scoped quality reviews, commit, push, PR creation, and persistent post-PR monitoring. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback takes a long time to arrive.
 ```
 
-The `:thumbsup:` in the objective must be interpreted as external reviewer approval only. The executing agent must not provide it, cause it to be provided by this workflow, or count any reaction from itself or its automation as completion evidence.
-
-Pi-specific state expectation: keep the todo/working notes current with the plan path, PR URL once known, target branch, latest verification status, latest review state, mergeability, and whether the qualifying external `:thumbsup:` is still missing. Do not clear or complete those todos until the same criteria that would close the Codex goal are satisfied.
+Runtime state expectation: keep the task/goal state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi this state lives in todo/working notes; in Codex it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
 
 ### 2. Prepare
 
@@ -123,7 +117,7 @@ If a phase exposes a broader product problem, classify it. Fix it only if it is 
 
 ### 4. Self Scope Audit
 
-Before external review, inspect the diff against the plan:
+Before reviewer subagent review, inspect the diff against the plan:
 
 ```bash
 git diff --stat
@@ -134,9 +128,9 @@ For every changed file, answer: why does this file need to change for this plan?
 
 If a changed file has no plan-bound reason, revert only your own edits to that file or split the work into a separate follow-up branch. Never revert user changes.
 
-### 5. Codex Review
+### 5. First scoped quality review
 
-Use the `codex-review-partner` skill or its wrapper for a read-only implementation review.
+In Pi, use the Pi subagent `quality-reviewer` for a read-only GPT-5.5 implementation review. In Codex, use the installed Codex-native `quality-reviewer`/implementation-review mechanism for the first read-only scoped review. Do not let any reviewer edit files.
 
 The review prompt must include:
 
@@ -158,13 +152,13 @@ VERDICT: BLOCKED_BY_SCOPE_QUESTION
 
 Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` is valid only when every remaining finding is classified `OUT_OF_SCOPE_FOLLOW_UP` and includes evidence plus a tracking destination; otherwise treat the review as `FIX_IN_SCOPE_FINDINGS` or `BLOCKED_BY_SCOPE_QUESTION` by substance.
 
-### 6. Claude Review
+### 6. Second scoped quality review
 
-Use the `claude-code-review` skill for a read-only Claude review through its canonical private-tmux interactive launcher.
+In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5.2 implementation review. In Codex, use the second installed Codex-native independent implementation-review path when available; if no independent Codex review path is installed, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
-Claude must receive the same bounded prompt as Codex. It must not edit files. It must return findings in chat, classified with the same scope categories. Do not use alternate Claude transports for this required gate.
+The second reviewer must receive the same bounded prompt as the first reviewer. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
-If Claude reports broad adjacent risks, keep them out of the PR only when they satisfy the `OUT_OF_SCOPE_FOLLOW_UP` definition and are documented. If the risk maps to the plan, verification, or this diff, treat it as in-scope and fix it.
+If either reviewer reports broad adjacent risks, keep them out of the PR only when they satisfy the `OUT_OF_SCOPE_FOLLOW_UP` definition and are documented. If the risk maps to the plan, verification, or this diff, treat it as in-scope and fix it.
 
 ### 7. Triage Reviews Before Fixing
 
@@ -174,7 +168,7 @@ Create a short triage table in your working notes:
 Finding | Source | Classification | Decision | Evidence
 ```
 
-For each Claude and Codex finding:
+For each scoped reviewer finding:
 
 - Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`.
 - Record `OUT_OF_SCOPE_FOLLOW_UP` without fixing it only after documenting why it is outside this plan and where it will be tracked.
@@ -187,8 +181,8 @@ Do not implement fixes directly from reviewer prose. Convert them through this t
 After fixing in-scope findings:
 
 1. Rerun targeted tests for touched code.
-2. Rerun Codex review with the previous findings and current diff.
-3. Rerun Claude review with the same bounded scope.
+2. Rerun the first scoped quality review with the previous findings and current diff.
+3. Rerun the second scoped quality review with the same bounded scope.
 4. Repeat until both reviewers return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS`.
 
 Stop and report a convergence blocker if:
@@ -218,8 +212,8 @@ The PR body must include:
 - plan path,
 - in-scope summary,
 - verification commands and results,
-- Claude review verdict,
-- Codex review verdict,
+- first scoped quality-review verdict,
+- second scoped quality-review verdict,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - known residual risks.
 
@@ -227,7 +221,7 @@ Do not include memory citations in PR messages.
 
 ## Post-PR Completion Loop
 
-After the PR is open, keep the active Codex goal or Pi todo/run state active and monitor the PR until all completion criteria are satisfied.
+After the PR is open, keep the active runtime task/goal state active and monitor the PR until all completion criteria are satisfied. In Pi this is the active todo/run state; in Codex this is the active Codex goal/task state.
 
 ### Completion Criteria
 
@@ -235,19 +229,17 @@ The run state can be marked complete only when all of these are true:
 
 - All actionable PR feedback has been addressed.
 - PR feedback has been checked repeatedly after fixes, not just once immediately after PR creation.
-- Codex has provided a `:thumbsup:` on the original PR description from the expected external PR reviewer account.
-- The required `:thumbsup:` was not added by the executing agent, this skill/workflow/execution, an agent-controlled account, or any approval action requested by the executing agent.
-- After every PR feedback item is addressed, monitoring continues until the external reviewer adds the qualifying `:thumbsup:` for the current PR state.
+- If PR feedback required code changes, both runtime-native scoped quality reviews have rerun over the current PR diff and cleared any in-scope findings.
 - The branch has been rebased or otherwise updated against the destination branch as needed.
 - GitHub reports the PR as mergeable with the destination branch.
 
 ### Monitoring Loop
 
-Repeat this loop until the completion criteria are met or a true blocker is reached. Slow or absent reviewer feedback, pending checks, and a missing qualifying Codex `:thumbsup:` are not true blockers by themselves; they require continued polling.
+Repeat this loop until the completion criteria are met or a true blocker is reached. Slow or absent reviewer feedback and pending checks are not true blockers by themselves; they require continued polling.
 
 1. Inspect PR reviews, review threads, comments, status checks, and mergeability.
 2. Classify every new feedback item using the same scope categories.
-3. If any actionable feedback comes from Codex after the local Codex/Claude review gates already passed, mark the cycle as a `REVIEW_ESCAPE` in working notes. Fixing only the mentioned line is insufficient.
+3. If any actionable feedback arrives after the local scoped review gates already passed, mark the cycle as a `REVIEW_ESCAPE` in working notes. Fixing only the mentioned line is insufficient.
 4. Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` feedback.
 5. Record or report `OUT_OF_SCOPE_FOLLOW_UP` feedback with evidence and tracking destination without expanding the PR.
 6. Stop for user input on `QUESTION` feedback.
@@ -255,9 +247,8 @@ Repeat this loop until the completion criteria are met or a true blocker is reac
 8. Rerun the smallest meaningful verification for any changes.
 9. Commit and push fixes to the PR branch.
 10. Rebase onto the destination branch when GitHub reports the branch out of date, conflicted, or not mergeable.
-11. Recheck until GitHub shows the PR as mergeable and the external-reviewer Codex `:thumbsup:` is present on the original PR description for the current PR state.
-12. If feedback is addressed but the external reviewer has not added the qualifying `:thumbsup:`, keep the run state active and continue monitoring. Do not add the reaction yourself, ask this workflow to add it, or mark the run state complete.
-13. If a poll finds no new feedback and no qualifying `:thumbsup:`, report the latest PR state briefly, keep the run state active, wait, and poll again. Do not end the scoped-plan run or mark the run state blocked for review latency alone.
+11. Recheck until GitHub shows the PR as mergeable and no new actionable feedback remains.
+12. If a poll finds no new feedback but checks or mergeability are still pending, report the latest PR state briefly, keep the run state active, wait, and poll again. Do not end the scoped-plan run or mark the run state blocked for review latency alone.
 
 ### Adversarial Escalation Loop
 
@@ -265,34 +256,32 @@ A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for t
 
 1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
 2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run a read-only Codex `adversarial-implementation-review` against the full current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask Codex to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix.
-4. If the escaped issue involves user-visible behavior, data loss, auth/security, migrations, concurrency, or broad callsite risk, also rerun Claude with the same adversarial prompt.
-5. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
-6. Repeat the adversarial review once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after the adversarial pass reports no additional in-scope findings or only documented out-of-scope follow-ups.
+3. Run read-only adversarial implementation reviews with both runtime-native scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, use the installed Codex-native independent implementation-review paths. Review the full current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix.
+4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
+5. Repeat the adversarial reviewer-pair pass once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after both adversarial passes report no additional in-scope findings or only documented out-of-scope follow-ups.
 
 Keep this escalation scope-bound: it should search harder around the PR's implementation, assumptions, and failure modes, not turn into an unrelated whole-product audit.
 
 ### Polling Persistence
 
-When the run has reached post-PR monitoring, the agent must persist across goal/session turns:
+When the run has reached post-PR monitoring, the agent must persist across session turns:
 
-- Keep polling the PR until the qualifying external Codex `:thumbsup:` appears or a real actionable blocker requires user input.
-- Poll every 60 seconds while waiting for PR feedback or the qualifying `:thumbsup:`. Do not use a slower default such as five minutes unless the user explicitly asks to reduce polling frequency.
-- Continue monitoring even after all current feedback is addressed, because late feedback can still arrive before the `:thumbsup:`.
-- Do not treat "no new feedback", "review still pending", "checks still running", or "no `:thumbsup:` yet" as completion, failure, or a blocker.
-- In Pi, leave the monitoring todo active and summarize the latest PR URL, mergeability, feedback state, and missing/completed `:thumbsup:` evidence in any handoff or final-in-turn status.
+- Keep polling the PR until actionable feedback is resolved, required checks have settled, and the PR is mergeable.
+- Poll every 60 seconds while waiting for PR feedback, checks, or mergeability unless the user explicitly asks to reduce polling frequency.
+- Continue monitoring even after current feedback is addressed, because late feedback can still arrive before mergeability/checks settle.
+- Do not treat "no new feedback", "review still pending", or "checks still running" as completion, failure, or a blocker.
+- In Pi, leave the monitoring todo active and summarize the latest PR URL, mergeability, feedback state, and reviewer-pair state in any handoff or final-in-turn status.
 - A true blocker must be something the agent cannot resolve by continued polling or scoped fixes, such as lost GitHub authentication, a closed/deleted PR, a force-push/base-branch conflict requiring a product decision, or `QUESTION` feedback that needs the user.
 - If a true blocker is reached, report the exact blocker and the latest PR state. Otherwise, keep the active run state open and continue polling.
 
-Use GitHub product surfaces for this check. The watcher must inspect both feedback surfaces and `:thumbsup:` reactions on every poll:
+Use GitHub product surfaces for this check:
 
 - PR issue comments via `gh pr view ... --json comments` and/or `GET /repos/<owner>/<repo>/issues/<pr>/comments`.
 - PR reviews via `gh pr view ... --json reviews`.
 - Inline review comments via `GET /repos/<owner>/<repo>/pulls/<pr>/comments`.
 - Status/mergeability via `gh pr view ... --json mergeable,mergeStateStatus,statusCheckRollup,reviewDecision`.
-- `+1` reactions on the PR issue itself via `GET /repos/<owner>/<repo>/issues/<pr>/reactions`.
 
-Reference implementation for Pi: write this to `/tmp/monitor-pr-<pr>.sh`, start it with the `process` tool, and set `logWatches` for `FEEDBACK_CHANGED` and `QUALIFYING_THUMBSUP_PRESENT`. It polls every 60 seconds, stores snapshots, reports comment/review/status changes, and separately reports `+1` reactions without ever creating one.
+Reference implementation for Pi: write this to `/tmp/monitor-pr-<pr>.sh`, start it with the `process` tool, and set `logWatches` for `FEEDBACK_CHANGED`. It polls every 60 seconds, stores snapshots, and reports comment/review/status changes.
 
 ```bash
 #!/usr/bin/env bash
@@ -300,7 +289,6 @@ set -euo pipefail
 
 repo="${1:?owner/repo required}"
 pr="${2:?pr number required}"
-expected_thumb_user="${3:-}" # Optional; if empty, report all +1 users as candidates.
 interval_seconds="${PR_MONITOR_INTERVAL_SECONDS:-60}"
 state_dir="${PR_MONITOR_STATE_DIR:-/tmp/pr-monitor-${repo//\//-}-${pr}}"
 mkdir -p "$state_dir"
@@ -309,9 +297,8 @@ fetch_state() {
   gh pr view "$pr" --repo "$repo" \
     --json url,number,state,baseRefName,headRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,comments,reviews \
     > "$state_dir/pr.json"
-  gh api "repos/$repo/issues/$pr/comments" > "$state_dir/issue-comments.json"
-  gh api "repos/$repo/pulls/$pr/comments" > "$state_dir/review-comments.json"
-  gh api "repos/$repo/issues/$pr/reactions" > "$state_dir/reactions.json"
+  gh api --paginate --slurp "repos/$repo/issues/$pr/comments" | jq 'add' > "$state_dir/issue-comments.json"
+  gh api --paginate --slurp "repos/$repo/pulls/$pr/comments" | jq 'add' > "$state_dir/review-comments.json"
 }
 
 snapshot_feedback() {
@@ -327,11 +314,6 @@ snapshot_feedback() {
   }' "$state_dir/pr.json" "$state_dir/issue-comments.json" "$state_dir/review-comments.json" > "$state_dir/feedback.current.json"
 }
 
-snapshot_reactions() {
-  jq -S --arg expected "$expected_thumb_user" '[.[] | select(.content == "+1") | {user:.user.login, createdAt:.created_at, qualifies:(($expected == "") or (.user.login == $expected))}]' \
-    "$state_dir/reactions.json" > "$state_dir/thumbs.current.json"
-}
-
 while true; do
   ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   if ! fetch_state; then
@@ -340,30 +322,18 @@ while true; do
     continue
   fi
   snapshot_feedback
-  snapshot_reactions
 
   if [ -f "$state_dir/feedback.previous.json" ] && ! cmp -s "$state_dir/feedback.previous.json" "$state_dir/feedback.current.json"; then
     echo "$ts FEEDBACK_CHANGED snapshot=$state_dir/feedback.current.json"
   fi
-  if [ -s "$state_dir/thumbs.current.json" ] && [ "$(jq 'length' "$state_dir/thumbs.current.json")" -gt 0 ]; then
-    users=$(jq -r '[.[] | select(.qualifies) | .user] | join(",")' "$state_dir/thumbs.current.json")
-    if [ -n "$users" ]; then
-      echo "$ts QUALIFYING_THUMBSUP_PRESENT users=$users snapshot=$state_dir/thumbs.current.json"
-    else
-      all_users=$(jq -r '[.[].user] | join(",")' "$state_dir/thumbs.current.json")
-      echo "$ts NONQUALIFYING_THUMBSUP users=$all_users snapshot=$state_dir/thumbs.current.json"
-    fi
-  fi
 
-  merge=$(jq -r '.mergeable + "/" + .mergeStateStatus' "$state_dir/pr.json")
+  merge=$(jq -r '(.mergeable // "UNKNOWN") + "/" + (.mergeStateStatus // "UNKNOWN")' "$state_dir/pr.json")
   comments=$(jq 'length' "$state_dir/issue-comments.json")
   review_comments=$(jq 'length' "$state_dir/review-comments.json")
   reviews=$(jq '.reviews | length' "$state_dir/pr.json")
-  thumbs=$(jq 'length' "$state_dir/thumbs.current.json")
-  echo "$ts PR_MONITOR merge=$merge issue_comments=$comments review_comments=$review_comments reviews=$reviews thumbs_up=$thumbs"
+  echo "$ts PR_MONITOR merge=$merge issue_comments=$comments review_comments=$review_comments reviews=$reviews"
 
   cp "$state_dir/feedback.current.json" "$state_dir/feedback.previous.json"
-  cp "$state_dir/thumbs.current.json" "$state_dir/thumbs.previous.json"
   sleep "$interval_seconds"
 done
 ```
@@ -371,12 +341,8 @@ done
 Start it like this from Pi, leaving it running in the background:
 
 ```text
-process.start name="pr-<number>-monitor" command="bash /tmp/monitor-pr-<number>.sh <owner>/<repo> <number> <expected-codex-reviewer-login>" logWatches=[FEEDBACK_CHANGED,QUALIFYING_THUMBSUP_PRESENT]
+process.start name="pr-<number>-monitor" command="bash /tmp/monitor-pr-<number>.sh <owner>/<repo> <number>" logWatches=[FEEDBACK_CHANGED]
 ```
-
-The `:thumbsup:` criterion means a `+1` reaction from the expected external Codex reviewer account on the PR issue itself, not a local reviewer verdict pasted into chat and not a reaction from the executing agent. If the expected Codex account is ambiguous, identify the account from the repository's normal PR automation or ask the user before declaring the goal complete. The executing agent must never satisfy this criterion by adding its own `+1` reaction or by asking another agent in this workflow to add one.
-
-If a non-qualifying `+1` reaction exists, ignore it for completion. If the executing agent created it, remove it when possible and report that the previous completion signal was invalid.
 
 ### Rebase Guidance
 
@@ -392,7 +358,7 @@ Do not use destructive git commands to force mergeability. If conflicts require 
 
 ### Run State Closure
 
-Only after the completion criteria are all satisfied, mark the Codex goal or Pi monitoring todo complete. Do not mark the run state blocked for a slow reviewer, no new feedback, pending review, pending checks, or missing qualifying `:thumbsup:`; those are polling wait states. Mark the run state blocked only for a real actionable blocker that prevents meaningful polling or scoped fixes, and report the exact blocker with the latest PR state.
+Only after the completion criteria are all satisfied, mark the runtime monitoring task/goal complete. In Pi, complete the monitoring todo; in Codex, complete the Codex goal/task state. Do not mark the run state blocked for a slow reviewer, no new feedback, pending review, or pending checks; those are polling wait states. Mark the run state blocked only for a real actionable blocker that prevents meaningful polling or scoped fixes, and report the exact blocker with the latest PR state.
 
 ## Reviewer Prompt Template
 
@@ -436,7 +402,7 @@ Append this when a `REVIEW_ESCAPE` occurred:
 
 ```text
 Adversarial escalation context:
-Codex found actionable PR feedback after our local review gates had passed. Treat that as evidence the prior review was not thorough enough.
+Actionable PR feedback arrived after our local reviewer-pair gates had passed. Treat that as evidence the prior review was not thorough enough.
 
 Escaped feedback:
 - Reviewer/comment URL: <url>
@@ -459,13 +425,12 @@ Stay within the scope contract. Classify every finding with the normal scope lab
 Report:
 
 - PR URL,
-- run-state status (Codex goal or Pi todo),
+- run-state status (Pi todo or Codex goal/task),
 - changed files at a high level,
 - verification run,
-- Claude and Codex verdicts,
+- runtime-native scoped quality-review verdicts,
 - PR feedback monitoring result,
 - PR mergeability result,
-- Codex `:thumbsup:` result,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - any residual risk.
 
