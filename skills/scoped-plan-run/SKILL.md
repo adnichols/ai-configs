@@ -1,11 +1,11 @@
 ---
 name: scoped-plan-run
-description: Execute an existing implementation plan persistently through code changes, scoped runtime-native quality reviews, fixes, verification, commit, push, PR creation, and PR monitoring until feedback is addressed and the PR is mergeable without expanding beyond the plan's stated scope.
+description: Execute an existing implementation plan persistently through code changes, scoped runtime-native quality reviews, the applicable Pi GPT/GLM pre-PR implementation review, fixes, verification, commit, push, PR creation, and PR monitoring until feedback is addressed and the PR is mergeable without expanding beyond the plan's stated scope.
 ---
 
 # Scoped Plan Run
 
-Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates, while preventing reviewer-driven scope creep.
+Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates and, in Pi, the GPT/GLM pre-PR review gate, while preventing reviewer-driven scope creep.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
@@ -29,6 +29,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not proceed past a blocked plan decision by silently choosing a larger scope.
 - Do not silently defer work that is required by the plan, required for verification, or introduced by this branch; fix it before merge or stop with a blocker.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
+- In Pi executions, do not create a PR until the GPT/GLM pre-PR implementation review gate has passed with no unresolved in-scope P1/P2 issues or the user explicitly waives that gate.
 - Do not mark the active run state complete just because the implementation PR exists.
 - Do not mark the active run state complete until PR feedback has been monitored and addressed and the PR is mergeable with the destination branch.
 - Treat actionable PR feedback after local reviews as a review escape: the earlier review cycle missed something, so the next local review cycle must become scope-bound adversarial review instead of only patching the commented issue.
@@ -51,7 +52,7 @@ Stop before implementation if:
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
-- a required runtime-native review gate is unavailable and the user has not waived it. In Pi this means `quality-reviewer` and `quality-reviewer-glm`; in Codex this means the installed Codex execution/review prompts needed to perform scoped implementation review.
+- a required runtime-native review gate is unavailable and the user has not waived it. In Pi this means `quality-reviewer`, `quality-reviewer-glm`, and the `pre-pr-implementation-review` skill when the Pi pre-PR gate applies; in Codex this means the installed Codex execution/review prompts needed to perform scoped implementation review.
 
 ## Scope Classification
 
@@ -80,7 +81,7 @@ If the answer to all three is no, it may be left out of this PR only after it is
 1. Check whether a scoped-plan-run task/goal state is already active.
 2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use the todo tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR monitoring item that cannot be marked done until all completion criteria are satisfied.
 3. The objective must require both:
-   - executing the specified plan through implementation, verification, runtime-native scoped review, commit, push, and PR creation;
+   - executing the specified plan through implementation, verification, runtime-native scoped review, the applicable Pi GPT/GLM pre-PR review, commit, push, and PR creation;
    - monitoring the PR after creation until the post-PR completion criteria are satisfied.
 4. If an active run state already exists and it is compatible with this scoped plan run, continue under it and state the compatibility in working notes.
 5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before creating a new one.
@@ -88,7 +89,7 @@ If the answer to all three is no, it may be left out of this PR only after it is
 Use this objective shape:
 
 ```text
-Execute <plan path> through scoped implementation, verification, runtime-native scoped quality reviews, commit, push, PR creation, and persistent post-PR monitoring. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback takes a long time to arrive.
+Execute <plan path> through scoped implementation, verification, runtime-native scoped quality reviews, the applicable Pi GPT/GLM pre-PR implementation review, commit, push, PR creation, and persistent post-PR monitoring. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback takes a long time to arrive.
 ```
 
 Runtime state expectation: keep the task/goal state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi this state lives in todo/working notes; in Codex it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
@@ -192,15 +193,34 @@ Stop and report a convergence blocker if:
 - a needed fix would clearly expand the plan,
 - three full review cycles have not converged.
 
+### 9. GPT/GLM Pre-PR Review Gate
+
+After phase implementation and the runtime-native scoped quality-review loop has no unresolved in-scope findings, run the GPT/GLM pre-PR gate before final PR preparation when this `scoped-plan-run` is executing in Pi.
+
+In Pi, run `$pre-pr-implementation-review <plan path>`. That gate must use both:
+
+- GPT-5.5 via Pi's `quality-reviewer` subagent,
+- GLM-5.2 via Pi's `quality-reviewer-glm` subagent.
+
+In non-Pi consumers, do not try to invoke the Pi-only `$pre-pr-implementation-review` skill. Run an equivalent GPT-5.5 plus GLM-5.2 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise continue the existing runtime-native scoped quality-review workflow and record that the Pi-only GPT/GLM gate was not run.
+
+Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
+
+Treat every in-scope P1/P2 finding as blocking. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` P1/P2 issues, rerun targeted verification, and rerun both reviewers until both return no unresolved in-scope P1/P2 issues. P3 and true `OUT_OF_SCOPE_FOLLOW_UP` findings may remain only when documented with evidence and a tracking destination.
+
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if GLM-5.2 or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
+
+Record the GPT verdict, GLM verdict, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
+
 ## Final Verification
 
-Run the plan's final verification commands. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect.
+Run the plan's final verification commands after the GPT/GLM pre-PR review gate is clean or recorded as not applicable for the current non-Pi consumer. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect.
 
 Do not hide failures. Fix failures when they are in scope, required for truthful verification, or caused by this branch. Otherwise, report them as pre-existing or documented out-of-scope follow-ups with evidence and tracking destination.
 
 ## Commit, Push, and PR
 
-When implementation and scoped reviews pass:
+When implementation, scoped reviews, the applicable GPT/GLM pre-PR review gate status, and final verification pass:
 
 1. Review `git diff --stat` and `git diff --name-only`.
 2. Commit only the scoped changes.
@@ -214,6 +234,7 @@ The PR body must include:
 - verification commands and results,
 - first scoped quality-review verdict,
 - second scoped quality-review verdict,
+- GPT/GLM pre-PR review verdicts and artifact path, or explicit waived/not-run status,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - known residual risks.
 
@@ -429,6 +450,7 @@ Report:
 - changed files at a high level,
 - verification run,
 - runtime-native scoped quality-review verdicts,
+- GPT/GLM pre-PR review verdicts or waived/not-run status,
 - PR feedback monitoring result,
 - PR mergeability result,
 - documented out-of-scope follow-ups with evidence and tracking destination,

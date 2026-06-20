@@ -1,4 +1,4 @@
 interface:
   display_name: "Scoped Plan Run"
   short_description: "Execute plans without scope creep"
-  default_prompt: "Use $scoped-plan-run to execute an explicit plan path through implementation, scoped reviews, fixes, PR creation, and post-PR monitoring until the completion criteria are met."
+  default_prompt: "Use $scoped-plan-run to execute an explicit plan path through implementation, scoped reviews, Pi GPT/GLM pre-PR review when applicable, fixes, PR creation, and post-PR monitoring until the completion criteria are met."
