@@ -62,7 +62,7 @@ The plan should follow the `planning-workflow` execution artifact contract while
 - stable `id` attributes on major sections, phase wrappers, acceptance criteria, BDD scenarios, diagrams, figures, and likely comment targets,
 - a near-top `Decision Attention / Low-confidence Areas` section for blockers, required user input, unresolved decisions, and weak evidence,
 - a `Progress` section containing the only checkboxes,
-- canonical content: status, goal, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
+- canonical content: status, goal, Decision Attention / Low-confidence Areas, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
 - one-to-one mapping between progress checkboxes and detailed phases,
 - each phase includes `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, and `Verify`,
 - explicit UI-impact triage with repo-appropriate design evidence for real UI-impacting work,

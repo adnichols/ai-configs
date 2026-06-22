@@ -41,13 +41,13 @@
     <div class="muted">Implementation plan</div>
     <h1>Plan contract enforcement</h1>
     <p>Move the plan-contract-enforcement work into <code>ai-configs</code> as the primary repository by updating shared plan skills and config-source guidance. The plan-reviewer artifact is migration context only; downstream Heddle validator/template work remains a separate follow-up unless explicitly approved from this repo session.</p>
-    <p><span class="pill">Repo: ai-configs</span><span class="pill">Branch: main</span><span class="pill">Plan path: thoughts/plans/plan-contract-enforcement.html</span><span class="pill">Status: implemented locally; scoped review/PR pending</span><span class="pill">Origin: plan-reviewer plan_7K44LkB5bjIP</span></p>
+    <p><span class="pill">Repo: ai-configs</span><span class="pill">Branch: main</span><span class="pill">Plan path: thoughts/plans/plan-contract-enforcement.html</span><span class="pill">Status: implemented and reviewed; no PR required</span><span class="pill">Origin: plan-reviewer plan_7K44LkB5bjIP</span></p>
   </header>
 
   <section id="status" class="callout">
     <h2>Status</h2>
     <p><strong class="ok">Implemented locally under scoped-plan-run.</strong> The previous GPT/GLM readiness record belonged to a broader plan-reviewer-led, cross-repo plan and remains historical evidence only. The current ai-configs-scoped artifact passed fresh GPT and GLM readiness review on 2026-06-22 after migration-scope revisions, then implementation began by explicit scoped-plan-run invocation.</p>
-    <p><strong>Current gate:</strong> complete scoped implementation reviews, pre-PR review, final verification, commit, PR creation, and PR monitoring before closing the run.</p>
+    <p><strong>Current gate:</strong> close documented in-scope reviewer findings, rerun final verification, and commit the cleanup. The user waived PR creation and PR monitoring for this direct-main repo run.</p>
   </section>
 
   <section id="goal">
@@ -60,6 +60,20 @@
       <li>UI-impacting work requiring high-fidelity existing/target mocks, repo-appropriate design evidence, and verification gates before execution-ready status.</li>
       <li>Readiness semantics that prevent stale, self-certified, contradictory, or blocker-hiding execution handoffs.</li>
     </ul>
+  </section>
+
+  <section id="decision-attention" class="callout">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <p><strong class="ok">No product decision is needed to adapt the plan for ai-configs.</strong> Implementation, scoped review, pre-PR review, and in-scope P3 cleanup are complete locally. The user waived PR creation and PR monitoring for this direct-main repo run.</p>
+    <table>
+      <thead><tr><th>Category</th><th>Status</th><th>Resolution</th></tr></thead>
+      <tbody>
+        <tr id="decision-primary-repo"><td>Primary repo</td><td>Resolved</td><td><code>ai-configs</code> on branch <code>main</code> is the primary repo for this work.</td></tr>
+        <tr id="decision-shared-floor"><td>Shared doctrine scope</td><td>Resolved</td><td>Global skill edits must remain repo-neutral and avoid Heddle-specific Weft, Linear, native, or schema details.</td></tr>
+        <tr id="decision-service-boundary"><td>plan-reviewer boundary</td><td>Resolved</td><td><code>html-plan-reviewer</code> may describe registration/readiness routing and warning-first profile boundaries; daemon enforcement stays out of scope.</td></tr>
+        <tr id="decision-downstream-heddle"><td>Heddle work</td><td>Resolved</td><td>Heddle validator/template enforcement is downstream follow-up, not edited from this ai-configs session.</td></tr>
+      </tbody>
+    </table>
   </section>
 
   <section id="changed-readiness-assumptions">
@@ -78,20 +92,6 @@
   <section id="why-this-plan-exists">
     <h2>Why this plan exists</h2>
     <p>The principles being enforced are not primarily plan-reviewer product behavior. They belong in the shared skills that teach agents how to write, review, and execute plans across repositories. <code>ai-configs</code> owns those shared skills, so this plan now treats <code>planning-workflow</code>, <code>reviewed-html-plan</code>, <code>product-principles</code>, and the service-boundary parts of <code>html-plan-reviewer</code> as the source-of-truth implementation surface.</p>
-  </section>
-
-  <section id="decision-attention" class="callout">
-    <h2>Decision Attention / Low-confidence Areas</h2>
-    <p><strong class="ok">No product decision is needed to adapt the plan for ai-configs.</strong> Implementation is complete locally; scoped review, pre-PR review, PR creation, and PR monitoring remain before the run can close.</p>
-    <table>
-      <thead><tr><th>Category</th><th>Status</th><th>Resolution</th></tr></thead>
-      <tbody>
-        <tr id="decision-primary-repo"><td>Primary repo</td><td>Resolved</td><td><code>ai-configs</code> on branch <code>main</code> is the primary repo for this work.</td></tr>
-        <tr id="decision-shared-floor"><td>Shared doctrine scope</td><td>Resolved</td><td>Global skill edits must remain repo-neutral and avoid Heddle-specific Weft, Linear, native, or schema details.</td></tr>
-        <tr id="decision-service-boundary"><td>plan-reviewer boundary</td><td>Resolved</td><td><code>html-plan-reviewer</code> may describe registration/readiness routing and warning-first profile boundaries; daemon enforcement stays out of scope.</td></tr>
-        <tr id="decision-downstream-heddle"><td>Heddle work</td><td>Resolved</td><td>Heddle validator/template enforcement is downstream follow-up, not edited from this ai-configs session.</td></tr>
-      </tbody>
-    </table>
   </section>
 
   <section id="authority-and-inputs">
@@ -414,7 +414,7 @@ rg -n "Decision Attention|phase/progress|UI-impact|execution-ready" skills/plann
 
   <section id="resume-instructions">
     <h2>Resume instructions</h2>
-    <p>Read this plan fully, then inspect <code>AGENTS.md</code>, <code>CLAUDE.md</code>, and the target skill files. Confirm the branch is still <code>main</code>. Do not edit Heddle or plan-reviewer runtime code. If resuming this scoped-plan-run after local implementation, continue with scoped reviews, pre-PR review, final verification, commit, PR creation, and PR monitoring rather than reimplementing completed phases. After material edits to the plan itself that change scope or execution semantics, rerun read-only readiness review before preserving execution-ready status.</p>
+    <p>Read this plan fully, then inspect <code>AGENTS.md</code>, <code>CLAUDE.md</code>, and the target skill files. Confirm the branch is still <code>main</code>. Do not edit Heddle or plan-reviewer runtime code. Implementation, scoped review, pre-PR review, and in-scope P3 cleanup are complete. The user waived PR creation and PR monitoring for this direct-main repo run. After material edits to the plan itself that change scope or execution semantics, rerun read-only readiness review before preserving execution-ready status.</p>
   </section>
 </main>
 </body>
