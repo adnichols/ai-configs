@@ -7,7 +7,10 @@ This reference file defines the exact stage behavior for `adn-dev-wf`.
 Use the single-file plan contract already established in this repo:
 - one file in the repo's active plan format
 - preserve existing completed progress items and append-only logs
-- each phase includes `### Tests first`, `### End State`, `### Work`, `### Expected files`, and `### Verify`
+- near-top Decision Attention exposes blockers, required user input, unresolved decisions, and weak evidence
+- `## Progress` contains the only checkboxes and maps one-to-one with detailed phases
+- each phase includes `### Tests first`, `### End State`, `### Work`, `### Expected files`, `### Open questions / decision dependencies`, and `### Verify`
+- UI impact is explicitly triaged and is not `unknown` for execution-ready plans
 - execution-ready plans must not leave unresolved open questions
 
 If a legacy bundle exists under `thoughts/plans/<slug>/`, read it for migration but do not modify legacy files.
@@ -59,10 +62,13 @@ Before leaving this stage:
 Do not implement until all of these are true:
 - no inline review comments remain
 - the plan status is execution-ready
-- `## Progress` exists
+- `## Progress` exists and maps one-to-one with detailed phases
 - `Resume Instructions (Agent)` exists
-- each active phase includes `### Tests first`, `### End State`, `### Work`, and `### Verify`
+- Decision Attention does not hide blockers, required user input, or low-confidence decisions
+- each active phase includes `### Tests first`, `### End State`, `### Work`, `### Expected files`, `### Open questions / decision dependencies`, and `### Verify`
+- UI impact is explicitly triaged and is not `unknown`
 - no unresolved open questions materially affect behavior
+- for reviewed HTML plans, the closing ready verdict comes from an independent reviewer by substance, such as `PLAN_EXECUTION_READY` from `reviewed-html-plan` or an equivalent approved `PASS_NO_ISSUES` verdict, and readiness metadata is truthful
 
 ## 6. Direct execution
 

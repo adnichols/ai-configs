@@ -167,6 +167,8 @@ Testing should validate:
 
 ## Planning + review expectations
 
+Plans are operator and agent interfaces. They should make the correct next action obvious before implementation starts, especially when the work has hidden risk, low-confidence choices, UI impact, recovery behavior, or readiness gates.
+
 When planning product work, explicitly define:
 - the default workflow,
 - what the user or agent should be able to omit,
@@ -175,15 +177,20 @@ When planning product work, explicitly define:
 - which routine issues must be absorbed into normal command flow rather than exported as extra manual steps,
 - where fail-closed behavior begins and why,
 - what errors should say,
+- which decisions, blockers, and low-confidence areas need near-top Decision Attention,
+- whether there is UI impact and what existing/target evidence proves the intended change,
+- how agents recover or stop when plan metadata, comments, or readiness state are stale,
 - and which tests prove the golden path stays intact.
 
 When reviewing plans or implementations, ask:
 - Is the correct path obvious?
 - Is the simplest path actually supported?
+- Are blockers, required user input, low-confidence choices, and phase-specific dependencies visible where agents will see them before execution?
 - Are defaults safe and useful?
 - Does the system self-heal known recoverable preconditions?
 - After healing, does status/config/reporting tell the truth?
 - Do errors provide a concrete path forward?
+- Does UI-impacting work include enough current/target evidence to review the intended user experience rather than only prose claims?
 - Are tests centered on real usage rather than only fully specified/internal paths?
 
 ## Repository alignment / dissonance audit
@@ -201,6 +208,7 @@ Check for dissonance in:
 - regression suites and contract tests
 - recovery/runbook docs
 - plan templates and review prompts
+- readiness metadata, browser-review comments, and execution handoff status
 
 Look for misalignments such as:
 - docs telling users to supply values the product should discover,
@@ -208,6 +216,8 @@ Look for misalignments such as:
 - self-healing behavior that exists in code but is not reflected in status or docs,
 - stale config namespaces, legacy paths, or install methods that confuse real usage,
 - errors that describe what is missing but not the exact next step,
+- plans that hide blockers, low-confidence decisions, or UI impact below the fold,
+- execution handoffs that self-certify readiness, ignore stale comments, or contradict registered readiness metadata,
 - product intent that prizes correctness but says nothing about obvious workflows and recoverability,
 - or repo guidance that accidentally normalizes operator burden instead of eliminating it.
 
@@ -224,6 +234,8 @@ Plans that use this skill should make the following explicit when relevant:
 - self-healing and backfill behavior,
 - fail-closed boundaries,
 - actionable error guidance,
+- Decision Attention for blockers, low-confidence choices, user input, and phase dependencies,
+- UI-impact triage with current/target evidence for visible changes,
 - regression coverage for the golden path,
 - and any repo-guidance or onboarding updates needed to stay aligned.
 

@@ -60,9 +60,12 @@ The plan should follow the `planning-workflow` execution artifact contract while
 
 - dark-mode theme with explicit dark background, light foreground, readable muted text, accessible link/accent colors, and `color-scheme: dark`,
 - stable `id` attributes on major sections, phase wrappers, acceptance criteria, BDD scenarios, diagrams, figures, and likely comment targets,
+- a near-top `Decision Attention / Low-confidence Areas` section for blockers, required user input, unresolved decisions, and weak evidence,
 - a `Progress` section containing the only checkboxes,
 - canonical content: status, goal, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
-- each phase includes `End State`, `Tests first`, `Expected files`, `Work`, and `Verify`,
+- one-to-one mapping between progress checkboxes and detailed phases,
+- each phase includes `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, and `Verify`,
+- explicit UI-impact triage with repo-appropriate design evidence for real UI-impacting work,
 - exact verification commands grounded in repo reality,
 - no unresolved open questions when the status is `execution-ready`.
 
@@ -166,14 +169,14 @@ After fixing readiness blockers, rerun both GPT and GLM plan reviews. Repeat unt
 
 #### Independent sign-off gate (do not self-certify)
 
-The closing `PASS_NO_ISSUES` that marks a plan `execution-ready` must come from an **independent reviewer** — any reviewer other than the plan author/self. The plan author may *integrate* review findings but may **never self-certify** execution readiness:
+The closing ready verdict that marks a plan `execution-ready` must come from an **independent reviewer** — any reviewer other than the plan author/self. For this workflow, `PLAN_EXECUTION_READY` is the expected ready verdict; an equivalent approved `PASS_NO_ISSUES` verdict from another independent plan reviewer may also clear the gate by substance. The plan author may *integrate* review findings but may **never self-certify** execution readiness:
 
 - A `plan-author` / `plan-owner` / `pi` / `self` review verdict does not clear the gate, even if it is the latest review.
-- If any independent review returns `BLOCKED` or raises in-scope findings, run a **fresh independent review after integrating** the fixes. The integration edit itself does not clear the gate; only a new independent `PASS_NO_ISSUES` does.
-- The independent `PASS_NO_ISSUES` must not be followed by any later non-pass review, and should post-date the last material plan edit. If you edit the plan after the independent pass, re-review.
+- If any independent review returns `BLOCKED`, `PLAN_NEEDS_REVISION`, or raises in-scope findings, run a **fresh independent review after integrating** the fixes. The integration edit itself does not clear the gate; only a new independent ready verdict does.
+- The independent ready verdict must not be followed by any later non-pass review, and should post-date the last material plan edit. If you edit the plan after the independent pass, re-review.
 - Record reviews truthfully in the `review-record` section with the real reviewer identity. Do not relabel a self-review as `codex`/`claude-code` to satisfy the gate — actually run the independent tool.
 
-This is enforced mechanically by `scripts/plans/validate-html-plan.mjs`: an `execution-ready` plan fails validation unless its `review-record` contains an independent (non-author/self) `PASS_NO_ISSUES` that is not regressed by a later non-pass review. The validator checks the artifact shape; this doctrine is what makes the independent re-review actually happen.
+This workflow enforces the gate through the reviewer loop and truthful `plan-review` execution-readiness metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/GPT/GLM gates and service metadata are the enforcement surface.
 
 Stop and report a convergence blocker if:
 
@@ -192,8 +195,11 @@ Before final output, inspect the HTML plan for obvious handoff blockers:
 - the plan-review service metadata has not been re-registered with `--execution-ready true` after successful GPT and GLM plan reviews,
 - unresolved inline review markers or unresolved question sections remain,
 - status is not `execution-ready`,
+- near-top Decision Attention is missing or hides unresolved decisions,
 - `Progress` or resume instructions are missing,
-- an active phase is missing `End State`, `Tests first`, `Expected files`, `Work`, or `Verify`,
+- progress checkboxes and detailed phases do not map one-to-one,
+- an active phase is missing `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, or `Verify`,
+- UI impact is missing, `unknown`, or lacks required design evidence for real UI-impacting work,
 - verification commands are stale or not copy/paste ready,
 - GPT or GLM did not agree by substance that the plan is ready,
 - PM review left unresolved product-intent or user-impact gaps.

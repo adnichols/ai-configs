@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plan contract enforcement</title>
+  <style>
+    :root { color-scheme: dark; --bg:#07111f; --panel:#0f172a; --panel2:#111827; --text:#e5e7eb; --muted:#9ca3af; --accent:#7dd3fc; --ok:#86efac; --warn:#fde68a; --danger:#fecaca; --border:#334155; --border2:#475569; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(135deg,#07111f 0%,#111827 54%,#1e1b4b 100%); color:var(--text); font:16px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1160px; margin:0 auto; padding:44px 24px 80px; }
+    header, section, article, figure { background:rgba(15,23,42,.91); border:1px solid var(--border); border-radius:18px; padding:24px; margin:18px 0; box-shadow:0 18px 48px rgba(0,0,0,.24); }
+    header { background:linear-gradient(135deg,rgba(14,165,233,.17),rgba(167,139,250,.15)); }
+    h1,h2,h3,h4 { line-height:1.2; margin:0 0 12px; }
+    h1 { font-size:clamp(2rem,4vw,3.25rem); }
+    h2 { color:#f8fafc; }
+    h3 { color:#dbeafe; }
+    h4 { color:#bae6fd; margin-top:18px; }
+    p { margin:8px 0 0; }
+    ul,ol { margin:8px 0 0; padding-left:22px; }
+    li { margin:6px 0; }
+    a { color:var(--accent); }
+    code { background:#020617; border:1px solid #1e293b; border-radius:6px; padding:1px 5px; color:#bae6fd; }
+    pre { overflow:auto; background:#020617; border:1px solid #1e293b; border-radius:12px; padding:14px; color:#dbeafe; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th,td { border:1px solid var(--border); padding:10px; vertical-align:top; }
+    th { background:#0b1220; text-align:left; }
+    .pill { display:inline-block; border:1px solid var(--border2); border-radius:999px; padding:4px 10px; margin:4px 6px 0 0; color:#dbeafe; background:rgba(15,23,42,.8); }
+    .muted { color:var(--muted); }
+    .status { color:var(--warn); font-weight:800; }
+    .ok { color:var(--ok); font-weight:800; }
+    .danger { color:var(--danger); font-weight:800; }
+    .callout { border-color:rgba(125,211,252,.45); background:rgba(14,165,233,.08); }
+    .phase { border-color:#4b5563; }
+    input[type="checkbox"] { transform:translateY(1px); }
+  </style>
+</head>
+<body>
+<main id="plan-root">
+  <header id="title">
+    <div class="muted">Implementation plan</div>
+    <h1>Plan contract enforcement</h1>
+    <p>Move the plan-contract-enforcement work into <code>ai-configs</code> as the primary repository by updating shared plan skills and config-source guidance. The plan-reviewer artifact is migration context only; downstream Heddle validator/template work remains a separate follow-up unless explicitly approved from this repo session.</p>
+    <p><span class="pill">Repo: ai-configs</span><span class="pill">Branch: main</span><span class="pill">Plan path: thoughts/plans/plan-contract-enforcement.html</span><span class="pill">Status: implemented locally; scoped review/PR pending</span><span class="pill">Origin: plan-reviewer plan_7K44LkB5bjIP</span></p>
+  </header>
+
+  <section id="status" class="callout">
+    <h2>Status</h2>
+    <p><strong class="ok">Implemented locally under scoped-plan-run.</strong> The previous GPT/GLM readiness record belonged to a broader plan-reviewer-led, cross-repo plan and remains historical evidence only. The current ai-configs-scoped artifact passed fresh GPT and GLM readiness review on 2026-06-22 after migration-scope revisions, then implementation began by explicit scoped-plan-run invocation.</p>
+    <p><strong>Current gate:</strong> complete scoped implementation reviews, pre-PR review, final verification, commit, PR creation, and PR monitoring before closing the run.</p>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Make shared plan-writing doctrine in <code>ai-configs</code> enforce a repo-neutral planning floor:</p>
+    <ul>
+      <li>Prominent near-top Decision Attention for decisions, blockers, user-input needs, and low-confidence areas.</li>
+      <li>One-to-one mapping between progress checkboxes and detailed execution phases.</li>
+      <li>Phase-specific open questions / decision dependencies, with explicit <code>None</code> when there are no dependencies.</li>
+      <li>UI-impacting work requiring high-fidelity existing/target mocks, repo-appropriate design evidence, and verification gates before execution-ready status.</li>
+      <li>Readiness semantics that prevent stale, self-certified, contradictory, or blocker-hiding execution handoffs.</li>
+    </ul>
+  </section>
+
+  <section id="changed-readiness-assumptions">
+    <h2>Changed readiness assumptions caused by repo move</h2>
+    <table>
+      <thead><tr><th>Prior assumption</th><th>New ai-configs assumption</th><th>Implication</th></tr></thead>
+      <tbody>
+        <tr><td>plan-reviewer was the primary implementation repo.</td><td><code>ai-configs</code> is primary; plan-reviewer is a service dependency and context source.</td><td>Plan phases must target shared skill source files, not daemon/runtime code.</td></tr>
+        <tr><td>Heddle validator/template changes were part of execution.</td><td>Heddle remains downstream/local enforcement work outside this session.</td><td>Represent Heddle as follow-up guidance only; do not edit <code>/Users/anichols/code/heddle</code>.</td></tr>
+        <tr><td>Final readiness reviews certified the old cross-repo scope.</td><td>Fresh review is needed for the narrowed ai-configs scope.</td><td>Status is reset to not execution-ready until new review passes after migration edits.</td></tr>
+        <tr><td>plan-reviewer daemon profile enforcement might be planned in-repo.</td><td>Shared doctrine may describe warning-first/profile-based boundaries, but daemon code is out of scope.</td><td>No product/runtime implementation in plan-reviewer from this session.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="why-this-plan-exists">
+    <h2>Why this plan exists</h2>
+    <p>The principles being enforced are not primarily plan-reviewer product behavior. They belong in the shared skills that teach agents how to write, review, and execute plans across repositories. <code>ai-configs</code> owns those shared skills, so this plan now treats <code>planning-workflow</code>, <code>reviewed-html-plan</code>, <code>product-principles</code>, and the service-boundary parts of <code>html-plan-reviewer</code> as the source-of-truth implementation surface.</p>
+  </section>
+
+  <section id="decision-attention" class="callout">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <p><strong class="ok">No product decision is needed to adapt the plan for ai-configs.</strong> Implementation is complete locally; scoped review, pre-PR review, PR creation, and PR monitoring remain before the run can close.</p>
+    <table>
+      <thead><tr><th>Category</th><th>Status</th><th>Resolution</th></tr></thead>
+      <tbody>
+        <tr id="decision-primary-repo"><td>Primary repo</td><td>Resolved</td><td><code>ai-configs</code> on branch <code>main</code> is the primary repo for this work.</td></tr>
+        <tr id="decision-shared-floor"><td>Shared doctrine scope</td><td>Resolved</td><td>Global skill edits must remain repo-neutral and avoid Heddle-specific Weft, Linear, native, or schema details.</td></tr>
+        <tr id="decision-service-boundary"><td>plan-reviewer boundary</td><td>Resolved</td><td><code>html-plan-reviewer</code> may describe registration/readiness routing and warning-first profile boundaries; daemon enforcement stays out of scope.</td></tr>
+        <tr id="decision-downstream-heddle"><td>Heddle work</td><td>Resolved</td><td>Heddle validator/template enforcement is downstream follow-up, not edited from this ai-configs session.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="authority-and-inputs">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li id="input-user-handoff">User handoff: shift plan-contract-enforcement from plan-reviewer into <code>ai-configs</code>; adapt the plan first; keep shared doctrine repo-neutral; do not edit Heddle or plan-reviewer runtime code from this session.</li>
+      <li id="input-repo-guidance"><code>AGENTS.md</code>: repo-owned shared Pi skills live under <code>skills/</code>; active browser-reviewed plans are semantic HTML under <code>thoughts/plans/</code>; normal ai-configs changes stay in-repo without worktrees unless requested.</li>
+      <li id="input-claude-guidance"><code>CLAUDE.md</code>: this repo is a configuration source of truth for Claude, Codex, Gemini, Pi, and related skills; underscored tool directories and <code>skills/</code> source files are edited here, then installed/synced elsewhere.</li>
+      <li id="input-migrated-plan">Migrated plan artifact: <code>thoughts/plans/plan-contract-enforcement.html</code>, copied from plan-reviewer review URL <a href="http://mbp.braid-python.ts.net:4317/p/plan_7K44LkB5bjIP">plan_7K44LkB5bjIP</a>.</li>
+      <li id="input-skill-sources"><code>skills/planning-workflow/SKILL.md</code>, <code>skills/reviewed-html-plan/SKILL.md</code>, <code>skills/product-principles/SKILL.md</code>, possible boundary-only edits to <code>skills/html-plan-reviewer/SKILL.md</code>, and narrow shared-workflow readiness cleanup in <code>skills/adn-dev-wf/SKILL.md</code> plus <code>skills/adn-dev-wf/references/stages.md</code> where that exact stage contract would otherwise preserve stale or weaker readiness semantics.</li>
+      <li id="input-downstream-heddle"><code>/Users/anichols/code/heddle</code> remains relevant only as downstream enforcement context and must not be edited by this plan unless the user explicitly expands scope.</li>
+    </ul>
+  </section>
+
+  <section id="current-implementation-reality">
+    <h2>Current implementation reality</h2>
+    <table>
+      <thead><tr><th>Surface</th><th>Current reality</th><th>Implication</th></tr></thead>
+      <tbody>
+        <tr><td><code>planning-workflow</code></td><td>Already defines readiness states, canonical sections, progress-only checkboxes, phase template, low-confidence workflow, and ready bar.</td><td>Add explicit Decision Attention, phase/progress bijection, phase decision-dependency requirements, and UI-impact triage/evidence language here.</td></tr>
+        <tr><td><code>reviewed-html-plan</code></td><td>Already owns browser feedback, PM review, GPT/GLM plan reviews, independent sign-off, and final readiness checks, but currently references absent <code>scripts/plans/validate-html-plan.mjs</code> mechanical enforcement.</td><td>Clarify readiness failure modes and replace stale validator claims with truthful reviewer-gate/service-metadata semantics.</td></tr>
+        <tr><td><code>adn-dev-wf</code></td><td>Canonical reviewed-plan workflow guidance and its exact stage reference can preserve stale or weaker readiness semantics.</td><td>Apply narrow shared-workflow reconciliation so the top-level skill and referenced stage contract stay aligned with the reviewed-plan readiness floor.</td></tr>
+        <tr><td><code>product-principles</code></td><td>Already frames golden-path, safe defaults, self-healing, actionable errors, and repo-alignment audits.</td><td>Add plan-contract/operator principles so planning artifacts expose risks and decisions where agents and reviewers will actually see them.</td></tr>
+        <tr><td><code>html-plan-reviewer</code></td><td>Owns service mechanics: daemon assumptions, registration, canonical URLs, source sync, queue-backed comment monitoring, ack/resolve.</td><td>Keep it service-focused; add only boundary language that points structural doctrine back to planning skills and preserves warning-first/profile-based service routing.</td></tr>
+        <tr><td>plan-reviewer daemon</td><td>Standalone service dependency, not source in this repo.</td><td>No daemon code or runtime behavior changes in this ai-configs plan.</td></tr>
+        <tr><td>Heddle</td><td>Downstream repo with local strict contract needs.</td><td>Document as follow-up; do not include Heddle file edits or validation commands as ai-configs implementation steps.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="target-contract">
+    <h2>Target contract</h2>
+    <h3 id="contract-layering">Layered enforcement architecture</h3>
+    <ol>
+      <li><strong>Shared doctrine:</strong> <code>ai-configs</code> skills define the universal semantic floor.</li>
+      <li><strong>Repo contract:</strong> downstream repos adapt that floor to local templates, validators, and domain constraints.</li>
+      <li><strong>Service boundary:</strong> plan-reviewer service metadata and comment queues support review; they do not become the global structural schema source.</li>
+      <li><strong>Readiness gate:</strong> execution-ready status requires resolved blockers, fresh independent sign-off, and no contradictions between artifact readiness and registered metadata where both exist.</li>
+      <li><strong>Downstream enforcement:</strong> Heddle and other repos implement stricter local validators separately.</li>
+    </ol>
+    <h3 id="contract-shared-floor">Shared floor</h3>
+    <ul>
+      <li>Decision Attention appears near the top of non-trivial plans and indexes blockers, user-input needs, low-confidence areas, and unresolved decisions.</li>
+      <li>Progress contains the only checkboxes; every progress item maps to exactly one phase, and every phase maps to exactly one progress item.</li>
+      <li>Each phase includes End state, Tests first, Expected files, Work, Verify, and Open questions / decision dependencies.</li>
+      <li>Every non-trivial plan triages UI impact. Execution-ready UI-impacting plans include existing and target high-fidelity mocks plus repo-appropriate design evidence.</li>
+      <li><code>unknown</code> UI impact, unresolved blockers, stale review, self-certification, or later non-pass review prevents execution-ready status.</li>
+    </ul>
+  </section>
+
+  <section id="ui-impact-triage" data-ui-impact="text-only" data-ui-scope="plan-artifact-contract">
+    <h2>UI impact triage</h2>
+    <p><strong>UI impact: text-only impact on plan artifacts.</strong> This work changes the written structure and review expectations for plans. It does not change app-shell UI, plan-reviewer runtime UI, visual styling, or browser interaction behavior in this session.</p>
+    <ul>
+      <li><strong>Current weak structure:</strong> plans can hide blockers in body sections, leave progress detached from phase details, omit phase-specific decision dependencies, and claim execution readiness without clearly exposing UI-impact evidence.</li>
+      <li><strong>Target structure:</strong> plans should state Decision Attention near the top, keep progress and phases one-to-one, include explicit Open questions / decision dependencies per phase, and explain UI-impact evidence requirements in prose.</li>
+      <li><strong>Evidence expectation:</strong> shared skills should require repo-appropriate design evidence for real UI-changing work, but this ai-configs plan only needs a textual rendition because no plan-reviewer runtime UI is being changed.</li>
+    </ul>
+  </section>
+
+  <section id="product-intent-alignment">
+    <h2>Product intent alignment</h2>
+    <p>This plan improves the shared agent/operator workflow by making the correct planning behavior the default behavior. Agents should not have to infer hidden readiness semantics, and reviewers should not have to hunt for blockers, decisions, UI impact, or phase details. The right action is to write plans with visible risk surfaces and executable phases before implementation starts.</p>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ul>
+      <li id="decision-layered-model"><strong>Layered model:</strong> shared skills define the floor; downstream repos enforce local detail.</li>
+      <li id="decision-owner-files"><strong>Owner files:</strong> structure belongs in <code>planning-workflow</code>, readiness review in <code>reviewed-html-plan</code>, operator/product rationale in <code>product-principles</code>, and service mechanics in <code>html-plan-reviewer</code>.</li>
+      <li id="decision-repo-neutral"><strong>Repo-neutral doctrine:</strong> no Heddle-specific Weft, Linear, native, or schema rules go into global skills.</li>
+      <li id="decision-no-runtime-code"><strong>No runtime code:</strong> no product/runtime code changes in plan-reviewer from this ai-configs session.</li>
+      <li id="decision-downstream-separate"><strong>Downstream separate:</strong> Heddle enforcement remains follow-up or a separate approved phase outside this session.</li>
+    </ul>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <ol>
+      <li id="ac-shared-doctrine"><strong>AC1:</strong> <code>planning-workflow</code> defines Decision Attention, phase/progress bijection, phase decision dependencies, UI-impact triage, and execution-ready blocker semantics as universal plan-writing doctrine.</li>
+      <li id="ac-readiness"><strong>AC2:</strong> <code>reviewed-html-plan</code> gates execution-ready status on fresh independent sign-off, no unresolved browser/PM/GPT/GLM blockers, no stale material edits after sign-off, and no artifact/metadata contradiction where machine-readable readiness exists; related shared workflow guidance must not claim absent <code>validate-html-plan</code> mechanical enforcement.</li>
+      <li id="ac-product-principles"><strong>AC3:</strong> <code>product-principles</code> explains why plan artifacts must make blockers, low-confidence choices, UI impact, defaults, recovery, and verification obvious to agents/operators.</li>
+      <li id="ac-service-boundary"><strong>AC4:</strong> <code>html-plan-reviewer</code> remains the service mechanics source and routes structural/readiness doctrine back to planning skills; any daemon enforcement described there is warning-first/profile-based and not Heddle-specific.</li>
+      <li id="ac-downstream"><strong>AC5:</strong> The plan records downstream Heddle enforcement as follow-up only and does not require editing Heddle from this ai-configs run.</li>
+      <li id="ac-verification"><strong>AC6:</strong> Verification uses commands that are valid in <code>ai-configs</code> on branch <code>main</code> and does not include plan-reviewer build/test or Heddle validator commands as required local gates.</li>
+    </ol>
+  </section>
+
+  <section id="bdd-scenarios">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-decision-attention">
+      <h3>Prominent decisions before execution</h3>
+      <p><strong>Given</strong> an agent writes a non-trivial plan with an unresolved low-confidence API decision, <strong>when</strong> the shared planning doctrine is followed, <strong>then</strong> Decision Attention near the top shows the blocker and the plan cannot be marked execution-ready until resolved or downgraded to research-ready with a next research step.</p>
+    </article>
+    <article id="bdd-phase-progress">
+      <h3>Progress maps to phase details</h3>
+      <p><strong>Given</strong> a plan has a progress item for P2, <strong>when</strong> another agent resumes the plan, <strong>then</strong> exactly one P2 phase exists with end state, tests first, expected files, work, verify, and open questions / decision dependencies.</p>
+    </article>
+    <article id="bdd-ui-impact-ready">
+      <h3>UI-impacting work requires design evidence</h3>
+      <p><strong>Given</strong> a plan changes visible UI or reviewer-facing artifacts, <strong>when</strong> it requests execution-ready status, <strong>then</strong> it includes high-fidelity existing and target mocks, repo-appropriate design evidence, and verification gates proving design match.</p>
+    </article>
+    <article id="bdd-service-boundary">
+      <h3>Service mechanics do not become structural doctrine</h3>
+      <p><strong>Given</strong> an agent reads <code>html-plan-reviewer</code>, <strong>when</strong> it needs plan structure or readiness doctrine, <strong>then</strong> the skill points back to <code>planning-workflow</code> and <code>reviewed-html-plan</code> instead of duplicating or inventing a daemon schema.</p>
+    </article>
+    <article id="bdd-downstream-followup">
+      <h3>Downstream enforcement stays separate</h3>
+      <p><strong>Given</strong> Heddle needs stricter local validator enforcement, <strong>when</strong> this ai-configs plan is executed, <strong>then</strong> Heddle-specific work is recorded as follow-up and no Heddle file is modified.</p>
+    </article>
+  </section>
+
+  <section id="test-coverage-matrix">
+    <h2>Test coverage matrix</h2>
+    <table>
+      <thead><tr><th>Acceptance</th><th>BDD</th><th>Evidence</th><th>Command</th></tr></thead>
+      <tbody>
+        <tr><td>AC1</td><td>Decision Attention, phase/progress, UI impact</td><td>Diff-backed semantic inspection proving each required doctrine item was added to <code>planning-workflow</code>, not just that broad terms already existed.</td><td><code>git diff -- skills/planning-workflow/SKILL.md<br>rg -n "Decision Attention" skills/planning-workflow/SKILL.md<br>rg -n "one-to-one|maps to exactly one phase|phase/progress" skills/planning-workflow/SKILL.md<br>rg -n "Open questions / decision dependencies|decision dependencies" skills/planning-workflow/SKILL.md<br>rg -n "UI impact|UI-impact" skills/planning-workflow/SKILL.md</code></td></tr>
+        <tr><td>AC2</td><td>Prominent decisions, readiness gate</td><td>Diff-backed semantic inspection proving reviewed-plan readiness semantics are updated and stale validator claims are reconciled across shared skills.</td><td><code>git diff -- skills/reviewed-html-plan/SKILL.md skills/adn-dev-wf/SKILL.md<br>rg -n "Decision Attention|independent sign-off|material plan edit|execution-ready|metadata" skills/reviewed-html-plan/SKILL.md<br>test ! -e scripts/plans/validate-html-plan.mjs<br>! rg -rn "scripts/plans/validate-html-plan.mjs|validate-html-plan" skills/</code></td></tr>
+        <tr><td>AC3</td><td>Operator-visible risk</td><td>Diff-backed semantic inspection proving product/operator rationale was added without duplicating structural contract detail.</td><td><code>git diff -- skills/product-principles/SKILL.md<br>rg -n "Decision Attention|low-confidence|UI impact|operator|agent" skills/product-principles/SKILL.md</code></td></tr>
+        <tr><td>AC4</td><td>Service boundary</td><td>Diff-backed semantic inspection showing service mechanics stay in <code>html-plan-reviewer</code> and structural doctrine is delegated.</td><td><code>git diff -- skills/html-plan-reviewer/SKILL.md<br>rg -n "planning-workflow|reviewed-html-plan|profile|warning|execution-ready" skills/html-plan-reviewer/SKILL.md</code></td></tr>
+        <tr><td>AC5, AC6</td><td>Downstream follow-up</td><td>Git status proves only ai-configs plan/skill files changed; no Heddle or plan-reviewer runtime code touched.</td><td><code>git status --short</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul>
+      <li id="progress-p1"><label><input type="checkbox" checked disabled> P1 — Shared planning doctrine</label></li>
+      <li id="progress-p2"><label><input type="checkbox" checked disabled> P2 — Reviewed-plan and service boundaries</label></li>
+      <li id="progress-p3"><label><input type="checkbox" checked disabled> P3 — Product principles alignment</label></li>
+      <li id="progress-p4"><label><input type="checkbox" checked disabled> P4 — Rollout and verification handoff</label></li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Phase-by-phase execution plan</h2>
+
+    <article class="phase" id="phase-p1-shared-planning-doctrine">
+      <h3>P1 — Shared planning doctrine</h3>
+      <h4>End state</h4>
+      <p><code>planning-workflow</code> defines the universal plan contract floor in repo-neutral language.</p>
+      <h4>Tests first</h4>
+      <ul>
+        <li>Before edits, inspect current <code>planning-workflow</code> for existing readiness, phase, progress, low-confidence, and UI-impact language.</li>
+        <li>No automated test suite is defined for skill prose; use targeted inspection and fresh independent plan review as compensating verification.</li>
+      </ul>
+      <h4>Expected files</h4>
+      <ul>
+        <li><code>skills/planning-workflow/SKILL.md</code></li>
+      </ul>
+      <h4>Work</h4>
+      <ul>
+        <li>Add Decision Attention as a required near-top readiness surface for non-trivial plans.</li>
+        <li>Add phase/progress bijection to the canonical plan contract and resumability rules.</li>
+        <li>Add required phase-specific Open questions / decision dependencies, allowing explicit <code>None</code>.</li>
+        <li>Add UI-impact triage and repo-appropriate high-fidelity mock/design-evidence requirements.</li>
+        <li>Clarify that execution-ready status fails on unresolved blockers, <code>unknown</code> UI impact, stale sign-off, or self-certification.</li>
+      </ul>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None. The shared doctrine must remain repo-neutral.</p>
+      <h4>Verify</h4>
+      <pre><code>git diff -- skills/planning-workflow/SKILL.md
+rg -n "Decision Attention" skills/planning-workflow/SKILL.md
+rg -n "one-to-one|maps to exactly one phase|phase/progress" skills/planning-workflow/SKILL.md
+rg -n "Open questions / decision dependencies|decision dependencies" skills/planning-workflow/SKILL.md
+rg -n "UI impact|UI-impact" skills/planning-workflow/SKILL.md</code></pre>
+    </article>
+
+    <article class="phase" id="phase-p2-reviewed-plan-service-boundaries">
+      <h3>P2 — Reviewed-plan and service boundaries</h3>
+      <h4>End state</h4>
+      <p><code>reviewed-html-plan</code> owns readiness review semantics, <code>adn-dev-wf</code> stays aligned with those semantics where it references them, and <code>html-plan-reviewer</code> stays focused on registration, URLs, source sync, and comment queues.</p>
+      <h4>Tests first</h4>
+      <ul>
+        <li>Before edits, inspect both skills for duplicated or missing readiness/service boundary language.</li>
+        <li>Use targeted inspection to verify <code>html-plan-reviewer</code> delegates structural doctrine rather than duplicating it.</li>
+      </ul>
+      <h4>Expected files</h4>
+      <ul>
+        <li><code>skills/reviewed-html-plan/SKILL.md</code></li>
+        <li><code>skills/adn-dev-wf/SKILL.md</code> only for narrow shared-workflow readiness-reference reconciliation</li>
+        <li><code>skills/adn-dev-wf/references/stages.md</code> only if the exact stage contract would otherwise contradict the updated readiness floor</li>
+        <li><code>skills/html-plan-reviewer/SKILL.md</code> only if boundary/routing wording is needed</li>
+      </ul>
+      <h4>Work</h4>
+      <ul>
+        <li>Clarify that reviewed-plan gates inspect Decision Attention, phase/progress mapping, phase dependencies, and UI-impact triage before execution-ready status.</li>
+        <li>Clarify fresh independent sign-off after the latest material plan edit and non-pass review regression behavior.</li>
+        <li>Clarify metadata/artifact readiness parity where artifacts expose machine-readable readiness.</li>
+        <li>Reconcile existing shared-skill claims that readiness is mechanically enforced by <code>scripts/plans/validate-html-plan.mjs</code>: because that validator is absent in <code>ai-configs</code>, remove or replace stale claims in <code>reviewed-html-plan</code>, <code>adn-dev-wf</code>, and referenced workflow-stage guidance with truthful reviewer-gate and service-metadata semantics rather than adding runtime validation in this scope.</li>
+        <li>In <code>html-plan-reviewer</code>, keep concrete <code>plan-review</code> commands and service mechanics authoritative while routing structural rules back to planning skills.</li>
+        <li>Describe daemon/profile enforcement only as warning-first, repo-declared, and not Heddle-specific if boundary wording is needed.</li>
+      </ul>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None. Runtime daemon validation is out of scope.</p>
+      <h4>Verify</h4>
+      <pre><code>git diff -- skills/reviewed-html-plan/SKILL.md skills/adn-dev-wf/SKILL.md skills/adn-dev-wf/references/stages.md skills/html-plan-reviewer/SKILL.md
+rg -n "Decision Attention|independent sign-off|material plan edit|execution-ready|metadata" skills/reviewed-html-plan/SKILL.md
+rg -n "Decision Attention|Expected files|Open questions / decision dependencies|UI impact|PLAN_EXECUTION_READY|PASS_NO_ISSUES" skills/adn-dev-wf/SKILL.md skills/adn-dev-wf/references/stages.md
+test ! -e scripts/plans/validate-html-plan.mjs
+! rg -rn "scripts/plans/validate-html-plan.mjs|validate-html-plan" skills/
+rg -n "planning-workflow|reviewed-html-plan|profile|warning|execution-ready" skills/html-plan-reviewer/SKILL.md</code></pre>
+    </article>
+
+    <article class="phase" id="phase-p3-product-principles-alignment">
+      <h3>P3 — Product principles alignment</h3>
+      <h4>End state</h4>
+      <p><code>product-principles</code> explains plan-contract enforcement as an operator/agent workflow principle: plans must make risks, defaults, decisions, and recovery behavior obvious.</p>
+      <h4>Tests first</h4>
+      <ul>
+        <li>Before edits, inspect current planning/review output expectations in <code>product-principles</code>.</li>
+        <li>Use targeted inspection to ensure additions do not duplicate the detailed structural contract owned by <code>planning-workflow</code>.</li>
+      </ul>
+      <h4>Expected files</h4>
+      <ul>
+        <li><code>skills/product-principles/SKILL.md</code></li>
+      </ul>
+      <h4>Work</h4>
+      <ul>
+        <li>Add a product/operator rationale for prominent blockers, low-confidence choices, and decision dependencies in plans.</li>
+        <li>Add UI-impact planning expectations at the principle level without Heddle-specific design-system names.</li>
+        <li>Add repo-alignment audit checks for stale plan guidance, hidden readiness assumptions, and docs that normalize manual remediation.</li>
+      </ul>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None.</p>
+      <h4>Verify</h4>
+      <pre><code>git diff -- skills/product-principles/SKILL.md
+rg -n "Decision Attention|low-confidence|UI impact|operator|agent" skills/product-principles/SKILL.md</code></pre>
+    </article>
+
+    <article class="phase" id="phase-p4-rollout-verification-handoff">
+      <h3>P4 — Rollout and verification handoff</h3>
+      <h4>End state</h4>
+      <p>The ai-configs changes are verified as coherent, downstream Heddle and plan-reviewer runtime work is explicitly separated, and this plan has fresh review evidence before any execution-ready claim.</p>
+      <h4>Tests first</h4>
+      <ul>
+        <li>Before finalizing, inspect the diff to ensure only this plan and approved skill files changed.</li>
+        <li>Run targeted <code>rg</code> checks from the test coverage matrix and a semantic diff review for contradiction across the touched skills; broad greps alone are not sufficient evidence because current files already contain generic terms like <code>execution-ready</code>, <code>metadata</code>, <code>plan</code>, <code>operator</code>, and <code>agent</code>.</li>
+      </ul>
+      <h4>Expected files</h4>
+      <ul>
+        <li><code>thoughts/plans/plan-contract-enforcement.html</code></li>
+        <li>Touched <code>skills/*.md</code> files from P1-P3, including narrow <code>adn-dev-wf</code> and <code>adn-dev-wf/references/stages.md</code> cleanup if required by stale readiness references</li>
+      </ul>
+      <h4>Work</h4>
+      <ul>
+        <li>Record deviations from the original plan-reviewer-led plan in this plan's Decisions / Deviations Log.</li>
+        <li>Verify no Heddle files or plan-reviewer runtime code were modified.</li>
+        <li>Run fresh read-only readiness review after material skill and plan edits if promoting to execution-ready.</li>
+        <li>Leave Heddle validator/template work and any plan-reviewer daemon warning implementation as separate downstream plans.</li>
+      </ul>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None. Implementation began by explicit scoped-plan-run invocation. Fresh readiness review passed on 2026-06-22 for this plan artifact; rerun readiness review only after later material plan edits that change plan scope or execution semantics.</p>
+      <h4>Verify</h4>
+      <pre><code>git branch --show-current
+git status --short
+git diff -- skills/planning-workflow/SKILL.md skills/reviewed-html-plan/SKILL.md skills/adn-dev-wf/SKILL.md skills/adn-dev-wf/references/stages.md skills/product-principles/SKILL.md skills/html-plan-reviewer/SKILL.md
+test ! -e scripts/plans/validate-html-plan.mjs
+! rg -rn "scripts/plans/validate-html-plan.mjs|validate-html-plan" skills/
+rg -n "Decision Attention|phase/progress|UI-impact|execution-ready" skills/planning-workflow/SKILL.md skills/reviewed-html-plan/SKILL.md skills/adn-dev-wf/SKILL.md skills/adn-dev-wf/references/stages.md skills/product-principles/SKILL.md skills/html-plan-reviewer/SKILL.md</code></pre>
+    </article>
+  </section>
+
+  <section id="verification-strategy">
+    <h2>Verification strategy</h2>
+    <ul>
+      <li>Skill-doc changes are verified by targeted inspection, semantic cross-file review, and fresh independent plan review.</li>
+      <li>No ai-configs primary test command is defined in <code>AGENTS.md</code>; behavior changes are prose/skill-contract changes, not runtime code.</li>
+      <li>No plan-reviewer build/test commands are required because daemon/runtime changes are out of scope.</li>
+      <li>No Heddle validator commands are required because Heddle edits are out of scope for this session.</li>
+    </ul>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>Finish and review this ai-configs-scoped plan artifact.</li>
+      <li>Update <code>planning-workflow</code> as the structural source of truth.</li>
+      <li>Update <code>reviewed-html-plan</code> and any necessary <code>html-plan-reviewer</code> boundary text.</li>
+      <li>Update <code>product-principles</code> to reinforce the operator/agent rationale.</li>
+      <li>Run targeted verification and fresh readiness review before claiming execution-ready.</li>
+    </ol>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>No scope expansion beyond this migrated plan's approved ai-configs skill updates.</li>
+      <li>No editing <code>/Users/anichols/code/heddle</code> from this ai-configs session.</li>
+      <li>No Heddle-specific Weft, Linear, native, or validator schema rules in global shared skills.</li>
+      <li>No plan-reviewer daemon/runtime/product-code changes.</li>
+      <li>No hard-coded Heddle schema in plan-reviewer service guidance.</li>
+      <li>No rewriting completed historical plans just to match the new shared doctrine.</li>
+    </ul>
+  </section>
+
+  <section id="review-record">
+    <h2>Review record</h2>
+    <ul>
+      <li id="review-historical-plan-reviewer"><strong>2026-06-21 historical:</strong> The copied plan-reviewer artifact recorded GPT/GLM <code>PLAN_EXECUTION_READY</code> verdicts for the old cross-repo plan. Those verdicts are retained as migration context only and do not certify this ai-configs-scoped plan.</li>
+      <li id="review-needed-ai-configs"><strong>2026-06-21 ai-configs migration:</strong> Fresh read-only readiness review was required after migration before the plan could be marked execution-ready.</li>
+      <li id="review-2026-06-22-readiness-pass-1"><strong>2026-06-22 readiness pass 1:</strong> GLM found the plan execution-ready; GPT found readiness blockers in broad no-op-prone verification commands and a stale <code>reviewed-html-plan</code> validator reference that this revision addressed.</li>
+      <li id="review-2026-06-22-readiness-pass-2"><strong>2026-06-22 readiness pass 2:</strong> GPT found the revised plan execution-ready; GLM found a sibling stale <code>validate-html-plan</code> reference in <code>adn-dev-wf</code> that would be masked by scoped verification. This revision included that narrow cleanup in P2 and broadened negative validation-reference checks across <code>skills/</code>.</li>
+      <li id="review-2026-06-22-readiness-pass-3"><strong>2026-06-22 readiness pass 3:</strong> GPT and GLM both returned <code>PLAN_EXECUTION_READY</code>. No remaining readiness blockers or product questions were found. Only readiness-status text and this review record were updated after the passing review.</li>
+    </ul>
+  </section>
+
+  <section id="decisions-deviations-log">
+    <h2>Decisions / Deviations Log</h2>
+    <ul>
+      <li id="log-2026-06-21-origin"><strong>2026-06-21:</strong> Original reviewed artifact was created in <code>/Users/anichols/code/plan-reviewer-worktrees/re-organize-plan</code> and registered as <code>plan_7K44LkB5bjIP</code>.</li>
+      <li id="log-2026-06-21-ai-configs-migration"><strong>2026-06-21:</strong> Adapted the copied plan to make <code>ai-configs</code> on branch <code>main</code> the primary repo. Removed plan-reviewer daemon and Heddle validator/template implementation from local execution scope; retained them as service-boundary and downstream-follow-up context.</li>
+      <li id="log-2026-06-21-readiness-reset"><strong>2026-06-21:</strong> Reset status from execution-ready to not execution-ready because prior GPT/GLM readiness reviews certified a different repo/scope.</li>
+      <li id="log-2026-06-22-fresh-readiness"><strong>2026-06-22:</strong> Fresh ai-configs-scoped GPT and GLM readiness reviews passed after plan revisions for diff-backed verification and stale <code>validate-html-plan</code> reference reconciliation.</li>
+      <li id="log-2026-06-22-implementation"><strong>2026-06-22:</strong> Implemented the ai-configs-scoped skill updates, reconciled stale validator references across shared skills and the referenced <code>adn-dev-wf</code> stage contract, verified that only ai-configs plan/skill files changed, and left Heddle plus plan-reviewer runtime enforcement as out-of-scope follow-up.</li>
+    </ul>
+  </section>
+
+  <section id="resume-instructions">
+    <h2>Resume instructions</h2>
+    <p>Read this plan fully, then inspect <code>AGENTS.md</code>, <code>CLAUDE.md</code>, and the target skill files. Confirm the branch is still <code>main</code>. Do not edit Heddle or plan-reviewer runtime code. If resuming this scoped-plan-run after local implementation, continue with scoped reviews, pre-PR review, final verification, commit, PR creation, and PR monitoring rather than reimplementing completed phases. After material edits to the plan itself that change scope or execution semantics, rerun read-only readiness review before preserving execution-ready status.</p>
+  </section>
+</main>
+</body>
+</html>

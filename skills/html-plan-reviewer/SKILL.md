@@ -11,6 +11,10 @@ Use this skill to turn agent-authored HTML plans into reviewable browser artifac
 
 The tool is the Homebrew-installed `plan-review` CLI from the standalone `Nodaste-Lab/plan-reviewer` repository. `ai-configs` only owns this workflow skill; it no longer vendors the daemon, CLI, or Homebrew formula.
 
+This skill is the source of truth for service mechanics: CLI commands, canonical URLs, registration metadata, source sync, queue-backed comment claiming, acking, and resolving. It is not the structural plan schema source. Use `planning-workflow` for plan structure and `reviewed-html-plan` for execution-readiness doctrine; this service records and routes readiness metadata but should not duplicate repo-specific validators or Heddle-specific contract rules.
+
+If the daemon supports profile or contract enforcement, treat it as warning-first and repo-declared unless the target repo explicitly requires stricter behavior. Do not describe hard fail runtime enforcement here without matching service support and repo-local approval.
+
 Default service URL on this host:
 
 ```bash

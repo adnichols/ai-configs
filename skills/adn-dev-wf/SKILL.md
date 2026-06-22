@@ -71,9 +71,11 @@ Only proceed when the plan is execution-ready:
 - no unresolved inline review comments
 - `## Progress` exists
 - `Resume Instructions (Agent)` exists
-- active phases include `### Tests first`, `### End State`, `### Work`, and `### Verify`
+- active phases include `### Tests first`, `### End State`, `### Work`, `### Expected files`, `### Open questions / decision dependencies`, and `### Verify`
+- progress checkboxes and detailed phases map one-to-one
+- UI impact is explicitly triaged and is not `unknown`
 - no unresolved open questions that materially change behavior
-- for HTML plans: the closing `PASS_NO_ISSUES` comes from an **independent reviewer**, not the plan author/self. Integrating review findings does not self-certify readiness; an independent `BLOCKED`/findings requires a fresh independent review after integration. See `reviewed-html-plan` (Independent sign-off gate); enforced by `scripts/plans/validate-html-plan.mjs`.
+- for HTML plans: the closing ready verdict comes from an **independent reviewer**, not the plan author/self. Treat `PLAN_EXECUTION_READY` from `reviewed-html-plan` or an equivalent approved `PASS_NO_ISSUES` verdict as ready by substance. Integrating review findings does not self-certify readiness; an independent `BLOCKED`/findings requires a fresh independent review after integration. See `reviewed-html-plan` (Independent sign-off gate). Do not claim local mechanical validator enforcement unless that validator exists in the target repo; otherwise rely on the documented reviewer gate and truthful `plan-review` execution-readiness metadata.
 
 ### 6. Execute directly
 

@@ -81,20 +81,23 @@ Required sections for new plans unless repo-local overrides say otherwise:
 1. Title
 2. Status
 3. Goal
-4. Why this plan exists
-5. Authority and inputs
-6. Current implementation reality
-7. Progress
-8. Resume instructions (agent)
-9. Product intent alignment
-10. Locked decisions
-11. Acceptance criteria
-12. BDD scenarios
-13. Phase-by-phase execution plan
-14. Verification strategy
-15. Delivery order
-16. Non-goals
-17. Decisions / Deviations log
+4. Decision Attention / Low-confidence Areas
+5. Why this plan exists
+6. Authority and inputs
+7. Current implementation reality
+8. Progress
+9. Resume instructions (agent)
+10. Product intent alignment
+11. Locked decisions
+12. Acceptance criteria
+13. BDD scenarios
+14. Phase-by-phase execution plan
+15. Verification strategy
+16. Delivery order
+17. Non-goals
+18. Decisions / Deviations log
+
+Decision Attention must appear near the top of every non-trivial plan. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
 
 Legacy heading aliases may be preserved in historical plans, but new plans should use canonical headings unless the repo explicitly says otherwise.
 
@@ -130,7 +133,10 @@ Every phase must include:
 - `### Tests first`
 - `### Work`
 - `### Expected files`
+- `### Open questions / decision dependencies`
 - `### Verify`
+
+Use `None` for phase-specific questions only when there are no unresolved decisions. If a dependency changes scope, behavior, data handling, security/privacy posture, or compatibility, resolve it before marking the plan execution-ready instead of deferring it to implementation.
 
 Phase guidance:
 
@@ -143,6 +149,7 @@ Phase guidance:
 
 - `## Progress` contains the only checkboxes in the plan.
 - Use stable IDs like `P1`, `P2`, ... and keep them aligned to phase headers.
+- Enforce a one-to-one phase/progress mapping: every progress checkbox maps to exactly one detailed phase, and every detailed phase maps back to exactly one progress checkbox.
 - Preserve completed items and append-only deviation/history sections when regenerating a plan.
 - `Resume instructions` must tell the next agent to read the document fully, identify the first unchecked progress item, continue phase-by-phase, and ask the user only for truly unresolvable decisions.
 
@@ -151,17 +158,23 @@ Phase guidance:
 An `execution-ready` plan is ready only when all of the following are true:
 
 - important questions are resolved,
+- Decision Attention is near the top and truthfully reports blockers, user-input needs, and low-confidence areas,
 - required plan work stays faithful to the validated source scope, with optional adjacent improvements excluded or called out as non-goals rather than required phases,
 - acceptance criteria and BDD scenarios are concrete,
+- every progress checkbox has exactly one matching phase and every phase has exactly one matching progress checkbox,
+- every phase includes explicit `Open questions / decision dependencies`, with `None` only when true,
 - phase `### Verify` steps are executable and current for the real repo,
 - product-intent alignment is explicit when required,
 - parity expectations are explicit for multi-surface work,
 - self-healing expectations and fail-closed boundaries are explicit for workflow-affecting work,
 - plans do not normalize routine manual remediation when the product should absorb that burden instead,
+- UI impact is explicitly triaged and is not `unknown`,
+- UI-impacting work includes repo-appropriate existing/target design evidence and verification gates,
 - no unresolved `Open Questions` remain in a ready plan,
 - no unresolved low-confidence decisions remain,
 - foundational decisions are not deferred into later execution phases,
-- progress and resume instructions are present.
+- progress and resume instructions are present,
+- review-gated plans have fresh independent, non-self sign-off after the latest material edit and no later non-pass review.
 
 If any item above is still missing, the plan is `not ready`: stay in `discovery` while evidence is still being gathered, or emit a `research-ready` artifact when research is the explicit next handoff.
 
@@ -180,6 +193,19 @@ If any item above is still missing, the plan is `not ready`: stay in `discovery`
 - If the answer is researchable without user intent input, delegate research immediately or emit a non-ready `research-ready` research plan artifact.
 - A non-ready plan artifact must list the unresolved low-confidence decisions, make the exact next research action explicit, and stay clearly separate from an `execution-ready` handoff.
 - Never bury low-confidence decisions inside future execution phases or assume implementation will resolve them later.
+
+## UI-impact triage
+
+Every non-trivial plan must state whether it changes UI, reviewer-facing artifacts, operator-facing command output, generated docs, visual design, or interaction behavior.
+
+Use these defaults:
+
+- `UI impact: no` only when no visible/operator-facing surface changes.
+- `UI impact: text-only` when the visible change is prose, guidance, command output, or plan-artifact structure without runtime UI or styling changes.
+- `UI impact: yes` when the work changes screens, flows, browser artifacts, navigation, forms, visual hierarchy, or interaction behavior.
+- `UI impact: unknown` blocks execution-ready status until resolved.
+
+For `UI impact: yes`, include high-fidelity existing and target mocks or screenshots when the repo surface supports them, plus repo-appropriate design evidence and verification gates. For `text-only`, include a concise current/target textual rendition and the inspection commands or review checks that prove the guidance changed.
 
 ## Complexity-aware completeness
 
