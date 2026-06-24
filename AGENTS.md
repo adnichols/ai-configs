@@ -300,7 +300,8 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:omp-review-partner` — Use OMP with OpenCode Zen Kimi models for read-only plan and implementation reviews
 - `/skill:review-change` — Review code changes against plan
 - `/skill:review-change-integrate` — Integrate code-review feedback
-- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus GLM-5.2 pre-PR implementation review until in-scope P1/P2 issues are resolved
+- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus GLM-5.2 pre-PR implementation review until in-scope P1/P2/P3 findings are addressed; inside `scoped-plan-run` it hands back to mandatory PR creation instead of concluding.
+- `/skill:scoped-plan-run` — Execute an explicit plan through implementation, reviews, full P1/P2/P3 cleanup, verification, PR creation, and post-PR monitoring.
 
 ### Configuration
 

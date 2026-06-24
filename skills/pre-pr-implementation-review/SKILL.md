@@ -1,13 +1,15 @@
 ---
 name: pre-pr-implementation-review
-description: Run Pi's pre-PR implementation review loop with both GPT-5.5 and GLM-5.2 quality reviewers, then continue fixing and rereviewing until every in-scope P1/P2 issue is resolved. Use this before opening pull requests, after an implementation is complete, inside scoped-plan-run, or whenever the user asks for GPT plus GLM code review of a branch/diff.
+description: Run Pi's pre-PR implementation review loop with both GPT-5.5 and GLM-5.2 quality reviewers, then continue fixing and rereviewing until every in-scope P1/P2/P3 finding is addressed. Use this before opening pull requests, after an implementation is complete, inside scoped-plan-run, or whenever the user asks for GPT plus GLM code review of a branch/diff; inside scoped-plan-run this gate hands back to PR creation rather than concluding the workflow.
 ---
 
 # Pre-PR Implementation Review
 
-Use this skill to catch the kind of material implementation issues that would otherwise appear during pull request review. It is a code-review-and-fix loop, not a plan review and not a general cleanup pass.
+Use this skill to catch implementation issues that would otherwise appear during pull request review. It is a code-review-and-fix loop, not a plan review, not a general cleanup pass, and not the end of a scoped plan run.
 
-The gate passes only when both reviewers agree by substance that the current implementation has no unresolved in-scope P1/P2 issues.
+The gate passes only when both reviewers agree by substance that the current implementation has no unresolved in-scope P1/P2/P3 findings. Lower-severity P3 findings still need an explicit disposition before merge readiness: fix them when they are in scope, reject false positives with evidence, or document true out-of-scope follow-ups with a tracking destination.
+
+When invoked from `scoped-plan-run`, a passing result means `OPEN_PR_READY`, not `DONE`. Return the final gate status and artifact path to the scoped runner so it can rerun final verification if needed, commit, push, open the PR, and continue post-PR monitoring.
 
 ## Inputs
 
@@ -37,7 +39,7 @@ Reviewers must use these severities:
 
 - `P1`: PR-blocking production failure risk: security exposure, data loss, crash, broken core acceptance criterion, corrupt migration, dangerous concurrency/resource leak, or verification evidence that is materially false.
 - `P2`: PR-blocking correctness/reliability risk: user-visible regression, missing required edge-case handling, important error-handling gap, significant performance issue, API/contract mismatch, or tests that would allow a materially incomplete implementation to pass.
-- `P3`: non-blocking improvement, maintainability concern, or minor gap that should not block the PR.
+- `P3`: lower-severity improvement, maintainability concern, or minor gap. In-scope P3 findings are not allowed to disappear into the summary; fix them, reject them with evidence, or document them as true out-of-scope follow-ups before declaring the branch merge-ready.
 
 Also classify every finding with the scoped-plan-run labels when a plan is present:
 
@@ -54,7 +56,7 @@ When no plan is present, treat issues introduced by the current diff as in scope
 A finding is in scope — regardless of whether the affected code predates this branch — when any of these hold:
 
 - This diff creates, extends, or routes new inputs to a shared primitive (collector, rewriter, mapper, scanner, serializer, validator). That primitive's correctness across every input this diff can now feed it is in scope. "Not introduced by this branch" does not apply to a primitive whose reachable input domain this branch changed.
-- The issue is a fail-closed/bail/reject path reachable by valid, schema-conformant input. Failing closed on valid input is a P1/P2 regression, not a deferrable follow-up. "Fail-closed" justifies deferral only when the closed path is reachable solely by invalid input.
+- The issue is a fail-closed/bail/reject path reachable by valid, schema-conformant input. Failing closed on valid input is an in-scope correctness/reliability regression, not a deferrable follow-up. "Fail-closed" justifies deferral only when the closed path is reachable solely by invalid input.
 
 A finding may be classified `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an existing test — or add one — proving the deferred input class is actually handled or genuinely unreachable. A deferral whose justification is "fail-closed" or "pre-existing," without that evidence, is not valid; treat it as in scope.
 
@@ -103,13 +105,13 @@ Base/comparison: <base branch or range>
 Changed files:
 <changed files>
 
-Review committed, staged, and unstaged changes in this worktree. Focus on issues a pull-request reviewer would reasonably block before merge.
+Review committed, staged, and unstaged changes in this worktree. Focus on issues a pull-request reviewer would reasonably ask to fix, justify, or track before merge.
 
 Classify every finding with:
 - Severity: P1, P2, or P3
 - Scope: IN_PLAN, PLAN_PREREQUISITE, REGRESSION_FROM_THIS_DIFF, OUT_OF_SCOPE_FOLLOW_UP, or QUESTION
 
-Only P1/P2 findings that are in scope or introduced by this diff block the gate. P3 findings and true out-of-scope follow-ups may be listed but should not drive fixes in this loop.
+Every in-scope P1/P2/P3 finding blocks a clean ready-for-PR verdict until it is fixed, rejected as a false positive with evidence, or reclassified as a true out-of-scope follow-up with evidence and a tracking destination. Do not use P3 severity to leave in-scope work unresolved.
 
 Check especially:
 - security, auth, data loss, and privacy risks
@@ -124,11 +126,11 @@ Check especially:
 - sibling instances of any discovered failure pattern, in this diff and the inverse direction of any boundary it touches — enumerate the family, not just the first instance
 
 Return exactly one verdict:
-- VERDICT: P1_P2_FOUND
+- VERDICT: FINDINGS_TO_RESOLVE
 - VERDICT: CLEAN_FOR_PR
 - VERDICT: BLOCKED_BY_QUESTION
 
-For every finding include: severity, scope classification, file/line, evidence, impact, recommended fix, and whether it blocks the pre-PR gate.
+For every finding include: severity, scope classification, file/line, evidence, impact, recommended fix, and whether it blocks the pre-PR gate. In-scope P1/P2/P3 findings block the gate; true out-of-scope follow-ups must include the evidence and tracking destination that make them non-blocking.
 ```
 
 ### 3. Triage before editing
@@ -141,27 +143,26 @@ Finding | Reviewer | Severity | Scope | Decision | Evidence
 
 For each finding:
 
-- Fix `P1`/`P2` findings classified `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`.
-- Stop for user input on `QUESTION` findings that affect a P1/P2 decision.
-- Do not fix `P3` findings in this loop unless they are trivial and directly part of a P1/P2 fix.
+- Fix `P1`/`P2`/`P3` findings classified `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`; prioritize P1/P2 first, then clear P3 before declaring merge readiness.
+- Stop for user input on `QUESTION` findings that affect whether a finding should be fixed, deferred, or excluded from this PR.
 - Document `OUT_OF_SCOPE_FOLLOW_UP` findings with evidence, a tracking destination, and a cited test proving the deferred input class is handled or genuinely unreachable. If you cannot cite or add such a test, treat the finding as in scope rather than deferring it.
 - Verify reviewer claims against the code before changing anything; false positives should be recorded as rejected with evidence.
 
 ### 4. Fix, verify, and rereview until clean
 
-After applying any P1/P2 fix:
+After applying any in-scope fix:
 
 1. Run the smallest meaningful targeted tests for the touched code.
 2. Rerun any plan-required verification invalidated by the fix.
 3. Rerun both GPT-5.5 and GLM-5.2 reviewers against the current diff.
-4. Repeat until both reviewers return `CLEAN_FOR_PR` by substance or list only P3/out-of-scope findings.
+4. Repeat until both reviewers return `CLEAN_FOR_PR` by substance with no unresolved in-scope P1/P2/P3 findings.
 
-Do not stop after a single reviewer is clean. Do not open or proceed to a PR while either reviewer has an unresolved in-scope P1/P2 issue.
+Do not stop after a single reviewer is clean. Do not open or proceed to a PR while either reviewer has an unresolved in-scope P1/P2/P3 finding. If invoked from `scoped-plan-run`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and post-PR monitoring.
 
 Stop with a blocker only when:
 
-- a P1/P2 fix requires a product or scope decision,
-- the same in-scope P1/P2 finding recurs after two materially different fix attempts,
+- a P1/P2/P3 fix requires a product or scope decision,
+- the same in-scope P1/P2/P3 finding recurs after two materially different fix attempts,
 - required reviewer infrastructure is unavailable and the user has not waived it,
 - verification cannot run for reasons the agent cannot resolve.
 
@@ -179,10 +180,10 @@ Include:
 - changed files summary,
 - each review cycle's GPT and GLM verdicts,
 - the triage table,
-- fixes applied for P1/P2 issues,
+- fixes applied for P1/P2/P3 issues,
 - verification commands and results after fixes,
-- remaining P3 or out-of-scope follow-ups with tracking destination,
-- final gate result.
+- remaining out-of-scope follow-ups with evidence and tracking destination,
+- final gate result and whether it is `OPEN_PR_READY` for a caller such as `scoped-plan-run`.
 
 If the repo has a different validation-artifact convention, use that convention and keep the same information.
 
@@ -190,8 +191,9 @@ If the repo has a different validation-artifact convention, use that convention 
 
 The final summary must include:
 
-- `GPT verdict: CLEAN_FOR_PR` or equivalent no-P1/P2 result,
-- `GLM verdict: CLEAN_FOR_PR` or equivalent no-P1/P2 result,
+- `GPT verdict: CLEAN_FOR_PR` or equivalent no-unresolved-in-scope-P1/P2/P3 result,
+- `GLM verdict: CLEAN_FOR_PR` or equivalent no-unresolved-in-scope-P1/P2/P3 result,
 - verification rerun after the last fix,
 - artifact path,
-- any remaining non-blocking P3/out-of-scope follow-ups.
+- any remaining non-blocking out-of-scope follow-ups with evidence and tracking destination,
+- `Next step: OPEN_PR_READY` when invoked from `scoped-plan-run`, so the caller continues to final verification, commit, push, PR creation, and post-PR monitoring instead of concluding.
