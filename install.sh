@@ -1456,9 +1456,20 @@ install_omp() {
     fi
 
     echo "  - Installing OMP extensions..."
-    rm -rf "$omp_extensions_dir"
     mkdir -p "$omp_extensions_dir"
     if [ -d "$omp_source_dir/extensions" ]; then
+        # Remove only repo-managed extension entries before re-copying so
+        # foreign extensions injected by other apps at runtime (i.e. any
+        # extension not tracked under _omp/extensions) are preserved across
+        # reinstalls. Entries that ARE tracked here are treated as
+        # ai-configs-managed and overwritten every run.
+        shopt -s nullglob
+        for entry in "$omp_source_dir/extensions"/*; do
+            local omp_ext_base
+            omp_ext_base="$(basename "$entry")"
+            rm -rf "$omp_extensions_dir/$omp_ext_base"
+        done
+        shopt -u nullglob
         cp -r "$omp_source_dir/extensions/." "$omp_extensions_dir/"
     fi
 
@@ -1872,10 +1883,38 @@ install_pi() {
 
     # Install extensions.
     echo "  - Installing Pi extensions..."
-    rm -rf "$pi_extensions_dir"
     mkdir -p "$pi_extensions_dir"
     if [ -d "$pi_source_dir/extensions" ]; then
+        # Detect external clobbering of ai-configs-managed extensions before
+        # restoring them, so the drift is visible in the install log. The main
+        # offender is `herdr integration install pi`, which overwrites
+        # herdr-agent-state.ts with herdr's stock (non-watchdog) asset.
+        local herdr_ext_src="$pi_source_dir/extensions/herdr-agent-state.ts"
+        local herdr_ext_live="$pi_extensions_dir/herdr-agent-state.ts"
+        local herdr_ext_clobbered=false
+        if [ -f "$herdr_ext_src" ] && [ -f "$herdr_ext_live" ]; then
+            if ! cmp -s "$herdr_ext_src" "$herdr_ext_live" 2>/dev/null; then
+                herdr_ext_clobbered=true
+            fi
+        fi
+
+        # Remove only repo-managed extension entries before re-copying so
+        # foreign extensions injected by other apps at runtime (i.e. any
+        # extension not tracked under _pi/extensions) are preserved across
+        # reinstalls. Entries that ARE tracked here are treated as
+        # ai-configs-managed and overwritten every run.
+        shopt -s nullglob
+        for entry in "$pi_source_dir/extensions"/*; do
+            local ext_base
+            ext_base="$(basename "$entry")"
+            rm -rf "$pi_extensions_dir/$ext_base"
+        done
+        shopt -u nullglob
         cp -r "$pi_source_dir/extensions/." "$pi_extensions_dir/"
+
+        if [ "$herdr_ext_clobbered" = true ]; then
+            echo -e "  ${YELLOW}→ herdr-agent-state.ts was modified externally (likely 'herdr integration install pi'); restored ai-configs version${NC}"
+        fi
     fi
 
     install_pi_models_from_repo "$pi_source_dir" "$pi_agent_dir"

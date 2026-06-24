@@ -1,0 +1,467 @@
+// installed by herdr
+// managed by ai-configs; this copy supersedes herdr's bundled integration.
+// herdr's `herdr integration install pi` overwrites this path with the stock
+// herdr asset; re-run `install.sh --pi` to restore this improved version.
+// add custom hooks/plugins beside this file instead of editing it.
+// HERDR_INTEGRATION_ID=pi
+// HERDR_INTEGRATION_VERSION=4
+// @ts-nocheck
+
+import { createConnection } from "node:net";
+
+const HERDR_ENV = process.env.HERDR_ENV;
+const socketPath = process.env.HERDR_SOCKET_PATH;
+const paneId = process.env.HERDR_PANE_ID;
+const source = "herdr:pi";
+
+function enabled() {
+  return HERDR_ENV === "1" && !!socketPath && !!paneId;
+}
+
+// sendRequest resolves with true on a successful round-trip and false on any
+// error or timeout. Callers use the result to retry dropped reports so a lost
+// final idle never leaves the pane stuck in working.
+function sendRequest(request: unknown): Promise<boolean> {
+  if (!enabled()) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (ok: boolean) => {
+      if (done) return;
+      done = true;
+      socket.destroy();
+      resolve(ok);
+    };
+
+    const socket = createConnection(socketPath!);
+    socket.on("error", () => finish(false));
+    socket.on("connect", () => socket.write(`${JSON.stringify(request)}\n`));
+    socket.on("data", () => finish(true));
+    socket.on("end", () => finish(true));
+    const timeout = setTimeout(() => finish(false), 500);
+    timeout.unref?.();
+  });
+}
+
+type AgentState = "working" | "blocked" | "idle";
+
+type QueuedState = {
+  state: AgentState;
+  message?: string;
+  seq: number;
+};
+
+const idleDebounceMs = parseDurationEnv("HERDR_PI_IDLE_DEBOUNCE_MS", 250);
+const retryGraceMs = parseDurationEnv("HERDR_PI_RETRY_GRACE_MS", 2500);
+const reconcileIntervalMs = parseDurationEnv("HERDR_PI_RECONCILE_MS", 5000);
+const maxSendRetries = parseDurationEnv("HERDR_PI_MAX_SEND_RETRIES", 3);
+const sendRetryDelayMs = parseDurationEnv("HERDR_PI_SEND_RETRY_DELAY_MS", 400);
+const retryableErrorPattern =
+  /overloaded|provider.?returned.?error|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|connection.?lost|websocket.?closed|websocket.?error|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|ended without|http2 request did not get a response|timed? out|timeout|terminated|retry delay/i;
+let reportSeq = Date.now() * 1000;
+let currentAgentSessionId: string | undefined;
+let currentAgentSessionPath: string | undefined;
+
+function nextReportSeq(): number {
+  reportSeq += 1;
+  return reportSeq;
+}
+
+function parseDurationEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function updateSessionRef(ctx: any): void {
+  try {
+    const file = ctx?.sessionManager?.getSessionFile?.();
+    currentAgentSessionPath =
+      typeof file === "string" && file.startsWith("/") ? file : undefined;
+  } catch {
+    currentAgentSessionPath = undefined;
+  }
+
+  try {
+    const id = ctx?.sessionManager?.getSessionId?.();
+    currentAgentSessionId = typeof id === "string" && id.length > 0 ? id : undefined;
+  } catch {
+    currentAgentSessionId = undefined;
+  }
+}
+
+function withSessionRef(params: Record<string, unknown>): Record<string, unknown> {
+  if (currentAgentSessionPath) {
+    return { ...params, agent_session_path: currentAgentSessionPath };
+  }
+  if (currentAgentSessionId) {
+    return { ...params, agent_session_id: currentAgentSessionId };
+  }
+  return params;
+}
+
+function currentSessionRef(): Record<string, unknown> | undefined {
+  if (currentAgentSessionPath) {
+    return { agent_session_path: currentAgentSessionPath };
+  }
+  if (currentAgentSessionId) {
+    return { agent_session_id: currentAgentSessionId };
+  }
+  return undefined;
+}
+
+function reportSession(): Promise<boolean> {
+  const sessionRef = currentSessionRef();
+  if (!sessionRef) {
+    return Promise.resolve(false);
+  }
+
+  return sendRequest({
+    id: `${source}:session:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+    method: "pane.report_agent_session",
+    params: {
+      pane_id: paneId,
+      source,
+      agent: "pi",
+      seq: nextReportSeq(),
+      ...sessionRef,
+    },
+  });
+}
+
+function sendState(state: AgentState, message?: string, seq = nextReportSeq()): Promise<boolean> {
+  return sendRequest({
+    id: `${source}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+    method: "pane.report_agent",
+    params: withSessionRef({
+      pane_id: paneId,
+      source,
+      agent: "pi",
+      state,
+      message,
+      seq,
+    }),
+  });
+}
+
+function releaseAgent(): Promise<boolean> {
+  return sendRequest({
+    id: `${source}:release:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+    method: "pane.release_agent",
+    params: {
+      pane_id: paneId,
+      source,
+      agent: "pi",
+      seq: nextReportSeq(),
+    },
+  });
+}
+
+let sendInFlight = false;
+let queuedState: QueuedState | undefined;
+
+function queueState(state: AgentState, message?: string): void {
+  queuedState = { state, message, seq: nextReportSeq() };
+  if (!sendInFlight) {
+    void drainStateQueue();
+  }
+}
+
+async function drainStateQueue(): Promise<void> {
+  if (sendInFlight) {
+    return;
+  }
+
+  sendInFlight = true;
+  try {
+    let attempts = 0;
+    while (queuedState) {
+      const next = queuedState;
+      queuedState = undefined;
+      const ok = await sendState(next.state, next.message, next.seq);
+
+      if (!ok && queuedState === undefined) {
+        // The report was dropped (socket error/timeout) and no newer state
+        // has superseded it. Retry the same state a few times so a lost final
+        // idle does not strand the pane in working. If a newer state was
+        // queued while we were sending, drop the retry and let it win.
+        attempts += 1;
+        if (attempts < maxSendRetries) {
+          queuedState = next;
+          await sleepUnref(sendRetryDelayMs);
+        }
+      } else {
+        attempts = 0;
+      }
+    }
+  } finally {
+    sendInFlight = false;
+    if (queuedState) {
+      void drainStateQueue();
+    }
+  }
+}
+
+function sleepUnref(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    timer.unref?.();
+  });
+}
+
+function lastAssistantMessage(messages: unknown[]): any | undefined {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i] as any;
+    if (message?.role === "assistant") {
+      return message;
+    }
+  }
+  return undefined;
+}
+
+function retryableErrorMessage(event: any): string | undefined {
+  const messages = Array.isArray(event?.messages) ? event.messages : [];
+  const assistant = lastAssistantMessage(messages);
+  if (assistant?.stopReason !== "error") {
+    return undefined;
+  }
+
+  const errorMessage = String(assistant.errorMessage ?? "");
+  if (!retryableErrorPattern.test(errorMessage)) {
+    return undefined;
+  }
+  return errorMessage || "retryable provider error";
+}
+
+export default function (pi) {
+  if (!enabled()) {
+    return;
+  }
+
+  let agentActive = false;
+  let retryHoldActive = false;
+  let failureBlocked = false;
+  let failureMessage: string | undefined;
+  let blockedCount = 0;
+  let blockedMessage: string | undefined;
+  let lastState: AgentState | undefined;
+  let lastMessage: string | undefined;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let rootSession = false;
+  // Most recent ExtensionContext, refreshed on every event that carries one.
+  // The reconciliation watchdog uses it to ask pi whether the agent is truly
+  // idle, independent of our own event-edge bookkeeping.
+  let currentCtx: any | undefined;
+  let reconcileTimer: ReturnType<typeof setInterval> | undefined;
+
+  function clearTimer(timer: ReturnType<typeof setTimeout> | undefined) {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+
+  function clearPendingTimers() {
+    clearTimer(idleTimer);
+    clearTimer(retryTimer);
+    idleTimer = undefined;
+    retryTimer = undefined;
+  }
+
+  function clearFailureState() {
+    retryHoldActive = false;
+    failureBlocked = false;
+    failureMessage = undefined;
+  }
+
+  function desiredState() {
+    if (blockedCount > 0) {
+      return { state: "blocked" as const, message: blockedMessage };
+    }
+    if (failureBlocked) {
+      return { state: "blocked" as const, message: failureMessage };
+    }
+    if (agentActive || retryHoldActive) {
+      return { state: "working" as const, message: undefined };
+    }
+    return { state: "idle" as const, message: undefined };
+  }
+
+  function publishState(force = false) {
+    const next = desiredState();
+    if (!force && next.state === lastState && next.message === lastMessage) {
+      return;
+    }
+    lastState = next.state;
+    lastMessage = next.message;
+    queueState(next.state, next.message);
+  }
+
+  function scheduleIdle() {
+    clearPendingTimers();
+    clearFailureState();
+    idleTimer = setTimeout(() => {
+      idleTimer = undefined;
+      publishState();
+    }, idleDebounceMs);
+    idleTimer.unref?.();
+  }
+
+  function holdForRetry(message: string) {
+    clearPendingTimers();
+    retryHoldActive = true;
+    failureBlocked = false;
+    failureMessage = message;
+    publishState();
+
+    retryTimer = setTimeout(() => {
+      retryTimer = undefined;
+      retryHoldActive = false;
+      failureBlocked = true;
+      publishState();
+    }, retryGraceMs);
+    retryTimer.unref?.();
+  }
+
+  function startReconcile() {
+    if (reconcileTimer || reconcileIntervalMs <= 0) {
+      return;
+    }
+    reconcileTimer = setInterval(reconcile, reconcileIntervalMs);
+    reconcileTimer.unref?.();
+  }
+
+  function stopReconcile() {
+    if (reconcileTimer) {
+      clearInterval(reconcileTimer);
+      reconcileTimer = undefined;
+    }
+  }
+
+  // Safety net for missed/dropped lifecycle edges (agent_end lost, overflow
+  // compaction aborting a turn without a clean end, socket report dropped).
+  // While we believe the pane is working, ask pi directly: if pi is idle with
+  // no queued messages, our "working" is stale and we force-publish idle.
+  // The watchdog only ever reconciles stale-working -> idle; it never forces
+  // working, so it cannot create a false working state.
+  function reconcile() {
+    if (!rootSession) {
+      return;
+    }
+    const next = desiredState();
+    if (next.state !== "working") {
+      return;
+    }
+    const ctx = currentCtx;
+    if (!ctx) {
+      return;
+    }
+
+    let piIdle = false;
+    let hasPending = true;
+    try {
+      piIdle = ctx.isIdle?.() === true;
+    } catch {
+      piIdle = false;
+    }
+    try {
+      hasPending = ctx.hasPendingMessages?.() === true;
+    } catch {
+      hasPending = true;
+    }
+
+    if (piIdle && !hasPending) {
+      agentActive = false;
+      retryHoldActive = false;
+      clearFailureState();
+      clearPendingTimers();
+      publishState(true);
+    }
+  }
+
+  pi.events.on("herdr:blocked", (data) => {
+    if (!rootSession) {
+      return;
+    }
+    if (!data?.active) {
+      blockedCount = Math.max(0, blockedCount - 1);
+      if (blockedCount === 0) {
+        blockedMessage = undefined;
+      }
+      publishState();
+      return;
+    }
+
+    clearPendingTimers();
+    blockedCount += 1;
+    blockedMessage = data.label;
+    publishState();
+  });
+
+  pi.on("session_start", (_event, ctx) => {
+    if (ctx?.hasUI !== true) {
+      return;
+    }
+    rootSession = true;
+    currentCtx = ctx;
+    updateSessionRef(ctx);
+    void reportSession();
+    publishState(true);
+    startReconcile();
+  });
+
+  pi.on("agent_start", (_event, ctx) => {
+    if (!rootSession) {
+      return;
+    }
+    if (ctx) {
+      currentCtx = ctx;
+    }
+    clearPendingTimers();
+    clearFailureState();
+    agentActive = true;
+    publishState();
+  });
+
+  pi.on("agent_end", (event, ctx) => {
+    if (!rootSession) {
+      return;
+    }
+    if (ctx) {
+      currentCtx = ctx;
+    }
+    if (!agentActive) {
+      // Pi can emit duplicate/late end events while auto-retry is already
+      // holding the pane in Working. Do not let an unqualified duplicate end
+      // cancel the retry hold and publish a false Idle.
+      return;
+    }
+
+    agentActive = false;
+
+    const retryableMessage = retryableErrorMessage(event);
+    if (retryableMessage) {
+      holdForRetry(retryableMessage);
+      return;
+    }
+
+    scheduleIdle();
+  });
+
+  pi.on("session_shutdown", async () => {
+    if (!rootSession) {
+      return;
+    }
+    stopReconcile();
+    clearPendingTimers();
+    await releaseAgent();
+  });
+}

@@ -82,6 +82,15 @@ exit 0
 EOF
   chmod +x "$bin_dir/bun"
 
+  cat > "$bin_dir/npm" <<'EOF'
+#!/bin/bash
+set -eu
+
+echo "stub npm $*" >/dev/null
+exit 0
+EOF
+  chmod +x "$bin_dir/npm"
+
   cat > "$bin_dir/npx" <<'EOF'
 #!/bin/bash
 set -eu
@@ -511,6 +520,35 @@ test_failpoint_after_backup_keeps_destination_recoverable() {
   assert_file_contains "$output_file" '.agents/skill-backups/ai-configs' || return 1
 }
 
+test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
+  local home
+  local output_file
+  home="$(new_tmp_dir)"
+
+  mkdir -p "$home/.pi/agent/extensions" "$home/.omp/agent/extensions"
+  printf 'pi-herdr-sentinel\n' > "$home/.pi/agent/extensions/herdr-agent-state.ts"
+  printf 'omp-herdr-sentinel\n' > "$home/.omp/agent/extensions/herdr-agent-state.ts"
+
+  output_file="$home/pi-install.log"
+  run_installer_capture "$home" "$output_file" --pi || {
+    cat "$output_file" >&2
+    return 1
+  }
+  assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'HERDR_INTEGRATION_ID=pi' || return 1
+  assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'managed by ai-configs' || return 1
+  [[ -f "$home/.pi/agent/extensions/todo.ts" ]] || return 1
+  [[ -d "$home/.pi/agent/extensions/pi-plan-mode" ]] || return 1
+
+  output_file="$home/omp-install.log"
+  run_installer_capture "$home" "$output_file" --omp || {
+    cat "$output_file" >&2
+    return 1
+  }
+  assert_file_contains "$home/.omp/agent/extensions/herdr-agent-state.ts" 'omp-herdr-sentinel' || return 1
+  [[ -d "$home/.omp/agent/extensions/aplan" ]] || return 1
+  [[ -d "$home/.omp/agent/extensions/pi-vcc" ]] || return 1
+}
+
 test_phase_three_docs_use_canonical_shared_skill_paths() {
   assert_file_contains "AGENTS.md" '"skills": ["skills"]' || return 1
   assert_file_not_contains "AGENTS.md" '"skills": [".agents/skills", "opencode/skills"]' || return 1
@@ -640,6 +678,7 @@ main() {
   run_test test_single_surface_modes_reuse_shared_sync
   run_test test_project_local_central_skill_overrides_are_removed
   run_test test_failpoint_after_backup_keeps_destination_recoverable
+  run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
   run_test test_phase_three_docs_use_canonical_shared_skill_paths
   run_test test_phase_three_duplicate_skill_trees_are_removed
   run_test test_phase_four_validation_proves_final_alignment
