@@ -1770,6 +1770,13 @@ if "providers" in target_data and not isinstance(target_data["providers"], dict)
 updated_data = copy.deepcopy(target_data)
 target_providers = updated_data.setdefault("providers", {})
 
+def merge_missing(target, source):
+    for merge_key, merge_value in source.items():
+        if merge_key not in target:
+            target[merge_key] = copy.deepcopy(merge_value)
+        elif isinstance(target[merge_key], dict) and isinstance(merge_value, dict):
+            merge_missing(target[merge_key], merge_value)
+
 for provider_id, source_provider in source_providers.items():
     if not isinstance(source_provider, dict):
         raise SystemExit(f"provider {provider_id!r} is not an object")
@@ -1802,13 +1809,17 @@ for provider_id, source_provider in source_providers.items():
                     target_models.append(copied_model)
                     models_by_id[copied_model["id"]] = copied_model
                 else:
-                    for model_key, model_value in source_model.items():
-                        if model_key not in existing_model:
-                            existing_model[model_key] = copy.deepcopy(model_value)
+                    merge_missing(existing_model, source_model)
+        elif key == "modelOverrides":
+            if not isinstance(source_value, dict):
+                raise SystemExit(f"provider {provider_id!r} modelOverrides field is not an object")
+            target_overrides = target_provider.get("modelOverrides")
+            if not isinstance(target_overrides, dict):
+                target_provider["modelOverrides"] = copy.deepcopy(source_value)
+            else:
+                merge_missing(target_overrides, source_value)
         elif key == "compat" and isinstance(source_value, dict) and isinstance(target_provider.get("compat"), dict):
-            merged_compat = copy.deepcopy(source_value)
-            merged_compat.update(target_provider["compat"])
-            target_provider["compat"] = merged_compat
+            merge_missing(target_provider["compat"], source_value)
         elif key not in target_provider:
             target_provider[key] = copy.deepcopy(source_value)
 
