@@ -374,6 +374,18 @@
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
+    "herdr": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "opencode",
+        "pi"
+      ],
+      "notes": "Fetched via `npx skills add ogulcancelik/herdr`; exposes the upstream herdr terminal multiplexer control skill to all shared-skill consumers.",
+      "sourceType": "external-package",
+      "packageSource": "ogulcancelik/herdr"
+    },
     "html-plan-reviewer": {
       "class": "universal-installable",
       "allowedConsumers": [

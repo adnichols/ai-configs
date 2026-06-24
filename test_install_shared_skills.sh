@@ -282,6 +282,11 @@ assert_shared_skill_install_state() {
   [[ -f "$home/.agents/skills/design-skill/.ai-configs-managed.json" ]] || return 1
   assert_file_contains "$home/.agents/skills/design-skill/.ai-configs-managed.json" '"source": "external-package:arjunkshah/design-skill#design-skill"' || return 1
 
+  [[ -f "$home/.agents/skills/herdr/SKILL.md" ]] || return 1
+  assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'external package=ogulcancelik/herdr skill=herdr' || return 1
+  [[ -f "$home/.agents/skills/herdr/.ai-configs-managed.json" ]] || return 1
+  assert_file_contains "$home/.agents/skills/herdr/.ai-configs-managed.json" '"source": "external-package:ogulcancelik/herdr#herdr"' || return 1
+
   [[ -d "$home/.claude/skills/custom-local" ]] || return 1
   [[ -d "$home/.config/opencode/skills/custom-local" ]] || return 1
 
@@ -301,6 +306,8 @@ assert_shared_skill_install_state() {
   assert_symlink_target "$home/.config/opencode/skills/algorithmic-art" "$home/.agents/skills/algorithmic-art" || return 1
   assert_symlink_target "$home/.claude/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
   assert_symlink_target "$home/.config/opencode/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
+  assert_symlink_target "$home/.claude/skills/herdr" "$home/.agents/skills/herdr" || return 1
+  assert_symlink_target "$home/.config/opencode/skills/herdr" "$home/.agents/skills/herdr" || return 1
 
   [[ ! -e "$home/.claude/skills/cmd-debug" ]] || return 1
   [[ ! -e "$home/.config/opencode/skills/cmd-debug" ]] || return 1
