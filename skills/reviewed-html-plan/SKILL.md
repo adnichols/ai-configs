@@ -58,7 +58,7 @@ Write or update `thoughts/plans/<slug>.html` as semantic HTML, not Markdown rena
 
 The plan should follow the `planning-workflow` execution artifact contract while using reviewer-friendly HTML structure:
 
-- dark-mode theme with explicit dark background, light foreground, readable muted text, accessible link/accent colors, and `color-scheme: dark`,
+- standard reviewer layout: dark-mode theme with explicit dark background, light foreground, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a two-column page with a concise sections navbar in a left sidebar and plan content on the right; the left navbar must be sticky and independently scrollable (`max-height` plus `overflow-y: auto`) and collapse to one column on narrow screens,
 - stable `id` attributes on major sections, phase wrappers, acceptance criteria, BDD scenarios, diagrams, figures, and likely comment targets,
 - a near-top `Decision Attention / Low-confidence Areas` section for blockers, required user input, unresolved decisions, and weak evidence,
 - a `Progress` section containing the only checkboxes,

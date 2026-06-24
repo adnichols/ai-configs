@@ -64,15 +64,17 @@ When asked to create a plan for this reviewer:
 3. Write the plan under `thoughts/plans/<slug>.html` unless repo-local instructions say otherwise.
 4. Use an HTML document, not Markdown renamed as HTML.
 5. Mandatory visual baseline: use a dark-mode default theme with an explicit dark background, light foreground, readable muted text, accessible accent/link colors, and `color-scheme: dark`. Do not create light-mode HTML plans unless the user explicitly asks for a light-mode artifact.
-6. Mandatory URL baseline: every plan URL shown to the user, opened in the browser, posted to Linear, or recorded in handoff must use the full Tailscale MagicDNS name, not a shortname, `localhost`, or `127.0.0.1`. On this host the canonical base is `http://mbp.braid-python.ts.net:4317/`; if using a temporary alternate port, keep the hostname and change only the port, e.g. `http://mbp.braid-python.ts.net:4318/...`.
-7. Add stable `id` attributes to sections, phases, acceptance criteria, diagrams, figures, mockups, and other likely comment targets.
-8. Prefer semantic HTML: `section`, `article`, `figure`, `figcaption`, headings, lists, tables, and code blocks.
-9. Keep plan-authored scripts, event handlers, forms, and active embeds out of the artifact; the reviewer shell owns interactivity.
-10. Keep images as relative repo assets when possible, with useful `alt`, `width`, and `height` attributes.
+6. Mandatory layout baseline: use a two-column reviewer layout by default. Put a concise sections navbar/table of contents in a left sidebar and the plan body in the right content pane. The sidebar must be independently scrollable or sticky-with-scroll (`max-height: calc(100vh - ...); overflow-y: auto; position: sticky; top: ...`) so reviewers can navigate long plans without losing the section list. Collapse to a single column on narrow screens.
+7. Mandatory URL baseline: every plan URL shown to the user, opened in the browser, posted to Linear, or recorded in handoff must use the full Tailscale MagicDNS name, not a shortname, `localhost`, or `127.0.0.1`. On this host the canonical base is `http://mbp.braid-python.ts.net:4317/`; if using a temporary alternate port, keep the hostname and change only the port, e.g. `http://mbp.braid-python.ts.net:4318/...`.
+8. Add stable `id` attributes to sections, phases, acceptance criteria, diagrams, figures, mockups, and other likely comment targets.
+9. Prefer semantic HTML: `section`, `article`, `figure`, `figcaption`, headings, lists, tables, and code blocks.
+10. Keep plan-authored scripts, event handlers, forms, and active embeds out of the artifact; the reviewer shell owns interactivity.
+11. Keep images as relative repo assets when possible, with useful `alt`, `width`, and `height` attributes.
 
 Important reviewer-friendly structure:
 
 - `## Progress` or equivalent should contain the phase checkboxes.
+- The left sections navbar should link to every major plan section and each phase; keep labels short enough to scan.
 - Each phase should have a stable wrapper ID, for example `id="phase-p1-contracts"`.
 - Acceptance criteria and BDD scenarios should have stable IDs, for example `id="ac-1"` and `id="bdd-retry-timeout"`.
 - Add short context near diagrams and images so comments on visual elements are meaningful to the agent.

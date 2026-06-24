@@ -153,7 +153,7 @@ Non-negotiable compatibility requirements:
 - Ready plans do not leave unresolved `Open Questions` or equivalent unresolved-decision sections.
 - `### Verify` steps are copy/paste ready and match actual repo reality.
 - The plan is resumable by another agent without inventing missing semantics.
-- If the plan is rendered or delivered as HTML, use a dark-mode visual theme with an explicit dark background, light foreground text, readable muted text, accessible link/accent colors, and `color-scheme: dark`; do not let light mode depend on agent preference, browser defaults, or OS defaults.
+- If the plan is rendered or delivered as HTML, use the standard reviewer layout: a dark-mode visual theme with an explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a two-column page with a concise sections navbar in a left sidebar and plan content on the right. The left navbar must remain available while reading long plans by being sticky and independently scrollable (`max-height` plus `overflow-y: auto`) and must collapse to one column on narrow screens. Do not let color mode or navigation layout depend on agent preference, browser defaults, or OS defaults.
 - When the change introduces or replaces non-trivial functionality, the plan includes a dedicated dependency/library evaluation section or equivalent explicit checkpoint that names the official SDKs and well-maintained libraries considered, records the chosen option and why it is acceptable, or explains why custom implementation is justified.
 - When no dependency/library scan is needed, the plan still includes a brief statement explaining why the work is trivial or purely local wiring.
 

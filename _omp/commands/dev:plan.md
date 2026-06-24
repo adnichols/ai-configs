@@ -107,7 +107,7 @@ Write (or update) `plan_path` with:
 Keep the plan faithful to the validated source scope and repo evidence. Include only work that is critical to achieving the stated goal and verifying it.
 If the requested scope is vague, narrow it by sharpening Goal / Non-goals or other scoped language instead of widening the phase list.
 Do not add adjacent cleanup, optional follow-ups, broader parity not required by the source intent, or extra explicitness that does not materially change go/no-go confidence unless validated repo evidence shows they are necessary for success.
-If the plan is rendered or delivered as HTML, use a dark-mode visual theme with an explicit dark background, light foreground text, readable muted text, accessible link/accent colors, and `color-scheme: dark`; do not let light mode depend on agent preference, browser defaults, or OS defaults.
+If the plan is rendered or delivered as HTML, use the standard reviewer layout: a dark-mode visual theme with an explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a two-column page with a concise sections navbar in a left sidebar and plan content on the right. The left navbar must remain available while reading long plans by being sticky and independently scrollable (`max-height` plus `overflow-y: auto`) and must collapse to one column on narrow screens. Do not let color mode or navigation layout depend on agent preference, browser defaults, or OS defaults.
 
 For product-facing work, make the plan explicit about the default workflow, inferred defaults, self-healing behavior, actionable error guidance, and any repo-doc/test updates required to stay aligned.
 
