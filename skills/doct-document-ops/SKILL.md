@@ -1,179 +1,90 @@
 ---
 name: doct-document-ops
-description: Interact with doct documents via doct-cli, REST, and Hocuspocus/Yjs. Use when asked to open a doct URL, list doct workspaces or documents, view a doct document, edit doct document metadata, edit a doct text document body, add or inspect comments in doct, or publish a coding plan to the user's personal "Coding Plans" document as a child document.
+description: Interact with doct documents through the doct-agent CLI. Use when asked to open a doct URL, list doct workspaces or documents, view a doct document, create or edit a doct document body, update document metadata, rename/move/delete a document, add or inspect comments, publish a coding plan to the personal "Coding Plans" document, or run read-only doct DB/log triage.
 ---
 
 # Doct document operations
 
 Use this skill when the user wants work done **inside doct itself** rather than only in local markdown files.
 
-## Default approach
+## Golden rule: doct-agent only
 
-1. Resolve the target document or destination.
-2. Resolve auth.
-3. Choose the correct write path:
-   - **View/list/lookup** → doct-cli or REST.
-   - **Metadata-only updates** (title, rename, move, settings) → REST.
-   - **Text body edits** → realtime Hocuspocus/Yjs only.
-   - **Text comments** → realtime Hocuspocus/Yjs only.
-   - **Publish a coding plan** → use `scripts/publish-coding-plan.sh`.
+Every doct operation goes through the `doct-agent` CLI on PATH. Do **not** use `doct-cli`, raw `curl`/REST calls, hand-written Hocuspocus/Yjs scripts, or any wrapper/bash helper. `doct-agent` already wraps REST for discovery, reads, creation, and metadata, and the Yjs/Hocuspocus path for text-body edits and comments — with verified readback. If a task seems to need raw REST or a Yjs script, you are on the wrong path: find the matching `doct-agent` subcommand or run `doct-agent onboard`.
 
-## Special default: coding plans
+- **Install/update via Homebrew only.** From the doct repo root: `brew tap local/doct "$(pwd)"` then `brew install --build-from-source local/doct/doct-agent`. Refresh an existing install with `brew reinstall --build-from-source local/doct/doct-agent`. Never copy Cargo build artifacts into ad hoc paths or use alternate binaries, wrapper scripts, or token-store fallbacks.
+- Most discovery and mutation commands accept `--json` for machine-readable output.
+- `references/doct-agent-commands.md` is the full command reference. `doct-agent onboard` prints the canonical, always-current spec straight from the installed CLI — consult it if anything here looks stale.
 
-If the user asks to **send, publish, copy, or save a coding plan to doct**, default to this destination unless they explicitly say otherwise:
+## Auth
 
-- workspace: the user's **personal** doct workspace
-- parent document title: **Coding Plans**
-- new document type: **text**
-- placement: create the new plan as a **child document** under `Coding Plans`
-
-### Coding-plan workflow
-
-1. If the plan is in a local file, read it fully first.
-2. If the user pasted the plan, preserve the markdown as given.
-3. Derive a title from the first H1 if possible; otherwise use the file basename or ask if the title matters.
-4. Run:
+Check first:
 
 ```bash
-bash "$SKILL_DIR/scripts/publish-coding-plan.sh" --file /absolute/or/relative/path/to/plan.md
+doct-agent auth status
 ```
 
-Or, when the content is already in a temp file / stdin pipeline:
+If not authenticated:
 
-```bash
-printf '%s' "$PLAN_MARKDOWN" | bash "$SKILL_DIR/scripts/publish-coding-plan.sh" --title "Plan Title"
-```
+1. Ask the doct owner to generate and approve a selected-agent enrollment code.
+2. `doct-agent auth login --base-url https://doct.nodaste.com` (develop: `https://doct.develop.nodaste.com`).
+3. Paste the enrollment code when prompted, or pass `--enrollment-code <code>`.
+4. Fallback: `doct-agent auth import-pat --base-url <url> --token <doct_pat_v1_...>`.
 
-5. Return the created doct URL and document id to the user.
-
-The publisher script automatically:
-- validates doct auth
-- finds the personal workspace
-- ensures the root document `Coding Plans` exists
-- creates the new child document beneath it
-- surfaces a clear hint when the current token is read-only
+The CLI discovers and stores the collaboration websocket URL after auth; pass `--websocket-url` only to override. For one-off automation, `DOCT_AGENT_PAT` overrides the stored token — it is the only supported token environment override. Confirm identity and deployment any time with `doct-agent context`.
 
 ## Resolve the target first
 
-Accept any of these inputs:
-- Full doct URL
-- Document id
-- Workspace id + document path
-- Workspace id + title/path discovered by listing
+Accept any of: a full doct URL, a document id, or a workspace + path/title.
 
-If the user gives a doct URL, extract the document id from `/docs/<uuid>` and then fetch the document by id.
+- doct URLs look like `https://doct.nodaste.com/d/<workspace-handle>/docs/<document-id>` — parse `<document-id>` from `/docs/<uuid>`, then `doct-agent documents get --id <id>`.
+- Discover with `doct-agent workspaces list`, then `doct-agent documents list --workspace-id <id>`.
+- If still ambiguous, ask for exactly one missing locator: document URL, document id, or workspace + path.
 
-If the target is still ambiguous, ask for exactly one missing locator: document URL, document id, or workspace+path.
+## Command map by task
 
-## Auth workflow
+| Task | Command |
+|------|---------|
+| Check auth / identity | `doct-agent auth status` · `doct-agent context` |
+| List workspaces | `doct-agent workspaces list --json` |
+| List documents | `doct-agent documents list --workspace-id <id> --json` |
+| Read a document | `doct-agent documents get --id <id> --text` (markdown) or `--json` (metadata); or `--workspace-id <id> --path '<path>'` |
+| Create a document | `doct-agent documents create --workspace-id <id> --title <t> --path <p> --kind text --content '# ...'` (published by default; add `--status draft` for a hidden draft; `--parent-id` to nest) |
+| Replace full body | `doct-agent documents replace-body --id <id> --file prepared.md` (or `--text` / `--stdin`) |
+| Append to body | `doct-agent collab edit --document-id <id> --append-markdown '...'` |
+| Surgical body edit | `doct-agent collab anchored <replace\|insert-before\|insert-after\|delete> --document-id <id> --selected-text '...' [--text '...']` |
+| Add a comment thread | `doct-agent collab comments add --document-id <id> --selected-text '...' --body '...'` |
+| List / reply / resolve comments | `doct-agent collab comments <list\|reply\|resolve\|unresolve> --document-id <id>` |
+| Mentions for me | `doct-agent collab comments mentions --workspace-id <id>` |
+| Title / status | `doct-agent documents update-metadata --id <id> --title <t> --status <s>` |
+| Rename | `doct-agent documents rename --id <id> --workspace-id <id> --title <t>` |
+| Move / reorder | `doct-agent documents move --id <id> --workspace-id <id> --new-parent-id <id>` |
+| Delete | `doct-agent documents delete --id <id> --workspace-id <id>` |
+| Read-only ops triage | `doct-agent triage <run\|logs\|db-query\|db-tables\|db-describe\|...>` |
 
-Prefer existing doct auth first.
+### Text edit notes
 
-### Fast path
+- `replace-body` is the safe path for a full rewrite — it routes through the Hocuspocus/Yjs-safe server path and returns verified readback metadata. Prefer it over append-then-cleanup when you are rewriting a whole document.
+- For anchored edits and comments, build `--selected-text` (and optional `--prefix-text` / `--suffix-text`) from the document's **visible prose**, not markdown syntax. `documents get --text` returns markdown, which is not the authoritative selection surface — keep selections to plain visible text and add prefix/suffix context when a quote is ambiguous.
+- Bootstrap empty or near-empty documents with creation-time `--content` or `collab edit --append-markdown` until there is anchorable text to target.
 
-Use the actual `doct-cli` executable:
+## Special default: coding plans
 
-```bash
-doct-cli auth status
-```
-
-If not logged in, start device auth:
-
-```bash
-doct-cli auth login --url https://doct.nodaste.com
-# or develop:
-doct-cli auth login --url https://doct.develop.nodaste.com
-```
-
-The CLI stores base URL and PAT in `~/.config/doct-cli/config.json`.
-
-Important: the standard doct-cli device flow currently mints a **read-only** PAT. Read/list/view operations work with that token, but publishing a coding plan requires a **write-scope** PAT (for example via `DOCT_ACCESS_TOKEN`).
-
-### Environment overrides
-
-Use these when needed:
-- `DOCT_BASE_URL`
-- `DOCT_ACCESS_TOKEN`
-
-## Read operations
-
-For common read/list tasks, use the actual `doct-cli` executable:
+If the user asks to **send, publish, copy, or save a coding plan to doct**, default to:
 
 ```bash
-doct-cli workspaces list --json
-doct-cli docs list --workspace <workspace-id> --json
-doct-cli docs view --workspace <workspace-id> --path '<doc-path>'
-doct-cli docs view --workspace <workspace-id> --path '<doc-path>' --json
+doct-agent documents publish-plan --file /path/to/plan.md --json
 ```
 
-If the user provides a document id instead of a path, use REST directly:
-
-```bash
-curl -sS "$DOCT_BASE_URL/api/documents?id=<document-id>" \
-  -H "Authorization: Bearer $DOCT_ACCESS_TOKEN" \
-  -H "X-Doct-Pat: Bearer $DOCT_ACCESS_TOKEN"
-
-curl -sS "$DOCT_BASE_URL/api/documents?id=<document-id>" \
-  -H "Authorization: Bearer $DOCT_ACCESS_TOKEN" \
-  -H "X-Doct-Pat: Bearer $DOCT_ACCESS_TOKEN" \
-  -H 'Accept: text/plain'
-```
-
-Read `references/rest-and-cli.md` for exact lookup/read patterns.
-
-## Write operations
-
-### Metadata-only changes
-
-Safe over REST:
-- create document
-- rename document
-- move document
-- update title/status/settings/theme
-- add comments to **non-text** documents
-- create child documents under `Coding Plans`
-
-### Text body edits
-
-Do **not** send text document content through `POST /api/documents` or `PUT /api/documents/[id]`.
-Those routes intentionally return `410` for text body writes.
-
-For text body edits, use the realtime path described in `references/text-doc-realtime.md`:
-- connect with PAT over Hocuspocus
-- wait for sync
-- apply markdown into the Yjs doc
-- optionally create a named version after the edit
-
-### Text comments
-
-Do **not** use `POST /api/documents/comments` for text documents.
-That route intentionally returns `410` for text docs.
-
-For text comments, use the realtime path in `references/text-doc-realtime.md`:
-- sync the Yjs doc
-- build an anchored quote with `createCommentAnchor` or `createCommentAnchorFromQuote`
-- add the thread to the Yjs comments array
-
-### Existing comments on text docs
-
-Public REST routes intentionally do not expose text-doc comments cleanly:
-- `GET /api/documents/[id]/comments` returns `410` for text docs
-- `GET /api/documents/with-comments` reports `contentSource: yjs` but does not return text comments
-
-If the user wants to inspect existing text comments, prefer:
-1. doct UI/browser automation, or
-2. repo-local doct internals / DB-backed investigation if direct API visibility is insufficient.
+Defaults: personal workspace, parent document **Coding Plans** (created if missing), a new text child document, and a title taken from the first H1 (override with `--title`). Override the destination with `--parent-title` / `--workspace` only when the user asks. Return the created doct URL and document id.
 
 ## Decision rules
 
-- Use doct-cli for quick listing and path-based viewing.
-- Use REST when the operation is explicitly supported and not a text-body mutation.
-- Use Hocuspocus/Yjs for text edits and text comments.
-- Use `scripts/publish-coding-plan.sh` for the default coding-plan destination.
-- If the user wants visual verification inside doct, use browser automation after approval.
+- One tool: `doct-agent`. Reads and discovery are safe to run freely.
+- Confirm before create / replace-body / delete / move on documents you did not create, and before publishing into shared workspaces.
+- `doct-agent triage` is read-only operational triage (DB checks and Railway logs) — use it to inspect state, not to mutate.
+- For visual verification inside doct, use browser automation after approval.
 
 ## References
 
-- `references/rest-and-cli.md` — auth, lookup, list, view, metadata-safe REST patterns
-- `references/text-doc-realtime.md` — exact realtime edit/comment workflow for text docs
-- `scripts/publish-coding-plan.sh` — creates a child doc under personal `Coding Plans`
+- `references/doct-agent-commands.md` — full per-command reference, flags, and worked examples.
+- `doct-agent onboard` — the canonical, always-current spec from the installed CLI.

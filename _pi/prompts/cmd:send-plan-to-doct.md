@@ -22,27 +22,26 @@ Request: $ARGUMENTS
 
 ## Publish flow
 
+All doct operations go through the `doct-agent` CLI. Do not use `doct-cli`, raw REST, or helper scripts.
+
 1. Verify doct auth:
 
 ```bash
-doct-cli auth status
+doct-agent auth status
 ```
 
-2. Publish the plan with REST by:
-- resolving the personal workspace id
-- ensuring a root document titled `Coding Plans` exists
-- creating a new `text` document with `parentId` set to the `Coding Plans` document id
-
-Preferred helper when this repo is installed:
+2. Publish the plan:
 
 ```bash
-bash "$HOME/.agents/skills/doct-document-ops/scripts/publish-coding-plan.sh" --file "$ARGUMENTS"
+doct-agent documents publish-plan --file "$ARGUMENTS" --json
 ```
 
-If the plan is not already in a file, write the markdown to a temp file first or pipe it on stdin:
+`publish-plan` resolves the personal workspace, ensures the `Coding Plans` parent document exists, and creates the plan as a new `text` child document. The title defaults to the first H1 in the file; override with `--title`.
+
+If the plan is not already in a file, write the markdown to a temp file first and pass it with `--file`:
 
 ```bash
-printf '%s' "$PLAN_MARKDOWN" | bash "$HOME/.agents/skills/doct-document-ops/scripts/publish-coding-plan.sh" --title "Plan Title"
+doct-agent documents publish-plan --file /tmp/plan.md --title "Plan Title" --json
 ```
 
 3. Return to the user:
@@ -52,8 +51,7 @@ printf '%s' "$PLAN_MARKDOWN" | bash "$HOME/.agents/skills/doct-document-ops/scri
 
 ## Notes
 
-- The helper script auto-creates the root `Coding Plans` document if it does not already exist.
+- `publish-plan` auto-creates the root `Coding Plans` document if it does not already exist.
 - New plans are created as child documents, not appended into the parent body.
-- Standard doct-cli device login is read-only. For publishing, set `DOCT_ACCESS_TOKEN` to a write-scope PAT if the current token lacks write access.
-- If auth is missing, run `doct-cli auth login --url https://doct.nodaste.com` first.
-- If the helper script is unavailable, perform the same steps manually with `doct-cli workspaces list --json`, `doct-cli docs list --workspace <id> --json`, and `POST /api/documents`.
+- If auth is missing, run `doct-agent auth login --base-url https://doct.nodaste.com` first (paste the owner-approved enrollment code, or use `doct-agent auth import-pat --base-url <url> --token <doct_pat_v1_...>`).
+- Override the destination only when asked, with `--parent-title` / `--workspace`.

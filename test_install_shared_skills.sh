@@ -517,12 +517,12 @@ test_phase_three_docs_use_canonical_shared_skill_paths() {
   assert_file_contains "README.md" 'skills/install-matrix.json' || return 1
   assert_file_contains "_pi/README.md" 'skills/install-matrix.json' || return 1
 
-  assert_file_contains "_omp/commands/cmd:send-plan-to-doct.md" '$HOME/.agents/skills/doct-document-ops/scripts/publish-coding-plan.sh' || return 1
-  assert_file_contains "_pi/prompts/cmd:send-plan-to-doct.md" '$HOME/.agents/skills/doct-document-ops/scripts/publish-coding-plan.sh' || return 1
-  assert_file_contains "_opencode/commands/cmd:send-plan-to-doct.md" '$HOME/.agents/skills/doct-document-ops/scripts/publish-coding-plan.sh' || return 1
-  assert_file_not_contains "_omp/commands/cmd:send-plan-to-doct.md" '$HOME/.pi/agent/skills/doct-document-ops/scripts/publish-coding-plan.sh' || return 1
-  assert_file_not_contains "_pi/prompts/cmd:send-plan-to-doct.md" '$HOME/.pi/agent/skills/doct-document-ops/scripts/publish-coding-plan.sh' || return 1
-  assert_file_not_contains "_opencode/commands/cmd:send-plan-to-doct.md" '$HOME/.config/opencode/skills/doct-document-ops/scripts/publish-coding-plan.sh' || return 1
+  assert_file_contains "_omp/commands/cmd:send-plan-to-doct.md" 'doct-agent documents publish-plan' || return 1
+  assert_file_contains "_pi/prompts/cmd:send-plan-to-doct.md" 'doct-agent documents publish-plan' || return 1
+  assert_file_contains "_opencode/commands/cmd:send-plan-to-doct.md" 'doct-agent documents publish-plan' || return 1
+  assert_file_not_contains "_omp/commands/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
+  assert_file_not_contains "_pi/prompts/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
+  assert_file_not_contains "_opencode/commands/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
 
   assert_file_contains "skills/install-matrix.json" '"playwright-skill"' || return 1
   assert_file_contains "skills/install-matrix.json" '"packageSource": "lackeyjb/playwright-skill"' || return 1
@@ -541,6 +541,7 @@ test_phase_three_duplicate_skill_trees_are_removed() {
   [[ ! -d ".agents/skills/dependency-selection" ]] || return 1
   [[ ! -d "_pi/skills" ]] || return 1
   [[ -d "_opencode/skills" ]] || return 1
+  [[ -d "_opencode/skills/codex-computer-use" ]] || return 1
   [[ -d "_opencode/skills/opencode-conversation-reviewer" ]] || return 1
   [[ -d "_opencode/skills/template" ]] || return 1
   [[ ! -d "_opencode/skills/playwright-skill" ]] || return 1
@@ -568,7 +569,7 @@ test_phase_three_duplicate_skill_trees_are_removed() {
   [[ ! -d "skills/xlsx" ]] || return 1
 
   local unexpected
-  unexpected="$(find _opencode/skills -mindepth 1 -maxdepth 1 -type d ! -name 'opencode-conversation-reviewer' ! -name 'template' -print)"
+  unexpected="$(find _opencode/skills -mindepth 1 -maxdepth 1 -type d ! -name 'codex-computer-use' ! -name 'opencode-conversation-reviewer' ! -name 'template' -print)"
   [[ -z "$unexpected" ]]
 }
 
@@ -579,7 +580,6 @@ test_phase_four_validation_proves_final_alignment() {
   local opencode_symlinks
   local stale_tree_refs
   local stale_install_instructions
-  local help_output
 
   home="$(new_tmp_dir)"
   target="$(new_tmp_dir)"
@@ -608,9 +608,8 @@ test_phase_four_validation_proves_final_alignment() {
   [[ ! -e "$home/.pi/agent/skills/doct-document-ops" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/cmd-debug" ]] || return 1
 
-  help_output="$(HOME="$home" bash "$home/.agents/skills/doct-document-ops/scripts/publish-coding-plan.sh" --help)" || return 1
-  assert_command_output_contains "$help_output" 'Usage: publish-coding-plan.sh' || return 1
-  assert_command_output_contains "$help_output" 'Creates a new doct text document as a child of the user' || return 1
+  assert_file_contains "$home/.agents/skills/doct-document-ops/SKILL.md" 'doct-agent documents publish-plan' || return 1
+  assert_file_not_contains "$home/.agents/skills/doct-document-ops/SKILL.md" 'publish-coding-plan.sh' || return 1
 
   stale_tree_refs="$(git grep -n '_opencode/skills/\|_pi/skills/' README.md SETUP.md AGENTS.md _pi _opencode _omp skills install.sh || true)"
   assert_command_output_not_contains "$stale_tree_refs" 'cp -r ./_opencode/skills' || return 1
