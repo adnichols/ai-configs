@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer-execution-ready
-description: Respond to plan-reviewer execution-ready request comments by running the locally configured readiness review gates for an explicit HTML plan path. Use when a plan-review browser comment says to use plan-reviewer-execution-ready or requests an execution-ready review for a plan path.
+description: Respond to plan-reviewer execution-ready request comments by coordinating GPT and GLM readiness review, resolving disagreements into plan improvements, applying those improvements to the HTML plan, and rerunning review until both reviewers agree the plan is execution-ready or a real blocker remains. Use when a plan-review browser comment says to use plan-reviewer-execution-ready or requests an execution-ready review for a plan path.
 ---
 
 # Plan Reviewer Execution-Ready
@@ -15,6 +15,9 @@ The triggering comment should include:
 
 ```text
 Use the plan-reviewer-execution-ready skill for this plan.
+
+Review thoughts/plans/<slug>.html with GPT and GLM. Debate and improve the correctness of this plan and any fixes until both agents are at consensus on the recommended changes, apply those changes, and the plan is execution-ready.
+
 Plan path: thoughts/plans/<slug>.html
 ```
 
@@ -26,10 +29,11 @@ If the plan path is missing, ambiguous, or not a readable file in the current re
 2. Confirm the plan is intended for execution readiness review, not direct implementation.
 3. Run product-intent / PM readiness checks using the repo's product-intent guidance when present.
 4. Run two independent read-only plan reviews using the active runtime's native mechanism.
-5. Integrate only readiness blockers, product questions, or clarity needed to execute the stated scope.
-6. Rerun the independent reviews after material edits until both reviews agree by substance that the plan is execution-ready, or stop with a blocker.
-7. Re-register the same plan through `plan-review register ... --execution-ready true` only after the gates clear.
-8. Ack and resolve the plan-reviewer request comment only after the plan is actually updated or the blocker is reported.
+5. Compare GPT and GLM findings, force disagreements through repo/product evidence, and identify the consensus set of changes required for correctness and execution readiness.
+6. Apply the agreed in-scope improvements directly to the HTML plan. The primary deliverable is an improved plan, not a findings report.
+7. Rerun GPT and GLM after material edits until both agree by substance that the latest plan is execution-ready, or stop with a specific product/tooling blocker.
+8. Re-register the same plan through `plan-review register ... --execution-ready true` only after the gates clear.
+9. Ack and resolve the plan-reviewer request comment only after the plan is actually updated and rereviewed, or the blocker is reported.
 
 Do not edit product code, tests, generated files, local environment files, or unrelated docs while using this skill.
 
@@ -40,7 +44,7 @@ In Pi, run two read-only Pi subagent plan reviews:
 - `quality-reviewer` for the GPT-5.5 review leg.
 - `quality-reviewer-glm` for the GLM-5.2 review leg, using `thinking: "xhigh"` when the harness supports it.
 
-Launch both reviewers independently. The prompt to each reviewer must include:
+Launch both reviewers independently. Keep the review agents read-only; the coordinating agent must synthesize their recommendations, drive convergence, and edit the plan. The prompt to each reviewer must include:
 
 - the plan path,
 - the user request or browser action context,
@@ -57,7 +61,7 @@ VERDICT: PLAN_NEEDS_REVISION
 VERDICT: BLOCKED_BY_PRODUCT_QUESTION
 ```
 
-Treat fuzzy output by substance. The plan is ready only when both independent reviewer results clear the plan after the latest material edit.
+Treat fuzzy output by substance. The plan is ready only when both independent reviewer results clear the plan after the latest material edit. Do not conclude after merely summarizing reviewer findings; if the findings are actionable within scope, apply them to the plan and rerun both reviewers.
 
 ## Codex implementation
 
@@ -68,7 +72,7 @@ In Codex, use the Codex-native reviewed-plan path installed with ai-configs:
 /review:change-integrate <plan-path>
 ```
 
-Then rerun `/review:plan <plan-path>` after material edits until the review result clears by substance. If the active Codex install provides a newer equivalent multi-review plan command, use that instead.
+Then apply the agreed changes with `/review:change-integrate <plan-path>` or direct scoped edits, and rerun `/review:plan <plan-path>` after material edits until the review result clears by substance. If the active Codex install provides a newer equivalent multi-review plan command, use that instead. Do not stop at a findings report when the fixes are inferable and in scope.
 
 Codex must not claim execution readiness if it cannot run or delegate two independent read-only plan reviews. In that case, ack with a blocker explaining the missing command or reviewer capability and leave the plan not execution-ready.
 
