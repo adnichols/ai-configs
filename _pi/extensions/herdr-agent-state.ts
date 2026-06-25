@@ -47,6 +47,18 @@ function sendRequest(request: unknown): Promise<boolean> {
 
 type AgentState = "working" | "blocked" | "idle";
 
+type ProcessStatus = "running" | "terminating" | "terminate_timeout" | "exited" | "killed";
+
+type TrackedProcess = {
+  id: string;
+  name: string;
+  command: string;
+  pid?: number;
+  status?: ProcessStatus;
+};
+
+const liveProcessStatuses = new Set<ProcessStatus>(["running", "terminating", "terminate_timeout"]);
+
 type QueuedState = {
   state: AgentState;
   message?: string;
@@ -254,6 +266,77 @@ function lastAssistantMessage(messages: unknown[]): any | undefined {
   return undefined;
 }
 
+function processToolDetails(event: any): any | undefined {
+  return event?.details ?? event?.result?.details;
+}
+
+function isProcessLive(processInfo: TrackedProcess): boolean {
+  if (processInfo.status && !liveProcessStatuses.has(processInfo.status)) {
+    return false;
+  }
+
+  const pid = processInfo.pid;
+  if (!Number.isFinite(pid) || !pid || pid <= 0) {
+    return liveProcessStatuses.has(processInfo.status as ProcessStatus);
+  }
+
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException)?.code;
+    return code === "EPERM";
+  }
+}
+
+function hasCommandFlag(command: string, flag: string): boolean {
+  const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|\\s)${escaped}(\\s|$)`).test(command);
+}
+
+function normalizedCommand(command: unknown): string {
+  return typeof command === "string" ? command.trim().replace(/\s+/g, " ") : "";
+}
+
+function isPassivePlanListener(processInfo: TrackedProcess): boolean {
+  const command = normalizedCommand(processInfo.command);
+  return /^plan-review\s+agent\s+next\b/.test(command)
+    && hasCommandFlag(command, "--wait")
+    && hasCommandFlag(command, "--json")
+    && !hasCommandFlag(command, "--no-wait");
+}
+
+function isPassivePrListener(processInfo: TrackedProcess): boolean {
+  const name = String(processInfo.name ?? "").toLowerCase();
+  const command = normalizedCommand(processInfo.command);
+  return /^pr-\d+-monitor$/.test(name)
+    || name.includes("pr-monitor")
+    || /(^|\s)(bash\s+)?\/tmp\/monitor-pr-\d+\.sh(\s|$)/.test(command);
+}
+
+function isPassiveListenerProcess(processInfo: TrackedProcess): boolean {
+  return isPassivePlanListener(processInfo) || isPassivePrListener(processInfo);
+}
+
+function toTrackedProcess(raw: any, fallback?: Partial<TrackedProcess>): TrackedProcess | undefined {
+  const id = typeof raw?.id === "string" && raw.id.length > 0
+    ? raw.id
+    : typeof fallback?.id === "string" && fallback.id.length > 0
+      ? fallback.id
+      : undefined;
+  if (!id) {
+    return undefined;
+  }
+
+  return {
+    id,
+    name: typeof raw?.name === "string" ? raw.name : fallback?.name ?? "",
+    command: typeof raw?.command === "string" ? raw.command : fallback?.command ?? "",
+    pid: Number.isFinite(raw?.pid) ? raw.pid : fallback?.pid,
+    status: typeof raw?.status === "string" ? raw.status : fallback?.status,
+  };
+}
+
 function retryableErrorMessage(event: any): string | undefined {
   const messages = Array.isArray(event?.messages) ? event.messages : [];
   const assistant = lastAssistantMessage(messages);
@@ -291,6 +374,7 @@ export default function (pi) {
   let reconcileTimer: ReturnType<typeof setInterval> | undefined;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   const subagentIds = new Set<string>();
+  const processIds = new Map<string, TrackedProcess>();
 
   function clearTimer(timer: ReturnType<typeof setTimeout> | undefined) {
     if (timer) {
@@ -344,6 +428,20 @@ export default function (pi) {
     return subagentIds.size > 0;
   }
 
+  function processWorkActive(): boolean {
+    let hasBlockingProcess = false;
+    for (const [id, processInfo] of processIds) {
+      if (!isProcessLive(processInfo)) {
+        processIds.delete(id);
+        continue;
+      }
+      if (!isPassiveListenerProcess(processInfo)) {
+        hasBlockingProcess = true;
+      }
+    }
+    return hasBlockingProcess;
+  }
+
   function desiredState() {
     if (blockedCount > 0) {
       return { state: "blocked" as const, message: blockedMessage };
@@ -355,6 +453,9 @@ export default function (pi) {
       return { state: "working" as const, message: undefined };
     }
     if (subagentWorkActive()) {
+      return { state: "working" as const, message: undefined };
+    }
+    if (processWorkActive()) {
       return { state: "working" as const, message: undefined };
     }
     return { state: "idle" as const, message: undefined };
@@ -541,6 +642,7 @@ export default function (pi) {
     clearPendingTimers();
     clearSessionState();
     subagentIds.clear();
+    processIds.clear();
     rootSession = true;
     currentCtx = ctx;
     updateSessionRef(ctx);
@@ -588,6 +690,61 @@ export default function (pi) {
     scheduleIdle();
   });
 
+  pi.on("tool_result", async (event) => {
+    if (!rootSession || event?.toolName !== "process") {
+      return;
+    }
+
+    const action = String(event?.input?.action ?? "");
+    const details = processToolDetails(event);
+    if (action === "clear") {
+      processIds.clear();
+      publishState();
+      return;
+    }
+
+    if (action === "kill" && typeof event?.input?.id === "string") {
+      processIds.delete(event.input.id);
+      publishState();
+      return;
+    }
+
+    if (event?.isError) {
+      return;
+    }
+
+    if (Array.isArray(details?.processes)) {
+      for (const rawProcess of details.processes) {
+        const tracked = toTrackedProcess(rawProcess);
+        if (!tracked) continue;
+        if (isProcessLive(tracked)) {
+          processIds.set(tracked.id, tracked);
+        } else {
+          processIds.delete(tracked.id);
+        }
+      }
+    }
+
+    const fallback = action === "start"
+      ? {
+          id: typeof details?.id === "string" ? details.id : undefined,
+          name: typeof event?.input?.name === "string" ? event.input.name : "",
+          command: typeof event?.input?.command === "string" ? event.input.command : "",
+          status: "running" as ProcessStatus,
+        }
+      : undefined;
+    const tracked = toTrackedProcess(details?.process, fallback);
+    if (tracked) {
+      if (isProcessLive(tracked)) {
+        processIds.set(tracked.id, tracked);
+      } else {
+        processIds.delete(tracked.id);
+      }
+    }
+
+    publishState();
+  });
+
   pi.on("session_shutdown", async () => {
     if (!rootSession) {
       return;
@@ -598,6 +755,7 @@ export default function (pi) {
     clearPendingTimers();
     clearSessionState();
     subagentIds.clear();
+    processIds.clear();
     stateReportsEnabled = false;
     queuedState = undefined;
     rootSession = false;

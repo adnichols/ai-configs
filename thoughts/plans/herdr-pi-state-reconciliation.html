@@ -159,7 +159,7 @@
         <ul>
           <li>Add subagent lifecycle awareness to <code>_pi/extensions/herdr-agent-state.ts</code>.</li>
           <li>Use the subagent manager as the authoritative running/queued signal when available, filtered to blocking agent work.</li>
-          <li>Do not count passive plan-review, PR-monitor, log-tail, watch, or shell listener processes as blocking work.</li>
+          <li>Track live <code>process</code> tool jobs as blocking work except for an explicit passive allowlist: <code>plan-review agent next --wait --json</code> listeners and PR monitor scripts/process names.</li>
           <li>Replace one-way reconcile with full desired-state reconciliation.</li>
           <li>Add session-boundary cleanup so late subagent events or heartbeat ticks cannot publish working after <code>session_shutdown</code>.</li>
           <li>Add a low-frequency heartbeat to re-send current state when Herdr missed or dropped reports.</li>
@@ -183,11 +183,12 @@
             <tr><td>Parent Pi turn is active</td><td>Yes</td><td>The main agent is still executing the user request.</td></tr>
             <tr><td>Pi Agent subagent record is <code>running</code> or <code>queued</code></td><td>Yes</td><td>These are delegated agent tasks whose results affect completion.</td></tr>
             <tr><td>Blocked prompt or retry/failure hold</td><td>Yes, as <code>blocked</code> or <code>working</code></td><td>Existing Herdr semantics must be preserved.</td></tr>
-            <tr><td><code>process</code> tool listener for <code>plan-review agent next --wait</code></td><td>No</td><td>It is a passive comment monitor; it should not keep an otherwise complete session working.</td></tr>
-            <tr><td>PR monitor, watch stream, log tail, durable shell loop, or dev-server process</td><td>No by default</td><td>These are infrastructure/background observability unless the parent agent is actively handling their output.</td></tr>
+            <tr><td><code>process</code> tool listener for <code>plan-review agent next --wait --json</code></td><td>No</td><td>It is a passive browser-comment monitor; it should not keep an otherwise complete session working.</td></tr>
+            <tr><td>PR monitor named like <code>pr-&lt;number&gt;-monitor</code> or running <code>/tmp/monitor-pr-&lt;number&gt;.sh</code></td><td>No</td><td>It is passive post-PR feedback monitoring.</td></tr>
+            <tr><td>Background tests, build/watch jobs, dev servers, log tails, watch streams, durable shell loops, or any other live <code>process</code> tool job</td><td>Yes</td><td>These are not on the passive listener allowlist, so Herdr must stay working until they finish or are killed.</td></tr>
           </tbody>
         </table>
-        <p>Implementation consequence: use <code>manager.hasRunning()</code> as the primary authoritative signal. Use <code>manager.getRecord(id)</code> only for locally tracked IDs when future per-record diagnostics are needed; do not rely on <code>listAgents()</code>, because the cross-extension global manager does not expose it.</p>
+        <p>Implementation consequence: use <code>manager.hasRunning()</code> as the primary authoritative subagent signal. Track <code>process</code> tool result records separately, classify only explicit plan/PR listeners as passive, and liveness-check tracked PIDs during reconciliation so completed background tests clear back to idle even when no process alert wakes the agent. Use <code>manager.getRecord(id)</code> only for locally tracked IDs when future per-record diagnostics are needed; do not rely on <code>listAgents()</code>, because the cross-extension global manager does not expose it.</p>
       </section>
 
       <section id="progress">
@@ -198,6 +199,7 @@
           <li><input type="checkbox" checked disabled> P3: Replace one-way reconcile and session cleanup</li>
           <li><input type="checkbox" checked disabled> P4: Add heartbeat republish</li>
           <li><input type="checkbox" checked disabled> P5: Verify manual state scenarios</li>
+          <li><input type="checkbox" checked disabled> P6: Tighten process-tool busy allowlist</li>
         </ul>
       </section>
 
@@ -210,7 +212,7 @@
           <li>Subscribe to <code>pi.events.on("subagents:completed")</code> and <code>pi.events.on("subagents:failed")</code> to remove IDs and schedule/publish the next desired state.</li>
           <li>Add safe manager lookup that uses <code>hasRunning()</code> as the primary authoritative signal when available.</li>
           <li>Optionally use <code>getRecord(id)</code> for locally tracked IDs during diagnostics or future filtering; do not depend on unavailable <code>listAgents()</code>.</li>
-          <li>Document that passive plan/PR/log/watch monitors are excluded because they are process-tool work, not Pi subagent records.</li>
+          <li>Document that Pi subagent work and <code>process</code> tool work are separate state sources: subagent records are always blocking, while process-tool jobs are blocking unless they match the explicit passive plan/PR listener allowlist.</li>
         </ul>
         <pre><code>function managerBlockingSubagentsRunning(): boolean | undefined {
   const manager = (globalThis as any)[Symbol.for("pi-subagents:manager")];
@@ -233,7 +235,8 @@
             <tr><td>4</td><td><code>retryHoldActive</code></td><td><code>working</code></td></tr>
             <tr><td>5</td><td>subagent manager <code>hasRunning()</code> reports running/queued Pi subagents</td><td><code>working</code></td></tr>
             <tr><td>6</td><td>manager unavailable and local subagent event set is non-empty</td><td><code>working</code></td></tr>
-            <tr><td>7</td><td>none of the above</td><td><code>idle</code></td></tr>
+            <tr><td>7</td><td>any live tracked <code>process</code> tool job does not match the passive plan/PR listener allowlist</td><td><code>working</code></td></tr>
+            <tr><td>8</td><td>none of the above</td><td><code>idle</code></td></tr>
           </tbody>
         </table>
       </section>
@@ -244,7 +247,8 @@
         <ul>
           <li>If <code>manager.hasRunning()</code> reports no running/queued subagents, clear stale local subagent IDs.</li>
           <li>If <code>manager.hasRunning()</code> reports running/queued subagents, never force idle just because parent <code>ctx.isIdle()</code> is true.</li>
-          <li>If passive monitor processes are still running but no blocking subagents remain, allow idle/done.</li>
+          <li>If only passive plan/PR listener processes are still running and no parent turn, blocking subagent, or other process-tool job remains, allow idle/done.</li>
+          <li>If a tracked process-tool job has exited or its PID is no longer alive, drop it from the working-state calculation during reconciliation.</li>
           <li>Recompute <code>desiredState()</code> every interval.</li>
           <li>Publish when the authoritative desired state differs from the last reported state.</li>
           <li>Keep parent <code>ctx.isIdle()</code> and <code>ctx.hasPendingMessages()</code> as parent-turn checks, not as global pane-idle authority.</li>
@@ -277,6 +281,19 @@ let lastQueuedMessage: string | undefined;</code></pre>
         </ul>
       </section>
 
+      <section id="phase-6-process-allowlist" class="phase">
+        <h2>P6: Tighten Process-Tool Busy Allowlist</h2>
+        <p>Track <code>process</code> tool jobs from <code>tool_result</code> details and treat them as working-state blockers unless they match the passive listener allowlist.</p>
+        <ul>
+          <li>Record started/listed process records from <code>details.process</code> and <code>details.processes</code>, including ID, name, command, PID, and status.</li>
+          <li>Classify only <code>plan-review agent next ... --wait --json</code> without <code>--no-wait</code> as a passive plan listener.</li>
+          <li>Classify only PR monitors named like <code>pr-&lt;number&gt;-monitor</code>, containing <code>pr-monitor</code>, or running <code>/tmp/monitor-pr-&lt;number&gt;.sh</code> as passive PR listeners.</li>
+          <li>Treat all other live process-tool jobs, including background tests, dev servers, log tails, and watch streams, as working.</li>
+          <li>On reconcile, remove process records whose status is terminal or whose PID is no longer live so unalerted process exits do not strand Herdr in working.</li>
+          <li>Clear tracked process records on process kill/clear and session shutdown.</li>
+        </ul>
+      </section>
+
       <section id="phase-5-verification" class="phase">
         <h2>P5: Verification</h2>
         <h3>Manual scenarios</h3>
@@ -286,7 +303,9 @@ let lastQueuedMessage: string | undefined;</code></pre>
           <li id="verify-queued-subagent">Queue a subagent behind the max concurrency limit; Herdr treats queued work as working.</li>
           <li id="verify-missed-completion">Simulate missed completion or stale local ID; reconcile clears it when manager reports no running/queued agents.</li>
           <li id="verify-dropped-idle">Temporarily break Herdr socket during final idle; heartbeat republishes idle after connectivity returns.</li>
-          <li id="verify-passive-monitor">Start a passive <code>plan-review agent next --wait</code> listener or PR monitor after active work completes; Herdr may report idle/done while the listener remains alive.</li>
+          <li id="verify-passive-monitor">Start a passive <code>plan-review agent next --wait --json</code> listener or PR monitor after active work completes; Herdr may report idle/done while the listener remains alive.</li>
+          <li id="verify-background-process">Start a background test runner through the <code>process</code> tool; after the parent turn ends, Herdr remains working until the process exits, is killed, or appears non-live during reconciliation.</li>
+          <li id="verify-nonallowlisted-process">Start a log tail, dev server, or generic watch process; Herdr treats it as working because it is not a plan/PR listener.</li>
           <li id="verify-no-subagents">Run without the subagents extension; behavior remains parent-agent-only.</li>
           <li id="verify-shutdown-cleanup">Shut down or switch sessions while parent, blocked, retry, subagent, queued-report, or heartbeat state exists; the next session starts from fresh state and no late callback republishes working or blocked.</li>
           <li id="verify-blocked-priority">Trigger a blocked prompt while work is active; blocked state still wins over working/idle.</li>
@@ -299,7 +318,8 @@ let lastQueuedMessage: string | undefined;</code></pre>
         <h2>Acceptance Criteria</h2>
         <ul>
           <li id="ac-1">Herdr does not report idle/completed while blocking Pi subagents are running or queued.</li>
-          <li id="ac-2">Herdr reports idle after the parent agent and all blocking subagents are complete, even if passive plan/PR monitor processes remain alive.</li>
+          <li id="ac-2">Herdr reports idle after the parent agent and all blocking subagents/process-tool jobs are complete, even if passive plan/PR listener processes remain alive.</li>
+          <li id="ac-2a">Herdr does not report idle while a background test runner or other non-allowlisted process-tool job is still live.</li>
           <li id="ac-3">Missed subagent events self-heal through the subagent manager lookup.</li>
           <li id="ac-4">Dropped final state reports self-heal through heartbeat republish.</li>
           <li id="ac-5">Blocked and retry states preserve their existing priority.</li>
@@ -317,7 +337,8 @@ let lastQueuedMessage: string | undefined;</code></pre>
             <tr><td>Completion event is missed and local set remains non-empty.</td><td>Clear local set when manager reports no running/queued subagents.</td></tr>
             <tr><td>Heartbeat spams Herdr socket.</td><td>Default low frequency and support <code>HERDR_PI_HEARTBEAT_MS=0</code>.</td></tr>
             <tr><td>False idle while manager reports blocking agent work.</td><td>Never force idle from parent <code>ctx.isIdle()</code> alone when <code>manager.hasRunning()</code> reports running/queued Pi subagents.</td></tr>
-            <tr><td>False working caused by passive monitors.</td><td>Do not query generic process state; rely on the Pi subagents registry for delegated-agent work and keep process-tool listeners outside the working-state calculation.</td></tr>
+            <tr><td>False working caused by passive listeners.</td><td>Track process-tool work, but ignore only explicit <code>plan-review agent next --wait --json</code> listeners and PR monitor processes; all other live process-tool jobs remain blocking.</td></tr>
+            <tr><td>False working after an unalerted background process exits.</td><td>Liveness-check tracked process PIDs during reconciliation and remove ended/non-live records before computing desired state.</td></tr>
             <tr><td>Subagents package absent.</td><td>Manager lookup returns <code>undefined</code> and event handlers remain inert.</td></tr>
             <tr><td>Late heartbeat, retry timer, queued report, release, or subagent event after session shutdown reclaims a released or newly started pane.</td><td>Stop heartbeat, clear parent/blocked/retry/fallback subagent state, disable and drain state reports before release, use a session-generation token for retry promotion, queued reports, and release, mark the session inactive, and guard event handlers/publish paths on an active <code>rootSession</code>.</td></tr>
           </tbody>
