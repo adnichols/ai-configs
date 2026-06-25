@@ -49,7 +49,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, notifications, ctx } = setup(60.4);
 
     await handlers.turn_end?.(
-      { message: { role: "assistant", stopReason: "stop" } },
+      { message: { role: "assistant", stopReason: "stop", usage: { input: 1 } } },
       ctx,
     );
 
@@ -62,13 +62,36 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, notifications, ctx } = setup(61.2);
 
     await handlers.turn_end?.(
-      { message: { role: "assistant", stopReason: "toolUse" } },
+      { message: { role: "assistant", stopReason: "toolUse", usage: { input: 1 } } },
       ctx,
     );
 
     expect(compactCalls).toHaveLength(1);
     expect(compactCalls[0]?.customInstructions).toBe(PI_VCC_MANUAL_BYPASS_MARKER);
     expect(notifications.some((entry) => entry.message.includes("Interrupting agent for pi-vcc compaction"))).toBe(true);
+  });
+
+  test("does not recompact stale usage immediately after compaction", async () => {
+    const { handlers, compactCalls, ctx } = setup(61.2);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "toolUse", usage: { input: 1 } } },
+      ctx,
+    );
+    expect(compactCalls).toHaveLength(1);
+
+    await handlers.session_compact?.({}, ctx);
+
+    await handlers.turn_end?.(
+      { message: { role: "user", content: "continue" } },
+      ctx,
+    );
+    await handlers.turn_end?.(
+      { message: { role: "toolResult", toolCallId: "call_1" } },
+      ctx,
+    );
+
+    expect(compactCalls).toHaveLength(1);
   });
 
   test("manual compact-now bypasses the threshold gate", async () => {
@@ -113,7 +136,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, notifications, ctx } = setup(61.2, false);
 
     await handlers.turn_end?.(
-      { message: { role: "assistant", stopReason: "stop" } },
+      { message: { role: "assistant", stopReason: "stop", usage: { input: 1 } } },
       ctx,
     );
 

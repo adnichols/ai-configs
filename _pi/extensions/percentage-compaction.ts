@@ -28,11 +28,19 @@ export default function (pi: ExtensionAPI) {
   let warnedAtThreshold = false;
   let allowNextManualCompaction = false;
   let compactionInFlight = false;
+  let awaitingPostCompactionUsage = false;
+  let lastAssistantWasOverThreshold = false;
 
   const finishCompaction = () => {
     allowNextManualCompaction = false;
     compactionInFlight = false;
     warnedAtThreshold = false;
+  };
+
+  const markCompacted = () => {
+    finishCompaction();
+    awaitingPostCompactionUsage = true;
+    lastAssistantWasOverThreshold = false;
   };
 
   const triggerCompaction = (
@@ -108,11 +116,25 @@ export default function (pi: ExtensionAPI) {
   // tool turn instead of waiting for the whole user prompt to finish; pi-vcc will
   // resume the agent after the in-flight compaction completes.
   pi.on("turn_end", async (event: TurnEndEvent, ctx: ExtensionContext) => {
+    const isAssistantWithUsage =
+      event.message.role === "assistant" && Boolean((event.message as any).usage);
+
+    if (awaitingPostCompactionUsage) {
+      if (!isAssistantWithUsage) return;
+      awaitingPostCompactionUsage = false;
+    }
+
     const usage = ctx.getContextUsage();
     if (!usage || usage.percent === null) return;
 
     const currentPercent = Math.floor(usage.percent);
     const threshold = COMPACTION_THRESHOLD_PERCENT;
+
+    if (isAssistantWithUsage) {
+      lastAssistantWasOverThreshold = currentPercent >= threshold;
+    } else if (!lastAssistantWasOverThreshold) {
+      return;
+    }
 
     if (currentPercent < threshold) {
       warnedAtThreshold = false;
@@ -134,7 +156,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_compact", async () => {
-    finishCompaction();
+    markCompacted();
   });
 
   // Intercept core auto-compaction - gate it by the percentage threshold.
