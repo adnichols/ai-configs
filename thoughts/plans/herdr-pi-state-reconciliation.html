@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Herdr Pi State Reconciliation Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #60a5fa;
+      --accent-2: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --border: #374151;
+      --code: #020617;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 28px;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+    nav {
+      position: sticky;
+      top: 24px;
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
+      align-self: start;
+      background: rgba(17, 24, 39, 0.86);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+    nav h2 { margin: 0 0 12px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+    nav ol { margin: 0; padding-left: 18px; }
+    nav li { margin: 7px 0; }
+    main {
+      min-width: 0;
+      background: rgba(17, 24, 39, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+    }
+    header { border-bottom: 1px solid var(--border); margin-bottom: 28px; padding-bottom: 20px; }
+    h1 { margin: 0 0 8px; font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.05; }
+    h2 { margin-top: 34px; padding-top: 10px; border-top: 1px solid var(--border); }
+    h3 { margin-top: 24px; }
+    .summary { color: var(--muted); font-size: 1.05rem; max-width: 820px; }
+    .meta, .callout, .phase {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin: 18px 0;
+    }
+    .callout strong { color: var(--accent-2); }
+    .warning strong { color: var(--warning); }
+    code, pre {
+      background: var(--code);
+      color: #d1d5db;
+      border-radius: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    code { padding: 2px 5px; }
+    pre { padding: 16px; overflow-x: auto; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: var(--panel-2); text-align: left; }
+    .badge { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; padding: 18px; }
+      nav { position: static; max-height: none; }
+      main { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav aria-label="Plan sections">
+      <h2>Sections</h2>
+      <ol>
+        <li><a href="#goal">Goal</a></li>
+        <li><a href="#evidence">Current Evidence</a></li>
+        <li><a href="#root-cause">Root Cause</a></li>
+        <li><a href="#scope">Scope</a></li>
+        <li><a href="#progress">Progress</a></li>
+        <li><a href="#counting-rules">Counting Rules</a></li>
+        <li><a href="#phase-1-subagent-source">P1 Subagent Source</a></li>
+        <li><a href="#phase-2-desired-state">P2 Desired State</a></li>
+        <li><a href="#phase-3-reconcile">P3 Reconcile</a></li>
+        <li><a href="#phase-4-heartbeat">P4 Heartbeat</a></li>
+        <li><a href="#phase-5-verification">P5 Verification</a></li>
+        <li><a href="#acceptance-criteria">Acceptance Criteria</a></li>
+        <li><a href="#risks">Risks</a></li>
+        <li><a href="#review-consensus">Review Consensus</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <header>
+        <p class="badge">Execution readiness: approved by GPT and GLM reviewers</p>
+        <h1>Herdr Pi State Reconciliation Plan</h1>
+        <p class="summary">Make the repo-managed Herdr Pi extension report pane state from the full Pi work lifecycle, including genuine Pi subagents and lost final state reports, without letting passive plan/PR monitor processes keep panes working forever.</p>
+      </header>
+
+      <section id="goal">
+        <h2>Goal</h2>
+        <p>Fix incorrect Herdr state reporting for Pi sessions where:</p>
+        <ul>
+          <li>the parent Pi turn completes while background subagents are still running, causing Herdr to show completed too early;</li>
+          <li>Herdr stays working after work is complete because the final idle report was dropped or missed;</li>
+          <li>blocked prompts and retry holds must continue to take precedence over ordinary idle/working transitions;</li>
+          <li>passive background monitors for plans, PRs, logs, or review comments must not prevent Herdr from reporting idle/done.</li>
+        </ul>
+      </section>
+
+      <section id="evidence">
+        <h2>Current Evidence</h2>
+        <div class="meta">
+          <p><strong>Primary file:</strong> <code>_pi/extensions/herdr-agent-state.ts</code></p>
+          <p><strong>Installed copy:</strong> <code>~/.pi/agent/extensions/herdr-agent-state.ts</code> currently matches the repo copy.</p>
+          <p><strong>Relevant subagent source:</strong> <code>/Users/anichols/.pi/agent/npm/node_modules/@tintinweb/pi-subagents/src/index.ts</code> and <code>src/agent-manager.ts</code>.</p>
+        </div>
+        <p>The Herdr extension currently tracks parent Pi lifecycle events, blocked state, retry holds, socket send retry, and a one-way stale-working watchdog. It does not consume the Pi subagents event stream or the subagent manager registry.</p>
+        <p>The Pi subagents extension already emits <code>subagents:created</code>, <code>subagents:started</code>, <code>subagents:completed</code>, and <code>subagents:failed</code>. It also exposes <code>globalThis[Symbol.for("pi-subagents:manager")]</code> with <code>hasRunning()</code> and <code>getRecord(id)</code>. <code>hasRunning()</code> is the authoritative manager signal for this plan because it reports only Pi subagent records with <code>status === "running" || status === "queued"</code>; passive process-tool monitors are tracked outside the Pi subagents registry.</p>
+      </section>
+
+      <section id="root-cause">
+        <h2>Root Cause</h2>
+        <p>The current Herdr integration treats the parent Pi <code>agent_end</code> event as sufficient evidence that the pane can become idle. That is false when the parent turn spawned background subagents.</p>
+        <ol>
+          <li>Parent Pi agent starts background subagents.</li>
+          <li>Parent turn ends and emits <code>agent_end</code>.</li>
+          <li>Herdr extension sets <code>agentActive = false</code> and schedules idle.</li>
+          <li>Subagents continue running, but Herdr has no state source for them.</li>
+          <li>Later subagent completion may trigger a follow-up turn, making the pane appear to go working after it had already been reported complete.</li>
+        </ol>
+      </section>
+
+      <section id="scope">
+        <h2>Scope</h2>
+        <h3>In scope</h3>
+        <ul>
+          <li>Add subagent lifecycle awareness to <code>_pi/extensions/herdr-agent-state.ts</code>.</li>
+          <li>Use the subagent manager as the authoritative running/queued signal when available, filtered to blocking agent work.</li>
+          <li>Do not count passive plan-review, PR-monitor, log-tail, watch, or shell listener processes as blocking work.</li>
+          <li>Replace one-way reconcile with full desired-state reconciliation.</li>
+          <li>Add session-boundary cleanup so late subagent events or heartbeat ticks cannot publish working after <code>session_shutdown</code>.</li>
+          <li>Add a low-frequency heartbeat to re-send current state when Herdr missed or dropped reports.</li>
+          <li>Keep behavior unchanged when the subagents extension is absent.</li>
+        </ul>
+        <h3>Out of scope</h3>
+        <ul>
+          <li>Changing the Herdr daemon protocol.</li>
+          <li>Changing the Pi subagents package.</li>
+          <li>Adding durable state outside this runtime extension.</li>
+          <li>Reworking Herdr's terminal-screen fallback heuristics.</li>
+        </ul>
+      </section>
+
+      <section id="counting-rules">
+        <h2>Counting Rules</h2>
+        <p>Herdr state should represent whether the Pi agent still has user-requested agent work in flight, not whether every auxiliary background process is alive.</p>
+        <table>
+          <thead><tr><th>Activity</th><th>Counts as working?</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr><td>Parent Pi turn is active</td><td>Yes</td><td>The main agent is still executing the user request.</td></tr>
+            <tr><td>Pi Agent subagent record is <code>running</code> or <code>queued</code></td><td>Yes</td><td>These are delegated agent tasks whose results affect completion.</td></tr>
+            <tr><td>Blocked prompt or retry/failure hold</td><td>Yes, as <code>blocked</code> or <code>working</code></td><td>Existing Herdr semantics must be preserved.</td></tr>
+            <tr><td><code>process</code> tool listener for <code>plan-review agent next --wait</code></td><td>No</td><td>It is a passive comment monitor; it should not keep an otherwise complete session working.</td></tr>
+            <tr><td>PR monitor, watch stream, log tail, durable shell loop, or dev-server process</td><td>No by default</td><td>These are infrastructure/background observability unless the parent agent is actively handling their output.</td></tr>
+          </tbody>
+        </table>
+        <p>Implementation consequence: use <code>manager.hasRunning()</code> as the primary authoritative signal. Use <code>manager.getRecord(id)</code> only for locally tracked IDs when future per-record diagnostics are needed; do not rely on <code>listAgents()</code>, because the cross-extension global manager does not expose it.</p>
+      </section>
+
+      <section id="progress">
+        <h2>Progress</h2>
+        <ul>
+          <li><input type="checkbox" checked disabled> P1: Add subagent-aware state source</li>
+          <li><input type="checkbox" checked disabled> P2: Update desired state priority</li>
+          <li><input type="checkbox" checked disabled> P3: Replace one-way reconcile and session cleanup</li>
+          <li><input type="checkbox" checked disabled> P4: Add heartbeat republish</li>
+          <li><input type="checkbox" checked disabled> P5: Verify manual state scenarios</li>
+        </ul>
+      </section>
+
+      <section id="phase-1-subagent-source" class="phase">
+        <h2>P1: Add Subagent-Aware State Source</h2>
+        <h3>Implementation</h3>
+        <ul>
+          <li>Add local fallback tracking with <code>const subagentIds = new Set&lt;string&gt;()</code>.</li>
+          <li>Subscribe to <code>pi.events.on("subagents:created")</code> and <code>pi.events.on("subagents:started")</code> to add IDs and publish working.</li>
+          <li>Subscribe to <code>pi.events.on("subagents:completed")</code> and <code>pi.events.on("subagents:failed")</code> to remove IDs and schedule/publish the next desired state.</li>
+          <li>Add safe manager lookup that uses <code>hasRunning()</code> as the primary authoritative signal when available.</li>
+          <li>Optionally use <code>getRecord(id)</code> for locally tracked IDs during diagnostics or future filtering; do not depend on unavailable <code>listAgents()</code>.</li>
+          <li>Document that passive plan/PR/log/watch monitors are excluded because they are process-tool work, not Pi subagent records.</li>
+        </ul>
+        <pre><code>function managerBlockingSubagentsRunning(): boolean | undefined {
+  const manager = (globalThis as any)[Symbol.for("pi-subagents:manager")];
+  if (typeof manager?.hasRunning !== "function") return undefined;
+  return manager.hasRunning() === true;
+}</code></pre>
+        <h3>Notes</h3>
+        <p>Subagent events are fast-path triggers. The manager is the stronger signal when present because it covers running and queued agents and self-heals missed events. <code>subagents:created</code> is a background-agent creation signal; <code>subagents:started</code> is the reliable add signal for both foreground and background subagents, including queued agents that later begin running.</p>
+      </section>
+
+      <section id="phase-2-desired-state" class="phase">
+        <h2>P2: Update Desired State Priority</h2>
+        <p>Update <code>desiredState()</code> so subagent activity participates in working-state decisions.</p>
+        <table>
+          <thead><tr><th>Priority</th><th>Condition</th><th>Reported state</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>blockedCount &gt; 0</code></td><td><code>blocked</code></td></tr>
+            <tr><td>2</td><td><code>failureBlocked</code></td><td><code>blocked</code></td></tr>
+            <tr><td>3</td><td><code>agentActive</code></td><td><code>working</code></td></tr>
+            <tr><td>4</td><td><code>retryHoldActive</code></td><td><code>working</code></td></tr>
+            <tr><td>5</td><td>subagent manager <code>hasRunning()</code> reports running/queued Pi subagents</td><td><code>working</code></td></tr>
+            <tr><td>6</td><td>manager unavailable and local subagent event set is non-empty</td><td><code>working</code></td></tr>
+            <tr><td>7</td><td>none of the above</td><td><code>idle</code></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="phase-3-reconcile" class="phase">
+        <h2>P3: Replace One-Way Reconcile and Add Session Cleanup</h2>
+        <p>The current reconcile watchdog only fixes stale <code>working -&gt; idle</code>. Replace it with full desired-state reconciliation, and make all new timers/state session-scoped so shutdown cannot publish stale work after the pane is released.</p>
+        <ul>
+          <li>If <code>manager.hasRunning()</code> reports no running/queued subagents, clear stale local subagent IDs.</li>
+          <li>If <code>manager.hasRunning()</code> reports running/queued subagents, never force idle just because parent <code>ctx.isIdle()</code> is true.</li>
+          <li>If passive monitor processes are still running but no blocking subagents remain, allow idle/done.</li>
+          <li>Recompute <code>desiredState()</code> every interval.</li>
+          <li>Publish when the authoritative desired state differs from the last reported state.</li>
+          <li>Keep parent <code>ctx.isIdle()</code> and <code>ctx.hasPendingMessages()</code> as parent-turn checks, not as global pane-idle authority.</li>
+          <li>On <code>session_shutdown</code>, stop reconcile, stop heartbeat, clear idle/retry timers, clear parent/retry/blocked state, clear <code>subagentIds</code>, disable and drain queued state reports, mark the root session inactive before releasing the pane, and ignore late subagent events when no active root session exists.</li>
+          <li>Use a session-generation token for queued state reports, retry-hold timer promotion, and shutdown release so an older async callback cannot release, retry, or block a newer session.</li>
+        </ul>
+      </section>
+
+      <section id="phase-4-heartbeat" class="phase">
+        <h2>P4: Add Heartbeat Republish</h2>
+        <p>Add a low-frequency heartbeat so Herdr can recover when the final idle or working report is dropped after send retries are exhausted.</p>
+        <h3>Configuration</h3>
+        <ul>
+          <li><code>HERDR_PI_HEARTBEAT_MS</code>, default <code>15000</code>.</li>
+          <li><code>0</code> disables heartbeat.</li>
+        </ul>
+        <h3>State to track</h3>
+        <pre><code>let lastPublishAt = 0;
+let lastSuccessfulStateReportAt = 0;
+let lastQueuedState: AgentState | undefined;
+let lastQueuedMessage: string | undefined;</code></pre>
+        <h3>Behavior</h3>
+        <ul>
+          <li>Update <code>lastPublishAt</code> whenever a state is queued.</li>
+          <li>Update <code>lastSuccessfulStateReportAt</code> only when <code>sendState(...)</code> succeeds.</li>
+          <li>On heartbeat, recompute desired state and force-publish if <code>lastSuccessfulStateReportAt &lt; lastPublishAt</code> or if no successful report has occurred within the heartbeat interval.</li>
+          <li>Heartbeat republish should use the same state queue and sequence mechanism as normal state reports.</li>
+          <li>Heartbeat must not bypass blocked or subagent-running checks.</li>
+          <li>Heartbeat must stop on <code>session_shutdown</code> and must check the active root session guard before queueing any state.</li>
+        </ul>
+      </section>
+
+      <section id="phase-5-verification" class="phase">
+        <h2>P5: Verification</h2>
+        <h3>Manual scenarios</h3>
+        <ol>
+          <li id="verify-one-subagent">Spawn one background subagent; parent turn ends; Herdr remains working until the subagent completes.</li>
+          <li id="verify-many-subagents">Spawn multiple parallel subagents; Herdr stays working until the last subagent completes.</li>
+          <li id="verify-queued-subagent">Queue a subagent behind the max concurrency limit; Herdr treats queued work as working.</li>
+          <li id="verify-missed-completion">Simulate missed completion or stale local ID; reconcile clears it when manager reports no running/queued agents.</li>
+          <li id="verify-dropped-idle">Temporarily break Herdr socket during final idle; heartbeat republishes idle after connectivity returns.</li>
+          <li id="verify-passive-monitor">Start a passive <code>plan-review agent next --wait</code> listener or PR monitor after active work completes; Herdr may report idle/done while the listener remains alive.</li>
+          <li id="verify-no-subagents">Run without the subagents extension; behavior remains parent-agent-only.</li>
+          <li id="verify-shutdown-cleanup">Shut down or switch sessions while parent, blocked, retry, subagent, queued-report, or heartbeat state exists; the next session starts from fresh state and no late callback republishes working or blocked.</li>
+          <li id="verify-blocked-priority">Trigger a blocked prompt while work is active; blocked state still wins over working/idle.</li>
+        </ol>
+        <h3>Static checks</h3>
+        <p>Run the repository's install validation relevant to Pi extensions if available. At minimum, reload Pi after installing and verify TypeScript syntax through Pi extension loading.</p>
+      </section>
+
+      <section id="acceptance-criteria">
+        <h2>Acceptance Criteria</h2>
+        <ul>
+          <li id="ac-1">Herdr does not report idle/completed while blocking Pi subagents are running or queued.</li>
+          <li id="ac-2">Herdr reports idle after the parent agent and all blocking subagents are complete, even if passive plan/PR monitor processes remain alive.</li>
+          <li id="ac-3">Missed subagent events self-heal through the subagent manager lookup.</li>
+          <li id="ac-4">Dropped final state reports self-heal through heartbeat republish.</li>
+          <li id="ac-5">Blocked and retry states preserve their existing priority.</li>
+          <li id="ac-6">No-subagents environments retain existing behavior.</li>
+          <li id="ac-7">Session shutdown clears parent state, blocked/retry state, subagent fallback state, queued reports, and heartbeat/reconcile timers before pane release, preventing stale working reports after release or into the next session.</li>
+        </ul>
+      </section>
+
+      <section id="risks">
+        <h2>Risks and Mitigations</h2>
+        <table>
+          <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+          <tbody>
+            <tr><td>Extension load order means Herdr misses early subagent events.</td><td>Use <code>globalThis[Symbol.for("pi-subagents:manager")].hasRunning()</code> as periodic authority.</td></tr>
+            <tr><td>Completion event is missed and local set remains non-empty.</td><td>Clear local set when manager reports no running/queued subagents.</td></tr>
+            <tr><td>Heartbeat spams Herdr socket.</td><td>Default low frequency and support <code>HERDR_PI_HEARTBEAT_MS=0</code>.</td></tr>
+            <tr><td>False idle while manager reports blocking agent work.</td><td>Never force idle from parent <code>ctx.isIdle()</code> alone when <code>manager.hasRunning()</code> reports running/queued Pi subagents.</td></tr>
+            <tr><td>False working caused by passive monitors.</td><td>Do not query generic process state; rely on the Pi subagents registry for delegated-agent work and keep process-tool listeners outside the working-state calculation.</td></tr>
+            <tr><td>Subagents package absent.</td><td>Manager lookup returns <code>undefined</code> and event handlers remain inert.</td></tr>
+            <tr><td>Late heartbeat, retry timer, queued report, release, or subagent event after session shutdown reclaims a released or newly started pane.</td><td>Stop heartbeat, clear parent/blocked/retry/fallback subagent state, disable and drain state reports before release, use a session-generation token for retry promotion, queued reports, and release, mark the session inactive, and guard event handlers/publish paths on an active <code>rootSession</code>.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="review-consensus">
+        <h2>Review Consensus Already Collected</h2>
+        <div class="callout">
+          <p><strong>GPT and GLM agreed:</strong> the next change should make the Herdr extension subagent-aware by using the Pi subagent manager as the authoritative source and event subscriptions as fast triggers.</p>
+        </div>
+        <div class="callout warning">
+          <p><strong>Execution-ready review result:</strong> after revisions for the actual <code>hasRunning()</code>/<code>getRecord(id)</code> API and session-shutdown cleanup, both GPT and GLM returned <code>VERDICT: PLAN_EXECUTION_READY</code>.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

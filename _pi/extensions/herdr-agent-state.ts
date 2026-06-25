@@ -51,11 +51,13 @@ type QueuedState = {
   state: AgentState;
   message?: string;
   seq: number;
+  generation: number;
 };
 
 const idleDebounceMs = parseDurationEnv("HERDR_PI_IDLE_DEBOUNCE_MS", 250);
 const retryGraceMs = parseDurationEnv("HERDR_PI_RETRY_GRACE_MS", 2500);
 const reconcileIntervalMs = parseDurationEnv("HERDR_PI_RECONCILE_MS", 5000);
+const heartbeatIntervalMs = parseDurationEnv("HERDR_PI_HEARTBEAT_MS", 15000);
 const maxSendRetries = parseDurationEnv("HERDR_PI_MAX_SEND_RETRIES", 3);
 const sendRetryDelayMs = parseDurationEnv("HERDR_PI_SEND_RETRY_DELAY_MS", 400);
 const retryableErrorPattern =
@@ -167,9 +169,21 @@ function releaseAgent(): Promise<boolean> {
 
 let sendInFlight = false;
 let queuedState: QueuedState | undefined;
+let lastPublishAt = 0;
+let lastSuccessfulStateReportAt = 0;
+let lastQueuedState: AgentState | undefined;
+let lastQueuedMessage: string | undefined;
+let stateReportsEnabled = true;
+let stateReportGeneration = 0;
 
 function queueState(state: AgentState, message?: string): void {
-  queuedState = { state, message, seq: nextReportSeq() };
+  if (!stateReportsEnabled) {
+    return;
+  }
+  lastPublishAt = Date.now();
+  lastQueuedState = state;
+  lastQueuedMessage = message;
+  queuedState = { state, message, seq: nextReportSeq(), generation: stateReportGeneration };
   if (!sendInFlight) {
     void drainStateQueue();
   }
@@ -187,6 +201,13 @@ async function drainStateQueue(): Promise<void> {
       const next = queuedState;
       queuedState = undefined;
       const ok = await sendState(next.state, next.message, next.seq);
+      if (ok) {
+        lastSuccessfulStateReportAt = Date.now();
+      }
+
+      if (!stateReportsEnabled || next.generation !== stateReportGeneration) {
+        break;
+      }
 
       if (!ok && queuedState === undefined) {
         // The report was dropped (socket error/timeout) and no newer state
@@ -204,9 +225,15 @@ async function drainStateQueue(): Promise<void> {
     }
   } finally {
     sendInFlight = false;
-    if (queuedState) {
+    if (queuedState && stateReportsEnabled && queuedState.generation === stateReportGeneration) {
       void drainStateQueue();
     }
+  }
+}
+
+async function waitForStateQueueIdle(): Promise<void> {
+  while (sendInFlight) {
+    await sleepUnref(25);
   }
 }
 
@@ -262,6 +289,8 @@ export default function (pi) {
   // idle, independent of our own event-edge bookkeeping.
   let currentCtx: any | undefined;
   let reconcileTimer: ReturnType<typeof setInterval> | undefined;
+  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  const subagentIds = new Set<string>();
 
   function clearTimer(timer: ReturnType<typeof setTimeout> | undefined) {
     if (timer) {
@@ -269,10 +298,14 @@ export default function (pi) {
     }
   }
 
-  function clearPendingTimers() {
+  function clearIdleTimer() {
     clearTimer(idleTimer);
-    clearTimer(retryTimer);
     idleTimer = undefined;
+  }
+
+  function clearPendingTimers() {
+    clearIdleTimer();
+    clearTimer(retryTimer);
     retryTimer = undefined;
   }
 
@@ -280,6 +313,35 @@ export default function (pi) {
     retryHoldActive = false;
     failureBlocked = false;
     failureMessage = undefined;
+  }
+
+  function clearSessionState() {
+    agentActive = false;
+    blockedCount = 0;
+    blockedMessage = undefined;
+    clearFailureState();
+    lastState = undefined;
+    lastMessage = undefined;
+  }
+
+  function managerBlockingSubagentsRunning(): boolean | undefined {
+    const manager = (globalThis as any)[Symbol.for("pi-subagents:manager")];
+    if (typeof manager?.hasRunning !== "function") {
+      return undefined;
+    }
+    return manager.hasRunning() === true;
+  }
+
+  function subagentWorkActive(): boolean {
+    const managerRunning = managerBlockingSubagentsRunning();
+    if (managerRunning === false) {
+      subagentIds.clear();
+      return false;
+    }
+    if (managerRunning === true) {
+      return true;
+    }
+    return subagentIds.size > 0;
   }
 
   function desiredState() {
@@ -292,10 +354,16 @@ export default function (pi) {
     if (agentActive || retryHoldActive) {
       return { state: "working" as const, message: undefined };
     }
+    if (subagentWorkActive()) {
+      return { state: "working" as const, message: undefined };
+    }
     return { state: "idle" as const, message: undefined };
   }
 
   function publishState(force = false) {
+    if (!rootSession) {
+      return;
+    }
     const next = desiredState();
     if (!force && next.state === lastState && next.message === lastMessage) {
       return;
@@ -322,7 +390,11 @@ export default function (pi) {
     failureMessage = message;
     publishState();
 
+    const retryGeneration = stateReportGeneration;
     retryTimer = setTimeout(() => {
+      if (retryGeneration !== stateReportGeneration) {
+        return;
+      }
       retryTimer = undefined;
       retryHoldActive = false;
       failureBlocked = true;
@@ -346,43 +418,74 @@ export default function (pi) {
     }
   }
 
+  function startHeartbeat() {
+    if (heartbeatTimer || heartbeatIntervalMs <= 0) {
+      return;
+    }
+    heartbeatTimer = setInterval(heartbeat, heartbeatIntervalMs);
+    heartbeatTimer.unref?.();
+  }
+
+  function stopHeartbeat() {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = undefined;
+    }
+  }
+
+  function piParentLooksIdle(): boolean {
+    const ctx = currentCtx;
+    if (!ctx) {
+      return false;
+    }
+
+    try {
+      if (ctx.isIdle?.() !== true) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+
+    try {
+      return ctx.hasPendingMessages?.() !== true;
+    } catch {
+      return false;
+    }
+  }
+
   // Safety net for missed/dropped lifecycle edges (agent_end lost, overflow
-  // compaction aborting a turn without a clean end, socket report dropped).
-  // While we believe the pane is working, ask pi directly: if pi is idle with
-  // no queued messages, our "working" is stale and we force-publish idle.
-  // The watchdog only ever reconciles stale-working -> idle; it never forces
-  // working, so it cannot create a false working state.
+  // compaction aborting a turn without a clean end, subagent completion events
+  // missed, socket report dropped). Recompute the authoritative state instead
+  // of only forcing stale working -> idle.
   function reconcile() {
     if (!rootSession) {
       return;
     }
-    const next = desiredState();
-    if (next.state !== "working") {
-      return;
-    }
-    const ctx = currentCtx;
-    if (!ctx) {
-      return;
-    }
 
-    let piIdle = false;
-    let hasPending = true;
-    try {
-      piIdle = ctx.isIdle?.() === true;
-    } catch {
-      piIdle = false;
-    }
-    try {
-      hasPending = ctx.hasPendingMessages?.() === true;
-    } catch {
-      hasPending = true;
-    }
-
-    if (piIdle && !hasPending) {
+    const hasSubagents = subagentWorkActive();
+    if (agentActive && !retryHoldActive && !hasSubagents && piParentLooksIdle()) {
       agentActive = false;
-      retryHoldActive = false;
       clearFailureState();
-      clearPendingTimers();
+      clearIdleTimer();
+    }
+
+    publishState();
+  }
+
+  function heartbeat() {
+    if (!rootSession) {
+      return;
+    }
+
+    const now = Date.now();
+    const hasQueuedState = lastQueuedState !== undefined || lastQueuedMessage !== undefined;
+    const shouldRepublish =
+      hasQueuedState &&
+      (lastSuccessfulStateReportAt < lastPublishAt ||
+        (lastSuccessfulStateReportAt > 0 && now - lastSuccessfulStateReportAt >= heartbeatIntervalMs));
+
+    if (shouldRepublish) {
       publishState(true);
     }
   }
@@ -406,16 +509,45 @@ export default function (pi) {
     publishState();
   });
 
+  function addSubagent(id: unknown) {
+    if (!rootSession || typeof id !== "string" || id.length === 0) {
+      return;
+    }
+    subagentIds.add(id);
+    clearIdleTimer();
+    publishState();
+  }
+
+  function removeSubagent(id: unknown) {
+    if (!rootSession || typeof id !== "string" || id.length === 0) {
+      return;
+    }
+    subagentIds.delete(id);
+    publishState();
+  }
+
+  pi.events.on("subagents:created", (data) => addSubagent(data?.id));
+  pi.events.on("subagents:started", (data) => addSubagent(data?.id));
+  pi.events.on("subagents:completed", (data) => removeSubagent(data?.id));
+  pi.events.on("subagents:failed", (data) => removeSubagent(data?.id));
+
   pi.on("session_start", (_event, ctx) => {
     if (ctx?.hasUI !== true) {
       return;
     }
+    stateReportGeneration += 1;
+    stateReportsEnabled = true;
+    queuedState = undefined;
+    clearPendingTimers();
+    clearSessionState();
+    subagentIds.clear();
     rootSession = true;
     currentCtx = ctx;
     updateSessionRef(ctx);
     void reportSession();
     publishState(true);
     startReconcile();
+    startHeartbeat();
   });
 
   pi.on("agent_start", (_event, ctx) => {
@@ -460,8 +592,19 @@ export default function (pi) {
     if (!rootSession) {
       return;
     }
+    const shutdownGeneration = stateReportGeneration;
     stopReconcile();
+    stopHeartbeat();
     clearPendingTimers();
-    await releaseAgent();
+    clearSessionState();
+    subagentIds.clear();
+    stateReportsEnabled = false;
+    queuedState = undefined;
+    rootSession = false;
+    currentCtx = undefined;
+    await waitForStateQueueIdle();
+    if (shutdownGeneration === stateReportGeneration && !rootSession) {
+      await releaseAgent();
+    }
   });
 }
