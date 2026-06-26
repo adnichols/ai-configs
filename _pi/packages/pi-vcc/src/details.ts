@@ -5,4 +5,5 @@ export interface PiVccCompactionDetails {
   sourceMessageCount: number;
   previousSummaryUsed: boolean;
   interruptedInFlightTurn?: boolean;
+  requiresContinuation?: boolean;
 }

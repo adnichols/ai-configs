@@ -12,6 +12,8 @@ const AGENT_ONLY_FALLBACK_TAIL_MESSAGES = 4;
 const CONTINUE_AFTER_COMPACTION_PROMPT =
   "Pi-vcc compacted the active in-flight conversation. Continue from where you left off; use vcc_recall if you need details from before compaction, and resume the next concrete step without summarizing the compaction.";
 const CONTINUE_AFTER_COMPACTION_DELAY_MS = 50;
+const CONTINUE_AFTER_COMPACTION_MAX_WAIT_MS = 5000;
+const CONTINUE_AFTER_COMPACTION_RETRY_MS = 100;
 
 export interface CompactionStats {
   summarized: number;
@@ -150,6 +152,10 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
   pi.on("agent_start", () => {
     agentTurnActive = true;
     activeAgentFinishedResponse = false;
+    if (continueTimer) {
+      clearTimeout(continueTimer);
+      continueTimer = undefined;
+    }
   });
 
   pi.on("message_end", (event) => {
@@ -168,17 +174,33 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     const details = event.compactionEntry.details as PiVccCompactionDetails | undefined;
     if (details?.compactor !== "pi-vcc") return;
     if (!details.interruptedInFlightTurn) return;
+    if (details.requiresContinuation === false) return;
     if (continueTimer) return;
 
-    continueTimer = setTimeout(() => {
-      continueTimer = undefined;
-
+    const startedAt = Date.now();
+    const sendWhenIdle = () => {
       if (!ctx.isIdle()) {
+        if (Date.now() - startedAt < CONTINUE_AFTER_COMPACTION_MAX_WAIT_MS) {
+          continueTimer = setTimeout(sendWhenIdle, CONTINUE_AFTER_COMPACTION_RETRY_MS);
+        } else {
+          continueTimer = undefined;
+        }
         return;
       }
 
-      pi.sendUserMessage(CONTINUE_AFTER_COMPACTION_PROMPT, { deliverAs: "steer" });
-    }, CONTINUE_AFTER_COMPACTION_DELAY_MS);
+      continueTimer = undefined;
+      pi.sendMessage(
+        {
+          customType: "pi-vcc-continuation",
+          content: CONTINUE_AFTER_COMPACTION_PROMPT,
+          display: false,
+          details: { compactor: "pi-vcc" },
+        },
+        { triggerTurn: true, deliverAs: "steer" },
+      );
+    };
+
+    continueTimer = setTimeout(sendWhenIdle, CONTINUE_AFTER_COMPACTION_DELAY_MS);
   });
 
   pi.on("session_before_compact", (event) => {
@@ -259,6 +281,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       sourceMessageCount: agentMessages.length,
       previousSummaryUsed: Boolean(preparation.previousSummary),
       interruptedInFlightTurn: compactingActiveTurn,
+      requiresContinuation: compactingActiveTurn && event.willRetry !== true,
     };
 
     return {

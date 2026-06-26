@@ -9,7 +9,7 @@ import percentageCompaction, {
 type HandlerMap = Record<string, (event: any, ctx: any) => any>;
 type CommandMap = Record<string, { description: string; handler: (args: string, ctx: any) => any }>;
 
-const setup = (percent = COMPACTION_THRESHOLD_PERCENT + 1, piVccLoaded = true) => {
+const setup = (percent: number | (() => number) = COMPACTION_THRESHOLD_PERCENT + 1, piVccLoaded = true) => {
   (globalThis as any)[PI_VCC_LOAD_MARKER] = piVccLoaded;
 
   const handlers: HandlerMap = {};
@@ -27,7 +27,7 @@ const setup = (percent = COMPACTION_THRESHOLD_PERCENT + 1, piVccLoaded = true) =
       compactCalls.push(options ?? {});
     },
     getContextUsage: () => ({
-      percent,
+      percent: typeof percent === "function" ? percent() : percent,
       contextWindow: 272000,
     }),
   };
@@ -69,6 +69,50 @@ describe("percentage-compaction extension", () => {
     expect(compactCalls).toHaveLength(1);
     expect(compactCalls[0]?.customInstructions).toBe(PI_VCC_MANUAL_BYPASS_MARKER);
     expect(notifications.some((entry) => entry.message.includes("Interrupting agent for pi-vcc compaction"))).toBe(true);
+  });
+
+  test("ratchets auto-compaction until context usage reports a new value", async () => {
+    let percent = 60.123456;
+    const { handlers, compactCalls, ctx } = setup(() => percent);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "stop" } },
+      ctx,
+    );
+    compactCalls[0].onComplete();
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "stop" } },
+      ctx,
+    );
+
+    expect(compactCalls).toHaveLength(1);
+
+    percent = 60.123457;
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "stop" } },
+      ctx,
+    );
+
+    expect(compactCalls).toHaveLength(2);
+  });
+
+  test("core auto-compaction is blocked for the same post-compaction usage value", async () => {
+    const { handlers, compactCalls, notifications, ctx } = setup(61.234567);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "stop" } },
+      ctx,
+    );
+    compactCalls[0].onComplete();
+
+    const result = await handlers.session_before_compact?.(
+      { customInstructions: undefined },
+      ctx,
+    );
+
+    expect(result).toEqual({ cancel: true });
+    expect(notifications.some((entry) => entry.message.includes("usage is unchanged at 61.234567%"))).toBe(true);
   });
 
   test("manual compact-now bypasses the threshold gate", async () => {

@@ -24,15 +24,17 @@ const isCompletedAssistantResponse = (message: TurnEndEvent["message"]) => {
   return !("stopReason" in message && message.stopReason === "toolUse");
 };
 
+const isStaleAutoCompactionPercent = (percent: number, lastPercent: number | undefined) =>
+  lastPercent !== undefined && percent === lastPercent;
+
 export default function (pi: ExtensionAPI) {
-  let warnedAtThreshold = false;
   let allowNextManualCompaction = false;
   let compactionInFlight = false;
+  let lastAutoCompactionPercent: number | undefined;
 
   const finishCompaction = () => {
     allowNextManualCompaction = false;
     compactionInFlight = false;
-    warnedAtThreshold = false;
   };
 
   const triggerCompaction = (
@@ -42,12 +44,13 @@ export default function (pi: ExtensionAPI) {
       bypassThreshold?: boolean;
       startMessage: string;
       completionMessage: string;
+      ratchetPercent?: number;
     },
   ) => {
-    if (compactionInFlight) return;
+    if (compactionInFlight) return false;
     if (!isPiVccLoaded()) {
       notifyMissingPiVcc(ctx);
-      return;
+      return false;
     }
 
     if (options.bypassThreshold) {
@@ -58,18 +61,21 @@ export default function (pi: ExtensionAPI) {
     ctx.compact({
       customInstructions: options.customInstructions,
       onComplete: () => {
+        if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
         finishCompaction();
         ctx.ui.notify(options.completionMessage, "info");
       },
       onError: (err: Error) => {
         finishCompaction();
         if (err.message === "Already compacted" || err.message === "Nothing to compact (session too small)") {
+          if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
           ctx.ui.notify("Nothing to compact", "info");
         } else {
           ctx.ui.notify(`Compaction failed: ${err.message}`, "error");
         }
       },
     });
+    return true;
   };
 
   // Register /compact-now command for manual triggering
@@ -77,11 +83,13 @@ export default function (pi: ExtensionAPI) {
     description: "Trigger compaction immediately with optional custom instructions",
     handler: async (args, ctx: ExtensionContext) => {
       const customInstructions = args.trim() || undefined;
+      const usage = ctx.getContextUsage();
       triggerCompaction(ctx, {
         customInstructions,
         bypassThreshold: true,
         startMessage: "Compacting context...",
         completionMessage: "Compaction complete",
+        ratchetPercent: usage?.percent ?? undefined,
       });
     },
   });
@@ -111,17 +119,18 @@ export default function (pi: ExtensionAPI) {
     const usage = ctx.getContextUsage();
     if (!usage || usage.percent === null) return;
 
-    const currentPercent = Math.floor(usage.percent);
+    const usagePercent = usage.percent;
+    const currentPercent = Math.floor(usagePercent);
     const threshold = COMPACTION_THRESHOLD_PERCENT;
 
-    if (currentPercent < threshold) {
-      warnedAtThreshold = false;
+    if (usagePercent < threshold) {
+      lastAutoCompactionPercent = undefined;
       return;
     }
 
     if (compactionInFlight) return;
+    if (isStaleAutoCompactionPercent(usagePercent, lastAutoCompactionPercent)) return;
 
-    warnedAtThreshold = true;
     const completedResponse = isCompletedAssistantResponse(event.message);
     triggerCompaction(ctx, {
       customInstructions: PI_VCC_MANUAL_BYPASS_MARKER,
@@ -130,6 +139,7 @@ export default function (pi: ExtensionAPI) {
         ? `✓ Auto-compacting at ${currentPercent}% (threshold: ${threshold}%)`
         : `↻ Context at ${currentPercent}% (threshold: ${threshold}%). Interrupting agent for pi-vcc compaction...`,
       completionMessage: "Compacted with pi-vcc",
+      ratchetPercent: usagePercent,
     });
   });
 
@@ -157,8 +167,17 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (usage.percent < COMPACTION_THRESHOLD_PERCENT) {
+      lastAutoCompactionPercent = undefined;
       ctx.ui.notify(
         `⏸️ Delayed auto-compaction: ${Math.floor(usage.percent)}% < ${COMPACTION_THRESHOLD_PERCENT}% threshold`,
+        "info",
+      );
+      return { cancel: true };
+    }
+
+    if (isStaleAutoCompactionPercent(usage.percent, lastAutoCompactionPercent)) {
+      ctx.ui.notify(
+        `⏸️ Delayed auto-compaction: context usage is unchanged at ${usage.percent}% since the last pi-vcc compaction`,
         "info",
       );
       return { cancel: true };
@@ -169,6 +188,7 @@ export default function (pi: ExtensionAPI) {
       return { cancel: true };
     }
 
+    lastAutoCompactionPercent = usage.percent;
     ctx.ui.notify(
       `✓ Auto-compacting at ${Math.floor(usage.percent)}% (threshold: ${COMPACTION_THRESHOLD_PERCENT}%)`,
       "info",
