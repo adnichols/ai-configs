@@ -1,37 +1,8 @@
 {
   "providers": {
-    "ollama": {
-      "baseUrl": "https://ollama.com/v1",
-      "api": "openai-completions",
-      "apiKey": "$OLLAMA_API_KEY",
-      "compat": {
-        "supportsDeveloperRole": false,
-        "supportsReasoningEffort": false
-      },
-      "models": [
-        {
-          "id": "glm-5.2:cloud",
-          "name": "GLM-5.2 Cloud",
-          "reasoning": true,
-          "thinkingLevelMap": {
-            "off": "none",
-            "minimal": null,
-            "low": null,
-            "medium": null,
-            "high": "high",
-            "xhigh": "max"
-          },
-          "contextWindow": 1000000,
-          "maxTokens": 128000,
-          "compat": {
-            "supportsReasoningEffort": true
-          }
-        }
-      ]
-    },
-    "opencode": {
+    "opencode-zen": {
       "modelOverrides": {
-        "glm-5.2": {
+        "glm-5": {
           "reasoning": true,
           "thinkingLevelMap": {
             "off": "none",

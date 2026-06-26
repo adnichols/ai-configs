@@ -73,7 +73,7 @@ Installed layout:
 
 The installer copies the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md`. For OMP, that same shared source file is installed as `~/.omp/agent/SYSTEM.md`, matching OMP's `SYSTEM.md` additive-system semantics.
 
-The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model IDs while preserving local provider fields such as API keys. The managed Ollama Cloud entry currently adds `glm-5.2:cloud`; fresh installs can provide the key through `OLLAMA_API_KEY` or replace the placeholder locally.
+The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys. The managed OpenCode Zen entry currently adds the `glm-5` reasoning override for `opencode-zen/glm-5`.
 
 ## Structure
 
@@ -242,7 +242,7 @@ Example installed agents:
 
 ### Dev / execution
 - `dev:run` — direct high-reasoning execution with one `quality-reviewer` pass after each phase
-- `pre-pr-implementation-review` — GPT-5.5 plus GLM-5.2 pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; when invoked by `scoped-plan-run`, it returns `OPEN_PR_READY` so the caller continues to PR creation
+- `pre-pr-implementation-review` — GPT-5.5 plus OpenCode Zen GLM-5 pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; when invoked by `scoped-plan-run`, it returns `OPEN_PR_READY` so the caller continues to PR creation
 
 ### Git / workflow
 - `cmd-create-pr`

@@ -42,7 +42,7 @@ Do not edit product code, tests, generated files, local environment files, or un
 In Pi, run two read-only Pi subagent plan reviews:
 
 - `quality-reviewer` for the GPT-5.5 review leg.
-- `quality-reviewer-glm` for the GLM-5.2 review leg, using `thinking: "xhigh"` when the harness supports it.
+- `quality-reviewer-glm` for the OpenCode Zen GLM-5 review leg, using `thinking: "xhigh"` when the harness supports it.
 
 Launch both reviewers independently. Keep the review agents read-only; the coordinating agent must synthesize their recommendations, drive convergence, and edit the plan. The prompt to each reviewer must include:
 

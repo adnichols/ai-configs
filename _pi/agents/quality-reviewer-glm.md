@@ -1,8 +1,8 @@
 ---
 name: quality-reviewer-glm
-description: Reviews code for real issues using Ollama GLM-5.2 Cloud
+description: Reviews code for real issues using OpenCode Zen GLM-5
 mode: subagent
-model: ollama/glm-5.2:cloud
+model: opencode-zen/glm-5
 thinking: xhigh
 color: '#e74c3c'
 tools: read, grep, find, ls, bash

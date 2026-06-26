@@ -165,7 +165,7 @@ Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUME
 
 ### 6. Second scoped quality review
 
-In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5.2 implementation review. In Codex, use the second installed Codex-native independent implementation-review path when available; if no independent Codex review path is installed, stop with a clear blocker instead of claiming the scoped run is reviewed.
+In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only OpenCode Zen GLM-5 implementation review. In Codex, use the second installed Codex-native independent implementation-review path when available; if no independent Codex review path is installed, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive the same bounded prompt as the first reviewer. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
@@ -210,15 +210,15 @@ After phase implementation and the runtime-native scoped quality-review loop has
 In Pi, run `$pre-pr-implementation-review <plan path>`. That gate must use both:
 
 - GPT-5.5 via Pi's `quality-reviewer` subagent,
-- GLM-5.2 via Pi's `quality-reviewer-glm` subagent.
+- OpenCode Zen GLM-5 via Pi's `quality-reviewer-glm` subagent.
 
-In non-Pi consumers, do not try to invoke the Pi-only `$pre-pr-implementation-review` skill. Run an equivalent GPT-5.5 plus GLM-5.2 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise continue the existing runtime-native scoped quality-review workflow and record that the Pi-only GPT/GLM gate was not run.
+In non-Pi consumers, do not try to invoke the Pi-only `$pre-pr-implementation-review` skill. Run an equivalent GPT-5.5 plus OpenCode Zen GLM-5 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise continue the existing runtime-native scoped quality-review workflow and record that the Pi-only GPT/GLM gate was not run.
 
 Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
 
 Treat every in-scope P1/P2/P3 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` P1/P2/P3 issues, rerun targeted verification, and rerun both reviewers until both return no unresolved in-scope P1/P2/P3 findings. A P3 may remain only when it is rejected as a false positive with evidence or classified as a true `OUT_OF_SCOPE_FOLLOW_UP` with evidence and a tracking destination.
 
-If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if GLM-5.2 or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if OpenCode Zen GLM-5 or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
 
 When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final scoped-plan-run response at this point.
 
