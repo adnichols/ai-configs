@@ -1,6 +1,6 @@
 ---
 name: quality-reviewer-glm
-description: Reviews code for real issues using OpenCode Zen GLM-5
+description: Reviews code for real issues using GLM-5
 mode: subagent
 model: opencode-zen/glm-5
 thinking: xhigh

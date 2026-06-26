@@ -575,7 +575,7 @@
         "pi"
       ],
       "canonicalSource": "skills/pre-pr-implementation-review",
-      "notes": "Pi-only: runs GPT-5.5 plus OpenCode Zen GLM-5 implementation review loops until all in-scope P1/P2/P3 findings are addressed before PR creation; inside scoped-plan-run it returns OPEN_PR_READY rather than concluding the workflow.",
+      "notes": "Pi-only: runs GPT-5.5 plus GLM-5 Pi subagent implementation review loops until all in-scope P1/P2/P3 findings are addressed before PR creation; inside scoped-plan-run it returns OPEN_PR_READY rather than concluding the workflow.",
       "sourceType": "repo"
     },
     "repo-agents-bootstrap": {

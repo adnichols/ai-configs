@@ -1,6 +1,6 @@
 ---
 name: pre-pr-implementation-review
-description: Run Pi's pre-PR implementation review loop with both GPT-5.5 and OpenCode Zen GLM-5 quality reviewers, then continue fixing and rereviewing until every in-scope P1/P2/P3 finding is addressed. Use this before opening pull requests, after an implementation is complete, inside scoped-plan-run, or whenever the user asks for GPT plus GLM code review of a branch/diff; inside scoped-plan-run this gate hands back to PR creation rather than concluding the workflow.
+description: Run Pi's pre-PR implementation review loop with both GPT-5.5 and GLM-5 quality reviewers, then continue fixing and rereviewing until every in-scope P1/P2/P3 finding is addressed. Use this before opening pull requests, after an implementation is complete, inside scoped-plan-run, or whenever the user asks for GPT plus GLM code review of a branch/diff; inside scoped-plan-run this gate hands back to PR creation rather than concluding the workflow.
 ---
 
 # Pre-PR Implementation Review
@@ -90,16 +90,18 @@ Read the plan or user-provided scope if available. Extract the acceptance criter
 Use Pi subagents directly. Launch both in the same turn when possible:
 
 - `quality-reviewer` for the GPT-5.5 pass.
-- `quality-reviewer-glm` for the OpenCode Zen GLM-5 pass.
+- `quality-reviewer-glm` for the GLM-5 pass.
 
-Both reviews are read-only. If `quality-reviewer-glm` is unavailable, stop and report that the OpenCode Zen GLM-5 gate cannot run; do not silently substitute another model.
+The `opencode-zen/glm-5` string is only the Pi model provider/model ID in the subagent frontmatter. Do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent to satisfy this gate.
+
+Both reviews are read-only. If `quality-reviewer-glm` is unavailable, stop and report that the GLM-5 Pi subagent gate cannot run; do not silently substitute another model.
 
 Use this prompt shape for each reviewer:
 
 ```text
 Read-only pre-PR implementation review. Do not edit files.
 
-Reviewer: <GPT-5.5 | OpenCode Zen GLM-5>
+Reviewer: <GPT-5.5 | GLM-5 Pi subagent>
 Plan/scope: <plan path or standalone scope summary>
 Base/comparison: <base branch or range>
 Changed files:
@@ -154,7 +156,7 @@ After applying any in-scope fix:
 
 1. Run the smallest meaningful targeted tests for the touched code.
 2. Rerun any plan-required verification invalidated by the fix.
-3. Rerun both GPT-5.5 and OpenCode Zen GLM-5 reviewers against the current diff.
+3. Rerun both GPT-5.5 and GLM-5 Pi subagent reviewers against the current diff.
 4. Repeat until both reviewers return `CLEAN_FOR_PR` by substance with no unresolved in-scope P1/P2/P3 findings.
 
 Do not stop after a single reviewer is clean. Do not open or proceed to a PR while either reviewer has an unresolved in-scope P1/P2/P3 finding. If invoked from `scoped-plan-run`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and post-PR monitoring.
