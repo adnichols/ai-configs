@@ -1,9 +1,9 @@
 ---
-name: scoped-plan-run
+name: run-plan
 description: Execute an existing implementation plan persistently through code changes, scoped runtime-native quality reviews, the applicable Pi GPT/GLM pre-PR implementation review, fixes through full P1/P2/P3 consensus, verification, commit, push, PR creation, and PR monitoring until feedback is addressed and the PR is mergeable without expanding beyond the plan's stated scope.
 ---
 
-# Scoped Plan Run
+# Run Plan
 
 Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates and, in Pi, the GPT/GLM pre-PR review gate, while preventing reviewer-driven scope creep.
 
@@ -16,7 +16,7 @@ This skill is runtime-state-backed. A scoped plan run is not complete at PR crea
 ## Invocation
 
 ```text
-Use $scoped-plan-run to execute an explicit plan path or a slug resolvable by repo-local active plan guidance
+Use $run-plan to execute an explicit plan path or a slug resolvable by repo-local active plan guidance
 ```
 
 Accept either a plan path or a slug. For a slug, resolve using repo-local active plan guidance; do not infer a markdown path.
@@ -88,7 +88,7 @@ A finding may be deferred as `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an 
 
 ### 1. Establish Run State
 
-1. Check whether a scoped-plan-run task/goal state is already active.
+1. Check whether a run-plan task/goal state is already active.
 2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use the todo tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR monitoring item that cannot be marked done until all completion criteria are satisfied.
 3. The objective must require both:
    - executing the specified plan through implementation, verification, runtime-native scoped review, the applicable Pi GPT/GLM pre-PR review with no unresolved in-scope P1/P2/P3 findings, commit, push, and PR creation;
@@ -205,7 +205,7 @@ Stop and report a convergence blocker if:
 
 ### 9. GPT/GLM Pre-PR Review Gate
 
-After phase implementation and the runtime-native scoped quality-review loop has no unresolved in-scope findings, run the GPT/GLM pre-PR gate before final PR preparation when this `scoped-plan-run` is executing in Pi.
+After phase implementation and the runtime-native scoped quality-review loop has no unresolved in-scope findings, run the GPT/GLM pre-PR gate before final PR preparation when this `run-plan` is executing in Pi.
 
 In Pi, run `$pre-pr-implementation-review <plan path>`. That gate must use both:
 
@@ -220,7 +220,7 @@ Treat every in-scope P1/P2/P3 finding as blocking a clean ready-for-PR conclusio
 
 If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if the GLM-5 Pi subagent or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
 
-When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final scoped-plan-run response at this point.
+When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
 Record the GPT verdict, GLM verdict, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
 
@@ -465,7 +465,7 @@ Stay within the scope contract. Classify every finding with the normal scope lab
 
 ## Final Response
 
-Only give the scoped-plan-run final response after a PR exists or a concrete PR-creation blocker has been reported. If the run reached clean P1/P2/P3 review consensus and final verification passed, a final response without a PR URL is invalid.
+Only give the run-plan final response after a PR exists or a concrete PR-creation blocker has been reported. If the run reached clean P1/P2/P3 review consensus and final verification passed, a final response without a PR URL is invalid.
 
 Report:
 

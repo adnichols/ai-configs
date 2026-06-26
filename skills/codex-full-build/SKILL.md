@@ -5,7 +5,7 @@ description: Run the full Codex development lifecycle from a Linear issue, exist
 
 # Codex Full Build
 
-Use this skill when the user wants an end-to-end software change driven from a Linear issue, an existing plan, or a natural-language plan description. This skill is the lifecycle controller. It prepares and validates the plan, gets independent plan review from Codex and Claude Code, then delegates implementation, scoped review, verification, commit, push, and PR creation to `$scoped-plan-run`.
+Use this skill when the user wants an end-to-end software change driven from a Linear issue, an existing plan, or a natural-language plan description. This skill is the lifecycle controller. It prepares and validates the plan, gets independent plan review from Codex and Claude Code, then delegates implementation, scoped review, verification, commit, push, and PR creation to `$run-plan`.
 
 The goal is autonomous execution with explicit gates. Ask the user only when product intent or scope is genuinely unclear enough that a correct execution-ready plan cannot be written.
 
@@ -28,7 +28,7 @@ Load and follow these skills as needed:
 - Repo-recommended planning skills from `AGENTS.md`, usually `product-principles` and `tdd-test-writer` for this repo.
 - `codex-review-partner` for Codex plan review.
 - `claude-code-review` for Claude Code plan review.
-- `scoped-plan-run` for execution, implementation review, verification, commit, push, and PR.
+- `run-plan` for execution, implementation review, verification, commit, push, and PR.
 
 If a required reviewer or `ltui` is unavailable, try the documented remediation in the relevant skill first. Stop only when the required dependency cannot be restored safely.
 
@@ -41,7 +41,7 @@ If a required reviewer or `ltui` is unavailable, try the documented remediation 
 - Do not let reviewers edit files. All Codex and Claude reviews are read-only.
 - Do not silently choose product behavior when the input is too vague and repo evidence does not resolve it.
 - Do not expand scope because a reviewer found adjacent work.
-- Delegate implementation to `$scoped-plan-run`; do not duplicate its phase execution and PR workflow in this skill.
+- Delegate implementation to `$run-plan`; do not duplicate its phase execution and PR workflow in this skill.
 
 ## Lifecycle
 
@@ -186,9 +186,9 @@ Stop and report a plan convergence blocker if:
 - the plan would require a product decision the user has not answered,
 - three full plan review cycles do not converge.
 
-### 6. Execute with Scoped Plan Run
+### 6. Execute with Run Plan
 
-Once both plan reviewers agree by substance that the plan is execution-ready, invoke `$scoped-plan-run` with the finalized plan path.
+Once both plan reviewers agree by substance that the plan is execution-ready, invoke `$run-plan` with the finalized plan path.
 
 The handoff must state:
 
@@ -199,7 +199,7 @@ The handoff must state:
 - any documented out-of-scope plan review notes with evidence and tracking destination,
 - instruction to proceed through scoped implementation, bounded Codex and Claude implementation reviews, verification, commit, push, and ready-for-review PR.
 
-Do not reimplement the scoped runner's workflow here. `$scoped-plan-run` owns:
+Do not reimplement the scoped runner's workflow here. `$run-plan` owns:
 
 - scope extraction,
 - phase-by-phase implementation,
@@ -210,7 +210,7 @@ Do not reimplement the scoped runner's workflow here. `$scoped-plan-run` owns:
 - push,
 - ready-for-review PR creation.
 
-If `$scoped-plan-run` stops with a blocker, handle only blockers that are part of this lifecycle:
+If `$run-plan` stops with a blocker, handle only blockers that are part of this lifecycle:
 
 - If the blocker is plan ambiguity, return to plan clarification/review.
 - If the blocker is reviewer/tool unavailability, remediate using the relevant skill.
@@ -225,7 +225,7 @@ Return a concise handoff with:
 - Plan path.
 - Source input or Linear issue.
 - Codex and Claude plan review verdicts.
-- Codex and Claude implementation review verdicts from `$scoped-plan-run`.
+- Codex and Claude implementation review verdicts from `$run-plan`.
 - Verification commands and results.
 - Changed files at a high level.
 - Documented out-of-scope follow-ups with evidence and tracking destination.
@@ -272,10 +272,10 @@ For each blocking finding include:
 - the smallest plan change or question needed
 ```
 
-## Scoped Plan Run Handoff Template
+## Run Plan Handoff Template
 
 ```text
-Use $scoped-plan-run to execute <plan path>.
+Use $run-plan to execute <plan path>.
 
 Source input: <Linear issue key/path/description summary>
 Plan review status:
@@ -284,7 +284,7 @@ Plan review status:
 
 Both reviewers agree by substance that the plan is execution-ready.
 
-Proceed through the scoped-plan-run workflow:
+Proceed through the run-plan workflow:
 - preserve the plan as the scope contract
 - implement phase by phase
 - run bounded Codex and Claude implementation reviews

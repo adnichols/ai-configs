@@ -38,5 +38,5 @@ Behavior for this shim:
 - If the user wants repo-managed OMP planning mode, direct them to `/aplan`, which enters native `/plan` mode and queues the repo-managed planning guidance for the next planning turn.
 - If you are invoked anyway, stay constrained to `thoughts/plans/` and help with plan authoring only.
 - Do not claim to replace or override built-in `/plan`.
-- If asked about reviewed-plan handoff, explain that the runtime `/aplan` flow offers review/exit choices and prepares `/cmd:execute-plan <plan> --target ...` to start fresh `/dev:run` or `/skill:adn-dev-wf` execution outside `/aplan` mode.
+- If asked about reviewed-plan handoff, explain that the runtime `/aplan` flow offers review/exit choices and prepares `/cmd:execute-plan <plan> --target ...` to start fresh `/run-plan` or `/dev:run` execution outside `/aplan` mode.
 </system-reminder>

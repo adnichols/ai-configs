@@ -41,7 +41,7 @@ Codify the planning and execution boundaries:
 - `plan mode` is for read-only discovery and research.
 - `dev:plan` is the plan-materialization step and may write the plan artifact only.
 - The repo's canonical execution workflow executes the plan with the repo's real quality gates.
-- If the repo uses Pi-style reviewed-plan handoff, codify it explicitly and name the canonical continuation. In this repo that is `/skill:adn-dev-wf <plan>` after review integration, with `/dev:run <plan>` reserved for direct execution-only handoff.
+- If the repo uses Pi-style reviewed-plan handoff, codify it explicitly and name the canonical continuation. In this repo that is `/run-plan <plan>` after review integration for full lifecycle execution through PR creation and monitoring, with `/dev:run <plan>` reserved for direct execution-only handoff.
 - Keep alternate reviewers such as Claude Code explicit and manual; do not describe them as hidden fallbacks inside plan mode or execution.
 
 Add the shared fail-closed ready bar:

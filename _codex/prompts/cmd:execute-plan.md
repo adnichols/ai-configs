@@ -1,6 +1,6 @@
 ---
-description: Canonical reviewed-plan handoff that routes an explicit plan into /skill:adn-dev-wf or /dev:run
-argument-hint: '<plan slug | existing-plan-path> [--target skill:adn-dev-wf|dev:run]'
+description: Reviewed-plan handoff that routes an explicit plan into /run-plan or /dev:run
+argument-hint: '<plan slug | existing-plan-path> [--target run-plan|dev:run]'
 ---
 
 # Execute Reviewed Plan
@@ -13,8 +13,8 @@ This command validates an explicit reviewed plan argument, optionally accepts a 
 
 - Accept a plan slug or an explicit existing plan path in the repo's active plan format.
 - Accept workspace-relative input that starts with `@` by stripping the leading `@`.
-- Accept an optional target suffix: `--target skill:adn-dev-wf` or `--target dev:run`.
-- Present exactly two execution choices: `/skill:adn-dev-wf` and `/dev:run`.
+- Accept an optional target suffix: `--target run-plan` or `--target dev:run`.
+- Present exactly two execution choices: `/run-plan` and `/dev:run`.
 - Preserve the same normalized plan argument when dispatching.
 - Refuse handoff when the plan still contains obvious review or readiness blockers.
 
@@ -25,13 +25,13 @@ This command validates an explicit reviewed plan argument, optionally accepts a 
 If no argument is provided, respond with:
 
 ```text
-Usage: /cmd:execute-plan <plan slug | existing-plan-path> [--target skill:adn-dev-wf|dev:run]
+Usage: /cmd:execute-plan <plan slug | existing-plan-path> [--target run-plan|dev:run]
 
 Examples:
   /cmd:execute-plan review-execution-handoff
   /cmd:execute-plan thoughts/plans/review-execution-handoff.html
   /cmd:execute-plan @thoughts/plans/review-execution-handoff.html
-  /cmd:execute-plan thoughts/plans/review-execution-handoff.html --target skill:adn-dev-wf
+  /cmd:execute-plan thoughts/plans/review-execution-handoff.html --target run-plan
 ```
 
 Do not infer “the current plan” from conversation state.
@@ -46,8 +46,8 @@ Do not infer “the current plan” from conversation state.
 4. Normalize `TARGET_OVERRIDE_RAW` only if present:
    - Trim whitespace.
    - Strip one leading `/` if present.
-   - Accept only `skill:adn-dev-wf` or `dev:run`.
-   - If any other target is provided, stop and tell the user the only valid targets are `/skill:adn-dev-wf` and `/dev:run`.
+   - Accept only `run-plan` or `dev:run`.
+   - If any other target is provided, stop and tell the user the only valid targets are `/run-plan` and `/dev:run`.
 5. If `PLAN_ARGUMENT` is empty after trimming, show the usage block and stop.
 6. If `PLAN_ARGUMENT` starts with `@`, strip the leading `@`.
 7. Preserve that normalized string as `PLAN_DISPATCH_ARGUMENT`.
@@ -81,7 +81,7 @@ Determine `TARGET_COMMAND`:
 
 - If `TARGET_OVERRIDE` is set, honor it without asking a follow-up question.
 - Otherwise ask exactly one targeted question with only these two options:
-  1. `/skill:adn-dev-wf <PLAN_DISPATCH_ARGUMENT>` — canonical reviewed-plan continuation that can resume from this reviewed plan.
+  1. `/run-plan <PLAN_DISPATCH_ARGUMENT>` — full implementation-through-PR lifecycle for this reviewed plan.
   2. `/dev:run <PLAN_DISPATCH_ARGUMENT>` — direct execution-only path with one `quality-reviewer` pass after each phase.
 
 Do not offer a planning pass here. Do not offer a third option.
@@ -91,7 +91,7 @@ Do not offer a planning pass here. Do not offer a third option.
 Run exactly one of the following and then stop:
 
 ```text
-/skill:adn-dev-wf <PLAN_DISPATCH_ARGUMENT>
+/run-plan <PLAN_DISPATCH_ARGUMENT>
 ```
 
 ```text

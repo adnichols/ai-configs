@@ -277,7 +277,7 @@ Phase 2: Synthesis (GPT)
 Phase 3: Auto-Integration
   └─ Applies only material feedback → Clean updated plan
     ↓
-Output: Integrated Plan (ready for /cmd:execute-plan or direct /skill:adn-dev-wf or /dev:run)
+Output: Integrated Plan (ready for /cmd:execute-plan, /run-plan, or direct /dev:run)
 ```
 ---
 

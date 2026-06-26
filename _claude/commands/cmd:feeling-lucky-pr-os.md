@@ -206,25 +206,15 @@ Use the plan-k2.5 subagent to create a plan with slug `plan_slug` and ensure the
 /review:change-integrate ${plan_slug}
 ```
 
-### 5) Implement + Validate
+### 5) Implement Through PR
 
 ```text
-/skill:adn-dev-wf ${plan_slug}
-/dev:validate ${plan_slug}
+/run-plan ${plan_slug}
 ```
 
-### 6) Final Code Review
+`/run-plan` owns implementation, validation, final review, commit, push, PR creation, and post-PR monitoring. Do not run `/dev:validate`, `/review`, `/cmd:commit-push`, or `/cmd:create-pr` after it; if it exits with a blocker, stop and report the blocker instead of linking a PR. The PR it creates must start with `${ISSUE_KEY}:` and include the Linear issue title.
 
-Run `/review` against `base_ref...HEAD`, apply fixes, re-run until clean.
-
-### 7) Commit, Push, PR, Link
-
-```text
-/cmd:commit-push
-/cmd:create-pr ${base_ref}
-```
-
-The PR title must start with `${ISSUE_KEY}:` and include the Linear issue title.
+### 6) Link Existing PR to Linear
 
 Link PR back to Linear:
 

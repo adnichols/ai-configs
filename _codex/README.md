@@ -41,7 +41,7 @@ Codex mirrors the core reviewed-plan flow used in Pi:
 
 Canonical continuation after a reviewed plan is ready:
 
-- `/skill:adn-dev-wf <plan>`
+- `/run-plan <plan>` for full lifecycle execution through PR creation and monitoring
 - `/dev:run <plan>` for direct execution-only handoff
 
 Plan-reviewer browser action comments are routed through shared skills installed to `~/.agents/skills`: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests.
