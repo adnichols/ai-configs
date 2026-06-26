@@ -1801,6 +1801,8 @@ def prune_retired_managed_models():
             overrides.pop("glm-5.2", None)
             if not overrides:
                 opencode_provider.pop("modelOverrides")
+        if not opencode_provider:
+            target_providers.pop("opencode", None)
 
 prune_retired_managed_models()
 
