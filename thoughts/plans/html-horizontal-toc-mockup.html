@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML Plan Format Mockup — Horizontal ToC</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #162033;
+      --panel-3: #0f172a;
+      --text: #e5e7eb;
+      --muted: #a8b3c7;
+      --faint: #6b7280;
+      --accent: #7dd3fc;
+      --accent-2: #34d399;
+      --warning: #fbbf24;
+      --border: #2b3548;
+      --code: #050816;
+      --shadow: rgba(0, 0, 0, 0.28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.13), transparent 34rem),
+        linear-gradient(180deg, #0b1020 0%, #0f172a 42%, #0b1020 100%);
+      color: var(--text);
+      font: 16px/1.62 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre {
+      background: var(--code);
+      color: #dbeafe;
+      border-radius: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    code { padding: 0.15rem 0.35rem; }
+    pre { padding: 1rem; overflow-x: auto; border: 1px solid var(--border); }
+
+    .page {
+      width: min(100% - 40px, 1180px);
+      margin: 0 auto;
+      padding: 28px 0 72px;
+    }
+
+    .hero {
+      padding: 30px 0 16px;
+      border-bottom: 1px solid rgba(125, 211, 252, 0.18);
+    }
+    .eyebrow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 10px;
+      color: var(--muted);
+      background: rgba(17, 24, 39, 0.72);
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
+    .badge strong { color: var(--accent-2); font-weight: 650; }
+    h1 {
+      max-width: 960px;
+      margin: 0 0 10px;
+      font-size: clamp(2.1rem, 5vw, 4.2rem);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+    }
+    .summary {
+      max-width: 900px;
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 1.5vw, 1.16rem);
+    }
+
+    .toc-card {
+      margin: 18px 0 28px;
+      padding: 18px;
+      border: 1px solid rgba(125, 211, 252, 0.25);
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(17, 24, 39, 0.94), rgba(15, 23, 42, 0.9)),
+        var(--panel);
+      box-shadow: 0 18px 42px var(--shadow);
+    }
+    .toc-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    .toc-heading h2 {
+      margin: 0;
+      padding: 0;
+      border: 0;
+      font-size: 0.86rem;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .toc-heading p { margin: 0; color: var(--faint); font-size: 0.9rem; }
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+    }
+    .toc-group {
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(5, 8, 22, 0.28);
+    }
+    .toc-group h3 {
+      margin: 0 0 8px;
+      color: var(--accent-2);
+      font-size: 0.84rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .toc-group ol {
+      display: grid;
+      gap: 5px;
+      margin: 0;
+      padding-left: 1.15rem;
+    }
+    .toc-group li { color: var(--faint); padding-left: 2px; }
+
+    main {
+      display: grid;
+      gap: 18px;
+    }
+    section, article.phase {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: rgba(17, 24, 39, 0.78);
+      padding: 24px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+    }
+    h2 {
+      margin: 0 0 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+    h3 { margin: 20px 0 8px; font-size: 1.02rem; }
+    p:first-child, ul:first-child, ol:first-child { margin-top: 0; }
+    p:last-child, ul:last-child, ol:last-child { margin-bottom: 0; }
+    ul, ol { padding-left: 1.35rem; }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .callout {
+      border: 1px solid rgba(52, 211, 153, 0.25);
+      border-radius: 14px;
+      padding: 14px 16px;
+      background: rgba(6, 78, 59, 0.14);
+    }
+    .warning {
+      border-color: rgba(251, 191, 36, 0.35);
+      background: rgba(113, 63, 18, 0.18);
+    }
+    .phase header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .phase h2 { margin: 0; border: 0; padding: 0; }
+    .phase-label { color: var(--muted); font-size: 0.9rem; }
+
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: var(--panel-2); text-align: left; }
+
+    @media (max-width: 720px) {
+      .page { width: min(100% - 28px, 1180px); padding-top: 18px; }
+      .hero { padding-top: 18px; }
+      .toc-heading { display: block; }
+      section, article.phase { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="eyebrow" aria-label="Plan metadata">
+        <span class="badge"><strong>Status</strong> layout mockup</span>
+        <span class="badge"><strong>Lifecycle</strong> active</span>
+        <span class="badge"><strong>Reviewer URL</strong> plan-review compatible</span>
+      </div>
+      <h1>HTML Plan Format: Horizontal ToC Mockup</h1>
+      <p class="summary">This mockup keeps the reviewer-friendly dark theme and stable anchors, but removes the left navigation rail. The table of contents sits near the top as a horizontal, responsive, multi-column section; every plan section below it gets the full document width.</p>
+    </header>
+
+    <nav id="toc" class="toc-card" aria-labelledby="toc-title">
+      <div class="toc-heading">
+        <h2 id="toc-title">Table of contents</h2>
+        <p>Top-of-document navigation; no permanent left-side space reservation.</p>
+      </div>
+      <div class="toc-grid">
+        <div class="toc-group">
+          <h3>Overview</h3>
+          <ol>
+            <li><a href="#status">Status</a></li>
+            <li><a href="#goal">Goal</a></li>
+            <li><a href="#why-this-plan-exists">Why this plan exists</a></li>
+            <li><a href="#authority-and-inputs">Authority and inputs</a></li>
+          </ol>
+        </div>
+        <div class="toc-group">
+          <h3>Contracts</h3>
+          <ol>
+            <li><a href="#current-implementation-reality">Current reality</a></li>
+            <li><a href="#product-intent-alignment">Product intent</a></li>
+            <li><a href="#acceptance-criteria">Acceptance criteria</a></li>
+            <li><a href="#bdd-scenarios">BDD scenarios</a></li>
+          </ol>
+        </div>
+        <div class="toc-group">
+          <h3>Execution</h3>
+          <ol>
+            <li><a href="#progress">Progress</a></li>
+            <li><a href="#phase-1-style-source">P1 Style source</a></li>
+            <li><a href="#phase-2-prompts">P2 Prompt guidance</a></li>
+            <li><a href="#phase-3-validation">P3 Validation</a></li>
+          </ol>
+        </div>
+        <div class="toc-group">
+          <h3>Delivery</h3>
+          <ol>
+            <li><a href="#verification-strategy">Verification strategy</a></li>
+            <li><a href="#delivery-order">Delivery order</a></li>
+            <li><a href="#non-goals">Non-goals</a></li>
+            <li><a href="#decisions-deviations-log">Decisions log</a></li>
+          </ol>
+        </div>
+      </div>
+    </nav>
+
+    <main>
+      <section id="status">
+        <h2>Status</h2>
+        <div class="two-col">
+          <div class="callout"><strong>Format decision:</strong> ToC becomes a near-top horizontal card, not a left rail.</div>
+          <div class="callout warning"><strong>Review target:</strong> Check whether the ToC is high enough and whether four groups are the right density.</div>
+        </div>
+      </section>
+
+      <section id="goal">
+        <h2>Goal</h2>
+        <p>Update HTML plan guidance so generated plans preserve navigation without wasting horizontal space. The plan body should use the full readable width for tables, BDD scenarios, phase detail, and screenshots.</p>
+      </section>
+
+      <section id="why-this-plan-exists">
+        <h2>Why this plan exists</h2>
+        <p>The current default two-column reviewer layout pins a table of contents on the left. That works for very long plans, but it leaves unused space next to every section and makes wide plan content feel cramped. A top ToC keeps links discoverable while letting all later content span the full page width.</p>
+      </section>
+
+      <section id="authority-and-inputs">
+        <h2>Authority and inputs</h2>
+        <ul>
+          <li>User request to move the ToC out of the left side of the plan.</li>
+          <li>Existing dark-mode HTML plan requirements.</li>
+          <li>Example plan-review page showing a horizontal ToC direction.</li>
+        </ul>
+      </section>
+
+      <section id="current-implementation-reality">
+        <h2>Current implementation reality</h2>
+        <p>The repo guidance currently instructs agents to use a left sidebar/table of contents for HTML plans. This mockup demonstrates the replacement pattern those prompts should describe.</p>
+      </section>
+
+      <section id="progress">
+        <h2>Progress</h2>
+        <ul>
+          <li><label><input type="checkbox"> P1 — Update the source HTML plan layout guidance</label></li>
+          <li><label><input type="checkbox"> P2 — Align copied prompt/skill variants</label></li>
+          <li><label><input type="checkbox"> P3 — Validate the generated mockup and instructions</label></li>
+        </ul>
+      </section>
+
+      <section id="product-intent-alignment">
+        <h2>Product intent alignment</h2>
+        <p>The reviewer should land on the document title, see status immediately, and then get compact navigation before reading the full-width plan. The ToC is intentionally close to the top instead of buried after several sections.</p>
+      </section>
+
+      <section id="acceptance-criteria">
+        <h2>Acceptance criteria</h2>
+        <table>
+          <thead><tr><th id="ac-id">ID</th><th id="ac-contract">Contract</th></tr></thead>
+          <tbody>
+            <tr id="ac-1"><td>AC-1</td><td>Generated HTML plans no longer reserve a left sidebar column for navigation.</td></tr>
+            <tr id="ac-2"><td>AC-2</td><td>The ToC appears near the top, before the main plan sections.</td></tr>
+            <tr id="ac-3"><td>AC-3</td><td>The ToC uses responsive columns and links to major sections plus phases.</td></tr>
+            <tr id="ac-4"><td>AC-4</td><td>All plan content sections below the ToC render at full document width.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="bdd-scenarios">
+        <h2>BDD scenarios</h2>
+        <table>
+          <thead><tr><th>Scenario</th><th>Given</th><th>Then</th></tr></thead>
+          <tbody>
+            <tr id="bdd-wide-content"><td>Wide content</td><td>A plan includes a BDD table or phase table.</td><td>The table uses the full content column instead of sharing space with a sidebar.</td></tr>
+            <tr id="bdd-navigation"><td>Navigation</td><td>A reviewer opens the plan.</td><td>The ToC is visible after the title/status summary and grouped into readable columns.</td></tr>
+            <tr id="bdd-mobile"><td>Small viewport</td><td>The viewport narrows.</td><td>The ToC groups stack naturally without requiring a separate mobile layout rail.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <article id="phase-1-style-source" class="phase">
+        <header>
+          <h2>P1 — Update style source</h2>
+          <span class="phase-label">Instruction-only change</span>
+        </header>
+        <h3>End State</h3>
+        <p>The canonical HTML plan reviewer guidance names the top horizontal ToC as the default layout.</p>
+        <h3>Work</h3>
+        <ul><li>Replace sidebar language with top ToC language.</li><li>Describe the responsive grid columns and full-width body expectation.</li></ul>
+      </article>
+
+      <article id="phase-2-prompts" class="phase">
+        <header>
+          <h2>P2 — Align prompt guidance</h2>
+          <span class="phase-label">Prevent drift</span>
+        </header>
+        <h3>End State</h3>
+        <p>Prompt templates and workflow skills all describe the same layout.</p>
+        <h3>Work</h3>
+        <ul><li>Update Pi, Codex, Claude, OMP, and shared skill copies.</li><li>Keep dark theme and stable ID requirements unchanged.</li></ul>
+      </article>
+
+      <article id="phase-3-validation" class="phase">
+        <header>
+          <h2>P3 — Validate</h2>
+          <span class="phase-label">Evidence pass</span>
+        </header>
+        <h3>End State</h3>
+        <p>Search confirms no old default left-sidebar wording remains, and this mockup can be served by plan-review.</p>
+        <h3>Verify</h3>
+        <pre><code>rg "left sidebar|two-column page|left navbar" skills _pi _codex _claude _omp</code></pre>
+      </article>
+
+      <section id="verification-strategy">
+        <h2>Verification strategy</h2>
+        <p>Use text search to prevent instruction drift and browser review to inspect the visual layout. The important visual invariant is simple: after the ToC, each section is a full-width card inside the page container.</p>
+      </section>
+
+      <section id="delivery-order">
+        <h2>Delivery order</h2>
+        <ol>
+          <li>Update the canonical skill wording.</li>
+          <li>Update copied plan prompt wording.</li>
+          <li>Publish or share this mockup for review.</li>
+        </ol>
+      </section>
+
+      <section id="non-goals">
+        <h2>Non-goals</h2>
+        <ul>
+          <li>No change to plan-review service behavior.</li>
+          <li>No JavaScript ToC generation requirement.</li>
+          <li>No light-mode redesign.</li>
+        </ul>
+      </section>
+
+      <section id="decisions-deviations-log">
+        <h2>Decisions / Deviations log</h2>
+        <ul>
+          <li>2026-06-26: Mocked the ToC as a near-top horizontal grid grouped by reviewer task: Overview, Contracts, Execution, Delivery.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
