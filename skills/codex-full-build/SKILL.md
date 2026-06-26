@@ -118,7 +118,7 @@ Use `planning-workflow` and the repo's `AGENTS.md` required structure. For this 
 - Progress with stable phase IDs.
 - Resume instructions for the next agent.
 - Decisions / Deviations log.
-- If any plan representation is rendered or delivered as HTML, it must use the standard reviewer layout: a dark-mode visual theme with explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a two-column page with a concise sections navbar in a left sidebar and plan content on the right. The left navbar must remain available while reading long plans by being sticky and independently scrollable (`max-height` plus `overflow-y: auto`) and must collapse to one column on narrow screens.
+- If any plan representation is rendered or delivered as HTML, it must use the standard reviewer layout: a dark-mode visual theme with explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so the rest of the plan keeps full width. Do not use a permanent left sidebar/rail for navigation.
 
 If the issue or description is too broad, make the plan scope precise instead of absorbing adjacent cleanup. If important decisions remain unresolved, keep the plan in `research-ready` or `discovery` and ask/perform the next research action rather than starting review.
 
