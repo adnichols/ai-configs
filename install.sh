@@ -1770,6 +1770,40 @@ if "providers" in target_data and not isinstance(target_data["providers"], dict)
 updated_data = copy.deepcopy(target_data)
 target_providers = updated_data.setdefault("providers", {})
 
+# Retire model entries that were previously managed by ai-configs but are no
+# longer present in _pi/models.json. The normal merge path intentionally
+# preserves local provider fields/API keys, so removals need explicit pruning.
+def prune_retired_managed_models():
+    ollama_provider = target_providers.get("ollama")
+    if isinstance(ollama_provider, dict):
+        models = ollama_provider.get("models")
+        if isinstance(models, list):
+            ollama_provider["models"] = [
+                model for model in models
+                if not (isinstance(model, dict) and model.get("id") == "glm-5.2:cloud")
+            ]
+            if not ollama_provider["models"]:
+                ollama_provider.pop("models")
+
+        is_old_managed_ollama = (
+            ollama_provider.get("baseUrl") == "https://ollama.com/v1"
+            and ollama_provider.get("api") == "openai-completions"
+            and ollama_provider.get("apiKey") == "$OLLAMA_API_KEY"
+            and "models" not in ollama_provider
+        )
+        if is_old_managed_ollama:
+            target_providers.pop("ollama", None)
+
+    opencode_provider = target_providers.get("opencode")
+    if isinstance(opencode_provider, dict):
+        overrides = opencode_provider.get("modelOverrides")
+        if isinstance(overrides, dict):
+            overrides.pop("glm-5.2", None)
+            if not overrides:
+                opencode_provider.pop("modelOverrides")
+
+prune_retired_managed_models()
+
 def merge_missing(target, source):
     for merge_key, merge_value in source.items():
         if merge_key not in target:
