@@ -57,7 +57,8 @@ For Linear-backed work, the PR title must be exactly shaped as:
 Do not rely on the latest commit subject unless it already satisfies that format. For non-Linear work, use the latest commit subject or a concise plan-derived title.
 
 ```bash
-TITLE="$(git log -1 --format=%s)"
+# Preserve a Linear-aware TITLE prepared above; for non-Linear work, set a fallback.
+: "${TITLE:=$(git log -1 --format=%s)}"
 
 git log --oneline "${base_ref}...HEAD"
 git diff --stat "${base_ref}...HEAD"
