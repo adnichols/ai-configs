@@ -62,8 +62,8 @@ const messageText = (message: any): string => {
 };
 
 const hasFailureOutput = (message: any): boolean => {
-  if (message?.role !== "toolResult" && message?.role !== "assistant") return false;
-  if (message.role === "toolResult" && message.isError === true) return true;
+  if (message?.role !== "toolResult") return false;
+  if (message.isError === true) return true;
   const text = messageText(message);
   return /\b(nonzero|failed|failure|error|exception|tests? failed|exit code [1-9])\b/i.test(text);
 };
@@ -212,14 +212,12 @@ export default function (pi: ExtensionAPI) {
         toolCallId,
         requestedTurn: turnCounter,
         toolBatchId: lastToolBatchId,
-        sawSiblingTools: lastAssistantToolCallCount > 1,
+        sawSiblingTools: false,
       };
       return {
         content: [{
           type: "text",
-          text: pendingModelCompaction.sawSiblingTools
-            ? "compact_context queued. Because this tool was called with sibling tools, compaction will wait until a later completed assistant boundary after sibling outputs are interpreted."
-            : "compact_context queued. Compaction will run at the next safe post-tool boundary.",
+          text: "compact_context queued. Compaction will run after the current tool batch reaches a safe boundary.",
         }],
         details: pendingModelCompaction,
       };
@@ -262,6 +260,13 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("turn_end", async (event: TurnEndEvent, ctx: ExtensionContext) => {
     turnCounter += 1;
+
+    const completedResponse = isCompletedAssistantResponse(event.message);
+    const turnToolResults = Array.isArray(event.toolResults) ? event.toolResults : [];
+    const pendingToolResultDelivered = Boolean(
+      pendingModelCompaction?.toolCallId &&
+        turnToolResults.some((result: any) => result?.toolCallId === pendingModelCompaction?.toolCallId),
+    );
 
     const completedResponse = isCompletedAssistantResponse(event.message);
     const turnToolResults = Array.isArray(event.toolResults) ? event.toolResults : [];
