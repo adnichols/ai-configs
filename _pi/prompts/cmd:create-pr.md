@@ -42,6 +42,20 @@ If a PR already exists, report the URL and STOP.
 
 ### 3) Prepare Title + Evidence
 
+If this is Linear-backed work, resolve the Linear key from the branch name, commits, plan, or user-provided issue. Fetch the issue title before creating the PR:
+
+```bash
+ltui issues view "$ISSUE_KEY" --format detail
+```
+
+For Linear-backed work, the PR title must be exactly shaped as:
+
+```text
+<ISSUE_KEY>: <Linear issue title>
+```
+
+Do not rely on the latest commit subject unless it already satisfies that format. For non-Linear work, use the latest commit subject or a concise plan-derived title.
+
 ```bash
 TITLE="$(git log -1 --format=%s)"
 
@@ -64,6 +78,8 @@ fi
 BASE_NAME="${base_ref#origin/}"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 TITLE="$(git log -1 --format=%s)"
+# If Linear-backed, replace TITLE with "<ISSUE_KEY>: <Linear issue title>"
+# after verifying the issue with: ltui issues view "$ISSUE_KEY" --format detail
 
 gh pr create \
   --base "$BASE_NAME" \

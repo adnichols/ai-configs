@@ -104,13 +104,28 @@ Execute <plan path> through scoped implementation, verification, runtime-native 
 
 Runtime state expectation: keep the task/goal state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi this state lives in todo/working notes; in Codex it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
 
+#### Plan-reviewer status alignment
+
+For a reviewed HTML plan, align plan-reviewer state before code edits. Resolve the reviewer plan ID from registration output, the explicit review URL, `plan-review show`, or `plan-review index`; if the plan is not registered and repo guidance expects reviewed HTML plans, register it with truthful metadata before proceeding.
+
+Before implementation starts:
+
+1. Run `plan-review lifecycle set <planId> active` when the plan is not already active.
+2. Run `plan-review columns list --json` and inspect the available board columns.
+3. If a visible `in_progress` column exists, run `plan-review column set <planId> in_progress`.
+4. If `in_progress` is absent, hidden, or ambiguous, stop with an actionable status-sync blocker unless repo/service configuration explicitly identifies an equivalent in-progress column.
+
+Do not treat a disk progress checkbox update as sufficient reviewer-state alignment. After each completed phase, update the source plan `Progress`, verify source sync or re-register the plan, and inspect plan-reviewer evidence (`show` or `index`) before advancing.
+
 ### 2. Prepare
 
 1. Read repo instructions and the plan file.
 2. Check git status and current branch.
 3. Identify the base branch from the plan, or use the repo's normal integration branch.
 4. Create or confirm a task branch if needed.
-5. Record the scope contract in your working notes before editing.
+5. Read repo-local execution policy from `AGENTS.md` and any referenced local guidance before editing.
+6. If repo guidance requires a Linear issue before execution, identify the issue key from plan metadata/text, branch name, or explicit user input; verify it with `ltui issues view <KEY> --format detail`; stop before code edits if the issue is required but missing or unverifiable.
+7. Record the scope contract in your working notes before editing.
 
 If the worktree is dirty, preserve unrelated changes. Do not clean them up for convenience.
 
@@ -121,8 +136,9 @@ For each unfinished phase:
 1. Write or update only the tests required by the phase.
 2. Implement the smallest product change that satisfies the phase.
 3. Run the phase's targeted verification.
-4. Update the plan progress only when that phase is actually complete.
-5. Record only documented out-of-scope discoveries in the plan's deviation log or the repo's discovery ledger. In-scope findings are not discoveries to defer; fix them before advancing.
+4. Update the source plan progress only when that phase is actually complete.
+5. Verify plan-reviewer reflects that source progress through live source sync, explicit re-registration, or `plan-review show/index` evidence before advancing.
+6. Record only documented out-of-scope discoveries in the plan's deviation log or the repo's discovery ledger. In-scope findings are not discoveries to defer; fix them before advancing.
 
 If a phase exposes a broader product problem, classify it. Fix it only if it is a plan prerequisite or a regression from this diff.
 

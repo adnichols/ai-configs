@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Align Plan Reviewer and Disk Plan Status</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #172033;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --accent-2: #a78bfa;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --code: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero { background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12)); border: 1px solid var(--border); border-radius: 20px; padding: 28px; margin-bottom: 18px; }
+    h1, h2, h3 { line-height: 1.2; color: #f8fafc; }
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.35rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 20px 0 8px; color: var(--accent); }
+    section, article { background: rgba(17, 24, 39, 0.84); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin: 16px 0; }
+    a { color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: var(--code); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); color: #f8fafc; text-align: left; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px; color: var(--muted); background: rgba(15, 23, 42, 0.76); font-size: 0.9rem; }
+    .pill.good { color: var(--good); border-color: rgba(52, 211, 153, 0.55); }
+    .pill.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.55); }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 0; }
+    .toc a:hover { color: var(--text); }
+    .callout { border-left: 4px solid var(--accent); background: rgba(125, 211, 252, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .warnbox { border-left: 4px solid var(--warn); background: rgba(251, 191, 36, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .goodbox { border-left: 4px solid var(--good); background: rgba(52, 211, 153, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .badbox { border-left: 4px solid var(--bad); background: rgba(251, 113, 133, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .phase { border-left: 4px solid var(--accent-2); }
+    .matrix td:first-child, .matrix th:first-child { width: 9rem; }
+    @media (max-width: 760px) { main { width: min(100% - 20px, 1180px); padding-top: 16px; } header.hero, section, article { padding: 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero" id="title">
+    <h1>Align Plan Reviewer and Disk Plan Status</h1>
+    <p class="muted">Add execution-time guardrails so agents keep reviewer board status, plan source progress, PR metadata, and repo-local Linear prerequisites aligned while building reviewed HTML plans.</p>
+    <div class="pill-row" id="status">
+      <span class="pill good">Status: execution-ready (GPT and GLM cleared)</span>
+      <span class="pill">Plan path: <code>thoughts/plans/align-plan-status.html</code></span>
+      <span class="pill">Repos: ai-configs primary, plan-reviewer external PR</span>
+      <span class="pill">UI impact: text-only guidance and CLI/status behavior</span>
+    </div>
+  </header>
+
+  <section id="toc" aria-labelledby="toc-heading">
+    <h2 id="toc-heading">Table of contents</h2>
+    <div class="toc">
+      <div>
+        <strong>Overview</strong>
+        <a href="#goal">Goal</a>
+        <a href="#decision-attention">Decision Attention</a>
+        <a href="#why">Why this plan exists</a>
+        <a href="#authority-inputs">Authority and inputs</a>
+      </div>
+      <div>
+        <strong>Reality</strong>
+        <a href="#current-reality">Current implementation reality</a>
+        <a href="#product-intent">Product intent alignment</a>
+        <a href="#locked-decisions">Locked decisions</a>
+        <a href="#progress">Progress</a>
+      </div>
+      <div>
+        <strong>Contracts</strong>
+        <a href="#acceptance-criteria">Acceptance criteria</a>
+        <a href="#bdd">BDD scenarios</a>
+        <a href="#coverage-matrix">Test coverage matrix</a>
+        <a href="#verification">Verification strategy</a>
+      </div>
+      <div>
+        <strong>Execution</strong>
+        <a href="#phase-p1">P1 Shared execution doctrine</a>
+        <a href="#phase-p2">P2 Plan-reviewer instructions</a>
+        <a href="#phase-p3">P3 Build bridge</a>
+        <a href="#phase-p4">P4 Repo Linear rules</a>
+        <a href="#phase-p5">P5 Verification and docs</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Make the normal reviewed-plan execution path keep three sources aligned:</p>
+    <ol>
+      <li id="goal-disk">the checked-in HTML plan file under <code>thoughts/plans/</code>, especially <code>Progress</code>, status text, and Decisions / Deviations history;</li>
+      <li id="goal-reviewer">the plan-reviewer service metadata, especially lifecycle, board column, source sync, execution-readiness metadata, and PR metadata;</li>
+      <li id="goal-repo">repo-local prerequisites such as Heddle's requirement for one Linear issue before non-trivial execution.</li>
+    </ol>
+    <p>The intended behavior is: when an agent starts implementation through <code>run-plan</code> or the plan-reviewer Build Plan button, the plan-reviewer card is no longer left in Backlog/Planning, the plan source remains the authoritative progress record, and repos with mandatory Linear policy fail closed before code is changed.</p>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="warnbox">
+      <p><strong>D1 — Do not make plan-reviewer own Heddle policy.</strong> Plan-reviewer should emit generic status-sync instructions. Heddle-specific Linear enforcement belongs in repo guidance plus the shared <code>run-plan</code> preflight that honors repo guidance.</p>
+      <p><strong>D2 — Board column names are locally configurable.</strong> The default column key is <code>in_progress</code>, but the service allows columns to be renamed/hidden. Implementation should prefer <code>in_progress</code> when present and fail with an actionable message or use a configured equivalent if a future API exposes one.</p>
+      <p><strong>D3 — Existing plans may not be registered.</strong> <code>run-plan</code> should align plan-reviewer metadata when a matching registered plan exists. If no matching reviewer record exists, it should register the plan or continue with a clear note depending on repo guidance and user intent.</p>
+      <p><strong>D4 — This is a coordinated two-repo change.</strong> The ai-configs repo owns the shared skills/prompts plan and primary PR. The plan-reviewer repo owns the service-emitted <code>agentInstructions</code> code/test change and must be changed on its own branch with its own commit/PR. Completion requires both PR URLs or a documented blocker; do not mix plan-reviewer source edits into the ai-configs PR.</p>
+    </div>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>Reviewed HTML plans are live-linked to plan-reviewer, but current execution guidance mostly updates the source file checkbox after each phase. The reviewer board column and lifecycle can remain in Backlog/Planning even while code is being built. This creates false status for operators and makes the reviewer index less useful as a work queue.</p>
+    <p>Separately, repos such as Heddle already require one Linear issue before non-trivial product work. That rule exists in repo <code>AGENTS.md</code>, but the shared execution workflow does not call it out as a concrete pre-code gate. Agents can therefore start implementation without verifying the issue.</p>
+  </section>
+
+  <section id="authority-inputs">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li id="input-user">User request: determine where to drive guidance so agents keep disk and reviewer plan status aligned, mark plans in progress when building starts, and enforce repo Linear prerequisites such as Heddle's before execution.</li>
+      <li id="input-run-plan"><code>skills/run-plan/SKILL.md</code>: canonical full implementation-through-PR workflow; already owns phase progress updates, PR creation, and post-PR monitoring.</li>
+      <li id="input-html-skill"><code>skills/html-plan-reviewer/SKILL.md</code>: source of truth for concrete <code>plan-review</code> commands, registration metadata, source sync, queue-backed comment claiming, acking, and resolving.</li>
+      <li id="input-registered-instructions"><code>/Users/anichols/code/plan-reviewer/src/registrationInstructions.ts</code>: service-provided <code>agentInstructions</code> returned by registration; already treated as authoritative by workflows.</li>
+      <li id="input-build"><code>skills/plan-reviewer-build/SKILL.md</code>: browser Build Plan action bridge that delegates to <code>run-plan</code>.</li>
+      <li id="input-heddle"><code>/Users/anichols/.herdr/worktrees/heddle/incomplete-work-inv/AGENTS.md</code>: Heddle requires one Linear issue for non-trivial product work and fails closed if Linear access, the issue, or contract evidence is missing.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <table>
+      <thead><tr><th>Surface</th><th>Current behavior</th><th>Gap</th></tr></thead>
+      <tbody>
+        <tr id="reality-run-plan"><td><code>run-plan</code></td><td>Reads plan, establishes todo/goal state, implements phase by phase, updates plan progress when a phase is complete, performs reviews, PR creation, and PR monitoring.</td><td>No explicit pre-code requirement to set reviewer board status to in progress or verify repo-mandated Linear issue.</td></tr>
+        <tr id="reality-reviewer"><td>Plan-reviewer service</td><td>Tracks lifecycle, board column, execution readiness, progress extracted from source HTML, source sync, PR links, and PR refresh. It has CLI commands including <code>lifecycle set</code>, <code>column set</code>, <code>show</code>, <code>index</code>, <code>pr link</code>, and <code>pr refresh</code>.</td><td>Registration instructions emphasize comment listening and PR metadata, but not execution-start status alignment or phase-progress sync checks.</td></tr>
+        <tr id="reality-progress"><td>Plan progress extraction</td><td>Plan-reviewer extracts phase progress from the <code>Progress</code> section and defaults new cards to Backlog. Existing board column is preserved on re-register.</td><td>Completing zero phases leaves the card in Backlog unless an agent deliberately moves it. Starting implementation is not visible until a checkbox is complete or the board is manually moved.</td></tr>
+        <tr id="reality-linear"><td>Repo Linear policy</td><td>Heddle <code>AGENTS.md</code> already states mandatory Linear issue and fail-closed behavior for non-trivial product work.</td><td>The shared execution skill does not transform that repo-local rule into an explicit preflight checklist item before editing code.</td></tr>
+        <tr id="reality-pi-pr"><td>Pi PR prompt</td><td>Global <code>AGENTS.md</code> says Linear-backed PR titles must include key and title. Claude/OMP/Codex create-pr prompts have Linear-aware title resolution.</td><td><code>_pi/prompts/cmd:create-pr.md</code> is weaker and can rely on latest commit subject. This is adjacent but useful to align while touching execution guidance.</td></tr>
+        <tr id="reality-two-repo"><td>Multi-repo delivery</td><td>This plan intentionally touches ai-configs guidance and the standalone plan-reviewer service source.</td><td><code>run-plan</code> is normally a repo-local PR workflow, so execution must explicitly create separate branch/PR state for <code>/Users/anichols/code/plan-reviewer</code> and report both PRs.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul>
+      <li id="progress-p1"><input type="checkbox" checked /> P1: Add shared run-plan status and Linear preflights</li>
+      <li id="progress-p2"><input type="checkbox" checked /> P2: Update plan-reviewer registration instructions</li>
+      <li id="progress-p3"><input type="checkbox" checked /> P3: Align plan-reviewer Build Plan bridge</li>
+      <li id="progress-p4"><input type="checkbox" checked /> P4: Strengthen repo and Pi Linear guidance</li>
+      <li id="progress-p5"><input type="checkbox" checked /> P5: Verify guidance, service behavior, and docs</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions</h2>
+    <p>Read this document fully, then execute the first unchecked Progress item. Keep this plan source authoritative: update a Progress checkbox only after its matching phase is verified, append decisions/deviations instead of rewriting history, and keep the plan-reviewer card in sync with execution state. If implementation starts, move the reviewer plan to active/in progress before code edits.</p>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <p>This is an agent/operator workflow change. The golden path should do the obvious status updates automatically instead of relying on agents to remember separate manual plan-reviewer maintenance. Routine recoverable gaps, such as a reviewer record that can be found or registered, should be healed in the normal execution flow. Ambiguous identity or policy gaps, such as a repo that requires Linear but has no issue, should fail closed with an agent-legible blocker.</p>
+    <p>UI impact: <strong>text-only plus existing status controls</strong>. The plan changes guidance, emitted instructions, and CLI/status usage. It does not require a new browser UI component.</p>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ul>
+      <li id="decision-run-plan-primary"><strong><code>run-plan</code> is the single execution entry point.</strong> Direct agent invocation and the plan-reviewer Build Plan button must both enter the same <code>run-plan &lt;plan-path&gt;</code> workflow. It is the only shared path that can reliably stop before code edits and update state during phase execution.</li>
+      <li id="decision-agent-instructions"><strong><code>agentInstructions</code> is the cross-agent reminder point.</strong> Registration output reaches agents even outside the full reviewed-plan skill path, so it should include generic status-sync instructions.</li>
+      <li id="decision-build-bridge"><strong><code>plan-reviewer-build</code> remains a thin bridge into <code>run-plan</code>.</strong> The browser Build Plan button may create a plan-reviewer comment handled by this bridge, but the bridge must call the same <code>run-plan &lt;plan-path&gt;</code> entry point as a direct agent request. It should not duplicate the execution workflow; it should pass context and require durable run state or a blocker before acking.</li>
+      <li id="decision-linear-local"><strong>Linear policy remains repo-local.</strong> Shared guidance should detect and honor repo-local Linear requirements rather than hard-code Heddle behavior into plan-reviewer.</li>
+      <li id="decision-pr-metadata"><strong>PR state belongs in plan-reviewer metadata where supported.</strong> Agents should use <code>plan-review pr link</code> and <code>plan-review pr refresh</code> for the primary ai-configs PR. The second plan-reviewer service PR must be recorded in the plan Decisions / Deviations log and final handoff because the current reviewer metadata tracks one PR per registered plan.</li>
+      <li id="decision-two-prs"><strong>Two repos mean two PRs.</strong> The implementing agent must not claim completion until both the ai-configs PR and the plan-reviewer PR are created, or a concrete blocker explains why one cannot be opened.</li>
+    </ul>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <ol>
+      <li id="ac-run-plan-start">Starting a <code>run-plan</code> execution for a registered reviewed HTML plan instructs the agent to set the plan-reviewer lifecycle active and board column in progress before code edits.</li>
+      <li id="ac-phase-sync">Completing a phase requires updating the source plan progress, then verifying that plan-reviewer source sync or re-registration reflects the latest progress.</li>
+      <li id="ac-linear-preflight">When repo guidance requires a Linear issue before execution, <code>run-plan</code> requires a verified issue before code changes and stops with a blocker if missing.</li>
+      <li id="ac-service-instructions">New plan-reviewer registration instructions include generic execution-start status alignment and progress/PR sync guidance with concrete commands.</li>
+      <li id="ac-build-bridge">Plan-reviewer Build Plan bridge instructions require the bridge to invoke <code>run-plan &lt;plan-path&gt;</code>, perform only non-duplicative context/status handoff, and wait for durable run state before acking/resolving the build request.</li>
+      <li id="ac-pi-linear-pr">Pi PR creation guidance matches the existing Linear-aware requirement already present in shared AGENTS, Claude, OMP, and Codex surfaces.</li>
+      <li id="ac-two-repo-delivery">Execution produces two isolated delivery artifacts when both repos change: one ai-configs PR for skills/prompts and one plan-reviewer PR for service instructions/tests.</li>
+    </ol>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Scenario</th><th>Expected behavior</th></tr></thead>
+      <tbody>
+        <tr id="bdd-start"><td>BDD-1</td><td>Given an execution-ready registered HTML plan in Backlog, when the agent begins execution either from a direct <code>run-plan &lt;plan-path&gt;</code> request or from the reviewer Build Plan button, then both paths enter <code>run-plan</code>, resolve the plan-reviewer plan ID, and move the board column to <code>in_progress</code> before editing product files.</td><td>Reviewer index no longer shows a build-active plan as Backlog/Planning, and the button path cannot bypass the run-plan safeguards.</td></tr>
+        <tr id="bdd-unregistered"><td>BDD-2</td><td>Given a readable HTML plan path with no reviewer record, when <code>run-plan</code> starts, then the agent either registers it with truthful metadata or reports why repo guidance prevents reviewer registration.</td><td>No silent divergence between a disk-only plan and reviewer expectations.</td></tr>
+        <tr id="bdd-phase"><td>BDD-3</td><td>Given P1 verification passes, when the agent marks P1 complete in the plan file, then it confirms the reviewer record reflects updated progress through source sync, re-registration, or <code>show/index</code> evidence.</td><td>Disk progress and reviewer progress stay aligned.</td></tr>
+        <tr id="bdd-heddle-linear"><td>BDD-4</td><td>Given a Heddle non-trivial product plan with no Linear issue, when execution is requested, then the agent stops before code edits and asks for/creates the required single Linear issue according to repo policy.</td><td>Repo-mandated Linear issue is enforced at implementation start.</td></tr>
+        <tr id="bdd-pr"><td>BDD-5</td><td>Given a PR is created for a reviewed plan, when final handoff starts, then the agent links and refreshes PR metadata in plan-reviewer.</td><td>Reviewer index shows programmatic PR state instead of relying on manual text.</td></tr>
+        <tr id="bdd-configured-column"><td>BDD-6</td><td>Given the default <code>in_progress</code> board column is renamed or hidden, when execution starts, then the agent first runs <code>plan-review columns list --json</code>, reports an actionable status-sync blocker, or uses a configured valid in-progress equivalent if available.</td><td>Status alignment fails explicitly rather than silently doing nothing.</td></tr>
+        <tr id="bdd-two-prs"><td>BDD-7</td><td>Given implementation changes both ai-configs and plan-reviewer, when delivery starts, then the agent creates separate branches/commits/PRs in each repo and records both PR URLs before final completion.</td><td>External service source changes are not lost outside the primary repo PR.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>Test coverage matrix</h2>
+    <table class="matrix">
+      <thead><tr><th>Acceptance</th><th>Evidence layer</th><th>Expected tests / checks</th></tr></thead>
+      <tbody>
+        <tr><td>AC-1, AC-2</td><td>Skill/document inspection</td><td>Review <code>skills/run-plan/SKILL.md</code> for pre-code status alignment and phase sync steps.</td></tr>
+        <tr><td>AC-3</td><td>Repo-policy guidance inspection</td><td>Use Heddle <code>AGENTS.md</code> excerpt as fixture/evidence and confirm <code>run-plan</code> says to honor repo-local Linear requirements with <code>ltui</code>.</td></tr>
+        <tr><td>AC-4</td><td>Plan-reviewer unit test</td><td>Add/update test around <code>buildRegistrationAgentInstructions</code> so emitted instructions include status-sync and PR metadata guidance.</td></tr>
+        <tr><td>AC-5</td><td>Skill/document inspection</td><td>Review <code>skills/plan-reviewer-build/SKILL.md</code> for bridge responsibilities and ack timing.</td></tr>
+        <tr><td>AC-6</td><td>Prompt parity inspection</td><td>Compare <code>_pi/prompts/cmd:create-pr.md</code> with Linear-aware Claude/OMP/Codex create-pr guidance.</td></tr>
+        <tr><td>AC-7</td><td>Delivery audit</td><td>Inspect git status/branches in both repos and final handoff text for separate ai-configs and plan-reviewer PR URLs.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <article class="phase" id="phase-p1">
+    <h2>P1: Add shared run-plan status and Linear preflights</h2>
+    <h3>End State</h3>
+    <p><code>skills/run-plan/SKILL.md</code> makes plan-reviewer status alignment and repo-local Linear enforcement a mandatory pre-code part of the normal execution lifecycle.</p>
+    <h3>Tests first</h3>
+    <p>No executable product test is required for a skill-only guidance change. Use a focused text/structure check: grep for the exact preflight headings and commands after editing.</p>
+    <h3>Expected files</h3>
+    <ul><li><code>skills/run-plan/SKILL.md</code></li></ul>
+    <h3>Work</h3>
+    <ul>
+      <li>Add a subsection under Establish Run State or Prepare named <code>Plan-reviewer status alignment</code>.</li>
+      <li>Require resolving the reviewer plan ID for HTML plans using registration output, plan-reviewer <code>show</code>/<code>index</code>, or path/slug lookup.</li>
+      <li>Before code edits, require <code>plan-review lifecycle set &lt;planId&gt; active</code> when needed. Then run <code>plan-review columns list --json</code>; if <code>in_progress</code> is present and visible, run <code>plan-review column set &lt;planId&gt; in_progress</code>. If it is absent/hidden, stop with an actionable status-sync blocker unless a repo/service-configured equivalent is explicitly available.</li>
+      <li>Add a repo-local policy preflight: read repo <code>AGENTS.md</code>, detect mandatory Linear requirements, identify the issue key from plan metadata/text/branch/user input, verify with <code>ltui issues view &lt;KEY&gt; --format detail</code>, and stop if required but missing.</li>
+      <li>Extend phase completion instructions: after updating source Progress, verify source sync or re-register, then inspect plan-reviewer evidence before advancing.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>rg -n "Plan-reviewer status alignment|ltui issues view|columns list --json|column set .*in_progress|source sync" skills/run-plan/SKILL.md</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p2">
+    <h2>P2: Update plan-reviewer registration instructions</h2>
+    <h3>End State</h3>
+    <p>The service-provided <code>agentInstructions</code> reminds agents to align execution status, source progress, and PR metadata using concrete plan-reviewer commands.</p>
+    <h3>Tests first</h3>
+    <p>Add or update a plan-reviewer unit/contract test that asserts <code>buildRegistrationAgentInstructions</code> includes generic execution-start status guidance and command references.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>/Users/anichols/code/plan-reviewer/src/registrationInstructions.ts</code></li>
+      <li><code>/Users/anichols/code/plan-reviewer/src/__tests__/*</code> or existing test location, if present</li>
+      <li>Plan-reviewer branch/PR separate from the ai-configs branch/PR</li>
+    </ul>
+    <h3>Work</h3>
+    <ul>
+      <li>Keep plan-reviewer guidance generic: no Heddle-specific Linear policy.</li>
+      <li>Add processing-loop bullets for: before implementation set lifecycle active and inspect columns before setting the board column in progress; after phase progress updates confirm source sync/re-register evidence; after PR creation use PR link/refresh.</li>
+      <li>If command templates are added, render them with the same registration service URL pattern used by existing listener/PR commands.</li>
+      <li>Update README if registration instructions are documented there.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. The implementing agent must inspect the exact test file location in plan-reviewer before editing, but that is normal execution discovery and does not change behavior semantics.</p>
+    <h3>Verify</h3>
+    <pre><code>cd /Users/anichols/code/plan-reviewer
+bun run test</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p3">
+    <h2>P3: Align plan-reviewer Build Plan bridge</h2>
+    <h3>End State</h3>
+    <p>Build Plan action handling remains a thin bridge to <code>run-plan</code>, but it explicitly carries reviewer context and does not ack a build request before durable execution state or a blocker exists.</p>
+    <h3>Tests first</h3>
+    <p>Use document inspection rather than product tests unless plan-reviewer action-comment payloads are changed. If payloads are changed to include Plan ID, add a service test for the generated action comment body.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>skills/plan-reviewer-build/SKILL.md</code></li>
+      <li>Optional: <code>/Users/anichols/code/plan-reviewer/src/server/app.ts</code> and tests if action comments need to include <code>Plan ID</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ul>
+      <li>Require the bridge agent to identify the plan ID/review URL from the triggering comment or current plan-reviewer context.</li>
+      <li>Require moving the reviewer plan active/in_progress before delegating to <code>run-plan</code>, unless <code>run-plan</code> itself reports it did so.</li>
+      <li>Clarify that the bridge invokes <code>run-plan &lt;plan-path&gt;</code> as the same execution entry point used by direct agent requests and only performs pre-run reviewer context handoff/status alignment when that does not duplicate or bypass <code>run-plan</code>.</li>
+      <li>Keep the existing rule that the bridge does not duplicate readiness review or execution workflow.</li>
+      <li>Only ack/resolve after durable run state, PR URL, or blocker is present.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. Changing the service-generated Build Plan comment to include Plan ID is optional and out of scope unless implementation proves the current comment/context cannot identify the plan safely.</p>
+    <h3>Verify</h3>
+    <pre><code>rg -n "in_progress|durable run state|Plan ID|run-plan" skills/plan-reviewer-build/SKILL.md</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p4">
+    <h2>P4: Strengthen repo and Pi Linear guidance</h2>
+    <h3>End State</h3>
+    <p>Shared ai-configs guidance and Pi create-pr prompt are consistent about Linear-backed work, while Heddle-specific Linear requirements remain in Heddle repos.</p>
+    <h3>Tests first</h3>
+    <p>Use parity inspection across prompt files; no runtime test is needed.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>AGENTS.md</code> if a short shared note is needed</li>
+      <li><code>_pi/prompts/cmd:create-pr.md</code></li>
+      <li>Optional: repo-local Heddle guidance in the Heddle repo, not this ai-configs repo, if the user explicitly wants that applied now</li>
+    </ul>
+    <h3>Work</h3>
+    <ul>
+      <li>Keep shared guidance limited to honoring repo-local Linear requirements during <code>run-plan</code>.</li>
+      <li>Update Pi create-pr prompt to match Claude/OMP/Codex Linear title resolution: if key exists, use <code>&lt;KEY&gt;: &lt;Linear issue title&gt;</code>; do not rely solely on commit subject.</li>
+      <li>Do not hard-code Heddle project IDs into shared plan-reviewer service instructions.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None for shared guidance. Any Heddle repo edit should be a separate explicit user-approved repo change.</p>
+    <h3>Verify</h3>
+    <pre><code>rg -n "Linear-backed|Linear issue title|ltui issues view" AGENTS.md _pi/prompts/cmd:create-pr.md skills/run-plan/SKILL.md</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p5">
+    <h2>P5: Verify guidance, service behavior, and docs</h2>
+    <h3>End State</h3>
+    <p>The edited guidance is internally consistent, the plan-reviewer service tests pass if service code changed, and the reviewed plan itself reflects completed progress.</p>
+    <h3>Tests first</h3>
+    <p>Not applicable; this is final verification.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li>All files touched in P1-P4</li>
+      <li><code>thoughts/plans/align-plan-status.html</code> progress/deviation updates</li>
+    </ul>
+    <h3>Work</h3>
+    <ul>
+      <li>Run targeted grep checks from P1-P4.</li>
+      <li>If plan-reviewer source changed, run <code>bun run test</code> in <code>/Users/anichols/code/plan-reviewer</code>. For a narrow registration-instructions-only change, the targeted fallback is <code>bun run build && node --test dist/__tests__/contracts.test.js</code>.</li>
+      <li>Before final completion, inspect <code>git status --short</code> in both the ai-configs worktree and <code>/Users/anichols/code/plan-reviewer</code>, then create separate commits/PRs for any changes in each repo.</li>
+      <li>Link/refresh the primary ai-configs PR in plan-reviewer metadata and record the plan-reviewer PR URL in this plan's Decisions / Deviations log plus the final handoff.</li>
+      <li>Register or re-register this plan with truthful readiness metadata after review gates if it becomes execution-ready.</li>
+      <li>Append a deviations log entry summarizing any scope changes from browser review.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>rg -n "in_progress|columns list --json|source sync|Linear issue|agentInstructions" skills _pi/prompts AGENTS.md
+cd /Users/anichols/code/plan-reviewer && bun run test
+git status --short
+cd /Users/anichols/code/plan-reviewer && git status --short</code></pre>
+  </article>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ul>
+      <li id="verify-text">Use targeted text checks to prove the execution guidance exists in the source-of-truth skills/prompts.</li>
+      <li id="verify-service">Use plan-reviewer unit tests when changing emitted <code>agentInstructions</code> or service action comments.</li>
+      <li id="verify-flow">After implementation, register a sample plan and confirm returned instructions include status-sync guidance; inspect columns with <code>plan-review columns list --json</code>, optionally move a test plan column to <code>in_progress</code>, and inspect the index.</li>
+      <li id="verify-delivery">Confirm both repos have clean, reviewed delivery state: ai-configs PR linked/refreshed in plan-reviewer metadata and plan-reviewer PR recorded in the plan/handoff.</li>
+    </ul>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>P1 first, because <code>run-plan</code> is the highest-leverage enforcement point.</li>
+      <li>P2 second, because <code>agentInstructions</code> reaches agents even outside the full skill path.</li>
+      <li>P3 third, to cover browser Build Plan action handoff.</li>
+      <li>P4 fourth, to close Linear guidance parity.</li>
+      <li>P5 last, to verify both repos, open/link the ai-configs PR, record the plan-reviewer PR, and update this plan.</li>
+    </ol>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li id="non-goal-validator">Do not build a full mechanical plan validator for every repo policy in this change.</li>
+      <li id="non-goal-heddle-hardcode">Do not hard-code Heddle Linear project rules into plan-reviewer.</li>
+      <li id="non-goal-ui">Do not add new plan-reviewer UI controls unless browser review explicitly asks for them.</li>
+      <li id="non-goal-historical">Do not rewrite historical completed plans only to fix old status divergence.</li>
+      <li id="non-goal-aliases">Do not add new compatibility aliases or alternate execution flows; keep <code>run-plan</code> as the one execution source of truth.</li>
+    </ul>
+  </section>
+
+  <section id="deviations-log">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li id="log-2026-06-27-draft"><strong>2026-06-27:</strong> Initial browser-review draft created from repo inspection. Primary enforcement placed in <code>run-plan</code>; generic cross-agent reminders placed in plan-reviewer <code>agentInstructions</code>; repo-specific Linear policy left repo-local and enforced by <code>run-plan</code> honoring <code>AGENTS.md</code>.</li>
+      <li id="log-2026-06-27-review-1"><strong>2026-06-27:</strong> GPT and GLM readiness reviews both flagged multi-repo delivery ownership as a blocker. Plan revised to require separate ai-configs and plan-reviewer branches/PRs, explicit <code>plan-review columns list --json</code> before setting <code>in_progress</code>, and clearer Build Plan bridge parity.</li>
+      <li id="log-2026-06-27-review-2"><strong>2026-06-27:</strong> Follow-up GPT review found plan-reviewer verification command drift. Updated service verification from <code>bun test</code> to repo-supported <code>bun run test</code>, with a targeted contract-test fallback for registration-instructions-only changes.</li>
+      <li id="log-2026-06-27-ready"><strong>2026-06-27:</strong> Final GPT rereview returned <code>VERDICT: PLAN_EXECUTION_READY</code>; prior GLM rereview also returned <code>VERDICT: PLAN_EXECUTION_READY</code>. Plan marked execution-ready and re-registered with truthful plan-reviewer metadata.</li>
+      <li id="log-2026-06-27-build-entrypoint"><strong>2026-06-27:</strong> Browser reviewer asked to ensure direct agent <code>run-plan</code> invocation and the reviewer Build Plan button use the same execution entry point. Strengthened locked decision, acceptance criteria, BDD, and P3 bridge wording so <code>plan-reviewer-build</code> is only a bridge into <code>run-plan &lt;plan-path&gt;</code>.</li>
+      <li id="log-2026-06-27-p1"><strong>2026-06-27:</strong> P1 implemented in <code>skills/run-plan/SKILL.md</code>. Added pre-code plan-reviewer lifecycle/column alignment, <code>plan-review columns list --json</code> inspection before <code>in_progress</code>, repo-local Linear preflight via <code>ltui issues view</code>, and source-sync verification after phase progress updates.</li>
+      <li id="log-2026-06-27-p3-p4"><strong>2026-06-27:</strong> P3 and P4 implemented in ai-configs. <code>skills/plan-reviewer-build/SKILL.md</code> now states the Build Plan button is only a bridge into the same <code>run-plan &lt;plan-path&gt;</code> entry point; <code>_pi/prompts/cmd:create-pr.md</code> now requires verified Linear issue titles for Linear-backed PR titles.</li>
+      <li id="log-2026-06-27-p2"><strong>2026-06-27:</strong> P2 implemented in isolated plan-reviewer worktree <code>/Users/anichols/.herdr/worktrees/plan-reviewer/align-plan-status-instructions</code>. <code>src/registrationInstructions.ts</code> now includes generic active/in_progress alignment and source-progress sync guidance; <code>src/__tests__/contracts.test.ts</code> locks the new instruction contract. Verified with <code>bun run build &amp;&amp; node --test dist/__tests__/contracts.test.js</code> and <code>bun run test</code> passing 144/144 tests.</li>
+      <li id="log-2026-06-27-review-fix"><strong>2026-06-27:</strong> Scoped GPT and GLM implementation reviews both found that the new plan-reviewer status commands omitted the registration service URL. Fixed P2 so lifecycle, columns list, and column set commands include <code>--url &lt;registration service URL&gt;</code> or the concrete service URL, and updated contract tests to lock both forms.</li>
+      <li id="log-2026-06-27-p5"><strong>2026-06-27:</strong> P5 verification completed. Final ai-configs grep checks and <code>git diff --check</code> passed; plan-reviewer targeted and full gates passed after the review fix; pre-PR GPT and GLM gates both returned <code>CLEAN_FOR_PR</code>. Review artifact: <code>thoughts/validation/pre-pr-reviews/2026-06-27-align-plan-status.md</code>.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
