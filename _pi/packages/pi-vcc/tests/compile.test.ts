@@ -196,4 +196,150 @@ describe("compile", () => {
     expect(r).not.toContain("a".repeat(80));
     expect(Math.max(...r.split("\n").map((line) => line.length))).toBeLessThanOrEqual(120);
   });
+
+  it("includes compact_context intent and replaces it on later compactions", () => {
+    const first = compile({
+      messages: [userMsg("Implement compaction")],
+      compactionIntent: {
+        source: "compact_context",
+        reason: "finished phase",
+        boundary: "subtask_complete",
+        preserve: "keep phase evidence",
+      },
+    });
+    expect(first).toContain("[Compaction Intent]");
+    expect(first).toContain("reason=finished phase");
+    expect(first).toContain("preserve=keep phase evidence");
+
+    const second = compile({
+      previousSummary: first,
+      messages: [userMsg("Next phase")],
+      compactionIntent: {
+        source: "compact_context",
+        reason: "after tests",
+        boundary: "after_test_loop",
+      },
+    });
+    expect(second).toContain("reason=after tests");
+    expect(second).not.toContain("reason=finished phase");
+  });
+
+  it("does not prune the wrong result in mixed sibling tool batches", () => {
+    const assistantWithSiblingCalls = {
+      role: "assistant",
+      content: [
+        { type: "toolCall", id: "tc_unique", name: "bash", arguments: { command: "npm test" } },
+        { type: "toolCall", id: "tc_dup_old", name: "Read", arguments: { path: "src/a.ts" } },
+      ],
+      api: "messages",
+      provider: "anthropic",
+      model: "test",
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      timestamp: Date.now(),
+      stopReason: "toolUse",
+    } as any;
+    const r = compile({
+      messages: [
+        userMsg("Run mixed tools"),
+        assistantWithSiblingCalls,
+        { role: "toolResult", toolName: "bash", toolCallId: "tc_unique", content: "tests failed uniquely", isError: true } as any,
+        { role: "toolResult", toolName: "Read", toolCallId: "tc_dup_old", content: "old duplicate read", isError: true } as any,
+        assistantWithToolCall("Read", { path: "src/a.ts" }, "tc_dup_new"),
+        { role: "toolResult", toolName: "Read", toolCallId: "tc_dup_new", content: "latest read result", isError: false } as any,
+      ],
+    });
+    expect(r).toContain("tests failed uniquely");
+    expect(r).not.toContain("old duplicate read");
+  });
+
+  it("prunes older duplicate error results but keeps the latest evidence", () => {
+    const r = compile({
+      messages: [
+        userMsg("Search duplicate output"),
+        assistantWithToolCall("bash", { command: "rg auth" }, "tc_1"),
+        { role: "toolResult", toolName: "bash", toolCallId: "tc_1", content: "old auth error", isError: true } as any,
+        assistantWithToolCall("bash", { command: "rg auth" }, "tc_2"),
+        { role: "toolResult", toolName: "bash", toolCallId: "tc_2", content: "latest auth error", isError: true } as any,
+      ],
+    });
+    expect(r).not.toContain("old auth error");
+    expect(r).toContain("latest auth error");
+  });
+
+  it("includes bashExecution session-evidenced commits", () => {
+    const r = compile({
+      messages: [
+        userMsg("Commit from shell execution"),
+        { role: "bashExecution", command: "git commit -m 'Fix compaction'", output: "[r-pi-compaction abc1234] Fix compaction\n 1 file changed\n _pi/extensions/percentage-compaction.ts", exitCode: 0 } as any,
+      ],
+    });
+    expect(r).toContain("[Commits]");
+    expect(r).toContain("abc1234: Fix compaction");
+  });
+
+  it("does not record false commits from patch index hashes", () => {
+    const r = compile({
+      messages: [
+        userMsg("Show commit"),
+        assistantWithToolCall("bash", { command: "git show abc1234" }, "tc_show"),
+        { role: "toolResult", toolName: "bash", toolCallId: "tc_show", content: "commit 1111111111111111111111111111111111111111\nAuthor: Example\n\n    Fix real thing\n\ndiff --git a/a.ts b/a.ts\nindex 2222222..3333333 100644", isError: false } as any,
+      ],
+    });
+    expect(r).toContain("1111111: Fix real thing");
+    expect(r).not.toContain("2222222:");
+    expect(r).not.toContain("3333333:");
+  });
+
+  it("pairs git command output by toolCallId in sibling tool batches", () => {
+    const siblingGitAndRead = {
+      role: "assistant",
+      content: [
+        { type: "toolCall", id: "tc_git", name: "bash", arguments: { command: "git commit -m 'Real commit'" } },
+        { type: "toolCall", id: "tc_read", name: "Read", arguments: { path: "src/a.ts" } },
+      ],
+      api: "messages",
+      provider: "anthropic",
+      model: "test",
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      timestamp: Date.now(),
+      stopReason: "toolUse",
+    } as any;
+    const r = compile({
+      messages: [
+        userMsg("Commit with siblings"),
+        siblingGitAndRead,
+        { role: "toolResult", toolName: "Read", toolCallId: "tc_read", content: "deadbee is in source text", isError: false } as any,
+        { role: "toolResult", toolName: "bash", toolCallId: "tc_git", content: "[r-pi-compaction abc1234] Real commit", isError: false } as any,
+      ],
+    });
+    expect(r).toContain("abc1234: Real commit");
+    expect(r).not.toContain("deadbee:");
+  });
+
+  it("does not record false commits from failed git output or command text", () => {
+    const r = compile({
+      messages: [
+        userMsg("Failed git lookup"),
+        assistantWithToolCall("bash", { command: "git show deadbee" }, "tc_bad"),
+        { role: "toolResult", toolName: "bash", toolCallId: "tc_bad", content: "fatal: bad object deadbee", isError: true } as any,
+        assistantWithToolCall("bash", { command: "git commit -m 'fix deadbee case'" }, "tc_msg"),
+        { role: "toolResult", toolName: "bash", toolCallId: "tc_msg", content: "nothing to commit", isError: true } as any,
+      ],
+    });
+    expect(r).not.toContain("[Commits]");
+    expect(r).not.toContain("deadbee:");
+  });
+
+  it("includes bounded session-evidenced commits", () => {
+    const r = compile({
+      messages: [
+        userMsg("Commit the change"),
+        assistantWithToolCall("bash", { command: "git commit -m 'Add compaction nudges'" }, "tc_git"),
+        { role: "toolResult", toolName: "bash", toolCallId: "tc_git", content: "[r-pi-compaction 45e93e8] Add compaction nudges\n 1 file changed\n _pi/extensions/percentage-compaction.ts", isError: false } as any,
+      ],
+    });
+    expect(r).toContain("[Commits]");
+    expect(r).toContain("45e93e8: Add compaction nudges");
+    expect(r).toContain("_pi/extensions/percentage-compaction.ts");
+  });
 });

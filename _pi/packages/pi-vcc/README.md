@@ -4,17 +4,17 @@ Vendored into `ai-configs` from `sting8k/pi-vcc` so this repo can ship a pinned 
 
 - Source: `https://github.com/sting8k/pi-vcc`
 - Local package version: `0.3.6-ai-configs.1`
-- Reviewed upstream version: `0.3.15`
-- Reviewed upstream commit: `b4c9099c78863769bec8f6f3ee3861c1e094db9e`
+- Reviewed upstream version: `0.3.18`
+- Reviewed upstream commit: `45e93e85d30da774c7b20212f192cae40b5beef4`
 - License: MIT
 - Local changes and selective uptake:
   - `/pi-vcc` carries the `__PI_VCC_MANUAL_BYPASS__` marker directly in-source so repo-managed auto-compaction and manual compaction both use pi-vcc without global patching
   - the compaction hook keeps the repo-local agent-only fallback tail and shifts the cut backward so a live `toolResult` never outlives its matching assistant tool call
   - when pi-vcc compacts before the assistant has finished its response, it sends a follow-up continue prompt after compaction so the agent resumes instead of stalling, with a reminder to use `vcc_recall` for pre-compaction details; compactions at the completed-response boundary stay silent
-  - high-value upstream `0.3.15` uptake is intentionally narrow: TUI-safe wrapping for final compiled summaries plus `bashExecution` normalization/search/report correctness fixes
+  - high-value upstream `0.3.18` uptake is intentionally selective: TUI-safe wrapping, `bashExecution` normalization/search/report correctness fixes, keep-token parsing, compaction reason/willRetry metadata, overflow retry fallback, and commit extraction adapted to the local summary contract
   - this vendored copy preserves redaction, including compressed bash command redaction, even though upstream removed `src/core/redact.ts`
   - this vendored copy intentionally does **not** append the upstream `vcc_recall` reminder note to every summary; this repo keeps the pre-existing summary output contract while still stripping older injected note lines during merge
-  - this vendored copy intentionally skips upstream active-lineage recall, commits-section extraction, settings scaffold, compact-all sentinel/orphan recovery, broad summary-quality churn, peer dependency range changes, tool-error omission, and binary demo assets
+  - this vendored copy intentionally skips upstream active-lineage recall, settings scaffold, compact-all sentinel/orphan recovery, broad summary-quality churn, peer dependency range changes, tool-error omission, and binary demo assets
   - local tests and harnesses cover the repo-specific compaction safety contract and package-wide verification flow
 
 Algorithmic conversation compactor for [Pi](https://github.com/badlogic/pi-mono). No LLM calls — produces a brief transcript via extraction and formatting.

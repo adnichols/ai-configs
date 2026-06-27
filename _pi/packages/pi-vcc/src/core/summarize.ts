@@ -1,6 +1,7 @@
-import type { FileOps, PiMessage } from "../types";
+import type { CompactionIntent, FileOps, PiMessage } from "../types";
 import { normalize } from "./normalize";
 import { filterNoise } from "./filter-noise";
+import { pruneForSummary } from "./prune";
 import { buildSections } from "./build-sections";
 import { formatSummary, capBrief, wrapLongLines } from "./format";
 import { redact } from "./redact";
@@ -10,9 +11,10 @@ export interface CompileInput {
   messages: PiMessage[];
   previousSummary?: string;
   fileOps?: FileOps;
+  compactionIntent?: CompactionIntent;
 }
 
-const HEADER_NAMES = ["Session Goal", "Files And Changes", "Outstanding Context", "User Preferences"];
+const HEADER_NAMES = ["Session Goal", "Compaction Intent", "Files And Changes", "Outstanding Context", "Commits", "User Preferences"];
 const SEPARATOR = "\n\n---\n\n";
 const RECALL_NOTE = "Note: conversation history before this summary is searchable via `vcc_recall`.";
 
@@ -86,12 +88,18 @@ const mergeFileLines = (prev: string, fresh: string): string => {
 };
 
 const mergeHeaderSection = (header: string, prev: string, fresh: string): string => {
-  if (header === "Outstanding Context") return fresh;
+  if (header === "Outstanding Context" || header === "Compaction Intent") return fresh;
   if (!prev) return fresh;
   if (!fresh) return prev;
 
   if (header === "Files And Changes") {
     return mergeFileLines(prev, fresh);
+  }
+
+  if (header === "Commits") {
+    const combined = [...new Set([...bulletLinesOf(prev), ...bulletLinesOf(fresh)])];
+    const capped = combined.length > 8 ? combined.slice(-8) : combined;
+    return capped.length ? `[${header}]\n${capped.join("\n")}` : "";
   }
 
   const isClean = (l: string) => !l.includes("<skill") && !l.includes("</skill");
@@ -144,8 +152,8 @@ const mergePrevious = (prev: string, fresh: string): string => {
 };
 
 export const compile = (input: CompileInput): string => {
-  const blocks = filterNoise(normalize(input.messages));
-  const data = buildSections({ blocks });
+  const blocks = pruneForSummary(filterNoise(normalize(input.messages)));
+  const data = buildSections({ blocks, compactionIntent: input.compactionIntent });
   const fresh = formatSummary(data);
   const merged = input.previousSummary ? mergePrevious(input.previousSummary, fresh) : fresh;
   if (!merged) return "";

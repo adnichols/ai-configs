@@ -1,13 +1,15 @@
-import type { NormalizedBlock } from "../types";
+import type { CompactionIntent, NormalizedBlock } from "../types";
 import { clip, firstLine, nonEmptyLines } from "./content";
 import type { SectionData } from "../sections";
 import { extractGoals } from "../extract/goals";
 import { extractFiles } from "../extract/files";
 import { extractPreferences } from "../extract/preferences";
+import { extractCommits, formatCommits } from "../extract/commits";
 import { buildBriefSections, sectionsToTranscript, stringifyBrief } from "./brief";
 
 export interface BuildSectionsInput {
   blocks: NormalizedBlock[];
+  compactionIntent?: CompactionIntent;
 }
 
 const BLOCKER_RE =
@@ -53,13 +55,26 @@ const formatFileActivity = (blocks: NormalizedBlock[]): string[] => {
   return lines;
 };
 
+const formatCompactionIntent = (intent?: CompactionIntent): string[] => {
+  if (!intent) return [];
+  const parts = [
+    intent.source ? `source=${intent.source}` : "",
+    intent.boundary ? `boundary=${intent.boundary}` : "",
+    intent.reason ? `reason=${intent.reason}` : "",
+    intent.preserve ? `preserve=${intent.preserve}` : "",
+  ].filter(Boolean);
+  return parts.length ? [parts.join("; ")] : [];
+};
+
 export const buildSections = (input: BuildSectionsInput): SectionData => {
   const { blocks } = input;
   const briefSections = buildBriefSections(blocks);
   return {
     sessionGoal: extractGoals(blocks),
+    compactionIntent: formatCompactionIntent(input.compactionIntent),
     outstandingContext: extractOutstandingContext(blocks),
     filesAndChanges: formatFileActivity(blocks),
+    commits: formatCommits(extractCommits(blocks)),
     userPreferences: extractPreferences(blocks),
     briefTranscript: stringifyBrief(briefSections),
     transcriptEntries: sectionsToTranscript(briefSections),

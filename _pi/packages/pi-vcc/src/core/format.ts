@@ -1,6 +1,6 @@
 import type { SectionData } from "../sections";
 
-const section = (title: string, items: string[]): string => {
+const section = (title: string, items: string[] = []): string => {
   if (items.length === 0) return "";
   const body = items.map((i) => `- ${i}`).join("\n");
   return `[${title}]\n${body}`;
@@ -48,8 +48,10 @@ export const capBrief = (text: string): string => {
 export const formatSummary = (data: SectionData): string => {
   const headerParts = [
     section("Session Goal", data.sessionGoal),
+    section("Compaction Intent", data.compactionIntent),
     section("Files And Changes", data.filesAndChanges),
     section("Outstanding Context", data.outstandingContext),
+    section("Commits", data.commits),
     section("User Preferences", data.userPreferences),
   ].filter(Boolean);
 

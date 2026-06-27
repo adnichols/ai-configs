@@ -153,6 +153,40 @@ describe("package load marker", () => {
   });
 });
 
+describe("compaction intent and overflow fallback", () => {
+  it("parses marker plus JSON intent into summary and details", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: compactableEntries(),
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","reason":"done","boundary":"subtask_complete","preserve":"keep tests"}',
+    });
+
+    expect(result.cancel).toBeUndefined();
+    expect(result.compaction.summary).toContain("[Compaction Intent]");
+    expect(result.compaction.summary).toContain("reason=done");
+    expect(result.compaction.summary).toContain("preserve=keep tests");
+    expect(result.compaction.details.compactionIntent).toEqual({
+      source: "compact_context",
+      reason: "done",
+      boundary: "subtask_complete",
+      preserve: "keep tests",
+    });
+  });
+
+  it("lets core retry overflow compaction when pi-vcc cannot form a cut", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: [messageEntry("1", userMsg("too small"))],
+      reason: "overflow",
+      willRetry: true,
+    });
+
+    expect(result).toBeUndefined();
+  });
+});
+
 describe("active compaction continuation", () => {
   it("resumes the agent after compacting an in-flight turn", async () => {
     const { handlers, sentUserMessages, sentMessages, ctx } = await getRegisteredHandlers();

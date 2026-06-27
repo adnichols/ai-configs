@@ -1,7 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { getLastCompactionStats } from "../hooks/before-compact";
-
-const PI_VCC_MANUAL_BYPASS_MARKER = "__PI_VCC_MANUAL_BYPASS__";
+import { buildPiVccCustomInstructions, parseKeepAndPrompt } from "../core/compact-args";
 
 const formatTokens = (n: number): string => {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
@@ -11,9 +10,10 @@ const formatTokens = (n: number): string => {
 export const registerPiVccCommand = (pi: ExtensionAPI) => {
   pi.registerCommand("pi-vcc", {
     description: "Compact conversation with pi-vcc structured summary",
-    handler: async (_args, ctx) => {
+    handler: async (args, ctx) => {
+      const { followUpPrompt, keepUserTurns } = parseKeepAndPrompt(args);
       ctx.compact({
-        customInstructions: PI_VCC_MANUAL_BYPASS_MARKER,
+        customInstructions: buildPiVccCustomInstructions(keepUserTurns),
         onComplete: () => {
           const stats = getLastCompactionStats();
           if (stats) {
@@ -23,6 +23,11 @@ export const registerPiVccCommand = (pi: ExtensionAPI) => {
             );
           } else {
             ctx.ui.notify("Compacted with pi-vcc", "info");
+          }
+          if (followUpPrompt) {
+            try {
+              void Promise.resolve(pi.sendUserMessage(followUpPrompt)).catch(() => {});
+            } catch {}
           }
         },
         onError: (err) => {
