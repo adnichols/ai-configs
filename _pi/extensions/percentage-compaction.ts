@@ -31,10 +31,12 @@ export default function (pi: ExtensionAPI) {
   let allowNextManualCompaction = false;
   let compactionInFlight = false;
   let lastAutoCompactionPercent: number | undefined;
+  let awaitingPostCompactionAssistantResponse = false;
 
-  const finishCompaction = () => {
+  const finishCompaction = (options: { compacted?: boolean } = {}) => {
     allowNextManualCompaction = false;
     compactionInFlight = false;
+    if (options.compacted) awaitingPostCompactionAssistantResponse = true;
   };
 
   const triggerCompaction = (
@@ -62,7 +64,7 @@ export default function (pi: ExtensionAPI) {
       customInstructions: options.customInstructions,
       onComplete: () => {
         if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
-        finishCompaction();
+        finishCompaction({ compacted: true });
         ctx.ui.notify(options.completionMessage, "info");
       },
       onError: (err: Error) => {
@@ -122,16 +124,21 @@ export default function (pi: ExtensionAPI) {
     const usagePercent = usage.percent;
     const currentPercent = Math.floor(usagePercent);
     const threshold = COMPACTION_THRESHOLD_PERCENT;
+    const completedResponse = isCompletedAssistantResponse(event.message);
 
     if (usagePercent < threshold) {
       lastAutoCompactionPercent = undefined;
+      awaitingPostCompactionAssistantResponse = false;
       return;
     }
 
     if (compactionInFlight) return;
+    if (awaitingPostCompactionAssistantResponse) {
+      if (!completedResponse) return;
+      awaitingPostCompactionAssistantResponse = false;
+    }
     if (isStaleAutoCompactionPercent(usagePercent, lastAutoCompactionPercent)) return;
 
-    const completedResponse = isCompletedAssistantResponse(event.message);
     triggerCompaction(ctx, {
       customInstructions: PI_VCC_MANUAL_BYPASS_MARKER,
       bypassThreshold: true,
@@ -144,7 +151,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_compact", async () => {
-    finishCompaction();
+    finishCompaction({ compacted: true });
   });
 
   // Intercept core auto-compaction - gate it by the percentage threshold.
@@ -168,8 +175,17 @@ export default function (pi: ExtensionAPI) {
 
     if (usage.percent < COMPACTION_THRESHOLD_PERCENT) {
       lastAutoCompactionPercent = undefined;
+      awaitingPostCompactionAssistantResponse = false;
       ctx.ui.notify(
         `⏸️ Delayed auto-compaction: ${Math.floor(usage.percent)}% < ${COMPACTION_THRESHOLD_PERCENT}% threshold`,
+        "info",
+      );
+      return { cancel: true };
+    }
+
+    if (awaitingPostCompactionAssistantResponse) {
+      ctx.ui.notify(
+        "⏸️ Delayed auto-compaction: waiting for the next assistant response after the last pi-vcc compaction",
         "info",
       );
       return { cancel: true };
@@ -189,6 +205,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     lastAutoCompactionPercent = usage.percent;
+    awaitingPostCompactionAssistantResponse = true;
     ctx.ui.notify(
       `✓ Auto-compacting at ${Math.floor(usage.percent)}% (threshold: ${COMPACTION_THRESHOLD_PERCENT}%)`,
       "info",

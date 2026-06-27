@@ -97,6 +97,56 @@ describe("percentage-compaction extension", () => {
     expect(compactCalls).toHaveLength(2);
   });
 
+  test("does not compact again during post-compaction tool turns even when usage changes", async () => {
+    let percent = 60.123456;
+    const { handlers, compactCalls, ctx } = setup(() => percent);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "toolUse" } },
+      ctx,
+    );
+    compactCalls[0].onComplete();
+
+    percent = 61.5;
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "toolUse" } },
+      ctx,
+    );
+    await handlers.turn_end?.(
+      { message: { role: "tool" } },
+      ctx,
+    );
+
+    expect(compactCalls).toHaveLength(1);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "stop" } },
+      ctx,
+    );
+
+    expect(compactCalls).toHaveLength(2);
+  });
+
+  test("core auto-compaction waits for a post-compaction assistant response", async () => {
+    let percent = 61.234567;
+    const { handlers, compactCalls, notifications, ctx } = setup(() => percent);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "toolUse" } },
+      ctx,
+    );
+    compactCalls[0].onComplete();
+
+    percent = 62.1;
+    const result = await handlers.session_before_compact?.(
+      { customInstructions: undefined },
+      ctx,
+    );
+
+    expect(result).toEqual({ cancel: true });
+    expect(notifications.some((entry) => entry.message.includes("waiting for the next assistant response"))).toBe(true);
+  });
+
   test("core auto-compaction is blocked for the same post-compaction usage value", async () => {
     const { handlers, compactCalls, notifications, ctx } = setup(61.234567);
 
@@ -105,6 +155,11 @@ describe("percentage-compaction extension", () => {
       ctx,
     );
     compactCalls[0].onComplete();
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "stop" } },
+      ctx,
+    );
 
     const result = await handlers.session_before_compact?.(
       { customInstructions: undefined },
