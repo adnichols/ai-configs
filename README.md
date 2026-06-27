@@ -108,7 +108,7 @@ Gemini TOML command definitions plus the `GEMINI.template.md` persona template.
 OMP commands, agents, repo-managed extensions, and OMP-local docs. The repo-managed planning entrypoint is the `/aplan` extension/alias, which is installed under `~/.omp/agent/extensions/`, enters built-in `/plan` mode while queueing repo-managed planning guidance for the next planning turn, preserves native `/plan`, auto-runs `/review:change-integrate` after standard plan review leaves inline comments, supports `/dev:pm-review` as a corrective PM reshaping pass, and hands reviewed plans off through prepared `/cmd:execute-plan ... --target ...` execution choices. This tree also now ships a vendored `pi-vcc` extension for OMP under `_omp/extensions/pi-vcc`, installed to `~/.omp/agent/extensions/pi-vcc`, which provides algorithmic compaction, the `/pi-vcc` manual compaction command, and the `vcc_recall` tool.
 
 ### `_pi/`
-Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, and `/cmd:execute-plan`.
+Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.
 
 ### `_opencode/`
 OpenCode commands, agents, prompts, repo-local-only skills, onboarding docs, and helper scripts.

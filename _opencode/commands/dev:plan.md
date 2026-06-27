@@ -53,7 +53,7 @@ Forbidden transitions for this command:
 - Do not switch into build, run, or implementation mode.
 - Do not edit any file except `plan_path` unless the user explicitly broadens scope.
 - Do not run lint, tests, build, e2e, migrations, or other execution-oriented verification.
-- Do not invoke `/review:change`, `/cmd:execute-plan`, `/ralph:run`, or any other follow-up command from this command; only suggest them.
+- Do not invoke `/review:change`, `/cmd:execute-plan`, `/run-plan`, or any other follow-up command from this command; only suggest them.
 
 Legacy bundles:
 

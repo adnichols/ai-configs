@@ -237,12 +237,13 @@ Example installed agents:
 ## Skills Overview
 
 ### Canonical workflow
-- `adn-dev-wf` — end-to-end reviewed-plan workflow from plan creation through direct execution and PM follow-up
+- `adn-dev-wf` — reviewed-plan workflow from plan creation through direct execution and PM follow-up
 - `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in plan-review, follows service-returned `agentInstructions`, starts the queue-backed comment monitor, processes browser feedback, runs PM plus GPT/GLM Pi subagent plan reviews, and stops at execution-ready handoff
 
 ### Dev / execution
+- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: implementation, scoped reviews, GPT/GLM pre-PR review, PR creation, and post-PR monitoring
 - `dev:run` — direct high-reasoning execution with one `quality-reviewer` pass after each phase
-- `pre-pr-implementation-review` — GPT-5.5 plus GLM-5 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; when invoked by `scoped-plan-run`, it returns `OPEN_PR_READY` so the caller continues to PR creation
+- `pre-pr-implementation-review` — GPT-5.5 plus GLM-5 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to PR creation
 
 ### Git / workflow
 - `cmd-create-pr`
@@ -268,7 +269,7 @@ Example installed agents:
 - `review-change-kimi`
 - `review-change-opus`
 - `review-change-claude-code` — Claude Code review-only pass through the shared private-tmux interactive launcher
-- `pre-pr-implementation-review` — runnable independently or automatically from `scoped-plan-run` before PR creation; it is not a terminal replacement for opening the PR
+- `pre-pr-implementation-review` — runnable independently or automatically from `run-plan` before PR creation; it is not a terminal replacement for opening the PR
 
 ## Usage
 
@@ -290,14 +291,14 @@ Prompt templates:
 /review:change-opus thoughts/plans/my-plan.html
 /review:change-claude-code thoughts/plans/my-plan.html
 /skill:pre-pr-implementation-review thoughts/plans/my-plan.html
-/skill:adn-dev-wf thoughts/plans/my-plan.html
+/run-plan thoughts/plans/my-plan.html
 /dev:plan-from-prd thoughts/plans/prd-my-feature.md
 /cmd:send-plan-to-doct thoughts/plans/my-plan.md
 ```
 
 ## Reviewed-plan handoff
 
-Use `/skill:adn-dev-wf <plan>` after a reviewed plan is ready to continue. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html`, and `skills/html-plan-reviewer/SKILL.md` is the sole source for concrete `plan-review` commands, readiness metadata, canonical URL rules, and comment monitor mechanics.
+Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-PR execution. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html`, and `skills/html-plan-reviewer/SKILL.md` is the sole source for concrete `plan-review` commands, readiness metadata, canonical URL rules, and comment monitor mechanics.
 
 Canonical browser-reviewed HTML plan flow:
 
@@ -320,9 +321,9 @@ Optional second pass: run `/review:plan-adversarial <plan>` after `/review:chang
 
 Use `/dev:pm-review <plan> implementation` after execution when you want a corrective PM pass that checks whether the intended user outcome was actually realized and, if not, reshapes the plan with the missing completion work instead of stopping at findings.
 
-- It is the canonical wrapper for choosing between `/skill:adn-dev-wf <plan>` and `/dev:run <plan>`.
-- `/skill:adn-dev-wf` is the canonical reviewed-plan continuation and can resume from an existing reviewed plan; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
-- `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `scoped-plan-run` after scoped implementation reviews. In a scoped run, clean GPT/GLM consensus over all in-scope P1/P2/P3 findings means `OPEN_PR_READY`; the runner must then rerun final verification if needed, commit, push, open the PR, and continue monitoring.
+- `/cmd:execute-plan` is the canonical wrapper for choosing between `/run-plan <plan>` and `/dev:run <plan>`.
+- `/run-plan` is the full lifecycle reviewed-plan continuation through PR creation and monitoring; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
+- `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean GPT/GLM consensus over all in-scope P1/P2/P3 findings means `OPEN_PR_READY`; the runner must then rerun final verification if needed, commit, push, open the PR, and continue monitoring.
 - In Pi `/plan` mode, the extension offers both execution paths as post-review exit choices and stages this handoff command for the selected target.
 - When that extension path is used, `/plan` mode is disabled before execution so planning-only tool restrictions do not leak into implementation.
 - In Pi, the handoff command starts a fresh session and then launches the selected execution flow from that clean context.
@@ -353,7 +354,7 @@ The sequence below is the end-to-end reviewed-PRD path from PRD entry through ha
 Skills:
 
 ```text
-/skill:adn-dev-wf user-profile-redesign
+/run-plan thoughts/plans/user-profile-redesign.html
 /skill:reviewed-html-plan user-profile-redesign
 /skill:cmd-start-linear-issue-branch ENG-123
 /skill:doct-document-ops

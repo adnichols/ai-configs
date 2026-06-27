@@ -114,6 +114,6 @@ After successful integration:
 /cmd:execute-plan <plan path | plan slug>
 ```
 
-If the user already knows they want to continue the canonical workflow, `/skill:adn-dev-wf <plan path | plan slug>` is the default next step. `/dev:run <plan path | plan slug>` remains the direct execution-only path.
+If the user already knows they want full lifecycle execution, `/run-plan <plan path | plan slug>` is the default next step. `/dev:run <plan path | plan slug>` remains the direct execution-only path.
 
 Stop there; do not proceed automatically.

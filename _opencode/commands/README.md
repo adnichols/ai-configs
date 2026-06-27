@@ -36,27 +36,28 @@ This directory contains a comprehensive set of commands that support a complete 
 15. **`cmd:start-linear-issue.md`** - Bootstrap a Linear issue as an OpenCode workspace-backed build environment
 16. **`cmd:linear-build-workspace.md`** - Deterministic Linear issue build runner using OpenCode workspaces plus the enforced `linear_build_orchestrator.py` run ledger
 17. **`cmd:start-linear-issue-branch.md`** - Start a Linear issue on a new branch (no workspace/worktree) and draft a first-pass plan
-18. **`cmd:execute-plan.md`** - Canonical reviewed-plan handoff that routes into `/skill:adn-dev-wf` or `/dev:run`
+18. **`cmd:execute-plan.md`** - Reviewed-plan handoff that routes into `/run-plan` or `/dev:run`
 19. **`cmd:review-pr-comments.md`** - Review and address GitHub PR comments since last commit
 
 ### Workflow Skills
-20. **`adn-dev-wf`** - Canonical reviewed-plan workflow skill that replaces the retired quality-gated execution path
-21. **`ralph:review-gpt5.5.md`** - Run `/review` in a loop (GPT-5.5), apply quick fixes, stop when no straightforward fixes remain
-22. **`ralph:review-opus.md`** - Run `/review` in a loop (Opus), apply quick fixes, stop when no straightforward fixes remain
+20. **`run-plan`** - Full lifecycle reviewed-plan execution through PR creation and monitoring
+21. **`adn-dev-wf`** - Broader reviewed-plan workflow skill for plan refresh, review integration, direct execution, and PM follow-up
+22. **`ralph:review-gpt5.5.md`** - Run `/review` in a loop (GPT-5.5), apply quick fixes, stop when no straightforward fixes remain
+23. **`ralph:review-opus.md`** - Run `/review` in a loop (Opus), apply quick fixes, stop when no straightforward fixes remain
 
 ## Command Workflows
 
 ### Workflow 0: Plan-First Execution (Shared Default)
-`[plan mode discovery] → /dev:plan → [execution-ready → optional /dev:pm-review <plan> plan → /review:plan <plan> → /review:change-integrate <plan> → /cmd:execute-plan <plan> → choose /skill:adn-dev-wf <plan> or /dev:run <plan>] | [research-ready / blocking question → next research or answer → /dev:plan]`
-```
-[plan mode discovery] → /dev:plan → [execution-ready → optional /dev:pm-review <plan> plan → /review:plan <plan> → /review:change-integrate <plan> → /cmd:execute-plan <plan> → choose /skill:adn-dev-wf <plan> or /dev:run <plan>] | [research-ready / blocking question → next research or answer → /dev:plan]
+`[plan mode discovery] → /dev:plan → [execution-ready → optional /dev:pm-review <plan> plan → /review:plan <plan> → /review:change-integrate <plan> → /cmd:execute-plan <plan> → choose /run-plan <plan> or /dev:run <plan>] | [research-ready / blocking question → next research or answer → /dev:plan]`
+```text
+[plan mode discovery] → /dev:plan → [execution-ready → optional /dev:pm-review <plan> plan → /review:plan <plan> → /review:change-integrate <plan> → /cmd:execute-plan <plan> → choose /run-plan <plan> or /dev:run <plan>] | [research-ready / blocking question → next research or answer → /dev:plan]
 ```
 - Read-only plan mode gathers evidence, resolves `low-confidence` decisions, and prepares inputs for plan materialization.
 - `/dev:plan` fails closed: it only writes an `execution-ready` plan when foundational decisions are resolved; otherwise it asks the user or writes exactly one non-ready `research-ready` artifact with the next research action.
 - `/dev:pm-review` is the optional corrective PM reshaping pass before execution and may also be used after implementation to reopen missing completion work.
 - `/review:plan` is the standard multi-model review pass for plans, and `/review:change-integrate` resolves those inline comments back into the same plan before execution.
-- Only `execution-ready` reviewed plans move into `/cmd:execute-plan`; the handoff preserves the reviewed plan argument and asks whether to continue with `/skill:adn-dev-wf` or `/dev:run`.
-- `/skill:adn-dev-wf` is the canonical reviewed-plan continuation; `/dev:run` remains the direct execution path with one `quality-reviewer` pass after each phase.
+- Only `execution-ready` reviewed plans move into `/cmd:execute-plan`; the handoff preserves the reviewed plan argument and asks whether to continue with `/run-plan` or `/dev:run`.
+- `/run-plan` is the full lifecycle reviewed-plan continuation through PR creation and monitoring; `/dev:run` remains the direct execution path with one `quality-reviewer` pass after each phase.
 - Pi is the only maintained surface that promises context cleanup before dispatch; OpenCode shares the wrapper name and choice flow without claiming Pi-only context behavior.
 
 ### Workflow 0B: Linear Issue Build In OpenCode Workspace
@@ -131,8 +132,8 @@ Plans and specifications should describe behavioral tests in plain terms around 
 - If research is still the next handoff, `/dev:plan` writes one non-ready `research-ready` artifact instead of pretending execution can safely start.
 - `/dev:pm-review <plan> plan` is the optional corrective PM pass before execution; `/dev:pm-review <plan> implementation` is the corrective PM pass after implementation.
 - `/review:plan` is the standard plan review pass, and `/review:change-integrate` should clean those inline comments before `/cmd:execute-plan`.
-- `/dev:run` applies one `quality-reviewer` pass after each phase. A phase only advances after `ralph:run` receives `VERDICT: PASS_NO_ISSUES`, or `VERDICT: PASS_LOW_RISK_ONLY` with each remaining item proven out-of-scope, low-risk, not required for truthful verification, and logged in `thoughts/discoveries/<plan-or-feature>.md` (or the repo's documented equivalent) plus the plan's `## Decisions / Deviations Log`.
-- The canonical workflow skill `/skill:adn-dev-wf` can resume from a reviewed plan, rerun PM follow-up loops when needed, and keep the plan truthfully aligned with execution.
+- `/dev:run` applies one `quality-reviewer` pass after each phase. A phase only advances after review receives `VERDICT: PASS_NO_ISSUES`, or `VERDICT: PASS_LOW_RISK_ONLY` with each remaining item proven out-of-scope, low-risk, not required for truthful verification, and logged in `thoughts/discoveries/<plan-or-feature>.md` (or the repo's documented equivalent) plus the plan's `## Decisions / Deviations Log`.
+- `/run-plan` can resume from a reviewed plan, keep the plan truthfully aligned with execution, run pre-PR review gates, create the PR, and monitor post-PR feedback.
 
 ### Standardized Format
 All commands use consistent:

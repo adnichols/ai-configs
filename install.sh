@@ -27,7 +27,7 @@ AI_CONFIGS_BACKUP_RUN_ID="$(date +"%Y%m%d-%H%M%S")"
 AI_CONFIGS_REPO_NAME='ai-configs'
 AI_CONFIGS_REPO_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 CENTRAL_ONLY_PROJECT_SKILLS=(ccore todoist-cli brave-cdp chrome-cdp)
-DEPRECATED_SHARED_SKILLS=(agent-browser)
+DEPRECATED_SHARED_SKILLS=(agent-browser scoped-plan-run)
 
 # Colors for output
 RED='\033[0;31m'

@@ -270,11 +270,11 @@ async function expandSlashCommandPrompt(cwd: string, commandText: string): Promi
 	return undefined;
 }
 
-function normalizeExecuteTarget(target: string | undefined): "dev:run" | "skill:adn-dev-wf" | undefined {
+function normalizeExecuteTarget(target: string | undefined): "dev:run" | "run-plan" | undefined {
 	if (!target) return undefined;
 	const normalized = target.trim().replace(/^\//, "");
 	if (normalized === "dev:run") return normalized;
-	if (normalized === "skill:adn-dev-wf" || normalized === "ralph:run") return "skill:adn-dev-wf";
+	if (normalized === "run-plan" || normalized === "skill:run-plan") return "run-plan";
 	return undefined;
 }
 
@@ -291,14 +291,14 @@ function isStandardReviewCommand(command: string | undefined): command is typeof
 }
 
 function getExecutePlanUsage(): string {
-	return `Usage: /${EXECUTE_PLAN_COMMAND} <plan slug | thoughts/plans/<slug>.html | path/to/plan.html | legacy path/to/plan.md> [--target dev:run|skill:adn-dev-wf]`;
+	return `Usage: /${EXECUTE_PLAN_COMMAND} <plan slug | thoughts/plans/<slug>.html | path/to/plan.html | legacy path/to/plan.md> [--target dev:run|run-plan]`;
 }
 
 async function resolveExecutePlanRequest(
 	cwd: string,
 	rawArgs: string,
 ): Promise<
-	| { planDispatchArgument: string; planPath: string; targetOverride?: "dev:run" | "skill:adn-dev-wf" }
+	| { planDispatchArgument: string; planPath: string; targetOverride?: "dev:run" | "run-plan" }
 	| { error: string }
 > {
 	const tokens = parseCommandArgs(rawArgs.trim());
@@ -308,11 +308,11 @@ async function resolveExecutePlanRequest(
 
 	const targetFlagIndex = tokens.lastIndexOf("--target");
 	let planTokens = tokens;
-	let targetOverride: "dev:run" | "skill:adn-dev-wf" | undefined;
+	let targetOverride: "dev:run" | "run-plan" | undefined;
 
 	if (targetFlagIndex !== -1) {
 		if (targetFlagIndex === tokens.length - 1) {
-			return { error: "Missing value after --target. Valid targets: /dev:run or /skill:adn-dev-wf." };
+			return { error: "Missing value after --target. Valid targets: /dev:run or /run-plan." };
 		}
 		if (targetFlagIndex < tokens.length - 2) {
 			return { error: "Unexpected extra arguments after --target. Use exactly one target value." };
@@ -320,7 +320,7 @@ async function resolveExecutePlanRequest(
 
 		targetOverride = normalizeExecuteTarget(tokens[targetFlagIndex + 1]);
 		if (!targetOverride) {
-			return { error: "Invalid --target value. Valid targets: /dev:run or /skill:adn-dev-wf." };
+			return { error: "Invalid --target value. Valid targets: /dev:run or /run-plan." };
 		}
 		planTokens = tokens.slice(0, targetFlagIndex);
 	}
@@ -942,18 +942,18 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 		let target = request.targetOverride;
 		if (!target) {
 			if (!ctx.hasUI) {
-				ctx.ui.notify("No UI available. Re-run with --target dev:run or --target skill:adn-dev-wf.", "warning");
+				ctx.ui.notify("No UI available. Re-run with --target dev:run or --target run-plan.", "warning");
 				return;
 			}
 
 			const choice = await ctx.ui.select(`Choose execution path for ${request.planDispatchArgument}.`, [
-				`/skill:adn-dev-wf ${request.planDispatchArgument}`,
+				`/run-plan ${request.planDispatchArgument}`,
 				`/dev:run ${request.planDispatchArgument}`,
 			]);
 			if (!choice) {
 				return;
 			}
-			target = choice.startsWith("/skill:adn-dev-wf") ? "skill:adn-dev-wf" : "dev:run";
+			target = choice.startsWith("/run-plan") ? "run-plan" : "dev:run";
 		}
 
 		const commandText = `/${target} ${formatCommandArg(request.planDispatchArgument)}`;
@@ -1139,7 +1139,7 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 
 		nextSteps.push(
 			`/${EXECUTE_PLAN_COMMAND} ${formatCommandArg(currentPlanPath)} --target dev:run`,
-			`/${EXECUTE_PLAN_COMMAND} ${formatCommandArg(currentPlanPath)} --target skill:adn-dev-wf`,
+			`/${EXECUTE_PLAN_COMMAND} ${formatCommandArg(currentPlanPath)} --target run-plan`,
 		);
 
 		ctx.ui.notify(`Plan review complete (${reason}). Available next steps:\n${formatNextSteps(nextSteps)}`, "info");
@@ -1157,7 +1157,7 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand(EXECUTE_PLAN_COMMAND, {
-		description: "Start /dev:run or /skill:adn-dev-wf in a fresh session from a reviewed plan",
+		description: "Start /run-plan or /dev:run in a fresh session from a reviewed plan",
 		handler: async (args, ctx) => handleExecutePlanCommand(args, ctx),
 	});
 
@@ -1179,7 +1179,7 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 		const text = event.text.trim();
 		if (!planModeEnabled) return { action: "continue" };
 
-		if (text.startsWith(`/${EXECUTE_PLAN_COMMAND}`) || text.startsWith("/dev:run") || text.startsWith("/skill:adn-dev-wf") || text.startsWith("/ralph:run")) {
+		if (text.startsWith(`/${EXECUTE_PLAN_COMMAND}`) || text.startsWith("/dev:run") || text.startsWith("/run-plan") || text.startsWith("/skill:run-plan")) {
 			const executionBlockReason = getExecutionBlockReason();
 			if (executionBlockReason) {
 				ctx.ui.notify(executionBlockReason, "warning");
@@ -1265,7 +1265,7 @@ Constraints:
 - After creating or materially updating an HTML plan, /dev:reviewed-html-plan <path> is the deterministic registration, browser-feedback, PM-review, and Claude/Codex plan-review path. /review:plan <path> remains available only as an explicit inline review.
 - After a standard inline review completes with comments, /review:change-integrate <path> runs automatically so review feedback is resolved back into the same plan file before any manual execution handoff.
 - After standard inline review integration, you may optionally run /review:plan-adversarial <path> for a second-pass challenge review.
-- Before execution, stop any active plan-review comment listener, then run /cmd:execute-plan <path> --target dev:run or --target skill:adn-dev-wf to start a fresh execution session.
+- Before execution, stop any active plan-review comment listener, then run /cmd:execute-plan <path> --target dev:run or --target run-plan to start a fresh execution session.
 - Review feedback should be integrated back into the same plan file.
 - Automatic inline review looping is capped at ${MAX_REVIEW_CYCLES} cycles before stopping.
 

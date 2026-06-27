@@ -1,15 +1,15 @@
 ---
 name: pre-pr-implementation-review
-description: Run Pi's pre-PR implementation review loop with both GPT-5.5 and GLM-5 quality reviewers, then continue fixing and rereviewing until every in-scope P1/P2/P3 finding is addressed. Use this before opening pull requests, after an implementation is complete, inside scoped-plan-run, or whenever the user asks for GPT plus GLM code review of a branch/diff; inside scoped-plan-run this gate hands back to PR creation rather than concluding the workflow.
+description: Run Pi's pre-PR implementation review loop with both GPT-5.5 and GLM-5 quality reviewers, then continue fixing and rereviewing until every in-scope P1/P2/P3 finding is addressed. Use this before opening pull requests, after an implementation is complete, inside run-plan, or whenever the user asks for GPT plus GLM code review of a branch/diff; inside run-plan this gate hands back to PR creation rather than concluding the workflow.
 ---
 
 # Pre-PR Implementation Review
 
-Use this skill to catch implementation issues that would otherwise appear during pull request review. It is a code-review-and-fix loop, not a plan review, not a general cleanup pass, and not the end of a scoped plan run.
+Use this skill to catch implementation issues that would otherwise appear during pull request review. It is a code-review-and-fix loop, not a plan review, not a general cleanup pass, and not the end of `run-plan`.
 
 The gate passes only when both reviewers agree by substance that the current implementation has no unresolved in-scope P1/P2/P3 findings. Lower-severity P3 findings still need an explicit disposition before merge readiness: fix them when they are in scope, reject false positives with evidence, or document true out-of-scope follow-ups with a tracking destination.
 
-When invoked from `scoped-plan-run`, a passing result means `OPEN_PR_READY`, not `DONE`. Return the final gate status and artifact path to the scoped runner so it can rerun final verification if needed, commit, push, open the PR, and continue post-PR monitoring.
+When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. Return the final gate status and artifact path to the `run-plan` caller so it can rerun final verification if needed, commit, push, open the PR, and continue post-PR monitoring.
 
 ## Inputs
 
@@ -22,7 +22,7 @@ Accept any of:
 /skill:pre-pr-implementation-review <plan path> --base <branch-or-range>
 ```
 
-If invoked from `scoped-plan-run`, use that plan path, target branch/base branch, scope contract, changed files, and latest verification results.
+If invoked from `run-plan`, use that plan path, target branch/base branch, scope contract, changed files, and latest verification results.
 
 If invoked independently, resolve the comparison in this order:
 
@@ -41,7 +41,7 @@ Reviewers must use these severities:
 - `P2`: PR-blocking correctness/reliability risk: user-visible regression, missing required edge-case handling, important error-handling gap, significant performance issue, API/contract mismatch, or tests that would allow a materially incomplete implementation to pass.
 - `P3`: lower-severity improvement, maintainability concern, or minor gap. In-scope P3 findings are not allowed to disappear into the summary; fix them, reject them with evidence, or document them as true out-of-scope follow-ups before declaring the branch merge-ready.
 
-Also classify every finding with the scoped-plan-run labels when a plan is present:
+Also classify every finding with the run-plan labels when a plan is present:
 
 - `IN_PLAN`
 - `PLAN_PREREQUISITE`
@@ -159,7 +159,7 @@ After applying any in-scope fix:
 3. Rerun both GPT-5.5 and GLM-5 Pi subagent reviewers against the current diff.
 4. Repeat until both reviewers return `CLEAN_FOR_PR` by substance with no unresolved in-scope P1/P2/P3 findings.
 
-Do not stop after a single reviewer is clean. Do not open or proceed to a PR while either reviewer has an unresolved in-scope P1/P2/P3 finding. If invoked from `scoped-plan-run`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and post-PR monitoring.
+Do not stop after a single reviewer is clean. Do not open or proceed to a PR while either reviewer has an unresolved in-scope P1/P2/P3 finding. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and post-PR monitoring.
 
 Stop with a blocker only when:
 
@@ -185,7 +185,7 @@ Include:
 - fixes applied for P1/P2/P3 issues,
 - verification commands and results after fixes,
 - remaining out-of-scope follow-ups with evidence and tracking destination,
-- final gate result and whether it is `OPEN_PR_READY` for a caller such as `scoped-plan-run`.
+- final gate result and whether it is `OPEN_PR_READY` for a caller such as `run-plan`.
 
 If the repo has a different validation-artifact convention, use that convention and keep the same information.
 
@@ -198,4 +198,4 @@ The final summary must include:
 - verification rerun after the last fix,
 - artifact path,
 - any remaining non-blocking out-of-scope follow-ups with evidence and tracking destination,
-- `Next step: OPEN_PR_READY` when invoked from `scoped-plan-run`, so the caller continues to final verification, commit, push, PR creation, and post-PR monitoring instead of concluding.
+- `Next step: OPEN_PR_READY` when invoked from `run-plan`, so the caller continues to final verification, commit, push, PR creation, and post-PR monitoring instead of concluding.

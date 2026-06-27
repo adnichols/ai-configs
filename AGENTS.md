@@ -187,12 +187,13 @@ The `_pi/` directory provides Pi prompt templates, subagents, and extensions. Re
 ### Quick Reference
 
 Pi now supports both:
-- direct prompt-template commands like `/cmd:debug`, `/dev:plan`, `/review:change`
-- skill commands like `/skill:adn-dev-wf`
+- direct prompt-template commands like `/cmd:debug`, `/dev:plan`, `/review:change`, `/run-plan`
+- skill commands like `/skill:run-plan`
 
 ```bash
-# Canonical reviewed-plan workflow
-/skill:adn-dev-wf <task | plan-slug | thoughts/plans/<plan>.html>
+# Full reviewed-plan implementation through PR
+/run-plan <thoughts/plans/<plan>.html | plan-slug>
+/skill:run-plan <thoughts/plans/<plan>.html | plan-slug>
 
 # Browser-reviewed HTML plan gate
 /dev:reviewed-html-plan <task | plan-slug | thoughts/plans/<plan>.html>
@@ -225,12 +226,12 @@ unless it already satisfies that format.
 
 Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
-- `/skill:adn-dev-wf <task | plan>` is the canonical single-entry workflow.
-- It internally owns plan refresh, blocker-only review, review integration, direct execution, and bounded implementation-stage PM follow-up.
+- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-PR workflow for an existing execution-ready reviewed plan.
+- `/skill:adn-dev-wf <task | plan>` remains available for the broader reviewed-plan workflow that owns plan refresh, blocker-only review, review integration, direct execution, and bounded implementation-stage PM follow-up.
 - `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for plan-review feedback plus PM and GPT/GLM Pi subagent plan review; it must register through `plan-review`, follow returned `agentInstructions`, and start the queue-backed comment monitor.
 - `skills/html-plan-reviewer/SKILL.md` is the sole source for concrete `plan-review` commands, readiness metadata, canonical URL rules, and comment monitor mechanics; other planning skills should reference it instead of duplicating command recipes.
 - `/skill:dev-plan <task>` remains available for planning-only work.
-- `/dev:run <plan>` remains available when you already have an execution-ready reviewed plan and want execution only.
+- `/dev:run <plan>` remains available when you already have an execution-ready reviewed plan and want direct execution only.
 
 `/review:change-claude-code` remains an explicit opt-in review command, not a hidden fallback inside plan mode or execution.
 
@@ -295,13 +296,13 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:cmd-resume-handoff` — Resume from handoff
 
 **Reviews:**
-- `/skill:adn-dev-wf` — Canonical reviewed-plan development workflow
+- `/skill:adn-dev-wf` — Broader reviewed-plan development workflow
 - `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans, process plan-review feedback, run PM plus GPT/GLM Pi subagent plan reviews, and stop at execution-ready handoff
 - `/skill:omp-review-partner` — Use OMP with OpenCode Zen Kimi models for read-only plan and implementation reviews
 - `/skill:review-change` — Review code changes against plan
 - `/skill:review-change-integrate` — Integrate code-review feedback
-- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus GLM-5 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed; inside `scoped-plan-run` it hands back to mandatory PR creation instead of concluding.
-- `/skill:scoped-plan-run` — Execute an explicit plan through implementation, reviews, full P1/P2/P3 cleanup, verification, PR creation, and post-PR monitoring.
+- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus GLM-5 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed; inside `run-plan` it hands back to mandatory PR creation instead of concluding.
+- `/skill:run-plan` — Execute an explicit plan through implementation, reviews, full P1/P2/P3 cleanup, verification, PR creation, and post-PR monitoring.
 
 ### Configuration
 

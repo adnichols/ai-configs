@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run Plan Command Surface Cleanup</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #172033;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --accent-2: #a78bfa;
+      --warn: #fbbf24;
+      --good: #34d399;
+      --bad: #fb7185;
+      --code: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.10), transparent 28rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.88); border: 1px solid var(--border); border-radius: 0.35rem; padding: 0.05rem 0.28rem; }
+    pre { overflow-x: auto; background: var(--code); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { border: 1px solid var(--border); padding: 0.65rem; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); color: #f8fafc; text-align: left; }
+    .layout { display: grid; grid-template-columns: 18rem minmax(0, 1fr); gap: 1.25rem; max-width: 1260px; margin: 0 auto; padding: 1.25rem; }
+    .sidebar { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; align-self: start; background: rgba(17, 24, 39, 0.92); border: 1px solid var(--border); border-radius: 1rem; padding: 1rem; }
+    .sidebar h2 { margin-top: 0; font-size: 1rem; }
+    .sidebar a { display: block; color: var(--muted); text-decoration: none; padding: 0.25rem 0; font-size: 0.92rem; }
+    .sidebar a:hover { color: var(--text); }
+    main { min-width: 0; }
+    section, article { background: rgba(17, 24, 39, 0.82); border: 1px solid var(--border); border-radius: 1rem; padding: 1.2rem; margin-bottom: 1rem; }
+    header.hero { background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12)); border: 1px solid var(--border); border-radius: 1.2rem; padding: 1.4rem; margin-bottom: 1rem; }
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { margin: 0 0 0.6rem; font-size: clamp(2rem, 4vw, 3.2rem); }
+    h2 { margin-top: 0; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.8rem; }
+    .pill { display: inline-flex; gap: 0.35rem; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem 0.65rem; color: var(--muted); background: rgba(15, 23, 42, 0.74); font-size: 0.88rem; }
+    .pill.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.55); }
+    .pill.good { color: var(--good); border-color: rgba(52, 211, 153, 0.55); }
+    .muted { color: var(--muted); }
+    .callout { border-left: 4px solid var(--accent); background: rgba(125, 211, 252, 0.08); padding: 0.8rem 1rem; border-radius: 0.5rem; }
+    .warnbox { border-left: 4px solid var(--warn); background: rgba(251, 191, 36, 0.08); padding: 0.8rem 1rem; border-radius: 0.5rem; }
+    .goodbox { border-left: 4px solid var(--good); background: rgba(52, 211, 153, 0.08); padding: 0.8rem 1rem; border-radius: 0.5rem; }
+    .phase { border-left: 4px solid var(--accent-2); }
+    .nowrap { white-space: nowrap; }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; padding: 0.75rem; }
+      .sidebar { position: static; max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar" aria-label="Plan sections">
+      <h2>Sections</h2>
+      <a href="#status">Status</a>
+      <a href="#goal">Goal</a>
+      <a href="#decision-attention">Decision Attention</a>
+      <a href="#why">Why this plan exists</a>
+      <a href="#authority-inputs">Authority and inputs</a>
+      <a href="#current-reality">Current implementation reality</a>
+      <a href="#usage-audit">Recent usage audit</a>
+      <a href="#archive-inventory">Archive inventory</a>
+      <a href="#naming-strategy">Naming strategy</a>
+      <a href="#progress">Progress</a>
+      <a href="#resume">Resume instructions</a>
+      <a href="#product-intent">Product intent alignment</a>
+      <a href="#locked-decisions">Locked decisions</a>
+      <a href="#acceptance-criteria">Acceptance criteria</a>
+      <a href="#bdd">BDD scenarios</a>
+      <a href="#phase-p1">P1 Inventory and decisions</a>
+      <a href="#phase-p2">P2 Rename runner</a>
+      <a href="#phase-p3">P3 Align dispatch surfaces</a>
+      <a href="#phase-p4">P4 Record archive follow-up</a>
+      <a href="#phase-p5">P5 Plan-reviewer smoke</a>
+      <a href="#verification">Verification strategy</a>
+      <a href="#delivery-order">Delivery order</a>
+      <a href="#non-goals">Non-goals</a>
+      <a href="#deviations-log">Decisions / Deviations log</a>
+    </nav>
+
+    <main>
+      <header class="hero" id="title">
+        <h1>Run Plan Command Surface Cleanup</h1>
+        <p class="muted">Rename the current scoped plan execution skill to an ergonomic non-conflicting command, preserve plan-reviewer button behavior, and explicitly inventory low/no-use commands and skills for archive recommendations.</p>
+        <div class="pill-row" id="status">
+          <span class="pill good">Status: execution-ready (GPT and GLM cleared)</span>
+          <span class="pill">Plan path: <code>thoughts/plans/run-plan-command-surface-cleanup.html</code></span>
+          <span class="pill">Repo: ai-configs</span>
+          <span class="pill">UI impact: text-only command/docs surface</span>
+        </div>
+      </header>
+
+      <section id="goal">
+        <h2>Goal</h2>
+        <p>Replace the user-facing <code>scoped-plan-run</code> skill name with the shorter, unique <code>run-plan</code> naming family so it no longer collides with Pi's built-in <code>/scoped-models</code> command. Keep existing plan-reviewer action buttons working by preserving their bridge skills while updating the bridge implementation to call the renamed runner.</p>
+        <p>The plan must also make the command/skill archive inventory explicit enough for a reviewer to approve, reject, or reclassify each candidate later. The default implementation does not delete or move detritus commands beyond the requested <code>scoped-plan-run</code> rename/deprecation cleanup.</p>
+      </section>
+
+      <section id="decision-attention">
+        <h2>Decision Attention / Low-confidence Areas</h2>
+        <div class="warnbox">
+          <p><strong>D1 — Archive deletion is deferred by default.</strong> The inventory below ranks archive candidates and recommends disposition, but this execution plan only removes the old <code>scoped-plan-run</code> installed surface as part of the requested rename. Other detritus commands/skills stay in place unless a browser-review comment or explicit user message approves an exact per-item archive/delete/rename action.</p>
+          <p><strong>D2 — No compatibility alias for <code>scoped-plan-run</code>.</strong> Keeping an alias preserves the autocomplete collision. This plan therefore removes the old installed skill surface after migration rather than keeping a long-lived alias.</p>
+          <p><strong>D3 — Existing plan-reviewer local config may override defaults.</strong> The source default uses <code>plan-reviewer-build</code>, but a local database could be configured to emit another skill name. Verification must inspect or reset the local Build Plan skill setting if needed.</p>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2>Why this plan exists</h2>
+        <p>The current full-PR scoped execution workflow is installed as <code>/skill:scoped-plan-run</code>. In Pi, typing <code>/scoped...</code> also surfaces the built-in <code>/scoped-models</code> command, which makes the command hard to invoke quickly. A rename is safe only if the surrounding command surfaces, installer cleanup, plan-reviewer browser action comments, and documentation all agree on the new name.</p>
+      </section>
+
+      <section id="authority-inputs">
+        <h2>Authority and inputs</h2>
+        <ul>
+          <li>User request: rename <code>@skills/scoped-plan-run/</code> to a unique shorter command such as <code>/run-plan</code>, inspect command usage, identify detritus to archive, choose a non-conflicting naming strategy, and protect plan-reviewer button behavior.</li>
+          <li>Pi docs: skills invoke as <code>/skill:name</code>; direct slash commands come from prompt-template filenames or extensions.</li>
+          <li>Plan-reviewer source evidence: <code>src/schemas.ts</code> defaults action button comments to <code>plan-reviewer-execution-ready</code> and <code>plan-reviewer-build</code>; <code>src/server/app.ts</code> emits <code>Use the ${skillName} skill for this plan.</code></li>
+          <li>Recent Pi session audit: 445 session files newer than 2026-05-25, filtered against known installed/repo prompt templates and skills to avoid false positives from paths and GitHub API routes.</li>
+        </ul>
+      </section>
+
+      <section id="current-reality">
+        <h2>Current implementation reality</h2>
+        <table>
+          <thead><tr><th>Surface</th><th>Current state</th><th>Required change</th></tr></thead>
+          <tbody>
+            <tr><td>Runner skill</td><td><code>skills/scoped-plan-run/SKILL.md</code> with <code>name: scoped-plan-run</code> and <code>$scoped-plan-run</code> prompt references.</td><td>Rename to <code>skills/run-plan/</code>, <code>name: run-plan</code>, and update prompt references.</td></tr>
+            <tr><td>Easy Pi command</td><td>No <code>/run-plan</code> prompt template exists.</td><td>Add <code>_pi/prompts/run-plan.md</code> as a thin wrapper over <code>/skill:run-plan</code>.</td></tr>
+            <tr><td>Plan-reviewer Build Plan button</td><td>Button emits <code>Use the plan-reviewer-build skill...</code> by default.</td><td>Keep this bridge name; update the bridge skill to delegate to <code>run-plan</code>.</td></tr>
+            <tr><td>Installer cleanup</td><td><code>install.sh</code> can remove deprecated shared skills via <code>DEPRECATED_SHARED_SKILLS</code>.</td><td>Add <code>scoped-plan-run</code> to the deprecated list so the old installed surface disappears.</td></tr>
+            <tr><td>Dispatch docs/extensions</td><td>Plan-mode and execute-plan surfaces mention <code>/skill:adn-dev-wf</code> and <code>/dev:run</code>; some docs mention <code>scoped-plan-run</code>.</td><td>Update references so full implementation-through-PR uses <code>/run-plan</code> or <code>/skill:run-plan</code>; keep <code>/dev:run</code> as direct execution-only.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="usage-audit">
+        <h2>Recent usage audit</h2>
+        <p>Audit window: Pi session JSONL files newer than 2026-05-25. The strict filtered pass counted only known prompt-template, skill, and built-in command names, avoiding false positives such as <code>/repos</code>, <code>/issues</code>, <code>/usr</code>, and file paths.</p>
+        <table>
+          <thead><tr><th>Command / skill</th><th>User count</th><th>Total mentions</th><th>Sessions</th><th>Interpretation</th></tr></thead>
+          <tbody>
+            <tr><td><code>/skill:pre-pr-implementation-review</code></td><td>76</td><td>77</td><td>17</td><td>Keep. Regularly used review gate.</td></tr>
+            <tr><td><code>/review:plan</code></td><td>5</td><td>23</td><td>18</td><td>Keep. Often appears in assistant-guided workflows.</td></tr>
+            <tr><td><code>/cmd:execute-plan</code></td><td>4</td><td>7</td><td>4</td><td>Keep but update target naming.</td></tr>
+            <tr><td><code>/review:change-integrate</code></td><td>6</td><td>6</td><td>3</td><td>Keep. Used for review-comment cleanup.</td></tr>
+            <tr><td><code>/review:plan-adversarial</code></td><td>4</td><td>4</td><td>2</td><td>Keep. Low volume but deliberate gate.</td></tr>
+            <tr><td><code>/review:change-claude-code</code></td><td>2</td><td>7</td><td>4</td><td>Keep as explicit opt-in review surface.</td></tr>
+            <tr><td><code>/skill:scoped-plan-run</code></td><td>1</td><td>9</td><td>4</td><td>Rename to <code>/skill:run-plan</code>; no alias.</td></tr>
+            <tr><td><code>/skill:adn-dev-wf</code></td><td>0</td><td>2</td><td>1</td><td>Review after <code>run-plan</code> migration; do not archive in first pass because docs still call it canonical.</td></tr>
+            <tr><td><code>/dev:reviewed-html-plan</code></td><td>0</td><td>2</td><td>2</td><td>Keep. Plan-reviewer workflow surface even if assistant-suggested more than user-typed.</td></tr>
+            <tr><td><code>/scoped-models</code></td><td>1</td><td>1</td><td>1</td><td>Built-in Pi command; collision source, not repo-owned.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="archive-inventory">
+        <h2>Inventory of old unused commands / skills to archive</h2>
+        <h3 id="archive-high-confidence">High-confidence archive or rename candidates</h3>
+        <table>
+          <thead><tr><th>Candidate</th><th>Evidence</th><th>Proposed action</th><th>Reasoning</th></tr></thead>
+          <tbody>
+            <tr><td><code>_pi/prompts/functional-review.md</code> plus mirrored consumer copies</td><td>0 strict recent direct uses.</td><td>Archive after approval.</td><td>Older spec/openspec systemic review prompt; overlaps newer plan/PM/product review workflows and is not part of current reviewed HTML plan path.</td></tr>
+            <tr><td><code>_pi/prompts/lean-functional-review.md</code> plus mirrored consumer copies</td><td>0 strict recent direct uses.</td><td>Archive after approval.</td><td>Older increment review prompt; overlaps product-principles and plan-review readiness checks.</td></tr>
+            <tr><td><code>_pi/prompts/cmd:local-review.md</code></td><td>0 strict recent direct uses.</td><td>Archive after approval.</td><td>Creates isolated review worktrees manually; current workflows prefer dedicated review skills/agents and explicit PR review commands.</td></tr>
+            <tr><td><code>_pi/prompts/dev:reflect.md</code></td><td>0 strict recent direct uses.</td><td>Archive after approval.</td><td>Phase reflection is not in the current reviewed-plan golden path; plan progress/deviation updates are now owned by execution workflows.</td></tr>
+            <tr><td><code>skills/ccore_DONOTUSE/</code></td><td>0 strict recent skill invocations and directory name says <code>DONOTUSE</code> while frontmatter says <code>name: ccore</code>.</td><td>Do not leave as-is. Either rename to <code>skills/ccore/</code> if still wanted, or remove from install matrix if obsolete.</td><td>The current name is confusing and undermines discoverability even if the content is valid.</td></tr>
+            <tr><td><code>skills/scoped-plan-run/</code></td><td>Collision with built-in <code>/scoped-models</code>; only one direct user invocation in audit window.</td><td>Rename to <code>skills/run-plan/</code>; add old name to deprecated installer cleanup.</td><td>This is the primary requested cleanup.</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="archive-medium-confidence">Medium-confidence candidates requiring review</h3>
+        <table>
+          <thead><tr><th>Candidate</th><th>Evidence</th><th>Proposed action</th><th>Review question</th></tr></thead>
+          <tbody>
+            <tr><td><code>_pi/prompts/cmd:review-pr-comments.md</code></td><td>0 strict recent direct uses.</td><td>Review before archiving.</td><td>Is this superseded by <code>run-plan</code> post-PR monitoring, or should it remain a standalone emergency command?</td></tr>
+            <tr><td><code>_pi/prompts/cmd:feeling-lucky-pr.md</code> and <code>cmd:feeling-lucky-pr-os.md</code></td><td>0 strict recent direct uses.</td><td>Review before archiving.</td><td>Are these experimental one-shot PR flows still wanted now that reviewed plans and <code>run-plan</code> exist?</td></tr>
+            <tr><td><code>_pi/prompts/dev:plan-from-prd.md</code>, <code>prd:clarify-round.md</code>, <code>review:prd.md</code></td><td>0 strict recent direct uses.</td><td>Review as a PRD bundle.</td><td>Is the PRD flow still active, or has reviewed HTML planning replaced it?</td></tr>
+            <tr><td><code>_pi/prompts/cmd:send-plan-to-doct.md</code></td><td>0 strict recent direct uses.</td><td>Review before archiving.</td><td>Do plan-reviewer/browser plans now replace Doct plan publishing?</td></tr>
+            <tr><td><code>_pi/prompts/doc:fetch.md</code> and <code>doc:update.md</code></td><td>0 strict recent direct uses.</td><td>Review before archiving.</td><td>Are these still useful outside this repo's normal coding workflow?</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="archive-keep-zero-use">Zero-use but keep for now</h3>
+        <table>
+          <thead><tr><th>Surface</th><th>Why keep despite zero strict direct uses</th></tr></thead>
+          <tbody>
+            <tr><td><code>/dev:plan</code>, <code>/dev:run</code>, <code>/dev:reviewed-html-plan</code></td><td>Core plan lifecycle commands; usage may be assistant-suggested or extension-dispatched rather than user-typed.</td></tr>
+            <tr><td><code>plan-reviewer-build</code>, <code>plan-reviewer-execution-ready</code></td><td>Browser action bridge skills are invoked by plan-reviewer comments, not necessarily typed by users.</td></tr>
+            <tr><td><code>review-change*</code> provider-specific prompts</td><td>Explicit opt-in review surfaces; low frequency is expected.</td></tr>
+            <tr><td>Domain commands such as <code>macos:*</code>, <code>test:run-playwright*</code>, <code>qa:run</code></td><td>Specialized commands should not be archived solely because this month did not include that domain.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="naming-strategy">
+        <h2>Non-conflicting naming strategy</h2>
+        <div class="goodbox">
+          <p><strong>Canonical full lifecycle:</strong> <code>/run-plan &lt;plan&gt;</code> for ergonomic Pi use and <code>/skill:run-plan &lt;plan&gt;</code> for explicit skill use.</p>
+          <p><strong>Browser action bridge:</strong> keep <code>plan-reviewer-build</code> and <code>plan-reviewer-execution-ready</code> because those names describe service-originated comments, not the underlying runner.</p>
+          <p><strong>Direct execution-only:</strong> keep <code>/dev:run &lt;plan&gt;</code> for the narrower phase execution path.</p>
+          <p><strong>Handoff wrapper:</strong> update <code>/cmd:execute-plan</code> and plan-mode prompts to offer <code>/run-plan</code> for full implementation-through-PR and <code>/dev:run</code> for direct execution-only.</p>
+          <p><strong>Avoid:</strong> new user-facing names beginning with <code>scoped-</code>, because Pi already owns <code>/scoped-models</code>.</p>
+        </div>
+      </section>
+
+      <section id="progress">
+        <h2>Progress</h2>
+        <ul>
+          <li><input type="checkbox" checked disabled> P1 — Inventory and archive decisions</li>
+          <li><input type="checkbox" checked disabled> P2 — Rename runner skill and installer cleanup</li>
+          <li><input type="checkbox" checked disabled> P3 — Align dispatch surfaces and docs</li>
+          <li><input type="checkbox" checked disabled> P4 — Record archive follow-up decisions</li>
+          <li><input type="checkbox" checked disabled> P5 — Plan-reviewer button smoke and registration verification</li>
+        </ul>
+      </section>
+
+      <section id="resume">
+        <h2>Resume instructions (agent)</h2>
+        <p>Read this document fully, then start with the first unchecked item in <a href="#progress">Progress</a>. Preserve the distinction between ergonomic user commands, skill names, and plan-reviewer browser-comment bridge names. Do not delete or move any detritus command/skill candidate other than the requested <code>scoped-plan-run</code> rename/deprecated-install cleanup unless an explicit approval comment lists the exact item and action.</p>
+      </section>
+
+      <section id="product-intent">
+        <h2>Product intent alignment</h2>
+        <p>This is an operator/agent workflow cleanup. The expected golden path is that a user can type <code>/run-plan thoughts/plans/foo.html</code> without colliding with built-in model commands, and browser Build Plan comments continue to reach the same full implementation-through-PR workflow without the user knowing the internal skill was renamed.</p>
+      </section>
+
+      <section id="locked-decisions">
+        <h2>Locked decisions</h2>
+        <ul>
+          <li id="decision-run-plan-name"><strong>Use <code>run-plan</code> as the new runner name.</strong> It is short, verb-first, and currently free across checked Pi prompt, shared skill, and installed skill surfaces.</li>
+          <li id="decision-no-alias"><strong>Do not keep <code>scoped-plan-run</code> as an installed alias.</strong> The old name should be cleaned by installer deprecation logic to remove the autocomplete conflict.</li>
+          <li id="decision-plan-reviewer-bridge"><strong>Keep <code>plan-reviewer-build</code> as the Build Plan button skill.</strong> The service button should remain stable and delegate to <code>run-plan</code>.</li>
+          <li id="decision-archive-default"><strong>Default archive behavior is documentation-only.</strong> The first pass records archive recommendations and follow-up decisions, but does not remove old low/no-use commands unless explicitly approved.</li>
+        </ul>
+      </section>
+
+      <section id="acceptance-criteria">
+        <h2>Acceptance criteria</h2>
+        <ol>
+          <li id="ac-1">Typing <code>/run-plan &lt;plan&gt;</code> in Pi starts the renamed full lifecycle workflow instructions without requiring the user to type <code>/skill:scoped-plan-run</code>.</li>
+          <li id="ac-2"><code>/skill:run-plan</code> exists, <code>/skill:scoped-plan-run</code> is no longer installed after running the repo installer, and repo references to the old skill are gone except historical plan logs.</li>
+          <li id="ac-3">Plan-reviewer Build Plan action comments still say to use <code>plan-reviewer-build</code>, and that skill delegates to <code>run-plan</code>.</li>
+          <li id="ac-4">The archive inventory is committed in docs or an archival manifest with high-confidence, medium-confidence, and keep categories, so future agents do not need to rediscover the same usage data.</li>
+          <li id="ac-5">No low/no-use detritus command or skill is deleted in the first pass without explicit approval; high-confidence, medium-confidence, and keep candidates remain visible in a durable follow-up inventory.</li>
+          <li id="ac-6"><code>/cmd:execute-plan</code>, Pi plan-mode prompts, and README guidance present non-conflicting choices: <code>/run-plan</code> for full lifecycle and <code>/dev:run</code> for direct execution-only.</li>
+        </ol>
+      </section>
+
+      <section id="bdd">
+        <h2>BDD scenarios</h2>
+        <article id="bdd-run-plan-pi">
+          <h3>Scenario: Pi user invokes the renamed runner</h3>
+          <p><strong>Given</strong> the shared skills and Pi prompt templates have been installed, <strong>when</strong> the user types <code>/run-plan thoughts/plans/example.html</code>, <strong>then</strong> Pi loads the <code>run-plan</code> workflow and does not require selecting through <code>/scoped-models</code>-adjacent autocomplete results.</p>
+        </article>
+        <article id="bdd-old-skill-removed">
+          <h3>Scenario: old skill is removed after install</h3>
+          <p><strong>Given</strong> a workstation previously has <code>~/.agents/skills/scoped-plan-run</code>, <strong>when</strong> the updated installer runs, <strong>then</strong> it backs up/removes that old skill and installs <code>~/.agents/skills/run-plan</code>.</p>
+        </article>
+        <article id="bdd-plan-reviewer-build">
+          <h3>Scenario: Build Plan button still works</h3>
+          <p><strong>Given</strong> a registered plan is open in plan-reviewer, <strong>when</strong> the reviewer clicks Build Plan, <strong>then</strong> the generated browser comment requests <code>plan-reviewer-build</code>, and the listening agent follows that bridge into <code>run-plan</code> for the explicit plan path.</p>
+        </article>
+        <article id="bdd-archive-approval">
+          <h3>Scenario: archive candidates are not deleted blindly</h3>
+          <p><strong>Given</strong> a candidate command has zero recent direct usage, <strong>when</strong> no explicit browser-review or user approval names that exact item and action, <strong>then</strong> the cleanup leaves it in place and records the recommended disposition in the inventory rather than deleting it solely based on count.</p>
+        </article>
+      </section>
+
+      <section class="phase" id="phase-p1">
+        <h2>P1 — Inventory and archive recommendation manifest</h2>
+        <h3>End State</h3>
+        <p>The repo contains a durable command/skill inventory with high-confidence, medium-confidence, and keep categories. The manifest records recommended archive actions but does not authorize deletion by itself.</p>
+        <h3>Tests first</h3>
+        <ul><li>Add or update a lightweight script/check only if the repo already has a suitable install-doc checker; otherwise use diff-backed inspection.</li></ul>
+        <h3>Work</h3>
+        <ul>
+          <li>Create <code>thoughts/research/run-plan-command-surface-inventory.md</code> with the strict session audit method, counts, and candidate tables from this plan.</li>
+          <li>Record that no low/no-use command or skill is archived in this run unless an explicit approval comment names the exact item and action.</li>
+          <li>Move medium-confidence candidates into a follow-up section rather than deleting them.</li>
+        </ul>
+        <h3>Expected files</h3>
+        <p><code>thoughts/research/run-plan-command-surface-inventory.md</code> and this plan.</p>
+        <h3>Open questions / decision dependencies</h3>
+        <p>None for rename execution. Archive/delete work beyond <code>scoped-plan-run</code> remains deferred until explicitly approved.</p>
+        <h3>Verify</h3>
+        <pre><code>test -f thoughts/research/run-plan-command-surface-inventory.md
+rg -n "High-confidence|Medium-confidence|Zero-use but keep|scoped-plan-run" thoughts/research/run-plan-command-surface-inventory.md</code></pre>
+      </section>
+
+      <section class="phase" id="phase-p2">
+        <h2>P2 — Rename runner skill and installer cleanup</h2>
+        <h3>End State</h3>
+        <p><code>run-plan</code> is the installed skill and direct Pi prompt wrapper; the old <code>scoped-plan-run</code> installed surface is removed by the installer.</p>
+        <h3>Tests first</h3>
+        <ul><li>Update <code>test_install_shared_skills.sh</code> assertions from <code>scoped-plan-run</code> to <code>run-plan</code>, including deprecated cleanup behavior.</li></ul>
+        <h3>Work</h3>
+        <ul>
+          <li>Move <code>skills/scoped-plan-run/</code> to <code>skills/run-plan/</code>.</li>
+          <li>Update frontmatter, headings, invocation examples, and <code>agents/openai.yaml</code>.</li>
+          <li>Add <code>_pi/prompts/run-plan.md</code> wrapper.</li>
+          <li>Update <code>skills/install-matrix.json</code> and <code>install.sh</code> deprecated skill cleanup.</li>
+        </ul>
+        <h3>Expected files</h3>
+        <p><code>skills/run-plan/SKILL.md</code>, <code>skills/run-plan/agents/openai.yaml</code>, <code>_pi/prompts/run-plan.md</code>, <code>skills/install-matrix.json</code>, <code>install.sh</code>, <code>test_install_shared_skills.sh</code>.</p>
+        <h3>Open questions / decision dependencies</h3>
+        <p>None after D2 remains accepted.</p>
+        <h3>Verify</h3>
+        <pre><code>test -d skills/run-plan
+! test -d skills/scoped-plan-run
+rg -n "name: run-plan|\$run-plan|/run-plan" skills/run-plan _pi/prompts/run-plan.md
+bash test_install_shared_skills.sh</code></pre>
+      </section>
+
+      <section class="phase" id="phase-p3">
+        <h2>P3 — Align dispatch surfaces and docs</h2>
+        <h3>End State</h3>
+        <p>Command handoff surfaces describe <code>/run-plan</code> as the full implementation-through-PR path and <code>/dev:run</code> as direct execution-only.</p>
+        <h3>Tests first</h3>
+        <ul><li>Update any existing prompt/doc hardening checks that assert old handoff text.</li></ul>
+        <h3>Work</h3>
+        <ul>
+          <li>Update <code>_pi/prompts/cmd:execute-plan.md</code> and Pi plan-mode extension text/target parsing if it dispatches old full-workflow names.</li>
+          <li>Update <code>_codex</code>, <code>_claude</code>, <code>_opencode</code>, and <code>_omp</code> mirrors only where this repo maintains cross-consumer prompt parity.</li>
+          <li>Update shared-skill references that currently point at <code>scoped-plan-run</code>, including <code>skills/codex-full-build/SKILL.md</code>, <code>skills/pre-pr-implementation-review/SKILL.md</code>, <code>skills/plan-reviewer-build/SKILL.md</code>, <code>skills/install-matrix.json</code> notes, and review-check scripts that whitelist the old name.</li>
+          <li>Update README/AGENTS guidance for the new naming strategy.</li>
+        </ul>
+        <h3>Expected files</h3>
+        <p><code>_pi/prompts/cmd:execute-plan.md</code>, <code>_pi/extensions/pi-plan-mode/index.ts</code>, <code>_pi/README.md</code>, <code>AGENTS.md</code>, <code>skills/codex-full-build/SKILL.md</code>, <code>skills/pre-pr-implementation-review/SKILL.md</code>, <code>skills/plan-reviewer-build/SKILL.md</code>, <code>skills/install-matrix.json</code>, review-check scripts, plus mirrored prompt trees as needed.</p>
+        <h3>Open questions / decision dependencies</h3>
+        <p>Whether <code>adn-dev-wf</code> remains a separate canonical workflow or becomes a later archive candidate must be decided separately; this phase should not delete it.</p>
+        <h3>Verify</h3>
+        <pre><code>rg -n "/run-plan|/skill:run-plan|/dev:run|cmd:execute-plan" _pi/prompts/cmd:execute-plan.md _pi/extensions/pi-plan-mode/index.ts _pi/README.md AGENTS.md skills/codex-full-build/SKILL.md skills/plan-reviewer-build/SKILL.md skills/pre-pr-implementation-review/SKILL.md
+! rg -n "scoped-plan-run|\$scoped-plan-run" skills _pi _codex _claude _opencode _omp README.md AGENTS.md test_install_shared_skills.sh --glob '!thoughts/plans/**'</code></pre>
+      </section>
+
+      <section class="phase" id="phase-p4">
+        <h2>P4 — Record archive follow-up decisions</h2>
+        <h3>End State</h3>
+        <p>The archive candidates remain visible as recommendations, and no detritus prompt/skill is removed from active install surfaces unless an explicit approval names the exact item and action. The only default removal is the old <code>scoped-plan-run</code> installed surface via the rename/deprecated-skill cleanup.</p>
+        <h3>Tests first</h3>
+        <ul><li>If command inventory docs exist, add/update a check that candidate commands remain classified as recommendation-only unless explicit approval is recorded.</li></ul>
+        <h3>Work</h3>
+        <ul>
+          <li>Update <code>thoughts/research/run-plan-command-surface-inventory.md</code> with final recommended dispositions for high-confidence, medium-confidence, and keep categories.</li>
+          <li>Do not delete, move, or rename <code>functional-review</code>, <code>lean-functional-review</code>, <code>cmd:local-review</code>, <code>dev:reflect</code>, <code>cmd:review-pr-comments</code>, <code>ccore_DONOTUSE</code>, or other detritus candidates unless explicit approval is present.</li>
+          <li>If explicit approval is present, remove approved files from active install roots with <code>git rm</code>, or move historical copies to <code>thoughts/archive/pi-command-detritus/&lt;date&gt;/</code>. Never archive under <code>_pi/prompts</code>, <code>skills</code>, <code>_codex/prompts</code>, <code>_claude/commands</code>, <code>_opencode/commands</code>, or <code>_omp/commands</code>, because those roots are active install or mirrored command surfaces.</li>
+        </ul>
+        <h3>Expected files</h3>
+        <p><code>thoughts/research/run-plan-command-surface-inventory.md</code>. Approved prompt/skill files change only if the approval is explicit.</p>
+        <h3>Open questions / decision dependencies</h3>
+        <p>None for default execution. Any future archive/delete action must name the exact item and safe destination or deletion mechanism.</p>
+        <h3>Verify</h3>
+        <pre><code>rg -n "High-confidence|Medium-confidence|Zero-use but keep|functional-review|lean-functional-review|cmd:local-review|dev:reflect|ccore_DONOTUSE" thoughts/research/run-plan-command-surface-inventory.md
+find thoughts/archive -maxdepth 3 -type f 2&gt;/dev/null | sort || true
+! find _pi/prompts -path '*/archive/*' -print | rg .</code></pre>
+      </section>
+
+      <section class="phase" id="phase-p5">
+        <h2>P5 — Plan-reviewer button smoke and registration verification</h2>
+        <h3>End State</h3>
+        <p>The plan-reviewer Build Plan button still creates a valid <code>plan-reviewer-build</code> comment and the bridge skill points to <code>run-plan</code>.</p>
+        <h3>Tests first</h3>
+        <ul><li>No plan-reviewer source tests are required if defaults remain unchanged; use smoke verification against the installed service and local configuration.</li></ul>
+        <h3>Work</h3>
+        <ul>
+          <li>Check local plan-reviewer configuration for <code>buildPlanSkillName</code> in <code>~/.plan-reviewer/plan-reviewer.sqlite</code>.</li>
+          <li>If the local config was manually set to <code>scoped-plan-run</code>, reset it to <code>plan-reviewer-build</code>.</li>
+          <li>Register or re-register this plan and confirm action comments still use the bridge skill.</li>
+          <li>Smoke the Build Plan contract by clicking the browser Build Plan action when available, then claiming the queued comment and verifying the payload names <code>plan-reviewer-build</code> and the explicit plan path. If browser automation is unavailable, add a temporary CLI comment with the exact Build Plan body and verify the same queue/claim payload.</li>
+        </ul>
+        <h3>Expected files</h3>
+        <p><code>skills/plan-reviewer-build/SKILL.md</code>; no plan-reviewer repo source change expected unless config inspection proves the service default has drifted.</p>
+        <h3>Open questions / decision dependencies</h3>
+        <p>D3 local configuration check.</p>
+        <h3>Verify</h3>
+        <pre><code>curl -fsS http://127.0.0.1:4317/health
+sqlite3 ~/.plan-reviewer/plan-reviewer.sqlite "select key,value_json from app_configuration where key in ('buildPlanSkillName','executionReadySkillName');"
+PLAN_JSON=$(plan-review register thoughts/plans/run-plan-command-surface-cleanup.html --repo auto --branch auto --commit auto --execution-ready false --json)
+PLAN_ID=$(jq -r '.plan.id // .planId // .id' &lt;&lt;&lt;"$PLAN_JSON")
+test -n "$PLAN_ID"
+rg -n "plan-reviewer-build|run-plan" skills/plan-reviewer-build/SKILL.md
+! rg -n "scoped-plan-run|\$scoped-plan-run" skills/plan-reviewer-build/SKILL.md
+COMMENT_JSON=$(plan-review comments add "$PLAN_ID" --url http://mbp.braid-python.ts.net:4317 --selector '#goal' --agent plan-reviewer-build-smoke --body $'Use the plan-reviewer-build skill for this plan.\nPlan path: thoughts/plans/run-plan-command-surface-cleanup.html' --json)
+COMMENT_ID=$(jq -r '.comment.id // .commentId // .id' &lt;&lt;&lt;"$COMMENT_JSON")
+test -n "$COMMENT_ID"
+plan-review agent next "$PLAN_ID" --url http://mbp.braid-python.ts.net:4317 --no-wait --json | tee /tmp/build-plan-smoke.json
+CLAIM_ID=$(jq -r '.claimId' /tmp/build-plan-smoke.json)
+jq -e --arg commentId "$COMMENT_ID" '.commentId == $commentId and .conversationPayload.commentId == $commentId and (.conversationPayload.body | contains("plan-reviewer-build") and contains("thoughts/plans/run-plan-command-surface-cleanup.html"))' /tmp/build-plan-smoke.json
+plan-review ack "$COMMENT_ID" --claim "$CLAIM_ID" --summary "Build Plan smoke verified; no product files changed" --changed-files skills/plan-reviewer-build/SKILL.md --json --url http://mbp.braid-python.ts.net:4317
+plan-review resolve "$COMMENT_ID" --note "Build Plan smoke verified" --json --url http://mbp.braid-python.ts.net:4317</code></pre>
+      </section>
+
+      <section id="verification">
+        <h2>Verification strategy</h2>
+        <table>
+          <thead><tr><th>Acceptance</th><th>Evidence</th><th>Command</th></tr></thead>
+          <tbody>
+            <tr><td>AC1, AC2</td><td>Skill rename and wrapper present; old name absent from active surfaces.</td><td><code>rg -n "run-plan|/run-plan|/skill:run-plan" skills/run-plan _pi/prompts/run-plan.md skills/install-matrix.json test_install_shared_skills.sh &amp;&amp; ! rg -n "scoped-plan-run|\$scoped-plan-run" skills _pi _codex _claude _opencode _omp README.md AGENTS.md test_install_shared_skills.sh --glob '!thoughts/plans/**'</code></td></tr>
+            <tr><td>AC3</td><td>Plan-reviewer bridge delegates correctly, queued action payload names the bridge, and the temporary smoke comment is resolved.</td><td><code>sqlite3 ~/.plan-reviewer/plan-reviewer.sqlite "select key,value_json from app_configuration where key='buildPlanSkillName';" &amp;&amp; rg -n "plan-reviewer-build|run-plan" skills/plan-reviewer-build/SKILL.md &amp;&amp; jq -e '.conversationPayload.body | contains("plan-reviewer-build") and contains("thoughts/plans/run-plan-command-surface-cleanup.html")' /tmp/build-plan-smoke.json</code></td></tr>
+            <tr><td>AC4, AC5</td><td>Archive inventory and recommendation-only policy are visible.</td><td><code>rg -n "High-confidence|Medium-confidence|Zero-use but keep|recommendation-only|explicit approval" thoughts/research/run-plan-command-surface-inventory.md</code></td></tr>
+            <tr><td>AC6</td><td>Dispatch docs show non-conflicting names.</td><td><code>rg -n "/run-plan|/dev:run|/cmd:execute-plan" _pi _codex _claude _opencode _omp README.md AGENTS.md</code></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="delivery-order">
+        <h2>Delivery order</h2>
+        <ol>
+          <li>Create the durable inventory manifest and record that archive/delete actions are recommendation-only unless explicitly approved.</li>
+          <li>Implement the rename and wrapper first so the requested command conflict is solved before optional archive cleanup.</li>
+          <li>Update dispatch surfaces, shared-skill references, installer tests, and docs. Stay on this repo's current branch/worktree; do not create a new branch/worktree unless the user asks.</li>
+          <li>Record archive follow-up dispositions without deleting detritus candidates unless an approval comment names exact items and actions.</li>
+          <li>Run installer and plan-reviewer Build Plan smoke verification.</li>
+        </ol>
+      </section>
+
+      <section id="non-goals">
+        <h2>Non-goals</h2>
+        <ul>
+          <li>Do not redesign Pi's built-in <code>/scoped-models</code> command.</li>
+          <li>Do not change plan-reviewer source defaults unless verification proves the service is currently configured to emit the wrong skill name.</li>
+          <li>Do not archive domain-specific commands solely because they had zero direct usage in the last month.</li>
+          <li>Do not delete or move any low/no-use detritus candidate in this first pass unless explicit approval names the exact item and action.</li>
+          <li>Do not merge <code>adn-dev-wf</code> into <code>run-plan</code> in this first pass; classify it after the rename lands.</li>
+        </ul>
+      </section>
+
+      <section id="deviations-log">
+        <h2>Decisions / Deviations log</h2>
+        <ul>
+          <li id="log-2026-06-25-created">2026-06-25: Initial browser-review plan created with explicit command/skill archive inventory after user noted the prior proposal did not include one.</li>
+          <li id="log-2026-06-26-readiness-fixes">2026-06-26: GPT/GLM execution-ready review found unresolved archive approval, stale-reference negative-check gaps, and weak Build Plan smoke coverage. Plan updated to defer destructive archive work by default, add explicit negative checks, require queue-payload verification for plan-reviewer Build Plan behavior, and make the smoke deterministic by matching, acknowledging, and resolving the temporary comment by ID.</li>
+          <li id="log-2026-06-26-ready">2026-06-26: Final GPT and GLM rereviews both returned <code>VERDICT: PLAN_EXECUTION_READY</code>.</li>
+          <li id="log-2026-06-26-implementation">2026-06-26: Implemented the <code>run-plan</code> rename, preserved <code>plan-reviewer-build</code>, recorded archive candidates as recommendation-only, fixed scoped-review findings for consumer install parity and <code>/skill:run-plan</code> plan-mode handoff, and completed the pre-PR GPT/GLM gate with <code>CLEAN_FOR_PR</code> from both reviewers.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

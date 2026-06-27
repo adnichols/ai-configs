@@ -38,7 +38,8 @@ This directory contains a comprehensive set of commands that support a complete 
 17. **`cmd:review-pr-comments.md`** - Review and address GitHub PR comments since last commit
 
 ### Workflow Skills
-18. **`adn-dev-wf`** - Canonical reviewed-plan workflow skill that replaces the retired quality-gated execution path
+18. **`run-plan`** - Full lifecycle reviewed-plan execution through PR creation and monitoring
+19. **`adn-dev-wf`** - Broader reviewed-plan workflow skill for plan refresh, review integration, direct execution, and PM follow-up
 
 ### Codex Compatibility Notes
 - Codex prompts intentionally include only OpenAI-compatible model commands.
@@ -187,8 +188,12 @@ All commands use consistent:
 - Creates/switches branch from a chosen base without creating a worktree
 - Fetches issue metadata and drafts a first-pass plan under `thoughts/plans/`
 
+**`/run-plan`**:
+- Continue a reviewed plan through full lifecycle execution, PR creation, and post-PR monitoring
+- Use this as the default execution handoff after review integration
+
 **`/skill:adn-dev-wf`**:
-- Continue the canonical reviewed-plan workflow from a task request or an existing plan
+- Continue the broader reviewed-plan workflow from a task request or an existing plan
 - Create or reshape the plan as needed, integrate review comments, then execute directly
 - Use `quality-reviewer` once per phase and keep `## Progress` truthful
 

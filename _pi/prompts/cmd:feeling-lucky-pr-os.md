@@ -272,41 +272,15 @@ Use the plan-k2.5 subagent to create a plan with slug `plan_slug` and ensure the
 /review:change-integrate ${plan_slug}
 ```
 
-### 5) Implement + Validate
+### 5) Implement Through PR
 
 ```text
-/skill:adn-dev-wf ${plan_slug}
-/dev:validate ${plan_slug}
+/run-plan ${plan_slug}
 ```
 
-### 6) Final Code Review
+`/run-plan` owns implementation, validation, final review, commit, push, PR creation, and post-PR monitoring. Do not run `/dev:validate`, `/review`, `/cmd:commit-push`, or `/cmd:create-pr` after it; if it exits with a blocker, stop and report the blocker instead of linking a PR. The PR it creates must start with `${ISSUE_KEY}:` and include the Linear issue title.
 
-Run `/review` against `base_ref...HEAD`, apply fixes, re-run until clean.
-
-### 7) Commit, Push, PR, Link
-
-Commit and push directly:
-
-```bash
-if [ -z "$(git status --porcelain=v1)" ]; then
-  echo "STOP: nothing to commit"
-  exit 2
-fi
-
-git add -A
-git diff --cached --stat
-
-COMMIT_SUBJECT="feat: ${ISSUE_KEY} ${branch_name}"
-git commit -m "$COMMIT_SUBJECT"
-
-git push -u origin "${branch_name}"
-```
-
-Then create the PR:
-
-```text
-/cmd:create-pr ${base_ref}
-```
+### 6) Link Existing PR to Linear
 
 Link PR back to Linear:
 

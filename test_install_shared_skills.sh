@@ -165,21 +165,32 @@ EOF
 
 seed_phase_two_home() {
   local home="$1"
+  # Split the retired skill name so stale-name greps can still guard active surfaces.
+  local old_skill="scoped""-plan-run"
 
   mkdir -p \
     "$home/.claude/skills/custom-local" \
     "$home/.config/opencode/skills/custom-local" \
     "$home/.config/opencode/skills/cmd-debug" \
-    "$home/.pi/agent" \
+    "$home/.config/opencode/skills/$old_skill" \
+    "$home/.pi/agent/skills/$old_skill" \
     "$home/.omp/agent" \
     "$home/.agents/skills/external-skill" \
     "$home/.agents/skills/linear" \
-    "$home/.claude/skills/linear"
+    "$home/.agents/skills/$old_skill" \
+    "$home/.claude/skills/linear" \
+    "$home/.claude/skills/$old_skill"
 
   printf 'external\n' > "$home/.agents/skills/external-skill/SKILL.md"
   printf 'foreign-linear\n' > "$home/.agents/skills/linear/SKILL.md"
+  printf 'old-%s\n' "$old_skill" > "$home/.agents/skills/$old_skill/SKILL.md"
   printf 'old-claude-linear\n' > "$home/.claude/skills/linear/SKILL.md"
+  printf 'old-claude-%s\n' "$old_skill" > "$home/.claude/skills/$old_skill/SKILL.md"
   printf 'foreign-opencode-cmd-debug\n' > "$home/.config/opencode/skills/cmd-debug/SKILL.md"
+  printf 'old-opencode-%s\n' "$old_skill" > "$home/.config/opencode/skills/$old_skill/SKILL.md"
+  printf 'old-pi-%s\n' "$old_skill" > "$home/.pi/agent/skills/$old_skill/SKILL.md"
+  mkdir -p "$home/.agents"
+  printf '{"skills":{"%s":{"source":"old"},"linear":{"source":"old"}}}\n' "$old_skill" > "$home/.agents/.skill-lock.json"
 }
 
 assert_file_contains() {
@@ -246,6 +257,8 @@ assert_shared_skill_install_state() {
   local backup_dir
   local claude_backup_dir
   local opencode_backup_dir
+  # Split the retired skill name so stale-name greps can still guard active surfaces.
+  local old_skill="scoped""-plan-run"
 
   [[ -d "$home/.agents/skills" ]] || return 1
   [[ -f "$home/.agents/skills/external-skill/SKILL.md" ]] || return 1
@@ -276,10 +289,23 @@ assert_shared_skill_install_state() {
 
   [[ -f "$home/.agents/skills/plan-reviewer-build/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-build/SKILL.md" 'scoped-plan-run' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-build/SKILL.md" 'run-plan' || return 1
+  assert_file_not_contains "$home/.agents/skills/plan-reviewer-build/SKILL.md" "$old_skill" || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" '"repo": "ai-configs"' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" '"source": "skills/plan-reviewer-build"' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" '"managed": true' || return 1
+
+  [[ -f "$home/.agents/skills/run-plan/SKILL.md" ]] || return 1
+  [[ -f "$home/.agents/skills/run-plan/.ai-configs-managed.json" ]] || return 1
+  assert_file_contains "$home/.agents/skills/run-plan/SKILL.md" 'name: run-plan' || return 1
+  assert_file_contains "$home/.agents/skills/run-plan/.ai-configs-managed.json" '"repo": "ai-configs"' || return 1
+  assert_file_contains "$home/.agents/skills/run-plan/.ai-configs-managed.json" '"source": "skills/run-plan"' || return 1
+  assert_file_contains "$home/.agents/skills/run-plan/.ai-configs-managed.json" '"managed": true' || return 1
+  [[ ! -e "$home/.agents/skills/$old_skill" ]] || return 1
+  [[ ! -e "$home/.claude/skills/$old_skill" ]] || return 1
+  [[ ! -e "$home/.config/opencode/skills/$old_skill" ]] || return 1
+  [[ ! -e "$home/.pi/agent/skills/$old_skill" ]] || return 1
+  assert_file_not_contains "$home/.agents/.skill-lock.json" "$old_skill" || return 1
 
   [[ -f "$home/.agents/skills/algorithmic-art/SKILL.md" ]] || return 1
   assert_file_contains "$home/.agents/skills/algorithmic-art/SKILL.md" 'external package=anthropics/skills skill=algorithmic-art' || return 1
@@ -311,6 +337,8 @@ assert_shared_skill_install_state() {
   assert_symlink_target "$home/.config/opencode/skills/linear" "$home/.agents/skills/linear" || return 1
   assert_symlink_target "$home/.claude/skills/adn-dev-wf" "$home/.agents/skills/adn-dev-wf" || return 1
   assert_symlink_target "$home/.config/opencode/skills/adn-dev-wf" "$home/.agents/skills/adn-dev-wf" || return 1
+  assert_symlink_target "$home/.claude/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
+  assert_symlink_target "$home/.config/opencode/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
   assert_symlink_target "$home/.claude/skills/algorithmic-art" "$home/.agents/skills/algorithmic-art" || return 1
   assert_symlink_target "$home/.config/opencode/skills/algorithmic-art" "$home/.agents/skills/algorithmic-art" || return 1
   assert_symlink_target "$home/.claude/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
@@ -631,11 +659,15 @@ test_phase_four_validation_proves_final_alignment() {
   [[ -f "$home/.agents/skills/doct-document-ops/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/plan-reviewer-build/SKILL.md" ]] || return 1
+  [[ -f "$home/.agents/skills/run-plan/SKILL.md" ]] || return 1
+  [[ ! -e "$home/.agents/skills/scoped""-plan-run" ]] || return 1
 
   claude_symlinks="$(find "$home/.claude/skills" -mindepth 1 -maxdepth 1 -type l | sort)"
   opencode_symlinks="$(find "$home/.config/opencode/skills" -mindepth 1 -maxdepth 1 -type l | sort)"
   assert_command_output_contains "$claude_symlinks" "$home/.claude/skills/linear" || return 1
   assert_command_output_contains "$opencode_symlinks" "$home/.config/opencode/skills/linear" || return 1
+  assert_command_output_contains "$claude_symlinks" "$home/.claude/skills/run-plan" || return 1
+  assert_command_output_contains "$opencode_symlinks" "$home/.config/opencode/skills/run-plan" || return 1
   assert_command_output_not_contains "$claude_symlinks" "$home/.claude/skills/cmd-debug" || return 1
   assert_command_output_not_contains "$opencode_symlinks" "$home/.config/opencode/skills/cmd-debug" || return 1
 

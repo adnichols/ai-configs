@@ -1,11 +1,11 @@
 ---
-description: Canonical reviewed-plan handoff that routes an explicit plan into /dev:run or /ralph:run
-argument-hint: '<plan slug | existing-plan-path> [--target dev:run|ralph:run]'
+description: Canonical reviewed-plan handoff that routes an explicit plan into /dev:run or /run-plan
+argument-hint: '<plan slug | existing-plan-path> [--target dev:run|run-plan]'
 ---
 
 # Execute Reviewed Plan
 
-This command is a reviewed-plan handoff wrapper. It does not replace `/dev:run` or `/ralph:run`; it validates an explicit reviewed plan argument, optionally accepts a target override, asks the user which of those two commands to run when needed, and then dispatches using the same normalized plan argument.
+This command is a reviewed-plan handoff wrapper. It does not replace `/dev:run` or `/run-plan`; it validates an explicit reviewed plan argument, optionally accepts a target override, asks the user which of those two commands to run when needed, and then dispatches using the same normalized plan argument.
 
 **Arguments**: `$ARGUMENTS`
 
@@ -13,8 +13,8 @@ This command is a reviewed-plan handoff wrapper. It does not replace `/dev:run` 
 
 - Accept a plan slug or an explicit existing plan path in the repo's active plan format.
 - Accept workspace-relative input that starts with `@` by stripping the leading `@`.
-- Accept an optional target suffix: `--target dev:run` or `--target ralph:run`.
-- Present exactly two execution choices: `/dev:run` and `/ralph:run`.
+- Accept an optional target suffix: `--target dev:run` or `--target run-plan`.
+- Present exactly two execution choices: `/dev:run` and `/run-plan`.
 - Preserve the same normalized plan argument when dispatching.
 - Do not promise Pi-specific context reset behavior on this surface.
 
@@ -25,7 +25,7 @@ This command is a reviewed-plan handoff wrapper. It does not replace `/dev:run` 
 If no argument is provided, respond with:
 
 ```text
-Usage: /cmd:execute-plan <plan slug | existing-plan-path> [--target dev:run|ralph:run]
+Usage: /cmd:execute-plan <plan slug | existing-plan-path> [--target dev:run|run-plan]
 
 Examples:
   /cmd:execute-plan review-execution-handoff
@@ -46,8 +46,8 @@ Do not infer “the current plan” from conversation state.
 4. Normalize `TARGET_OVERRIDE_RAW` only if present:
    - Trim whitespace.
    - Strip one leading `/` if present.
-   - Accept only `dev:run` or `ralph:run`.
-   - If any other target is provided, stop and tell the user the only valid targets are `/dev:run` and `/ralph:run`.
+   - Accept only `dev:run` or `run-plan`.
+   - If any other target is provided, stop and tell the user the only valid targets are `/dev:run` and `/run-plan`.
 5. If `PLAN_ARGUMENT` is empty after trimming, show the usage block and stop.
 6. If `PLAN_ARGUMENT` starts with `@`, strip the leading `@`.
 7. Preserve that normalized string as `PLAN_DISPATCH_ARGUMENT`.
@@ -66,7 +66,7 @@ Determine `TARGET_COMMAND`:
 
 - If `TARGET_OVERRIDE` is set, honor it without asking a follow-up question.
 - Otherwise ask exactly one targeted question with only these two options:
-  1. `/ralph:run <PLAN_DISPATCH_ARGUMENT>` — quality-gated, review-loop execution for the reviewed plan.
+  1. `/run-plan <PLAN_DISPATCH_ARGUMENT>` — full implementation-through-PR lifecycle for the reviewed plan.
   2. `/dev:run <PLAN_DISPATCH_ARGUMENT>` — direct single-agent execution with resumable plan progress tracking.
 
 Do not offer a planning pass here. Do not offer a third option.
@@ -80,7 +80,7 @@ Run exactly one of the following and then stop:
 ```
 
 ```text
-/ralph:run <PLAN_DISPATCH_ARGUMENT>
+/run-plan <PLAN_DISPATCH_ARGUMENT>
 ```
 
-This command is only the reviewed-plan handoff wrapper; `/dev:run` and `/ralph:run` remain distinct execution paths with different behaviors.
+This command is only the reviewed-plan handoff wrapper; `/run-plan` is the full lifecycle path and `/dev:run` remains direct execution-only.
