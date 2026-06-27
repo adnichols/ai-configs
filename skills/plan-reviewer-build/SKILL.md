@@ -23,9 +23,11 @@ If the plan path is missing, ambiguous, or not a readable file in the current re
 ## Required behavior
 
 1. Read the full plan and repo guidance.
-2. Invoke the installed `run-plan` workflow with the explicit plan path.
-3. Keep the plan-review comment claim active until the build workflow has either started with durable run state or reported a real blocker.
-4. Ack/resolve the plan-reviewer request comment only after the scoped run has durable state, a PR URL, or a clear blocker.
+2. Invoke the installed `run-plan` workflow with the explicit plan path. This is the same execution entry point used for a direct agent request; the Build Plan button must not bypass it.
+3. Pass the plan-reviewer context to `run-plan` when available: plan ID, review URL, triggering comment ID/claim ID, and plan path.
+4. Perform only non-duplicative pre-run handoff work before delegation, such as confirming reviewer status context. Do not reimplement phase execution, review gates, verification, PR creation, or monitoring in this bridge.
+5. Keep the plan-review comment claim active until the build workflow has either started with durable run state or reported a real blocker.
+6. Ack/resolve the plan-reviewer request comment only after the scoped run has durable state, a PR URL, or a clear blocker.
 
 ## Invocation
 
@@ -35,7 +37,7 @@ Use the local agent's native skill syntax for:
 run-plan <plan-path>
 ```
 
-In Pi, that means following the `run-plan` skill directly with Pi todo-backed run state and Pi quality-reviewer subagent gates.
+In Pi, that means following the `run-plan` skill directly with Pi todo-backed run state and Pi quality-reviewer subagent gates. If the reviewed plan is registered, the resulting run state must include the plan-reviewer plan ID so the `run-plan` status-alignment preflight can mark it active/in progress before code edits.
 
 In Codex, that means following the installed shared `run-plan` skill with Codex goal/task state and Codex-native review prompts. Do not duplicate the scoped run workflow in this skill.
 

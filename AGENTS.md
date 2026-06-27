@@ -264,7 +264,7 @@ Commit this file so everyone shares the defaults.
 
 ### Common Commands
 ```bash
-ltui issues view <ISSUE_KEY> --format detail
+ltui --format detail issues view <ISSUE_KEY>
 ltui issues create --team <TEAM> --project "Project Name" --title "Issue title" --description "Description" --state "Backlog" --label bug
 ltui issues update <ISSUE_KEY> --state "In Review"
 ltui issues comment <ISSUE_KEY> --body "Comment text"

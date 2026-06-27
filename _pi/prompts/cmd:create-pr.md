@@ -42,8 +42,30 @@ If a PR already exists, report the URL and STOP.
 
 ### 3) Prepare Title + Evidence
 
+If this is Linear-backed work, resolve the Linear key from the branch name, commits, plan, or user-provided issue. Fetch the issue title before creating the PR:
+
 ```bash
-TITLE="$(git log -1 --format=%s)"
+ltui --format detail issues view "$ISSUE_KEY"
+# Copy the exact title from the verified ltui output, then set:
+LINEAR_ISSUE_TITLE="<Linear issue title from ltui output>"
+TITLE="${ISSUE_KEY}: ${LINEAR_ISSUE_TITLE}"
+```
+
+For Linear-backed work, the PR title must be exactly shaped as:
+
+```text
+<ISSUE_KEY>: <Linear issue title>
+```
+
+Do not rely on the latest commit subject unless it already satisfies that format. For non-Linear work, use the latest commit subject or a concise plan-derived title.
+
+```bash
+if [ -n "${ISSUE_KEY:-}" ]; then
+  # Linear-backed work must have set TITLE="${ISSUE_KEY}: ${LINEAR_ISSUE_TITLE}" above.
+  : "${TITLE:?Set TITLE from the verified Linear issue title before creating the PR}"
+else
+  : "${TITLE:=$(git log -1 --format=%s)}"
+fi
 
 git log --oneline "${base_ref}...HEAD"
 git diff --stat "${base_ref}...HEAD"
@@ -63,7 +85,12 @@ fi
 
 BASE_NAME="${base_ref#origin/}"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-TITLE="$(git log -1 --format=%s)"
+if [ -n "${ISSUE_KEY:-}" ]; then
+  # Preserve the Linear-aware TITLE prepared from the verified ltui issue title.
+  : "${TITLE:?Set TITLE from the verified Linear issue title before creating the PR}"
+else
+  : "${TITLE:=$(git log -1 --format=%s)}"
+fi
 
 gh pr create \
   --base "$BASE_NAME" \
