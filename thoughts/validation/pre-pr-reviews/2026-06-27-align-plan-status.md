@@ -31,7 +31,9 @@ Two coordinated PRs are required by the plan:
 - plan-reviewer targeted gate after review fix: `bun run build && node --test dist/__tests__/contracts.test.js` passed.
 - plan-reviewer full gate after review fix: `bun run test` passed, 144 tests, 0 failures.
 - plan-reviewer card status: active / in_progress.
-- plan-reviewer source progress synced at 4/5 before P5 completion.
+- plan-reviewer source progress synced at 5/5 after P5 completion.
+- Primary ai-configs PR: https://github.com/adnichols/ai-configs/pull/26
+- Companion plan-reviewer PR: https://github.com/Nodaste-Lab/plan-reviewer/pull/67
 
 ## Review cycle 1
 
