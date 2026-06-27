@@ -152,10 +152,6 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
   pi.on("agent_start", () => {
     agentTurnActive = true;
     activeAgentFinishedResponse = false;
-    if (continueTimer) {
-      clearTimeout(continueTimer);
-      continueTimer = undefined;
-    }
   });
 
   pi.on("message_end", (event) => {
@@ -170,37 +166,36 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     activeAgentFinishedResponse = false;
   });
 
-  pi.on("session_compact", (event, ctx) => {
+  pi.on("session_compact", (event) => {
     const details = event.compactionEntry.details as PiVccCompactionDetails | undefined;
     if (details?.compactor !== "pi-vcc") return;
     if (!details.interruptedInFlightTurn) return;
-    if (details.requiresContinuation === false) return;
+    if (event.willRetry === true || details.requiresContinuation === false) return;
     if (continueTimer) return;
 
     const startedAt = Date.now();
-    const sendWhenIdle = () => {
-      if (!ctx.isIdle()) {
+    const sendContinuation = () => {
+      try {
+        continueTimer = undefined;
+        pi.sendMessage(
+          {
+            customType: "pi-vcc-continuation",
+            content: CONTINUE_AFTER_COMPACTION_PROMPT,
+            display: false,
+            details: { compactor: "pi-vcc" },
+          },
+          { triggerTurn: true, deliverAs: "steer" },
+        );
+      } catch {
         if (Date.now() - startedAt < CONTINUE_AFTER_COMPACTION_MAX_WAIT_MS) {
-          continueTimer = setTimeout(sendWhenIdle, CONTINUE_AFTER_COMPACTION_RETRY_MS);
+          continueTimer = setTimeout(sendContinuation, CONTINUE_AFTER_COMPACTION_RETRY_MS);
         } else {
           continueTimer = undefined;
         }
-        return;
       }
-
-      continueTimer = undefined;
-      pi.sendMessage(
-        {
-          customType: "pi-vcc-continuation",
-          content: CONTINUE_AFTER_COMPACTION_PROMPT,
-          display: false,
-          details: { compactor: "pi-vcc" },
-        },
-        { triggerTurn: true, deliverAs: "steer" },
-      );
     };
 
-    continueTimer = setTimeout(sendWhenIdle, CONTINUE_AFTER_COMPACTION_DELAY_MS);
+    continueTimer = setTimeout(sendContinuation, CONTINUE_AFTER_COMPACTION_DELAY_MS);
   });
 
   pi.on("session_before_compact", (event) => {

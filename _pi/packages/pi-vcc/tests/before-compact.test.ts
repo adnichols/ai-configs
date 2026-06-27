@@ -20,7 +20,10 @@ mock.module("typebox", () => ({
   },
 }));
 
-const getRegisteredHandlers = async (isIdle: boolean | (() => boolean) = true) => {
+const getRegisteredHandlers = async (
+  isIdle: boolean | (() => boolean) = true,
+  sendMessageImpl?: (message: any, options: any) => void,
+) => {
   const { registerBeforeCompactHook } = await import("../src/hooks/before-compact");
   const handlers: Record<string, Array<(event: any, ctx?: any) => any>> = {};
   const sentUserMessages: Array<{ content: string; options: any }> = [];
@@ -36,6 +39,7 @@ const getRegisteredHandlers = async (isIdle: boolean | (() => boolean) = true) =
       sentUserMessages.push({ content, options });
     },
     sendMessage: (message: any, options: any) => {
+      if (sendMessageImpl) return sendMessageImpl(message, options);
       sentMessages.push({ message, options });
     },
   } as any);
@@ -208,9 +212,8 @@ describe("active compaction continuation", () => {
     expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
   });
 
-  it("waits for idle before sending the continuation", async () => {
-    let idle = false;
-    const { handlers, sentMessages, ctx } = await getRegisteredHandlers(() => idle);
+  it("queues continuation even when Pi never reports idle", async () => {
+    const { handlers, sentMessages, ctx } = await getRegisteredHandlers(false);
 
     handlers.agent_start[0]({ type: "agent_start" });
     const result = handlers.session_before_compact[0]({
@@ -226,13 +229,36 @@ describe("active compaction continuation", () => {
       fromExtension: true,
     }, ctx);
     await delay();
-    expect(sentMessages).toHaveLength(0);
-
-    idle = true;
-    await delay(150);
 
     expect(sentMessages).toHaveLength(1);
     expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
+  });
+
+  it("retries continuation delivery when sendMessage briefly fails", async () => {
+    const sentMessages: Array<{ message: any; options: any }> = [];
+    let attempts = 0;
+    const { handlers, ctx } = await getRegisteredHandlers(true, (message, options) => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("session not ready");
+      sentMessages.push({ message, options });
+    });
+
+    handlers.agent_start[0]({ type: "agent_start" });
+    const result = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: compactableEntries(),
+    });
+
+    handlers.session_compact[0]({
+      type: "session_compact",
+      compactionEntry: { details: result.compaction.details },
+      fromExtension: true,
+    }, ctx);
+    await delay(200);
+
+    expect(attempts).toBeGreaterThanOrEqual(2);
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
   });
 
   it("does not prompt after the assistant has finished the turn", async () => {
@@ -285,16 +311,16 @@ describe("active compaction continuation", () => {
     const result = handlers.session_before_compact[0]({
       preparation: basePreparation,
       branchEntries: compactableEntries(),
-      willRetry: true,
     });
 
     expect(result.compaction.details.interruptedInFlightTurn).toBe(true);
-    expect(result.compaction.details.requiresContinuation).toBe(false);
+    expect(result.compaction.details.requiresContinuation).toBe(true);
 
     handlers.session_compact[0]({
       type: "session_compact",
       compactionEntry: { details: result.compaction.details },
       fromExtension: true,
+      willRetry: true,
     }, ctx);
     await delay();
 

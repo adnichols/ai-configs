@@ -58,7 +58,7 @@ describe("percentage-compaction extension", () => {
     expect(notifications.some((entry) => entry.message.includes("Auto-compacting at 60%"))).toBe(true);
   });
 
-  test("interrupts the current tool-using turn at the next turn boundary", async () => {
+  test("does not interrupt tool-using turns at the threshold", async () => {
     const { handlers, compactCalls, notifications, ctx } = setup(61.2);
 
     await handlers.turn_end?.(
@@ -66,9 +66,31 @@ describe("percentage-compaction extension", () => {
       ctx,
     );
 
+    expect(compactCalls).toHaveLength(0);
+    expect(notifications.some((entry) => entry.message.includes("Interrupting agent for pi-vcc compaction"))).toBe(false);
+  });
+
+  test("compacts after a later completed response when tool turns crossed the threshold", async () => {
+    const { handlers, compactCalls, notifications, ctx } = setup(61.2);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "toolUse" } },
+      ctx,
+    );
+    await handlers.turn_end?.(
+      { message: { role: "tool" } },
+      ctx,
+    );
+    expect(compactCalls).toHaveLength(0);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "stop" } },
+      ctx,
+    );
+
     expect(compactCalls).toHaveLength(1);
     expect(compactCalls[0]?.customInstructions).toBe(PI_VCC_MANUAL_BYPASS_MARKER);
-    expect(notifications.some((entry) => entry.message.includes("Interrupting agent for pi-vcc compaction"))).toBe(true);
+    expect(notifications.some((entry) => entry.message.includes("Auto-compacting at 61%"))).toBe(true);
   });
 
   test("ratchets auto-compaction until context usage reports a new value", async () => {
@@ -97,12 +119,12 @@ describe("percentage-compaction extension", () => {
     expect(compactCalls).toHaveLength(2);
   });
 
-  test("does not compact again during post-compaction tool turns even when usage changes", async () => {
+  test("does not compact during post-compaction tool turns even when usage changes", async () => {
     let percent = 60.123456;
     const { handlers, compactCalls, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(
-      { message: { role: "assistant", stopReason: "toolUse" } },
+      { message: { role: "assistant", stopReason: "stop" } },
       ctx,
     );
     compactCalls[0].onComplete();
@@ -132,7 +154,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, notifications, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(
-      { message: { role: "assistant", stopReason: "toolUse" } },
+      { message: { role: "assistant", stopReason: "stop" } },
       ctx,
     );
     compactCalls[0].onComplete();
@@ -170,16 +192,16 @@ describe("percentage-compaction extension", () => {
     expect(notifications.some((entry) => entry.message.includes("usage is unchanged at 61.234567%"))).toBe(true);
   });
 
-  test("manual compact-now bypasses the threshold gate", async () => {
+  test("manual compact-now bypasses the threshold gate with an explicit marker", async () => {
     const { commands, handlers, compactCalls, ctx } = setup(20);
 
     await commands["compact-now"].handler("keep goals", ctx);
 
     expect(compactCalls).toHaveLength(1);
-    expect(compactCalls[0]?.customInstructions).toBe("keep goals");
+    expect(compactCalls[0]?.customInstructions).toBe(`${PI_VCC_MANUAL_BYPASS_MARKER}\nkeep goals`);
 
     const result = await handlers.session_before_compact?.(
-      { customInstructions: "keep goals" },
+      { customInstructions: compactCalls[0]?.customInstructions },
       ctx,
     );
 
@@ -225,5 +247,54 @@ describe("percentage-compaction extension", () => {
     );
 
     expect(result).toEqual({ cancel: true });
+  });
+
+  test("event matrix prevents repeated early compaction across tool loops", async () => {
+    let percent = 60.25;
+    const { handlers, compactCalls, ctx } = setup(() => percent);
+
+    for (let i = 0; i < 3; i += 1) {
+      await handlers.turn_end?.(
+        { message: { role: "assistant", stopReason: "toolUse" } },
+        ctx,
+      );
+      await handlers.turn_end?.(
+        { message: { role: "tool" } },
+        ctx,
+      );
+    }
+    expect(compactCalls).toHaveLength(0);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "stop" } },
+      ctx,
+    );
+    expect(compactCalls).toHaveLength(1);
+    compactCalls[0].onComplete();
+
+    percent = 63.75;
+    for (let i = 0; i < 3; i += 1) {
+      const coreResult = await handlers.session_before_compact?.(
+        { customInstructions: undefined },
+        ctx,
+      );
+      expect(coreResult).toEqual({ cancel: true });
+
+      await handlers.turn_end?.(
+        { message: { role: "assistant", stopReason: "toolUse" } },
+        ctx,
+      );
+      await handlers.turn_end?.(
+        { message: { role: "tool" } },
+        ctx,
+      );
+    }
+    expect(compactCalls).toHaveLength(1);
+
+    await handlers.turn_end?.(
+      { message: { role: "assistant", stopReason: "stop" } },
+      ctx,
+    );
+    expect(compactCalls).toHaveLength(2);
   });
 });

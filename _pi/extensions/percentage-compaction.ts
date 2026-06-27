@@ -28,13 +28,11 @@ const isStaleAutoCompactionPercent = (percent: number, lastPercent: number | und
   lastPercent !== undefined && percent === lastPercent;
 
 export default function (pi: ExtensionAPI) {
-  let allowNextManualCompaction = false;
   let compactionInFlight = false;
   let lastAutoCompactionPercent: number | undefined;
   let awaitingPostCompactionAssistantResponse = false;
 
   const finishCompaction = (options: { compacted?: boolean } = {}) => {
-    allowNextManualCompaction = false;
     compactionInFlight = false;
     if (options.compacted) awaitingPostCompactionAssistantResponse = true;
   };
@@ -43,7 +41,6 @@ export default function (pi: ExtensionAPI) {
     ctx: ExtensionContext,
     options: {
       customInstructions?: string;
-      bypassThreshold?: boolean;
       startMessage: string;
       completionMessage: string;
       ratchetPercent?: number;
@@ -55,9 +52,6 @@ export default function (pi: ExtensionAPI) {
       return false;
     }
 
-    if (options.bypassThreshold) {
-      allowNextManualCompaction = true;
-    }
     compactionInFlight = true;
     ctx.ui.notify(options.startMessage, "info");
     ctx.compact({
@@ -84,11 +78,12 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("compact-now", {
     description: "Trigger compaction immediately with optional custom instructions",
     handler: async (args, ctx: ExtensionContext) => {
-      const customInstructions = args.trim() || undefined;
+      const customInstructions = args.trim();
       const usage = ctx.getContextUsage();
       triggerCompaction(ctx, {
-        customInstructions,
-        bypassThreshold: true,
+        customInstructions: customInstructions
+          ? `${PI_VCC_MANUAL_BYPASS_MARKER}\n${customInstructions}`
+          : PI_VCC_MANUAL_BYPASS_MARKER,
         startMessage: "Compacting context...",
         completionMessage: "Compaction complete",
         ratchetPercent: usage?.percent ?? undefined,
@@ -113,10 +108,9 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // Monitor context usage at every LLM/tool turn boundary. If the threshold is
-  // crossed during a tool-driven agent run, compact immediately after the current
-  // tool turn instead of waiting for the whole user prompt to finish; pi-vcc will
-  // resume the agent after the in-flight compaction completes.
+  // Monitor context usage at LLM turn boundaries. Only compact after a completed
+  // assistant response; compacting after tool-use turns interrupts active agent
+  // work and depends on continuation recovery to avoid a visible pause.
   pi.on("turn_end", async (event: TurnEndEvent, ctx: ExtensionContext) => {
     const usage = ctx.getContextUsage();
     if (!usage || usage.percent === null) return;
@@ -133,18 +127,15 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (compactionInFlight) return;
+    if (!completedResponse) return;
     if (awaitingPostCompactionAssistantResponse) {
-      if (!completedResponse) return;
       awaitingPostCompactionAssistantResponse = false;
     }
     if (isStaleAutoCompactionPercent(usagePercent, lastAutoCompactionPercent)) return;
 
     triggerCompaction(ctx, {
       customInstructions: PI_VCC_MANUAL_BYPASS_MARKER,
-      bypassThreshold: true,
-      startMessage: completedResponse
-        ? `✓ Auto-compacting at ${currentPercent}% (threshold: ${threshold}%)`
-        : `↻ Context at ${currentPercent}% (threshold: ${threshold}%). Interrupting agent for pi-vcc compaction...`,
+      startMessage: `✓ Auto-compacting at ${currentPercent}% (threshold: ${threshold}%)`,
       completionMessage: "Compacted with pi-vcc",
       ratchetPercent: usagePercent,
     });
@@ -160,8 +151,7 @@ export default function (pi: ExtensionAPI) {
     if (!usage || usage.percent === null) return;
 
     const manualPiVccBypass = event.customInstructions?.startsWith(PI_VCC_MANUAL_BYPASS_MARKER) ?? false;
-    if (allowNextManualCompaction || manualPiVccBypass) {
-      allowNextManualCompaction = false;
+    if (manualPiVccBypass) {
       if (!isPiVccLoaded()) {
         notifyMissingPiVcc(ctx);
         return { cancel: true };
