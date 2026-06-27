@@ -167,7 +167,13 @@ Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUME
 
 In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5 implementation review. The `opencode-zen/glm-5` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, use the second installed Codex-native independent implementation-review path when available; if no independent Codex review path is installed, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
-The second reviewer must receive the same bounded prompt as the first reviewer. It must not edit files. It must return findings in chat, classified with the same scope categories.
+The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
+
+For GLM-5, use bounded scope rather than bounded tool calls. Do not cap tool calls. Use an 8-minute target review window for normal scoped reviews, with the last minute reserved for a final response. For narrow adversarial or follow-up slices, use a 12-minute target window with the last 90 seconds reserved for a final response. If GLM cannot complete the assigned scope inside the window, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
+
+Split the normal second GLM review into focused slices when a diff has more than 12 changed files, more than 1200 diff lines, three or more product surfaces, or any adversarial rerun after escaped PR feedback. Split by failure family or surface, then synthesize all slice verdicts in the coverage ledger. Do not send one oversized broad review to GLM when these thresholds are met.
+
+Empty output, tool-only output, provider errors, or transcripts ending in tool use are review infrastructure failures, not passes. Rerun once with a narrower bounded prompt; if the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
 
 If either reviewer reports broad adjacent risks, keep them out of the PR only when they satisfy the `OUT_OF_SCOPE_FOLLOW_UP` definition and are documented. If the risk maps to the plan, verification, or this diff, treat it as in-scope and fix it.
 
@@ -194,7 +200,10 @@ After fixing in-scope findings:
 1. Rerun targeted tests for touched code.
 2. Rerun the first scoped quality review with the previous findings and current diff.
 3. Rerun the second scoped quality review with the same bounded scope.
-4. Repeat until both reviewers return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS`.
+4. If any reviewer returns `REVIEW_INCOMPLETE_RERUN_NEEDED`, launch the recommended follow-up slice, append the result to a coverage ledger, and continue until every required slice is complete, clean, or explicitly blocked.
+5. Repeat until both reviewers return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` and the coverage ledger shows no incomplete required slices.
+
+The coverage ledger must record completed slices, incomplete slices, rerun slices, and final synthesized gate status.
 
 Stop and report a convergence blocker if:
 
@@ -291,7 +300,7 @@ A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for t
 
 1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
 2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with both runtime-native scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, use the installed Codex-native independent implementation-review paths. Review the full current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix.
+3. Run read-only adversarial implementation reviews with both runtime-native scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, use the installed Codex-native independent implementation-review paths. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For GLM, split every adversarial rerun after escaped PR feedback by the escaped failure family: direct missed pattern and sibling callsites, inverse boundary / producer-consumer parity, tests that should have caught the miss, and nearby plan-bound surfaces with the same assumption. Each GLM slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, incomplete slices, rerun slices, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
 5. Repeat the adversarial reviewer-pair pass once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after both adversarial passes report no additional in-scope findings or only documented out-of-scope follow-ups.
 
@@ -397,7 +406,7 @@ Only after the completion criteria are all satisfied, mark the runtime monitorin
 
 ## Reviewer Prompt Template
 
-Use this shape for both reviewers:
+Use this shape for both reviewers. When the reviewer is GLM, include the GLM-specific packet fields and verdict addendum below; do not rely on the generic prompt alone.
 
 ```text
 Read-only implementation review. Do not edit files.
@@ -406,6 +415,14 @@ Plan: <plan path>
 Base/comparison: <base branch or range>
 Changed files:
 <files>
+Diff summary:
+<what changed and why>
+Latest verification results:
+<commands and outcomes>
+Touched surfaces:
+<API/CLI/MCP/UI/data/tests/docs/etc.>
+Assigned failure families:
+<security/auth/privacy, data loss/persistence, contract parity, async/resource lifecycle, verification truthfulness, or other scoped slice>
 
 Scope contract:
 <goal, acceptance criteria, in-scope, out-of-scope, verification>
@@ -435,6 +452,18 @@ Return one verdict:
 - VERDICT: PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS
 - VERDICT: FIX_IN_SCOPE_FINDINGS
 - VERDICT: BLOCKED_BY_SCOPE_QUESTION
+
+For GLM slices only, this additional verdict is allowed:
+- VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
+
+For GLM slices, use bounded scope rather than bounded tool calls. Freely explore inside the assigned scope. Use the configured 8-minute normal review window or 12-minute narrow/adversarial window, reserve the final minute or 90 seconds for a final response, and do not broaden into unrelated whole-product review. If incomplete, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact follow-up slice the parent should run next.
+
+Return format for GLM slices:
+1. Scope checked
+2. Coverage table: file/surface, check performed, result, complete/incomplete
+3. Findings, if any
+4. Remaining checks and recommended follow-up slice, only when incomplete
+5. Final verdict
 
 For each finding include: file/line, classification, evidence, and why it is or is not required by the plan. For each OUT_OF_SCOPE_FOLLOW_UP, include the durable tracking destination that should receive it.
 ```

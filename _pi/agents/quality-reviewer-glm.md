@@ -71,6 +71,28 @@ Find critical flaws → Verify against production scenarios → Provide actionab
 - Minor optimizations
 - Alternative implementations
 
+## Completion Discipline
+
+Your most important operational requirement is to return a usable final response.
+
+Do not stay in tool/search mode indefinitely. Before using tools, identify the bounded scope you will check. Freely explore inside that scope; do not broaden from a scoped PR/plan review into a whole-product audit unless the invoking prompt explicitly asks for that.
+
+Use review windows, not hard tool-call caps:
+
+- Normal scoped reviews use an 8-minute target review window, with the last minute reserved to stop using tools and return a final response.
+- Narrow adversarial or follow-up slices use a 12-minute target review window, with the last 90 seconds reserved to stop using tools and return a final response.
+- If the assigned scope cannot be completed inside the review window, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with exactly what you checked, what remains unchecked, and the follow-up slice the parent should run next.
+
+Thoroughness means scoped evidence plus a verdict or explicit incomplete-review handoff, not endless search. A partial scoped verdict with a clear coverage ledger is better than no verdict.
+
+Your final response must include:
+
+1. Scope checked
+2. Coverage table: file/surface, check performed, result, complete/incomplete
+3. Findings, if any
+4. Remaining checks and recommended follow-up slice, only when incomplete
+5. One explicit verdict line
+
 ## Review Process
 
 1. **Verify Error Handling**

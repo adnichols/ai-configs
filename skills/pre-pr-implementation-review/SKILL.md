@@ -96,6 +96,22 @@ The `opencode-zen/glm-5` string is only the Pi model provider/model ID in the su
 
 Both reviews are read-only. If `quality-reviewer-glm` is unavailable, stop and report that the GLM-5 Pi subagent gate cannot run; do not silently substitute another model.
 
+A reviewer result with no final verdict is not a review result. Treat empty output, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
+
+For GLM-5, use bounded scope rather than bounded tool calls. Give GLM a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Do not cap tool calls. Instead, tell GLM the review window: normal scoped GLM reviews use an 8-minute target window with the last minute reserved for a final response; narrow adversarial or follow-up slices use a 12-minute target window with the last 90 seconds reserved for a final response.
+
+If the assigned GLM scope is too large to complete within the review window, GLM must return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact recommended follow-up slice. The parent must launch that follow-up slice, append it to the coverage ledger, and cannot clear the gate until all required slices are complete, clean, or explicitly blocked.
+
+Split GLM review into focused parallel slices when a diff has more than 12 changed files, more than 1200 diff lines, three or more product surfaces, or any adversarial rerun after escaped PR feedback. Split by failure family or surface, for example:
+
+- auth/security/privacy
+- persistence/migrations/data loss
+- API/CLI/MCP/UI contract parity
+- async/resource lifecycle/error handling
+- tests/fixtures/verification truthfulness
+
+Each GLM slice must use the same severity, scope, and verdict format. The parent synthesizes all slice results; do not ask one GLM subagent to deeply inspect every slice and synthesize the whole PR.
+
 Use this prompt shape for each reviewer:
 
 ```text
@@ -106,8 +122,18 @@ Plan/scope: <plan path or standalone scope summary>
 Base/comparison: <base branch or range>
 Changed files:
 <changed files>
+Diff summary:
+<what changed and why>
+Latest verification results:
+<commands and outcomes>
+Touched surfaces:
+<API/CLI/MCP/UI/data/tests/docs/etc.>
+Assigned failure families:
+<security/auth/privacy, data loss/persistence, contract parity, async/resource lifecycle, verification truthfulness, or other scoped slice>
 
 Review committed, staged, and unstaged changes in this worktree. Focus on issues a pull-request reviewer would reasonably ask to fix, justify, or track before merge.
+
+For GLM-5: stay within the assigned scope and review window. Freely explore inside that scope; do not broaden into unrelated whole-product review. Reserve the final minute (or final 90 seconds for narrow/adversarial slices) to stop using tools and return a final response. If the assigned scope is incomplete, return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact follow-up slice the parent should run next.
 
 Classify every finding with:
 - Severity: P1, P2, or P3
@@ -131,6 +157,14 @@ Return exactly one verdict:
 - VERDICT: FINDINGS_TO_RESOLVE
 - VERDICT: CLEAN_FOR_PR
 - VERDICT: BLOCKED_BY_QUESTION
+- VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
+
+Return format:
+1. Scope checked
+2. Coverage table: file/surface, check performed, result, complete/incomplete
+3. Findings, if any
+4. Remaining checks and recommended follow-up slice, only when incomplete
+5. Final verdict
 
 For every finding include: severity, scope classification, file/line, evidence, impact, recommended fix, and whether it blocks the pre-PR gate. In-scope P1/P2/P3 findings block the gate; true out-of-scope follow-ups must include the evidence and tracking destination that make them non-blocking.
 ```
@@ -185,6 +219,7 @@ Include:
 - fixes applied for P1/P2/P3 issues,
 - verification commands and results after fixes,
 - remaining out-of-scope follow-ups with evidence and tracking destination,
+- any `REVIEW_INCOMPLETE_RERUN_NEEDED` handoffs, completed checks, remaining checks, rerun slices, and final synthesized coverage status,
 - final gate result and whether it is `OPEN_PR_READY` for a caller such as `run-plan`.
 
 If the repo has a different validation-artifact convention, use that convention and keep the same information.

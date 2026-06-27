@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GLM Review Prompt Reliability Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111a2e;
+      --panel-2: #18233a;
+      --text: #eef4ff;
+      --muted: #aebbd1;
+      --accent: #7dd3fc;
+      --accent-2: #c4b5fd;
+      --border: #2c3a55;
+      --warn: #fbbf24;
+      --ok: #86efac;
+      --danger: #fca5a5;
+      --code: #07111f;
+    }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #172554 0, transparent 34rem), var(--bg);
+      color: var(--text);
+      font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 40px 28px 72px;
+    }
+    header, section, article {
+      background: rgba(17, 26, 46, 0.84);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      margin: 18px 0;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+    }
+    h1, h2, h3, h4 { line-height: 1.2; margin-top: 0; }
+    h1 { font-size: clamp(2rem, 4vw, 3.3rem); margin-bottom: 8px; }
+    h2 { margin-bottom: 12px; color: #dbeafe; }
+    h3 { color: #e0e7ff; margin-top: 22px; }
+    h4 { color: #bfdbfe; margin-bottom: 8px; }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); }
+    code, pre {
+      background: var(--code);
+      border: 1px solid #1d2b45;
+      border-radius: 10px;
+      color: #dbeafe;
+    }
+    code { padding: 0.1rem 0.35rem; }
+    pre { padding: 16px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: var(--panel-2); text-align: left; color: #e0f2fe; }
+    .status-grid, .toc-grid, .matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: rgba(24, 35, 58, 0.82);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 10px;
+      margin: 4px 6px 4px 0;
+      background: #0f172a;
+      color: #dbeafe;
+      font-size: 0.9rem;
+    }
+    .attention { border-color: rgba(251, 191, 36, 0.65); }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .danger { color: var(--danger); }
+    .phase { border-left: 4px solid var(--accent); }
+    .checkbox { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  </style>
+</head>
+<body>
+<main>
+  <header id="top">
+    <p class="badge">Review artifact</p>
+    <p class="badge">Execution readiness: true</p>
+    <p class="badge">Repo: ai-configs</p>
+    <h1>GLM Review Prompt Reliability Plan</h1>
+    <p class="muted">Plan to make GLM-backed review gates return usable final verdicts more reliably without reducing substantive review coverage.</p>
+    <div class="status-grid" id="status-summary">
+      <div class="card"><strong>Status</strong><br><span class="ok">Execution-ready after independent GPT and GLM review</span></div>
+      <div class="card"><strong>Primary risk</strong><br>Open-ended GLM reviews end in tool mode and produce no final verdict.</div>
+      <div class="card"><strong>Target files</strong><br><code>skills/pre-pr-implementation-review</code>, <code>skills/scoped-plan-run</code>, plan-review skills, <code>_pi/agents/quality-reviewer-glm.md</code></div>
+      <div class="card"><strong>Requested outcome</strong><br>Reviewer-approved prompt/workflow changes before implementation.</div>
+    </div>
+  </header>
+
+  <nav id="table-of-contents" aria-label="Table of contents">
+    <section>
+      <h2>Table of Contents</h2>
+      <div class="toc-grid">
+        <div class="card"><h3>Overview</h3><a href="#goal">Goal</a><br><a href="#decision-attention">Decision Attention</a><br><a href="#why">Why this plan exists</a><br><a href="#current-reality">Current reality</a></div>
+        <div class="card"><h3>Contracts</h3><a href="#acceptance-criteria">Acceptance Criteria</a><br><a href="#bdd-scenarios">BDD Scenarios</a><br><a href="#locked-decisions">Locked Decisions</a><br><a href="#non-goals">Non-goals</a></div>
+        <div class="card"><h3>Execution</h3><a href="#progress">Progress</a><br><a href="#phase-p1-pre-pr">P1 Pre-PR prompt</a><br><a href="#phase-p2-scoped-run">P2 Scoped run</a><br><a href="#phase-p3-plan-review">P3 Plan review surfaces</a><br><a href="#phase-p4-agent-defaults">P4 GLM defaults</a></div>
+        <div class="card"><h3>Delivery</h3><a href="#verification-strategy">Verification</a><br><a href="#delivery-order">Delivery Order</a><br><a href="#resume-instructions">Resume Instructions</a><br><a href="#deviation-log">Decisions / Deviations</a></div>
+      </div>
+    </section>
+  </nav>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Alter the review prompts and workflow instructions so GLM reviews remain thorough inside a bounded review packet, reliably stop tool use, and return an explicit verdict that can be consumed by <code>pre-pr-implementation-review</code>, <code>scoped-plan-run</code>, and plan-readiness workflows.</p>
+  </section>
+
+  <section id="decision-attention" class="attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <ul>
+      <li><strong>No product decision required:</strong> browser feedback has resolved the tool-call question. The plan uses scope bounding plus elapsed-time review windows, not hard tool-call caps.</li>
+      <li><strong>Locked review windows:</strong> normal scoped GLM reviews use an 8-minute target review window with the last minute reserved to return a final response; narrow adversarial or follow-up slices use a 12-minute target window with the last 90 seconds reserved to return a final response. If scope is incomplete at the checkpoint, the reviewer returns <code>REVIEW_INCOMPLETE_RERUN_NEEDED</code> with completed checks, remaining checks, and the exact follow-up slice.</li>
+      <li><strong>Locked fan-out threshold:</strong> split GLM review when a diff has more than 12 changed files, more than 1200 diff lines, three or more product surfaces, or any adversarial rerun after escaped PR feedback. This threshold limits scope per reviewer, not how much exploration a reviewer may do inside that scope.</li>
+      <li><strong>Scope of implementation:</strong> this plan changes prompt/skill doctrine only. It does not modify Pi subagent harness behavior or provider routing.</li>
+    </ul>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>Recent HEDL review transcripts showed GLM review failures that surfaced as <code>No output</code>. The problematic runs were not a single-provider issue: some were provider quota failures and others were long tool-loop reviews ending without a final assistant verdict. The prompt layer can reduce the second class by making completion discipline, elapsed-time review windows, scope fan-out, incomplete-review handoff, and malformed-output handling explicit.</p>
+  </section>
+
+  <section id="authority-inputs">
+    <h2>Authority and Inputs</h2>
+    <ul>
+      <li>User request: propose alterations to review prompts in <code>pre-pr-implementation-review</code>, <code>scoped-plan-run</code>, and anywhere else this could happen.</li>
+      <li>Observed failure family: GLM reviewer output files contain tool activity but no final verdict, causing parent workflows to see unusable <code>No output</code>.</li>
+      <li>Relevant repo guidance: active HTML plans live under <code>thoughts/plans/*.html</code>; reviewed plans should be registered through <code>plan-review</code>.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current Implementation Reality</h2>
+    <table>
+      <thead><tr><th>Surface</th><th>Current issue</th><th>Needed change</th></tr></thead>
+      <tbody>
+        <tr><td><code>skills/pre-pr-implementation-review/SKILL.md</code></td><td>Broad prompt asks for many failure families but does not require bounded scope status, stop condition, incomplete-review handoff, or malformed-output handling.</td><td>Add GLM completion discipline, coverage table, incomplete-review verdict, fan-out criteria, and infrastructure-failure handling.</td></tr>
+        <tr><td><code>skills/scoped-plan-run/SKILL.md</code></td><td>Second reviewer receives “same bounded prompt” but the bounded packet is under-specified; adversarial loop can become broad.</td><td>Define the GLM packet and split adversarial GLM review by escaped failure family when broad.</td></tr>
+        <tr><td><code>skills/reviewed-html-plan/SKILL.md</code></td><td>GLM plan review is described as bounded, but no concrete review-window or readiness-only checklist is enforced.</td><td>Add bounded readiness rubric, elapsed-time checkpoint, and no-empty-output rule.</td></tr>
+        <tr><td><code>skills/plan-reviewer-execution-ready/SKILL.md</code></td><td>GPT/GLM readiness loop can count fuzzy outputs by substance but does not explicitly reject empty/tool-only GLM results.</td><td>Add rerun-once-narrower behavior and tooling blocker rule.</td></tr>
+        <tr><td><code>_pi/agents/quality-reviewer-glm.md</code></td><td>Agent identity says “Think harder,” but lacks global completion discipline.</td><td>Add final-response requirement, review-window checkpoints, incomplete-review handoff, and “scoped verdict over endless search.”</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="checkbox">
+      <li>[x] P1 — Update pre-PR review GLM protocol</li>
+      <li>[x] P2 — Update scoped-plan-run GLM review loops</li>
+      <li>[x] P3 — Update plan-readiness GLM review prompts</li>
+      <li>[x] P4 — Update GLM reviewer agent defaults</li>
+      <li>[x] P5 — Verify prompt coherence and register final state</li>
+    </ul>
+  </section>
+
+  <section id="resume-instructions">
+    <h2>Resume Instructions (Agent)</h2>
+    <p>Read this file fully, process any plan-review comments first, then execute the first unchecked progress item. Keep changes limited to skill/prompt markdown files named in this plan. After each phase, run the verification listed for that phase and update this plan’s progress only when the phase is actually complete.</p>
+  </section>
+
+  <section id="product-intent-alignment">
+    <h2>Product Intent Alignment</h2>
+    <p>This is an agent-operator reliability change. The product should do the useful default: a review gate should either return a verdict or clearly report review infrastructure failure. It should not silently treat empty GLM output as a clean pass, and it should not require operators to infer from transcripts why a review failed.</p>
+    <p><strong>UI impact:</strong> text-only. This changes reviewer-facing prompt and workflow instructions, not runtime UI.</p>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked Decisions</h2>
+    <ul>
+      <li>Do not reduce substantive review coverage; split broad GLM reviews by surface or failure family instead.</li>
+      <li>Do not substitute OpenCode, OMP, or non-Pi agents for the Pi GLM review gate.</li>
+      <li>Empty, tool-only, or provider-error GLM output never clears a review gate.</li>
+      <li>GLM should be treated as a bounded adversarial specialist for broad reviews; parent workflow synthesizes slice results.</li>
+    </ul>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance Criteria</h2>
+    <article id="ac-1"><h3>AC1 — Pre-PR GLM reviews are bounded and verdict-driven</h3><p><code>pre-pr-implementation-review</code> requires GLM to return scope checked, evidence table, findings, and one verdict. If the assigned scope is incomplete, the verdict must be <code>REVIEW_INCOMPLETE_RERUN_NEEDED</code> with completed checks, remaining checks, and the recommended follow-up slice. Empty/tool-only output remains infrastructure failure.</p></article>
+    <article id="ac-2"><h3>AC2 — Broad reviews fan out without losing coverage</h3><p>Broad or adversarial reviews split GLM work by failure family/surface instead of asking one GLM subagent to audit everything. Parent workflows must synthesize all slice verdicts and cannot clear the gate until every required slice is complete or blocked with explicit evidence.</p></article>
+    <article id="ac-3"><h3>AC3 — Scoped-plan-run has explicit GLM packets</h3><p>Runtime scoped review and adversarial escalation define the exact packet GLM receives, the stop condition it must follow, and the coverage ledger it must return when more review work remains.</p></article>
+    <article id="ac-4"><h3>AC4 — Plan-readiness GLM reviews cannot silently pass empty or incomplete output</h3><p>Reviewed HTML plan and plan-reviewer execution-ready flows reject empty/tool-only GLM output, rerun once narrower, then block truthfully if still unavailable. Incomplete GLM coverage is represented either by <code>REVIEW_INCOMPLETE_RERUN_NEEDED</code> where the caller supports it, or by the caller’s non-ready verdict with required completed-checks, remaining-checks, and follow-up-slice fields.</p></article>
+    <article id="ac-5"><h3>AC5 — GLM agent defaults reinforce completion discipline</h3><p>The GLM reviewer agent prompt globally instructs scoped review, elapsed-time review windows, final verdict requirements, and incomplete-review handoff without imposing a hard tool-call cap.</p></article>
+  </section>
+
+  <section id="bdd-scenarios">
+    <h2>BDD Scenarios</h2>
+    <article id="bdd-small-diff"><h3>Small diff review</h3><p><strong>Given</strong> a small pre-PR diff, <strong>when</strong> GLM runs, <strong>then</strong> it freely explores inside the named scope during the review window and returns exactly one verdict.</p></article>
+    <article id="bdd-incomplete-review"><h3>Incomplete review handoff</h3><p><strong>Given</strong> a GLM review reaches its time checkpoint before completing the assigned scope, <strong>when</strong> it returns, <strong>then</strong> it reports <code>REVIEW_INCOMPLETE_RERUN_NEEDED</code> or the caller’s equivalent non-ready verdict, lists completed and incomplete checks, and tells the parent which follow-up subagent slice to run next.</p></article>
+    <article id="bdd-parent-rerun"><h3>Parent orchestrator rerun</h3><p><strong>Given</strong> a reviewer returns incomplete coverage, <strong>when</strong> the parent orchestrator receives the result, <strong>then</strong> it launches the recommended follow-up slice, appends the new result to the coverage ledger, and does not clear the gate until all required slices are complete or explicitly blocked.</p></article>
+    <article id="bdd-broad-diff"><h3>Broad diff review</h3><p><strong>Given</strong> a broad PR touching multiple surfaces, <strong>when</strong> the pre-PR gate runs, <strong>then</strong> GLM review is split into focused slices and the parent synthesizes the slice verdicts.</p></article>
+    <article id="bdd-empty-output"><h3>Empty GLM output</h3><p><strong>Given</strong> a GLM transcript ends in tool output or provider error, <strong>when</strong> the workflow interprets results, <strong>then</strong> it records review infrastructure failure, reruns once with a narrower slice, and records a tooling blocker if the narrowed rerun is still unusable.</p></article>
+    <article id="bdd-adversarial"><h3>Escaped PR feedback</h3><p><strong>Given</strong> PR feedback exposes a missed failure family, <strong>when</strong> adversarial escalation runs, <strong>then</strong> GLM gets narrow slices around the escaped pattern, sibling callsites, inverse boundary, and tests that should have caught it.</p></article>
+  </section>
+
+  <section id="phase-by-phase-execution-plan">
+    <h2>Phase-by-phase Execution Plan</h2>
+
+    <article id="phase-p1-pre-pr" class="phase">
+      <h3>P1 — Update pre-PR review GLM protocol</h3>
+      <h4>End State</h4><p><code>skills/pre-pr-implementation-review/SKILL.md</code> has explicit GLM completion rules, elapsed-time review window, return format, incomplete-review verdict, fan-out threshold, and malformed-output handling.</p>
+      <h4>Tests first</h4><p>Not practical as automated RED tests; this is prompt doctrine. Use textual inspection against AC1, AC2, and AC4.</p>
+      <h4>Work</h4><ul><li>Add no-empty-result rule.</li><li>Add GLM review-window checkpoint and stop condition to prompt shape without a hard tool-call cap.</li><li>Add <code>REVIEW_INCOMPLETE_RERUN_NEEDED</code> with completed checks, remaining checks, and recommended follow-up slice.</li><li>Add broad-review fan-out rule by failure family.</li><li>Ensure artifact records review infrastructure failures and incomplete-review handoffs.</li></ul>
+      <h4>Expected files</h4><p><code>skills/pre-pr-implementation-review/SKILL.md</code></p>
+      <h4>Open questions / decision dependencies</h4><p>None. Use the locked 8-minute normal window, 12-minute narrow/adversarial window, and fan-out thresholds from Decision Attention.</p>
+      <h4>Verify</h4><pre><code>rg -n "review window|REVIEW_INCOMPLETE_RERUN_NEEDED|REVIEW_INFRASTRUCTURE_FAILURE|fan-out|tool-only|final verdict" skills/pre-pr-implementation-review/SKILL.md</code></pre>
+    </article>
+
+    <article id="phase-p2-scoped-run" class="phase">
+      <h3>P2 — Update scoped-plan-run GLM review loops</h3>
+      <h4>End State</h4><p><code>scoped-plan-run</code> defines the bounded packet for the second reviewer and slices adversarial GLM escalation by failure family when needed.</p>
+      <h4>Tests first</h4><p>Prompt inspection only; map text to AC2 and AC3.</p>
+      <h4>Work</h4><ul><li>Replace vague “same bounded prompt” language with concrete packet contents.</li><li>Add no-empty-output gate semantics.</li><li>Add incomplete-review handoff semantics so the parent orchestrator runs another scoped subagent instead of treating partial coverage as pass/fail.</li><li>Add a coverage ledger requirement: completed slices, incomplete slices, rerun slices, and final synthesized gate status.</li><li>Adjust adversarial escalation to split GLM around escaped failure family.</li></ul>
+      <h4>Expected files</h4><p><code>skills/scoped-plan-run/SKILL.md</code></p>
+      <h4>Open questions / decision dependencies</h4><p>None. Thresholds are locked in Decision Attention.</p>
+      <h4>Verify</h4><pre><code>rg -n "bounded review packet|escaped failure family|tool-only|review infrastructure|REVIEW_INCOMPLETE_RERUN_NEEDED|coverage ledger|completed slices|incomplete slices|rerun slices|final synthesized gate status" skills/scoped-plan-run/SKILL.md</code></pre>
+    </article>
+
+    <article id="phase-p3-plan-review" class="phase">
+      <h3>P3 — Update plan-readiness GLM review prompts</h3>
+      <h4>End State</h4><p>Plan-readiness workflows use bounded GLM readiness review and cannot count empty output as readiness sign-off.</p>
+      <h4>Tests first</h4><p>Prompt inspection only; map text to AC4.</p>
+      <h4>Work</h4><ul><li>Update <code>skills/reviewed-html-plan/SKILL.md</code> GLM section.</li><li>Update <code>skills/plan-reviewer-execution-ready/SKILL.md</code> Pi implementation section.</li><li>Add verdict compatibility language: caller-specific verdict schemas remain authoritative, and incomplete GLM coverage maps to <code>PLAN_NEEDS_REVISION</code> or another non-ready caller verdict unless the caller explicitly accepts <code>REVIEW_INCOMPLETE_RERUN_NEEDED</code>.</li><li>Add parent rerun/synthesis behavior for incomplete plan-readiness slices where applicable.</li><li>Keep behavior consistent across both plan-review paths.</li></ul>
+      <h4>Expected files</h4><p><code>skills/reviewed-html-plan/SKILL.md</code>, <code>skills/plan-reviewer-execution-ready/SKILL.md</code></p>
+      <h4>Open questions / decision dependencies</h4><p>None.</p>
+      <h4>Verify</h4><pre><code>rg -n "tool-only|empty|bounded readiness|PLAN_NEEDS_REVISION|REVIEW_INCOMPLETE_RERUN_NEEDED|follow-up slice|tooling blocker" skills/reviewed-html-plan/SKILL.md skills/plan-reviewer-execution-ready/SKILL.md</code></pre>
+    </article>
+
+    <article id="phase-p4-agent-defaults" class="phase">
+      <h3>P4 — Update GLM reviewer agent defaults</h3>
+      <h4>End State</h4><p>The GLM reviewer’s own instructions include completion discipline, scoped review boundaries, review-window checkpoints, no hard tool-call caps, incomplete-review handoff, and final response requirements.</p>
+      <h4>Tests first</h4><p>Prompt inspection only; map text to AC5.</p>
+      <h4>Work</h4><ul><li>Add a <code>Completion Discipline</code> section near the review process.</li><li>Emphasize that thoroughness means scoped evidence plus verdict or explicit incomplete-review handoff, not endless search.</li><li>Require final response sections that distinguish clean, findings, blocked, and incomplete-review outcomes.</li></ul>
+      <h4>Expected files</h4><p><code>_pi/agents/quality-reviewer-glm.md</code></p>
+      <h4>Open questions / decision dependencies</h4><p>None.</p>
+      <h4>Verify</h4><pre><code>rg -n "Completion Discipline|review window|REVIEW_INCOMPLETE_RERUN_NEEDED|final response|scoped verdict" _pi/agents/quality-reviewer-glm.md</code></pre>
+    </article>
+
+    <article id="phase-p5-verify" class="phase">
+      <h3>P5 — Verify prompt coherence and register final state</h3>
+      <h4>End State</h4><p>All changed prompt surfaces use compatible language, and the plan is updated with completion evidence.</p>
+      <h4>Tests first</h4><p>Not applicable.</p>
+      <h4>Work</h4><ul><li>Review diffs for duplicated contradictions.</li><li>Run a repo-wide grep for GLM review instructions.</li><li>Update this plan progress and deviations.</li></ul>
+      <h4>Expected files</h4><p>Changed prompt files and this plan only.</p>
+      <h4>Open questions / decision dependencies</h4><p>None.</p>
+      <h4>Verify</h4><pre><code>rg -n "quality-reviewer-glm|GLM-5|GLM" skills _pi/agents _pi/prompts --glob '*.md'
+git diff --check</code></pre>
+    </article>
+  </section>
+
+  <section id="verification-strategy">
+    <h2>Verification Strategy</h2>
+    <div class="matrix-grid">
+      <div class="card"><strong>Static grep</strong><br>Confirm key terms exist on every intended surface.</div>
+      <div class="card"><strong>Semantic coherence review</strong><br>Read the changed prompt sections together to catch contradictory gate behavior.</div>
+      <div class="card"><strong>No product-code change</strong><br>Verify diff is limited to skill/prompt documentation and this plan.</div>
+    </div>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery Order</h2>
+    <ol>
+      <li>Implement P1 and P2 first because they directly affect implementation reviews.</li>
+      <li>Implement P3 to keep plan-readiness review behavior aligned.</li>
+      <li>Implement P4 as the global GLM reviewer backstop.</li>
+      <li>Run P5 coherence verification and prepare normal review/PR workflow if requested.</li>
+    </ol>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>No provider-routing changes.</li>
+      <li>No Pi subagent harness code changes.</li>
+      <li>No replacement of GLM with another model.</li>
+      <li>No reduction of required review categories; broad checks are split, not removed.</li>
+    </ul>
+  </section>
+
+  <section id="test-coverage-matrix">
+    <h2>Test Coverage Matrix</h2>
+    <table>
+      <thead><tr><th>Acceptance criterion</th><th>Evidence</th><th>Command / check</th></tr></thead>
+      <tbody>
+        <tr><td>AC1</td><td>Pre-PR skill includes verdict-driven GLM protocol and incomplete-review handoff.</td><td><code>rg</code> checks from P1.</td></tr>
+        <tr><td>AC2</td><td>Pre-PR and scoped-run skills include fan-out rules.</td><td><code>rg -n "fan-out|failure family|slice" skills/pre-pr-implementation-review/SKILL.md skills/scoped-plan-run/SKILL.md</code></td></tr>
+        <tr><td>AC3</td><td>Scoped-run second reviewer packet and parent coverage-ledger/rerun behavior are explicit.</td><td><code>rg -n "bounded review packet|REVIEW_INCOMPLETE_RERUN_NEEDED|coverage ledger|completed slices|incomplete slices|rerun slices|final synthesized gate status" skills/scoped-plan-run/SKILL.md</code></td></tr>
+        <tr><td>AC4</td><td>Plan-readiness flows reject empty GLM output.</td><td><code>rg</code> checks from P3.</td></tr>
+        <tr><td>AC5</td><td>GLM agent includes completion discipline.</td><td><code>rg</code> checks from P4.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="deviation-log">
+    <h2>Decisions / Deviations Log</h2>
+    <ul>
+      <li><strong>2026-06-26:</strong> Initial browser-review draft created.</li>
+      <li><strong>2026-06-26:</strong> Browser comment 1 rejected hard tool-call caps. Updated plan to use scope bounding plus elapsed-time review windows/checkpoints instead of limiting tool calls.</li>
+      <li><strong>2026-06-26:</strong> Browser comment 2 requested explicit incomplete-review handoff. Updated plan so GLM can return <code>REVIEW_INCOMPLETE_RERUN_NEEDED</code> with completed checks, remaining checks, and a recommended follow-up subagent slice.</li>
+      <li><strong>2026-06-26:</strong> GPT/GLM readiness reviews found unresolved review-window/fan-out decisions, draft status wording, incomplete parent-rerun behavior, and plan-readiness verdict compatibility gaps. Locked 8-minute normal and 12-minute narrow/adversarial review windows, finalized fan-out thresholds, added parent coverage-ledger/rerun requirements, and added caller-specific verdict compatibility for plan-readiness flows.</li>
+      <li><strong>2026-06-26:</strong> GPT rereview found P2 verification did not check for the new coverage-ledger/rerun terms. Expanded P2 and AC3 verification to grep for incomplete-review and coverage-ledger requirements.</li>
+      <li><strong>2026-06-26:</strong> Final independent GPT and GLM readiness rereviews both returned <code>VERDICT: PLAN_EXECUTION_READY</code>. Updated plan status to execution-ready.</li>
+      <li><strong>2026-06-27:</strong> Completed P1 by updating <code>skills/pre-pr-implementation-review/SKILL.md</code> with GLM review windows, incomplete-review handoff, no-empty-output infrastructure failure handling, fan-out thresholds, coverage table, and artifact coverage-ledger requirements.</li>
+      <li><strong>2026-06-27:</strong> Completed P2 by updating <code>skills/scoped-plan-run/SKILL.md</code> with an explicit bounded GLM review packet, review-window handling, infrastructure-failure reruns, incomplete-review follow-up slices, coverage ledger requirements, and adversarial GLM slice behavior.</li>
+      <li><strong>2026-06-27:</strong> Completed P3 by updating <code>skills/reviewed-html-plan/SKILL.md</code> and <code>skills/plan-reviewer-execution-ready/SKILL.md</code> with bounded GLM readiness review, review-window handling, empty/tool-only rejection, incomplete-coverage verdict compatibility, follow-up slices, and parent synthesis requirements.</li>
+      <li><strong>2026-06-27:</strong> Completed P4 by adding <code>Completion Discipline</code> to <code>_pi/agents/quality-reviewer-glm.md</code>, including review windows, scoped search, <code>REVIEW_INCOMPLETE_RERUN_NEEDED</code>, coverage tables, and final response requirements.</li>
+      <li><strong>2026-06-27:</strong> Completed P5 verification. Required <code>rg</code> checks and <code>git diff --check</code> passed. Initial scoped GPT/GLM review found inconsistent fan-out threshold wording; fixed scoped-plan-run and plan-readiness wording, reran verification, and both scoped reviewers returned <code>VERDICT: PASS_SCOPED</code>.</li>
+      <li><strong>2026-06-27:</strong> Pre-PR GPT/GLM gate found the canonical reviewer templates still omitted concrete GLM packet fields and the incomplete-review verdict/addendum. Updated <code>skills/pre-pr-implementation-review/SKILL.md</code> and <code>skills/scoped-plan-run/SKILL.md</code> templates with diff summary, verification results, touched surfaces, assigned failure families, GLM final-response rules, coverage table, and <code>REVIEW_INCOMPLETE_RERUN_NEEDED</code>.</li>
+      <li><strong>2026-06-27:</strong> Pre-PR GLM rerun found <code>skills/reviewed-html-plan/SKILL.md</code> used “check only” wording that could reduce readiness coverage. Replaced it with readiness-bounded “including at least” language and added architecture/dependency plus recovery/operator/error behavior to the GLM checklist.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

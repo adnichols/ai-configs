@@ -44,7 +44,13 @@ In Pi, run two read-only Pi subagent plan reviews:
 - `quality-reviewer` for the GPT-5.5 review leg.
 - `quality-reviewer-glm` for the GLM-5 review leg, using `thinking: "xhigh"` when the harness supports it. The `opencode-zen/glm-5` value is only the Pi model provider/model ID in that subagent; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this leg.
 
-Launch both reviewers independently. Keep the review agents read-only; the coordinating agent must synthesize their recommendations, drive convergence, and edit the plan. The prompt to each reviewer must include:
+Launch both reviewers independently. Keep the review agents read-only; the coordinating agent must synthesize their recommendations, drive convergence, and edit the plan. Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt; if the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
+
+For GLM, use bounded scope rather than bounded tool calls. Do not cap tool calls. Use an 8-minute target review window with the last minute reserved for a final response; for narrow follow-up slices, use a 12-minute target window with the last 90 seconds reserved for a final response. If GLM cannot complete the assigned readiness scope inside the window, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the coordinating agent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
+
+Split GLM readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The coordinating agent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
+
+The prompt to each reviewer must include:
 
 - the plan path,
 - the user request or browser action context,
@@ -61,7 +67,7 @@ VERDICT: PLAN_NEEDS_REVISION
 VERDICT: BLOCKED_BY_PRODUCT_QUESTION
 ```
 
-Treat fuzzy output by substance. The plan is ready only when both independent reviewer results clear the plan after the latest material edit. Do not conclude after merely summarizing reviewer findings; if the findings are actionable within scope, apply them to the plan and rerun both reviewers.
+Treat fuzzy output by substance, but never normalize empty, tool-only, provider-error, or incomplete-coverage output into a ready verdict. The plan is ready only when both independent reviewer results clear the plan after the latest material edit and all required review slices are complete. Do not conclude after merely summarizing reviewer findings; if the findings are actionable within scope, apply them to the plan and rerun both reviewers. If a reviewer returns incomplete coverage, run the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked.
 
 ## Codex implementation
 
