@@ -124,7 +124,7 @@ Do not treat a disk progress checkbox update as sufficient reviewer-state alignm
 3. Identify the base branch from the plan, or use the repo's normal integration branch.
 4. Create or confirm a task branch if needed.
 5. Read repo-local execution policy from `AGENTS.md` and any referenced local guidance before editing.
-6. If repo guidance requires a Linear issue before execution, identify the issue key from plan metadata/text, branch name, or explicit user input; verify it with `ltui issues view <KEY> --format detail`; stop before code edits if the issue is required but missing or unverifiable.
+6. If repo guidance requires a Linear issue before execution, identify the issue key from plan metadata/text, branch name, or explicit user input; verify it with `ltui --format detail issues view <KEY>`; stop before code edits if the issue is required but missing or unverifiable.
 7. Record the scope contract in your working notes before editing.
 
 If the worktree is dirty, preserve unrelated changes. Do not clean them up for convenience.

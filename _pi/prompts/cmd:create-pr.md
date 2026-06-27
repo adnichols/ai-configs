@@ -45,7 +45,7 @@ If a PR already exists, report the URL and STOP.
 If this is Linear-backed work, resolve the Linear key from the branch name, commits, plan, or user-provided issue. Fetch the issue title before creating the PR:
 
 ```bash
-ltui issues view "$ISSUE_KEY" --format detail
+ltui --format detail issues view "$ISSUE_KEY"
 # Copy the exact title from the verified ltui output, then set:
 LINEAR_ISSUE_TITLE="<Linear issue title from ltui output>"
 TITLE="${ISSUE_KEY}: ${LINEAR_ISSUE_TITLE}"

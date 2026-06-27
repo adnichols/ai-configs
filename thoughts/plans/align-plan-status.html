@@ -254,13 +254,13 @@
       <li>Add a subsection under Establish Run State or Prepare named <code>Plan-reviewer status alignment</code>.</li>
       <li>Require resolving the reviewer plan ID for HTML plans using registration output, plan-reviewer <code>show</code>/<code>index</code>, or path/slug lookup.</li>
       <li>Before code edits, require <code>plan-review lifecycle set &lt;planId&gt; active</code> when needed. Then run <code>plan-review columns list --json</code>; if <code>in_progress</code> is present and visible, run <code>plan-review column set &lt;planId&gt; in_progress</code>. If it is absent/hidden, stop with an actionable status-sync blocker unless a repo/service-configured equivalent is explicitly available.</li>
-      <li>Add a repo-local policy preflight: read repo <code>AGENTS.md</code>, detect mandatory Linear requirements, identify the issue key from plan metadata/text/branch/user input, verify with <code>ltui issues view &lt;KEY&gt; --format detail</code>, and stop if required but missing.</li>
+      <li>Add a repo-local policy preflight: read repo <code>AGENTS.md</code>, detect mandatory Linear requirements, identify the issue key from plan metadata/text/branch/user input, verify with <code>ltui --format detail issues view &lt;KEY&gt;</code>, and stop if required but missing.</li>
       <li>Extend phase completion instructions: after updating source Progress, verify source sync or re-register, then inspect plan-reviewer evidence before advancing.</li>
     </ul>
     <h3>Open questions / decision dependencies</h3>
     <p>None.</p>
     <h3>Verify</h3>
-    <pre><code>rg -n "Plan-reviewer status alignment|ltui issues view|columns list --json|column set .*in_progress|source sync" skills/run-plan/SKILL.md</code></pre>
+    <pre><code>rg -n "Plan-reviewer status alignment|ltui --format detail issues view|columns list --json|column set .*in_progress|source sync" skills/run-plan/SKILL.md</code></pre>
   </article>
 
   <article class="phase" id="phase-p2">
@@ -335,7 +335,7 @@ bun run test</code></pre>
     <h3>Open questions / decision dependencies</h3>
     <p>None for shared guidance. Any Heddle repo edit should be a separate explicit user-approved repo change.</p>
     <h3>Verify</h3>
-    <pre><code>rg -n "Linear-backed|Linear issue title|ltui issues view" AGENTS.md _pi/prompts/cmd:create-pr.md skills/run-plan/SKILL.md</code></pre>
+    <pre><code>rg -n "Linear-backed|Linear issue title|ltui --format detail issues view" AGENTS.md _pi/prompts/cmd:create-pr.md skills/run-plan/SKILL.md</code></pre>
   </article>
 
   <article class="phase" id="phase-p5">
@@ -407,13 +407,13 @@ cd /Users/anichols/code/plan-reviewer && git status --short</code></pre>
       <li id="log-2026-06-27-review-2"><strong>2026-06-27:</strong> Follow-up GPT review found plan-reviewer verification command drift. Updated service verification from <code>bun test</code> to repo-supported <code>bun run test</code>, with a targeted contract-test fallback for registration-instructions-only changes.</li>
       <li id="log-2026-06-27-ready"><strong>2026-06-27:</strong> Final GPT rereview returned <code>VERDICT: PLAN_EXECUTION_READY</code>; prior GLM rereview also returned <code>VERDICT: PLAN_EXECUTION_READY</code>. Plan marked execution-ready and re-registered with truthful plan-reviewer metadata.</li>
       <li id="log-2026-06-27-build-entrypoint"><strong>2026-06-27:</strong> Browser reviewer asked to ensure direct agent <code>run-plan</code> invocation and the reviewer Build Plan button use the same execution entry point. Strengthened locked decision, acceptance criteria, BDD, and P3 bridge wording so <code>plan-reviewer-build</code> is only a bridge into <code>run-plan &lt;plan-path&gt;</code>.</li>
-      <li id="log-2026-06-27-p1"><strong>2026-06-27:</strong> P1 implemented in <code>skills/run-plan/SKILL.md</code>. Added pre-code plan-reviewer lifecycle/column alignment, <code>plan-review columns list --json</code> inspection before <code>in_progress</code>, repo-local Linear preflight via <code>ltui issues view</code>, and source-sync verification after phase progress updates.</li>
+      <li id="log-2026-06-27-p1"><strong>2026-06-27:</strong> P1 implemented in <code>skills/run-plan/SKILL.md</code>. Added pre-code plan-reviewer lifecycle/column alignment, <code>plan-review columns list --json</code> inspection before <code>in_progress</code>, repo-local Linear preflight via <code>ltui --format detail issues view</code>, and source-sync verification after phase progress updates.</li>
       <li id="log-2026-06-27-p3-p4"><strong>2026-06-27:</strong> P3 and P4 implemented in ai-configs. <code>skills/plan-reviewer-build/SKILL.md</code> now states the Build Plan button is only a bridge into the same <code>run-plan &lt;plan-path&gt;</code> entry point; <code>_pi/prompts/cmd:create-pr.md</code> now requires verified Linear issue titles for Linear-backed PR titles.</li>
       <li id="log-2026-06-27-p2"><strong>2026-06-27:</strong> P2 implemented in isolated plan-reviewer worktree <code>/Users/anichols/.herdr/worktrees/plan-reviewer/align-plan-status-instructions</code>. <code>src/registrationInstructions.ts</code> now includes generic active/in_progress alignment and source-progress sync guidance; <code>src/__tests__/contracts.test.ts</code> locks the new instruction contract. Verified with <code>bun run build &amp;&amp; node --test dist/__tests__/contracts.test.js</code> and <code>bun run test</code> passing 144/144 tests.</li>
       <li id="log-2026-06-27-review-fix"><strong>2026-06-27:</strong> Scoped GPT and GLM implementation reviews both found that the new plan-reviewer status commands omitted the registration service URL. Fixed P2 so lifecycle, columns list, and column set commands include <code>--url &lt;registration service URL&gt;</code> or the concrete service URL, and updated contract tests to lock both forms.</li>
       <li id="log-2026-06-27-p5"><strong>2026-06-27:</strong> P5 verification completed. Final ai-configs grep checks and <code>git diff --check</code> passed; plan-reviewer targeted and full gates passed after the review fix; pre-PR GPT and GLM gates both returned <code>CLEAN_FOR_PR</code>. Review artifact: <code>thoughts/validation/pre-pr-reviews/2026-06-27-align-plan-status.md</code>.</li>
       <li id="log-2026-06-27-prs"><strong>2026-06-27:</strong> Delivery PRs opened. Primary ai-configs PR: <a href="https://github.com/adnichols/ai-configs/pull/26">https://github.com/adnichols/ai-configs/pull/26</a>. Companion plan-reviewer PR: <a href="https://github.com/Nodaste-Lab/plan-reviewer/pull/67">https://github.com/Nodaste-Lab/plan-reviewer/pull/67</a>.</li>
-      <li id="log-2026-06-27-codex-feedback"><strong>2026-06-27:</strong> Addressed Codex PR review feedback on the primary PR. <code>skills/run-plan/SKILL.md</code> now includes <code>--url &lt;registration service URL&gt;</code> on status-alignment commands, and <code>_pi/prompts/cmd:create-pr.md</code> now explicitly sets <code>TITLE</code> from the verified Linear issue title for Linear-backed work while failing closed if that title is missing.</li>
+      <li id="log-2026-06-27-codex-feedback"><strong>2026-06-27:</strong> Addressed Codex PR review feedback on the primary PR. <code>skills/run-plan/SKILL.md</code> now includes <code>--url &lt;registration service URL&gt;</code> on status-alignment commands, and <code>_pi/prompts/cmd:create-pr.md</code> now explicitly sets <code>TITLE</code> from the verified Linear issue title for Linear-backed work while failing closed if that title is missing, and uses the correct <code>ltui --format detail issues view</code> option order.</li>
     </ul>
   </section>
 </main>
