@@ -77,9 +77,9 @@ fi
 
 BASE_NAME="${base_ref#origin/}"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-TITLE="$(git log -1 --format=%s)"
-# If Linear-backed, replace TITLE with "<ISSUE_KEY>: <Linear issue title>"
-# after verifying the issue with: ltui issues view "$ISSUE_KEY" --format detail
+# Preserve a Linear-aware TITLE prepared above, such as "<ISSUE_KEY>: <Linear issue title>".
+# If TITLE is still unset because this is non-Linear work, fall back to the latest commit subject.
+: "${TITLE:=$(git log -1 --format=%s)}"
 
 gh pr create \
   --base "$BASE_NAME" \

@@ -77,6 +77,20 @@ Runtime scoped follow-up reviews:
 
 No unresolved in-scope P1/P2/P3 findings remain.
 
+## PR feedback follow-up
+
+Codex reviewed the first primary PR commit and reported two in-scope findings:
+
+| Finding | Severity | Scope | Resolution |
+| --- | --- | --- | --- |
+| `skills/run-plan/SKILL.md` status-alignment commands omitted `--url <registration service URL>` | P1 | IN_PLAN | Added service URL placeholder to lifecycle, columns list, and column set commands. |
+| `_pi/prompts/cmd:create-pr.md` reset `TITLE` before `gh pr create`, undermining Linear-aware title resolution | P2 | IN_PLAN | Changed the command block to preserve a precomputed Linear-aware `TITLE` and only fall back to the commit subject when `TITLE` is unset. |
+
+Follow-up verification:
+
+- `rg` checks confirmed service-URL-qualified status commands and Linear-aware `TITLE` preservation.
+- `git diff --check` passed.
+
 ## Remaining follow-ups
 
 None.

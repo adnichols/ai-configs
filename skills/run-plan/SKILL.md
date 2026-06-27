@@ -106,13 +106,13 @@ Runtime state expectation: keep the task/goal state and working notes current wi
 
 #### Plan-reviewer status alignment
 
-For a reviewed HTML plan, align plan-reviewer state before code edits. Resolve the reviewer plan ID from registration output, the explicit review URL, `plan-review show`, or `plan-review index`; if the plan is not registered and repo guidance expects reviewed HTML plans, register it with truthful metadata before proceeding.
+For a reviewed HTML plan, align plan-reviewer state before code edits. Resolve the reviewer plan ID and registration service URL from registration output, the explicit review URL, `plan-review show`, or `plan-review index`; if the plan is not registered and repo guidance expects reviewed HTML plans, register it with truthful metadata before proceeding.
 
 Before implementation starts:
 
-1. Run `plan-review lifecycle set <planId> active` when the plan is not already active.
-2. Run `plan-review columns list --json` and inspect the available board columns.
-3. If a visible `in_progress` column exists, run `plan-review column set <planId> in_progress`.
+1. Run `plan-review lifecycle set <planId> active --url <registration service URL>` when the plan is not already active.
+2. Run `plan-review columns list --json --url <registration service URL>` and inspect the available board columns.
+3. If a visible `in_progress` column exists, run `plan-review column set <planId> in_progress --url <registration service URL>`.
 4. If `in_progress` is absent, hidden, or ambiguous, stop with an actionable status-sync blocker unless repo/service configuration explicitly identifies an equivalent in-progress column.
 
 Do not treat a disk progress checkbox update as sufficient reviewer-state alignment. After each completed phase, update the source plan `Progress`, verify source sync or re-register the plan, and inspect plan-reviewer evidence (`show` or `index`) before advancing.
