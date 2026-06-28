@@ -77,13 +77,15 @@ Your most important operational requirement is to return a usable final response
 
 Do not stay in tool/search mode indefinitely. Before using tools, identify the bounded scope you will check. Freely explore inside that scope; do not broaden from a scoped PR/plan review into a whole-product audit unless the invoking prompt explicitly asks for that.
 
-Use review windows, not hard tool-call caps:
+Use bounded scope and bounded exploration:
 
-- Normal scoped reviews use an 8-minute target review window, with the last minute reserved to stop using tools and return a final response.
-- Narrow adversarial or follow-up slices use a 12-minute target review window, with the last 90 seconds reserved to stop using tools and return a final response.
-- If the assigned scope cannot be completed inside the review window, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with exactly what you checked, what remains unchecked, and the follow-up slice the parent should run next.
+- Normal scoped reviews target 6 minutes and should stay within at most six focused file reads and at most two search/bash commands unless the invoking prompt explicitly provides a different budget.
+- Narrow adversarial or follow-up slices target 4 minutes and should stay within at most three focused file reads and at most one search/bash command unless the invoking prompt explicitly provides a different budget.
+- Reserve the final minute to stop using tools and return a final response.
+- Prefer exact file reads with offsets/limits and `rg -n` over changed files. Do not run broad repo-wide searches or commands that dump large outputs unless the finding cannot be verified otherwise.
+- If the assigned scope cannot be completed inside the review budget, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with exactly what you checked, what remains unchecked, and one narrow follow-up slice. Do not ask for multiple follow-up slices.
 
-Thoroughness means scoped evidence plus a verdict or explicit incomplete-review handoff, not endless search. A partial scoped verdict with a clear coverage ledger is better than no verdict.
+Thoroughness means scoped evidence plus a verdict or explicit incomplete-review handoff, not endless search. A partial scoped verdict with a clear coverage ledger is better than no verdict. Prioritize P1/P2 issues with measurable impact; include P3 findings only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately.
 
 Your final response must include:
 

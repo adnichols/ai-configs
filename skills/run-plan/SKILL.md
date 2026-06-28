@@ -1,6 +1,6 @@
 ---
 name: run-plan
-description: Execute an existing implementation plan persistently through code changes, scoped runtime-native quality reviews, the applicable Pi GPT/GLM pre-PR implementation review, fixes through full P1/P2/P3 consensus, verification, commit, push, PR creation, and PR monitoring until feedback is addressed and the PR is mergeable without expanding beyond the plan's stated scope.
+description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, the applicable Pi GPT/GLM pre-PR implementation review, fixes or dispositions for blocking findings, verification, commit, push, PR creation, and PR monitoring until feedback is addressed and the PR is mergeable without expanding beyond the plan's stated scope.
 ---
 
 # Run Plan
@@ -9,7 +9,7 @@ Use this skill when the user has a plan file and wants it implemented all the wa
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
-The GPT/GLM pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved in-scope P1/P2/P3 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
+The GPT/GLM pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
 
 This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the PR satisfies the post-PR completion criteria. In Pi, back this with the todo tool plus explicit working notes/handoff state. In Codex, back this with Codex goal/task state and the installed Codex prompts so the monitoring obligation survives normal turn-to-turn execution.
 
@@ -31,7 +31,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not proceed past a blocked plan decision by silently choosing a larger scope.
 - Do not silently defer work that is required by the plan, required for verification, or introduced by this branch; fix it before merge or stop with a blocker.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
-- In Pi executions, do not create a PR until the GPT/GLM pre-PR implementation review gate has passed with no unresolved in-scope P1/P2/P3 findings or the user explicitly waives that gate.
+- In Pi executions, do not create a PR until the GPT/GLM pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings or the user explicitly waives that gate.
 - Do not stop after the GPT/GLM pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
 - Do not mark the active run state complete just because the implementation PR exists.
 - Do not mark the active run state complete until PR feedback has been monitored and addressed and the PR is mergeable with the destination branch.
@@ -91,7 +91,7 @@ A finding may be deferred as `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an 
 1. Check whether a run-plan task/goal state is already active.
 2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use the todo tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR monitoring item that cannot be marked done until all completion criteria are satisfied.
 3. The objective must require both:
-   - executing the specified plan through implementation, verification, runtime-native scoped review, the applicable Pi GPT/GLM pre-PR review with no unresolved in-scope P1/P2/P3 findings, commit, push, and PR creation;
+   - executing the specified plan through implementation, verification, runtime-native scoped review, the applicable Pi GPT/GLM pre-PR review with no unresolved blocking in-scope P1/P2 findings, commit, push, and PR creation;
    - monitoring the PR after creation until the post-PR completion criteria are satisfied.
 4. If an active run state already exists and it is compatible with this scoped plan run, continue under it and state the compatibility in working notes.
 5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before creating a new one.
@@ -99,7 +99,7 @@ A finding may be deferred as `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an 
 Use this objective shape:
 
 ```text
-Execute <plan path> through scoped implementation, verification, runtime-native scoped quality reviews, the applicable Pi GPT/GLM pre-PR implementation review with no unresolved in-scope P1/P2/P3 findings, commit, push, PR creation, and persistent post-PR monitoring. Do not stop at `OPEN_PR_READY`; open the PR unless a concrete blocker prevents it. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback takes a long time to arrive.
+Execute <plan path> through scoped implementation, verification, runtime-native scoped quality reviews, the applicable Pi GPT/GLM pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings, commit, push, PR creation, and persistent post-PR monitoring. Do not stop at `OPEN_PR_READY`; open the PR unless a concrete blocker prevents it. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback takes a long time to arrive.
 ```
 
 Runtime state expectation: keep the task/goal state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi this state lives in todo/working notes; in Codex it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
@@ -185,9 +185,9 @@ In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
-For GLM-5, use bounded scope rather than bounded tool calls. Do not cap tool calls. Use an 8-minute target review window for normal scoped reviews, with the last minute reserved for a final response. For narrow adversarial or follow-up slices, use a 12-minute target window with the last 90 seconds reserved for a final response. If GLM cannot complete the assigned scope inside the window, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
+For GLM-5, use both bounded scope and bounded exploration. Normal scoped reviews should be one GLM slice with `max_turns: 8`, a 6-minute target window, at most six focused file reads, and at most two search/bash commands. Narrow adversarial or follow-up slices should use `max_turns: 5`, a 4-minute target window, at most three focused file reads, and at most one search/bash command. If GLM cannot complete the assigned scope inside that budget, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
 
-Split the normal second GLM review into focused slices when a diff has more than 12 changed files, more than 1200 diff lines, three or more product surfaces, or any adversarial rerun after escaped PR feedback. Split by failure family or surface, then synthesize all slice verdicts in the coverage ledger. Do not send one oversized broad review to GLM when these thresholds are met.
+Split the normal second GLM review only when a diff has more than 20 changed files, more than 2000 diff lines, or clearly independent product surfaces that one bounded slice cannot review. Use at most two GLM slices in the initial cycle. Do not split a small or medium diff merely to get more GLM opinions, and do not create generic failure-family slices unless the diff actually touches those failure families.
 
 Empty output, tool-only output, provider errors, or transcripts ending in tool use are review infrastructure failures, not passes. Rerun once with a narrower bounded prompt; if the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
 
@@ -216,23 +216,26 @@ After fixing in-scope findings:
 1. Rerun targeted tests for touched code.
 2. Rerun the first scoped quality review with the previous findings and current diff.
 3. Rerun the second scoped quality review with the same bounded scope.
-4. If any reviewer returns `REVIEW_INCOMPLETE_RERUN_NEEDED`, launch the recommended follow-up slice, append the result to a coverage ledger, and continue until every required slice is complete, clean, or explicitly blocked.
-5. Repeat until both reviewers return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` and the coverage ledger shows no incomplete required slices.
+4. If any reviewer returns `REVIEW_INCOMPLETE_RERUN_NEEDED`, run at most one narrowed follow-up slice for that cycle and append the result to a coverage ledger. If that follow-up is still incomplete or unusable, stop with a review-budget blocker or ask the user to waive/narrow the gate.
+5. Repeat until both reviewers return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` and the coverage ledger shows no incomplete required slices within the review budget.
 
-The coverage ledger must record completed slices, incomplete slices, rerun slices, and final synthesized gate status.
+The coverage ledger must record completed slices, the single allowed incomplete rerun slice, and final synthesized gate status.
 
 Stop and report a convergence blocker if:
 
-- the same finding recurs after two fix attempts,
+- the same finding or same failure family recurs after two fix attempts,
+- a narrow/optional component keeps producing new edge-case findings after two cycles and should be reverted, deferred, or redesigned instead of patched through review,
 - reviewers disagree on scope and the plan does not resolve it,
 - a needed fix would clearly expand the plan,
-- three full review cycles have not converged.
+- three total review cycles have run since the first scoped review.
 
 ### 9. GPT/GLM Pre-PR Review Gate
 
-After phase implementation and the runtime-native scoped quality-review loop has no unresolved in-scope findings, run the GPT/GLM pre-PR gate before final PR preparation when this `run-plan` is executing in Pi.
+After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the GPT/GLM pre-PR gate before final PR preparation when this `run-plan` is executing in Pi.
 
-In Pi, run `$pre-pr-implementation-review <plan path>`. That gate must use both:
+Do not run redundant full reviewer-pair gates over an unchanged diff. If the latest runtime-native scoped GPT and GLM reviews already ran after the last code change, used the current base/comparison range, covered the current changed files, and have no unresolved blocking in-scope P1/P2 findings, record that evidence as the Pi pre-PR gate result and continue. Run `$pre-pr-implementation-review <plan path>` only when current reviewer-pair evidence is missing, stale, incomplete, or materially narrower than the PR diff.
+
+When the standalone pre-PR gate is required in Pi, it must use both:
 
 - GPT-5.5 via Pi's `quality-reviewer` subagent,
 - GLM-5 via Pi's `quality-reviewer-glm` subagent.
@@ -241,7 +244,7 @@ In non-Pi consumers, do not try to invoke the Pi-only `$pre-pr-implementation-re
 
 Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
 
-Treat every in-scope P1/P2/P3 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` P1/P2/P3 issues, rerun targeted verification, and rerun both reviewers until both return no unresolved in-scope P1/P2/P3 findings. A P3 may remain only when it is rejected as a false positive with evidence or classified as a true `OUT_OF_SCOPE_FOLLOW_UP` with evidence and a tracking destination.
+Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and rerun both reviewers within the bounded pre-PR review budget until both return no unresolved blocking in-scope P1/P2 findings. P3 findings block only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
 If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if the GLM-5 Pi subagent or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
 
@@ -251,7 +254,7 @@ Record the GPT verdict, GLM verdict, artifact path, waived/not-run status, and a
 
 ## Final Verification
 
-Run the plan's final verification commands after the GPT/GLM pre-PR review gate is clean for all in-scope P1/P2/P3 findings or recorded as not applicable for the current non-Pi consumer. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect.
+Run the plan's final verification commands after the GPT/GLM pre-PR review gate is clean for all blocking in-scope P1/P2 findings or recorded as not applicable for the current non-Pi consumer. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect.
 
 Do not hide failures. Fix failures when they are in scope, required for truthful verification, or caused by this branch. Otherwise, report them as pre-existing or documented out-of-scope follow-ups with evidence and tracking destination.
 
@@ -316,7 +319,7 @@ A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for t
 
 1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
 2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with both runtime-native scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, use the installed Codex-native independent implementation-review paths. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For GLM, split every adversarial rerun after escaped PR feedback by the escaped failure family: direct missed pattern and sibling callsites, inverse boundary / producer-consumer parity, tests that should have caught the miss, and nearby plan-bound surfaces with the same assumption. Each GLM slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, incomplete slices, rerun slices, and final synthesized gate status in the coverage ledger.
+3. Run read-only adversarial implementation reviews with both runtime-native scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, use the installed Codex-native independent implementation-review paths. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For GLM, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each GLM slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
 5. Repeat the adversarial reviewer-pair pass once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after both adversarial passes report no additional in-scope findings or only documented out-of-scope follow-ups.
 
@@ -472,7 +475,7 @@ Return one verdict:
 For GLM slices only, this additional verdict is allowed:
 - VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 
-For GLM slices, use bounded scope rather than bounded tool calls. Freely explore inside the assigned scope. Use the configured 8-minute normal review window or 12-minute narrow/adversarial window, reserve the final minute or 90 seconds for a final response, and do not broaden into unrelated whole-product review. If incomplete, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact follow-up slice the parent should run next.
+For GLM slices, use bounded scope and bounded exploration. Normal slices should stay within `max_turns: 8`, a 6-minute target window, at most six focused file reads, and at most two search/bash commands. Narrow/adversarial slices should stay within `max_turns: 5`, a 4-minute target window, at most three focused file reads, and at most one search/bash command. Reserve the final minute for a final response, and do not broaden into unrelated whole-product review. If incomplete, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 
 Return format for GLM slices:
 1. Scope checked
@@ -481,7 +484,7 @@ Return format for GLM slices:
 4. Remaining checks and recommended follow-up slice, only when incomplete
 5. Final verdict
 
-For each finding include: file/line, classification, evidence, and why it is or is not required by the plan. For each OUT_OF_SCOPE_FOLLOW_UP, include the durable tracking destination that should receive it.
+For each finding include: file/line, classification, evidence, and why it is or is not required by the plan. Return at most five findings, prioritized by P1/P2 impact. For each OUT_OF_SCOPE_FOLLOW_UP or non-blocking P3, include the durable tracking destination that should receive it.
 ```
 
 ## Adversarial Reviewer Prompt Add-on
@@ -510,7 +513,7 @@ Stay within the scope contract. Classify every finding with the normal scope lab
 
 ## Final Response
 
-Only give the run-plan final response after a PR exists or a concrete PR-creation blocker has been reported. If the run reached clean P1/P2/P3 review consensus and final verification passed, a final response without a PR URL is invalid.
+Only give the run-plan final response after a PR exists or a concrete PR-creation blocker has been reported. If the run reached clean blocking P1/P2 review consensus and final verification passed, a final response without a PR URL is invalid.
 
 Report:
 
