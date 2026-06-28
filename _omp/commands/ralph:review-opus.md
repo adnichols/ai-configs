@@ -3,7 +3,8 @@ description: Iterative code review loop (Opus) — run /review, apply quick fixe
 argument-hint: "[BASE_REF]"
 agent: build
 subtask: true
-model: google/antigravity-claude-opus-4-6-thinking
+model: google/antigravity-claude-opus-4-8-thinking
+reasoningEffort: xhigh
 ---
 
 # Review Loop (Auto-Fix)

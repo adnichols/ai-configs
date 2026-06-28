@@ -17,7 +17,8 @@ from pathlib import Path
 
 READY_RE = re.compile(r"❯")
 ANSWER_MARKER_PREFIX = "CLAUDE_REVIEW_ANSWER_START_"
-CLAUDE_REVIEW_MODEL = "claude-sonnet-4-6"
+CLAUDE_REVIEW_MODEL = "claude-opus-4-8"
+CLAUDE_REVIEW_EFFORT = "xhigh"
 DEFAULT_TIMEOUT_SECONDS = 3600
 READY_TIMEOUT_SECONDS = 120
 BOUNDARY_TIMEOUT_SECONDS = 45
@@ -176,7 +177,7 @@ def sh_quote(value: str) -> str:
 
 
 def launch_tui(socket: str, session: str, window: str, cwd: Path) -> None:
-    command = f"cd {sh_quote(str(cwd))} && zsh -ilc 'claude --model {CLAUDE_REVIEW_MODEL}'"
+    command = f"cd {sh_quote(str(cwd))} && zsh -ilc 'claude --model {CLAUDE_REVIEW_MODEL} --effort {CLAUDE_REVIEW_EFFORT}'"
     tmux(socket, ["new-window", "-t", session, "-n", window, command])
     tmux(socket, ["resize-window", "-t", f"{session}:{window}", "-x", "220", "-y", "60"], check=False)
 
@@ -260,7 +261,7 @@ def run_smoke(args: argparse.Namespace) -> int:
         auth_preflight(socket, session, cwd, output)
         launch_tui(socket, session, window, cwd)
         wait_for_prompt(socket, session, window, output, min(args.timeout_seconds, READY_TIMEOUT_SECONDS))
-        text = f"CLAUDE_REVIEW_SMOKE_READY\nsocket={socket}\nsession={session}\nwindow={window}\nreadiness_regex={READY_RE.pattern}\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
+        text = f"CLAUDE_REVIEW_SMOKE_READY\nsocket={socket}\nsession={session}\nwindow={window}\nmodel={CLAUDE_REVIEW_MODEL}\neffort={CLAUDE_REVIEW_EFFORT}\nreadiness_regex={READY_RE.pattern}\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
         output.write_text(text, encoding="utf-8")
         print(text, end="")
         teardown_success(socket, session, window)
@@ -310,7 +311,7 @@ def run_review(args: argparse.Namespace) -> int:
             if prompt_cleared_answer:
                 transcript_path = output.with_suffix(output.suffix + ".transcript.txt")
                 transcript_path.write_text(raw, encoding="utf-8")
-                metadata = f"\n\n---\nCLAUDE_REVIEW_LAUNCHER_METADATA\nsocket={socket}\nsession={session}\nwindow={window}\ntranscript={transcript_path}\nreadiness_regex={READY_RE.pattern}\nclear_boundary=prompt-cleared marker/sentinel extraction before baseline\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
+                metadata = f"\n\n---\nCLAUDE_REVIEW_LAUNCHER_METADATA\nsocket={socket}\nsession={session}\nwindow={window}\nmodel={CLAUDE_REVIEW_MODEL}\neffort={CLAUDE_REVIEW_EFFORT}\ntranscript={transcript_path}\nreadiness_regex={READY_RE.pattern}\nclear_boundary=prompt-cleared marker/sentinel extraction before baseline\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
                 output.write_text(prompt_cleared_answer.strip() + metadata, encoding="utf-8")
                 teardown_success(socket, session, window)
                 return 0
@@ -341,7 +342,7 @@ def run_review(args: argparse.Namespace) -> int:
             if answer:
                 transcript_path = output.with_suffix(output.suffix + ".transcript.txt")
                 transcript_path.write_text(last_raw, encoding="utf-8")
-                metadata = f"\n\n---\nCLAUDE_REVIEW_LAUNCHER_METADATA\nsocket={socket}\nsession={session}\nwindow={window}\ntranscript={transcript_path}\nreadiness_regex={READY_RE.pattern}\nclear_boundary={boundary}\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
+                metadata = f"\n\n---\nCLAUDE_REVIEW_LAUNCHER_METADATA\nsocket={socket}\nsession={session}\nwindow={window}\nmodel={CLAUDE_REVIEW_MODEL}\neffort={CLAUDE_REVIEW_EFFORT}\ntranscript={transcript_path}\nreadiness_regex={READY_RE.pattern}\nclear_boundary={boundary}\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
                 output.write_text(answer.strip() + metadata, encoding="utf-8")
                 teardown_success(socket, session, window)
                 return 0

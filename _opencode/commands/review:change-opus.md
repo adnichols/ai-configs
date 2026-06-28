@@ -1,8 +1,10 @@
 ---
-description: Run a change review using Claude Opus4.6
+description: Run a change review using Claude Opus 4.8 Extra High
 argument-hint: '<existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
 agent: reviewer-opus
 subtask: true
+model: opencode/claude-opus-4-8
+reasoningEffort: xhigh
 ---
 
 Your reviewer name is CLAUDE 

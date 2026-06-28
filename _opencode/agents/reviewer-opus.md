@@ -2,8 +2,8 @@
 name: reviewer-opus
 description: Opus document reviewer - adds critical review tags
 mode: subagent
-model: opencode/claude-opus-4-6
-reasoningEffort: high
+model: opencode/claude-opus-4-8
+reasoningEffort: xhigh
 ---
 
 I have provided the <specs> and the <tasklist> below. Act as a Lead Software Engineer. Compare the tasklist against the specs. Are there tasks missing that are required by the spec? Are there tasks in the list that are out of scope?

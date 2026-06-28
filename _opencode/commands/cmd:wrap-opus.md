@@ -1,9 +1,9 @@
 ---
-description: Run any command file dynamically using Claude Opus 4.6
+description: Run any command file dynamically using Claude Opus 4.8 Extra High
 argument-hint: '<command-name | @path/to/command.md> [arguments...]'
 subtask: true
-model: opencode/claude-opus-4-6
-reasoningEffort: high
+model: opencode/claude-opus-4-8
+reasoningEffort: xhigh
 ---
 
 # Dynamic Command Wrapper

@@ -79,6 +79,10 @@ def interactive() -> int:
 
 
 def main() -> int:
+    argv_file = os.environ.get("FAKE_CLAUDE_ARGV_FILE")
+    if argv_file:
+        with open(argv_file, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(sys.argv[1:]) + "\n")
     if len(sys.argv) >= 3 and sys.argv[1:] == ["auth", "status"]:
         return auth_status()
     return interactive()

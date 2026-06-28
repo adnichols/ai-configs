@@ -1813,6 +1813,15 @@ def merge_missing(target, source):
         elif isinstance(target[merge_key], dict) and isinstance(merge_value, dict):
             merge_missing(target[merge_key], merge_value)
 
+# Model overrides are repo-managed compatibility fixes. Source values must win
+# so rerunning install repairs stale or incorrect effort mappings.
+def merge_source_wins(target, source):
+    for merge_key, merge_value in source.items():
+        if isinstance(target.get(merge_key), dict) and isinstance(merge_value, dict):
+            merge_source_wins(target[merge_key], merge_value)
+        else:
+            target[merge_key] = copy.deepcopy(merge_value)
+
 for provider_id, source_provider in source_providers.items():
     if not isinstance(source_provider, dict):
         raise SystemExit(f"provider {provider_id!r} is not an object")
@@ -1853,7 +1862,7 @@ for provider_id, source_provider in source_providers.items():
             if not isinstance(target_overrides, dict):
                 target_provider["modelOverrides"] = copy.deepcopy(source_value)
             else:
-                merge_missing(target_overrides, source_value)
+                merge_source_wins(target_overrides, source_value)
         elif key == "compat" and isinstance(source_value, dict) and isinstance(target_provider.get("compat"), dict):
             merge_missing(target_provider["compat"], source_value)
         elif key not in target_provider:

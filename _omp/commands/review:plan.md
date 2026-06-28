@@ -1,5 +1,5 @@
 ---
-description: Run blocker-focused multi-model plan review using GPT, Kimi K2.5, and Opus 4.6
+description: Run blocker-focused multi-model plan review using GPT, Kimi K2.5, and Opus 4.8 Extra High
 argument-hint: '<existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
 ---
 
@@ -37,12 +37,12 @@ Launch three independent reviews simultaneously:
 - **Task:** Perform blocker/materiality plan review per reviewer-plan-kimi instructions
 - **Output:** Plan file with `[REVIEW:Kimi K2.5]` comments + summary
 
-### Subagent 3: Opus 4.6 Review
+### Subagent 3: Opus 4.8 Extra High Review
 - **Agent:** `reviewer-plan-opus`
-- **Model:** `opencode-zen/claude-opus-4-6`
-- **Reasoning:** High
+- **Model:** `opencode-zen/claude-opus-4-8`
+- **Reasoning:** Extra High
 - **Task:** Perform blocker/materiality plan review per reviewer-plan-opus instructions
-- **Output:** Plan file with `[REVIEW:Opus 4.6]` comments + summary
+- **Output:** Plan file with `[REVIEW:Opus 4.8]` comments + summary
 
 ### Parallel Execution
 
@@ -66,12 +66,12 @@ Task(
 )
 ```
 
-**Task 3: Opus 4.6 Reviewer**
+**Task 3: Opus 4.8 Reviewer**
 ```
 Task(
   subagent_type="reviewer-plan-opus",
-  description="Review plan with Opus 4.6",
-  prompt="Review the plan at $ARGUMENTS. Follow your reviewer-plan-opus instructions exactly. Add [REVIEW:Opus 4.6] comments only for blockers, materially risky gaps, or missing decisions required to execute the stated goal within the validated source scope, then provide a readiness summary."
+  description="Review plan with Opus 4.8",
+  prompt="Review the plan at $ARGUMENTS. Follow your reviewer-plan-opus instructions exactly. Add [REVIEW:Opus 4.8] comments only for blockers, materially risky gaps, or missing decisions required to execute the stated goal within the validated source scope, then provide a readiness summary."
 )
 ```
 
@@ -86,7 +86,7 @@ After receiving all three review outputs:
 - **Reasoning:** High
 - **Task:** 
   1. Read the original plan
-  2. Review all comments from GPT, Kimi K2.5, and Opus 4.6
+  2. Review all comments from GPT, Kimi K2.5, and Opus 4.8
   3. Identify conflicts or agreements between reviewers
   4. Add synthesis comments using `[REVIEW:Synthesis]` format only where they clarify material blockers, materially risky disagreements, or missing decisions that affect readiness
   5. Provide final consolidated summary
@@ -105,12 +105,12 @@ Launch the synthesis review using:
 Task(
   subagent_type="reviewer-plan-gpt5.5",
   description="Synthesize all plan reviews",
-  prompt="Read the plan at $ARGUMENTS which now contains review comments from GPT, Kimi K2.5, and Opus 4.6. Perform a synthesis review following the instructions above. Add [REVIEW:Synthesis] comments only where they clarify material blockers, materially risky disagreements, or missing decisions that affect readiness within the stated scope, then provide a final consolidated summary."
+  prompt="Read the plan at $ARGUMENTS which now contains review comments from GPT, Kimi K2.5, and Opus 4.8. Perform a synthesis review following the instructions above. Add [REVIEW:Synthesis] comments only where they clarify material blockers, materially risky disagreements, or missing decisions that affect readiness within the stated scope, then provide a final consolidated summary."
 )
 ```
 ## Review Integration Output
 
-All four sets of comments (GPT, Kimi K2.5, Opus 4.6, and Synthesis) will be present in the plan file before integration. Only material findings may change the required plan scope during Phase 3.
+All four sets of comments (GPT, Kimi K2.5, Opus 4.8, and Synthesis) will be present in the plan file before integration. Only material findings may change the required plan scope during Phase 3.
 
 ## Summary Format
 
@@ -122,7 +122,7 @@ After completing all reviews, provide:
 ### Reviewers:
 - ✅ GPT (openai-codex/gpt-5.5, high reasoning)
 - ✅ Kimi K2.5 (opencode-zen/hf:moonshotai/Kimi-K2.5, high reasoning)
-- ✅ Opus 4.6 (opencode-zen/claude-opus-4-6, high reasoning)
+- ✅ Opus 4.8 (opencode-zen/claude-opus-4-8, extra high reasoning)
 - ✅ Synthesis (openai-codex/gpt-5.5, high reasoning)
 
 ### Consensus Blockers:
@@ -178,7 +178,7 @@ Treat review comments as required only when they identify a blocker, material ri
 
 #### 3.0) Read Plan and Extract Comments
 - Read the plan file with all review comments
-- Extract all inline review tags: `[REVIEW:GPT]`, `[REVIEW:Kimi K2.5]`, `[REVIEW:Opus 4.6]`, `[REVIEW:Synthesis]`
+- Extract all inline review tags: `[REVIEW:GPT]`, `[REVIEW:Kimi K2.5]`, `[REVIEW:Opus 4.8]`, `[REVIEW:Synthesis]`
 - If no review comments exist, integration is already complete
 
 #### 3.1) Explore Codebase for Context
@@ -234,7 +234,7 @@ After integration completes, provide:
 ### Review Comments Addressed:
 - ✅ GPT comments integrated
 - ✅ Kimi K2.5 comments integrated
-- ✅ Opus 4.6 comments integrated
+- ✅ Opus 4.8 comments integrated
 - ✅ Synthesis comments integrated
 
 ### Open Questions Resolved:
@@ -269,7 +269,7 @@ Input Plan
 Phase 1: Parallel Reviews (3 subagents)
   ├─ GPT Review → [REVIEW:GPT] comments
   ├─ Kimi K2.5 Review → [REVIEW:Kimi K2.5] comments
-  └─ Opus 4.6 Review → [REVIEW:Opus 4.6] comments
+  └─ Opus 4.8 Review → [REVIEW:Opus 4.8] comments
     ↓
 Phase 2: Synthesis (GPT)
   └─ Consolidates material feedback → [REVIEW:Synthesis] comments

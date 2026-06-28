@@ -22,14 +22,14 @@ The launcher owns all Claude Code process mechanics. For required reviews, pass 
 
 - creates a fresh private tmux server from the real caller process,
 - checks `claude auth status` inside that private tmux server as an early signal,
-- starts exactly one interactive Claude TUI with the launcher-internal command pinned to Sonnet 4.6 (`claude --model claude-sonnet-4-6`),
+- starts exactly one interactive Claude TUI with the launcher-internal command pinned to Opus 4.8 on Extra High (`claude --model claude-opus-4-8 --effort xhigh`),
 - pastes the prompt through tmux,
 - extracts only the answer region after the post-submit boundary,
 - writes normalized review text at the beginning of `--output`,
 - tears down successful smoke/review tmux servers,
 - preserves transcript and inspect metadata on failure.
 
-Do not choose or document alternate required-review transports or models. Required Claude Code reviews must use the launcher's Sonnet 4.6 pin. In particular, do not use `claude -p` [FORBIDDEN-EXAMPLE], `claude --print` [FORBIDDEN-EXAMPLE], prompt piping, input redirection, direct `interactive_shell` Claude launches, direct `process` Claude launches, raw tmux Claude snippets outside the launcher, Opus, or model-provider substitutes for a required Claude Code gate.
+Do not choose or document alternate required-review transports or models. Required Claude Code reviews must use the launcher's Opus 4.8 Extra High pin. In particular, do not use `claude -p` [FORBIDDEN-EXAMPLE], `claude --print` [FORBIDDEN-EXAMPLE], prompt piping, input redirection, direct `interactive_shell` Claude launches, direct `process` Claude launches, raw tmux Claude snippets outside the launcher, lower-effort/model substitutions, or model-provider substitutes for a required Claude Code gate.
 
 ## Same-process smoke
 
