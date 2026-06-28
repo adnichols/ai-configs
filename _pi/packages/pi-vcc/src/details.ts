@@ -1,3 +1,5 @@
+import type { CompactionIntent, CompactionReason } from "./types";
+
 export interface PiVccCompactionDetails {
   compactor: "pi-vcc";
   version: number;
@@ -6,4 +8,7 @@ export interface PiVccCompactionDetails {
   previousSummaryUsed: boolean;
   interruptedInFlightTurn?: boolean;
   requiresContinuation?: boolean;
+  reason?: CompactionReason;
+  willRetry?: boolean;
+  compactionIntent?: CompactionIntent;
 }

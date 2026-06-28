@@ -4,7 +4,11 @@ import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { compile } from "../core/summarize";
+import { parseKeepAndPrompt, PI_VCC_COMPACT_INSTRUCTION } from "../core/compact-args";
 import type { PiVccCompactionDetails } from "../details";
+import type { CompactionIntent, CompactionReason } from "../types";
+
+export { PI_VCC_COMPACT_INSTRUCTION } from "../core/compact-args";
 
 const CONFIG_PATH = join(homedir(), ".pi", "agent", "pi-vcc-config.json");
 const MIN_MESSAGES_TO_COMPACT = 3;
@@ -19,6 +23,9 @@ export interface CompactionStats {
   summarized: number;
   kept: number;
   keptTokensEst: number;
+  reason?: CompactionReason;
+  willRetry?: boolean;
+  compactionIntent?: CompactionIntent;
 }
 
 let lastStats: CompactionStats | null = null;
@@ -35,6 +42,44 @@ const loadConfig = (): PiVccConfig => {
 const dbg = (config: PiVccConfig, data: Record<string, unknown>) => {
   if (!config.debug) return;
   try { writeFileSync("/tmp/pi-vcc-debug.json", JSON.stringify(data, null, 2)); } catch {}
+};
+
+const readCompactionEventContext = (event: unknown): { reason?: CompactionReason; willRetry: boolean } => {
+  const raw = event as { reason?: unknown; willRetry?: unknown };
+  const reason = raw.reason === "manual" || raw.reason === "threshold" || raw.reason === "overflow"
+    ? raw.reason
+    : undefined;
+  return { reason, willRetry: raw.willRetry === true };
+};
+
+const parseCompactionIntent = (customInstructions?: string): CompactionIntent | undefined => {
+  const trimmed = customInstructions?.trim();
+  if (!trimmed?.startsWith(PI_VCC_COMPACT_INSTRUCTION)) return undefined;
+  const payload = trimmed.slice(PI_VCC_COMPACT_INSTRUCTION.length).trim();
+  const jsonStart = payload.indexOf("{");
+  if (jsonStart < 0) return undefined;
+  try {
+    const parsed = JSON.parse(payload.slice(jsonStart));
+    if (!parsed || typeof parsed !== "object") return undefined;
+    const intent: CompactionIntent = {};
+    for (const key of ["source", "reason", "boundary", "preserve"] as const) {
+      const value = parsed[key];
+      const cleaned = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+      if (cleaned) intent[key] = cleaned.slice(0, 500);
+    }
+    return Object.keys(intent).length ? intent : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const parseKeepOptions = (customInstructions?: string): { keepUserTurns: number; explicit: boolean } => {
+  const trimmed = customInstructions?.trim();
+  if (!trimmed?.startsWith(PI_VCC_COMPACT_INSTRUCTION)) return { keepUserTurns: 1, explicit: false };
+  const payload = trimmed.slice(PI_VCC_COMPACT_INSTRUCTION.length);
+  const parsed = parseKeepAndPrompt(payload);
+  const fallback = parsed.keepUserTurnsExplicit ? parsed : parseKeepAndPrompt(payload.replace(/\{[\s\S]*$/, ""));
+  return { keepUserTurns: fallback.keepUserTurns ?? 1, explicit: fallback.keepUserTurnsExplicit };
 };
 
 const previewContent = (content: unknown): string => {
@@ -117,20 +162,25 @@ const inferActiveTurnFromBranchEntries = (branchEntries: any[]): boolean => {
   return false;
 };
 
-function buildOwnCut(branchEntries: any[]): { messages: any[]; firstKeptEntryId: string } | null {
+function buildOwnCut(
+  branchEntries: any[],
+  keepUserTurns = 1,
+  keepUserTurnsExplicit = false,
+): { messages: any[]; firstKeptEntryId: string } | null {
   const liveMessages = liveMessagesSinceLastCompaction(branchEntries);
 
   if (liveMessages.length < MIN_MESSAGES_TO_COMPACT) return null;
 
-  let cutIdx = -1;
-  for (let i = liveMessages.length - 1; i > 0; i--) {
-    if (liveMessages[i].message.role === "user") {
-      cutIdx = i;
-      break;
-    }
-  }
+  const normalizedKeepUserTurns = Number.isFinite(keepUserTurns) ? Math.max(1, Math.floor(keepUserTurns)) : 1;
+  const userIndices = liveMessages.reduce<number[]>((acc, entry, index) => {
+    if (entry.message.role === "user") acc.push(index);
+    return acc;
+  }, []);
+
+  let cutIdx = userIndices[userIndices.length - normalizedKeepUserTurns] ?? -1;
 
   if (cutIdx <= 0) {
+    if (keepUserTurnsExplicit) return null;
     if (liveMessages.length <= AGENT_ONLY_FALLBACK_TAIL_MESSAGES) return null;
     cutIdx = liveMessages.length - AGENT_ONLY_FALLBACK_TAIL_MESSAGES;
     cutIdx = adjustCutIdxForToolResult(liveMessages, cutIdx);
@@ -199,13 +249,21 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
   });
 
   pi.on("session_before_compact", (event) => {
-    const { preparation, branchEntries } = event;
+    const { preparation, branchEntries, customInstructions } = event;
+    const { reason, willRetry } = readCompactionEventContext(event);
+    const compactionIntent = parseCompactionIntent(customInstructions);
     const compactingActiveTurn =
       (agentTurnActive && !activeAgentFinishedResponse) || inferActiveTurnFromBranchEntries(branchEntries as any[]);
-    if (compactingActiveTurn) agentTurnActive = false;
 
-    const ownCut = buildOwnCut(branchEntries as any[]);
-    if (!ownCut) return { cancel: true };
+    const keepOptions = parseKeepOptions(customInstructions);
+    const ownCut = buildOwnCut(branchEntries as any[], keepOptions.keepUserTurns, keepOptions.explicit);
+    if (!ownCut) {
+      const piVccBypass = customInstructions?.startsWith(PI_VCC_COMPACT_INSTRUCTION) ?? false;
+      if (!piVccBypass && (reason === "manual" || reason === "threshold" || reason === "overflow" || willRetry)) return;
+      return { cancel: true };
+    }
+
+    if (compactingActiveTurn) agentTurnActive = false;
 
     const agentMessages = ownCut.messages;
     const firstKeptEntryId = ownCut.firstKeptEntryId;
@@ -232,12 +290,16 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       summarized: agentMessages.length,
       kept: keptEntries.length,
       keptTokensEst: Math.round(keptChars / 4),
+      reason,
+      willRetry,
+      compactionIntent,
     };
 
     const config = loadConfig();
     const summary = compile({
       messages,
       previousSummary: preparation.previousSummary,
+      compactionIntent,
       fileOps: {
         readFiles: [...preparation.fileOps.read],
         modifiedFiles: [...preparation.fileOps.written, ...preparation.fileOps.edited],
@@ -267,6 +329,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       summaryLength: summary.length,
       summaryPreview: summary.slice(0, 500),
       sections: [...summary.matchAll(/^\[(.+?)\]/gm)].map((m) => m[1]),
+      compaction: { reason, willRetry, compactionIntent },
     });
 
     const details: PiVccCompactionDetails = {
@@ -277,6 +340,9 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       previousSummaryUsed: Boolean(preparation.previousSummary),
       interruptedInFlightTurn: compactingActiveTurn,
       requiresContinuation: compactingActiveTurn && event.willRetry !== true,
+      reason,
+      willRetry,
+      compactionIntent,
     };
 
     return {

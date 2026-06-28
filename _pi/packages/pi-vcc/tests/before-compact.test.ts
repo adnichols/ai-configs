@@ -153,6 +153,86 @@ describe("package load marker", () => {
   });
 });
 
+describe("compaction intent and overflow fallback", () => {
+  it("parses marker plus JSON intent into summary and details", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: compactableEntries(),
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","reason":"done","boundary":"subtask_complete","preserve":"keep tests"}',
+    });
+
+    expect(result.cancel).toBeUndefined();
+    expect(result.compaction.summary).toContain("[Compaction Intent]");
+    expect(result.compaction.summary).toContain("reason=done");
+    expect(result.compaction.summary).toContain("preserve=keep tests");
+    expect(result.compaction.details.compactionIntent).toEqual({
+      source: "compact_context",
+      reason: "done",
+      boundary: "subtask_complete",
+      preserve: "keep tests",
+    });
+  });
+
+  it("ignores malformed marker JSON payload but keeps marker behavior", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: compactableEntries(),
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context"',
+    });
+
+    expect(result.cancel).toBeUndefined();
+    expect(result.compaction.summary).not.toContain("[Compaction Intent]");
+    expect(result.compaction.details.compactionIntent).toBeUndefined();
+  });
+
+  it("lets core retry overflow compaction when pi-vcc cannot form a cut", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: [messageEntry("1", userMsg("too small"))],
+      reason: "overflow",
+      willRetry: true,
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it("lets the hard backstop fall back when pi-vcc cannot form a cut", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: [messageEntry("1", userMsg("too small"))],
+      reason: "threshold",
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it("cancels instead of ignoring trailing keep after manual JSON-like instructions", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: compactableEntries(),
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\npreserve {"ticket":"ADN"} keep:2',
+    });
+
+    expect(result).toEqual({ cancel: true });
+  });
+
+  it("cancels instead of falling back when explicit keep would keep all user turns", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: compactableEntries(),
+      customInstructions: "__PI_VCC_MANUAL_BYPASS__\nkeep:2",
+    });
+
+    expect(result).toEqual({ cancel: true });
+  });
+});
+
 describe("active compaction continuation", () => {
   it("resumes the agent after compacting an in-flight turn", async () => {
     const { handlers, sentUserMessages, sentMessages, ctx } = await getRegisteredHandlers();
@@ -325,5 +405,24 @@ describe("active compaction continuation", () => {
     await delay();
 
     expect(sentMessages).toHaveLength(0);
+  });
+
+  it("preserves active-turn state after canceled compaction", async () => {
+    const { handlers } = await getRegisteredHandlers();
+
+    handlers.agent_start[0]({ type: "agent_start" });
+    const canceled = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: [messageEntry("1", userMsg("too small"))],
+      customInstructions: "__PI_VCC_MANUAL_BYPASS__",
+    });
+    expect(canceled).toEqual({ cancel: true });
+
+    const result = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: compactableEntries(),
+    });
+    expect(result.compaction.details.interruptedInFlightTurn).toBe(true);
+    expect(result.compaction.details.requiresContinuation).toBe(true);
   });
 });

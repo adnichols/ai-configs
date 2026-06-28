@@ -1,4 +1,4 @@
-import type { NormalizedBlock } from "../types";
+import type { CompactionIntent, NormalizedBlock } from "../types";
 import { clip, firstLine, nonEmptyLines } from "./content";
 import type { SectionData } from "../sections";
 import { extractGoals } from "../extract/goals";
@@ -8,6 +8,7 @@ import { buildBriefSections, sectionsToTranscript, stringifyBrief } from "./brie
 
 export interface BuildSectionsInput {
   blocks: NormalizedBlock[];
+  compactionIntent?: CompactionIntent;
 }
 
 const BLOCKER_RE =
@@ -53,11 +54,32 @@ const formatFileActivity = (blocks: NormalizedBlock[]): string[] => {
   return lines;
 };
 
+const intentText = (value?: string): string | undefined => {
+  const cleaned = value?.replace(/\s+/g, " ").trim();
+  return cleaned ? clip(cleaned, 500) : undefined;
+};
+
+const formatCompactionIntent = (intent?: CompactionIntent): string[] => {
+  if (!intent) return [];
+  const source = intentText(intent.source);
+  const boundary = intentText(intent.boundary);
+  const reason = intentText(intent.reason);
+  const preserve = intentText(intent.preserve);
+  const parts = [
+    source ? `source=${source}` : "",
+    boundary ? `boundary=${boundary}` : "",
+    reason ? `reason=${reason}` : "",
+    preserve ? `preserve=${preserve}` : "",
+  ].filter(Boolean);
+  return parts.length ? [parts.join("; ")] : [];
+};
+
 export const buildSections = (input: BuildSectionsInput): SectionData => {
   const { blocks } = input;
   const briefSections = buildBriefSections(blocks);
   return {
     sessionGoal: extractGoals(blocks),
+    compactionIntent: formatCompactionIntent(input.compactionIntent),
     outstandingContext: extractOutstandingContext(blocks),
     filesAndChanges: formatFileActivity(blocks),
     userPreferences: extractPreferences(blocks),

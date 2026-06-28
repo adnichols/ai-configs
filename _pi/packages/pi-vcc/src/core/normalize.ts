@@ -33,6 +33,7 @@ const normalizeOne = (msg: PiMessage, msgIndex: number): NormalizedBlock[] => {
       name: msg.toolName,
       text: sanitize(textOf(msg.content)),
       isError: msg.isError,
+      toolCallId: msg.toolCallId,
       sourceIndex: msgIndex,
     }];
   }
@@ -59,6 +60,7 @@ const normalizeOne = (msg: PiMessage, msgIndex: number): NormalizedBlock[] => {
           kind: "tool_call",
           name: part.name,
           args: part.arguments,
+          toolCallId: part.id,
           sourceIndex: msgIndex,
         });
       }

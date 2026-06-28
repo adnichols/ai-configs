@@ -4,17 +4,17 @@ Vendored into `ai-configs` from `sting8k/pi-vcc` so this repo can ship a pinned 
 
 - Source: `https://github.com/sting8k/pi-vcc`
 - Local package version: `0.3.6-ai-configs.1`
-- Reviewed upstream version: `0.3.15`
-- Reviewed upstream commit: `b4c9099c78863769bec8f6f3ee3861c1e094db9e`
+- Reviewed upstream version: `0.3.18`
+- Reviewed upstream commit: `45e93e85d30da774c7b20212f192cae40b5beef4`
 - License: MIT
 - Local changes and selective uptake:
   - `/pi-vcc` carries the `__PI_VCC_MANUAL_BYPASS__` marker directly in-source so repo-managed auto-compaction and manual compaction both use pi-vcc without global patching
   - the compaction hook keeps the repo-local agent-only fallback tail and shifts the cut backward so a live `toolResult` never outlives its matching assistant tool call
   - when pi-vcc compacts before the assistant has finished its response, it sends a follow-up continue prompt after compaction so the agent resumes instead of stalling, with a reminder to use `vcc_recall` for pre-compaction details; compactions at the completed-response boundary stay silent
-  - high-value upstream `0.3.15` uptake is intentionally narrow: TUI-safe wrapping for final compiled summaries plus `bashExecution` normalization/search/report correctness fixes
+  - high-value upstream `0.3.18` uptake is intentionally selective: TUI-safe wrapping, `bashExecution` normalization/search/report correctness fixes, keep-token parsing, compaction reason/willRetry metadata, and overflow retry fallback; upstream commit extraction is intentionally skipped/deferred because commit details remain available through transcript and recall
   - this vendored copy preserves redaction, including compressed bash command redaction, even though upstream removed `src/core/redact.ts`
   - this vendored copy intentionally does **not** append the upstream `vcc_recall` reminder note to every summary; this repo keeps the pre-existing summary output contract while still stripping older injected note lines during merge
-  - this vendored copy intentionally skips upstream active-lineage recall, commits-section extraction, settings scaffold, compact-all sentinel/orphan recovery, broad summary-quality churn, peer dependency range changes, tool-error omission, and binary demo assets
+  - this vendored copy intentionally skips upstream active-lineage recall, settings scaffold, compact-all sentinel/orphan recovery, broad summary-quality churn, peer dependency range changes, tool-error omission, and binary demo assets
   - local tests and harnesses cover the repo-specific compaction safety contract and package-wide verification flow
 
 Algorithmic conversation compactor for [Pi](https://github.com/badlogic/pi-mono). No LLM calls — produces a brief transcript via extraction and formatting.
@@ -32,7 +32,7 @@ Inspired by [VCC](https://github.com/lllyasviel/VCC) **(View-oriented Conversati
 | **History after compaction** | Gone — agent only sees summary | Fully searchable via `vcc_recall` |
 | **Repeated compactions** | Each rewrite risks losing more | Sections merge and accumulate |
 | **Cost** | Burns tokens on summarization call | Zero — no API calls |
-| **Structure** | Free-form prose | Brief transcript + 4 semantic sections |
+| **Structure** | Free-form prose | Brief transcript + bounded semantic sections |
 
 ### Real session metrics
 
@@ -52,7 +52,7 @@ Measured on real session JSONLs under `~/.pi/agent/sessions` (chars = rendered m
 
 - **No LLM** — purely algorithmic, zero extra API cost
 - **Brief transcript** — chronological conversation flow, each tool call collapsed to a one-liner with `(#N)` refs, `bashExecution` commands rendered as user actions, text truncated to keep it compact
-- **4 semantic sections** — session goal, files & changes, outstanding context, user preferences
+- **Semantic sections** — session goal, files & changes, compaction intent when present, outstanding context, and user preferences
 - **Bounded merge** — rolling sections re-capped after merge instead of growing unbounded
 - **Lossless recall** — `vcc_recall` reads raw session JSONL, so old history stays searchable across compactions
 - **Regex search** — `vcc_recall` supports regex patterns (`hook|inject`, `fail.*build`) and OR-ranked multi-word queries

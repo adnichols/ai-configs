@@ -2,7 +2,7 @@
   "name": "@adnichols/pi-vcc",
   "private": true,
   "version": "0.3.6-ai-configs.1",
-  "description": "Vendored pi-vcc extension for pi with selective upstream 0.3.15 fixes plus repo-specific compaction behavior",
+  "description": "Vendored pi-vcc extension for pi with selective upstream 0.3.18 fixes plus repo-specific compaction behavior",
   "main": "index.ts",
   "keywords": [
     "pi-package",

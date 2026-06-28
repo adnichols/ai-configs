@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi VCC Semantic Compaction Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1e293b;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #67e8f9;
+      --accent-2: #a78bfa;
+      --border: #334155;
+      --code: #020617;
+      --warn: #fbbf24;
+      --ok: #34d399;
+    }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(103, 232, 249, 0.08), transparent 32rem), var(--bg);
+      color: var(--text);
+      font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(1180px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 40px 0 72px;
+    }
+    header, section, article {
+      background: rgba(17, 24, 39, 0.82);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      margin: 18px 0;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
+    }
+    h1, h2, h3 { line-height: 1.2; margin: 0 0 12px; }
+    h1 { font-size: clamp(2rem, 5vw, 3.6rem); letter-spacing: -0.04em; }
+    h2 { color: #f8fafc; font-size: 1.55rem; }
+    h3 { color: #dbeafe; font-size: 1.15rem; margin-top: 18px; }
+    p { margin: 0 0 12px; }
+    a { color: var(--accent); }
+    code, pre { background: var(--code); color: #d1fae5; border-radius: 10px; }
+    code { padding: 0.15em 0.35em; }
+    pre { padding: 14px; overflow-x: auto; border: 1px solid var(--border); }
+    ul, ol { padding-left: 1.3rem; }
+    li { margin: 0.35rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px; vertical-align: top; }
+    th { background: var(--panel-2); text-align: left; }
+    .muted { color: var(--muted); }
+    .badge { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; margin-right: 8px; color: var(--accent); background: rgba(103, 232, 249, 0.08); }
+    .toc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .toc-card { background: rgba(30, 41, 59, 0.58); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .toc-card strong { display: block; margin-bottom: 8px; color: #f8fafc; }
+    .toc-card a { display: block; margin: 6px 0; text-decoration: none; }
+    .phase { border-left: 4px solid var(--accent-2); }
+    .criteria { border-left: 4px solid var(--ok); }
+    .risk { border-left: 4px solid var(--warn); }
+    .checks label { display: block; margin: 8px 0; }
+  </style>
+</head>
+<body>
+<main>
+  <header id="plan-header">
+    <p><span class="badge">Reviewed plan</span><span class="badge">Execution-ready: true</span></p>
+    <h1>Pi VCC Semantic Compaction Plan</h1>
+    <p class="muted">Plan to improve the vendored Pi VCC compaction extension. The strategy keeps VCC as the default compactor while adding model-driven semantic timing, selective upstream fixes, and DCP-style pruning. Commit-aware durable context is deferred.</p>
+  </header>
+
+  <section id="toc" aria-labelledby="toc-title">
+    <h2 id="toc-title">Table of contents</h2>
+    <div class="toc-grid">
+      <div class="toc-card">
+        <strong>Overview</strong>
+        <a href="#goal">Goal</a>
+        <a href="#non-goals">Non-goals</a>
+        <a href="#current-baseline">Current baseline</a>
+      </div>
+      <div class="toc-card">
+        <strong>Execution</strong>
+        <a href="#progress">Progress</a>
+        <a href="#phase-1-upstream">Phase 1 — Upstream uptake</a>
+        <a href="#phase-2-semantic-timing">Phase 2 — Semantic timing</a>
+        <a href="#phase-3-pruning">Phase 3 — Cheap pruning</a>
+        <a href="#phase-4-commits">Phase 4 — Commit context</a>
+        <a href="#phase-5-controls">Phase 5 — Controls</a>
+        <a href="#phase-6-rollout">Phase 6 — Rollout</a>
+      </div>
+      <div class="toc-card">
+        <strong>Quality gates</strong>
+        <a href="#acceptance-criteria">Acceptance criteria</a>
+        <a href="#verification">Verification</a>
+        <a href="#risks">Risks</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Improve the vendored Pi VCC compaction path while preserving its core strengths: deterministic algorithmic summaries, no extra LLM call, searchable raw-history recall, final redaction, and safe in-flight continuation.</p>
+    <p>The recommended target outcome is <strong>VCC plus model-driven semantic compaction plus bounded pruning</strong>: shift the old static 60% auto-trigger into a soft LLM nudge/tool affordance, and keep a higher hard automatic backstop around 80% for safety. Commit-aware recovery is deferred for this pass.</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Do not disable the existing vendored VCC path.</li>
+      <li>Do not add a full external memory database or background dreamer process.</li>
+      <li>Do not broaden compaction into unrelated Pi workflow changes.</li>
+    </ul>
+  </section>
+
+  <section id="current-baseline">
+    <h2>Current baseline</h2>
+    <ul>
+      <li><code>_pi/packages/pi-vcc</code> is vendored from <code>sting8k/pi-vcc</code>, locally versioned as <code>0.3.6-ai-configs.1</code>, and reviewed through upstream <code>0.3.15</code>.</li>
+      <li><code>_pi/extensions/percentage-compaction.ts</code> proactively triggers pi-vcc at a 60% context threshold and blocks fallback to unsafe default compaction when pi-vcc is missing.</li>
+      <li>Local deltas include the manual bypass marker, agent-only fallback tail, tool-result boundary safety, continuation after in-flight compaction, and final redaction preservation.</li>
+    </ul>
+  </section>
+
+  <section id="progress" class="checks">
+    <h2>Progress</h2>
+    <label><input type="checkbox" checked /> Phase 1 — selective upstream uptake complete</label>
+    <label><input type="checkbox" checked /> Phase 2 — semantic timing implemented</label>
+    <label><input type="checkbox" checked /> Phase 3 — cheap pruning implemented</label>
+    <label><input type="checkbox" checked /> Phase 4 — commit-aware context deferred/removed</label>
+    <label><input type="checkbox" checked /> Phase 5 — minimal status/control updates complete</label>
+    <label><input type="checkbox" /> Phase 6 — verification and rollout complete</label>
+  </section>
+
+  <article id="phase-1-upstream" class="phase">
+    <h2>Phase 1 — Selective upstream 0.3.18 uptake</h2>
+    <p>Diff the vendored package against upstream <code>sting8k/pi-vcc@0.3.18</code> and merge only compatible fixes.</p>
+    <h3>Include</h3>
+    <ul>
+      <li>Compaction event <code>reason</code> / <code>willRetry</code> handling.</li>
+      <li>Overflow retry fallback behavior so recovery can fall back to Pi core only when appropriate.</li>
+      <li>Improved <code>/compact keep:N</code> parsing aligned with <code>/pi-vcc keep:N</code>.</li>
+      <li>Marker leakage fixes and stats/toast edge-case fixes.</li>
+      <li>Skip upstream commit-section extraction for this pass; commit details remain available through transcript and recall.</li>
+    </ul>
+    <h3>Drift metadata and checker work</h3>
+    <ul>
+      <li>Update <code>_pi/packages/pi-vcc/README.md</code> to record reviewed upstream version <code>0.3.18</code> and the exact reviewed upstream commit.</li>
+      <li>Update <code>_pi/packages/pi-vcc/package.json</code> only for repo-local package metadata that must change; do not replace the local fork version with upstream’s package version unless the repo convention requires it.</li>
+      <li>Update <code>scripts/check-pi-vcc-upstream.sh</code> <code>EXPECTED_LOCAL_DIFFS</code> so every intentional local fork delta and deliberately skipped upstream path is documented against the new reviewed commit.</li>
+      <li>Run <code>bash ./scripts/check-pi-vcc-upstream.sh</code>; stale reviewed metadata or unexpected path drift is a blocker.</li>
+    </ul>
+    <h3>Preserve</h3>
+    <ul>
+      <li>Final redaction transform.</li>
+      <li>Agent-only fallback tail.</li>
+      <li>In-flight continuation prompt.</li>
+      <li>Repo-managed percentage threshold and manual bypass marker.</li>
+      <li>Existing summary output contract unless changed explicitly in this plan.</li>
+    </ul>
+  </article>
+
+  <article id="phase-2-semantic-timing" class="phase">
+    <h2>Phase 2 — SelfCompact-style semantic timing</h2>
+    <p>Replace the static 60% auto-trigger with a SelfCompact-style model-controlled path. The model should decide when to compact at semantic boundaries, while the runtime retains a higher hard backstop to prevent overflow.</p>
+    <h3>Recommended thresholds</h3>
+    <ul>
+      <li><code>COMPACTION_NUDGE_PERCENT = 60</code>: soft nudge only. Do not auto-compact here.</li>
+      <li><code>COMPACTION_STRONG_NUDGE_PERCENT = 75</code>: stronger nudge and status warning. Still do not auto-compact solely because of this threshold.</li>
+      <li><code>HARD_AUTO_COMPACTION_PERCENT = 80</code>: runtime safety backstop. Auto-compact at this level even if the model has not chosen to compact.</li>
+      <li><code>FAILURE_DELAY_TURNS = 1</code>: suppress soft nudges immediately after fresh failure output so the model can use the evidence before being asked to compact.</li>
+    </ul>
+    <h3>Model-driven compaction tool</h3>
+    <ul>
+      <li>Register an LLM-callable <code>compact_context</code> tool from <code>_pi/extensions/percentage-compaction.ts</code> using <code>pi.registerTool</code>.</li>
+      <li>Tool parameters: <code>reason</code> (required short string), <code>preserve</code> (optional short instructions), and <code>boundary</code> enum such as <code>subtask_complete</code>, <code>before_topic_switch</code>, <code>after_test_loop</code>, <code>manual_recovery</code>.</li>
+      <li>Tool guidance shown to the model through <code>promptSnippet</code> / <code>promptGuidelines</code>: use <code>compact_context</code> after a subtask resolves, before switching topics, after a test/debug loop has been interpreted, or when context is becoming noisy; do not use it mid-tool-chain, mid-derivation, immediately after fresh failure output, or while critical raw evidence has not been summarized.</li>
+      <li><code>compact_context</code> does <strong>not</strong> call <code>ctx.compact</code> directly from inside tool execution. It records <code>pendingModelCompaction = { reason, boundary, preserve, requestedTurn, toolBatchId, sawSiblingTools }</code>, returns a tool result saying compaction is queued for a safe boundary, and lets the <code>turn_end</code> state machine trigger compaction only after the tool result has been delivered and sibling tool-output safety is satisfied.</li>
+      <li>When the queued request is executed, pass custom instructions as <code>PI_VCC_MANUAL_BYPASS_MARKER + "\n" + JSON.stringify({ source: "compact_context", reason, boundary, preserve })</code> so the bypass marker still works and pi-vcc receives the model’s intent.</li>
+      <li>Update pi-vcc <code>session_before_compact</code> / summary input handling to parse the JSON payload after the marker. The <code>reason</code>, <code>boundary</code>, and optional <code>preserve</code> become a short <code>[Compaction Intent]</code> note in the generated VCC summary. If <code>preserve</code> is absent, omit it; if malformed, ignore only the JSON payload and keep the marker bypass behavior.</li>
+      <li>The tool remains available below 60% for explicit model judgment, but nudges should normally start only at 60% to avoid unnecessary early compaction.</li>
+    </ul>
+    <h3>Model-visible nudge delivery</h3>
+    <ul>
+      <li>Soft/strong nudges must be LLM-visible, not only operator UI notifications. Use <code>pi.sendMessage({ customType: "compaction-nudge", content, display: true, details }, { deliverAs: "steer", triggerTurn: true })</code>.</li>
+      <li>Use <code>deliverAs: "steer"</code> so nudges are delivered after the current assistant turn finishes tool calls and before the next LLM call; this avoids interrupting an active tool chain while still reaching the model.</li>
+      <li>The nudge content must name <code>compact_context</code>, current usage band, hard backstop threshold, and the semantic-boundary rubric. It must say that 60%/75% are nudges only and not instructions to compact immediately.</li>
+      <li>Rate limiting: send at most one soft nudge per crossing into the 60–74% band and at most one strong nudge per crossing into the 75–79% band. Reset the band after successful compaction or after usage drops below that band.</li>
+      <li>Use <code>ctx.ui.notify</code> only as a secondary operator-visible mirror; tests must prove the model-visible <code>sendMessage</code> path fires.</li>
+    </ul>
+    <h3>Runtime state machine</h3>
+    <ul>
+      <li>Add module state in <code>_pi/extensions/percentage-compaction.ts</code>: <code>lastNudgePercentBand</code>, <code>lastNudgeTurn</code>, <code>pendingModelCompaction</code>, <code>lastAutoCompactionPercent</code>, <code>lastFailureTurn</code>, and existing <code>compactionInFlight</code>.</li>
+      <li>On each <code>turn_end</code>, increment a local turn counter before evaluating state.</li>
+      <li>Below 60%, show no automatic nudge and never auto-compact solely from threshold logic.</li>
+      <li>If <code>pendingModelCompaction</code> exists and the triggering assistant tool batch contained only <code>compact_context</code>, the first post-tool <code>turn_end</code> may trigger pi-vcc compaction with the marker+JSON custom instructions, then clear pending request on completion/error. Do not also emit a soft/strong nudge on that same turn.</li>
+      <li>Mixed tool-batch guard: if <code>compact_context</code> was called in the same assistant message as any sibling tool call, do <strong>not</strong> compact on the immediate post-tool boundary. Defer until a later completed assistant/non-tool boundary after the model has had a chance to interpret sibling tool outputs. This prevents compaction before fresh sibling evidence is summarized.</li>
+      <li>At or above 60%, send a model-visible soft compaction nudge at most once per band crossing, telling the model that <code>compact_context</code> is available when it reaches a safe semantic boundary.</li>
+      <li>At or above 75%, send a model-visible stronger nudge and status warning, but still leave the decision to the model unless 80% is reached.</li>
+      <li>At or above 80%, trigger pi-vcc compaction automatically as the hard backstop, preserving existing in-flight continuation and tool-call boundary safeguards.</li>
+      <li>Detected failure output means the immediately preceding completed tool result or assistant-visible result contains failure markers such as nonzero exit, <code>failed</code>, <code>error</code>, <code>exception</code>, or test-failure summaries; soft/strong nudges wait for <code>FAILURE_DELAY_TURNS</code>, but the 80% hard backstop still applies.</li>
+      <li>Stale-percent ratchet: after a successful hard backstop compaction or an "already/nothing to compact" result, record the exact percent; suppress repeat auto-compaction while usage percent is unchanged.</li>
+      <li><code>session_before_compact</code> keeps the missing-pi-vcc guard, manual bypass handling, stale-percent guard, and overflow-retry behavior from Phase 1.</li>
+    </ul>
+    <h3>Manual behavior</h3>
+    <ul>
+      <li><code>/compact-now</code> remains an immediate human/operator bypass through pi-vcc.</li>
+      <li>The model should prefer <code>compact_context</code>; humans can still use <code>/compact-now</code>.</li>
+    </ul>
+  </article>
+
+  <article id="phase-3-pruning" class="phase">
+    <h2>Phase 3 — DCP-style cheap pruning before VCC summary</h2>
+    <p>Add low-risk deterministic pruning before summary rendering. The pruning must never mutate persisted session history; it only changes what enters the compacted summary.</p>
+    <h3>Insertion point</h3>
+    <ul>
+      <li>Add a small deterministic pruning stage after normalization/noise filtering and before <code>buildSections</code> / <code>brief</code> rendering, so persisted session JSONL remains untouched.</li>
+      <li>Keep the current kept tail unpruned. Pruning applies only to the portion being summarized.</li>
+    </ul>
+    <h3>Locked pruning rules</h3>
+    <ol>
+      <li><strong>Repeated tool-call dedup:</strong> compute a stable key from normalized tool name plus canonical JSON arguments. For duplicate keys, preserve the newest tool call/result pair and replace older result content with <code>[Older duplicate tool result pruned; latest result kept at #N]</code>. Keep the older tool call identity and arguments summary.</li>
+      <li><strong>Errored tool input pruning:</strong> after <code>ERROR_PRUNE_AFTER_TURNS = 4</code> summarized turns, prune bulky failed-tool input payloads over <code>ERROR_INPUT_PRUNE_THRESHOLD_CHARS = 2000</code>. Preserve tool name, command/argument summary, nonzero/error status, and first error line.</li>
+      <li><strong>Large output caps:</strong> cap repeated search output and package-manager logs to <code>MAX_PRUNED_TOOL_RESULT_CHARS = 1200</code> while retaining first real error, final status line, and file paths. Existing VCC brief caps remain the fallback for non-pruned outputs.</li>
+      <li><strong>Protected outputs:</strong> never prune user messages, current kept tail, explicit plan-review outputs, subagent final results, todo state, compaction summaries, or outputs from tools classified as protected in tests.</li>
+    </ol>
+    <h3>Required pruning tests</h3>
+    <ul>
+      <li>Duplicate tool calls retain the latest result and replace only older result content with the locked placeholder.</li>
+      <li>Errored tool input pruning preserves command identity and error evidence.</li>
+      <li>Protected outputs and kept tail entries are not pruned.</li>
+    </ul>
+  </article>
+
+  <article id="phase-4-commits" class="phase deferred">
+    <h2>Phase 4 — Commit/git-aware durable context — deferred</h2>
+    <p>Deferred after implementation review: bounded <code>[Commits]</code> extraction added substantial parser complexity and ambiguous git-output failure modes without clear enough product value for this pass.</p>
+    <ul>
+      <li>Do not emit a <code>[Commits]</code> section from VCC summaries in this plan.</li>
+      <li>Remove local commit extraction wiring and tests from the active implementation scope.</li>
+      <li>Keep commit details recoverable through existing transcript/recall surfaces instead of promoting them into durable summary headers.</li>
+    </ul>
+  </article>
+
+  <article id="phase-5-controls" class="phase">
+    <h2>Phase 5 — Minimal tuning and operator controls</h2>
+    <p>This phase is constrained to controls needed to make Phases 1–3 observable and safe. Do not add a broad settings system.</p>
+    <pre><code>COMPACTION_NUDGE_PERCENT = 60
+COMPACTION_STRONG_NUDGE_PERCENT = 75
+HARD_AUTO_COMPACTION_PERCENT = 80
+FAILURE_DELAY_TURNS = 1</code></pre>
+    <ul>
+      <li>Update <code>/compact-status</code> to show usage, nudge threshold, strong nudge threshold, hard auto-compaction threshold, last nudge band, and last compaction reason.</li>
+      <li>Keep <code>/compact-now</code> as the manual immediate bypass. Add <code>force</code> only if a test proves the existing manual bypass cannot cover the operator recovery case.</li>
+      <li>Keep old VCC behavior reachable via minimal constant changes during rollout.</li>
+    </ul>
+  </article>
+
+  <article id="phase-6-rollout" class="phase">
+    <h2>Phase 6 — Verification and rollout</h2>
+    <ul>
+      <li>Run <code>bash ./scripts/check-pi-vcc-upstream.sh</code> after upstream metadata/checker updates.</li>
+      <li>Run <code>bun test</code> in <code>_pi/packages/pi-vcc</code>.</li>
+      <li>Update and run <code>bun test scripts/percentage-compaction.test.ts</code>; replace old 60% auto-compaction expectations with model-visible soft/strong nudge behavior, queued <code>compact_context</code> execution, marker+JSON custom instructions, and 80% hard backstop behavior.</li>
+      <li>Run <code>./install.sh --pi</code> after implementation to validate install wiring.</li>
+      <li>Run the full end-to-end Pi compaction evaluation matrix in the Verification section before claiming success.</li>
+      <li>Ship only after the E2E evidence log shows multiple long-running sessions, multiple model-driven and hard-backstop compactions, continuation after compaction, no threshold-only compaction at 60%/75%, working recall, and expected semantic nudging behavior.</li>
+    </ul>
+  </article>
+
+  <section id="acceptance-criteria" class="criteria">
+    <h2>Acceptance criteria</h2>
+    <ol>
+      <li id="ac-1">VCC remains the default compaction path for Pi in this repo.</li>
+      <li id="ac-2">Crossing 60% or 75% does not auto-compact; it sends a rate-limited model-visible <code>pi.sendMessage</code> nudge toward using <code>compact_context</code> at a safe semantic boundary.</li>
+      <li id="ac-3">The model can invoke <code>compact_context</code> for queued semantic-boundary compaction, the marker+JSON intent is preserved into VCC summary input, and the 80% hard backstop still protects against context overflow with overflow retry behavior reconciled with upstream 0.3.18.</li>
+      <li id="ac-4">Repeated tool outputs and stale errored inputs are compacted deterministically without losing command identity or latest evidence.</li>
+      <li id="ac-5">VCC summaries do not emit a commit-extraction section; commit details remain recoverable through transcript and recall surfaces.</li>
+      <li id="ac-6">Existing recall, redaction, fallback-tail, and in-flight continuation tests continue to pass.</li>
+      <li id="ac-7">Upstream drift metadata and <code>scripts/check-pi-vcc-upstream.sh</code> agree with the reviewed upstream commit.</li>
+    </ol>
+  </section>
+
+  <section id="verification">
+    <h2>Verification</h2>
+    <p>This is a high-risk context-management change. Verification must include deterministic unit coverage, install validation, and several end-to-end Pi sessions that exercise real compaction behavior over time. Do not claim implementation success from package tests alone.</p>
+
+    <h3 id="verification-static">Static and unit checks</h3>
+    <table>
+      <thead><tr><th>Check</th><th>Evidence expected</th></tr></thead>
+      <tbody>
+        <tr><td><code>git diff --check</code></td><td>No whitespace or patch hygiene issues.</td></tr>
+        <tr><td><code>bash ./scripts/check-pi-vcc-upstream.sh</code></td><td>Reviewed upstream version/commit are current and all local path diffs are intentional.</td></tr>
+        <tr><td><code>cd _pi/packages/pi-vcc &amp;&amp; bun test</code></td><td>All package tests pass, including pruning, upstream-uptake, compaction-intent marker+JSON parsing, preserve-summary behavior, malformed payload fallback, and existing safety regression tests.</td></tr>
+        <tr><td><code>bun test scripts/percentage-compaction.test.ts</code></td><td>Covers no auto-compaction at 60% or 75%, model-visible <code>pi.sendMessage</code> soft/strong nudge text and rate limiting, queued <code>compact_context</code> tool invocation at the next safe post-tool boundary, mixed tool-batch deferral until a later completed assistant/non-tool boundary, marker+JSON custom instructions, hard backstop compaction at 80%, stale-percent ratchet, failure-delay nudge suppression, missing-pi-vcc guard, manual bypass, and <code>/compact-status</code> output.</td></tr>
+        <tr><td><code>./install.sh --pi</code></td><td>Installs vendored extension and percentage compaction extension without global patching.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="verification-e2e-matrix">End-to-end Pi session matrix</h3>
+    <p>Run these in disposable/select Pi sessions after installing the local package. Use deliberately low test thresholds only in the E2E harness/session config if needed to force nudges/backstops quickly; production defaults remain soft nudge at <code>60%</code>, strong nudge at <code>75%</code>, and hard auto-compaction at <code>80%</code>. Capture transcripts, <code>/compact-status</code> output, VCC summaries, <code>vcc_recall</code> results, and any <code>/tmp/pi-vcc-debug.json</code> snapshots as evidence.</p>
+    <table>
+      <thead><tr><th>Scenario</th><th>What to run</th><th>Required evidence</th></tr></thead>
+      <tbody>
+        <tr><td id="e2e-long-running-multi-compact">Long-running multi-compaction session</td><td>Drive a realistic coding/research session with enough reads, edits, searches, and test output to produce at least three compactions, including at least one model-invoked <code>compact_context</code> compaction and one hard-backstop compaction.</td><td>Model-driven compactions occur at semantic boundaries; hard-backstop compaction occurs only at the configured 80% threshold; summaries remain bounded; session remains coherent after the third compaction.</td></tr>
+        <tr><td id="e2e-continuation-after-compaction">Continuation after in-flight compaction</td><td>Force compaction during a tool-driven agent run where prior local behavior sends the continuation prompt.</td><td>The agent resumes the next concrete step without stalling, repeating only a minimal amount of context, and the continuation reminder does not leak into ordinary completed-boundary compactions.</td></tr>
+        <tr><td id="e2e-no-early-compaction">No threshold-only compaction at 60%/75%</td><td>Run a session across the 60% and 75% bands, including manual status checks and several tool turns, without the model invoking <code>compact_context</code>.</td><td>No automatic compaction fires at 60% or 75%; <code>/compact-status</code> reports usage, nudge band, and hard backstop threshold.</td></tr>
+        <tr><td id="e2e-model-driven-nudging">Model-driven nudging behavior</td><td>Cross 60%, then 75%, during realistic work and observe whether model-visible nudges cause the model to call <code>compact_context</code> at an appropriate semantic boundary, including one attempt in a mixed tool batch.</td><td>Nudges arrive in model context via <code>pi.sendMessage</code>, mention the tool and rubric, do not spam every turn, do not force compaction, model-invoked compaction includes reason/boundary/preserve intent, and mixed tool-batch calls defer until after sibling raw evidence has been interpreted.</td></tr>
+        <tr><td id="e2e-hard-backstop-compaction">Hard backstop compaction</td><td>Keep the session running without model/tool/manual compaction until usage reaches <code>HARD_AUTO_COMPACTION_PERCENT</code>.</td><td>Hard backstop compaction fires at 80%, preserves tool-call boundary safeguards, and the session continues.</td></tr>
+        <tr><td id="e2e-recall-after-compaction">Recall across repeated compactions</td><td>After multiple compactions, search for facts/files/commands from before the first compaction using <code>vcc_recall</code> and expand selected results.</td><td>Recall finds the expected pre-compaction details; expanded entries contain enough context to resume or verify prior decisions.</td></tr>
+        <tr><td id="e2e-pruning-safety">Pruning safety</td><td>Run duplicate searches, repeated test failures, large package-manager output, subagent/review output, and todo updates before compaction.</td><td>Duplicate/stale noisy results are compacted; protected outputs, current tail, latest duplicate result, todo state, and review/subagent finals remain available in the summary or recall.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="verification-evidence-log">E2E evidence log and reflection</h3>
+    <ul>
+      <li>Create an implementation evidence note or append to the implementation summary with: session IDs, command/session setup, threshold values, compaction timestamps, number of compactions, and links/paths to captured transcripts or logs.</li>
+      <li>For each E2E scenario, record pass/fail, observed compaction trigger reason, whether continuation occurred, and whether recall returned the expected historical details.</li>
+      <li>Explicitly reflect on semantic nudging and model control: did soft/strong nudges appear only when expected, did the model choose good semantic compaction boundaries, did nudges spam or distract the agent, did threshold-only compaction disappear at 60%/75%, and did the agent continue naturally after model-driven and hard-backstop compactions?</li>
+      <li>If any E2E scenario fails, fix product behavior or revise the plan before shipping; do not downgrade E2E failures to optional follow-up unless the user explicitly accepts the risk.</li>
+    </ul>
+  </section>
+
+  <section id="risks" class="risk">
+    <h2>Risks and mitigations</h2>
+    <table>
+      <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>The model ignores nudges and context grows too large.</td><td>Soft/strong nudges give the model control first; the 80% hard backstop and overflow retry handling remain the safety valves.</td></tr>
+        <tr><td>Pruning hides evidence needed later.</td><td>Protect current tail, user messages, final subagent results, review outputs, and latest duplicate result.</td></tr>
+        <tr><td>Upstream merge regresses local safety deltas.</td><td>Selective uptake only; add regression tests for local contracts before broader changes.</td></tr>
+        <tr><td>Deferred commit extraction leaves fewer durable git pointers in summaries.</td><td>Use existing transcript/recall surfaces for commit details; reconsider a simpler explicit-only commit pointer feature later if product value becomes clear.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

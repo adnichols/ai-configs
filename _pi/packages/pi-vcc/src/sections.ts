@@ -2,6 +2,7 @@ import type { TranscriptEntry } from "./core/brief";
 
 export interface SectionData {
   sessionGoal: string[];
+  compactionIntent: string[];
   outstandingContext: string[];
   filesAndChanges: string[];
   userPreferences: string[];
