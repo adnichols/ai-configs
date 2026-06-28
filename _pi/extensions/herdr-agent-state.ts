@@ -4,7 +4,7 @@
 // herdr asset; re-run `install.sh --pi` to restore this improved version.
 // add custom hooks/plugins beside this file instead of editing it.
 // HERDR_INTEGRATION_ID=pi
-// HERDR_INTEGRATION_VERSION=4
+// HERDR_INTEGRATION_VERSION=6
 // @ts-nocheck
 
 import { createConnection } from "node:net";
@@ -55,6 +55,8 @@ type TrackedProcess = {
   command: string;
   pid?: number;
   status?: ProcessStatus;
+  alertOnSuccess?: boolean;
+  alertOnFailure?: boolean;
 };
 
 const liveProcessStatuses = new Set<ProcessStatus>(["running", "terminating", "terminate_timeout"]);
@@ -72,6 +74,19 @@ const reconcileIntervalMs = parseDurationEnv("HERDR_PI_RECONCILE_MS", 5000);
 const heartbeatIntervalMs = parseDurationEnv("HERDR_PI_HEARTBEAT_MS", 15000);
 const maxSendRetries = parseDurationEnv("HERDR_PI_MAX_SEND_RETRIES", 3);
 const sendRetryDelayMs = parseDurationEnv("HERDR_PI_SEND_RETRY_DELAY_MS", 400);
+const backgroundProcessMode = (() => {
+  const explicit = process.env.HERDR_PI_BACKGROUND_PROCESS_MODE;
+  if (explicit === "none" || explicit === "finite" || explicit === "all") {
+    return explicit;
+  }
+  if (process.env.HERDR_PI_COUNT_BACKGROUND_PROCESSES === "0") {
+    return "none";
+  }
+  if (process.env.HERDR_PI_COUNT_BACKGROUND_PROCESSES === "1") {
+    return "all";
+  }
+  return "finite";
+})();
 const retryableErrorPattern =
   /overloaded|provider.?returned.?error|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|connection.?lost|websocket.?closed|websocket.?error|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|ended without|http2 request did not get a response|timed? out|timeout|terminated|retry delay/i;
 let reportSeq = Date.now() * 1000;
@@ -314,8 +329,61 @@ function isPassivePrListener(processInfo: TrackedProcess): boolean {
     || /(^|\s)(bash\s+)?\/tmp\/monitor-pr-\d+\.sh(\s|$)/.test(command);
 }
 
+function isPassivePlanServer(processInfo: TrackedProcess): boolean {
+  const name = String(processInfo.name ?? "").toLowerCase();
+  const command = normalizedCommand(processInfo.command);
+  return name.includes("plan-server")
+    || /(^|\s)npm\s+run\s+plans:serve\b/.test(command)
+    || /(^|\s)(pnpm|yarn|bun)\s+(run\s+)?plans:serve\b/.test(command)
+    || /(^|\s)plan-review\s+serve\b/.test(command)
+    || /scripts\/plans\/serve-html-plans\.mjs\b/.test(command);
+}
+
 function isPassiveListenerProcess(processInfo: TrackedProcess): boolean {
   return isPassivePlanListener(processInfo) || isPassivePrListener(processInfo);
+}
+
+function isLongLivedServiceProcess(processInfo: TrackedProcess): boolean {
+  const name = String(processInfo.name ?? "").toLowerCase();
+  const command = normalizedCommand(processInfo.command).toLowerCase();
+  return isPassiveListenerProcess(processInfo)
+    || isPassivePlanServer(processInfo)
+    || name.includes("listener")
+    || name.includes("dev-server")
+    || name.includes("watcher")
+    || /(^|\s)(npm|pnpm|yarn|bun)\s+(run\s+)?(dev|serve|start)\b/.test(command)
+    || /(^|\s)(next|vite|astro|nuxt)\s+dev\b/.test(command)
+    || /(^|\s)(cargo\s+watch|watchexec|nodemon|webpack-dev-server)\b/.test(command)
+    || /(^|\s)(tail\s+-f|log\s+stream)\b/.test(command);
+}
+
+function isFiniteVerificationProcess(processInfo: TrackedProcess): boolean {
+  const command = normalizedCommand(processInfo.command).toLowerCase();
+  if (/\b(--watch|--watchall|watch|dev|serve)\b/.test(command)) {
+    return false;
+  }
+  return /(^|\s)(npm|pnpm|yarn|bun)\s+(ci|install|test)\b/.test(command)
+    || /(^|\s)(npm|pnpm|yarn|bun)\s+run\s+[^\s]*(test|spec|check|lint|typecheck|build)[^\s]*\b/.test(command)
+    || /(^|\s)(npx\s+)?tsc\b/.test(command)
+    || /(^|\s)(pytest|ruff|mypy)\b/.test(command)
+    || /(^|\s)cargo\s+(test|check|build|clippy)\b/.test(command)
+    || /(^|\s)go\s+test\b/.test(command)
+    || /(^|\s)swift\s+test\b/.test(command)
+    || /(^|\s)xcodebuild\b/.test(command)
+    || /(^|\s)(gradle|gradlew|\.\/gradlew|mvn|make)\s+[^\s]*(test|check|build|verify)[^\s]*\b/.test(command);
+}
+
+function isBlockingProcessWork(processInfo: TrackedProcess): boolean {
+  if (backgroundProcessMode === "none") {
+    return false;
+  }
+  if (isLongLivedServiceProcess(processInfo)) {
+    return false;
+  }
+  if (backgroundProcessMode === "all") {
+    return true;
+  }
+  return processInfo.alertOnSuccess === true || isFiniteVerificationProcess(processInfo);
 }
 
 function toTrackedProcess(raw: any, fallback?: Partial<TrackedProcess>): TrackedProcess | undefined {
@@ -334,6 +402,8 @@ function toTrackedProcess(raw: any, fallback?: Partial<TrackedProcess>): Tracked
     command: typeof raw?.command === "string" ? raw.command : fallback?.command ?? "",
     pid: Number.isFinite(raw?.pid) ? raw.pid : fallback?.pid,
     status: typeof raw?.status === "string" ? raw.status : fallback?.status,
+    alertOnSuccess: typeof raw?.alertOnSuccess === "boolean" ? raw.alertOnSuccess : fallback?.alertOnSuccess,
+    alertOnFailure: typeof raw?.alertOnFailure === "boolean" ? raw.alertOnFailure : fallback?.alertOnFailure,
   };
 }
 
@@ -375,6 +445,31 @@ export default function (pi) {
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   const subagentIds = new Set<string>();
   const processIds = new Map<string, TrackedProcess>();
+  const wrappedUis = new WeakSet<object>();
+  const blockingUiMethods = ["select", "confirm", "input", "editor", "custom"];
+
+  function wrapBlockingUi(ctx: any): void {
+    const ui = ctx?.ui;
+    if (!rootSession || !ui || typeof ui !== "object" || wrappedUis.has(ui)) {
+      return;
+    }
+    wrappedUis.add(ui);
+
+    for (const method of blockingUiMethods) {
+      const original = ui[method];
+      if (typeof original !== "function") {
+        continue;
+      }
+      ui[method] = async function (...args: any[]) {
+        pi.events.emit("herdr:blocked", { active: true, label: `Pi UI: ${method}` });
+        try {
+          return await original.apply(this, args);
+        } finally {
+          pi.events.emit("herdr:blocked", { active: false, label: `Pi UI: ${method}` });
+        }
+      };
+    }
+  }
 
   function clearTimer(timer: ReturnType<typeof setTimeout> | undefined) {
     if (timer) {
@@ -435,7 +530,7 @@ export default function (pi) {
         processIds.delete(id);
         continue;
       }
-      if (!isPassiveListenerProcess(processInfo)) {
+      if (isBlockingProcessWork(processInfo)) {
         hasBlockingProcess = true;
       }
     }
@@ -645,6 +740,7 @@ export default function (pi) {
     processIds.clear();
     rootSession = true;
     currentCtx = ctx;
+    wrapBlockingUi(ctx);
     updateSessionRef(ctx);
     void reportSession();
     publishState(true);
@@ -658,6 +754,7 @@ export default function (pi) {
     }
     if (ctx) {
       currentCtx = ctx;
+      wrapBlockingUi(ctx);
     }
     clearPendingTimers();
     clearFailureState();
@@ -671,6 +768,7 @@ export default function (pi) {
     }
     if (ctx) {
       currentCtx = ctx;
+      wrapBlockingUi(ctx);
     }
     if (!agentActive) {
       // Pi can emit duplicate/late end events while auto-retry is already
@@ -690,7 +788,24 @@ export default function (pi) {
     scheduleIdle();
   });
 
-  pi.on("tool_result", async (event) => {
+  pi.on("before_agent_start", (_event, ctx) => {
+    if (rootSession && ctx) {
+      currentCtx = ctx;
+      wrapBlockingUi(ctx);
+    }
+  });
+
+  pi.on("tool_call", (_event, ctx) => {
+    if (rootSession && ctx) {
+      currentCtx = ctx;
+      wrapBlockingUi(ctx);
+    }
+  });
+
+  pi.on("tool_result", async (event, ctx) => {
+    if (ctx) {
+      wrapBlockingUi(ctx);
+    }
     if (!rootSession || event?.toolName !== "process") {
       return;
     }
@@ -731,6 +846,8 @@ export default function (pi) {
           name: typeof event?.input?.name === "string" ? event.input.name : "",
           command: typeof event?.input?.command === "string" ? event.input.command : "",
           status: "running" as ProcessStatus,
+          alertOnSuccess: typeof event?.input?.alertOnSuccess === "boolean" ? event.input.alertOnSuccess : undefined,
+          alertOnFailure: typeof event?.input?.alertOnFailure === "boolean" ? event.input.alertOnFailure : undefined,
         }
       : undefined;
     const tracked = toTrackedProcess(details?.process, fallback);
