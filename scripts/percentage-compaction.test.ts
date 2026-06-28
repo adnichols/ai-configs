@@ -229,6 +229,48 @@ describe("percentage-compaction extension", () => {
     expect(compactCalls).toHaveLength(1);
   });
 
+  test("compact_context detects sibling batches when execute precedes assistant toolUse turn_end", async () => {
+    const { handlers, tools, compactCalls, ctx } = setup(65);
+
+    await tools.compact_context.execute("tc_1", {
+      reason: "maybe compact",
+      boundary: "subtask_complete",
+    });
+    await handlers.turn_end?.(assistantToolUse(2, []), ctx);
+    await handlers.turn_end?.({
+      message: toolResult("tc_1", "compact_context", "compact queued"),
+      toolResults: [],
+    }, ctx);
+    await handlers.turn_end?.({
+      message: toolResult("tc_2", "read", "sibling output that must be interpreted"),
+      toolResults: [],
+    }, ctx);
+    expect(compactCalls).toHaveLength(0);
+
+    await handlers.turn_end?.(assistantStopWithText("I interpreted the sibling output."), ctx);
+    expect(compactCalls).toHaveLength(1);
+  });
+
+  test("compact_context ignores unrelated tool results before its own result", async () => {
+    const { handlers, tools, compactCalls, ctx } = setup(65);
+
+    await tools.compact_context.execute("tc_1", {
+      reason: "maybe compact",
+      boundary: "subtask_complete",
+    });
+    await handlers.turn_end?.({
+      message: toolResult("tc_other", "read", "unrelated output"),
+      toolResults: [],
+    }, ctx);
+    expect(compactCalls).toHaveLength(0);
+
+    await handlers.turn_end?.({
+      message: toolResult("tc_1", "compact_context", "compact queued"),
+      toolResults: [],
+    }, ctx);
+    expect(compactCalls).toHaveLength(1);
+  });
+
   test("hard backstop auto-compacts at 80% and ratchets unchanged usage", async () => {
     let percent = 80.123456;
     const { handlers, compactCalls, ctx } = setup(() => percent);

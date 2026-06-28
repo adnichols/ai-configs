@@ -2,10 +2,17 @@ import type { NormalizedBlock } from "../types";
 import { clip, firstLine } from "./content";
 import { redact } from "./redact";
 import { extractPath } from "./tool-args";
+import { sanitizeHeaderItem } from "./format";
 import { collapseSkillText } from "./skill-collapse";
+import { isProtectedToolName } from "./protected-tools";
 
 const TRUNCATE_USER = 256;
 const TRUNCATE_ASSISTANT = 200;
+const PROTECTED_TOOL_RESULT_LINE_CHARS = 240;
+const PROTECTED_TOOL_RESULT_LEADING_LINES = 2;
+const PROTECTED_TOOL_RESULT_SIGNAL_LINES = 60;
+const PROTECTED_SIGNAL_HEAD_LINES = 30;
+const PROTECTED_SIGNAL_RE = /(?:\bP[123]\b|No issues found|Impact:|Minimal fix:|Path:|File:|Reproducible condition:|Condition:|FINDINGS_TO_RESOLVE|findings? to resolve|\bseverity\b|\breviewer\b)/i;
 
 // ── noise filtering ──
 
@@ -88,20 +95,44 @@ const TOOL_SUMMARY_FIELDS: Record<string, string> = {
   Glob: "pattern", Grep: "pattern",
 };
 
+const cleanProtectedLine = (line: string): string =>
+  redact(clip(sanitizeHeaderItem(line), PROTECTED_TOOL_RESULT_LINE_CHARS));
+
+const protectedToolResultLines = (text: string): string[] => {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const signalLines = lines.filter((entry) => PROTECTED_SIGNAL_RE.test(entry)).map(cleanProtectedLine);
+  const selected = signalLines.length > PROTECTED_TOOL_RESULT_SIGNAL_LINES
+    ? [
+        ...signalLines.slice(0, PROTECTED_SIGNAL_HEAD_LINES),
+        `[${signalLines.length - PROTECTED_TOOL_RESULT_SIGNAL_LINES} protected finding/status lines omitted; use vcc_recall for full review output]`,
+        ...signalLines.slice(-(PROTECTED_TOOL_RESULT_SIGNAL_LINES - PROTECTED_SIGNAL_HEAD_LINES)),
+      ]
+    : signalLines;
+
+  for (const line of lines.slice(0, PROTECTED_TOOL_RESULT_LEADING_LINES)) {
+    const clipped = cleanProtectedLine(line);
+    if (!selected.includes(clipped)) selected.push(clipped);
+  }
+  return selected;
+};
+
 const toolOneLiner = (name: string, args: Record<string, unknown>): string => {
   const field = TOOL_SUMMARY_FIELDS[name];
   if (field && typeof args[field] === "string") {
-    return `* ${name} "${args[field] as string}"`;
+    return `* ${name} "${sanitizeHeaderItem(args[field] as string)}"`;
   }
   const path = extractPath(args);
-  if (path) return `* ${name} "${path}"`;
+  if (path) return `* ${name} "${sanitizeHeaderItem(path)}"`;
   if (name === "bash" || name === "Bash") {
     const raw = (args.command ?? args.description ?? "") as string;
     const cmd = compressBash(raw);
     return `* ${name} "${redact(cmd)}"`;
   }
   if (typeof args.query === "string") {
-    return `* ${name} "${clip(args.query as string, 60)}"`;
+    return `* ${name} "${clip(sanitizeHeaderItem(args.query as string), 60)}"`;
   }
   return `* ${name}`;
 };
@@ -115,7 +146,7 @@ export interface BriefLine {
 
 /** Structured transcript entry for JSON output */
 export interface TranscriptEntry {
-  role: "user" | "assistant" | "tool_error";
+  role: "user" | "assistant" | "tool_error" | "tool_result";
   text?: string;
   tool?: string;
   cmd?: string;
@@ -176,11 +207,18 @@ export const buildBriefSections = (blocks: NormalizedBlock[]): BriefLine[] => {
         break;
       }
       case "tool_result": {
+        const ref = b.sourceIndex != null ? ` (#${b.sourceIndex})` : "";
         if (b.isError) {
-          const ref = b.sourceIndex != null ? ` (#${b.sourceIndex})` : "";
           const header = `[tool_error] ${b.name}${ref}`;
           push(header, firstLine(b.text, 150));
           lastHeader = header;
+        } else if (isProtectedToolName(b.name)) {
+          const lines = protectedToolResultLines(b.text);
+          if (lines.length > 0) {
+            const header = `[tool_result] ${b.name}${ref}`;
+            for (const line of lines) push(header, line);
+            lastHeader = header;
+          }
         }
         break;
       }
@@ -297,14 +335,15 @@ export const sectionsToTranscript = (sections: BriefLine[]): TranscriptEntry[] =
           entries.push({ role: "assistant", text: clean, ...(ref && { ref }) });
         }
       }
-    } else if (sec.header.startsWith("[tool_error]")) {
-      // [tool_error] bash (#5)
-      const headerMatch = sec.header.match(/^\[tool_error\]\s+(\S+)\s*(?:\(#(\d+)\))?/);
-      const tool = headerMatch?.[1] ?? "unknown";
-      const ref = headerMatch?.[2] ? `#${headerMatch[2]}` : undefined;
+    } else if (sec.header.startsWith("[tool_error]") || sec.header.startsWith("[tool_result]")) {
+      // [tool_error] bash (#5), [tool_result] get_subagent_result (#5)
+      const headerMatch = sec.header.match(/^\[(tool_error|tool_result)\]\s+(\S+)\s*(?:\(#(\d+)\))?/);
+      const role = (headerMatch?.[1] ?? "tool_error") as "tool_error" | "tool_result";
+      const tool = headerMatch?.[2] ?? "unknown";
+      const ref = headerMatch?.[3] ? `#${headerMatch[3]}` : undefined;
       for (const line of sec.lines) {
         entries.push({
-          role: "tool_error",
+          role,
           tool,
           text: line,
           ...(ref && { ref }),

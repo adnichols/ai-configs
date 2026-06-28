@@ -4,7 +4,6 @@ import type { SectionData } from "../sections";
 import { extractGoals } from "../extract/goals";
 import { extractFiles } from "../extract/files";
 import { extractPreferences } from "../extract/preferences";
-import { extractCommits, formatCommits } from "../extract/commits";
 import { buildBriefSections, sectionsToTranscript, stringifyBrief } from "./brief";
 
 export interface BuildSectionsInput {
@@ -55,13 +54,22 @@ const formatFileActivity = (blocks: NormalizedBlock[]): string[] => {
   return lines;
 };
 
+const intentText = (value?: string): string | undefined => {
+  const cleaned = value?.replace(/\s+/g, " ").trim();
+  return cleaned ? clip(cleaned, 500) : undefined;
+};
+
 const formatCompactionIntent = (intent?: CompactionIntent): string[] => {
   if (!intent) return [];
+  const source = intentText(intent.source);
+  const boundary = intentText(intent.boundary);
+  const reason = intentText(intent.reason);
+  const preserve = intentText(intent.preserve);
   const parts = [
-    intent.source ? `source=${intent.source}` : "",
-    intent.boundary ? `boundary=${intent.boundary}` : "",
-    intent.reason ? `reason=${intent.reason}` : "",
-    intent.preserve ? `preserve=${intent.preserve}` : "",
+    source ? `source=${source}` : "",
+    boundary ? `boundary=${boundary}` : "",
+    reason ? `reason=${reason}` : "",
+    preserve ? `preserve=${preserve}` : "",
   ].filter(Boolean);
   return parts.length ? [parts.join("; ")] : [];
 };
@@ -74,7 +82,6 @@ export const buildSections = (input: BuildSectionsInput): SectionData => {
     compactionIntent: formatCompactionIntent(input.compactionIntent),
     outstandingContext: extractOutstandingContext(blocks),
     filesAndChanges: formatFileActivity(blocks),
-    commits: formatCommits(extractCommits(blocks)),
     userPreferences: extractPreferences(blocks),
     briefTranscript: stringifyBrief(briefSections),
     transcriptEntries: sectionsToTranscript(briefSections),

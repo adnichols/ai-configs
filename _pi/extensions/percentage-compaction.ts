@@ -73,6 +73,14 @@ const toolCallCount = (message: any): number => {
   return message.content.filter((part: any) => part?.type === "toolCall").length;
 };
 
+const assistantToolBatchIncludes = (message: any, toolCallId: string | undefined): boolean => {
+  if (!toolCallId || message?.role !== "assistant" || !Array.isArray(message?.content)) return false;
+  return message.content.some((part: any) => part?.type === "toolCall" && part?.id === toolCallId);
+};
+
+const toolResultMatches = (result: any, toolCallId: string | undefined): boolean =>
+  Boolean(toolCallId && result?.toolCallId === toolCallId);
+
 const buildIntentInstructions = (pending: PendingModelCompaction) =>
   `${PI_VCC_MANUAL_BYPASS_MARKER}\n${JSON.stringify({
     source: "compact_context",
@@ -88,7 +96,7 @@ const canRunPendingCompaction = (
 ) => {
   if (pending.sawSiblingTools) return isCompletedAssistantResponse(event.message);
   if (pendingToolResultDelivered) return true;
-  return event.message.role !== "assistant" || isCompletedAssistantResponse(event.message);
+  return isCompletedAssistantResponse(event.message);
 };
 
 export default function (pi: ExtensionAPI) {
@@ -212,7 +220,7 @@ export default function (pi: ExtensionAPI) {
         toolCallId,
         requestedTurn: turnCounter,
         toolBatchId: lastToolBatchId,
-        sawSiblingTools: false,
+        sawSiblingTools: lastAssistantToolCallCount > 1,
       };
       return {
         content: [{
@@ -265,20 +273,14 @@ export default function (pi: ExtensionAPI) {
     const turnToolResults = Array.isArray(event.toolResults) ? event.toolResults : [];
     const pendingToolResultDelivered = Boolean(
       pendingModelCompaction?.toolCallId &&
-        turnToolResults.some((result: any) => result?.toolCallId === pendingModelCompaction?.toolCallId),
-    );
-
-    const completedResponse = isCompletedAssistantResponse(event.message);
-    const turnToolResults = Array.isArray(event.toolResults) ? event.toolResults : [];
-    const pendingToolResultDelivered = Boolean(
-      pendingModelCompaction?.toolCallId &&
-        turnToolResults.some((result: any) => result?.toolCallId === pendingModelCompaction?.toolCallId),
+        (toolResultMatches(event.message, pendingModelCompaction.toolCallId) ||
+          turnToolResults.some((result: any) => toolResultMatches(result, pendingModelCompaction?.toolCallId))),
     );
 
     if (event.message.role === "assistant" && "stopReason" in event.message && event.message.stopReason === "toolUse") {
       lastToolBatchId += 1;
       lastAssistantToolCallCount = toolCallCount(event.message);
-      if (pendingToolResultDelivered && pendingModelCompaction) {
+      if (pendingModelCompaction && assistantToolBatchIncludes(event.message, pendingModelCompaction.toolCallId)) {
         pendingModelCompaction.toolBatchId = lastToolBatchId;
         pendingModelCompaction.sawSiblingTools = lastAssistantToolCallCount > 1;
       }
