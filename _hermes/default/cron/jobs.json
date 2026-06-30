@@ -1,0 +1,130 @@
+{
+  "jobs": [
+    {
+      "id": "1e1312756e9e",
+      "name": "daily-hermes-agent-functional-merge-review",
+      "prompt": "Review the GitHub repository NousResearch/hermes-agent once per day and post a succinct summary of material functional changes/improvements merged in the last 24 hours.\n\nUse live GitHub data (gh/git) and inspect enough detail to distinguish real functional changes from noise. Exclude docs-only changes, generated site output, deploy artifacts, pure metadata/version bumps, formatting-only churn, and CI-only changes unless they materially affect developer/release behavior.\n\nOutput requirements:\n- Provide only the summary, with no surrounding explanation about methodology.\n- Do NOT include PR numbers, commit hashes, links, or exhaustive change lists.\n- Group related work into a short bullet list of material functional changes and improvements.\n- Focus on user-facing behavior, runtime/tooling capabilities, reliability/security/data-integrity fixes, integrations/platform support, and developer workflow improvements.\n- Keep it concise: aim for 3\u20138 bullets, one sentence each.\n- If there were no material functional changes, output exactly: \"No material functional changes merged in the last 24 hours.\"",
+      "skills": [
+        "github-functional-merge-review"
+      ],
+      "skill": "github-functional-merge-review",
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 8 * * *",
+        "display": "0 8 * * *"
+      },
+      "schedule_display": "0 8 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 77
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-04-15T22:28:26.681323-06:00",
+      "next_run_at": "2026-07-01T08:00:00-06:00",
+      "last_run_at": "2026-06-30T08:03:03.362612-06:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": null,
+      "enabled_toolsets": [
+        "terminal"
+      ],
+      "fire_claim": null
+    },
+    {
+      "id": "039f96dcecfc",
+      "name": "Daily Good Morning HTML Plan + Todoist Review",
+      "prompt": "Script-only deterministic Good Morning cron. Runs ~/.hermes/scripts/gm_deterministic_cron.py, which executes /Users/anichols/Obsidian/.agents/scripts/gm_deterministic.py with --publish, registers plan-review, creates the Todoist review task, and prints the review URL. This job intentionally uses no_agent=true to avoid LLM context growth/compression timeouts.",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "gm_deterministic_cron.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 6 * * *",
+        "display": "0 6 * * *"
+      },
+      "schedule_display": "0 6 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 13
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-06-21T08:26:26.329217-06:00",
+      "next_run_at": "2026-07-01T06:00:00-06:00",
+      "last_run_at": "2026-06-30T06:02:54.122354-06:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "discord:1492535022811480126",
+      "origin": {
+        "platform": "discord",
+        "chat_id": "1518260650021748898",
+        "chat_name": "adn_core / #chief-cos / create a cron job that runs every morning at 6am to run my good morning routi...",
+        "thread_id": "1518260650021748898"
+      },
+      "enabled_toolsets": null,
+      "workdir": "/Users/anichols/Obsidian",
+      "fire_claim": null
+    },
+    {
+      "id": "544dbd1c6d84",
+      "name": "Good Morning plan-review listener supervisor",
+      "prompt": "Quiet script-only supervisor for Good Morning plan-review comment listeners. The script reads /Users/anichols/.hermes/state/gm-plan-maintainer/active-plans.json, supervises only plans explicitly registered there with routine=good_morning/status=active, starts a durable listener process for each active owned plan if missing, and marks owned plans archived when plan-review reports lifecycleState=archived. It must stay silent unless there is an actual supervisor error.",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "gm_plan_comment_supervisor.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 1,
+        "display": "every 1m"
+      },
+      "schedule_display": "every 1m",
+      "repeat": {
+        "times": null,
+        "completed": 7090
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-06-21T09:41:11.831912-06:00",
+      "next_run_at": "2026-06-30T17:43:19.127240-06:00",
+      "last_run_at": "2026-06-30T17:42:19.127240-06:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "local",
+      "origin": {
+        "platform": "discord",
+        "chat_id": "1518260650021748898",
+        "chat_name": "adn_core / #chief-cos / create a cron job that runs every morning at 6am to run my good morning routi...",
+        "thread_id": "1518260650021748898"
+      },
+      "enabled_toolsets": null,
+      "workdir": "/Users/anichols/Obsidian",
+      "fire_claim": null
+    }
+  ],
+  "updated_at": "2026-06-30T17:42:19.127335-06:00"
+}

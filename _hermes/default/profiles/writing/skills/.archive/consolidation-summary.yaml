@@ -1,0 +1,27 @@
+consolidations:
+  - from: himalaya
+    into: communication-tools
+    reason: Email CLI workflow absorbed into broader communication-tools umbrella covering email and meetings
+  - from: teams-meeting-pipeline
+    into: communication-tools
+    reason: Teams meeting pipeline absorbed into broader communication-tools umbrella covering email and meetings
+
+prunings:
+  - name: audiocraft-audio-generation
+    reason: Redundant with bundled media/audio-and-music-generation skill
+  - name: evaluating-llms-harness
+    reason: Redundant with bundled mlops/ml-evaluation-and-tracking skill
+  - name: serving-llms-vllm
+    reason: Redundant with bundled mlops/llm-inference-and-serving skill
+  - name: segment-anything-model
+    reason: Narrow single-model guide; domain covered by bundled mlops/segment-anything-model
+  - name: codebase-inspection
+    reason: Narrow pygount CLI reference; bundled github/codebase-inspection covers same tool
+  - name: openhue
+    reason: Narrow single-tool skill for Philips Hue; bundled smart-home/openhue covers same tool
+  - name: jupyter-live-kernel
+    reason: Narrow single-tool skill for Jupyter kernel proxy
+  - name: huggingface-hub
+    reason: Narrow generic CLI reference for hf CLI; bundled mlops/huggingface-hub covers same tool
+  - name: airtable
+    reason: Narrow single-API skill for Airtable REST operations

@@ -1,0 +1,8 @@
+name: pi_rpc_discord
+version: 0.1.0
+description: "Direct pi RPC bridge for Hermes: launch, bind, relay, and monitor pi coding sessions from Discord or other Hermes chats without tmux polling."
+author: Hermes Agent
+provides_tools:
+  - pi_rpc_session
+provides_hooks:
+  - pre_llm_call

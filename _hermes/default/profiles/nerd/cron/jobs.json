@@ -1,0 +1,48 @@
+{
+  "jobs": [
+    {
+      "id": "725d93200439",
+      "name": "heddle-main-release-watch",
+      "prompt": "",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "heddle-release-discord-watch.py",
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 5,
+        "display": "every 5m"
+      },
+      "schedule_display": "every 5m",
+      "repeat": {
+        "times": null,
+        "completed": 16608
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-05-03T06:26:56.364528-06:00",
+      "next_run_at": "2026-06-30T17:46:30.174979-06:00",
+      "last_run_at": "2026-06-30T17:41:30.174979-06:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "discord",
+        "chat_id": "1500284387051438184",
+        "chat_name": "adn_core / #nerd-dev / I would like to evaluate having you watch for merge to heddle main in GitHub ...",
+        "thread_id": "1500284387051438184"
+      },
+      "enabled_toolsets": null,
+      "workdir": "/Users/anichols/code/heddle-release",
+      "no_agent": true,
+      "fire_claim": null
+    }
+  ],
+  "updated_at": "2026-06-30T17:41:30.175078-06:00"
+}

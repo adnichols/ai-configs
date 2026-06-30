@@ -56,6 +56,9 @@ venv.bak/
 .env.local
 .env.*.local
 
+# Generated Hermes config-sync safety backups
+_hermes/.backups/
+
 # Tool build artifacts
 tools/*/dist/
 tools/*/node_modules/

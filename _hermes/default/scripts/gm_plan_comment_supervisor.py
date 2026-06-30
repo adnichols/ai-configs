@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Quiet supervisor for owned Good Morning plan-review listeners.
+
+No stdout unless something is genuinely wrong. Intended for no_agent cron.
+"""
+from __future__ import annotations
+
+import json
+import os
+import pathlib
+import signal
+import subprocess
+import sys
+import time
+from typing import Any
+
+BASE_URL = "http://mbp.braid-python.ts.net:4317"
+STATE_DIR = pathlib.Path.home() / ".hermes" / "state" / "gm-plan-maintainer"
+REGISTRY = STATE_DIR / "active-plans.json"
+PID_DIR = STATE_DIR / "pids"
+LOG_DIR = STATE_DIR / "logs"
+LISTENER = pathlib.Path.home() / ".hermes" / "scripts" / "gm_plan_comment_listener.py"
+OBSIDIAN = pathlib.Path.home() / "Obsidian"
+
+
+def log(msg: str) -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    with (LOG_DIR / "supervisor.log").open("a", encoding="utf-8") as f:
+        f.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S%z')} {msg}\n")
+
+
+def load_registry() -> dict[str, Any]:
+    if not REGISTRY.exists():
+        return {"active_plans": []}
+    try:
+        return json.loads(REGISTRY.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"GM listener supervisor: cannot parse registry {REGISTRY}: {exc}")
+        return {"active_plans": []}
+
+
+def save_registry(reg: dict[str, Any]) -> None:
+    REGISTRY.parent.mkdir(parents=True, exist_ok=True)
+    tmp = REGISTRY.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(reg, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(REGISTRY)
+
+
+def pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except Exception:
+        return False
+
+
+def cmdline_contains(pid: int, plan_id: str) -> bool:
+    try:
+        cp = subprocess.run(["ps", "-p", str(pid), "-o", "command="], text=True, capture_output=True, timeout=5)
+        return cp.returncode == 0 and "gm_plan_comment_listener.py" in cp.stdout and plan_id in cp.stdout
+    except Exception:
+        return False
+
+
+def listener_running(plan_id: str) -> bool:
+    pid_file = PID_DIR / f"{plan_id}.pid"
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text(encoding="utf-8").strip())
+            if pid_alive(pid) and cmdline_contains(pid, plan_id):
+                return True
+        except Exception:
+            pass
+        try:
+            pid_file.unlink()
+        except Exception:
+            pass
+    try:
+        cp = subprocess.run(["pgrep", "-f", f"gm_plan_comment_listener.py {plan_id}"], text=True, capture_output=True, timeout=5)
+        return cp.returncode == 0 and bool(cp.stdout.strip())
+    except Exception:
+        return False
+
+
+def plan_lifecycle(plan_id: str) -> str:
+    cp = subprocess.run(["plan-review", "show", plan_id, "--url", BASE_URL, "--json"], cwd=str(OBSIDIAN), text=True, capture_output=True, timeout=30)
+    if cp.returncode != 0:
+        log(f"show failed for {plan_id}: {cp.stderr.strip() or cp.stdout.strip()}")
+        return "unknown"
+    try:
+        return str(json.loads(cp.stdout).get("plan", {}).get("lifecycleState") or "unknown")
+    except Exception as exc:
+        log(f"show parse failed for {plan_id}: {exc}")
+        return "unknown"
+
+
+def start_listener(plan_id: str) -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    out = (LOG_DIR / f"{plan_id}.supervised.out").open("ab")
+    err = (LOG_DIR / f"{plan_id}.supervised.err").open("ab")
+    subprocess.Popen(
+        [sys.executable, str(LISTENER), plan_id],
+        cwd=str(OBSIDIAN),
+        stdout=out,
+        stderr=err,
+        start_new_session=True,
+        close_fds=True,
+    )
+    log(f"started listener for {plan_id}")
+
+
+def main() -> int:
+    if not LISTENER.exists():
+        print(f"GM listener supervisor: missing listener script {LISTENER}")
+        return 1
+    reg = load_registry()
+    changed = False
+    active = []
+    for item in reg.get("active_plans", []):
+        if item.get("status", "active") != "active":
+            active.append(item)
+            continue
+        if item.get("routine") != "good_morning":
+            # Ownership guard: never supervise unrelated plans.
+            active.append(item)
+            continue
+        plan_id = item.get("plan_id")
+        if not plan_id:
+            continue
+        lifecycle = plan_lifecycle(plan_id)
+        if lifecycle == "archived":
+            item["status"] = "archived"
+            item["archived_at"] = time.strftime('%Y-%m-%dT%H:%M:%S%z')
+            changed = True
+            active.append(item)
+            continue
+        if lifecycle == "unknown":
+            active.append(item)
+            continue
+        if not listener_running(plan_id):
+            start_listener(plan_id)
+        active.append(item)
+    reg["active_plans"] = active
+    if changed:
+        save_registry(reg)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,6 @@
+name: pi-tmux-event-bridge
+version: 0.2.0
+description: Event-driven tmux watcher for pi workflows with optional Hermes CLI message injection on idle prompt.
+author: Aaron Nichols + Hermes Agent
+provides_tools:
+  - pi_tmux_watch_control

@@ -1,0 +1,4 @@
+name: pi-thread-bridge
+description: Upgrade-safe Pi passthrough bridge for Discord/Telegram threads via a user hook
+events:
+  - gateway:startup

@@ -1,0 +1,19 @@
+Warning: Permanently added '192.168.1.4' (ED25519) to the list of known hosts.
+{
+  "baseUrl": "http://127.0.0.1:8000",
+  "hosts": {
+    "hermes": {
+      "enabled": true,
+      "peerName": "aaron",
+      "aiPeer": "hermes",
+      "workspace": "hermes",
+      "observationMode": "directional",
+      "writeFrequency": "async",
+      "recallMode": "hybrid",
+      "sessionStrategy": "per-directory",
+      "dialecticReasoningLevel": "low",
+      "dialecticMaxChars": 600,
+      "saveMessages": true
+    }
+  }
+}

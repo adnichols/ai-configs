@@ -314,3 +314,10 @@ For local development in this repo, add the repo-owned shared skill tree to your
   "skills": ["skills"]
 }
 ```
+## Hermes Configuration Source of Truth
+
+- Managed Hermes configuration lives in `_hermes/default` and is synchronized by `scripts/hermes_config_sync.py`.
+- For any change to live Hermes configuration (`~/.hermes` skills, config, hooks, plugins, scripts, cron jobs, memories, or profile-local equivalents), also run `python3 scripts/hermes_config_sync.py export` from this repo, then `python3 scripts/hermes_config_sync.py verify`.
+- Prefer source-first edits in `_hermes/default`; preview install with `python3 scripts/hermes_config_sync.py install --dry-run`, then apply with `python3 scripts/hermes_config_sync.py install --apply` when live Hermes should be updated.
+- After synchronization and verification, commit and push the `ai-configs` changes so the repo copy stays authoritative. Do not commit secrets or runtime state; the sync tool excludes those surfaces.
+

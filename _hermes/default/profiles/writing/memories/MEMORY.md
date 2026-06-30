@@ -1,0 +1,3 @@
+Aaron's Obsidian morning-briefing workflow lives under ~/Documents/Obsidian; the Pi setup uses adn_vault/_pi/agents/aaron-agent.md plus adn_vault/_opencode/commands/gm.md, and the shared signal protocol comes from studio/Nodaste Agents/Protocol - Team Signal Standard.md and Operating Model.md.
+§
+On Aaron's machine, fastmail CLI mailbox names are case-sensitive and the inbox mailbox works as 'Inbox' (not 'INBOX'). Also, commands that source ~/.zshrc from bash emit Oh My Zsh/autoload errors; prefer zsh -lc for zsh-dependent CLIs like accli.
