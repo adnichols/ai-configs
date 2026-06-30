@@ -104,18 +104,18 @@ Execute <plan path> through scoped implementation, verification, runtime-native 
 
 Runtime state expectation: keep the task/goal state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi this state lives in todo/working notes; in Codex it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
 
-#### Plan-reviewer status alignment
+#### Registered Doct plan status alignment
 
-For a reviewed HTML plan, align plan-reviewer state before code edits. Resolve the reviewer plan ID and registration service URL from registration output, the explicit review URL, `plan-review show`, or `plan-review index`; if the plan is not registered and repo guidance expects reviewed HTML plans, register it with truthful metadata before proceeding.
+For a reviewed HTML plan, align Doct plan state before code edits. Resolve the Doct document/plan ID, workspace ID, canonical Doct URL, and current version from registration output, the explicit Doct review URL, or `doct-agent plans show --id <document-id> --json`; if the plan is not registered and repo guidance expects reviewed HTML plans, register it through `html-plan-reviewer` with `doct-agent plans register --base-url https://doct.nodaste.com --source-format html` before proceeding.
 
 Before implementation starts:
 
-1. Run `plan-review lifecycle set <planId> active --url <registration service URL>` when the plan is not already active.
-2. Run `plan-review columns list --json --url <registration service URL>` and inspect the available board columns.
-3. If a visible `in_progress` column exists, run `plan-review column set <planId> in_progress --url <registration service URL>`.
+1. Run `doct-agent plans lifecycle --base-url https://doct.nodaste.com --document-id <document-id> --workspace-id <workspace-id> --state active --json` when the plan is not already active.
+2. Run `doct-agent plans board list --base-url https://doct.nodaste.com --workspace-id <workspace-id> --json` and inspect the available board columns.
+3. If a visible `in_progress` column exists, run `doct-agent plans board set --base-url https://doct.nodaste.com --document-id <document-id> --workspace-id <workspace-id> --column in_progress --json`.
 4. If `in_progress` is absent, hidden, or ambiguous, stop with an actionable status-sync blocker unless repo/service configuration explicitly identifies an equivalent in-progress column.
 
-Do not treat a disk progress checkbox update as sufficient reviewer-state alignment. After each completed phase, update the source plan `Progress`, verify source sync or re-register the plan, and inspect plan-reviewer evidence (`show` or `index`) before advancing.
+Do not treat a disk progress checkbox update as sufficient reviewer-state alignment. After each completed phase, update the source plan `Progress`, push the updated HTML through `doct-agent plans update` or verify an active `doct-agent plans watch`, and inspect Doct evidence (`plans show`, board/list output, or returned update metadata) before advancing.
 
 ### 2. Prepare
 
@@ -137,7 +137,7 @@ For each unfinished phase:
 2. Implement the smallest product change that satisfies the phase.
 3. Run the phase's targeted verification.
 4. Update the source plan progress only when that phase is actually complete.
-5. Verify plan-reviewer reflects that source progress through live source sync, explicit re-registration, or `plan-review show/index` evidence before advancing.
+5. Verify Doct reflects that source progress through `doct-agent plans update`, an active `doct-agent plans watch`, or `doct-agent plans show`/board evidence before advancing.
 6. Record only documented out-of-scope discoveries in the plan's deviation log or the repo's discovery ledger. In-scope findings are not discoveries to defer; fix them before advancing.
 
 If a phase exposes a broader product problem, classify it. Fix it only if it is a plan prerequisite or a regression from this diff.

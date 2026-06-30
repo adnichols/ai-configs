@@ -1,6 +1,6 @@
 ---
 name: planning-workflow
-description: Shared planning doctrine for creating or updating executable software plans. Use when moving from read-only research into writing a real plan, when you need to structure a resumable TDD/BDD-driven implementation plan, or when a command like `dev:plan` needs the canonical planning workflow plus guidance on which domain skills to load.
+description: Shared planning doctrine for creating or updating executable software plans, including the default preference to register HTML plans in Doct through `doct-agent plans` on `https://doct.nodaste.com`. Use when moving from read-only research into writing a real plan, structuring a resumable TDD/BDD implementation plan, or when a command like `dev:plan` needs canonical planning workflow and skill-routing guidance.
 ---
 
 # Planning Workflow
@@ -13,7 +13,7 @@ Use this skill as the canonical source of truth for plan-writing methodology acr
 - `dev:plan` (or equivalent plan-materialization step) writes the actual plan file once discovery has produced enough evidence to choose the correct readiness state: `execution-ready` when foundational decisions are resolved, or a single non-ready `research-ready` artifact when further research is the next handoff. Before that handoff point, the work remains `discovery`.
 - There is no default shared artifact path or extension. Resolve the single-file active plan artifact from repo-local guidance or an existing plan path supplied by the user. If local guidance does not define the active artifact and the user did not supply an existing plan path, ask one targeted question and stop. Do not assume markdown.
 - `dev:plan` ends when the plan artifact is written or updated; execution starts only after a separate explicit execution command or a new user instruction.
-- In Pi-style reviewed-plan workflows, keep the handoff explicit and prefer the repo's canonical workflow skill from repo-local guidance. Do not assume a hidden fallback to Claude Code or any other alternate review surface.
+- In Pi-style reviewed-plan workflows, keep the handoff explicit and prefer the repo's canonical workflow skill from repo-local guidance. For HTML plans, prefer Doct registration through `doct-agent plans` on `https://doct.nodaste.com`; do not assume a hidden fallback to Claude Code, a local `plan-review` service, or any other alternate review surface.
 - During plan writing, edit only the target plan artifact unless the repo's `AGENTS.md` explicitly allows another planning-side file.
 - Do not change product code, tests, app config, docs, generated files, or environment files while planning.
 - Avoid side effects: no installs, codegen, migrations, formatting runs, commits, rebases, resets, or destructive commands.
@@ -35,7 +35,7 @@ If required repo guidance or product intent is missing, stop and ask the user or
 
 Always consider which additional skills are needed before writing the plan.
 
-- Load `html-plan-reviewer` before writing, serving, registering, linking, or monitoring any `thoughts/plans/*.html` artifact. Use its `plan-review` tooling instructions for reviewer-facing HTML plans.
+- Load `html-plan-reviewer` before writing, registering, linking, updating, or monitoring any `thoughts/plans/*.html` artifact. Use its Doct-backed `doct-agent plans` instructions for reviewer-facing HTML plans, with `https://doct.nodaste.com` as the default registration endpoint.
 - Load `product-principles` for planning work that affects user/operator/agent workflows, defaults, onboarding, recovery behavior, error handling, architecture, or regression strategy. Use it to define the golden path, safe defaults, self-healing expectations, actionable error guidance, and a quick dissonance audit against repo guidance (`AGENTS.md`, product-intent docs, onboarding docs, config/status surfaces, and tests).
 - Load `tdd-test-writer` when phases will rely on tests-first delivery or when the RED-phase contract needs strengthening.
 - Load repo-recommended skills from `AGENTS.md` for the relevant surface or stack.
@@ -73,8 +73,8 @@ Write plans as execution artifacts, not brainstorming notes. A ready plan must b
 - When the requested scope is vague, tighten it by sharpening the Goal / Non-goals or other scoped language instead of widening the phase list to absorb adjacent surfaces.
 - Do not promote adjacent cleanup, optional follow-ups, broader parity not required by the source intent, or extra explicitness that does not materially change go/no-go confidence into required plan work unless source requirements or validated repo evidence show they are necessary for success.
 - When a plan is rendered or delivered as HTML, load `html-plan-reviewer` and use the standard reviewer layout by default: a dark-mode visual theme with explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, plus a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so reviewers can scan links without sacrificing plan body width. Do not use a permanent left sidebar/rail for navigation. Do not leave color mode or navigation layout to browser, OS, or agent-selected defaults.
-- When a plan is rendered, delivered, served, or reviewed as HTML, delegate service details to `html-plan-reviewer`: register through `plan-review` with truthful readiness metadata, parse and follow returned `agentInstructions`, open/share the canonical full review URL, and start the queue-backed comment monitor using the harness background-process tool. Treat low-level `plan-review watch` streams as debug-only unless the service instructions say otherwise.
-- Every user-facing HTML plan URL must follow the canonical URL rules from `html-plan-reviewer`; private health checks may use loopback URLs only when that skill allows them.
+- When a plan is rendered, delivered, registered, or reviewed as HTML, delegate service details to `html-plan-reviewer`: register through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html`, update through `doct-agent plans update`, share the canonical Doct URL, and process comments/actions through `doct-agent plans queue/agent/ack/resolve`.
+- Every user-facing HTML plan URL must be the canonical Doct URL from `https://doct.nodaste.com`; do not share local `plan-review`, loopback, or Tailscale service URLs unless the user explicitly requested a legacy local review service.
 
 Required sections for new plans unless repo-local overrides say otherwise:
 
@@ -225,7 +225,7 @@ For `UI impact: yes`, include high-fidelity existing and target mocks or screens
 When the plan is complete:
 
 - leave the repo ready for the repo's canonical execution workflow,
-- if repo-local guidance requires serving the plan over HTTP, use the checked-in plan server it names; reuse an already-running instance for the target plan and do not start ad hoc replacement servers,
+- if repo-local guidance requires a plan review registration, prefer the Doct-backed `html-plan-reviewer` flow; use a checked-in/local plan server only when the repo or user explicitly requires that legacy surface,
 - `ready for` means handoff-ready, not permission to start execution in the current command,
 - if the active command is planning-only, stop after updating the plan and reporting the next suggested command,
 - ensure the plan reflects repo-specific commands from `AGENTS.md`,

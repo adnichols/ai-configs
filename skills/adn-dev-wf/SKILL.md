@@ -30,7 +30,7 @@ Before doing workflow work, read:
 4. the target plan if it already exists
 
 Use `skills/planning-workflow/SKILL.md` as the planning doctrine and `references/stages.md` for the exact stage contract in this workflow.
-Load `html-plan-reviewer` whenever the canonical plan file is an HTML plan or is registered in `plan-review`; follow its current `agentInstructions`, process unresolved browser comments before execution, and keep plan-review execution-readiness metadata truthful.
+Load `html-plan-reviewer` whenever the canonical plan file is an HTML plan or should be registered for browser review; use its Doct-backed `doct-agent plans` flow on `https://doct.nodaste.com`, process unresolved Doct plan comments/actions before execution, and keep registered plan state truthful.
 Load `product-principles` when the work affects workflows, defaults, onboarding, recovery behavior, operator or agent UX, status surfaces, or architecture.
 
 ## Workflow contract
@@ -38,7 +38,7 @@ Load `product-principles` when the work affects workflows, defaults, onboarding,
 - Keep one canonical plan file in the repo's active plan format
 - Keep all plan checkboxes in `## Progress` only
 - Keep review comments inline as `[REVIEW:...] ... [/REVIEW]` until integrated
-- Do not begin implementation while the plan still has unresolved inline review comments, unresolved plan-review browser comments, stale/non-ready plan-review execution metadata, or non-ready status
+- Do not begin implementation while the plan still has unresolved inline review comments, unresolved Doct plan comments/actions, stale/non-ready registered Doct plan state, or non-ready status
 - Do not use hidden fallback reviewers or resurrect retired execution paths
 - Prefer direct execution with one post-phase `quality-reviewer` pass over multi-pass review-loop orchestration
 
@@ -75,7 +75,7 @@ Only proceed when the plan is execution-ready:
 - progress checkboxes and detailed phases map one-to-one
 - UI impact is explicitly triaged and is not `unknown`
 - no unresolved open questions that materially change behavior
-- for HTML plans: the closing ready verdict comes from an **independent reviewer**, not the plan author/self. Treat `PLAN_EXECUTION_READY` from `reviewed-html-plan` or an equivalent approved `PASS_NO_ISSUES` verdict as ready by substance. Integrating review findings does not self-certify readiness; an independent `BLOCKED`/findings requires a fresh independent review after integration. See `reviewed-html-plan` (Independent sign-off gate). Do not claim local mechanical validator enforcement unless that validator exists in the target repo; otherwise rely on the documented reviewer gate and truthful `plan-review` execution-readiness metadata.
+- for HTML plans: the closing ready verdict comes from an **independent reviewer**, not the plan author/self. Treat `PLAN_EXECUTION_READY` from `reviewed-html-plan` or an equivalent approved `PASS_NO_ISSUES` verdict as ready by substance. Integrating review findings does not self-certify readiness; an independent `BLOCKED`/findings requires a fresh independent review after integration. See `reviewed-html-plan` (Independent sign-off gate). Do not claim local mechanical validator enforcement unless that validator exists in the target repo; otherwise rely on the documented reviewer gate and truthful Doct plan state/metadata.
 
 ### 6. Execute directly
 

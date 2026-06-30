@@ -1,11 +1,11 @@
 ---
 name: reviewed-html-plan
-description: Create and gate execution-ready HTML development plans through the local plan-review browser tool, PM product-intent review, and read-only GPT plus GLM Pi subagent plan reviews. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered for browser feedback before implementation.
+description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, and read-only GPT plus GLM Pi subagent plan reviews. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
 ---
 
 # Reviewed HTML Plan Workflow
 
-Use this skill when the user wants the planning and review process completed before implementation starts. The output is a single reviewed HTML plan that is registered in the local `plan-review` tool and either marked execution-ready or explicitly blocked on a product/scope decision.
+Use this skill when the user wants the planning and review process completed before implementation starts. The output is a single reviewed HTML plan that is registered in Doct through `doct-agent plans` on `https://doct.nodaste.com` and either marked execution-ready or explicitly blocked on a product/scope decision.
 
 This workflow stops before product-code execution. It may edit the plan artifact, but it must not change product code, tests, app config, generated files, or environment files.
 
@@ -14,7 +14,7 @@ This workflow stops before product-code execution. It may edit the plan artifact
 Load and follow these skills when this workflow reaches their surface:
 
 - `planning-workflow` for the plan-writing contract and execution-readiness bar.
-- `html-plan-reviewer` for HTML plan structure, dark-mode requirements, registration, canonical plan-review URLs, comment monitoring, claim/ack/resolve behavior, and source sync.
+- `html-plan-reviewer` for HTML plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, plan updates, comment/action queue handling, claim/ack/resolve behavior, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
 - Pi `quality-reviewer` for the read-only GPT plan-review pass.
 - Pi `quality-reviewer-glm` for the read-only GLM plan-review pass.
@@ -73,32 +73,32 @@ If a prior reviewed plan exists, preserve truthful completed progress, stable ID
 
 ### 3. Register the plan for browser review
 
-Use `html-plan-reviewer` as the sole source for current `plan-review` commands and service behavior.
+Use `html-plan-reviewer` as the sole source for current Doct registration commands and service behavior.
 
-1. Health-check, start, or install the service only as documented by `html-plan-reviewer`.
-2. Register the plan with initial non-ready execution metadata through the `html-plan-reviewer` registration flow.
-3. Parse the registration JSON, especially `planId`, `reviewUrl`, `sourceSync`, `publicationMetadata`, and `agentInstructions`. Treat `agentInstructions` as authoritative for the current service version.
-4. Share the canonical full review URL after applying the URL rules from `html-plan-reviewer`; never show a loopback URL or relative path to the user.
-5. Immediately drain pending comments and start the queue-backed monitor from `agentInstructions` unless the user explicitly says not to monitor. In Pi, start the waiting listener with the `process` tool. A successful listener exit means a comment was claimed; process and ack it before starting a fresh listener. Treat low-level watch streams as debug-only unless the returned service instructions say otherwise.
+1. Confirm `doct-agent` auth/context for `https://doct.nodaste.com` as documented by `html-plan-reviewer`.
+2. Register the plan through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html`, using `--allow-untemplated` for the handcrafted HTML plans this workflow normally produces.
+3. Parse the registration JSON and preserve the returned Doct document/plan id, workspace id, canonical URL, current version, and any returned reviewer/agent instructions.
+4. Share the canonical Doct review URL; never show a loopback, local `plan-review`, Tailscale local-service URL, or relative path to the user unless they explicitly requested a legacy local reviewer.
+5. Inspect pending Doct plan comments/actions with `doct-agent plans queue list` and claim/process one item at a time with `doct-agent plans agent next`. Use the Pi `process` tool only for long-lived `doct-agent plans watch` source-sync processes, not for legacy `plan-review` listeners.
 
-If browser feedback has not yet been provided, stop after sharing the review URL with the comment monitor running and tell the user to annotate the plan and then say feedback is ready. Do not proceed to GPT/GLM or PM gates until the user says feedback is ready, unless the user explicitly says to skip human browser feedback.
+If browser feedback has not yet been provided, stop after sharing the Doct URL and tell the user to annotate the plan and then say feedback is ready. Do not proceed to GPT/GLM or PM gates until the user says feedback is ready, unless the user explicitly says to skip human browser feedback.
 
 ### 4. Process browser feedback
 
-When feedback is ready, process reviewer comments through the plan-review queue.
+When feedback is ready, process reviewer comments/actions through the Doct plan queue.
 
 For each pending or listener-delivered comment:
 
-1. Use the `commentId`, `claimId`, and ack guidance returned by the `html-plan-reviewer` listener flow. If no listener claim is available, use that skill's current immediate-drain command until it reports no pending comments.
+1. Use the thread id, claim id, workspace id, document id, and ack/resolve guidance returned by `doct-agent plans agent next`. If no claim is available, inspect `doct-agent plans queue list` until it reports no pending work.
 2. Read the full plan before editing.
 3. Use the annotation context, heading path, quoted text, and reviewer note.
 4. Classify the comment as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, or `DISAGREE_REPO_EVIDENCE`.
 5. Edit the plan for readiness blockers and useful clarity that preserves scope.
 6. Ask the user for product questions that cannot be resolved from repo evidence.
 7. Ack and resolve only after the plan actually addresses the comment.
-8. Start a fresh waiting listener from `agentInstructions` after the ack/resolve step if more browser feedback is expected.
+8. Claim the next Doct plan item after the ack/resolve step if more browser feedback is expected.
 
-Keep the browser-review file authoritative. If source sync is active, saving the HTML file should refresh the open review page; otherwise re-register the plan after edits.
+Keep the local HTML plan authoritative for implementation and Doct authoritative for review state. After editing the local file, push updates with `doct-agent plans update` or keep `doct-agent plans watch` running during active review.
 
 ### 5. PM product-intent review
 
@@ -181,7 +181,7 @@ Use these classifications:
 - `OUT_OF_SCOPE_FOLLOW_UP`: do not add to this plan only when it is outside the plan, not required for truthful verification, and not an acceptance-criteria/BDD gap; record it with evidence and a tracking destination if useful.
 - `DISAGREE_REPO_EVIDENCE`: do not change the plan; record the evidence if the disagreement matters.
 
-After fixing readiness blockers, rerun both GPT and GLM plan reviews. If any reviewer returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked. Repeat until both agree by substance that the plan is execution-ready. When they do, re-register the same HTML plan with truthful ready metadata using the current `html-plan-reviewer` registration flow.
+After fixing readiness blockers, rerun both GPT and GLM plan reviews. If any reviewer returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked. Repeat until both agree by substance that the plan is execution-ready. When they do, update the same Doct-registered HTML plan and status/board metadata using the current `html-plan-reviewer` Doct flow.
 
 #### Independent sign-off gate (do not self-certify)
 
@@ -192,7 +192,7 @@ The closing ready verdict that marks a plan `execution-ready` must come from an 
 - The independent ready verdict must not be followed by any later non-pass review, and should post-date the last material plan edit. If you edit the plan after the independent pass, re-review.
 - Record reviews truthfully in the `review-record` section with the real reviewer identity. Do not relabel a self-review as `codex`/`claude-code` to satisfy the gate — actually run the independent tool.
 
-This workflow enforces the gate through the reviewer loop and truthful `plan-review` execution-readiness metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/GPT/GLM gates and service metadata are the enforcement surface.
+This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/GPT/GLM gates and Doct review state are the enforcement surface.
 
 Stop and report a convergence blocker if:
 
@@ -208,7 +208,7 @@ If AI reviews materially reshape product intent, run one final PM check before d
 Before final output, inspect the HTML plan for obvious handoff blockers:
 
 - unresolved browser-review comments remain in the queue,
-- the plan-review service metadata has not been re-registered with `--execution-ready true` after successful GPT and GLM plan reviews,
+- the Doct registered plan has not been updated after successful GPT and GLM plan reviews, or its lifecycle/board/readiness state is stale,
 - unresolved inline review markers or unresolved question sections remain,
 - status is not `execution-ready`,
 - near-top Decision Attention is missing or hides unresolved decisions,
@@ -230,7 +230,7 @@ Use this structure:
 ## Reviewed HTML Plan Ready
 
 Plan: thoughts/plans/<slug>.html
-Review URL: <canonical plan-review URL>
+Review URL: <canonical Doct URL>
 
 ### Gates completed
 - Browser feedback: <processed / skipped by request / blocked>

@@ -1,280 +1,247 @@
 ---
 name: html-plan-reviewer
-description: Create, publish, and monitor HTML development plans with the local `plan-review` service. Use this skill whenever the user asks to create an HTML plan, publish/register a plan for browser review, use the HTML plan editor/reviewer, monitor plan comments, process reviewer annotations, or wire an agent workflow to plan-reviewer comments. Also use it when working with plans under `thoughts/plans/*.html` that should be served at `http://mbp.braid-python.ts.net:4317/` or another plan-reviewer URL.
+description: Create, register, update, and monitor HTML development plans in Doct using `doct-agent plans` against `https://doct.nodaste.com`. Use this skill whenever the user asks to create an HTML plan, publish/register a plan for browser review, use the plan review workflow, monitor plan comments/actions, process reviewer annotations, or wire an agent workflow to registered plan comments. Prefer this Doct-backed flow over the legacy local `plan-review` service unless the user explicitly asks for that legacy service.
 ---
 
 # HTML Plan Reviewer Workflow
 
-Use this skill to turn agent-authored HTML plans into reviewable browser artifacts, publish them to the local `plan-review` daemon, and monitor reviewer comments until they are acknowledged or resolved.
+Use this skill to turn agent-authored HTML plans into reviewable Doct plan artifacts, register them through `doct-agent`, and process reviewer comments/actions until they are acknowledged or resolved.
 
-## Service assumptions
+## Default backend
 
-The tool is the Homebrew-installed `plan-review` CLI from the standalone `Nodaste-Lab/plan-reviewer` repository. `ai-configs` only owns this workflow skill; it no longer vendors the daemon, CLI, or Homebrew formula.
-
-This skill is the source of truth for service mechanics: CLI commands, canonical URLs, registration metadata, source sync, queue-backed comment claiming, acking, and resolving. It is not the structural plan schema source. Use `planning-workflow` for plan structure and `reviewed-html-plan` for execution-readiness doctrine; this service records and routes readiness metadata but should not duplicate repo-specific validators or Heddle-specific contract rules.
-
-If the daemon supports profile or contract enforcement, treat it as warning-first and repo-declared unless the target repo explicitly requires stricter behavior. Do not describe hard fail runtime enforcement here without matching service support and repo-local approval.
-
-Default service URL on this host:
+The default plan-review backend is **Doct production**:
 
 ```bash
-http://mbp.braid-python.ts.net:4317
+https://doct.nodaste.com
 ```
 
-Use that full Tailscale MagicDNS URL in all user-facing plan links. Shortnames such as `mbp`, `localhost`, and `127.0.0.1` are allowed only for private health checks or curl diagnostics, never for URLs shared with the user or browser-review handoff.
+Use `doct-agent` for every plan registration, update, comment, queue, board, or lifecycle operation. Do **not** use the legacy local `plan-review` CLI/service unless the user explicitly asks for a local/legacy plan-reviewer flow.
 
-Local health check:
+Before mutating anything, confirm auth and endpoint:
 
 ```bash
-curl -fsS http://127.0.0.1:4317/health
+doct-agent auth status --all --json
+doct-agent context --base-url https://doct.nodaste.com --json
 ```
 
-If the service is not running, start it:
+If production is authenticated but not default, either pass `--base-url https://doct.nodaste.com` on every command or set it explicitly:
 
 ```bash
-brew services start plan-reviewer
+doct-agent auth default --base-url https://doct.nodaste.com
 ```
 
-If it is not installed, install from the standalone `plan-reviewer` tap. If this machine previously installed the old `local/ai-configs/plan-reviewer` formula, remove that local tap install first so Homebrew does not keep launching the stale cellar service:
+If not authenticated, follow `doct-document-ops`: ask the doct owner for a selected-agent enrollment code, then run:
 
 ```bash
-brew services stop plan-reviewer || true
-brew uninstall local/ai-configs/plan-reviewer || brew uninstall plan-reviewer || true
-brew untap local/ai-configs || true
+doct-agent auth login --base-url https://doct.nodaste.com
 ```
-
-Then install from the standalone tap:
-
-```bash
-brew tap Nodaste-Lab/plan-reviewer https://github.com/Nodaste-Lab/plan-reviewer.git
-brew install Nodaste-Lab/plan-reviewer/plan-reviewer
-brew services start plan-reviewer
-```
-
-Source and development docs live at `https://github.com/Nodaste-Lab/plan-reviewer`.
-
-The MVP is intentionally unauthenticated. Treat `0.0.0.0:4317` as trusted-network only.
 
 ## Create an HTML plan
 
-When asked to create a plan for this reviewer:
+When asked to create a plan for browser review:
 
-1. Load this skill before writing or serving any `thoughts/plans/*.html` artifact, even if a repo-local planning skill is also loaded.
-2. Load the repo's planning guidance, especially `AGENTS.md` and any planning workflow skill that applies.
-3. Write the plan under `thoughts/plans/<slug>.html` unless repo-local instructions say otherwise.
-4. Use an HTML document, not Markdown renamed as HTML.
-5. Mandatory visual baseline: use a dark-mode default theme with an explicit dark background, light foreground, readable muted text, accessible accent/link colors, and `color-scheme: dark`. Do not create light-mode HTML plans unless the user explicitly asks for a light-mode artifact.
-6. Mandatory layout baseline: use a full-width single-column reviewer layout by default. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns (`display: grid; grid-template-columns: repeat(auto-fit, minmax(...));`) so the plan body keeps the full content width. Do not reserve a permanent left sidebar/rail for navigation. Collapse the ToC columns naturally on narrow screens.
-7. Mandatory URL baseline: every plan URL shown to the user, opened in the browser, posted to Linear, or recorded in handoff must use the full Tailscale MagicDNS name, not a shortname, `localhost`, or `127.0.0.1`. On this host the canonical base is `http://mbp.braid-python.ts.net:4317/`; if using a temporary alternate port, keep the hostname and change only the port, e.g. `http://mbp.braid-python.ts.net:4318/...`. When printing plan URLs in terminal/chat contexts, wrap the URL in angle brackets (`<...>`) so terminal linkifiers include IDs that end with `_`.
-8. Add stable `id` attributes to sections, phases, acceptance criteria, diagrams, figures, mockups, and other likely comment targets.
-9. Prefer semantic HTML: `section`, `article`, `figure`, `figcaption`, headings, lists, tables, and code blocks.
-10. Keep plan-authored scripts, event handlers, forms, and active embeds out of the artifact; the reviewer shell owns interactivity.
-11. Keep images as relative repo assets when possible, with useful `alt`, `width`, and `height` attributes.
+1. Load this skill before writing, registering, linking, or monitoring any `thoughts/plans/*.html` artifact.
+2. Load repo planning guidance, especially root `AGENTS.md`, product-intent docs, and any repo-local planning overrides.
+3. Write the plan under `thoughts/plans/<slug>.html` unless repo-local instructions or the user supplied another active plan path.
+4. Use a real HTML document, not Markdown renamed as HTML.
+5. Use a dark-mode default theme: explicit dark background, light foreground, readable muted text, accessible accent/link colors, and `color-scheme: dark`.
+6. Use a full-width single-column reviewer layout. Put a concise table of contents near the top after the title/status summary and before the main plan sections. Format the ToC as responsive columns; do not reserve a permanent left sidebar.
+7. Add stable `id` attributes to sections, phases, acceptance criteria, BDD scenarios, diagrams, figures, mockups, and likely comment targets. Doct comments on HTML plans are node/selector based, so stable IDs are part of the review contract.
+8. Prefer semantic HTML: `section`, `article`, `figure`, `figcaption`, headings, lists, tables, and code blocks.
+9. Keep plan-authored scripts, event handlers, forms, and active embeds out of the artifact; Doct owns review interactivity.
+10. Keep images as relative repo assets when possible, with useful `alt`, `width`, and `height` attributes.
 
-Important reviewer-friendly structure:
+Reviewer-friendly structure:
 
-- `## Progress` or equivalent should contain the phase checkboxes.
-- The top table of contents should link to every major plan section and each phase; group links into short scan-friendly columns such as Overview, Contracts, Execution, and Delivery.
-- Each phase should have a stable wrapper ID, for example `id="phase-p1-contracts"`.
-- Acceptance criteria and BDD scenarios should have stable IDs, for example `id="ac-1"` and `id="bdd-retry-timeout"`.
+- `Progress` contains the phase checkboxes.
+- The top table of contents links to every major plan section and each phase.
+- Each phase has a stable wrapper ID, for example `id="phase-p1-contracts"`.
+- Acceptance criteria and BDD scenarios have stable IDs, for example `id="ac-1"` and `id="bdd-retry-timeout"`.
 - Add short context near diagrams and images so comments on visual elements are meaningful to the agent.
 
-## Publish/register a plan
+## Register a plan in Doct
 
-From the repo that owns the plan, register with explicit execution-readiness metadata:
-
-```bash
-plan-review register thoughts/plans/<plan>.html --repo auto --branch auto --commit auto --execution-ready false
-```
-
-For machine-readable output:
+From the repo that owns the plan, register with `doct-agent plans register`:
 
 ```bash
-plan-review register thoughts/plans/<plan>.html --repo auto --branch auto --commit auto --execution-ready false --json
+doct-agent plans register \
+  --base-url https://doct.nodaste.com \
+  --file thoughts/plans/<plan>.html \
+  --source-format html \
+  --allow-untemplated \
+  --json
 ```
 
-`--execution-ready` is required by the service. Use `false` for initial browser-review registration and any pre-AI-review plan. Use `true` only after the required agent plan-review gates agree by substance that the plan is execution-ready; then re-register with `--execution-ready true --json` so the service metadata is truthful.
+Add `--title '<Plan Title>'`, `--workspace <workspace-slug-or-id>`, `--workspace-id <id>`, `--path '<path>'`, or `--parent-id <id>` only when repo guidance or the user specifies a destination. Otherwise use the CLI defaults. Use `--allow-untemplated` for the handcrafted HTML plans this workflow normally produces; omit it only when using a Doct plan template/config that the CLI recognizes.
 
-By default, registration live-links the local source file. The repo file is authoritative; service blobs are derived cache/history. After this succeeds, editing the HTML file should automatically sync the latest render into the already-open review page. Use `--snapshot` only when the user explicitly wants a detached historical review.
+Parse the JSON and preserve the returned identifiers in the handoff or working notes. Field names may evolve, so inspect the payload, but capture at least:
 
-The command prints:
+- Doct document/plan id,
+- workspace id,
+- current source/version or expected-version value when returned,
+- canonical Doct URL,
+- any returned watch, agent, or reviewer instructions.
 
-- `Plan ID`
-- `Index URL`
-- `Review URL`
-- `Source sync`
-- `Watch command`
-- `Agent Instructions`
+Show the user the canonical Doct URL from the registration response. If a command returns a relative path, resolve it against `https://doct.nodaste.com` before sharing it. Do not share `localhost`, local `plan-review` URLs, or Tailscale local-service URLs for the default flow.
 
-For JSON output, parse `planId`, `reviewUrl`, `indexUrl`, `sourceSync`, `publicationMetadata`, and `agentInstructions`. The service may return relative URLs such as `/p/<planId>`; convert them to the canonical full Tailscale URL before showing them to a user, opening a browser, or writing a handoff.
+Registration creates or updates the Doct review artifact. The repo file remains the source artifact for implementation; Doct is the review/registration surface.
 
-Open the review URL for browser annotation, or open the index:
+## Update an already registered plan
+
+After editing a registered plan, push the updated source back through Doct:
 
 ```bash
-plan-review index
-open http://mbp.braid-python.ts.net:4317/
+doct-agent plans update \
+  --base-url https://doct.nodaste.com \
+  --id <document-id> \
+  --workspace-id <workspace-id> \
+  --file thoughts/plans/<plan>.html \
+  --source-format html \
+  --expected-version <version-from-last-read-or-register> \
+  --json
 ```
 
-Registration normally upserts the same plan thread. Use `--new-thread` only when the user explicitly wants a fresh review thread instead of updating the existing plan.
+If the expected version conflicts, read the current plan state with `doct-agent plans show --id <document-id> --json`, reconcile the conflict, and retry. Use `--force` only when you have confirmed you are overwriting your own stale registration state rather than discarding someone else's edits.
 
-## Monitor for comments
+For continuous sync while a reviewer is actively annotating a local source file, use the Doct watcher with the Pi `process` tool:
 
-Registration JSON includes `agentInstructions`; treat those instructions as authoritative for the current service version. The correctness-critical listener is the queue-backed `plan-review agent next` flow, not `plan-review watch`.
+```bash
+doct-agent plans watch \
+  --base-url https://doct.nodaste.com \
+  --id <document-id> \
+  --workspace-id <workspace-id> \
+  --file thoughts/plans/<plan>.html \
+  --json
+```
 
-Always do this immediately after registering a browser-review plan unless the user explicitly says not to monitor comments:
+Use background processing for the watcher; do not block the conversation on it.
 
-1. Drain already-pending comments until the command returns `"status":"empty"`:
+## Monitor and process comments/actions
+
+Use Doct plan queue commands, not the legacy `plan-review agent next` flow.
+
+Inspect pending work:
+
+```bash
+doct-agent plans queue list \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --json
+```
+
+Claim the next applicable item for this agent:
+
+```bash
+doct-agent plans agent next \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --json
+```
+
+For cross-document adapter workers, use `--all` only when that worker is intentionally responsible for all active plan comments/actions in the workspace.
+
+A claimed item should provide a thread id, claim id, reviewer context, action metadata, and selected node/selector context. Process one claim at a time:
+
+1. Read the full local plan file and, if needed, `doct-agent plans show --id <document-id> --json`.
+2. Use the selected node ID, selector, heading path, quoted text, and reviewer body.
+3. Classify the item as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, `DISAGREE_REPO_EVIDENCE`, `EXECUTION_READY_REQUEST`, or `BUILD_REQUEST`.
+4. Make the smallest plan change that addresses in-scope feedback without widening scope.
+5. Update Doct with `doct-agent plans update` after edits.
+6. Add a visible reply when useful:
    ```bash
-   plan-review agent next <planId> --url http://mbp.braid-python.ts.net:4317 --no-wait --json
+   doct-agent plans reply \
+     --base-url https://doct.nodaste.com \
+     --document-id <document-id> \
+     --workspace-id <workspace-id> \
+     --thread-id <thread-id> \
+     --body "Updated the plan." \
+     --json
    ```
-2. Start one waiting listener before continuing other work:
+7. Ack when the item has been incorporated or deliberately dispositioned:
    ```bash
-   plan-review agent next <planId> --url http://mbp.braid-python.ts.net:4317 --wait --json
+   doct-agent plans ack \
+     --base-url https://doct.nodaste.com \
+     --workspace-id <workspace-id> \
+     --thread-id <thread-id> \
+     --claim-id <claim-id> \
+     --summary "Integrated reviewer feedback on phase boundaries" \
+     --json
    ```
-3. When that listener exits successfully with a claimed comment, process and ack that exact claim before starting another listener.
+8. Resolve only when the reviewer-visible issue is complete:
+   ```bash
+   doct-agent plans resolve \
+     --base-url https://doct.nodaste.com \
+     --workspace-id <workspace-id> \
+     --thread-id <thread-id> \
+     --claim-id <claim-id> \
+     --summary "Plan now includes the missing verification gate" \
+     --json
+   ```
 
-`agent next --wait` atomically claims one pending `browser.comment.v1`, prints `commentId`, `claimId`, thread/conversation context, and ack/resolve guidance, then exits. Do not blindly loop successful claim commands or pre-claim multiple comments. Restart the listener only after the claimed comment has been processed and acknowledged.
-
-### Pi monitor pattern
-
-Use the Pi `process` tool for the waiting listener so the main conversation can continue:
-
-```bash
-plan-review agent next <planId> --url http://mbp.braid-python.ts.net:4317 --wait --json
-```
-
-Set success alerts on the background process. A successful exit means a comment was claimed and must be processed/acked; after acking it, start a fresh listener. A failure before a claim can normally be restarted because queue state and claim leases remain authoritative.
-
-### Codex monitor pattern
-
-Codex should start `agent next --wait` in a PTY session, not `watch`, when the user wants live monitoring:
+If you cannot act before the claim should be released:
 
 ```bash
-plan-review agent next <planId> --url http://mbp.braid-python.ts.net:4317 --wait --json
-```
-
-Use `yield_time_ms: 1000` so the tool returns a `session_id`. When the command exits with a claim payload, process/ack it, then start the next `agent next --wait` command. Before sending a final answer, stop the listener or move monitoring to a durable handoff.
-
-If monitoring needs to outlive the agent turn, use the durable command returned in `agentInstructions`, with the canonical service URL added when required by the payload.
-
-### Debug-only watch stream
-
-`plan-review watch` is useful for low-latency diagnostics, but it is not the correctness-critical delivery path. Use it only as an optional debug stream:
-
-```bash
-plan-review watch <planId> --url http://mbp.braid-python.ts.net:4317 --mode queue --format browser-comment --json
-```
-
-Fallback polling/queue snapshot:
-
-```bash
-plan-review queue list --url http://mbp.braid-python.ts.net:4317 --plan-id <planId> --json
-```
-
-For adapter workers that intentionally claim across active documents, use the service-supported all-plan form instead of pre-enumerating plans:
-
-```bash
-plan-review agent next --all --adapter <adapter> --url http://mbp.braid-python.ts.net:4317 --wait --json
-```
-
-## Process comment queue
-
-Comments are at-least-once. The safe agent loop is claim -> inspect/apply -> optionally append a visible reply -> ack -> optionally resolve. `ack` and `resolve` are lifecycle metadata; use `reply` when the reviewer should see an agent response in the thread.
-
-Prefer the `commentId`, `claimId`, and ack guidance returned by `plan-review agent next`. Manual queue commands remain useful for recovery or inspection.
-
-Claim one pending comment manually:
-
-```bash
-plan-review queue claim <planId> --url http://mbp.braid-python.ts.net:4317 --one --json
-```
-
-Claim multiple comments manually only when you are prepared to process each claim before its lease expires:
-
-```bash
-plan-review queue claim <planId> --url http://mbp.braid-python.ts.net:4317 --limit 5 --json
-```
-
-Acknowledge after incorporating or explicitly deciding on the comment:
-
-```bash
-plan-review ack <commentId> \
-  --url http://mbp.braid-python.ts.net:4317 \
-  --claim <claimId> \
-  --note "Updated the plan" \
-  --summary "Integrated reviewer feedback on phase boundaries" \
-  --changed-files thoughts/plans/<plan>.html \
+doct-agent plans release \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --thread-id <thread-id> \
+  --claim-id <claim-id> \
+  --reason "Cannot complete before handoff" \
   --json
 ```
 
-Append a visible agent reply when useful for reviewer-facing conversation history:
+## Plan lifecycle and board state
+
+Use Doct state/board commands for registered plan status:
 
 ```bash
-plan-review reply <commentId> \
-  --url http://mbp.braid-python.ts.net:4317 \
-  --claim <claimId> \
-  --body "Updated the document." \
+doct-agent plans lifecycle \
+  --base-url https://doct.nodaste.com \
+  --document-id <document-id> \
+  --workspace-id <workspace-id> \
+  --state active \
+  --json
+
+doct-agent plans board list \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --json
+
+doct-agent plans board set \
+  --base-url https://doct.nodaste.com \
+  --document-id <document-id> \
+  --workspace-id <workspace-id> \
+  --column in_progress \
   --json
 ```
 
-Resolve when the reviewer-visible issue is complete:
+Only set a board column that exists in the workspace. If the intended status column is absent or ambiguous, stop with an actionable status-sync blocker rather than guessing.
 
-```bash
-plan-review resolve <commentId> \
-  --url http://mbp.braid-python.ts.net:4317 \
-  --note "Done" \
-  --summary "Plan now includes the missing verification gate" \
-  --changed-files thoughts/plans/<plan>.html \
-  --json
-```
+## Legacy local plan-review service
 
-If you cannot act on a claimed comment before the lease expires, release it with the active claim ID:
-
-```bash
-plan-review release <commentId> --url http://mbp.braid-python.ts.net:4317 --claim <claimId> --reason "Cannot complete before lease expiry" --json
-```
-
-Direct `ack` without a matching active claim can return `409 claim_required`; claim first unless you already have the claim ID from the event payload.
-
-## Responding to reviewer annotations
-
-For each comment:
-
-1. Read the full plan file before editing.
-2. Use the annotation context: selected DOM node, heading path, quoted text, image anchor, and reviewer note.
-3. Decide whether the comment is a blocker, clarification, or optional suggestion.
-4. Make the smallest plan change that addresses the comment without widening scope.
-5. If `Source sync: active` was reported, save the file and let the service sync/reload the browser view; otherwise re-register manually.
-6. Append a visible `plan-review reply` when the reviewer needs to see the response in the browser thread.
-7. Ack with a concise summary and changed files.
-8. Resolve only when the comment is fully addressed, not merely seen.
-
-If the plan was registered with `--snapshot`, or if source sync reports a failure, re-register manually after edits, preserving truthful execution-readiness metadata:
-
-```bash
-plan-review register thoughts/plans/<plan>.html --repo auto --branch auto --commit auto --execution-ready false --json
-```
-
-Keep append-only decision/deviation logs intact when regenerating a plan. Do not delete reviewer-relevant history unless the user explicitly asks.
+Use the old local `plan-review` CLI/service only when the user explicitly asks for the legacy local reviewer, a repo still mandates it, or you are migrating an existing local registration. In that case, follow the repo-local legacy instructions. Do not present local-service URLs as the default plan review surface.
 
 ## Quick command sequence
 
 ```bash
-# 1. Verify service
-curl -fsS http://127.0.0.1:4317/health
+# 1. Confirm endpoint/auth
+doct-agent auth status --all --json
+doct-agent context --base-url https://doct.nodaste.com --json
 
-# 2. Register plan with required readiness metadata
-plan-review register thoughts/plans/<plan>.html --repo auto --branch auto --commit auto --execution-ready false --json
+# 2. Register the HTML plan in Doct
+doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --json
 
-# 3. Share/open the canonical review UI
-open http://mbp.braid-python.ts.net:4317/p/<planId>
+# 3. After edits, update the registered plan
+doct-agent plans update --base-url https://doct.nodaste.com --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --source-format html --expected-version <version> --json
 
-# 4. Drain pending comments, then start the primary listener
-plan-review agent next <planId> --url http://mbp.braid-python.ts.net:4317 --no-wait --json
-plan-review agent next <planId> --url http://mbp.braid-python.ts.net:4317 --wait --json
+# 4. Inspect and claim reviewer work
+doct-agent plans queue list --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json
+doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json
 
-# 5. Process the returned claim, optionally reply visibly, then ack/resolve
-plan-review reply <commentId> --url http://mbp.braid-python.ts.net:4317 --claim <claimId> --body "Updated the document." --json
-plan-review ack <commentId> --url http://mbp.braid-python.ts.net:4317 --claim <claimId> --note "Handled" --summary "Updated the plan" --changed-files thoughts/plans/<plan>.html --json
-plan-review resolve <commentId> --url http://mbp.braid-python.ts.net:4317 --note "Resolved" --summary "Reviewer feedback addressed" --changed-files thoughts/plans/<plan>.html --json
+# 5. Reply, ack, and resolve the returned thread/claim
+doct-agent plans reply --base-url https://doct.nodaste.com --document-id <document-id> --workspace-id <workspace-id> --thread-id <thread-id> --body "Updated the plan." --json
+doct-agent plans ack --base-url https://doct.nodaste.com --workspace-id <workspace-id> --thread-id <thread-id> --claim-id <claim-id> --summary "Handled" --json
+doct-agent plans resolve --base-url https://doct.nodaste.com --workspace-id <workspace-id> --thread-id <thread-id> --claim-id <claim-id> --summary "Resolved" --json
 ```

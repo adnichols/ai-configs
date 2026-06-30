@@ -1,6 +1,6 @@
 ---
 name: dev-plan
-description: Materialize or update a single-file execution plan after discovery. Planning-only work - synthesizes validated research into an actual execution plan without modifying product code.
+description: Materialize or update a single-file execution plan after discovery, preferring Doct-backed registration for HTML plans through `doct-agent plans` on `https://doct.nodaste.com` when the plan is reviewer-facing. Planning-only work - synthesizes validated research into an actual execution plan without modifying product code.
 ---
 
 # Materialize Plan
@@ -41,7 +41,7 @@ Before writing the plan:
 3. Read `thoughts/plans/AGENTS.md` only if it exists for local planning overrides.
 4. If local guidance names an HTML plan contract, template, validator, or plan service, read those docs before writing and use the checked-in tooling they name.
 5. Load relevant skills:
-   - `html-plan-reviewer` before writing, serving, registering, linking, or monitoring any `thoughts/plans/*.html` artifact; use its `plan-review` workflow for reviewer-facing HTML plans
+   - `html-plan-reviewer` before writing, registering, linking, updating, or monitoring any `thoughts/plans/*.html` artifact; use its Doct-backed `doct-agent plans` workflow against `https://doct.nodaste.com` for reviewer-facing HTML plans
    - `product-principles` when the plan affects workflows, defaults, onboarding, recovery behavior, error handling, architecture, or regression strategy; use it to define the golden path, self-healing expectations, fail-closed boundaries, agent-legible errors, and to audit repo guidance/tests for dissonance
    - `tdd-test-writer` when phases will depend on tests-first delivery
    - `dependency-selection` when introducing non-trivial functionality
@@ -90,11 +90,11 @@ Non-negotiable requirements:
 - `### Verify` steps are copy/paste ready and match actual repo reality
 - The plan is resumable by another agent without inventing missing semantics
 - If the plan is rendered or delivered as HTML, load `html-plan-reviewer` and use the standard reviewer layout: a dark-mode visual theme with an explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so the plan body keeps the full content width. Do not use a permanent left sidebar/rail for navigation or let the agent choose light mode or an alternate navigation layout.
-- If the plan is rendered, served, registered, linked, or monitored as HTML, use `html-plan-reviewer` as the sole source for current `plan-review` commands: service health, registration, readiness metadata, returned `agentInstructions`, canonical URLs, comment monitoring, ack/resolve, and final readiness re-registration.
-- Every user-facing HTML plan URL must follow the canonical URL rules from `html-plan-reviewer`; private health checks may use loopback URLs only when that skill allows them.
+- If the plan is rendered, registered, linked, updated, or monitored as HTML, use `html-plan-reviewer` as the sole source for current Doct commands: auth/context checks, `doct-agent plans register --base-url https://doct.nodaste.com --source-format html`, canonical Doct URLs, `plans update`, plan queue inspection, agent claims, ack/resolve, and final readiness/status updates.
+- Every user-facing HTML plan URL must be the canonical Doct URL from `https://doct.nodaste.com`; do not share local `plan-review`, loopback, or Tailscale service URLs unless the user explicitly requested a legacy local review service.
 - For product-facing work, the plan explicitly documents the default workflow, inferred defaults, self-healing expectations, fail-closed boundaries, actionable agent-legible error guidance, and any repo-doc/test updates needed to stay aligned
 - When a repo uses a reviewed-plan flow, the plan assumes explicit handoff to the canonical continuation named in repo-local guidance rather than hidden recovery paths.
-- If repo guidance requires a checked-in plan server, validate/serve/open the plan with that server, reuse an already-running instance for the target plan, and never substitute Vite, file URLs, Python/Node static servers, or a custom plan service.
+- If repo guidance requires a checked-in local plan server instead of Doct, validate/serve/open the plan with that server, reuse an already-running instance for the target plan, and never substitute Vite, file URLs, Python/Node static servers, or a custom plan service.
 - The plan does not normalize routine "run this other command to inspect/fix it" operator loops unless the work is explicitly about a high-risk or ambiguous exception path
 
 ### 6) Consistency Pass

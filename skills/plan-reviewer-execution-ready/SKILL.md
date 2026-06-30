@@ -1,13 +1,13 @@
 ---
 name: plan-reviewer-execution-ready
-description: Respond to plan-reviewer execution-ready request comments by coordinating GPT and GLM readiness review, resolving disagreements into plan improvements, applying those improvements to the HTML plan, and rerunning review until both reviewers agree the plan is execution-ready or a real blocker remains. Use when a plan-review browser comment says to use plan-reviewer-execution-ready or requests an execution-ready review for a plan path.
+description: Respond to Doct/plan-reviewer execution-ready request comments by coordinating GPT and GLM readiness review, resolving disagreements into plan improvements, applying those improvements to the HTML plan, and rerunning review until both reviewers agree the plan is execution-ready or a real blocker remains. Use when a registered Doct plan comment says to use plan-reviewer-execution-ready or requests an execution-ready review for a plan path.
 ---
 
 # Plan Reviewer Execution-Ready
 
-Use this skill when a `plan-review` browser action comment asks the listening agent to run an execution-ready review for an explicit plan path.
+Use this skill when a registered Doct plan browser action comment asks the listening agent to run an execution-ready review for an explicit plan path.
 
-The plan-reviewer service only owns the comment lifecycle. Reviewer selection and review mechanics live here, in the installed agent configuration.
+Doct owns registration and the comment lifecycle through `doct-agent plans`. Reviewer selection and review mechanics live here, in the installed agent configuration.
 
 ## Input contract
 
@@ -32,8 +32,8 @@ If the plan path is missing, ambiguous, or not a readable file in the current re
 5. Compare GPT and GLM findings, force disagreements through repo/product evidence, and identify the consensus set of changes required for correctness and execution readiness.
 6. Apply the agreed in-scope improvements directly to the HTML plan. The primary deliverable is an improved plan, not a findings report.
 7. Rerun GPT and GLM after material edits until both agree by substance that the latest plan is execution-ready, or stop with a specific product/tooling blocker.
-8. Re-register the same plan through `plan-review register ... --execution-ready true` only after the gates clear.
-9. Ack and resolve the plan-reviewer request comment only after the plan is actually updated and rereviewed, or the blocker is reported.
+8. Update the same registered Doct plan through `doct-agent plans update` and set truthful lifecycle/board/readiness state only after the gates clear.
+9. Ack and resolve the Doct plan request comment only after the plan is actually updated and rereviewed, or the blocker is reported.
 
 Do not edit product code, tests, generated files, local environment files, or unrelated docs while using this skill.
 
@@ -98,5 +98,5 @@ Do not let reviewer suggestions expand the plan beyond the user's requested scop
 
 Complete the request only when one of these is true:
 
-- The plan has been updated, independent reviews clear, and the plan is re-registered with `--execution-ready true`.
+- The plan has been updated, independent reviews clear, and the registered Doct plan has been updated with truthful status/metadata.
 - A product question or tooling blocker prevents readiness; the blocker is reported clearly and the plan remains not execution-ready.
