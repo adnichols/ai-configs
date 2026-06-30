@@ -1,13 +1,13 @@
 ---
 name: dev-plan
-description: Materialize or update a single-file execution plan after discovery, preferring Doct-backed registration for HTML/Markdoc plans through `doct-agent plans` on `https://doct.nodaste.com` when the plan is reviewer-facing. Planning-only work - synthesizes validated research into an actual execution plan without modifying product code.
+description: Materialize or update a single-file execution plan after discovery. For Aaron-facing plan requests, default to a Doct-registered HTML/Markdoc plan and start/verify the comment listener; do not use Markdown/text docs unless explicitly requested or repo guidance forbids HTML.
 ---
 
 # Materialize Plan
 
 You are leaving read-only discovery mode and entering plan-materialization mode. This is still non-execution work: synthesize validated research into the actual execution plan file.
 
-This shared skill has no default plan file format. Determine the active plan artifact from repo-local guidance (`AGENTS.md`, `thoughts/plans/AGENTS.md`, local planning skills, or an existing plan path supplied by the user). Follow the local artifact format exactly; do not create markdown companions for an HTML-plan repo. If repo guidance does not define the active plan artifact format/path and the user did not supply an existing plan path, ask one targeted question and stop. Do not assume markdown.
+For Aaron-facing work, the default plan artifact is a browser-reviewable HTML/Markdoc plan registered in Doct with `doct-agent plans`; this applies when Aaron says “create a plan” even if he does not explicitly say “HTML”. Determine the exact source path from repo-local guidance (`AGENTS.md`, `thoughts/plans/AGENTS.md`, local planning skills, or an existing plan path supplied by the user). Follow local HTML/Markdoc conventions exactly; do not create Markdown companions for an HTML-plan repo. If repo guidance does not define the active plan artifact format/path and the user did not supply an existing plan path, default to `thoughts/plans/<slug>.html` in a repo context or a temporary handcrafted HTML source for standalone planning. Do not ask which format to use unless Aaron explicitly requests a non-HTML format or repo guidance conflicts.
 
 Treat this command as planning-only work even though normal file writes are available. You may inspect the repo and write the plan artifact, but you must not change product code, tests, app config, docs, generated files, or environment files.
 
@@ -29,7 +29,7 @@ Output: exactly one `plan_path`, resolved from repo-local guidance or an existin
 
 1. If arguments look like a path to an existing plan file, treat it as `plan_path`.
 2. Otherwise derive `slug` from arguments (lowercase, digits, hyphens only).
-3. Set `plan_path` to the repo's active plan path from local guidance. If local guidance does not define one and the user did not supply an existing plan path, ask one targeted question and stop. Do not infer a markdown path.
+3. Set `plan_path` to the repo's active HTML/Markdoc plan path from local guidance. If local guidance does not define one and the user did not supply an existing plan path, default to `thoughts/plans/<slug>.html` in a repo context or a temporary handcrafted HTML source for standalone planning. Do not infer or create Markdown unless Aaron explicitly requested Markdown/text/no Doct, or repo guidance explicitly forbids HTML/Markdoc.
 4. Ensure the parent directory for `plan_path` exists (create it if missing).
 
 ### 2) Re-establish Planning Context

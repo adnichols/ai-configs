@@ -10,10 +10,10 @@ Aaron runs Nodaste; for calendar summaries, treat it as primary and ignore Workd
 §
 Signals: use ccore by default for send/create; still check vault signals during transition. Notify-only watcher; no auto-response. In Discord keep briefs short; put detail in Obsidian/doct docs and preserve doct permalinks.
 §
-Use pi coding workflow for any coding work in ~/code/.
+Use pi coding workflow for coding in ~/code; create plans as Doct HTML/Markdoc with a comment listener.
 §
 Priorities: C-Core, DocT, HUD; HUD should sit on C-Core, whose trust/reliability gates team use. For Doct sidebar/index bugs, file Linear when API evidence points to product bug.
 §
-For reminders/tasks: never set all-day reminders; if timing is unclear, ask. Aaron tracks tasks in Todoist by default; Apple Reminders is intake, not canonical.
+Tasks: ask if timing unclear; never all-day. Todoist canonical; Apple Reminders intake.
 §
 Default article captures go to ADN vault root Clippings; ask before using studio.

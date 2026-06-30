@@ -1,6 +1,6 @@
 ---
 name: doct-agent-cli
-description: Use the current doct-agent CLI for Doct documents, comments, collaborative edits, and Doct-backed HTML/Markdoc plan registration. Prefer `doct-agent plans register` on `https://doct.nodaste.com` for HTML planning; use legacy local plan-review only when explicitly requested.
+description: Use the current doct-agent CLI for Doct documents, comments, collaborative edits, and Doct-backed HTML/Markdoc plan registration. For Aaron-facing plan requests, use `doct-agent plans register` on `https://doct.nodaste.com`, start/verify the comment listener, and avoid text-doc plan publishing unless explicitly requested.
 version: 2.0.0
 author: Hermes Agent
 metadata:
@@ -97,7 +97,7 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 
 ## Special default: coding and HTML plans
 
-If the user asks to **send, publish, copy, save, register, or review a coding plan in doct**, prefer Doct plan registration over text-document publishing.
+If the user asks to **send, publish, copy, save, register, review, or create a coding/implementation plan in doct**, prefer Doct plan registration over text-document publishing. For Aaron-facing plans, this is a hard default: create/register an HTML or Markdoc plan and start/verify the plan comment listener unless Aaron explicitly asks for Markdown/text/no comments or repo guidance forbids HTML/Markdoc.
 
 For HTML plans:
 
@@ -124,7 +124,11 @@ doct-agent plans register \
 
 Use `documents publish-plan` only as a legacy fallback when the CLI explicitly directs you there for old Markdown/text-plan flows. Current `doct-agent onboard` says `documents publish-plan` fails closed with replacement guidance for plan-review publishing.
 
-Return the created/updated Doct URL, document/plan id, workspace id, and current version when available.
+Do **not** use `doct-agent documents create` / `documents replace-body` for Aaron-facing implementation plans. That creates a plain text document, not the commentable plan-review artifact Aaron expects. If this mistake happens, register a replacement HTML/Markdoc plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement Doct URL.
+
+After registering a plan, inspect the plan queue once and start or verify the document-specific comment listener/queue watcher per `html-plan-reviewer` before final response.
+
+Return the created/updated Doct URL, document/plan id, workspace id, current version, and listener status when available.
 
 ## Decision rules
 

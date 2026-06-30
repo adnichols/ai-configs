@@ -1,6 +1,6 @@
 ---
 name: html-plan-reviewer
-description: Create, register, update, and monitor HTML or Markdoc development plans in Doct using `doct-agent plans` against `https://doct.nodaste.com`. Use this skill whenever the user asks to create an HTML/Markdoc plan, publish/register a plan for browser review, use the plan review workflow, monitor plan comments/actions, process reviewer annotations, or wire an agent workflow to registered plan comments. Prefer this Doct-backed flow over the legacy local `plan-review` service unless the user explicitly asks for that legacy service.
+description: Create, register, update, and monitor Aaron-facing HTML or Markdoc development plans in Doct using `doct-agent plans` against `https://doct.nodaste.com`. Use whenever Aaron asks to create/post/publish a plan, even if he does not say HTML; register the plan, start/verify the comment listener, and process reviewer annotations. Prefer this Doct-backed flow over text docs or the legacy local `plan-review` service unless explicitly overridden.
 ---
 
 # HTML Plan Reviewer Workflow
@@ -38,11 +38,11 @@ doct-agent auth login --base-url https://doct.nodaste.com
 
 ## Create an HTML or Markdoc plan
 
-When asked to create a plan for browser review:
+When Aaron asks to create/post/publish a plan, treat it as a request for a browser-reviewable, commentable Doct plan by default even if he does not explicitly say “HTML”. Do not publish a Markdown/text Doct document for an Aaron-facing implementation plan unless he explicitly asks for that non-reviewable format.
 
-1. Load this skill before writing, registering, linking, updating, or monitoring any `thoughts/plans/*.html` or `thoughts/plans/*.markdoc` artifact.
+1. Load this skill before writing, registering, linking, updating, or monitoring any implementation/development plan for Aaron, including `thoughts/plans/*.html` or `thoughts/plans/*.markdoc` artifacts.
 2. Load repo planning guidance, especially root `AGENTS.md`, product-intent docs, and any repo-local planning overrides.
-3. Prefer `thoughts/plans/<slug>.markdoc` when repo guidance defines Markdoc as the editable source. Use `thoughts/plans/<slug>.html` for legacy/raw HTML plans or when the user/repo explicitly asks for handcrafted HTML.
+3. Prefer `thoughts/plans/<slug>.markdoc` when repo guidance defines Markdoc as the editable source. Use `thoughts/plans/<slug>.html` for handcrafted HTML plans, legacy/raw HTML plans, or when repo guidance is absent/ambiguous. For standalone/non-repo planning, write a temporary handcrafted HTML source and still register it through Doct.
 4. Do not create Markdown-only plans for reviewer-facing work unless the user explicitly asks for Markdown. Markdoc is the compact source format; HTML is the rendered/review surface for handcrafted or generated artifacts.
 5. Use a dark-mode default theme: explicit dark background, light foreground, readable muted text, accessible accent/link colors, and `color-scheme: dark`.
 6. Use a full-width single-column reviewer layout. Put a concise table of contents near the top after the title/status summary and before the main plan sections. Format the ToC as responsive columns; do not reserve a permanent left sidebar.
@@ -95,6 +95,28 @@ Parse the JSON and preserve the returned identifiers in the handoff or working n
 Show the user the canonical Doct URL from the registration response. If a command returns a relative path, resolve it against `https://doct.nodaste.com` before sharing it. Do not share `localhost`, local `plan-review` URLs, or Tailscale local-service URLs for the default flow.
 
 Registration creates or updates the Doct review artifact. The repo file remains the source artifact for implementation; Doct is the review/registration surface.
+
+Do **not** use `doct-agent documents create`, `documents replace-body`, or any plain text-document flow for Aaron-facing implementation plans. Text documents are not the plan review surface Aaron expects and may not support the comment/annotation workflow he needs. If you accidentally create a text document for a plan, replace it by registering an HTML/Markdoc plan through `doct-agent plans register` and report the replacement URL.
+
+## Start the comment listener / queue watcher
+
+After every new or updated Aaron-facing plan registration, start or verify a comment listener before final response. “Listener” means an active Doct plan queue watcher/maintainer for that specific document, not merely sharing the URL.
+
+Minimum required post-registration sequence:
+
+1. Inspect pending work once:
+   ```bash
+   doct-agent plans queue list \
+     --base-url https://doct.nodaste.com \
+     --workspace-id <workspace-id> \
+     --document-id <document-id> \
+     --json
+   ```
+2. If pending comments/actions exist, claim and process them one at a time with `doct-agent plans agent next`, update the plan, reply, ack, and resolve before returning to the user.
+3. If the plan is being handed to Aaron for browser comments, create or verify a durable queue-backed watcher for this document. In Hermes, prefer a self-contained recurring cron/listener that polls `doct-agent plans queue list` for the exact `<workspace-id>/<document-id>`, processes available claims with `doct-agent plans agent next`, stays quiet when no work exists, and stops only when the plan is archived or Aaron asks to stop listening.
+4. Report listener status in the final response: watcher/cron id or process id when available, plus the document id it owns. If listener setup fails, say it failed and why; do not imply comments are being watched.
+
+`doct-agent plans watch` is a source-sync watcher for keeping a local source file and Doct registration aligned. It is useful during active editing, but by itself it is not sufficient as the comment listener unless paired with queue polling/claim processing.
 
 ## Update an already registered plan
 

@@ -1,6 +1,6 @@
 ---
 name: reviewed-html-plan
-description: Create and gate execution-ready HTML/Markdoc development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, and read-only GPT plus GLM Pi subagent plan reviews. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
+description: Create and gate execution-ready HTML/Markdoc development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, read-only GPT plus GLM Pi subagent plan reviews, and a started/verified comment listener. Use whenever Aaron asks for a plan, the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
 ---
 
 # Reviewed HTML Plan Workflow
@@ -81,7 +81,7 @@ Use `html-plan-reviewer` as the sole source for current Doct registration comman
 4. Share the canonical Doct review URL; never show a loopback, local `plan-review`, Tailscale local-service URL, or relative path to the user unless they explicitly requested a legacy local reviewer.
 5. Inspect pending Doct plan comments/actions with `doct-agent plans queue list` and claim/process one item at a time with `doct-agent plans agent next`. Use the Pi `process` tool only for long-lived `doct-agent plans watch` source-sync processes, not for legacy `plan-review` listeners.
 
-If browser feedback has not yet been provided, stop after sharing the Doct URL and tell the user to annotate the plan and then say feedback is ready. Do not proceed to GPT/GLM or PM gates until the user says feedback is ready, unless the user explicitly says to skip human browser feedback.
+If browser feedback has not yet been provided, stop only after sharing the Doct URL **and** starting/verifying the document-specific comment listener/queue watcher from `html-plan-reviewer`. Tell the user the listener status so they can annotate immediately. Do not require the user to come back and say feedback is ready as the only monitoring path; the listener/queue watcher is responsible for noticing browser comments.
 
 ### 4. Process browser feedback
 

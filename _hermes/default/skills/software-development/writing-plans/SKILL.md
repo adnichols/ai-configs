@@ -1,6 +1,6 @@
 ---
 name: writing-plans
-description: Use when creating or updating executable software plans. Follow repo-local artifact format, prefer Doct-backed `doct-agent plans` for reviewer-facing HTML/Markdoc plans, and do not assume Markdown or the legacy local plan-review service.
+description: Use when creating or updating executable software plans. For Aaron-facing plan requests, create a Doct-registered HTML/Markdoc plan by default, start/verify the comment listener, and do not use Markdown/text docs unless explicitly requested or repo guidance forbids HTML.
 version: 2.0.0
 author: Hermes Agent
 license: MIT
@@ -12,13 +12,27 @@ metadata:
 
 # Writing Implementation Plans
 
-Use this skill as the canonical source of truth for writing executable implementation plans across repos. This skill has no default plan file format. Repo-local planning guidance must define the active plan artifact and serving workflow; when it says active plans are HTML or must use a checked-in plan service, follow that local contract exactly.
+Use this skill as the canonical source of truth for writing executable implementation plans across repos.
+
+## Aaron default: plans are Doct-registered HTML/Markdoc
+
+When Aaron says “create a plan”, “post a plan”, “make a plan”, “publish a plan”, or otherwise asks for an implementation/development plan, the default artifact is a reviewer-facing HTML or Markdoc plan registered in Doct with `doct-agent plans`, not a Markdown/text Doct document and not a chat-only plan. This default applies even when the user does not explicitly say “HTML”.
+
+Only use a non-HTML/Markdoc plan when one of these is true:
+
+- Aaron explicitly asks for Markdown/text/no Doct/no comments;
+- an existing non-HTML plan path is supplied and the task is only to update that artifact;
+- repo-local guidance explicitly forbids Doct HTML/Markdoc plans for this workflow.
+
+If repo-local guidance is absent or ambiguous, do not ask which format to use: create `thoughts/plans/<slug>.html` in a repo context, or a temporary handcrafted HTML source for standalone/non-repo planning, then register it through Doct. After registration, start or verify the Doct plan comment listener/queue watcher and report both the canonical Doct review URL and listener status.
+
+Repo-local planning guidance may refine the source path or choose Markdoc over handcrafted HTML, but it does not weaken the default that Aaron-facing plans must be browser-reviewable and commentable.
 
 ## Boundaries
 
 - `plan mode` is for discovery only: inspect the codebase, validate assumptions, gather evidence, and identify ambiguities.
 - `dev:plan` (or equivalent plan-materialization step) writes the actual plan file once discovery has produced enough evidence to choose the correct readiness state: `execution-ready` when foundational decisions are resolved, or a single non-ready `research-ready` artifact when further research is the next handoff. Before that handoff point, the work remains `discovery`.
-- There is no default shared artifact path or extension. Resolve the single-file active plan artifact from repo-local guidance or an existing plan path supplied by the user. If local guidance does not define the active artifact and the user did not supply an existing plan path, ask one targeted question and stop. Do not assume markdown.
+- Default shared artifact for Aaron-facing plans is a Doct-registered HTML/Markdoc plan. Resolve the exact source path from repo-local guidance or an existing plan path supplied by the user. If local guidance does not define the active artifact and the user did not supply an existing plan path, use `thoughts/plans/<slug>.html` in a repo context or a temporary handcrafted HTML source for standalone planning. Do not ask which format to use unless Aaron explicitly requests a non-HTML format or repo guidance conflicts.
 - `dev:plan` ends when the plan artifact is written or updated; execution starts only after a separate explicit execution command or a new user instruction.
 - In Pi-style reviewed-plan workflows, keep the handoff explicit and prefer the repo's canonical workflow skill from repo-local guidance. For HTML plans, prefer Doct registration through `doct-agent plans` on `https://doct.nodaste.com`; do not assume a hidden fallback to Claude Code, a local `plan-review` service, or any other alternate review surface.
 - During plan writing, edit only the target plan artifact unless the repo's `AGENTS.md` explicitly allows another planning-side file.

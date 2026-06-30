@@ -70,5 +70,7 @@ Implementation requirements:
 - Sanitizing YAML config is not enough: examples inside skill Markdown can contain token-shaped placeholder strings. Scan and redact copied text files too.
 - Keep generated safety backups out of git, e.g. add `_hermes/.backups/` to `.gitignore`.
 - After every Hermes configuration change, run `python3 scripts/hermes_config_sync.py export`, then `verify`, then commit and push the `~/code/ai-configs` changes before reporting the work complete.
+- If an SSH push to GitHub fails but `gh auth status` shows a valid HTTPS-capable account, do not stop at the SSH failure; push the committed `main` update with an explicit HTTPS remote such as `git push https://github.com/<owner>/<repo>.git main`.
+- Exclude generated/runtime-like skill/plugin state in addition to obvious Hermes runtime dirs: skill hub caches (`.hub/`, `index-cache/`), curator backups/state, `.usage.json`, plugin `state/`, `state.json`, and scanner snapshots such as `scan_*.json`.
 - Do not include `manifest.json` in its own manifest hash list.
 - If future source-first edits need to delete a config key, a merge-only installer will not remove it; add an explicit deletion manifest rather than relying on absence from the repo copy.
