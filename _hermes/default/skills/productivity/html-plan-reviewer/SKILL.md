@@ -104,7 +104,15 @@ After every new or updated Aaron-facing plan registration, start or verify a com
 
 Minimum required post-registration sequence:
 
-1. Inspect pending work once:
+1. Validate that the artifact is the HTML/Markdoc plan-review surface, not a text doc:
+   ```bash
+   doct-agent plans show \
+     --base-url https://doct.nodaste.com \
+     --id <document-id> \
+     --json
+   ```
+   Treat success plus returned render/anchor fields such as `anchorTargets`, `renderedHtml`, `documentVersionId`, or `htmlVersionId` as the evidence that browser comments can target the plan. `doct-agent documents get` alone is not sufficient evidence.
+2. Inspect pending work once:
    ```bash
    doct-agent plans queue list \
      --base-url https://doct.nodaste.com \
@@ -112,13 +120,18 @@ Minimum required post-registration sequence:
      --document-id <document-id> \
      --json
    ```
-2. If pending comments/actions exist, claim and process them one at a time with `doct-agent plans agent next`, update the plan, reply, ack, and resolve before returning to the user.
-3. If the plan is being handed to Aaron for browser comments, create or verify a durable queue-backed watcher for this document. In Hermes, prefer a self-contained recurring cron/listener that polls `doct-agent plans queue list` for the exact `<workspace-id>/<document-id>`, processes available claims with `doct-agent plans agent next`, stays quiet when no work exists, and stops only when the plan is archived or Aaron asks to stop listening.
-4. Report listener status in the final response: watcher/cron id or process id when available, plus the document id it owns. If listener setup fails, say it failed and why; do not imply comments are being watched.
+3. If pending comments/actions exist, claim and process them one at a time with `doct-agent plans agent next`, update the plan, reply, ack, and resolve before returning to the user.
+4. If the plan is being handed to Aaron for browser comments, create or verify a durable queue-backed watcher for this document. In Hermes, prefer a self-contained recurring cron/listener that polls `doct-agent plans queue list` for the exact `<workspace-id>/<document-id>`, stays quiet when no work exists, and stops only when the plan is archived or Aaron asks to stop listening. **Do not implement a notification-only listener that marks queue items seen.** A valid listener must claim/process/reply/ack/resolve, or dispatch a bounded worker/sub-agent that does so. If the script only prints "new comment detected" and records `seen_item_keys`, it is not taking action. For Discord-delivered cron/listeners, never pass worker stdout through directly: suppress raw HTML, CSS, unified diffs, command transcripts, and plan markup from chat-facing output; store full transcripts in local logs and print only a concise Markdown/plain-text status summary.
+5. If a prior wrong `documents create` text doc was shared, delete it or clearly supersede it so there is one canonical review URL. Verify the old URL no longer resolves or is no longer presented.
+6. Report listener status in the final response: watcher/cron id or process id when available, plus the document id it owns. If listener setup fails, say it failed and why; do not imply comments are being watched.
 
 `doct-agent plans watch` is a source-sync watcher for keeping a local source file and Doct registration aligned. It is useful during active editing, but by itself it is not sufficient as the comment listener unless paired with queue polling/claim processing.
 
 Session-specific correction details and the required `ai-configs` sync sequence are captured in `references/aaron-plan-default-and-ai-configs-2026-06-30.md`; consult it when repairing plan-format/listener failures or when skill edits must persist beyond the current Hermes profile.
+
+A condensed operational checklist for replacing a bad text-doc plan with a real Doct HTML/Markdoc plan and listener is in `references/plan-format-listener-repair-pattern.md`.
+
+When a listener exists but comments remain pending or Aaron says it is not taking action, use `references/doct-plan-comment-dispatcher-pattern.md`. It documents the durable pattern: script-only quiet polling, lock state, bounded Hermes worker dispatch, and mandatory claim/edit/reply/ack/resolve instead of notification-only `seen_item_keys` behavior.
 
 ## Update an already registered plan
 
