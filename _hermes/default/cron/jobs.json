@@ -128,7 +128,7 @@
     {
       "id": "dc506ce59560",
       "name": "Hermes Codex PR Watcher plan comment listener",
-      "prompt": "Quiet script-only Doct plan comment listener for the Hermes Codex PR Watcher Plan. The script polls the exact Doct workspace/document queue and prints a notification only when new actionable comments/actions appear; empty stdout means no message.",
+      "prompt": "Quiet script-only Doct plan comment dispatcher for the Hermes Codex PR Watcher Plan. The script polls the exact Doct workspace/document queue, stays silent when no pending comments/actions exist, and when pending work exists launches a bounded Hermes worker that claims, edits the plan as needed, replies, acks, and resolves each comment. It uses a lock to avoid overlapping cron ticks and prints only the worker summary or listener errors.",
       "skills": [],
       "skill": null,
       "model": null,
