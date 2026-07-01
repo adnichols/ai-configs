@@ -313,9 +313,9 @@ assert_shared_skill_install_state() {
   assert_file_contains "$home/.agents/skills/algorithmic-art/.ai-configs-managed.json" '"source": "external-package:anthropics/skills#algorithmic-art"' || return 1
 
   [[ -f "$home/.agents/skills/design-skill/SKILL.md" ]] || return 1
-  assert_file_contains "$home/.agents/skills/design-skill/SKILL.md" 'external package=arjunkshah/design-skill skill=design' || return 1
+  assert_file_contains "$home/.agents/skills/design-skill/SKILL.md" 'name: design' || return 1
   [[ -f "$home/.agents/skills/design-skill/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/design-skill/.ai-configs-managed.json" '"source": "external-package:arjunkshah/design-skill#design-skill"' || return 1
+  assert_file_contains "$home/.agents/skills/design-skill/.ai-configs-managed.json" '"source": "skills/design-skill"' || return 1
 
   [[ -f "$home/.agents/skills/herdr/SKILL.md" ]] || return 1
   assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'external package=ogulcancelik/herdr skill=herdr' || return 1
@@ -615,7 +615,7 @@ test_phase_three_duplicate_skill_trees_are_removed() {
   [[ ! -d "skills/algorithmic-art" ]] || return 1
   [[ ! -d "skills/brand-guidelines" ]] || return 1
   [[ ! -d "skills/canvas-design" ]] || return 1
-  [[ ! -d "skills/design-skill" ]] || return 1
+  [[ -d "skills/design-skill" ]] || return 1
   [[ ! -d "skills/doc-coauthoring" ]] || return 1
   [[ ! -d "skills/docx" ]] || return 1
   [[ ! -d "skills/frontend-design" ]] || return 1
@@ -678,7 +678,7 @@ test_phase_four_validation_proves_final_alignment() {
   [[ ! -e "$home/.pi/agent/skills/doct-document-ops" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/cmd-debug" ]] || return 1
 
-  assert_file_contains "$home/.agents/skills/doct-document-ops/SKILL.md" 'doct-agent documents publish-plan' || return 1
+  assert_file_contains "$home/.agents/skills/doct-document-ops/SKILL.md" 'doct-agent plans register' || return 1
   assert_file_not_contains "$home/.agents/skills/doct-document-ops/SKILL.md" 'publish-coding-plan.sh' || return 1
 
   stale_tree_refs="$(git grep -n '_opencode/skills/\|_pi/skills/' README.md SETUP.md AGENTS.md _pi _opencode _omp skills install.sh || true)"

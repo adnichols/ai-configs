@@ -297,13 +297,12 @@
         "opencode",
         "pi"
       ],
+      "canonicalSource": "skills/design-skill",
       "legacySources": [
         "_opencode/skills/design-skill"
       ],
-      "notes": "Fetched via `npx skills add arjunkshah/design-skill --skill design`; previously vendored in the OpenCode skill tree under the local name `design-skill`.",
-      "sourceType": "external-package",
-      "packageSource": "arjunkshah/design-skill",
-      "packageSkillName": "design"
+      "notes": "Repo-owned copy captured from ~/.agents/skills/design-skill after the previous arjunkshah/design-skill upstream became unavailable to non-interactive installers.",
+      "sourceType": "repo"
     },
     "dev-plan": {
       "class": "consumer-specific-installable",
