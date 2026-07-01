@@ -118,6 +118,8 @@ Minimum required post-registration sequence:
 
 `doct-agent plans watch` is a source-sync watcher for keeping a local source file and Doct registration aligned. It is useful during active editing, but by itself it is not sufficient as the comment listener unless paired with queue polling/claim processing.
 
+Session-specific correction details and the required `ai-configs` sync sequence are captured in `references/aaron-plan-default-and-ai-configs-2026-06-30.md`; consult it when repairing plan-format/listener failures or when skill edits must persist beyond the current Hermes profile.
+
 ## Update an already registered plan
 
 After editing a registered plan, push the updated source back through Doct:

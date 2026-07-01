@@ -102,15 +102,15 @@
       "schedule_display": "every 1m",
       "repeat": {
         "times": null,
-        "completed": 7090
+        "completed": 7196
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-06-21T09:41:11.831912-06:00",
-      "next_run_at": "2026-06-30T17:43:19.127240-06:00",
-      "last_run_at": "2026-06-30T17:42:19.127240-06:00",
+      "next_run_at": "2026-06-30T21:15:52.375500-06:00",
+      "last_run_at": "2026-06-30T21:14:52.375500-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -124,7 +124,54 @@
       "enabled_toolsets": null,
       "workdir": "/Users/anichols/Obsidian",
       "fire_claim": null
+    },
+    {
+      "id": "dc506ce59560",
+      "name": "Hermes Codex PR Watcher plan comment listener",
+      "prompt": "Quiet script-only Doct plan comment listener for the Hermes Codex PR Watcher Plan. The script polls the exact Doct workspace/document queue and prints a notification only when new actionable comments/actions appear; empty stdout means no message.",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "provider_snapshot": null,
+      "model_snapshot": null,
+      "base_url": null,
+      "script": "hermes_pr_codex_plan_comment_listener.py",
+      "no_agent": true,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 1,
+        "display": "every 1m"
+      },
+      "schedule_display": "every 1m",
+      "repeat": {
+        "times": null,
+        "completed": 1
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-06-30T21:14:33.690080-06:00",
+      "next_run_at": "2026-06-30T21:15:42.788011-06:00",
+      "last_run_at": "2026-06-30T21:14:42.788011-06:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "origin",
+      "origin": {
+        "platform": "discord",
+        "chat_id": "1521649696010141797",
+        "chat_name": "adn_core / #chief-cos / Do some research to see if there are good tools for monitoring PR activity ac...",
+        "thread_id": "1521649696010141797"
+      },
+      "enabled_toolsets": [
+        "terminal"
+      ],
+      "workdir": null,
+      "fire_claim": null
     }
   ],
-  "updated_at": "2026-06-30T17:42:19.127335-06:00"
+  "updated_at": "2026-06-30T21:14:52.375621-06:00"
 }

@@ -1,5 +1,5 @@
 {
-  "file_count": 1674,
+  "file_count": 1676,
   "files": [
     {
       "bytes": 819,
@@ -22,9 +22,9 @@
       "sha256": "6700fda7e1132352cb7718acb7a24e1eefd87f30728bbb703b247116109faff7"
     },
     {
-      "bytes": 5720,
+      "bytes": 7361,
       "path": "cron/jobs.json",
-      "sha256": "82d1edf2713391e7773ef0adbafcbdc5a18fd084242a2c55b1f65db93bd07a53"
+      "sha256": "f49581cbd3d9fd71face74daa35b9e37f1d1878e7a47110dff762c656c73e939"
     },
     {
       "bytes": 508,
@@ -119,7 +119,7 @@
     {
       "bytes": 1385,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "15864176100fa9c59005d7749dd691852d0ba572fa31848c4693dc1a74dc0f03"
+      "sha256": "a777ab6127d306858615aaef5c01df81c31ff48ca0cba91786a987c57b46409f"
     },
     {
       "bytes": 2157,
@@ -4862,6 +4862,11 @@
       "sha256": "1593f5ab4d5919d912da712c41deecd278f0d85751f3f4ddefb3a9fa986729f2"
     },
     {
+      "bytes": 4185,
+      "path": "scripts/hermes_pr_codex_plan_comment_listener.py",
+      "sha256": "52fabf23a2ed86c8ee9ee1bcc292042ad6f8c1658aada3c489c9938daed7a5c2"
+    },
+    {
       "bytes": 15500,
       "path": "scripts/hermes_state_backup.py",
       "sha256": "22467fc54560d5f5b05ca8248e1eea7db92202cd015d0dae7a9633b67f2a9f6b"
@@ -7442,9 +7447,14 @@
       "sha256": "18e30e12f7553cd8715bde3e0db739281a486c93f596bb5cc924487464ddbfce"
     },
     {
-      "bytes": 14488,
+      "bytes": 14771,
       "path": "skills/productivity/html-plan-reviewer/SKILL.md",
-      "sha256": "521525c986080243370d60fc895dbe2e18fca5172c3ae36776b6a7e559f800b1"
+      "sha256": "4f3ace9d344f917a31fd28dc425d469213f4e44e7703785c0c243161084c3743"
+    },
+    {
+      "bytes": 2372,
+      "path": "skills/productivity/html-plan-reviewer/references/aaron-plan-default-and-ai-configs-2026-06-30.md",
+      "sha256": "3853131b0c27c3e1ca1d6c637590ffcfcb96d6c5efc5b3b992d98cbba36384e6"
     },
     {
       "bytes": 2386,
@@ -8372,7 +8382,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260630T235514Z",
+  "generated_at": "20260701T031520Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/.hermes"
