@@ -30,7 +30,7 @@ Before doing workflow work, read:
 4. the target plan if it already exists
 
 Use `skills/planning-workflow/SKILL.md` as the planning doctrine and `references/stages.md` for the exact stage contract in this workflow.
-Load `html-plan-reviewer` whenever the canonical plan file is an HTML plan or should be registered for browser review; use its Doct-backed `doct-agent plans` flow on `https://doct.nodaste.com`, process unresolved Doct plan comments/actions before execution, and keep registered plan state truthful.
+Load `html-plan-reviewer` whenever the canonical plan file is an HTML plan or should be registered for browser review; use its Doct-backed `doct-agent plans` flow on `https://doct.nodaste.com`, follow returned `listenerInstructions` and start the durable listener after registration, process unresolved Doct plan comments/actions before execution, and keep registered plan state truthful.
 Load `product-principles` when the work affects workflows, defaults, onboarding, recovery behavior, operator or agent UX, status surfaces, or architecture.
 
 ## Workflow contract

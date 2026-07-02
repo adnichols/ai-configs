@@ -5,9 +5,9 @@ description: Respond to Doct/plan-reviewer Build Plan comments by executing an e
 
 # Plan Reviewer Build
 
-Use this skill when a registered Doct plan browser action comment asks the listening agent to build an explicit plan path.
+Use this skill when a registered Doct plan browser action comment, usually delivered by the durable `doct-agent plans listen` dispatcher, asks the listening agent to build an explicit plan path.
 
-Doct only requests and tracks the action through `doct-agent plans`. The implementation workflow is delegated to `run-plan` so PR creation, bounded review, verification, and post-PR monitoring stay in one source of truth.
+Doct only requests and tracks the action through `doct-agent plans`. The listener process should dispatch the claim payload and returned commands to this worker; this worker should not replace or stop the listener. The implementation workflow is delegated to `run-plan` so PR creation, bounded review, verification, and post-PR monitoring stay in one source of truth.
 
 ## Input contract
 

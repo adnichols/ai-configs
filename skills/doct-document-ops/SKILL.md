@@ -72,11 +72,12 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 | Register a Markdoc plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --json` |
 | Update a registered plan | `doct-agent plans update --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --source-format html --expected-version <version> --json` |
 | Show a registered plan | `doct-agent plans show --id <document-id> --json` |
-| Watch/sync a plan file | `doct-agent plans watch --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --json` |
+| Watch/sync a plan source file | `doct-agent plans watch --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --json` |
+| Start durable plan comment listener | `doct-agent plans listen --workspace-id <workspace-id> --document-id <document-id> --jsonl` |
 | Inspect plan queue | `doct-agent plans queue list --workspace-id <workspace-id> --document-id <document-id> --json` |
-| Claim next plan item | `doct-agent plans agent next --workspace-id <workspace-id> --document-id <document-id> --json` |
-| Reply / ack / resolve plan item | `doct-agent plans <reply\|ack\|resolve> ... --thread-id <thread-id> --claim-id <claim-id> --json` |
-| Plan lifecycle / board | `doct-agent plans lifecycle --document-id <id> --workspace-id <id> --state active --json`; `doct-agent plans board list|set ...` |
+| Drain / claim next plan item | `doct-agent plans agent next --workspace-id <workspace-id> --document-id <document-id> --no-wait --json`; use `--wait` only for one-shot listener/recovery flows |
+| Reply / ack / resolve / release plan item | `doct-agent plans <reply\|ack\|resolve\|release> ... --thread-id <thread-id> --claim-id <claim-id> --json` |
+| Plan lifecycle / board / readiness metadata | `doct-agent plans lifecycle --document-id <id> --workspace-id <id> --state active --json`; `doct-agent plans board list|set ...`; `doct-agent plans metadata --execution-ready true|false ...` |
 | Title / status | `doct-agent documents update-metadata --id <id> --title <t> --status <s>` |
 | Rename | `doct-agent documents rename --id <id> --workspace-id <id> --title <t>` |
 | Move / reorder | `doct-agent documents move --id <id> --workspace-id <id> --new-parent-id <id>` |
@@ -116,7 +117,9 @@ doct-agent plans register \
 
 Use `documents publish-plan` only as a legacy fallback when the CLI explicitly directs you there for old Markdown/text-plan flows. Current `doct-agent onboard` says `documents publish-plan` fails closed with replacement guidance for plan-review publishing.
 
-Return the created/updated Doct URL, document/plan id, workspace id, and current version when available.
+Return the created/updated Doct URL, document/plan id, workspace id, current version, and the returned `listenerInstructions` when available.
+
+After every reviewer-facing plan registration, follow the returned `listenerInstructions` before handing off browser review: set lifecycle active, move to `in_progress` when the visible board column exists, drain with `agent next --no-wait` until empty, then start the durable listener with the harness background-process tool. Prefer the returned `startCommand` (`doct-agent plans listen ... --jsonl`) when present; otherwise use the returned `preferredCommand`/`durableCommand`. `plans watch` is only source sync/debug visibility and does not replace the comment listener.
 
 ## Decision rules
 
@@ -124,6 +127,7 @@ Return the created/updated Doct URL, document/plan id, workspace id, and current
 - Production plan registration defaults to `https://doct.nodaste.com`; develop is opt-in.
 - Confirm before create / replace-body / delete / move on documents you did not create, and before publishing into shared workspaces.
 - `doct-agent triage` is read-only operational triage (DB checks and Railway logs) — use it to inspect state, not to mutate.
+- For registered plans, listener startup is part of registration completion. Do not tell the user to annotate a plan until the returned listener command is running or you have reported a concrete listener-start blocker.
 - For visual verification inside doct, use browser automation after approval.
 
 ## References

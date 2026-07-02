@@ -5,9 +5,9 @@ description: Respond to Doct/plan-reviewer execution-ready request comments by c
 
 # Plan Reviewer Execution-Ready
 
-Use this skill when a registered Doct plan browser action comment asks the listening agent to run an execution-ready review for an explicit plan path.
+Use this skill when a registered Doct plan browser action comment, usually delivered by the durable `doct-agent plans listen` dispatcher, asks the listening agent to run an execution-ready review for an explicit plan path.
 
-Doct owns registration and the comment lifecycle through `doct-agent plans`. Reviewer selection and review mechanics live here, in the installed agent configuration.
+Doct owns registration and the comment lifecycle through `doct-agent plans`. The listener process should dispatch the claim payload and returned commands to this worker; this worker should not replace or stop the listener. Reviewer selection and review mechanics live here, in the installed agent configuration.
 
 ## Input contract
 

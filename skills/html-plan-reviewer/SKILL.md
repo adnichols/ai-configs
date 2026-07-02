@@ -1,11 +1,11 @@
 ---
 name: html-plan-reviewer
-description: Create, register, update, and monitor HTML development plans in Doct using `doct-agent plans` against `https://doct.nodaste.com`. Use this skill whenever the user asks to create an HTML plan, publish/register a plan for browser review, use the plan review workflow, monitor plan comments/actions, process reviewer annotations, or wire an agent workflow to registered plan comments. Prefer this Doct-backed flow over the legacy local `plan-review` service unless the user explicitly asks for that legacy service.
+description: Create, register, update, and monitor HTML development plans in Doct using `doct-agent plans` against `https://doct.nodaste.com`. Use this skill whenever the user asks to create an HTML plan, publish/register a plan for browser review, use the plan review workflow, monitor plan comments/actions, process reviewer annotations, or wire an agent workflow to registered plan comments. After registration, start the returned durable Doct listener unless explicitly doing registration-only work. Prefer this Doct-backed flow over the legacy local `plan-review` service unless the user explicitly asks for that legacy service.
 ---
 
 # HTML Plan Reviewer Workflow
 
-Use this skill to turn agent-authored HTML plans into reviewable Doct plan artifacts, register them through `doct-agent`, and process reviewer comments/actions until they are acknowledged or resolved.
+Use this skill to turn agent-authored HTML plans into reviewable Doct plan artifacts, register them through `doct-agent`, start the returned queue-backed listener, and process reviewer comments/actions until they are acknowledged or resolved.
 
 ## Default backend
 
@@ -80,11 +80,36 @@ Parse the JSON and preserve the returned identifiers in the handoff or working n
 - workspace id,
 - current source/version or expected-version value when returned,
 - canonical Doct URL,
-- any returned watch, agent, or reviewer instructions.
+- the full returned `listenerInstructions` object, including `startCommand`, `preferredCommand`, `drainCommand`, lifecycle/board commands, ack/resolve guidance, and processing-loop requirements.
 
 Show the user the canonical Doct URL from the registration response. If a command returns a relative path, resolve it against `https://doct.nodaste.com` before sharing it. Do not share `localhost`, local `plan-review` URLs, or Tailscale local-service URLs for the default flow.
 
 Registration creates or updates the Doct review artifact. The repo file remains the source artifact for implementation; Doct is the review/registration surface.
+
+### Immediately start the returned listener
+
+A registered plan is not ready for browser review handoff until the comment listener is running, unless the user explicitly asked for registration only. The `plans register` JSON returns `listenerInstructions`; treat those instructions as the live contract, because field names and preferred delivery commands can evolve.
+
+After registration:
+
+1. Run the returned `lifecycleCommand`, or equivalent `doct-agent plans lifecycle --state active`, before draining/listening.
+2. Inspect board columns and run the returned `boardInProgressCommand` only when the visible `in_progress` column exists. If it is absent or hidden, continue without inventing another column.
+3. Drain pending work with the returned `drainCommand` (`doct-agent plans agent next ... --no-wait --json`) until it returns `status: "empty"`.
+4. Start the durable listener with the harness background-process tool. Prefer `listenerInstructions.startCommand` when present (`doct-agent plans listen ... --jsonl`); otherwise use the returned `preferredCommand`/`durableCommand`. Name the process with the plan/document id and add a log watch for `plan_comment_dispatch` when the harness supports it.
+5. Do not process claims inline inside the listener. When a listener event or `agent next --wait` result claims a browser comment, dispatch the claim payload and returned commands to a sub-agent or a clearly separate worker step, then keep or restart the listener.
+6. Keep the listener running until the plan is complete, no longer active, or the user explicitly stops review. If the listener cannot be started, report that as a handoff blocker before telling the user to annotate the plan.
+
+Pi `process` example:
+
+```bash
+doct-agent plans listen \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --jsonl
+```
+
+Use the exact command returned by `listenerInstructions` when it differs from this example.
 
 ## Update an already registered plan
 
@@ -103,7 +128,7 @@ doct-agent plans update \
 
 If the expected version conflicts, read the current plan state with `doct-agent plans show --id <document-id> --json`, reconcile the conflict, and retry. Use `--force` only when you have confirmed you are overwriting your own stale registration state rather than discarding someone else's edits.
 
-For continuous sync while a reviewer is actively annotating a local source file, use the Doct watcher with the Pi `process` tool:
+For continuous source sync while a reviewer is actively annotating a local source file, use the Doct watcher with the Pi `process` tool:
 
 ```bash
 doct-agent plans watch \
@@ -114,11 +139,13 @@ doct-agent plans watch \
   --json
 ```
 
-Use background processing for the watcher; do not block the conversation on it.
+Use background processing for the watcher; do not block the conversation on it. `plans watch` is source-sync/debug infrastructure only. It is not the correctness-critical comment listener and does not replace the listener startup gate above.
 
 ## Monitor and process comments/actions
 
-Use Doct plan queue commands, not the legacy `plan-review agent next` flow.
+Use Doct plan listener and queue commands, not the legacy `plan-review agent next` flow.
+
+The normal path is the durable listener started immediately after registration. Use queue inspection and one-shot claims for startup drain, recovery, or manual processing.
 
 Inspect pending work:
 
@@ -130,7 +157,7 @@ doct-agent plans queue list \
   --json
 ```
 
-Claim the next applicable item for this agent:
+Claim the next applicable item for this agent during drain/recovery:
 
 ```bash
 doct-agent plans agent next \
@@ -142,7 +169,7 @@ doct-agent plans agent next \
 
 For cross-document adapter workers, use `--all` only when that worker is intentionally responsible for all active plan comments/actions in the workspace.
 
-A claimed item should provide a thread id, claim id, reviewer context, action metadata, and selected node/selector context. Process one claim at a time:
+A listener-delivered or manually claimed item should provide a thread id, claim id, reviewer context, action metadata, selected node/selector context, and returned ack/resolve/release commands. Process one claim at a time:
 
 1. Read the full local plan file and, if needed, `doct-agent plans show --id <document-id> --json`.
 2. Use the selected node ID, selector, heading path, quoted text, and reviewer body.
@@ -233,14 +260,19 @@ doct-agent context --base-url https://doct.nodaste.com --json
 # 2. Register the HTML plan in Doct
 doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --json
 
-# 3. After edits, update the registered plan
+# 3. Activate, drain, and start the returned listener before handoff
+doct-agent plans lifecycle --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --state active --json
+doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --no-wait --json
+doct-agent plans listen --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --jsonl
+
+# 4. After edits, update the registered plan
 doct-agent plans update --base-url https://doct.nodaste.com --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --source-format html --expected-version <version> --json
 
-# 4. Inspect and claim reviewer work
+# 5. Inspect and claim reviewer work during recovery/manual processing
 doct-agent plans queue list --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json
-doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json
+doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --no-wait --json
 
-# 5. Reply, ack, and resolve the returned thread/claim
+# 6. Reply, ack, and resolve the returned thread/claim
 doct-agent plans reply --base-url https://doct.nodaste.com --document-id <document-id> --workspace-id <workspace-id> --thread-id <thread-id> --body "Updated the plan." --json
 doct-agent plans ack --base-url https://doct.nodaste.com --workspace-id <workspace-id> --thread-id <thread-id> --claim-id <claim-id> --summary "Handled" --json
 doct-agent plans resolve --base-url https://doct.nodaste.com --workspace-id <workspace-id> --thread-id <thread-id> --claim-id <claim-id> --summary "Resolved" --json

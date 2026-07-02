@@ -129,12 +129,12 @@ This repo now ships a maintained `pi-plan-mode` extension that:
 - powers `/plan` mode for `thoughts/` planning workflows,
 - keeps planning-mode file writes scoped to `thoughts/`,
 - defaults active browser-reviewed plans to `thoughts/plans/<slug>.html` while still accepting explicit legacy Markdown plan paths,
-- displays the current registered plan-review URL in the plan-mode widget when available,
-- allows the narrow `plan-review` registration/comment commands and the `process` tool needed for queue-backed browser comment iteration,
+- displays the current registered Doct plan review URL in the plan-mode widget when available,
+- allows the narrow Doct plan registration/comment commands and the `process` tool needed for queue-backed browser comment iteration,
 - steers HTML plan edits toward `/dev:reviewed-html-plan` for registration, browser feedback, PM review, and GPT/GLM Pi subagent plan review,
 - keeps `/review:plan` and `/review:plan-adversarial` available as explicit inline review paths, with HTML plans accepted as first-class inputs,
 - leaves execution handoff manual via `/cmd:execute-plan <plan> --target ...` so Pi can launch from a fresh session without popping a menu,
-- reminds the operator to stop the active plan-review comment listener before execution,
+- reminds the operator to stop the active Doct plan comment listener before execution,
 - keeps alternate review commands such as `/review:change-claude-code` as explicit opt-ins rather than hidden plan-mode fallbacks,
 - disables `/plan` mode before dispatching into execution so implementation is not blocked by planning-only restrictions.
 
@@ -238,7 +238,7 @@ Example installed agents:
 
 ### Canonical workflow
 - `adn-dev-wf` — reviewed-plan workflow from plan creation through direct execution and PM follow-up
-- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in plan-review, follows service-returned `agentInstructions`, starts the queue-backed comment monitor, processes browser feedback, runs PM plus GPT/GLM Pi subagent plan reviews, and stops at execution-ready handoff
+- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in Doct, follows returned `listenerInstructions`, starts the durable queue-backed listener, processes browser feedback, runs PM plus GPT/GLM Pi subagent plan reviews, and stops at execution-ready handoff
 
 ### Dev / execution
 - `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: implementation, scoped reviews, GPT/GLM pre-PR review, PR creation, and post-PR monitoring
@@ -298,7 +298,7 @@ Prompt templates:
 
 ## Reviewed-plan handoff
 
-Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-PR execution. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html`, and `skills/html-plan-reviewer/SKILL.md` is the sole source for concrete `plan-review` commands, readiness metadata, canonical URL rules, and comment monitor mechanics.
+Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-PR execution. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html`, and `skills/html-plan-reviewer/SKILL.md` is the sole source for concrete Doct plan commands, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics.
 
 Canonical browser-reviewed HTML plan flow:
 

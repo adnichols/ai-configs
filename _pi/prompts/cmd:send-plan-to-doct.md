@@ -1,57 +1,65 @@
 ---
-description: Publish a coding plan to doct under the personal Coding Plans document
+description: Register a coding plan in Doct and start the returned listener for reviewer-facing plans
 argument-hint: "[plan file path or short description]"
 ---
 
 # Send Coding Plan to Doct
 
-Publish a coding plan into doct as a **child document** under the root document **Coding Plans** in the user's **personal** workspace.
-
-Request: $ARGUMENTS
+Register or publish a coding plan in Doct for: `$ARGUMENTS`
 
 ## Required behavior
 
 - Prefer the `doct-document-ops` skill if it is available.
-- If `$ARGUMENTS` looks like a local file path, read that file **fully** before publishing.
-- If the user pasted the plan inline, preserve the markdown exactly.
-- Default destination unless the user explicitly overrides it:
-  - workspace: personal
-  - parent title: `Coding Plans`
-  - kind: `text`
-  - placement: child document under `Coding Plans`
+- All doct operations go through the `doct-agent` CLI. Do not use `doct-cli`, raw REST, local `plan-review`, or helper scripts.
+- If `$ARGUMENTS` looks like a local file path, read that file **fully** before sending it.
+- If the plan is HTML or Markdoc, use `doct-agent plans register` against `https://doct.nodaste.com` by default.
+- If the user explicitly wants a legacy text/Markdown child document instead of plan review, only then use the document flow the installed `doct-agent onboard` currently supports.
 
-## Publish flow
+## Plan registration flow
 
-All doct operations go through the `doct-agent` CLI. Do not use `doct-cli`, raw REST, or helper scripts.
-
-1. Verify doct auth:
+1. Verify doct auth/context:
 
 ```bash
-doct-agent auth status
+doct-agent auth status --all --json
+doct-agent context --base-url https://doct.nodaste.com --json
 ```
 
-2. Publish the plan:
+2. Register reviewer-facing HTML plans:
 
 ```bash
-doct-agent documents publish-plan --file "$ARGUMENTS" --json
+doct-agent plans register \
+  --base-url https://doct.nodaste.com \
+  --file "$ARGUMENTS" \
+  --source-format html \
+  --allow-untemplated \
+  --json
 ```
 
-`publish-plan` resolves the personal workspace, ensures the `Coding Plans` parent document exists, and creates the plan as a new `text` child document. The title defaults to the first H1 in the file; override with `--title`.
+For Markdoc plans, use `--source-format markdoc` and omit `--allow-untemplated` unless the CLI/template guidance says otherwise.
 
-If the plan is not already in a file, write the markdown to a temp file first and pass it with `--file`:
+3. Parse the registration JSON and preserve:
+- canonical Doct URL (`reviewUrl` or `documentUrl` resolved against `https://doct.nodaste.com`)
+- document/plan id
+- workspace id
+- current version ids
+- `sourceGuidance`
+- full `listenerInstructions`
 
-```bash
-doct-agent documents publish-plan --file /tmp/plan.md --title "Plan Title" --json
-```
+4. Follow the returned `listenerInstructions` before handoff:
+- run the lifecycle command / set the plan active
+- move to `in_progress` when that visible board column exists
+- drain with the returned `agent next --no-wait` command until `status: "empty"`
+- start the returned durable listener in the harness background-process tool, preferring `startCommand` (`doct-agent plans listen ... --jsonl`) when present, otherwise `preferredCommand` / `durableCommand`
 
-3. Return to the user:
-- created doct title
-- document id
-- doct URL
+5. Return to the user only after the listener is running, or report the listener-start blocker:
+- plan title
+- document/plan id
+- workspace id
+- canonical Doct review URL
+- listener process/status
 
 ## Notes
 
-- `publish-plan` auto-creates the root `Coding Plans` document if it does not already exist.
-- New plans are created as child documents, not appended into the parent body.
-- If auth is missing, run `doct-agent auth login --base-url https://doct.nodaste.com` first (paste the owner-approved enrollment code, or use `doct-agent auth import-pat --base-url <url> --token <doct_pat_v1_...>`).
-- Override the destination only when asked, with `--parent-title` / `--workspace`.
+- `documents publish-plan` is legacy and current doct-agent onboarding says it fails closed with replacement guidance for plan-review publishing. Do not use it for reviewer-facing HTML/Markdoc plans.
+- The durable listener is part of registration completion. Do not ask the user to annotate the plan until it is running.
+- If auth is missing, run `doct-agent auth login --base-url https://doct.nodaste.com` first with an owner-approved enrollment code, or use `doct-agent auth import-pat --base-url <url> --token <doct_pat_v1_...>` when explicitly provided.

@@ -14,7 +14,7 @@ This workflow stops before product-code execution. It may edit the plan artifact
 Load and follow these skills when this workflow reaches their surface:
 
 - `planning-workflow` for the plan-writing contract and execution-readiness bar.
-- `html-plan-reviewer` for HTML plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, plan updates, comment/action queue handling, claim/ack/resolve behavior, and source sync/watch behavior.
+- `html-plan-reviewer` for HTML plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
 - Pi `quality-reviewer` for the read-only GPT plan-review pass.
 - Pi `quality-reviewer-glm` for the read-only GLM plan-review pass.
@@ -77,28 +77,29 @@ Use `html-plan-reviewer` as the sole source for current Doct registration comman
 
 1. Confirm `doct-agent` auth/context for `https://doct.nodaste.com` as documented by `html-plan-reviewer`.
 2. Register the plan through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html`, using `--allow-untemplated` for the handcrafted HTML plans this workflow normally produces.
-3. Parse the registration JSON and preserve the returned Doct document/plan id, workspace id, canonical URL, current version, and any returned reviewer/agent instructions.
-4. Share the canonical Doct review URL; never show a loopback, local `plan-review`, Tailscale local-service URL, or relative path to the user unless they explicitly requested a legacy local reviewer.
-5. Inspect pending Doct plan comments/actions with `doct-agent plans queue list` and claim/process one item at a time with `doct-agent plans agent next`. Use the Pi `process` tool only for long-lived `doct-agent plans watch` source-sync processes, not for legacy `plan-review` listeners.
+3. Parse the registration JSON and preserve the returned Doct document/plan id, workspace id, canonical URL, current version, `sourceGuidance`, and full `listenerInstructions`.
+4. Follow the returned `listenerInstructions` immediately: set lifecycle active, move to `in_progress` when that visible board column exists, drain pending comments/actions with `agent next --no-wait` until empty, then start the durable listener with the harness background-process tool. Prefer `listenerInstructions.startCommand` (`doct-agent plans listen ... --jsonl`) when present; otherwise use the returned `preferredCommand`/`durableCommand`.
+5. Share the canonical Doct review URL only after the listener is running, or report a concrete listener-start blocker. Never show a loopback, local `plan-review`, Tailscale local-service URL, or relative path to the user unless they explicitly requested a legacy local reviewer.
+6. Use listener-delivered events for browser comments/actions. Use `doct-agent plans queue list` and `doct-agent plans agent next --no-wait` for startup drain, recovery, or manual processing only.
 
-If browser feedback has not yet been provided, stop after sharing the Doct URL and tell the user to annotate the plan and then say feedback is ready. Do not proceed to GPT/GLM or PM gates until the user says feedback is ready, unless the user explicitly says to skip human browser feedback.
+If browser feedback has not yet been provided, stop after sharing the Doct URL with the listener running and tell the user to annotate the plan and then say feedback is ready. Do not proceed to GPT/GLM or PM gates until the user says feedback is ready, unless the user explicitly says to skip human browser feedback.
 
 ### 4. Process browser feedback
 
 When feedback is ready, process reviewer comments/actions through the Doct plan queue.
 
-For each pending or listener-delivered comment:
+For each listener-delivered or pending comment:
 
-1. Use the thread id, claim id, workspace id, document id, and ack/resolve guidance returned by `doct-agent plans agent next`. If no claim is available, inspect `doct-agent plans queue list` until it reports no pending work.
+1. Use the thread id, claim id, workspace id, document id, selected context, and returned ack/resolve/release commands from the listener payload or `doct-agent plans agent next`. If no claim is available during manual recovery, inspect `doct-agent plans queue list` until it reports no pending work.
 2. Read the full plan before editing.
 3. Use the annotation context, heading path, quoted text, and reviewer note.
 4. Classify the comment as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, or `DISAGREE_REPO_EVIDENCE`.
 5. Edit the plan for readiness blockers and useful clarity that preserves scope.
 6. Ask the user for product questions that cannot be resolved from repo evidence.
 7. Ack and resolve only after the plan actually addresses the comment.
-8. Claim the next Doct plan item after the ack/resolve step if more browser feedback is expected.
+8. Keep or restart the durable listener after each dispatch if more browser feedback is expected; do not leave review handoff dependent on a one-time queue check.
 
-Keep the local HTML plan authoritative for implementation and Doct authoritative for review state. After editing the local file, push updates with `doct-agent plans update` or keep `doct-agent plans watch` running during active review.
+Keep the local HTML plan authoritative for implementation and Doct authoritative for review state. After editing the local file, push updates with `doct-agent plans update` or keep `doct-agent plans watch` running during active review. `plans watch` is source sync only; it does not replace the comment listener.
 
 ### 5. PM product-intent review
 
@@ -207,7 +208,7 @@ If AI reviews materially reshape product intent, run one final PM check before d
 
 Before final output, inspect the HTML plan for obvious handoff blockers:
 
-- unresolved browser-review comments remain in the queue,
+- unresolved browser-review comments remain in the queue, or the required listener was never started after registration,
 - the Doct registered plan has not been updated after successful GPT and GLM plan reviews, or its lifecycle/board/readiness state is stale,
 - unresolved inline review markers or unresolved question sections remain,
 - status is not `execution-ready`,

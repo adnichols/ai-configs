@@ -397,7 +397,7 @@
       "legacySources": [
         ".agents/skills/html-plan-reviewer"
       ],
-      "notes": "Workflow guidance for the standalone `Nodaste-Lab/plan-reviewer` service; includes long-running watcher guidance for plan-review comment monitoring. The daemon, CLI, and Homebrew formula are not vendored in ai-configs.",
+      "notes": "Workflow guidance for Doct-backed HTML plan registration through `doct-agent plans`; includes durable listener startup guidance for queue-backed browser comment monitoring.",
       "sourceType": "repo"
     },
     "plan-reviewer-build": {
@@ -407,7 +407,7 @@
         "pi"
       ],
       "canonicalSource": "skills/plan-reviewer-build",
-      "notes": "Codex/Pi: handles plan-reviewer Build Plan request comments by delegating explicit execution-ready plan paths to run-plan.",
+      "notes": "Codex/Pi: handles Doct plan Build Plan request comments by delegating explicit execution-ready plan paths to run-plan.",
       "sourceType": "repo"
     },
     "plan-reviewer-execution-ready": {
@@ -417,7 +417,7 @@
         "pi"
       ],
       "canonicalSource": "skills/plan-reviewer-execution-ready",
-      "notes": "Codex/Pi: handles plan-reviewer execution-ready request comments by running the installed runtime's independent readiness review gates for an explicit plan path.",
+      "notes": "Codex/Pi: handles Doct plan execution-ready request comments by running the installed runtime's independent readiness review gates for an explicit plan path.",
       "sourceType": "repo"
     },
     "internal-comms": {
@@ -609,7 +609,7 @@
         "pi"
       ],
       "canonicalSource": "skills/reviewed-html-plan",
-      "notes": "Pi-only: creates and gates HTML plans through plan-review browser feedback, PM product-intent review, and read-only GPT plus GLM Pi subagent plan reviews before execution.",
+      "notes": "Pi-only: creates and gates HTML plans through Doct browser feedback with durable listener startup, PM product-intent review, and read-only GPT plus GLM Pi subagent plan reviews before execution.",
       "sourceType": "repo"
     },
     "review-change-integrate": {
