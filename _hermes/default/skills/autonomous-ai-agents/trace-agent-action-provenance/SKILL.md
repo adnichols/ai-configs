@@ -12,6 +12,11 @@ Use this when Aaron asks questions like:
 - "Did Hermes or Pi do this?"
 - "Exactly when did we respond?"
 - "Dig through Hermes history and Pi history and figure it out"
+- "Where is this unexpected model/API usage coming from?"
+- "Which Pi/Codex session or subagent burned these tokens?"
+
+Related reference:
+- `references/pi-codex-model-usage-tracing.md` — concrete patterns for tracing unexpected Codex model usage across MBP/dever, Pi sidechains, Codex Desktop sessions, and subagent output files.
 
 ## Goal
 
@@ -80,10 +85,24 @@ Check these in roughly this order:
 7. **Pi history**
    - Search `~/.pi/agent/sessions/**/*.jsonl` for:
      - exact signal id
-     - exact filename stem
+     - filename stem
      - project titles
      - unique phrases from the final written response
    - If no matches on multiple queries, say **no evidence found in Pi history**
+
+8. **Unexpected model/API usage**
+   - Check live config first on each relevant host:
+     - `~/.pi/agent/settings.json` (`defaultProvider`, `defaultModel`, `enabledModels`)
+     - `~/.codex/config.toml` (`model`, `model_provider`, profiles)
+   - Then separate **actual usage** from **model availability/config mentions**:
+     - Actual Pi calls: `message.model == <model>` in `~/.pi/agent/sessions/**/*.jsonl` or sidechain task outputs.
+     - Model switches only: `type == "model_change"` may show selection intent, but not necessarily a completed billable call.
+     - Codex Desktop availability: `session_meta.dynamic_tools` and model caches list available models; do not count these as usage.
+   - For Pi subagents/sidechains, inspect output/task stores as well as main sessions:
+     - `/tmp/pi-subagents-*/.../tasks/*.output`
+     - worktree-local `.pi/side-agents/runtime/**` when present
+     - active tmux/herdr panes and their working directories
+   - If an agent definition names an unavailable/ambiguous provider alias (for example plain `openai-codex/gpt-5.5`) but the host's registered providers are numbered (`openai-codex-2`, `openai-codex-3`, `openai-codex-4`), check whether the runtime fell back to the Pi default model.
 
 ## Recommended query strategy
 
@@ -159,3 +178,5 @@ Use a compact evidence-backed structure:
 - Do not confuse watcher notification with actual processing.
 - Do not stop after session_search; verify with files/logs.
 - Do not claim certainty about Pi unless Pi history actually contains the target.
+- For usage attribution, do not count raw grep hits in model caches, available-model tool schemas, or quoted transcripts as actual calls; parse the JSON records and distinguish `message.model` usage from `model_change` and configuration text.
+- When tracing across MBP/dever, check both machines' live config and active process/session state; a local Codex Desktop session may be clean while remote Pi defaults or sidechains are producing usage.

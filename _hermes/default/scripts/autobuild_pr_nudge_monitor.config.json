@@ -1,0 +1,16 @@
+{
+  "monitors": [
+    {
+      "name": "heddle-autobuild-prs",
+      "repo": "Nodaste-Lab/heddle",
+      "repo_dir": "/Users/anichols/code/heddle",
+      "linear_team": "NOD",
+      "linear_project": "d560a030-a75f-4339-b7bd-c66f334afd9f",
+      "issue_key_prefix": "NOD",
+      "required_label": "autobuild",
+      "rework_state": "Rework",
+      "merge_on_codex_ready": true,
+      "enabled": true
+    }
+  ]
+}

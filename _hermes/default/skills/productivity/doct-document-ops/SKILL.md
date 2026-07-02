@@ -118,7 +118,7 @@ Use `documents publish-plan` only as a legacy fallback when the CLI explicitly d
 
 Do **not** use `doct-agent documents create` / `documents replace-body` for Aaron-facing implementation plans. That creates a plain text document, not the commentable plan-review artifact Aaron expects. If this mistake happens, register a replacement HTML/Markdoc plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement Doct URL.
 
-After registering a plan, inspect the plan queue once and start or verify the document-specific comment listener/queue watcher per `html-plan-reviewer` before final response.
+After registering a plan, inspect the plan queue once and start or verify the document-specific comment listener/queue watcher per `html-plan-reviewer` before final response. For listener repairs, remember that a notification-only script is not sufficient: pending comments must be claimed with `plans agent next`, handled, replied to, acked, and resolved (or released with a reason). If a Hermes script-only cron is used, it may stay quiet on empty queue but must dispatch a bounded worker or process claims directly when pending items exist.
 
 Return the created/updated Doct URL, document/plan id, workspace id, current version, and listener status when available.
 

@@ -266,6 +266,22 @@ doct-agent plans board set \
 
 Only set a board column that exists in the workspace. If the intended status column is absent or ambiguous, stop with an actionable status-sync blocker rather than guessing.
 
+### Auditing and archiving completed coding plans
+
+When Aaron asks to review Coding Plans and archive completed/PR-backed work in Doct, use the board and document tree together; neither source alone is sufficient.
+
+1. Identify the personal workspace with `doct-agent workspaces list --base-url https://doct.nodaste.com --json`, then read both `doct-agent plans board list --workspace-id <personal>` and `doct-agent documents list --workspace-id <personal>`.
+2. Locate the `Coding Plans` folder and its `Archived` child from document readback, preserving the actual `parentId`/folder id. The Archived document may have a generated path such as `coding-plans/archived-<id>.md`; use `documents move --new-parent-id <archived-id>`, not path string inference.
+3. Treat a plan as safe to archive only when there is concrete evidence: registered PR metadata, a matching GitHub PR that is open or merged, checked-off/completion notes in the plan body, or it is already on Done and clearly belongs in Archived. Search GitHub by Linear key, branch, and title when PR metadata is absent. Do not archive browser-review drafts or executionReady=false plans without independent completion evidence.
+4. For each confident plan, apply all three state changes and verify readback:
+   - `doct-agent plans board set --column done`
+   - `doct-agent plans lifecycle --state archived`
+   - `doct-agent documents move --new-parent-id <archived-folder-id>`
+5. Normalize already-archived/done cards whose lifecycle still says `active` by setting lifecycle to `archived`; Doct board column, folder placement, and lifecycle metadata can drift independently.
+6. Watch for duplicate plan documents with the same title/path. If one is hidden/not_visible but has the same plan id or Linear key as a merged/open PR plan, archive the duplicate too only when the evidence clearly ties it to the same completed work.
+
+Session-specific detail and examples: `references/coding-plan-archive-audit-pattern.md`.
+
 ## Legacy local plan-review service
 
 Use the old local `plan-review` CLI/service only when the user explicitly asks for the legacy local reviewer, a repo still mandates it, or you are migrating an existing local registration. In that case, follow the repo-local legacy instructions. Do not present local-service URLs as the default plan review surface.

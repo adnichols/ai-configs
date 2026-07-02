@@ -1,5 +1,5 @@
 {
-  "file_count": 1676,
+  "file_count": 1686,
   "files": [
     {
       "bytes": 819,
@@ -22,9 +22,9 @@
       "sha256": "6700fda7e1132352cb7718acb7a24e1eefd87f30728bbb703b247116109faff7"
     },
     {
-      "bytes": 7659,
+      "bytes": 7499,
       "path": "cron/jobs.json",
-      "sha256": "30e3428a8fae8e3a4461928dbb89bc6d353669f124b8459bbd23d6378cbc8d5e"
+      "sha256": "9fd585a4a6a3251afd937cc590fff28d04c687c3314a3da01a1ded9cbe5822f4"
     },
     {
       "bytes": 508,
@@ -52,9 +52,9 @@
       "sha256": "6f55b4ef79177f39e8c02f6088fe026e677d3d5503379e61252cb1277eb6e405"
     },
     {
-      "bytes": 1360,
+      "bytes": 1362,
       "path": "memories/USER.md",
-      "sha256": "e57ca3f102a1b939a7f5b5a606105a37bc1ee24e4056ccf2886a4a871f810d8d"
+      "sha256": "a7beb931495575771d41a9a5ff1313cd9b15a776bee3bc5e3f7b0b52b1aca8c2"
     },
     {
       "bytes": 2462,
@@ -119,7 +119,7 @@
     {
       "bytes": 1385,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "a777ab6127d306858615aaef5c01df81c31ff48ca0cba91786a987c57b46409f"
+      "sha256": "3aac96efd585871fabbf257eaa8117212a5c915a2400f84328adb5ab2d5ccdf3"
     },
     {
       "bytes": 2157,
@@ -4842,6 +4842,16 @@
       "sha256": "991ba35fe89af3444f130ec58a6600a787d8734b1c2e63d9f7f813c94e99456f"
     },
     {
+      "bytes": 411,
+      "path": "scripts/autobuild_pr_nudge_monitor.config.json",
+      "sha256": "52169f6a2cfe32626c5eaaaa84fd463a195290cf204cec3fdabc9354f754395d"
+    },
+    {
+      "bytes": 20471,
+      "path": "scripts/autobuild_pr_nudge_monitor.py",
+      "sha256": "63efefe84331b974975c59afd344223c40e28bd11cc8fa1e3a0d7bc30de38f50"
+    },
+    {
       "bytes": 2570,
       "path": "scripts/gm_deterministic_cron.py",
       "sha256": "412fd639caf735e2250ac458c2ba4bad3bae29188341dc58613d024af2a70bdc"
@@ -4855,6 +4865,16 @@
       "bytes": 4904,
       "path": "scripts/gm_plan_comment_supervisor.py",
       "sha256": "72c1a5afbb31673e117702fb8b9cc0f98be9bec09b8c9031652327194e380dc6"
+    },
+    {
+      "bytes": 247,
+      "path": "scripts/heddle_autobuild_pr_monitor.py",
+      "sha256": "1f843833198e9005bc893a1799894dff79b02934e1d0fca0177ff1a01cbf408a"
+    },
+    {
+      "bytes": 247,
+      "path": "scripts/heddle_pr_codex_linear_watch.py",
+      "sha256": "1f843833198e9005bc893a1799894dff79b02934e1d0fca0177ff1a01cbf408a"
     },
     {
       "bytes": 6412,
@@ -5047,9 +5067,14 @@
       "sha256": "bd0dccdeef0f77f13446bab53e7a4afbe340ed9b4157733e89dab0e9003cc668"
     },
     {
-      "bytes": 6031,
+      "bytes": 8045,
       "path": "skills/autonomous-ai-agents/trace-agent-action-provenance/SKILL.md",
-      "sha256": "ecf8683bc5377089f9b68cf7df74160e6b8dfb05e19db4ab95432cd407bd399b"
+      "sha256": "bbb9b0209eeb9741ab789ef63fe3be1b2b8028c3d3ecc234e2da509543325c57"
+    },
+    {
+      "bytes": 2903,
+      "path": "skills/autonomous-ai-agents/trace-agent-action-provenance/references/pi-codex-model-usage-tracing.md",
+      "sha256": "c45a3bd6855e06ab9330488ac893196e75c32972acf15b95d76cf2a920cb5d0f"
     },
     {
       "bytes": 116,
@@ -6722,9 +6747,9 @@
       "sha256": "43962f5a398b4badeeb94280299ba4511940ad0e32afcfce5f2a6e1afd21c7a8"
     },
     {
-      "bytes": 10035,
+      "bytes": 11958,
       "path": "skills/github/github-pr-workflow/SKILL.md",
-      "sha256": "2461c0a678c2cc66d8ac27170e0c6334cf431f9ade43e775cc5f9c56c0c4f3c6"
+      "sha256": "b8c5c92d36519b3874e6e41a67dec3249501be06b768228f42bd161ead452563"
     },
     {
       "bytes": 4879,
@@ -6735,6 +6760,11 @@
       "bytes": 2417,
       "path": "skills/github/github-pr-workflow/references/conventional-commits.md",
       "sha256": "2d71a3b701b08c2e5ed5248d17928eb11e27d7b357f9e2dca27caee9cc017aab"
+    },
+    {
+      "bytes": 4209,
+      "path": "skills/github/github-pr-workflow/references/pr-monitor-codex-linear.md",
+      "sha256": "c423e14e3d9c0854f622ee20143f136b949621fe6b86b1b7af1113a38a47c90b"
     },
     {
       "bytes": 513,
@@ -7382,9 +7412,14 @@
       "sha256": "016198b563b8f8c4441b002bce8ad0e0865f2f39f1da22476beb7a7daed482aa"
     },
     {
-      "bytes": 9515,
+      "bytes": 2876,
+      "path": "skills/productivity/autobuild-pr-nudge-monitor/SKILL.md",
+      "sha256": "0d7a0a7644b983a989bd1b744757fb959c6a7b33d4f663f0fa3322dd574cf082"
+    },
+    {
+      "bytes": 9884,
       "path": "skills/productivity/doct-document-ops/SKILL.md",
-      "sha256": "ed5eee5e22327cb4b661c99fd845757b3938d9c0c00dd2a0047ebe6f18627504"
+      "sha256": "c7dbce35cfb606242501ec241768707269390c376f67b4e12b0fef16fd955dc3"
     },
     {
       "bytes": 14452,
@@ -7447,14 +7482,24 @@
       "sha256": "18e30e12f7553cd8715bde3e0db739281a486c93f596bb5cc924487464ddbfce"
     },
     {
-      "bytes": 16471,
+      "bytes": 18444,
       "path": "skills/productivity/html-plan-reviewer/SKILL.md",
-      "sha256": "04b5f81fd7c5d5177e6ae39eb8caa880790e534b0a6979905ed31bf8744e6b04"
+      "sha256": "81551514525ff61880c94c77bab646e07124fe5abaeebae812754a86f98f7ff4"
     },
     {
       "bytes": 2372,
       "path": "skills/productivity/html-plan-reviewer/references/aaron-plan-default-and-ai-configs-2026-06-30.md",
       "sha256": "3853131b0c27c3e1ca1d6c637590ffcfcb96d6c5efc5b3b992d98cbba36384e6"
+    },
+    {
+      "bytes": 3644,
+      "path": "skills/productivity/html-plan-reviewer/references/coding-plan-archive-audit-pattern.md",
+      "sha256": "ae22071a870d2255e20d6be1c5489f83a482a6404abf31af280e486eca824b5f"
+    },
+    {
+      "bytes": 2745,
+      "path": "skills/productivity/html-plan-reviewer/references/doct-plan-comment-dispatcher-pattern.md",
+      "sha256": "6a5073f9e61f922f790a960308bad66157d4b8d7b95f8615fa5835041980bbf1"
     },
     {
       "bytes": 2386,
@@ -7465,6 +7510,11 @@
       "bytes": 3909,
       "path": "skills/productivity/html-plan-reviewer/references/mode-based-html-reviewer-feedback-2026-06.md",
       "sha256": "58457b1219cc6125462488ff54759f551ac35c904905c44451e4ffe912a61312"
+    },
+    {
+      "bytes": 2157,
+      "path": "skills/productivity/html-plan-reviewer/references/plan-format-listener-repair-pattern.md",
+      "sha256": "067ba50a21b98bbde0494f9ef463e3aaa651639fca79091693c4681a5cbf49c2"
     },
     {
       "bytes": 2986,
@@ -7492,9 +7542,9 @@
       "sha256": "f1ebbe3e333153382235f120f6e23231c23df04651d2434201d4d29d2c723783"
     },
     {
-      "bytes": 16853,
+      "bytes": 18444,
       "path": "skills/productivity/linear/SKILL.md",
-      "sha256": "77b33ed301e7b8388a97fac8899478f3268c8a131643a983d6cbde4a7ed38fd7"
+      "sha256": "dba520de5fb0b547af79bdc791d6e6c88a11c9b2bca5f96c17f5101ca17a4110"
     },
     {
       "bytes": 3819,
@@ -8382,7 +8432,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260701T031520Z",
+  "generated_at": "20260702T230748Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/.hermes"

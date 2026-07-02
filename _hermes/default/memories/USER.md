@@ -8,7 +8,7 @@ Aaron lives in Colorado / America-Denver; no meetings before 8am; home by 6:30pm
 §
 Aaron runs Nodaste; for calendar summaries, treat it as primary and ignore Workday holds/blocks, incl. the recurring 2–6pm catch-up block; prioritize meetings across Nodaste, Workday, Gmail, c2ah, and family.
 §
-Signals: use ccore by default for send/create; still check vault signals during transition. Notify-only watcher; no auto-response. In Discord keep briefs short; put detail in Obsidian/doct docs and preserve doct permalinks.
+Signals: use ccore by default; check vault during transition. Notify-only/no auto-response. Discord briefs short; detail in Obsidian/doct; preserve doct permalinks. PR watcher alerts: Telegram primary, Discord audit/fallback.
 §
 Use pi coding workflow for coding in ~/code; create plans as Doct HTML/Markdoc with a comment listener.
 §

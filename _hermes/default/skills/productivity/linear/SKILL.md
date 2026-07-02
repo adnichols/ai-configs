@@ -85,6 +85,17 @@ For evidence-heavy issues, write the description to `/tmp/<slug>.md` first, then
 - Global flags such as `--format json` and `--limit N` belong **before** the subcommand: `ltui --format json --limit 20 issues list ...`, not `ltui issues list --limit 20`.
 - Some `ltui issues view` output can omit labels even when the issue has them. Verify label mutations with `ltui --format json issues list --search '<title>' --team <key>` or the mutation response, not only `issues view`.
 - When Aaron asks to “just open the Linear” and explicitly says not to build, create the issue only, set the requested workflow state/labels, verify the row, and stop. For Doct autobuild intake this commonly means project `Doc Thingy`, state `Ready to Pull`, and label `autobuild`.
+- `ltui issues update <KEY> --state Done` generally does not need `--project`; prefer the narrow issue-key update and add only `--team <KEY>` if required. Passing `--project` or running from a repo with `.ltui.json` can trigger an extra broad project lookup, which is painful when the Linear API is near rate limit.
+
+### Reviewing In Review issues for completion
+
+When Aaron asks to review Linear issues in a repo/project and move completed work to Done:
+
+1. Use the repo-local project defaults first (`.ltui.json`) and list the target state with JSON output, e.g. `ltui --format json --limit 100 issues list --team NOD --project <project-id> --state 'In Review'`.
+2. For each candidate, gather evidence from Linear issue attachments (`ltui --format json issues attachments NOD-123`) and GitHub PR search/view. Attachments often contain the exact PR URL; `gh pr view <num> --json state,mergedAt,title,body,statusCheckRollup` gives authoritative merge state.
+3. Move to `Done` only when there is direct completion evidence: linked/mentioned PR is `MERGED`, merged body explicitly covers the issue identifier or acceptance scope, and no issue description says the work was only a partial/deferred slice.
+4. Do **not** close items merely because a related PR or nearby epic is merged. Leave ambiguous issues in review/backlog and report why (e.g. no direct PR attachment, only indirect docs, or related PR was still open).
+5. After mutations, re-list the source state and the Done state to verify the final rows. Treat mutation output as provisional until a fresh list/view confirms the state.
 
 Reference example: `references/ccore-identity-fragmentation-issue.md` captures a C-Core/Heddle account identity fragmentation investigation and the evidence shape used for NOD-1084.
 

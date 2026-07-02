@@ -149,7 +149,31 @@ The response JSON includes the PR `number` — save it for later commands.
 
 To create as a draft, add `"draft": true` to the JSON body.
 
-## 4. Monitoring CI Status
+## 4. Monitoring PR Review / Mergeability State
+
+When building PR monitors that coordinate GitHub review state with external trackers (Linear, Todoist, etc.), prefer a deterministic script plus cron over an LLM-driven recurring job.
+
+Pattern:
+1. Use `gh pr list --repo OWNER/REPO --state open --json number,title,url,headRefName,body,headRefOid,mergeStateStatus,reviewDecision` to enumerate candidates.
+2. Use `gh api repos/OWNER/REPO/pulls/NUMBER` for authoritative `mergeable` / `mergeable_state`; GitHub may return `mergeable=null` or `mergeable_state=unknown` on first read, so retry once after a short delay.
+3. Use the PR REST endpoints for bot review state:
+   - `repos/OWNER/REPO/pulls/NUMBER/reviews`
+   - `repos/OWNER/REPO/pulls/NUMBER/comments`
+   - `repos/OWNER/REPO/issues/NUMBER/comments`
+4. Tie review feedback to the current PR head SHA where possible using review `commit_id`, Codex `Reviewed commit: ...` text, or review-comment `commit_id` / `pull_request_review_id`; avoid acting on stale feedback from older commits.
+5. For recurring monitors, persist event fingerprints keyed by PR number + head SHA + comment/reaction IDs so the monitor does not repeat the same external comment or notification every tick.
+
+### Codex review signal pitfalls
+
+Codex review bodies and inline comments can contain thumbs-up emoji as boilerplate, not approval. Do **not** count these as a ready-to-merge signal:
+- `otherwise it will react with 👍`
+- `Useful? React with 👍 / 👎`
+
+Treat Codex as ready only on an explicit approval/no-issues comment, a direct Codex-authored thumbs-up message, or a `+1` reaction authored by the Codex bot. If Codex has current-head review comments, treat that as feedback until a distinct ready signal appears.
+
+Reference: `references/pr-monitor-codex-linear.md` contains a concrete GitHub + Codex + Linear monitor pattern with idempotency, merge-conflict, and rate-limit handling.
+
+## 5. Monitoring CI Status
 
 ### Check CI Status
 
