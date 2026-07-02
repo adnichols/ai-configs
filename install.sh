@@ -1728,6 +1728,96 @@ PY
     fi
 }
 
+configure_pi_model_defaults() {
+    local pi_root_dir="$1"
+    local pi_agent_dir="$2"
+    local settings_path="$pi_agent_dir/settings.json"
+    local web_search_path="$pi_root_dir/web-search.json"
+
+    echo "  - Enforcing Pi GPT 5.5 defaults..."
+
+    local status
+    status=$(PI_SETTINGS_PATH="$settings_path" PI_WEB_SEARCH_PATH="$web_search_path" python3 <<'PY'
+import json
+import os
+from pathlib import Path
+
+settings_path = Path(os.environ["PI_SETTINGS_PATH"])
+web_search_path = Path(os.environ["PI_WEB_SEARCH_PATH"])
+
+DEFAULT_PROVIDER = "openai-codex-4"
+DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
+SPARK_MODEL = "gpt-5.3-codex-spark"
+
+changed = []
+
+if settings_path.exists():
+    settings = json.loads(settings_path.read_text())
+else:
+    settings = {}
+
+before_settings = json.dumps(settings, sort_keys=True)
+settings["defaultProvider"] = DEFAULT_PROVIDER
+settings["defaultModel"] = DEFAULT_MODEL
+
+models = settings.get("enabledModels")
+if models is None:
+    models = []
+elif not isinstance(models, list):
+    raise SystemExit("settings enabledModels must be a list when present")
+
+normalized = []
+for model in models:
+    if not isinstance(model, str):
+        normalized.append(model)
+        continue
+    if model.endswith(f"/{SPARK_MODEL}") or model == SPARK_MODEL:
+        continue
+    if model == "openai-codex-2/gpt-5.5":
+        model = DEFAULT_MODEL_VALUE
+    if model not in normalized:
+        normalized.append(model)
+if DEFAULT_MODEL_VALUE not in normalized:
+    normalized.insert(0, DEFAULT_MODEL_VALUE)
+settings["enabledModels"] = normalized
+
+if json.dumps(settings, sort_keys=True) != before_settings:
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+    changed.append("settings")
+
+if web_search_path.exists():
+    web_search = json.loads(web_search_path.read_text())
+else:
+    web_search = {}
+if not isinstance(web_search, dict):
+    raise SystemExit("web-search.json must be a JSON object")
+
+before_web_search = json.dumps(web_search, sort_keys=True)
+web_search["summaryModel"] = DEFAULT_MODEL_VALUE
+if json.dumps(web_search, sort_keys=True) != before_web_search:
+    web_search_path.parent.mkdir(parents=True, exist_ok=True)
+    web_search_path.write_text(json.dumps(web_search, indent=2) + "\n")
+    changed.append("web-search")
+
+print(",".join(changed) if changed else "unchanged")
+PY
+)
+    local config_status=$?
+
+    if [ $config_status -ne 0 ]; then
+        echo "  - Unable to enforce Pi GPT 5.5 defaults (check $settings_path and $web_search_path manually)"
+        return
+    fi
+
+    if [ "$status" = "unchanged" ]; then
+        echo "  - Pi GPT 5.5 defaults already configured"
+    else
+        echo "  - Updated Pi GPT 5.5 defaults: $status"
+    fi
+}
+
 install_pi_agents_from_repo() {
     local pi_source_dir="$1"
     local pi_agents_dir="$2"
@@ -1993,6 +2083,7 @@ install_pi() {
     fi
 
     install_pi_models_from_repo "$pi_source_dir" "$pi_agent_dir"
+    configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
 
     # Install documentation.
     if [ -f "$pi_source_dir/README.md" ]; then
@@ -2034,6 +2125,10 @@ install_pi() {
     # over plugin defaults and stay under version control.
     echo "  - Re-installing Pi subagent overrides after Pi package installs..."
     install_pi_agents_from_repo "$pi_source_dir" "$pi_agents_dir"
+
+    # Package installs/extensions can touch settings; finish by restoring the
+    # repo-owned default model contract so Spark cannot be reintroduced.
+    configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
 }
 
 remove_deprecated_pi_git_packages() {

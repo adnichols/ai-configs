@@ -5,7 +5,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PI_AGENT_DIR="${PI_AGENT_DIR:-${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}}"
+PI_ROOT_DIR="${PI_ROOT_DIR:-$(dirname "$PI_AGENT_DIR")}"
 PI_EXT_DIR="$PI_AGENT_DIR/extensions"
+PI_WEB_SEARCH_PATH="$PI_ROOT_DIR/web-search.json"
 PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
 
 EXPECTED_GIT_PACKAGES=(
@@ -163,6 +165,60 @@ report_expected_vs_actual "  Comparison:" "$ALL_EXPECTED_PACKAGES" "$INSTALLED_P
 print_section "3) Quick checks"
 echo "  Repo-managed extensions: find ~/.pi/agent/extensions -mindepth 1 -maxdepth 1 -exec basename {} \\; | sort"
 echo "  Package-managed installs: pi list"
+
+if [ -f "$PI_AGENT_DIR/settings.json" ]; then
+  PI_MODEL_STATUS="$(python3 - "$PI_AGENT_DIR/settings.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+errors = []
+if data.get("defaultProvider") != "openai-codex-4":
+    errors.append(f"defaultProvider={data.get('defaultProvider')!r}")
+if data.get("defaultModel") != "gpt-5.5":
+    errors.append(f"defaultModel={data.get('defaultModel')!r}")
+enabled = data.get("enabledModels", [])
+if not isinstance(enabled, list):
+    errors.append("enabledModels is not a list")
+else:
+    if "openai-codex-4/gpt-5.5" not in enabled:
+        errors.append("enabledModels missing openai-codex-4/gpt-5.5")
+    if any(isinstance(model, str) and "gpt-5.3-codex-spark" in model for model in enabled):
+        errors.append("enabledModels still contains gpt-5.3-codex-spark")
+print("ok" if not errors else "; ".join(errors))
+PY
+)"
+  if [ "$PI_MODEL_STATUS" = "ok" ]; then
+    echo "  Pi default model: openai-codex-4/gpt-5.5"
+  else
+    note_failure "Pi default model settings are not GPT 5.5: $PI_MODEL_STATUS"
+  fi
+else
+  note_failure "Pi settings file is missing: $PI_AGENT_DIR/settings.json"
+fi
+
+if [ -f "$PI_WEB_SEARCH_PATH" ]; then
+  PI_WEB_SEARCH_STATUS="$(python3 - "$PI_WEB_SEARCH_PATH" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+summary = data.get("summaryModel")
+print("ok" if summary == "openai-codex-4/gpt-5.5" else repr(summary))
+PY
+)"
+  if [ "$PI_WEB_SEARCH_STATUS" = "ok" ]; then
+    echo "  Pi web-search summary model: openai-codex-4/gpt-5.5"
+  else
+    note_failure "Pi web-search summaryModel is not GPT 5.5: $PI_WEB_SEARCH_STATUS"
+  fi
+else
+  note_failure "Pi web-search config is missing: $PI_WEB_SEARCH_PATH"
+fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"
 PI_VCC_COUNT="$(printf '%s\n' "$PI_VCC_REGISTERED" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
