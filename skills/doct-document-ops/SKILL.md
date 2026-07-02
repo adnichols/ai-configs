@@ -119,7 +119,7 @@ Use `documents publish-plan` only as a legacy fallback when the CLI explicitly d
 
 Return the created/updated Doct URL, document/plan id, workspace id, current version, and the returned `listenerInstructions` when available.
 
-After every reviewer-facing plan registration, follow the returned `listenerInstructions` before handing off browser review: set lifecycle active, move to `in_progress` when the visible board column exists, drain with `agent next --no-wait` until empty, then start the durable listener with the harness background-process tool. Prefer the returned `startCommand` (`doct-agent plans listen ... --jsonl`) when present; otherwise use the returned `preferredCommand`/`durableCommand`. `plans watch` is only source sync/debug visibility and does not replace the comment listener.
+After every reviewer-facing plan registration, follow the returned `listenerInstructions` before handing off browser review: set lifecycle active, leave the plan in its registration/default board column (normally `backlog`), drain with `agent next --no-wait` until empty, then start the durable listener with the harness background-process tool. Prefer the returned `startCommand` (`doct-agent plans listen ... --jsonl`) when present; otherwise use the returned `preferredCommand`/`durableCommand`. `plans watch` is only source sync/debug visibility and does not replace the comment listener. Do not move the plan to `in_progress` during registration or browser-review setup; execution workflows such as `run-plan` do that when implementation starts.
 
 ## Decision rules
 

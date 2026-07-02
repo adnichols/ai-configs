@@ -198,7 +198,7 @@ Run long-lived watch commands with the harness background-process tool. `plans w
 
 ### Start the durable plan comment listener
 
-Every reviewer-facing registration returns `listenerInstructions`. Follow that object before browser-review handoff: set lifecycle active, move to `in_progress` when the visible board column exists, drain pending claims, then start the durable listener.
+Every reviewer-facing registration returns `listenerInstructions`. Follow that object before browser-review handoff: set lifecycle active, leave the plan in its registration/default board column (normally `backlog`), drain pending claims, then start the durable listener. Do not move a plan to `in_progress` during registration or browser-review setup; execution workflows such as `run-plan` do that when implementation starts.
 
 ```bash
 # Drain pending work until status is empty
@@ -304,7 +304,7 @@ doct-agent plans release \
   --json
 ```
 
-### Lifecycle and board
+### Lifecycle, board, and readiness metadata
 
 ```bash
 doct-agent plans lifecycle \
@@ -319,14 +319,6 @@ doct-agent plans board list \
   --workspace-id <workspace-id> \
   --json
 
-doct-agent plans board set \
-  --base-url https://doct.nodaste.com \
-  --document-id <document-id> \
-  --workspace-id <workspace-id> \
-  --column in_progress \
-  [--position 0] \
-  --json
-
 doct-agent plans metadata \
   --base-url https://doct.nodaste.com \
   --document-id <document-id> \
@@ -335,7 +327,7 @@ doct-agent plans metadata \
   --json
 ```
 
-Only set columns that exist in the workspace board. Set readiness metadata only after the plan has passed the required independent readiness gates.
+Only set board columns when the user explicitly asks for a board move or an execution workflow requires it. Registration should keep the service default board assignment, normally `backlog`. Set readiness metadata only after the plan has passed the required independent readiness gates.
 
 ## Collab (realtime text surfaces)
 

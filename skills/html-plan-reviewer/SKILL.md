@@ -93,7 +93,7 @@ A registered plan is not ready for browser review handoff until the comment list
 After registration:
 
 1. Run the returned `lifecycleCommand`, or equivalent `doct-agent plans lifecycle --state active`, before draining/listening.
-2. Inspect board columns and run the returned `boardInProgressCommand` only when the visible `in_progress` column exists. If it is absent or hidden, continue without inventing another column.
+2. Leave the plan in its registration/default board column, normally `backlog`, unless the user explicitly requested a board move. Registration and browser-review handoff do not mean implementation is underway.
 3. Drain pending work with the returned `drainCommand` (`doct-agent plans agent next ... --no-wait --json`) until it returns `status: "empty"`.
 4. Start the durable listener with the harness background-process tool. Prefer `listenerInstructions.startCommand` when present (`doct-agent plans listen ... --jsonl`); otherwise use the returned `preferredCommand`/`durableCommand`. Name the process with the plan/document id and add a log watch for `plan_comment_dispatch` when the harness supports it.
 5. Do not process claims inline inside the listener. When a listener event or `agent next --wait` result claims a browser comment, dispatch the claim payload and returned commands to a sub-agent or a clearly separate worker step, then keep or restart the listener.
@@ -221,7 +221,7 @@ doct-agent plans release \
 
 ## Plan lifecycle and board state
 
-Use Doct state/board commands for registered plan status:
+Use Doct lifecycle commands for registered plan review status:
 
 ```bash
 doct-agent plans lifecycle \
@@ -230,21 +230,9 @@ doct-agent plans lifecycle \
   --workspace-id <workspace-id> \
   --state active \
   --json
-
-doct-agent plans board list \
-  --base-url https://doct.nodaste.com \
-  --workspace-id <workspace-id> \
-  --json
-
-doct-agent plans board set \
-  --base-url https://doct.nodaste.com \
-  --document-id <document-id> \
-  --workspace-id <workspace-id> \
-  --column in_progress \
-  --json
 ```
 
-Only set a board column that exists in the workspace. If the intended status column is absent or ambiguous, stop with an actionable status-sync blocker rather than guessing.
+Registration should leave the board assignment at the service default, normally `backlog`. Do not move a newly registered plan to `in_progress` as part of browser-review setup. Execution workflows such as `run-plan` own the transition to `in_progress` when implementation actually starts.
 
 ## Legacy local plan-review service
 
