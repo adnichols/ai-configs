@@ -1,9 +1,9 @@
 ---
 name: developer-glm
-description: Implements your specifications with tests using GLM-5 - delegate for
+description: Implements your specifications with tests using GLM-5.2 - delegate for
   writing code
 mode: subagent
-model: opencode-zen/glm-5
+model: opencode-zen/glm-5.2
 color: '#3498db'
 reasoningEffort: high
 ---

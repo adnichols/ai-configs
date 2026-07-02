@@ -2,7 +2,7 @@
 name: general-glm
 description: General-purpose GLM subagent for research, coding, debugging, and other delegated tasks
 mode: subagent
-model: opencode-zen/glm-5
+model: opencode-zen/glm-5.2
 thinking: high
 color: '#9b59b6'
 defaultProgress: true

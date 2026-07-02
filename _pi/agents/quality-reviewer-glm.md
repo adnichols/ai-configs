@@ -1,8 +1,8 @@
 ---
 name: quality-reviewer-glm
-description: Reviews code for real issues using GLM-5
+description: Reviews code for real issues using GLM-5.2
 mode: subagent
-model: opencode-zen/glm-5
+model: opencode-zen/glm-5.2
 thinking: xhigh
 color: '#e74c3c'
 tools: read, grep, find, ls, bash

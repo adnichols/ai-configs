@@ -181,11 +181,11 @@ Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUME
 
 ### 6. Second scoped quality review
 
-In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5 implementation review. The `opencode-zen/glm-5` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, use the second installed Codex-native independent implementation-review path when available; if no independent Codex review path is installed, stop with a clear blocker instead of claiming the scoped run is reviewed.
+In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5.2 implementation review. The `opencode-zen/glm-5.2` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, use the second installed Codex-native independent implementation-review path when available; if no independent Codex review path is installed, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
-For GLM-5, use both bounded scope and bounded exploration. Normal scoped reviews should be one GLM slice with `max_turns: 8`, a 6-minute target window, at most six focused file reads, and at most two search/bash commands. Narrow adversarial or follow-up slices should use `max_turns: 5`, a 4-minute target window, at most three focused file reads, and at most one search/bash command. If GLM cannot complete the assigned scope inside that budget, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
+For GLM-5.2, use both bounded scope and bounded exploration. Normal scoped reviews should be one GLM slice with `max_turns: 8`, a 6-minute target window, at most six focused file reads, and at most two search/bash commands. Narrow adversarial or follow-up slices should use `max_turns: 5`, a 4-minute target window, at most three focused file reads, and at most one search/bash command. If GLM cannot complete the assigned scope inside that budget, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
 
 Split the normal second GLM review only when a diff has more than 20 changed files, more than 2000 diff lines, or clearly independent product surfaces that one bounded slice cannot review. Use at most two GLM slices in the initial cycle. Do not split a small or medium diff merely to get more GLM opinions, and do not create generic failure-family slices unless the diff actually touches those failure families.
 
@@ -238,15 +238,15 @@ Do not run redundant full reviewer-pair gates over an unchanged diff. If the lat
 When the standalone pre-PR gate is required in Pi, it must use both:
 
 - GPT-5.5 via Pi's `quality-reviewer` subagent,
-- GLM-5 via Pi's `quality-reviewer-glm` subagent.
+- GLM-5.2 via Pi's `quality-reviewer-glm` subagent.
 
-In non-Pi consumers, do not try to invoke the Pi-only `$pre-pr-implementation-review` skill. Run an equivalent GPT-5.5 plus GLM-5 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise continue the existing runtime-native scoped quality-review workflow and record that the Pi-only GPT/GLM gate was not run.
+In non-Pi consumers, do not try to invoke the Pi-only `$pre-pr-implementation-review` skill. Run an equivalent GPT-5.5 plus GLM-5.2 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise continue the existing runtime-native scoped quality-review workflow and record that the Pi-only GPT/GLM gate was not run.
 
 Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
 
 Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and rerun both reviewers within the bounded pre-PR review budget until both return no unresolved blocking in-scope P1/P2 findings. P3 findings block only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
-If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if the GLM-5 Pi subagent or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if the GLM-5.2 Pi subagent or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
 
 When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 

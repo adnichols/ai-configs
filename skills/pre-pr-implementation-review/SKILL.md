@@ -1,6 +1,6 @@
 ---
 name: pre-pr-implementation-review
-description: Run Pi's bounded pre-PR implementation review with GPT-5.5 and GLM-5 quality reviewers, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, inside run-plan, or whenever the user asks for GPT plus GLM code review of a branch/diff; inside run-plan this gate hands back to PR creation rather than concluding the workflow.
+description: Run Pi's bounded pre-PR implementation review with GPT-5.5 and GLM-5.2 quality reviewers, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, inside run-plan, or whenever the user asks for GPT plus GLM code review of a branch/diff; inside run-plan this gate hands back to PR creation rather than concluding the workflow.
 ---
 
 # Pre-PR Implementation Review
@@ -90,15 +90,15 @@ Read the plan or user-provided scope if available. Extract the acceptance criter
 Use Pi subagents directly. Launch both in the same turn when possible:
 
 - `quality-reviewer` for the GPT-5.5 pass.
-- `quality-reviewer-glm` for the GLM-5 pass.
+- `quality-reviewer-glm` for the GLM-5.2 pass.
 
-The `opencode-zen/glm-5` string is only the Pi model provider/model ID in the subagent frontmatter. Do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent to satisfy this gate.
+The `opencode-zen/glm-5.2` string is only the Pi model provider/model ID in the subagent frontmatter. Do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent to satisfy this gate.
 
-Both reviews are read-only. If `quality-reviewer-glm` is unavailable, stop and report that the GLM-5 Pi subagent gate cannot run; do not silently substitute another model.
+Both reviews are read-only. If `quality-reviewer-glm` is unavailable, stop and report that the GLM-5.2 Pi subagent gate cannot run; do not silently substitute another model.
 
 A reviewer result with no final verdict is not a review result. Treat empty output, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
 
-For GLM-5, use both bounded scope and bounded exploration. Give GLM a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Normal GLM reviews should be a single slice with `max_turns: 8`, a 6-minute target window, at most six focused file reads, and at most two search/bash commands. Narrow follow-up slices should use `max_turns: 5`, a 4-minute target window, at most three focused file reads, and at most one search/bash command. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps.
+For GLM-5.2, use both bounded scope and bounded exploration. Give GLM a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Normal GLM reviews should be a single slice with `max_turns: 8`, a 6-minute target window, at most six focused file reads, and at most two search/bash commands. Narrow follow-up slices should use `max_turns: 5`, a 4-minute target window, at most three focused file reads, and at most one search/bash command. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps.
 
 If the assigned GLM scope is too large to complete within the review budget, GLM must return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact recommended follow-up slice. The parent may run at most one narrowed GLM follow-up for that cycle. If that follow-up is still incomplete or unusable, stop with a review-budget blocker or ask the user to waive/narrow the gate; do not keep launching slices.
 
@@ -111,7 +111,7 @@ Use this prompt shape for each reviewer:
 ```text
 Read-only pre-PR implementation review. Do not edit files.
 
-Reviewer: <GPT-5.5 | GLM-5 Pi subagent>
+Reviewer: <GPT-5.5 | GLM-5.2 Pi subagent>
 Plan/scope: <plan path or standalone scope summary>
 Base/comparison: <base branch or range>
 Changed files:
@@ -127,7 +127,7 @@ Assigned failure families:
 
 Review committed, staged, and unstaged changes in this worktree. Focus on issues a pull-request reviewer would reasonably ask to fix, justify, or track before merge.
 
-For GLM-5: stay within the assigned scope and review budget. Use at most the tool budget in the review instructions; do not broaden into unrelated whole-product review. Reserve the final minute to stop using tools and return a final response. If the assigned scope is incomplete, return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
+For GLM-5.2: stay within the assigned scope and review budget. Use at most the tool budget in the review instructions; do not broaden into unrelated whole-product review. Reserve the final minute to stop using tools and return a final response. If the assigned scope is incomplete, return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 
 Classify every finding with:
 - Severity: P1, P2, or P3
@@ -184,7 +184,7 @@ After applying any in-scope fix:
 
 1. Run the smallest meaningful targeted tests for the touched code.
 2. Rerun any plan-required verification invalidated by the fix.
-3. Rerun both GPT-5.5 and GLM-5 Pi subagent reviewers against only the changed files and prior blocking findings, not as a fresh whole-diff hunt for unrelated new issues.
+3. Rerun both GPT-5.5 and GLM-5.2 Pi subagent reviewers against only the changed files and prior blocking findings, not as a fresh whole-diff hunt for unrelated new issues.
 4. Repeat until both reviewers return `CLEAN_FOR_PR` by substance with no unresolved blocking in-scope P1/P2 findings.
 
 Do not stop after a single reviewer is clean. Do not open or proceed to a PR while either reviewer has an unresolved blocking in-scope P1/P2 finding. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and post-PR monitoring.

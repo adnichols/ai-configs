@@ -5,10 +5,10 @@ Current roster of bespoke Claude, Codex, and Pi agents defined in this repositor
 ## Pi Subagents (Implementation)
 Located under `_pi/agents/` and invoked via Pi subagent system:
 
-- `general-glm` (opencode-zen/glm-5; `_pi/agents/general-glm.md`) — General-purpose GLM subagent for research, coding, debugging, and other delegated tasks.
+- `general-glm` (opencode-zen/glm-5.2; `_pi/agents/general-glm.md`) — General-purpose GLM subagent for research, coding, debugging, and other delegated tasks.
 - `developer-mid` (gpt-5.5-mini; `_pi/agents/developer-mid.md`) — Default implementation agent for standard complexity work. Cost-effective for most tasks.
 - `developer-high` (gpt-5.5; `_pi/agents/developer-high.md`) — High-capability implementation agent for complex scenarios (multi-file refactoring, algorithmic challenges, concurrent systems, complex domain logic).
-- `developer-glm` (opencode-zen/glm-5; `_pi/agents/developer-glm.md`) — GLM implementation agent for specification-driven coding work.
+- `developer-glm` (opencode-zen/glm-5.2; `_pi/agents/developer-glm.md`) — GLM implementation agent for specification-driven coding work.
 - `developer-mm` (MiniMax; `_pi/agents/developer-mm.md`) — Alternative implementation agent using MiniMax model.
 
 ## Implementation & Architecture (Claude/Codex)
@@ -36,7 +36,7 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 
 ## Review & Fidelity Safeguards
 - `quality-reviewer` (gpt-5.5; `_pi/agents/quality-reviewer.md`) — Pi production-safety review for real issues (security, data loss, regressions, performance).
-- `quality-reviewer-glm` (opencode-zen/glm-5; `_pi/agents/quality-reviewer-glm.md`) — Independent Pi GLM review gate for scoped implementation, execution-ready plan reviews, and the pre-PR GPT/GLM gate.
+- `quality-reviewer-glm` (opencode-zen/glm-5.2; `_pi/agents/quality-reviewer-glm.md`) — Independent Pi GLM review gate for scoped implementation, execution-ready plan reviews, and the pre-PR GPT/GLM gate.
 - `quality-reviewer` (sonnet; `_opencode/agents/quality-reviewer.md`) — Reviews code for real issues (security, data loss, performance) with measurable impact focus.
 - `quality-reviewer` (inherits workspace default model; `_claude/agents/quality-reviewer.md`) — Production safety review covering security, data loss, regressions, and performance.
 - `quality-reviewer-fidelity` (sonnet; `_claude/agents/quality-reviewer-fidelity.md`) — Ensures code matches specification requirements exactly with no scope expansion.
@@ -301,7 +301,7 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:omp-review-partner` — Use OMP with OpenCode Zen Kimi models for read-only plan and implementation reviews
 - `/skill:review-change` — Review code changes against plan
 - `/skill:review-change-integrate` — Integrate code-review feedback
-- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus GLM-5 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed; inside `run-plan` it hands back to mandatory PR creation instead of concluding.
+- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus GLM-5.2 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed; inside `run-plan` it hands back to mandatory PR creation instead of concluding.
 - `/skill:run-plan` — Execute an explicit plan through implementation, reviews, full P1/P2/P3 cleanup, verification, PR creation, and post-PR monitoring.
 
 ### Configuration

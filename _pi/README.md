@@ -73,7 +73,7 @@ Installed layout:
 
 The installer copies the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md`. For OMP, that same shared source file is installed as `~/.omp/agent/SYSTEM.md`, matching OMP's `SYSTEM.md` additive-system semantics.
 
-The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys. The managed entry currently adds the `glm-5` reasoning override for the Pi model provider ID `opencode-zen/glm-5`.
+The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys. The managed entry currently adds the `glm-5.2` reasoning override for the Pi model provider ID `opencode-zen/glm-5.2`.
 
 ## Structure
 
@@ -243,7 +243,7 @@ Example installed agents:
 ### Dev / execution
 - `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: implementation, scoped reviews, GPT/GLM pre-PR review, PR creation, and post-PR monitoring
 - `dev:run` — direct high-reasoning execution with one `quality-reviewer` pass after each phase
-- `pre-pr-implementation-review` — GPT-5.5 plus GLM-5 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to PR creation
+- `pre-pr-implementation-review` — GPT-5.5 plus GLM-5.2 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to PR creation
 
 ### Git / workflow
 - `cmd-create-pr`

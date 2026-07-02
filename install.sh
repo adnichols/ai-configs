@@ -29,6 +29,15 @@ AI_CONFIGS_REPO_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo
 CENTRAL_ONLY_PROJECT_SKILLS=(ccore todoist-cli brave-cdp chrome-cdp)
 DEPRECATED_SHARED_SKILLS=(agent-browser scoped-plan-run)
 
+# Non-interactive SSH sessions on macOS may not source login shell files, so
+# Homebrew's node/npm/npx can be installed but absent from PATH.
+for brew_bin in /opt/homebrew/bin /usr/local/bin; do
+    if [ -d "$brew_bin" ] && [[ ":$PATH:" != *":$brew_bin:"* ]]; then
+        PATH="$brew_bin:$PATH"
+    fi
+done
+export PATH
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -1803,6 +1812,16 @@ def prune_retired_managed_models():
                 opencode_provider.pop("modelOverrides")
         if not opencode_provider:
             target_providers.pop("opencode", None)
+
+    opencode_zen_provider = target_providers.get("opencode-zen")
+    if isinstance(opencode_zen_provider, dict):
+        overrides = opencode_zen_provider.get("modelOverrides")
+        if isinstance(overrides, dict):
+            overrides.pop("glm-5", None)
+            if not overrides:
+                opencode_zen_provider.pop("modelOverrides")
+        if not opencode_zen_provider:
+            target_providers.pop("opencode-zen", None)
 
 prune_retired_managed_models()
 
