@@ -99,6 +99,31 @@ const canRunPendingCompaction = (
   return isCompletedAssistantResponse(event.message);
 };
 
+const TERMINAL_SUBTASK_TEXT =
+  /\b(done|completed?|final|handoff|PR ready|branch clean|mergeable|awaiting user|blocked|stopped?|do not continue|no auto-resume)\b/i;
+const ACTIVE_SUBTASK_TEXT =
+  /\b(continue|next steps?|next:|remaining|active|open todos?|run-plan active|in_progress|still running)\b/i;
+
+const shouldResumeAfterCompactContext = (pending: PendingModelCompaction): boolean => {
+  if (
+    pending.boundary === "after_test_loop" ||
+    pending.boundary === "before_topic_switch" ||
+    pending.boundary === "manual_recovery"
+  ) {
+    return true;
+  }
+
+  const text = `${pending.reason}\n${pending.preserve ?? ""}`;
+  if (TERMINAL_SUBTASK_TEXT.test(text)) return false;
+
+  return ACTIVE_SUBTASK_TEXT.test(text);
+};
+
+const buildResumeMessage = (pending: PendingModelCompaction) =>
+  `Pi VCC compaction completed for an active ${pending.boundary} workflow. Continue from the preserved state. ` +
+  "If the preserved state says the task is complete, blocked, stopped, or awaiting user input, " +
+  "report that instead of doing more work.";
+
 export default function (pi: ExtensionAPI) {
   let compactionInFlight = false;
   let lastAutoCompactionPercent: number | undefined;
@@ -128,6 +153,7 @@ export default function (pi: ExtensionAPI) {
       completionMessage: string;
       ratchetPercent?: number;
       reason: string;
+      resumeMessage?: string;
     },
   ) => {
     if (compactionInFlight) return false;
@@ -145,6 +171,21 @@ export default function (pi: ExtensionAPI) {
         if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
         finishCompaction({ compacted: true });
         ctx.ui.notify(options.completionMessage, "info");
+        if (options.resumeMessage) {
+          try {
+            pi.sendMessage(
+              {
+                customType: "compaction-resume",
+                content: options.resumeMessage,
+                display: true,
+                details: { reason: options.reason },
+              },
+              { deliverAs: "followUp", triggerTurn: true },
+            );
+          } catch (err) {
+            ctx.ui.notify(`Post-compaction resume delivery failed: ${(err as Error).message}`, "warning");
+          }
+        }
       },
       onError: (err: Error) => {
         if (err.message === "Already compacted" || err.message === "Nothing to compact (session too small)") {
@@ -222,12 +263,15 @@ export default function (pi: ExtensionAPI) {
         toolBatchId: lastToolBatchId,
         sawSiblingTools: lastAssistantToolCallCount > 1,
       };
+      const willResume = shouldResumeAfterCompactContext(pendingModelCompaction);
       return {
         content: [{
           type: "text",
-          text: "compact_context queued. Compaction will run after the current tool batch reaches a safe boundary.",
+          text: willResume
+            ? "compact_context queued. Compaction will run after the current tool batch reaches a safe boundary, then nudge this active workflow to continue."
+            : "compact_context queued. Compaction will run after the current tool batch reaches a safe boundary. No auto-resume requested.",
         }],
-        details: pendingModelCompaction,
+        details: { ...pendingModelCompaction, willResume },
       };
     },
   });
@@ -312,6 +356,7 @@ export default function (pi: ExtensionAPI) {
           completionMessage: "Compacted with pi-vcc",
           ratchetPercent: usagePercent ?? undefined,
           reason: "compact_context",
+          resumeMessage: shouldResumeAfterCompactContext(pending) ? buildResumeMessage(pending) : undefined,
         });
         return;
       }
