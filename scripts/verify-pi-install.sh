@@ -41,6 +41,65 @@ note_failure() {
   echo "  FAIL: $message"
 }
 
+repair_pi_model_defaults() {
+  python3 - "$PI_AGENT_DIR/settings.json" "$PI_WEB_SEARCH_PATH" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+web_search_path = Path(sys.argv[2])
+
+DEFAULT_PROVIDER = "openai-codex-4"
+DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
+SPARK_MODEL = "gpt-5.3-codex-spark"
+
+if settings_path.exists():
+    settings = json.loads(settings_path.read_text())
+else:
+    settings = {}
+if not isinstance(settings, dict):
+    raise SystemExit("settings.json must be a JSON object")
+
+settings["defaultProvider"] = DEFAULT_PROVIDER
+settings["defaultModel"] = DEFAULT_MODEL
+
+models = settings.get("enabledModels")
+if models is None:
+    models = []
+elif not isinstance(models, list):
+    raise SystemExit("settings enabledModels must be a list when present")
+
+normalized = []
+for model in models:
+    if not isinstance(model, str):
+        normalized.append(model)
+        continue
+    if model == SPARK_MODEL or model.endswith(f"/{SPARK_MODEL}"):
+        continue
+    if model == "openai-codex-2/gpt-5.5":
+        model = DEFAULT_MODEL_VALUE
+    if model not in normalized:
+        normalized.append(model)
+if DEFAULT_MODEL_VALUE not in normalized:
+    normalized.insert(0, DEFAULT_MODEL_VALUE)
+settings["enabledModels"] = normalized
+settings_path.parent.mkdir(parents=True, exist_ok=True)
+settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+
+if web_search_path.exists():
+    web_search = json.loads(web_search_path.read_text())
+else:
+    web_search = {}
+if not isinstance(web_search, dict):
+    raise SystemExit("web-search.json must be a JSON object")
+web_search["summaryModel"] = DEFAULT_MODEL_VALUE
+web_search_path.parent.mkdir(parents=True, exist_ok=True)
+web_search_path.write_text(json.dumps(web_search, indent=2) + "\n")
+PY
+}
+
 list_find_entries() {
   local dir="$1"
   if [ -d "$dir" ]; then
@@ -165,6 +224,12 @@ report_expected_vs_actual "  Comparison:" "$ALL_EXPECTED_PACKAGES" "$INSTALLED_P
 print_section "3) Quick checks"
 echo "  Repo-managed extensions: find ~/.pi/agent/extensions -mindepth 1 -maxdepth 1 -exec basename {} \\; | sort"
 echo "  Package-managed installs: pi list"
+
+if repair_pi_model_defaults; then
+  echo "  Pi GPT 5.5 defaults repair: applied"
+else
+  note_failure "unable to repair Pi GPT 5.5 defaults"
+fi
 
 if [ -f "$PI_AGENT_DIR/settings.json" ]; then
   PI_MODEL_STATUS="$(python3 - "$PI_AGENT_DIR/settings.json" <<'PY'
