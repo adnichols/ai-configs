@@ -140,7 +140,7 @@ Use the Pi `quality-reviewer` subagent for the GPT review leg. The review input 
 
 Use the Pi `quality-reviewer-glm` subagent for the GLM review leg with high/xhigh thinking when supported. Give it a bounded readiness prompt, not open-ended repo exploration. Do not ask GLM to edit files.
 
-For GLM plan review, stay limited to readiness concerns, including at least:
+For both plan review legs, stay limited to readiness concerns, including at least:
 
 - whether the plan has executable phases,
 - whether acceptance criteria and verification are testable,
@@ -150,11 +150,11 @@ For GLM plan review, stay limited to readiness concerns, including at least:
 - whether architecture/dependency risks are resolved enough to execute,
 - whether recovery/operator/error behavior is specified when relevant.
 
-Use bounded scope rather than bounded tool calls. Do not cap tool calls. Use an 8-minute target review window with the last minute reserved for a final response; for narrow follow-up slices, use a 12-minute target window with the last 90 seconds reserved for a final response. If GLM cannot complete the assigned readiness scope inside the window, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
+For every quality reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
 
-Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt. If the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
+Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
 
-Split GLM readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The parent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
+Split a readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The parent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
 
 Ask both reviewers for one of these verdicts:
 
@@ -162,6 +162,7 @@ Ask both reviewers for one of these verdicts:
 VERDICT: PLAN_EXECUTION_READY
 VERDICT: PLAN_NEEDS_REVISION
 VERDICT: BLOCKED_BY_PRODUCT_QUESTION
+VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 ```
 
 Normalize fuzzy reviewer output by substance, but never normalize empty, tool-only, provider-error, or incomplete-coverage output into a ready verdict. Treat a review as ready only when it finds no blocking readiness gaps and all required slices are complete.

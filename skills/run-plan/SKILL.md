@@ -175,6 +175,7 @@ VERDICT: PASS_SCOPED
 VERDICT: PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS
 VERDICT: FIX_IN_SCOPE_FINDINGS
 VERDICT: BLOCKED_BY_SCOPE_QUESTION
+VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 ```
 
 Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` is valid only when every remaining finding is classified `OUT_OF_SCOPE_FOLLOW_UP` and includes evidence plus a tracking destination; otherwise treat the review as `FIX_IN_SCOPE_FINDINGS` or `BLOCKED_BY_SCOPE_QUESTION` by substance.
@@ -185,11 +186,13 @@ In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
-For GLM-5.2, use both bounded scope and bounded exploration. Normal scoped reviews should be one GLM slice with `max_turns: 8`, a 6-minute target window, at most six focused file reads, and at most two search/bash commands. Narrow adversarial or follow-up slices should use `max_turns: 5`, a 4-minute target window, at most three focused file reads, and at most one search/bash command. If GLM cannot complete the assigned scope inside that budget, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
+For every quality reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Bound the assigned scope instead.
 
-Split the normal second GLM review only when a diff has more than 20 changed files, more than 2000 diff lines, or clearly independent product surfaces that one bounded slice cannot review. Use at most two GLM slices in the initial cycle. Do not split a small or medium diff merely to get more GLM opinions, and do not create generic failure-family slices unless the diff actually touches those failure families.
+If any reviewer cannot complete the assigned scope, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
 
-Empty output, tool-only output, provider errors, or transcripts ending in tool use are review infrastructure failures, not passes. Rerun once with a narrower bounded prompt; if the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
+Split a normal review only when a diff has more than 20 changed files, more than 2000 diff lines, or clearly independent product surfaces that one bounded slice cannot review. Use at most two slices per reviewer in the initial cycle. Do not split a small or medium diff merely to get more opinions, and do not create generic failure-family slices unless the diff actually touches those failure families.
+
+Empty output, tool-only output, provider errors, or transcripts ending in tool use are review infrastructure failures, not passes. Rerun once with a narrower bounded prompt; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
 
 If either reviewer reports broad adjacent risks, keep them out of the PR only when they satisfy the `OUT_OF_SCOPE_FOLLOW_UP` definition and are documented. If the risk maps to the plan, verification, or this diff, treat it as in-scope and fix it.
 
@@ -319,7 +322,7 @@ A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for t
 
 1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
 2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with both runtime-native scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, use the installed Codex-native independent implementation-review paths. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For GLM, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each GLM slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+3. Run read-only adversarial implementation reviews with both runtime-native scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, use the installed Codex-native independent implementation-review paths. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
 5. Repeat the adversarial reviewer-pair pass once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after both adversarial passes report no additional in-scope findings or only documented out-of-scope follow-ups.
 
@@ -472,12 +475,12 @@ Return one verdict:
 - VERDICT: FIX_IN_SCOPE_FINDINGS
 - VERDICT: BLOCKED_BY_SCOPE_QUESTION
 
-For GLM slices only, this additional verdict is allowed:
+This additional verdict is allowed for every reviewer when the assigned scope cannot be completed:
 - VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 
-For GLM slices, use bounded scope and bounded exploration. Normal slices should stay within `max_turns: 8`, a 6-minute target window, at most six focused file reads, and at most two search/bash commands. Narrow/adversarial slices should stay within `max_turns: 5`, a 4-minute target window, at most three focused file reads, and at most one search/bash command. Reserve the final minute for a final response, and do not broaden into unrelated whole-product review. If incomplete, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
+For every reviewer slice, use bounded scope and bounded exploration. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Reserve enough time/context for a final response, and do not broaden into unrelated whole-product review. If incomplete, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 
-Return format for GLM slices:
+Return format for reviewer slices:
 1. Scope checked
 2. Coverage table: file/surface, check performed, result, complete/incomplete
 3. Findings, if any

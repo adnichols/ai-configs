@@ -46,9 +46,9 @@ In Pi, run two read-only Pi subagent plan reviews:
 
 Launch both reviewers independently. Keep the review agents read-only; the coordinating agent must synthesize their recommendations, drive convergence, and edit the plan. Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt; if the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
 
-For GLM, use bounded scope rather than bounded tool calls. Do not cap tool calls. Use an 8-minute target review window with the last minute reserved for a final response; for narrow follow-up slices, use a 12-minute target window with the last 90 seconds reserved for a final response. If GLM cannot complete the assigned readiness scope inside the window, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the coordinating agent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
+For every quality reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the coordinating agent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
 
-Split GLM readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The coordinating agent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
+Split a readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The coordinating agent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
 
 The prompt to each reviewer must include:
 
@@ -65,6 +65,7 @@ Ask each reviewer for one verdict:
 VERDICT: PLAN_EXECUTION_READY
 VERDICT: PLAN_NEEDS_REVISION
 VERDICT: BLOCKED_BY_PRODUCT_QUESTION
+VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 ```
 
 Treat fuzzy output by substance, but never normalize empty, tool-only, provider-error, or incomplete-coverage output into a ready verdict. The plan is ready only when both independent reviewer results clear the plan after the latest material edit and all required review slices are complete. Do not conclude after merely summarizing reviewer findings; if the findings are actionable within scope, apply them to the plan and rerun both reviewers. If a reviewer returns incomplete coverage, run the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked.

@@ -96,15 +96,15 @@ The `opencode-zen/glm-5.2` string is only the Pi model provider/model ID in the 
 
 Both reviews are read-only. If `quality-reviewer-glm` is unavailable, stop and report that the GLM-5.2 Pi subagent gate cannot run; do not silently substitute another model.
 
-A reviewer result with no final verdict is not a review result. Treat empty output, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
+A reviewer result with no final verdict is not a review result. Treat empty output, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
 
-For GLM-5.2, use both bounded scope and bounded exploration. Give GLM a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Normal GLM reviews should be a single slice with `max_turns: 8`, a 6-minute target window, at most six focused file reads, and at most two search/bash commands. Narrow follow-up slices should use `max_turns: 5`, a 4-minute target window, at most three focused file reads, and at most one search/bash command. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps.
+For every quality reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; bound the assigned scope instead.
 
-If the assigned GLM scope is too large to complete within the review budget, GLM must return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact recommended follow-up slice. The parent may run at most one narrowed GLM follow-up for that cycle. If that follow-up is still incomplete or unusable, stop with a review-budget blocker or ask the user to waive/narrow the gate; do not keep launching slices.
+If any reviewer cannot complete the assigned scope, it must return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact recommended follow-up slice. The parent may run at most one narrowed follow-up for that reviewer in that cycle. If that follow-up is still incomplete or unusable, stop with a review-budget blocker or ask the user to waive/narrow the gate; do not keep launching slices.
 
-Split GLM review only when the diff has more than 20 changed files, more than 2000 diff lines, or clearly independent product surfaces that one bounded slice cannot review. Use at most two GLM slices in the initial cycle, chosen by concrete surface/risk. Do not split a small or medium diff merely to get more GLM opinions, and do not create generic failure-family slices unless the diff actually touches those failure families.
+Split a review only when the diff has more than 20 changed files, more than 2000 diff lines, or clearly independent product surfaces that one bounded slice cannot review. Use at most two slices per reviewer in the initial cycle, chosen by concrete surface/risk. Do not split a small or medium diff merely to get more opinions, and do not create generic failure-family slices unless the diff actually touches those failure families.
 
-Each GLM slice must use the same severity, scope, budget, and verdict format. The parent synthesizes all slice results; do not ask one GLM subagent to deeply inspect every slice and synthesize the whole PR.
+Each reviewer slice must use the same severity, scope, budget, and verdict format. The parent synthesizes all slice results; do not ask one subagent to deeply inspect every slice and synthesize the whole PR.
 
 Use this prompt shape for each reviewer:
 
@@ -127,7 +127,7 @@ Assigned failure families:
 
 Review committed, staged, and unstaged changes in this worktree. Focus on issues a pull-request reviewer would reasonably ask to fix, justify, or track before merge.
 
-For GLM-5.2: stay within the assigned scope and review budget. Use at most the tool budget in the review instructions; do not broaden into unrelated whole-product review. Reserve the final minute to stop using tools and return a final response. If the assigned scope is incomplete, return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
+Completion contract for every reviewer: stay within the assigned scope and review budget. Use at most the tool budget in the review instructions; do not broaden into unrelated whole-product review. Return a final verdict even when coverage is incomplete. If the assigned scope is incomplete, return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 
 Classify every finding with:
 - Severity: P1, P2, or P3
