@@ -4842,9 +4842,9 @@
       "sha256": "991ba35fe89af3444f130ec58a6600a787d8734b1c2e63d9f7f813c94e99456f"
     },
     {
-      "bytes": 411,
+      "bytes": 793,
       "path": "scripts/autobuild_pr_nudge_monitor.config.json",
-      "sha256": "52169f6a2cfe32626c5eaaaa84fd463a195290cf204cec3fdabc9354f754395d"
+      "sha256": "d30b1e5ccb49cb636994648118e2f0b4c69ab8766781219dcfd47c14a7f6d56e"
     },
     {
       "bytes": 20471,

@@ -11,6 +11,18 @@
       "rework_state": "Rework",
       "merge_on_codex_ready": true,
       "enabled": true
+    },
+    {
+      "name": "doct-autobuild-prs",
+      "repo": "Nodaste-Lab/doct",
+      "repo_dir": "/Users/anichols/code/doct",
+      "linear_team": "NOD",
+      "linear_project": "2a70aa04-0606-436e-ac5f-b7859677ee08",
+      "issue_key_prefix": "NOD",
+      "required_label": "autobuild",
+      "rework_state": "Rework",
+      "merge_on_codex_ready": true,
+      "enabled": true
     }
   ]
 }
