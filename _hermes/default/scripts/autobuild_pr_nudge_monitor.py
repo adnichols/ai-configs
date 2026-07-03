@@ -491,9 +491,6 @@ def process_monitor(monitor: Monitor, state: dict[str, Any], outputs: list[str])
             issue_comments = gh_api(monitor.repo, f"repos/{monitor.repo}/issues/{n}/comments", cwd=monitor.repo_dir, paginate=True) or []
             linked = extract_linear_ids(monitor, pr, issue_comments)
             autobuild_linked = [issue for issue in linked if issue in label_issues]
-            if not autobuild_linked:
-                set_merge_ready_label(monitor, pr, False, outputs, "not linked to a required-label Linear issue")
-                continue
 
             reviews = gh_api(monitor.repo, f"repos/{monitor.repo}/pulls/{n}/reviews", cwd=monitor.repo_dir, paginate=True) or []
             review_comments = gh_api(monitor.repo, f"repos/{monitor.repo}/pulls/{n}/comments", cwd=monitor.repo_dir, paginate=True) or []
@@ -516,7 +513,8 @@ def process_monitor(monitor: Monitor, state: dict[str, Any], outputs: list[str])
 
             if codex["ready"]:
                 set_merge_ready_label(monitor, pr, True, outputs, "clean with current-head Codex ready signal")
-                merge_pr(monitor, pr, codex["ready"], mstate, outputs)
+                if autobuild_linked:
+                    merge_pr(monitor, pr, codex["ready"], mstate, outputs)
             else:
                 set_merge_ready_label(monitor, pr, False, outputs, "waiting for current-head Codex ready signal")
         except Exception as exc:

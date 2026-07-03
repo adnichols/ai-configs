@@ -30,10 +30,10 @@ The monitor:
 1. Lists GitHub open PRs for configured repos.
 2. Extracts linked Linear issues from PR title, branch, explicit `Closes/Fixes/Resolves KEY-123` body text, and the first Linear linkback URL.
 3. Loads Linear issues with the configured required label, default `autobuild`, in one batch via `ltui --format json --limit 250 issues list --label autobuild`.
-4. Ignores PRs that are not linked to a required-label Linear issue.
-5. Moves matching Linear issues to `Rework` and comments when there is current-head Codex feedback or a merge conflict.
-6. Maintains the GitHub PR label `merge-ready` as a visible PR-list indicator only while the current head is clean and has a real current-head Codex ready/no-issues signal.
-7. If `merge_on_codex_ready` is true, merges/auto-merges matching PRs only after a real Codex thumbs-up/ready signal.
+4. Checks Codex/merge-readiness for every open PR in the configured repo, whether or not it is linked to an autobuild Linear issue.
+5. Maintains the GitHub PR label `merge-ready` as a visible PR-list indicator on any open PR whose current head is clean and has a real current-head Codex ready/no-issues signal.
+6. Restricts nudging to matching required-label Linear issues: moves those issues to `Rework` and comments when there is current-head Codex feedback or a merge conflict.
+7. If `merge_on_codex_ready` is true, merges/auto-merges only matching required-label Linear PRs after a real Codex thumbs-up/ready signal.
 8. Prints only actionable output; empty stdout means no-op. Linear rate limits are logged and retried later quietly.
 
 ## Add another repo
