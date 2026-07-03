@@ -165,7 +165,7 @@ def ltui_json(cmd: list[str], *, cwd: Path | None = None) -> tuple[bool, Any, st
         return False, None, f"JSON parse failed: {exc}; output={combined[:1000]}"
 
 
-def list_required_label_issues(monitor: Monitor) -> tuple[set[str] | None, str]:
+def list_required_label_issues(monitor: Monitor) -> tuple[dict[str, dict[str, Any]] | None, str]:
     cmd = ["ltui", "--format", "json", "--limit", "250", "issues", "list", "--team", monitor.linear_team, "--label", monitor.required_label]
     if monitor.linear_project:
         cmd.extend(["--project", monitor.linear_project])
@@ -173,12 +173,12 @@ def list_required_label_issues(monitor: Monitor) -> tuple[set[str] | None, str]:
     if not ok:
         return None, msg
     rows = data.get("rows") if isinstance(data, dict) else data
-    issue_ids: set[str] = set()
+    issues: dict[str, dict[str, Any]] = {}
     for row in rows or []:
         ident = row.get("identifier") or row.get("id") or row.get("key")
         if isinstance(ident, str) and monitor.issue_re.fullmatch(ident):
-            issue_ids.add(ident.upper())
-    return issue_ids, ""
+            issues[ident.upper()] = row
+    return issues, ""
 
 
 def ltui_update_rework(monitor: Monitor, issue: str) -> tuple[bool, str]:
@@ -326,11 +326,13 @@ def conflict_state(monitor: Monitor, pr_number: int, list_state: str) -> tuple[b
     return dirty, f"mergeStateStatus={list_state or 'unknown'}, mergeable={mergeable}, mergeable_state={mergeable_state or 'unknown'}"
 
 
-def mark_rework(monitor: Monitor, issue: str, pr: dict[str, Any], reason: str, detail_url: str, detail_text: str, mstate: dict[str, Any], outputs: list[str]) -> None:
+def mark_rework(monitor: Monitor, issue: str, issue_meta: dict[str, Any], pr: dict[str, Any], reason: str, detail_url: str, detail_text: str, mstate: dict[str, Any], outputs: list[str]) -> None:
     head = pr.get("headRefOid") or ""
     pr_number = pr["number"]
     key = f"rework:{reason}:{issue}:pr{pr_number}:{head}:{detail_url or detail_text[:80]}"
-    if key in mstate["events"]:
+    issue_state = str((issue_meta or {}).get("state") or "")
+    issue_already_in_rework = issue_state.casefold() == monitor.rework_state.casefold()
+    if key in mstate["events"] and issue_already_in_rework:
         return
     body = (
         f"Automated autobuild PR monitor moved this back to **{monitor.rework_state}**.\n\n"
@@ -417,14 +419,14 @@ def process_monitor(monitor: Monitor, state: dict[str, Any], outputs: list[str])
 
             if dirty:
                 for issue in autobuild_linked:
-                    mark_rework(monitor, issue, pr, "a merge conflict", pr.get("url") or "", dirty_detail, mstate, outputs)
+                    mark_rework(monitor, issue, label_issues.get(issue, {}), pr, "a merge conflict", pr.get("url") or "", dirty_detail, mstate, outputs)
                 continue
 
             if codex["feedback"]:
                 first = codex["feedback"][0]
                 detail_url = first.get("url") or pr.get("url") or ""
                 for issue in autobuild_linked:
-                    mark_rework(monitor, issue, pr, "current-head Codex feedback", detail_url, f"Current-head Codex feedback: {detail_url}", mstate, outputs)
+                    mark_rework(monitor, issue, label_issues.get(issue, {}), pr, "current-head Codex feedback", detail_url, f"Current-head Codex feedback: {detail_url}", mstate, outputs)
                 continue
 
             if codex["ready"]:

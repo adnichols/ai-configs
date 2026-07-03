@@ -63,4 +63,7 @@ DRY_RUN=1 ~/.hermes/scripts/autobuild_pr_nudge_monitor.py
 hermes cron list
 ```
 
-Do not use a broad regex over full Linear linkback markdown; it can include related issues. Use the fixture's extraction order instead.
+## Pitfalls
+
+- Do not use a broad regex over full Linear linkback markdown; it can include related issues. Use the fixture's extraction order instead.
+- Event fingerprints prevent duplicate nudges only while the linked Linear issue is already in the configured rework state. If a human/agent moves the same head back to review without a fresh Codex ready signal, the monitor must re-nudge and move it back to Rework; otherwise active PRs can appear stalled.
