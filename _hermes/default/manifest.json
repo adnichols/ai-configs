@@ -1,5 +1,5 @@
 {
-  "file_count": 1686,
+  "file_count": 1687,
   "files": [
     {
       "bytes": 819,
@@ -7542,14 +7542,19 @@
       "sha256": "f1ebbe3e333153382235f120f6e23231c23df04651d2434201d4d29d2c723783"
     },
     {
-      "bytes": 18444,
+      "bytes": 19756,
       "path": "skills/productivity/linear/SKILL.md",
-      "sha256": "dba520de5fb0b547af79bdc791d6e6c88a11c9b2bca5f96c17f5101ca17a4110"
+      "sha256": "fa1b0d72d596710677d7a0c81faca0066c79c51a6b281a4335ccc1e53eb2afda"
     },
     {
       "bytes": 3819,
       "path": "skills/productivity/linear/references/ccore-identity-fragmentation-issue.md",
       "sha256": "615788a568f0ff9330ffb30d463dae35fde3aa69080e37bd3114a61ece56167e"
+    },
+    {
+      "bytes": 4520,
+      "path": "skills/productivity/linear/references/ltui-nod-symphony-api-budget-audit.md",
+      "sha256": "ff1340ca41c0d34810f2d34bca9db5459cdbcb936334f53b644c0bc961265338"
     },
     {
       "bytes": 15603,

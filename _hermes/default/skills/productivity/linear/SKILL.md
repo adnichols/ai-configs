@@ -87,6 +87,16 @@ For evidence-heavy issues, write the description to `/tmp/<slug>.md` first, then
 - When Aaron asks to “just open the Linear” and explicitly says not to build, create the issue only, set the requested workflow state/labels, verify the row, and stop. For Doct autobuild intake this commonly means project `Doc Thingy`, state `Ready to Pull`, and label `autobuild`.
 - `ltui issues update <KEY> --state Done` generally does not need `--project`; prefer the narrow issue-key update and add only `--team <KEY>` if required. Passing `--project` or running from a repo with `.ltui.json` can trigger an extra broad project lookup, which is painful when the Linear API is near rate limit.
 
+### API-budget audits for `ltui` and `nod-symphony`
+
+When Aaron asks why Linear/ltui/nod-symphony is hitting rate limits, inspect both code and live runtime shape before recommending fixes. See `references/ltui-nod-symphony-api-budget-audit.md` for the concrete audit checklist and durable findings.
+
+High-yield checks:
+- `ltui`: confirm whether high-volume reads use shaped raw GraphQL (`issues list --fields`, repeated `--state`, `--show-rate-limit`) and whether expensive paths still default to attachment/comment scans (`issues view`, `issues attachments`) or post-mutation refetches.
+- `nod-symphony`: inspect `LinearClient` query shapes and `Orchestrator` polling intervals. Candidate, project-summary, and state-reconcile paths should not all fetch full issue context with comments/attachments.
+- Runtime: check configured daemon profiles, poll/review/summary intervals, active processes, local dashboard `/api/v1/state`, and recent logs for `candidate_fetch`, `issue_summary_refresh`, `tracker_state_reconcile`, and `RATELIMITED`.
+- Prefer fixes that reduce calls/complexity at source: server-side label/state filters, cheap scan + per-dispatch hydration, state-only reconciliation queries, summary-specific queries, longer stable metadata caches, and shared Linear budget/backoff across daemons/tools.
+
 ### Reviewing In Review issues for completion
 
 When Aaron asks to review Linear issues in a repo/project and move completed work to Done:
