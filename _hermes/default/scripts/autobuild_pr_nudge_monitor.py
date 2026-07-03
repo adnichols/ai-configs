@@ -468,10 +468,10 @@ def process_monitor(monitor: Monitor, state: dict[str, Any], outputs: list[str])
     label_issues, label_msg = list_required_label_issues(monitor)
     if label_issues is None:
         if rate_limited(label_msg):
-            log(f"{monitor.name}: Linear rate-limited while listing {monitor.required_label} issues; skipping quietly")
-            return
-        outputs.append(f"⚠️ {monitor.name}: could not list Linear issues with label {monitor.required_label}: {label_msg[:700]}")
-        return
+            log(f"{monitor.name}: Linear rate-limited while listing {monitor.required_label} issues; skipping Linear nudges quietly")
+        else:
+            outputs.append(f"⚠️ {monitor.name}: could not list Linear issues with label {monitor.required_label}; merge-ready labels will still be checked, but Linear nudges/auto-merge are skipped this tick: {label_msg[:700]}")
+        label_issues = {}
 
     prs = json_cmd([
         "gh", "pr", "list", "--repo", monitor.repo, "--state", "open", "--json",

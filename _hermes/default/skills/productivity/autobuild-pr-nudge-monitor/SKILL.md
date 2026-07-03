@@ -34,7 +34,7 @@ The monitor:
 5. Maintains the GitHub PR label `merge-ready` as a visible PR-list indicator on any open PR whose current head is clean and has a real current-head Codex ready/no-issues signal.
 6. Restricts nudging to matching required-label Linear issues: moves those issues to `Rework` and comments when there is current-head Codex feedback or a merge conflict.
 7. If `merge_on_codex_ready` is true, merges/auto-merges only matching required-label Linear PRs after a real Codex thumbs-up/ready signal.
-8. Prints only actionable output; empty stdout means no-op. Linear rate limits are logged and retried later quietly.
+8. Prints only actionable output; empty stdout means no-op. Linear rate limits are logged and retried later quietly; they skip Linear nudges/auto-merge for that tick but do not block repo-wide `merge-ready` label maintenance.
 
 ## Add another repo
 
