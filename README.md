@@ -23,7 +23,7 @@ ai-configs/
 ├── _pi/          # Pi source config
 ├── scripts/      # Shared helper scripts fanned out by install.sh
 ├── skills/       # Repo-owned shared skills + install matrix for package-backed skills
-├── tools/        # Repo-owned distributable CLIs (currently ltui)
+├── tools/        # Optional local tool shims/cache; distributable CLIs live in standalone repos
 ├── docs/         # Fetched/reference docs kept in repo
 ├── thoughts/     # Working plans, handoffs, research, validation
 └── install.sh    # Main installer / updater
@@ -126,8 +126,17 @@ Current shared scripts include:
 ### `skills/`
 Repo-owned shared skill tree plus `skills/install-matrix.json`, which inventories default and optional package-backed shared skills fetched via `npx skills` during install.
 
-### `tools/ltui/`
-Token-efficient Linear CLI for AI agents.
+### ltui
+The token-efficient Linear CLI for AI agents is no longer vendored in this repository. Install and develop it from the standalone repo.
+
+```bash
+brew tap Nodaste-Lab/ltui https://github.com/Nodaste-Lab/ltui.git
+brew install Nodaste-Lab/ltui/ltui
+```
+
+Source: <https://github.com/Nodaste-Lab/ltui>
+
+`ai-configs install.sh --tools` clones/builds `ltui` from the standalone repo into `${XDG_CACHE_HOME:-~/.cache}/ai-configs/tools/ltui` and links `~/.local/bin/ltui` to that checkout. Override the source for testing or pinning with `LTUI_REPO_URL` and `LTUI_REF`.
 
 ### Plan Reviewer
 The HTML plan-review daemon and `plan-review` CLI are no longer vendored in this repository. Install and develop them from the standalone repo.
@@ -170,10 +179,16 @@ Consumer-specific compatibility links are created where needed, but `~/.agents/s
 bash ./install.sh --skills --update
 ```
 
-`ltui` lives under `tools/ltui/` and can be installed with:
+`ltui` lives in the standalone `Nodaste-Lab/ltui` repository and can be installed with:
 
 ```bash
 bash ./install.sh --tools
+```
+
+For testing or pinning a branch:
+
+```bash
+LTUI_REPO_URL=/path/to/ltui LTUI_REF=linear-rate-limit-reduction bash ./install.sh --tools
 ```
 
 ## Working docs

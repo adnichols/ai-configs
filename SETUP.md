@@ -39,6 +39,8 @@ bash ~/ai-configs/install.sh --skills
 bash ~/ai-configs/install.sh --tools
 ```
 
+`--tools` installs `ltui` from the standalone `Nodaste-Lab/ltui` repository. Use `LTUI_REPO_URL` and `LTUI_REF` to test or pin a different checkout/ref.
+
 ## Global install
 
 ```bash

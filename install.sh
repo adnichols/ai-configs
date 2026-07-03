@@ -568,55 +568,96 @@ install_tools() {
     echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
     echo ""
 
-    # Install ltui
-    if [ -d "$REPO_ROOT/tools/ltui" ]; then
-        echo "Installing ltui..."
+    install_ltui
+}
 
-        # Check for Bun
-        local bun_cmd=""
-        if command -v bun &> /dev/null; then
-            bun_cmd="$(command -v bun)"
-        elif [ -x "$HOME/.bun/bin/bun" ]; then
-            bun_cmd="$HOME/.bun/bin/bun"
-        fi
+install_ltui() {
+    echo "Installing ltui from standalone repository..."
 
-        if [ -z "$bun_cmd" ]; then
-            echo -e "${RED}Error: Bun is required to build ltui${NC}"
-            echo "Install from: https://bun.sh"
+    local ltui_repo_url="${LTUI_REPO_URL:-https://github.com/Nodaste-Lab/ltui.git}"
+    local ltui_ref="${LTUI_REF:-main}"
+    local cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/ai-configs/tools"
+    local checkout_dir="$cache_root/ltui"
+    local install_bin_dir="$HOME/.local/bin"
+
+    for required_cmd in git npm node; do
+        if ! command -v "$required_cmd" >/dev/null 2>&1; then
+            echo -e "${RED}Error: $required_cmd is required to install ltui${NC}"
             return 1
         fi
+    done
 
-        local install_bin_dir="$HOME/.local/bin"
-        mkdir -p "$install_bin_dir"
+    mkdir -p "$cache_root" "$install_bin_dir"
 
-        local current_dir=$(pwd)
-        cd "$REPO_ROOT/tools/ltui"
-
-        echo "  - Installing dependencies..."
-        "$bun_cmd" install
-
-        echo "  - Building ltui..."
-        "$bun_cmd" run build
-
-        echo "  - Installing ltui into $install_bin_dir..."
-        ln -sfn "$REPO_ROOT/tools/ltui/bin/ltui" "$install_bin_dir/ltui"
-
-        cd "$current_dir"
-        echo -e "${GREEN}✓ ltui installed successfully${NC}"
-        echo ""
-
-        if [[ ":$PATH:" != *":$install_bin_dir:"* ]]; then
-            echo -e "${YELLOW}⚠  NOTE: $install_bin_dir is not in your PATH${NC}"
-            echo "  Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-            echo "    export PATH=\"$install_bin_dir:\$PATH\""
-            echo ""
-            echo "  After updating, run: source ~/.zshrc  (or restart your shell)"
-            echo "  Then verify with: ltui --help"
-        else
-            echo "  ltui is now available globally. Try: ltui --help"
-        fi
+    if [ -d "$checkout_dir/.git" ]; then
+        echo "  - Updating $checkout_dir..."
+        git -C "$checkout_dir" remote set-url origin "$ltui_repo_url"
+        git -C "$checkout_dir" fetch --prune origin
     else
-        echo -e "${YELLOW}No tools directory found, skipping...${NC}"
+        if [ -e "$checkout_dir" ]; then
+            echo "  - Replacing non-git ltui cache at $checkout_dir..."
+            rm -rf "$checkout_dir"
+        fi
+
+        echo "  - Cloning $ltui_repo_url into $checkout_dir..."
+        git clone "$ltui_repo_url" "$checkout_dir"
+        git -C "$checkout_dir" fetch --prune origin
+    fi
+
+    if git -C "$checkout_dir" rev-parse --verify --quiet "origin/$ltui_ref" >/dev/null; then
+        git -C "$checkout_dir" checkout --force -B ai-configs-install "origin/$ltui_ref"
+    else
+        git -C "$checkout_dir" checkout --force "$ltui_ref"
+    fi
+
+    echo "  - Installing dependencies..."
+    (cd "$checkout_dir" && npm ci)
+
+    echo "  - Building ltui..."
+    (cd "$checkout_dir" && npm run build)
+
+    echo "  - Installing ltui into $install_bin_dir..."
+    ln -sfn "$checkout_dir/bin/ltui" "$install_bin_dir/ltui"
+
+    # Older ai-configs installs may have put a Bun global link earlier in PATH.
+    # If that link still points at the old vendored ai-configs copy, repoint it
+    # so `which ltui` resolves to the standalone checkout too.
+    local bun_module_link="$HOME/.bun/install/global/node_modules/ltui"
+    local bun_bin_link="$HOME/.bun/bin/ltui"
+
+    if [ -L "$bun_module_link" ]; then
+        local bun_module_target
+        bun_module_target="$(readlink "$bun_module_link")"
+        if [[ "$bun_module_target" == *"ai-configs/tools/ltui"* ]]; then
+            echo "  - Updating stale Bun ltui module link..."
+            ln -sfn "$checkout_dir" "$bun_module_link"
+        fi
+    fi
+
+    if [ -L "$bun_bin_link" ]; then
+        local bun_bin_target
+        bun_bin_target="$(readlink "$bun_bin_link")"
+        if [[ "$bun_bin_target" == *"node_modules/ltui/bin/ltui"* || "$bun_bin_target" == *"ai-configs/tools/ltui/bin/ltui"* ]]; then
+            echo "  - Updating stale Bun ltui binary link..."
+            ln -sfn "$checkout_dir/bin/ltui" "$bun_bin_link"
+        fi
+    fi
+
+    echo -e "${GREEN}✓ ltui installed successfully${NC}"
+    echo "  Source: $ltui_repo_url"
+    echo "  Ref: $ltui_ref"
+    echo "  Checkout: $checkout_dir"
+    echo ""
+
+    if [[ ":$PATH:" != *":$install_bin_dir:"* ]]; then
+        echo -e "${YELLOW}⚠  NOTE: $install_bin_dir is not in your PATH${NC}"
+        echo "  Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
+        echo "    export PATH=\"$install_bin_dir:\$PATH\""
+        echo ""
+        echo "  After updating, run: source ~/.zshrc  (or restart your shell)"
+        echo "  Then verify with: ltui --help"
+    else
+        echo "  ltui is now available globally. Try: ltui --help"
     fi
 }
 
