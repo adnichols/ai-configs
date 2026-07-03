@@ -181,7 +181,7 @@ Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUME
 
 ### 6. Second scoped quality review
 
-In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5 implementation review. The `opencode-zen/glm-5` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, use the second installed Codex-native independent implementation-review path when available; if no independent Codex review path is installed, stop with a clear blocker instead of claiming the scoped run is reviewed.
+In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5.2 implementation review. The `opencode/glm-5.2` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, use the second installed Codex-native independent implementation-review path when available; if no independent Codex review path is installed, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 

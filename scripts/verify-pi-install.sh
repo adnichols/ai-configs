@@ -284,6 +284,20 @@ else
   note_failure "Pi web-search config is missing: $PI_WEB_SEARCH_PATH"
 fi
 
+if command -v pi >/dev/null 2>&1; then
+  if pi --list-models 'openai-codex/gpt-5.5' 2>/dev/null | grep -Fq 'gpt-5.5'; then
+    echo "  Pi reviewer GPT model route: openai-codex/gpt-5.5"
+  else
+    note_failure "Pi cannot resolve reviewer GPT model route openai-codex/gpt-5.5"
+  fi
+
+  if pi --list-models 'opencode/glm-5.2' 2>/dev/null | grep -Fq 'glm-5.2'; then
+    echo "  Pi reviewer GLM model route: opencode/glm-5.2"
+  else
+    note_failure "Pi cannot resolve reviewer GLM model route opencode/glm-5.2"
+  fi
+fi
+
 if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-multi-pass'; then
   note_failure "pi-multi-pass is still registered; local openai-codex should be the only Codex route"
 else

@@ -2065,6 +2065,7 @@ def prune_retired_managed_models():
         overrides = opencode_zen_provider.get("modelOverrides")
         if isinstance(overrides, dict):
             overrides.pop("glm-5", None)
+            overrides.pop("glm-5.2", None)
             if not overrides:
                 opencode_zen_provider.pop("modelOverrides")
         if not opencode_zen_provider:

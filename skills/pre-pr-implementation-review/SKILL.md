@@ -92,7 +92,7 @@ Use Pi subagents directly. Launch both in the same turn when possible:
 - `quality-reviewer` for the GPT-5.5 pass.
 - `quality-reviewer-glm` for the GLM-5.2 pass.
 
-The `opencode-zen/glm-5.2` string is only the Pi model provider/model ID in the subagent frontmatter. Do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent to satisfy this gate.
+The `opencode/glm-5.2` string is only the Pi model provider/model ID in the subagent frontmatter. Do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent to satisfy this gate.
 
 Both reviews are read-only. If `quality-reviewer-glm` is unavailable, stop and report that the GLM-5.2 Pi subagent gate cannot run; do not silently substitute another model.
 
@@ -101,7 +101,7 @@ Both reviews are read-only. If `quality-reviewer-glm` is unavailable, stop and r
 When this skill is invoked from Codex, Codex must call Pi for the reviewer-pair gate instead of simulating it locally. Use the same worktree and pass the resolved plan/scope and base/range:
 
 ```bash
-pi -p --approve "/skill:pre-pr-implementation-review <plan-or-scope> --base <branch-or-range>"
+pi -p --approve "Run the pre-PR implementation reviewer-pair gate for <plan-or-scope> against <branch-or-range>. Use Pi subagents quality-reviewer and quality-reviewer-glm directly and read-only. Do not invoke /skill:pre-pr-implementation-review, do not shell out to pi, and do not edit files. Return the GPT and GLM verdicts plus the artifact path."
 ```
 
 Codex consumes the Pi artifact and verdicts, triages findings, applies in-scope fixes in the active Codex worktree, and reruns the same Pi command after material fixes. If Pi, `quality-reviewer`, or `quality-reviewer-glm` is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate.

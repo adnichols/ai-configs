@@ -120,24 +120,6 @@
           }
         }
       }
-    },
-    "opencode-zen": {
-      "modelOverrides": {
-        "glm-5.2": {
-          "reasoning": true,
-          "thinkingLevelMap": {
-            "off": "none",
-            "minimal": null,
-            "low": null,
-            "medium": null,
-            "high": "high",
-            "xhigh": "max"
-          },
-          "compat": {
-            "supportsReasoningEffort": true
-          }
-        }
-      }
     }
   }
 }
