@@ -24,7 +24,7 @@ And global/home resources where those tools expect them:
 - `~/.config/opencode/`
 - `~/.agents/skills/`
 
-Shared skill inventory is declared in `skills/install-matrix.json`; repo-owned payloads are copied from `skills/`, and package-backed payloads are fetched via `npx skills`.
+Shared skill inventory is declared in `skills/install-matrix.json`; default repo-owned payloads are copied from `skills/`, and default package-backed payloads are fetched via `npx skills`. Optional-profile skills are recorded in the matrix with `defaultInstall: false` and are not placed in `~/.agents/skills` by default.
 
 ## Single-surface installs
 

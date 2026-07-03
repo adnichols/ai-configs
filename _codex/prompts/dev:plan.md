@@ -21,7 +21,7 @@ Argument (`$ARGUMENTS`) is either:
 
 ## Output Contract
 
-Write exactly one active plan file: `plan_path`, resolved from repo-local guidance or an existing plan path supplied by the user.
+Write exactly one file: `plan_path`, resolved from repo-local guidance or an existing plan path supplied by the user.
 
 Do not create `spec.md`, `tasks.md`, per-plan directories, same-slug markdown/JSON companions for an HTML-plan repo, or any non-plan file unless the user explicitly asks.
 
@@ -66,7 +66,7 @@ Legacy migration support (read-only; do not delete legacy files):
 
 ### 3) Deep Research and Validation
 
-If local guidance names an HTML plan contract, template, validator, or plan service, read those docs now. Use the checked-in tooling they name; do not create markdown companions for an HTML-plan repo and do not substitute an ad hoc plan server.
+If local guidance names an HTML plan contract, template, validator, or plan server, read those docs now. Use the checked-in tooling they name; do not create markdown companions for an HTML-plan repo and do not substitute an ad hoc plan server.
 
 Validate key claims from the conversation by directly inspecting the codebase:
 
@@ -161,7 +161,10 @@ Before finishing:
 
 ## Next Steps
 
-- If the written plan is `execution-ready`, suggest:
+- If the written plan is an HTML plan, suggest:
+  - `/dev:reviewed-html-plan <plan_path>` to register it, process browser comments, run PM plus GPT/GLM Pi subagent plan reviews, and iterate to execution-ready.
+  - `/cmd:execute-plan <plan_path>` only after browser-review metadata and readiness gates are complete.
+- If the written plan is a legacy Markdown plan and is `execution-ready`, suggest:
   - `/review:change <plan_path>`
   - `/cmd:execute-plan <plan_path>`
 - If the written plan is `research-ready`, suggest reviewing the plan and then doing the exact next research action recorded in it instead of executing.

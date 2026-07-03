@@ -178,12 +178,19 @@ seed_phase_two_home() {
     "$home/.agents/skills/external-skill" \
     "$home/.agents/skills/linear" \
     "$home/.agents/skills/$old_skill" \
+    "$home/.agents/skills/algorithmic-art" \
     "$home/.claude/skills/linear" \
-    "$home/.claude/skills/$old_skill"
+    "$home/.claude/skills/$old_skill" \
+    "$home/.claude/skills/algorithmic-art" \
+    "$home/.config/opencode/skills/algorithmic-art"
 
   printf 'external\n' > "$home/.agents/skills/external-skill/SKILL.md"
   printf 'foreign-linear\n' > "$home/.agents/skills/linear/SKILL.md"
   printf 'old-%s\n' "$old_skill" > "$home/.agents/skills/$old_skill/SKILL.md"
+  printf 'old-optional-algorithmic-art\n' > "$home/.agents/skills/algorithmic-art/SKILL.md"
+  printf '{"repo":"ai-configs","source":"external-package:anthropics/skills#algorithmic-art","managed":true}\n' > "$home/.agents/skills/algorithmic-art/.ai-configs-managed.json"
+  ln -s "$home/.agents/skills/algorithmic-art" "$home/.claude/skills/algorithmic-art"
+  ln -s "$home/.agents/skills/algorithmic-art" "$home/.config/opencode/skills/algorithmic-art"
   printf 'old-claude-linear\n' > "$home/.claude/skills/linear/SKILL.md"
   printf 'old-claude-%s\n' "$old_skill" > "$home/.claude/skills/$old_skill/SKILL.md"
   printf 'foreign-opencode-cmd-debug\n' > "$home/.config/opencode/skills/cmd-debug/SKILL.md"
@@ -247,6 +254,13 @@ find_consumer_backup_dir() {
   find "$home/.agents/skill-backups/ai-configs" -path "*/consumers/$consumer/$skill" -type d 2>/dev/null | sort | head -n 1
 }
 
+find_optional_backup_dir() {
+  local home="$1"
+  local profile="$2"
+  local skill="$3"
+  find "$home/.agents/skill-backups/ai-configs" -path "*/optional/$profile/$skill" -type d 2>/dev/null | sort | head -n 1
+}
+
 count_backup_dirs() {
   local home="$1"
   find "$home/.agents/skill-backups/ai-configs" -mindepth 2 -type d 2>/dev/null | wc -l | tr -d ' '
@@ -307,10 +321,15 @@ assert_shared_skill_install_state() {
   [[ ! -e "$home/.pi/agent/skills/$old_skill" ]] || return 1
   assert_file_not_contains "$home/.agents/.skill-lock.json" "$old_skill" || return 1
 
-  [[ -f "$home/.agents/skills/algorithmic-art/SKILL.md" ]] || return 1
-  assert_file_contains "$home/.agents/skills/algorithmic-art/SKILL.md" 'external package=anthropics/skills skill=algorithmic-art' || return 1
-  [[ -f "$home/.agents/skills/algorithmic-art/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/algorithmic-art/.ai-configs-managed.json" '"source": "external-package:anthropics/skills#algorithmic-art"' || return 1
+  [[ ! -e "$home/.agents/skills/algorithmic-art" ]] || return 1
+  [[ ! -e "$home/.claude/skills/algorithmic-art" ]] || return 1
+  [[ ! -e "$home/.config/opencode/skills/algorithmic-art" ]] || return 1
+  backup_dir="$(find_optional_backup_dir "$home" creative-content algorithmic-art)"
+  [[ -n "$backup_dir" ]] || return 1
+  assert_file_contains "$backup_dir/SKILL.md" 'old-optional-algorithmic-art' || return 1
+  if [[ -f "$home/.agents/fake-npx-skills.log" ]]; then
+    assert_file_not_contains "$home/.agents/fake-npx-skills.log" 'algorithmic-art' || return 1
+  fi
 
   [[ -f "$home/.agents/skills/design-skill/SKILL.md" ]] || return 1
   assert_file_contains "$home/.agents/skills/design-skill/SKILL.md" 'name: design' || return 1
@@ -339,8 +358,6 @@ assert_shared_skill_install_state() {
   assert_symlink_target "$home/.config/opencode/skills/adn-dev-wf" "$home/.agents/skills/adn-dev-wf" || return 1
   assert_symlink_target "$home/.claude/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
   assert_symlink_target "$home/.config/opencode/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
-  assert_symlink_target "$home/.claude/skills/algorithmic-art" "$home/.agents/skills/algorithmic-art" || return 1
-  assert_symlink_target "$home/.config/opencode/skills/algorithmic-art" "$home/.agents/skills/algorithmic-art" || return 1
   assert_symlink_target "$home/.claude/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
   assert_symlink_target "$home/.config/opencode/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
   assert_symlink_target "$home/.claude/skills/herdr" "$home/.agents/skills/herdr" || return 1
@@ -584,10 +601,12 @@ test_phase_three_docs_use_canonical_shared_skill_paths() {
   assert_file_contains "_pi/README.md" 'skills/install-matrix.json' || return 1
 
   assert_file_contains "_omp/commands/cmd:send-plan-to-doct.md" 'doct-agent documents publish-plan' || return 1
-  assert_file_contains "_pi/prompts/cmd:send-plan-to-doct.md" 'doct-agent documents publish-plan' || return 1
   assert_file_contains "_opencode/commands/cmd:send-plan-to-doct.md" 'doct-agent documents publish-plan' || return 1
+  assert_file_contains "_pi/prompts/cmd:send-plan-to-doct.md" 'doct-agent plans register' || return 1
+  assert_file_contains "_codex/prompts/cmd:send-plan-to-doct.md" 'doct-agent plans register' || return 1
   assert_file_not_contains "_omp/commands/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
   assert_file_not_contains "_pi/prompts/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
+  assert_file_not_contains "_codex/prompts/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
   assert_file_not_contains "_opencode/commands/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
 
   assert_file_contains "skills/install-matrix.json" '"playwright-skill"' || return 1
@@ -639,6 +658,61 @@ test_phase_three_duplicate_skill_trees_are_removed() {
   [[ -z "$unexpected" ]]
 }
 
+test_codex_pi_skill_and_prompt_parity() {
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+matrix = json.loads(Path('skills/install-matrix.json').read_text())['installableSkills']
+missing_codex = [
+    name
+    for name, meta in sorted(matrix.items())
+    if 'pi' in meta.get('allowedConsumers', []) and 'codex' not in meta.get('allowedConsumers', [])
+]
+if missing_codex:
+    raise SystemExit(f"Pi skills missing Codex parity: {missing_codex}")
+
+pi_prompts = {path.name for path in Path('_pi/prompts').glob('*.md')}
+codex_prompts = {path.name for path in Path('_codex/prompts').glob('*.md') if path.name != 'README.md'}
+missing_prompts = sorted(pi_prompts - codex_prompts)
+if missing_prompts:
+    raise SystemExit(f"Pi prompts missing Codex parity: {missing_prompts}")
+
+pi_delegated = [
+    'cmd:feeling-lucky-pr.md',
+    'cmd:feeling-lucky-pr-os.md',
+    'dev:reviewed-html-plan.md',
+    'prd:clarify-round.md',
+    'review:change-claude-code.md',
+    'review:change-k2.5.md',
+    'review:change-opus.md',
+    'review:plan.md',
+    'review:plan-adversarial.md',
+    'review:prd.md',
+]
+for prompt in pi_delegated:
+    text = Path('_codex/prompts', prompt).read_text()
+    if 'pi -p --approve' not in text:
+        raise SystemExit(f"Codex prompt {prompt} must delegate to Pi")
+
+for prompt in sorted(pi_prompts - set(pi_delegated)):
+    pi_text = Path('_pi/prompts', prompt).read_text()
+    codex_text = Path('_codex/prompts', prompt).read_text()
+    if pi_text != codex_text:
+        raise SystemExit(f"Shared non-delegated prompt drifted: {prompt}")
+
+for skill in [
+    'pre-pr-implementation-review',
+    'reviewed-html-plan',
+    'plan-reviewer-execution-ready',
+    'run-plan',
+]:
+    text = Path('skills', skill, 'SKILL.md').read_text()
+    if 'Codex' not in text or 'Pi' not in text or 'pi -p --approve' not in text:
+        raise SystemExit(f"Skill {skill} must document Codex-to-Pi delegation")
+PY
+}
+
 test_phase_four_validation_proves_final_alignment() {
   local home
   local target
@@ -661,6 +735,8 @@ test_phase_four_validation_proves_final_alignment() {
   [[ -f "$home/.agents/skills/plan-reviewer-build/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/run-plan/SKILL.md" ]] || return 1
   [[ ! -e "$home/.agents/skills/scoped""-plan-run" ]] || return 1
+  [[ ! -e "$home/.agents/skills/algorithmic-art" ]] || return 1
+  [[ ! -e "$home/.agents/skills/brave-cdp" ]] || return 1
 
   claude_symlinks="$(find "$home/.claude/skills" -mindepth 1 -maxdepth 1 -type l | sort)"
   opencode_symlinks="$(find "$home/.config/opencode/skills" -mindepth 1 -maxdepth 1 -type l | sort)"
@@ -670,6 +746,8 @@ test_phase_four_validation_proves_final_alignment() {
   assert_command_output_contains "$opencode_symlinks" "$home/.config/opencode/skills/run-plan" || return 1
   assert_command_output_not_contains "$claude_symlinks" "$home/.claude/skills/cmd-debug" || return 1
   assert_command_output_not_contains "$opencode_symlinks" "$home/.config/opencode/skills/cmd-debug" || return 1
+  assert_command_output_not_contains "$claude_symlinks" "$home/.claude/skills/algorithmic-art" || return 1
+  assert_command_output_not_contains "$opencode_symlinks" "$home/.config/opencode/skills/algorithmic-art" || return 1
 
   assert_no_dangling_symlinks "$home/.claude/skills" || return 1
   assert_no_dangling_symlinks "$home/.config/opencode/skills" || return 1
@@ -696,8 +774,8 @@ test_phase_four_validation_proves_final_alignment() {
   # assert_file_not_contains "OPENCODE_ONBOARDING.md" 'install to `~/.config/opencode/skills`' || return 1
   assert_file_not_contains "_opencode/OPENCODE_ONBOARDING.md" 'install to `~/.config/opencode/skills`' || return 1
 
-  assert_file_contains "thoughts/plans/skill-consolidation-to-agents.md" '- [x] P4 - Validate migration behavior, preservation rules, consumer compatibility wiring, and final repo alignment.' || return 1
-  assert_file_contains "thoughts/plans/skill-consolidation-to-agents.md" '2026-04-02 (P4): Ran the final temp-home validation flow' || return 1
+  assert_file_contains "thoughts/archive/plans/skill-consolidation-to-agents.md" '- [x] P4 - Validate migration behavior, preservation rules, consumer compatibility wiring, and final repo alignment.' || return 1
+  assert_file_contains "thoughts/archive/plans/skill-consolidation-to-agents.md" '2026-04-02 (P4): Ran the final temp-home validation flow' || return 1
 }
 
 main() {
@@ -713,6 +791,7 @@ main() {
   run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
   run_test test_phase_three_docs_use_canonical_shared_skill_paths
   run_test test_phase_three_duplicate_skill_trees_are_removed
+  run_test test_codex_pi_skill_and_prompt_parity
   run_test test_phase_four_validation_proves_final_alignment
 
   printf '\nTests run: %s\n' "$TESTS_RUN"

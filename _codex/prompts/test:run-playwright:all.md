@@ -5,7 +5,7 @@ argument-hint: "[optional playwright args/filter]"
 
 # Test Run Playwright All (Live Fix Mode B)
 
-Run the full E2E suite in three sequential phases (`test:e2e:full`, `test:e2e:clerk`, `test:e2e:perf`) while monitoring PTY output incrementally and spawning `developer` subagents to investigate and apply fixes live.
+Run the full E2E suite in three sequential phases (`test:e2e:full`, `test:e2e:clerk`, `test:e2e:perf`) while monitoring PTY output incrementally and spawning `developer-mid` subagents to investigate and apply fixes live.
 
 Target arguments: `$ARGUMENTS`
 
@@ -90,7 +90,7 @@ Fallback parser (if needed):
 
 ### 4) Spawn Fixer Subagents (Live Apply)
 
-For each queued failure, spawn a `Task` with `subagent_type="developer"`.
+For each queued failure, spawn a `Task` with `subagent_type="developer-mid"`.
 
 Subagent requirements:
 

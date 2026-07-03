@@ -25,7 +25,13 @@ Parse the provided context:
 
 ### 2. Launch Parallel Investigations
 
-Spawn subagents with `debugger` to investigate different aspects concurrently:
+Spawn subagents with `debugger` to investigate different aspects concurrently. In Codex, use Codex's native parallel task mechanism when it can preserve the same evidence-gathering shape; when Pi subagent parity is required, delegate the investigation to Pi from the same repo/worktree:
+
+```bash
+pi -p --approve "/skill:cmd-debug <issue description>"
+```
+
+Codex should then read the generated `thoughts/debug/...` artifact and continue from the evidence, not redo the same searches unless a gap is clear.
 
 **Agent 1: Recent Changes**
 ```

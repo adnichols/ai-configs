@@ -39,7 +39,7 @@ run-plan <plan-path>
 
 In Pi, that means following the `run-plan` skill directly with Pi todo-backed run state and Pi quality-reviewer subagent gates. If the reviewed plan is registered, the resulting run state must include the Doct document/plan ID and workspace ID so the `run-plan` status-alignment preflight can mark it active/in progress before code edits.
 
-In Codex, that means following the installed shared `run-plan` skill with Codex goal/task state and Codex-native review prompts. Do not duplicate the scoped run workflow in this skill.
+In Codex, that means following the installed shared `run-plan` skill with Codex goal/task state while honoring run-plan's Pi-delegated GPT/GLM reviewer gates. Do not duplicate the scoped run workflow in this skill.
 
 ## Non-goals
 

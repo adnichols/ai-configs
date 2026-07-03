@@ -2,7 +2,7 @@
 
 Date: 2026-06-26
 Branch: `worktree/rapid-forest-d41e`
-Plan: `thoughts/plans/run-plan-command-surface-cleanup.html`
+Plan: `thoughts/archive/plans/run-plan-command-surface-cleanup.html`
 Base/comparison: initial cycles reviewed the then-uncommitted working-tree diff against `origin/main`; after commit and rebase, post-rebase cycles review `origin/main..HEAD` / `origin/main...HEAD` plus the current uncommitted validation-artifact update. No staged changes at review start.
 
 ## Scope summary
@@ -17,7 +17,7 @@ See `/tmp/run-plan-pre-pr-changed-files.txt` for the exact launch-time file list
 - Installer/matrix/tests: `skills/install-matrix.json`, `install.sh`, `test_install_shared_skills.sh`.
 - Dispatch/wrappers: `_pi/prompts/run-plan.md`, `_codex/prompts/run-plan.md`, `_claude/commands/run-plan.md`, `_opencode/commands/run-plan.md`, `_omp/commands/run-plan.md`, `cmd:execute-plan` mirrors, Pi/OMP plan-mode extensions.
 - Bridge/docs: `skills/plan-reviewer-build/SKILL.md`, `skills/codex-full-build/SKILL.md`, `skills/pre-pr-implementation-review/SKILL.md`, README/AGENTS/catalog docs.
-- Planning artifacts: `thoughts/plans/run-plan-command-surface-cleanup.html`, `thoughts/research/run-plan-command-surface-inventory.md`.
+- Planning artifacts: `thoughts/archive/plans/run-plan-command-surface-cleanup.html`, `thoughts/research/run-plan-command-surface-inventory.md`.
 
 ## Verification before pre-PR gate
 
@@ -26,7 +26,7 @@ See `/tmp/run-plan-pre-pr-changed-files.txt` for the exact launch-time file list
 - `bash test_install_shared_skills.sh` — 13 passed, 0 failed.
 - Active-surface stale grep for `scoped-plan-run|$scoped-plan-run` excluding `thoughts/plans/**` — passed.
 - Dispatch/docs grep for `/run-plan`, `/skill:run-plan`, `/dev:run`, and `/cmd:execute-plan` — passed.
-- Plan-reviewer Build Plan smoke: `buildPlanSkillName` is `plan-reviewer-build`; queued payload contained `plan-reviewer-build` and `thoughts/plans/run-plan-command-surface-cleanup.html`; temporary smoke comment was acked and resolved.
+- Plan-reviewer Build Plan smoke: `buildPlanSkillName` is `plan-reviewer-build`; queued payload contained `plan-reviewer-build` and the then-active `thoughts/plans/run-plan-command-surface-cleanup.html`; temporary smoke comment was acked and resolved.
 - Scoped quality rereviews after parity fixes: GPT and GLM both returned `PASS_NO_ISSUES`.
 
 ## Review cycle 1

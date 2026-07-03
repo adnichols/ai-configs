@@ -42,8 +42,9 @@ This directory contains a comprehensive set of commands that support a complete 
 19. **`adn-dev-wf`** - Broader reviewed-plan workflow skill for plan refresh, review integration, direct execution, and PM follow-up
 
 ### Codex Compatibility Notes
-- Codex prompts intentionally include only OpenAI-compatible model commands.
-- Non-OpenAI model prompts (for example Gemini/Opus variants) are not synced here.
+- Codex prompts are kept at parity with Pi prompt availability where practical.
+- Prompts whose implementation depends on Pi subagents, GPT/GLM/Kimi/Opus model routing, or Pi-only orchestration are exposed in Codex as Pi-delegating wrappers.
+- Those wrappers run `pi -p --approve "<pi slash command> $ARGUMENTS"` from the same repository/worktree and treat missing Pi/subagent/model availability as a tooling blocker rather than silently substituting a Codex-only review.
 
 ## Command Workflows
 

@@ -72,16 +72,17 @@ Treat fuzzy output by substance, but never normalize empty, tool-only, provider-
 
 ## Codex implementation
 
-In Codex, use the Codex-native reviewed-plan path installed with ai-configs:
+In Codex, delegate the GPT/GLM readiness-review legs to Pi so the same Pi subagents and model routing are used as the Pi workflow. Do not replace the GLM leg with a Codex-native or OpenCode-native review.
 
-```text
-/review:plan <plan-path>
-/review:change-integrate <plan-path>
+Use a bounded Pi non-interactive command from the same repo/worktree, and require Pi to write the review result back to the plan or a durable artifact:
+
+```bash
+pi -p --approve "/skill:plan-reviewer-execution-ready <plan-path>"
 ```
 
-Then apply the agreed changes with `/review:change-integrate <plan-path>` or direct scoped edits, and rerun `/review:plan <plan-path>` after material edits until the review result clears by substance. If the active Codex install provides a newer equivalent multi-review plan command, use that instead. Do not stop at a findings report when the fixes are inferable and in scope.
+If running the whole skill through Pi would re-enter the current Doct listener claim unsafely, delegate only the reviewer-pair slice with an explicit prompt that asks Pi to run `quality-reviewer` and `quality-reviewer-glm` read-only against `<plan-path>`, return the required verdicts, and write the reviewer outputs under `thoughts/validation/`.
 
-Codex must not claim execution readiness if it cannot run or delegate two independent read-only plan reviews. In that case, ack with a blocker explaining the missing command or reviewer capability and leave the plan not execution-ready.
+After Pi returns, Codex may integrate agreed in-scope plan edits and update Doct state, but it must rerun the same Pi reviewer pair after material edits until both clear by substance. Codex must not claim execution readiness if Pi, `quality-reviewer`, or `quality-reviewer-glm` is unavailable; ack with a tooling blocker and leave the plan not execution-ready.
 
 ## Review triage
 

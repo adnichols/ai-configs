@@ -16,6 +16,7 @@
     "algorithmic-art": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -23,24 +24,30 @@
       "legacySources": [
         "_opencode/skills/algorithmic-art"
       ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
-      "packageSource": "anthropics/skills"
+      "packageSource": "anthropics/skills",
+      "defaultInstall": false,
+      "profile": "creative-content"
     },
     "appkit-interop": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/appkit-interop",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "brand-guidelines": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -48,20 +55,25 @@
       "legacySources": [
         "_opencode/skills/brand-guidelines"
       ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
-      "packageSource": "anthropics/skills"
+      "packageSource": "anthropics/skills",
+      "defaultInstall": false,
+      "profile": "creative-content"
     },
     "build-run-debug": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/build-run-debug",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`, with Pi-safe wording for optional Codex integration.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`, with Pi-safe wording for optional Codex integration. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "brave-cdp": {
       "class": "universal-installable",
@@ -72,12 +84,15 @@
         "pi"
       ],
       "canonicalSource": "skills/brave-cdp",
-      "notes": "Brave-first shared CDP skill for attaching to Aaron's existing browser session, with Chromium-family fallback support and a dedicated automation-profile launcher script.",
-      "sourceType": "repo"
+      "notes": "Brave-first shared CDP skill for attaching to Aaron's existing browser session, with Chromium-family fallback support and a dedicated automation-profile launcher script. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "ops-browser"
     },
     "canvas-design": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -85,13 +100,16 @@
       "legacySources": [
         "_opencode/skills/canvas-design"
       ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
-      "packageSource": "anthropics/skills"
+      "packageSource": "anthropics/skills",
+      "defaultInstall": false,
+      "profile": "creative-content"
     },
     "ccore": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -112,17 +130,20 @@
         "pi"
       ],
       "canonicalSource": "skills/chrome-cdp",
-      "notes": "Shared CDP skill for attaching to an existing Chrome session over the DevTools Protocol without launching a separate browser instance.",
-      "sourceType": "repo"
+      "notes": "Shared CDP skill for attaching to an existing Chrome session over the DevTools Protocol without launching a separate browser instance. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "ops-browser"
     },
     "claude-code-review": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
-        "pi",
-        "opencode"
+        "codex",
+        "opencode",
+        "pi"
       ],
       "canonicalSource": "skills/claude-code-review",
-      "notes": "Pi and OpenCode: required Claude Code reviews use the canonical private-tmux interactive launcher; no codex tmux reuse or direct Claude transport.",
+      "notes": "Pi/OpenCode/Codex: required Claude Code reviews use the canonical private-tmux interactive launcher; Codex must use the shared launcher or Pi-delegated wrapper instead of direct Claude transports.",
       "sourceType": "repo"
     },
     "claude-review-partner": {
@@ -137,6 +158,7 @@
     "cmd-create-handoff": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -151,6 +173,7 @@
     "cmd-create-pr": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -165,18 +188,20 @@
     "cmd-debug": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
+        "codex",
         "pi"
       ],
       "canonicalSource": "skills/cmd-debug",
       "legacySources": [
         "_pi/skills/cmd-debug"
       ],
-      "notes": "Pi-only: orchestrates subagent-based debugging workflows.",
+      "notes": "Pi/Codex: orchestrates subagent-based debugging workflows; Codex delegates to Pi when Pi subagent parity is required.",
       "sourceType": "repo"
     },
     "cmd-graduate": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -191,18 +216,20 @@
     "cmd-research": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
+        "codex",
         "pi"
       ],
       "canonicalSource": "skills/cmd-research",
       "legacySources": [
         "_pi/skills/cmd-research"
       ],
-      "notes": "Pi-only: depends on subagent-based codebase research orchestration.",
+      "notes": "Pi/Codex: supports subagent-based codebase research orchestration; Codex delegates to Pi when Pi subagent parity is required.",
       "sourceType": "repo"
     },
     "cmd-resume-handoff": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -217,6 +244,7 @@
     "cmd-start-linear-issue": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -231,6 +259,7 @@
     "cmd-start-linear-issue-branch": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -245,6 +274,7 @@
     "codex-review-partner": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -259,6 +289,7 @@
     "omp-review-partner": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -279,6 +310,7 @@
     "dependency-selection": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -293,6 +325,7 @@
     "design-skill": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -307,18 +340,20 @@
     "dev-plan": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
+        "codex",
         "pi"
       ],
       "canonicalSource": "skills/dev-plan",
       "legacySources": [
         "_pi/skills/dev-plan"
       ],
-      "notes": "Pi-only: depends on Pi planning workflow and subagent-oriented command conventions.",
+      "notes": "Pi/Codex: materializes execution plans with shared planning workflow guidance; Codex uses the shared skill and delegates Pi-only subagent slices when needed.",
       "sourceType": "repo"
     },
     "doc-coauthoring": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -326,13 +361,16 @@
       "legacySources": [
         "_opencode/skills/doc-coauthoring"
       ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
-      "packageSource": "anthropics/skills"
+      "packageSource": "anthropics/skills",
+      "defaultInstall": false,
+      "profile": "creative-content"
     },
     "doct-document-ops": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -348,6 +386,7 @@
     "docx": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -362,6 +401,7 @@
     "frontend-design": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -417,12 +457,13 @@
         "pi"
       ],
       "canonicalSource": "skills/plan-reviewer-execution-ready",
-      "notes": "Codex/Pi: handles Doct plan execution-ready request comments by running the installed runtime's independent readiness review gates for an explicit plan path.",
+      "notes": "Codex/Pi: handles Doct plan execution-ready request comments; Codex delegates GPT/GLM readiness-review gates to Pi for model/subagent parity.",
       "sourceType": "repo"
     },
     "internal-comms": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -430,13 +471,16 @@
       "legacySources": [
         "_opencode/skills/internal-comms"
       ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
-      "packageSource": "anthropics/skills"
+      "packageSource": "anthropics/skills",
+      "defaultInstall": false,
+      "profile": "creative-content"
     },
     "linear": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -452,17 +496,21 @@
     "liquid-glass": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/liquid-glass",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "mcp-builder": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -477,28 +525,35 @@
     "opencode-safe-restart": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/opencode-safe-restart",
-      "notes": "Conservative detached supervisor for restarting OpenCode services and resuming only sessions that were definitely active immediately before restart.",
-      "sourceType": "repo"
+      "notes": "Conservative detached supervisor for restarting OpenCode services and resuming only sessions that were definitely active immediately before restart. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "ops-browser"
     },
     "packaging-notarization": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/packaging-notarization",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "pdf": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -513,6 +568,7 @@
     "planning-workflow": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -527,6 +583,7 @@
     "playwright-skill": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -541,6 +598,7 @@
     "pptx": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -555,6 +613,7 @@
     "product-principles": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -571,15 +630,17 @@
     "pre-pr-implementation-review": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
+        "codex",
         "pi"
       ],
       "canonicalSource": "skills/pre-pr-implementation-review",
-      "notes": "Pi-only: runs GPT-5.5 plus GLM-5.2 Pi subagent implementation review loops until all in-scope P1/P2/P3 findings are addressed before PR creation; inside run-plan it returns OPEN_PR_READY rather than concluding the workflow.",
+      "notes": "Pi/Codex: runs GPT-5.5 plus GLM-5.2 Pi subagent implementation review loops; Codex delegates the reviewer-pair gate to Pi and consumes the artifact before PR creation.",
       "sourceType": "repo"
     },
     "repo-agents-bootstrap": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -594,39 +655,43 @@
     "review-change": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
+        "codex",
         "pi"
       ],
       "canonicalSource": "skills/review-change",
       "legacySources": [
         "_pi/skills/review-change"
       ],
-      "notes": "Pi-only: depends on subagent-based review orchestration.",
+      "notes": "Pi/Codex: depends on subagent-based review orchestration; Codex delegates to Pi when model/subagent parity is required.",
       "sourceType": "repo"
     },
     "reviewed-html-plan": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
+        "codex",
         "pi"
       ],
       "canonicalSource": "skills/reviewed-html-plan",
-      "notes": "Pi-only: creates and gates HTML plans through Doct browser feedback with durable listener startup, PM product-intent review, and read-only GPT plus GLM Pi subagent plan reviews before execution.",
+      "notes": "Pi/Codex: creates and gates HTML plans through Doct browser feedback, PM review, and GPT/GLM Pi subagent plan reviews; Codex delegates the reviewer-pair gate to Pi.",
       "sourceType": "repo"
     },
     "review-change-integrate": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
+        "codex",
         "pi"
       ],
       "canonicalSource": "skills/review-change-integrate",
       "legacySources": [
         "_pi/skills/review-change-integrate"
       ],
-      "notes": "Pi-only: depends on subagent-based review orchestration.",
+      "notes": "Pi/Codex: integrates review findings; Codex delegates implementation or rereview slices to Pi only when subagent parity is required.",
       "sourceType": "repo"
     },
     "rust-engineer": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -634,13 +699,16 @@
       "legacySources": [
         "_opencode/skills/rust-engineer"
       ],
-      "notes": "Fetched via `npx skills add jeffallan/claude-skills`; previously vendored in the OpenCode skill tree.",
+      "notes": "Fetched via `npx skills add jeffallan/claude-skills`; previously vendored in the OpenCode skill tree. Optional profile: rust; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
-      "packageSource": "jeffallan/claude-skills"
+      "packageSource": "jeffallan/claude-skills",
+      "defaultInstall": false,
+      "profile": "rust"
     },
     "sentry-cli": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -667,17 +735,21 @@
     "signing-entitlements": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/signing-entitlements",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "skill-creator": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -692,6 +764,7 @@
     "slack-gif-creator": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -699,57 +772,72 @@
       "legacySources": [
         "_opencode/skills/slack-gif-creator"
       ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
-      "packageSource": "anthropics/skills"
+      "packageSource": "anthropics/skills",
+      "defaultInstall": false,
+      "profile": "creative-content"
     },
     "swiftpm-macos": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/swiftpm-macos",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "swiftui-patterns": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/swiftui-patterns",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`, with Pi-safe wording for optional Codex integration.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`, with Pi-safe wording for optional Codex integration. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "telemetry": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/telemetry",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "test-triage": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/test-triage",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "theme-factory": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -757,13 +845,16 @@
       "legacySources": [
         "_opencode/skills/theme-factory"
       ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
-      "packageSource": "anthropics/skills"
+      "packageSource": "anthropics/skills",
+      "defaultInstall": false,
+      "profile": "creative-content"
     },
     "vercel-react-best-practices": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -778,26 +869,33 @@
     "view-refactor": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/view-refactor",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "virsh": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
+        "codex",
         "pi"
       ],
       "canonicalSource": "skills/virsh",
-      "notes": "Portable virsh/libvirt workflow notes for VM inspection and storage discovery; installed for Pi only.",
-      "sourceType": "repo"
+      "notes": "Portable virsh/libvirt workflow notes for VM inspection and storage discovery; installed for Pi only. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "ops-browser"
     },
     "web-artifacts-builder": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -805,13 +903,16 @@
       "legacySources": [
         "_opencode/skills/web-artifacts-builder"
       ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
-      "packageSource": "anthropics/skills"
+      "packageSource": "anthropics/skills",
+      "defaultInstall": false,
+      "profile": "creative-content"
     },
     "web-design-guidelines": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -826,6 +927,7 @@
     "webapp-testing": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -840,17 +942,21 @@
     "window-management": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/window-management",
-      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`.",
-      "sourceType": "repo"
+      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "sourceType": "repo",
+      "defaultInstall": false,
+      "profile": "macos"
     },
     "xlsx": {
       "class": "universal-installable",
       "allowedConsumers": [
+        "codex",
         "claude",
         "opencode",
         "pi"
@@ -878,5 +984,12 @@
       "sourcePath": "_opencode/skills/template",
       "notes": "Excluded from shared promotion per locked decision; scaffold placeholder only."
     }
+  },
+  "skillProfiles": {
+    "default": "Installed by default into ~/.agents/skills and exposed to Pi/Codex/compatible consumers.",
+    "creative-content": "Optional creative, branding, communications, and artifact-generation skills.",
+    "macos": "Optional macOS SwiftUI/AppKit/build/signing/testing skills.",
+    "rust": "Optional Rust-specific engineering skills.",
+    "ops-browser": "Optional local browser/CDP, OpenCode service, and VM control skills."
   }
 }

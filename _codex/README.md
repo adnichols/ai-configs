@@ -23,6 +23,7 @@ Re-run `install.sh` to refresh an existing installation.
 - Repo source lives under `_codex/`; installed runtime files live under `~/.codex/` for global Codex resources.
 - Shared helper scripts are maintained once in the repo-level `scripts/` directory and copied into `~/.codex/scripts` by the installer.
 - Prompt files are mirrored to `~/.codex/prompts` because Codex discovers global prompts there.
+- Codex prompt availability tracks Pi prompt availability; Pi-only multi-model/subagent commands are installed as Codex wrappers that delegate to `pi -p --approve` from the same worktree.
 - The installer does not create project `.codex/` directories.
 - The installer does not install or mutate `config.toml`; keep account, model, and MCP settings in your global `~/.codex/config.toml`.
 - Existing legacy generated project `.codex` files from this repo are removed during install so they cannot override global settings.
@@ -44,4 +45,4 @@ Canonical continuation after a reviewed plan is ready:
 - `/run-plan <plan>` for full lifecycle execution through PR creation and monitoring
 - `/dev:run <plan>` for direct execution-only handoff
 
-Plan-reviewer browser action comments are routed through shared skills installed to `~/.agents/skills`: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests.
+Plan-reviewer browser action comments are routed through default shared skills installed to `~/.agents/skills`: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests. When those skills require GPT/GLM Pi subagents, Codex delegates that reviewer-pair gate to Pi rather than replacing it with a Codex-only review. Optional-profile skills in `skills/install-matrix.json` are not installed into the default Codex discovery surface.

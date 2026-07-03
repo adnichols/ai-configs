@@ -113,7 +113,7 @@ For each phase in order (as tracked by `## Progress`):
 3. Delegate exactly one post-implementation review pass to `quality-reviewer`.
 4. Run any missing `### Verify` steps again after the review pass.
 5. If the review pass clears the phase, immediately flip its checkbox from `- [ ]` to `- [x]` in `## Progress`.
-6. If implementation or review required a decision, revealed a constraint, or deferred low-risk items, append a structured entry to `## Decisions / Deviations Log` in the plan file.
+6. If implementation or review required a decision, revealed a constraint, or identified a true out-of-scope low-risk follow-up, append a structured entry with evidence and tracking destination to `## Decisions / Deviations Log` in the plan file. Do not defer plan-required work, verification gaps, BDD gaps, or regressions.
 7. Re-read `## Progress`; if another unchecked item remains and you are not blocked, immediately start the next phase instead of returning a progress summary.
 
 #### Required post-implementation review pass
@@ -135,12 +135,12 @@ After implementing the phase, delegate exactly one `quality-reviewer` pass with 
 > - `Only low-risk items remain.`
 > - `Phase needs same-scope split.`
 >
-> If only low-risk items remain, list them briefly.
+> If only low-risk items remain, list them briefly with why each is outside the phase's required end state and where it should be tracked. Do not include plan-required work, verification gaps, BDD gaps, or regressions in this category.
 
 #### Review pass handling
 
 - `No issues found.` -> the phase may advance after any missing verification is run.
-- `Only low-risk items remain.` -> log each deferred low-risk item in `## Decisions / Deviations Log`, then the phase may advance after any missing verification is run.
+- `Only low-risk items remain.` -> first verify each item is outside the phase's required end state, planned tests, and verification truthfulness; log each item with evidence and tracking destination in `## Decisions / Deviations Log`, then the phase may advance after any missing verification is run.
 - `Phase needs same-scope split.` -> re-chunk the phase, log the split, and restart at the first new child phase.
 - Any other review result or failed verification -> keep the phase unchecked, investigate whether a same-scope split resolves it, and otherwise ask exactly one blocking question.
 

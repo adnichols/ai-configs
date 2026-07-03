@@ -38,7 +38,13 @@ Break down the research question into:
 
 ### 3. Spawn Parallel Research Tasks
 
-Use `subagent` with the `codebase-analyzer` agent to research different aspects concurrently:
+Use `subagent` with the `codebase-analyzer` agent to research different aspects concurrently. In Codex, use Codex's native parallel task mechanism when it can preserve the same research shape; when Pi subagent parity is required, delegate the research run to Pi from the same repo/worktree:
+
+```bash
+pi -p --approve "/skill:cmd-research <area or topic>"
+```
+
+Codex should then read the generated `thoughts/research/...` artifact and continue from that evidence, not duplicate the same discovery work unless a gap is clear.
 
 **Task 1: Find WHERE components live**
 - Search for file patterns

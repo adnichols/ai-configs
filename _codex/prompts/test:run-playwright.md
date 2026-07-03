@@ -5,7 +5,7 @@ argument-hint: "[optional playwright args/filter]"
 
 # Test Run Playwright (Live Fix Mode B)
 
-Run Playwright in a background PTY session, monitor output incrementally, and spawn `developer` subagents to investigate and apply fixes while the suite is still running.
+Run Playwright in a background PTY session, monitor output incrementally, and spawn `developer-mid` subagents to investigate and apply fixes while the suite is still running.
 
 Target arguments: `$ARGUMENTS`
 
@@ -84,7 +84,7 @@ Fallback parser (if needed):
 
 ### 4) Spawn Fixer Subagents (Live Apply)
 
-For each queued failure, spawn a `Task` with `subagent_type="developer"`.
+For each queued failure, spawn a `Task` with `subagent_type="developer-mid"`.
 
 Subagent requirements:
 

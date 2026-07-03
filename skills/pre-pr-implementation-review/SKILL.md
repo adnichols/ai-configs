@@ -96,6 +96,16 @@ The `opencode-zen/glm-5.2` string is only the Pi model provider/model ID in the 
 
 Both reviews are read-only. If `quality-reviewer-glm` is unavailable, stop and report that the GLM-5.2 Pi subagent gate cannot run; do not silently substitute another model.
 
+### Codex delegation
+
+When this skill is invoked from Codex, Codex must call Pi for the reviewer-pair gate instead of simulating it locally. Use the same worktree and pass the resolved plan/scope and base/range:
+
+```bash
+pi -p --approve "/skill:pre-pr-implementation-review <plan-or-scope> --base <branch-or-range>"
+```
+
+Codex consumes the Pi artifact and verdicts, triages findings, applies in-scope fixes in the active Codex worktree, and reruns the same Pi command after material fixes. If Pi, `quality-reviewer`, or `quality-reviewer-glm` is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate.
+
 A reviewer result with no final verdict is not a review result. Treat empty output, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
 
 For every quality reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; bound the assigned scope instead.

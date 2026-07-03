@@ -79,6 +79,7 @@ bash ~/ai-configs/install.sh --all ~
 - installs Gemini config into `.gemini/`
 - does not create project `.codex/`; Codex uses global `~/.codex/config.toml`
 - mirrors Codex prompts into `~/.codex/prompts`
+- keeps Codex prompt availability aligned with Pi, using Pi-delegating wrappers for Pi-only multi-model/subagent commands
 - refreshes Codex-discoverable shared skills in `~/.agents/skills`
 - mirrors shared helper scripts into the runtime locations that need them
 - installs OMP to `~/.omp/agent/`
@@ -123,7 +124,7 @@ Current shared scripts include:
 - review helpers
 
 ### `skills/`
-Repo-owned shared skill tree plus `skills/install-matrix.json`, which also inventories package-backed shared skills fetched via `npx skills` during install.
+Repo-owned shared skill tree plus `skills/install-matrix.json`, which inventories default and optional package-backed shared skills fetched via `npx skills` during install.
 
 ### `tools/ltui/`
 Token-efficient Linear CLI for AI agents.
@@ -160,6 +161,8 @@ Shared skills install to:
 ```
 
 Consumer-specific compatibility links are created where needed, but `~/.agents/skills` is the canonical shared runtime location. Codex discovers user skills directly from this location. Repo-owned payloads come from `skills/`; package-backed payloads are fetched per `skills/install-matrix.json`.
+
+`skills/install-matrix.json` also records optional profiles (`creative-content`, `macos`, `rust`, and `ops-browser`). Skills with `defaultInstall: false` stay available as managed inventory but are backed out of the default `~/.agents/skills` discovery surface so Pi and Codex do not load rarely used profiles into every session.
 
 `--update` updates globally installed skills tracked by skills.sh before ai-configs re-syncs its managed skill set:
 

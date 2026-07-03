@@ -43,7 +43,13 @@ When one instance is found, enumerate siblings (other call sites, other shapes, 
 
 ### 3. Spawn Quality Reviewers
 
-Use `subagent` with `quality-reviewer` agent:
+Use `subagent` with `quality-reviewer` agent. In Codex, when this review is meant to match Pi's multi-reviewer behavior or requires non-Codex model routing, delegate the reviewer slice to Pi from the same repo/worktree instead of substituting a local-only review:
+
+```bash
+pi -p --approve "/skill:review-change <optional files or scope>"
+```
+
+Codex should consume the Pi review report, verify findings before editing, and use this skill's severity/scope triage before any fix. If Pi subagents are unavailable, report the review-infrastructure blocker rather than claiming Pi review parity.
 
 **Reviewer 1: Security & Data Loss**
 ```

@@ -11,8 +11,8 @@ Answer the systemic review questions below for the provided specification or ope
 
 ## Reviewer Identity
 
-Use the reviewer name provided in arguments if present. Otherwise use **OPENCODE**.
-Keep the reviewer name exactly as provided for headers. For filenames, slugify it by lowercasing, replacing spaces and punctuation with hyphens, collapsing repeats, and trimming leading or trailing hyphens. If the slug would be empty, use `opencode`.
+Use the reviewer name provided in arguments if present. Otherwise use **OMP**.
+Keep the reviewer name exactly as provided for headers. For filenames, slugify it by lowercasing, replacing spaces and punctuation with hyphens, collapsing repeats, and trimming leading or trailing hyphens. If the slug would be empty, use `omp`.
 
 ## Input Handling
 

@@ -1,6 +1,6 @@
 ---
 description: Reviewed-plan handoff that routes an explicit plan into /run-plan or /dev:run
-argument-hint: '<plan slug | existing-plan-path> [--target run-plan|dev:run]'
+argument-hint: '<plan slug | existing-plan-path> [--target dev:run|run-plan]'
 ---
 
 # Execute Reviewed Plan
@@ -53,7 +53,8 @@ Do not infer “the current plan” from conversation state.
 7. Preserve that normalized string as `PLAN_DISPATCH_ARGUMENT`.
 8. Resolve `PLAN_PATH` for validation only:
    - If `PLAN_DISPATCH_ARGUMENT` is an existing plan file path, use it as `PLAN_PATH`.
-   - Otherwise treat it as a slug and resolve it using repo-local active plan guidance. Do not infer a markdown path.
+   - Otherwise treat it as a slug and resolve it using repo-local active plan guidance. In this repo's active browser-reviewed flow, slugs resolve to `thoughts/plans/<slug>.html`.
+   - Do not infer a markdown path for slugs.
    - If repo guidance does not define slug-to-plan-path resolution, stop and ask for the explicit existing plan path.
 9. Read `PLAN_PATH` to confirm the reviewed plan exists.
 10. If `PLAN_PATH` does not exist, stop and tell the user that `/cmd:execute-plan` requires an explicit existing reviewed plan file or a slug resolvable by repo-local guidance.

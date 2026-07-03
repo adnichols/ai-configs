@@ -64,7 +64,7 @@ For each critical/important issue:
 3. **Implement** the fix
 4. **Verify** with appropriate tests/commands
 
-Use `subagent` with `developer` agent for parallel fixes when safe.
+Use `subagent` with `developer` agent for parallel fixes when safe. In Codex, use native scoped editing for fixes; if the integration step requires Pi subagent parity, delegate only the implementation slice to Pi with an explicit bounded prompt and verify the actual diff before proceeding.
 
 If the review findings came from Codex PR feedback after a previous local review passed, treat it as a review escape. After the direct fix, run an adversarial follow-up review before declaring the issue resolved:
 

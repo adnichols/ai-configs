@@ -70,8 +70,8 @@ print_usage() {
     echo ""
     echo "Notes:"
     echo "  - OpenCode does NOT auto-install opencode.json (copy config-template.json manually if needed)"
-    echo "  - Shared installable skills are declared in skills/install-matrix.json and synced into ~/.agents/skills"
-    echo "  - Codex discovers shared skills directly from ~/.agents/skills"
+    echo "  - Default shared skills are declared in skills/install-matrix.json and synced into ~/.agents/skills"
+    echo "  - Codex discovers shared default-profile skills directly from ~/.agents/skills"
     echo "  - Claude/OpenCode consume compatible shared skills via per-skill links into ~/.agents/skills"
     echo "  - When using --omp or --all, commands, agents, and repo-managed extensions are installed to ~/.omp/agent"
     echo "  - When using --opencode or --all, commands, prompts, and agents are installed to ~/.config/opencode"
@@ -653,6 +653,7 @@ for name, meta in sorted(data["installableSkills"].items()):
         source_id,
         meta.get("class", ""),
         ",".join(meta.get("allowedConsumers", [])),
+        "false" if meta.get("defaultInstall") is False else "true",
     ]))
 PY
 }
@@ -671,6 +672,8 @@ with open(matrix_path, 'r', encoding='utf-8') as handle:
 
 for name, meta in sorted(data["installableSkills"].items()):
     if meta.get("sourceType", "repo") != "repo":
+        continue
+    if meta.get("defaultInstall") is False:
         continue
     print("\t".join([name, meta["canonicalSource"]]))
 PY
@@ -693,11 +696,37 @@ groups = defaultdict(list)
 for name, meta in sorted(data["installableSkills"].items()):
     if meta.get("sourceType") != "external-package":
         continue
+    if meta.get("defaultInstall") is False:
+        continue
     package_skill_name = meta.get("packageSkillName", name)
     groups[meta["packageSource"]].append(f"{name}={package_skill_name}")
 
 for package_source, skills in sorted(groups.items()):
     print("\t".join([package_source, ",".join(sorted(skills))]))
+PY
+}
+
+iterate_optional_installable_skills() {
+    local matrix_path
+    matrix_path="$(skill_matrix_path)"
+
+    python3 - "$matrix_path" <<'PY'
+import json
+import sys
+
+matrix_path = sys.argv[1]
+with open(matrix_path, 'r', encoding='utf-8') as handle:
+    data = json.load(handle)
+
+for name, meta in sorted(data["installableSkills"].items()):
+    if meta.get("defaultInstall") is not False:
+        continue
+    source_type = meta.get("sourceType", "repo")
+    if source_type == "external-package":
+        source_id = f"external-package:{meta['packageSource']}#{name}"
+    else:
+        source_id = meta["canonicalSource"]
+    print("\t".join([name, source_id, meta.get("profile", "optional")]))
 PY
 }
 
@@ -716,6 +745,11 @@ consumer_is_forced() {
 consumer_allows_skill() {
     local consumer="$1"
     local consumers_csv="$2"
+    local default_install="${3:-true}"
+
+    if [ "$default_install" != "true" ]; then
+        return 1
+    fi
 
     case ",${consumers_csv}," in
         *",${consumer},"*)
@@ -1088,6 +1122,34 @@ if changed:
 PY
 }
 
+cleanup_optional_profile_shared_skills() {
+    local shared_skills_dir="$HOME/.agents/skills"
+    local skill_name
+    local source_rel
+    local profile
+    local path
+    local backup_path
+    local removed_skills=()
+
+    while IFS=$'\t' read -r skill_name source_rel profile; do
+        path="$shared_skills_dir/$skill_name"
+        if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+            continue
+        fi
+
+        if is_repo_managed_skill_dir "$path" "$source_rel"; then
+            backup_path="$(backup_existing_path "$path" "optional/$profile/$skill_name")"
+            rm -rf "$path"
+            removed_skills+=("$skill_name")
+            echo "    - Removed optional-profile shared skill from default discovery: $skill_name (profile: $profile, backup: $backup_path)"
+        fi
+    done < <(iterate_optional_installable_skills)
+
+    if [ ${#removed_skills[@]} -gt 0 ]; then
+        remove_skill_lock_entries "${removed_skills[@]}"
+    fi
+}
+
 cleanup_deprecated_shared_skills() {
     local shared_skills_dir="$HOME/.agents/skills"
     local skill_name
@@ -1246,8 +1308,8 @@ sync_consumer_skill_links() {
     fi
 
     echo "  - Synchronizing $consumer compatibility links in $consumer_dir..."
-    while IFS=$'\t' read -r skill_name source_rel _skill_class allowed_consumers; do
-        if consumer_allows_skill "$consumer" "$allowed_consumers"; then
+    while IFS=$'\t' read -r skill_name source_rel _skill_class allowed_consumers default_install; do
+        if consumer_allows_skill "$consumer" "$allowed_consumers" "$default_install"; then
             ensure_consumer_skill_link "$consumer" "$consumer_dir" "$skill_name" "$source_rel" "$HOME/.agents/skills"
         else
             remove_consumer_skill_entry "$consumer" "$consumer_dir" "$skill_name" "$source_rel" "$HOME/.agents/skills"
@@ -1263,7 +1325,7 @@ cleanup_pi_shared_skill_mirrors() {
     fi
 
     echo "  - Removing repo-managed shared skill mirrors from $pi_skills_dir..."
-    while IFS=$'\t' read -r skill_name source_rel _skill_class _allowed_consumers; do
+    while IFS=$'\t' read -r skill_name source_rel _skill_class _allowed_consumers _default_install; do
         remove_consumer_skill_entry "pi" "$pi_skills_dir" "$skill_name" "$source_rel" "$HOME/.agents/skills"
     done < <(iterate_installable_skills)
 }
@@ -1294,6 +1356,7 @@ sync_shared_skills() {
     done < <(iterate_external_skill_packages)
 
     cleanup_deprecated_shared_skills
+    cleanup_optional_profile_shared_skills
 
     sync_consumer_skill_links "claude" "$HOME/.claude/skills" "$@"
     sync_consumer_skill_links "opencode" "$HOME/.config/opencode/skills" "$@"
@@ -1302,8 +1365,9 @@ sync_shared_skills() {
     echo -e "${GREEN}✓ Shared skills synced successfully${NC}"
     SHARED_SKILLS_SYNCED=true
     echo ""
-    echo "  Shared skills now live in ~/.agents/skills"
+    echo "  Default shared skills now live in ~/.agents/skills"
     echo "  Repo-owned payloads come from skills/; package-backed payloads are fetched per skills/install-matrix.json"
+    echo "  Optional-profile skills remain declared in the matrix but are backed out of default discovery"
 }
 
 update_installed_skills_from_skills_sh() {

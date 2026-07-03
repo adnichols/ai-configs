@@ -121,7 +121,13 @@ After material PM edits, ensure the review URL still points at the latest plan a
 
 ### 6. Read-only GPT and GLM Pi subagent plan reviews
 
-Run both reviewers before execution, and keep them read-only.
+Run both reviewers before execution, and keep them read-only. In Codex, delegate this reviewer-pair leg to Pi from the same repo/worktree instead of substituting Codex-native reviewers. Invoke Pi with an explicit bounded prompt asking it to run `quality-reviewer` and `quality-reviewer-glm` read-only against the current HTML plan, return the required verdicts, and write reviewer artifacts under `thoughts/validation/`:
+
+```bash
+pi -p --approve "Run the reviewed-html-plan GPT/GLM reviewer-pair gate for <plan-path>. Read-only review only: use Pi subagents quality-reviewer and quality-reviewer-glm, require PLAN_EXECUTION_READY / PLAN_NEEDS_REVISION / BLOCKED_BY_PRODUCT_QUESTION / REVIEW_INCOMPLETE_RERUN_NEEDED verdicts, and write artifacts under thoughts/validation/. Do not edit product code."
+```
+
+Codex may integrate plan edits, but after material edits it must rerun the same Pi reviewer pair before marking the plan execution-ready. If Pi or either subagent is unavailable, leave the plan blocked on review infrastructure.
 
 #### GPT
 

@@ -7,7 +7,7 @@ This directory contains Pi-specific resources:
 - `extensions/` — Pi runtime extensions, including the maintained `/plan` and `/prd` mode workflows
 - `models.json` — managed custom model entries merged into Pi's global `models.json`
 
-Repo-owned shared installable Pi skills live in the repo-level `skills/` tree, and `skills/install-matrix.json` also inventories package-backed shared skills fetched via `npx skills`. The installed shared runtime location remains `~/.agents/skills`.
+Repo-owned default Pi/Codex shared skills live in the repo-level `skills/` tree, and `skills/install-matrix.json` also inventories package-backed and optional-profile shared skills fetched via `npx skills`. The installed default shared runtime location remains `~/.agents/skills`.
 
 The prompt templates are copied from `_omp/commands`, and the agent definitions are ported from `_omp/agents` into the flat markdown format expected by `@tintinweb/pi-subagents`.
 
@@ -19,7 +19,7 @@ These resources are installed by `install.sh` to Pi's global agent directory. Th
 - repo-managed model entries: merged from `_pi/models.json` into `~/.pi/agent/models.json` without replacing local API keys
 - package-managed Pi installs: registered via `pi install` / `pi update` and visible in `pi list`
 
-Shared browser automation skills like `brave-cdp` and `chrome-cdp` are not Pi packages; they install through the shared `~/.agents/skills` surface from `skills/install-matrix.json`. Plan-reviewer browser action comments also route through shared skills there: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests.
+Plan-reviewer browser action comments route through default shared skills in `~/.agents/skills`: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests. Rarely used browser/CDP helper skills such as `brave-cdp` and `chrome-cdp` remain inventoried in `skills/install-matrix.json` under the optional `ops-browser` profile and are not loaded into Pi/Codex default context.
 
 `pi list` only shows the package-managed set; it does not list repo-managed files like `todo.ts`, `simple-multi-status.ts`, `pi-plan-mode`, or `pi-prd-mode`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
 
@@ -90,8 +90,8 @@ _pi/
     └── *.ts
 
 skills/
-├── install-matrix.json # Shared skill inventory used by install.sh
-└── */SKILL.md          # Repo-owned shared installable skills exposed to Pi via ~/.agents/skills
+├── install-matrix.json # Shared skill inventory and default/optional profile metadata used by install.sh
+└── */SKILL.md          # Repo-owned default shared installable skills exposed to Pi via ~/.agents/skills
 ```
 
 ## Prompt Templates
@@ -367,5 +367,5 @@ Skills:
 - Repo-managed extensions live in `~/.pi/agent/extensions/`; package-managed installs are reported by `pi list`.
 - `~/.pi/agent/APPEND_SYSTEM.md` is installed from the repo-root `APPEND_SYSTEM.md`; OMP receives that same shared source as `~/.omp/agent/SYSTEM.md`.
 - Project-local Pi resources can also live under `.pi/prompts/`, `.pi/skills/`, `.pi/agents/`, and `.pi/extensions/`.
-- Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`.
+- Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.

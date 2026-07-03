@@ -88,7 +88,7 @@ Use these questions to drive **edits**, not just observations.
 ### 1. Intended outcome
 
 - What user/operator/agent job is this work claiming to satisfy?
-- What part of that intended workflow is still missing, hidden, manual, or deferred?
+- What part of that intended workflow is still missing, hidden, manual, or incorrectly left for later?
 - Did we ship the workflow, or only the mechanism?
 
 ### 2. Product intent alignment

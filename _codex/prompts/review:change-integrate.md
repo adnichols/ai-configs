@@ -18,7 +18,7 @@ The plan is the authority. Integrate only material feedback into the plan while 
 Treat review comments as required only when they identify a blocker, material risk, incorrect assumption, or missing decision/work needed to execute the plan's stated goal, non-goals, acceptance criteria, or validated source scope.
 
 - Do not expand required scope to satisfy optional comments, opportunistic cleanup, adjacent surfaces, or extra detail that would not change readiness.
-- If optional feedback is worth retaining, record it as explicit non-goal or deferred follow-up context instead of turning it into required plan work.
+- If optional feedback is worth retaining, record it as an explicit non-goal or documented out-of-scope follow-up instead of turning it into required plan work. Never mark plan-required work, verification gaps, or acceptance-criteria gaps as optional/deferred.
 
 ## Tooling Discipline
 
@@ -79,6 +79,7 @@ Use the available repo exploration tools in this session.
 
 - Classify each review comment as material or optional before editing the plan.
 - Apply edits directly to the plan with `edit` unless a deliberate full-file rewrite is required.
+- HTML plans are first-class inputs; preserve valid semantic HTML while integrating and removing review comments.
 - Remove each resolved inline review comment.
 - Integrate only material findings that affect readiness for the stated scope.
 - If feedback implies adding or changing requirements, do so only when the plan's stated goal, non-goals, acceptance criteria, or validated source scope require it. Then update:
@@ -87,7 +88,7 @@ Use the available repo exploration tools in this session.
   - `## Progress` if a review finding requires splitting an oversized unchecked phase into smaller same-scope slices
   - `Resume Instructions (Agent)` if needed
 - Preserve scope when integrating chunking feedback: reviewers may tighten or split the plan, but must not expand the work.
-- For optional or nice-to-have comments, remove the inline comment without expanding plan scope. If preserving the note helps later work, record it as a concise non-goal or deferred follow-up note instead of required work.
+- For optional or nice-to-have comments, remove the inline comment without expanding plan scope. If preserving the note helps later work, record it as a concise non-goal or documented out-of-scope follow-up note with evidence and a tracking destination instead of required work.
 - Append a new entry to `## Plan Changelog` describing what changed.
 
 ### 5) Final Validation
@@ -96,7 +97,7 @@ Use the available repo exploration tools in this session.
 - `## Progress` still corresponds to the phase headers.
 - Each phase still includes `### Tests first`, `### End State`, `### Work`, and `### Verify`.
 - Each acceptance criterion has at least one verification step.
-- Optional feedback was not converted into new required scope.
+- Optional feedback was not converted into new required scope, and required plan/verification work was not mislabeled as optional or deferred.
 
 ### 6) Overall Plan State
 

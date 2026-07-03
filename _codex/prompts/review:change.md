@@ -14,6 +14,7 @@ Documents to review: $ARGUMENTS
 This command is review-only.
 
 - Only modify the plan by inserting inline `[REVIEW:...] ... [/REVIEW]` comments.
+- HTML plans are first-class inputs; keep them as valid semantic HTML and insert review comments visibly without converting the plan to Markdown.
 - Do not change any other plan content (do not fix, rewrite, or reorganize anything).
 - Do not remove or resolve review comments.
 - Do not run follow-up commands (including `/review:change-integrate`).

@@ -157,7 +157,7 @@ If a changed file has no plan-bound reason, revert only your own edits to that f
 
 ### 5. First scoped quality review
 
-In Pi, use the Pi subagent `quality-reviewer` for a read-only GPT-5.5 implementation review. In Codex, use the installed Codex-native `quality-reviewer`/implementation-review mechanism for the first read-only scoped review. Do not let any reviewer edit files.
+In Pi, use the Pi subagent `quality-reviewer` for a read-only GPT-5.5 implementation review. In Codex, delegate this Pi-parity GPT review leg to Pi from the same repo/worktree unless the user explicitly asks for a Codex-only review. Use a bounded prompt that names the plan path, comparison range, changed files, scope contract, and verdict format. Do not let any reviewer edit files.
 
 The review prompt must include:
 
@@ -182,7 +182,7 @@ Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUME
 
 ### 6. Second scoped quality review
 
-In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5.2 implementation review. The `opencode-zen/glm-5.2` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, use the second installed Codex-native independent implementation-review path when available; if no independent Codex review path is installed, stop with a clear blocker instead of claiming the scoped run is reviewed.
+In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5.2 implementation review. The `opencode-zen/glm-5.2` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, delegate this GLM review leg to Pi from the same repo/worktree; if Pi or `quality-reviewer-glm` is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
@@ -243,7 +243,15 @@ When the standalone pre-PR gate is required in Pi, it must use both:
 - GPT-5.5 via Pi's `quality-reviewer` subagent,
 - GLM-5.2 via Pi's `quality-reviewer-glm` subagent.
 
-In non-Pi consumers, do not try to invoke the Pi-only `$pre-pr-implementation-review` skill. Run an equivalent GPT-5.5 plus GLM-5.2 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise continue the existing runtime-native scoped quality-review workflow and record that the Pi-only GPT/GLM gate was not run.
+In Codex, satisfy this gate by delegating the GPT/GLM reviewer-pair slice to Pi from the same repo/worktree instead of substituting Codex-native reviewers. Use Pi non-interactive mode with the explicit plan path and current comparison range, for example:
+
+```bash
+pi -p --approve "/skill:pre-pr-implementation-review <plan path> --base <branch-or-range>"
+```
+
+Codex must consume the Pi review artifact/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same Pi gate after material fixes. If Pi, `quality-reviewer`, or `quality-reviewer-glm` is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the GPT/GLM gate.
+
+In other non-Pi consumers, run an equivalent GPT-5.5 plus GLM-5.2 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise record that the Pi-only GPT/GLM gate was not run and do not claim Pi gate parity.
 
 Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
 
@@ -322,7 +330,7 @@ A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for t
 
 1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
 2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with both runtime-native scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, use the installed Codex-native independent implementation-review paths. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+3. Run read-only adversarial implementation reviews with both scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, delegate those same reviewer legs to Pi for parity. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
 5. Repeat the adversarial reviewer-pair pass once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after both adversarial passes report no additional in-scope findings or only documented out-of-scope follow-ups.
 

@@ -1,7 +1,7 @@
 # Run Plan Command Surface Inventory
 
 Date: 2026-06-26
-Plan: `thoughts/plans/run-plan-command-surface-cleanup.html`
+Plan: `thoughts/archive/plans/run-plan-command-surface-cleanup.html`
 
 ## Scope
 
