@@ -6,7 +6,7 @@ author: Hermes Agent
 metadata:
   hermes:
     tags: [html, artifacts, review, comments, agents, hermes, doct, markdoc]
-    related_skills: [html-plan-reviewer, doct-agent-cli, doct-document-ops]
+    related_skills: [doct-document-ops, doct-agent-cli]
 ---
 
 # HTML Artifact Review
@@ -37,7 +37,7 @@ A robust agent-review surface has five layers:
 
 ## Current commands
 
-For reviewer-facing HTML plans or plan-like HTML documents, load `html-plan-reviewer` and use:
+For reviewer-facing HTML plans or plan-like HTML documents, load `doct-document-ops` and use:
 
 ```bash
 doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --json

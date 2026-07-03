@@ -269,7 +269,7 @@ Plan:
 - Pending items seen by listener before dispatch: {item_count}
 
 Required workflow:
-1. Load/follow the html-plan-reviewer and doct-document-ops skills if available.
+1. Load/follow the doct-document-ops skill if available.
 2. Use `doct-agent plans queue list --base-url {BASE_URL} --workspace-id {WORKSPACE_ID} --document-id {DOCUMENT_ID} --json` to inspect queue state.
 3. While pending items exist for this exact document, claim one item with `doct-agent plans agent next --base-url {BASE_URL} --workspace-id {WORKSPACE_ID} --document-id {DOCUMENT_ID} --json`.
 4. Read the claimed thread body, anchor, claim id, and current plan with `doct-agent plans show --base-url {BASE_URL} --id {DOCUMENT_ID} --json`.
@@ -296,7 +296,7 @@ def dispatch_worker(item_count: int) -> int:
         "--toolsets",
         "terminal,file,skills",
         "--skills",
-        "html-plan-reviewer,doct-document-ops",
+        "doct-document-ops",
         "--query",
         prompt,
     ]

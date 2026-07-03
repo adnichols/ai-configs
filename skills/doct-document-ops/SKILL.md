@@ -1,11 +1,11 @@
 ---
 name: doct-document-ops
-description: Interact with doct through the doct-agent CLI. Use when asked to open a doct URL, list doct workspaces or documents, view/create/edit doct documents, update metadata, rename/move/delete, add or inspect comments, register/update/monitor HTML or Markdoc coding plans in Doct, or run read-only doct DB/log triage. Prefer `doct-agent plans register` on `https://doct.nodaste.com` for HTML plan registration.
+description: Interact with doct through the doct-agent CLI. Use when asked to open a doct URL, list doct workspaces or documents, view/create/edit doct documents, update metadata, rename/move/delete, add or inspect comments, create/register/update/monitor HTML, Markdoc, or Markdown coding plans in Doct, publish plans for browser review, or run read-only doct DB/log triage. For reviewer-facing coding plans, use `doct-agent plans register` on `https://doct.nodaste.com` and start/verify the comment listener; use text-document publishing only when Markdown/text is explicitly requested.
 ---
 
 # Doct document operations
 
-Use this skill when the user wants work done **inside doct itself** or wants a coding/HTML plan registered in Doct for review.
+Use this skill when the user wants work done **inside doct itself** or wants a coding plan created, published, registered, updated, or monitored in Doct.
 
 ## Golden rule: doct-agent only
 
@@ -90,9 +90,51 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 - For anchored edits and comments, build `--selected-text` from the document's **visible prose**, not markdown syntax. Add prefix/suffix context when a quote is ambiguous.
 - Bootstrap empty or near-empty documents with creation-time `--content` or `collab edit --append-markdown` until there is anchorable text to target.
 
-## Special default: coding and HTML plans
+## Coding plan defaults
 
-If the user asks to **send, publish, copy, save, register, or review a coding plan in doct**, prefer Doct plan registration over text-document publishing.
+If the user asks to **create, send, publish, copy, save, register, review, or monitor a coding/implementation plan in Doct**, prefer a browser-reviewable Doct plan artifact over a plain text document.
+
+- Use `doct-agent plans register` for reviewer-facing HTML and Markdoc plans.
+- Use HTML or Markdoc when the user wants browser comments, plan review, annotations, readiness feedback, or a durable listener.
+- Use Markdown/text documents only when the user explicitly asks for Markdown/text/no comments, supplies an existing Markdown plan that should stay Markdown-only, or repo guidance forbids HTML/Markdoc plans.
+- Do not use `doct-agent documents create`, `documents replace-body`, or `documents publish-plan` for a reviewer-facing implementation plan unless `doct-agent onboard` or the CLI explicitly directs a legacy fallback. Plain text docs are not the default plan review surface.
+- If you accidentally create a text doc for a reviewer-facing coding plan, register a replacement HTML/Markdoc plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement URL as canonical.
+
+For Aaron-facing development plans, default to a browser-reviewable HTML or Markdoc plan registered in Doct even when the prompt only says "create a plan" or "publish a plan." Use Markdown/text only when he explicitly asks for that non-reviewable format or repo guidance requires it.
+
+## Plan source formats
+
+Resolve the plan source format from repo guidance, the user's explicit request, or the existing plan path:
+
+- **Markdoc**: prefer `thoughts/plans/<slug>.markdoc` when repo guidance or Doct templates define Markdoc as the editable source. Keep Markdoc compact and template-compatible; preserve and follow any `sourceGuidance` returned by registration.
+- **Handcrafted HTML**: use `thoughts/plans/<slug>.html` for repos whose active plan artifact is HTML, for legacy/raw HTML plans, or when a reviewer-facing plan is needed and no Markdoc template is defined. The file must be real semantic HTML, not Markdown renamed as HTML.
+- **Markdown/text**: use `.md` only for explicit Markdown-only deliverables or non-reviewer-facing text documents. Publish with `documents create --kind text` or `documents replace-body`; do not promise browser plan-review comments on this surface.
+
+Use lowercase, digits, and hyphens for generated slugs. In a repo, prefer `thoughts/plans/<slug>.<html|markdoc|md>` unless repo-local instructions specify another path. For standalone planning, a temporary handcrafted HTML source is acceptable when a browser-reviewable Doct plan is requested.
+
+## HTML plan authoring contract
+
+When writing or updating a handcrafted HTML plan:
+
+1. Load repo planning guidance first: root `AGENTS.md`, product-intent docs, and any `thoughts/plans/AGENTS.md` or local planning overrides.
+2. Use a dark-mode default theme with explicit dark background, light foreground, readable muted text, accessible accent/link colors, and `color-scheme: dark`.
+3. Use a full-width single-column reviewer layout. Put a concise table of contents near the top after the title/status summary and before the main plan sections. Format the ToC as responsive columns; do not reserve a permanent left sidebar.
+4. Add stable `id` attributes to major sections, phases, acceptance criteria, BDD scenarios, diagrams, figures, mockups, and likely comment targets. Doct comments on HTML plans are node/selector based, so stable IDs are part of the review contract.
+5. Prefer semantic HTML: `section`, `article`, `figure`, `figcaption`, headings, lists, tables, and code blocks.
+6. Keep plan-authored scripts, event handlers, forms, and active embeds out of the artifact; Doct owns review interactivity.
+7. Keep images as relative repo assets when possible, with useful `alt`, `width`, and `height` attributes.
+
+Reviewer-friendly structure:
+
+- `Progress` contains the phase checkboxes.
+- The top table of contents links to every major plan section and each phase.
+- Each phase has a stable wrapper ID, for example `id="phase-p1-contracts"`.
+- Acceptance criteria and BDD scenarios have stable IDs, for example `id="ac-1"` and `id="bdd-retry-timeout"`.
+- Add short context near diagrams and images so comments on visual elements are meaningful to the agent.
+
+## Register reviewer-facing plans
+
+From the repo that owns the plan, register with `doct-agent plans register`.
 
 For HTML plans:
 
@@ -115,11 +157,205 @@ doct-agent plans register \
   --json
 ```
 
+Add `--title '<Plan Title>'`, `--workspace <workspace-slug-or-id>`, `--workspace-id <id>`, `--path '<path>'`, or `--parent-id <id>` only when repo guidance or the user specifies a destination. Otherwise use the CLI defaults. Use `--allow-untemplated` for handcrafted HTML plans. Do not use it for normal Markdoc template/config-backed plans unless the CLI or repo guidance says the plan is intentionally untemplated.
+
+Parse the JSON and preserve at least:
+
+- Doct document/plan id,
+- workspace id,
+- current source/version or expected-version value when returned,
+- canonical Doct URL,
+- `sourceGuidance` when returned,
+- the full returned `listenerInstructions` object, including `startCommand`, `preferredCommand`, `drainCommand`, lifecycle/board commands, ack/resolve guidance, and processing-loop requirements.
+
+Show the user the canonical Doct URL from the registration response. If a command returns a relative path, resolve it against `https://doct.nodaste.com` before sharing it. Do not share `localhost`, local `plan-review` URLs, or Tailscale local-service URLs for the default flow.
+
+Registration creates or updates the Doct review artifact. The repo file remains the source artifact for implementation; Doct is the review/registration surface.
+
+## Start the comment listener
+
+A registered reviewer-facing plan is not ready for browser-review handoff until the comment listener is running, unless the user explicitly asked for registration-only work. Treat the returned `listenerInstructions` as the live contract because field names and preferred delivery commands can evolve.
+
+After registration:
+
+1. Run the returned `lifecycleCommand`, or equivalent `doct-agent plans lifecycle --state active`, before draining/listening.
+2. Leave the plan in its registration/default board column, normally `backlog`, unless the user explicitly requested a board move. Registration and browser-review handoff do not mean implementation is underway.
+3. Drain pending work with the returned `drainCommand` (`doct-agent plans agent next ... --no-wait --json`) until it returns `status: "empty"`.
+4. Start the durable listener in the active agent harness background process so listener output is delivered to the agent. Prefer `listenerInstructions.startCommand` when present (`doct-agent plans listen ... --jsonl`); otherwise use the returned `preferredCommand`/`durableCommand`. Name the process with the plan/document id when the harness supports it.
+5. Do not process claims inline inside the listener. When a listener event or `agent next --wait` result claims a browser comment, dispatch the claim payload and returned commands to a sub-agent or a clearly separate worker step, then keep or restart the listener.
+6. Keep the listener running until the plan is complete, no longer active, or the user explicitly stops review. If the listener cannot be started, report that as a handoff blocker before telling the user to annotate the plan.
+
+Agent background-process example:
+
+```bash
+doct-agent plans listen \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --jsonl
+```
+
+Use the exact command returned by `listenerInstructions` when it differs from this example.
+
+`plans watch` is only source sync/debug visibility and does not replace the comment listener.
+
+## Publish Markdown/text plans
+
+Use this path only when the user explicitly asks for Markdown/text/no comments or repo guidance forbids HTML/Markdoc for the workflow.
+
+Create a Markdown/text plan document with a minimal body first:
+
+```bash
+doct-agent documents create \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --title '<Plan Title>' \
+  --path '<path>' \
+  --kind text \
+  --content '# <Plan Title>' \
+  --json
+```
+
+Then prepare the Markdown file locally and replace the body:
+
+```bash
+doct-agent documents replace-body \
+  --id <document-id> \
+  --file thoughts/plans/<plan>.md \
+  --json
+```
+
 Use `documents publish-plan` only as a legacy fallback when the CLI explicitly directs you there for old Markdown/text-plan flows. Current `doct-agent onboard` says `documents publish-plan` fails closed with replacement guidance for plan-review publishing.
 
-Return the created/updated Doct URL, document/plan id, workspace id, current version, and the returned `listenerInstructions` when available.
+Return the created/updated Doct URL, document id, workspace id, and status. State clearly that Markdown/text documents are not the reviewer-facing HTML/Markdoc plan-review surface.
 
-After every reviewer-facing plan registration, follow the returned `listenerInstructions` before handing off browser review: set lifecycle active, leave the plan in its registration/default board column (normally `backlog`), drain with `agent next --no-wait` until empty, then start the durable listener with the harness background-process tool. Prefer the returned `startCommand` (`doct-agent plans listen ... --jsonl`) when present; otherwise use the returned `preferredCommand`/`durableCommand`. `plans watch` is only source sync/debug visibility and does not replace the comment listener. Do not move the plan to `in_progress` during registration or browser-review setup; execution workflows such as `run-plan` do that when implementation starts.
+## Update a registered plan
+
+After editing a registered plan, push the updated source back through Doct:
+
+```bash
+doct-agent plans update \
+  --base-url https://doct.nodaste.com \
+  --id <document-id> \
+  --workspace-id <workspace-id> \
+  --file thoughts/plans/<plan>.<html|markdoc> \
+  --source-format <html|markdoc> \
+  --expected-version <version-from-last-read-or-register> \
+  --json
+```
+
+If the expected version conflicts, read the current plan state with `doct-agent plans show --id <document-id> --json`, reconcile the conflict, and retry. Use `--force` only when you have confirmed you are overwriting your own stale registration state rather than discarding someone else's edits.
+
+For continuous source sync while a reviewer is actively annotating a local source file, use the Doct watcher with the harness background-process tool:
+
+```bash
+doct-agent plans watch \
+  --base-url https://doct.nodaste.com \
+  --id <document-id> \
+  --workspace-id <workspace-id> \
+  --file thoughts/plans/<plan>.<html|markdoc> \
+  --json
+```
+
+Use background processing for the watcher when it is needed. Do not block the conversation on it. `plans watch` is source-sync/debug infrastructure only; it is not the correctness-critical comment listener and does not replace the listener startup gate above.
+
+## Monitor and process plan comments/actions
+
+Use Doct plan listener and queue commands, not the legacy `plan-review agent next` flow.
+
+The normal path is the durable listener started immediately after registration. Use queue inspection and one-shot claims for startup drain, recovery, or manual processing.
+
+Inspect pending work:
+
+```bash
+doct-agent plans queue list \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --json
+```
+
+Claim the next applicable item for this agent during drain/recovery:
+
+```bash
+doct-agent plans agent next \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --no-wait \
+  --json
+```
+
+For cross-document adapter workers, use `--all` only when that worker is intentionally responsible for all active plan comments/actions in the workspace.
+
+A listener-delivered or manually claimed item should provide a thread id, claim id, reviewer context, action metadata, selected node/selector context, and returned ack/resolve/release commands. Process one claim at a time:
+
+1. Read the full local plan file and, if needed, `doct-agent plans show --id <document-id> --json`.
+2. Use the selected node ID, selector, heading path, quoted text, and reviewer body.
+3. Classify the item as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, `DISAGREE_REPO_EVIDENCE`, `EXECUTION_READY_REQUEST`, or `BUILD_REQUEST`.
+4. Make the smallest plan change that addresses in-scope feedback without widening scope.
+5. Update Doct with `doct-agent plans update` after edits.
+6. Add a visible reply when useful:
+   ```bash
+   doct-agent plans reply \
+     --base-url https://doct.nodaste.com \
+     --document-id <document-id> \
+     --workspace-id <workspace-id> \
+     --thread-id <thread-id> \
+     --body "Updated the plan." \
+     --json
+   ```
+7. Ack when the item has been incorporated or deliberately dispositioned:
+   ```bash
+   doct-agent plans ack \
+     --base-url https://doct.nodaste.com \
+     --workspace-id <workspace-id> \
+     --thread-id <thread-id> \
+     --claim-id <claim-id> \
+     --summary "Integrated reviewer feedback on phase boundaries" \
+     --json
+   ```
+8. Resolve only when the reviewer-visible issue is complete:
+   ```bash
+   doct-agent plans resolve \
+     --base-url https://doct.nodaste.com \
+     --workspace-id <workspace-id> \
+     --thread-id <thread-id> \
+     --claim-id <claim-id> \
+     --summary "Plan now includes the missing verification gate" \
+     --json
+   ```
+
+If you cannot act before the claim should be released:
+
+```bash
+doct-agent plans release \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --thread-id <thread-id> \
+  --claim-id <claim-id> \
+  --reason "Cannot complete before handoff" \
+  --json
+```
+
+## Plan lifecycle and board state
+
+Use Doct lifecycle commands for registered plan review status:
+
+```bash
+doct-agent plans lifecycle \
+  --base-url https://doct.nodaste.com \
+  --document-id <document-id> \
+  --workspace-id <workspace-id> \
+  --state active \
+  --json
+```
+
+Registration should leave the board assignment at the service default, normally `backlog`. Do not move a newly registered plan to `in_progress` as part of browser-review setup. Execution workflows such as `run-plan` own the transition to `in_progress` when implementation actually starts.
+
+## Legacy local plan-review service
+
+Use the old local `plan-review` CLI/service only when the user explicitly asks for the legacy local reviewer, a repo still mandates it, or you are migrating an existing local registration. In that case, follow the repo-local legacy instructions. Do not present local-service URLs as the default plan review surface.
 
 ## Decision rules
 
@@ -133,4 +369,7 @@ After every reviewer-facing plan registration, follow the returned `listenerInst
 ## References
 
 - `references/doct-agent-commands.md` — full per-command reference, flags, and worked examples.
+- `references/plan-format-listener-repair-pattern.md` — repair path for wrong text-doc plan artifacts or missing listeners.
+- `references/doct-plan-comment-dispatcher-pattern.md` — durable listener/worker pattern when comments remain pending.
+- `references/coding-plan-archive-audit-pattern.md` — evidence and commands for archiving completed Coding Plans.
 - `doct-agent onboard` — the canonical, always-current spec from the installed CLI.

@@ -185,7 +185,7 @@ def start_worker(plan_id: str, claim: dict[str, Any]) -> subprocess.Popen[Any] |
     prompt = f"""
 Process one claimed plan-review comment for Aaron's Good Morning briefing.
 
-Load/follow skills: html-plan-reviewer and aaron-good-morning. Work from /Users/anichols/Obsidian.
+Load/follow skills: doct-document-ops and aaron-good-morning. Work from /Users/anichols/Obsidian.
 
 Plan:
 - plan_id: {plan_id}

@@ -229,7 +229,7 @@ Expected Pi reviewed-plan flow in this repo:
 - `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-PR workflow for an existing execution-ready reviewed plan.
 - `/skill:adn-dev-wf <task | plan>` remains available for the broader reviewed-plan workflow that owns plan refresh, blocker-only review, review integration, direct execution, and bounded implementation-stage PM follow-up.
 - `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM and GPT/GLM Pi subagent plan review; it must register through `doct-agent plans register`, follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
-- `skills/html-plan-reviewer/SKILL.md` is the sole source for concrete Doct plan commands, listener startup, readiness metadata, canonical URL rules, and comment mechanics; other planning skills should reference it instead of duplicating command recipes.
+- `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown plan publishing guidance, listener startup, readiness metadata, canonical URL rules, and comment mechanics; other planning skills should reference it instead of duplicating command recipes.
 - `/skill:dev-plan <task>` remains available for planning-only work.
 - `/dev:run <plan>` remains available when you already have an execution-ready reviewed plan and want direct execution only.
 
@@ -320,4 +320,3 @@ For local development in this repo, add the repo-owned shared skill tree to your
 - For any change to live Hermes configuration (`~/.hermes` skills, config, hooks, plugins, scripts, cron jobs, memories, or profile-local equivalents), also run `python3 scripts/hermes_config_sync.py export` from this repo, then `python3 scripts/hermes_config_sync.py verify`.
 - Prefer source-first edits in `_hermes/default`; preview install with `python3 scripts/hermes_config_sync.py install --dry-run`, then apply with `python3 scripts/hermes_config_sync.py install --apply` when live Hermes should be updated.
 - After synchronization and verification, commit and push the `ai-configs` changes so the repo copy stays authoritative. Do not commit secrets or runtime state; the sync tool excludes those surfaces.
-

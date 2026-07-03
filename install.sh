@@ -27,7 +27,7 @@ AI_CONFIGS_BACKUP_RUN_ID="$(date +"%Y%m%d-%H%M%S")"
 AI_CONFIGS_REPO_NAME='ai-configs'
 AI_CONFIGS_REPO_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 CENTRAL_ONLY_PROJECT_SKILLS=(ccore todoist-cli brave-cdp chrome-cdp)
-DEPRECATED_SHARED_SKILLS=(agent-browser scoped-plan-run)
+DEPRECATED_SHARED_SKILLS=(agent-browser scoped-plan-run html-plan-reviewer)
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
 # Homebrew's node/npm/npx can be installed but absent from PATH.

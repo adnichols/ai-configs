@@ -159,7 +159,7 @@ brew services start plan-reviewer
 
 Source: <https://github.com/Nodaste-Lab/plan-reviewer>
 
-`ai-configs` still owns workflow guidance such as `skills/html-plan-reviewer`, but any daemon, CLI, service, or formula changes belong in `Nodaste-Lab/plan-reviewer`.
+`ai-configs` still owns workflow guidance such as `skills/doct-document-ops`, but any daemon, CLI, service, or formula changes belong in `Nodaste-Lab/plan-reviewer`.
 
 ## Skills and tools
 

@@ -1257,7 +1257,7 @@ Constraints:
 - Keep plan files in ${PLAN_DIRECTORY}/.
 - Do not make implementation changes outside ${PLAN_ROOT}/.
 - Use read-only bash commands for exploration; file mutations must go through edit/write inside ${PLAN_ROOT}/, except the transient Claude review prompt file exception above.
-- Load and follow the planning skills needed for deterministic HTML planning: planning-workflow, html-plan-reviewer, reviewed-html-plan, product-principles for workflow-impacting plans, plus relevant domain skills.
+- Load and follow the planning skills needed for deterministic HTML planning: planning-workflow, doct-document-ops, reviewed-html-plan, product-principles for workflow-impacting plans, plus relevant domain skills.
 - Plans should align with thoughts/specs/product_intent.md and thoughts/plans/AGENTS.md when relevant.
 - New active plans should be semantic HTML under ${PLAN_DIRECTORY}/<slug>.html unless the user explicitly supplies an existing legacy Markdown plan.
 - Register HTML plans with plan-review using truthful --execution-ready metadata; preserve and display the canonical browser review URL.

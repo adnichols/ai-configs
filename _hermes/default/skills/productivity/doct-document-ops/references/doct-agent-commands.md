@@ -12,7 +12,7 @@ doct-agent context      # agent identity, base URL, websocket URL, instructions
 doct-agent onboard      # canonical onboarding + runtime spec
 doct-agent workspaces   # list workspaces
 doct-agent documents    # list / get / create / replace-body / update-metadata / rename / move / delete / legacy publish-plan
-doct-agent plans        # register / update / watch / show / comments / queue / agent / ack / resolve / reply / release / lifecycle / board
+doct-agent plans        # register / update / watch / listen / show / comments / queue / agent / ack / resolve / reply / release / lifecycle / board / metadata
 doct-agent collab       # text edit / anchored text edits / text-document comments
 doct-agent triage       # read-only DB + log operational triage
 ```
@@ -128,7 +128,7 @@ doct-agent documents delete (--id <id> | --path '<path>') [--workspace-id <wsid>
 doct-agent documents publish-plan --file /path/to/plan.md [--title '<title>'] [--parent-title 'Coding Plans'] [--workspace personal|<id-or-slug>] --json
 ```
 
-Current onboarding says `documents publish-plan` fails closed with replacement guidance for plan-review publishing. Prefer `doct-agent plans register` for HTML/Markdoc coding plans.
+Current onboarding says `documents publish-plan` fails closed with replacement guidance for plan-review publishing. Prefer `doct-agent plans register` for HTML/Markdoc coding plans. Current registration responses may identify handcrafted HTML as a legacy/import source and recommend Markdoc templates for newly-authored reviewed plans; follow repo-local plan-format authority, but preserve and follow the returned `sourceGuidance`.
 
 ## Plans: register, update, and review HTML plans
 
@@ -149,7 +149,7 @@ doct-agent plans register \
   --json
 ```
 
-Use this as the default for handcrafted HTML plans. Omit `--allow-untemplated` only when using a Doct plan template/config that validates without it.
+Use this for repo-authorized handcrafted HTML plans. Omit `--allow-untemplated` only when using a Doct plan template/config that validates without it. Preserve any returned `sourceGuidance`; the service may recommend Markdoc/templates for new reviewed plans even while accepting intentional HTML registrations.
 
 ### Register a Markdoc plan
 
@@ -194,7 +194,30 @@ doct-agent plans watch \
   --json
 ```
 
-Run long-lived watch commands with the harness background-process tool.
+Run long-lived watch commands with the harness background-process tool. `plans watch` syncs source changes; it is not the queue-backed comment listener.
+
+### Start the durable plan comment listener
+
+Every reviewer-facing registration returns `listenerInstructions`. Follow that object before browser-review handoff: set lifecycle active, leave the plan in its registration/default board column (normally `backlog`), drain pending claims, then start the durable listener. Do not move a plan to `in_progress` during registration or browser-review setup; execution workflows such as `run-plan` do that when implementation starts.
+
+```bash
+# Drain pending work until status is empty
+doct-agent plans agent next \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --no-wait \
+  --json
+
+# Durable listener / dispatcher
+doct-agent plans listen \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --jsonl
+```
+
+The listener is infrastructure, not the worker. Dispatch each `plan_comment_dispatch` JSONL event to a sub-agent or separate worker step with the payload and returned commands; do not edit, ack, resolve, or release inline in the listener loop. Keep the listener running until the plan is complete or no longer active. If `listenerInstructions.startCommand`, `preferredCommand`, or `durableCommand` differs from these examples, prefer the returned command.
 
 ### Show plan state
 
@@ -238,11 +261,12 @@ doct-agent plans agent next \
   [--document-id <document-id>] \
   [--target-agent-id <agent-id>] \
   [--target-scope <scope>] \
+  [--wait | --no-wait] \
   [--all] \
   --json
 ```
 
-Process one claimed item at a time. Preserve `thread-id`, `claim-id`, `document-id`, and `workspace-id` for ack/resolve/release.
+Use `--no-wait` for startup drain and manual recovery. Use `--wait` only for one-shot listener flows or when the registration response explicitly returns it as the preferred command. Process one claimed item at a time. Preserve `thread-id`, `claim-id`, `document-id`, and `workspace-id` for ack/resolve/release.
 
 ### Reply, ack, resolve, release
 
@@ -280,7 +304,7 @@ doct-agent plans release \
   --json
 ```
 
-### Lifecycle and board
+### Lifecycle, board, and readiness metadata
 
 ```bash
 doct-agent plans lifecycle \
@@ -295,16 +319,15 @@ doct-agent plans board list \
   --workspace-id <workspace-id> \
   --json
 
-doct-agent plans board set \
+doct-agent plans metadata \
   --base-url https://doct.nodaste.com \
   --document-id <document-id> \
   --workspace-id <workspace-id> \
-  --column in_progress \
-  [--position 0] \
+  --execution-ready true \
   --json
 ```
 
-Only set columns that exist in the workspace board.
+Only set board columns when the user explicitly asks for a board move or an execution workflow requires it. Registration should keep the service default board assignment, normally `backlog`. Set readiness metadata only after the plan has passed the required independent readiness gates.
 
 ## Collab (realtime text surfaces)
 
@@ -370,9 +393,11 @@ doct-agent auth default --base-url https://doct.nodaste.com
 doct-agent context --base-url https://doct.nodaste.com --json
 doct-agent workspaces list --base-url https://doct.nodaste.com --json
 doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/example.html --source-format html --allow-untemplated --json
+doct-agent plans lifecycle --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --state active --json
+doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --no-wait --json
+doct-agent plans listen --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --jsonl
 doct-agent plans update --base-url https://doct.nodaste.com --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/example.html --source-format html --expected-version <version> --json
 doct-agent plans queue list --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json
-doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json
 doct-agent documents list --workspace-id <id> --json
 doct-agent documents get --id <document-id> --text
 doct-agent documents create --workspace-id <id> --title 'Title' --path 'notes/title' --kind text --content '# Visible document'

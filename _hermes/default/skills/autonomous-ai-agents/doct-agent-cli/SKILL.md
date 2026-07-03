@@ -6,7 +6,7 @@ author: Hermes Agent
 metadata:
   hermes:
     tags: [doct, cli, docs, collaboration, html-plans, markdoc]
-    related_skills: [doct-document-ops, html-plan-reviewer]
+    related_skills: [doct-document-ops]
 ---
 
 # doct-agent CLI
@@ -126,7 +126,7 @@ Use `documents publish-plan` only as a legacy fallback when the CLI explicitly d
 
 Do **not** use `doct-agent documents create` / `documents replace-body` for Aaron-facing implementation plans. That creates a plain text document, not the commentable plan-review artifact Aaron expects. If this mistake happens, register a replacement HTML/Markdoc plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement Doct URL.
 
-After registering a plan, inspect the plan queue once and start or verify the document-specific comment listener/queue watcher per `html-plan-reviewer` before final response.
+After registering a plan, inspect the plan queue once and start or verify the document-specific comment listener/queue watcher per `doct-document-ops` before final response.
 
 Return the created/updated Doct URL, document/plan id, workspace id, current version, and listener status when available.
 

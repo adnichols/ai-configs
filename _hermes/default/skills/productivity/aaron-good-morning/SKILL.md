@@ -194,11 +194,11 @@ Do not improvise a different morning routine when the local `/gm` command alread
 
 ## Output Format and Delivery
 
-Future `/gm` / good-morning runs should produce a Doct-backed HTML review artifact, not post the full briefing inline in chat. Use `doct-agent plans` through `html-plan-reviewer` for the current review surface. Do **not** use the legacy local `plan-review` CLI/service for new GM artifacts unless Aaron explicitly asks for the legacy local reviewer.
+Future `/gm` / good-morning runs should produce a Doct-backed HTML review artifact, not post the full briefing inline in chat. Use `doct-agent plans` through `doct-document-ops` for the current review surface. Do **not** use the legacy local `plan-review` CLI/service for new GM artifacts unless Aaron explicitly asks for the legacy local reviewer.
 
 For cron delivery to Discord, prefer delivering the scheduled job to Aaron's configured Discord home channel via an explicit channel target (`deliver: "discord:1492535022811480126"`, currently `<#1492535022811480126>`) unless Aaron gives an existing thread target. Do **not** use bare `deliver: "discord"` for GM cron jobs created from a Discord thread: cron can resolve bare `discord` back to the saved origin thread instead of the configured home channel. Cron can target an existing thread via `discord:<channel_id>:<thread_id>` or `DISCORD_HOME_CHANNEL_THREAD_ID`, but it does not currently create a fresh Discord thread per run before final delivery. See `references/gm-cron-discord-delivery.md` for the tested pattern and limitation.
 
-Session-specific examples and comment-handling patterns from the 2026-06-21 GM review are captured in `references/gm-plan-review-comment-patterns-2026-06-21.md`, but treat that reference as legacy-local-plan-review history. For current GM publishing and comment processing, follow this Doct-backed section and `html-plan-reviewer`.
+Session-specific examples and comment-handling patterns from the 2026-06-21 GM review are captured in `references/gm-plan-review-comment-patterns-2026-06-21.md`, but treat that reference as legacy-local-plan-review history. For current GM publishing and comment processing, follow this Doct-backed section and `doct-document-ops`.
 
 Linear responsive table guidance from the 2026-06-28 deterministic GM review is captured in `references/gm-linear-responsive-tables.md`; use it when adjusting Linear formatting, column alignment, compact timestamps, linked IDs, or redundant priority sections.
 
@@ -216,7 +216,7 @@ Required delivery flow:
    doct-agent auth status --all --json
    doct-agent context --base-url https://doct.nodaste.com --json
    ```
-4. Register the HTML with Doct using the `html-plan-reviewer` workflow:
+4. Register the HTML with Doct using the `doct-document-ops` workflow:
    ```bash
    doct-agent plans register --base-url https://doct.nodaste.com --file adn_vault/DailyGM/YYYY-MM-DD-gm.html --source-format html --allow-untemplated --title "Good Morning YYYY-MM-DD" --json
    ```

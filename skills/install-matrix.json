@@ -425,21 +425,6 @@
       "sourceType": "external-package",
       "packageSource": "ogulcancelik/herdr"
     },
-    "html-plan-reviewer": {
-      "class": "universal-installable",
-      "allowedConsumers": [
-        "codex",
-        "claude",
-        "opencode",
-        "pi"
-      ],
-      "canonicalSource": "skills/html-plan-reviewer",
-      "legacySources": [
-        ".agents/skills/html-plan-reviewer"
-      ],
-      "notes": "Workflow guidance for Doct-backed HTML plan registration through `doct-agent plans`; includes durable listener startup guidance for queue-backed browser comment monitoring.",
-      "sourceType": "repo"
-    },
     "plan-reviewer-build": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
