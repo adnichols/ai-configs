@@ -349,6 +349,57 @@ def reaction_ready(monitor: Monitor, endpoint: str) -> bool:
     return any(r.get("content") == "+1" and codex_user(r) for r in reactions)
 
 
+def parse_github_time(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def head_commit_time(monitor: Monitor, head: str) -> datetime | None:
+    if not head:
+        return None
+    try:
+        commit = gh_api(monitor.repo, f"repos/{monitor.repo}/commits/{head}", cwd=monitor.repo_dir, paginate=False) or {}
+    except Exception as exc:
+        log(f"{monitor.name}: commit fetch failed {head}: {exc}")
+        return None
+    commit_data = commit.get("commit") or {}
+    committer = commit_data.get("committer") or {}
+    author = commit_data.get("author") or {}
+    return parse_github_time(committer.get("date") or author.get("date"))
+
+
+def pr_reaction_ready(monitor: Monitor, pr: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return Codex thumbs-up reactions on the PR itself for the current head.
+
+    Codex can signal merge readiness by reacting 👍 directly on the pull request,
+    not just on an issue comment, review, or inline review comment. Because a PR
+    reaction is not attached to a commit, require it to be newer than the current
+    head commit when GitHub timestamps are available.
+    """
+    pr_number = pr["number"]
+    try:
+        reactions = gh_api(monitor.repo, f"repos/{monitor.repo}/issues/{pr_number}/reactions", cwd=monitor.repo_dir, paginate=True) or []
+    except Exception as exc:
+        log(f"{monitor.name}: PR reaction fetch failed #{pr_number}: {exc}")
+        return []
+    codex_plus = [r for r in reactions if r.get("content") == "+1" and codex_user(r)]
+    if not codex_plus:
+        return []
+
+    head_time = head_commit_time(monitor, pr.get("headRefOid") or "")
+    ready: list[dict[str, Any]] = []
+    for reaction in codex_plus:
+        reaction_time = parse_github_time(reaction.get("created_at"))
+        if head_time and reaction_time and reaction_time < head_time:
+            continue
+        ready.append({"kind": "pr_reaction", "id": reaction.get("id"), "url": pr.get("url"), "created_at": reaction.get("created_at")})
+    return ready
+
+
 def analyze_codex(monitor: Monitor, pr: dict[str, Any], reviews: list[dict[str, Any]], review_comments: list[dict[str, Any]], issue_comments: list[dict[str, Any]]) -> dict[str, Any]:
     head = pr.get("headRefOid") or ""
     head_short10 = head[:10]
@@ -391,6 +442,8 @@ def analyze_codex(monitor: Monitor, pr: dict[str, Any], reviews: list[dict[str, 
             ready.append({"kind": "issue_comment_ready", "id": c.get("id"), "url": c.get("html_url")})
         if c.get("id") and (head in body or head_short10 in body) and reaction_ready(monitor, f"repos/{monitor.repo}/issues/comments/{c['id']}/reactions"):
             ready.append({"kind": "issue_comment_reaction", "id": c.get("id"), "url": c.get("html_url")})
+
+    ready.extend(pr_reaction_ready(monitor, pr))
 
     return {"feedback": feedback, "ready": ready}
 
