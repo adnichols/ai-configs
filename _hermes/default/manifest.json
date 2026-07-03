@@ -4847,9 +4847,9 @@
       "sha256": "d30b1e5ccb49cb636994648118e2f0b4c69ab8766781219dcfd47c14a7f6d56e"
     },
     {
-      "bytes": 26692,
+      "bytes": 27387,
       "path": "scripts/autobuild_pr_nudge_monitor.py",
-      "sha256": "e61059be0761dbfa3f3a8c0eebd5fbc925620f7c0b3174f42c8b7bb8fecad245"
+      "sha256": "acf5ba6ea0b9f45d0ee5acd1d440d5404c22ed6424907f790c17b7b712b97ad8"
     },
     {
       "bytes": 2570,
@@ -7412,9 +7412,9 @@
       "sha256": "016198b563b8f8c4441b002bce8ad0e0865f2f39f1da22476beb7a7daed482aa"
     },
     {
-      "bytes": 3886,
+      "bytes": 4175,
       "path": "skills/productivity/autobuild-pr-nudge-monitor/SKILL.md",
-      "sha256": "216d8a1a0cab6537859aa6f1f2523fe469fd3aac990f4eba803f9a7921707846"
+      "sha256": "0eb6aae48a76ad4c522b2b3100438236837d90584d6f3cc8496f08c372a6ab9a"
     },
     {
       "bytes": 9884,

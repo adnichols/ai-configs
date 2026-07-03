@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import shlex
 import subprocess
 import sys
@@ -40,6 +41,30 @@ CODEX_LOGIN_RE = re.compile(r"codex|chatgpt", re.I)
 BOILERPLATE_THUMBS_RE = re.compile(r"otherwise it will react with 👍|Useful\? React with 👍 / 👎", re.I)
 RATE_LIMIT_RE = re.compile(r"rate_limited|Ratelimited|requestsRemaining=0", re.I)
 REVIEWED_COMMIT_RE = re.compile(r"Reviewed commit:\*\*\s*`?([0-9a-f]{7,40})`?", re.I)
+
+
+def ltui_cmd() -> list[str]:
+    override = os.environ.get("LTUI_CMD")
+    if override:
+        return shlex.split(override)
+
+    found = shutil.which("ltui")
+    if found:
+        return [found]
+
+    fallback_bins = [
+        HOME / "code" / "ai-configs" / "tools" / "ltui" / "bin" / "ltui",
+        HOME / "code" / "ltui-linear-rate-limit-reduction" / "bin" / "ltui",
+    ]
+    for candidate in fallback_bins:
+        if candidate.exists():
+            return [str(candidate)]
+
+    fallback_dist = HOME / "code" / "ai-configs" / "tools" / "ltui" / "dist" / "cli.js"
+    if fallback_dist.exists():
+        return ["node", str(fallback_dist)]
+
+    return ["ltui"]
 
 
 @dataclass(frozen=True)
@@ -173,7 +198,7 @@ def ltui_json(cmd: list[str], *, cwd: Path | None = None) -> tuple[bool, Any, st
 
 
 def list_required_label_issues(monitor: Monitor) -> tuple[dict[str, dict[str, Any]] | None, str]:
-    cmd = ["ltui", "--format", "json", "--limit", "250", "issues", "list", "--team", monitor.linear_team, "--label", monitor.required_label]
+    cmd = ltui_cmd() + ["--format", "json", "--limit", "250", "issues", "list", "--team", monitor.linear_team, "--label", monitor.required_label]
     if monitor.linear_project:
         cmd.extend(["--project", monitor.linear_project])
     ok, data, msg = ltui_json(cmd, cwd=monitor.repo_dir)
@@ -191,7 +216,7 @@ def list_required_label_issues(monitor: Monitor) -> tuple[dict[str, dict[str, An
 def ltui_update_rework(monitor: Monitor, issue: str) -> tuple[bool, str]:
     if DRY_RUN:
         return True, "dry-run"
-    cmd = ["ltui", "issues", "update", issue, "--team", monitor.linear_team, "--state", monitor.rework_state]
+    cmd = ltui_cmd() + ["issues", "update", issue, "--team", monitor.linear_team, "--state", monitor.rework_state]
     if monitor.linear_project:
         cmd.extend(["--project", monitor.linear_project])
     cp = run(cmd, cwd=monitor.repo_dir, check=False)
@@ -204,7 +229,7 @@ def ltui_comment(monitor: Monitor, issue: str, body: str) -> tuple[bool, str]:
     comment_file = Path("/tmp") / f"pr-nudge-{monitor.state_key}-{issue}-{os.getpid()}.md"
     comment_file.write_text(body, encoding="utf-8")
     try:
-        cp = run(["ltui", "issues", "comment", issue, "--body", f"@{comment_file}"], cwd=monitor.repo_dir, check=False)
+        cp = run(ltui_cmd() + ["issues", "comment", issue, "--body", f"@{comment_file}"], cwd=monitor.repo_dir, check=False)
         return cp.returncode == 0, (cp.stdout + cp.stderr).strip()
     finally:
         try:

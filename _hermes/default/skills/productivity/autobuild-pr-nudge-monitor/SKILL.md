@@ -67,5 +67,6 @@ hermes cron list
 
 ## Pitfalls
 
+- If `ltui` disappears from PATH, set `LTUI_CMD` to the full command, e.g. `LTUI_CMD=/Users/anichols/code/ltui-linear-rate-limit-reduction/bin/ltui`. The watcher also has fallback resolution for known local `ltui` checkouts; do not let missing ambient PATH silently disable Linear nudges.
 - Do not use a broad regex over full Linear linkback markdown; it can include related issues. Use the fixture's extraction order instead.
 - Event fingerprints prevent duplicate nudges only while the linked Linear issue is already in the configured rework state. If a human/agent moves the same head back to review without a fresh Codex ready signal, the monitor must re-nudge and move it back to Rework; otherwise active PRs can appear stalled.
