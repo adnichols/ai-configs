@@ -30,9 +30,16 @@ CONFIG_PATH = Path(os.environ["PR_NUDGE_CONFIG"]) if os.environ.get("PR_NUDGE_CO
 STATE_PATH = Path(os.environ.get("PR_NUDGE_STATE", HERMES_HOME / "state" / "autobuild_pr_nudge_monitor.json"))
 LOG_PATH = Path(os.environ.get("PR_NUDGE_LOG", HERMES_HOME / "logs" / "autobuild_pr_nudge_monitor.log"))
 DRY_RUN = os.environ.get("DRY_RUN", "").lower() in {"1", "true", "yes"}
+MERGE_READY_LABEL = os.environ.get("PR_NUDGE_MERGE_READY_LABEL", "merge-ready")
+MERGE_READY_LABEL_COLOR = os.environ.get("PR_NUDGE_MERGE_READY_LABEL_COLOR", "0E8A16")
+MERGE_READY_LABEL_DESCRIPTION = os.environ.get(
+    "PR_NUDGE_MERGE_READY_LABEL_DESCRIPTION",
+    "Autobuild monitor: current head is clean and Codex-ready",
+)
 CODEX_LOGIN_RE = re.compile(r"codex|chatgpt", re.I)
 BOILERPLATE_THUMBS_RE = re.compile(r"otherwise it will react with 👍|Useful\? React with 👍 / 👎", re.I)
 RATE_LIMIT_RE = re.compile(r"rate_limited|Ratelimited|requestsRemaining=0", re.I)
+REVIEWED_COMMIT_RE = re.compile(r"Reviewed commit:\*\*\s*`?([0-9a-f]{7,40})`?", re.I)
 
 
 @dataclass(frozen=True)
@@ -243,12 +250,87 @@ def extract_linear_ids(monitor: Monitor, pr: dict[str, Any], issue_comments: lis
 
 def body_has_ready_signal(body: str) -> bool:
     normalized = (body or "").strip().lower()
-    if not normalized or BOILERPLATE_THUMBS_RE.search(body or ""):
+    if not normalized:
         return False
     compact = re.sub(r"\s+", " ", normalized)
+    explicit_ready_phrases = [
+        "didn't find any major issues",
+        "did not find any major issues",
+        "no issues found",
+        "no changes requested",
+        "looks good to me",
+        "ready to merge",
+        "nothing to flag",
+    ]
+    if any(p in compact for p in explicit_ready_phrases):
+        return True
+    if BOILERPLATE_THUMBS_RE.search(body or ""):
+        return False
     if compact in {"👍", ":+1:", "+1", "lgtm", "looks good", "ship it", "approved"}:
         return True
-    return any(p in compact for p in ["no issues found", "no changes requested", "looks good to me", "lgtm", "approved", "ready to merge", "nothing to flag"])
+    return any(p in compact for p in ["lgtm", "approved"])
+
+
+def reviewed_commit_matches_head(body: str, head: str) -> bool:
+    match = REVIEWED_COMMIT_RE.search(body or "")
+    if not match:
+        return True
+    reviewed = match.group(1).lower()
+    head = (head or "").lower()
+    return bool(head) and (head.startswith(reviewed) or reviewed.startswith(head))
+
+
+def pr_label_names(pr: dict[str, Any]) -> set[str]:
+    return {str(label.get("name") or label).casefold() for label in pr.get("labels") or []}
+
+
+def ensure_merge_ready_label(monitor: Monitor) -> None:
+    if DRY_RUN:
+        return
+    run(
+        [
+            "gh",
+            "label",
+            "create",
+            MERGE_READY_LABEL,
+            "--repo",
+            monitor.repo,
+            "--color",
+            MERGE_READY_LABEL_COLOR,
+            "--description",
+            MERGE_READY_LABEL_DESCRIPTION,
+            "--force",
+        ],
+        cwd=monitor.repo_dir,
+        check=False,
+    )
+
+
+def set_merge_ready_label(monitor: Monitor, pr: dict[str, Any], ready: bool, outputs: list[str], reason: str) -> None:
+    has_label = MERGE_READY_LABEL.casefold() in pr_label_names(pr)
+    if ready == has_label:
+        return
+    pr_number = pr["number"]
+    action = "add" if ready else "remove"
+    if DRY_RUN:
+        outputs.append(f"[dry-run] {monitor.name}: would {action} `{MERGE_READY_LABEL}` on PR #{pr_number} ({reason}). {pr.get('url')}")
+        return
+    if ready:
+        ensure_merge_ready_label(monitor)
+        cp = run(["gh", "pr", "edit", str(pr_number), "--repo", monitor.repo, "--add-label", MERGE_READY_LABEL], cwd=monitor.repo_dir, check=False)
+    else:
+        cp = run(["gh", "pr", "edit", str(pr_number), "--repo", monitor.repo, "--remove-label", MERGE_READY_LABEL], cwd=monitor.repo_dir, check=False)
+    combined = (cp.stdout + cp.stderr).strip()
+    if cp.returncode == 0:
+        verb = "added to" if ready else "removed from"
+        outputs.append(f"🏷️ {monitor.name}: `{MERGE_READY_LABEL}` {verb} PR #{pr_number} ({reason}). {pr.get('url')}")
+        labels = pr.setdefault("labels", [])
+        if ready:
+            labels.append({"name": MERGE_READY_LABEL})
+        else:
+            pr["labels"] = [label for label in labels if str(label.get("name") or label).casefold() != MERGE_READY_LABEL.casefold()]
+    else:
+        outputs.append(f"⚠️ {monitor.name}: failed to {action} `{MERGE_READY_LABEL}` on PR #{pr_number}: {combined[:500]} {pr.get('url')}")
 
 
 def body_is_feedback(body: str) -> bool:
@@ -305,9 +387,9 @@ def analyze_codex(monitor: Monitor, pr: dict[str, Any], reviews: list[dict[str, 
         if not codex_user(c):
             continue
         body = c.get("body") or ""
-        if body_has_ready_signal(body):
+        if body_has_ready_signal(body) and reviewed_commit_matches_head(body, head):
             ready.append({"kind": "issue_comment_ready", "id": c.get("id"), "url": c.get("html_url")})
-        if c.get("id") and reaction_ready(monitor, f"repos/{monitor.repo}/issues/comments/{c['id']}/reactions"):
+        if c.get("id") and (head in body or head_short10 in body) and reaction_ready(monitor, f"repos/{monitor.repo}/issues/comments/{c['id']}/reactions"):
             ready.append({"kind": "issue_comment_reaction", "id": c.get("id"), "url": c.get("html_url")})
 
     return {"feedback": feedback, "ready": ready}
@@ -393,7 +475,7 @@ def process_monitor(monitor: Monitor, state: dict[str, Any], outputs: list[str])
 
     prs = json_cmd([
         "gh", "pr", "list", "--repo", monitor.repo, "--state", "open", "--json",
-        "number,title,url,headRefName,body,headRefOid,mergeStateStatus,reviewDecision", "--limit", "100",
+        "number,title,url,headRefName,body,headRefOid,mergeStateStatus,reviewDecision,labels", "--limit", "100",
     ], cwd=monitor.repo_dir)
 
     if not prs:
@@ -410,6 +492,7 @@ def process_monitor(monitor: Monitor, state: dict[str, Any], outputs: list[str])
             linked = extract_linear_ids(monitor, pr, issue_comments)
             autobuild_linked = [issue for issue in linked if issue in label_issues]
             if not autobuild_linked:
+                set_merge_ready_label(monitor, pr, False, outputs, "not linked to a required-label Linear issue")
                 continue
 
             reviews = gh_api(monitor.repo, f"repos/{monitor.repo}/pulls/{n}/reviews", cwd=monitor.repo_dir, paginate=True) or []
@@ -418,11 +501,13 @@ def process_monitor(monitor: Monitor, state: dict[str, Any], outputs: list[str])
             codex = analyze_codex(monitor, pr, reviews, review_comments, issue_comments)
 
             if dirty:
+                set_merge_ready_label(monitor, pr, False, outputs, "merge conflict/dirty state")
                 for issue in autobuild_linked:
                     mark_rework(monitor, issue, label_issues.get(issue, {}), pr, "a merge conflict", pr.get("url") or "", dirty_detail, mstate, outputs)
                 continue
 
             if codex["feedback"]:
+                set_merge_ready_label(monitor, pr, False, outputs, "current-head Codex feedback")
                 first = codex["feedback"][0]
                 detail_url = first.get("url") or pr.get("url") or ""
                 for issue in autobuild_linked:
@@ -430,7 +515,10 @@ def process_monitor(monitor: Monitor, state: dict[str, Any], outputs: list[str])
                 continue
 
             if codex["ready"]:
+                set_merge_ready_label(monitor, pr, True, outputs, "clean with current-head Codex ready signal")
                 merge_pr(monitor, pr, codex["ready"], mstate, outputs)
+            else:
+                set_merge_ready_label(monitor, pr, False, outputs, "waiting for current-head Codex ready signal")
         except Exception as exc:
             outputs.append(f"⚠️ {monitor.name}: monitor error on PR #{n}: {exc}")
             log(f"{monitor.name}: error on PR #{n}: {exc}")

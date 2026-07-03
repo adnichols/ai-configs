@@ -21,6 +21,7 @@ Use when Aaron asks to monitor GitHub PRs and nudge only PRs attached to `autobu
 - State: `~/.hermes/state/autobuild_pr_nudge_monitor.json`
 - Log: `~/.hermes/logs/autobuild_pr_nudge_monitor.log`
 - Docs: `~/.hermes/docs/autobuild-pr-nudge-monitor.md`
+- Reference: `references/rework-fingerprint-regression.md` captures the stalled-but-running fingerprint regression pattern and durable fix.
 - Cron job in default profile: `Autobuild PR nudge monitor` (`8ae87f95f2e3` as of creation), every 10 minutes, script-only/no-agent, delivered to origin thread.
 
 ## Behavior
@@ -31,8 +32,9 @@ The monitor:
 3. Loads Linear issues with the configured required label, default `autobuild`, in one batch via `ltui --format json --limit 250 issues list --label autobuild`.
 4. Ignores PRs that are not linked to a required-label Linear issue.
 5. Moves matching Linear issues to `Rework` and comments when there is current-head Codex feedback or a merge conflict.
-6. If `merge_on_codex_ready` is true, merges/auto-merges matching PRs only after a real Codex thumbs-up/ready signal.
-7. Prints only actionable output; empty stdout means no-op. Linear rate limits are logged and retried later quietly.
+6. Maintains the GitHub PR label `merge-ready` as a visible PR-list indicator only while the current head is clean and has a real current-head Codex ready/no-issues signal.
+7. If `merge_on_codex_ready` is true, merges/auto-merges matching PRs only after a real Codex thumbs-up/ready signal.
+8. Prints only actionable output; empty stdout means no-op. Linear rate limits are logged and retried later quietly.
 
 ## Add another repo
 
