@@ -73,7 +73,7 @@ Installed layout:
 
 The installer copies the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md`. For OMP, that same shared source file is installed as `~/.omp/agent/SYSTEM.md`, matching OMP's `SYSTEM.md` additive-system semantics.
 
-The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys. The managed entry currently adds the `glm-5.2` reasoning override for the Pi model provider ID `opencode-zen/glm-5.2`.
+The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` with Codex model IDs and thinking-level mappings preserved, so Pi uses the proxy instead of ChatGPT OAuth.
 
 ## Structure
 
@@ -153,7 +153,7 @@ This repo also ships `simple-multi-status.ts`, a lightweight multi-line status w
 
 - the active model,
 - token, cache, and cost totals,
-- multi-pass / multicodex status when present,
+- current provider/model status when present,
 - current context-window usage,
 - the current working directory.
 
@@ -192,11 +192,10 @@ Pi subagents load agent definitions from `~/.pi/agent/agents/`.
 
 ## Package-managed Pi extensions
 
-In addition to the repo-managed files under `~/.pi/agent/extensions/`, `install.sh --pi` also registers Pi packages via `pi install` / `pi update`. These are the entries that appear in `pi list`.
+In addition to the repo-managed files under `~/.pi/agent/extensions/`, `install.sh --pi` also registers Pi packages via `pi install` / `pi update`. These are the entries that appear in `pi list`. `pi-multi-pass` is intentionally not installed; multi-account Codex routing is replaced by the single local `openai-codex` CLI Proxy API provider.
 
 Git-managed packages:
 - `pi-gpt-config`
-- `pi-multi-pass`
 
 npm-managed packages:
 - `@tintinweb/pi-subagents`

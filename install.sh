@@ -77,8 +77,8 @@ print_usage() {
     echo "  - When using --opencode or --all, commands, prompts, and agents are installed to ~/.config/opencode"
     echo "  - When using --pi or --all, Pi prompt templates, subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
-    echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills, while Pi packages still include pi-gpt-config and pi-multi-pass"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, pi-multi-pass via git:github.com/adnichols/pi-multi-pass, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills, while Pi packages still include pi-gpt-config"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
     echo "  - In non-interactive mode, existing configs are preserved automatically"
     echo ""
@@ -1798,7 +1798,7 @@ configure_pi_model_defaults() {
     local settings_path="$pi_agent_dir/settings.json"
     local web_search_path="$pi_root_dir/web-search.json"
 
-    echo "  - Enforcing Pi GPT 5.5 defaults..."
+    echo "  - Enforcing Pi local Codex defaults..."
 
     local status
     status=$(PI_SETTINGS_PATH="$settings_path" PI_WEB_SEARCH_PATH="$web_search_path" python3 <<'PY'
@@ -1809,7 +1809,7 @@ from pathlib import Path
 settings_path = Path(os.environ["PI_SETTINGS_PATH"])
 web_search_path = Path(os.environ["PI_WEB_SEARCH_PATH"])
 
-DEFAULT_PROVIDER = "openai-codex-4"
+DEFAULT_PROVIDER = "openai-codex"
 DEFAULT_MODEL = "gpt-5.5"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 SPARK_MODEL = "gpt-5.3-codex-spark"
@@ -1836,9 +1836,9 @@ for model in models:
     if not isinstance(model, str):
         normalized.append(model)
         continue
-    if model.endswith(f"/{SPARK_MODEL}") or model == SPARK_MODEL:
+    if model == SPARK_MODEL or model.endswith(f"/{SPARK_MODEL}"):
         continue
-    if model == "openai-codex-2/gpt-5.5":
+    if model.startswith("openai-codex-") and model.endswith(f"/{DEFAULT_MODEL}"):
         model = DEFAULT_MODEL_VALUE
     if model not in normalized:
         normalized.append(model)
@@ -1871,14 +1871,14 @@ PY
     local config_status=$?
 
     if [ $config_status -ne 0 ]; then
-        echo "  - Unable to enforce Pi GPT 5.5 defaults (check $settings_path and $web_search_path manually)"
+        echo "  - Unable to enforce Pi local Codex defaults (check $settings_path and $web_search_path manually)"
         return
     fi
 
     if [ "$status" = "unchanged" ]; then
-        echo "  - Pi GPT 5.5 defaults already configured"
+        echo "  - Pi local Codex defaults already configured"
     else
-        echo "  - Updated Pi GPT 5.5 defaults: $status"
+        echo "  - Updated Pi local Codex defaults: $status"
     fi
 }
 
@@ -1890,6 +1890,58 @@ install_pi_agents_from_repo() {
     mkdir -p "$pi_agents_dir"
     if [ -d "$pi_source_dir/agents" ]; then
         cp -r "$pi_source_dir/agents/." "$pi_agents_dir/"
+    fi
+}
+
+cleanup_pi_multi_codex_config() {
+    local pi_agent_dir="$1"
+    local auth_path="$pi_agent_dir/auth.json"
+    local multi_pass_path="$pi_agent_dir/multi-pass.json"
+
+    local status
+    status=$(PI_AGENT_DIR="$pi_agent_dir" python3 <<'PY'
+import json
+import os
+import shutil
+import time
+from pathlib import Path
+
+agent_dir = Path(os.environ["PI_AGENT_DIR"])
+stamp = time.strftime("%Y%m%d-%H%M%S")
+changed = []
+
+auth_path = agent_dir / "auth.json"
+if auth_path.exists():
+    data = json.loads(auth_path.read_text())
+    if isinstance(data, dict):
+        stale_keys = [key for key in data if isinstance(key, str) and key.startswith("openai-codex-")]
+        if stale_keys:
+            shutil.copy2(auth_path, agent_dir / f"auth.json.backup-before-local-codex-{stamp}")
+            for key in stale_keys:
+                data.pop(key, None)
+            auth_path.write_text(json.dumps(data, indent=2) + "\n")
+            changed.append("auth")
+
+multi_pass_path = agent_dir / "multi-pass.json"
+if multi_pass_path.exists():
+    shutil.copy2(multi_pass_path, agent_dir / f"multi-pass.json.backup-before-local-codex-{stamp}")
+    multi_pass_path.unlink()
+    changed.append("multi-pass")
+
+print(",".join(changed) if changed else "unchanged")
+PY
+)
+    local cleanup_status=$?
+
+    if [ $cleanup_status -ne 0 ]; then
+        echo "  - Unable to clean stale multi-Codex auth/config (check $pi_agent_dir manually)"
+        return
+    fi
+
+    if [ "$status" = "unchanged" ]; then
+        echo "  - Stale multi-Codex auth/config already absent"
+    else
+        echo "  - Removed stale multi-Codex auth/config: $status"
     fi
 }
 
@@ -2026,6 +2078,8 @@ for provider_id, source_provider in source_providers.items():
                     copied_model = copy.deepcopy(source_model)
                     target_models.append(copied_model)
                     models_by_id[copied_model["id"]] = copied_model
+                elif provider_id == "openai-codex":
+                    merge_source_wins(existing_model, source_model)
                 else:
                     merge_missing(existing_model, source_model)
         elif key == "modelOverrides":
@@ -2037,8 +2091,11 @@ for provider_id, source_provider in source_providers.items():
             else:
                 merge_source_wins(target_overrides, source_value)
         elif key == "compat" and isinstance(source_value, dict) and isinstance(target_provider.get("compat"), dict):
-            merge_missing(target_provider["compat"], source_value)
-        elif key not in target_provider:
+            if provider_id == "openai-codex":
+                merge_source_wins(target_provider["compat"], source_value)
+            else:
+                merge_missing(target_provider["compat"], source_value)
+        elif provider_id == "openai-codex" or key not in target_provider:
             target_provider[key] = copy.deepcopy(source_value)
 
 if updated_data != target_data:
@@ -2148,6 +2205,7 @@ install_pi() {
 
     install_pi_models_from_repo "$pi_source_dir" "$pi_agent_dir"
     configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
+    cleanup_pi_multi_codex_config "$pi_agent_dir"
 
     # Install documentation.
     if [ -f "$pi_source_dir/README.md" ]; then
@@ -2172,9 +2230,6 @@ install_pi() {
     # Install pi-gpt-config extension via pi package manager
     install_pi_gpt_config_package
 
-    # Install pi-multi-pass extension via pi package manager
-    install_pi_multi_pass_package
-
     # Install npm-based pi extensions
     install_pi_npm_packages
 
@@ -2191,8 +2246,9 @@ install_pi() {
     install_pi_agents_from_repo "$pi_source_dir" "$pi_agents_dir"
 
     # Package installs/extensions can touch settings; finish by restoring the
-    # repo-owned default model contract so Spark cannot be reintroduced.
+    # repo-owned default model contract so obsolete multi-Codex routes cannot be reintroduced.
     configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
+    cleanup_pi_multi_codex_config "$pi_agent_dir"
 }
 
 remove_deprecated_pi_git_packages() {
@@ -2200,6 +2256,7 @@ remove_deprecated_pi_git_packages() {
         "git:github.com/adnichols/pi-dcp"
         "git:github.com/adnichols/pi-rlm"
         "git:github.com/pasky/chrome-cdp-skill"
+        "git:github.com/adnichols/pi-multi-pass"
     )
 
     for source in "${deprecated_git_packages[@]}"; do
@@ -2480,29 +2537,6 @@ PY
     echo "  - Pinned vendored pi-vcc to stable mirror in $settings_path"
 
     report_pi_vcc_upstream_status
-}
-
-# Install pi-multi-pass extension via pi package manager
-install_pi_multi_pass_package() {
-    local source="git:github.com/adnichols/pi-multi-pass"
-
-    echo ""
-    echo -e "${GREEN}  Installing pi-multi-pass extension via pi package manager...${NC}"
-
-    if pi list 2>/dev/null | grep -Fq "$source"; then
-        echo "  - pi-multi-pass already installed, updating..."
-        pi update "$source" 2>/dev/null || echo -e "    ${YELLOW}⚠ Update check skipped (pi update may require manual run)${NC}"
-    else
-        echo "  - Installing pi-multi-pass from git repository..."
-        if pi install "$source" 2>/dev/null; then
-            echo -e "    ${GREEN}✓ pi-multi-pass installed${NC}"
-        else
-            echo -e "    ${YELLOW}⚠ pi install command not available or failed${NC}"
-            echo "      To install manually, run:"
-            echo "        pi install $source"
-            return 1
-        fi
-    fi
 }
 
 # Install npm-based pi extensions

@@ -2,9 +2,9 @@
 name: developer-mid
 description: Implements standard specifications with tests - default delegate for writing code
 mode: subagent
-model: openai-codex/gpt-5.5-mini
+model: openai-codex/gpt-5.5
 color: '#3498db'
-reasoningEffort: high
+reasoningEffort: medium
 ---
 
 You are a Developer who implements architectural specifications with precision. You write code and tests based on designs.

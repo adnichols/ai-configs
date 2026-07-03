@@ -12,7 +12,6 @@ PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
 
 EXPECTED_GIT_PACKAGES=(
   "git:github.com/edxeth/pi-gpt-config"
-  "git:github.com/adnichols/pi-multi-pass"
 )
 
 EXPECTED_NPM_PACKAGES=(
@@ -50,7 +49,7 @@ from pathlib import Path
 settings_path = Path(sys.argv[1])
 web_search_path = Path(sys.argv[2])
 
-DEFAULT_PROVIDER = "openai-codex-4"
+DEFAULT_PROVIDER = "openai-codex"
 DEFAULT_MODEL = "gpt-5.5"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 SPARK_MODEL = "gpt-5.3-codex-spark"
@@ -78,7 +77,7 @@ for model in models:
         continue
     if model == SPARK_MODEL or model.endswith(f"/{SPARK_MODEL}"):
         continue
-    if model == "openai-codex-2/gpt-5.5":
+    if model.startswith("openai-codex-") and model.endswith(f"/{DEFAULT_MODEL}"):
         model = DEFAULT_MODEL_VALUE
     if model not in normalized:
         normalized.append(model)
@@ -226,9 +225,9 @@ echo "  Repo-managed extensions: find ~/.pi/agent/extensions -mindepth 1 -maxdep
 echo "  Package-managed installs: pi list"
 
 if repair_pi_model_defaults; then
-  echo "  Pi GPT 5.5 defaults repair: applied"
+  echo "  Pi local Codex defaults repair: applied"
 else
-  note_failure "unable to repair Pi GPT 5.5 defaults"
+  note_failure "unable to repair Pi local Codex defaults"
 fi
 
 if [ -f "$PI_AGENT_DIR/settings.json" ]; then
@@ -240,7 +239,7 @@ from pathlib import Path
 path = Path(sys.argv[1])
 data = json.loads(path.read_text())
 errors = []
-if data.get("defaultProvider") != "openai-codex-4":
+if data.get("defaultProvider") != "openai-codex":
     errors.append(f"defaultProvider={data.get('defaultProvider')!r}")
 if data.get("defaultModel") != "gpt-5.5":
     errors.append(f"defaultModel={data.get('defaultModel')!r}")
@@ -248,15 +247,15 @@ enabled = data.get("enabledModels", [])
 if not isinstance(enabled, list):
     errors.append("enabledModels is not a list")
 else:
-    if "openai-codex-4/gpt-5.5" not in enabled:
-        errors.append("enabledModels missing openai-codex-4/gpt-5.5")
+    if "openai-codex/gpt-5.5" not in enabled:
+        errors.append("enabledModels missing openai-codex/gpt-5.5")
     if any(isinstance(model, str) and "gpt-5.3-codex-spark" in model for model in enabled):
         errors.append("enabledModels still contains gpt-5.3-codex-spark")
 print("ok" if not errors else "; ".join(errors))
 PY
 )"
   if [ "$PI_MODEL_STATUS" = "ok" ]; then
-    echo "  Pi default model: openai-codex-4/gpt-5.5"
+    echo "  Pi default model: openai-codex/gpt-5.5"
   else
     note_failure "Pi default model settings are not GPT 5.5: $PI_MODEL_STATUS"
   fi
@@ -273,16 +272,22 @@ from pathlib import Path
 path = Path(sys.argv[1])
 data = json.loads(path.read_text())
 summary = data.get("summaryModel")
-print("ok" if summary == "openai-codex-4/gpt-5.5" else repr(summary))
+print("ok" if summary == "openai-codex/gpt-5.5" else repr(summary))
 PY
 )"
   if [ "$PI_WEB_SEARCH_STATUS" = "ok" ]; then
-    echo "  Pi web-search summary model: openai-codex-4/gpt-5.5"
+    echo "  Pi web-search summary model: openai-codex/gpt-5.5"
   else
-    note_failure "Pi web-search summaryModel is not GPT 5.5: $PI_WEB_SEARCH_STATUS"
+    note_failure "Pi web-search summaryModel is not local Codex GPT 5.5: $PI_WEB_SEARCH_STATUS"
   fi
 else
   note_failure "Pi web-search config is missing: $PI_WEB_SEARCH_PATH"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-multi-pass'; then
+  note_failure "pi-multi-pass is still registered; local openai-codex should be the only Codex route"
+else
+  echo "  pi-multi-pass registration: absent"
 fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"

@@ -1,5 +1,90 @@
 {
   "providers": {
+    "openai-codex": {
+      "name": "OpenAI Codex (local CLI Proxy API)",
+      "baseUrl": "http://127.0.0.1:8318/v1",
+      "api": "openai-completions",
+      "apiKey": "local-cliproxyapi",
+      "compat": {
+        "supportsDeveloperRole": true,
+        "supportsReasoningEffort": true,
+        "supportsUsageInStreaming": true
+      },
+      "models": [
+        {
+          "id": "gpt-5.3-codex-spark",
+          "name": "GPT-5.3 Codex Spark (CLI Proxy API)",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "minimal": "low",
+            "xhigh": "xhigh"
+          },
+          "input": ["text"],
+          "cost": {
+            "input": 1.75,
+            "output": 14,
+            "cacheRead": 0.175,
+            "cacheWrite": 0
+          },
+          "contextWindow": 128000,
+          "maxTokens": 128000
+        },
+        {
+          "id": "gpt-5.4",
+          "name": "GPT-5.4 (CLI Proxy API)",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "minimal": "low",
+            "xhigh": "xhigh"
+          },
+          "input": ["text", "image"],
+          "cost": {
+            "input": 2.5,
+            "output": 15,
+            "cacheRead": 0.25,
+            "cacheWrite": 0
+          },
+          "contextWindow": 272000,
+          "maxTokens": 128000
+        },
+        {
+          "id": "gpt-5.4-mini",
+          "name": "GPT-5.4 mini (CLI Proxy API)",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "minimal": "low",
+            "xhigh": "xhigh"
+          },
+          "input": ["text", "image"],
+          "cost": {
+            "input": 0.75,
+            "output": 4.5,
+            "cacheRead": 0.075,
+            "cacheWrite": 0
+          },
+          "contextWindow": 272000,
+          "maxTokens": 128000
+        },
+        {
+          "id": "gpt-5.5",
+          "name": "GPT-5.5 (CLI Proxy API)",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "minimal": "low",
+            "xhigh": "xhigh"
+          },
+          "input": ["text", "image"],
+          "cost": {
+            "input": 5,
+            "output": 30,
+            "cacheRead": 0.5,
+            "cacheWrite": 0
+          },
+          "contextWindow": 272000,
+          "maxTokens": 128000
+        }
+      ]
+    },
     "opencode": {
       "modelOverrides": {
         "glm-5.2": {
