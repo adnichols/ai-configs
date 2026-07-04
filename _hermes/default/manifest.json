@@ -17,9 +17,9 @@
       "sha256": "38199f2625612e9547f14a62c2fd7964d0998ff37a0ea50c45e6627b7a1bb123"
     },
     {
-      "bytes": 20817,
+      "bytes": 20833,
       "path": "config/config.yaml",
-      "sha256": "8e7aca6ef40bfcc54e1204038b12564d13bcaf017fc057b2df2bba5f3391bc50"
+      "sha256": "bb7eebcc19685416572db6d86601b333476241098d942ede641aeec56826c719"
     },
     {
       "bytes": 16819,
@@ -112,9 +112,9 @@
       "sha256": "2765a846e1bb371d78d3b93b403dfb0f8d1ba1a9895edb5f608367abfe81194d"
     },
     {
-      "bytes": 13986,
+      "bytes": 13991,
       "path": "profiles/nerd/config/config.yaml",
-      "sha256": "c6b9990a02d154d324aa25ce41fba72a96cd6f62ebcede99842dea9a9d0370d9"
+      "sha256": "c6ea157f7b064376b2cf0ad8367a450ee6391fba8750c4b0d6ee8d5bfbecdc5f"
     },
     {
       "bytes": 1385,
@@ -3517,9 +3517,9 @@
       "sha256": "2765a846e1bb371d78d3b93b403dfb0f8d1ba1a9895edb5f608367abfe81194d"
     },
     {
-      "bytes": 12385,
+      "bytes": 12392,
       "path": "profiles/writing/config/config.yaml",
-      "sha256": "f9590046f8c8309fab6bfec3e557d7a5e0336781b966c7f2f81ea77d6a7cc119"
+      "sha256": "c9d3864e4d625271493c5daaf945bb50905f7cf83107525be31c982183b10e65"
     },
     {
       "bytes": 545,

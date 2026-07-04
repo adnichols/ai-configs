@@ -154,8 +154,8 @@ auxiliary:
     extra_body: {}
   compression:
     provider: custom
-    model: gpt-5.5
-    base_url: http://localhost:8317/v1
+    model: gpt-5.4-mini
+    base_url: http://localhost:8318/v1
     api_key: ''
     timeout: 120
     extra_body: {}

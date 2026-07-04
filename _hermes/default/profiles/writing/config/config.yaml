@@ -168,9 +168,9 @@ auxiliary:
     timeout: 360
     extra_body: {}
   compression:
-    provider: auto
-    model: google/gemini-3-flash-preview
-    base_url: ''
+    provider: custom
+    model: gpt-5.4-mini
+    base_url: http://localhost:8318/v1
     api_key: ''
     timeout: 120
     extra_body: {}
