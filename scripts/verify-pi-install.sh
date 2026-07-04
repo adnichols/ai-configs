@@ -285,13 +285,13 @@ else
 fi
 
 if command -v pi >/dev/null 2>&1; then
-  if pi --list-models 'openai-codex/gpt-5.5' 2>/dev/null | grep -Fq 'gpt-5.5'; then
+  if pi --list-models 'openai-codex/gpt-5.5' 2>/dev/null | grep -Eq '^[[:space:]]*openai-codex[[:space:]]+gpt-5\.5([[:space:]]|$)'; then
     echo "  Pi reviewer GPT model route: openai-codex/gpt-5.5"
   else
     note_failure "Pi cannot resolve reviewer GPT model route openai-codex/gpt-5.5"
   fi
 
-  if pi --list-models 'opencode/glm-5.2' 2>/dev/null | grep -Fq 'glm-5.2'; then
+  if pi --list-models 'opencode/glm-5.2' 2>/dev/null | grep -Eq '^[[:space:]]*opencode[[:space:]]+glm-5\.2([[:space:]]|$)'; then
     echo "  Pi reviewer GLM model route: opencode/glm-5.2"
   else
     note_failure "Pi cannot resolve reviewer GLM model route opencode/glm-5.2"
