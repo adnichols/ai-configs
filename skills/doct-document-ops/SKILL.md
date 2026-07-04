@@ -73,7 +73,7 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 | Update a registered plan | `doct-agent plans update --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --source-format html --expected-version <version> --json` |
 | Show a registered plan | `doct-agent plans show --id <document-id> --json` |
 | Watch/sync a plan source file | `doct-agent plans watch --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --json` |
-| Start durable plan comment listener | `doct-agent plans listen --workspace-id <workspace-id> --document-id <document-id> --jsonl` |
+| Start Codex-observable plan comment listener | `doct-agent plans agent next --workspace-id <workspace-id> --document-id <document-id> --wait --json` |
 | Inspect plan queue | `doct-agent plans queue list --workspace-id <workspace-id> --document-id <document-id> --json` |
 | Drain / claim next plan item | `doct-agent plans agent next --workspace-id <workspace-id> --document-id <document-id> --no-wait --json`; use `--wait` only for one-shot listener/recovery flows |
 | Reply / ack / resolve / release plan item | `doct-agent plans <reply\|ack\|resolve\|release> ... --thread-id <thread-id> --claim-id <claim-id> --json` |
@@ -181,23 +181,39 @@ After registration:
 1. Run the returned `lifecycleCommand`, or equivalent `doct-agent plans lifecycle --state active`, before draining/listening.
 2. Leave the plan in its registration/default board column, normally `backlog`, unless the user explicitly requested a board move. Registration and browser-review handoff do not mean implementation is underway.
 3. Drain pending work with the returned `drainCommand` (`doct-agent plans agent next ... --no-wait --json`) until it returns `status: "empty"`.
-4. Start the durable listener in the active agent harness background process so listener output is delivered to the agent. Prefer `listenerInstructions.startCommand` when present (`doct-agent plans listen ... --jsonl`); otherwise use the returned `preferredCommand`/`durableCommand`. Name the process with the plan/document id when the harness supports it.
-5. Do not process claims inline inside the listener. When a listener event or `agent next --wait` result claims a browser comment, dispatch the claim payload and returned commands to a sub-agent or a clearly separate worker step, then keep or restart the listener.
-6. Keep the listener running until the plan is complete, no longer active, or the user explicitly stops review. If the listener cannot be started, report that as a handoff blocker before telling the user to annotate the plan.
-
-Agent background-process example:
+4. In Codex, start the observable one-claim listener with the `exec_command` tool, using the registration's `listenerInstructions.preferredCommand` or `listenerInstructions.listenCommand` when it is a `doct-agent plans agent next ... --wait --json` command. This command is quiet while the queue is empty; when a routed plan-review comment arrives, the subprocess returns a JSON claim payload and the Codex session is woken with the thread id, claim id, selected anchor, comment body, and reply/ack/resolve/release commands.
+5. Use a bounded wait command, not a polling loop. Set the CLI timeout explicitly when useful:
 
 ```bash
-doct-agent plans listen \
+doct-agent plans agent next \
   --base-url https://doct.nodaste.com \
   --workspace-id <workspace-id> \
   --document-id <document-id> \
-  --jsonl
+  --wait \
+  --timeout 300 \
+  --json
+```
+
+In Codex, launch that with `exec_command` and a matching `yield_time_ms` window so the tool call stays silent until a claim arrives or the timeout expires. If the tool returns `Process running with session ID ...`, preserve that session id; that subprocess handle is the source of truth for future claim output.
+6. A routed work item is created by the browser's agent action or by `doct-agent plans comments add --submit-action agent ...`. Ordinary conversation comments use `submitAction: "conversation"`, return `queueState: "none"`, and intentionally do not wake the plan-review listener.
+7. When the listener returns a claim, process exactly that claim in a separate worker step or sub-agent, then reply/ack/resolve/release with the returned commands. Start the next one-claim listener only after the current claim is no longer leased to this agent.
+8. If Codex cannot keep an observable `exec_command`/subprocess handle for the one-claim listener, report `LISTENER_START_BLOCKED` and leave the browser-review handoff incomplete.
+
+Codex observable-listener example:
+
+```bash
+doct-agent plans agent next \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --wait \
+  --timeout 300 \
+  --json
 ```
 
 Use the exact command returned by `listenerInstructions` when it differs from this example.
 
-`plans watch` is only source sync/debug visibility and does not replace the comment listener.
+`plans listen --jsonl` is an advanced compatibility supervisor for environments that have a real process supervisor and dispatcher. In Codex, prefer the one-claim `plans agent next --wait --json` command because it wakes the active session with a claim payload and then exits for claim handling. `plans watch` is only source sync/debug visibility and does not replace the comment listener.
 
 ## Publish Markdown/text plans
 

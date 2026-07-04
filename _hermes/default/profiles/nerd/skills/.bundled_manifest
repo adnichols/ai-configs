@@ -9,7 +9,7 @@ audiocraft-audio-generation:c207bdbf300ea5c42decc9cb6a596d1c
 baoyu-infographic:53edf7d1b9398d62f4ccb0755e27913e
 blogwatcher:3f30bdd408c771501b94fab9289579c6
 claude-code:88bbb9f0e26f8148141da379e4e837c5
-claude-design:c1b63b7651b66fd15d096e57728ec686
+claude-design:a839ed75e38167058cb363f63b64c6a3
 codebase-inspection:29f67c87df868dd08e76c57b86c7a5c6
 codex:3e48be1586b09bb5ecc5820ce39ab51c
 comfyui:c9ac1497c123c607f98a547f8cf54fc5
@@ -25,7 +25,7 @@ github-code-review:cfe8ce04ccfa4cdc48f32df03ee0cdc5
 github-issues:44d17590399829f4ea8adf77b67e38a9
 github-pr-workflow:834e9cd72f18ea4598934d8d253b5858
 github-repo-management:8479a9fb418f8dcfbbb191caaeccaa37
-google-workspace:adba04d5ee3a00dab492e2c3009ce4e7
+google-workspace:95a0ff7299f92be6107d9051ab723e6b
 heartmula:96a5927a5f221065260ddb2e0f1d77ec
 hermes-agent:b3f1141539a804544d3b9d3bac4a3af6
 hermes-agent-skill-authoring:c3aebbef0762f3a39a2c3433eadb19f6
@@ -54,7 +54,7 @@ powerpoint:00a6eb2ad4b7be22c1eabf6c19158836
 pretext:f17f2b6211eb81b96e1fc5d48ecc96a4
 python-debugpy:b87e0abf179c14ea51c7559dc99eb22c
 requesting-code-review:f76de34aee69387c297cf982c85fd6fe
-research-paper-writing:dbe2d301baeaab5c5b0539a733233a34
+research-paper-writing:caf8f129ab2c78a43f27648868c667a1
 segment-anything-model:7f1317da421fb8eada27aeacdbb21d30
 serving-llms-vllm:92d66ae1f1112924634fcdcff2f86bc7
 simplify-code:ce60afb0693d241e54dcb4eb73f98e4b

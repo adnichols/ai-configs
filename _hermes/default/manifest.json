@@ -1,5 +1,5 @@
 {
-  "file_count": 1680,
+  "file_count": 1686,
   "files": [
     {
       "bytes": 819,
@@ -17,14 +17,14 @@
       "sha256": "38199f2625612e9547f14a62c2fd7964d0998ff37a0ea50c45e6627b7a1bb123"
     },
     {
-      "bytes": 20827,
+      "bytes": 20817,
       "path": "config/config.yaml",
-      "sha256": "6700fda7e1132352cb7718acb7a24e1eefd87f30728bbb703b247116109faff7"
+      "sha256": "8e7aca6ef40bfcc54e1204038b12564d13bcaf017fc057b2df2bba5f3391bc50"
     },
     {
-      "bytes": 7499,
+      "bytes": 16819,
       "path": "cron/jobs.json",
-      "sha256": "9fd585a4a6a3251afd937cc590fff28d04c687c3314a3da01a1ded9cbe5822f4"
+      "sha256": "215ce041642af38e14d7c1e79a352802d8134d39c830821d485002dcc5fde5d1"
     },
     {
       "bytes": 508,
@@ -119,7 +119,7 @@
     {
       "bytes": 1385,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "3aac96efd585871fabbf257eaa8117212a5c915a2400f84328adb5ab2d5ccdf3"
+      "sha256": "6f6b1ebe9d46a8c0f56623aadc16b7bff403300650b847d9a7cde76af83500e4"
     },
     {
       "bytes": 2157,
@@ -149,7 +149,7 @@
     {
       "bytes": 3365,
       "path": "profiles/nerd/skills/.bundled_manifest",
-      "sha256": "5b4e9d9a54b159213745fb900ddc2ce1ed6ce343366c32aa7062698c45d9aec8"
+      "sha256": "8732735714c93cee5d205ab7b54516e5bbe6d6bb67c4e9c5472330401fc49a52"
     },
     {
       "bytes": 152,
@@ -942,9 +942,9 @@
       "sha256": "9a27502ab6bba76ad042cfa08834053f9e563c76cc8ffb46456cd3db2a6523a3"
     },
     {
-      "bytes": 19859,
+      "bytes": 25117,
       "path": "profiles/nerd/skills/creative/claude-design/SKILL.md",
-      "sha256": "4c24fb9579a06f165205b212105f7eb906cada8cce1290319d677195da2d45a7"
+      "sha256": "1582b0d49e48bdf937b2f555098484e0979cdfa285c6cc9fa329ba8e416d347a"
     },
     {
       "bytes": 24287,
@@ -2587,9 +2587,9 @@
       "sha256": "145552fc47b6960d2f4275511bdaafe07865281f8018272384bca391a4f8039a"
     },
     {
-      "bytes": 10545,
+      "bytes": 13411,
       "path": "profiles/nerd/skills/productivity/google-workspace/SKILL.md",
-      "sha256": "f4711ff561de7bb6c1261138250c86a0a72d66efea6702c1b8b15c25f4a5c902"
+      "sha256": "014a4818ee1b363d11fafa2353bcea4fd4f8e0c0802322708023d3cd2e3f43b6"
     },
     {
       "bytes": 2150,
@@ -2602,19 +2602,19 @@
       "sha256": "a8861702cefda8684e1bec353044dafc0c52dbdd85cf02bc21454126b596baf5"
     },
     {
-      "bytes": 30051,
+      "bytes": 43483,
       "path": "profiles/nerd/skills/productivity/google-workspace/scripts/google_api.py",
-      "sha256": "9d62fd2ad22ef6b0d4391338591d71a6defa65bf40e35f87d3a8ba545340b8ec"
+      "sha256": "1e9997a0cdbc5668ea5caa0bd8cfa09e33bb467b9f5df8cf962bab5ff3b20543"
     },
     {
-      "bytes": 3483,
+      "bytes": 3648,
       "path": "profiles/nerd/skills/productivity/google-workspace/scripts/gws_bridge.py",
-      "sha256": "a27fd9195ca4d84e0fbe4048d78fc1711ea7ba4e23fb45c751f98eaf31629272"
+      "sha256": "e8b6d7f492d33e3643ff8a27712aef75f51d9c95ba6b4ec736f555337023bc81"
     },
     {
-      "bytes": 15092,
+      "bytes": 18743,
       "path": "profiles/nerd/skills/productivity/google-workspace/scripts/setup.py",
-      "sha256": "a823d1411def32e25ba08df7d93b98b3a18499faeb045972c2f9b9641c3dee10"
+      "sha256": "a38450fcd6bc17be68fc30dccc4829b22cc892dd7da400fd6bc57dc4391e1c29"
     },
     {
       "bytes": 8525,
@@ -3132,9 +3132,9 @@
       "sha256": "7873e054539a8c782a671dd84686e1ee763e29fe20245c1d10798b767d76980f"
     },
     {
-      "bytes": 103375,
+      "bytes": 103674,
       "path": "profiles/nerd/skills/research/research-paper-writing/SKILL.md",
-      "sha256": "5bc92cec8357a19d71b1c10c5590ab605e846e4ddd914512511f8281a6053186"
+      "sha256": "46868cf4a15f2da01874d5299ad1956a38cc92b7198c13eb41a36dad0ff6f9e6"
     },
     {
       "bytes": 19146,
@@ -4857,14 +4857,14 @@
       "sha256": "412fd639caf735e2250ac458c2ba4bad3bae29188341dc58613d024af2a70bdc"
     },
     {
-      "bytes": 14360,
+      "bytes": 16259,
       "path": "scripts/gm_plan_comment_listener.py",
-      "sha256": "a195428e7167c6f83c68a8cb7de0bdb060484f6bc8fd60aff4a94f4a49d9a810"
+      "sha256": "6271842999178182f4d45219f3e6ec14e5fe65f2b47a3f8a76dc2d035cf439ce"
     },
     {
-      "bytes": 4904,
+      "bytes": 5588,
       "path": "scripts/gm_plan_comment_supervisor.py",
-      "sha256": "72c1a5afbb31673e117702fb8b9cc0f98be9bec09b8c9031652327194e380dc6"
+      "sha256": "c716d90865140effa38e4c9dc580fc13e27d0c29f10f59812f1964c36356a0ba"
     },
     {
       "bytes": 247,
@@ -4902,6 +4902,11 @@
       "sha256": "2a1e890c5099c10e25656a767d837ff5f35554f4bc246c285ad94bc58c0ccad2"
     },
     {
+      "bytes": 10554,
+      "path": "scripts/nod1190_pr_review_watch.py",
+      "sha256": "45e1935828c61dc23d31ac2a44f806cca79902642ca205c2063b000cde01db35"
+    },
+    {
       "bytes": 5192,
       "path": "scripts/obsidian_signal_watch.py",
       "sha256": "4b770a662a3cb736a4ed2878d03b26ca1d6ecd1544a56641ea11941f9b88f41e"
@@ -4929,7 +4934,7 @@
     {
       "bytes": 3319,
       "path": "skills/.bundled_manifest",
-      "sha256": "128b6875a063f3d0374f18c7db8230fb7a316c519f07c64e07343ecb633822c1"
+      "sha256": "0e2feaef7b078a15844022285f8ab76e3b4b7bf7dd8f46209bac1ed9f932ad90"
     },
     {
       "bytes": 152,
@@ -5732,9 +5737,9 @@
       "sha256": "9a27502ab6bba76ad042cfa08834053f9e563c76cc8ffb46456cd3db2a6523a3"
     },
     {
-      "bytes": 19859,
+      "bytes": 25117,
       "path": "skills/creative/claude-design/SKILL.md",
-      "sha256": "4c24fb9579a06f165205b212105f7eb906cada8cce1290319d677195da2d45a7"
+      "sha256": "1582b0d49e48bdf937b2f555098484e0979cdfa285c6cc9fa329ba8e416d347a"
     },
     {
       "bytes": 24287,
@@ -6597,14 +6602,19 @@
       "sha256": "8a204e6f6215395afa1d8907fbfcc9576988c08022557e7ab93de3f77c3f6698"
     },
     {
-      "bytes": 4619,
+      "bytes": 5464,
       "path": "skills/devops/hermes-maintenance/SKILL.md",
-      "sha256": "3aa06db58074543cda8ecb1ef84ce61977d435fc68b3da35e83177c21f7de8a0"
+      "sha256": "834f6d69a5daaaa7e0202e17c9d29544a9df91ba28a513a8eea6ae6d9500e40e"
     },
     {
       "bytes": 2524,
       "path": "skills/devops/hermes-maintenance/references/2026-06-post-update-maintenance.md",
       "sha256": "143381c91aec2b48dba9a5973c6ff0822716adba465c4d8e4d6e0221e9c33ff0"
+    },
+    {
+      "bytes": 4258,
+      "path": "skills/devops/hermes-maintenance/references/2026-07-compaction-model-routing.md",
+      "sha256": "58fa7ad4cb39cc11210fb2843e8a41f8500a54f03a4f489210bf485ac14e0414"
     },
     {
       "bytes": 15831,
@@ -7357,9 +7367,9 @@
       "sha256": "b5a494a45bfd430bfb3042ee0452a6b88c81481f147ce7fca2c29ed3e93c490a"
     },
     {
-      "bytes": 30561,
+      "bytes": 31801,
       "path": "skills/productivity/aaron-good-morning/SKILL.md",
-      "sha256": "9d847db9f21f82290687e43d524e47f40d448864b2ff2cbcf70e084080944c65"
+      "sha256": "ecaf92e2589c33d46bb793a0aaffc1aaeda2348d1db7200a6ee2b94ad5555e0e"
     },
     {
       "bytes": 1974,
@@ -7372,14 +7382,19 @@
       "sha256": "1c0f9cc556335d431cdb3738d75fed612da563eb4e73818509e976b189fd4305"
     },
     {
-      "bytes": 1928,
+      "bytes": 2156,
       "path": "skills/productivity/aaron-good-morning/references/gm-deterministic-publish-state-2026-06-28.md",
-      "sha256": "04ea60fb91c646d7c2b3a94445d6e490a0044558dc0a2302b6be3fd448efa2ff"
+      "sha256": "f7d279fa08b4454a7aa36a70ab9d6d0f2310932bc53f732385039813e93ac95f"
     },
     {
       "bytes": 3227,
       "path": "skills/productivity/aaron-good-morning/references/gm-deterministic-runtime-comparison-2026-06-29.md",
       "sha256": "87e3b174486fe80c76ed541483ee41674defd5b407ba1e4ea3ef001e4bbdc4a1"
+    },
+    {
+      "bytes": 2839,
+      "path": "skills/productivity/aaron-good-morning/references/gm-doct-publish-listener-migration-2026-07-03.md",
+      "sha256": "dad6b2a55c28b702252933b8ed59c12f39a8a7ca813e729f7c2a1bfb5a82b9df"
     },
     {
       "bytes": 5076,
@@ -7417,24 +7432,34 @@
       "sha256": "0eb6aae48a76ad4c522b2b3100438236837d90584d6f3cc8496f08c372a6ab9a"
     },
     {
-      "bytes": 23003,
+      "bytes": 26750,
       "path": "skills/productivity/doct-document-ops/SKILL.md",
-      "sha256": "ecea8466eb90f01b144c4d4b5c7b0932bcd58650eac4773b8b18a9c3481fad25"
+      "sha256": "7587444f714ecce0a908f72cfd772247a17597e6760c4f5f120175723b08dc97"
     },
     {
-      "bytes": 2569,
+      "bytes": 3859,
       "path": "skills/productivity/doct-document-ops/references/coding-plan-archive-audit-pattern.md",
-      "sha256": "37ada9cbc783d2dece3fde23ceb735b9fcfecaed7b2005df33a9195cb1e34fa3"
+      "sha256": "3a48bf631945eef50c9b5ddb67b1619bd24d6e1bab2263c16bf7c9130bb6d2ad"
     },
     {
-      "bytes": 17010,
+      "bytes": 17784,
       "path": "skills/productivity/doct-document-ops/references/doct-agent-commands.md",
-      "sha256": "9269caab38438e71c7e34129df1e490b601dbb8d02e77cc903af121d0e9b9ecc"
+      "sha256": "ad8a22892f0bfb81e3d8a374e9e310b0d5f29e51ff8e113c6959bacc84a6294c"
     },
     {
       "bytes": 2021,
       "path": "skills/productivity/doct-document-ops/references/doct-plan-comment-dispatcher-pattern.md",
       "sha256": "7392faf47b47a7e22f2aa2d1f06ad5a60c54002f7ba4541a99ac411a475aea5b"
+    },
+    {
+      "bytes": 2532,
+      "path": "skills/productivity/doct-document-ops/references/doct-plan-update-versioning-and-listeners.md",
+      "sha256": "8a12443ee98cfa0c64101edfbdbc45dacc0d4f6f729d8487cbca9805e1fd6393"
+    },
+    {
+      "bytes": 2790,
+      "path": "skills/productivity/doct-document-ops/references/linear-issue-coverage-audit-pattern.md",
+      "sha256": "4dd7fc27aeea185aff9a615799519d9d289d8eabe15850208e264088472f8e94"
     },
     {
       "bytes": 1513,
@@ -7507,9 +7532,9 @@
       "sha256": "f1ebbe3e333153382235f120f6e23231c23df04651d2434201d4d29d2c723783"
     },
     {
-      "bytes": 19756,
+      "bytes": 20271,
       "path": "skills/productivity/linear/SKILL.md",
-      "sha256": "fa1b0d72d596710677d7a0c81faca0066c79c51a6b281a4335ccc1e53eb2afda"
+      "sha256": "f2b4c3a30018d21fdec1cd79b7586893faf81fb6fafab9c85d9f551787124532"
     },
     {
       "bytes": 3819,
@@ -7582,9 +7607,9 @@
       "sha256": "ca52cda72a9c49d60c4a3c2dbfa6c64c87e62562857b598599cc496b30116fd1"
     },
     {
-      "bytes": 27896,
+      "bytes": 28165,
       "path": "skills/productivity/pi-coding-workflow/SKILL.md",
-      "sha256": "c258f3075d4bf0a900b9490e2c08aef71b5f93f17a63a6000749912441d06dc2"
+      "sha256": "4db59f200a7a1b339e021d093f7829c8bb1db241c8a20cb8c0d9320418212bd7"
     },
     {
       "bytes": 571,
@@ -7982,9 +8007,9 @@
       "sha256": "7873e054539a8c782a671dd84686e1ee763e29fe20245c1d10798b767d76980f"
     },
     {
-      "bytes": 103375,
+      "bytes": 103674,
       "path": "skills/research/research-paper-writing/SKILL.md",
-      "sha256": "5bc92cec8357a19d71b1c10c5590ab605e846e4ddd914512511f8281a6053186"
+      "sha256": "46868cf4a15f2da01874d5299ad1956a38cc92b7198c13eb41a36dad0ff6f9e6"
     },
     {
       "bytes": 19146,
@@ -8342,6 +8367,11 @@
       "sha256": "a899069b7913c4ee65f71175772d3fde62f6b1261a8af8e5350b7df7e5fe42f9"
     },
     {
+      "bytes": 8511,
+      "path": "skills/software-development/plan-reviewer-execution-ready/SKILL.md",
+      "sha256": "db94eb623964312edfe80500e6c232cf4363fe78f3ea10ad321e03cb9ac5129a"
+    },
+    {
       "bytes": 19635,
       "path": "skills/software-development/planning-workflow/SKILL.md",
       "sha256": "e32e910ca74cbe0e3fada792b291af7328b4a0207a3ee5a402246e4cbeb8e5aa"
@@ -8402,8 +8432,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260703T180127Z",
+  "generated_at": "20260704T214404Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/home/anichols/.hermes"
+  "source_home": "/Users/anichols/.hermes"
 }

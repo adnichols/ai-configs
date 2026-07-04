@@ -7,8 +7,8 @@ A manual recovery run of the deterministic Good Morning cron produced and publis
 ## Durable lessons
 
 - After a real `--publish`, do not run same-date `--dry-run` as a validation step unless you intentionally want to overwrite the run checkpoint.
-- Prefer validating the wrapper with a non-publishing test date, `--skip-live` smoke test, unit tests, or direct artifact/plan-review/Todoist/registry checks.
-- If same-date dry-run validation already overwrote publish metadata, restore `runs/YYYY-MM-DD/manifest.json` and `publish.json` from the verified plan-review URL, plan id, Todoist task id, and registry entry.
+- Prefer validating the wrapper with a non-publishing test date, `--skip-live` smoke test that is not the current published date, unit tests, or direct artifact/Doct/Todoist/registry checks.
+- If same-date dry-run validation already overwrote publish metadata, restore `runs/YYYY-MM-DD/manifest.json` and `publish.json` from the verified review URL, document/plan id, Todoist task id, and registry entry. If the dry run also overwrote the generated HTML with partial data, immediately rerun the full deterministic collector for that date, then restore the publish block again from verified state.
 - Cron fidelity matters: the wrapper should pass `GM_JOB_ID=039f96dcecfc` and `GM_JOB_NAME="Daily Good Morning HTML Plan + Todoist Review"` into the deterministic runner so `active-plans.json` shows the real owning cron job, not `manual`.
 
 ## Verification checklist

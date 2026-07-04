@@ -196,9 +196,9 @@ doct-agent plans watch \
 
 Run long-lived watch commands with the harness background-process tool. `plans watch` syncs source changes; it is not the queue-backed comment listener.
 
-### Start the durable plan comment listener
+### Start the Codex-observable plan comment listener
 
-Every reviewer-facing registration returns `listenerInstructions`. Follow that object before browser-review handoff: set lifecycle active, leave the plan in its registration/default board column (normally `backlog`), drain pending claims, then start the durable listener. Do not move a plan to `in_progress` during registration or browser-review setup; execution workflows such as `run-plan` do that when implementation starts.
+Every reviewer-facing registration returns `listenerInstructions`. Follow that object before browser-review handoff: set lifecycle active, leave the plan in its registration/default board column (normally `backlog`), drain pending claims, then start an observable one-claim listener. Do not move a plan to `in_progress` during registration or browser-review setup; execution workflows such as `run-plan` do that when implementation starts.
 
 ```bash
 # Drain pending work until status is empty
@@ -209,15 +209,31 @@ doct-agent plans agent next \
   --no-wait \
   --json
 
-# Durable listener / dispatcher
-doct-agent plans listen \
+# Codex observable one-claim listener
+doct-agent plans agent next \
   --base-url https://doct.nodaste.com \
   --workspace-id <workspace-id> \
   --document-id <document-id> \
-  --jsonl
+  --wait \
+  --timeout 300 \
+  --json
+
+# Create a routed smoke-test comment when verifying wake behavior
+doct-agent plans comments add \
+  --base-url https://doct.nodaste.com \
+  --document-id <document-id> \
+  --workspace-id <workspace-id> \
+  --node-id <stable-html-id> \
+  --submit-action agent \
+  --body 'Smoke test routed plan-review comment.' \
+  --json
 ```
 
-The listener is infrastructure, not the worker. Dispatch each `plan_comment_dispatch` JSONL event to a sub-agent or separate worker step with the payload and returned commands; do not edit, ack, resolve, or release inline in the listener loop. Keep the listener running until the plan is complete or no longer active. If `listenerInstructions.startCommand`, `preferredCommand`, or `durableCommand` differs from these examples, prefer the returned command.
+In Codex, run the one-claim listener with the `exec_command` tool and a matching `yield_time_ms` window. It is quiet while waiting. When a routed browser action or `--submit-action agent` comment arrives, it returns one JSON claim payload and wakes the active session with the returned reply/ack/resolve/release commands. Process that claim, then start the next one-claim listener.
+
+Ordinary conversation comments are not routed work: they return `queueState: "none"` and do not wake the listener. Use them only for visible discussion, not for listener wake tests.
+
+`doct-agent plans listen --jsonl` is retained for advanced compatibility supervisors that can dispatch JSONL events to workers. The Codex path is the one-claim `plans agent next --wait --json` command because it is directly observable by the active session.
 
 ### Show plan state
 
@@ -395,7 +411,7 @@ doct-agent workspaces list --base-url https://doct.nodaste.com --json
 doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/example.html --source-format html --allow-untemplated --json
 doct-agent plans lifecycle --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --state active --json
 doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --no-wait --json
-doct-agent plans listen --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --jsonl
+doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --wait --timeout 300 --json
 doct-agent plans update --base-url https://doct.nodaste.com --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/example.html --source-format html --expected-version <version> --json
 doct-agent plans queue list --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json
 doct-agent documents list --workspace-id <id> --json

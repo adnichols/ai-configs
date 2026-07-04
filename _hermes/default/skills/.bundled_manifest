@@ -9,7 +9,7 @@ audiocraft-audio-generation:c207bdbf300ea5c42decc9cb6a596d1c
 baoyu-infographic:53edf7d1b9398d62f4ccb0755e27913e
 blogwatcher:3f30bdd408c771501b94fab9289579c6
 claude-code:231f7e3cb0b2b91f64ce4b23fc2cef4d
-claude-design:c1b63b7651b66fd15d096e57728ec686
+claude-design:a839ed75e38167058cb363f63b64c6a3
 codebase-inspection:29f67c87df868dd08e76c57b86c7a5c6
 codex:66a8aa156673b5dd6e82c4e62f04ba3a
 comfyui:c9ac1497c123c607f98a547f8cf54fc5
@@ -53,7 +53,7 @@ powerpoint:00a6eb2ad4b7be22c1eabf6c19158836
 pretext:f17f2b6211eb81b96e1fc5d48ecc96a4
 python-debugpy:b87e0abf179c14ea51c7559dc99eb22c
 requesting-code-review:f7e902570802e21f340955384385abda
-research-paper-writing:dbe2d301baeaab5c5b0539a733233a34
+research-paper-writing:caf8f129ab2c78a43f27648868c667a1
 segment-anything-model:7f1317da421fb8eada27aeacdbb21d30
 serving-llms-vllm:92d66ae1f1112924634fcdcff2f86bc7
 simplify-code:ce60afb0693d241e54dcb4eb73f98e4b

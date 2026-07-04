@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Quiet supervisor for owned Good Morning plan-review listeners.
+"""Quiet supervisor for owned Good Morning Doct plan listeners.
 
 No stdout unless something is genuinely wrong. Intended for no_agent cron.
 """
@@ -8,13 +8,12 @@ from __future__ import annotations
 import json
 import os
 import pathlib
-import signal
 import subprocess
 import sys
 import time
 from typing import Any
 
-BASE_URL = "http://mbp.braid-python.ts.net:4317"
+BASE_URL = "https://doct.nodaste.com"
 STATE_DIR = pathlib.Path.home() / ".hermes" / "state" / "gm-plan-maintainer"
 REGISTRY = STATE_DIR / "active-plans.json"
 PID_DIR = STATE_DIR / "pids"
@@ -58,20 +57,24 @@ def pid_alive(pid: int) -> bool:
         return False
 
 
-def cmdline_contains(pid: int, plan_id: str) -> bool:
+def entry_document_id(item: dict[str, Any]) -> str:
+    return str(item.get("document_id") or item.get("plan_id") or "")
+
+
+def cmdline_contains(pid: int, document_id: str) -> bool:
     try:
         cp = subprocess.run(["ps", "-p", str(pid), "-o", "command="], text=True, capture_output=True, timeout=5)
-        return cp.returncode == 0 and "gm_plan_comment_listener.py" in cp.stdout and plan_id in cp.stdout
+        return cp.returncode == 0 and "gm_plan_comment_listener.py" in cp.stdout and document_id in cp.stdout
     except Exception:
         return False
 
 
-def listener_running(plan_id: str) -> bool:
-    pid_file = PID_DIR / f"{plan_id}.pid"
+def listener_running(document_id: str) -> bool:
+    pid_file = PID_DIR / f"{document_id}.pid"
     if pid_file.exists():
         try:
             pid = int(pid_file.read_text(encoding="utf-8").strip())
-            if pid_alive(pid) and cmdline_contains(pid, plan_id):
+            if pid_alive(pid) and cmdline_contains(pid, document_id):
                 return True
         except Exception:
             pass
@@ -80,37 +83,45 @@ def listener_running(plan_id: str) -> bool:
         except Exception:
             pass
     try:
-        cp = subprocess.run(["pgrep", "-f", f"gm_plan_comment_listener.py {plan_id}"], text=True, capture_output=True, timeout=5)
+        cp = subprocess.run(["pgrep", "-f", f"gm_plan_comment_listener.py {document_id}"], text=True, capture_output=True, timeout=5)
         return cp.returncode == 0 and bool(cp.stdout.strip())
     except Exception:
         return False
 
 
-def plan_lifecycle(plan_id: str) -> str:
-    cp = subprocess.run(["plan-review", "show", plan_id, "--url", BASE_URL, "--json"], cwd=str(OBSIDIAN), text=True, capture_output=True, timeout=30)
+def document_lifecycle(document_id: str) -> str:
+    cp = subprocess.run([
+        "doct-agent", "plans", "show",
+        "--base-url", BASE_URL,
+        "--id", document_id,
+        "--json",
+    ], cwd=str(OBSIDIAN), text=True, capture_output=True, timeout=30)
     if cp.returncode != 0:
-        log(f"show failed for {plan_id}: {cp.stderr.strip() or cp.stdout.strip()}")
+        log(f"show failed for {document_id}: {cp.stderr.strip() or cp.stdout.strip()}")
         return "unknown"
     try:
-        return str(json.loads(cp.stdout).get("plan", {}).get("lifecycleState") or "unknown")
+        data = json.loads(cp.stdout)
+        plan = data.get("plan") if isinstance(data.get("plan"), dict) else {}
+        doc = data.get("document") if isinstance(data.get("document"), dict) else {}
+        return str(plan.get("lifecycleState") or doc.get("status") or data.get("lifecycleState") or "active")
     except Exception as exc:
-        log(f"show parse failed for {plan_id}: {exc}")
-        return "unknown"
+        log(f"show parse failed for {document_id}: {exc}")
+        return "active"
 
 
-def start_listener(plan_id: str) -> None:
+def start_listener(document_id: str, workspace_id: str) -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    out = (LOG_DIR / f"{plan_id}.supervised.out").open("ab")
-    err = (LOG_DIR / f"{plan_id}.supervised.err").open("ab")
+    out = (LOG_DIR / f"{document_id}.supervised.out").open("ab")
+    err = (LOG_DIR / f"{document_id}.supervised.err").open("ab")
     subprocess.Popen(
-        [sys.executable, str(LISTENER), plan_id],
+        [sys.executable, str(LISTENER), document_id, workspace_id],
         cwd=str(OBSIDIAN),
         stdout=out,
         stderr=err,
         start_new_session=True,
         close_fds=True,
     )
-    log(f"started listener for {plan_id}")
+    log(f"started Doct listener for document={document_id} workspace={workspace_id}")
 
 
 def main() -> int:
@@ -128,21 +139,21 @@ def main() -> int:
             # Ownership guard: never supervise unrelated plans.
             active.append(item)
             continue
-        plan_id = item.get("plan_id")
-        if not plan_id:
+        document_id = entry_document_id(item)
+        workspace_id = str(item.get("workspace_id") or "")
+        if not document_id or not workspace_id:
+            log(f"skipping legacy/non-Doct GM registry item without document_id/workspace_id: {item}")
+            active.append(item)
             continue
-        lifecycle = plan_lifecycle(plan_id)
+        lifecycle = document_lifecycle(document_id).lower()
         if lifecycle == "archived":
             item["status"] = "archived"
             item["archived_at"] = time.strftime('%Y-%m-%dT%H:%M:%S%z')
             changed = True
             active.append(item)
             continue
-        if lifecycle == "unknown":
-            active.append(item)
-            continue
-        if not listener_running(plan_id):
-            start_listener(plan_id)
+        if not listener_running(document_id):
+            start_listener(document_id, workspace_id)
         active.append(item)
     reg["active_plans"] = active
     if changed:

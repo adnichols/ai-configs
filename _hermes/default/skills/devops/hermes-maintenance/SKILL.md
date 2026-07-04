@@ -93,6 +93,16 @@ Next recommended action:
 - <one concise action, if any>
 ```
 
+## Compaction-specific triage
+
+If Hermes context compaction hangs, times out, creates a blank-looking continuation session, or delays Discord/Telegram responses, check the compression auxiliary route before treating it as a generic session DB issue:
+
+- Inspect `auxiliary.compression` and `compression` in `~/.hermes/config.yaml`.
+- Search `~/.hermes/logs/agent.log` for `Auxiliary compression`, `Request timed out`, `Failed to generate context summary`, and `context compression done`.
+- Prefer `openai-codex / gpt-5.4-mini` for compression over `custom / gpt-5.5` through a localhost proxy.
+- See `references/2026-07-compaction-model-routing.md` for the full observed pattern and fix commands.
+
 ## References
 
 - `references/2026-06-post-update-maintenance.md` — session-specific transcript notes from a post-v0.16.0 local maintenance run, including config v26→v29, WAL checkpointing, WhatsApp bridge audit behavior, and launchd stale-service refresh behavior.
+- `references/2026-07-compaction-model-routing.md` — compaction timeout/blank-continuation diagnosis and preferred auxiliary compression routing.

@@ -143,7 +143,7 @@ tool_loop_guardrails:
     idempotent_no_progress: 5
 compression:
   enabled: true
-  threshold: 0.6
+  threshold: 0.38
   target_ratio: 0.2
   protect_last_n: 20
   hygiene_hard_message_limit: 400
@@ -197,9 +197,9 @@ auxiliary:
     timeout: 360
     extra_body: {}
   compression:
-    provider: custom
-    model: gpt-5.5
-    base_url: http://localhost:8317/v1
+    provider: openai-codex
+    model: gpt-5.4-mini
+    base_url: ''
     api_key: ''
     timeout: 120
     extra_body: {}
