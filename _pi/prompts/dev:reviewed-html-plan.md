@@ -1,5 +1,5 @@
 ---
-description: Create/register an HTML plan, process browser feedback, run PM plus GPT/GLM Pi subagent plan reviews, and iterate until execution-ready
+description: Create/register an HTML plan, process browser feedback, run PM plus GPT and applicable GLM Pi subagent plan reviews, and iterate until execution-ready
 argument-hint: '<plan description | slug | thoughts/plans/<slug>.html | issue key>'
 ---
 
@@ -17,7 +17,7 @@ Use the `reviewed-html-plan` skill as the source of truth for this command.
 - If browser feedback has not been provided yet, stop after registration with the monitor running and ask the user to annotate the plan before continuing.
 - When feedback is ready, process listener-delivered or manually claimed Doct plan comments/actions, ack/resolve/release with the returned commands, keep the listener running, and update the same HTML plan.
 - Run a PM product-intent/stage-fit review and reshape the plan directly when repo evidence supports the correction.
-- Run read-only GPT and GLM Pi subagent plan reviews, then iterate plan edits and rerun both reviewers until both agree by substance that the plan is execution-ready.
+- Run read-only GPT and applicable GLM Pi subagent plan reviews, then iterate plan edits and rerun all applicable reviewers until they agree by substance that the plan is execution-ready.
 - Do not start implementation or edit product code in this command.
 
 ## Final output

@@ -57,6 +57,9 @@ Installed layout:
 │   ├── developer-mm.md
 │   ├── quality-reviewer.md
 │   ├── quality-reviewer-glm.md
+│   ├── glm5.2-high.md
+│   ├── glm5.2-xhigh.md
+│   ├── explore.md
 │   └── ...
 └── extensions/
     ├── pi-plan-mode/
@@ -227,6 +230,9 @@ Example installed agents:
 - `developer-mm`
 - `quality-reviewer`
 - `quality-reviewer-glm`
+- `glm5.2-high`
+- `glm5.2-xhigh`
+- `Explore`
 - `research`
 - `plan-gpt5.5`
 - `reviewer-plan-adversarial-gpt5.5`
@@ -242,7 +248,7 @@ Example installed agents:
 ### Dev / execution
 - `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: implementation, scoped reviews, GPT/GLM pre-PR review, PR creation, and post-PR monitoring
 - `dev:run` — direct high-reasoning execution with one `quality-reviewer` pass after each phase
-- `pre-pr-implementation-review` — GPT-5.5 plus GLM-5.2 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to PR creation
+- `pre-pr-implementation-review` — GPT-5.5 plus GLM-5.2 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; `glm5.2-high` handles normal high-risk bounded review, `glm5.2-xhigh` is reserved for final or exceptional-risk review, and `quality-reviewer-glm` remains a legacy xhigh compatibility alias; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to PR creation
 
 ### Git / workflow
 - `cmd-create-pr`

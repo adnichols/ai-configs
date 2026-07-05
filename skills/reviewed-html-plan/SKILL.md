@@ -17,7 +17,7 @@ Load and follow these skills when this workflow reaches their surface:
 - `doct-document-ops` for HTML/Markdoc plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, Markdown/text fallback publishing, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
 - Pi `quality-reviewer` for the read-only GPT plan-review pass.
-- Pi `quality-reviewer-glm` for the read-only GLM plan-review pass.
+- Pi `glm5.2-high` for normal high-risk read-only GLM plan review, `glm5.2-xhigh` for final or exceptional-risk review, and `quality-reviewer-glm` only as the legacy xhigh compatibility alias.
 - Domain skills required by the target repository guidance, stack, or plan surface.
 
 If a required review tool is unavailable, follow the relevant skill's remediation first. Stop only when the dependency cannot be restored safely or the next step requires a real product decision.
@@ -119,15 +119,21 @@ Default behavior is corrective: reshape the HTML plan directly when the right di
 
 After material PM edits, ensure the review URL still points at the latest plan and the plan remains browser-reviewable.
 
-### 6. Read-only GPT and GLM Pi subagent plan reviews
+### 6. Read-only GPT and applicable GLM Pi subagent plan reviews
 
-Run both reviewers before execution, and keep them read-only. In Codex, delegate this reviewer-pair leg to Pi from the same repo/worktree instead of substituting Codex-native reviewers. Invoke Pi with an explicit bounded prompt asking it to run `quality-reviewer` and `quality-reviewer-glm` read-only against the current HTML plan, return the required verdicts, and write reviewer artifacts under `thoughts/validation/`:
+Run the GPT reviewer before execution, and keep all reviewers read-only. Before launching GLM, classify the plan scope:
+
+- **Use GLM** when the plan touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another explicit P1/P2 risk surface.
+- **Skip GLM by default** for docs-only plans, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator or Doct reviewer provides an explicit override reason.
+- When GLM applies, give it a compact readiness packet with named files/surfaces, the exact risk question, relevant plan excerpts, verification expectations, and outcome limits.
+
+In Codex, delegate this reviewer leg to Pi from the same repo/worktree instead of substituting Codex-native reviewers. Invoke Pi with an explicit bounded prompt asking it to run `quality-reviewer` and, when GLM applies, the applicable GLM reviewer profile read-only against the current HTML plan, return the required verdicts, and write reviewer artifacts under `thoughts/validation/`:
 
 ```bash
-pi -p --approve "Run the reviewed-html-plan GPT/GLM reviewer-pair gate for <plan-path>. Read-only review only: use Pi subagents quality-reviewer and quality-reviewer-glm, require PLAN_EXECUTION_READY / PLAN_NEEDS_REVISION / BLOCKED_BY_PRODUCT_QUESTION / REVIEW_INCOMPLETE_RERUN_NEEDED verdicts, and write artifacts under thoughts/validation/. Do not edit product code."
+pi -p --approve "Run the reviewed-html-plan reviewer gate for <plan-path>. Read-only review only: use Pi subagent quality-reviewer, and use the applicable GLM reviewer profile only when the plan has a high-risk trigger or explicit override: glm5.2-high for normal high-risk bounded plan review, or glm5.2-xhigh for final/exceptional-risk plan review. If GLM is skipped, record the low-risk classification and override decision. Require PLAN_EXECUTION_READY / PLAN_NEEDS_REVISION / BLOCKED_BY_PRODUCT_QUESTION / REVIEW_INCOMPLETE_RERUN_NEEDED verdicts, and write artifacts under thoughts/validation/. Do not edit product code."
 ```
 
-Codex may integrate plan edits, but after material edits it must rerun the same Pi reviewer pair before marking the plan execution-ready. If Pi or either subagent is unavailable, leave the plan blocked on review infrastructure.
+Codex may integrate plan edits, but after material edits it must rerun the same applicable reviewer set before marking the plan execution-ready. If Pi, `quality-reviewer`, or a required GLM subagent is unavailable, leave the plan blocked on review infrastructure.
 
 #### GPT
 
@@ -144,7 +150,7 @@ Use the Pi `quality-reviewer` subagent for the GPT review leg. The review input 
 
 #### GLM
 
-Use the Pi `quality-reviewer-glm` subagent for the GLM review leg with high/xhigh thinking when supported. Give it a bounded readiness prompt, not open-ended repo exploration. Do not ask GLM to edit files.
+Use the active Pi GLM reviewer profile only when the plan has a high-risk trigger or explicit override. Use `glm5.2-high` for normal high-risk bounded plan review. Use `glm5.2-xhigh` for final or exceptional-risk plan review, including security boundary changes, irreversible data-loss risk, difficult concurrency/locking correctness, migrations, release-blocking ambiguity, or any `glm5.2-high` incomplete/ambiguous result. Give GLM a bounded readiness prompt, not open-ended repo exploration. Do not ask GLM to edit files.
 
 For both plan review legs, stay limited to readiness concerns, including at least:
 
@@ -162,7 +168,7 @@ Empty output, tool-only output, provider errors, or transcripts ending in tool u
 
 Split a readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The parent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
 
-Ask both reviewers for one of these verdicts:
+Ask each applicable reviewer for one of these verdicts:
 
 ```text
 VERDICT: PLAN_EXECUTION_READY
@@ -189,7 +195,7 @@ Use these classifications:
 - `OUT_OF_SCOPE_FOLLOW_UP`: do not add to this plan only when it is outside the plan, not required for truthful verification, and not an acceptance-criteria/BDD gap; record it with evidence and a tracking destination if useful.
 - `DISAGREE_REPO_EVIDENCE`: do not change the plan; record the evidence if the disagreement matters.
 
-After fixing readiness blockers, rerun both GPT and GLM plan reviews. If any reviewer returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked. Repeat until both agree by substance that the plan is execution-ready. When they do, update the same Doct-registered HTML plan and status/board metadata using the current `doct-document-ops` Doct flow.
+After fixing readiness blockers, rerun GPT and the applicable GLM plan review when GLM applies. If any reviewer returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked. Repeat until all applicable reviewers agree by substance that the plan is execution-ready. When they do, update the same Doct-registered HTML plan and status/board metadata using the current `doct-document-ops` Doct flow.
 
 #### Independent sign-off gate (do not self-certify)
 
@@ -216,7 +222,7 @@ If AI reviews materially reshape product intent, run one final PM check before d
 Before final output, inspect the HTML plan for obvious handoff blockers:
 
 - unresolved browser-review comments remain in the queue, or the required listener was never started after registration,
-- the Doct registered plan has not been updated after successful GPT and GLM plan reviews, or its lifecycle/board/readiness state is stale,
+- the Doct registered plan has not been updated after successful GPT and applicable GLM plan reviews, or its lifecycle/board/readiness state is stale,
 - unresolved inline review markers or unresolved question sections remain,
 - status is not `execution-ready`,
 - near-top Decision Attention is missing or hides unresolved decisions,

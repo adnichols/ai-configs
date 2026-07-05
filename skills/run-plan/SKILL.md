@@ -31,7 +31,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not proceed past a blocked plan decision by silently choosing a larger scope.
 - Do not silently defer work that is required by the plan, required for verification, or introduced by this branch; fix it before merge or stop with a blocker.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
-- In Pi executions, do not create a PR until the GPT/GLM pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings or the user explicitly waives that gate.
+- In Pi executions, do not create a PR until the GPT plus applicable GLM pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the GLM leg is truthfully recorded as skipped for a low-risk/docs-only scope, or the user explicitly waives that gate.
 - Do not stop after the GPT/GLM pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
 - Do not mark the active run state complete just because the implementation PR exists.
 - Do not mark the active run state complete until PR feedback has been monitored and addressed and the PR is mergeable with the destination branch.
@@ -55,7 +55,7 @@ Stop before implementation if:
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
-- a required runtime-native review gate is unavailable and the user has not waived it. In Pi this means `quality-reviewer`, `quality-reviewer-glm`, and the `pre-pr-implementation-review` skill when the Pi pre-PR gate applies; in Codex this means the installed Codex execution/review prompts needed to perform scoped implementation review.
+- a required runtime-native review gate is unavailable and the user has not waived it. In Pi this means `quality-reviewer`, the applicable GLM reviewer profile (`glm5.2-high` or `glm5.2-xhigh`) when GLM applies, and the `pre-pr-implementation-review` skill when the Pi pre-PR gate applies; in Codex this means the installed Codex execution/review prompts needed to perform scoped implementation review.
 
 ## Scope Classification
 
@@ -182,7 +182,9 @@ Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUME
 
 ### 6. Second scoped quality review
 
-In Pi, use the Pi subagent `quality-reviewer-glm` with `thinking: "xhigh"` for a read-only GLM-5.2 implementation review. The `opencode/glm-5.2` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, delegate this GLM review leg to Pi from the same repo/worktree; if Pi or `quality-reviewer-glm` is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
+Before launching GLM, classify the review scope. Use GLM when the diff touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface. Skip GLM by default for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason; record the skip in the review ledger.
+
+In Pi, use the active GLM-5.2 reviewer profile for a read-only implementation review when GLM applies. Use `glm5.2-high` for normal high-risk bounded review. Use `glm5.2-xhigh` for final or exceptional-risk review when GLM applies, including final pre-PR gates for high-risk scopes, security boundary changes, irreversible data-loss risk, difficult concurrency/locking correctness, migrations, release-risk, deploy/rollback risk, release-blocking ambiguity, or any `glm5.2-high` incomplete/ambiguous result. `quality-reviewer-glm` remains a legacy xhigh compatibility alias for callers that have not migrated. The `opencode/glm-5.2` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, delegate this GLM review leg to Pi from the same repo/worktree; if the required GLM reviewer profile is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
@@ -234,30 +236,30 @@ Stop and report a convergence blocker if:
 
 ### 9. GPT/GLM Pre-PR Review Gate
 
-After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the GPT/GLM pre-PR gate before final PR preparation when this `run-plan` is executing in Pi.
+After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the GPT and applicable GLM pre-PR gate before final PR preparation when this `run-plan` is executing in Pi.
 
-Do not run redundant full reviewer-pair gates over an unchanged diff. If the latest runtime-native scoped GPT and GLM reviews already ran after the last code change, used the current base/comparison range, covered the current changed files, and have no unresolved blocking in-scope P1/P2 findings, record that evidence as the Pi pre-PR gate result and continue. Run `$pre-pr-implementation-review <plan path>` only when current reviewer-pair evidence is missing, stale, incomplete, or materially narrower than the PR diff.
+Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native scoped GPT and applicable GLM reviews already ran after the last code change, used the current base/comparison range, covered the current changed files, and have no unresolved blocking in-scope P1/P2 findings, record that evidence as the Pi pre-PR gate result and continue. If GLM is skipped because the current PR is docs-only, low-risk UI copy, low-risk tests, or a narrow follow-up, record the low-risk classification and any override decision. Run `$pre-pr-implementation-review <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff.
 
-When the standalone pre-PR gate is required in Pi, it must use both:
+When the standalone pre-PR gate is required in Pi, it must use:
 
 - GPT-5.5 via Pi's `quality-reviewer` subagent,
-- GLM-5.2 via Pi's `quality-reviewer-glm` subagent.
+- GLM-5.2 via the applicable Pi GLM reviewer profile when GLM applies: `glm5.2-high` for normal high-risk bounded review, or `glm5.2-xhigh` for final/exceptional-risk review.
 
-In Codex, satisfy this gate by delegating the GPT/GLM reviewer-pair slice to Pi from the same repo/worktree instead of substituting Codex-native reviewers. Use Pi non-interactive mode with the explicit plan path and current comparison range, for example:
+In Codex, satisfy this gate by delegating the GPT and applicable GLM reviewer slice to Pi from the same repo/worktree instead of substituting Codex-native reviewers. Use Pi non-interactive mode with the explicit plan path and current comparison range, for example:
 
 ```bash
 pi -p --approve "/skill:pre-pr-implementation-review <plan path> --base <branch-or-range>"
 ```
 
-Codex must consume the Pi review artifact/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same Pi gate after material fixes. If Pi, `quality-reviewer`, or `quality-reviewer-glm` is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the GPT/GLM gate.
+Codex must consume the Pi review artifact/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same Pi gate after material fixes. If Pi, `quality-reviewer`, or the required GLM reviewer profile is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the GPT/GLM gate.
 
-In other non-Pi consumers, run an equivalent GPT-5.5 plus GLM-5.2 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise record that the Pi-only GPT/GLM gate was not run and do not claim Pi gate parity.
+In other non-Pi consumers, run an equivalent GPT-5.5 plus applicable GLM-5.2 read-only implementation review only when the applicable reviewers are explicitly available in that consumer; otherwise record that the Pi-only GPT/applicable-GLM gate was not run and do not claim Pi gate parity.
 
 Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
 
-Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and rerun both reviewers within the bounded pre-PR review budget until both return no unresolved blocking in-scope P1/P2 findings. P3 findings block only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
+Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and rerun all applicable reviewers within the bounded pre-PR review budget until they return no unresolved blocking in-scope P1/P2 findings. P3 findings block only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
-If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if the GLM-5.2 Pi subagent or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if the required GLM-5.2 Pi reviewer profile or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
 
 When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
@@ -330,7 +332,7 @@ A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for t
 
 1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
 2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with both scoped reviewers. In Pi, use `quality-reviewer` and `quality-reviewer-glm` with `thinking: "xhigh"`; in Codex, delegate those same reviewer legs to Pi for parity. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+3. Run read-only adversarial implementation reviews with both scoped reviewers when GLM applies. In Pi, use `quality-reviewer` and the applicable GLM reviewer profile: `glm5.2-high` for normal high-risk bounded review, or `glm5.2-xhigh` for final/exceptional-risk review. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why GLM remains skipped or provide the explicit override reason. In Codex, delegate those same reviewer legs to Pi for parity. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
 5. Repeat the adversarial reviewer-pair pass once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after both adversarial passes report no additional in-scope findings or only documented out-of-scope follow-ups.
 
