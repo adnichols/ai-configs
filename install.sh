@@ -1865,6 +1865,14 @@ else:
 before_settings = json.dumps(settings, sort_keys=True)
 settings["defaultProvider"] = DEFAULT_PROVIDER
 settings["defaultModel"] = DEFAULT_MODEL
+settings["gptConfig"] = {
+    "fastMode": False,
+    "personality": "none",
+    "verbosity": "medium",
+    "summary": "auto",
+    "toolDiscipline": "off",
+    "showFooter": True,
+}
 
 models = settings.get("enabledModels")
 if models is None:
