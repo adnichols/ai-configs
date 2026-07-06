@@ -25,6 +25,10 @@ const setup = (
   const notifications: Array<{ message: string; level: string }> = [];
   const compactCalls: Array<any> = [];
   const sentMessages: Array<{ message: any; options: any }> = [];
+  let remainingSendMessageFailures = options.sendMessageThrows ? Number.POSITIVE_INFINITY : 0;
+  if (typeof (options as any).sendMessageFailures === "number") {
+    remainingSendMessageFailures = (options as any).sendMessageFailures;
+  }
 
   const ctx = {
     ui: {
@@ -52,7 +56,10 @@ const setup = (
       tools[tool.name] = tool;
     },
     sendMessage: (message: any, messageOptions: any) => {
-      if (options.sendMessageThrows) throw new Error("send failed");
+      if (remainingSendMessageFailures > 0) {
+        remainingSendMessageFailures -= 1;
+        throw new Error("send failed");
+      }
       sentMessages.push({ message, options: messageOptions });
     },
   } as any);
@@ -91,6 +98,11 @@ const assistantToolUse = (toolCount = 1, toolResults = [toolResult()]) => ({
   },
   toolResults,
 });
+const userTurn = (text = "new request") => ({
+  message: { role: "user", content: text },
+  toolResults: [],
+});
+const delay = (ms = 75) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe("percentage-compaction extension", () => {
   test("does not auto-compact at 60%; sends a model-visible soft nudge", async () => {
@@ -286,6 +298,234 @@ describe("percentage-compaction extension", () => {
     percent = 80.123457;
     await handlers.turn_end?.(assistantStop, ctx);
     expect(compactCalls).toHaveLength(2);
+  });
+
+  test("active hard-backstop no-cut sends one continuation and clears state", async () => {
+    const { handlers, compactCalls, sentMessages, notifications, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    expect(compactCalls).toHaveLength(1);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.customType).toBe("pi-vcc-no-cut-continuation");
+    expect(sentMessages[0].message.content).toContain("no safe compaction cut was available");
+    expect(sentMessages[0].options).toEqual({ deliverAs: "steer", triggerTurn: true });
+    expect(notifications.some((entry) => entry.message.includes("No safe compaction cut available"))).toBe(true);
+
+    await handlers.turn_end?.(assistantStop, ctx);
+    expect(compactCalls).toHaveLength(1);
+  });
+
+  test("hard-backstop no-cut defers continuation until pending tool results are delivered", async () => {
+    const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantToolUse(2, []), ctx);
+    await handlers.turn_end?.({ message: toolResult("tc_1", "compact_context", "queued"), toolResults: [] }, ctx);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+    expect(sentMessages).toHaveLength(0);
+
+    await handlers.turn_end?.({ message: toolResult("tc_2", "read", "source"), toolResults: [] }, ctx);
+    await delay();
+    expect(sentMessages).toHaveLength(1);
+  });
+
+  test("no-cut continuation retries once then succeeds", async () => {
+    const { handlers, compactCalls, sentMessages, notifications, ctx } = setup(96.2, true, { sendMessageFailures: 1 } as any);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay(700);
+
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.details.deliveryAttempts).toBe(2);
+    expect(notifications.some((entry) => entry.message.includes("delivery failed after"))).toBe(false);
+  });
+
+  test("permanent no-cut continuation delivery failure warns without stuck compaction", async () => {
+    const originalDateNow = Date.now;
+    let now = 0;
+    Date.now = () => {
+      now += 6000;
+      return now;
+    };
+    try {
+      const { handlers, compactCalls, notifications, ctx } = setup(96.2, true, { sendMessageThrows: true });
+
+      await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+      compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+      await delay();
+
+      expect(notifications.some((entry) => entry.level === "warning" && entry.message.includes("No-cut continuation delivery failed"))).toBe(true);
+      await handlers.turn_end?.(assistantStop, ctx);
+      expect(compactCalls).toHaveLength(1);
+    } finally {
+      Date.now = originalDateNow;
+    }
+  });
+
+  test("idle hard-backstop no-cut does not auto-resume", async () => {
+    const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantStop, ctx);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+
+    expect(sentMessages).toHaveLength(0);
+  });
+
+  test("user-message hard-backstop no-cut does not auto-resume", async () => {
+    const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(userTurn("new instruction"), ctx);
+    expect(compactCalls).toHaveLength(1);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+
+    expect(sentMessages).toHaveLength(0);
+  });
+
+  test("manual and compact_context no-cut do not auto-resume", async () => {
+    const manual = setup(96.2);
+    await manual.commands["compact-now"].handler("", manual.ctx);
+    manual.compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+    expect(manual.sentMessages).toHaveLength(0);
+
+    const model = setup(96.2);
+    await model.tools.compact_context.execute("tc_1", { reason: "boundary", boundary: "after_test_loop" });
+    await model.handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1")]), model.ctx);
+    model.compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+    expect(model.sentMessages).toHaveLength(0);
+  });
+
+  test("same floored no-cut percent is suppressed until usage rises or a user speaks", async () => {
+    let percent = 96.2;
+    const { handlers, compactCalls, ctx } = setup(() => percent);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+
+    percent = 95.9;
+    await handlers.turn_end?.(assistantStop, ctx);
+    expect(compactCalls).toHaveLength(1);
+
+    percent = 96.9;
+    await handlers.turn_end?.(assistantStop, ctx);
+    expect(compactCalls).toHaveLength(1);
+
+    percent = 97.0;
+    await handlers.turn_end?.(assistantStop, ctx);
+    expect(compactCalls).toHaveLength(2);
+
+    compactCalls[1].onError(new Error("Nothing to compact (session too small)"));
+    await handlers.message_end?.(userTurn("new instruction"), ctx);
+    await handlers.turn_end?.(assistantStop, ctx);
+    expect(compactCalls).toHaveLength(3);
+  });
+
+  test("model-visible no-cut continuation does not re-arm retry suppression as user input", async () => {
+    const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+    expect(sentMessages).toHaveLength(1);
+
+    await handlers.message_end?.({ message: { role: "user", customType: "pi-vcc-no-cut-continuation" } }, ctx);
+    await handlers.turn_end?.(assistantStop, ctx);
+    expect(compactCalls).toHaveLength(1);
+  });
+
+  test("no-cut reset allows later interrupted hard-backstop attempt", async () => {
+    let percent = 96.2;
+    const { handlers, compactCalls, ctx } = setup(() => percent);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+
+    percent = 97.0;
+    await handlers.turn_end?.(assistantToolUse(1, []), ctx);
+    expect(compactCalls).toHaveLength(2);
+  });
+
+  test("core auto-compaction is canceled above hard threshold unless extension-managed", async () => {
+    const { handlers, notifications, ctx } = setup(96.9);
+
+    const result = await handlers.session_before_compact?.({ customInstructions: undefined }, ctx);
+
+    expect(result).toEqual({ cancel: true });
+    expect(notifications.some((entry) => entry.message.includes("repo-managed hard backstop handles 96%"))).toBe(true);
+  });
+
+  test("core auto-compaction honors same floored no-cut suppression", async () => {
+    let percent = 96.2;
+    const { handlers, compactCalls, notifications, ctx } = setup(() => percent);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+
+    percent = 96.9;
+    const suppressed = await handlers.session_before_compact?.({ customInstructions: undefined }, ctx);
+    expect(suppressed).toEqual({ cancel: true });
+    expect(notifications.some((entry) => entry.message.includes("no safe cut was available at 96%"))).toBe(true);
+
+    await handlers.message_end?.(userTurn("new instruction"), ctx);
+    percent = 96.2;
+    await handlers.turn_end?.(assistantStop, ctx);
+    expect(compactCalls).toHaveLength(2);
+    const extensionManaged = await handlers.session_before_compact?.({ customInstructions: undefined }, ctx);
+    expect(extensionManaged).toBeUndefined();
+    expect(notifications.some((entry) => entry.message.includes("Auto-compacting at 96%"))).toBe(true);
+
+    compactCalls[1].onError(new Error("Nothing to compact (session too small)"));
+    percent = 97.0;
+    const rearmedByUsage = await handlers.session_before_compact?.({ customInstructions: undefined }, ctx);
+    expect(rearmedByUsage).toEqual({ cancel: true });
+  });
+
+  test("successful core compaction clears no-cut retry suppression", async () => {
+    let percent = 96.2;
+    const { handlers, compactCalls, ctx } = setup(() => percent);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+
+    await handlers.session_compact?.({}, ctx);
+    percent = 80.5;
+    await handlers.turn_end?.(assistantStop, ctx);
+
+    expect(compactCalls).toHaveLength(2);
+  });
+
+  test("new compaction attempt clears stale pending no-cut continuation", async () => {
+    let percent = 96.2;
+    const { handlers, compactCalls, sentMessages, ctx } = setup(() => percent);
+
+    await handlers.turn_end?.(assistantToolUse(2, []), ctx);
+    expect(compactCalls).toHaveLength(1);
+    compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
+    await delay();
+    expect(sentMessages).toHaveLength(0);
+
+    percent = 97.0;
+    await handlers.turn_end?.(assistantToolUse(1, []), ctx);
+    expect(compactCalls).toHaveLength(2);
+
+    await handlers.turn_end?.({
+      message: toolResult("tc_1", "compact_context", "queued"),
+      toolResults: [toolResult("tc_2", "read", "source")],
+    }, ctx);
+    await delay();
+
+    expect(sentMessages).toHaveLength(0);
   });
 
   test("does not compact during post-compaction tool turns even when usage changes", async () => {

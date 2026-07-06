@@ -6,7 +6,7 @@ import { homedir } from "os";
 import { compile } from "../core/summarize";
 import { parseKeepAndPrompt, PI_VCC_COMPACT_INSTRUCTION } from "../core/compact-args";
 import type { PiVccCompactionDetails } from "../details";
-import type { CompactionIntent, CompactionReason } from "../types";
+import type { CompactionIntent, CompactionReason, NoCutClassification } from "../types";
 
 export { PI_VCC_COMPACT_INSTRUCTION } from "../core/compact-args";
 
@@ -29,7 +29,9 @@ export interface CompactionStats {
 }
 
 let lastStats: CompactionStats | null = null;
+let lastNoCutClassification: NoCutClassification | null = null;
 export const getLastCompactionStats = () => lastStats;
+export const getLastNoCutClassification = () => lastNoCutClassification;
 
 export interface PiVccConfig {
   debug?: boolean;
@@ -109,21 +111,42 @@ const hasMatchingToolCall = (message: any, toolCallId: string): boolean => {
   return message.content.some((item: any) => item?.type === "toolCall" && item.id === toolCallId);
 };
 
-const adjustCutIdxForToolResult = (liveMessages: EntryWithMessage[], cutIdx: number): number => {
+const findMatchingToolCallIndex = (liveMessages: EntryWithMessage[], toolCallId: string, beforeIdx: number): number => {
+  for (let i = beforeIdx; i >= 0; i--) {
+    if (hasMatchingToolCall(liveMessages[i]?.message, toolCallId)) return i;
+    if (liveMessages[i]?.message?.role === "user") break;
+  }
+  return -1;
+};
+
+const adjustCutIdxForToolResult = (liveMessages: EntryWithMessage[], cutIdx: number): number | null => {
   if (cutIdx <= 0) return cutIdx;
 
   const firstKeptMessage = liveMessages[cutIdx]?.message;
   if (firstKeptMessage?.role !== "toolResult" || !firstKeptMessage.toolCallId) return cutIdx;
 
-  for (let i = cutIdx - 1; i >= 0; i--) {
-    if (hasMatchingToolCall(liveMessages[i]?.message, firstKeptMessage.toolCallId)) return i;
-    if (liveMessages[i]?.message?.role === "user") break;
-  }
+  const matchingIdx = findMatchingToolCallIndex(liveMessages, firstKeptMessage.toolCallId, cutIdx - 1);
+  return matchingIdx >= 0 ? matchingIdx : null;
+};
 
-  return cutIdx;
+const keptTailHasOrphanedToolResult = (liveMessages: EntryWithMessage[], cutIdx: number): boolean => {
+  for (let i = cutIdx; i < liveMessages.length; i++) {
+    const message = liveMessages[i]?.message;
+    if (message.role !== "toolResult" || !message.toolCallId) continue;
+    if (findMatchingToolCallIndex(liveMessages, message.toolCallId, i - 1) < cutIdx) return true;
+  }
+  return false;
 };
 
 const liveMessagesSinceLastCompaction = (branchEntries: any[]): EntryWithMessage[] => {
+  return readLiveMessagesSinceLastCompaction(branchEntries).liveMessages;
+};
+
+const readLiveMessagesSinceLastCompaction = (branchEntries: any[]): {
+  liveMessages: EntryWithMessage[];
+  firstKeptEntryId?: string;
+  hadPreviousCompaction: boolean;
+} => {
   let lastKeptId: string | undefined;
   for (let i = branchEntries.length - 1; i >= 0; i--) {
     if (branchEntries[i].type === "compaction") {
@@ -142,11 +165,10 @@ const liveMessagesSinceLastCompaction = (branchEntries: any[]): EntryWithMessage
       liveMessages.push({ entry: e, message: e.message });
     }
   }
-  return liveMessages;
+  return { liveMessages, firstKeptEntryId: lastKeptId, hadPreviousCompaction: Boolean(lastKeptId) };
 };
 
-const inferActiveTurnFromBranchEntries = (branchEntries: any[]): boolean => {
-  const liveMessages = liveMessagesSinceLastCompaction(branchEntries);
+const inferActiveTurnFromMessages = (liveMessages: EntryWithMessage[]): boolean => {
   const latest = liveMessages[liveMessages.length - 1]?.message as any;
   if (!latest) return false;
 
@@ -160,6 +182,35 @@ const inferActiveTurnFromBranchEntries = (branchEntries: any[]): boolean => {
   }
 
   return false;
+};
+
+const inferActiveTurnFromBranchEntries = (branchEntries: any[]): boolean =>
+  inferActiveTurnFromMessages(liveMessagesSinceLastCompaction(branchEntries));
+
+const classifyNoCut = (
+  branchEntries: any[],
+  eventContext: { reason?: CompactionReason; willRetry: boolean },
+): NoCutClassification => {
+  const { liveMessages, firstKeptEntryId, hadPreviousCompaction } = readLiveMessagesSinceLastCompaction(branchEntries);
+  const latestLiveRole = liveMessages[liveMessages.length - 1]?.message?.role;
+  const activeTurnInferred = inferActiveTurnFromMessages(liveMessages);
+  const reason = liveMessages.length < MIN_MESSAGES_TO_COMPACT
+    ? hadPreviousCompaction
+      ? "post_compaction_tail_too_short"
+      : "tiny_session"
+    : activeTurnInferred
+      ? "active_turn_no_safe_cut"
+      : "unknown_no_safe_cut";
+  return {
+    reason,
+    hadPreviousCompaction,
+    liveMessageCount: liveMessages.length,
+    latestLiveRole,
+    activeTurnInferred,
+    firstKeptEntryId,
+    compactionReason: eventContext.reason,
+    willRetry: eventContext.willRetry,
+  };
 };
 
 function buildOwnCut(
@@ -183,10 +234,13 @@ function buildOwnCut(
     if (keepUserTurnsExplicit) return null;
     if (liveMessages.length <= AGENT_ONLY_FALLBACK_TAIL_MESSAGES) return null;
     cutIdx = liveMessages.length - AGENT_ONLY_FALLBACK_TAIL_MESSAGES;
-    cutIdx = adjustCutIdxForToolResult(liveMessages, cutIdx);
+    const adjustedCutIdx = adjustCutIdxForToolResult(liveMessages, cutIdx);
+    if (adjustedCutIdx === null) return null;
+    cutIdx = adjustedCutIdx;
   }
 
   if (cutIdx <= 0) return null;
+  if (keptTailHasOrphanedToolResult(liveMessages, cutIdx)) return null;
 
   return {
     messages: liveMessages.slice(0, cutIdx).map((e) => e.message),
@@ -250,7 +304,8 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
 
   pi.on("session_before_compact", (event) => {
     const { preparation, branchEntries, customInstructions } = event;
-    const { reason, willRetry } = readCompactionEventContext(event);
+    const eventContext = readCompactionEventContext(event);
+    const { reason, willRetry } = eventContext;
     const compactionIntent = parseCompactionIntent(customInstructions);
     const compactingActiveTurn =
       (agentTurnActive && !activeAgentFinishedResponse) || inferActiveTurnFromBranchEntries(branchEntries as any[]);
@@ -259,9 +314,13 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     const ownCut = buildOwnCut(branchEntries as any[], keepOptions.keepUserTurns, keepOptions.explicit);
     if (!ownCut) {
       const piVccBypass = customInstructions?.startsWith(PI_VCC_COMPACT_INSTRUCTION) ?? false;
+      lastNoCutClassification = classifyNoCut(branchEntries as any[], eventContext);
+      dbg(loadConfig(), { usedOwnCut: false, noCutClassification: lastNoCutClassification });
       if (!piVccBypass && (reason === "manual" || reason === "threshold" || reason === "overflow" || willRetry)) return;
       return { cancel: true };
     }
+
+    lastNoCutClassification = null;
 
     if (compactingActiveTurn) agentTurnActive = false;
 

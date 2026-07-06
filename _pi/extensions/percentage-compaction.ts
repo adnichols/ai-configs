@@ -25,6 +25,35 @@ interface PendingModelCompaction {
   sawSiblingTools: boolean;
 }
 
+interface PendingNoCutContinuation {
+  reason: "already_compacted" | "session_too_small";
+  usagePercent?: number;
+  flooredPercent?: number;
+  pendingToolCallIds: Set<string>;
+  queuedTurn: number;
+  attempts: number;
+  startedAt?: number;
+  timer?: ReturnType<typeof setTimeout>;
+  lastError?: string;
+}
+
+interface NoCutRecoveryOptions {
+  interruptedActiveTurn: boolean;
+  pendingToolCallIds: () => string[];
+  usagePercent?: number;
+}
+
+interface NoCutRetryState {
+  flooredPercent: number;
+  usagePercent?: number;
+  userMessageCount: number;
+  reason: "already_compacted" | "session_too_small";
+}
+
+const NO_CUT_CONTINUATION_DELAY_MS = 50;
+const NO_CUT_CONTINUATION_MAX_WAIT_MS = 5000;
+const NO_CUT_CONTINUATION_RETRY_MS = 100;
+
 const isPiVccLoaded = () => Boolean((globalThis as any)[PI_VCC_LOAD_MARKER]);
 
 const notifyMissingPiVcc = (ctx: ExtensionContext) => {
@@ -38,6 +67,10 @@ const isCompletedAssistantResponse = (message: TurnEndEvent["message"]) => {
   if (message.role !== "assistant") return false;
   return !("stopReason" in message && message.stopReason === "toolUse");
 };
+
+const isInterruptedAgentWork = (message: TurnEndEvent["message"]) =>
+  (message.role === "assistant" && "stopReason" in message && message.stopReason === "toolUse") ||
+  message.role === "toolResult";
 
 const isStaleAutoCompactionPercent = (percent: number, lastPercent: number | undefined) =>
   lastPercent !== undefined && percent === lastPercent;
@@ -73,6 +106,13 @@ const toolCallCount = (message: any): number => {
   return message.content.filter((part: any) => part?.type === "toolCall").length;
 };
 
+const assistantToolCallIds = (message: any): string[] => {
+  if (message?.role !== "assistant" || !Array.isArray(message?.content)) return [];
+  return message.content
+    .filter((part: any) => part?.type === "toolCall" && typeof part?.id === "string")
+    .map((part: any) => part.id);
+};
+
 const assistantToolBatchIncludes = (message: any, toolCallId: string | undefined): boolean => {
   if (!toolCallId || message?.role !== "assistant" || !Array.isArray(message?.content)) return false;
   return message.content.some((part: any) => part?.type === "toolCall" && part?.id === toolCallId);
@@ -80,6 +120,16 @@ const assistantToolBatchIncludes = (message: any, toolCallId: string | undefined
 
 const toolResultMatches = (result: any, toolCallId: string | undefined): boolean =>
   Boolean(toolCallId && result?.toolCallId === toolCallId);
+
+const deliveredToolCallIds = (event: TurnEndEvent): string[] => {
+  const ids = new Set<string>();
+  const add = (result: any) => {
+    if (typeof result?.toolCallId === "string") ids.add(result.toolCallId);
+  };
+  add(event.message);
+  if (Array.isArray(event.toolResults)) event.toolResults.forEach(add);
+  return [...ids];
+};
 
 const buildIntentInstructions = (pending: PendingModelCompaction) =>
   `${PI_VCC_MANUAL_BYPASS_MARKER}\n${JSON.stringify({
@@ -137,6 +187,15 @@ export default function (pi: ExtensionAPI) {
   let turnCounter = 0;
   let lastToolBatchId = 0;
   let lastAssistantToolCallCount = 0;
+  let outstandingAssistantToolCallIds = new Set<string>();
+  let userMessageCount = 0;
+  let pendingNoCutContinuation: PendingNoCutContinuation | undefined;
+  let noCutRetryState: NoCutRetryState | undefined;
+
+  const clearPendingNoCutContinuation = () => {
+    if (pendingNoCutContinuation?.timer) clearTimeout(pendingNoCutContinuation.timer);
+    pendingNoCutContinuation = undefined;
+  };
 
   const finishCompaction = (options: { compacted?: boolean } = {}) => {
     compactionInFlight = false;
@@ -144,6 +203,79 @@ export default function (pi: ExtensionAPI) {
     lastNudgePercentBand = undefined;
     if (options.compacted) awaitingPostCompactionAssistantResponse = true;
   };
+
+  const buildNoCutContinuationMessage = (pending: PendingNoCutContinuation) =>
+    `Pi VCC hard-backstop compaction was skipped because no safe compaction cut was available (${pending.reason}). ` +
+    "Continue from where you left off; do not summarize this recovery message unless it changes the task state.";
+
+  const sendPendingNoCutContinuation = (ctx: ExtensionContext) => {
+    const pending = pendingNoCutContinuation;
+    if (!pending) return;
+    if (!pending.startedAt) pending.startedAt = Date.now();
+    pending.attempts += 1;
+    try {
+      pi.sendMessage(
+        {
+          customType: "pi-vcc-no-cut-continuation",
+          content: buildNoCutContinuationMessage(pending),
+          display: true,
+          details: {
+            reason: pending.reason,
+            usagePercent: pending.usagePercent,
+            flooredPercent: pending.flooredPercent,
+            queuedTurn: pending.queuedTurn,
+            deliveryAttempts: pending.attempts,
+            pendingToolResultCount: pending.pendingToolCallIds.size,
+          },
+        },
+        { deliverAs: "steer", triggerTurn: true },
+      );
+      if (pending.timer) clearTimeout(pending.timer);
+      pendingNoCutContinuation = undefined;
+    } catch (err) {
+      pending.lastError = (err as Error).message;
+      const elapsed = Date.now() - pending.startedAt;
+      if (elapsed < NO_CUT_CONTINUATION_MAX_WAIT_MS) {
+        if (pending.timer) clearTimeout(pending.timer);
+        pending.timer = setTimeout(() => sendPendingNoCutContinuation(ctx), NO_CUT_CONTINUATION_RETRY_MS);
+        return;
+      }
+      if (pending.timer) clearTimeout(pending.timer);
+      ctx.ui.notify(
+        `No-cut continuation delivery failed after ${pending.attempts} attempts: ${pending.lastError}. Continue manually from the interrupted turn.`,
+        "warning",
+      );
+      pendingNoCutContinuation = undefined;
+    }
+  };
+
+  const queueNoCutContinuation = (
+    ctx: ExtensionContext,
+    reason: PendingNoCutContinuation["reason"],
+    recovery: NoCutRecoveryOptions,
+  ) => {
+    if (!recovery.interruptedActiveTurn || pendingNoCutContinuation) return;
+    pendingNoCutContinuation = {
+      reason,
+      usagePercent: recovery.usagePercent,
+      flooredPercent: recovery.usagePercent === undefined ? undefined : Math.floor(recovery.usagePercent),
+      pendingToolCallIds: new Set(recovery.pendingToolCallIds()),
+      queuedTurn: turnCounter,
+      attempts: 0,
+    };
+    if (pendingNoCutContinuation.pendingToolCallIds.size === 0) {
+      pendingNoCutContinuation.timer = setTimeout(() => sendPendingNoCutContinuation(ctx), NO_CUT_CONTINUATION_DELAY_MS);
+    }
+  };
+
+  const clearDeliveredNoCutTools = (event: TurnEndEvent) => {
+    if (!pendingNoCutContinuation) return;
+    for (const id of deliveredToolCallIds(event)) pendingNoCutContinuation.pendingToolCallIds.delete(id);
+  };
+
+  const noCutContinuationIsSafe = (event: TurnEndEvent) =>
+    Boolean(pendingNoCutContinuation) &&
+    (pendingNoCutContinuation.pendingToolCallIds.size === 0 || isCompletedAssistantResponse(event.message));
 
   const triggerCompaction = (
     ctx: ExtensionContext,
@@ -154,6 +286,7 @@ export default function (pi: ExtensionAPI) {
       ratchetPercent?: number;
       reason: string;
       resumeMessage?: string;
+      noCutRecovery?: NoCutRecoveryOptions;
     },
   ) => {
     if (compactionInFlight) return false;
@@ -162,6 +295,7 @@ export default function (pi: ExtensionAPI) {
       return false;
     }
 
+    clearPendingNoCutContinuation();
     compactionInFlight = true;
     lastCompactionReason = options.reason;
     ctx.ui.notify(options.startMessage, "info");
@@ -169,6 +303,7 @@ export default function (pi: ExtensionAPI) {
       customInstructions: options.customInstructions,
       onComplete: () => {
         if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
+        noCutRetryState = undefined;
         finishCompaction({ compacted: true });
         ctx.ui.notify(options.completionMessage, "info");
         if (options.resumeMessage) {
@@ -188,12 +323,27 @@ export default function (pi: ExtensionAPI) {
         }
       },
       onError: (err: Error) => {
-        if (err.message === "Already compacted" || err.message === "Nothing to compact (session too small)") {
-          if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
+        const noCutReason = err.message === "Already compacted"
+          ? "already_compacted"
+          : err.message === "Nothing to compact (session too small)"
+            ? "session_too_small"
+            : undefined;
+        if (noCutReason) {
+          if (options.ratchetPercent !== undefined) {
+            lastAutoCompactionPercent = options.ratchetPercent;
+            noCutRetryState = {
+              flooredPercent: Math.floor(options.ratchetPercent),
+              usagePercent: options.ratchetPercent,
+              userMessageCount,
+              reason: noCutReason,
+            };
+          }
+          awaitingPostCompactionAssistantResponse = false;
         }
         finishCompaction();
-        if (err.message === "Already compacted" || err.message === "Nothing to compact (session too small)") {
-          ctx.ui.notify("Nothing to compact", "info");
+        if (noCutReason) {
+          ctx.ui.notify("No safe compaction cut available; continuing session.", "info");
+          if (options.noCutRecovery) queueNoCutContinuation(ctx, noCutReason, options.noCutRecovery);
         } else {
           ctx.ui.notify(`Compaction failed: ${err.message}`, "error");
         }
@@ -324,6 +474,7 @@ export default function (pi: ExtensionAPI) {
     if (event.message.role === "assistant" && "stopReason" in event.message && event.message.stopReason === "toolUse") {
       lastToolBatchId += 1;
       lastAssistantToolCallCount = toolCallCount(event.message);
+      outstandingAssistantToolCallIds = new Set(assistantToolCallIds(event.message));
       if (pendingModelCompaction && assistantToolBatchIncludes(event.message, pendingModelCompaction.toolCallId)) {
         pendingModelCompaction.toolBatchId = lastToolBatchId;
         pendingModelCompaction.sawSiblingTools = lastAssistantToolCallCount > 1;
@@ -338,6 +489,11 @@ export default function (pi: ExtensionAPI) {
 
     const usage = ctx.getContextUsage();
     const usagePercent = usage?.percent ?? undefined;
+
+    for (const id of deliveredToolCallIds(event)) outstandingAssistantToolCallIds.delete(id);
+    if (completedResponse) outstandingAssistantToolCallIds.clear();
+    clearDeliveredNoCutTools(event);
+    if (noCutContinuationIsSafe(event)) sendPendingNoCutContinuation(ctx);
 
     if (compactionInFlight) return;
 
@@ -370,11 +526,22 @@ export default function (pi: ExtensionAPI) {
       lastAutoCompactionPercent = undefined;
       lastNudgePercentBand = undefined;
       awaitingPostCompactionAssistantResponse = false;
+      noCutRetryState = undefined;
       return;
     }
 
     if (usagePercent >= HARD_AUTO_COMPACTION_PERCENT) {
-      if (isStaleAutoCompactionPercent(usagePercent, lastAutoCompactionPercent)) return;
+      if (
+        isStaleAutoCompactionPercent(usagePercent, lastAutoCompactionPercent) &&
+        (!noCutRetryState || userMessageCount === noCutRetryState.userMessageCount)
+      ) return;
+      if (
+        noCutRetryState &&
+        currentPercent <= noCutRetryState.flooredPercent &&
+        userMessageCount === noCutRetryState.userMessageCount
+      ) {
+        return;
+      }
       triggerCompaction(ctx, {
         startMessage: completedResponse
           ? `✓ Auto-compacting at ${currentPercent}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`
@@ -382,6 +549,11 @@ export default function (pi: ExtensionAPI) {
         completionMessage: "Compacted with pi-vcc",
         ratchetPercent: usagePercent,
         reason: "hard_backstop",
+        noCutRecovery: {
+          interruptedActiveTurn: isInterruptedAgentWork(event.message),
+          pendingToolCallIds: () => completedResponse ? [] : [...outstandingAssistantToolCallIds],
+          usagePercent,
+        },
       });
       return;
     }
@@ -394,7 +566,13 @@ export default function (pi: ExtensionAPI) {
     sendModelNudge(ctx, usagePercent, "soft");
   });
 
+  pi.on("message_end", async (event: any) => {
+    if (event?.message?.role === "user" && typeof event.message.customType !== "string") userMessageCount += 1;
+  });
+
   pi.on("session_compact", async () => {
+    noCutRetryState = undefined;
+    clearPendingNoCutContinuation();
     finishCompaction({ compacted: true });
   });
 
@@ -438,6 +616,17 @@ export default function (pi: ExtensionAPI) {
       return { cancel: true };
     }
 
+    if (compactionInFlight) {
+      lastAutoCompactionPercent = usage.percent;
+      awaitingPostCompactionAssistantResponse = true;
+      lastCompactionReason = "core_hard_backstop";
+      ctx.ui.notify(
+        `✓ Auto-compacting at ${Math.floor(usage.percent)}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`,
+        "info",
+      );
+      return;
+    }
+
     if (isStaleAutoCompactionPercent(usage.percent, lastAutoCompactionPercent)) {
       ctx.ui.notify(
         `⏸️ Delayed auto-compaction: context usage is unchanged at ${usage.percent}% since the last pi-vcc compaction`,
@@ -446,12 +635,23 @@ export default function (pi: ExtensionAPI) {
       return { cancel: true };
     }
 
-    lastAutoCompactionPercent = usage.percent;
-    awaitingPostCompactionAssistantResponse = true;
-    lastCompactionReason = "core_hard_backstop";
+    const currentPercent = Math.floor(usage.percent);
+    if (
+      noCutRetryState &&
+      currentPercent <= noCutRetryState.flooredPercent &&
+      userMessageCount === noCutRetryState.userMessageCount
+    ) {
+      ctx.ui.notify(
+        `⏸️ Delayed auto-compaction: no safe cut was available at ${noCutRetryState.flooredPercent}%; waiting for higher usage or a new user message`,
+        "info",
+      );
+      return { cancel: true };
+    }
+
     ctx.ui.notify(
-      `✓ Auto-compacting at ${Math.floor(usage.percent)}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`,
+      `⏸️ Delayed auto-compaction: repo-managed hard backstop handles ${Math.floor(usage.percent)}% compaction with no-cut recovery`,
       "info",
     );
+    return { cancel: true };
   });
 }

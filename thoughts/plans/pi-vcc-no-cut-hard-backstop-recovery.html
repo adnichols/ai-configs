@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi VCC No-Cut Hard-Backstop Recovery Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: #101827;
+      --panel-2: #152235;
+      --panel-3: #1c2d45;
+      --text: #e6edf7;
+      --muted: #a8b3c7;
+      --accent: #70e1ff;
+      --accent-2: #a78bfa;
+      --ok: #58d68d;
+      --warn: #f6c453;
+      --danger: #ff7b7b;
+      --border: #2a3b55;
+      --code: #020817;
+      --shadow: rgba(0, 0, 0, 0.34);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(112, 225, 255, 0.12), transparent 30rem),
+        radial-gradient(circle at 88% 12%, rgba(167, 139, 250, 0.12), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      font: 16px/1.62 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(1220px, calc(100vw - 48px)); margin: 0 auto; padding: 40px 0 76px; }
+    header, section, article {
+      background: rgba(16, 24, 39, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 22px 70px var(--shadow);
+      margin: 18px 0;
+      padding: 24px;
+    }
+    header { padding: 32px; }
+    h1, h2, h3, h4 { line-height: 1.2; margin: 0 0 12px; }
+    h1 { font-size: clamp(2.1rem, 5vw, 4rem); letter-spacing: -0.045em; }
+    h2 { font-size: 1.55rem; color: #f8fbff; }
+    h3 { font-size: 1.15rem; color: #dbeafe; margin-top: 20px; }
+    h4 { font-size: 1rem; color: #c4d7ff; margin-top: 16px; }
+    p { margin: 0 0 12px; }
+    a { color: var(--accent); text-decoration-color: rgba(112, 225, 255, 0.45); }
+    code, pre { background: var(--code); color: #d1fae5; border-radius: 10px; }
+    code { padding: 0.15em 0.35em; }
+    pre { padding: 14px; overflow-x: auto; border: 1px solid var(--border); }
+    ul, ol { padding-left: 1.35rem; }
+    li { margin: 0.4rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px; vertical-align: top; }
+    th { background: var(--panel-2); text-align: left; color: #f8fbff; }
+    .muted { color: var(--muted); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 11px;
+      margin: 0 8px 8px 0;
+      background: rgba(112, 225, 255, 0.08);
+      color: var(--accent);
+      font-size: 0.9rem;
+    }
+    .badge.warn { color: var(--warn); background: rgba(246, 196, 83, 0.1); }
+    .badge.ready { color: var(--ok); background: rgba(88, 214, 141, 0.1); }
+    .toc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+    .toc-card { background: rgba(21, 34, 53, 0.78); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+    .toc-card strong { display: block; color: #f8fbff; margin-bottom: 8px; }
+    .toc-card a { display: block; margin: 6px 0; text-decoration: none; }
+    .attention { border-left: 5px solid var(--warn); }
+    .criteria { border-left: 5px solid var(--ok); }
+    .phase { border-left: 5px solid var(--accent-2); }
+    .risk { border-left: 5px solid var(--danger); }
+    .progress-list label { display: block; padding: 8px 0; }
+    .callout { background: rgba(28, 45, 69, 0.72); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <header id="title">
+    <p>
+      <span class="badge">Doct review plan</span>
+      <span class="badge ready">Status: execution-ready</span>
+      <span class="badge ready">Execution-ready: true</span>
+    </p>
+    <h1>Pi VCC No-Cut Hard-Backstop Recovery Plan</h1>
+    <p class="muted">Plan to prevent Pi VCC hard-backstop compaction from halting active sessions when reported context is high but no safe compaction cut exists.</p>
+  </header>
+
+  <section id="toc" aria-labelledby="toc-heading">
+    <h2 id="toc-heading">Table of contents</h2>
+    <div class="toc-grid">
+      <div class="toc-card">
+        <strong>Readiness</strong>
+        <a href="#status">Status</a>
+        <a href="#goal">Goal</a>
+        <a href="#decision-attention">Decision Attention / Low-confidence Areas</a>
+        <a href="#why">Why this plan exists</a>
+      </div>
+      <div class="toc-card">
+        <strong>Evidence</strong>
+        <a href="#authority-inputs">Authority and inputs</a>
+        <a href="#current-reality">Current implementation reality</a>
+        <a href="#product-intent">Product intent alignment</a>
+        <a href="#locked-decisions">Locked decisions</a>
+      </div>
+      <div class="toc-card">
+        <strong>Execution</strong>
+        <a href="#progress">Progress</a>
+        <a href="#acceptance-criteria">Acceptance criteria</a>
+        <a href="#bdd-scenarios">BDD scenarios</a>
+        <a href="#phases">Phase-by-phase execution plan</a>
+      </div>
+      <div class="toc-card">
+        <strong>Handoff</strong>
+        <a href="#verification-strategy">Verification strategy</a>
+        <a href="#delivery-order">Delivery order</a>
+        <a href="#non-goals">Non-goals</a>
+        <a href="#resume-instructions">Resume instructions</a>
+        <a href="#decisions-log">Decisions / Deviations log</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="status">
+    <h2>Status</h2>
+    <p><strong>Browser-review state:</strong> execution-ready request processed and resolved.</p>
+    <p><strong>Execution readiness:</strong> true. Browser action was processed, GPT and GLM readiness findings were integrated, and fresh independent GPT plus GLM rereviews returned <code>VERDICT: PLAN_EXECUTION_READY</code>. The plan has no known product decision blocker.</p>
+    <p><strong>Scope:</strong> repo-owned Pi VCC package and percentage-compaction extension only; no Pi core/provider accounting changes in this implementation plan.</p>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Make hard-backstop compaction resilient: when Pi reports high context usage but pi-vcc/core cannot form a safe cut, the active agent session should continue instead of halting with <code>Compaction failed: Nothing to compact (session too small)</code>.</p>
+    <p>The fix should distinguish no-cut states, recover active turns with a continuation, avoid repeated no-cut loops, and preserve existing pi-vcc safety boundaries.</p>
+  </section>
+
+  <section id="decision-attention" class="attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <ul>
+      <li><strong>No product decision required:</strong> this is a reliability bug in an agent workflow; default behavior should self-heal and continue.</li>
+      <li><strong>Low confidence to defer:</strong> Pi core/provider context accounting may still over-report usage after compaction. This plan intentionally mitigates halt behavior in pi-vcc first and records core accounting as a non-goal/follow-up.</li>
+      <li><strong>Review focus:</strong> ensure continuation is sent only when a compaction attempt likely interrupted an active turn, waits until tool-call/tool-result ordering is safe, and survives transient continuation delivery failures.</li>
+    </ul>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>A real session in <code>jul5-quarantine-investigation</code> showed the extension interrupting an agent at high reported context:</p>
+    <pre><code>↻ Context at 96% (hard backstop: 80%). Interrupting agent for pi-vcc compaction...
+Error: Compaction failed: Nothing to compact (session too small)
+Nothing to compact</code></pre>
+    <p>Inspection showed a prior pi-vcc compaction had already summarized the old history, and the live post-compaction tail was mostly in-flight agent/tool turns. Core compaction could not find a safe old segment to summarize, but the extension still treated the hard-backstop attempt as an interrupting compaction. The result was a halted workflow instead of a recoverable no-op with continuation.</p>
+  </section>
+
+  <section id="authority-inputs">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>User requirement: prioritize avoiding halted sessions; UI context mismatch can be fixed later.</li>
+      <li>Observed session file: <code>/Users/anichols/.pi/agent/sessions/--Users-anichols-.herdr-worktrees-heddle-jul5-quarantine-investigation--/2026-07-05T22-31-58-285Z_019f3468-e84d-7cfb-8998-8c9a80c4566f.jsonl</code>.</li>
+      <li>Repo guidance: <code>AGENTS.md</code> says work directly on <code>main</code> for ai-configs and update task/progress artifacts immediately when executing plans.</li>
+      <li>Existing plan context: <code>thoughts/plans/pi-vcc-semantic-compaction-plan.html</code>.</li>
+      <li>Relevant implementation files: <code>_pi/extensions/percentage-compaction.ts</code> and <code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code>.</li>
+      <li>Relevant tests: <code>scripts/percentage-compaction.test.ts</code> and <code>_pi/packages/pi-vcc/tests/before-compact.test.ts</code>.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>_pi/extensions/percentage-compaction.ts</code> triggers hard-backstop compaction at <code>HARD_AUTO_COMPACTION_PERCENT = 80</code> and uses <code>ctx.compact(...)</code>.</li>
+      <li>The extension currently treats <code>Already compacted</code> and <code>Nothing to compact (session too small)</code> as no-op-ish errors by ratcheting the percent and notifying <code>Nothing to compact</code>, but it does not have a clear active-turn no-cut recovery contract.</li>
+      <li><code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code> has active-turn continuation for successful pi-vcc compactions through <code>session_compact</code>, plus agent-only fallback cuts and tool-result boundary adjustment.</li>
+      <li>When <code>buildOwnCut(...)</code> cannot form a pi-vcc cut, the hook currently lets core fallback for manual/threshold/overflow events without a pi-vcc-specific no-cut classification.</li>
+      <li>Existing tests cover active-turn continuation after successful compaction and some no-cut fallback behavior, but not hard-backstop no-cut recovery from the extension’s <code>onError</code> path.</li>
+      <li>Pi core’s <code>agent-session.js</code> throws <code>Nothing to compact (session too small)</code> when <code>prepareCompaction(...)</code> returns undefined, even when the true state is “post-compaction/no safe cut.” This plan does not edit Pi core.</li>
+    </ul>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <ul>
+      <li><strong>Golden path:</strong> a long-running Pi agent should continue doing the requested work even if compaction cannot safely reduce context at that instant.</li>
+      <li><strong>Self-healing:</strong> a no-cut hard-backstop attempt is a recoverable condition; the extension should explain it, suppress immediate retry loops, and resume the interrupted work.</li>
+      <li><strong>Fail-closed boundary:</strong> pi-vcc must not force unsafe compaction cuts or drop tool-call/tool-result evidence just to satisfy a context percentage.</li>
+      <li><strong>Agent-legible status:</strong> notifications and continuation content must say what happened and what to do next without requiring source-code inspection.</li>
+      <li><strong>UI impact triage:</strong> no app/browser UI changes. User-visible surfaces are Pi TUI notifications, model-visible steer/follow-up messages, and debug metadata.</li>
+    </ul>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ul>
+      <li>Do not wait for Pi core/provider accounting fixes to prevent halted sessions.</li>
+      <li>Do not broaden this plan into changing context percentage calculation or footer rendering.</li>
+      <li>No-cut recovery must not rewrite existing history, create a compaction entry, mark compaction successful, or drop/cut messages.</li>
+      <li>No-cut recovery may add one model-visible custom continuation event with diagnostic metadata when an active turn was interrupted and continuation delivery is safe.</li>
+      <li>No-cut recovery must not mark a compaction as successful; it should be a recoverable skip with continuation when appropriate.</li>
+      <li>Hard-backstop no-cut retry suppression is required to avoid immediate repeated interruption loops, with an explicit re-arm predicate defined in P4.</li>
+    </ul>
+  </section>
+
+  <section id="progress" class="progress-list">
+    <h2>Progress</h2>
+    <label><input type="checkbox" checked /> P1 — Add no-cut hard-backstop regression coverage</label>
+    <label><input type="checkbox" checked /> P2 — Classify no-cut states in pi-vcc</label>
+    <label><input type="checkbox" checked /> P3 — Recover active hard-backstop no-cut attempts</label>
+    <label><input type="checkbox" checked /> P4 — Add retry suppression and diagnostics</label>
+    <label><input type="checkbox" checked /> P5 — Strengthen pi-vcc fallback cuts safely</label>
+    <label><input type="checkbox" checked /> P6 — Verify, install, and document behavior</label>
+  </section>
+
+  <section id="acceptance-criteria" class="criteria">
+    <h2>Acceptance criteria</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Criterion</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr id="ac-1"><td>AC-1</td><td>When hard-backstop compaction gets <code>Nothing to compact (session too small)</code> during an active turn, the extension sends exactly one continuation and clears in-flight state.</td><td>New test in <code>scripts/percentage-compaction.test.ts</code>.</td></tr>
+        <tr id="ac-2"><td>AC-2</td><td>Idle or manual no-cut cases do not auto-resume arbitrary work.</td><td>New negative tests in <code>scripts/percentage-compaction.test.ts</code>.</td></tr>
+        <tr id="ac-3"><td>AC-3</td><td>No-cut states are classified at the pi-vcc hook layer with enough metadata for debug and future diagnosis.</td><td>New tests in <code>_pi/packages/pi-vcc/tests/before-compact.test.ts</code>.</td></tr>
+        <tr id="ac-4"><td>AC-4</td><td>Repeated high usage with the same/no materially changed percent does not immediately interrupt the agent again after a no-cut recovery.</td><td>Retry suppression tests in <code>scripts/percentage-compaction.test.ts</code>.</td></tr>
+        <tr id="ac-5"><td>AC-5</td><td>Successful compactable hard-backstop and <code>compact_context</code> paths keep existing behavior.</td><td>Existing percentage-compaction and pi-vcc tests still pass.</td></tr>
+        <tr id="ac-6"><td>AC-6</td><td>Tool-call/tool-result integrity remains protected when fallback cuts are improved and when no-cut continuation is injected.</td><td>Before-compact tests cover cut boundaries; percentage-extension tests cover continuation deferral until pending tool results are delivered.</td></tr>
+        <tr id="ac-7"><td>AC-7</td><td>Transient no-cut continuation delivery failure is retried boundedly and produces exactly one successfully delivered model-visible continuation; permanent failure leaves an actionable warning and diagnostic state.</td><td>New delivery-failure tests in <code>scripts/percentage-compaction.test.ts</code>.</td></tr>
+        <tr id="ac-8"><td>AC-8</td><td>No-cut recovery resets any post-compaction waiting gate because no compaction occurred.</td><td>Regression test proves a later eligible hard-backstop attempt is not blocked by stale <code>awaitingPostCompactionAssistantResponse</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd-scenarios">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-active-no-cut">
+      <h3>BDD-1 — Active hard-backstop no-cut continues</h3>
+      <p><strong>Given</strong> a prior pi-vcc compaction and a live post-compaction active tool turn, <strong>when</strong> hard-backstop compaction fails with <code>Nothing to compact (session too small)</code>, <strong>then</strong> the extension clears compaction state, resets stale post-compaction wait state, records the no-cut ratchet, shows an agent-legible skip notification, and sends one successfully delivered continuation steer/follow-up after tool-result ordering is safe.</p>
+    </article>
+    <article id="bdd-idle-no-cut">
+      <h3>BDD-2 — Idle no-cut does not resume</h3>
+      <p><strong>Given</strong> no active interrupted agent turn, <strong>when</strong> a no-cut compaction error occurs, <strong>then</strong> the extension reports a recoverable no-op and does not trigger a new agent turn.</p>
+    </article>
+    <article id="bdd-loop-suppression">
+      <h3>BDD-3 — No immediate retry loop</h3>
+      <p><strong>Given</strong> a no-cut hard-backstop recovery at 96%, <strong>when</strong> subsequent tool turns report the same floored percent and no re-arm signal occurred, <strong>then</strong> the extension does not repeatedly interrupt the agent for the same no-cut condition.</p>
+    </article>
+    <article id="bdd-later-compactable">
+      <h3>BDD-4 — Later compactable tail still compacts</h3>
+      <p><strong>Given</strong> a no-cut hard-backstop was recovered earlier, <strong>when</strong> the floored usage percent rises by at least one point or a new user message arrives and enough live history accumulates to form a safe cut, <strong>then</strong> pi-vcc compaction still runs normally and successful continuation behavior remains intact.</p>
+    </article>
+    <article id="bdd-safety-boundary">
+      <h3>BDD-5 — Safety boundary beats forced compaction</h3>
+      <p><strong>Given</strong> a live tail where cutting would orphan a tool result or drop un-interpreted evidence, <strong>when</strong> usage is above the hard backstop, <strong>then</strong> pi-vcc must prefer no-cut recovery over unsafe summary/cut behavior.</p>
+    </article>
+  </section>
+
+  <section id="phases">
+    <h2>Phase-by-phase execution plan</h2>
+
+    <article id="phase-p1-regressions" class="phase">
+      <h2>P1 — Add no-cut hard-backstop regression coverage</h2>
+      <h3>End State</h3>
+      <p>Tests fail on current behavior for the real halt shape and define the required recovery semantics.</p>
+      <h3>Tests first</h3>
+      <ul>
+        <li>Add tests in <code>scripts/percentage-compaction.test.ts</code> for active hard-backstop <code>onError(new Error("Nothing to compact (session too small)"))</code>.</li>
+        <li>Add tests where hard-backstop no-cut happens while an assistant <code>toolUse</code> still has pending tool results; continuation must be deferred until the matching/sibling tool results are delivered or otherwise proven safe by the event state.</li>
+        <li>Add tests where no-cut continuation delivery throws once, then succeeds; assert exactly one successfully delivered model-visible continuation, no stuck <code>compactionInFlight</code>, and preserved retry diagnostics.</li>
+        <li>Add permanent-delivery-failure coverage asserting an actionable warning and no silent loss of recovery state.</li>
+        <li>Add idle/manual and <code>compact_context</code> negative tests proving no unsolicited continuation.</li>
+        <li>Add retry-loop test for repeated no-cut at the same/floored high usage.</li>
+      </ul>
+      <h3>Expected files</h3>
+      <ul><li><code>scripts/percentage-compaction.test.ts</code></li></ul>
+      <h3>Work</h3>
+      <p>Extend the test harness to let tests invoke captured <code>ctx.compact</code> callbacks and inspect <code>pi.sendMessage</code>, notifications, and repeated <code>turn_end</code> behavior.</p>
+      <h3>Open questions / decision dependencies</h3>
+      <p>None.</p>
+      <h3>Verify</h3>
+      <pre><code>bun test scripts/percentage-compaction.test.ts</code></pre>
+    </article>
+
+    <article id="phase-p2-classification" class="phase">
+      <h2>P2 — Classify no-cut states in pi-vcc</h2>
+      <h3>End State</h3>
+      <p>pi-vcc can explain why it cannot form a cut without overloading the core message “session too small.”</p>
+      <h3>Tests first</h3>
+      <ul>
+        <li>Add before-compact tests for <code>tiny_session</code>, <code>post_compaction_tail_too_short</code>, and <code>active_turn_no_safe_cut</code>.</li>
+        <li>Assert classification appears in debug/details for pi-vcc-controlled no-cut paths where available.</li>
+        <li>Add a test proving the hook records the latest no-cut classification when it returns <code>undefined</code> for core fallback, rather than leaving stale successful compaction stats.</li>
+      </ul>
+      <h3>Expected files</h3>
+      <ul>
+        <li><code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code></li>
+        <li><code>_pi/packages/pi-vcc/src/details.ts</code> if detail typing needs extension</li>
+        <li><code>_pi/packages/pi-vcc/tests/before-compact.test.ts</code></li>
+      </ul>
+      <h3>Work</h3>
+      <ul>
+        <li>Add a <code>NoCutReason</code> union such as <code>tiny_session</code>, <code>already_compacted</code>, <code>post_compaction_tail_too_short</code>, <code>active_turn_no_safe_cut</code>, and <code>unknown_no_safe_cut</code>.</li>
+        <li>Add a small helper that inspects previous compaction presence, live message count since <code>firstKeptEntryId</code>, latest live role, and active-turn inference.</li>
+        <li>Define the cross-package bridge explicitly: export a small <code>getLastNoCutClassification()</code> or extend <code>getLastCompactionStats()</code> so no-cut fallback paths record fresh classification metadata even when the hook returns <code>undefined</code>. The percentage extension may use this when available; otherwise it must report classification as unavailable, not stale.</li>
+        <li>Keep existing fallback-to-core behavior where required; classification should improve diagnosis, not force unsafe compaction.</li>
+      </ul>
+      <h3>Open questions / decision dependencies</h3>
+      <p>None.</p>
+      <h3>Verify</h3>
+      <pre><code>cd _pi/packages/pi-vcc && bun test tests/before-compact.test.ts</code></pre>
+    </article>
+
+    <article id="phase-p3-recovery" class="phase">
+      <h2>P3 — Recover active hard-backstop no-cut attempts</h2>
+      <h3>End State</h3>
+      <p>The extension treats no-cut hard-backstop errors as recoverable skips and resumes active interrupted work.</p>
+      <h3>Tests first</h3>
+      <p>Use the failing P1 tests as the RED contract.</p>
+      <h3>Expected files</h3>
+      <ul><li><code>_pi/extensions/percentage-compaction.ts</code></li></ul>
+      <h3>Work</h3>
+      <ul>
+        <li>Add <code>interruptedActiveTurn</code>, <code>recoverNoCutWithContinuation</code>, and enough pending-tool-result state to <code>triggerCompaction</code> / the surrounding state machine.</li>
+        <li>For hard-backstop calls, set <code>interruptedActiveTurn = !completedResponse</code> and enable no-cut recovery continuation, but defer delivery until pending tool results from the interrupted assistant tool batch have been delivered or a completed assistant boundary proves it is safe.</li>
+        <li>On <code>Already compacted</code> or <code>Nothing to compact (session too small)</code>, clear <code>compactionInFlight</code>, reset <code>awaitingPostCompactionAssistantResponse</code> because no compaction occurred, ratchet the percent, notify <code>No safe compaction cut available; continuing session.</code>, and send a continuation only when the recovery options say the agent was interrupted and delivery is safe.</li>
+        <li>Use <code>pi.sendMessage(..., { deliverAs: "steer", triggerTurn: true })</code> with content that says compaction was skipped because no safe cut was available and the agent should continue from where it left off.</li>
+        <li>Continuation delivery must use bounded retry on transient <code>sendMessage</code> failure, mirroring the existing pi-vcc continuation retry pattern: retry briefly when the session is not ready, deliver exactly one successful continuation, and emit an actionable warning plus diagnostics if delivery permanently fails.</li>
+        <li>Manual <code>/compact-now</code> and <code>compact_context</code> tool paths pass <code>recoverNoCutWithContinuation: false</code> or omit the option so no-cut errors there remain notify-only.</li>
+      </ul>
+      <h3>Open questions / decision dependencies</h3>
+      <p>None.</p>
+      <h3>Verify</h3>
+      <pre><code>bun test scripts/percentage-compaction.test.ts</code></pre>
+    </article>
+
+    <article id="phase-p4-retry-diagnostics" class="phase">
+      <h2>P4 — Add retry suppression and diagnostics</h2>
+      <h3>End State</h3>
+      <p>No-cut recovery does not immediately loop, and future incidents are diagnosable without reading the whole session JSONL.</p>
+      <h3>Tests first</h3>
+      <ul>
+        <li>Add tests for same exact percent and same floored percent retry suppression after no-cut recovery.</li>
+        <li>Add tests that a later materially changed usage or completed assistant boundary can eventually allow another attempt when appropriate.</li>
+      </ul>
+      <h3>Expected files</h3>
+      <ul>
+        <li><code>_pi/extensions/percentage-compaction.ts</code></li>
+        <li><code>scripts/percentage-compaction.test.ts</code></li>
+        <li><code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code> for debug metadata if needed</li>
+      </ul>
+      <h3>Work</h3>
+      <ul>
+        <li>Track no-cut retry state separately from successful compaction if exact-percent ratchet is not enough.</li>
+        <li>Suppress repeated hard-backstop attempts for the same floored usage percentage, e.g. repeated 96.x, until a concrete re-arm signal occurs.</li>
+        <li>Re-arm no-cut retry suppression when either the floored usage percent increases by at least one point or a new user message is observed since the last no-cut recovery, whichever comes first. A completed assistant boundary alone is not sufficient unless paired with one of those re-arm signals.</li>
+        <li>Include debug facts: reason, usage percent, no-cut classification if available, active-turn flag, pending-tool-result state, delivery retry count, and whether continuation was queued/delivered.</li>
+      </ul>
+      <h3>Open questions / decision dependencies</h3>
+      <p>None.</p>
+      <h3>Verify</h3>
+      <pre><code>bun test scripts/percentage-compaction.test.ts
+cd _pi/packages/pi-vcc && bun test tests/before-compact.test.ts</code></pre>
+    </article>
+
+    <article id="phase-p5-cut-fallback" class="phase">
+      <h2>P5 — Strengthen pi-vcc fallback cuts safely</h2>
+      <h3>End State</h3>
+      <p>When there is genuinely summarizable post-compaction live history, pi-vcc can cut an older prefix without orphaning tool pairs.</p>
+      <h3>Tests first</h3>
+      <ul>
+        <li>Add tests with prior compaction plus long agent-only tail that should become compactable.</li>
+        <li>Add counterexample tests where fallback would orphan tool calls/results and must instead no-cut.</li>
+      </ul>
+      <h3>Expected files</h3>
+      <ul>
+        <li><code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code></li>
+        <li><code>_pi/packages/pi-vcc/tests/before-compact.test.ts</code></li>
+      </ul>
+      <h3>Work</h3>
+      <ul>
+        <li>Review <code>buildOwnCut(...)</code> and <code>adjustCutIdxForToolResult(...)</code> against the real session shape.</li>
+        <li>Permit summarizing an older prefix of agent/tool messages when enough live messages exist and the kept tail remains coherent.</li>
+        <li>Preserve current safety rule: do not cut in a way that keeps a tool result without its matching assistant tool call or drops fresh un-interpreted evidence.</li>
+      </ul>
+      <h3>Open questions / decision dependencies</h3>
+      <p>None.</p>
+      <h3>Verify</h3>
+      <pre><code>cd _pi/packages/pi-vcc && bun test tests/before-compact.test.ts</code></pre>
+    </article>
+
+    <article id="phase-p6-verify-rollout" class="phase">
+      <h2>P6 — Verify, install, and document behavior</h2>
+      <h3>End State</h3>
+      <p>The implementation is tested, pi-vcc drift remains intentional, and the behavior is available to local Pi after install.</p>
+      <h3>Tests first</h3>
+      <p>No new RED tests expected beyond P1–P5; this phase is integration verification.</p>
+      <h3>Expected files</h3>
+      <ul>
+        <li><code>_pi/extensions/percentage-compaction.ts</code></li>
+        <li><code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code></li>
+        <li><code>scripts/percentage-compaction.test.ts</code></li>
+        <li><code>_pi/packages/pi-vcc/tests/before-compact.test.ts</code></li>
+        <li><code>_pi/README.md</code> or pi-vcc README only if behavior docs need an update</li>
+      </ul>
+      <h3>Work</h3>
+      <ul>
+        <li>Run full relevant tests.</li>
+        <li>Run pi-vcc upstream drift check.</li>
+        <li>If installable artifacts changed, run the repo’s Pi install path as appropriate for local validation.</li>
+        <li>Record final behavior in documentation only if the operator-visible command/status semantics changed.</li>
+      </ul>
+      <h3>Open questions / decision dependencies</h3>
+      <p>None.</p>
+      <h3>Verify</h3>
+      <pre><code>bun test scripts/percentage-compaction.test.ts
+cd _pi/packages/pi-vcc && bun test
+bash scripts/check-pi-vcc-upstream.sh --summary</code></pre>
+      <p class="muted">There is no repo-local <code>package.json</code> or <code>tsconfig.json</code> typecheck target for these TypeScript extension files. A direct <code>tsc --noEmit</code> probe currently fails on missing ambient Pi/Bun/Node package typings and an existing upstream <code>SegmentData</code> optional-property typing issue, so targeted Bun tests are the authoritative verification unless the implementer first adds a real typecheck harness as a separate prerequisite.</p>
+    </article>
+  </section>
+
+  <section id="verification-strategy">
+    <h2>Verification strategy</h2>
+    <ul>
+      <li><strong>Unit behavior:</strong> percentage extension tests cover nudge, hard-backstop, no-cut, continuation, and retry suppression behavior.</li>
+      <li><strong>pi-vcc hook behavior:</strong> before-compact tests cover cut/no-cut classification and safe cut boundaries.</li>
+      <li><strong>Drift safety:</strong> upstream check proves local pi-vcc deltas remain intentional.</li>
+      <li><strong>Typecheck reality:</strong> no supported repo typecheck command exists for this surface today; do not invent one during implementation. If typecheck support is added, use it as an additional gate, not as a substitute for the targeted behavior tests.</li>
+      <li><strong>Manual smoke:</strong> optional local Pi smoke can be done by triggering a high-context no-cut fixture and confirming the agent receives continuation instead of halting.</li>
+    </ul>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>P1 regression tests lock the halt-prevention contract.</li>
+      <li>P3 extension recovery fixes the user-impacting halt quickly.</li>
+      <li>P4 retry suppression prevents loops.</li>
+      <li>P2 classification and P5 cut fallback improve diagnosis and reduce no-cut frequency.</li>
+      <li>P6 verifies and documents/install-validates the result.</li>
+    </ol>
+    <p class="muted">If implementation sequencing benefits from doing P2 before P3, that is acceptable as long as P1 tests remain the first behavior gate and the user-impacting halt fix is not delayed behind broader refactoring.</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>No Pi core change to <code>agent-session.js</code>.</li>
+      <li>No provider usage-accounting or footer/UI percentage fix.</li>
+      <li>No replacement of pi-vcc with default Pi compaction.</li>
+      <li>No broad compaction-summary format rewrite outside no-cut diagnostics and safe cut behavior.</li>
+      <li>No changes to unrelated Pi prompts, agents, or skills.</li>
+    </ul>
+  </section>
+
+  <section id="resume-instructions">
+    <h2>Resume instructions</h2>
+    <p>Read this document fully, then execute the first unchecked Progress item. Keep implementation scoped to the files listed in each phase. Update the checkbox for a completed phase immediately after its verification passes. Do not implement Pi core/provider context accounting fixes under this plan; record them as a follow-up if they become necessary.</p>
+  </section>
+
+  <section id="decisions-log">
+    <h2>Decisions / Deviations log</h2>
+    <table>
+      <thead><tr><th>Date</th><th>Decision or deviation</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td>2026-07-06</td><td>Create a dedicated no-cut hard-backstop recovery plan.</td><td>The user’s priority is avoiding halted sessions; UI context mismatch is deferred.</td></tr>
+        <tr><td>2026-07-06</td><td>Keep Pi core/provider usage accounting out of scope.</td><td>The halt can be mitigated in pi-vcc/extension first with smaller blast radius.</td></tr>
+        <tr><td>2026-07-06</td><td>Integrated execution-readiness review findings.</td><td>Added bounded continuation retry, safe continuation timing, no-cut wait-state reset, explicit retry re-arm predicate, classification bridge, manual/compact_context opt-out, and typecheck reality notes.</td></tr>
+        <tr><td>2026-07-06</td><td>Upstream drift check remains blocked by pre-existing stale reviewed-upstream metadata.</td><td><code>bash scripts/check-pi-vcc-upstream.sh --summary</code> exits 2 because reviewed <code>0.3.18</code>/<code>45e93e8</code> no longer matches npm <code>0.4.0</code>/upstream <code>b9e0bab</code>; this run does not re-review upstream uptake.</td></tr>
+        <tr><td>2026-07-06</td><td>Pre-PR review findings were integrated.</td><td>GPT pre-PR review identified core-fallback and user re-arm gaps in the <code>session_before_compact</code> gate; the gate now cancels core hard-backstop fallback and leaves repo-managed <code>turn_end</code> compaction as the recovery path. GLM noted a benign retry-timer cleanup, also fixed. Remaining deferred hardening: optional pre-delivery timeout diagnostics for no-cut continuations that never become safe to send.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="review-record">
+    <h2>Review record</h2>
+    <p><strong>Current state:</strong> GPT and GLM readiness review findings were integrated, then fresh independent GPT and GLM rereviews both returned <code>VERDICT: PLAN_EXECUTION_READY</code> with no readiness issues found.</p>
+    <ul>
+      <li>Initial GPT review: <code>VERDICT: PLAN_NEEDS_REVISION</code>; findings integrated for continuation delivery retry, safe continuation timing, and history-mutation wording.</li>
+      <li>Initial GLM review: <code>VERDICT: PLAN_NEEDS_REVISION</code>; findings integrated for no-cut wait-state reset, retry re-arm predicate, classification bridge, manual path opt-out, and typecheck reality.</li>
+      <li>Final GPT rereview: <code>VERDICT: PLAN_EXECUTION_READY</code>; no readiness issues found.</li>
+      <li>Final GLM rereview: <code>VERDICT: PLAN_EXECUTION_READY</code>; no readiness issues found.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

@@ -162,18 +162,19 @@ This repo also ships `simple-multi-status.ts`, a lightweight multi-line status w
 
 This repo also ships `percentage-compaction.ts`, which gives you percentage-based control over context compaction:
 
-- set a custom threshold (default 60%) for when compaction should trigger,
-- proactively auto-compacts with **pi-vcc** once usage crosses the threshold,
-- interrupts long tool-driven agent runs at the next turn boundary, then lets pi-vcc resume the agent after compaction,
+- sends soft/strong model-visible nudges at 60%/75% so agents can choose a safe `compact_context` boundary,
+- uses an 80% hard backstop for automatic pi-vcc compaction,
+- interrupts long tool-driven agent runs at a turn boundary, then lets pi-vcc resume the agent after successful compaction,
+- if the hard backstop finds no safe compaction cut during an active turn, treats it as a recoverable skip, waits for pending tool results when needed, sends one bounded-retry continuation steer, and suppresses immediate same-percent no-cut retry loops,
 - `/compact-status` to check current context usage,
 - `/compact-now [instructions]` to trigger compaction manually,
-- gates pi's built-in auto-compaction so it cannot fire below the configured threshold,
+- gates pi's built-in auto-compaction so repo-managed pi-vcc handles hard-backstop compaction with no-cut recovery,
 - cancels compaction instead of falling back to Pi's default compactor when pi-vcc is not loaded.
 
-To adjust the threshold, edit `COMPACTION_THRESHOLD_PERCENT` in the extension file (default is 60).
+To adjust nudge thresholds, edit `COMPACTION_NUDGE_PERCENT` / `COMPACTION_STRONG_NUDGE_PERCENT`; to adjust the automatic hard backstop, edit `HARD_AUTO_COMPACTION_PERCENT` in the extension file.
 To use with pi-vcc, run `./install.sh --pi`; `pi list` should show the stable mirror under `~/.pi/agent/local-packages/ai-configs/pi-vcc`.
 
-**Note:** With the vendored pi-vcc installed, no additional compaction configuration is needed. The extension now proactively starts a pi-vcc compaction at the configured percentage threshold, and pi-vcc handles the actual algorithmic compaction when triggered. This repo now ships the `/pi-vcc` manual-bypass marker and the agent-only-tail fallback directly in the vendored package, so rerunning `./install.sh --pi` refreshes both behaviors without patching global npm files.
+**Note:** With the vendored pi-vcc installed, no additional compaction configuration is needed. The extension proactively starts pi-vcc compaction at the configured hard-backstop percentage, and pi-vcc handles the actual algorithmic compaction when triggered. This repo now ships the `/pi-vcc` manual-bypass marker and the agent-only-tail fallback directly in the vendored package, so rerunning `./install.sh --pi` refreshes both behaviors without patching global npm files.
 
 This repo also vendors Pi's `questionnaire.ts` extension, which auto-loads on install and provides:
 
