@@ -1,5 +1,5 @@
 {
-  "file_count": 1686,
+  "file_count": 1688,
   "files": [
     {
       "bytes": 819,
@@ -22,9 +22,9 @@
       "sha256": "bb7eebcc19685416572db6d86601b333476241098d942ede641aeec56826c719"
     },
     {
-      "bytes": 16819,
+      "bytes": 18520,
       "path": "cron/jobs.json",
-      "sha256": "215ce041642af38e14d7c1e79a352802d8134d39c830821d485002dcc5fde5d1"
+      "sha256": "2b37efb9470ec33b742ef80278ae3412279ecf173d27359a50ee47ec9761cc66"
     },
     {
       "bytes": 508,
@@ -4837,6 +4837,11 @@
       "sha256": "60633d11922d7b195657c6df5dc447126f932936a15dc186d6bf3e5cd15e8353"
     },
     {
+      "bytes": 48832,
+      "path": "scripts/__pycache__/github_pr_agent_claim.cpython-314.pyc",
+      "sha256": "e2c7e4c88e637b409accbcf5ab5bbfe8125895aa84621532d4a5217b751a839a"
+    },
+    {
       "bytes": 10134,
       "path": "scripts/aaron_signal_watch_launchd.py",
       "sha256": "991ba35fe89af3444f130ec58a6600a787d8734b1c2e63d9f7f813c94e99456f"
@@ -4850,6 +4855,11 @@
       "bytes": 27387,
       "path": "scripts/autobuild_pr_nudge_monitor.py",
       "sha256": "acf5ba6ea0b9f45d0ee5acd1d440d5404c22ed6424907f790c17b7b712b97ad8"
+    },
+    {
+      "bytes": 27745,
+      "path": "scripts/github_pr_agent_claim.py",
+      "sha256": "29679b0177a28a7a5f16406739a893b0aa0ed17c3bd85b1b6f56c3e80d299952"
     },
     {
       "bytes": 2570,
@@ -8432,7 +8442,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260704T214404Z",
+  "generated_at": "20260706T202741Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/.hermes"
