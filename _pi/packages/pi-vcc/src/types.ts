@@ -17,6 +17,24 @@ export type PiMessage = Message | BashExecutionMessage;
 
 export type CompactionReason = "manual" | "threshold" | "overflow";
 
+export type NoCutReason =
+  | "tiny_session"
+  | "already_compacted"
+  | "post_compaction_tail_too_short"
+  | "active_turn_no_safe_cut"
+  | "unknown_no_safe_cut";
+
+export interface NoCutClassification {
+  reason: NoCutReason;
+  hadPreviousCompaction: boolean;
+  liveMessageCount: number;
+  latestLiveRole?: string;
+  activeTurnInferred: boolean;
+  firstKeptEntryId?: string;
+  compactionReason?: CompactionReason;
+  willRetry?: boolean;
+}
+
 export interface CompactionIntent {
   source?: string;
   reason?: string;

@@ -73,6 +73,8 @@ const compactableEntries = () => [
   messageEntry("4", assistantText("Working on it.")),
 ];
 
+const compactionEntry = (id: string, firstKeptEntryId: string) => ({ id, type: "compaction", firstKeptEntryId });
+
 const delay = (ms = 75) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe("before-compact cut policy", () => {
@@ -98,6 +100,31 @@ describe("before-compact cut policy", () => {
     expect(result.compaction.summary).toContain("I found the hook.");
   });
 
+  it("falls back to compacting long post-compaction agent-only tails", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: [
+        messageEntry("1", userMsg("Old request")),
+        messageEntry("2", assistantText("Old answer")),
+        compactionEntry("c1", "3"),
+        messageEntry("3", assistantText("Kept prior summary boundary.")),
+        messageEntry("4", assistantWithToolCall("Read", { path: "a.ts" }, "tc_a")),
+        messageEntry("5", toolResult("Read", "hook source", false, "tc_a")),
+        messageEntry("6", assistantText("Interpreted hook source.")),
+        messageEntry("7", assistantWithToolCall("Read", { path: "b.ts" }, "tc_b")),
+        messageEntry("8", toolResult("Read", "test source", false, "tc_b")),
+        messageEntry("9", assistantText("Ready to patch.")),
+      ],
+      reason: "threshold",
+    });
+
+    expect(result.cancel).toBeUndefined();
+    expect(result.compaction.firstKeptEntryId).toBe("6");
+    expect(result.compaction.summary).toContain("Kept prior summary boundary.");
+    expect(result.compaction.summary).toContain('Read "a.ts"');
+  });
+
   it("keeps the matching assistant tool call live when fallback would start at a tool result", async () => {
     const handler = await getBeforeCompactHandler();
     const result = handler({
@@ -115,6 +142,26 @@ describe("before-compact cut policy", () => {
 
     expect(result.cancel).toBeUndefined();
     expect(result.compaction.firstKeptEntryId).toBe("3");
+  });
+
+  it("does not cut when a fallback boundary would orphan a tool result without a matching call", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: basePreparation,
+      branchEntries: [
+        messageEntry("1", userMsg("Investigate the compaction bug")),
+        messageEntry("2", assistantText("I found the hook.")),
+        messageEntry("3", assistantText("More analysis.")),
+        messageEntry("4", assistantText("More setup.")),
+        messageEntry("5", toolResult("Read", "orphaned source", false, "tc_missing")),
+        messageEntry("6", assistantWithToolCall("Read", { path: "b.ts" }, "tc_b")),
+        messageEntry("7", toolResult("Read", "test source", false, "tc_b")),
+        messageEntry("8", assistantText("The fallback cannot safely keep an orphaned tool result.")),
+      ],
+      customInstructions: "__PI_VCC_MANUAL_BYPASS__",
+    });
+
+    expect(result).toEqual({ cancel: true });
   });
 
   it("still prefers the latest user boundary when one exists", async () => {
@@ -197,6 +244,99 @@ describe("compaction intent and overflow fallback", () => {
     });
 
     expect(result).toBeUndefined();
+  });
+
+  it("classifies tiny no-cut sessions for diagnosis", async () => {
+    const { registerBeforeCompactHook, getLastNoCutClassification } = await import("../src/hooks/before-compact");
+    const handlers: Record<string, Array<(event: any) => any>> = {};
+    registerBeforeCompactHook({
+      on: (eventName: string, callback: (event: any) => any) => {
+        handlers[eventName] ??= [];
+        handlers[eventName].push(callback);
+      },
+      sendMessage: () => {},
+    } as any);
+
+    const result = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: [messageEntry("1", userMsg("too small"))],
+      reason: "overflow",
+      willRetry: true,
+    });
+
+    expect(result).toBeUndefined();
+    expect(getLastNoCutClassification()).toMatchObject({
+      reason: "tiny_session",
+      liveMessageCount: 1,
+      hadPreviousCompaction: false,
+      activeTurnInferred: false,
+      compactionReason: "overflow",
+      willRetry: true,
+    });
+  });
+
+  it("classifies post-compaction tails that are too short", async () => {
+    const { registerBeforeCompactHook, getLastNoCutClassification } = await import("../src/hooks/before-compact");
+    const handlers: Record<string, Array<(event: any) => any>> = {};
+    registerBeforeCompactHook({
+      on: (eventName: string, callback: (event: any) => any) => {
+        handlers[eventName] ??= [];
+        handlers[eventName].push(callback);
+      },
+      sendMessage: () => {},
+    } as any);
+
+    const result = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: [
+        messageEntry("1", userMsg("old")),
+        messageEntry("2", assistantText("old response")),
+        compactionEntry("c1", "3"),
+        messageEntry("3", assistantText("kept tail")),
+        messageEntry("4", assistantText("short tail")),
+      ],
+      reason: "threshold",
+    });
+
+    expect(result).toBeUndefined();
+    expect(getLastNoCutClassification()).toMatchObject({
+      reason: "post_compaction_tail_too_short",
+      liveMessageCount: 2,
+      hadPreviousCompaction: true,
+      latestLiveRole: "assistant",
+      compactionReason: "threshold",
+    });
+  });
+
+  it("classifies active-turn no-safe-cut cancellations", async () => {
+    const { registerBeforeCompactHook, getLastNoCutClassification } = await import("../src/hooks/before-compact");
+    const handlers: Record<string, Array<(event: any) => any>> = {};
+    registerBeforeCompactHook({
+      on: (eventName: string, callback: (event: any) => any) => {
+        handlers[eventName] ??= [];
+        handlers[eventName].push(callback);
+      },
+      sendMessage: () => {},
+    } as any);
+
+    const result = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: [
+        messageEntry("1", userMsg("old")),
+        messageEntry("2", assistantWithToolCall("Read", { path: "a.ts" }, "tc_a")),
+        messageEntry("3", toolResult("Read", "source", false, "tc_a")),
+      ],
+      customInstructions: "__PI_VCC_MANUAL_BYPASS__\nkeep:2",
+    });
+
+    expect(result).toEqual({ cancel: true });
+    expect(getLastNoCutClassification()).toMatchObject({
+      reason: "active_turn_no_safe_cut",
+      liveMessageCount: 3,
+      hadPreviousCompaction: false,
+      latestLiveRole: "toolResult",
+      activeTurnInferred: true,
+    });
   });
 
   it("lets the hard backstop fall back when pi-vcc cannot form a cut", async () => {
