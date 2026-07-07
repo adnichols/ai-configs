@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Install pi-codex-goal Across Pi Stack</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #172033;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --accent-2: #a78bfa;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --code: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero { background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12)); border: 1px solid var(--border); border-radius: 20px; padding: 28px; margin-bottom: 18px; }
+    h1, h2, h3 { line-height: 1.2; color: #f8fafc; }
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.25rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 20px 0 8px; color: var(--accent); }
+    section, article { background: rgba(17, 24, 39, 0.84); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin: 16px 0; }
+    a { color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: var(--code); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); color: #f8fafc; text-align: left; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px; color: var(--muted); background: rgba(15, 23, 42, 0.76); font-size: 0.9rem; }
+    .pill.good { color: var(--good); border-color: rgba(52, 211, 153, 0.55); }
+    .pill.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.55); }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 0; }
+    .toc a:hover { color: var(--text); }
+    .callout { border-left: 4px solid var(--accent); background: rgba(125, 211, 252, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .warnbox { border-left: 4px solid var(--warn); background: rgba(251, 191, 36, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .goodbox { border-left: 4px solid var(--good); background: rgba(52, 211, 153, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .badbox { border-left: 4px solid var(--bad); background: rgba(251, 113, 133, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .phase { border-left: 4px solid var(--accent-2); }
+    .matrix td:first-child, .matrix th:first-child { width: 9rem; }
+    @media (max-width: 760px) { main { width: min(100% - 20px, 1180px); padding-top: 16px; } header.hero, section, article { padding: 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero" id="title">
+    <h1>Install pi-codex-goal Across Pi Stack</h1>
+    <p class="muted">Make <code>pi-codex-goal</code> part of the managed ai-configs Pi package set and roll it out to Aaron's Dever and MBP Pi environments.</p>
+    <div class="pill-row" id="status">
+      <span class="pill good">Status: execution-ready</span>
+      <span class="pill">Plan path: <code>thoughts/plans/pi-codex-goal-stack-install.html</code></span>
+      <span class="pill">Worktree: <code>/home/anichols/.herdr/worktrees/ai-configs/main</code></span>
+      <span class="pill">UI impact: text-only docs and install output</span>
+    </div>
+  </header>
+
+  <section id="toc" aria-labelledby="toc-heading">
+    <h2 id="toc-heading">Table of contents</h2>
+    <div class="toc">
+      <div>
+        <strong>Overview</strong>
+        <a href="#goal">Goal</a>
+        <a href="#decision-attention">Decision Attention</a>
+        <a href="#why">Why this plan exists</a>
+        <a href="#authority-inputs">Authority and inputs</a>
+      </div>
+      <div>
+        <strong>Reality</strong>
+        <a href="#current-reality">Current implementation reality</a>
+        <a href="#progress">Progress</a>
+        <a href="#resume">Resume instructions</a>
+        <a href="#product-intent">Product intent alignment</a>
+      </div>
+      <div>
+        <strong>Contracts</strong>
+        <a href="#locked-decisions">Locked decisions</a>
+        <a href="#acceptance-criteria">Acceptance criteria</a>
+        <a href="#bdd">BDD scenarios</a>
+        <a href="#coverage-matrix">Test coverage matrix</a>
+      </div>
+      <div>
+        <strong>Execution</strong>
+        <a href="#phase-p1">P1 Installer wiring</a>
+        <a href="#phase-p2">P2 Verification/docs alignment</a>
+        <a href="#phase-p3">P3 Host rollout</a>
+        <a href="#verification">Verification strategy</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Add <code>pi-codex-goal</code> to this repository's managed Pi package stack so <code>./install.sh --pi</code> installs/updates it like the other package-managed Pi extensions, <code>scripts/verify-pi-install.sh</code> treats it as expected, and the Pi docs tell operators that Codex-style <code>/goal</code> functionality is installed by default.</p>
+    <p>After the repo change is verified, apply the managed install on both intended hosts: the current Dever machine and Aaron's MBP. The rollout should leave <code>pi list</code> showing <code>npm:pi-codex-goal</code> and the local Pi runtime able to resolve the <code>/goal</code> command on next Pi startup/reload.</p>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="warnbox">
+      <p><strong>D1 — MBP access path is environment-dependent.</strong> The plan assumes the implementation agent can reach MBP through the operator's normal shell/SSH setup. If <code>ssh mbp</code> or the expected MBP repo path is unavailable, stop after committing the repo change and report the exact manual command for MBP rather than guessing host credentials or paths.</p>
+      <p><strong>D2 — Do not vendor or fork yet.</strong> Research selected <code>pi-codex-goal</code> because it best matches simple Codex-style goals. This plan deliberately installs the npm package, not a custom fork. Forking is a future option only if real use exposes missing behavior.</p>
+      <p><strong>D3 — Existing goal-like packages should not be removed unless present and conflicting.</strong> Current Dever settings did not show another <code>pi-goal</code> package. If MBP already has a different goal package, do not remove it automatically unless it registers conflicting <code>/goal</code> commands or tools; report the conflict and ask for a removal decision.</p>
+    </div>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>Pi currently stops more easily than desired during long tasks. The selected package, <code>pi-codex-goal</code>, provides a simpler Codex-style long-running objective loop: <code>/goal</code>, persistent session goal state, hidden continuation while active, completion via goal tools, and recovery behavior around overflow/provider interruptions.</p>
+    <p>The correct product behavior is for this capability to be installed by the normal ai-configs Pi setup path. Operators should not need a one-off manual <code>pi install npm:pi-codex-goal</code> that future <code>./install.sh --pi</code> runs or host rebuilds may omit.</p>
+  </section>
+
+  <section id="authority-inputs">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>User request: integrate the recommended goal extension into the stack and install it on MBP and Dever.</li>
+      <li>Research result: recommended <code>pi-codex-goal</code> as the best fit for simple Codex-style persistent goals over richer alternatives such as <code>pi-goal-x</code>.</li>
+      <li><code>AGENTS.md</code>: ai-configs works directly on <code>main</code> by default; the user explicitly requested a separate Herdr worktree checked out to <code>main</code> for this implementation.</li>
+      <li><code>_pi/README.md</code>: documents the three Pi install surfaces and says package-managed installs are registered via <code>pi install</code> and visible in <code>pi list</code>.</li>
+      <li><code>install.sh</code>: <code>install_pi_npm_packages</code> owns npm package-managed Pi extension installation.</li>
+      <li><code>scripts/verify-pi-install.sh</code>: owns the expected package list used to verify the installed Pi environment.</li>
+      <li>Observed Dever state: hostname <code>dever</code>, current <code>~/.pi/agent/settings.json</code> package list does not include <code>pi-codex-goal</code>.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <table>
+      <thead><tr><th>Surface</th><th>Current behavior</th><th>Required delta</th></tr></thead>
+      <tbody>
+        <tr><td><code>install.sh</code> help text</td><td>Lists package-managed Pi installs in the usage output. Current list ends with files-widget, raw-paste, vendored pi-vcc, and pi-interactive-shell.</td><td>Add <code>pi-codex-goal</code> to the package-managed install description so operator help matches real installs.</td></tr>
+        <tr><td><code>install_pi_npm_packages</code></td><td>Installs/updates an array of npm Pi packages: subagents, processes, web access, ast-grep, updater, footer, side agents, cursor, files widget, raw paste.</td><td>Add <code>pi-codex-goal</code> to this array as <code>npm:pi-codex-goal</code> via the existing loop; no special local package logic is needed.</td></tr>
+        <tr><td><code>scripts/verify-pi-install.sh</code></td><td>Expected npm packages mirror the managed installer set and are compared to normalized <code>pi list</code> output.</td><td>Add <code>npm:pi-codex-goal</code> to <code>EXPECTED_NPM_PACKAGES</code>.</td></tr>
+        <tr><td><code>_pi/README.md</code></td><td>Documents package-managed Pi installs and exact package list.</td><td>Add <code>pi-codex-goal</code> and a short note that it provides Codex-style <code>/goal</code>/<code>/create-goal</code> long-running objectives.</td></tr>
+        <tr><td>Installer tests</td><td><code>test_install_shared_skills.sh</code> uses a fake <code>pi</code> that records <code>pi install</code> sources into fake settings. Existing tests exercise <code>--pi</code> install behavior.</td><td>Either existing tests should pass unchanged after adding the package or add a focused assertion that fake Pi settings contain <code>npm:pi-codex-goal</code> after <code>--pi</code>.</td></tr>
+        <tr><td>Host rollout</td><td>Dever has live Pi settings under <code>~/.pi/agent/settings.json</code>; MBP path/access is not verified in this plan.</td><td>Run the updated installer on Dever. On MBP, use the normal remote/local repo path if available; otherwise produce an exact manual command and blocker.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul>
+      <li><input type="checkbox" checked /> P1: Wire <code>pi-codex-goal</code> into managed Pi installer</li>
+      <li><input type="checkbox" checked /> P2: Align verification, docs, and tests</li>
+      <li><input type="checkbox" /> P3: Install and verify on Dever and MBP</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions</h2>
+    <p>Read this document fully, then execute the first unchecked Progress item. Keep this plan source authoritative: after each phase is implemented and verified, update only its matching checkbox in <code>## Progress</code> from unchecked to checked and append any discovered deviation in the Decisions / Deviations log. Do not skip host rollout verification unless MBP access is genuinely unavailable; if unavailable, record the exact blocker and manual command.</p>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <p>This is an operator/agent workflow change. The golden path is <code>./install.sh --pi</code>: it should install the long-running goal capability without a separate tribal-knowledge step. Verification should make missing packages obvious through the existing <code>scripts/verify-pi-install.sh</code> comparison output.</p>
+    <p>Safe default: install <code>pi-codex-goal</code> through Pi's package manager like other npm-managed Pi packages. Self-healing expectation: rerunning <code>./install.sh --pi</code> should add it if absent and update it if already registered. Fail-closed boundary: do not remove or replace other goal packages without evidence of a command/tool conflict.</p>
+    <p>UI impact: <strong>text-only</strong>. The change affects installer output, docs, and Pi slash-command availability after install/reload. It does not change a custom TUI component in this repo.</p>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ul>
+      <li><strong>Use <code>pi-codex-goal</code>.</strong> Install source is <code>npm:pi-codex-goal</code>.</li>
+      <li><strong>No fork for the first integration.</strong> Forking remains a later response to observed gaps, not part of this implementation.</li>
+      <li><strong>Installer owns persistence.</strong> Do not rely on one-off host-local manual installs as the source of truth.</li>
+      <li><strong>Verification must use <code>pi list</code>.</strong> Package-managed installs should be visible through Pi's package registry, unlike repo-managed extensions under <code>~/.pi/agent/extensions</code>.</li>
+      <li><strong>Rollout covers Dever and MBP.</strong> Dever is local to this session. MBP may require remote command execution; if remote access fails, report an actionable blocker instead of silently declaring success.</li>
+    </ul>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <ol>
+      <li id="ac-installer"><code>./install.sh --pi</code> installs or updates <code>npm:pi-codex-goal</code> through the existing npm package-managed Pi extension loop.</li>
+      <li id="ac-help">Installer help/package-managed text includes <code>pi-codex-goal</code>.</li>
+      <li id="ac-verify"><code>scripts/verify-pi-install.sh</code> expects <code>npm:pi-codex-goal</code> and fails when it is missing.</li>
+      <li id="ac-docs"><code>_pi/README.md</code> documents <code>pi-codex-goal</code> in the package-managed list and briefly explains the installed <code>/goal</code> capability.</li>
+      <li id="ac-tests">Relevant installer/test shell checks pass in the worktree.</li>
+      <li id="ac-dever">On Dever, <code>pi list</code> includes <code>npm:pi-codex-goal</code> after running the updated installer, and <code>scripts/verify-pi-install.sh</code> passes or only reports unrelated pre-existing failures that are explicitly documented.</li>
+      <li id="ac-mbp">On MBP, the same package is installed and verified, or the final report contains the exact failed access step and manual remediation command.</li>
+    </ol>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Scenario</th><th>Expected behavior</th></tr></thead>
+      <tbody>
+        <tr><td>BDD-1</td><td>Given a clean fake Pi home without <code>pi-codex-goal</code>, when <code>./install.sh --pi</code> runs, then fake <code>pi install npm:pi-codex-goal</code> is invoked through the existing package loop.</td><td>The resulting fake <code>settings.json</code> contains <code>npm:pi-codex-goal</code>.</td></tr>
+        <tr><td>BDD-2</td><td>Given a Pi home where <code>npm:pi-codex-goal</code> is already registered, when <code>./install.sh --pi</code> runs again, then the existing update path is used rather than adding duplicate entries.</td><td>The package remains registered exactly once.</td></tr>
+        <tr><td>BDD-3</td><td>Given a verified package list that omits <code>npm:pi-codex-goal</code>, when <code>scripts/verify-pi-install.sh</code> compares expected vs actual packages, then it reports the package as missing.</td><td>Verification catches drift after host rebuilds or manual settings edits.</td></tr>
+        <tr><td>BDD-4</td><td>Given Dever after rollout, when <code>pi list</code> is inspected, then <code>npm:pi-codex-goal</code> appears with the other package-managed Pi installs.</td><td>The local Pi runtime has the goal package registered.</td></tr>
+        <tr><td>BDD-5</td><td>Given MBP remote access fails or the expected repo path is absent, when rollout reaches MBP, then implementation stops the MBP portion with a specific blocker.</td><td>No false success; final handoff includes a copy-pasteable manual command.</td></tr>
+        <tr><td>BDD-6</td><td>Given MBP has another goal extension already installed, when rollout inspects <code>pi list</code>, then implementation does not remove it unless an actual conflict is proven.</td><td>Potential command collisions are reported for user decision rather than hidden destructive cleanup.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>Test coverage matrix</h2>
+    <table class="matrix">
+      <thead><tr><th>Acceptance</th><th>BDD</th><th>Evidence / test layer</th></tr></thead>
+      <tbody>
+        <tr><td>AC-1</td><td>BDD-1, BDD-2</td><td><code>test_install_shared_skills.sh</code> fake Pi install path, plus direct inspection of <code>install.sh</code> package array.</td></tr>
+        <tr><td>AC-2</td><td>BDD-1</td><td><code>bash install.sh --help | grep -F pi-codex-goal</code>.</td></tr>
+        <tr><td>AC-3</td><td>BDD-3</td><td>Focused fake-Pi negative verifier test: after <code>EXPECTED_NPM_PACKAGES</code> expects <code>npm:pi-codex-goal</code>, a fake <code>pi list</code> that omits it must make <code>scripts/verify-pi-install.sh</code> fail and print the missing package.</td></tr>
+        <tr><td>AC-4</td><td>BDD-1</td><td>Read/review <code>_pi/README.md</code> package-managed section.</td></tr>
+        <tr><td>AC-5</td><td>BDD-1 to BDD-3</td><td><code>bash -n install.sh scripts/verify-pi-install.sh test_install_shared_skills.sh</code> and <code>bash test_install_shared_skills.sh</code> if runtime is reasonable.</td></tr>
+        <tr><td>AC-6</td><td>BDD-4</td><td>On Dever: <code>./install.sh --pi</code>, <code>pi list | grep -F 'npm:pi-codex-goal'</code>, <code>bash scripts/verify-pi-install.sh</code>.</td></tr>
+        <tr><td>AC-7</td><td>BDD-5, BDD-6</td><td>On MBP: remote/local install and <code>pi list</code> evidence; if blocked, exact command and blocker in final report.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <article class="phase" id="phase-p1">
+    <h2>P1: Wire <code>pi-codex-goal</code> into managed Pi installer</h2>
+    <h3>End State</h3>
+    <p>The normal <code>./install.sh --pi</code> package-managed Pi install loop installs/updates <code>npm:pi-codex-goal</code>, and installer help text names it as part of the managed package set.</p>
+    <h3>Tests first</h3>
+    <p>Strict TDD is light here because this is shell/config wiring. Before editing, run or inspect the existing fake-Pi installer test path and identify the assertion location. Add a focused assertion in <code>test_install_shared_skills.sh</code> if no existing test would fail when the package is missing.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Edit <code>install.sh</code> usage text where package-managed Pi installs are enumerated to include <code>pi-codex-goal</code>.</li>
+      <li>Edit <code>install_pi_npm_packages</code> in <code>install.sh</code> and add <code>"pi-codex-goal"</code> to the <code>npm_packages</code> array.</li>
+      <li>Do not add special install, purge, or local mirror behavior; this package is a normal npm Pi package.</li>
+      <li>If a test assertion is needed, add it near the existing <code>--pi</code> fake-install assertions so it checks fake settings for <code>npm:pi-codex-goal</code>.</li>
+    </ol>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>install.sh</code></li>
+      <li><code>test_install_shared_skills.sh</code> only if adding a focused fake-install assertion is necessary</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>cd /home/anichols/.herdr/worktrees/ai-configs/main
+bash -n install.sh test_install_shared_skills.sh
+bash install.sh --help | grep -F 'pi-codex-goal'
+rg -n 'pi-codex-goal|npm_packages' install.sh test_install_shared_skills.sh</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p2">
+    <h2>P2: Align verification, docs, and tests</h2>
+    <h3>End State</h3>
+    <p>Repo verification and Pi documentation agree that <code>pi-codex-goal</code> is an expected package-managed Pi extension.</p>
+    <h3>Tests first</h3>
+    <p>Before editing verification, run a static grep showing <code>scripts/verify-pi-install.sh</code> does not yet expect <code>npm:pi-codex-goal</code>. Add the focused fake-Pi negative verifier assertion first; it should fail until <code>EXPECTED_NPM_PACKAGES</code> includes <code>npm:pi-codex-goal</code>. After editing, the same grep must find it in exactly the expected sections and the negative verifier assertion must pass by observing the expected failure/missing-package output.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Add <code>"npm:pi-codex-goal"</code> to <code>EXPECTED_NPM_PACKAGES</code> in <code>scripts/verify-pi-install.sh</code>.</li>
+      <li>Update <code>_pi/README.md</code> package-managed Pi extension bullets to include <code>pi-codex-goal</code>.</li>
+      <li>Add one concise README sentence explaining that <code>pi-codex-goal</code> provides Codex-style <code>/goal</code> and <code>/create-goal</code> persistent objectives.</li>
+      <li>Add a focused <code>test_install_shared_skills.sh</code> assertion, using the existing fake-Pi pattern, that runs <code>scripts/verify-pi-install.sh</code> with <code>pi list</code> output omitting <code>npm:pi-codex-goal</code> and verifies the script fails with <code>npm:pi-codex-goal</code> reported missing.</li>
+      <li>Keep docs limited to the managed install surface; do not duplicate the external package README.</li>
+    </ol>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>scripts/verify-pi-install.sh</code></li>
+      <li><code>_pi/README.md</code></li>
+      <li><code>test_install_shared_skills.sh</code></li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>cd /home/anichols/.herdr/worktrees/ai-configs/main
+bash -n scripts/verify-pi-install.sh
+rg -n 'pi-codex-goal|/create-goal|/goal' install.sh scripts/verify-pi-install.sh _pi/README.md
+bash test_install_shared_skills.sh
+# Confirm the focused verifier-negative assertion covers BDD-3 by checking test output
+# or the named test body for npm:pi-codex-goal missing-package reporting.</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p3">
+    <h2>P3: Install and verify on Dever and MBP</h2>
+    <h3>End State</h3>
+    <p>The updated stack is installed on Dever and MBP, or any MBP access blocker is documented with an exact manual command.</p>
+    <h3>Tests first</h3>
+    <p>Capture pre-rollout package state before mutating either host. This is not a code RED test, but it proves the installer changes the intended live surface.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>On Dever, from the implementation worktree, record <code>pi list | grep -E 'goal|pi-codex-goal'</code> before rollout.</li>
+      <li>Run <code>./install.sh --pi</code> on Dever.</li>
+      <li>Verify Dever with <code>pi list | grep -F 'npm:pi-codex-goal'</code> and <code>bash scripts/verify-pi-install.sh</code>.</li>
+      <li>For MBP, first try the operator's normal reachable host alias, starting with <code>ssh mbp</code>. Use a login shell so Homebrew paths load.</li>
+      <li>On MBP, locate the ai-configs repo. Prefer <code>/Users/anichols/code/ai-configs</code>; if absent, run <code>find /Users/anichols/code -maxdepth 2 -type d -name ai-configs</code> remotely.</li>
+      <li>Ensure the MBP repo contains the implementation commit or branch. If needed and safe, fetch/pull the ai-configs change on MBP before running the installer. Do not overwrite unrelated MBP local changes.</li>
+      <li>Run <code>./install.sh --pi</code> on MBP and verify <code>pi list</code> includes <code>npm:pi-codex-goal</code>.</li>
+      <li>If MBP access or repo state is blocked, stop the MBP rollout and report the exact attempted command, failure, and manual command: <code>cd /Users/anichols/code/ai-configs &amp;&amp; git pull --ff-only &amp;&amp; ./install.sh --pi &amp;&amp; pi list | grep -F 'npm:pi-codex-goal'</code>.</li>
+    </ol>
+    <h3>Expected files</h3>
+    <ul>
+      <li>No additional repo files expected beyond P1/P2 and this plan progress checkbox update.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>MBP remote access path may need operator input if <code>ssh mbp</code> is unavailable.</p>
+    <h3>Verify</h3>
+    <pre><code># Dever
+cd /home/anichols/.herdr/worktrees/ai-configs/main
+./install.sh --pi
+pi list | grep -F 'npm:pi-codex-goal'
+bash scripts/verify-pi-install.sh
+
+# MBP, if ssh alias works
+ssh mbp 'zsh -lc "cd /Users/anichols/code/ai-configs &amp;&amp; git pull --ff-only &amp;&amp; ./install.sh --pi &amp;&amp; pi list | grep -F npm:pi-codex-goal"'</code></pre>
+  </article>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ul>
+      <li><strong>Static shell validity:</strong> <code>bash -n install.sh scripts/verify-pi-install.sh test_install_shared_skills.sh</code>.</li>
+      <li><strong>Installer regression:</strong> <code>bash test_install_shared_skills.sh</code> from the worktree. If the full suite is too broad or hits unrelated failures, run the focused fake-Pi install test added in P1 and document the exact subset.</li>
+      <li><strong>Runtime package registration:</strong> <code>pi list | grep -F 'npm:pi-codex-goal'</code> on each host after installer rollout.</li>
+      <li><strong>Repo install verification:</strong> <code>bash scripts/verify-pi-install.sh</code> on Dever and MBP when accessible.</li>
+      <li><strong>Optional smoke:</strong> Start a fresh Pi session after install and run <code>/goal Create /tmp/pi-goal-smoke.txt containing PI_GOAL_OK; verify it from disk; mark complete.</code> Only run this if model credentials and time are available; package registration is the required acceptance gate.</li>
+    </ul>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>Implement P1/P2 in <code>/home/anichols/.herdr/worktrees/ai-configs/main</code>.</li>
+      <li>Run local shell/test verification.</li>
+      <li>Commit the repo changes on <code>main</code> in the Herdr worktree if that is the active repo workflow for this task.</li>
+      <li>Run Dever rollout.</li>
+      <li>Run MBP rollout or record a concrete blocker/manual command.</li>
+      <li>Final report: changed files, test results, Dever evidence, MBP evidence/blocker, and whether a fresh Pi reload/restart is needed.</li>
+    </ol>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>No fork or vendored copy of <code>pi-codex-goal</code>.</li>
+      <li>No removal of other goal/supervisor packages without explicit conflict evidence and user approval.</li>
+      <li>No custom wrapper command around <code>/goal</code>.</li>
+      <li>No changes to Pi core, model defaults, compaction, subagents, or prompt templates beyond docs/help text directly related to the package install.</li>
+      <li>No broad host bootstrap beyond the requested Pi package rollout on Dever and MBP.</li>
+    </ul>
+  </section>
+
+  <section id="deviations">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li>2026-07-07: Plan created after research recommended <code>pi-codex-goal</code> over <code>pi-goal-x</code> for a simpler Codex-style persistent <code>/goal</code> experience.</li>
+      <li>2026-07-07: User explicitly requested implementation planning in a new Herdr worktree checked out to <code>main</code>; worktree path is <code>/home/anichols/.herdr/worktrees/ai-configs/main</code>.</li>
+      <li>2026-07-07: Execution-readiness review required BDD-3 to be mandatory rather than optional; P2 now requires a focused fake-Pi negative verifier assertion proving <code>scripts/verify-pi-install.sh</code> reports <code>npm:pi-codex-goal</code> missing when <code>pi list</code> omits it.</li>
+      <li>2026-07-07: Full <code>bash test_install_shared_skills.sh</code> remains broad-suite failing with five out-of-scope pre-existing failures: <code>test_skills_mode_installs_additively_and_is_idempotent</code>, <code>test_update_modifier_runs_skills_sh_update_before_sync</code>, <code>test_update_modifier_normalizes_skills_sh_mutated_managed_skills</code>, <code>test_default_mode_reuses_shared_sync_without_mutating_repo_root</code>, and <code>test_codex_pi_skill_and_prompt_parity</code>. The plan-bound Pi package assertions pass, including the new verifier-negative assertion for <code>npm:pi-codex-goal</code>.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

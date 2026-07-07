@@ -61,6 +61,17 @@ set -eu
 settings_path="$HOME/.pi/agent/settings.json"
 
 case "${1:-}" in
+  --list-models)
+    case "${2:-}" in
+      openai-codex/gpt-5.5)
+        printf 'openai-codex gpt-5.5\n'
+        ;;
+      opencode/glm-5.2)
+        printf 'opencode glm-5.2\n'
+        ;;
+    esac
+    exit 0
+    ;;
   list)
     if [[ "${AI_CONFIGS_FAKE_PI_LIST_FAILS:-}" == "1" ]]; then
       exit 1
@@ -655,6 +666,7 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'managed by ai-configs' || return 1
   [[ -f "$home/.pi/agent/extensions/todo.ts" ]] || return 1
   [[ -d "$home/.pi/agent/extensions/pi-plan-mode" ]] || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" 'npm:pi-codex-goal' || return 1
 
   output_file="$home/omp-install.log"
   run_installer_capture "$home" "$output_file" --omp || {
@@ -664,6 +676,53 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   assert_file_contains "$home/.omp/agent/extensions/herdr-agent-state.ts" 'omp-herdr-sentinel' || return 1
   [[ -d "$home/.omp/agent/extensions/aplan" ]] || return 1
   [[ -d "$home/.omp/agent/extensions/pi-vcc" ]] || return 1
+}
+
+test_verify_pi_install_reports_missing_goal_package() {
+  local home fake_bin output_file settings_path local_fork
+  home="$(new_tmp_dir)"
+  fake_bin="$(create_fake_tool_bin "$home")"
+  output_file="$home/verify.log"
+  settings_path="$home/.pi/agent/settings.json"
+  local_fork="$(cd "$SCRIPT_DIR/../3p/pi-interactive-shell" 2>/dev/null && pwd || true)"
+
+  mkdir -p "$home/.pi/agent/extensions" "$(dirname "$settings_path")" "$home/.pi/agent/local-packages/ai-configs/pi-vcc"
+  cp -R "$SCRIPT_DIR/_pi/extensions/." "$home/.pi/agent/extensions/"
+  printf '{"name":"@adnichols/pi-vcc"}\n' > "$home/.pi/agent/local-packages/ai-configs/pi-vcc/package.json"
+
+  python3 - "$settings_path" "$home/.pi/agent/local-packages/ai-configs/pi-vcc" "$local_fork" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+pi_vcc = sys.argv[2]
+local_fork = sys.argv[3]
+
+packages = [
+    "git:github.com/edxeth/pi-gpt-config",
+    "npm:@tintinweb/pi-subagents",
+    "npm:@aliou/pi-processes",
+    "npm:pi-web-access",
+    "npm:@fnnm/pi-ast-grep",
+    "npm:pi-updater",
+    "npm:pi-powerline-footer",
+    "npm:pi-side-agents",
+    "npm:pi-no-soft-cursor",
+    "npm:@tmustier/pi-files-widget",
+    "npm:@tmustier/pi-raw-paste",
+    pi_vcc,
+]
+packages.append(local_fork if local_fork else "git:github.com/adnichols/pi-interactive-shell")
+settings_path.write_text(json.dumps({"packages": packages}, indent=2) + "\n")
+PY
+
+  if HOME="$home" PATH="$fake_bin:$PATH" PI_AGENT_DIR="$home/.pi/agent" bash "$SCRIPT_DIR/scripts/verify-pi-install.sh" >"$output_file" 2>&1; then
+    cat "$output_file" >&2
+    return 1
+  fi
+  assert_file_contains "$output_file" 'Missing:' || return 1
+  assert_file_contains "$output_file" '    - npm:pi-codex-goal' || return 1
 }
 
 test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails() {
@@ -948,6 +1007,7 @@ main() {
   run_test test_project_local_central_skill_overrides_are_removed
   run_test test_failpoint_after_backup_keeps_destination_recoverable
   run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
+  run_test test_verify_pi_install_reports_missing_goal_package
   run_test test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails
   run_test test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails
   run_test test_phase_three_docs_use_canonical_shared_skill_paths
