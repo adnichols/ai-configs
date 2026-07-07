@@ -162,7 +162,7 @@
     <ul>
       <li><input type="checkbox" checked /> P1: Wire <code>pi-codex-goal</code> into managed Pi installer</li>
       <li><input type="checkbox" checked /> P2: Align verification, docs, and tests</li>
-      <li><input type="checkbox" /> P3: Install and verify on Dever and MBP</li>
+      <li><input type="checkbox" checked /> P3: Install and verify on Dever and MBP</li>
     </ul>
   </section>
 
@@ -366,6 +366,7 @@ ssh mbp 'zsh -lc "cd /Users/anichols/code/ai-configs &amp;&amp; git pull --ff-on
       <li>2026-07-07: User explicitly requested implementation planning in a new Herdr worktree checked out to <code>main</code>; worktree path is <code>/home/anichols/.herdr/worktrees/ai-configs/main</code>.</li>
       <li>2026-07-07: Execution-readiness review required BDD-3 to be mandatory rather than optional; P2 now requires a focused fake-Pi negative verifier assertion proving <code>scripts/verify-pi-install.sh</code> reports <code>npm:pi-codex-goal</code> missing when <code>pi list</code> omits it.</li>
       <li>2026-07-07: Full <code>bash test_install_shared_skills.sh</code> remains broad-suite failing with five out-of-scope pre-existing failures: <code>test_skills_mode_installs_additively_and_is_idempotent</code>, <code>test_update_modifier_runs_skills_sh_update_before_sync</code>, <code>test_update_modifier_normalizes_skills_sh_mutated_managed_skills</code>, <code>test_default_mode_reuses_shared_sync_without_mutating_repo_root</code>, and <code>test_codex_pi_skill_and_prompt_parity</code>. The plan-bound Pi package assertions pass, including the new verifier-negative assertion for <code>npm:pi-codex-goal</code>.</li>
+      <li>2026-07-07: Dever rollout passed after <code>./install.sh --pi</code>; <code>pi list</code> includes <code>npm:pi-codex-goal</code>, and <code>bash scripts/verify-pi-install.sh</code> passed. MBP rollout passed through <code>ssh mbp</code> with <code>git pull --ff-only</code>, <code>./install.sh --pi</code>, <code>pi list | grep -F npm:pi-codex-goal</code>, and <code>bash scripts/verify-pi-install.sh</code>. Both host verifiers reported no missing expected entries; existing extra local packages/extensions were non-failing.</li>
     </ul>
   </section>
 </main>
