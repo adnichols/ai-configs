@@ -317,26 +317,28 @@ Do not hide failures. Fix failures when they are in scope, required for truthful
 
 ## Base Freshness and Mergeability Gate
 
-Before commit, push, and PR creation, verify the branch is fresh enough against the target branch that the PR will not immediately open stale or obviously unmergeable.
+Before push and PR creation, verify the branch is fresh enough against the target branch that the PR will not immediately open stale or obviously unmergeable. Run the first freshness check before committing when possible, but do not rebase a dirty worktree by default.
 
 1. Resolve the target branch from the plan, existing PR metadata, or repo default integration branch.
 2. Fetch the target branch.
 3. Check whether the current branch is behind, diverged, or likely conflicted with the fetched target branch.
-4. If the branch is behind or diverged, rebase onto the fetched target branch when conflicts are absent or limited to scoped files and can be resolved without a product decision.
-5. If conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations, stop with a base freshness blocker.
-6. After any rebase or conflict resolution, rerun the verification invalidated by the changed diff context.
-7. Rerun scoped quality reviews, PM review, or the Codex/Claude pre-PR gate when the rebase materially changes the PR diff, touched files, acceptance evidence, or reviewer assumptions.
+4. If the branch is behind or diverged while scoped edits are still uncommitted, commit the scoped changes after final verification, then rebase the committed branch onto the fetched target branch before pushing. Use autostash only when repo policy explicitly permits it, and record exactly what was stashed, reapplied, and reverified.
+5. If the branch is behind or diverged after commit, rebase onto the fetched target branch when conflicts are absent or limited to scoped files and can be resolved without a product decision.
+6. If conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations, stop with a base freshness blocker.
+7. After any rebase, autostash replay, or conflict resolution, rerun the verification invalidated by the changed diff context.
+8. Rerun scoped quality reviews, PM review, or the Codex/Claude pre-PR gate when the rebase materially changes the PR diff, touched files, acceptance evidence, or reviewer assumptions.
 
 Record the target branch, fetch result, rebase/skip decision, rerun verification, and any stale-review reruns in the PR body. A clean `OPEN_PR_READY` review verdict is not enough by itself if the branch became stale before PR creation.
 
 ## Commit, Push, and PR
 
-When implementation, scoped reviews, implementation-stage PM review, the applicable Codex/Claude pre-PR review gate status, final verification, and base freshness pass, PR creation is mandatory in the same run:
+When implementation, scoped reviews, implementation-stage PM review, the applicable Codex/Claude pre-PR review gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run:
 
 1. Review `git diff --stat` and `git diff --name-only`.
 2. Commit only the scoped changes.
-3. Push the branch.
-4. Open a PR to the plan's target branch, or the repo's normal integration branch.
+3. If the freshness check found the target branch stale before commit, rebase the committed branch now, rerun invalidated verification/reviews, and stop on unsafe conflicts.
+4. Push the branch.
+5. Open a PR to the plan's target branch, or the repo's normal integration branch.
 
 Do not end with "ready to open a PR." If `gh` authentication, branch protection, missing remote, or another concrete issue prevents PR creation, report that exact blocker and leave the run state active; otherwise produce a PR URL.
 
@@ -489,9 +491,11 @@ When rebase is needed:
 
 1. Fetch the destination branch.
 2. Rebase the PR branch onto the destination branch.
-3. Resolve only conflicts in scoped files or conflicts required to preserve this plan's implementation.
-4. Rerun verification affected by the rebase.
-5. Push with lease.
+3. Resolve only conflicts in scoped files, and only when no product decision is needed.
+4. Stop with a scope question when conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations.
+5. Rerun verification affected by the rebase.
+6. Rerun scoped reviews when the PR diff changed materially.
+7. Push with lease.
 
 Do not use destructive git commands to force mergeability. If conflicts require decisions outside the plan, stop with a scope question.
 

@@ -9,7 +9,7 @@ Use this skill to catch implementation issues that would otherwise appear during
 
 The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings must be triaged, but they are not automatically PR-blocking: fix them only when they are plan-required, verification-required, regression-caused, or a small safe cleanup; otherwise document them as non-blocking follow-ups with evidence.
 
-When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review and base freshness responsibilities, or has recorded why they were blocked or not applicable. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status, and any rebase-triggered rerun requirement to the `run-plan` caller so it can rerun final verification if needed, commit, push, open the PR, and continue post-PR monitoring.
+When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review; base freshness may still be pending until final verification and the scoped commit make a safe rebase possible. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement to the `run-plan` caller so it can rerun final verification if needed, complete base freshness safely, commit, push, open the PR, and continue post-PR monitoring.
 
 ## Inputs
 
@@ -22,7 +22,7 @@ Accept any of:
 /skill:pre-pr-implementation-review <plan path> --base <branch-or-range>
 ```
 
-If invoked from `run-plan`, use that plan path, target branch/base branch, scope contract, changed files, latest verification results, PM review status, base freshness status, and any rebase-triggered rerun requirement.
+If invoked from `run-plan`, use that plan path, target branch/base branch, scope contract, changed files, latest verification results, PM review status, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement.
 
 If invoked independently, resolve the comparison in this order:
 
