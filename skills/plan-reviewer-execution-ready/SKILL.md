@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer-execution-ready
-description: Respond to Doct/plan-reviewer execution-ready request comments by coordinating GPT and applicable GLM readiness review, resolving disagreements into plan improvements, applying those improvements to the HTML plan, and rerunning review until all applicable reviewers agree the plan is execution-ready or a real blocker remains. Use when a registered Doct plan comment says to use plan-reviewer-execution-ready or requests an execution-ready review for a plan path.
+description: Respond to Doct/plan-reviewer execution-ready request comments by coordinating Codex and applicable Claude Code readiness review, resolving disagreements into plan improvements, applying those improvements to the HTML plan, and rerunning review until all applicable reviewers agree the plan is execution-ready or a real blocker remains. Use when a registered Doct plan comment says to use plan-reviewer-execution-ready or requests an execution-ready review for a plan path.
 ---
 
 # Plan Reviewer Execution-Ready
@@ -16,7 +16,7 @@ The triggering comment should include:
 ```text
 Use the plan-reviewer-execution-ready skill for this plan.
 
-Review thoughts/plans/<slug>.html with GPT and applicable GLM. Debate and improve the correctness of this plan and any fixes until all applicable reviewers are at consensus on the recommended changes, apply those changes, and the plan is execution-ready.
+Review thoughts/plans/<slug>.html with Codex and applicable Claude Code. Debate and improve the correctness of this plan and any fixes until all applicable reviewers are at consensus on the recommended changes, apply those changes, and the plan is execution-ready.
 
 Plan path: thoughts/plans/<slug>.html
 ```
@@ -28,26 +28,27 @@ If the plan path is missing, ambiguous, or not a readable file in the current re
 1. Read the full plan and repo guidance.
 2. Confirm the plan is intended for execution readiness review, not direct implementation.
 3. Run product-intent / PM readiness checks using the repo's product-intent guidance when present.
-4. Run the independent GPT plan review and the GLM plan review only when the plan has a high-risk trigger or explicit override.
+4. Run the independent Codex plan review and the Claude Code plan review only when the high-risk second-reviewer trigger or an explicit override applies.
 5. Compare applicable reviewer findings, force disagreements through repo/product evidence, and identify the consensus set of changes required for correctness and execution readiness.
 6. Apply the agreed in-scope improvements directly to the HTML plan. The primary deliverable is an improved plan, not a findings report.
-7. Rerun GPT and applicable GLM after material edits until all applicable reviewers agree by substance that the latest plan is execution-ready, or stop with a specific product/tooling blocker.
+7. Rerun Codex and applicable Claude Code after material edits until all applicable reviewers agree by substance that the latest plan is execution-ready, or stop with a specific product/tooling blocker.
 8. Update the same registered Doct plan through `doct-agent plans update` and set truthful lifecycle/board/readiness state only after the gates clear.
 9. Ack and resolve the Doct plan request comment only after the plan is actually updated and rereviewed, or the blocker is reported.
 
 Do not edit product code, tests, generated files, local environment files, or unrelated docs while using this skill.
 
-## Pi implementation
+## Reviewer implementation
 
-In Pi, run `quality-reviewer` for the GPT-5.5 review leg, then classify whether GLM applies:
+Run these independent read-only readiness review legs:
 
-- **Use GLM** when the plan touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another explicit P1/P2 risk surface.
-- **Skip GLM by default** for docs-only plans, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator or Doct reviewer provides an explicit override reason.
-- When GLM applies, use the active GLM-5.2 reviewer profile for the GLM review leg. Use `glm5.2-high` for normal high-risk bounded readiness review. Use `glm5.2-xhigh` for final or exceptional-risk review, including security boundary changes, irreversible data-loss risk, difficult concurrency/locking correctness, migrations, release-blocking ambiguity, or any `glm5.2-high` incomplete/ambiguous result. `quality-reviewer-glm` remains only as the legacy xhigh compatibility alias. The `opencode/glm-5.2` value is only the Pi model provider/model ID in that subagent; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this leg.
+- **Codex** is the primary review leg. In Codex, run it as a Codex subagent/native review task when that facility is available; otherwise use `codex-review-partner` in `plan-review` mode. In Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper.
+- **Claude Code** is the high-risk second-reviewer leg. Run it only when the high-risk policy applies: data loss risk, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, another explicit P1/P2 risk surface, or an explicit override. Use `claude-code-review` and its canonical private-tmux interactive launcher, pinned to Opus 4.7 on Extra High.
 
-Launch applicable reviewers independently when possible. Keep the review agents read-only; the coordinating agent must synthesize their recommendations, drive convergence, and edit the plan. Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt; if the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
+Do not use Pi `quality-reviewer`, GLM reviewer profiles, GPT subagents, Kimi, OMP, OpenCode, or other model-subagent substitutes for this gate. If Codex or a required Claude Code review is unavailable, stop with a tooling blocker and leave the plan not execution-ready unless the user explicitly waives the missing reviewer. If Claude Code is skipped under the low-risk policy, record the skip and override decision.
 
-For every quality reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the coordinating agent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
+Launch the reviewers independently when possible. Keep the review agents read-only; the coordinating agent must synthesize their recommendations, drive convergence, and edit the plan. Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt; if the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
+
+For every reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the coordinating agent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
 
 Split a readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The coordinating agent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
 
@@ -73,17 +74,28 @@ Treat fuzzy output by substance, but never normalize empty, tool-only, provider-
 
 ## Codex implementation
 
-In Codex, delegate the GPT and applicable GLM readiness-review legs to Pi so the same Pi subagents and model routing are used as the Pi workflow. Do not replace a required GLM leg with a Codex-native or OpenCode-native review.
-
-Use a bounded Pi non-interactive command from the same repo/worktree, and require Pi to write the review result back to the plan or a durable artifact:
+In Codex, run the Codex review leg as a subagent/native review task when available. If a subprocess review is needed, use the same repo/worktree and the installed wrapper:
 
 ```bash
-pi -p --approve "/skill:plan-reviewer-execution-ready <plan-path>"
+~/.agents/skills/codex-review-partner/scripts/run-review.sh \
+  --mode plan-review \
+  --input /tmp/plan-readiness-review.md \
+  --cwd /path/to/repo \
+  --output thoughts/validation/<slug>-codex-plan-review.md
 ```
 
-If running the whole skill through Pi would re-enter the current Doct listener claim unsafely, delegate only the reviewer slice with an explicit prompt that asks Pi to run `quality-reviewer` and, when the plan has a high-risk trigger or explicit override, the applicable GLM reviewer profile read-only against `<plan-path>`, return the required verdicts, and write the reviewer outputs under `thoughts/validation/`.
+Run Claude Code through the canonical launcher only when the high-risk second-reviewer trigger or an explicit override applies:
 
-After Pi returns, Codex may integrate agreed in-scope plan edits and update Doct state, but it must rerun the same applicable Pi reviewer set after material edits until all applicable reviewers clear by substance. Codex must not claim execution readiness if Pi, `quality-reviewer`, or a required GLM reviewer profile is unavailable; ack with a tooling blocker and leave the plan not execution-ready.
+```bash
+python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" \
+  --cwd /path/to/repo \
+  --prompt-file /tmp/claude-plan-readiness-review.md \
+  --output thoughts/validation/<slug>-claude-plan-review.md \
+  --review-name claude-plan-readiness \
+  --timeout-seconds 3600
+```
+
+After material plan edits, rerun the Codex leg and any required Claude Code leg until all applicable reviewers clear by substance. Codex must not claim execution readiness if Codex independent review or a required Claude Code review is unavailable; ack with a tooling blocker and leave the plan not execution-ready.
 
 ## Review triage
 

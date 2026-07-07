@@ -1,15 +1,15 @@
 ---
 name: run-plan
-description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, the applicable Pi GPT/GLM pre-PR implementation review, fixes or dispositions for blocking findings, verification, commit, push, PR creation, and PR monitoring until feedback is addressed and the PR is mergeable without expanding beyond the plan's stated scope.
+description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, the Codex plus applicable Claude Code pre-PR implementation review, fixes or dispositions for blocking findings, verification, commit, push, PR creation, and PR monitoring until feedback is addressed and the PR is mergeable without expanding beyond the plan's stated scope.
 ---
 
 # Run Plan
 
-Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates and, in Pi, the GPT/GLM pre-PR review gate, while preventing reviewer-driven scope creep.
+Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates and the Codex plus applicable Claude Code pre-PR review gate, while preventing reviewer-driven scope creep.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
-The GPT/GLM pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
+The Codex/Claude pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
 
 This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the PR satisfies the post-PR completion criteria. In Pi, back this with the todo tool plus explicit working notes/handoff state. In Codex, back this with Codex goal/task state and the installed Codex prompts so the monitoring obligation survives normal turn-to-turn execution.
 
@@ -31,8 +31,8 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not proceed past a blocked plan decision by silently choosing a larger scope.
 - Do not silently defer work that is required by the plan, required for verification, or introduced by this branch; fix it before merge or stop with a blocker.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
-- In Pi executions, do not create a PR until the GPT plus applicable GLM pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the GLM leg is truthfully recorded as skipped for a low-risk/docs-only scope, or the user explicitly waives that gate.
-- Do not stop after the GPT/GLM pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
+- Do not create a PR until the Codex plus applicable Claude Code pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the Claude Code leg is truthfully recorded as skipped for a low-risk/docs-only scope, or the user explicitly waives that gate.
+- Do not stop after the Codex/Claude pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
 - Do not mark the active run state complete just because the implementation PR exists.
 - Do not mark the active run state complete until PR feedback has been monitored and addressed and the PR is mergeable with the destination branch.
 - Treat actionable PR feedback after local reviews as a review escape: the earlier review cycle missed something, so the next local review cycle must become scope-bound adversarial review instead of only patching the commented issue.
@@ -55,7 +55,7 @@ Stop before implementation if:
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
-- a required runtime-native review gate is unavailable and the user has not waived it. In Pi this means `quality-reviewer`, the applicable GLM reviewer profile (`glm5.2-high` or `glm5.2-xhigh`) when GLM applies, and the `pre-pr-implementation-review` skill when the Pi pre-PR gate applies; in Codex this means the installed Codex execution/review prompts needed to perform scoped implementation review.
+- a required runtime-native review gate is unavailable and the user has not waived it. This means Codex review infrastructure, `claude-code-review` when the high-risk second-reviewer trigger or explicit override applies, and the `pre-pr-implementation-review` skill.
 
 ## Scope Classification
 
@@ -91,7 +91,7 @@ A finding may be deferred as `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an 
 1. Check whether a run-plan task/goal state is already active.
 2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use the todo tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR monitoring item that cannot be marked done until all completion criteria are satisfied.
 3. The objective must require both:
-   - executing the specified plan through implementation, verification, runtime-native scoped review, the applicable Pi GPT/GLM pre-PR review with no unresolved blocking in-scope P1/P2 findings, commit, push, and PR creation;
+   - executing the specified plan through implementation, verification, runtime-native scoped review, the Codex plus applicable Claude Code pre-PR review with no unresolved blocking in-scope P1/P2 findings, commit, push, and PR creation;
    - monitoring the PR after creation until the post-PR completion criteria are satisfied.
 4. If an active run state already exists and it is compatible with this scoped plan run, continue under it and state the compatibility in working notes.
 5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before creating a new one.
@@ -99,7 +99,7 @@ A finding may be deferred as `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an 
 Use this objective shape:
 
 ```text
-Execute <plan path> through scoped implementation, verification, runtime-native scoped quality reviews, the applicable Pi GPT/GLM pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings, commit, push, PR creation, and persistent post-PR monitoring. Do not stop at `OPEN_PR_READY`; open the PR unless a concrete blocker prevents it. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback takes a long time to arrive.
+Execute <plan path> through scoped implementation, verification, runtime-native scoped quality reviews, the Codex plus applicable Claude Code pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings, commit, push, PR creation, and persistent post-PR monitoring. Do not stop at `OPEN_PR_READY`; open the PR unless a concrete blocker prevents it. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback takes a long time to arrive.
 ```
 
 Runtime state expectation: keep the task/goal state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi this state lives in todo/working notes; in Codex it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
@@ -157,7 +157,7 @@ If a changed file has no plan-bound reason, revert only your own edits to that f
 
 ### 5. First scoped quality review
 
-In Pi, use the Pi subagent `quality-reviewer` for a read-only GPT-5.5 implementation review. In Codex, delegate this Pi-parity GPT review leg to Pi from the same repo/worktree unless the user explicitly asks for a Codex-only review. Use a bounded prompt that names the plan path, comparison range, changed files, scope contract, and verdict format. Do not let any reviewer edit files.
+Run the Codex review leg. In Codex, use a Codex subagent/native review task when available; otherwise use `codex-review-partner` in `implementation-review` mode. In Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper. Use a bounded prompt that names the plan path, comparison range, changed files, scope contract, and verdict format. Do not let any reviewer edit files.
 
 The review prompt must include:
 
@@ -180,15 +180,15 @@ VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 
 Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` is valid only when every remaining finding is classified `OUT_OF_SCOPE_FOLLOW_UP` and includes evidence plus a tracking destination; otherwise treat the review as `FIX_IN_SCOPE_FINDINGS` or `BLOCKED_BY_SCOPE_QUESTION` by substance.
 
-### 6. Second scoped quality review
+### 6. Applicable Claude Code scoped review
 
-Before launching GLM, classify the review scope. Use GLM when the diff touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface. Skip GLM by default for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason; record the skip in the review ledger.
+Before launching Claude Code, classify the review scope using the high-risk second-reviewer policy. Use Claude Code when the diff touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface. Skip Claude Code by default for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason; record the skip in the review ledger.
 
-In Pi, use the active GLM-5.2 reviewer profile for a read-only implementation review when GLM applies. Use `glm5.2-high` for normal high-risk bounded review. Use `glm5.2-xhigh` for final or exceptional-risk review when GLM applies, including final pre-PR gates for high-risk scopes, security boundary changes, irreversible data-loss risk, difficult concurrency/locking correctness, migrations, release-risk, deploy/rollback risk, release-blocking ambiguity, or any `glm5.2-high` incomplete/ambiguous result. `quality-reviewer-glm` remains a legacy xhigh compatibility alias for callers that have not migrated. The `opencode/glm-5.2` value is only that subagent's Pi model provider/model ID; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this review. In Codex, delegate this GLM review leg to Pi from the same repo/worktree; if the required GLM reviewer profile is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
+When the Claude Code leg applies, use `claude-code-review` through its canonical private-tmux interactive launcher, pinned to Opus 4.7 on Extra High. Do not use Pi `quality-reviewer`, GLM reviewer profiles, GPT subagents, Kimi, OMP, OpenCode, or other model-subagent substitutes for this review. If a required Claude Code review is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
-For every quality reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Bound the assigned scope instead.
+For every reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Bound the assigned scope instead.
 
 If any reviewer cannot complete the assigned scope, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
 
@@ -222,7 +222,7 @@ After fixing in-scope findings:
 2. Rerun the first scoped quality review with the previous findings and current diff.
 3. Rerun the second scoped quality review with the same bounded scope.
 4. If any reviewer returns `REVIEW_INCOMPLETE_RERUN_NEEDED`, run at most one narrowed follow-up slice for that cycle and append the result to a coverage ledger. If that follow-up is still incomplete or unusable, stop with a review-budget blocker or ask the user to waive/narrow the gate.
-5. Repeat until both reviewers return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` and the coverage ledger shows no incomplete required slices within the review budget.
+5. Repeat until Codex and any applicable Claude Code reviewer return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` and the coverage ledger shows no incomplete required slices within the review budget.
 
 The coverage ledger must record completed slices, the single allowed incomplete rerun slice, and final synthesized gate status.
 
@@ -234,46 +234,59 @@ Stop and report a convergence blocker if:
 - a needed fix would clearly expand the plan,
 - three total review cycles have run since the first scoped review.
 
-### 9. GPT/GLM Pre-PR Review Gate
+### 9. Codex/Claude Pre-PR Review Gate
 
-After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the GPT and applicable GLM pre-PR gate before final PR preparation when this `run-plan` is executing in Pi.
+After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the Codex and applicable Claude Code pre-PR gate before final PR preparation.
 
-Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native scoped GPT and applicable GLM reviews already ran after the last code change, used the current base/comparison range, covered the current changed files, and have no unresolved blocking in-scope P1/P2 findings, record that evidence as the Pi pre-PR gate result and continue. If GLM is skipped because the current PR is docs-only, low-risk UI copy, low-risk tests, or a narrow follow-up, record the low-risk classification and any override decision. Run `$pre-pr-implementation-review <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff.
+Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native scoped Codex and applicable Claude Code reviews already ran after the last code change, used the current base/comparison range, covered the current changed files, and have no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. If Claude Code is skipped because the current PR is docs-only, low-risk UI copy, low-risk tests, or a narrow follow-up, record the low-risk classification and any override decision. Run `$pre-pr-implementation-review <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff.
 
-When the standalone pre-PR gate is required in Pi, it must use:
+When the standalone pre-PR gate is required, it must use:
 
-- GPT-5.5 via Pi's `quality-reviewer` subagent,
-- GLM-5.2 via the applicable Pi GLM reviewer profile when GLM applies: `glm5.2-high` for normal high-risk bounded review, or `glm5.2-xhigh` for final/exceptional-risk review.
+- Codex for the primary review leg. In Codex, use a Codex subagent/native review task when available; in Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper.
+- Claude Code via `claude-code-review` when the high-risk second-reviewer trigger or an explicit override applies, pinned to Opus 4.7 on Extra High.
 
-In Codex, satisfy this gate by delegating the GPT and applicable GLM reviewer slice to Pi from the same repo/worktree instead of substituting Codex-native reviewers. Use Pi non-interactive mode with the explicit plan path and current comparison range, for example:
+In Codex, satisfy this gate directly rather than delegating back to Pi. Run the Codex leg as a subagent/native review task when available and run the applicable Claude Code leg through the canonical launcher. If a subprocess Codex leg is needed, use:
 
 ```bash
-pi -p --approve "/skill:pre-pr-implementation-review <plan path> --base <branch-or-range>"
+~/.agents/skills/codex-review-partner/scripts/run-review.sh \
+  --mode implementation-review \
+  --input /tmp/pre-pr-codex-review.md \
+  --cwd /path/to/repo \
+  --output thoughts/validation/pre-pr-reviews/<date-branch>-codex.md
 ```
 
-Codex must consume the Pi review artifact/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same Pi gate after material fixes. If Pi, `quality-reviewer`, or the required GLM reviewer profile is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the GPT/GLM gate.
+When running from Pi, use the same wrapper to run Codex as a subprocess; do not use a Pi GPT subagent for the Codex leg. Run Claude Code only when applicable:
 
-In other non-Pi consumers, run an equivalent GPT-5.5 plus applicable GLM-5.2 read-only implementation review only when the applicable reviewers are explicitly available in that consumer; otherwise record that the Pi-only GPT/applicable-GLM gate was not run and do not claim Pi gate parity.
+```bash
+python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" \
+  --cwd /path/to/repo \
+  --prompt-file /tmp/pre-pr-claude-review.md \
+  --output thoughts/validation/pre-pr-reviews/<date-branch>-claude.md \
+  --review-name claude-pre-pr-review \
+  --timeout-seconds 3600
+```
+
+The coordinating agent must consume the Codex and Claude Code review artifacts/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same applicable reviewer set after material fixes. If Codex or a required Claude Code reviewer is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the Codex/Claude gate.
 
 Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
 
 Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and rerun all applicable reviewers within the bounded pre-PR review budget until they return no unresolved blocking in-scope P1/P2 findings. P3 findings block only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
-If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if the required GLM-5.2 Pi reviewer profile or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If Codex review infrastructure or a required Claude Code Opus 4.7 xhigh review is unavailable, stop unless the user explicitly waives this pre-PR gate.
 
 When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
-Record the GPT verdict, GLM verdict, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
+Record the Codex verdict, Claude Code verdict or skip record, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
 
 ## Final Verification
 
-Run the plan's final verification commands after the GPT/GLM pre-PR review gate is clean for all blocking in-scope P1/P2 findings or recorded as not applicable for the current non-Pi consumer. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect.
+Run the plan's final verification commands after the Codex/Claude pre-PR review gate is clean for all blocking in-scope P1/P2 findings, or after the applicable Claude Code leg is truthfully skipped under the low-risk policy. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect.
 
 Do not hide failures. Fix failures when they are in scope, required for truthful verification, or caused by this branch. Otherwise, report them as pre-existing or documented out-of-scope follow-ups with evidence and tracking destination.
 
 ## Commit, Push, and PR
 
-When implementation, scoped reviews, the applicable GPT/GLM pre-PR review gate status, and final verification pass, PR creation is mandatory in the same run:
+When implementation, scoped reviews, the applicable Codex/Claude pre-PR review gate status, and final verification pass, PR creation is mandatory in the same run:
 
 1. Review `git diff --stat` and `git diff --name-only`.
 2. Commit only the scoped changes.
@@ -289,7 +302,7 @@ The PR body must include:
 - verification commands and results,
 - first scoped quality-review verdict,
 - second scoped quality-review verdict,
-- GPT/GLM pre-PR review verdicts and artifact path, or explicit waived/not-run status,
+- Codex/Claude pre-PR review verdicts and artifact path, or explicit waived/not-run status,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - known residual risks.
 
@@ -332,7 +345,7 @@ A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for t
 
 1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
 2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with both scoped reviewers when GLM applies. In Pi, use `quality-reviewer` and the applicable GLM reviewer profile: `glm5.2-high` for normal high-risk bounded review, or `glm5.2-xhigh` for final/exceptional-risk review. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why GLM remains skipped or provide the explicit override reason. In Codex, delegate those same reviewer legs to Pi for parity. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+3. Run read-only adversarial implementation reviews with Codex and, when the high-risk second-reviewer trigger or explicit override applies, Claude Code. In Codex, run the Codex leg as a subagent/native review task when available; in Pi, run Codex as a subprocess through `codex-review-partner`. Run Claude Code through `claude-code-review` on Opus 4.7 xhigh when applicable. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why Claude Code remains skipped or provide the explicit override reason. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
 5. Repeat the adversarial reviewer-pair pass once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after both adversarial passes report no additional in-scope findings or only documented out-of-scope follow-ups.
 
@@ -438,7 +451,7 @@ Only after the completion criteria are all satisfied, mark the runtime monitorin
 
 ## Reviewer Prompt Template
 
-Use this shape for both reviewers. When the reviewer is GLM, include the GLM-specific packet fields and verdict addendum below; do not rely on the generic prompt alone.
+Use this shape for Codex and any applicable Claude Code reviewer. When the reviewer is Claude Code, include the exact risk question and bounded high-risk packet that caused the high-risk second-reviewer trigger to apply; do not rely on the generic prompt alone.
 
 ```text
 Read-only implementation review. Do not edit files.
@@ -535,7 +548,7 @@ Report:
 - changed files at a high level,
 - verification run,
 - runtime-native scoped quality-review verdicts,
-- GPT/GLM pre-PR review verdicts or waived/not-run status,
+- Codex/Claude pre-PR review verdicts or waived/not-run status,
 - PR feedback monitoring result,
 - PR mergeability result,
 - documented out-of-scope follow-ups with evidence and tracking destination,

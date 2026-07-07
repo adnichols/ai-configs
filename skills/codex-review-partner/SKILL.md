@@ -1,12 +1,13 @@
 ---
 name: codex-review-partner
 description: Use Codex as a second-pass reviewer, adversarial PR-feedback follow-up reviewer, plan reviewer, or pairing partner during technical work. Trigger when implementing, refactoring, debugging, writing tests, reviewing a plan/spec, when PR feedback shows prior review missed issues, or when you want an independent Codex CLI pass before finalizing technical work.
-argument-hint: "[implementation-review|adversarial-implementation-review|plan-review|pair] <input-file> [repo-path]"
 ---
 
 # Codex Review Partner
 
 Use Codex as an explicit second pass before you finalize technical work.
+
+When the caller is already Codex, prefer a Codex subagent/native review task when available so the review is independent but still uses the Codex runtime. Use the subprocess wrapper only when the subagent facility is unavailable or when another runtime, such as Pi, must invoke the Codex review leg.
 
 ## Core rule
 
@@ -30,8 +31,8 @@ Minimum:
 ## Recommended workflow
 
 1. Create a concise input file with the exact context Codex needs.
-2. Run `scripts/run-review.sh --help` once if you need the interface.
-3. Invoke the wrapper in the matching mode.
+2. In Codex, launch a Codex subagent/native review task when available; otherwise run `scripts/run-review.sh --help` once if you need the subprocess interface.
+3. Invoke the wrapper in the matching mode when running from Pi or when a Codex subprocess fallback is needed.
 4. Review the output critically. Codex is a reviewer, not an oracle.
 5. Verify important claims against the repo, tests, and runtime evidence.
 

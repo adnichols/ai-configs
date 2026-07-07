@@ -12,4 +12,4 @@ Invoke the installed `run-plan` skill with exactly this argument:
 $ARGUMENTS
 ```
 
-This wrapper is only the ergonomic `/run-plan` entry point. Do not run a shortened workflow here. Follow the `run-plan` skill so scoped implementation, verification, GPT/GLM pre-PR review, PR creation, and post-PR monitoring all stay in the single source of truth.
+This wrapper is only the ergonomic `/run-plan` entry point. Do not run a shortened workflow here. Follow the `run-plan` skill so scoped implementation, verification, Codex plus applicable Claude Code pre-PR review, PR creation, and post-PR monitoring all stay in the single source of truth.

@@ -37,9 +37,9 @@ Use the local agent's native skill syntax for:
 run-plan <plan-path>
 ```
 
-In Pi, that means following the `run-plan` skill directly with Pi todo-backed run state and Pi quality-reviewer subagent gates. If the reviewed plan is registered, the resulting run state must include the Doct document/plan ID and workspace ID so the `run-plan` status-alignment preflight can mark it active/in progress before code edits.
+In Pi, that means following the `run-plan` skill directly with Pi todo-backed run state while using Codex as a subprocess for the Codex review leg and Claude Code Opus 4.7 xhigh for the applicable high-risk second-reviewer leg. If the reviewed plan is registered, the resulting run state must include the Doct document/plan ID and workspace ID so the `run-plan` status-alignment preflight can mark it active/in progress before code edits.
 
-In Codex, that means following the installed shared `run-plan` skill with Codex goal/task state while honoring run-plan's Pi-delegated GPT/GLM reviewer gates. Do not duplicate the scoped run workflow in this skill.
+In Codex, that means following the installed shared `run-plan` skill with Codex goal/task state while honoring run-plan's Codex plus applicable Claude Code reviewer gates. Do not duplicate the scoped run workflow in this skill.
 
 ## Non-goals
 

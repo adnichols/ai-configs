@@ -1,22 +1,14 @@
 ---
-description: Create/register an HTML plan and run PM plus GPT/GLM Pi subagent plan reviews until execution-ready
+description: Create/register an HTML plan and run PM plus Codex/applicable Claude Code plan reviews until execution-ready
 argument-hint: '<plan description | slug | thoughts/plans/<slug>.html | issue key>'
 ---
 
-# Pi-Delegated Command
+# Reviewed HTML Plan
 
-Codex exposes this prompt for parity with Pi, but the underlying workflow depends on Pi prompt templates, Pi subagents, or Pi-managed model routing. Do not reimplement it locally in Codex. Delegate to Pi from the same repository/worktree.
+Invoke the installed `reviewed-html-plan` skill with exactly this argument:
 
-Run:
-
-```bash
-pi -p --approve "/dev:reviewed-html-plan $ARGUMENTS"
+```text
+$ARGUMENTS
 ```
 
-After Pi exits:
-
-1. Inspect the files or artifacts Pi reports it changed or created.
-2. Verify the expected plan/review/status artifact exists when this command promises one.
-3. Summarize Pi's result and any blocker.
-
-If `pi` is unavailable, the prompt template is missing, or a required Pi subagent/model fails, stop with a tooling blocker instead of substituting a Codex-only review.
+This wrapper is only the ergonomic `/dev:reviewed-html-plan` entry point. Follow the `reviewed-html-plan` skill so Doct registration, browser feedback, PM review, Codex review, applicable Claude Code review, plan updates, and readiness status all stay in the single source of truth. In Codex, run the Codex review leg as a subagent/native review task when available; run Claude Code through the canonical `claude-code-review` launcher only when the high-risk second-reviewer trigger or explicit override applies. Do not delegate the whole gate back to Pi.

@@ -1,13 +1,13 @@
 ---
 name: pre-pr-implementation-review
-description: Run Pi's bounded pre-PR implementation review with GPT-5.5 and applicable GLM-5.2 quality reviewers, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, inside run-plan, or whenever the user asks for GPT plus applicable GLM code review of a branch/diff; inside run-plan this gate hands back to PR creation rather than concluding the workflow.
+description: Run a bounded pre-PR implementation review with a Codex review leg and an applicable Claude Code Opus 4.7 xhigh review leg, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, inside run-plan, or whenever the user asks for Codex plus applicable Claude Code code review of a branch/diff; inside run-plan this gate hands back to PR creation rather than concluding the workflow.
 ---
 
 # Pre-PR Implementation Review
 
 Use this skill to catch implementation issues that would otherwise appear during pull request review. It is a code-review-and-fix loop, not a plan review, not a general cleanup pass, and not the end of `run-plan`.
 
-The gate passes when GPT and any applicable GLM reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. If GLM is skipped under the low-risk policy, the gate must record that skip instead of requiring a GLM verdict. P3 findings must be triaged, but they are not automatically PR-blocking: fix them only when they are plan-required, verification-required, regression-caused, or a small safe cleanup; otherwise document them as non-blocking follow-ups with evidence.
+The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings must be triaged, but they are not automatically PR-blocking: fix them only when they are plan-required, verification-required, regression-caused, or a small safe cleanup; otherwise document them as non-blocking follow-ups with evidence.
 
 When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. Return the final gate status and artifact path to the `run-plan` caller so it can rerun final verification if needed, commit, push, open the PR, and continue post-PR monitoring.
 
@@ -85,34 +85,49 @@ Also note staged changes with `git diff --cached --stat` when present. The imple
 
 Read the plan or user-provided scope if available. Extract the acceptance criteria, non-goals, required verification, and any intentionally deferred items so reviewers do not convert adjacent work into this PR.
 
-### 2. Classify GLM need, then run reviewers
+### 2. Classify Claude Code need, then run reviewers
 
-Before launching GLM, classify the review scope:
+Before launching Claude Code, classify the review scope using the high-risk second-reviewer policy:
 
-- **Use GLM** when the PR touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface.
-- **Skip GLM by default** for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason.
-- Use a compact GLM packet with named files, the exact risk question, relevant diff excerpts, verification already run, and outcome limits. Do not send broad context when a packet is sufficient.
+- **Use Claude Code** when the PR touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface.
+- **Skip Claude Code by default** for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason.
+- Use a compact Claude Code packet with named files, the exact risk question, relevant diff excerpts, verification already run, and outcome limits. Do not send broad context when a packet is sufficient.
 
-Use Pi subagents directly. Launch applicable reviewers in the same turn when possible:
+Launch applicable reviewers in the same turn when possible:
 
-- `quality-reviewer` for the GPT-5.5 pass.
-- `glm5.2-high` as the default GLM-5.2 profile for normal high-risk bounded reviews.
-- `glm5.2-xhigh` for final or exceptional-risk GLM review when GLM applies, including final pre-PR gates for high-risk scopes, security boundary changes, irreversible data-loss risk, difficult concurrency/locking correctness, migrations, release-risk, deploy/rollback risk, release-blocking ambiguity, or any `glm5.2-high` incomplete/ambiguous result.
-- `quality-reviewer-glm` remains available only as the legacy xhigh compatibility alias; do not use it for new routing unless a caller has not yet migrated.
+- **Codex** is the primary review leg. In Codex, run it as a Codex subagent/native review task when that facility is available; otherwise use `codex-review-partner` in `implementation-review` mode. In Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper.
+- **Claude Code** is the high-risk second-reviewer leg when the high-risk trigger or an explicit override applies. Use `claude-code-review` and its canonical private-tmux interactive launcher, pinned to Opus 4.7 on Extra High.
 
-The `opencode/glm-5.2` string is only the Pi model provider/model ID in the subagent frontmatter. Do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent to satisfy this gate.
+Do not use Pi `quality-reviewer`, GLM reviewer profiles, GPT subagents, Kimi, OMP, OpenCode, or other model-subagent substitutes to satisfy this gate.
 
-Both reviews are read-only. If the required GLM-5.2 Pi subagent is unavailable for a high-risk or final review, stop and report that the GLM-5.2 Pi subagent gate cannot run; do not silently substitute another model.
+Both reviews are read-only. If Codex or a required Claude Code review is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate; do not silently substitute another model.
 
-### Codex delegation
+### Runtime launch rules
 
-When this skill is invoked from Codex, Codex must call Pi for the reviewer-pair gate instead of simulating it locally. Use the same worktree and pass the resolved plan/scope and base/range:
+When this skill is invoked from Codex, run the Codex leg as a subagent/native review task when available, then run the applicable Claude Code leg through the canonical launcher. If a subprocess Codex leg is needed, use the same worktree and pass the resolved plan/scope and base/range:
 
 ```bash
-pi -p --approve "Run the pre-PR implementation reviewer gate for <plan-or-scope> against <branch-or-range>. Use Pi subagent quality-reviewer directly and read-only. Use the applicable GLM reviewer profile only when GLM applies: glm5.2-high for normal high-risk bounded review, or glm5.2-xhigh for final/exceptional-risk review. If GLM is skipped, record the low-risk classification and override decision. Do not invoke /skill:pre-pr-implementation-review, do not shell out to pi, and do not edit files. Return the GPT verdict, the GLM verdict or skip record, and the artifact path."
+~/.agents/skills/codex-review-partner/scripts/run-review.sh \
+  --mode implementation-review \
+  --input /tmp/pre-pr-codex-review.md \
+  --cwd /path/to/repo \
+  --output thoughts/validation/pre-pr-reviews/<date-branch>-codex.md
 ```
 
-Codex consumes the Pi artifact and verdicts, triages findings, applies in-scope fixes in the active Codex worktree, and reruns the same Pi command after material fixes. If Pi, `quality-reviewer`, or the required GLM reviewer profile is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate.
+When this skill is invoked from Pi, run the Codex leg as a subprocess with that same wrapper; do not use a Pi GPT subagent for the Codex leg.
+
+Run Claude Code only when applicable:
+
+```bash
+python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" \
+  --cwd /path/to/repo \
+  --prompt-file /tmp/pre-pr-claude-review.md \
+  --output thoughts/validation/pre-pr-reviews/<date-branch>-claude.md \
+  --review-name claude-pre-pr-review \
+  --timeout-seconds 3600
+```
+
+The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate.
 
 A reviewer result with no final verdict is not a review result. Treat empty output, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
 
@@ -129,7 +144,7 @@ Use this prompt shape for each reviewer:
 ```text
 Read-only pre-PR implementation review. Do not edit files.
 
-Reviewer: <GPT-5.5 | GLM-5.2 Pi subagent>
+Reviewer: <Codex | Claude Code Opus 4.7 xhigh>
 Plan/scope: <plan path or standalone scope summary>
 Base/comparison: <base branch or range>
 Changed files:
@@ -202,8 +217,8 @@ After applying any in-scope fix:
 
 1. Run the smallest meaningful targeted tests for the touched code.
 2. Rerun any plan-required verification invalidated by the fix.
-3. Rerun GPT-5.5 and any applicable GLM-5.2 Pi subagent reviewers against only the changed files and prior blocking findings, not as a fresh whole-diff hunt for unrelated new issues.
-4. Repeat until all applicable reviewers return `CLEAN_FOR_PR` by substance with no unresolved blocking in-scope P1/P2 findings, or until GPT is clean and GLM is truthfully skipped under the low-risk policy.
+3. Rerun Codex and any applicable Claude Code reviewer against only the changed files and prior blocking findings, not as a fresh whole-diff hunt for unrelated new issues.
+4. Repeat until all applicable reviewers return `CLEAN_FOR_PR` by substance with no unresolved blocking in-scope P1/P2 findings, or until Codex is clean and Claude Code is truthfully skipped under the low-risk policy.
 
 Do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. Do not open or proceed to a PR while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and post-PR monitoring.
 
@@ -231,7 +246,7 @@ Include:
 
 - base/range and plan path or standalone scope,
 - changed files summary,
-- each review cycle's GPT verdict and GLM verdict when GLM applied, or the recorded low-risk GLM skip classification and any override decision,
+- each review cycle's Codex verdict and Claude Code verdict when Claude Code applied, or the recorded low-risk Claude Code skip classification and any override decision,
 - the triage table,
 - fixes applied for blocking P1/P2 issues and any fixed P3 issues,
 - verification commands and results after fixes,
@@ -245,8 +260,8 @@ If the repo has a different validation-artifact convention, use that convention 
 
 The final summary must include:
 
-- `GPT verdict: CLEAN_FOR_PR` or equivalent no-unresolved-blocking-in-scope-P1/P2 result,
-- `GLM verdict: CLEAN_FOR_PR` or equivalent no-unresolved-blocking-in-scope-P1/P2 result when GLM applied, or `GLM skipped: <low-risk classification and override decision>` when GLM was truthfully skipped,
+- `Codex verdict: CLEAN_FOR_PR` or equivalent no-unresolved-blocking-in-scope-P1/P2 result,
+- `Claude Code verdict: CLEAN_FOR_PR` or equivalent no-unresolved-blocking-in-scope-P1/P2 result when Claude Code applied, or `Claude Code skipped: <low-risk classification and override decision>` when Claude Code was truthfully skipped,
 - verification rerun after the last fix,
 - artifact path,
 - any remaining non-blocking out-of-scope follow-ups with evidence and tracking destination,

@@ -1,6 +1,6 @@
 ---
 name: reviewed-html-plan
-description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, and read-only GPT plus GLM Pi subagent plan reviews. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
+description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, and read-only Codex plus applicable Claude Code plan reviews. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
 ---
 
 # Reviewed HTML Plan Workflow
@@ -16,8 +16,8 @@ Load and follow these skills when this workflow reaches their surface:
 - `planning-workflow` for the plan-writing contract and execution-readiness bar.
 - `doct-document-ops` for HTML/Markdoc plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, Markdown/text fallback publishing, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
-- Pi `quality-reviewer` for the read-only GPT plan-review pass.
-- Pi `glm5.2-high` for normal high-risk read-only GLM plan review, `glm5.2-xhigh` for final or exceptional-risk review, and `quality-reviewer-glm` only as the legacy xhigh compatibility alias.
+- `codex-review-partner` for the read-only Codex plan-review leg. In Codex, use a Codex subagent/native review task when available; in Pi, run Codex as a subprocess through the installed wrapper.
+- `claude-code-review` for the read-only Claude Code Opus 4.7 xhigh plan-review leg when the high-risk second-reviewer trigger or an explicit override applies.
 - Domain skills required by the target repository guidance, stack, or plan surface.
 
 If a required review tool is unavailable, follow the relevant skill's remediation first. Stop only when the dependency cannot be restored safely or the next step requires a real product decision.
@@ -82,7 +82,7 @@ Use `doct-document-ops` as the sole source for current Doct registration command
 5. Share the canonical Doct review URL only after the listener is running, or report a concrete listener-start blocker. Never show a loopback, local `plan-review`, Tailscale local-service URL, or relative path to the user unless they explicitly requested a legacy local reviewer.
 6. Use listener-delivered events for browser comments/actions. Use `doct-agent plans queue list` and `doct-agent plans agent next --no-wait` for startup drain, recovery, or manual processing only.
 
-If browser feedback has not yet been provided, stop after sharing the Doct URL with the listener running and tell the user to annotate the plan and then say feedback is ready. Do not proceed to GPT/GLM or PM gates until the user says feedback is ready, unless the user explicitly says to skip human browser feedback.
+If browser feedback has not yet been provided, stop after sharing the Doct URL with the listener running and tell the user to annotate the plan and then say feedback is ready. Do not proceed to Codex/Claude or PM gates until the user says feedback is ready, unless the user explicitly says to skip human browser feedback.
 
 ### 4. Process browser feedback
 
@@ -119,25 +119,42 @@ Default behavior is corrective: reshape the HTML plan directly when the right di
 
 After material PM edits, ensure the review URL still points at the latest plan and the plan remains browser-reviewable.
 
-### 6. Read-only GPT and applicable GLM Pi subagent plan reviews
+### 6. Read-only Codex and applicable Claude Code plan reviews
 
-Run the GPT reviewer before execution, and keep all reviewers read-only. Before launching GLM, classify the plan scope:
+Run the Codex reviewer before execution, and keep all reviewers read-only. Before launching Claude Code, classify the plan scope using the high-risk second-reviewer policy:
 
-- **Use GLM** when the plan touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another explicit P1/P2 risk surface.
-- **Skip GLM by default** for docs-only plans, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator or Doct reviewer provides an explicit override reason.
-- When GLM applies, give it a compact readiness packet with named files/surfaces, the exact risk question, relevant plan excerpts, verification expectations, and outcome limits.
+- **Use Claude Code** when the plan touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another explicit P1/P2 risk surface.
+- **Skip Claude Code by default** for docs-only plans, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator or Doct reviewer provides an explicit override reason.
+- When Claude Code applies, give it a compact readiness packet with named files/surfaces, the exact risk question, relevant plan excerpts, verification expectations, and outcome limits.
 
-In Codex, delegate this reviewer leg to Pi from the same repo/worktree instead of substituting Codex-native reviewers. Invoke Pi with an explicit bounded prompt asking it to run `quality-reviewer` and, when GLM applies, the applicable GLM reviewer profile read-only against the current HTML plan, return the required verdicts, and write reviewer artifacts under `thoughts/validation/`:
+In Codex, run the Codex leg as a subagent/native review task when available; otherwise use the installed wrapper from the same repo/worktree:
 
 ```bash
-pi -p --approve "Run the reviewed-html-plan reviewer gate for <plan-path>. Read-only review only: use Pi subagent quality-reviewer, and use the applicable GLM reviewer profile only when the plan has a high-risk trigger or explicit override: glm5.2-high for normal high-risk bounded plan review, or glm5.2-xhigh for final/exceptional-risk plan review. If GLM is skipped, record the low-risk classification and override decision. Require PLAN_EXECUTION_READY / PLAN_NEEDS_REVISION / BLOCKED_BY_PRODUCT_QUESTION / REVIEW_INCOMPLETE_RERUN_NEEDED verdicts, and write artifacts under thoughts/validation/. Do not edit product code."
+~/.agents/skills/codex-review-partner/scripts/run-review.sh \
+  --mode plan-review \
+  --input /tmp/reviewed-html-plan-codex-review.md \
+  --cwd /path/to/repo \
+  --output thoughts/validation/<slug>-codex-plan-review.md
 ```
 
-Codex may integrate plan edits, but after material edits it must rerun the same applicable reviewer set before marking the plan execution-ready. If Pi, `quality-reviewer`, or a required GLM subagent is unavailable, leave the plan blocked on review infrastructure.
+In Pi, run the Codex leg as a subprocess with that same wrapper; do not use a Pi GPT subagent for the Codex leg.
 
-#### GPT
+Run Claude Code through the canonical launcher only when the high-risk second-reviewer trigger or an explicit override applies:
 
-Use the Pi `quality-reviewer` subagent for the GPT review leg. The review input should include:
+```bash
+python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" \
+  --cwd /path/to/repo \
+  --prompt-file /tmp/reviewed-html-plan-claude-review.md \
+  --output thoughts/validation/<slug>-claude-plan-review.md \
+  --review-name claude-reviewed-html-plan \
+  --timeout-seconds 3600
+```
+
+Codex or Pi may integrate plan edits, but after material edits the coordinating agent must rerun Codex and any required Claude Code review before marking the plan execution-ready. If Codex or a required Claude Code reviewer is unavailable, leave the plan blocked on review infrastructure.
+
+#### Codex
+
+Use Codex for the primary review leg. The review input should include:
 
 - plan path and review URL,
 - source request or issue summary,
@@ -148,9 +165,9 @@ Use the Pi `quality-reviewer` subagent for the GPT review leg. The review input 
 - instruction to avoid adjacent implementation expansion,
 - instruction not to edit files.
 
-#### GLM
+#### Claude Code
 
-Use the active Pi GLM reviewer profile only when the plan has a high-risk trigger or explicit override. Use `glm5.2-high` for normal high-risk bounded plan review. Use `glm5.2-xhigh` for final or exceptional-risk plan review, including security boundary changes, irreversible data-loss risk, difficult concurrency/locking correctness, migrations, release-blocking ambiguity, or any `glm5.2-high` incomplete/ambiguous result. Give GLM a bounded readiness prompt, not open-ended repo exploration. Do not ask GLM to edit files.
+Use Claude Code only when the plan has the high-risk second-reviewer trigger or an explicit override. Use `claude-code-review` through its canonical private-tmux launcher, pinned to Opus 4.7 on Extra High. Give Claude Code a bounded readiness prompt, not open-ended repo exploration. Do not ask Claude Code to edit files.
 
 For both plan review legs, stay limited to readiness concerns, including at least:
 
@@ -162,7 +179,7 @@ For both plan review legs, stay limited to readiness concerns, including at leas
 - whether architecture/dependency risks are resolved enough to execute,
 - whether recovery/operator/error behavior is specified when relevant.
 
-For every quality reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
+For every reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
 
 Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
 
@@ -181,7 +198,7 @@ Normalize fuzzy reviewer output by substance, but never normalize empty, tool-on
 
 ### 7. Integrate and iterate to execution-ready
 
-For every GPT/GLM finding, triage before editing:
+For every Codex/Claude Code finding, triage before editing:
 
 ```text
 Finding | Source | Classification | Decision | Evidence
@@ -195,7 +212,7 @@ Use these classifications:
 - `OUT_OF_SCOPE_FOLLOW_UP`: do not add to this plan only when it is outside the plan, not required for truthful verification, and not an acceptance-criteria/BDD gap; record it with evidence and a tracking destination if useful.
 - `DISAGREE_REPO_EVIDENCE`: do not change the plan; record the evidence if the disagreement matters.
 
-After fixing readiness blockers, rerun GPT and the applicable GLM plan review when GLM applies. If any reviewer returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked. Repeat until all applicable reviewers agree by substance that the plan is execution-ready. When they do, update the same Doct-registered HTML plan and status/board metadata using the current `doct-document-ops` Doct flow.
+After fixing readiness blockers, rerun Codex and the applicable Claude Code plan review when Claude Code applies. If any reviewer returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked. Repeat until all applicable reviewers agree by substance that the plan is execution-ready. When they do, update the same Doct-registered HTML plan and status/board metadata using the current `doct-document-ops` Doct flow.
 
 #### Independent sign-off gate (do not self-certify)
 
@@ -206,7 +223,7 @@ The closing ready verdict that marks a plan `execution-ready` must come from an 
 - The independent ready verdict must not be followed by any later non-pass review, and should post-date the last material plan edit. If you edit the plan after the independent pass, re-review.
 - Record reviews truthfully in the `review-record` section with the real reviewer identity. Do not relabel a self-review as `codex`/`claude-code` to satisfy the gate — actually run the independent tool.
 
-This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/GPT/GLM gates and Doct review state are the enforcement surface.
+This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/Codex/Claude gates and Doct review state are the enforcement surface.
 
 Stop and report a convergence blocker if:
 
@@ -222,7 +239,7 @@ If AI reviews materially reshape product intent, run one final PM check before d
 Before final output, inspect the HTML plan for obvious handoff blockers:
 
 - unresolved browser-review comments remain in the queue, or the required listener was never started after registration,
-- the Doct registered plan has not been updated after successful GPT and applicable GLM plan reviews, or its lifecycle/board/readiness state is stale,
+- the Doct registered plan has not been updated after successful Codex and applicable Claude Code plan reviews, or its lifecycle/board/readiness state is stale,
 - unresolved inline review markers or unresolved question sections remain,
 - status is not `execution-ready`,
 - near-top Decision Attention is missing or hides unresolved decisions,
@@ -231,7 +248,7 @@ Before final output, inspect the HTML plan for obvious handoff blockers:
 - an active phase is missing `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, or `Verify`,
 - UI impact is missing, `unknown`, or lacks required design evidence for real UI-impacting work,
 - verification commands are stale or not copy/paste ready,
-- GPT or GLM did not agree by substance that the plan is ready,
+- Codex or applicable Claude Code did not agree by substance that the plan is ready,
 - PM review left unresolved product-intent or user-impact gaps.
 
 Do not start implementation as part of this skill.
@@ -249,8 +266,8 @@ Review URL: <canonical Doct URL>
 ### Gates completed
 - Browser feedback: <processed / skipped by request / blocked>
 - PM review: <ready / reshaped plan / blocked>
-- GPT review: <verdict>
-- GLM review: <verdict>
+- Codex review: <verdict>
+- Claude Code review: <verdict or skipped with low-risk classification>
 
 ### Changes made during review
 - ...
