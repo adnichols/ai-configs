@@ -66,7 +66,7 @@
     <h1>Run Plan Ready-PR Lifecycle</h1>
     <p class="muted">Make <code>/run-plan</code>, Build Plan, and pre-PR review behave as one complete ready-PR workflow: implementation-stage PM review, applicable GPT/GLM review, base freshness, PR creation, and automatic mergeability monitoring through rebase when safe.</p>
     <div class="pill-row" id="status">
-      <span class="pill warn">Status: ready for review</span>
+      <span class="pill good">Status: execution-ready</span>
       <span class="pill">Plan path: <code>thoughts/plans/run-plan-ready-pr-lifecycle.html</code></span>
       <span class="pill">UI impact: text-only agent workflow guidance</span>
       <span class="pill">Primary runtime: Pi shared skills</span>
@@ -165,9 +165,9 @@
   <section id="progress">
     <h2>Progress</h2>
     <ul>
-      <li><input type="checkbox" disabled /> P1 — Update run-plan full-lifecycle contract.</li>
-      <li><input type="checkbox" disabled /> P2 — Align pre-PR and Build Plan handoffs.</li>
-      <li><input type="checkbox" disabled /> P3 — Update docs, sync installed skills, and verify consistency.</li>
+      <li><input type="checkbox" disabled checked /> P1 — Update run-plan full-lifecycle contract.</li>
+      <li><input type="checkbox" disabled checked /> P2 — Align pre-PR and Build Plan handoffs.</li>
+      <li><input type="checkbox" disabled checked /> P3 — Update docs, sync installed skills, and verify consistency.</li>
     </ul>
   </section>
 
@@ -370,6 +370,7 @@ git diff --stat</code></pre>
     <ul>
       <li><strong>2026-07-05:</strong> Plan incorporates latest GLM routing from <code>main</code>: <code>glm5.2-high</code> for normal high-risk, <code>glm5.2-xhigh</code> for final/exceptional-risk, <code>quality-reviewer-glm</code> as legacy alias only, and truthful low-risk GLM skips.</li>
       <li><strong>2026-07-05:</strong> Runtime sync is included because repo-owned shared skills are installed from <code>skills/</code> to <code>~/.agents/skills</code>; source-only edits would not immediately fix active agent behavior.</li>
+      <li><strong>2026-07-07:</strong> Execution-ready review returned no readiness blockers or product questions. GLM was classified not applicable because this is a text-only workflow-guidance plan with no auth, persistence, migration, data-loss, concurrency, release-blocking CI, or runtime-code risk trigger.</li>
     </ul>
   </section>
 </main>

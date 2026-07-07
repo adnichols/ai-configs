@@ -31,8 +31,10 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not proceed past a blocked plan decision by silently choosing a larger scope.
 - Do not silently defer work that is required by the plan, required for verification, or introduced by this branch; fix it before merge or stop with a blocker.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
+- Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, or a concrete blocker prevents that review.
 - Do not create a PR until the Codex plus applicable Claude Code pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the Claude Code leg is truthfully recorded as skipped for a low-risk/docs-only scope, or the user explicitly waives that gate.
 - Do not stop after the Codex/Claude pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
+- Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
 - Do not mark the active run state complete just because the implementation PR exists.
 - Do not mark the active run state complete until PR feedback has been monitored and addressed and the PR is mergeable with the destination branch.
 - Treat actionable PR feedback after local reviews as a review escape: the earlier review cycle missed something, so the next local review cycle must become scope-bound adversarial review instead of only patching the commented issue.
@@ -184,6 +186,8 @@ Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUME
 
 Before launching Claude Code, classify the review scope using the high-risk second-reviewer policy. Use Claude Code when the diff touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface. Skip Claude Code by default for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason; record the skip in the review ledger.
 
+When this shared workflow is surfaced through Pi reviewer profiles instead of the Codex/Claude Code gate, preserve the current applicable GLM routing: use `glm5.2-high` for normal high-risk bounded review, reserve `glm5.2-xhigh` for final or exceptional-risk review, and treat `quality-reviewer-glm` as a legacy xhigh compatibility alias only. For low-risk/docs-only/UI-copy/tests/narrow follow-ups, record the GLM skipped classification rather than inventing a GLM verdict.
+
 When the Claude Code leg applies, use `claude-code-review` through its canonical private-tmux interactive launcher, pinned to Opus 4.7 on Extra High. Do not use Pi `quality-reviewer`, GLM reviewer profiles, GPT subagents, Kimi, OMP, OpenCode, or other model-subagent substitutes for this review. If a required Claude Code review is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
@@ -234,7 +238,32 @@ Stop and report a convergence blocker if:
 - a needed fix would clearly expand the plan,
 - three total review cycles have run since the first scoped review.
 
-### 9. Codex/Claude Pre-PR Review Gate
+### 9. Implementation-Stage PM Review
+
+After phase implementation and the runtime-native scoped quality-review loop have no unresolved blocking in-scope findings, run an implementation-stage PM review before the pre-PR implementation gate and before PR creation.
+
+Use the local PM review surface when available:
+
+```text
+/dev:pm-review <plan path> implementation
+```
+
+If the exact prompt template is unavailable in the current runtime, perform the equivalent PM check yourself and record that substitution in the review ledger. The PM review must be product-outcome focused, not a general code review:
+
+- compare the implemented behavior, docs, tests, and verification evidence against the plan goal, acceptance criteria, BDD scenarios, locked decisions, and non-goals;
+- identify plan-required outcome gaps, misleading completion evidence, missing phase work, or required plan corrections;
+- classify every issue with the normal run-plan scope labels before acting.
+
+For PM review results:
+
+1. Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` PM findings before continuing.
+2. If the PM review reshapes the plan, update the source plan with the correction, push the update to Doct for reviewed HTML/Markdoc plans, execute the added plan-required work, and rerun verification or scoped reviews invalidated by the change.
+3. Stop for user input on `QUESTION` findings that require a product or scope decision.
+4. Record true `OUT_OF_SCOPE_FOLLOW_UP` findings only with evidence and a tracking destination; do not let PM review broaden the PR beyond the plan contract.
+
+The PM gate is clean only when the implemented outcome satisfies the plan by substance, all in-scope PM findings have been fixed or blocked by a real decision, and any plan/Doct progress updates are synchronized. Record the PM verdict, artifact or notes location, plan-update status, and any rerun requirements for the PR body.
+
+### 10. Codex/Claude Pre-PR Review Gate
 
 After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the Codex and applicable Claude Code pre-PR gate before final PR preparation.
 
@@ -244,6 +273,8 @@ When the standalone pre-PR gate is required, it must use:
 
 - Codex for the primary review leg. In Codex, use a Codex subagent/native review task when available; in Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper.
 - Claude Code via `claude-code-review` when the high-risk second-reviewer trigger or an explicit override applies, pinned to Opus 4.7 on Extra High.
+
+For Pi-only GPT/GLM pre-PR surfaces that wrap this same lifecycle, the equivalent route is GPT plus applicable GLM using `glm5.2-high` for normal high-risk bounded review and `glm5.2-xhigh` for final or exceptional-risk review. Preserve truthful low-risk GLM skip records and do not route new work through the legacy `quality-reviewer-glm` alias except for compatibility with older independent GLM gates.
 
 In Codex, satisfy this gate directly rather than delegating back to Pi. Run the Codex leg as a subagent/native review task when available and run the applicable Claude Code leg through the canonical launcher. If a subprocess Codex leg is needed, use:
 
@@ -284,9 +315,23 @@ Run the plan's final verification commands after the Codex/Claude pre-PR review 
 
 Do not hide failures. Fix failures when they are in scope, required for truthful verification, or caused by this branch. Otherwise, report them as pre-existing or documented out-of-scope follow-ups with evidence and tracking destination.
 
+## Base Freshness and Mergeability Gate
+
+Before commit, push, and PR creation, verify the branch is fresh enough against the target branch that the PR will not immediately open stale or obviously unmergeable.
+
+1. Resolve the target branch from the plan, existing PR metadata, or repo default integration branch.
+2. Fetch the target branch.
+3. Check whether the current branch is behind, diverged, or likely conflicted with the fetched target branch.
+4. If the branch is behind or diverged, rebase onto the fetched target branch when conflicts are absent or limited to scoped files and can be resolved without a product decision.
+5. If conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations, stop with a base freshness blocker.
+6. After any rebase or conflict resolution, rerun the verification invalidated by the changed diff context.
+7. Rerun scoped quality reviews, PM review, or the Codex/Claude pre-PR gate when the rebase materially changes the PR diff, touched files, acceptance evidence, or reviewer assumptions.
+
+Record the target branch, fetch result, rebase/skip decision, rerun verification, and any stale-review reruns in the PR body. A clean `OPEN_PR_READY` review verdict is not enough by itself if the branch became stale before PR creation.
+
 ## Commit, Push, and PR
 
-When implementation, scoped reviews, the applicable Codex/Claude pre-PR review gate status, and final verification pass, PR creation is mandatory in the same run:
+When implementation, scoped reviews, implementation-stage PM review, the applicable Codex/Claude pre-PR review gate status, final verification, and base freshness pass, PR creation is mandatory in the same run:
 
 1. Review `git diff --stat` and `git diff --name-only`.
 2. Commit only the scoped changes.
@@ -302,7 +347,10 @@ The PR body must include:
 - verification commands and results,
 - first scoped quality-review verdict,
 - second scoped quality-review verdict,
+- implementation-stage PM review verdict and any plan/Doct updates,
 - Codex/Claude pre-PR review verdicts and artifact path, or explicit waived/not-run status,
+- Pi GPT/GLM pre-PR verdicts when that surface is used, including the applicable GLM verdict or truthful GLM skipped classification,
+- base freshness and mergeability/rebase status before PR creation,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - known residual risks.
 
@@ -319,14 +367,14 @@ The run state can be marked complete only when all of these are true:
 - All actionable PR feedback has been addressed.
 - PR feedback has been checked repeatedly after fixes, not just once immediately after PR creation.
 - If PR feedback required code changes, both runtime-native scoped quality reviews have rerun over the current PR diff and cleared any in-scope findings.
-- The branch has been rebased or otherwise updated against the destination branch as needed.
+- The branch has been rebased or otherwise updated against the destination branch as needed, with affected verification rerun after the update.
 - GitHub reports the PR as mergeable with the destination branch.
 
 ### Monitoring Loop
 
 Repeat this loop until the completion criteria are met or a true blocker is reached. Slow or absent reviewer feedback and pending checks are not true blockers by themselves; they require continued polling.
 
-1. Inspect PR reviews, review threads, comments, status checks, and mergeability.
+1. Inspect PR reviews, review threads, comments, status checks, review decision, and mergeability on every poll.
 2. Classify every new feedback item using the same scope categories.
 3. If any actionable feedback arrives after the local scoped review gates already passed, mark the cycle as a `REVIEW_ESCAPE` in working notes. Fixing only the mentioned line is insufficient.
 4. Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` feedback.
@@ -335,9 +383,11 @@ Repeat this loop until the completion criteria are met or a true blocker is reac
 7. For each `REVIEW_ESCAPE`, run the adversarial escalation loop below before considering the feedback addressed.
 8. Rerun the smallest meaningful verification for any changes.
 9. Commit and push fixes to the PR branch.
-10. Rebase onto the destination branch when GitHub reports the branch out of date, conflicted, or not mergeable.
-11. Recheck until GitHub shows the PR as mergeable and no new actionable feedback remains.
-12. If a poll finds no new feedback but checks or mergeability are still pending, report the latest PR state briefly, keep the run state active, wait, and poll again. Do not end the scoped-plan run or mark the run state blocked for review latency alone.
+10. Rebase onto the destination branch when GitHub reports the branch out of date, stale, conflicted, blocked by base freshness, or not mergeable, but only when conflicts are absent or limited to scoped files and do not require a product decision.
+11. After any post-PR rebase or conflict resolution, rerun affected verification, rerun scoped reviews when the PR diff changed materially, and push with lease.
+12. Stop with a scope question when rebase conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations.
+13. Recheck until GitHub shows the PR as mergeable and no new actionable feedback remains.
+14. If a poll finds no new feedback but checks or mergeability are still pending, report the latest PR state briefly, keep the run state active, wait, and poll again. Do not end the scoped-plan run or mark the run state blocked for review latency alone.
 
 ### Adversarial Escalation Loop
 
@@ -548,7 +598,10 @@ Report:
 - changed files at a high level,
 - verification run,
 - runtime-native scoped quality-review verdicts,
+- implementation-stage PM review verdict,
 - Codex/Claude pre-PR review verdicts or waived/not-run status,
+- Pi GPT/GLM pre-PR verdicts when that surface is used, including applicable GLM verdict or truthful GLM skipped classification,
+- base freshness and rebase status,
 - PR feedback monitoring result,
 - PR mergeability result,
 - documented out-of-scope follow-ups with evidence and tracking destination,

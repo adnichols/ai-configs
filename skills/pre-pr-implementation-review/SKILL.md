@@ -9,7 +9,7 @@ Use this skill to catch implementation issues that would otherwise appear during
 
 The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings must be triaged, but they are not automatically PR-blocking: fix them only when they are plan-required, verification-required, regression-caused, or a small safe cleanup; otherwise document them as non-blocking follow-ups with evidence.
 
-When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. Return the final gate status and artifact path to the `run-plan` caller so it can rerun final verification if needed, commit, push, open the PR, and continue post-PR monitoring.
+When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review and base freshness responsibilities, or has recorded why they were blocked or not applicable. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status, and any rebase-triggered rerun requirement to the `run-plan` caller so it can rerun final verification if needed, commit, push, open the PR, and continue post-PR monitoring.
 
 ## Inputs
 
@@ -22,7 +22,7 @@ Accept any of:
 /skill:pre-pr-implementation-review <plan path> --base <branch-or-range>
 ```
 
-If invoked from `run-plan`, use that plan path, target branch/base branch, scope contract, changed files, and latest verification results.
+If invoked from `run-plan`, use that plan path, target branch/base branch, scope contract, changed files, latest verification results, PM review status, base freshness status, and any rebase-triggered rerun requirement.
 
 If invoked independently, resolve the comparison in this order:
 
@@ -92,6 +92,8 @@ Before launching Claude Code, classify the review scope using the high-risk seco
 - **Use Claude Code** when the PR touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface.
 - **Skip Claude Code by default** for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason.
 - Use a compact Claude Code packet with named files, the exact risk question, relevant diff excerpts, verification already run, and outcome limits. Do not send broad context when a packet is sufficient.
+
+When this skill is surfaced through Pi GPT/GLM reviewer profiles rather than the Codex/Claude Code route, preserve the current applicable GLM routing: use `glm5.2-high` for normal high-risk bounded review, reserve `glm5.2-xhigh` for final or exceptional-risk review, and keep `quality-reviewer-glm` as a legacy xhigh compatibility alias only. Low-risk/docs-only/UI-copy/tests/narrow follow-ups must record `GLM skipped` with the classification instead of inventing a GLM verdict.
 
 Launch applicable reviewers in the same turn when possible:
 
@@ -245,6 +247,7 @@ thoughts/validation/pre-pr-reviews/<YYYY-MM-DD>-<branch>.md
 Include:
 
 - base/range and plan path or standalone scope,
+- target branch/base context, caller-reported base freshness status, and any rebase-triggered rerun requirement when invoked from `run-plan`,
 - changed files summary,
 - each review cycle's Codex verdict and Claude Code verdict when Claude Code applied, or the recorded low-risk Claude Code skip classification and any override decision,
 - the triage table,
@@ -262,6 +265,8 @@ The final summary must include:
 
 - `Codex verdict: CLEAN_FOR_PR` or equivalent no-unresolved-blocking-in-scope-P1/P2 result,
 - `Claude Code verdict: CLEAN_FOR_PR` or equivalent no-unresolved-blocking-in-scope-P1/P2 result when Claude Code applied, or `Claude Code skipped: <low-risk classification and override decision>` when Claude Code was truthfully skipped,
+- Pi GPT/GLM routing verdicts when this surface is run through Pi reviewer profiles, including `GLM skipped: <low-risk classification>` when GLM is not applicable,
+- base freshness context from the caller and any rebase-triggered rerun requirement,
 - verification rerun after the last fix,
 - artifact path,
 - any remaining non-blocking out-of-scope follow-ups with evidence and tracking destination,
