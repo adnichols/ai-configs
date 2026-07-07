@@ -349,7 +349,7 @@ The PR body must include:
 - verification commands and results,
 - first scoped quality-review verdict,
 - second scoped quality-review verdict,
-- implementation-stage PM review verdict and any plan/Doct updates,
+- implementation-stage PM review verdict, artifact/notes location, any plan/Doct updates, and any PM-triggered rerun requirements,
 - Codex/Claude pre-PR review verdicts and artifact path, or explicit waived/not-run status,
 - Pi GPT/GLM pre-PR verdicts when that surface is used, including the applicable GLM verdict or truthful GLM skipped classification,
 - base freshness and mergeability/rebase status before PR creation,
@@ -385,7 +385,7 @@ Repeat this loop until the completion criteria are met or a true blocker is reac
 7. For each `REVIEW_ESCAPE`, run the adversarial escalation loop below before considering the feedback addressed.
 8. Rerun the smallest meaningful verification for any changes.
 9. Commit and push fixes to the PR branch.
-10. Rebase onto the destination branch when GitHub reports the branch out of date, stale, conflicted, blocked by base freshness, or not mergeable, but only when conflicts are absent or limited to scoped files and do not require a product decision.
+10. Rebase onto the destination branch when GitHub reports the branch out of date, stale, conflicted, or blocked by base freshness, but only when conflicts are absent or limited to scoped files and do not require a product decision.
 11. After any post-PR rebase or conflict resolution, rerun affected verification, rerun scoped reviews when the PR diff changed materially, and push with lease.
 12. Stop with a scope question when rebase conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations.
 13. Recheck until GitHub shows the PR as mergeable and no new actionable feedback remains.
