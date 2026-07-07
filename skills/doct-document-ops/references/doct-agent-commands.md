@@ -198,7 +198,7 @@ Run long-lived watch commands with the harness background-process tool. `plans w
 
 ### Start the Codex-observable plan comment listener
 
-Every reviewer-facing registration returns `listenerInstructions`. Follow that object before browser-review handoff: set lifecycle active, leave the plan in its registration/default board column (normally `backlog`), drain pending claims, then start an observable one-claim listener. Do not move a plan to `in_progress` during registration or browser-review setup; execution workflows such as `run-plan` do that when implementation starts.
+Every reviewer-facing registration returns `listenerInstructions`. Follow that object before browser-review handoff: set lifecycle active, leave the plan in its registration/default board column (normally `backlog`), drain pending claims, then start the durable listener from `listenerInstructions.listenerCommand`. Do not move a plan to `in_progress` during registration or browser-review setup; execution workflows such as `run-plan` do that when implementation starts.
 
 ```bash
 # Drain pending work until status is empty
@@ -209,14 +209,12 @@ doct-agent plans agent next \
   --no-wait \
   --json
 
-# Codex observable one-claim listener
-doct-agent plans agent next \
+# Durable plan comment listener
+doct-agent plans listen \
   --base-url https://doct.nodaste.com \
   --workspace-id <workspace-id> \
   --document-id <document-id> \
-  --wait \
-  --timeout 300 \
-  --json
+  --jsonl
 
 # Create a routed smoke-test comment when verifying wake behavior
 doct-agent plans comments add \
@@ -229,11 +227,11 @@ doct-agent plans comments add \
   --json
 ```
 
-In Codex, run the one-claim listener with the `exec_command` tool and a matching `yield_time_ms` window. It is quiet while waiting. When a routed browser action or `--submit-action agent` comment arrives, it returns one JSON claim payload and wakes the active session with the returned reply/ack/resolve/release commands. Process that claim, then start the next one-claim listener.
+Run the durable listener with the harness background-process tool. It stays quiet while the queue is empty, retries transient request failures with backoff, and emits one JSONL `plan_comment_dispatch` event when a routed browser action or `--submit-action agent` comment is claimed. Process that claim with the returned reply/ack/resolve/release commands and keep the listener running.
 
 Ordinary conversation comments are not routed work: they return `queueState: "none"` and do not wake the listener. Use them only for visible discussion, not for listener wake tests.
 
-`doct-agent plans listen --jsonl` is retained for advanced compatibility supervisors that can dispatch JSONL events to workers. The Codex path is the one-claim `plans agent next --wait --json` command because it is directly observable by the active session.
+`doct-agent plans agent next --wait --json` is retained for one-shot diagnostics/recovery only. It holds an HTTP request open until the wait deadline and can be interrupted by platform/proxy timeouts; it is not the default browser-review listener.
 
 ### Show plan state
 
@@ -282,7 +280,7 @@ doct-agent plans agent next \
   --json
 ```
 
-Use `--no-wait` for startup drain and manual recovery. Use `--wait` only for one-shot listener flows or when the registration response explicitly returns it as the preferred command. Process one claimed item at a time. Preserve `thread-id`, `claim-id`, `document-id`, and `workspace-id` for ack/resolve/release.
+Use `--no-wait` for startup drain and manual recovery. Reserve `--wait` for explicit diagnostics/recovery; use `plans listen --jsonl` for the durable browser-review listener. Process one claimed item at a time. Preserve `thread-id`, `claim-id`, `document-id`, and `workspace-id` for ack/resolve/release.
 
 ### Reply, ack, resolve, release
 

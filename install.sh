@@ -2407,12 +2407,83 @@ PY
     esac
 }
 
+purge_stale_pi_interactive_shell_registrations() {
+    local settings_path="$1"
+    local normalized_desired_source="$2"
+
+    python3 - "$settings_path" "$normalized_desired_source" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+desired = sys.argv[2]
+settings_dir = settings_path.parent
+
+try:
+    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+except json.JSONDecodeError:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+
+packages = data.get("packages")
+if not isinstance(packages, list):
+    packages = []
+
+def source_for(item):
+    if isinstance(item, str):
+        return item
+    if isinstance(item, dict) and isinstance(item.get("source"), str):
+        return item["source"]
+    return None
+
+def normalize(source):
+    if source.startswith(("npm:", "git:")):
+        return source
+    path = Path(source)
+    if not path.is_absolute():
+        path = settings_dir / path
+    return str(path.resolve())
+
+next_packages = []
+removed = []
+has_desired = False
+for item in packages:
+    source = source_for(item)
+    if not (isinstance(source, str) and "pi-interactive-shell" in source):
+        next_packages.append(item)
+        continue
+
+    normalized = normalize(source)
+    if normalized == desired:
+        if has_desired:
+            removed.append(source)
+            continue
+        has_desired = True
+        next_packages.append(item)
+        continue
+
+    removed.append(source)
+
+if removed:
+    data["packages"] = next_packages
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(data, indent=2) + "\n")
+    for source in removed:
+        print(source)
+PY
+}
+
 install_pi_interactive_shell_package() {
     local source_rel="../3p/pi-interactive-shell"
     local source_abs="$REPO_ROOT/../3p/pi-interactive-shell"
     local desired_source="git:github.com/adnichols/pi-interactive-shell"
     local desired_label="git:github.com/adnichols/pi-interactive-shell"
     local normalized_desired_source="git:github.com/adnichols/pi-interactive-shell"
+    local pi_agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+    local settings_path="$pi_agent_dir/settings.json"
 
     echo ""
     echo -e "${GREEN}  Installing pi-interactive-shell via pi package manager...${NC}"
@@ -2425,6 +2496,12 @@ install_pi_interactive_shell_package() {
     else
         echo "  - Local pi-interactive-shell fork not found; falling back to GitHub fork"
     fi
+
+    local removed_source
+    while IFS= read -r removed_source; do
+        [ -n "$removed_source" ] || continue
+        echo "  - Purged stale pi-interactive-shell package registration $removed_source from $settings_path"
+    done < <(purge_stale_pi_interactive_shell_registrations "$settings_path" "$normalized_desired_source")
 
     local existing_source normalized_existing_source has_desired=false
     while IFS= read -r existing_source; do
@@ -2443,7 +2520,26 @@ install_pi_interactive_shell_package() {
             echo "      To remove manually, run:"
             echo "        pi remove $existing_source"
         fi
-    done < <(pi list 2>/dev/null | awk '/^  [^ ]/ && /pi-interactive-shell/ { sub(/^  /, ""); print }')
+    done < <(
+        {
+            pi list 2>/dev/null | awk '/^  [^ ]/ && /pi-interactive-shell/ { sub(/^  /, ""); print }'
+            python3 - "$settings_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+try:
+    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+except json.JSONDecodeError:
+    data = {}
+for item in data.get("packages", []) if isinstance(data.get("packages"), list) else []:
+    source = item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
+    if isinstance(source, str) and "pi-interactive-shell" in source:
+        print(source)
+PY
+        } | sort -u
+    )
 
     if [ "$has_desired" = true ]; then
         echo "  - pi-interactive-shell already registered with Pi, updating..."

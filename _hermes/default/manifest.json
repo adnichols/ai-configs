@@ -1,5 +1,5 @@
 {
-  "file_count": 1688,
+  "file_count": 1687,
   "files": [
     {
       "bytes": 819,
@@ -22,9 +22,9 @@
       "sha256": "bb7eebcc19685416572db6d86601b333476241098d942ede641aeec56826c719"
     },
     {
-      "bytes": 18520,
+      "bytes": 18471,
       "path": "cron/jobs.json",
-      "sha256": "2b37efb9470ec33b742ef80278ae3412279ecf173d27359a50ee47ec9761cc66"
+      "sha256": "0d60e57f99bf2340130c4925c55f223b9c9f631186b0226c05843205bc2344f5"
     },
     {
       "bytes": 508,
@@ -4835,11 +4835,6 @@
       "bytes": 4399,
       "path": "profiles/writing/skills/software-development/software-development-practices/SKILL.md",
       "sha256": "60633d11922d7b195657c6df5dc447126f932936a15dc186d6bf3e5cd15e8353"
-    },
-    {
-      "bytes": 48832,
-      "path": "scripts/__pycache__/github_pr_agent_claim.cpython-314.pyc",
-      "sha256": "e2c7e4c88e637b409accbcf5ab5bbfe8125895aa84621532d4a5217b751a839a"
     },
     {
       "bytes": 10134,

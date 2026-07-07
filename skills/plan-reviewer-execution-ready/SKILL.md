@@ -7,7 +7,7 @@ description: Respond to Doct/plan-reviewer execution-ready request comments by c
 
 Use this skill when a registered Doct plan browser action comment asks the listening agent to run an execution-ready review for an explicit plan path.
 
-Doct owns registration and the comment lifecycle through `doct-agent plans`. In Codex, the observable listener is the returned one-claim command, normally `doct-agent plans agent next ... --wait --json`, run with the Codex `exec_command` tool so the active session wakes when the claim JSON is returned. A routed browser action or `doct-agent plans comments add --submit-action agent ...` creates the queued work item; ordinary conversation comments do not. This worker receives the claim payload and returned reply/ack/resolve/release commands from that listener. It should not start, replace, or stop the listener itself.
+Doct owns registration and the comment lifecycle through `doct-agent plans`. The default browser-review listener is the returned durable `listenerInstructions.listenerCommand`, normally `doct-agent plans listen ... --jsonl`, run with the harness background-process tool. A routed browser action or `doct-agent plans comments add --submit-action agent ...` creates the queued work item; ordinary conversation comments do not. This worker receives the claim payload and returned reply/ack/resolve/release commands from that listener. It should not start, replace, or stop the listener itself.
 
 ## Input contract
 

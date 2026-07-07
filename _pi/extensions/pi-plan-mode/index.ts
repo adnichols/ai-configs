@@ -1261,7 +1261,7 @@ Constraints:
 - Plans should align with thoughts/specs/product_intent.md and thoughts/plans/AGENTS.md when relevant.
 - New active plans should be semantic HTML under ${PLAN_DIRECTORY}/<slug>.html unless the user explicitly supplies an existing legacy Markdown plan.
 - Register HTML plans with plan-review using truthful --execution-ready metadata; preserve and display the canonical browser review URL.
-- Use only the queue-backed plan-review agent next flow for browser comments: drain with --no-wait, listen with --wait via the process tool, process one claimed comment, ack/resolve it, then restart the listener. Do not use or recommend the watch subcommand in /plan mode.
+- Use the Doct durable plan comment listener for browser comments: drain with agent next --no-wait, start listenerInstructions.listenerCommand (doct-agent plans listen ... --jsonl) via the process tool, process each emitted claim, then ack/resolve it. Do not use agent next --wait as the default listener, and do not use or recommend the watch subcommand in /plan mode.
 - After creating or materially updating an HTML plan, /dev:reviewed-html-plan <path> is the deterministic registration, browser-feedback, PM-review, and Claude/Codex plan-review path. /review:plan <path> remains available only as an explicit inline review.
 - After a standard inline review completes with comments, /review:change-integrate <path> runs automatically so review feedback is resolved back into the same plan file before any manual execution handoff.
 - After standard inline review integration, you may optionally run /review:plan-adversarial <path> for a second-pass challenge review.

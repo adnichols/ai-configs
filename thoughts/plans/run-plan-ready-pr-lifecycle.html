@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Run Plan Ready-PR Lifecycle</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #172033;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --accent-2: #a78bfa;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --code: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero { background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12)); border: 1px solid var(--border); border-radius: 20px; padding: 28px; margin-bottom: 18px; }
+    h1, h2, h3 { line-height: 1.2; color: #f8fafc; }
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.35rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 20px 0 8px; color: var(--accent); }
+    section, article { background: rgba(17, 24, 39, 0.84); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin: 16px 0; }
+    a { color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: var(--code); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); color: #f8fafc; text-align: left; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px; color: var(--muted); background: rgba(15, 23, 42, 0.76); font-size: 0.9rem; }
+    .pill.good { color: var(--good); border-color: rgba(52, 211, 153, 0.55); }
+    .pill.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.55); }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 0; }
+    .toc a:hover { color: var(--text); }
+    .callout { border-left: 4px solid var(--accent); background: rgba(125, 211, 252, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .warnbox { border-left: 4px solid var(--warn); background: rgba(251, 191, 36, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .goodbox { border-left: 4px solid var(--good); background: rgba(52, 211, 153, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .phase { border-left: 4px solid var(--accent-2); }
+    .matrix td:first-child, .matrix th:first-child { width: 9rem; }
+    @media (max-width: 760px) { main { width: min(100% - 20px, 1180px); padding-top: 16px; } header.hero, section, article { padding: 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero" id="title">
+    <h1>Run Plan Ready-PR Lifecycle</h1>
+    <p class="muted">Make <code>/run-plan</code>, Build Plan, and pre-PR review behave as one complete ready-PR workflow: implementation-stage PM review, applicable GPT/GLM review, base freshness, PR creation, and automatic mergeability monitoring through rebase when safe.</p>
+    <div class="pill-row" id="status">
+      <span class="pill warn">Status: ready for review</span>
+      <span class="pill">Plan path: <code>thoughts/plans/run-plan-ready-pr-lifecycle.html</code></span>
+      <span class="pill">UI impact: text-only agent workflow guidance</span>
+      <span class="pill">Primary runtime: Pi shared skills</span>
+    </div>
+  </header>
+
+  <section id="toc" aria-labelledby="toc-heading">
+    <h2 id="toc-heading">Table of contents</h2>
+    <div class="toc">
+      <div>
+        <strong>Overview</strong>
+        <a href="#goal">Goal</a>
+        <a href="#decision-attention">Decision Attention</a>
+        <a href="#why">Why this plan exists</a>
+        <a href="#authority-inputs">Authority and inputs</a>
+      </div>
+      <div>
+        <strong>Reality</strong>
+        <a href="#current-reality">Current implementation reality</a>
+        <a href="#progress">Progress</a>
+        <a href="#resume">Resume instructions</a>
+        <a href="#product-intent">Product intent alignment</a>
+      </div>
+      <div>
+        <strong>Contracts</strong>
+        <a href="#locked-decisions">Locked decisions</a>
+        <a href="#acceptance-criteria">Acceptance criteria</a>
+        <a href="#bdd">BDD scenarios</a>
+        <a href="#coverage-matrix">Test coverage matrix</a>
+      </div>
+      <div>
+        <strong>Execution</strong>
+        <a href="#phase-p1">P1 Run-plan lifecycle</a>
+        <a href="#phase-p2">P2 Pre-PR and Build Plan</a>
+        <a href="#phase-p3">P3 Docs and installed skills</a>
+        <a href="#verification">Verification strategy</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Update ai-configs workflow guidance so an agent running <code>/run-plan &lt;plan&gt;</code>, a Doct Build Plan request, or a pre-PR review inside run-plan no longer stops at a partial handoff. The expected golden path is one continuous lifecycle:</p>
+    <ol>
+      <li>execute the plan through implementation and phase verification;</li>
+      <li>run an implementation-stage PM review and complete any plan-required corrective work it uncovers;</li>
+      <li>run the GPT plus applicable GLM pre-PR implementation review using the current GLM routing rules;</li>
+      <li>verify the branch is fresh with the target branch before PR creation, rebase automatically when safe, and rerun invalidated verification/reviews;</li>
+      <li>commit, push, and open the PR without requiring the operator to ask again;</li>
+      <li>monitor PR feedback, checks, review decision, and mergeability until the PR is ready to go, automatically rebasing and updating the PR when it becomes stale or conflicted and the conflict is within scope.</li>
+    </ol>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="goodbox">
+      <p><strong>No product decision required.</strong> The user intent is explicit: make the default plan-run workflow carry work all the way through PM review, applicable pre-PR review, PR creation, and mergeability-safe monitoring.</p>
+    </div>
+    <ul>
+      <li><strong>GLM routing is resolved:</strong> latest <code>main</code> split GLM review profiles into <code>glm5.2-high</code> and <code>glm5.2-xhigh</code>, with <code>quality-reviewer-glm</code> retained only as a legacy xhigh compatibility alias. This plan must preserve that routing and say “applicable GLM,” not mandatory <code>quality-reviewer-glm</code> for every PR.</li>
+      <li><strong>Scope boundary:</strong> this plan changes repo-owned prompt/skill guidance and install/readme references only. It does not change Pi core, Doct services, GitHub APIs, or the <code>doct-agent</code> CLI.</li>
+      <li><strong>Rebase safety:</strong> automatic rebase is required for routine stale branches, but must fail closed on conflicts outside scoped files or product decisions.</li>
+    </ul>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>Observed workflow pain: plan runs often complete implementation but do not automatically run the full pre-PR gate, do not open the PR, or open a PR and monitor comments without checking mergeability and rebase/conflict state. That exports routine orchestration back to the operator, who then has to tell agents to run missing reviews, open the PR, or rebase after GitHub marks the branch out of date.</p>
+    <p>The fix is to make the shared workflow contract unambiguous and current with the latest GLM skill model routing. Agents should treat “run the plan” as “deliver a ready PR,” not as “finish code and wait for another command.”</p>
+  </section>
+
+  <section id="authority-inputs">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>User request in this session: make plan run, Build Plan, and pre-PR reruns carry work through PM review, pre-PR review, PR opening, PR monitoring, mergeability checks, and automatic rebase where safe.</li>
+      <li><code>AGENTS.md</code>: active browser-reviewed plans are HTML under <code>thoughts/plans/</code>; <code>/run-plan</code> is the full implementation-through-PR workflow.</li>
+      <li><code>skills/run-plan/SKILL.md</code>: already owns implementation, scoped reviews, pre-PR review, PR creation, and PR monitoring, but lacks an explicit implementation-stage PM review gate and pre-PR base freshness gate.</li>
+      <li><code>skills/pre-pr-implementation-review/SKILL.md</code>: latest version uses GPT plus applicable GLM and returns <code>OPEN_PR_READY</code> to run-plan.</li>
+      <li><code>skills/plan-reviewer-build/SKILL.md</code>: delegates Build Plan to run-plan and should inherit the full lifecycle.</li>
+      <li>Latest GLM skill files: <code>_pi/agents/glm5.2-high.md</code>, <code>_pi/agents/glm5.2-xhigh.md</code>, and <code>_pi/agents/quality-reviewer-glm.md</code>.</li>
+      <li><code>_pi/README.md</code> and <code>AGENTS.md</code> quick-reference sections that agents read before using the workflow.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>run-plan</code> already says the pre-PR gate is not terminal and PR creation is mandatory, but the missing PM gate lets agents skip product-outcome review before opening the PR.</li>
+      <li><code>run-plan</code> already mentions post-PR mergeability and rebase, but not as a pre-PR base-freshness gate. The agent can still open a PR whose branch immediately needs rebase.</li>
+      <li><code>run-plan</code> post-PR monitoring has a reference script that reports mergeability, but the instructions should make rebase/remediation a required active response whenever GitHub reports stale/out-of-date/conflicted/not mergeable.</li>
+      <li><code>pre-pr-implementation-review</code> is already updated for applicable GLM routing. The run-plan edits must align with it rather than reverting to a mandatory legacy <code>quality-reviewer-glm</code> leg.</li>
+      <li>Repo-owned shared skills are installed into <code>~/.agents/skills</code> by <code>bash ./install.sh --skills</code>; source updates are not enough for active agents unless sync is run or the operator explicitly defers runtime installation.</li>
+    </ul>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul>
+      <li><input type="checkbox" disabled /> P1 — Update run-plan full-lifecycle contract.</li>
+      <li><input type="checkbox" disabled /> P2 — Align pre-PR and Build Plan handoffs.</li>
+      <li><input type="checkbox" disabled /> P3 — Update docs, sync installed skills, and verify consistency.</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions (agent)</h2>
+    <p>Read this plan fully, then start at the first unchecked item in <a href="#progress">Progress</a>. Preserve the latest GLM routing: use GPT plus applicable GLM, classify whether GLM applies, and route GLM to <code>glm5.2-high</code> or <code>glm5.2-xhigh</code> rather than new uses of legacy <code>quality-reviewer-glm</code>. Edit only the listed workflow guidance and documentation files unless review feedback identifies a directly related install/reference file. Do not change product code or Doct CLI behavior. After source edits, sync repo-owned shared skills into <code>~/.agents/skills</code> with <code>bash ./install.sh --skills</code> unless the operator explicitly requests source-only changes.</p>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <p>This work affects agent/operator workflows. The correct path should be obvious and automatic: when a user asks to run a plan or clicks Build Plan, the agent should execute the plan through a ready PR instead of exposing internal review/PR/rebase steps as separate chores. Routine stale-branch and mergeability issues should be self-healed by fetching, rebasing when safe, rerunning affected verification, and pushing with lease. Ambiguous conflicts or out-of-scope fixes must fail closed with an actionable blocker.</p>
+    <p>UI impact: <strong>text-only</strong>. This changes agent-facing skill guidance, prompt wrappers, and README/AGENTS references. No browser UI, CLI binary behavior, or visual design changes are planned.</p>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li id="ld-1"><strong>Run-plan is the source of truth.</strong> Do not duplicate lifecycle orchestration in Build Plan or pre-PR review; those surfaces hand off to or return to run-plan.</li>
+      <li id="ld-2"><strong>Implementation-stage PM review is mandatory before PR creation.</strong> If it reshapes the plan, run-plan must execute the added corrective work and rerun invalidated gates before PR creation.</li>
+      <li id="ld-3"><strong>Pre-PR review means GPT plus applicable GLM.</strong> GLM is used for high-risk scopes and can be truthfully skipped for low-risk/docs-only/UI-copy/tests/narrow follow-ups with a recorded classification.</li>
+      <li id="ld-4"><strong>Final or exceptional-risk GLM uses <code>glm5.2-xhigh</code>.</strong> Normal high-risk bounded GLM uses <code>glm5.2-high</code>. Legacy <code>quality-reviewer-glm</code> remains compatibility-only.</li>
+      <li id="ld-5"><strong>Mergeability is part of readiness.</strong> A PR is not “ready to go” unless GitHub reports it mergeable with the target branch after comments/checks/reviews are addressed.</li>
+      <li id="ld-6"><strong>Automatic rebase is required for routine stale branches.</strong> Stop only when conflicts affect out-of-scope files or require a product decision.</li>
+    </ol>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <table class="matrix">
+      <thead><tr><th>ID</th><th>Criterion</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr id="ac-1"><td>AC1</td><td><code>skills/run-plan/SKILL.md</code> explicitly requires an implementation-stage PM review after phase execution and scoped reviews but before PR creation.</td><td>Focused read/grep shows a dedicated section and non-negotiable language.</td></tr>
+        <tr id="ac-2"><td>AC2</td><td>If PM review changes the plan or reveals missing product-outcome work, run-plan must execute that work, rerun affected verification, rerun scoped/pre-PR reviews as needed, and only then proceed.</td><td>Run-plan section includes loop and stale-gate rules.</td></tr>
+        <tr id="ac-3"><td>AC3</td><td>Run-plan and pre-PR guidance preserve latest GLM routing: GPT plus applicable GLM, <code>glm5.2-high</code>/<code>glm5.2-xhigh</code>, truthful low-risk skip, legacy alias only.</td><td>No new mandatory <code>quality-reviewer-glm</code> wording except legacy compatibility references.</td></tr>
+        <tr id="ac-4"><td>AC4</td><td>Run-plan includes a pre-PR base freshness / mergeability gate before commit/push/PR creation.</td><td>Plan says to fetch target, detect out-of-date/conflict risk, rebase when safe, rerun invalidated verification/reviews, and stop on unsafe conflicts.</td></tr>
+        <tr id="ac-5"><td>AC5</td><td>Post-PR monitoring requires checking PR feedback, status checks, review decision, and mergeability on every poll, with automatic rebase and push-with-lease when GitHub reports stale/out-of-date/conflicted/not mergeable and conflicts are in scope.</td><td>Monitoring loop and reference script guidance include actionable mergeability transitions.</td></tr>
+        <tr id="ac-6"><td>AC6</td><td>Build Plan and standalone pre-PR review cannot become terminal partial workflows; Build Plan delegates to full run-plan, and pre-PR returns <code>OPEN_PR_READY</code> for run-plan to continue through PR creation and monitoring.</td><td><code>skills/plan-reviewer-build/SKILL.md</code> and <code>skills/pre-pr-implementation-review/SKILL.md</code> remain aligned.</td></tr>
+        <tr id="ac-7"><td>AC7</td><td>Quick-reference docs match the new lifecycle so future agents discover the right default path.</td><td><code>AGENTS.md</code> and <code>_pi/README.md</code> reference PM review, applicable GLM, PR creation, mergeability monitoring, and automatic rebase.</td></tr>
+        <tr id="ac-8"><td>AC8</td><td>Runtime shared skills are synced after edits unless source-only is explicitly requested.</td><td><code>bash ./install.sh --skills</code> succeeds and source/installed skill files match for touched skills.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-pm-gap">
+      <h3>BDD1 — PM review finds missing outcome work</h3>
+      <p><strong>Given</strong> an agent has completed all currently checked plan phases, <strong>when</strong> the implementation-stage PM review finds the shipped behavior does not fulfill the intended outcome, <strong>then</strong> run-plan updates the plan, executes the missing work, reruns affected verification and applicable reviews, and does not open the PR until the PM gap is resolved or blocked by a real decision.</p>
+    </article>
+    <article id="bdd-clean-pr">
+      <h3>BDD2 — Clean run proceeds to PR without another user command</h3>
+      <p><strong>Given</strong> implementation, PM review, scoped quality review, applicable GPT/GLM pre-PR review, final verification, and base freshness all pass, <strong>when</strong> run-plan reaches <code>OPEN_PR_READY</code>, <strong>then</strong> it continues immediately to commit, push, PR creation, and monitoring instead of replying “ready to open a PR.”</p>
+    </article>
+    <article id="bdd-low-risk-glm-skip">
+      <h3>BDD3 — Low-risk GLM skip remains truthful</h3>
+      <p><strong>Given</strong> a docs-only or low-risk copy/test change, <strong>when</strong> pre-PR review classifies GLM as not applicable, <strong>then</strong> the artifact and PR body record the low-risk skip decision and do not invent a GLM verdict.</p>
+    </article>
+    <article id="bdd-high-risk-glm">
+      <h3>BDD4 — High-risk GLM uses active profiles</h3>
+      <p><strong>Given</strong> a plan touches auth, data loss, persistence, concurrency, migrations, release risk, or another P1/P2 surface, <strong>when</strong> run-plan or pre-PR review launches GLM, <strong>then</strong> it uses <code>glm5.2-high</code> for normal bounded review or <code>glm5.2-xhigh</code> for final/exceptional-risk review, not the legacy alias for new routing.</p>
+    </article>
+    <article id="bdd-pre-pr-stale">
+      <h3>BDD5 — Branch is stale before PR creation</h3>
+      <p><strong>Given</strong> the target branch moved after implementation reviews, <strong>when</strong> run-plan performs the pre-PR freshness gate, <strong>then</strong> it fetches and rebases safely, reruns affected verification and any review gate made stale by changed diff context, and only opens the PR after the branch is fresh or reports a conflict blocker.</p>
+    </article>
+    <article id="bdd-post-pr-rebase">
+      <h3>BDD6 — PR becomes unmergeable after opening</h3>
+      <p><strong>Given</strong> an open PR was previously clean, <strong>when</strong> GitHub reports the branch is out of date, conflicted, or not mergeable, <strong>then</strong> the monitoring loop fetches and rebases when conflicts are in scope, reruns affected verification, pushes with lease, and keeps polling until GitHub reports mergeable or an unsafe conflict requires a user decision.</p>
+    </article>
+    <article id="bdd-build-plan">
+      <h3>BDD7 — Build Plan inherits full lifecycle</h3>
+      <p><strong>Given</strong> a Doct Build Plan comment invokes <code>plan-reviewer-build</code>, <strong>when</strong> the plan path is valid, <strong>then</strong> the bridge delegates to run-plan and keeps the Doct claim active until durable run state, PR URL, or a concrete blocker exists; it must not bypass PM review, pre-PR review, PR creation, or monitoring.</p>
+    </article>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>Test coverage matrix</h2>
+    <table class="matrix">
+      <thead><tr><th>Area</th><th>Covered scenarios</th><th>Planned verification</th></tr></thead>
+      <tbody>
+        <tr><td>Run-plan PM gate</td><td>AC1, AC2, BDD1, BDD2</td><td><code>rg -n "Implementation-stage PM|PM review|OPEN_PR_READY|Commit, Push, and PR" skills/run-plan/SKILL.md</code></td></tr>
+        <tr><td>GLM routing</td><td>AC3, BDD3, BDD4</td><td><code>rg -n "glm5.2-high|glm5.2-xhigh|quality-reviewer-glm|applicable GLM|GLM skipped" skills/run-plan/SKILL.md skills/pre-pr-implementation-review/SKILL.md AGENTS.md _pi/README.md</code></td></tr>
+        <tr><td>Mergeability and rebase</td><td>AC4, AC5, BDD5, BDD6</td><td><code>rg -n "mergeable|mergeability|rebase|out of date|conflicted|push with lease|base freshness" skills/run-plan/SKILL.md</code></td></tr>
+        <tr><td>Build Plan bridge</td><td>AC6, BDD7</td><td><code>rg -n "run-plan|PM review|pre-PR|mergeability|rebase|PR creation|monitor" skills/plan-reviewer-build/SKILL.md</code></td></tr>
+        <tr><td>Docs and install sync</td><td>AC7, AC8</td><td><code>bash ./install.sh --skills</code> and <code>diff -q skills/run-plan/SKILL.md ~/.agents/skills/run-plan/SKILL.md</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <article class="phase" id="phase-p1">
+    <h2>P1 — Update run-plan full-lifecycle contract</h2>
+    <h3>End State</h3>
+    <p><code>skills/run-plan/SKILL.md</code> makes PM review, base freshness, mandatory PR creation, and active mergeability monitoring part of the same lifecycle.</p>
+    <h3>Tests first</h3>
+    <p>Before editing, capture current gaps with targeted greps for PM review, mergeability, rebase, and <code>OPEN_PR_READY</code>. After editing, rerun the same greps and inspect the changed sections to ensure the wording requires action rather than advisory status reporting.</p>
+    <h3>Expected files</h3>
+    <ul><li><code>skills/run-plan/SKILL.md</code></li></ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Add non-negotiable rules: implementation-stage PM review is required before PR creation; clean pre-PR means continue to PR; mergeability is checked before and after PR creation.</li>
+      <li>Add a new workflow section after scoped review loop and before pre-PR review: <strong>Implementation-stage PM review</strong>. It should run <code>/dev:pm-review &lt;plan&gt; implementation</code> or equivalent, apply plan corrections, execute missing work, and rerun invalidated gates.</li>
+      <li>Add a pre-PR base freshness / mergeability gate before final commit/push/PR creation: fetch target, determine whether the branch is behind or conflicted, rebase when safe, rerun affected verification, and rerun stale reviews when the diff changed materially.</li>
+      <li>Strengthen the post-PR loop so every poll checks comments/reviews/status checks/review decision/mergeability and automatically rebases/pushes when GitHub reports stale, out-of-date, conflicted, or not mergeable.</li>
+      <li>Update final response and PR body expectations to include PM verdict, base freshness, mergeability/rebase status, and applicable GLM/skip evidence.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>rg -n "Implementation-stage PM|PM review|base freshness|mergeable|mergeability|rebase|out of date|conflicted|push with lease|OPEN_PR_READY" skills/run-plan/SKILL.md
+rg -n "quality-reviewer-glm" skills/run-plan/SKILL.md</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p2">
+    <h2>P2 — Align pre-PR and Build Plan handoffs</h2>
+    <h3>End State</h3>
+    <p>Standalone pre-PR review and Doct Build Plan are clearly non-terminal surfaces in the run-plan lifecycle. They do not duplicate orchestration or stop before PR creation.</p>
+    <h3>Tests first</h3>
+    <p>Use greps to identify current handoff language. Treat absence of PM/mergeability inheritance from Build Plan as the failing contract.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>skills/pre-pr-implementation-review/SKILL.md</code></li>
+      <li><code>skills/plan-reviewer-build/SKILL.md</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>In <code>pre-pr-implementation-review</code>, add or tighten language that <code>OPEN_PR_READY</code> is only a handoff to run-plan after PM/base-freshness responsibilities have been satisfied by the caller; it is not a final user-facing completion.</li>
+      <li>Add merge/base context to the pre-PR artifact expectations when invoked from run-plan: target branch, whether branch freshness was checked by caller, and any rebase-triggered rerun requirement.</li>
+      <li>In <code>plan-reviewer-build</code>, state that Build Plan inherits run-plan's implementation-stage PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, and mergeability monitoring/auto-rebase. Keep the bridge thin.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>rg -n "OPEN_PR_READY|base freshness|mergeability|run-plan" skills/pre-pr-implementation-review/SKILL.md
+rg -n "PM review|pre-PR|PR creation|mergeability|rebase|run-plan" skills/plan-reviewer-build/SKILL.md</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p3">
+    <h2>P3 — Update docs, sync installed skills, and verify consistency</h2>
+    <h3>End State</h3>
+    <p>Repo guidance and installed shared skills match the new lifecycle so future Pi/Codex/OpenCode agents discover and execute the same contract.</p>
+    <h3>Tests first</h3>
+    <p>Before editing docs, grep current quick references for <code>run-plan</code>, <code>pre-pr-implementation-review</code>, PM review, and mergeability to identify stale or incomplete phrasing.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>AGENTS.md</code></li>
+      <li><code>_pi/README.md</code></li>
+      <li>Installed copies under <code>~/.agents/skills/</code> after running the installer.</li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Update quick-reference descriptions to say run-plan includes implementation-stage PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, and mergeability monitoring.</li>
+      <li>Update pre-PR descriptions to say GPT plus applicable GLM, preserving truthful skip behavior for low-risk scopes.</li>
+      <li>Run <code>bash ./install.sh --skills</code> to sync repo-owned shared skills to <code>~/.agents/skills</code>.</li>
+      <li>Diff touched source skills against installed copies.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>rg -n "run-plan|pre-pr|PM review|mergeability|applicable GLM" AGENTS.md _pi/README.md
+bash ./install.sh --skills
+diff -q skills/run-plan/SKILL.md ~/.agents/skills/run-plan/SKILL.md
+diff -q skills/pre-pr-implementation-review/SKILL.md ~/.agents/skills/pre-pr-implementation-review/SKILL.md
+diff -q skills/plan-reviewer-build/SKILL.md ~/.agents/skills/plan-reviewer-build/SKILL.md
+git diff --stat</code></pre>
+  </article>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ol>
+      <li>Use focused greps as contract tests because this is agent guidance, not runtime code.</li>
+      <li>Inspect diffs for semantic consistency: no mandatory legacy GLM routing, no terminal pre-PR response, no Build Plan bypass.</li>
+      <li>Run <code>bash ./install.sh --skills</code> to sync runtime shared skills.</li>
+      <li>Use <code>diff -q</code> to prove installed shared skill copies match source for every touched skill.</li>
+      <li>Run <code>git status --short</code> and <code>git diff --stat</code> to verify only intended plan/guidance files changed.</li>
+    </ol>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>P1 <code>run-plan</code> lifecycle contract.</li>
+      <li>P2 pre-PR and Build Plan handoff alignment.</li>
+      <li>P3 quick-reference docs and installed-skill sync.</li>
+    </ol>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>No change to Pi core, Doct service, GitHub API, or the <code>doct-agent</code> CLI.</li>
+      <li>No new review agent profiles beyond the existing <code>quality-reviewer</code>, <code>glm5.2-high</code>, and <code>glm5.2-xhigh</code> routing.</li>
+      <li>No attempt to merge PRs automatically; the goal is ready/mergeable PRs, not unattended merge.</li>
+      <li>No branch/worktree protocol change for ai-configs; continue following repo guidance to work on <code>main</code> unless explicitly requested otherwise.</li>
+      <li>No replacement of <code>adn-dev-wf</code>; this tightens <code>run-plan</code> for execution-through-ready-PR work.</li>
+    </ul>
+  </section>
+
+  <section id="deviations-log">
+    <h2>Decisions / Deviations Log</h2>
+    <ul>
+      <li><strong>2026-07-05:</strong> Plan incorporates latest GLM routing from <code>main</code>: <code>glm5.2-high</code> for normal high-risk, <code>glm5.2-xhigh</code> for final/exceptional-risk, <code>quality-reviewer-glm</code> as legacy alias only, and truthful low-risk GLM skips.</li>
+      <li><strong>2026-07-05:</strong> Runtime sync is included because repo-owned shared skills are installed from <code>skills/</code> to <code>~/.agents/skills</code>; source-only edits would not immediately fix active agent behavior.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

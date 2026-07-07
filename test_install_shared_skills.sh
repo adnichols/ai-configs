@@ -58,12 +58,84 @@ create_fake_tool_bin() {
 #!/bin/bash
 set -eu
 
+settings_path="$HOME/.pi/agent/settings.json"
+
 case "${1:-}" in
   list)
+    if [[ "${AI_CONFIGS_FAKE_PI_LIST_FAILS:-}" == "1" ]]; then
+      exit 1
+    fi
+    if [[ -f "$settings_path" ]]; then
+      python3 - "$settings_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+settings_path = Path(sys.argv[1])
+try:
+    data = json.loads(settings_path.read_text())
+except Exception:
+    data = {}
+for item in data.get("packages", []) if isinstance(data.get("packages"), list) else []:
+    source = item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
+    if isinstance(source, str):
+        print(f"  {source}")
+        print(f"    /fake/{source.replace('/', '_')}")
+PY
+    fi
     exit 0
     ;;
-  install|update)
-    echo "stub pi $*" >/dev/null
+  install)
+    shift
+    source="${1:-}"
+    python3 - "$settings_path" "$source" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+settings_path = Path(sys.argv[1])
+source = sys.argv[2]
+if source and not source.startswith(("npm:", "git:")):
+    source = os.path.relpath(Path(source).resolve(), settings_path.parent)
+try:
+    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+except Exception:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+packages = data.get("packages")
+if not isinstance(packages, list):
+    packages = []
+if source and source not in packages:
+    packages.append(source)
+data["packages"] = packages
+settings_path.parent.mkdir(parents=True, exist_ok=True)
+settings_path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+    exit 0
+    ;;
+  update)
+    exit 0
+    ;;
+  remove)
+    shift
+    source="${1:-}"
+    python3 - "$settings_path" "$source" <<'PY'
+import json
+import sys
+from pathlib import Path
+settings_path = Path(sys.argv[1])
+source = sys.argv[2]
+try:
+    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+except Exception:
+    data = {}
+packages = data.get("packages")
+if not isinstance(packages, list):
+    packages = []
+data["packages"] = [item for item in packages if item != source]
+settings_path.parent.mkdir(parents=True, exist_ok=True)
+settings_path.write_text(json.dumps(data, indent=2) + "\n")
+PY
     exit 0
     ;;
   *)
@@ -594,6 +666,93 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   [[ -d "$home/.omp/agent/extensions/pi-vcc" ]] || return 1
 }
 
+test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails() {
+  local home output_file local_fork settings_path
+  home="$(new_tmp_dir)"
+  output_file="$home/pi-install.log"
+  local_fork="$(cd "$SCRIPT_DIR/../3p/pi-interactive-shell" 2>/dev/null && pwd || true)"
+  settings_path="$home/.pi/agent/settings.json"
+
+  [[ -n "$local_fork" ]] || return 0
+  mkdir -p "$(dirname "$settings_path")"
+  cat > "$settings_path" <<'JSON'
+{
+  "packages": [
+    "git:github.com/adnichols/pi-interactive-shell"
+  ]
+}
+JSON
+
+  AI_CONFIGS_FAKE_PI_LIST_FAILS=1 run_installer_capture "$home" "$output_file" --pi || {
+    cat "$output_file" >&2
+    return 1
+  }
+
+  assert_file_contains "$output_file" 'Purged stale pi-interactive-shell package registration git:github.com/adnichols/pi-interactive-shell' || return 1
+  assert_file_not_contains "$settings_path" 'git:github.com/adnichols/pi-interactive-shell' || return 1
+  python3 - "$settings_path" "$local_fork" <<'PY'
+import json
+import sys
+from pathlib import Path
+settings_path = Path(sys.argv[1])
+expected = Path(sys.argv[2]).resolve()
+data = json.loads(settings_path.read_text())
+for item in data.get("packages", []):
+    source = item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
+    if isinstance(source, str) and "pi-interactive-shell" in source:
+        path = Path(source)
+        if not path.is_absolute():
+            path = settings_path.parent / path
+        if path.resolve() == expected:
+            raise SystemExit(0)
+raise SystemExit(1)
+PY
+}
+
+test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails() {
+  local home output_file temp_repo settings_path stale_local
+  home="$(new_tmp_dir)"
+  temp_repo="$(new_tmp_dir)/repo"
+  output_file="$home/pi-install.log"
+  settings_path="$home/.pi/agent/settings.json"
+  stale_local="$(new_tmp_dir)/pi-interactive-shell"
+
+  mkdir -p "$temp_repo" "$stale_local" "$(dirname "$settings_path")"
+  cp "$INSTALLER" "$temp_repo/install.sh"
+  mkdir -p "$temp_repo/_pi" "$temp_repo/skills"
+  cp -R "$SCRIPT_DIR/_pi/prompts" "$temp_repo/_pi/"
+  cp -R "$SCRIPT_DIR/_pi/agents" "$temp_repo/_pi/"
+  cp -R "$SCRIPT_DIR/_pi/extensions" "$temp_repo/_pi/"
+  cp -R "$SCRIPT_DIR/_pi/packages" "$temp_repo/_pi/"
+  cp "$SCRIPT_DIR/_pi/models.json" "$temp_repo/_pi/models.json"
+  cp -R "$SCRIPT_DIR/skills/adn-dev-wf" "$temp_repo/skills/"
+  printf '{}\n' > "$temp_repo/skills/install-matrix.json"
+  printf 'system\n' > "$temp_repo/APPEND_SYSTEM.md"
+  printf 'readme\n' > "$temp_repo/_pi/README.md"
+  printf '{}\n' > "$settings_path"
+  cat > "$settings_path" <<JSON
+{
+  "packages": [
+    "$stale_local"
+  ]
+}
+JSON
+
+  local fake_bin
+  fake_bin="$(create_fake_tool_bin "$home")"
+  (
+    cd "$temp_repo" &&
+      HOME="$home" PATH="$fake_bin:$PATH" AI_CONFIGS_FAKE_PI_LIST_FAILS=1 bash "$temp_repo/install.sh" --pi >"$output_file" 2>&1
+  ) || {
+    cat "$output_file" >&2
+    return 1
+  }
+
+  assert_file_contains "$output_file" "Purged stale pi-interactive-shell package registration $stale_local" || return 1
+  assert_file_not_contains "$settings_path" "$stale_local" || return 1
+  assert_file_contains "$settings_path" 'git:github.com/adnichols/pi-interactive-shell' || return 1
+}
+
 test_phase_three_docs_use_canonical_shared_skill_paths() {
   assert_file_contains "AGENTS.md" '"skills": ["skills"]' || return 1
   assert_file_not_contains "AGENTS.md" '"skills": [".agents/skills", "opencode/skills"]' || return 1
@@ -789,6 +948,8 @@ main() {
   run_test test_project_local_central_skill_overrides_are_removed
   run_test test_failpoint_after_backup_keeps_destination_recoverable
   run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
+  run_test test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails
+  run_test test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails
   run_test test_phase_three_docs_use_canonical_shared_skill_paths
   run_test test_phase_three_duplicate_skill_trees_are_removed
   run_test test_codex_pi_skill_and_prompt_parity
