@@ -154,6 +154,34 @@ class LauncherTestCase(unittest.TestCase):
             self.assertIn("CLAUDE_SESSION_LIMIT_IN_TUI", text)
             self.assertIn("session/rate limit after submit", text)
 
+    def test_weekly_usage_limit_banner_is_not_session_limit(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        banner = "Extended: Fable 5 is included in your weekly limit. If you hit your limit, you can continue on Fable 5 with usage credits."
+        module.check_tui_unavailable(banner)
+
+    def test_collapsed_paste_can_establish_prompt_baseline(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        self.assertTrue(module.prompt_visible_or_collapsed("Claude\n❯ [Pasted text #1 +28 lines]", 0, 0, 1, 2))
+        self.assertFalse(module.prompt_visible_or_collapsed("Claude\n❯ ", 0, 0, 1, 2))
+
+    def test_prompt_template_is_not_review_answer(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        self.assertTrue(module.answer_is_prompt_template("<review text here>"))
+        self.assertTrue(module.answer_is_prompt_template("Claude review launcher emission protocol\nVERDICT: PASS_SCOPED"))
+        self.assertFalse(module.answer_is_prompt_template("VERDICT: PASS_SCOPED\nNo issues found."))
+
     def test_tui_not_ready_does_not_succeed(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
@@ -209,8 +237,31 @@ class LauncherTestCase(unittest.TestCase):
         sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
         visible_prompt = f"Claude review launcher emission protocol\n{marker}\n<review text here>\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
         cleared_answer = f"Claude Code\n{marker}\nVERDICT: PASS_SCOPED\nPrompt cleared answer\n{sentinel}\n❯"
+        visible_prompt_then_answer = (
+            f"Claude review launcher emission protocol\n{marker}\n<review text here>\n{sentinel}\n"
+            f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}\n"
+            f"● {marker}\nVERDICT: PASS_SCOPED\nReal answer\n{sentinel}\n"
+            f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        )
         self.assertIsNone(module.extract_prompt_cleared_answer(visible_prompt, marker, sentinel))
         self.assertIn("Prompt cleared answer", module.extract_prompt_cleared_answer(cleared_answer, marker, sentinel))
+        answer = module.extract_answer(visible_prompt_then_answer, marker, sentinel)
+        self.assertIn("Real answer", answer)
+        self.assertNotIn("CLAUDE_REVIEW_FINAL_SENTINEL", answer)
+
+    def test_markerless_sentinel_answer_extraction_requires_real_verdict(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
+        markerless_answer = f"Review body\nVERDICT: PLAN_NEEDS_REVISION\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        visible_template = f"Claude review launcher emission protocol\n<review text here>\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        no_verdict = f"Review body\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        self.assertIn("PLAN_NEEDS_REVISION", module.extract_prompt_cleared_answer(markerless_answer, "missing-marker", sentinel))
+        self.assertIsNone(module.extract_prompt_cleared_answer(visible_template, "missing-marker", sentinel))
+        self.assertIsNone(module.extract_prompt_cleared_answer(no_verdict, "missing-marker", sentinel))
 
     def test_smoke_success_tears_down(self) -> None:
         with tempfile.TemporaryDirectory() as td:

@@ -22,6 +22,7 @@ CLAUDE_REVIEW_EFFORT = "xhigh"
 DEFAULT_TIMEOUT_SECONDS = 3600
 READY_TIMEOUT_SECONDS = 120
 BOUNDARY_TIMEOUT_SECONDS = 45
+PASTE_SETTLE_SECONDS = 5
 TEARDOWN_TIMEOUT_SECONDS = 8
 TMUX_HISTORY_LIMIT = 50000
 CAPTURE_DEPTH = 50000
@@ -120,7 +121,7 @@ def check_tui_unavailable(text: str, *, after_submit: bool = False) -> None:
     if re.search(r"not logged in|please run /login", text, re.I):
         suffix = " after submit" if after_submit else ""
         raise LauncherError("CLAUDE_AUTH_UNAVAILABLE_IN_TUI", f"Claude TUI reported not logged in{suffix}; run /login in Claude Code or unlock the keychain", 21)
-    if re.search(r"session limit|rate limit|usage limit|resets\s+\d", text, re.I):
+    if re.search(r"session limit|rate limit|limit reached|resets\s+\d", text, re.I):
         suffix = " after submit" if after_submit else ""
         raise LauncherError("CLAUDE_SESSION_LIMIT_IN_TUI", f"Claude TUI reported a session/rate limit{suffix}; wait for reset or choose a non-required review path only if the workflow allows it", 25)
 
@@ -206,11 +207,19 @@ CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"""
 
 
 def extract_answer(new_text: str, marker: str, sentinel: str) -> str:
-    marker_index = new_text.find(marker)
+    marker_index = new_text.rfind(marker)
     if marker_index < 0:
         raise LauncherError("CLAUDE_REVIEW_MARKER_MISSING", "answer marker not found after prompt boundary")
     answer_start = marker_index + len(marker)
-    sentinel_index = new_text.rfind(sentinel)
+    sentinel_index = -1
+    offset = 0
+    for line in new_text[answer_start:].splitlines(keepends=True):
+        if line.strip() == sentinel:
+            sentinel_index = answer_start + offset
+            break
+        offset += len(line)
+    if sentinel_index < 0:
+        sentinel_index = new_text.find(sentinel, answer_start)
     if sentinel_index < answer_start:
         raise LauncherError("CLAUDE_REVIEW_SENTINEL_MISSING", "sentinel not found after answer marker")
     answer = new_text[answer_start:sentinel_index].strip("\n ")
@@ -233,17 +242,40 @@ def suffix_after_baseline(baseline: str, later: str, marker: str, sentinel: str)
 
 
 def extract_prompt_cleared_answer(text: str, marker: str, sentinel: str) -> str | None:
-    if marker not in text or sentinel not in text:
+    if sentinel not in text:
         return None
-    if f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}" in text:
+    if marker in text:
+        if f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}" in text:
+            return extract_sentinel_only_answer(text, sentinel)
+        try:
+            answer = extract_answer(text, marker, sentinel)
+        except LauncherError:
+            return None
+        if answer_is_prompt_template(answer):
+            return None
+        return answer
+    return extract_sentinel_only_answer(text, sentinel)
+
+
+def answer_is_prompt_template(answer: str) -> bool:
+    return "Claude review launcher emission protocol" in answer or "<review text here>" in answer
+
+
+def extract_sentinel_only_answer(text: str, sentinel: str) -> str | None:
+    lines = text.splitlines()
+    sentinel_line_index = next((index for index, line in enumerate(lines) if line.strip() == sentinel), None)
+    if sentinel_line_index is None:
         return None
-    try:
-        answer = extract_answer(text, marker, sentinel)
-    except LauncherError:
-        return None
-    if "Claude review launcher emission protocol" in answer or "<review text here>" in answer:
+    answer = "\n".join(lines[:sentinel_line_index]).strip()
+    if not answer or "VERDICT:" not in answer or answer_is_prompt_template(answer):
         return None
     return answer
+
+
+def prompt_visible_or_collapsed(candidate: str, marker_count: int, sentinel_count: int, prompt_marker_count: int, prompt_sentinel_count: int) -> bool:
+    if marker_count == prompt_marker_count and sentinel_count == prompt_sentinel_count:
+        return True
+    return "[Pasted text #" in candidate and marker_count == 0 and sentinel_count == 0
 
 
 def run_smoke(args: argparse.Namespace) -> int:
@@ -299,7 +331,17 @@ def run_review(args: argparse.Namespace) -> int:
         tmux(socket, ["paste-buffer", "-d", "-b", "review-prompt", "-t", f"{session}:{window}"])
         prompt_marker_count = count_token(final_prompt, marker)
         prompt_sentinel_count = count_token(final_prompt, sentinel)
-        pre_submit = normalize(capture(socket, session, window))
+        paste_deadline = time.time() + PASTE_SETTLE_SECONDS
+        while time.time() < paste_deadline:
+            candidate = normalize(capture(socket, session, window))
+            check_tui_unavailable(candidate)
+            marker_count = count_token(candidate, marker)
+            sentinel_count = count_token(candidate, sentinel)
+            if prompt_visible_or_collapsed(candidate, marker_count, sentinel_count, prompt_marker_count, prompt_sentinel_count):
+                break
+            if marker_count > prompt_marker_count or sentinel_count > prompt_sentinel_count:
+                raise LauncherError("CLAUDE_TUI_BOUNDARY_UNCERTAIN", "answer marker appeared before prompt submission", 23)
+            time.sleep(0.1)
         tmux(socket, ["send-keys", "-t", f"{session}:{window}", "Enter"])
         boundary_deadline = time.time() + BOUNDARY_TIMEOUT_SECONDS
         baseline = ""
@@ -317,7 +359,7 @@ def run_review(args: argparse.Namespace) -> int:
                 return 0
             marker_count = count_token(candidate, marker)
             sentinel_count = count_token(candidate, sentinel)
-            if marker_count == prompt_marker_count and sentinel_count == prompt_sentinel_count:
+            if prompt_visible_or_collapsed(candidate, marker_count, sentinel_count, prompt_marker_count, prompt_sentinel_count):
                 baseline = candidate
                 break
             if marker_count > prompt_marker_count or sentinel_count > prompt_sentinel_count:
@@ -335,7 +377,12 @@ def run_review(args: argparse.Namespace) -> int:
             answer = None
             boundary = "baseline-relative marker/sentinel occurrence diff after submit"
             if suffix and count_token(suffix, marker) >= 1 and count_token(suffix, sentinel) >= 1:
-                answer = extract_answer(suffix, marker, sentinel)
+                try:
+                    candidate_answer = extract_answer(suffix, marker, sentinel)
+                except LauncherError:
+                    candidate_answer = None
+                if candidate_answer and not answer_is_prompt_template(candidate_answer):
+                    answer = candidate_answer
             else:
                 answer = extract_prompt_cleared_answer(text, marker, sentinel)
                 boundary = "prompt-cleared marker/sentinel extraction after submit"
