@@ -3,7 +3,7 @@
     {
       "id": "1e1312756e9e",
       "name": "daily-hermes-agent-functional-merge-review",
-      "prompt": "Review the GitHub repository NousResearch/hermes-agent once per day and post a succinct summary of material functional changes/improvements merged in the last 24 hours.\n\nUse live GitHub data (gh/git) and inspect enough detail to distinguish real functional changes from noise. Exclude docs-only changes, generated site output, deploy artifacts, pure metadata/version bumps, formatting-only churn, and CI-only changes unless they materially affect developer/release behavior.\n\nOutput requirements:\n- Provide only the summary, with no surrounding explanation about methodology.\n- Do NOT include PR numbers, commit hashes, links, or exhaustive change lists.\n- Group related work into a short bullet list of material functional changes and improvements.\n- Focus on user-facing behavior, runtime/tooling capabilities, reliability/security/data-integrity fixes, integrations/platform support, and developer workflow improvements.\n- Keep it concise: aim for 3–8 bullets, one sentence each.\n- If there were no material functional changes, output exactly: \"No material functional changes merged in the last 24 hours.\"",
+      "prompt": "Review the GitHub repository NousResearch/hermes-agent once per day and post a succinct summary of material functional changes/improvements merged in the last 24 hours.\n\nUse live GitHub data (gh/git) and inspect enough detail to distinguish real functional changes from noise. Exclude docs-only changes, generated site output, deploy artifacts, pure metadata/version bumps, formatting-only churn, and CI-only changes unless they materially affect developer/release behavior.\n\nOutput requirements:\n- Provide only the summary, with no surrounding explanation about methodology.\n- Do NOT include PR numbers, commit hashes, links, or exhaustive change lists.\n- Group related work into a short bullet list of material functional changes and improvements.\n- Focus on user-facing behavior, runtime/tooling capabilities, reliability/security/data-integrity fixes, integrations/platform support, and developer workflow improvements.\n- Keep it concise: aim for 3\u20138 bullets, one sentence each.\n- If there were no material functional changes, output exactly: \"No material functional changes merged in the last 24 hours.\"",
       "skills": [
         "github-functional-merge-review"
       ],
@@ -20,15 +20,15 @@
       "schedule_display": "0 8 * * *",
       "repeat": {
         "times": null,
-        "completed": 81
+        "completed": 83
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-04-15T22:28:26.681323-06:00",
-      "next_run_at": "2026-07-05T08:00:00-06:00",
-      "last_run_at": "2026-07-04T08:01:07.642240-06:00",
+      "next_run_at": "2026-07-08T08:00:00-06:00",
+      "last_run_at": "2026-07-07T08:02:56.547344-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -59,15 +59,15 @@
       "schedule_display": "0 6 * * *",
       "repeat": {
         "times": null,
-        "completed": 20
+        "completed": 21
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-06-21T08:26:26.329217-06:00",
-      "next_run_at": "2026-07-05T06:00:00-06:00",
-      "last_run_at": "2026-07-04T06:05:35.967240-06:00",
+      "next_run_at": "2026-07-08T06:00:00-06:00",
+      "last_run_at": "2026-07-07T07:09:32.432986-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -102,15 +102,15 @@
       "schedule_display": "every 1m",
       "repeat": {
         "times": null,
-        "completed": 9323
+        "completed": 9629
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-06-21T09:41:11.831912-06:00",
-      "next_run_at": "2026-07-04T15:43:50.984046-06:00",
-      "last_run_at": "2026-07-04T15:42:50.984046-06:00",
+      "next_run_at": "2026-07-07T18:14:14.541430-06:00",
+      "last_run_at": "2026-07-07T18:13:14.541430-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -147,15 +147,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 150
+        "completed": 211
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-02T16:59:27.696134-06:00",
-      "next_run_at": "2026-07-04T15:44:58.370047-06:00",
-      "last_run_at": "2026-07-04T15:34:58.370047-06:00",
+      "next_run_at": "2026-07-07T18:19:15.137790-06:00",
+      "last_run_at": "2026-07-07T18:09:15.137790-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -192,15 +192,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 45
+        "completed": 104
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-04T07:48:06.775694-06:00",
-      "next_run_at": "2026-07-04T15:51:51.199579-06:00",
-      "last_run_at": "2026-07-04T15:41:51.199579-06:00",
+      "next_run_at": "2026-07-07T18:15:14.625127-06:00",
+      "last_run_at": "2026-07-07T18:05:14.625127-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -219,7 +219,7 @@
     {
       "id": "6716382d2436",
       "name": "Heddle PR Codex feedback supervisor",
-      "prompt": "You are the recurring supervisor for Aaron's Heddle PR Codex-feedback loop. Run every tick until Aaron explicitly tells us to stop/remove this cron.\n\nMission: monitor https://github.com/Nodaste-Lab/heddle/pulls for open PRs. For every open PR, keep it moving until Codex gives a current-head 👍 / no-suggestions signal. When there is Codex feedback, start or continue a herdr worktree session under heddle and use pi to address the feedback AND run the repo's `/skill:pre-pr-implementation-review` before updating the PR. Hermes is supervisor only: do not directly edit code, tests, docs, commits, or pushes yourself except state files under ~/.hermes/state and necessary herdr/pi orchestration. All development work happens inside pi in the herdr worktree.\n\nImportant paths and state:\n- Repo: /Users/anichols/code/heddle, GitHub repo Nodaste-Lab/heddle, base usually develop.\n- Supervisor state: ~/.hermes/state/heddle_pr_codex_supervisor.json. Read it first; update it after launching/nudging sessions so later ticks can resume.\n- Existing sessions at creation time:\n  - PR #355 https://github.com/Nodaste-Lab/heddle/pull/355 branch nod-1192-fix-lab2-same-profile-multi-tenant-switch-e2e, worktree /Users/anichols/.herdr/worktrees/heddle/pr-355-codex-feedback, herdr workspace w3H, pane w3H:p1. Codex P1: clear withheld write tokens instead of preserving stale hub_write_token_enc in ccore/crates/ccore-node/src/db/account_auth_discovery.rs.\n  - PR #356 https://github.com/Nodaste-Lab/heddle/pull/356 branch aaron/nod-1193-clerk-audit-e2e-fix, worktree /Users/anichols/.herdr/worktrees/heddle/pr-356-codex-feedback, herdr workspace w3J, pane w3J:p1. Codex P2: set ccore-node bundle_sharing Clerk-only audit ratchet to measured committed-tree count (146) or include source changes justifying 150.\n\nCross-host single-owner guard:\n- Before any mutating/orchestration action on a PR — posting `@codex review`, creating/opening/nudging herdr/pi, launching a new pi session, or otherwise moving that PR forward — acquire/renew the GitHub-backed lease with `~/.hermes/scripts/github_pr_agent_claim.py acquire --repo Nodaste-Lab/heddle --pr <number> --head <headRefOid> --ttl-minutes 90 --purpose heddle-pr-codex-feedback --check-active-sessions --scan-hosts local,dever`.\n- The helper now inspects GitHub lease state plus active local/remote pi/herdr/tmux/process evidence. If the command exits 2 or reports `blocked`, `lost_race`, or `blocked_active_session`, another host/agent or a non-Hermes-managed session may already be acting on the PR. Do not launch, nudge, request review, edit, commit, push, or otherwise supervise that PR on this tick. Record/emit at most a concise blocked-by-owner/session status; otherwise stay quiet.\n- For diagnosis only, inspect active sessions with `~/.hermes/scripts/github_pr_agent_claim.py scan --repo Nodaste-Lab/heddle --pr <number> --hosts local,dever`. Treat scanner findings as evidence; treat the lease as the authority once established.\n- Renew the lease on every tick before continuing an already-running local pane. Release it only after the PR is merged/closed or after current-head Codex green/no-suggestions and no local pi work remains, using `~/.hermes/scripts/github_pr_agent_claim.py release --repo Nodaste-Lab/heddle --pr <number> --purpose heddle-pr-codex-feedback`.\n- Local state, herdr workspaces, panes, and prior comments do not grant permission to run concurrently with another active lease owner or active-session conflict.\n\nTick procedure:\n1. Load repo and state context. `gh auth status` must work; if it fails, report the blocker. Use `gh pr list/view/api` for live PR state. Do not rely only on prior state.\n2. List open PRs for Nodaste-Lab/heddle with number/title/url/headRefName/headRefOid/baseRefName/isDraft/mergeStateStatus/reviewDecision/updatedAt/statusCheckRollup. Also inspect Codex reviews, PR review comments, and PR comments/reactions as needed. Treat `chatgpt-codex-connector[bot]` or similar `codex|chatgpt` bot as Codex. Current-head feedback means a Codex review/comment whose reviewed commit/head matches the current PR head and contains actionable review comments. Current-head thumbs-up/no-suggestions means Codex has no review comments for the current head and/or a 👍 reaction/ready signal newer than the current head. If uncertain, say uncertain and request a new Codex review rather than fabricating approval.\n3. For each open PR:\n   - If Codex has a current-head 👍/no-suggestions signal and merge state is clean, mark that PR complete/green in state and emit a short completion note only once.\n   - If the PR has no current-head Codex review yet, request one once per head commit with `gh pr comment <PR> --repo Nodaste-Lab/heddle --body \"@codex review\"`, record that in state, and stay quiet unless this is a new request or there is a blocker.\n   - If Codex has actionable feedback or merge conflicts/failing checks, ensure a herdr worktree session exists for this PR. Use `herdr worktree create/open --cwd /Users/anichols/code/heddle --branch <headRefName> --base origin/<headRefName> --path /Users/anichols/.herdr/worktrees/heddle/pr-<number>-codex-feedback --label heddle-pr<number>-codex --no-focus --json`. Fetch origin first. If the worktree already exists, open/reuse it; never create duplicate sessions for the same PR/head.\n   - Launch pi in the worktree pane if no pi session is running. Use a login shell and explicit model: `zsh -l -c 'cd <worktree> && pi --provider openai-codex --model gpt-5.5 --name heddle-pr<number>-codex \"<prompt>\"'`.\n   - The pi prompt must start with `/skill:pre-pr-implementation-review` and include the PR URL, head branch, current head sha, base branch, Codex feedback summary, and this required workflow: inspect PR/diff/repo docs; run/use the pre-PR implementation review skill; address Codex feedback and any other issues found; run relevant validation; commit and push to origin/<headRefName>; request `@codex review`; continue until Codex gives 👍/no-suggestions; leave exact blocker summary if blocked.\n   - If pi is already running, read its herdr pane tail and agent status. If it is idle/done but has not pushed/requested fresh Codex review and there is no blocker, nudge it to continue from the current state with the same requirements. Do not hand-edit the repo. If it reports a blocker, verify enough of the blocker via pane output/GitHub state and report succinctly.\n4. Monitor existing pi sessions: use herdr workspace/pane list/read. Pane IDs can change; resolve by label/worktree path from state before acting. Do not trust stale IDs blindly. Do not broad-kill or clean up processes. Do not use rm -rf.\n5. After pi pushes a new head, update state with the new head sha and request/await a fresh Codex review. Repeat on later ticks until current-head Codex approval/no-suggestions.\n6. Keep output quiet-by-default: if nothing changed and no blocker/completion, final response should be a one-line quiet status or empty-ish brief. If you launched/nudged a session, requested review, found feedback, saw completion, or hit a blocker, report the PR number, action, pane/worktree, and next watch condition.\n\nSafety/authority boundaries:\n- Aaron explicitly authorized PR feedback remediation for this repo, but Hermes must remain supervisor-only. Use pi inside herdr for code changes.\n- Preserve unrelated local changes. Do not reset/discard force-push unless pi has explicit, evidence-backed reason and it is scoped to that PR branch.\n- Do not merge PRs unless Aaron separately asks. The success condition here is Codex 👍/no-suggestions and updated PRs.\n- Use official GitHub/Git/herdr/pi outputs as evidence. Never invent tool results.",
+      "prompt": "You are the recurring supervisor for Aaron's Heddle PR Codex-feedback loop. Run every tick until Aaron explicitly tells us to stop/remove this cron.\n\nMission: monitor https://github.com/Nodaste-Lab/heddle/pulls for open PRs. For every open PR, keep it moving until Codex gives a current-head \ud83d\udc4d / no-suggestions signal. When there is Codex feedback, start or continue a herdr worktree session under heddle and use pi to address the feedback AND run the repo's `/skill:pre-pr-implementation-review` before updating the PR. Hermes is supervisor only: do not directly edit code, tests, docs, commits, or pushes yourself except state files under ~/.hermes/state and necessary herdr/pi orchestration. All development work happens inside pi in the herdr worktree.\n\nImportant paths and state:\n- Repo: /Users/anichols/code/heddle, GitHub repo Nodaste-Lab/heddle, base usually develop.\n- Supervisor state: ~/.hermes/state/heddle_pr_codex_supervisor.json. Read it first; update it after launching/nudging sessions so later ticks can resume.\n- Existing sessions at creation time:\n  - PR #355 https://github.com/Nodaste-Lab/heddle/pull/355 branch nod-1192-fix-lab2-same-profile-multi-tenant-switch-e2e, worktree /Users/anichols/.herdr/worktrees/heddle/pr-355-codex-feedback, herdr workspace w3H, pane w3H:p1. Codex P1: clear withheld write tokens instead of preserving stale hub_write_token_enc in ccore/crates/ccore-node/src/db/account_auth_discovery.rs.\n  - PR #356 https://github.com/Nodaste-Lab/heddle/pull/356 branch aaron/nod-1193-clerk-audit-e2e-fix, worktree /Users/anichols/.herdr/worktrees/heddle/pr-356-codex-feedback, herdr workspace w3J, pane w3J:p1. Codex P2: set ccore-node bundle_sharing Clerk-only audit ratchet to measured committed-tree count (146) or include source changes justifying 150.\n\nCross-host single-owner guard:\n- Before any mutating/orchestration action on a PR \u2014 posting `@codex review`, creating/opening/nudging herdr/pi, launching a new pi session, or otherwise moving that PR forward \u2014 acquire/renew the GitHub-backed lease with `~/.hermes/scripts/github_pr_agent_claim.py acquire --repo Nodaste-Lab/heddle --pr <number> --head <headRefOid> --ttl-minutes 90 --purpose heddle-pr-codex-feedback --check-active-sessions --scan-hosts local,dever`.\n- The helper now inspects GitHub lease state plus active local/remote pi/herdr/tmux/process evidence. If the command exits 2 or reports `blocked`, `lost_race`, or `blocked_active_session`, another host/agent or a non-Hermes-managed session may already be acting on the PR. Do not launch, nudge, request review, edit, commit, push, or otherwise supervise that PR on this tick. Record/emit at most a concise blocked-by-owner/session status; otherwise stay quiet.\n- For diagnosis only, inspect active sessions with `~/.hermes/scripts/github_pr_agent_claim.py scan --repo Nodaste-Lab/heddle --pr <number> --hosts local,dever`. Treat scanner findings as evidence; treat the lease as the authority once established.\n- Renew the lease on every tick before continuing an already-running local pane. Release it only after the PR is merged/closed or after current-head Codex green/no-suggestions and no local pi work remains, using `~/.hermes/scripts/github_pr_agent_claim.py release --repo Nodaste-Lab/heddle --pr <number> --purpose heddle-pr-codex-feedback`.\n- Local state, herdr workspaces, panes, and prior comments do not grant permission to run concurrently with another active lease owner or active-session conflict.\n\nTick procedure:\n1. Load repo and state context. `gh auth status` must work; if it fails, report the blocker. Use `gh pr list/view/api` for live PR state. Do not rely only on prior state.\n2. List open PRs for Nodaste-Lab/heddle with number/title/url/headRefName/headRefOid/baseRefName/isDraft/mergeStateStatus/reviewDecision/updatedAt/statusCheckRollup. Also inspect Codex reviews, PR review comments, and PR comments/reactions as needed. Treat `chatgpt-codex-connector[bot]` or similar `codex|chatgpt` bot as Codex. Current-head feedback means a Codex review/comment whose reviewed commit/head matches the current PR head and contains actionable review comments. Current-head thumbs-up/no-suggestions means Codex has no review comments for the current head and/or a \ud83d\udc4d reaction/ready signal newer than the current head. If uncertain, say uncertain and request a new Codex review rather than fabricating approval.\n3. For each open PR:\n   - If Codex has a current-head \ud83d\udc4d/no-suggestions signal and merge state is clean, mark that PR complete/green in state and emit a short completion note only once.\n   - If the PR has no current-head Codex review yet, request one once per head commit with `gh pr comment <PR> --repo Nodaste-Lab/heddle --body \"@codex review\"`, record that in state, and stay quiet unless this is a new request or there is a blocker.\n   - If Codex has actionable feedback or merge conflicts/failing checks, ensure a herdr worktree session exists for this PR. Use `herdr worktree create/open --cwd /Users/anichols/code/heddle --branch <headRefName> --base origin/<headRefName> --path /Users/anichols/.herdr/worktrees/heddle/pr-<number>-codex-feedback --label heddle-pr<number>-codex --no-focus --json`. Fetch origin first. If the worktree already exists, open/reuse it; never create duplicate sessions for the same PR/head.\n   - Launch pi in the worktree pane if no pi session is running. Use a login shell and explicit model: `zsh -l -c 'cd <worktree> && pi --provider openai-codex --model gpt-5.5 --name heddle-pr<number>-codex \"<prompt>\"'`.\n   - The pi prompt must start with `/skill:pre-pr-implementation-review` and include the PR URL, head branch, current head sha, base branch, Codex feedback summary, and this required workflow: inspect PR/diff/repo docs; run/use the pre-PR implementation review skill; address Codex feedback and any other issues found; run relevant validation; commit and push to origin/<headRefName>; request `@codex review`; continue until Codex gives \ud83d\udc4d/no-suggestions; leave exact blocker summary if blocked.\n   - If pi is already running, read its herdr pane tail and agent status. If it is idle/done but has not pushed/requested fresh Codex review and there is no blocker, nudge it to continue from the current state with the same requirements. Do not hand-edit the repo. If it reports a blocker, verify enough of the blocker via pane output/GitHub state and report succinctly.\n4. Monitor existing pi sessions: use herdr workspace/pane list/read. Pane IDs can change; resolve by label/worktree path from state before acting. Do not trust stale IDs blindly. Do not broad-kill or clean up processes. Do not use rm -rf.\n5. After pi pushes a new head, update state with the new head sha and request/await a fresh Codex review. Repeat on later ticks until current-head Codex approval/no-suggestions.\n6. Keep output quiet-by-default: if nothing changed and no blocker/completion, final response should be a one-line quiet status or empty-ish brief. If you launched/nudged a session, requested review, found feedback, saw completion, or hit a blocker, report the PR number, action, pane/worktree, and next watch condition.\n\nSafety/authority boundaries:\n- Aaron explicitly authorized PR feedback remediation for this repo, but Hermes must remain supervisor-only. Use pi inside herdr for code changes.\n- Preserve unrelated local changes. Do not reset/discard force-push unless pi has explicit, evidence-backed reason and it is scoped to that PR branch.\n- Do not merge PRs unless Aaron separately asks. The success condition here is Codex \ud83d\udc4d/no-suggestions and updated PRs.\n- Use official GitHub/Git/herdr/pi outputs as evidence. Never invent tool results.",
       "skills": [
         "herdr",
         "pi-coding-workflow",
@@ -243,15 +243,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 22
+        "completed": 74
       },
-      "enabled": true,
-      "state": "scheduled",
-      "paused_at": null,
+      "enabled": false,
+      "state": "paused",
+      "paused_at": "2026-07-07T18:14:16.610550-06:00",
       "paused_reason": null,
       "created_at": "2026-07-04T10:51:10.731891-06:00",
-      "next_run_at": "2026-07-04T15:53:49.885987-06:00",
-      "last_run_at": "2026-07-04T15:33:18.681578-06:00",
+      "next_run_at": "2026-07-07T18:17:13.261058-06:00",
+      "last_run_at": "2026-07-07T18:07:13.261058-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -268,5 +268,5 @@
       "fire_claim": null
     }
   ],
-  "updated_at": "2026-07-04T15:43:49.886340-06:00"
+  "updated_at": "2026-07-07T18:14:16.611165-06:00"
 }
