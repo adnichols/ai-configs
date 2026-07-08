@@ -37,6 +37,25 @@ interface PendingNoCutContinuation {
   lastError?: string;
 }
 
+interface InterruptedCompactionTurn {
+  interrupted: boolean;
+  pendingToolCallIds: Set<string>;
+  reason: "hard_backstop" | "compact_context" | "core_deferred" | "compaction_error";
+}
+
+interface PendingCompactionContinuation {
+  attemptId: number;
+  reason: "cancelled" | "failed";
+  interrupted: InterruptedCompactionTurn;
+  queuedTurn: number;
+  attempts: number;
+  startedAt?: number;
+  timer?: ReturnType<typeof setTimeout>;
+  lastError?: string;
+}
+
+type CompactionOwner = "pi-vcc" | "core" | undefined;
+
 interface NoCutRecoveryOptions {
   interruptedActiveTurn: boolean;
   pendingToolCallIds: () => string[];
@@ -191,16 +210,33 @@ export default function (pi: ExtensionAPI) {
   let userMessageCount = 0;
   let pendingNoCutContinuation: PendingNoCutContinuation | undefined;
   let noCutRetryState: NoCutRetryState | undefined;
+  let activeCompactionOwner: CompactionOwner;
+  let scheduledPiVccCompaction: ReturnType<typeof setTimeout> | undefined;
+  let nextCompactionAttemptId = 0;
+  let currentCompactionAttemptId: number | undefined;
+  let pendingCompactionContinuation: PendingCompactionContinuation | undefined;
+  let deliveredCompactionContinuationAttemptId: number | undefined;
 
   const clearPendingNoCutContinuation = () => {
     if (pendingNoCutContinuation?.timer) clearTimeout(pendingNoCutContinuation.timer);
     pendingNoCutContinuation = undefined;
   };
 
+  const clearPendingCompactionContinuation = () => {
+    if (pendingCompactionContinuation?.timer) clearTimeout(pendingCompactionContinuation.timer);
+    pendingCompactionContinuation = undefined;
+  };
+
   const finishCompaction = (options: { compacted?: boolean } = {}) => {
     compactionInFlight = false;
+    activeCompactionOwner = undefined;
+    currentCompactionAttemptId = undefined;
     pendingModelCompaction = undefined;
     lastNudgePercentBand = undefined;
+    if (scheduledPiVccCompaction) {
+      clearTimeout(scheduledPiVccCompaction);
+      scheduledPiVccCompaction = undefined;
+    }
     if (options.compacted) awaitingPostCompactionAssistantResponse = true;
   };
 
@@ -277,6 +313,95 @@ export default function (pi: ExtensionAPI) {
     Boolean(pendingNoCutContinuation) &&
     (pendingNoCutContinuation.pendingToolCallIds.size === 0 || isCompletedAssistantResponse(event.message));
 
+  const buildCompactionContinuationMessage = (pending: PendingCompactionContinuation) =>
+    `Pi-vcc compaction did not complete cleanly (${pending.reason}), but the interrupted turn should continue. ` +
+    "Continue from where you left off; use vcc_recall if needed.";
+
+  const sendPendingCompactionContinuation = (ctx: ExtensionContext) => {
+    const pending = pendingCompactionContinuation;
+    if (!pending) return;
+    if (!pending.startedAt) pending.startedAt = Date.now();
+    pending.attempts += 1;
+    try {
+      pi.sendMessage(
+        {
+          customType: "pi-vcc-continuation",
+          content: buildCompactionContinuationMessage(pending),
+          display: false,
+          details: {
+            compactor: "pi-vcc",
+            reason: pending.reason,
+            attemptId: pending.attemptId,
+            interruptedReason: pending.interrupted.reason,
+            queuedTurn: pending.queuedTurn,
+            deliveryAttempts: pending.attempts,
+            pendingToolResultCount: pending.interrupted.pendingToolCallIds.size,
+          },
+        },
+        { deliverAs: "steer", triggerTurn: true },
+      );
+      if (pending.timer) clearTimeout(pending.timer);
+      deliveredCompactionContinuationAttemptId = pending.attemptId;
+      pendingCompactionContinuation = undefined;
+    } catch (err) {
+      pending.lastError = (err as Error).message;
+      const elapsed = Date.now() - pending.startedAt;
+      if (elapsed < NO_CUT_CONTINUATION_MAX_WAIT_MS) {
+        if (pending.timer) clearTimeout(pending.timer);
+        pending.timer = setTimeout(() => sendPendingCompactionContinuation(ctx), NO_CUT_CONTINUATION_RETRY_MS);
+        return;
+      }
+      if (pending.timer) clearTimeout(pending.timer);
+      ctx.ui.notify(
+        `Compaction continuation delivery failed after ${pending.attempts} attempts: ${pending.lastError}. Continue manually from the interrupted turn.`,
+        "warning",
+      );
+      pendingCompactionContinuation = undefined;
+    }
+  };
+
+  const queueCompactionContinuation = (
+    ctx: ExtensionContext,
+    attemptId: number,
+    reason: PendingCompactionContinuation["reason"],
+    interrupted: InterruptedCompactionTurn | undefined,
+  ) => {
+    if (!interrupted?.interrupted) return;
+    if (deliveredCompactionContinuationAttemptId === attemptId) return;
+    if (pendingCompactionContinuation?.attemptId === attemptId) return;
+    pendingCompactionContinuation = {
+      attemptId,
+      reason,
+      interrupted,
+      queuedTurn: turnCounter,
+      attempts: 0,
+    };
+    if (interrupted.pendingToolCallIds.size === 0) {
+      pendingCompactionContinuation.timer = setTimeout(() => sendPendingCompactionContinuation(ctx), NO_CUT_CONTINUATION_DELAY_MS);
+    }
+  };
+
+  const clearDeliveredCompactionContinuationTools = (event: TurnEndEvent) => {
+    if (!pendingCompactionContinuation) return;
+    for (const id of deliveredToolCallIds(event)) pendingCompactionContinuation.interrupted.pendingToolCallIds.delete(id);
+  };
+
+  const compactionContinuationIsSafe = (event: TurnEndEvent) =>
+    Boolean(pendingCompactionContinuation) &&
+    (pendingCompactionContinuation.interrupted.pendingToolCallIds.size === 0 || isCompletedAssistantResponse(event.message));
+
+  const snapshotInterruptedCompactionTurn = (
+    event: TurnEndEvent,
+    reason: InterruptedCompactionTurn["reason"],
+  ): InterruptedCompactionTurn => {
+    const completedResponse = isCompletedAssistantResponse(event.message);
+    return {
+      interrupted: !completedResponse && isInterruptedAgentWork(event.message),
+      pendingToolCallIds: new Set(completedResponse ? [] : [...outstandingAssistantToolCallIds]),
+      reason,
+    };
+  };
+
   const triggerCompaction = (
     ctx: ExtensionContext,
     options: {
@@ -287,6 +412,7 @@ export default function (pi: ExtensionAPI) {
       reason: string;
       resumeMessage?: string;
       noCutRecovery?: NoCutRecoveryOptions;
+      interruptedTurn?: InterruptedCompactionTurn;
     },
   ) => {
     if (compactionInFlight) return false;
@@ -296,12 +422,18 @@ export default function (pi: ExtensionAPI) {
     }
 
     clearPendingNoCutContinuation();
+    clearPendingCompactionContinuation();
     compactionInFlight = true;
+    activeCompactionOwner = "pi-vcc";
+    const attemptId = ++nextCompactionAttemptId;
+    currentCompactionAttemptId = attemptId;
+    deliveredCompactionContinuationAttemptId = undefined;
     lastCompactionReason = options.reason;
     ctx.ui.notify(options.startMessage, "info");
     ctx.compact({
       customInstructions: options.customInstructions,
       onComplete: () => {
+        if (currentCompactionAttemptId !== attemptId) return;
         if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
         noCutRetryState = undefined;
         finishCompaction({ compacted: true });
@@ -323,12 +455,14 @@ export default function (pi: ExtensionAPI) {
         }
       },
       onError: (err: Error) => {
+        const ownsCurrentAttempt = currentCompactionAttemptId === attemptId;
         const noCutReason = err.message === "Already compacted"
           ? "already_compacted"
           : err.message === "Nothing to compact (session too small)"
             ? "session_too_small"
             : undefined;
         if (noCutReason) {
+          if (!ownsCurrentAttempt) return;
           if (options.ratchetPercent !== undefined) {
             lastAutoCompactionPercent = options.ratchetPercent;
             noCutRetryState = {
@@ -340,15 +474,38 @@ export default function (pi: ExtensionAPI) {
           }
           awaitingPostCompactionAssistantResponse = false;
         }
-        finishCompaction();
+        if (ownsCurrentAttempt) finishCompaction();
         if (noCutReason) {
           ctx.ui.notify("No safe compaction cut available; continuing session.", "info");
           if (options.noCutRecovery) queueNoCutContinuation(ctx, noCutReason, options.noCutRecovery);
         } else {
-          ctx.ui.notify(`Compaction failed: ${err.message}`, "error");
+          if (!ownsCurrentAttempt) return;
+          if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
+          const reason = err.message === "Compaction cancelled" ? "cancelled" : "failed";
+          ctx.ui.notify(`Compaction failed: ${err.message}; continuing interrupted turn if needed.`, "warning");
+          queueCompactionContinuation(ctx, attemptId, reason, options.interruptedTurn);
         }
       },
     });
+    return true;
+  };
+
+  const schedulePiVccCompaction = (
+    ctx: ExtensionContext,
+    options: Parameters<typeof triggerCompaction>[1],
+  ) => {
+    if (compactionInFlight || scheduledPiVccCompaction || activeCompactionOwner) return false;
+    activeCompactionOwner = "pi-vcc";
+    scheduledPiVccCompaction = setTimeout(() => {
+      scheduledPiVccCompaction = undefined;
+      if (compactionInFlight) return;
+      if (activeCompactionOwner !== "pi-vcc") {
+        activeCompactionOwner = undefined;
+        return;
+      }
+      const started = triggerCompaction(ctx, options);
+      if (!started) activeCompactionOwner = undefined;
+    }, 0);
     return true;
   };
 
@@ -493,9 +650,12 @@ export default function (pi: ExtensionAPI) {
     for (const id of deliveredToolCallIds(event)) outstandingAssistantToolCallIds.delete(id);
     if (completedResponse) outstandingAssistantToolCallIds.clear();
     clearDeliveredNoCutTools(event);
+    clearDeliveredCompactionContinuationTools(event);
     if (noCutContinuationIsSafe(event)) sendPendingNoCutContinuation(ctx);
+    if (compactionContinuationIsSafe(event)) sendPendingCompactionContinuation(ctx);
+    if (pendingCompactionContinuation) return;
 
-    if (compactionInFlight) return;
+    if (compactionInFlight || scheduledPiVccCompaction) return;
 
     if (awaitingPostCompactionAssistantResponse) {
       if (!completedResponse) return;
@@ -513,6 +673,7 @@ export default function (pi: ExtensionAPI) {
           ratchetPercent: usagePercent ?? undefined,
           reason: "compact_context",
           resumeMessage: shouldResumeAfterCompactContext(pending) ? buildResumeMessage(pending) : undefined,
+          interruptedTurn: snapshotInterruptedCompactionTurn(event, "compact_context"),
         });
         return;
       }
@@ -542,13 +703,14 @@ export default function (pi: ExtensionAPI) {
       ) {
         return;
       }
-      triggerCompaction(ctx, {
+      schedulePiVccCompaction(ctx, {
         startMessage: completedResponse
           ? `✓ Auto-compacting at ${currentPercent}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`
           : `↻ Context at ${currentPercent}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%). Interrupting agent for pi-vcc compaction...`,
         completionMessage: "Compacted with pi-vcc",
         ratchetPercent: usagePercent,
         reason: "hard_backstop",
+        interruptedTurn: snapshotInterruptedCompactionTurn(event, "hard_backstop"),
         noCutRecovery: {
           interruptedActiveTurn: isInterruptedAgentWork(event.message),
           pendingToolCallIds: () => completedResponse ? [] : [...outstandingAssistantToolCallIds],
@@ -573,6 +735,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_compact", async () => {
     noCutRetryState = undefined;
     clearPendingNoCutContinuation();
+    clearPendingCompactionContinuation();
     finishCompaction({ compacted: true });
   });
 
@@ -595,6 +758,25 @@ export default function (pi: ExtensionAPI) {
     }
 
     const rawEvent = event as { reason?: unknown; willRetry?: unknown };
+
+    if (pendingCompactionContinuation) {
+      lastAutoCompactionPercent = usage.percent;
+      ctx.ui.notify(
+        `⏸️ Delayed auto-compaction: waiting to continue interrupted pi-vcc attempt ${pendingCompactionContinuation.attemptId}`,
+        "info",
+      );
+      return { cancel: true };
+    }
+
+    if (scheduledPiVccCompaction) {
+      lastAutoCompactionPercent = usage.percent;
+      ctx.ui.notify(
+        `⏸️ Delayed auto-compaction: pi-vcc already scheduled ${Math.floor(usage.percent)}% compaction recovery`,
+        "info",
+      );
+      return { cancel: true };
+    }
+
     if ((rawEvent.reason === "overflow" || rawEvent.willRetry === true) && !manualPiVccBypass) {
       return;
     }
@@ -609,6 +791,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (awaitingPostCompactionAssistantResponse) {
+      lastAutoCompactionPercent = usage.percent;
       ctx.ui.notify(
         "⏸️ Delayed auto-compaction: waiting for the next assistant response after the last pi-vcc compaction",
         "info",
@@ -628,6 +811,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (isStaleAutoCompactionPercent(usage.percent, lastAutoCompactionPercent)) {
+      lastAutoCompactionPercent = usage.percent;
       ctx.ui.notify(
         `⏸️ Delayed auto-compaction: context usage is unchanged at ${usage.percent}% since the last pi-vcc compaction`,
         "info",
@@ -641,6 +825,7 @@ export default function (pi: ExtensionAPI) {
       currentPercent <= noCutRetryState.flooredPercent &&
       userMessageCount === noCutRetryState.userMessageCount
     ) {
+      lastAutoCompactionPercent = usage.percent;
       ctx.ui.notify(
         `⏸️ Delayed auto-compaction: no safe cut was available at ${noCutRetryState.flooredPercent}%; waiting for higher usage or a new user message`,
         "info",
@@ -648,6 +833,7 @@ export default function (pi: ExtensionAPI) {
       return { cancel: true };
     }
 
+    lastAutoCompactionPercent = usage.percent;
     ctx.ui.notify(
       `⏸️ Delayed auto-compaction: repo-managed hard backstop handles ${Math.floor(usage.percent)}% compaction with no-cut recovery`,
       "info",

@@ -283,27 +283,192 @@ describe("percentage-compaction extension", () => {
     expect(compactCalls).toHaveLength(1);
   });
 
-  test("hard backstop auto-compacts at 80% and ratchets unchanged usage", async () => {
+  test("hard backstop schedules, not immediate-compacts", async () => {
     let percent = 80.123456;
     const { handlers, compactCalls, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(assistantStop, ctx);
+    expect(compactCalls).toHaveLength(0);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
     expect(compactCalls[0].customInstructions).toBeUndefined();
     compactCalls[0].onComplete();
 
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
 
     percent = 80.123457;
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(2);
+  });
+
+  test("compaction failure sends one continuation for an interrupted turn", async () => {
+    const { handlers, compactCalls, sentMessages, notifications, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+    compactCalls[0].onError(new Error("Cannot read properties of undefined (reading 'signal')"));
+    await delay();
+
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
+    expect(sentMessages[0].message.details.reason).toBe("failed");
+    expect(sentMessages[0].options).toEqual({ deliverAs: "steer", triggerTurn: true });
+    expect(notifications.some((entry) => entry.level === "warning" && entry.message.includes("continuing interrupted turn"))).toBe(true);
+  });
+
+  test("compaction cancelled sends one continuation for an interrupted turn", async () => {
+    const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
+    compactCalls[0].onError(new Error("Compaction cancelled"));
+    compactCalls[0].onError(new Error("Compaction cancelled"));
+    await delay();
+
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
+    expect(sentMessages[0].message.details.reason).toBe("cancelled");
+  });
+
+  test("completed assistant response does not continue after compaction failure", async () => {
+    const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
+    compactCalls[0].onError(new Error("Cannot read properties of undefined (reading 'signal')"));
+    await delay();
+
+    expect(sentMessages).toHaveLength(0);
+  });
+
+  test("integrated observed race recovers once and suppresses same-percent retry", async () => {
+    const { handlers, compactCalls, sentMessages, notifications, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    expect(compactCalls).toHaveLength(0);
+
+    const coreResult = await handlers.session_before_compact?.({ customInstructions: undefined }, ctx);
+    expect(coreResult).toEqual({ cancel: true });
+    expect(notifications.some((entry) => entry.message.includes("pi-vcc already scheduled 96%"))).toBe(true);
+
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+    compactCalls[0].onError(new Error("Compaction cancelled"));
+    compactCalls[0].onError(new Error("Cannot read properties of undefined (reading 'signal')"));
+    compactCalls[0].onError(new Error("Cannot read properties of undefined (reading 'signal')"));
+    await delay();
+
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
+    expect(sentMessages[0].message.details.reason).toBe("cancelled");
+
+    await handlers.turn_end?.(assistantToolUse(1, []), ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+
+    const samePercentCoreResult = await handlers.session_before_compact?.({ customInstructions: undefined }, ctx);
+    expect(samePercentCoreResult).toEqual({ cancel: true });
+    expect(compactCalls).toHaveLength(1);
+  });
+
+  test("stale error callbacks cannot clear a newer compaction attempt", async () => {
+    let percent = 96.2;
+    const { handlers, compactCalls, sentMessages, ctx } = setup(() => percent);
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+    const staleOnError = compactCalls[0].onError;
+    compactCalls[0].onComplete();
+
+    percent = 50;
+    await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+
+    percent = 97.0;
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_2", "read", "source")]), ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(2);
+
+    staleOnError(new Error("Cannot read properties of undefined (reading 'signal')"));
+    expect(sentMessages).toHaveLength(0);
+
+    compactCalls[1].onError(new Error("Compaction cancelled"));
+    await delay();
+    expect(sentMessages).toHaveLength(0);
+
+    percent = 97.1;
+    await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(3);
+  });
+
+  test("scheduled pi-vcc compaction cancels core overflow and willRetry attempts", async () => {
+    const overflow = setup(96.2);
+    await overflow.handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), overflow.ctx);
+    const overflowResult = await overflow.handlers.session_before_compact?.(
+      { customInstructions: undefined, reason: "overflow" },
+      overflow.ctx,
+    );
+    expect(overflowResult).toEqual({ cancel: true });
+    await delay(0);
+    expect(overflow.compactCalls).toHaveLength(1);
+
+    const willRetry = setup(96.2);
+    await willRetry.handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), willRetry.ctx);
+    const retryResult = await willRetry.handlers.session_before_compact?.(
+      { customInstructions: undefined, willRetry: true },
+      willRetry.ctx,
+    );
+    expect(retryResult).toEqual({ cancel: true });
+    await delay(0);
+    expect(willRetry.compactCalls).toHaveLength(1);
+  });
+
+  test("pending failure continuation blocks replacement compaction until safe", async () => {
+    const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantToolUse(2, []), ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+    compactCalls[0].onError(new Error("Compaction cancelled"));
+    await delay();
+    expect(sentMessages).toHaveLength(0);
+
+    await handlers.turn_end?.(assistantToolUse(1, []), ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+    expect(sentMessages).toHaveLength(0);
+
+    const overflowResult = await handlers.session_before_compact?.(
+      { customInstructions: undefined, reason: "overflow" },
+      ctx,
+    );
+    expect(overflowResult).toEqual({ cancel: true });
+    const retryResult = await handlers.session_before_compact?.(
+      { customInstructions: undefined, willRetry: true },
+      ctx,
+    );
+    expect(retryResult).toEqual({ cancel: true });
+    expect(compactCalls).toHaveLength(1);
+    expect(sentMessages).toHaveLength(0);
+
+    await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
   });
 
   test("active hard-backstop no-cut sends one continuation and clears state", async () => {
     const { handlers, compactCalls, sentMessages, notifications, ctx } = setup(96.2);
 
     await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
@@ -315,6 +480,7 @@ describe("percentage-compaction extension", () => {
     expect(notifications.some((entry) => entry.message.includes("No safe compaction cut available"))).toBe(true);
 
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
   });
 
@@ -322,6 +488,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
 
     await handlers.turn_end?.(assistantToolUse(2, []), ctx);
+    await delay(0);
     await handlers.turn_end?.({ message: toolResult("tc_1", "compact_context", "queued"), toolResults: [] }, ctx);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
@@ -336,6 +503,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, sentMessages, notifications, ctx } = setup(96.2, true, { sendMessageFailures: 1 } as any);
 
     await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay(700);
 
@@ -355,11 +523,13 @@ describe("percentage-compaction extension", () => {
       const { handlers, compactCalls, notifications, ctx } = setup(96.2, true, { sendMessageThrows: true });
 
       await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+      await delay(0);
       compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
       await delay();
 
       expect(notifications.some((entry) => entry.level === "warning" && entry.message.includes("No-cut continuation delivery failed"))).toBe(true);
       await handlers.turn_end?.(assistantStop, ctx);
+      await delay(0);
       expect(compactCalls).toHaveLength(1);
     } finally {
       Date.now = originalDateNow;
@@ -370,6 +540,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
 
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
 
@@ -380,6 +551,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
 
     await handlers.turn_end?.(userTurn("new instruction"), ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
@@ -402,29 +574,57 @@ describe("percentage-compaction extension", () => {
     expect(model.sentMessages).toHaveLength(0);
   });
 
+  test("same-percent hard-backstop failure retry is suppressed after continuation delivery", async () => {
+    const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+
+    await handlers.turn_end?.(assistantToolUse(1, []), ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+
+    compactCalls[0].onError(new Error("provider failed"));
+    await handlers.turn_end?.({
+      message: toolResult("tc_1", "read", "source"),
+      toolResults: [],
+    }, ctx);
+    await delay(0);
+
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
+    expect(compactCalls).toHaveLength(1);
+
+    await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+  });
+
   test("same floored no-cut percent is suppressed until usage rises or a user speaks", async () => {
     let percent = 96.2;
     const { handlers, compactCalls, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
 
     percent = 95.9;
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
 
     percent = 96.9;
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
 
     percent = 97.0;
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(2);
 
     compactCalls[1].onError(new Error("Nothing to compact (session too small)"));
     await handlers.message_end?.(userTurn("new instruction"), ctx);
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(3);
   });
 
@@ -432,12 +632,14 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
 
     await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
     expect(sentMessages).toHaveLength(1);
 
     await handlers.message_end?.({ message: { role: "user", customType: "pi-vcc-no-cut-continuation" } }, ctx);
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
   });
 
@@ -446,11 +648,13 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
 
     percent = 97.0;
     await handlers.turn_end?.(assistantToolUse(1, []), ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(2);
   });
 
@@ -468,6 +672,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, notifications, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
 
@@ -479,10 +684,11 @@ describe("percentage-compaction extension", () => {
     await handlers.message_end?.(userTurn("new instruction"), ctx);
     percent = 96.2;
     await handlers.turn_end?.(assistantStop, ctx);
-    expect(compactCalls).toHaveLength(2);
     const extensionManaged = await handlers.session_before_compact?.({ customInstructions: undefined }, ctx);
-    expect(extensionManaged).toBeUndefined();
-    expect(notifications.some((entry) => entry.message.includes("Auto-compacting at 96%"))).toBe(true);
+    expect(extensionManaged).toEqual({ cancel: true });
+    expect(notifications.some((entry) => entry.message.includes("pi-vcc already scheduled 96%"))).toBe(true);
+    await delay(0);
+    expect(compactCalls).toHaveLength(2);
 
     compactCalls[1].onError(new Error("Nothing to compact (session too small)"));
     percent = 97.0;
@@ -495,12 +701,14 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
 
     await handlers.session_compact?.({}, ctx);
     percent = 80.5;
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
 
     expect(compactCalls).toHaveLength(2);
   });
@@ -510,6 +718,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, sentMessages, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(assistantToolUse(2, []), ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
     compactCalls[0].onError(new Error("Nothing to compact (session too small)"));
     await delay();
@@ -517,6 +726,7 @@ describe("percentage-compaction extension", () => {
 
     percent = 97.0;
     await handlers.turn_end?.(assistantToolUse(1, []), ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(2);
 
     await handlers.turn_end?.({
@@ -533,14 +743,17 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     compactCalls[0].onComplete();
 
     percent = 80.5;
     await handlers.turn_end?.(assistantToolUse(), ctx);
+    await delay(0);
 
     expect(compactCalls).toHaveLength(1);
 
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(2);
   });
 
@@ -549,6 +762,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, notifications, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     compactCalls[0].onComplete();
 
     percent = 80.5;
@@ -565,6 +779,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, notifications, ctx } = setup(80.123456);
 
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     compactCalls[0].onComplete();
     await handlers.turn_end?.(assistantStop, ctx);
 
@@ -586,6 +801,7 @@ describe("percentage-compaction extension", () => {
 
     const hard = setup(80.5);
     await hard.handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_fail", "bash", "tests failed with error", true)]), hard.ctx);
+    await delay(0);
     expect(hard.compactCalls).toHaveLength(1);
   });
 
@@ -672,6 +888,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, notifications, ctx } = setup(80.2, false);
 
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
 
     expect(compactCalls).toHaveLength(0);
     expect(notifications.some((entry) => entry.level === "error" && entry.message.includes("Pi-vcc is not loaded"))).toBe(true);
@@ -701,6 +918,7 @@ describe("percentage-compaction extension", () => {
     const { handlers, compactCalls, ctx } = setup(() => percent);
 
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(1);
     compactCalls[0].onComplete();
 
@@ -713,10 +931,13 @@ describe("percentage-compaction extension", () => {
       expect(coreResult).toEqual({ cancel: true });
 
       await handlers.turn_end?.(assistantToolUse(), ctx);
+      await delay(0);
     }
     expect(compactCalls).toHaveLength(1);
 
+    percent = 80.751;
     await handlers.turn_end?.(assistantStop, ctx);
+    await delay(0);
     expect(compactCalls).toHaveLength(2);
   });
 });
