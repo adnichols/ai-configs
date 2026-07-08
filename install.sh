@@ -2509,11 +2509,15 @@ report_pi_vcc_upstream_status() {
             echo -e "    ${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
             ;;
         2)
-            echo -e "    ${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-            echo -e "    ${BLUE}ℹ vendored pi-vcc reviewed-upstream metadata is stale; re-review upstream before changing local uptake${NC}"
-            printf '%s\n' "$output" | sed -n '/^local package version:/p;/^version status:/p;/^commit status:/p;/^drift status:/p' | sed 's/^/      /'
-            echo "      Review details with: ./scripts/check-pi-vcc-upstream.sh --verbose"
-            echo -e "    ${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            if [ "${PI_VCC_SHOW_UPSTREAM_STALE:-}" = "1" ]; then
+                echo -e "    ${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo -e "    ${BLUE}ℹ vendored pi-vcc reviewed-upstream metadata is stale; re-review upstream before changing local uptake${NC}"
+                printf '%s\n' "$output" | sed -n '/^local package version:/p;/^version status:/p;/^commit status:/p;/^drift status:/p' | sed 's/^/      /'
+                echo "      Review details with: ./scripts/check-pi-vcc-upstream.sh --verbose"
+                echo -e "    ${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            else
+                echo "    - Upstream pi-vcc uptake intentionally deferred while stabilizing the vendored fork; set PI_VCC_SHOW_UPSTREAM_STALE=1 for details."
+            fi
             ;;
         *)
             echo -e "    ${YELLOW}⚠ Unable to verify vendored pi-vcc upstream status automatically${NC}"
