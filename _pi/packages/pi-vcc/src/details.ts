@@ -11,4 +11,5 @@ export interface PiVccCompactionDetails {
   reason?: CompactionReason;
   willRetry?: boolean;
   compactionIntent?: CompactionIntent;
+  retainedNonMessageEntries?: boolean;
 }
