@@ -72,6 +72,9 @@ interface NoCutRetryState {
 const NO_CUT_CONTINUATION_DELAY_MS = 50;
 const NO_CUT_CONTINUATION_MAX_WAIT_MS = 5000;
 const NO_CUT_CONTINUATION_RETRY_MS = 100;
+const COMPACTION_CONTINUATION_DELAY_MS = NO_CUT_CONTINUATION_DELAY_MS;
+const COMPACTION_CONTINUATION_MAX_WAIT_MS = NO_CUT_CONTINUATION_MAX_WAIT_MS;
+const COMPACTION_CONTINUATION_RETRY_MS = NO_CUT_CONTINUATION_RETRY_MS;
 
 const isPiVccLoaded = () => Boolean((globalThis as any)[PI_VCC_LOAD_MARKER]);
 
@@ -346,9 +349,9 @@ export default function (pi: ExtensionAPI) {
     } catch (err) {
       pending.lastError = (err as Error).message;
       const elapsed = Date.now() - pending.startedAt;
-      if (elapsed < NO_CUT_CONTINUATION_MAX_WAIT_MS) {
+      if (elapsed < COMPACTION_CONTINUATION_MAX_WAIT_MS) {
         if (pending.timer) clearTimeout(pending.timer);
-        pending.timer = setTimeout(() => sendPendingCompactionContinuation(ctx), NO_CUT_CONTINUATION_RETRY_MS);
+        pending.timer = setTimeout(() => sendPendingCompactionContinuation(ctx), COMPACTION_CONTINUATION_RETRY_MS);
         return;
       }
       if (pending.timer) clearTimeout(pending.timer);
@@ -377,7 +380,7 @@ export default function (pi: ExtensionAPI) {
       attempts: 0,
     };
     if (interrupted.pendingToolCallIds.size === 0) {
-      pendingCompactionContinuation.timer = setTimeout(() => sendPendingCompactionContinuation(ctx), NO_CUT_CONTINUATION_DELAY_MS);
+      pendingCompactionContinuation.timer = setTimeout(() => sendPendingCompactionContinuation(ctx), COMPACTION_CONTINUATION_DELAY_MS);
     }
   };
 
