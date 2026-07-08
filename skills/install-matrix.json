@@ -714,7 +714,7 @@
         "pi"
       ],
       "canonicalSource": "skills/run-plan",
-      "notes": "Codex/Claude/OpenCode/Pi: executes existing plans through bounded implementation, runtime-native scoped reviews, Codex plus applicable Claude Code Opus 4.7 xhigh pre-PR implementation review, fixes through full P1/P2/P3 consensus, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
+      "notes": "Codex/Claude/OpenCode/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews, Codex plus applicable Claude Code Opus 4.7 xhigh pre-PR implementation review, fixes through full P1/P2/P3 consensus, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
       "sourceType": "repo"
     },
     "signing-entitlements": {

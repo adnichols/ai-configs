@@ -250,7 +250,7 @@ Example installed agents:
 - `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in Doct, follows returned `listenerInstructions`, starts the durable queue-backed listener, processes browser feedback, runs PM plus GPT/GLM Pi subagent plan reviews, and stops at execution-ready handoff
 
 ### Dev / execution
-- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: implementation, scoped reviews, implementation-stage PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, mergeability monitoring, and safe auto-rebase
+- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: durable Pi goal tracking, implementation, scoped reviews, implementation-stage PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, mergeability monitoring, and safe auto-rebase
 - `dev:run` — direct high-reasoning execution with one `quality-reviewer` pass after each phase
 - `pre-pr-implementation-review` — GPT-5.5 plus applicable GLM-5.2 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; `glm5.2-high` handles normal high-risk bounded review, `glm5.2-xhigh` is reserved for final or exceptional-risk review, `quality-reviewer-glm` remains a legacy xhigh compatibility alias, and low-risk scopes record a truthful GLM skip; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and monitoring
 
@@ -307,7 +307,7 @@ Prompt templates:
 
 ## Reviewed-plan handoff
 
-Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-ready-PR execution: implementation, implementation-stage PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, mergeability monitoring, and safe auto-rebase. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html` or the repo-selected Markdoc source, and `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown publishing guidance, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics.
+Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-ready-PR execution: durable Pi goal tracking, implementation, implementation-stage PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, mergeability monitoring, and safe auto-rebase. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html` or the repo-selected Markdoc source, and `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown publishing guidance, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics.
 
 Canonical browser-reviewed HTML plan flow:
 
@@ -331,7 +331,7 @@ Optional second pass: run `/review:plan-adversarial <plan>` after `/review:chang
 Use `/dev:pm-review <plan> implementation` after execution when you want a corrective PM pass that checks whether the intended user outcome was actually realized and, if not, reshapes the plan with the missing completion work instead of stopping at findings.
 
 - `/cmd:execute-plan` is the canonical wrapper for choosing between `/run-plan <plan>` and `/dev:run <plan>`.
-- `/run-plan` is the full lifecycle reviewed-plan continuation through PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, mergeability monitoring, and safe auto-rebase; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
+- `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, mergeability monitoring, and safe auto-rebase; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
 - `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean GPT/GLM consensus over all in-scope P1/P2/P3 findings means `OPEN_PR_READY`; the runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and continue monitoring mergeability.
 - In Pi `/plan` mode, the extension offers both execution paths as post-review exit choices and stages this handoff command for the selected target.
 - When that extension path is used, `/plan` mode is disabled before execution so planning-only tool restrictions do not leak into implementation.

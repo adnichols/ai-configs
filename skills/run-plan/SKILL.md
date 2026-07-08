@@ -11,7 +11,7 @@ The plan is the contract. Reviews can reveal adjacent problems, but they do not 
 
 The Codex/Claude pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
 
-This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the PR satisfies the post-PR completion criteria. In Pi, back this with the todo tool plus explicit working notes/handoff state. In Codex, back this with Codex goal/task state and the installed Codex prompts so the monitoring obligation survives normal turn-to-turn execution.
+This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the PR satisfies the post-PR completion criteria. In Pi, back this with the goal extension as the durable run state, plus the todo tool and explicit working notes for phase progress. In Codex, back this with Codex goal/task state and the installed Codex prompts so the monitoring obligation survives normal turn-to-turn execution.
 
 ## Invocation
 
@@ -90,21 +90,21 @@ A finding may be deferred as `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an 
 
 ### 1. Establish Run State
 
-1. Check whether a run-plan task/goal state is already active.
-2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use the todo tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR monitoring item that cannot be marked done until all completion criteria are satisfied.
+1. Check whether a run-plan task/goal state is already active. In Pi, call `get_goal` before creating or replacing any goal.
+2. If no compatible run state is active, create one durable lifecycle objective before implementation. In Pi, call `create_goal`; this `/run-plan` invocation is an explicit request for durable goal tracking, so no separate confirmation is required unless a non-complete incompatible goal already exists. In Codex, use Codex goal/task state. Also create an explicit lifecycle todo/task set for phase progress and keep exactly one active item at a time, including a final post-PR monitoring item that cannot be marked done until all completion criteria are satisfied.
 3. The objective must require both:
-   - executing the specified plan through implementation, verification, runtime-native scoped review, the Codex plus applicable Claude Code pre-PR review with no unresolved blocking in-scope P1/P2 findings, commit, push, and PR creation;
+   - executing the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the Codex plus applicable Claude Code pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver/skip, base freshness checks, commit, push, and PR creation;
    - monitoring the PR after creation until the post-PR completion criteria are satisfied.
 4. If an active run state already exists and it is compatible with this scoped plan run, continue under it and state the compatibility in working notes.
-5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before creating a new one.
+5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before creating a new one. Do not call `create_goal` with `replace_existing: true` unless the user explicitly chooses replacement.
 
 Use this objective shape:
 
 ```text
-Execute <plan path> through scoped implementation, verification, runtime-native scoped quality reviews, the Codex plus applicable Claude Code pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings, commit, push, PR creation, and persistent post-PR monitoring. Do not stop at `OPEN_PR_READY`; open the PR unless a concrete blocker prevents it. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback takes a long time to arrive.
+Execute <plan path> through the full scoped run-plan lifecycle without expanding beyond the plan contract: establish scope, align any registered Doct plan state, implement every unfinished in-scope phase, run required targeted and final verification, complete implementation-stage PM review, complete runtime-native scoped quality review, complete the Codex plus applicable Claude Code pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver/skip, check base freshness, commit only scoped changes, push, open a PR against <target branch or the plan's/repository's normal integration branch>, and persistently monitor the PR until completion criteria are satisfied. Do not stop at implementation complete, review clean, `OPEN_PR_READY`, or PR created. Do not mark complete until fresh evidence proves all actionable PR feedback has been addressed, feedback has been checked repeatedly after the latest fix, any feedback-triggered code changes have rerun required verification and review gates, the branch is current or safely rebased as needed, and GitHub reports the PR mergeable with <target branch or the plan's/repository's normal integration branch>. Do not stop or mark blocked merely because reviews, checks, or feedback are slow; continue polling unless there is a concrete blocker that prevents meaningful monitoring or scoped fixes.
 ```
 
-Runtime state expectation: keep the task/goal state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi this state lives in todo/working notes; in Codex it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
+Runtime state expectation: keep the task/goal state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi, the goal extension is the completion authority and todo/working notes are progress detail. In Codex, this state lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied. In Pi, call `update_goal` with status `complete` only after a fresh evidence-backed completion audit maps every objective requirement to real artifacts.
 
 #### Registered Doct plan status alignment
 
@@ -360,7 +360,7 @@ Do not include memory citations in PR messages.
 
 ## Post-PR Completion Loop
 
-After the PR is open, keep the active runtime task/goal state active and monitor the PR until all completion criteria are satisfied. In Pi this is the active todo/run state; in Codex this is the active Codex goal/task state.
+After the PR is open, keep the active runtime task/goal state active and monitor the PR until all completion criteria are satisfied. In Pi this is the active goal extension objective plus the monitoring todo/run state; in Codex this is the active Codex goal/task state.
 
 ### Completion Criteria
 
@@ -411,7 +411,7 @@ When the run has reached post-PR monitoring, the agent must persist across sessi
 - Poll every 60 seconds while waiting for PR feedback, checks, or mergeability unless the user explicitly asks to reduce polling frequency.
 - Continue monitoring even after current feedback is addressed, because late feedback can still arrive before mergeability/checks settle.
 - Do not treat "no new feedback", "review still pending", or "checks still running" as completion, failure, or a blocker.
-- In Pi, leave the monitoring todo active and summarize the latest PR URL, mergeability, feedback state, and reviewer-pair state in any handoff or final-in-turn status.
+- In Pi, leave the goal active and the monitoring todo active, and summarize the latest PR URL, mergeability, feedback state, and reviewer-pair state in any handoff or final-in-turn status.
 - A true blocker must be something the agent cannot resolve by continued polling or scoped fixes, such as lost GitHub authentication, a closed/deleted PR, a force-push/base-branch conflict requiring a product decision, or `QUESTION` feedback that needs the user.
 - If a true blocker is reached, report the exact blocker and the latest PR state. Otherwise, keep the active run state open and continue polling.
 
@@ -501,7 +501,7 @@ Do not use destructive git commands to force mergeability. If conflicts require 
 
 ### Run State Closure
 
-Only after the completion criteria are all satisfied, mark the runtime monitoring task/goal complete. In Pi, complete the monitoring todo; in Codex, complete the Codex goal/task state. Do not mark the run state blocked for a slow reviewer, no new feedback, pending review, or pending checks; those are polling wait states. Mark the run state blocked only for a real actionable blocker that prevents meaningful polling or scoped fixes, and report the exact blocker with the latest PR state.
+Only after the completion criteria are all satisfied, mark the runtime monitoring task/goal complete. In Pi, complete the monitoring todo, perform a fresh completion audit against the goal objective, and call `update_goal` with status `complete` only when every requirement is backed by evidence. In Codex, complete the Codex goal/task state after the same audit. Do not mark the run state blocked for a slow reviewer, no new feedback, pending review, or pending checks; those are polling wait states. Mark the run state blocked only for a real actionable blocker that prevents meaningful polling or scoped fixes, and report the exact blocker with the latest PR state.
 
 ## Reviewer Prompt Template
 
@@ -598,7 +598,7 @@ Only give the run-plan final response after a PR exists or a concrete PR-creatio
 Report:
 
 - PR URL,
-- run-state status (Pi todo or Codex goal/task),
+- run-state status (Pi goal plus todo, or Codex goal/task),
 - changed files at a high level,
 - verification run,
 - runtime-native scoped quality-review verdicts,
