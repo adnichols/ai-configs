@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi VCC Compaction Race Recovery Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: #101827;
+      --panel-2: #152235;
+      --text: #e6edf7;
+      --muted: #a8b3c7;
+      --accent: #70e1ff;
+      --accent-2: #a78bfa;
+      --ok: #58d68d;
+      --warn: #f6c453;
+      --danger: #ff7b7b;
+      --border: #2a3b55;
+      --code: #020817;
+      --shadow: rgba(0, 0, 0, 0.34);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(112, 225, 255, 0.12), transparent 30rem),
+        radial-gradient(circle at 88% 12%, rgba(167, 139, 250, 0.12), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      font: 16px/1.62 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(1220px, calc(100vw - 48px)); margin: 0 auto; padding: 40px 0 76px; }
+    header, section, article {
+      background: rgba(16, 24, 39, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 22px 70px var(--shadow);
+      margin: 18px 0;
+      padding: 24px;
+    }
+    header { padding: 32px; }
+    h1, h2, h3, h4 { line-height: 1.2; margin: 0 0 12px; }
+    h1 { font-size: clamp(2.1rem, 5vw, 4rem); letter-spacing: -0.045em; }
+    h2 { font-size: 1.55rem; color: #f8fbff; }
+    h3 { font-size: 1.15rem; color: #dbeafe; margin-top: 20px; }
+    p { margin: 0 0 12px; }
+    a { color: var(--accent); text-decoration-color: rgba(112, 225, 255, 0.45); }
+    code, pre { background: var(--code); color: #d1fae5; border-radius: 10px; }
+    code { padding: 0.15em 0.35em; }
+    pre { padding: 14px; overflow-x: auto; border: 1px solid var(--border); }
+    ul, ol { padding-left: 1.35rem; }
+    li { margin: 0.4rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px; vertical-align: top; }
+    th { background: var(--panel-2); text-align: left; color: #f8fbff; }
+    .muted { color: var(--muted); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 11px;
+      margin: 0 8px 8px 0;
+      background: rgba(112, 225, 255, 0.08);
+      color: var(--accent);
+      font-size: 0.9rem;
+    }
+    .badge.warn { color: var(--warn); background: rgba(246, 196, 83, 0.1); }
+    .badge.ready { color: var(--ok); background: rgba(88, 214, 141, 0.1); }
+    .toc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+    .toc-card { background: rgba(21, 34, 53, 0.78); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+    .toc-card strong { display: block; color: #f8fbff; margin-bottom: 8px; }
+    .toc-card a { display: block; margin: 6px 0; text-decoration: none; }
+    .attention { border-left: 5px solid var(--warn); }
+    .criteria { border-left: 5px solid var(--ok); }
+    .phase { border-left: 5px solid var(--accent-2); }
+    .risk { border-left: 5px solid var(--danger); }
+    .progress-list label { display: block; padding: 8px 0; }
+    .callout { background: rgba(28, 45, 69, 0.72); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <header id="title">
+    <p>
+      <span class="badge">Doct review plan</span>
+      <span class="badge warn">Status: readiness fixes integrated</span>
+      <span class="badge">Scope: pi-vcc compaction only</span>
+    </p>
+    <h1>Pi VCC Compaction Race Recovery Plan</h1>
+    <p class="muted">A narrow plan to make pi-vcc/percentage-compaction recover safely from cancellation and race failures without becoming a task tracker or workflow supervisor.</p>
+  </header>
+
+  <section id="toc" aria-labelledby="toc-heading">
+    <h2 id="toc-heading">Table of contents</h2>
+    <div class="toc-grid">
+      <div class="toc-card">
+        <strong>Intent</strong>
+        <a href="#goal">Goal</a>
+        <a href="#non-goals">Non-goals</a>
+        <a href="#diagnosis">Diagnosis</a>
+        <a href="#principle">Design principle</a>
+      </div>
+      <div class="toc-card">
+        <strong>Implementation</strong>
+        <a href="#phase-1-single-flight">P1: single-flight ownership</a>
+        <a href="#phase-2-schedule-next-tick">P2: schedule after turn boundary</a>
+        <a href="#phase-3-interrupted-context">P3: compaction-local interrupted context</a>
+        <a href="#phase-4-continuation-helper">P4: centralized failure continuation</a>
+      </div>
+      <div class="toc-card">
+        <strong>Hardening</strong>
+        <a href="#phase-5-error-paths">P5: route error/cancel/no-cut paths</a>
+        <a href="#phase-6-cancel-backoff">P6: cancellation backoff</a>
+        <a href="#phase-7-preserve-success">P7: preserve successful compaction behavior</a>
+        <a href="#phase-8-core-race">P8: optional host race appendix</a>
+      </div>
+      <div class="toc-card">
+        <strong>Review</strong>
+        <a href="#tests">Test plan</a>
+        <a href="#acceptance-criteria">Acceptance criteria</a>
+        <a href="#risks">Risks and mitigations</a>
+        <a href="#review-requests">Review requests</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Fix <code>pi-vcc</code> and <code>percentage-compaction</code> so compaction failure, cancellation, and observed Pi-core race conditions do not strand execution, without adding task tracking, goal interpretation, or broad workflow state.</p>
+    <div class="callout">
+      <p><strong>Target invariant:</strong> if pi-vcc attempts or intercepts compaction during an in-flight turn, it must either compact safely or fail/decline safely while preserving Pi’s normal ability to continue the same turn.</p>
+    </div>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Do not make pi-vcc track whether the user’s broader task is complete.</li>
+      <li>Do not inspect goals, todos, Linear issues, PR state, or app-specific workflow status.</li>
+      <li>Do not broaden the fix into context-percentage accounting or footer/UI rendering.</li>
+      <li>Do not force unsafe cuts or mark failed/no-op compactions as successful.</li>
+      <li>Do not add multi-turn supervision beyond compaction-local recovery.</li>
+    </ul>
+  </section>
+
+  <section id="diagnosis">
+    <h2>Core diagnosis to fix</h2>
+    <ol>
+      <li><code>pi-vcc</code>/<code>percentage-compaction</code> triggers or intercepts compaction at a turn boundary.</li>
+      <li>Pi core may already be entering auto-compaction.</li>
+      <li><code>pi-vcc</code> cancellation/defer paths return <code>{ cancel: true }</code>.</li>
+      <li>Pi core/UI renders that as <code>Compaction cancelled</code>.</li>
+      <li>Concurrent/manual <code>ctx.compact()</code> can overlap with core auto-compaction.</li>
+      <li>Pi core can re-read a mutable abort controller after an await and throw <code>Cannot read properties of undefined (reading 'signal')</code>.</li>
+      <li>No <code>pi-vcc</code> continuation is delivered because there was no successful <code>session_compact</code>.</li>
+    </ol>
+    <p>The problematic path is not “agent unfinished work” in general. It is specifically compaction attempting to interrupt or gate a turn and then failing/cancelling without restoring normal continuation.</p>
+  </section>
+
+  <section id="principle">
+    <h2>Design principle</h2>
+    <p><strong>Compaction is best-effort context maintenance.</strong> A failed, cancelled, or declined compaction must be recoverable at the turn boundary. pi-vcc may remember only enough local compaction context to resume the turn it interrupted.</p>
+  </section>
+
+  <section id="progress" class="progress-list">
+    <h2>Progress</h2>
+    <label><input type="checkbox" checked /> P1 — Add single-flight compaction ownership</label>
+    <label><input type="checkbox" checked /> P2 — Schedule pi-vcc compaction after the event cascade</label>
+    <label><input type="checkbox" checked /> P3 — Snapshot compaction-local interrupted-turn context</label>
+    <label><input type="checkbox" checked /> P4 — Centralize failure/cancel/no-cut continuation delivery</label>
+    <label><input type="checkbox" checked /> P5 — Route <code>ctx.compact().onError</code> through recovery</label>
+    <label><input type="checkbox" checked /> P6 — Add same-percent cancellation backoff</label>
+    <label><input type="checkbox" checked /> P7 — Preserve successful <code>session_compact</code> continuation behavior</label>
+    <label><input type="checkbox" checked /> P8 — Record optional Pi core abort-controller host hardening separately</label>
+    <label><input type="checkbox" checked /> P9 — Add focused regression tests and executable install verification</label>
+  </section>
+
+  <section id="phase-1-single-flight" class="phase">
+    <h2>P1 — Add single-flight compaction ownership in <code>percentage-compaction.ts</code></h2>
+    <p>Prevent pi-vcc from scheduling or starting overlapping compaction attempts while core auto-compaction is already entering a compaction path.</p>
+    <pre><code>type CompactionOwner = "pi-vcc" | "core" | undefined;
+
+let activeCompactionOwner: CompactionOwner;
+let scheduledPiVccCompaction: ReturnType&lt;typeof setTimeout&gt; | undefined;</code></pre>
+    <h3 id="phase-1-rules">Rules</h3>
+    <ul>
+      <li>If pi-vcc has scheduled or started compaction, do not schedule another.</li>
+      <li>If core is already in <code>session_before_compact</code>, pi-vcc must not call <code>ctx.compact()</code> from the same boundary.</li>
+      <li>If pi-vcc decides to defer/cancel core compaction, it should set same-percent backoff so core does not immediately re-trigger.</li>
+      <li>Clear scheduled timers and owner state in every completion, error, cancellation, and skipped-timer exit path.</li>
+    </ul>
+    <h3 id="phase-1-state-table">State table</h3>
+    <table>
+      <thead>
+        <tr><th>State</th><th>Entry</th><th>Allowed behavior</th><th>Exit / cleanup</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>idle</code></td>
+          <td>No scheduled or active compaction.</td>
+          <td><code>turn_end</code> may schedule pi-vcc; <code>session_before_compact</code> may observe core.</td>
+          <td>No cleanup required.</td>
+        </tr>
+        <tr>
+          <td><code>scheduled_pi_vcc</code></td>
+          <td><code>turn_end</code> crossed hard backstop and set a zero-delay timer.</td>
+          <td>If core <code>session_before_compact</code> arrives first for the same high-percent boundary, cancel/defer core once with same-percent ratchet and keep the scheduled pi-vcc attempt as the owner. Do not start a second pi-vcc attempt.</td>
+          <td>Timer fires → <code>active_pi_vcc</code>; timer is skipped because owner changed → clear <code>scheduledPiVccCompaction</code> and owner.</td>
+        </tr>
+        <tr>
+          <td><code>core_observed</code></td>
+          <td><code>session_before_compact</code> fires while no pi-vcc attempt is scheduled.</td>
+          <td>Apply existing gating policy. If pi-vcc cancels core, ratchet <code>lastAutoCompactionPercent</code> before returning <code>{ cancel: true }</code>. If core is allowed, do not call <code>ctx.compact()</code> from pi-vcc at that boundary.</td>
+          <td>On cancel/allow return, clear transient core-observed state. Persistent same-percent ratchet remains until percent changes or a new safe opportunity is detected.</td>
+        </tr>
+        <tr>
+          <td><code>active_pi_vcc</code></td>
+          <td>The scheduled timer calls <code>triggerCompaction</code> and <code>ctx.compact()</code>.</td>
+          <td>No additional pi-vcc or core-owned attempt may start from the same boundary. Capture exactly one interrupted-turn snapshot for this attempt.</td>
+          <td>On success, error, cancel, no-safe-cut, or terminal delivery failure, call the shared finish routine that clears owner/timer/attempt state.</td>
+        </tr>
+        <tr>
+          <td><code>finishing</code></td>
+          <td><code>ctx.compact()</code> completion, <code>onError</code>, no-cut classification, or cancel path begins cleanup.</td>
+          <td>May queue at most one continuation for the attempt if gates pass. Must not schedule a replacement attempt synchronously.</td>
+          <td>Clear owner, clear pending timer handle, clear continuation attempt id, then return to <code>idle</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="phase-2-schedule-next-tick" class="phase">
+    <h2>P2 — Do not call <code>ctx.compact()</code> synchronously from <code>turn_end</code></h2>
+    <p>Replace direct <code>triggerCompaction(ctx, ...)</code> calls at <code>turn_end</code> with a scheduler that runs on the next tick after Pi core’s own post-turn compaction machinery has had a chance to enter <code>session_before_compact</code>. If core enters first, pi-vcc keeps the scheduled attempt as owner and cancels/defer-ratchets the core attempt exactly once for that same-percent boundary.</p>
+    <pre><code>const schedulePiVccCompaction = (ctx, options) =&gt; {
+  if (compactionInFlight || scheduledPiVccCompaction) return false;
+
+  scheduledPiVccCompaction = setTimeout(() =&gt; {
+    scheduledPiVccCompaction = undefined;
+    if (compactionInFlight) return;
+    triggerCompaction(ctx, options);
+  }, 0);
+
+  return true;
+};</code></pre>
+    <p>This reduces the race surface without depending on broader Pi-core behavior changes. The timer callback must re-check owner state before calling <code>ctx.compact()</code>; if another owner took over, it must clear the timer handle and exit without side effects.</p>
+  </section>
+
+  <section id="phase-3-interrupted-context" class="phase">
+    <h2>P3 — Snapshot “interrupted compaction turn” as compaction context only</h2>
+    <p>When pi-vcc is about to compact or cancel/defer compaction, capture only the local state needed to decide whether a compaction failure should trigger a continuation.</p>
+    <pre><code>interface InterruptedCompactionTurn {
+  interrupted: boolean;
+  pendingToolCallIds: Set&lt;string&gt;;
+  reason: "hard_backstop" | "compact_context" | "core_deferred" | "compaction_error";
+}</code></pre>
+    <p>Use existing helpers such as <code>isInterruptedAgentWork</code>, <code>outstandingAssistantToolCallIds</code>, <code>isCompletedAssistantResponse</code>, and <code>deliveredToolCallIds</code>. Do not add work/task state.</p>
+  </section>
+
+  <section id="phase-4-continuation-helper" class="phase">
+    <h2>P4 — Centralize continuation delivery for compaction failures only</h2>
+    <p>Create one helper for recoverable compaction failure/cancel/no-cut paths. This helper becomes the only failure-path continuation authority for each pi-vcc-owned compaction attempt; successful <code>session_compact</code> continuation remains owned by the existing pi-vcc hook.</p>
+    <pre><code>const queueCompactionContinuation = (
+  ctx: ExtensionContext,
+  reason: "cancelled" | "failed" | "no_safe_cut",
+  interrupted: InterruptedCompactionTurn,
+) =&gt; { ... };</code></pre>
+    <p>The helper should send the same kind of model-visible steer pi-vcc already sends after successful active-turn compaction:</p>
+    <pre><code>pi.sendMessage(
+  {
+    customType: "pi-vcc-continuation",
+    content:
+      "Pi-vcc compaction did not complete cleanly, but the interrupted turn should continue. Continue from where you left off; use vcc_recall if needed.",
+    display: false,
+    details: { compactor: "pi-vcc", reason },
+  },
+  { deliverAs: "steer", triggerTurn: true },
+);</code></pre>
+    <h3 id="phase-4-constraints">Continuation authority and gates</h3>
+    <ul>
+      <li>Only queue this if the captured attempt snapshot says compaction interrupted an active tool/assistant turn.</li>
+      <li>Do not queue if the latest assistant response is completed.</li>
+      <li>Do not queue if pi-vcc/core metadata says <code>willRetry</code> and Pi will immediately retry compaction through an existing safe path.</li>
+      <li>Queue at most one continuation per compaction attempt id.</li>
+      <li>Clear the attempt id on <code>session_compact</code>, on new compaction attempt start, or on terminal continuation delivery failure.</li>
+      <li>Preserve the existing <code>pi-vcc-no-cut-continuation</code> behavior as the bounded-retry delivery path; route new failure/cancel classifications into that authority instead of creating a parallel continuation loop.</li>
+      <li>Do not inspect goals, todos, or task status.</li>
+      <li>Do not generate workflow-specific instructions.</li>
+    </ul>
+  </section>
+
+  <section id="phase-5-error-paths" class="phase">
+    <h2>P5 — Use continuation recovery on <code>ctx.compact().onError</code></h2>
+    <p>Change compaction failure handling from a terminal error notification into a recoverable compaction failure. The handler must use the continuation authority from P4, not a second ad hoc <code>pi.sendMessage</code> path.</p>
+    <pre><code>ctx.ui.notify(
+  `Compaction failed: ${err.message}; continuing interrupted turn if needed.`,
+  "warning",
+);
+queueCompactionContinuation(ctx, "failed", interruptedTurn);
+finishCompaction();</code></pre>
+    <h3 id="phase-5-special-cases">Special cases</h3>
+    <ul>
+      <li><code>Already compacted</code> → route through <code>reason: "no_safe_cut"</code>.</li>
+      <li><code>Nothing to compact (session too small)</code> → route through <code>reason: "no_safe_cut"</code>.</li>
+      <li><code>Compaction cancelled</code> → route through <code>reason: "cancelled"</code> if a turn was interrupted and no continuation has already been queued for the attempt.</li>
+      <li><code>Cannot read properties of undefined (reading 'signal')</code> → route through <code>reason: "failed"</code>; repeated identical failures from the same attempt must still produce at most one continuation.</li>
+    </ul>
+  </section>
+
+  <section id="phase-6-cancel-backoff" class="phase">
+    <h2>P6 — Change <code>session_before_compact</code> cancellation branches to avoid loops</h2>
+    <p>Where <code>percentage-compaction.ts</code> returns <code>{ cancel: true }</code>, set same-percent backoff before returning.</p>
+    <pre><code>lastAutoCompactionPercent = usage.percent;</code></pre>
+    <p>Apply this to:</p>
+    <ul>
+      <li><code>awaitingPostCompactionAssistantResponse</code></li>
+      <li>stale auto-compaction percent</li>
+      <li>no-cut retry state</li>
+      <li>repo-managed hard-backstop cancellation</li>
+    </ul>
+    <pre><code>if (awaitingPostCompactionAssistantResponse) {
+  lastAutoCompactionPercent = usage.percent;
+  ctx.ui.notify(
+    "⏸️ Delayed auto-compaction: waiting for the next assistant response after the last pi-vcc compaction",
+    "info",
+  );
+  return { cancel: true };
+}</code></pre>
+  </section>
+
+  <section id="phase-7-preserve-success" class="phase">
+    <h2>P7 — Preserve successful <code>session_compact</code> continuation behavior</h2>
+    <p>Do not replace the existing successful-compaction path in <code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code>. It already performs the narrow intended job:</p>
+    <ul>
+      <li>detect active-turn compaction,</li>
+      <li>write compaction details,</li>
+      <li>send <code>pi-vcc-continuation</code> on <code>session_compact</code>,</li>
+      <li>suppress continuation when core will retry.</li>
+    </ul>
+  </section>
+
+  <section id="phase-8-core-race" class="phase">
+    <h2>P8 — Optional host race appendix, not required for pi-vcc acceptance</h2>
+    <p>The required implementation path is the repo-owned pi-vcc/percentage-compaction fix in P1–P7 and P9. Do not edit global installed Pi core files as part of this plan unless the user separately approves host hardening.</p>
+    <p>The observed host race remains useful evidence: installed Pi core currently re-reads mutable compaction abort-controller fields after awaits. If host hardening is approved later, patch the source-of-truth Pi package rather than hand-editing installed <code>node_modules</code> dist files, and ensure the change survives reinstall/update.</p>
+    <pre><code>const abortController = new AbortController();
+this._compactionAbortController = abortController;
+const signal = abortController.signal;</code></pre>
+    <p>Host hardening shape: use the local <code>signal</code> after awaits instead of re-reading <code>this._compactionAbortController.signal</code>, then clear only if the instance still owns that controller:</p>
+    <pre><code>if (this._compactionAbortController === abortController) {
+  this._compactionAbortController = undefined;
+}</code></pre>
+    <p>This appendix is deliberately excluded from the required acceptance criteria so the pi-vcc fix remains narrow and repo-owned.</p>
+  </section>
+
+  <section id="tests">
+    <h2>Test plan</h2>
+    <article id="tests-percentage-compaction">
+      <h3>Tests for <code>percentage-compaction.ts</code></h3>
+      <ol>
+        <li id="test-hard-backstop-schedules"><strong>Hard backstop schedules, not immediate-compacts:</strong> at 80% on <code>turn_end</code>, assert <code>ctx.compact</code> is not called synchronously, then advance timers and assert one call.</li>
+        <li id="test-failure-continuation"><strong>Compaction failure sends continuation:</strong> mock <code>onError(new Error("Cannot read properties of undefined (reading 'signal')"))</code> and assert one <code>pi-vcc-continuation</code> with <code>triggerTurn: true</code>.</li>
+        <li id="test-cancel-continuation"><strong>Compaction cancelled sends continuation when interrupted:</strong> mock <code>onError(new Error("Compaction cancelled"))</code> and assert continuation.</li>
+        <li id="test-completed-no-continuation"><strong>Completed assistant response does not continue:</strong> latest turn is completed assistant response; assert no continuation.</li>
+        <li id="test-core-deferred-ratchet"><strong>Core deferred branch ratchets percent:</strong> <code>session_before_compact</code> with <code>awaitingPostCompactionAssistantResponse</code> returns <code>{ cancel: true }</code>; next same-percent event does not trigger another pi-vcc compaction attempt.</li>
+        <li id="test-integrated-race-sequence"><strong>Integrated observed-race regression:</strong> in <code>scripts/percentage-compaction.test.ts</code>, use fake timers or controlled callbacks to model an active tool-use turn at hard threshold, pi-vcc scheduling instead of immediate compact, core <code>session_before_compact</code> arriving before the timer and being ratcheted/cancelled exactly once, then the timer/error path producing <code>Compaction cancelled</code> plus two <code>.signal</code> failures. Assert exactly one continuation is sent and subsequent same-percent events do not call <code>ctx.compact</code> again.</li>
+        <li id="test-no-safe-cut"><strong>No safe cut continues existing behavior:</strong> <code>Already compacted</code> and <code>Nothing to compact</code> route through no-cut recovery for interrupted turns without duplicating the integrated failure-path continuation.</li>
+      </ol>
+    </article>
+    <article id="tests-pi-vcc-package">
+      <h3>Tests for the <code>pi-vcc</code> package</h3>
+      <p>Keep existing active-compaction continuation tests. Add or preserve coverage for active-turn state after canceled compaction so the next successful compaction can continue normally.</p>
+    </article>
+  </section>
+
+  <section id="acceptance-criteria" class="criteria">
+    <h2>Acceptance criteria</h2>
+    <ul>
+      <li id="ac-no-loop">No repeated visible loop of delayed auto-compaction, <code>Compaction cancelled</code>, and duplicate <code>.signal</code> failures.</li>
+      <li id="ac-failure-continues">If pi-vcc compaction fails during an interrupted turn, exactly one <code>pi-vcc-continuation</code> steer is sent with <code>triggerTurn: true</code> for that compaction attempt.</li>
+      <li id="ac-completed-no-continue">If compaction fails after a completed assistant response, no continuation is sent.</li>
+      <li id="ac-no-task-tracking">pi-vcc does not inspect or track tasks, goals, todos, Linear state, PR state, or completion semantics.</li>
+      <li id="ac-local-state-only">pi-vcc tracks only compaction-local interrupted-turn state and clears it on every attempt exit path.</li>
+      <li id="ac-success-unchanged">Successful pi-vcc compaction and <code>vcc_recall</code> behavior are unchanged.</li>
+      <li id="ac-integrated-regression">The integrated observed-race regression proves delayed core cancellation, cancellation/error handling, duplicate <code>.signal</code> errors, single continuation delivery, and same-percent retry suppression in one test.</li>
+      <li id="ac-host-out-of-scope">Host Pi core abort-controller hardening is documented as optional/out-of-scope for this pi-vcc acceptance path unless separately approved.</li>
+    </ul>
+  </section>
+
+  <section id="verification-commands">
+    <h2>Executable verification commands</h2>
+    <p>Run these from <code>/home/anichols/code/ai-configs</code> during implementation verification:</p>
+    <pre><code>bun test scripts/percentage-compaction.test.ts
+(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/before-compact.test.ts)
+bash ./install.sh --pi
+bash ./scripts/verify-pi-install.sh</code></pre>
+    <p>The install commands validate the repo-owned live Pi surfaces: the stable pi-vcc mirror at <code>~/.pi/agent/local-packages/ai-configs/pi-vcc</code> and the installed extension/package registry visible to Pi.</p>
+  </section>
+
+  <section id="risks" class="risk">
+    <h2>Risks and mitigations</h2>
+    <table>
+      <thead>
+        <tr><th>Risk</th><th>Mitigation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Continuation fires when no turn needs continuation.</td><td>Gate on existing interrupted-turn helpers and completed-assistant detection; add explicit negative test.</td></tr>
+        <tr><td>Backoff suppresses useful future compaction too long.</td><td>Use same-percent ratchet only; allow re-arm when percent changes or a new safe compaction opportunity appears.</td></tr>
+        <tr><td>Single-flight guard hides legitimate manual compaction.</td><td>Scope guard to active/scheduled compaction windows and clear state in all completion/error paths.</td></tr>
+        <tr><td>Pi core race remains unpatched upstream.</td><td>pi-vcc scheduling plus error-continuation makes the observed failure recoverable even before host hardening lands.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="review-requests">
+    <h2>Review requests</h2>
+    <ul>
+      <li>Confirm the scope remains compaction-only and does not reintroduce work tracking.</li>
+      <li>Check whether same-percent backoff is sufficient to stop repeated cancellation loops without hiding future safe compactions.</li>
+      <li>Check whether <code>queueCompactionContinuation</code> should live only in <code>percentage-compaction.ts</code> or share a helper with <code>pi-vcc</code> package continuation code.</li>
+      <li>Confirm P8 stays an optional host-hardening appendix and is not included in the required pi-vcc implementation unless separately approved.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
