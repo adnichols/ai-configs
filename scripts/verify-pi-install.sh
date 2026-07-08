@@ -64,6 +64,11 @@ if not isinstance(settings, dict):
 
 settings["defaultProvider"] = DEFAULT_PROVIDER
 settings["defaultModel"] = DEFAULT_MODEL
+pi_codex_goal = settings.get("piCodexGoal")
+if not isinstance(pi_codex_goal, dict):
+    pi_codex_goal = {}
+pi_codex_goal["disableTokenBudgets"] = True
+settings["piCodexGoal"] = pi_codex_goal
 
 models = settings.get("enabledModels")
 if models is None:
@@ -244,6 +249,9 @@ if data.get("defaultProvider") != "openai-codex":
     errors.append(f"defaultProvider={data.get('defaultProvider')!r}")
 if data.get("defaultModel") != "gpt-5.5":
     errors.append(f"defaultModel={data.get('defaultModel')!r}")
+pi_codex_goal = data.get("piCodexGoal")
+if not isinstance(pi_codex_goal, dict) or pi_codex_goal.get("disableTokenBudgets") is not True:
+    errors.append("piCodexGoal.disableTokenBudgets is not true")
 enabled = data.get("enabledModels", [])
 if not isinstance(enabled, list):
     errors.append("enabledModels is not a list")
@@ -257,6 +265,7 @@ PY
 )"
   if [ "$PI_MODEL_STATUS" = "ok" ]; then
     echo "  Pi default model: openai-codex/gpt-5.5"
+    echo "  Pi Codex goal token budgets: disabled"
   else
     note_failure "Pi default model settings are not GPT 5.5: $PI_MODEL_STATUS"
   fi

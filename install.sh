@@ -1873,6 +1873,11 @@ settings["gptConfig"] = {
     "toolDiscipline": "off",
     "showFooter": True,
 }
+pi_codex_goal = settings.get("piCodexGoal")
+if not isinstance(pi_codex_goal, dict):
+    pi_codex_goal = {}
+pi_codex_goal["disableTokenBudgets"] = True
+settings["piCodexGoal"] = pi_codex_goal
 
 models = settings.get("enabledModels")
 if models is None:
