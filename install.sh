@@ -2413,10 +2413,18 @@ install_pi_codex_goal_package() {
         echo "  - Purged stale pi-codex-goal package registration $removed_source from $settings_path"
     done < <(purge_stale_pi_codex_goal_registrations "$settings_path" "$desired_source")
 
-    local existing_source has_desired=false
+    local existing_source normalized_existing_source has_desired=false
     while IFS= read -r existing_source; do
         [ -n "$existing_source" ] || continue
-        if [ "$existing_source" = "$desired_source" ]; then
+        case "$existing_source" in
+            "$desired_source"|"$desired_source"@*|"$desired_source"\ @*)
+                normalized_existing_source="$desired_source"
+                ;;
+            *)
+                normalized_existing_source="$existing_source"
+                ;;
+        esac
+        if [ "$normalized_existing_source" = "$desired_source" ]; then
             has_desired=true
             continue
         fi

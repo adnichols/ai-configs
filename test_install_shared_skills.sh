@@ -79,6 +79,7 @@ case "${1:-}" in
     if [[ -f "$settings_path" ]]; then
       python3 - "$settings_path" <<'PY'
 import json
+import os
 import sys
 from pathlib import Path
 settings_path = Path(sys.argv[1])
@@ -89,7 +90,11 @@ except Exception:
 for item in data.get("packages", []) if isinstance(data.get("packages"), list) else []:
     source = item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
     if isinstance(source, str):
-        print(f"  {source}")
+        rendered_source = source
+        goal_ref = os.environ.get("AI_CONFIGS_FAKE_PI_LIST_GOAL_REF")
+        if goal_ref and "pi-codex-goal" in rendered_source:
+            rendered_source = f"{rendered_source}@{goal_ref}"
+        print(f"  {rendered_source}")
         print(f"    /fake/{source.replace('/', '_')}")
 PY
     fi
@@ -704,6 +709,31 @@ JSON
   assert_file_not_contains "$settings_path" 'npm:pi-codex-goal' || return 1
 }
 
+test_pi_codex_goal_fork_install_tolerates_rendered_ref_suffix() {
+  local home output_file settings_path
+  home="$(new_tmp_dir)"
+  output_file="$home/pi-install.log"
+  settings_path="$home/.pi/agent/settings.json"
+
+  mkdir -p "$(dirname "$settings_path")"
+  cat > "$settings_path" <<'JSON'
+{
+  "packages": [
+    "git:github.com/adnichols/pi-codex-goal"
+  ]
+}
+JSON
+
+  AI_CONFIGS_FAKE_PI_LIST_GOAL_REF='fe5f306' run_installer_capture "$home" "$output_file" --pi || {
+    cat "$output_file" >&2
+    return 1
+  }
+
+  assert_file_contains "$output_file" 'pi-codex-goal fork already registered with Pi, updating' || return 1
+  assert_file_not_contains "$output_file" 'Removing legacy pi-codex-goal package git:github.com/adnichols/pi-codex-goal@fe5f306' || return 1
+  assert_file_contains "$settings_path" 'git:github.com/adnichols/pi-codex-goal' || return 1
+}
+
 test_verify_pi_install_reports_stale_goal_package() {
   local home fake_bin output_file settings_path local_fork
   home="$(new_tmp_dir)"
@@ -1042,6 +1072,7 @@ main() {
   run_test test_failpoint_after_backup_keeps_destination_recoverable
   run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
   run_test test_pi_codex_goal_fork_install_purges_stale_npm
+  run_test test_pi_codex_goal_fork_install_tolerates_rendered_ref_suffix
   run_test test_verify_pi_install_reports_stale_goal_package
   run_test test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails
   run_test test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails
