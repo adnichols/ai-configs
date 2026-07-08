@@ -12,6 +12,7 @@ PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
 
 EXPECTED_GIT_PACKAGES=(
   "git:github.com/edxeth/pi-gpt-config"
+  "git:github.com/adnichols/pi-codex-goal"
 )
 
 EXPECTED_NPM_PACKAGES=(
@@ -25,7 +26,6 @@ EXPECTED_NPM_PACKAGES=(
   "npm:pi-no-soft-cursor"
   "npm:@tmustier/pi-files-widget"
   "npm:@tmustier/pi-raw-paste"
-  "npm:pi-codex-goal"
 )
 
 FAILURES=0
@@ -303,6 +303,12 @@ if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-multi-pass'; then
   note_failure "pi-multi-pass is still registered; local openai-codex should be the only Codex route"
 else
   echo "  pi-multi-pass registration: absent"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'npm:pi-codex-goal'; then
+  note_failure "npm:pi-codex-goal is still registered; expected git:github.com/adnichols/pi-codex-goal"
+else
+  echo "  upstream npm pi-codex-goal registration: absent"
 fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"
