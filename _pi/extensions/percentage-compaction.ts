@@ -4,6 +4,9 @@ import type {
   SessionBeforeCompactEvent,
   TurnEndEvent,
 } from "@mariozechner/pi-coding-agent";
+import { appendFileSync, mkdirSync } from "fs";
+import { homedir } from "os";
+import { dirname, join } from "path";
 export const COMPACTION_NUDGE_PERCENT = 60;
 export const COMPACTION_STRONG_NUDGE_PERCENT = 75;
 export const HARD_AUTO_COMPACTION_PERCENT = 80;
@@ -75,6 +78,66 @@ const NO_CUT_CONTINUATION_RETRY_MS = 100;
 const COMPACTION_CONTINUATION_DELAY_MS = NO_CUT_CONTINUATION_DELAY_MS;
 const COMPACTION_CONTINUATION_MAX_WAIT_MS = NO_CUT_CONTINUATION_MAX_WAIT_MS;
 const COMPACTION_CONTINUATION_RETRY_MS = NO_CUT_CONTINUATION_RETRY_MS;
+const PI_VCC_LOG_PATH = join(homedir(), ".pi", "logs", "pi-vcc.jsonl");
+
+// Keep this diagnostic sanitizer in sync with _pi/packages/pi-vcc/src/core/log.ts.
+const SECRET_KEY_PATTERN = /(^|[_-])(token|secret|authorization|password|api[_-]?key|apikey)($|[_-])/i;
+const SECRET_VALUE_PATTERN = /\b(Bearer\s+)[A-Za-z0-9._~+/=-]+|\b(sk-[A-Za-z0-9_-]{12,})\b/g;
+
+const scrubLogText = (value: string): string =>
+  value.length > 4000
+    ? value.slice(0, 4000).replace(SECRET_VALUE_PATTERN, "$1[redacted]") + "…[truncated]"
+    : value.replace(SECRET_VALUE_PATTERN, "$1[redacted]");
+
+const serializeLogError = (err: unknown) => {
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: scrubLogText(err.message),
+      stack: err.stack ? scrubLogText(err.stack) : undefined,
+    };
+  }
+  return { message: scrubLogText(String(err)) };
+};
+
+const safePiVccLogJson = (value: unknown): unknown => {
+  if (value instanceof Error) return serializeLogError(value);
+  if (typeof value === "string") return scrubLogText(value);
+  if (Array.isArray(value)) return value.map(safePiVccLogJson);
+  if (value instanceof Set) return [...value].map(safePiVccLogJson);
+  if (value instanceof Map) {
+    return Object.fromEntries([...value].map(([key, raw]) => [String(key), safePiVccLogJson(raw)]));
+  }
+  if (!value || typeof value !== "object") return value;
+  const output: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (SECRET_KEY_PATTERN.test(key)) {
+      output[key] = "[redacted]";
+      continue;
+    }
+    output[key] = safePiVccLogJson(raw);
+  }
+  return output;
+};
+
+const logPiVccEvent = (event: string, data: Record<string, unknown> = {}) => {
+  try {
+    mkdirSync(dirname(PI_VCC_LOG_PATH), { recursive: true });
+    appendFileSync(
+      PI_VCC_LOG_PATH,
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        event,
+        cwd: process.cwd(),
+        ...safePiVccLogJson(data) as Record<string, unknown>,
+      }) + "\n",
+    );
+  } catch {}
+};
+
+const logPiVccError = (event: string, err: unknown, data: Record<string, unknown> = {}) => {
+  logPiVccEvent(event, { ...data, error: err });
+};
 
 const isPiVccLoaded = () => Boolean((globalThis as any)[PI_VCC_LOAD_MARKER]);
 
@@ -265,6 +328,7 @@ export default function (pi: ExtensionAPI) {
             queuedTurn: pending.queuedTurn,
             deliveryAttempts: pending.attempts,
             pendingToolResultCount: pending.pendingToolCallIds.size,
+            pendingToolCallIds: [...pending.pendingToolCallIds],
           },
         },
         { deliverAs: "steer", triggerTurn: true },
@@ -280,8 +344,16 @@ export default function (pi: ExtensionAPI) {
         return;
       }
       if (pending.timer) clearTimeout(pending.timer);
+      logPiVccEvent("no_cut_continuation_delivery_failed", {
+        reason: pending.reason,
+        usagePercent: pending.usagePercent,
+        flooredPercent: pending.flooredPercent,
+        attempts: pending.attempts,
+        lastError: pending.lastError,
+        pendingToolCallIds: [...pending.pendingToolCallIds],
+      });
       ctx.ui.notify(
-        `No-cut continuation delivery failed after ${pending.attempts} attempts: ${pending.lastError}. Continue manually from the interrupted turn.`,
+        `No-cut continuation delivery failed after ${pending.attempts} attempts: ${pending.lastError}. Continue manually from the interrupted turn. Logged to ${PI_VCC_LOG_PATH}.`,
         "warning",
       );
       pendingNoCutContinuation = undefined;
@@ -339,6 +411,7 @@ export default function (pi: ExtensionAPI) {
             queuedTurn: pending.queuedTurn,
             deliveryAttempts: pending.attempts,
             pendingToolResultCount: pending.interrupted.pendingToolCallIds.size,
+            pendingToolCallIds: [...pending.interrupted.pendingToolCallIds],
           },
         },
         { deliverAs: "steer", triggerTurn: true },
@@ -355,8 +428,16 @@ export default function (pi: ExtensionAPI) {
         return;
       }
       if (pending.timer) clearTimeout(pending.timer);
+      logPiVccEvent("compaction_continuation_delivery_failed", {
+        attemptId: pending.attemptId,
+        reason: pending.reason,
+        interruptedReason: pending.interrupted.reason,
+        attempts: pending.attempts,
+        lastError: pending.lastError,
+        pendingToolCallIds: [...pending.interrupted.pendingToolCallIds],
+      });
       ctx.ui.notify(
-        `Compaction continuation delivery failed after ${pending.attempts} attempts: ${pending.lastError}. Continue manually from the interrupted turn.`,
+        `Compaction continuation delivery failed after ${pending.attempts} attempts: ${pending.lastError}. Continue manually from the interrupted turn. Logged to ${PI_VCC_LOG_PATH}.`,
         "warning",
       );
       pendingCompactionContinuation = undefined;
@@ -453,7 +534,8 @@ export default function (pi: ExtensionAPI) {
               { deliverAs: "followUp", triggerTurn: true },
             );
           } catch (err) {
-            ctx.ui.notify(`Post-compaction resume delivery failed: ${(err as Error).message}`, "warning");
+            logPiVccError("post_compaction_resume_delivery_failed", err, { reason: options.reason, attemptId });
+            ctx.ui.notify(`Post-compaction resume delivery failed: ${(err as Error).message}. Logged to ${PI_VCC_LOG_PATH}.`, "warning");
           }
         }
       },
@@ -485,7 +567,19 @@ export default function (pi: ExtensionAPI) {
           if (!ownsCurrentAttempt) return;
           if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
           const reason = err.message === "Compaction cancelled" ? "cancelled" : "failed";
-          ctx.ui.notify(`Compaction failed: ${err.message}; continuing interrupted turn if needed.`, "warning");
+          logPiVccError("compaction_failed", err, {
+            reason: options.reason,
+            attemptId,
+            compactionErrorReason: reason,
+            interruptedTurn: options.interruptedTurn
+              ? {
+                  ...options.interruptedTurn,
+                  pendingToolCallIds: [...options.interruptedTurn.pendingToolCallIds],
+                }
+              : undefined,
+            usagePercent: options.ratchetPercent,
+          });
+          ctx.ui.notify(`Compaction failed: ${err.message}; continuing interrupted turn if needed. Logged to ${PI_VCC_LOG_PATH}.`, "warning");
           queueCompactionContinuation(ctx, attemptId, reason, options.interruptedTurn);
         }
       },
@@ -535,7 +629,8 @@ export default function (pi: ExtensionAPI) {
       lastNudgeTurn = turnCounter;
       ctx.ui.notify(content, band === "strong" ? "warning" : "info");
     } catch (err) {
-      ctx.ui.notify(`Compaction nudge delivery failed; will retry next turn: ${(err as Error).message}`, "warning");
+      logPiVccError("compaction_nudge_delivery_failed", err, { usagePercent, band });
+      ctx.ui.notify(`Compaction nudge delivery failed; will retry next turn: ${(err as Error).message}. Logged to ${PI_VCC_LOG_PATH}.`, "warning");
     }
   };
 

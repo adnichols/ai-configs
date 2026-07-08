@@ -1,4 +1,7 @@
-import { describe, expect, it, mock } from "bun:test";
+import { mkdtemp, rm } from "fs/promises";
+import { join } from "path";
+import { tmpdir } from "os";
+import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import {
   assistantText,
   assistantWithToolCall,
@@ -19,6 +22,21 @@ mock.module("typebox", () => ({
     Number: () => ({}),
   },
 }));
+
+let previousPiVccLogPath: string | undefined;
+let piVccLogTestDir: string | undefined;
+
+beforeAll(async () => {
+  previousPiVccLogPath = process.env.PI_VCC_LOG_PATH;
+  piVccLogTestDir = await mkdtemp(join(tmpdir(), "pi-vcc-log-test-"));
+  process.env.PI_VCC_LOG_PATH = join(piVccLogTestDir, "pi-vcc.jsonl");
+});
+
+afterAll(async () => {
+  if (previousPiVccLogPath === undefined) delete process.env.PI_VCC_LOG_PATH;
+  else process.env.PI_VCC_LOG_PATH = previousPiVccLogPath;
+  if (piVccLogTestDir) await rm(piVccLogTestDir, { recursive: true, force: true });
+});
 
 const getRegisteredHandlers = async (
   isIdle: boolean | (() => boolean) = true,
@@ -374,6 +392,39 @@ describe("compaction intent and overflow fallback", () => {
 });
 
 describe("active compaction continuation", () => {
+  it("logs session compactions for central observability", async () => {
+    const logPath = process.env.PI_VCC_LOG_PATH;
+    if (!logPath) throw new Error("PI_VCC_LOG_PATH test override was not configured");
+    const beforeLog = Bun.file(logPath);
+    const before = await beforeLog.exists() ? await beforeLog.text() : "";
+    const { handlers, ctx } = await getRegisteredHandlers();
+
+    handlers.session_compact[0]({
+      type: "session_compact",
+      compactionEntry: {
+        id: "test-compaction-id",
+        details: {
+          compactor: "pi-vcc",
+          version: 1,
+          sections: ["Session Goal"],
+          sourceMessageCount: 5,
+          previousSummaryUsed: false,
+          interruptedInFlightTurn: false,
+          requiresContinuation: false,
+          reason: "manual",
+          willRetry: false,
+        },
+      },
+      fromExtension: true,
+      reason: "manual",
+      willRetry: false,
+    }, ctx);
+
+    const after = await Bun.file(logPath).text();
+    const appended = after.slice(before.length).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    expect(appended.some((entry) => entry.event === "session_compact" && entry.compactionEntryId === "test-compaction-id")).toBe(true);
+  });
+
   it("resumes the agent after compacting an in-flight turn", async () => {
     const { handlers, sentUserMessages, sentMessages, ctx } = await getRegisteredHandlers();
 

@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { compile } from "../core/summarize";
+import { logPiVccError, logPiVccEvent } from "../core/log";
 import { parseKeepAndPrompt, PI_VCC_COMPACT_INSTRUCTION } from "../core/compact-args";
 import type { PiVccCompactionDetails } from "../details";
 import type { CompactionIntent, CompactionReason, NoCutClassification } from "../types";
@@ -16,7 +17,7 @@ const AGENT_ONLY_FALLBACK_TAIL_MESSAGES = 4;
 const CONTINUE_AFTER_COMPACTION_PROMPT =
   "Pi-vcc compacted the active in-flight conversation. Continue from where you left off; use vcc_recall if you need details from before compaction, and resume the next concrete step without summarizing the compaction.";
 const CONTINUE_AFTER_COMPACTION_DELAY_MS = 50;
-const CONTINUE_AFTER_COMPACTION_MAX_WAIT_MS = 5000;
+const CONTINUE_AFTER_COMPACTION_MAX_WAIT_MS = 60000;
 const CONTINUE_AFTER_COMPACTION_RETRY_MS = 100;
 
 export interface CompactionStats {
@@ -32,6 +33,12 @@ let lastStats: CompactionStats | null = null;
 let lastNoCutClassification: NoCutClassification | null = null;
 export const getLastCompactionStats = () => lastStats;
 export const getLastNoCutClassification = () => lastNoCutClassification;
+
+const hasNonMessageEntriesAfter = (branchEntries: any[], firstKeptEntryId: string): boolean => {
+  const keptIdx = branchEntries.findIndex((e: any) => e.id === firstKeptEntryId);
+  if (keptIdx < 0) return false;
+  return branchEntries.slice(keptIdx).some((e: any) => e.type !== "message");
+};
 
 export interface PiVccConfig {
   debug?: boolean;
@@ -253,7 +260,15 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
   let activeAgentFinishedResponse = false;
   let continueTimer: ReturnType<typeof setTimeout> | undefined;
 
+  const cancelPendingContinuation = (reason: string) => {
+    if (!continueTimer) return;
+    clearTimeout(continueTimer);
+    continueTimer = undefined;
+    logPiVccEvent("continuation_cancelled", { reason });
+  };
+
   pi.on("agent_start", () => {
+    cancelPendingContinuation("agent_started");
     agentTurnActive = true;
     activeAgentFinishedResponse = false;
   });
@@ -273,9 +288,31 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
   pi.on("session_compact", (event) => {
     const details = event.compactionEntry.details as PiVccCompactionDetails | undefined;
     if (details?.compactor !== "pi-vcc") return;
+    logPiVccEvent("session_compact", {
+      compactionEntryId: event.compactionEntry.id,
+      reason: details.reason ?? event.reason,
+      willRetry: details.willRetry ?? event.willRetry,
+      interruptedInFlightTurn: details.interruptedInFlightTurn,
+      requiresContinuation: details.requiresContinuation,
+      sourceMessageCount: details.sourceMessageCount,
+      retainedNonMessageEntries: details.retainedNonMessageEntries,
+    });
     if (!details.interruptedInFlightTurn) return;
     if (event.willRetry === true || details.requiresContinuation === false) return;
-    if (continueTimer) return;
+    if (continueTimer) {
+      logPiVccEvent("continuation_already_pending", {
+        compactionEntryId: event.compactionEntry.id,
+        reason: details.reason,
+        willRetry: details.willRetry,
+      });
+      return;
+    }
+
+    logPiVccEvent("continuation_scheduled", {
+      compactionEntryId: event.compactionEntry.id,
+      reason: details.reason,
+      willRetry: details.willRetry,
+    });
 
     const startedAt = Date.now();
     const sendContinuation = () => {
@@ -290,10 +327,20 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
           },
           { triggerTurn: true, deliverAs: "steer" },
         );
-      } catch {
+        logPiVccEvent("continuation_delivered", {
+          compactionEntryId: event.compactionEntry.id,
+          reason: details.reason,
+          willRetry: details.willRetry,
+        });
+      } catch (err) {
         if (Date.now() - startedAt < CONTINUE_AFTER_COMPACTION_MAX_WAIT_MS) {
           continueTimer = setTimeout(sendContinuation, CONTINUE_AFTER_COMPACTION_RETRY_MS);
         } else {
+          logPiVccError("continuation_delivery_failed", err, {
+            reason: details.reason,
+            willRetry: details.willRetry,
+            compactionEntryId: event.compactionEntry.id,
+          });
           continueTimer = undefined;
         }
       }
@@ -316,6 +363,10 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       const piVccBypass = customInstructions?.startsWith(PI_VCC_COMPACT_INSTRUCTION) ?? false;
       lastNoCutClassification = classifyNoCut(branchEntries as any[], eventContext);
       dbg(loadConfig(), { usedOwnCut: false, noCutClassification: lastNoCutClassification });
+      logPiVccEvent("no_safe_cut", {
+        classification: lastNoCutClassification,
+        cancel: piVccBypass || !(reason === "manual" || reason === "threshold" || reason === "overflow" || willRetry),
+      });
       if (!piVccBypass && (reason === "manual" || reason === "threshold" || reason === "overflow" || willRetry)) return;
       return { cancel: true };
     }
@@ -327,6 +378,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     const agentMessages = ownCut.messages;
     const firstKeptEntryId = ownCut.firstKeptEntryId;
     const messages = convertToLlm(agentMessages);
+    const retainedNonMessageEntries = hasNonMessageEntriesAfter(branchEntries as any[], firstKeptEntryId);
 
     const keptIdx = (branchEntries as any[]).findIndex((e: any) => e.id === firstKeptEntryId);
     const keptEntries = keptIdx >= 0
@@ -388,8 +440,19 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       summaryLength: summary.length,
       summaryPreview: summary.slice(0, 500),
       sections: [...summary.matchAll(/^\[(.+?)\]/gm)].map((m) => m[1]),
-      compaction: { reason, willRetry, compactionIntent },
+      compaction: { reason, willRetry, compactionIntent, retainedNonMessageEntries },
     });
+
+    if (retainedNonMessageEntries) {
+      logPiVccEvent("retained_non_message_entries_after_cut", {
+        firstKeptEntryId,
+        reason,
+        willRetry,
+        sourceMessageCount: agentMessages.length,
+        interruptedInFlightTurn: compactingActiveTurn,
+        compactionIntent,
+      });
+    }
 
     const details: PiVccCompactionDetails = {
       compactor: "pi-vcc",
@@ -402,6 +465,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       reason,
       willRetry,
       compactionIntent,
+      retainedNonMessageEntries,
     };
 
     return {
