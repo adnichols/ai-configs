@@ -379,7 +379,7 @@ assert_shared_skill_install_state() {
 
   [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'quality-reviewer-glm' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'claude-code-review' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" '"repo": "ai-configs"' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" '"source": "skills/plan-reviewer-execution-ready"' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" '"managed": true' || return 1
@@ -666,7 +666,8 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'managed by ai-configs' || return 1
   [[ -f "$home/.pi/agent/extensions/todo.ts" ]] || return 1
   [[ -d "$home/.pi/agent/extensions/pi-plan-mode" ]] || return 1
-  assert_file_contains "$home/.pi/agent/settings.json" 'npm:pi-codex-goal' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" 'git:github.com/adnichols/pi-codex-goal' || return 1
+  assert_file_not_contains "$home/.pi/agent/settings.json" 'npm:pi-codex-goal' || return 1
 
   output_file="$home/omp-install.log"
   run_installer_capture "$home" "$output_file" --omp || {
@@ -678,7 +679,32 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   [[ -d "$home/.omp/agent/extensions/pi-vcc" ]] || return 1
 }
 
-test_verify_pi_install_reports_missing_goal_package() {
+test_pi_codex_goal_fork_install_purges_stale_npm() {
+  local home output_file settings_path
+  home="$(new_tmp_dir)"
+  output_file="$home/pi-install.log"
+  settings_path="$home/.pi/agent/settings.json"
+
+  mkdir -p "$(dirname "$settings_path")"
+  cat > "$settings_path" <<'JSON'
+{
+  "packages": [
+    "npm:pi-codex-goal"
+  ]
+}
+JSON
+
+  run_installer_capture "$home" "$output_file" --pi || {
+    cat "$output_file" >&2
+    return 1
+  }
+
+  assert_file_contains "$output_file" 'Removing deprecated Pi package pi-codex-goal' || return 1
+  assert_file_contains "$settings_path" 'git:github.com/adnichols/pi-codex-goal' || return 1
+  assert_file_not_contains "$settings_path" 'npm:pi-codex-goal' || return 1
+}
+
+test_verify_pi_install_reports_stale_goal_package() {
   local home fake_bin output_file settings_path local_fork
   home="$(new_tmp_dir)"
   fake_bin="$(create_fake_tool_bin "$home")"
@@ -711,6 +737,7 @@ packages = [
     "npm:pi-no-soft-cursor",
     "npm:@tmustier/pi-files-widget",
     "npm:@tmustier/pi-raw-paste",
+    "npm:pi-codex-goal",
     pi_vcc,
 ]
 packages.append(local_fork if local_fork else "git:github.com/adnichols/pi-interactive-shell")
@@ -722,7 +749,8 @@ PY
     return 1
   fi
   assert_file_contains "$output_file" 'Missing:' || return 1
-  assert_file_contains "$output_file" '    - npm:pi-codex-goal' || return 1
+  assert_file_contains "$output_file" '    - git:github.com/adnichols/pi-codex-goal' || return 1
+  assert_file_contains "$output_file" 'npm:pi-codex-goal is still registered' || return 1
 }
 
 test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails() {
@@ -899,7 +927,6 @@ if missing_prompts:
 pi_delegated = [
     'cmd:feeling-lucky-pr.md',
     'cmd:feeling-lucky-pr-os.md',
-    'dev:reviewed-html-plan.md',
     'prd:clarify-round.md',
     'review:change-claude-code.md',
     'review:change-k2.5.md',
@@ -913,7 +940,13 @@ for prompt in pi_delegated:
     if 'pi -p --approve' not in text:
         raise SystemExit(f"Codex prompt {prompt} must delegate to Pi")
 
-for prompt in sorted(pi_prompts - set(pi_delegated)):
+codex_specific_prompts = {
+    'dev:plan.md',
+    'dev:reviewed-html-plan.md',
+    'run-plan.md',
+}
+
+for prompt in sorted(pi_prompts - set(pi_delegated) - codex_specific_prompts):
     pi_text = Path('_pi/prompts', prompt).read_text()
     codex_text = Path('_codex/prompts', prompt).read_text()
     if pi_text != codex_text:
@@ -926,8 +959,9 @@ for skill in [
     'run-plan',
 ]:
     text = Path('skills', skill, 'SKILL.md').read_text()
-    if 'Codex' not in text or 'Pi' not in text or 'pi -p --approve' not in text:
-        raise SystemExit(f"Skill {skill} must document Codex-to-Pi delegation")
+    if 'Codex' not in text or 'Pi' not in text:
+        raise SystemExit(f"Skill {skill} must document Codex and Pi routing")
+
 PY
 }
 
@@ -1007,7 +1041,8 @@ main() {
   run_test test_project_local_central_skill_overrides_are_removed
   run_test test_failpoint_after_backup_keeps_destination_recoverable
   run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
-  run_test test_verify_pi_install_reports_missing_goal_package
+  run_test test_pi_codex_goal_fork_install_purges_stale_npm
+  run_test test_verify_pi_install_reports_stale_goal_package
   run_test test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails
   run_test test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails
   run_test test_phase_three_docs_use_canonical_shared_skill_paths

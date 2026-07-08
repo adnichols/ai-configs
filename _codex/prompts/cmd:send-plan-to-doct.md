@@ -48,8 +48,8 @@ For Markdoc plans, use `--source-format markdoc` and omit `--allow-untemplated` 
 4. Follow the returned `listenerInstructions` before handoff:
 - run the lifecycle command / set the plan active
 - leave the plan in its registration/default board column for browser-review handoff
-- drain with the returned `agent next --no-wait` command until `status: "empty"`
-- start the returned durable listener in the harness background-process tool, preferring `startCommand` (`doct-agent plans listen ... --jsonl`) when present, otherwise `preferredCommand` / `durableCommand`
+- drain with `agent next --no-wait` until `status: "empty"`
+- start `listenerInstructions.listenerCommand` (`doct-agent plans listen ... --jsonl`) in the harness background-process tool; do not use `agent next --wait` as the default listener
 
 5. Return to the user only after the listener is running, or report the listener-start blocker:
 - plan title

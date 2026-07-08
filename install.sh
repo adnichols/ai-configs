@@ -78,7 +78,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills, while Pi packages still include pi-gpt-config"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, pi-codex-goal, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, pi-codex-goal from git:github.com/adnichols/pi-codex-goal, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
     echo "  - In non-interactive mode, existing configs are preserved automatically"
     echo ""
@@ -2283,6 +2283,10 @@ install_pi() {
     # Install npm-based pi extensions
     install_pi_npm_packages
 
+    # Install the managed pi-codex-goal fork so pi-vcc compaction persistence
+    # stays pinned until the fork is intentionally retired.
+    install_pi_codex_goal_package
+
     # Install pi-interactive-shell, preferring the sibling local fork when present,
     # otherwise install from the GitHub fork.
     install_pi_interactive_shell_package
@@ -2339,6 +2343,123 @@ install_pi_gpt_config_package() {
             echo -e "    ${YELLOW}⚠ pi install command not available or failed${NC}"
             echo "      To install manually, run:"
             echo "        pi install git:github.com/edxeth/pi-gpt-config"
+            return 1
+        fi
+    fi
+}
+
+purge_stale_pi_codex_goal_registrations() {
+    local settings_path="$1"
+    local desired_source="$2"
+
+    python3 - "$settings_path" "$desired_source" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+desired = sys.argv[2]
+try:
+    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+except json.JSONDecodeError:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+packages = data.get("packages")
+if not isinstance(packages, list):
+    packages = []
+
+def source_for(item):
+    if isinstance(item, str):
+        return item
+    if isinstance(item, dict) and isinstance(item.get("source"), str):
+        return item["source"]
+    return None
+
+next_packages = []
+removed = []
+has_desired = False
+for item in packages:
+    source = source_for(item)
+    if not (isinstance(source, str) and "pi-codex-goal" in source):
+        next_packages.append(item)
+        continue
+    if source == desired and not has_desired:
+        has_desired = True
+        next_packages.append(item)
+        continue
+    removed.append(source)
+
+if removed:
+    data["packages"] = next_packages
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(data, indent=2) + "\n")
+    for source in removed:
+        print(source)
+PY
+}
+
+install_pi_codex_goal_package() {
+    local desired_source="git:github.com/adnichols/pi-codex-goal"
+    local pi_agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+    local settings_path="$pi_agent_dir/settings.json"
+
+    echo ""
+    echo -e "${GREEN}  Installing pi-codex-goal fork via pi package manager...${NC}"
+
+    local removed_source
+    while IFS= read -r removed_source; do
+        [ -n "$removed_source" ] || continue
+        echo "  - Purged stale pi-codex-goal package registration $removed_source from $settings_path"
+    done < <(purge_stale_pi_codex_goal_registrations "$settings_path" "$desired_source")
+
+    local existing_source has_desired=false
+    while IFS= read -r existing_source; do
+        [ -n "$existing_source" ] || continue
+        if [ "$existing_source" = "$desired_source" ]; then
+            has_desired=true
+            continue
+        fi
+        echo "  - Removing legacy pi-codex-goal package $existing_source..."
+        if pi remove "$existing_source" 2>/dev/null; then
+            echo -e "    ${GREEN}✓ removed $existing_source${NC}"
+        else
+            echo -e "    ${YELLOW}⚠ Failed to remove legacy pi-codex-goal package $existing_source${NC}"
+            echo "      To remove manually, run:"
+            echo "        pi remove $existing_source"
+        fi
+    done < <(
+        {
+            pi list 2>/dev/null | awk '/^  [^ ]/ && /pi-codex-goal/ { sub(/^  /, ""); print }'
+            python3 - "$settings_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+try:
+    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+except json.JSONDecodeError:
+    data = {}
+for item in data.get("packages", []) if isinstance(data.get("packages"), list) else []:
+    source = item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
+    if isinstance(source, str) and "pi-codex-goal" in source:
+        print(source)
+PY
+        } | sort -u
+    )
+
+    if [ "$has_desired" = true ]; then
+        echo "  - pi-codex-goal fork already registered with Pi, updating..."
+        pi update "$desired_source" 2>/dev/null || echo -e "    ${YELLOW}⚠ Update check skipped (pi update may require manual run)${NC}"
+    else
+        echo "  - Installing pi-codex-goal fork from $desired_source..."
+        if pi install "$desired_source" 2>/dev/null; then
+            echo -e "    ${GREEN}✓ pi-codex-goal fork installed${NC}"
+        else
+            echo -e "    ${YELLOW}⚠ Failed to install pi-codex-goal fork via pi package manager${NC}"
+            echo "      To install manually, run:"
+            echo "        pi install $desired_source"
             return 1
         fi
     fi
@@ -2702,7 +2823,6 @@ install_pi_npm_packages() {
         "pi-no-soft-cursor"
         "@tmustier/pi-files-widget"
         "@tmustier/pi-raw-paste"
-        "pi-codex-goal"
     )
     local deprecated_npm_packages=(
         "pi-subagents"
@@ -2710,6 +2830,7 @@ install_pi_npm_packages() {
         "@sting8k/pi-vcc"
         "lsp-pi"
         "pi-multi-pass"
+        "pi-codex-goal"
     )
     local deprecated_git_packages=(
         "git:github.com/adnichols/pi-codex-conversion"

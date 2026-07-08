@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Patch pi-codex-goal for Pi-VCC Compaction Persistence</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #172033;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --accent-2: #a78bfa;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --code: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero { background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12)); border: 1px solid var(--border); border-radius: 20px; padding: 28px; margin-bottom: 18px; }
+    h1, h2, h3 { line-height: 1.2; color: #f8fafc; }
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.25rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 20px 0 8px; color: var(--accent); }
+    section, article { background: rgba(17, 24, 39, 0.84); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin: 16px 0; }
+    a { color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: var(--code); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); color: #f8fafc; text-align: left; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px; color: var(--muted); background: rgba(15, 23, 42, 0.76); font-size: 0.9rem; }
+    .pill.good { color: var(--good); border-color: rgba(52, 211, 153, 0.55); }
+    .pill.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.55); }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 0; }
+    .toc a:hover { color: var(--text); }
+    .callout { border-left: 4px solid var(--accent); background: rgba(125, 211, 252, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .warnbox { border-left: 4px solid var(--warn); background: rgba(251, 191, 36, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .goodbox { border-left: 4px solid var(--good); background: rgba(52, 211, 153, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .badbox { border-left: 4px solid var(--bad); background: rgba(251, 113, 133, 0.08); padding: 12px 14px; border-radius: 10px; }
+    .phase { border-left: 4px solid var(--accent-2); }
+    .matrix td:first-child, .matrix th:first-child { width: 9rem; }
+    @media (max-width: 760px) { main { width: min(100% - 20px, 1180px); padding-top: 16px; } header.hero, section, article { padding: 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero" id="title">
+    <h1>Patch pi-codex-goal for Pi-VCC Compaction Persistence</h1>
+    <p class="muted">Switch ai-configs installs to Aaron's fork of <code>pi-codex-goal</code> and patch the goal runtime so pi-vcc in-flight compaction does not leave active goals paused.</p>
+    <div class="pill-row" id="status">
+      <span class="pill good">Status: execution-ready</span>
+      <span class="pill">Plan path: <code>thoughts/plans/pi-codex-goal-fork-compaction-persistence.html</code></span>
+      <span class="pill">Fork: <code>https://github.com/adnichols/pi-codex-goal</code></span>
+      <span class="pill">UI impact: text-only install/docs/status behavior</span>
+    </div>
+  </header>
+
+  <section id="toc" aria-labelledby="toc-heading">
+    <h2 id="toc-heading">Table of contents</h2>
+    <div class="toc">
+      <div>
+        <strong>Overview</strong>
+        <a href="#goal">Goal</a>
+        <a href="#decision-attention">Decision Attention</a>
+        <a href="#why">Why this plan exists</a>
+        <a href="#authority-inputs">Authority and inputs</a>
+      </div>
+      <div>
+        <strong>Reality</strong>
+        <a href="#current-reality">Current implementation reality</a>
+        <a href="#progress">Progress</a>
+        <a href="#resume">Resume instructions</a>
+        <a href="#product-intent">Product intent alignment</a>
+      </div>
+      <div>
+        <strong>Contracts</strong>
+        <a href="#locked-decisions">Locked decisions</a>
+        <a href="#acceptance-criteria">Acceptance criteria</a>
+        <a href="#bdd">BDD scenarios</a>
+        <a href="#coverage-matrix">Test coverage matrix</a>
+      </div>
+      <div>
+        <strong>Execution</strong>
+        <a href="#phase-p1">P1 Fork setup</a>
+        <a href="#phase-p2">P2 Runtime patch</a>
+        <a href="#phase-p3">P3 ai-configs switch</a>
+        <a href="#phase-p4">P4 Host rollout</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Use Aaron's GitHub fork of <code>pi-codex-goal</code> as the managed install source, patch the fork so active goals survive pi-vcc in-flight compaction as active goals, and update ai-configs so <code>./install.sh --pi</code> installs the fork instead of the upstream npm package.</p>
+    <p>The desired outcome is Codex-like persistence: after <code>compact_context</code> or pi-vcc threshold compaction interrupts an in-flight turn, the goal should continue automatically or at least remain active. It must not silently degrade to <code>Goal paused (/goal resume)</code> unless the user actually aborted, the agent paused for a real blocker, the goal completed, or a non-retryable provider/recovery failure occurred.</p>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="warnbox">
+      <p><strong>D1 — adnichols is a GitHub user account, not an org.</strong> <code>gh repo fork --org adnichols</code> failed because GitHub reports <code>adnichols</code> as a user login. The fork now exists at <a href="https://github.com/adnichols/pi-codex-goal"><code>adnichols/pi-codex-goal</code></a>. Treat the user's “adnichols gh org” wording as the desired owner namespace.</p>
+      <p><strong>D2 — Prevent duplicate goal packages.</strong> ai-configs must remove or avoid <code>npm:pi-codex-goal</code> when installing <code>git:github.com/adnichols/pi-codex-goal</code>. Leaving both risks duplicate slash commands/tools such as <code>/goal</code>, <code>get_goal</code>, <code>create_goal</code>, and <code>update_goal</code>.</p>
+      <p><strong>D3 — Continuation ownership is explicit.</strong> For pi-vcc interrupted in-flight compaction, pi-vcc owns the next-turn trigger and <code>pi-codex-goal</code> must only preserve active goal state while suppressing its own post-compact continuation. For non-pi-vcc compaction, <code>pi-codex-goal</code> keeps its existing continuation ownership. Tests must prove exactly one bounded continuation path per compaction event.</p>
+      <p><strong>D4 — Publishing path is not required for first rollout.</strong> The requested install source is a GitHub fork, so this plan uses <code>git:github.com/adnichols/pi-codex-goal</code>. Do not publish an npm package unless a later user decision requests npm distribution.</p>
+      <p><strong>D5 — The installed ref is fork <code>main</code>.</strong> Because the ai-configs source is the unqualified GitHub fork package, P2 must fast-forward <code>adnichols/pi-codex-goal</code> <code>main</code> to the tested patch before P3/P4. Do not proceed with ai-configs rollout while the patch exists only on an uninstalled branch.</p>
+    </div>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>In <code>test-e2e-hub</code>, session JSONL showed active <code>pi-codex-goal</code> state being persisted as <code>paused</code> immediately around pi-vcc compaction. pi-vcc then sent its generic continuation prompt, so the agent kept working but the goal footer/state remained <code>Goal paused (/goal resume)</code>. That defeats the purpose of persistent long-running objectives.</p>
+    <p>The root cause is the current <code>pi-codex-goal</code> abort policy: it suppresses pause only for compactions it started itself via <code>proactiveCompactionPending</code>. pi-vcc compaction is externally initiated, so the aborted in-flight assistant turn is treated like a user abort and the goal is paused.</p>
+  </section>
+
+  <section id="authority-inputs">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>User request: create/use an <code>adnichols</code> fork, switch installs to that fork, and patch the compaction persistence problem.</li>
+      <li>Fork created: <code>https://github.com/adnichols/pi-codex-goal</code>, forked from <code>fitchmultz/pi-codex-goal</code>, default branch <code>main</code>, HEAD <code>3f35ae27341f27ddd946e9ce36e0a4eb2530cb95</code>.</li>
+      <li>Observed plugin source: <code>/home/anichols/.pi/agent/npm/node_modules/pi-codex-goal</code>, version <code>0.1.34</code>.</li>
+      <li>Observed ai-configs install state: <code>install.sh</code>, <code>scripts/verify-pi-install.sh</code>, <code>test_install_shared_skills.sh</code>, and <code>_pi/README.md</code> currently reference <code>npm:pi-codex-goal</code>.</li>
+      <li><code>pi-vcc</code> source: <code>/home/anichols/.pi/agent/local-packages/ai-configs/pi-vcc/src/hooks/before-compact.ts</code> sends a post-compaction continuation only when its details mark <code>interruptedInFlightTurn</code>.</li>
+      <li><code>pi-codex-goal</code> source: <code>goal-runtime-turn-handlers.ts</code> and <code>goal-runtime-agent-handlers.ts</code> call <code>pauseForAbort</code> for aborted assistant turns unless <code>proactiveCompactionPending</code> is set.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <table>
+      <thead><tr><th>Surface</th><th>Current behavior</th><th>Required delta</th></tr></thead>
+      <tbody>
+        <tr><td>Fork</td><td><code>adnichols/pi-codex-goal</code> exists and matches upstream main.</td><td>Clone or worktree the fork, fail closed if fork <code>main</code> has unexpected drift from upstream before patching, implement tests/code on a branch, then fast-forward fork <code>main</code> to the tested patch before ai-configs rollout.</td></tr>
+        <tr><td>Goal runtime</td><td>Only <code>proactiveCompactionPending</code> suppresses abort-pause during compaction.</td><td>Add a generic compaction-in-flight guard for externally initiated compaction and clear it on <code>session_compact</code>/<code>session_shutdown</code>.</td></tr>
+        <tr><td>Continuation after compaction</td><td><code>onSessionCompact</code> can queue continuation if the goal remains active; pi-vcc may also send a generic continuation.</td><td>Preserve active goal state and ensure continuation behavior is deterministic, bounded, and not duplicated for the same goal.</td></tr>
+        <tr><td>ai-configs installer</td><td><code>install_pi_npm_packages</code> installs <code>npm:pi-codex-goal</code>.</td><td>Move <code>pi-codex-goal</code> out of npm packages and install <code>git:github.com/adnichols/pi-codex-goal</code> through a managed git package path.</td></tr>
+        <tr><td>ai-configs verifier</td><td><code>EXPECTED_NPM_PACKAGES</code> includes <code>npm:pi-codex-goal</code>.</td><td>Expect <code>git:github.com/adnichols/pi-codex-goal</code> and fail when only the upstream npm package is present.</td></tr>
+        <tr><td>Docs/tests</td><td>Docs and fake installer tests mention the npm source.</td><td>Update docs and tests to describe and assert the forked git source.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul>
+      <li><input type="checkbox" checked /> P1: Prepare and baseline the fork</li>
+      <li><input type="checkbox" checked /> P2: Patch pi-codex-goal compaction handling</li>
+      <li><input type="checkbox" checked /> P3: Switch ai-configs installs to the fork</li>
+      <li><input type="checkbox" checked /> P4: Roll out and verify on active hosts</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions</h2>
+    <p>Read this document fully, then execute the first unchecked Progress item. Work in the fork for P1/P2 and in <code>/home/anichols/code/ai-configs</code> for P3/P4 unless the user explicitly asks for another worktree. After each phase is complete, update only the matching checkbox in this plan and append any discovered deviation to the Decisions / Deviations log. Do not mark P4 complete without real <code>pi list</code> evidence or a documented host-access blocker.</p>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <p>This is an agent workflow reliability change. The golden path is an agent working under an active <code>/goal</code> through normal pi-vcc compaction. Compaction is a routine recoverable event; it should self-heal inside the normal goal loop, not require a human to notice a footer state and type <code>/goal resume</code>.</p>
+    <p>Safe default: compaction-triggered aborts are not user aborts. Fail closed only when the abort is not associated with a known compaction lifecycle event, when the user presses Escape, or when provider recovery reaches a bounded failure condition.</p>
+    <p>UI impact: <strong>text-only/operator-facing</strong>. Runtime status changes from misleading <code>Goal paused</code> to truthful active pursuit after compaction. ai-configs docs and verification output change from npm package source to GitHub fork source.</p>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ul>
+      <li><strong>Install source:</strong> <code>git:github.com/adnichols/pi-codex-goal</code>, resolving to fork <code>main</code>.</li>
+      <li><strong>Patched ref requirement:</strong> fork <code>main</code> must contain the tested compaction persistence patch before P3 installs or P4 rollout begin.</li>
+      <li><strong>No npm publication in this plan.</strong> GitHub fork install is sufficient for managed local rollout.</li>
+      <li><strong>No duplicate package registrations.</strong> The installer must remove or replace <code>npm:pi-codex-goal</code>.</li>
+      <li><strong>Patch the goal plugin first.</strong> Do not hide the problem by adding a pi-vcc-only workaround that sends <code>/goal resume</code>.</li>
+      <li><strong>Preserve real abort semantics.</strong> User Escape/manual abort still pauses the active goal.</li>
+    </ul>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <ol>
+      <li id="ac-fork">The <code>adnichols/pi-codex-goal</code> fork <code>main</code> branch contains the tested patch proving externally initiated compaction does not pause an active goal, and <code>git ls-remote</code> confirms the installed ref resolves to that commit.</li>
+      <li id="ac-goal-state">When <code>session_before_compact</code>/<code>session_compact</code> occurs during an active in-flight goal turn, the goal remains <code>active</code> after compaction.</li>
+      <li id="ac-real-abort">When an assistant turn is aborted without a compaction lifecycle event, the goal still transitions to <code>paused</code>.</li>
+      <li id="ac-continuation">After pi-vcc interrupted in-flight compaction, <code>pi-codex-goal</code> preserves active goal state but does not queue its own duplicate continuation; after non-pi-vcc compaction, existing <code>pi-codex-goal</code> continuation behavior remains bounded to one queued continuation.</li>
+      <li id="ac-install">ai-configs <code>./install.sh --pi</code> installs <code>git:github.com/adnichols/pi-codex-goal</code> and removes/replaces <code>npm:pi-codex-goal</code>.</li>
+      <li id="ac-verify">ai-configs verification expects the fork source and reports the upstream npm package as stale or missing when appropriate.</li>
+      <li id="ac-docs">ai-configs docs describe the forked install source and why it is pinned.</li>
+      <li id="ac-hosts">At least the current Dever environment is updated and verified with <code>pi list</code>; MBP is updated too or blocked with exact access/manual remediation details.</li>
+    </ol>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Scenario</th><th>Expected behavior</th></tr></thead>
+      <tbody>
+        <tr><td>BDD-1</td><td>Given an active goal and a tool-use assistant turn, when an external compactor triggers <code>session_before_compact</code> and the in-flight turn ends aborted, then <code>pi-codex-goal</code> suppresses abort-pause.</td><td>The next persisted goal state remains <code>active</code>.</td></tr>
+        <tr><td>BDD-2</td><td>Given an active goal and no compaction lifecycle marker, when the assistant turn is aborted, then the plugin treats it as user/provider abort.</td><td>The goal transitions to <code>paused</code> and stale continuation state clears.</td></tr>
+        <tr><td>BDD-3</td><td>Given an active goal after pi-vcc interrupted in-flight compaction, when <code>session_compact</code> fires without <code>willRetry</code>, then pi-vcc owns the continuation trigger and <code>pi-codex-goal</code> suppresses its own post-compact continuation.</td><td>The goal remains active, no <code>pi-codex-goal</code> continuation is queued for that pi-vcc event, and non-pi-vcc compaction still queues at most one goal continuation.</td></tr>
+        <tr><td>BDD-4</td><td>Given ai-configs fake Pi settings containing <code>npm:pi-codex-goal</code>, when <code>./install.sh --pi</code> runs, then stale npm registration is removed and the fork source is installed.</td><td>Fake settings contain <code>git:github.com/adnichols/pi-codex-goal</code> and no <code>npm:pi-codex-goal</code>.</td></tr>
+        <tr><td>BDD-5</td><td>Given verification runs on a host with only <code>npm:pi-codex-goal</code>, when <code>scripts/verify-pi-install.sh</code> compares expected packages, then it flags drift.</td><td>The verifier reports the missing fork source and/or stale upstream npm source.</td></tr>
+        <tr><td>BDD-6</td><td>Given Dever after rollout, when <code>pi list</code> is inspected, then the fork source is visible.</td><td><code>git:github.com/adnichols/pi-codex-goal</code> appears and <code>npm:pi-codex-goal</code> does not.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>Test coverage matrix</h2>
+    <table class="matrix">
+      <thead><tr><th>Acceptance</th><th>BDD</th><th>Evidence / test layer</th></tr></thead>
+      <tbody>
+        <tr><td>AC-1</td><td>BDD-1 to BDD-3</td><td>Fork unit tests under <code>pi-codex-goal/test/*.test.ts</code> or existing equivalent runtime handler tests, plus <code>npm run verify</code>.</td></tr>
+        <tr><td>AC-2</td><td>BDD-1</td><td>Focused test exercising <code>session_before_compact</code>, aborted turn/agent end, and <code>session_compact</code>.</td></tr>
+        <tr><td>AC-3</td><td>BDD-2</td><td>Existing abort-pause tests must remain passing; add a regression if none covers non-compaction abort.</td></tr>
+        <tr><td>AC-4</td><td>BDD-3</td><td>Continuation scheduler assertions for both paths: zero <code>pi-codex-goal</code> continuations for pi-vcc-owned events, one bounded <code>pi-codex-goal</code> continuation for non-pi-vcc compaction.</td></tr>
+        <tr><td>AC-5</td><td>BDD-4</td><td><code>test_install_shared_skills.sh</code> fake Pi install assertions.</td></tr>
+        <tr><td>AC-6</td><td>BDD-5</td><td><code>scripts/verify-pi-install.sh</code> fake settings negative test.</td></tr>
+        <tr><td>AC-7</td><td>BDD-4 to BDD-6</td><td><code>_pi/README.md</code> review plus <code>bash -n</code> and shell test execution.</td></tr>
+        <tr><td>AC-8</td><td>BDD-6</td><td>Host <code>pi list</code> and verifier output captured in final report.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <article class="phase" id="phase-p1">
+    <h2>P1: Prepare and baseline the fork</h2>
+    <h3>End State</h3>
+    <p>The fork is locally available for implementation, upstream parity is confirmed, and baseline tests establish the current behavior before the patch.</p>
+    <h3>Tests first</h3>
+    <p>Clone the fork and run the existing validation before editing. If the full platform smoke is too expensive, at minimum run TypeScript and unit tests to establish a local green baseline.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Clone <code>https://github.com/adnichols/pi-codex-goal</code> into an implementation location such as <code>/home/anichols/code/3p/pi-codex-goal</code> or a Herdr-managed worktree.</li>
+      <li>Add upstream remote <code>https://github.com/fitchmultz/pi-codex-goal</code> if absent.</li>
+      <li>Confirm fork HEAD matches upstream main before patching with a failing equality check. If it does not match, stop and inspect the diff before implementation continues.</li>
+      <li>Create a branch such as <code>adn/pi-vcc-compaction-persistence</code>.</li>
+      <li>Run baseline checks.</li>
+    </ol>
+    <h3>Expected files</h3>
+    <ul>
+      <li>Fork checkout only; no ai-configs files in this phase.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>git clone https://github.com/adnichols/pi-codex-goal /home/anichols/code/3p/pi-codex-goal
+cd /home/anichols/code/3p/pi-codex-goal
+git remote add upstream https://github.com/fitchmultz/pi-codex-goal || true
+git fetch origin upstream
+test "$(git rev-parse origin/main)" = "$(git rev-parse upstream/main)"
+git switch -c adn/pi-vcc-compaction-persistence origin/main
+npm install
+npm run typecheck
+npm test</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p2">
+    <h2>P2: Patch pi-codex-goal compaction handling</h2>
+    <h3>End State</h3>
+    <p>The fork distinguishes compaction-caused aborts from real user/provider aborts. Active goals remain active through pi-vcc in-flight compaction and continue in a bounded, non-duplicative way.</p>
+    <h3>Tests first</h3>
+    <p>Add or extend runtime handler tests before code changes. The RED test should reproduce the observed bug: active goal + external compaction + aborted assistant turn currently persists <code>paused</code>.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Add a runtime state field such as <code>externalCompactionPending</code> or a generalized <code>compactionPending</code> with source/reason metadata, the current turn/agent sequence if available, and whether the compacting extension is pi-vcc.</li>
+      <li>Set the flag in <code>onSessionBeforeCompact</code> when the current goal is active. Prefer session lifecycle reality for pause suppression, but preserve <code>event.compactionEntry.details.compactor === "pi-vcc"</code> when present so continuation ownership can avoid pi-vcc duplicates.</li>
+      <li>In turn and agent handlers, suppress <code>pauseForAbort</code> only for the aborted assistant/agent event that matches the pending compaction sequence, mirroring the existing <code>proactiveCompactionPending</code> suppression without making the guard global.</li>
+      <li>Clear the flag on matching <code>session_compact</code>, <code>session_shutdown</code>, after the first matching abort suppression, and on the next non-matching assistant/agent completion. Add a stale-guard regression proving a later user Escape/manual abort still pauses if no matching compaction completes.</li>
+      <li>On <code>session_compact</code>, apply the fixed continuation rule: for pi-vcc interrupted in-flight compaction where pi-vcc will send its generic continuation, suppress <code>pi-codex-goal</code>'s own post-compact continuation; for non-pi-vcc compaction, keep existing bounded <code>pi-codex-goal</code> continuation scheduling.</li>
+      <li>Keep non-compaction abort behavior unchanged.</li>
+      <li>Update README/CHANGELOG in the fork with the compaction persistence fix and the pi-vcc continuation ownership boundary.</li>
+      <li>Push the branch to <code>adnichols/pi-codex-goal</code>, then merge or fast-forward fork <code>main</code> to the tested patch. P3 may not begin until <code>git ls-remote</code> confirms fork <code>main</code> resolves to the tested commit.</li>
+    </ol>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>src/goal-runtime-state.ts</code></li>
+      <li><code>src/goal-runtime-session-handlers.ts</code></li>
+      <li><code>src/goal-runtime-turn-handlers.ts</code></li>
+      <li><code>src/goal-runtime-agent-handlers.ts</code></li>
+      <li>Relevant test files under <code>test/</code></li>
+      <li><code>README.md</code> and/or <code>CHANGELOG.md</code></li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. If implementation shows pi-vcc's event details are unavailable to <code>pi-codex-goal</code> and the chosen ownership rule cannot be implemented in the fork, stop with that evidence before P3 instead of adding an unreviewed pi-vcc policy change.</p>
+    <h3>Verify</h3>
+    <pre><code>cd /home/anichols/code/3p/pi-codex-goal
+npm run typecheck
+npm test
+npm run verify
+patched_commit="$(git rev-parse HEAD)"
+git push origin HEAD:adn/pi-vcc-compaction-persistence
+git push origin HEAD:main
+test "$(git ls-remote https://github.com/adnichols/pi-codex-goal.git refs/heads/main | awk '{print $1}')" = "$patched_commit"</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p3">
+    <h2>P3: Switch ai-configs installs to the fork</h2>
+    <h3>End State</h3>
+    <p>ai-configs treats <code>git:github.com/adnichols/pi-codex-goal</code> as the managed goal package source after fork <code>main</code> has been verified to contain the tested patch. The old <code>npm:pi-codex-goal</code> source is removed as stale/deprecated during install and no longer appears in expected verification output.</p>
+    <h3>Tests first</h3>
+    <p>Update fake installer/verifier tests first so they fail against the current npm-source implementation. The negative verifier test should reject settings that still contain only <code>npm:pi-codex-goal</code>.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Before editing ai-configs install logic, verify <code>git ls-remote https://github.com/adnichols/pi-codex-goal.git refs/heads/main</code> returns the tested P2 patch commit.</li>
+      <li>In <code>install.sh</code>, remove <code>pi-codex-goal</code> from <code>npm_packages</code>.</li>
+      <li>Add <code>npm:pi-codex-goal</code> to deprecated/removal handling so duplicate upstream npm registrations are removed before the fork is installed.</li>
+      <li>Add an install function for <code>git:github.com/adnichols/pi-codex-goal</code> or generalize existing git-package installation enough to cover both <code>pi-gpt-config</code> and the fork.</li>
+      <li>Ensure reruns update the fork package when already registered and do not duplicate settings entries.</li>
+      <li>In <code>scripts/verify-pi-install.sh</code>, move expected goal package from npm expected list to git expected list.</li>
+      <li>Update <code>test_install_shared_skills.sh</code> assertions and fake settings fixtures for the fork source.</li>
+      <li>Update <code>_pi/README.md</code> package-managed docs to list the fork source and explain it is pinned for pi-vcc compaction persistence.</li>
+      <li>Update this plan checkbox for P3 only after tests pass.</li>
+    </ol>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>install.sh</code></li>
+      <li><code>scripts/verify-pi-install.sh</code></li>
+      <li><code>test_install_shared_skills.sh</code></li>
+      <li><code>_pi/README.md</code></li>
+      <li><code>thoughts/plans/pi-codex-goal-fork-compaction-persistence.html</code></li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>cd /home/anichols/code/ai-configs
+bash -n install.sh scripts/verify-pi-install.sh test_install_shared_skills.sh
+bash install.sh --help | grep -F 'adnichols/pi-codex-goal'
+bash test_install_shared_skills.sh
+rg -n 'npm:pi-codex-goal|git:github.com/adnichols/pi-codex-goal|pi-codex-goal' install.sh scripts/verify-pi-install.sh test_install_shared_skills.sh _pi/README.md</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p4">
+    <h2>P4: Roll out and verify on active hosts</h2>
+    <h3>End State</h3>
+    <p>The managed ai-configs install has been applied on the current host and MBP where accessible. <code>pi list</code> shows the fork source and not the upstream npm package. A smoke run confirms pi-vcc compaction no longer leaves an active goal paused.</p>
+    <h3>Tests first</h3>
+    <p>Before changing host settings, capture current <code>pi list</code> and <code>settings.json</code> package lines so rollback is possible.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>On Dever/current host, run the updated ai-configs installer with <code>--pi</code>.</li>
+      <li>Run <code>pi list</code> and verifier checks.</li>
+      <li>Run a minimal interactive or session-level smoke against the installed runtime that starts an active goal, triggers pi-vcc in-flight compaction, and checks that the goal remains active afterward. Full TUI automation is optional, but the evidence must still exercise installed <code>pi-codex-goal</code> through real pi-vcc compaction. If neither automated nor manual installed-runtime compaction evidence can be produced, record the exact blocker and do not mark P4 complete.</li>
+      <li>On MBP, pull the ai-configs changes and run the same installer/verifier. If MBP access/path is unavailable, record the exact failed command and manual remediation command.</li>
+      <li>Record final evidence in the plan Decisions / Deviations log and final response.</li>
+    </ol>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>thoughts/plans/pi-codex-goal-fork-compaction-persistence.html</code> for progress/evidence updates only.</li>
+      <li>No host-local settings committed.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>MBP access may require user-provided host/path if standard SSH aliases are unavailable.</p>
+    <h3>Verify</h3>
+    <pre><code>cd /home/anichols/code/ai-configs
+./install.sh --pi
+pi list | grep -F 'git:github.com/adnichols/pi-codex-goal'
+! pi list | grep -F 'npm:pi-codex-goal'
+bash scripts/verify-pi-install.sh</code></pre>
+  </article>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ol>
+      <li>Fork package unit/typecheck verification proves the runtime fix.</li>
+      <li>ai-configs shell tests prove install-source switch and stale npm removal.</li>
+      <li>Host <code>pi list</code> and verifier output prove real deployment.</li>
+      <li>Manual or automated compaction smoke proves the original bug is fixed in an installed runtime.</li>
+    </ol>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>Patch the fork and fast-forward fork <code>main</code> to the tested commit.</li>
+      <li>Verify fork <code>main</code> is the tested installed ref, then switch ai-configs install/verify/docs/tests to the fork.</li>
+      <li>Run ai-configs verification.</li>
+      <li>Apply local host rollout and smoke.</li>
+      <li>Apply MBP rollout or document blocker.</li>
+    </ol>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Do not switch to <code>pi-goal-x</code> or another richer goal plugin.</li>
+      <li>Do not publish an npm package for the fork unless separately requested.</li>
+      <li>Do not remove unrelated goal/task/status plugins unless they conflict with the installed fork.</li>
+      <li>Do not change pi-vcc compaction policy unless fork tests prove duplicate continuations cannot be solved in <code>pi-codex-goal</code> alone.</li>
+    </ul>
+  </section>
+
+  <section id="decisions-deviations">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li><strong>2026-07-08:</strong> Created fork at <code>https://github.com/adnichols/pi-codex-goal</code>. GitHub rejected <code>--org adnichols</code> because <code>adnichols</code> is a user account, so the fork lives under the user namespace.</li>
+      <li><strong>2026-07-08:</strong> Plan chooses <code>git:github.com/adnichols/pi-codex-goal</code> as the managed install source to keep local rollout tied to the maintained fork without npm publication.</li>
+      <li><strong>2026-07-08:</strong> Readiness review tightened the plan to require fork <code>main</code> as the exact installed patched ref, fail-closed upstream parity checks, bounded compaction guard lifetime, and explicit continuation ownership: pi-vcc owns the trigger for pi-vcc interrupted compactions while <code>pi-codex-goal</code> owns non-pi-vcc continuation.</li>
+      <li><strong>2026-07-08:</strong> P1/P2 complete. Cloned <code>adnichols/pi-codex-goal</code> to <code>/home/anichols/code/3p/pi-codex-goal</code>, confirmed <code>origin/main</code> equaled <code>upstream/main</code> at <code>3f35ae27341f27ddd946e9ce36e0a4eb2530cb95</code>, added the external compaction persistence patch, and fast-forwarded fork <code>main</code> to tested commit <code>fe5f306579025c86b6d30b51203bf2451d349896</code>. Verification: <code>npm run verify</code> passed with typecheck, 6 platform-smoke checks, and 335 tests.</li>
+      <li><strong>2026-07-08:</strong> P3 complete. ai-configs now removes stale <code>npm:pi-codex-goal</code>, installs <code>git:github.com/adnichols/pi-codex-goal</code>, verifies the fork source, and documents the fork pin. The shell test contract was updated for Codex/Pi review-surface routing while preserving Pi prompt parity where it is still shared. Verification: <code>bash -n install.sh scripts/verify-pi-install.sh test_install_shared_skills.sh</code>, <code>bash install.sh --help | grep -F 'adnichols/pi-codex-goal'</code>, <code>bash test_install_shared_skills.sh</code> (18/18 passed), <code>rg -n 'npm:pi-codex-goal|git:github.com/adnichols/pi-codex-goal|pi-codex-goal' install.sh scripts/verify-pi-install.sh test_install_shared_skills.sh _pi/README.md _codex/prompts/cmd:send-plan-to-doct.md</code>, and <code>git ls-remote https://github.com/adnichols/pi-codex-goal.git refs/heads/main</code> returned <code>fe5f306579025c86b6d30b51203bf2451d349896</code>.</li>
+      <li><strong>2026-07-08:</strong> P4 complete for the current Dever host and MBP readiness checked. Before rollout, current-host settings contained stale <code>npm:pi-codex-goal</code>; after <code>./install.sh --pi</code>, <code>pi list</code> showed <code>git:github.com/adnichols/pi-codex-goal</code> at <code>/home/anichols/.pi/agent/git/github.com/adnichols/pi-codex-goal</code> and no <code>npm:pi-codex-goal</code>. <code>bash scripts/verify-pi-install.sh</code> passed. Installed-runtime smoke using only installed <code>pi-codex-goal</code> plus installed <code>pi-vcc</code> completed successfully: session <code>/tmp/pi-goal-vcc-min-session/2026-07-08T16-03-21-607Z_019f4278-3387-7d8e-94b2-f2b5aa6441a9.jsonl</code> invoked <code>compact_context</code>, included <code>session_compact</code> evidence, recorded goal statuses as active through compaction with no paused state before final completion, and verified <code>/tmp/pi-goal-vcc-min-marker.txt</code> contained <code>PI_VCC_GOAL_OK</code>. MBP was reachable at <code>ssh mbp</code> and currently remains on <code>origin/main</code> with stale <code>npm:pi-codex-goal</code>; because this branch is not yet merged to <code>origin/main</code>, MBP rollout is deferred to the post-PR merge step with command <code>cd ~/code/ai-configs &amp;&amp; git pull --ff-only origin main &amp;&amp; ./install.sh --pi &amp;&amp; bash scripts/verify-pi-install.sh</code>.</li>
+      <li><strong>2026-07-08:</strong> Implementation review gates passed after removing raw Claude launcher artifacts that contained account metadata. Scoped quality review: <code>quality-reviewer</code> returned <code>VERDICT: PASS_SCOPED</code>. PM review: <code>thoughts/validation/pre-pr-reviews/pi-codex-goal-fork-compaction-persistence-pm-review.md</code> status <code>pass</code>. Pre-PR Codex rerun: <code>VERDICT: CLEAN_FOR_PR</code>. Pre-PR Claude Code Opus 4.7 xhigh: <code>VERDICT: CLEAN_FOR_PR</code>. Final verification rerun passed: syntax checks, help grep, <code>test_install_shared_skills.sh</code> 18/18, <code>scripts/verify-pi-install.sh</code>, and <code>git diff --check</code>.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
