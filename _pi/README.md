@@ -214,7 +214,7 @@ npm-managed packages:
 - `@tmustier/pi-files-widget`
 - `@tmustier/pi-raw-paste`
 
-`pi-codex-goal` installs Codex-style `/goal` and `/create-goal` persistent objectives for long-running Pi work. ai-configs installs Aaron's fork from `git:github.com/adnichols/pi-codex-goal` so Pi-VCC in-flight compaction preserves active goals without duplicate continuation triggers; stale `npm:pi-codex-goal` registrations are removed during `install.sh --pi`.
+`pi-codex-goal` installs Codex-style `/goal` and `/create-goal` persistent objectives for long-running Pi work. ai-configs installs Aaron's fork from `git:github.com/adnichols/pi-codex-goal` so Pi-VCC in-flight compaction preserves active goals without duplicate continuation triggers; stale `npm:pi-codex-goal` registrations are removed during `install.sh --pi`. The managed installer also sets `piCodexGoal.disableTokenBudgets: true` in Pi settings so model-created goals remain unbudgeted unless this policy is deliberately changed.
 
 local path packages:
 - `~/.pi/agent/local-packages/ai-configs/pi-vcc` (a stable mirror synced from `./_pi/packages/pi-vcc`; install tests and worktrees must not register their transient checkout path)
