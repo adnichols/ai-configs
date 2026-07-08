@@ -1,15 +1,15 @@
 ---
 name: pre-pr-implementation-review
-description: Run a bounded pre-PR implementation review with a Codex review leg and an applicable Claude Code Opus 4.7 xhigh review leg, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, inside run-plan, or whenever the user asks for Codex plus applicable Claude Code code review of a branch/diff; inside run-plan this gate hands back to PR creation rather than concluding the workflow.
+description: Run a bounded pre-PR implementation review with a Codex review leg and an applicable Claude Code Opus 4.7 xhigh review leg, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, inside run-plan, or whenever the user asks for Codex plus applicable Claude Code code review of a branch/diff; inside run-plan this gate hands back to PR creation rather than waiting for any Codex PR thumbs-up.
 ---
 
 # Pre-PR Implementation Review
 
 Use this skill to catch implementation issues that would otherwise appear during pull request review. It is a code-review-and-fix loop, not a plan review, not a general cleanup pass, and not the end of `run-plan`.
 
-The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings must be triaged, but they are not automatically PR-blocking: fix them only when they are plan-required, verification-required, regression-caused, or a small safe cleanup; otherwise document them as non-blocking follow-ups with evidence.
+The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. This is local review-agent consensus, not a requirement to wait for a Codex PR bot comment, PR-hosted thumbs-up, `reviewDecision: APPROVED`, or any other external approval. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings must be triaged, but they are not automatically PR-blocking: fix them only when they are plan-required, verification-required, regression-caused, or a small safe cleanup; otherwise document them as non-blocking follow-ups with evidence.
 
-When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review; base freshness may still be pending until final verification and the scoped commit make a safe rebase possible. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement to the `run-plan` caller so it can rerun final verification if needed, complete base freshness safely, commit, push, open the PR, and continue post-PR monitoring.
+When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review; base freshness may still be pending until final verification and the scoped commit make a safe rebase possible. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement to the `run-plan` caller so it can rerun final verification if needed, complete base freshness safely, commit, push, open the PR, inspect the current PR snapshot for actionable feedback/mergeability, and complete once local merge-readiness consensus is proven. Do not tell the caller to wait for a Codex thumbs-up or human approval after local review-agent consensus is clean.
 
 ## Inputs
 
@@ -222,7 +222,7 @@ After applying any in-scope fix:
 3. Rerun Codex and any applicable Claude Code reviewer against only the changed files and prior blocking findings, not as a fresh whole-diff hunt for unrelated new issues.
 4. Repeat until all applicable reviewers return `CLEAN_FOR_PR` by substance with no unresolved blocking in-scope P1/P2 findings, or until Codex is clean and Claude Code is truthfully skipped under the low-risk policy.
 
-Do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. Do not open or proceed to a PR while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and post-PR monitoring.
+Do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. Do not open or proceed to a PR while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and local merge-readiness checking. The pre-PR gate must not require a later Codex PR thumbs-up after its own Codex review leg is clean.
 
 Hard stop the review loop when any of these is true:
 
@@ -255,7 +255,7 @@ Include:
 - verification commands and results after fixes,
 - remaining out-of-scope follow-ups with evidence and tracking destination,
 - any `REVIEW_INCOMPLETE_RERUN_NEEDED` handoff, the single allowed rerun slice, and whether the gate stopped for review budget,
-- final gate result and whether it is `OPEN_PR_READY` for a caller such as `run-plan`.
+- final gate result and whether it is `OPEN_PR_READY` for a caller such as `run-plan`, explicitly noting that no Codex PR thumbs-up is required beyond the clean local Codex review artifact.
 
 If the repo has a different validation-artifact convention, use that convention and keep the same information.
 
@@ -271,4 +271,4 @@ The final summary must include:
 - verification rerun after the last fix,
 - artifact path,
 - any remaining non-blocking out-of-scope follow-ups with evidence and tracking destination,
-- `Next step: OPEN_PR_READY` when invoked from `run-plan`, so the caller continues to final verification, commit, push, PR creation, and post-PR monitoring instead of concluding.
+- `Next step: OPEN_PR_READY` when invoked from `run-plan`, so the caller continues to final verification, commit, push, PR creation, and local merge-readiness checking instead of concluding or waiting for a Codex thumbs-up.

@@ -12,4 +12,4 @@ Invoke the installed `run-plan` skill with exactly this argument:
 $ARGUMENTS
 ```
 
-This wrapper is only the ergonomic `/run-plan` entry point. Do not run a shortened workflow here. Follow the `run-plan` skill so scoped implementation, verification, durable Pi goal tracking, GPT/GLM pre-PR review, PR creation, and post-PR monitoring all stay in the single source of truth.
+This wrapper is only the ergonomic `/run-plan` entry point. Do not run a shortened workflow here. Follow the `run-plan` skill so scoped implementation, verification, durable Pi goal tracking, GPT/GLM pre-PR review, PR creation, current PR feedback snapshot, and local merge-readiness consensus all stay in the single source of truth. Do not wait for a Codex thumbs-up or external approval once local review-agent consensus is clean.

@@ -278,7 +278,7 @@ Use the plan-k2.5 subagent to create a plan with slug `plan_slug` and ensure the
 /run-plan ${plan_slug}
 ```
 
-`/run-plan` owns implementation, validation, final review, commit, push, PR creation, and post-PR monitoring. Do not run `/dev:validate`, `/review`, `/cmd:commit-push`, or `/cmd:create-pr` after it; if it exits with a blocker, stop and report the blocker instead of linking a PR. The PR it creates must start with `${ISSUE_KEY}:` and include the Linear issue title.
+`/run-plan` owns implementation, validation, final review, commit, push, PR creation, current PR feedback snapshot, and local merge-readiness consensus. Do not run `/dev:validate`, `/review`, `/cmd:commit-push`, or `/cmd:create-pr` after it; if it exits with a blocker, stop and report the blocker instead of linking a PR. The PR it creates must start with `${ISSUE_KEY}:` and include the Linear issue title.
 
 ### 6) Link Existing PR to Linear
 

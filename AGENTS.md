@@ -196,7 +196,7 @@ Pi now supports both:
 ```bash
 # Full reviewed-plan implementation through ready PR:
 # implementation, PM review, applicable pre-PR review, base freshness,
-# PR creation, mergeability monitoring, and safe auto-rebase
+# PR creation, local merge-readiness consensus, and safe auto-rebase
 /run-plan <thoughts/plans/<plan>.html | plan-slug>
 /skill:run-plan <thoughts/plans/<plan>.html | plan-slug>
 
@@ -232,7 +232,7 @@ unless it already satisfies that format.
 
 Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
-- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan: implementation, implementation-stage PM review, applicable GPT/GLM or Codex/Claude pre-PR review, base freshness, PR creation, mergeability monitoring, and safe automatic rebase when the target branch moves.
+- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan: implementation, implementation-stage PM review, applicable GPT/GLM or Codex/Claude pre-PR review, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus without waiting for a Codex thumbs-up or external approval.
 - `/skill:adn-dev-wf <task | plan>` remains available for the broader reviewed-plan workflow that owns plan refresh, blocker-only review, review integration, direct execution, and bounded implementation-stage PM follow-up.
 - `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM and GPT/GLM Pi subagent plan review; it must register through `doct-agent plans register`, follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
 - `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown plan publishing guidance, listener startup, readiness metadata, canonical URL rules, and comment mechanics; other planning skills should reference it instead of duplicating command recipes.
@@ -307,8 +307,8 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:omp-review-partner` — Use OMP with OpenCode Zen Kimi models for read-only plan and implementation reviews
 - `/skill:review-change` — Review code changes against plan
 - `/skill:review-change-integrate` — Integrate code-review feedback
-- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus applicable GLM-5.2 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed, preserving truthful GLM skips for low-risk scopes; inside `run-plan` it hands back to mandatory PR creation instead of concluding.
-- `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, mergeability monitoring, safe auto-rebase, and post-PR monitoring.
+- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus applicable GLM-5.2 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed, preserving truthful GLM skips for low-risk scopes; inside `run-plan` it hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
+- `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
 
 ### Configuration
 
