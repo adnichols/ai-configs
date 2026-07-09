@@ -2046,6 +2046,27 @@ target_providers = updated_data.setdefault("providers", {})
 # longer present in _pi/models.json. The normal merge path intentionally
 # preserves local provider fields/API keys, so removals need explicit pruning.
 def prune_retired_managed_models():
+    openai_codex_source = source_providers.get("openai-codex")
+    openai_codex_provider = target_providers.get("openai-codex")
+    if isinstance(openai_codex_source, dict) and isinstance(openai_codex_provider, dict):
+        source_models = openai_codex_source.get("models")
+        target_models = openai_codex_provider.get("models")
+        if isinstance(source_models, list) and isinstance(target_models, list):
+            source_ids = {
+                model.get("id")
+                for model in source_models
+                if isinstance(model, dict) and isinstance(model.get("id"), str)
+            }
+            openai_codex_provider["models"] = [
+                model for model in target_models
+                if not (
+                    isinstance(model, dict)
+                    and model.get("id") not in source_ids
+                    and isinstance(model.get("name"), str)
+                    and model["name"].endswith("(CLI Proxy API)")
+                )
+            ]
+
     ollama_provider = target_providers.get("ollama")
     if isinstance(ollama_provider, dict):
         models = ollama_provider.get("models")
