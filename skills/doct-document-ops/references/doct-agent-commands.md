@@ -227,7 +227,7 @@ doct-agent plans comments add \
   --json
 ```
 
-Run the durable listener with the harness background-process tool. It stays quiet while the queue is empty, retries transient request failures with backoff, and emits one JSONL `plan_comment_dispatch` event when a routed browser action or `--submit-action agent` comment is claimed. Process that claim with the returned reply/ack/resolve/release commands and keep the listener running.
+Run the durable listener with the harness background-process tool and configure that harness to activate the supervising agent for every JSONL `plan_comment_dispatch`. In Pi, start it through `process` with `alertOnFailure: true`, `alertOnKill: true`, and `logWatches: [{"pattern":"\\\"type\\\":\\\"plan_comment_dispatch\\\"","stream":"stdout","repeat":true}]`. A running listener without this repeating watch can claim work and print it without waking Pi, while a listener without failure/kill alerts can disappear without creating a recovery turn, so process health alone is not a complete handoff. The listener stays quiet while the queue is empty, retries transient request failures with backoff, and emits a dispatch when routed work is claimed. Process that claim with the returned reply/ack/resolve/release commands and keep the watched listener running.
 
 Ordinary conversation comments are not routed work: they return `queueState: "none"` and do not wake the listener. Use them only for visible discussion, not for listener wake tests.
 
