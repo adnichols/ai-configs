@@ -128,7 +128,7 @@ Both adversarial prompts must explicitly challenge the plan for:
 
 ## Phase 2: GPT Synthesis
 
-After both interactive reviewers complete, run the GPT synthesis reviewer.
+After both interactive reviewers complete, run the GPT synthesis reviewer on GPT-5.6 Sol high reasoning.
 
 ```javascript
 Agent({
@@ -162,8 +162,8 @@ After review and integration, provide:
 
 ### Reviewers:
 - ✅ Claude Code
-- ✅ GPT (gpt-5.5)
-- ✅ GPT Synthesis
+- ✅ GPT (gpt-5.6-sol, high reasoning)
+- ✅ GPT Synthesis (gpt-5.6-sol, high reasoning)
 
 ### Highest-risk issues:
 [List the most important issues found]

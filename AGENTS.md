@@ -9,8 +9,8 @@ Located under `_pi/agents/` and invoked via Pi subagent system:
 - `orchestrator-glm` (opencode/glm-5.2 high; `_pi/agents/orchestrator-glm.md`) — Planning/orchestration route for decomposition, routing, long debug-loop supervision, failure triage, and review synthesis; delegates broad discovery to Explore and code-writing to developer-mid.
 - `ui-design-glm` (opencode/glm-5.2 high; `_pi/agents/ui-design-glm.md`) — UI design specialist for visual direction, UX tradeoff analysis, accessibility-aware critique, and UI implementation review.
 - `Explore` (gpt-5.4-mini; `_pi/agents/explore.md`) — Low-cost read-only codebase exploration before escalating to reviewer agents.
-- `developer-mid` (gpt-5.5; `_pi/agents/developer-mid.md`) — Default GPT-5.5 medium implementation agent for standard scoped code-writing packets.
-- `developer-high` (gpt-5.5; `_pi/agents/developer-high.md`) — High-capability implementation agent for complex scenarios (multi-file refactoring, algorithmic challenges, concurrent systems, complex domain logic).
+- `developer-mid` (gpt-5.6-sol; `_pi/agents/developer-mid.md`) — Default GPT-5.6 Sol medium implementation agent for standard scoped code-writing packets.
+- `developer-high` (gpt-5.6-sol; `_pi/agents/developer-high.md`) — High-capability implementation agent for complex scenarios (multi-file refactoring, algorithmic challenges, concurrent systems, complex domain logic).
 - `developer-glm` (opencode/glm-5.2; `_pi/agents/developer-glm.md`) — GLM implementation agent for specification-driven coding work.
 - `developer-mm` (MiniMax; `_pi/agents/developer-mm.md`) — Alternative implementation agent using MiniMax model.
 
@@ -38,7 +38,7 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 **Rationale:** MCP tool wrapping introduces unnecessary latency and may produce inconsistent results. Native Codex tools are optimized for the local filesystem and provide superior performance.
 
 ## Review & Fidelity Safeguards
-- `quality-reviewer` (gpt-5.5; `_pi/agents/quality-reviewer.md`) — Pi production-safety review for real issues (security, data loss, regressions, performance).
+- `quality-reviewer` (gpt-5.6-sol; `_pi/agents/quality-reviewer.md`) — Pi production-safety review for real issues (security, data loss, regressions, performance).
 - `quality-reviewer-glm` (opencode/glm-5.2; `_pi/agents/quality-reviewer-glm.md`) — Legacy xhigh compatibility alias for independent Pi GLM review gates that have not migrated to split GLM profiles.
 - `glm5.2-high` (opencode/glm-5.2 high reasoning; `_pi/agents/glm5.2-high.md`) — GLM reviewer profile for normal high-risk bounded review.
 - `glm5.2-xhigh` (opencode/glm-5.2 xhigh reasoning; `_pi/agents/glm5.2-xhigh.md`) — GLM reviewer profile reserved for final or exceptional-risk review.
@@ -60,7 +60,7 @@ These agents are typically invoked by other agents or for specific tool-use task
 - `codebase-locator` (`_claude/agents/codebase-locator.md`) — Finds where things are in the codebase.
 - `codebase-pattern-finder` (`_claude/agents/codebase-pattern-finder.md`) — Identifies architectural patterns and conventions.
 - `explore` (temperature 0.1; `_opencode/agents/explore.md`) — Fast code exploration using Serena tools for search and analysis.
-- `multi-reviewer` (glm-4.7; `_opencode/agents/multi-reviewer.md`) — Reviews specifications and writes structured feedback to a file.
+- `multi-reviewer` (gpt-5.6-luna; `_opencode/agents/multi-reviewer.md`) — Reviews specifications and writes structured feedback to a file.
 - `playwright-runner` (`_opencode/agents/playwright-runner.md`) — Runs E2E tests in isolated PTY sessions with real-time failure streaming.
 - `thoughts-analyzer` (`_claude/agents/thoughts-analyzer.md`) — Synthesizes context from plans, specs, and research in `thoughts/`.
 - `thoughts-locator` (`_claude/agents/thoughts-locator.md`) — Finds relevant documentation within `thoughts/`.
@@ -309,7 +309,7 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:omp-review-partner` — Use OMP with OpenCode Zen Kimi models for read-only plan and implementation reviews
 - `/skill:review-change` — Review code changes against plan
 - `/skill:review-change-integrate` — Integrate code-review feedback
-- `/skill:pre-pr-implementation-review` — Run GPT-5.5 plus applicable GLM-5.2 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed, preserving truthful GLM skips for low-risk scopes; inside `run-plan` it hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
+- `/skill:pre-pr-implementation-review` — Run GPT-5.6 Sol plus applicable GLM-5.2 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed, preserving truthful GLM skips for low-risk scopes; inside `run-plan` it hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
 - `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
 
 ### Configuration

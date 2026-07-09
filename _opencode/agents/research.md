@@ -2,9 +2,9 @@
 name: research
 description: Read-only research + project thinking partner (ChatGPT-style); may delegate research; never edits files
 mode: all
-model: openai/gpt-5.5
+model: openai/gpt-5.6-sol
 color: "#00FF00"
-reasoningEffort: high
+reasoningEffort: medium
 permission:
   external_directory:
     "~/code/*": allow

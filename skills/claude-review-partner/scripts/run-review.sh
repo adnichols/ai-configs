@@ -107,7 +107,7 @@ trap cleanup EXIT
 
 printf '%s' "$PROMPT_CONTENT" |
   env CODEX_REVIEW_PARTNER_ACTIVE=1 codex exec \
-    -m gpt-5.5 \
+    -m gpt-5.6-sol \
     -c 'model_reasoning_effort="high"' \
     -s read-only \
     -C "$WORK_DIR" \

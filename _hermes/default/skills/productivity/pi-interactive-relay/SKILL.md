@@ -29,7 +29,7 @@ Or activated by user request like:
 - Check: `~/code/<REPO_NAME>/` must exist
 
 **Model:**
-- Default: Use pi's default or `gpt-5.4` if specified
+- Default: Use pi's default or `gpt-5.6-sol` if specified
 - Override: `--model <MODEL>`
 
 ### 2. Launch Pi as Background Process
@@ -90,7 +90,7 @@ Responses come automatically via `check_interval`. No manual polling needed - He
 - Try launching pi with `pi --no-repl` or similar non-interactive flag
 - Use `unbuffer` or `stdbuf -oL` to force line buffering:
   ```bash
-  stdbuf -oL pi --model gpt-5.4 --thinking-level high
+  stdbuf -oL pi --model gpt-5.6-sol --thinking-level high
   ```
 
 ### 2. Wrong Configuration

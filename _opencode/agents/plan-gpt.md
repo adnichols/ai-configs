@@ -1,9 +1,9 @@
 ---
-name: plan-gpt5.5
-description: Planning agent using GPT 5.4
+name: plan-gpt
+description: Planning agent using GPT-5.6 Sol
 mode: subagent
-model: openai/gpt-5.5
-reasoningEffort: high
+model: openai/gpt-5.6-sol
+reasoningEffort: medium
 permission:
   question: allow
   webfetch: allow

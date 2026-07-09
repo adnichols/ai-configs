@@ -1530,6 +1530,9 @@ install_omp() {
     local omp_agents_dir="$omp_agent_dir/agents"
     local omp_extensions_dir="$omp_agent_dir/extensions"
     local omp_source_dir="$REPO_ROOT/_omp"
+    local omp_models_source="$omp_source_dir/models.yml"
+    local omp_models_target="$omp_agent_dir/models.yml"
+    local omp_config_path="$omp_agent_dir/config.yml"
 
     # This is a home-directory install only. Do not write into the repo.
     # Do not write OMP artifacts into the repository itself.
@@ -1588,6 +1591,103 @@ install_omp() {
     fi
 
     install_omp_system_file "$omp_agent_dir"
+
+    if [ -f "$omp_models_source" ]; then
+        OMP_MODELS_SOURCE="$omp_models_source" OMP_MODELS_TARGET="$omp_models_target" bun - <<'TS'
+import { chmod, mkdir, open, rename, stat } from "node:fs/promises";
+import { dirname } from "node:path";
+import { YAML } from "bun";
+
+const sourcePath = process.env.OMP_MODELS_SOURCE!;
+const targetPath = process.env.OMP_MODELS_TARGET!;
+const source = YAML.parse(await Bun.file(sourcePath).text()) ?? {};
+const targetFile = Bun.file(targetPath);
+const target = (await targetFile.exists()) ? (YAML.parse(await targetFile.text()) ?? {}) : {};
+if (!source || typeof source !== "object" || Array.isArray(source) || !target || typeof target !== "object" || Array.isArray(target)) {
+  throw new Error("OMP models.yml must contain a YAML object");
+}
+
+const sourceProviders = (source as any).providers ?? {};
+const targetProviders = (target as any).providers ?? {};
+if (Array.isArray(sourceProviders) || typeof sourceProviders !== "object" || Array.isArray(targetProviders) || typeof targetProviders !== "object") {
+  throw new Error("OMP models.yml providers must be a YAML object");
+}
+
+const merged: any = { ...target, providers: { ...targetProviders } };
+for (const [providerName, managedProviderValue] of Object.entries(sourceProviders)) {
+  if (!managedProviderValue || typeof managedProviderValue !== "object" || Array.isArray(managedProviderValue)) {
+    throw new Error(`OMP managed provider ${providerName} must be a YAML object`);
+  }
+  const managedProvider: any = managedProviderValue;
+  const localValue = merged.providers[providerName];
+  const localProvider: any = localValue && typeof localValue === "object" && !Array.isArray(localValue) ? localValue : {};
+  const { models: managedModels = [], ...managedFields } = managedProvider;
+  const localModels = localProvider.models ?? [];
+  if (!Array.isArray(localModels) || !Array.isArray(managedModels)) {
+    throw new Error(`OMP provider ${providerName} models must be a YAML list`);
+  }
+  const managedIds = new Set(managedModels.filter((model: any) => model && typeof model === "object").map((model: any) => model.id));
+  merged.providers[providerName] = {
+    ...localProvider,
+    ...managedFields,
+    models: localModels.filter((model: any) => !(model && typeof model === "object" && managedIds.has(model.id))).concat(managedModels),
+  };
+}
+
+await mkdir(dirname(targetPath), { recursive: true });
+const tmpPath = `${targetPath}.ai-configs.tmp.${process.pid}`;
+let mode = 0o600;
+try { mode = (await stat(targetPath)).mode & 0o777; } catch {}
+const handle = await open(tmpPath, "w", mode);
+try {
+  await chmod(tmpPath, mode);
+  await handle.writeFile(YAML.stringify(merged, null, 2));
+  await handle.sync();
+} finally {
+  await handle.close();
+}
+await rename(tmpPath, targetPath);
+TS
+        echo "  - Merged GPT-5.6 model catalog"
+    fi
+
+    if [ -f "$omp_config_path" ]; then
+        OMP_CONFIG_PATH="$omp_config_path" python3 <<'PY'
+import os
+import re
+from pathlib import Path
+
+path = Path(os.environ["OMP_CONFIG_PATH"])
+text = path.read_text()
+replacements = {
+    "slow": ("openai-codex/gpt-5.5:xhigh", "openai-codex/gpt-5.6-sol:high"),
+    "plan": ("openai-codex/gpt-5.5:high", "openai-codex/gpt-5.6-sol:medium"),
+    "vision": ("openai-codex/gpt-5.5:medium", "openai-codex/gpt-5.6-sol:medium"),
+}
+changed = False
+for role, (old_model, new_model) in replacements.items():
+    pattern = rf"(?m)^(\s{{2}}{re.escape(role)}:\s*){re.escape(old_model)}\s*$"
+    replacement = rf"\g<1>{new_model}"
+    updated, count = re.subn(pattern, replacement, text, count=1)
+    if count:
+        text = updated
+        changed = True
+if changed:
+    tmp_path = path.with_name(f"{path.name}.ai-configs.tmp.{os.getpid()}")
+    mode = path.stat().st_mode & 0o777
+    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+    os.chmod(tmp_path, mode)
+    with os.fdopen(fd, "w") as file:
+        file.write(text)
+        file.flush()
+        os.fsync(file.fileno())
+    tmp_path.replace(path)
+    print("updated")
+else:
+    print("unchanged")
+PY
+        echo "  - Migrated legacy OMP GPT-5.5 roles when present; preserved custom role choices"
+    fi
 
     if [ "$is_update" = true ]; then
         echo -e "${GREEN}✓ Oh My Pi update complete${NC}"
@@ -1851,7 +1951,7 @@ settings_path = Path(os.environ["PI_SETTINGS_PATH"])
 web_search_path = Path(os.environ["PI_WEB_SEARCH_PATH"])
 
 DEFAULT_PROVIDER = "openai-codex"
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "gpt-5.6-sol"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
 SPARK_MODEL = "gpt-5.3-codex-spark"

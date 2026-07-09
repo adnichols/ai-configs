@@ -1,14 +1,15 @@
 ---
-description: Iterative code review loop (GPT-5.5) — run /review, apply quick fixes, stop when no straightforward fixes remain
+description: Iterative code review loop (GPT-5.6 Sol) — run /review, apply quick fixes, stop when no straightforward fixes remain
 argument-hint: "[BASE_REF]"
 agent: build
 subtask: true
-model: openai/gpt-5.5
+model: openai/gpt-5.6-sol
+reasoningEffort: medium
 ---
 
 # Review Loop (Auto-Fix)
 
-Run OpenCode's `/review` command in a loop. Apply quick / straightforward fixes surfaced by the review, then re-run. Stop when there are no more quick fixes to apply (or after 3 iterations) and report remaining issues.
+Run OpenCode's `/review` command in a loop on GPT-5.6 Sol medium reasoning. Apply quick / straightforward fixes surfaced by the review, then re-run. Stop when there are no more quick fixes to apply (or after 3 iterations) and report remaining issues.
 
 ## Inputs
 

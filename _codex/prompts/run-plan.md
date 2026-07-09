@@ -1,7 +1,8 @@
 ---
 description: Execute an explicit plan through the full run-plan lifecycle
 argument-hint: '<plan slug | existing-plan-path>'
-model: openai/gpt-5.5
+model: openai/gpt-5.6-sol
+model_reasoning_effort: medium
 ---
 
 # Run Plan

@@ -2,7 +2,7 @@
 name: reviewer-prd-security-privacy-reliability
 description: PRD security reviewer - checks safe failure behavior, privacy, and reliability
 mode: subagent
-model: openai-codex/gpt-5.5
+model: openai-codex/gpt-5.6-sol
 provider: openai-codex
 reasoningEffort: high
 tools: read, grep, find, ls, bash, write, subagent

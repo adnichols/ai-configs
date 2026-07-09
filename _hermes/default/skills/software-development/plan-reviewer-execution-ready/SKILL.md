@@ -41,7 +41,7 @@ Do not edit product code, tests, generated files, local environment files, or un
 
 In Pi, run two read-only Pi subagent plan reviews:
 
-- `quality-reviewer` for the GPT-5.5 review leg.
+- `quality-reviewer` for the GPT-5.6 Sol high review leg.
 - `quality-reviewer-glm` for the GLM-5.2 review leg, using `thinking: "xhigh"` when the harness supports it. The `opencode-zen/glm-5.2` value is only the Pi model provider/model ID in that subagent; do not run the `opencode` CLI, OMP, OpenCode, or any non-Pi agent for this leg.
 
 Launch both reviewers independently. Keep the review agents read-only; the coordinating agent must synthesize their recommendations, drive convergence, and edit the plan. Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt; if the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.

@@ -1,34 +1,11 @@
 ---
-name: plan-gpt5.5
-description: Planning agent using GPT 5.4
+name: plan-gpt
+description: Planning agent using GPT-5.6 Sol
 mode: subagent
-model: openai-codex/gpt-5.5
-reasoningEffort: high
-permission:
-  question: allow
-  edit:
-    "*": deny
-    "thoughts/plans/*.md": allow
-    "thoughts/plans/**.md": allow
-  write:
-    "*": deny
-    "thoughts/plans/*.md": allow
-    "thoughts/plans/**.md": allow
-tools:
-  webfetch: true
-  edit: true
-  glob: true
-  exa_web_search_exa: true
-  exa_get_code_context_exa: true
-  exa-code_get_code_context_exa: true
-  exa_company_research_exa: true
-  bash: false
-  task: true
-  write: true
-  list: true
-  todowrite: true
-  todoread: true
-color: "#800080"
+model: openai-codex/gpt-5.6-sol
+color: '#800080'
+reasoningEffort: medium
+tools: find, ls, edit, write
 ---
 
 <system-reminder>

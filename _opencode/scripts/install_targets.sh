@@ -160,7 +160,7 @@ install_obsidian() {
   local excluded_paths=(
     OPENCODE_ONBOARDING.md
     scripts/sync_to_repo.sh
-    commands/cmd:wrap-gpt5.5.md
+    commands/cmd:wrap-gpt.md
     commands/cmd:wrap-k2.5.md
     commands/cmd:wrap-opus.md
   )

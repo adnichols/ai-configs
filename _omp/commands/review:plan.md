@@ -13,7 +13,7 @@ Documents to review: $ARGUMENTS
 
 - Run three parallel reviews by delegating to the Task tool with three separate subagents.
 - Each subagent runs independently without seeing the others' work.
-- After all three complete, run a final synthesis review using GPT on high reasoning.
+- After all three complete, run a final synthesis review using GPT-5.6 Sol high reasoning.
 - Review against the plan's stated goal, non-goals, original requested scope, source requirements, and validated repo evidence.
 - Add comments only for blockers, materially risky gaps, or missing decisions required to execute that stated scope.
 - Suppress nice-to-haves, opportunistic cleanup, adjacent surfaces not required by the source scope, and extra explicitness that would not change execution readiness.
@@ -24,10 +24,10 @@ Documents to review: $ARGUMENTS
 Launch three independent reviews simultaneously:
 
 ### Subagent 1: GPT Review
-- **Agent:** `reviewer-plan-gpt5.5`
-- **Model:** `openai-codex/gpt-5.5`
-- **Reasoning:** High
-- **Task:** Perform blocker/materiality plan review per reviewer-plan-gpt5.5 instructions
+- **Agent:** `reviewer-plan-gpt`
+- **Model:** `openai-codex/gpt-5.6-sol`
+- **Reasoning:** Medium
+- **Task:** Perform blocker/materiality plan review per reviewer-plan-gpt instructions
 - **Output:** Plan file with `[REVIEW:GPT]` comments + summary
 
 ### Subagent 2: Kimi K2.5 Review
@@ -51,9 +51,9 @@ Launch three independent Task calls to run reviews in parallel:
 **Task 1: GPT Reviewer**
 ```
 Task(
-  subagent_type="reviewer-plan-gpt5.5",
+  subagent_type="reviewer-plan-gpt",
   description="Review plan with GPT",
-  prompt="Review the plan at $ARGUMENTS. Follow your reviewer-plan-gpt5.5 instructions exactly. Add [REVIEW:GPT] comments only for blockers, materially risky gaps, or missing decisions required to execute the stated goal within the validated source scope, then provide a readiness summary."
+  prompt="Review the plan at $ARGUMENTS. Follow your reviewer-plan-gpt instructions exactly. Add [REVIEW:GPT] comments only for blockers, materially risky gaps, or missing decisions required to execute the stated goal within the validated source scope, then provide a readiness summary."
 )
 ```
 
@@ -82,7 +82,7 @@ Use the Task tool to launch all three simultaneously. Wait for all three to comp
 After receiving all three review outputs:
 
 ### Final Reviewer: GPT Synthesis
-- **Model:** `openai-codex/gpt-5.5`
+- **Model:** `openai-codex/gpt-5.6-sol`
 - **Reasoning:** High
 - **Task:** 
   1. Read the original plan
@@ -103,9 +103,9 @@ Launch the synthesis review using:
 
 ```
 Task(
-  subagent_type="reviewer-plan-gpt5.5",
+  subagent_type="reviewer-plan-synthesis",
   description="Synthesize all plan reviews",
-  prompt="Read the plan at $ARGUMENTS which now contains review comments from GPT, Kimi K2.5, and Opus 4.8. Perform a synthesis review following the instructions above. Add [REVIEW:Synthesis] comments only where they clarify material blockers, materially risky disagreements, or missing decisions that affect readiness within the stated scope, then provide a final consolidated summary."
+  prompt="Read the plan at $ARGUMENTS which now contains review comments from GPT, Kimi K2.5, and Opus 4.8. Follow your reviewer-plan-synthesis instructions exactly. Add [REVIEW:Synthesis] comments only where they clarify material blockers, materially risky disagreements, or missing decisions that affect readiness within the stated scope, then provide a final consolidated summary."
 )
 ```
 ## Review Integration Output
@@ -120,10 +120,10 @@ After completing all reviews, provide:
 ## Multi-Model Review Complete
 
 ### Reviewers:
-- ✅ GPT (openai-codex/gpt-5.5, high reasoning)
+- ✅ GPT (openai-codex/gpt-5.6-sol, medium reasoning)
 - ✅ Kimi K2.5 (opencode-zen/hf:moonshotai/Kimi-K2.5, high reasoning)
 - ✅ Opus 4.8 (opencode-zen/claude-opus-4-8, extra high reasoning)
-- ✅ Synthesis (openai-codex/gpt-5.5, high reasoning)
+- ✅ Synthesis (openai-codex/gpt-5.6-sol, high reasoning)
 
 ### Consensus Blockers:
 [List blocker-level or materially risky issues multiple reviewers flagged]

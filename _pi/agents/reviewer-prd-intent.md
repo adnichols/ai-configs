@@ -2,9 +2,9 @@
 name: reviewer-prd-intent
 description: PRD intent alignment reviewer - checks product intent, invariants, and source-of-truth boundaries
 mode: subagent
-model: openai-codex/gpt-5.5
+model: openai-codex/gpt-5.6-sol
 provider: openai-codex
-reasoningEffort: high
+reasoningEffort: medium
 tools: read, grep, find, ls, bash, write, subagent
 extensions: /home/linuxbrew/.linuxbrew/lib/node_modules/@tintinweb/pi-subagents/index.ts
 ---

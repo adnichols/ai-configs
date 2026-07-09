@@ -29,8 +29,8 @@ Use this after the standard multi-model review when you want an explicit challen
 ## Phase 1: Parallel Adversarial Review (2 Subagents)
 
 ### Subagent 1: Adversarial GPT
-- **Agent:** `reviewer-plan-adversarial-gpt5.5`
-- **Model:** `openai-codex/gpt-5.5`
+- **Agent:** `reviewer-plan-adversarial-gpt`
+- **Model:** `openai-codex/gpt-5.6-sol`
 - **Reasoning:** High
 - **Output:** Plan file with `[REVIEW:Adversarial GPT]` comments + summary
 
@@ -45,9 +45,9 @@ Use this after the standard multi-model review when you want an explicit challen
 
 ```text
 Task(
-  subagent_type="reviewer-plan-adversarial-gpt5.5",
+  subagent_type="reviewer-plan-adversarial-gpt",
   description="Challenge plan with Adversarial GPT",
-  prompt="Review the plan at $ARGUMENTS. Follow your reviewer-plan-adversarial-gpt5.5 instructions exactly. Add [REVIEW:Adversarial GPT] comments to the plan file and provide a summary."
+  prompt="Review the plan at $ARGUMENTS. Follow your reviewer-plan-adversarial-gpt instructions exactly. Add [REVIEW:Adversarial GPT] comments to the plan file and provide a summary."
 )
 
 Task(
@@ -65,9 +65,9 @@ Run the synthesis reviewer after the adversarial reviewers complete.
 
 ```text
 Task(
-  subagent_type="reviewer-plan-gpt5.5",
+  subagent_type="reviewer-plan-synthesis",
   description="Synthesize adversarial plan reviews",
-  prompt="Read the plan at $ARGUMENTS and synthesize the existing review comments, including any adversarial review comments. Add [REVIEW:Synthesis] comments to the plan file and provide a final consolidated summary."
+  prompt="Read the plan at $ARGUMENTS and follow your reviewer-plan-synthesis instructions exactly, including the existing adversarial review comments. Add [REVIEW:Synthesis] comments to the plan file and provide a final consolidated summary."
 )
 ```
 

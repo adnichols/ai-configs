@@ -1,8 +1,8 @@
 ---
 name: reviewer-plan-synthesis
-description: GPT5.5 synthesis reviewer - consolidates plan review comments into final review guidance
+description: GPT synthesis reviewer - consolidates plan review comments into final review guidance
 mode: subagent
-model: openai-codex/gpt-5.5
+model: openai-codex/gpt-5.6-sol
 reasoningEffort: high
 tools: read, grep, find, ls, bash, edit, subagent
 extensions: /home/linuxbrew/.linuxbrew/lib/node_modules/@tintinweb/pi-subagents/index.ts
@@ -53,7 +53,7 @@ Read the full plan and identify the existing inline comments from any present re
 - `[REVIEW:Kimi K2.5]`
 - `[REVIEW:Opus 4.8]`
 - `[REVIEW:CLAUDE]`
-- `[REVIEW:Adversarial GPT5.5]`
+- `[REVIEW:Adversarial GPT]`
 - `[REVIEW:Adversarial Opus 4.8]`
 
 If one or more reviewer comment sets are missing, note that clearly in the summary and synthesize only what is present.

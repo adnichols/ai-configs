@@ -1,5 +1,5 @@
 model:
-  default: gpt-5.5
+  default: gpt-5.6-sol
   provider: openai-codex
   base_url: ''
   api_key: ''
@@ -28,7 +28,7 @@ agent:
   image_input_mode: auto
   disabled_toolsets: []
   verbose: false
-  reasoning_effort: high
+  reasoning_effort: medium
   personalities:
     helpful: You are a helpful, friendly AI assistant.
     concise: You are a concise assistant. Keep responses brief and to the point.
@@ -183,7 +183,7 @@ bedrock:
 auxiliary:
   vision:
     provider: openai-codex
-    model: gpt-5.5
+    model: gpt-5.6-sol
     base_url: ''
     api_key: ''
     timeout: 30
@@ -753,7 +753,7 @@ custom_providers:
   model: kimi-k2.5:cloud
 - name: Local (localhost:8317)
   base_url: http://localhost:8317/v1
-  model: gpt-5.5
+  model: gpt-5.6-sol
 platforms:
   webhook:
     enabled: true

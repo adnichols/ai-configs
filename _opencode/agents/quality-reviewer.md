@@ -3,7 +3,7 @@ name: quality-reviewer
 description: Reviews code for real issues (security, data loss, performance)
 color: "#e74c3c"
 mode: subagent
-model: openai/gpt-5.5
+model: openai/gpt-5.6-sol
 reasoningEffort: high
 ---
 

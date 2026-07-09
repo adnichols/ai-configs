@@ -10,7 +10,7 @@ PI_EXT_DIR="$PI_AGENT_DIR/extensions"
 PI_WEB_SEARCH_PATH="$PI_ROOT_DIR/web-search.json"
 PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
 PI_DEFAULT_PROVIDER="openai-codex"
-PI_DEFAULT_MODEL="gpt-5.5"
+PI_DEFAULT_MODEL="gpt-5.6-sol"
 PI_DEFAULT_MODEL_VALUE="${PI_DEFAULT_PROVIDER}/${PI_DEFAULT_MODEL}"
 PI_GLM_SCOPED_MODEL_VALUE="opencode/glm-5.2"
 
@@ -56,7 +56,7 @@ settings_path = Path(sys.argv[1])
 web_search_path = Path(sys.argv[2])
 
 DEFAULT_PROVIDER = "openai-codex"
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "gpt-5.6-sol"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
 SPARK_MODEL = "gpt-5.3-codex-spark"
@@ -283,7 +283,7 @@ PY
     echo "  Pi scoped model: $PI_GLM_SCOPED_MODEL_VALUE enabled"
     echo "  Pi Codex goal token budgets: disabled"
   else
-    note_failure "Pi default model settings are not GPT 5.5: $PI_MODEL_STATUS"
+    note_failure "Pi default model settings are not GPT-5.6 Sol: $PI_MODEL_STATUS"
   fi
 else
   note_failure "Pi settings file is missing: $PI_AGENT_DIR/settings.json"
@@ -306,14 +306,14 @@ PY
   if [ "$PI_WEB_SEARCH_STATUS" = "ok" ]; then
     echo "  Pi web-search summary model: $PI_DEFAULT_MODEL_VALUE"
   else
-    note_failure "Pi web-search summaryModel is not local Codex GPT 5.5: $PI_WEB_SEARCH_STATUS"
+    note_failure "Pi web-search summaryModel is not local Codex GPT-5.6 Sol: $PI_WEB_SEARCH_STATUS"
   fi
 else
   note_failure "Pi web-search config is missing: $PI_WEB_SEARCH_PATH"
 fi
 
 if command -v pi >/dev/null 2>&1; then
-  if pi --list-models "$PI_DEFAULT_MODEL_VALUE" 2>/dev/null | grep -Eq '^[[:space:]]*openai-codex[[:space:]]+gpt-5\.5([[:space:]]|$)'; then
+  if pi --list-models "$PI_DEFAULT_MODEL_VALUE" 2>/dev/null | grep -Eq '^[[:space:]]*openai-codex[[:space:]]+gpt-5\.6-sol([[:space:]]|$)'; then
     echo "  Pi reviewer GPT model route: $PI_DEFAULT_MODEL_VALUE"
   else
     note_failure "Pi cannot resolve reviewer GPT model route $PI_DEFAULT_MODEL_VALUE"

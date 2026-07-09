@@ -11,7 +11,7 @@ from check_planning_workflow_doctrine import (
 
 
 PROMPT_PATHS = [
-    Path("agents/plan-gpt5.5.md"),
+    Path("agents/plan-gpt.md"),
     Path("agents/plan-k2.5.md"),
     Path("agents/_plan.md"),
     Path("agents/aplan.md"),

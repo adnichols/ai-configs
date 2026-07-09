@@ -80,7 +80,7 @@ The installer copies the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_S
 
 The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` with Codex model IDs and thinking-level mappings preserved, so Pi uses the proxy instead of ChatGPT OAuth.
 
-`install.sh --pi` preserves GPT-5.5 medium as the Pi default by enforcing `defaultProvider: openai-codex` and `defaultModel: gpt-5.5`. It also keeps both `openai-codex/gpt-5.5` and `opencode/glm-5.2` in `enabledModels`, so the operator can switch a scoped planning/orchestration session to GLM-5.2 high without changing the normal default.
+`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. Repository-owned agents use Sol medium for normal capable work, Sol high for consequential implementation and review, and Luna medium only for bounded structured feedback.
 
 ## Structure
 
@@ -243,8 +243,8 @@ Example installed agents:
 - `glm5.2-xhigh`
 - `Explore`
 - `research`
-- `plan-gpt5.5`
-- `reviewer-plan-adversarial-gpt5.5`
+- `plan-gpt`
+- `reviewer-plan-adversarial-gpt`
 - `reviewer-plan-adversarial-opus`
 - `worktree-creator`
 
@@ -256,10 +256,10 @@ Example installed agents:
 
 ### Dev / execution
 - `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: durable Pi goal tracking, implementation, scoped reviews, implementation-stage PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
-- `dev:run` — direct high-reasoning execution with one `quality-reviewer` pass after each phase
-- `orchestrator-glm` — GLM-5.2 high planning/orchestration route for decomposition, routing, long debug-loop supervision, failure triage, and review synthesis; use it by switching the active scoped model to `opencode/glm-5.2` or delegating a bounded packet from the GPT-5.5 default parent
+- `dev:run` — direct GPT-5.6 Sol medium execution with one `quality-reviewer` pass after each phase
+- `orchestrator-glm` — GLM-5.2 high planning/orchestration route for decomposition, routing, long debug-loop supervision, failure triage, and review synthesis; use it by switching the active scoped model to `opencode/glm-5.2` or delegating a bounded packet from the GPT-5.6 Sol parent
 - `ui-design-glm` — GLM-5.2 high UI design specialist for visual direction, UX tradeoffs, accessibility-aware critique, and UI implementation review
-- `pre-pr-implementation-review` — GPT-5.5 plus applicable GLM-5.2 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; `glm5.2-high` handles normal high-risk bounded review, `glm5.2-xhigh` is reserved for final or exceptional-risk review, `quality-reviewer-glm` remains a legacy xhigh compatibility alias, and low-risk scopes record a truthful GLM skip; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
+- `pre-pr-implementation-review` — GPT-5.6 Sol plus applicable GLM-5.2 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; `glm5.2-high` handles normal high-risk bounded review, `glm5.2-xhigh` is reserved for final or exceptional-risk review, `quality-reviewer-glm` remains a legacy xhigh compatibility alias, and low-risk scopes record a truthful GLM skip; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
 
 ### Git / workflow
 - `cmd-create-pr`
@@ -385,4 +385,4 @@ Skills:
 - Project-local Pi resources can also live under `.pi/prompts/`, `.pi/skills/`, `.pi/agents/`, and `.pi/extensions/`.
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.
-- GPT-5.5 medium remains the normal Pi default and code-writing route. For planning/orchestration-heavy, review-synthesis-heavy, UI-design-heavy, or long test/debug-loop work, explicitly switch the active scoped model to `opencode/glm-5.2` or delegate a bounded packet to `orchestrator-glm`; do not globally flip the default. Use `Explore`/`explore` for broad discovery before sending scoped code-writing packets to `developer-mid`, and reserve `developer-high` for complex or failed scoped implementation work.
+- GPT-5.6 Sol medium is the normal repository-owned Pi OpenAI code-writing route. For planning/orchestration-heavy, review-synthesis-heavy, UI-design-heavy, or long test/debug-loop work, explicitly switch the active scoped model to `opencode/glm-5.2` or delegate a bounded packet to `orchestrator-glm`; do not reroute unrelated sessions. Use `Explore`/`explore` for broad discovery before sending scoped code-writing packets to `developer-mid`, and reserve `developer-high` for complex or failed scoped implementation work.

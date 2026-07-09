@@ -3,10 +3,12 @@ description: Run a change review using GPT
 argument-hint: '<existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
 agent: reviewer-gpt
 subtask: true
-model: openai-codex/gpt-5.5
+model: openai-codex/gpt-5.6-sol
+model_reasoning_effort: high
 ---
 
 ## Execution Mode
+- Use GPT-5.6 Sol high reasoning for this consequential change review.
 - This prompt already runs inside the `reviewer-gpt` subagent selected by frontmatter.
 - Perform the review directly in this session.
 - Do not try to spawn another `reviewer-gpt` task just to satisfy this prompt.

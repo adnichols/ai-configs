@@ -5,7 +5,7 @@
 set -e
 
 REPO="${1:-ccore}"
-MODEL="${2:-gpt-5.4}"
+MODEL="${2:-gpt-5.6-sol}"
 CODE_DIR="${CODE_DIR:-$HOME/code}"
 REPO_PATH="$CODE_DIR/$REPO"
 

@@ -1,7 +1,8 @@
 ---
 description: Run a deterministic Linear issue build in an OpenCode workspace
 argument-hint: "ISSUE_KEY [BASE_REF]"
-model: openai/gpt-5.5
+model: openai/gpt-5.6-sol
+reasoningEffort: medium
 subtask: false
 ---
 

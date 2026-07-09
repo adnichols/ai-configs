@@ -4,7 +4,7 @@ Use this reference when Aaron sees unexplained Codex/OpenAI dashboard usage and 
 
 ## Durable findings from the Spark investigation
 
-Unexpected `gpt-5.3-codex-spark` usage can come from Pi subagents even when Codex Desktop and the main Pi session appear configured for `gpt-5.5`.
+Unexpected `gpt-5.3-codex-spark` usage can come from Pi subagents even when Codex Desktop and the main Pi session appear configured for `gpt-5.6-sol`.
 
 High-signal locations:
 
@@ -45,7 +45,7 @@ When Aaron says "MBP and dever", inspect both hosts and compare:
 
 ## Provider alias pitfall
 
-If an agent definition names `model: openai-codex/gpt-5.5` but `pi --list-models` shows only numbered providers such as `openai-codex-2`, `openai-codex-3`, and `openai-codex-4`, verify how Pi resolves that alias. A failed/ambiguous agent model can lead to fallback to the host Pi default, so an unexpected default like `openai-codex-4/gpt-5.3-codex-spark` can drive subagent usage.
+If an agent definition names `model: openai-codex/gpt-5.6-sol` but `pi --list-models` shows only numbered providers such as `openai-codex-2`, `openai-codex-3`, and `openai-codex-4`, verify how Pi resolves that alias. A failed/ambiguous agent model can lead to fallback to the host Pi default, so an unexpected default like `openai-codex-4/gpt-5.3-codex-spark` can drive subagent usage.
 
 ## Example attribution language
 

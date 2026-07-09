@@ -63,8 +63,8 @@ settings_path="$HOME/.pi/agent/settings.json"
 case "${1:-}" in
   --list-models)
     case "${2:-}" in
-      openai-codex/gpt-5.5)
-        printf 'openai-codex gpt-5.5\n'
+      openai-codex/gpt-5.6-sol)
+        printf 'openai-codex gpt-5.6-sol\n'
         ;;
       opencode/glm-5.2)
         printf 'opencode glm-5.2\n'
@@ -935,6 +935,76 @@ test_phase_three_duplicate_skill_trees_are_removed() {
   [[ -z "$unexpected" ]]
 }
 
+test_omp_model_catalog_merge_preserves_local_entries() {
+  local home
+  home="$(new_tmp_dir)"
+  mkdir -p "$home/.omp/agent"
+  cat > "$home/.omp/agent/models.yml" <<'EOF'
+providers:
+  local-provider:
+    baseUrl: http://localhost:9999/v1
+    apiKey: local
+    api: openai-completions
+    models:
+      - id: local-model
+        name: Local Model
+        contextWindow: 1000
+        maxTokens: 100
+  openai-codex:
+    baseUrl: http://old-proxy/v1
+    apiKey: old-key
+    api: openai-completions
+    models:
+      - id: local-codex-model
+        name: Local Codex Model
+        contextWindow: 1000
+        maxTokens: 100
+      - id: gpt-5.6-sol
+        name: Stale Sol
+        contextWindow: 1
+        maxTokens: 1
+EOF
+  cat > "$home/.omp/agent/config.yml" <<'EOF'
+modelRoles:
+  default: fireworks/kimi-k2.6:high
+  slow: custom/slow-model:high
+  plan: openai-codex/gpt-5.5:high
+  vision: openai-codex/gpt-5.5:medium
+EOF
+  chmod 600 "$home/.omp/agent/models.yml" "$home/.omp/agent/config.yml"
+
+  local fake_bin real_bun_bin
+  fake_bin="$(create_fake_tool_bin "$home")"
+  real_bun_bin="$(dirname "$(command -v bun)")"
+  HOME="$home" PATH="$real_bun_bin:$fake_bin:$PATH" ./install.sh --omp >/dev/null
+
+  HOME_TO_CHECK="$home" bun - <<'TS'
+import { stat } from "node:fs/promises";
+import { join } from "node:path";
+import { YAML } from "bun";
+const home = process.env.HOME_TO_CHECK!;
+const models = YAML.parse(await Bun.file(join(home, ".omp/agent/models.yml")).text());
+if (!("local-provider" in models.providers)) throw new Error("local provider was not preserved");
+const openaiModels = models.providers["openai-codex"].models;
+const ids = new Set(openaiModels.map((model: any) => model.id));
+for (const id of ["local-codex-model", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.6-terra"]) {
+  if (!ids.has(id)) throw new Error(`missing ${id}`);
+}
+const sol = openaiModels.find((model: any) => model.id === "gpt-5.6-sol");
+if (sol.contextWindow !== 372000) throw new Error("managed Sol metadata was not updated");
+const config = await Bun.file(join(home, ".omp/agent/config.yml")).text();
+for (const expected of [
+  "slow: custom/slow-model:high",
+  "plan: openai-codex/gpt-5.6-sol:medium",
+  "vision: openai-codex/gpt-5.6-sol:medium",
+]) {
+  if (!config.includes(expected)) throw new Error(`missing role ${expected}`);
+}
+if (((await stat(join(home, ".omp/agent/models.yml"))).mode & 0o777) !== 0o600) throw new Error("models mode changed");
+if (((await stat(join(home, ".omp/agent/config.yml"))).mode & 0o777) !== 0o600) throw new Error("config mode changed");
+TS
+}
+
 test_codex_pi_skill_and_prompt_parity() {
   python3 - <<'PY'
 import json
@@ -974,7 +1044,10 @@ for prompt in pi_delegated:
 codex_specific_prompts = {
     'dev:plan.md',
     'dev:reviewed-html-plan.md',
+    'review:change-gpt.md',
     'run-plan.md',
+    'test:run-playwright.md',
+    'test:run-playwright:all.md',
 }
 
 for prompt in sorted(pi_prompts - set(pi_delegated) - codex_specific_prompts):
@@ -1079,6 +1152,7 @@ main() {
   run_test test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails
   run_test test_phase_three_docs_use_canonical_shared_skill_paths
   run_test test_phase_three_duplicate_skill_trees_are_removed
+  run_test test_omp_model_catalog_merge_preserves_local_entries
   run_test test_codex_pi_skill_and_prompt_parity
   run_test test_phase_four_validation_proves_final_alignment
 

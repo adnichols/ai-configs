@@ -1,7 +1,8 @@
 ---
 description: End-to-end autopilot from a FeelingLucky Linear issue to a pushed PR
 argument-hint: '[ISSUE_KEY] [BASE_REF]'
-model: openai/gpt-5.5
+model: openai-codex/gpt-5.6-sol
+reasoningEffort: medium
 ---
 
 ## Critial Requirement
@@ -25,7 +26,7 @@ End-to-end autonomous flow:
 
 - The developer agent MUST be used for any code changes and repository management
 - The quality-reviewer agent must be used for any code reviews
-- the plan-gpt5.5 agent must be used for any plan creation or editing
+- the plan-gpt agent must be used for any plan creation or editing
 - Always prefer a sub-agent when making changes, the orchestrator should not make code changes
 
 ## Inputs
@@ -189,7 +190,7 @@ fi
 
 ### 3) Create Plan (commands/dev:plan.md)
 
-Use the plan-gpt5.5 subagent to create a plann with slug `plan_slug` and ensure the plan includes:
+Use the plan-gpt subagent to create a plann with slug `plan_slug` and ensure the plan includes:
 
 - Linear issue key + URL (`ISSUE_KEY`, `ISSUE_URL`)
 - Branch name (`branch_name`)

@@ -108,7 +108,7 @@ After both review legs finish, provide:
 ## Multi-Model Review Complete
 
 ### Reviewers:
-- ✅ GPT (openai/gpt-5.5)
+- ✅ GPT (openai/gpt-5.6-sol)
 - ✅ Kimi K2.5 (fireworks kimi-k2p5)
 
 ### Consensus Blockers:

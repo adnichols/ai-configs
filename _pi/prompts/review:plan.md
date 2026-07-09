@@ -27,10 +27,10 @@ HTML plans are first-class inputs. If the argument is a slug, resolve it through
 Launch both reviews before waiting for either of them to finish.
 
 ### Subagent 1: GPT Review
-- **Agent:** `reviewer-plan-gpt5.5`
-- **Model:** `openai-codex/gpt-5.5`
-- **Reasoning:** High
-- **Task:** Perform blocker-only plan review per reviewer-plan-gpt5.5 instructions
+- **Agent:** `reviewer-plan-gpt`
+- **Model:** `openai-codex/gpt-5.6-sol`
+- **Reasoning:** Medium
+- **Task:** Perform blocker-only plan review per reviewer-plan-gpt instructions
 - **Output:** Same plan file with `[REVIEW:GPT]` comments + summary. For HTML plans, insert comments into the semantic HTML in a visible, valid way without converting the plan to Markdown.
 
 ### Subagent 2: Kimi K2.5 Review
@@ -45,10 +45,10 @@ Launch both reviews before waiting for either of them to finish.
 Launch two background `Agent` calls so Pi actually runs both reviewers concurrently.
 
 ```javascript
-const gpt54 = Agent({
-  subagent_type: "reviewer-plan-gpt5.5",
+const gpt = Agent({
+  subagent_type: "reviewer-plan-gpt",
   description: "Review plan with GPT",
-  prompt: "Review the plan at $ARGUMENTS. Follow your reviewer-plan-gpt5.5 instructions exactly. Treat HTML plan files as first-class plan inputs and do not convert them to Markdown. Add [REVIEW:GPT] comments only for blockers, materially risky gaps, or missing decisions required to execute the stated goal within the validated source scope, then provide a readiness summary.",
+  prompt: "Review the plan at $ARGUMENTS. Follow your reviewer-plan-gpt instructions exactly. Treat HTML plan files as first-class plan inputs and do not convert them to Markdown. Add [REVIEW:GPT] comments only for blockers, materially risky gaps, or missing decisions required to execute the stated goal within the validated source scope, then provide a readiness summary.",
   run_in_background: true,
 });
 
@@ -59,7 +59,7 @@ const kimi = Agent({
   run_in_background: true,
 });
 
-get_subagent_result({ agent_id: gpt54.agent_id ?? gpt54.id, wait: true });
+get_subagent_result({ agent_id: gpt.agent_id ?? gpt.id, wait: true });
 get_subagent_result({ agent_id: kimi.agent_id ?? kimi.id, wait: true });
 ```
 
@@ -77,7 +77,7 @@ After completing all reviews, provide:
 ## Multi-Model Review Complete
 
 ### Reviewers:
-- ✅ GPT (openai-codex/gpt-5.5, high reasoning)
+- ✅ GPT (openai-codex/gpt-5.6-sol, medium reasoning)
 - ✅ Kimi K2.5 (opencode/kimi-k2.5, high reasoning)
 
 ### Consensus Blockers:

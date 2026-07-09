@@ -178,5 +178,5 @@ After the final phase completes, or after an unrecoverable blocker stops the rem
 - Allow up to two concurrent fixers only for independent failure families; keep shared-file failures sequential.
 - If two queued failures target the same file area, process sequentially.
 - If a failure appears flaky or env-related, mark it and avoid speculative app changes.
-- Prevent GPT-5.5 agents from supervising whole E2E loops unless the operator explicitly escalates.
+- Prevent GPT-5.6 Sol agents from supervising whole E2E loops unless the operator explicitly escalates.
 - Keep all outputs concise; include explicit file paths for any code edits.

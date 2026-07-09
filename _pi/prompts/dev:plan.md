@@ -13,10 +13,10 @@ If repo guidance does not define the active plan artifact format/path and the us
 
 ## Model routing
 
-GPT-5.5 medium remains the normal Pi default for planning and coding-plan work. For planning that is orchestration-heavy, review-synthesis-heavy, UI-design-heavy, or dominated by long debug/test-loop supervision, use one explicit GLM path rather than changing the global default:
+GPT-5.6 Sol medium is the normal repository-owned Pi OpenAI route for planning and coding-plan work. For planning that is orchestration-heavy, review-synthesis-heavy, UI-design-heavy, or dominated by long debug/test-loop supervision, use one explicit GLM path rather than rerouting unrelated sessions:
 
 1. Switch the active Pi scoped model to `opencode/glm-5.2` before starting this planning session; or
-2. Keep the GPT-5.5 default parent and delegate a bounded planning/orchestration packet to `orchestrator-glm`.
+2. Keep the GPT-5.6 Sol parent and delegate a bounded planning/orchestration packet to `orchestrator-glm`.
 
 Use `Explore`/`explore` for broad repository discovery before asking implementation agents to reason over files, and route UI design direction or UI/UX critique to `ui-design-glm`.
 

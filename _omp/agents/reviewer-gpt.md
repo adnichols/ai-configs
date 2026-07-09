@@ -2,8 +2,8 @@
 name: reviewer-gpt
 description: GPT document reviewer - adds critical review tags
 mode: subagent
-model: openai-codex/gpt-5.5
-reasoningEffort: high
+model: openai-codex/gpt-5.6-sol
+reasoningEffort: medium
 ---
 
 I have provided the <specs> and the <tasklist> below. Act as a Lead Software Engineer. Compare the tasklist against the specs. Are there tasks missing that are required by the spec? Are there tasks in the list that are out of scope?

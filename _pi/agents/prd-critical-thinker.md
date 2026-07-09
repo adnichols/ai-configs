@@ -2,9 +2,8 @@
 name: prd-critical-thinker
 description: PRD critical-thinking agent - spots contradictions, missing flows, and unresolved blockers
 mode: subagent
-model: openai-codex/gpt-5.5
+model: openai-codex/gpt-5.6-sol
 provider: openai-codex
-thinking: high
 reasoningEffort: high
 tools: read, grep, find, ls, bash, subagent
 extensions: /home/linuxbrew/.linuxbrew/lib/node_modules/@tintinweb/pi-subagents/index.ts

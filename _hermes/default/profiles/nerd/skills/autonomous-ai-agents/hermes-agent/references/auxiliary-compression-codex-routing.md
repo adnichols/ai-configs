@@ -11,7 +11,7 @@ Cause:
   ```yaml
   model:
     provider: openai-codex
-    default: gpt-5.5
+    default: gpt-5.6-sol
     base_url: https://chatgpt.com/backend-api/codex
   ```
 - Auxiliary compression has `provider: auto` with a non-Codex model, e.g.:

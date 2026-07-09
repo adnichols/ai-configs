@@ -99,7 +99,7 @@ If Hermes context compaction hangs, times out, creates a blank-looking continuat
 
 - Inspect `auxiliary.compression` and `compression` in `~/.hermes/config.yaml`.
 - Search `~/.hermes/logs/agent.log` for `Auxiliary compression`, `Request timed out`, `Failed to generate context summary`, and `context compression done`.
-- Prefer `openai-codex / gpt-5.4-mini` for compression over `custom / gpt-5.5` through a localhost proxy.
+- Prefer `openai-codex / gpt-5.4-mini` for compression over routing compression through the main reasoning model on a localhost proxy.
 - See `references/2026-07-compaction-model-routing.md` for the full observed pattern and fix commands.
 
 ## References

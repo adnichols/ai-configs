@@ -202,7 +202,7 @@ Use the plan-k2.5 subagent to create a plan with slug `plan_slug` and ensure the
 ### 4) Plan Review + Integrate
 
 ```text
-/review:change-gpt5.4 ${plan_slug}
+/review:change-gpt ${plan_slug}
 /review:change-k2.5 ${plan_slug}
 /review:change-integrate ${plan_slug}
 ```

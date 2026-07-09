@@ -102,7 +102,7 @@ Check these in roughly this order:
      - `/tmp/pi-subagents-*/.../tasks/*.output`
      - worktree-local `.pi/side-agents/runtime/**` when present
      - active tmux/herdr panes and their working directories
-   - If an agent definition names an unavailable/ambiguous provider alias (for example plain `openai-codex/gpt-5.5`) but the host's registered providers are numbered (`openai-codex-2`, `openai-codex-3`, `openai-codex-4`), check whether the runtime fell back to the Pi default model.
+   - If an agent definition names an unavailable/ambiguous provider alias (for example plain `openai-codex/gpt-5.6-sol`) but the host's registered providers are numbered (`openai-codex-2`, `openai-codex-3`, `openai-codex-4`), check whether the runtime fell back to the Pi default model.
 
 ## Recommended query strategy
 

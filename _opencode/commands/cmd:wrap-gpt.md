@@ -1,9 +1,9 @@
 ---
-description: Run any command file dynamically using GPT-5.5
+description: Run any command file dynamically using GPT-5.6 Sol medium
 argument-hint: '<command-name | @path/to/command.md> [arguments...]'
 subtask: true
-model: openai/gpt-5.5
-reasoningEffort: high
+model: openai/gpt-5.6-sol
+reasoningEffort: medium
 ---
 
 # Dynamic Command Wrapper
@@ -51,7 +51,7 @@ If no file is found:
 
 ## Safety Rules
 
-- Reject recursive wrapping. Do not wrap `cmd:wrap`, `cmd:wrap-gpt5.5`, `cmd:wrap-opus`, `cmd:wrap-k2.5`, or any target file whose basename starts with `cmd:wrap`.
+- Reject recursive wrapping. Do not wrap `cmd:wrap`, `cmd:wrap-gpt`, `cmd:wrap-opus`, `cmd:wrap-k2.5`, or any target file whose basename starts with `cmd:wrap`.
 - Treat the loaded command file as the authoritative instruction body for this invocation.
 - Preserve the wrapped arguments exactly as the wrapped command's `$ARGUMENTS`.
 - Frontmatter in the loaded file is informational only for this invocation. This wrapper's `model` and `reasoningEffort` stay in effect.

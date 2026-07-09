@@ -1,5 +1,5 @@
 {
-  "file_count": 1688,
+  "file_count": 1687,
   "files": [
     {
       "bytes": 819,
@@ -17,14 +17,14 @@
       "sha256": "38199f2625612e9547f14a62c2fd7964d0998ff37a0ea50c45e6627b7a1bb123"
     },
     {
-      "bytes": 20833,
+      "bytes": 20847,
       "path": "config/config.yaml",
-      "sha256": "bb7eebcc19685416572db6d86601b333476241098d942ede641aeec56826c719"
+      "sha256": "36c43b67c35fbd53550c8547e9b1f70efc195499ccca6568576f3b413c3aad6a"
     },
     {
-      "bytes": 18549,
+      "bytes": 18557,
       "path": "cron/jobs.json",
-      "sha256": "625802926ad00b7711e26a8dd2f550b2e7517bca25d473506c3579db8ea3d314"
+      "sha256": "0f17634d04c9ea365a75b0a541e560a4f11a5b02a520d766ae68ae69ddc6cdbb"
     },
     {
       "bytes": 508,
@@ -112,9 +112,9 @@
       "sha256": "2765a846e1bb371d78d3b93b403dfb0f8d1ba1a9895edb5f608367abfe81194d"
     },
     {
-      "bytes": 13991,
+      "bytes": 13999,
       "path": "profiles/nerd/config/config.yaml",
-      "sha256": "c6ea157f7b064376b2cf0ad8367a450ee6391fba8750c4b0d6ee8d5bfbecdc5f"
+      "sha256": "df65bdc1042f200a07142aa6a8212080e6a5c81fe643103cbe7900450d1354db"
     },
     {
       "bytes": 1385,
@@ -212,9 +212,9 @@
       "sha256": "09608089f32c425f797e04268b79bd7214c40ae1fc2964202b16c91a97b80f94"
     },
     {
-      "bytes": 1774,
+      "bytes": 1778,
       "path": "profiles/nerd/skills/autonomous-ai-agents/hermes-agent/references/auxiliary-compression-codex-routing.md",
-      "sha256": "2352eb9ac69c27054a2070ee8db995e66fcef5ddb5c25d360512ccabf52986d0"
+      "sha256": "f256307a1a3eab807d5265475031cdbf812d0d20121a0c72a555e06dd782aa74"
     },
     {
       "bytes": 841,
@@ -2652,9 +2652,9 @@
       "sha256": "67c306b88aec184ce4f264aa843298b7124f24078c27eb95cb1e74b8a6349477"
     },
     {
-      "bytes": 4061,
+      "bytes": 4081,
       "path": "profiles/nerd/skills/productivity/launch-pi/SKILL.md",
-      "sha256": "4a79a917d9fc82eb2621c82b1d9d8481539271e849010c75802e3f8239fde3bf"
+      "sha256": "4938c59f5a53a315a02efb287a29fb2c49218fc9f3843eb4c572523ad111e004"
     },
     {
       "bytes": 916,
@@ -2747,9 +2747,9 @@
       "sha256": "ca52cda72a9c49d60c4a3c2dbfa6c64c87e62562857b598599cc496b30116fd1"
     },
     {
-      "bytes": 27698,
+      "bytes": 27710,
       "path": "profiles/nerd/skills/productivity/pi-coding-workflow/SKILL.md",
-      "sha256": "df09e95b9d9b1c9d2b4acf53ed062b4fe40ef6ed780c84ee08181b94bbd0628b"
+      "sha256": "4018528aad48bfb3b5d81b952c4262dd74b0669fb3a93138d8e9658fdade25c2"
     },
     {
       "bytes": 571,
@@ -2757,14 +2757,14 @@
       "sha256": "b962b38445e5d373fbf222f9083a7c47ba3ae11f9590537df7cb0d9a27b98a77"
     },
     {
-      "bytes": 3919,
+      "bytes": 3927,
       "path": "profiles/nerd/skills/productivity/pi-interactive-relay/SKILL.md",
-      "sha256": "a3f61ddb1d4515be178732560d49d58396c1774aea43282c54310f62b8cbb73b"
+      "sha256": "53e15fdb9e6461ae0ce0dcc87e2195ef95c9cd8bc8e4847c17d4545e18ea3bd5"
     },
     {
-      "bytes": 507,
+      "bytes": 511,
       "path": "profiles/nerd/skills/productivity/pi-interactive-relay/scripts/relay.sh",
-      "sha256": "dbbed3b1eac32d76f78878056e0c4f1d99a641b435e986694382e1edf8a21498"
+      "sha256": "2651b80253208957c1239e65100f0fccdc73a2c7721675ffb4b29aa433c30cb4"
     },
     {
       "bytes": 4138,
@@ -4837,11 +4837,6 @@
       "sha256": "60633d11922d7b195657c6df5dc447126f932936a15dc186d6bf3e5cd15e8353"
     },
     {
-      "bytes": 48832,
-      "path": "scripts/__pycache__/github_pr_agent_claim.cpython-314.pyc",
-      "sha256": "e2c7e4c88e637b409accbcf5ab5bbfe8125895aa84621532d4a5217b751a839a"
-    },
-    {
       "bytes": 10134,
       "path": "scripts/aaron_signal_watch_launchd.py",
       "sha256": "991ba35fe89af3444f130ec58a6600a787d8734b1c2e63d9f7f813c94e99456f"
@@ -4907,9 +4902,9 @@
       "sha256": "f82654e0b4e75d5d11f3882cf44b17028a57d8d0fa00223af4ad60daa2c1576a"
     },
     {
-      "bytes": 5125,
+      "bytes": 5129,
       "path": "scripts/launch_pi_tmux.sh",
-      "sha256": "2a1e890c5099c10e25656a767d837ff5f35554f4bc246c285ad94bc58c0ccad2"
+      "sha256": "05c3ff7c8813d1b4e5c87dd32481c1eb27eddae33bf867744029baf423b44a31"
     },
     {
       "bytes": 10554,
@@ -5082,14 +5077,14 @@
       "sha256": "bd0dccdeef0f77f13446bab53e7a4afbe340ed9b4157733e89dab0e9003cc668"
     },
     {
-      "bytes": 8045,
+      "bytes": 8049,
       "path": "skills/autonomous-ai-agents/trace-agent-action-provenance/SKILL.md",
-      "sha256": "bbb9b0209eeb9741ab789ef63fe3be1b2b8028c3d3ecc234e2da509543325c57"
+      "sha256": "20caeb5f4ca2d9cc07c1a53b717f823366ea0941038c63bce94cba7cb27dc076"
     },
     {
-      "bytes": 2903,
+      "bytes": 2911,
       "path": "skills/autonomous-ai-agents/trace-agent-action-provenance/references/pi-codex-model-usage-tracing.md",
-      "sha256": "c45a3bd6855e06ab9330488ac893196e75c32972acf15b95d76cf2a920cb5d0f"
+      "sha256": "6cd3b9378f09dba23743e67edb1242f19c601348b5ac5244bc3016a954b11746"
     },
     {
       "bytes": 116,
@@ -6612,9 +6607,9 @@
       "sha256": "8a204e6f6215395afa1d8907fbfcc9576988c08022557e7ab93de3f77c3f6698"
     },
     {
-      "bytes": 5464,
+      "bytes": 5493,
       "path": "skills/devops/hermes-maintenance/SKILL.md",
-      "sha256": "834f6d69a5daaaa7e0202e17c9d29544a9df91ba28a513a8eea6ae6d9500e40e"
+      "sha256": "27ba82522a597cecc8af98bda6e582d059beec95871c06e35dc757882e2d6e13"
     },
     {
       "bytes": 2524,
@@ -6622,9 +6617,9 @@
       "sha256": "143381c91aec2b48dba9a5973c6ff0822716adba465c4d8e4d6e0221e9c33ff0"
     },
     {
-      "bytes": 4258,
+      "bytes": 4356,
       "path": "skills/devops/hermes-maintenance/references/2026-07-compaction-model-routing.md",
-      "sha256": "58fa7ad4cb39cc11210fb2843e8a41f8500a54f03a4f489210bf485ac14e0414"
+      "sha256": "02c1ad254cc3800d7ed7c1c537a73d73456b91bd4325bf487f59adb10439980f"
     },
     {
       "bytes": 15831,
@@ -7377,9 +7372,9 @@
       "sha256": "b5a494a45bfd430bfb3042ee0452a6b88c81481f147ce7fca2c29ed3e93c490a"
     },
     {
-      "bytes": 31801,
+      "bytes": 31844,
       "path": "skills/productivity/aaron-good-morning/SKILL.md",
-      "sha256": "ecaf92e2589c33d46bb793a0aaffc1aaeda2348d1db7200a6ee2b94ad5555e0e"
+      "sha256": "afb159df454a975862c8d94891fbe7d45e0fe2a94564b72d644941ac0b97c4c3"
     },
     {
       "bytes": 1974,
@@ -7532,9 +7527,9 @@
       "sha256": "18e30e12f7553cd8715bde3e0db739281a486c93f596bb5cc924487464ddbfce"
     },
     {
-      "bytes": 4061,
+      "bytes": 4081,
       "path": "skills/productivity/launch-pi/SKILL.md",
-      "sha256": "4a79a917d9fc82eb2621c82b1d9d8481539271e849010c75802e3f8239fde3bf"
+      "sha256": "4938c59f5a53a315a02efb287a29fb2c49218fc9f3843eb4c572523ad111e004"
     },
     {
       "bytes": 916,
@@ -7617,9 +7612,9 @@
       "sha256": "ca52cda72a9c49d60c4a3c2dbfa6c64c87e62562857b598599cc496b30116fd1"
     },
     {
-      "bytes": 28165,
+      "bytes": 28193,
       "path": "skills/productivity/pi-coding-workflow/SKILL.md",
-      "sha256": "4db59f200a7a1b339e021d093f7829c8bb1db241c8a20cb8c0d9320418212bd7"
+      "sha256": "c5a7794eb26c041ea9a9cfad1c053e60632ed95448ed2662e8b36c59cd4b28c5"
     },
     {
       "bytes": 571,
@@ -7627,14 +7622,14 @@
       "sha256": "b962b38445e5d373fbf222f9083a7c47ba3ae11f9590537df7cb0d9a27b98a77"
     },
     {
-      "bytes": 3919,
+      "bytes": 3927,
       "path": "skills/productivity/pi-interactive-relay/SKILL.md",
-      "sha256": "a3f61ddb1d4515be178732560d49d58396c1774aea43282c54310f62b8cbb73b"
+      "sha256": "53e15fdb9e6461ae0ce0dcc87e2195ef95c9cd8bc8e4847c17d4545e18ea3bd5"
     },
     {
-      "bytes": 507,
+      "bytes": 511,
       "path": "skills/productivity/pi-interactive-relay/scripts/relay.sh",
-      "sha256": "dbbed3b1eac32d76f78878056e0c4f1d99a641b435e986694382e1edf8a21498"
+      "sha256": "2651b80253208957c1239e65100f0fccdc73a2c7721675ffb4b29aa433c30cb4"
     },
     {
       "bytes": 4138,
@@ -8377,9 +8372,9 @@
       "sha256": "a899069b7913c4ee65f71175772d3fde62f6b1261a8af8e5350b7df7e5fe42f9"
     },
     {
-      "bytes": 8511,
+      "bytes": 8520,
       "path": "skills/software-development/plan-reviewer-execution-ready/SKILL.md",
-      "sha256": "db94eb623964312edfe80500e6c232cf4363fe78f3ea10ad321e03cb9ac5129a"
+      "sha256": "8039319c88b3f260e460fafb0b563e233d348a7b76dbb5d345e20b36e5967683"
     },
     {
       "bytes": 19635,
@@ -8402,9 +8397,9 @@
       "sha256": "7a6b1d3ca7e549a30f1ef4433f5063696914c4f512f8042b3d4566d0936135f3"
     },
     {
-      "bytes": 38284,
+      "bytes": 38320,
       "path": "skills/software-development/run-plan/SKILL.md",
-      "sha256": "4ba54638d6c8f44c6be6ad7cb9044f89e948b54551c98868a97cd060e3447e5b"
+      "sha256": "aefbbf70b68f99d0bd7076b02866233816a56af060936e90ca2557682ba27208"
     },
     {
       "bytes": 10926,

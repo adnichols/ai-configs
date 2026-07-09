@@ -1,14 +1,14 @@
 ---
-description: Iterative code review loop (GPT-5.5) — run /review, apply quick fixes, stop when no straightforward fixes remain
+description: Iterative code review loop (GPT-5.6 Sol) — run /review, apply quick fixes, stop when no straightforward fixes remain
 argument-hint: "[BASE_REF]"
 agent: build
 subtask: true
-model: openai/gpt-5.5
+model: openai/gpt-5.6-sol
 ---
 
 # Review Loop (Auto-Fix)
 
-Run Oh My Pi's `/review` command in a loop. Apply quick / straightforward fixes surfaced by the review, then re-run. Stop when there are no more quick fixes to apply (or after 3 iterations) and report remaining issues.
+Run OpenCode's `/review` command in a loop on GPT-5.6 Sol medium reasoning. Apply quick / straightforward fixes surfaced by the review, then re-run. Stop when there are no more quick fixes to apply (or after 3 iterations) and report remaining issues.
 
 ## Inputs
 
@@ -50,7 +50,7 @@ If there are uncommitted changes, they are in-scope for review.
 
 Repeat until termination (max 3 iterations):
 
-1. Run Oh My Pi's `/review` on the current working tree and diff against `base_ref`.
+1. Run OpenCode's `/review` on the current working tree and diff against `base_ref`.
 2. From the review output, split issues into:
    - **Quick / straightforward fixes**: small, local, high-confidence changes (formatting, obvious bug fix, missing null-check, incorrect import, broken command snippet, etc.).
    - **Not quick**: anything that requires broader refactor, unclear intent, architectural redesign, product decision, or investigation beyond a short tight loop.

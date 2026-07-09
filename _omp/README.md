@@ -5,6 +5,7 @@ This tree contains the repo-managed OMP runtime surfaces installed by `install.s
 - `commands/` → prompt-backed OMP commands installed to `~/.omp/agent/commands/`
 - `agents/` → OMP agent definitions installed to `~/.omp/agent/agents/`
 - `extensions/` → repo-managed OMP extensions installed to `~/.omp/agent/extensions/`
+- `models.yml` → GPT-5.6 catalog merged into `~/.omp/agent/models.yml` while preserving unrelated local providers/models; the installer migrates the prior ai-configs GPT-5.5 `slow`, `plan`, and `vision` role values to Sol high/medium but preserves custom role choices and the intentionally selected default role
 
 ## Planning entrypoint
 

@@ -51,7 +51,7 @@ If no file is found:
 
 ## Safety Rules
 
-- Reject recursive wrapping. Do not wrap `cmd:wrap`, `cmd:wrap-gpt5.5`, `cmd:wrap-opus`, `cmd:wrap-k2.5`, or any target file whose basename starts with `cmd:wrap`.
+- Reject recursive wrapping. Do not wrap `cmd:wrap`, `cmd:wrap-gpt`, `cmd:wrap-opus`, `cmd:wrap-k2.5`, or any target file whose basename starts with `cmd:wrap`.
 - Treat the loaded command file as the authoritative instruction body for this invocation.
 - Preserve the wrapped arguments exactly as the wrapped command's `$ARGUMENTS`.
 - Frontmatter in the loaded file is informational only for this invocation. This wrapper's `model` and `reasoningEffort` stay in effect.

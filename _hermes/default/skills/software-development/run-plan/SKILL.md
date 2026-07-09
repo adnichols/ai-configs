@@ -157,7 +157,7 @@ If a changed file has no plan-bound reason, revert only your own edits to that f
 
 ### 5. First scoped quality review
 
-In Pi, use the Pi subagent `quality-reviewer` for a read-only GPT-5.5 implementation review. In Codex, use the installed Codex-native `quality-reviewer`/implementation-review mechanism for the first read-only scoped review. Do not let any reviewer edit files.
+In Pi, use the Pi subagent `quality-reviewer` for a read-only GPT-5.6 Sol high implementation review. In Codex, use the installed Codex-native `quality-reviewer`/implementation-review mechanism for the first read-only scoped review. Do not let any reviewer edit files.
 
 The review prompt must include:
 
@@ -237,16 +237,16 @@ Do not run redundant full reviewer-pair gates over an unchanged diff. If the lat
 
 When the standalone pre-PR gate is required in Pi, it must use both:
 
-- GPT-5.5 via Pi's `quality-reviewer` subagent,
+- GPT-5.6 Sol high via Pi's `quality-reviewer` subagent,
 - GLM-5 via Pi's `quality-reviewer-glm` subagent.
 
-In non-Pi consumers, do not try to invoke the Pi-only `$pre-pr-implementation-review` skill. Run an equivalent GPT-5.5 plus GLM-5 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise continue the existing runtime-native scoped quality-review workflow and record that the Pi-only GPT/GLM gate was not run.
+In non-Pi consumers, do not try to invoke the Pi-only `$pre-pr-implementation-review` skill. Run an equivalent GPT-5.6 Sol high plus GLM-5 read-only implementation review only when both reviewers are explicitly available in that consumer; otherwise continue the existing runtime-native scoped quality-review workflow and record that the Pi-only GPT/GLM gate was not run.
 
 Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
 
 Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and rerun both reviewers within the bounded pre-PR review budget until both return no unresolved blocking in-scope P1/P2 findings. P3 findings block only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
-If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if the GLM-5 Pi subagent or GPT-5.5 review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. In Pi executions, if the GLM-5 Pi subagent or GPT-5.6 Sol high review infrastructure is unavailable, stop unless the user explicitly waives this pre-PR gate.
 
 When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
