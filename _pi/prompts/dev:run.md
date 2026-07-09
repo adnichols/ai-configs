@@ -1,7 +1,6 @@
 ---
 description: Execute a single-file plan directly with high reasoning plus one post-phase quality review
 argument-hint: '<slug | existing-plan-path>'
-model: openai/gpt-5.5
 ---
 
 # Run Plan (Single File)
@@ -13,6 +12,12 @@ Execute a single plan document (spec + phases + progress) directly in this sessi
 - Track progress by updating `## Progress` in the plan file.
 - Run exactly one `quality-reviewer` pass after each phase before marking it complete.
 - Allow same-scope dynamic re-chunking when a phase is too large to execute safely in one pass.
+
+## Model routing
+
+Keep GPT-5.5 medium as the normal direct-execution parent and code-writing route. For orchestration-heavy planning, review synthesis, UI-design-heavy work, or long test/debug supervision, either switch the active Pi scoped model to `opencode/glm-5.2` before starting or delegate a bounded planning/orchestration packet to `orchestrator-glm` from the GPT-5.5 parent.
+
+Use `Explore`/`explore` before implementation whenever target files or contracts are not already known. Delegation to `developer-mid` must include target files, desired behavior, relevant evidence, and verification commands. Reserve `developer-high` for complex/risky implementations or failed medium attempts; use `ui-design-glm` for UI direction and UI/UX review.
 
 ## Inputs
 

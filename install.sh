@@ -1853,6 +1853,7 @@ web_search_path = Path(os.environ["PI_WEB_SEARCH_PATH"])
 DEFAULT_PROVIDER = "openai-codex"
 DEFAULT_MODEL = "gpt-5.5"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
+GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
 SPARK_MODEL = "gpt-5.3-codex-spark"
 
 changed = []
@@ -1898,6 +1899,8 @@ for model in models:
         normalized.append(model)
 if DEFAULT_MODEL_VALUE not in normalized:
     normalized.insert(0, DEFAULT_MODEL_VALUE)
+if GLM_SCOPED_MODEL_VALUE not in normalized:
+    normalized.append(GLM_SCOPED_MODEL_VALUE)
 settings["enabledModels"] = normalized
 
 if json.dumps(settings, sort_keys=True) != before_settings:

@@ -9,6 +9,10 @@ PI_ROOT_DIR="${PI_ROOT_DIR:-$(dirname "$PI_AGENT_DIR")}"
 PI_EXT_DIR="$PI_AGENT_DIR/extensions"
 PI_WEB_SEARCH_PATH="$PI_ROOT_DIR/web-search.json"
 PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
+PI_DEFAULT_PROVIDER="openai-codex"
+PI_DEFAULT_MODEL="gpt-5.5"
+PI_DEFAULT_MODEL_VALUE="${PI_DEFAULT_PROVIDER}/${PI_DEFAULT_MODEL}"
+PI_GLM_SCOPED_MODEL_VALUE="opencode/glm-5.2"
 
 EXPECTED_GIT_PACKAGES=(
   "git:github.com/edxeth/pi-gpt-config"
@@ -54,6 +58,7 @@ web_search_path = Path(sys.argv[2])
 DEFAULT_PROVIDER = "openai-codex"
 DEFAULT_MODEL = "gpt-5.5"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
+GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
 SPARK_MODEL = "gpt-5.3-codex-spark"
 
 if settings_path.exists():
@@ -90,6 +95,8 @@ for model in models:
         normalized.append(model)
 if DEFAULT_MODEL_VALUE not in normalized:
     normalized.insert(0, DEFAULT_MODEL_VALUE)
+if GLM_SCOPED_MODEL_VALUE not in normalized:
+    normalized.append(GLM_SCOPED_MODEL_VALUE)
 settings["enabledModels"] = normalized
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(settings, indent=2) + "\n")
@@ -238,17 +245,22 @@ else
 fi
 
 if [ -f "$PI_AGENT_DIR/settings.json" ]; then
-  PI_MODEL_STATUS="$(python3 - "$PI_AGENT_DIR/settings.json" <<'PY'
+  PI_MODEL_STATUS="$(PI_DEFAULT_PROVIDER="$PI_DEFAULT_PROVIDER" PI_DEFAULT_MODEL="$PI_DEFAULT_MODEL" PI_DEFAULT_MODEL_VALUE="$PI_DEFAULT_MODEL_VALUE" PI_GLM_SCOPED_MODEL_VALUE="$PI_GLM_SCOPED_MODEL_VALUE" python3 - "$PI_AGENT_DIR/settings.json" <<'PY'
 import json
+import os
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
 data = json.loads(path.read_text())
+default_provider = os.environ["PI_DEFAULT_PROVIDER"]
+default_model = os.environ["PI_DEFAULT_MODEL"]
+default_model_value = os.environ["PI_DEFAULT_MODEL_VALUE"]
+glm_scoped_model_value = os.environ["PI_GLM_SCOPED_MODEL_VALUE"]
 errors = []
-if data.get("defaultProvider") != "openai-codex":
+if data.get("defaultProvider") != default_provider:
     errors.append(f"defaultProvider={data.get('defaultProvider')!r}")
-if data.get("defaultModel") != "gpt-5.5":
+if data.get("defaultModel") != default_model:
     errors.append(f"defaultModel={data.get('defaultModel')!r}")
 pi_codex_goal = data.get("piCodexGoal")
 if not isinstance(pi_codex_goal, dict) or pi_codex_goal.get("disableTokenBudgets") is not True:
@@ -257,15 +269,18 @@ enabled = data.get("enabledModels", [])
 if not isinstance(enabled, list):
     errors.append("enabledModels is not a list")
 else:
-    if "openai-codex/gpt-5.5" not in enabled:
-        errors.append("enabledModels missing openai-codex/gpt-5.5")
+    if default_model_value not in enabled:
+        errors.append(f"enabledModels missing {default_model_value}")
+    if glm_scoped_model_value not in enabled:
+        errors.append(f"enabledModels missing {glm_scoped_model_value}")
     if any(isinstance(model, str) and "gpt-5.3-codex-spark" in model for model in enabled):
         errors.append("enabledModels still contains gpt-5.3-codex-spark")
 print("ok" if not errors else "; ".join(errors))
 PY
 )"
   if [ "$PI_MODEL_STATUS" = "ok" ]; then
-    echo "  Pi default model: openai-codex/gpt-5.5"
+    echo "  Pi default model: $PI_DEFAULT_MODEL_VALUE"
+    echo "  Pi scoped model: $PI_GLM_SCOPED_MODEL_VALUE enabled"
     echo "  Pi Codex goal token budgets: disabled"
   else
     note_failure "Pi default model settings are not GPT 5.5: $PI_MODEL_STATUS"
@@ -275,19 +290,21 @@ else
 fi
 
 if [ -f "$PI_WEB_SEARCH_PATH" ]; then
-  PI_WEB_SEARCH_STATUS="$(python3 - "$PI_WEB_SEARCH_PATH" <<'PY'
+  PI_WEB_SEARCH_STATUS="$(PI_DEFAULT_MODEL_VALUE="$PI_DEFAULT_MODEL_VALUE" python3 - "$PI_WEB_SEARCH_PATH" <<'PY'
 import json
+import os
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
 data = json.loads(path.read_text())
 summary = data.get("summaryModel")
-print("ok" if summary == "openai-codex/gpt-5.5" else repr(summary))
+default_model_value = os.environ["PI_DEFAULT_MODEL_VALUE"]
+print("ok" if summary == default_model_value else repr(summary))
 PY
 )"
   if [ "$PI_WEB_SEARCH_STATUS" = "ok" ]; then
-    echo "  Pi web-search summary model: openai-codex/gpt-5.5"
+    echo "  Pi web-search summary model: $PI_DEFAULT_MODEL_VALUE"
   else
     note_failure "Pi web-search summaryModel is not local Codex GPT 5.5: $PI_WEB_SEARCH_STATUS"
   fi
@@ -296,16 +313,16 @@ else
 fi
 
 if command -v pi >/dev/null 2>&1; then
-  if pi --list-models 'openai-codex/gpt-5.5' 2>/dev/null | grep -Eq '^[[:space:]]*openai-codex[[:space:]]+gpt-5\.5([[:space:]]|$)'; then
-    echo "  Pi reviewer GPT model route: openai-codex/gpt-5.5"
+  if pi --list-models "$PI_DEFAULT_MODEL_VALUE" 2>/dev/null | grep -Eq '^[[:space:]]*openai-codex[[:space:]]+gpt-5\.5([[:space:]]|$)'; then
+    echo "  Pi reviewer GPT model route: $PI_DEFAULT_MODEL_VALUE"
   else
-    note_failure "Pi cannot resolve reviewer GPT model route openai-codex/gpt-5.5"
+    note_failure "Pi cannot resolve reviewer GPT model route $PI_DEFAULT_MODEL_VALUE"
   fi
 
-  if pi --list-models 'opencode/glm-5.2' 2>/dev/null | grep -Eq '^[[:space:]]*opencode[[:space:]]+glm-5\.2([[:space:]]|$)'; then
-    echo "  Pi reviewer GLM model route: opencode/glm-5.2"
+  if pi --list-models "$PI_GLM_SCOPED_MODEL_VALUE" 2>/dev/null | grep -Eq '^[[:space:]]*opencode[[:space:]]+glm-5\.2([[:space:]]|$)'; then
+    echo "  Pi reviewer GLM model route: $PI_GLM_SCOPED_MODEL_VALUE"
   else
-    note_failure "Pi cannot resolve reviewer GLM model route opencode/glm-5.2"
+    note_failure "Pi cannot resolve reviewer GLM model route $PI_GLM_SCOPED_MODEL_VALUE"
   fi
 fi
 
