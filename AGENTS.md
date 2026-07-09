@@ -6,8 +6,10 @@ Current roster of bespoke Claude, Codex, and Pi agents defined in this repositor
 Located under `_pi/agents/` and invoked via Pi subagent system:
 
 - `general-glm` (opencode/glm-5.2; `_pi/agents/general-glm.md`) — General-purpose GLM subagent for research, coding, debugging, and other delegated tasks.
+- `orchestrator-glm` (opencode/glm-5.2 high; `_pi/agents/orchestrator-glm.md`) — Planning/orchestration route for decomposition, routing, long debug-loop supervision, failure triage, and review synthesis; delegates broad discovery to Explore and code-writing to developer-mid.
+- `ui-design-glm` (opencode/glm-5.2 high; `_pi/agents/ui-design-glm.md`) — UI design specialist for visual direction, UX tradeoff analysis, accessibility-aware critique, and UI implementation review.
 - `Explore` (gpt-5.4-mini; `_pi/agents/explore.md`) — Low-cost read-only codebase exploration before escalating to reviewer agents.
-- `developer-mid` (gpt-5.5-mini; `_pi/agents/developer-mid.md`) — Default implementation agent for standard complexity work. Cost-effective for most tasks.
+- `developer-mid` (gpt-5.5; `_pi/agents/developer-mid.md`) — Default GPT-5.5 medium implementation agent for standard scoped code-writing packets.
 - `developer-high` (gpt-5.5; `_pi/agents/developer-high.md`) — High-capability implementation agent for complex scenarios (multi-file refactoring, algorithmic challenges, concurrent systems, complex domain logic).
 - `developer-glm` (opencode/glm-5.2; `_pi/agents/developer-glm.md`) — GLM implementation agent for specification-driven coding work.
 - `developer-mm` (MiniMax; `_pi/agents/developer-mm.md`) — Alternative implementation agent using MiniMax model.

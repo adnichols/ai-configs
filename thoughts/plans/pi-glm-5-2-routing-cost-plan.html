@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pi GLM-5.2 Routing and Cost Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #172033;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-2: #a78bfa;
+      --border: #334155;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --code: #020617;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+    main {
+      width: min(1180px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 40px 0 72px;
+    }
+    h1, h2, h3, h4 { line-height: 1.25; }
+    h1 { font-size: clamp(2rem, 5vw, 4rem); margin: 0 0 12px; }
+    h2 { margin-top: 48px; padding-top: 12px; border-top: 1px solid var(--border); }
+    h3 { margin-top: 32px; color: #dbeafe; }
+    a { color: var(--accent); }
+    .lede { color: var(--muted); font-size: 1.1rem; max-width: 900px; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 28px; }
+    .badge { border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; background: var(--panel); color: var(--muted); font-size: 0.9rem; }
+    .card, section.phase { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin: 18px 0; }
+    .callout { border-left: 4px solid var(--accent); background: var(--panel-2); padding: 16px 18px; border-radius: 12px; }
+    .warning { border-left-color: var(--warn); }
+    .success { border-left-color: var(--good); }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; overflow: hidden; border-radius: 12px; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: #1e293b; text-align: left; }
+    td { background: rgba(15, 23, 42, 0.55); }
+    code, pre { background: var(--code); color: #e0f2fe; border-radius: 8px; }
+    code { padding: 2px 5px; }
+    pre { padding: 14px; overflow-x: auto; border: 1px solid var(--border); }
+    .toc { columns: 2 320px; }
+    .toc li { break-inside: avoid; margin: 6px 0; }
+    .progress li { margin: 8px 0; }
+    .checkbox { color: var(--warn); font-weight: 700; }
+    .small { color: var(--muted); font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+<main>
+  <header id="top">
+    <h1>Pi GLM-5.2 Routing and Cost Plan</h1>
+    <p class="lede">Execution-ready plan to keep GPT-5.5 medium as the Pi default for cost-effective coding-plan work while adding GLM-5.2 high as a scoped planning/orchestration model, preserving cheaper Explore agents for repository discovery and strong review gates for high-risk work.</p>
+    <div class="badge-row" aria-label="Plan status badges">
+      <span class="badge">Status: execution-ready</span>
+      <span class="badge">Repository: ai-configs</span>
+      <span class="badge">Primary risk: routing regressions</span>
+      <span class="badge">Pilot window: 1 week</span>
+    </div>
+  </header>
+
+  <section id="toc" class="card">
+    <h2>Table of contents</h2>
+    <ol class="toc">
+      <li><a href="#summary">Summary</a></li>
+      <li><a href="#evidence">Evidence and research alignment</a></li>
+      <li><a href="#cost-comparison">Cost comparison</a></li>
+      <li><a href="#scope">Scope and non-goals</a></li>
+      <li><a href="#agent-routing-matrix">Agent routing matrix</a></li>
+      <li><a href="#workflow-usage">Workflow usage</a></li>
+      <li><a href="#progress">Progress</a></li>
+      <li><a href="#phase-p1-config">P1 — Add GLM orchestration profile</a></li>
+      <li><a href="#phase-p2-routing">P2 — Add scoped GLM routing without changing default</a></li>
+      <li><a href="#phase-p3-delegation">P3 — Enforce delegation packets</a></li>
+      <li><a href="#phase-p4-e2e">P4 — Split E2E runner/fixer workflow</a></li>
+      <li><a href="#phase-p5-validation">P5 — Validate install and pilot metrics</a></li>
+      <li><a href="#acceptance-criteria">Acceptance criteria</a></li>
+      <li><a href="#verification">Final verification</a></li>
+      <li><a href="#resume-instructions">Resume instructions</a></li>
+    </ol>
+  </section>
+
+  <section id="summary">
+    <h2>Summary</h2>
+    <div class="callout success" id="decision-summary">
+      <p><strong>Decision:</strong> Pilot mixed routing, not a full OpenAI replacement and not a global default-model flip. Keep GPT-5.5 medium as the Pi default because the current coding-plan subscription economics are favorable. Add GLM-5.2 high as a scoped model for planning/orchestration sessions and explicit escalations; GPT-5.5 medium remains the normal code-writing route; GPT-5.5 high and Claude remain escalation/review backstops; Explore handles broad code discovery.</p>
+    </div>
+    <p>The recent activity profile shows that the largest model burn is long E2E/debug orchestration and repeated review loops, not ordinary implementation turns. The implementation should therefore reduce GPT-5.5 burn by adding an explicit GLM scoped route for orchestration-heavy work, narrowing review reruns, and forcing cheap exploration before expensive implementation packets—without changing the everyday Pi default away from GPT-5.5 medium.</p>
+  </section>
+
+  <section id="evidence">
+    <h2>Evidence and research alignment</h2>
+    <h3 id="local-usage">Local usage pattern</h3>
+    <table id="usage-table">
+      <thead><tr><th>Work class</th><th>Approx sessions</th><th>Approx log volume</th><th>Implication</th></tr></thead>
+      <tbody>
+        <tr><td>E2E / test-running / live journey debugging</td><td>105</td><td>2.35 GB</td><td>Use GLM/process supervision and narrow GPT fixes.</td></tr>
+        <tr><td>Debug/fix loops</td><td>193</td><td>2.33 GB</td><td>Keep hypothesis/triage outside GPT-5.5 high.</td></tr>
+        <tr><td>PR / pre-PR / review feedback</td><td>200</td><td>263 MB</td><td>Use risk-based narrow reruns.</td></tr>
+        <tr><td>Run-plan implementation</td><td>37</td><td>130 MB</td><td>Keep GPT-5.5 medium default; switch to scoped GLM for orchestration-heavy runs.</td></tr>
+        <tr><td>Planning / plan review</td><td>53</td><td>125 MB</td><td>Good fit for GLM-high.</td></tr>
+      </tbody>
+    </table>
+    <h3 id="databricks-alignment">Databricks benchmark alignment</h3>
+    <ul>
+      <li>Databricks found the coding-agent Pareto frontier includes OpenAI, Anthropic, and open models; this supports mixed routing.</li>
+      <li>They reported GLM-5.2 in the top capability tier and viable for daily-driver coding-agent work.</li>
+      <li>They found medium/lower models remain effective for common tasks; this supports cheaper Explore and scoped implementers.</li>
+      <li>They warned token price alone is a poor predictor of task cost; this plan includes pilot metrics rather than assuming savings.</li>
+      <li>They found harness efficiency matters and Pi can send much less context per turn; this plan keeps routing inside Pi and tightens packets.</li>
+    </ul>
+  </section>
+
+  <section id="cost-comparison">
+    <h2>Cost comparison</h2>
+    <table id="pricing-table">
+      <thead><tr><th>Model</th><th>Input / 1M</th><th>Cached input / 1M</th><th>Output / 1M</th></tr></thead>
+      <tbody>
+        <tr><td>GPT-5.5 API</td><td>$5.00</td><td>$0.50</td><td>$30.00</td></tr>
+        <tr><td>GLM-5.2 Z.ai API</td><td>$1.40</td><td>$0.26</td><td>$4.40</td></tr>
+        <tr><td>GPT-5.4-mini-like</td><td>$0.75</td><td>$0.075</td><td>$4.50</td></tr>
+      </tbody>
+    </table>
+    <table id="usage-cost-table">
+      <thead><tr><th>Pricing model</th><th>14-day estimate</th><th>30-day run-rate</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td>GPT-5.5 API rates</td><td>~$5,987</td><td>~$12,829</td><td>API-equivalent only; not actual subscription bill.</td></tr>
+        <tr><td>GLM-5.2 same token volume</td><td>~$2,183</td><td>~$4,677</td><td>~36.5% of GPT-5.5 API for observed token mix.</td></tr>
+        <tr><td>GPT-5.4-mini-like same token volume</td><td>~$898</td><td>~$1,924</td><td>Shows value of cheap Explore for discovery.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warning" id="subscription-caveat">
+      <p><strong>Subscription caveat:</strong> The current $400/month across two OpenAI 20x Pro accounts is far below API-equivalent GPT-5.5 cost for observed usage. GLM-5.2 API only beats $400/month if token volume falls to roughly 8.6% of the observed GPT-5.5 token pattern. The pilot should optimize both routing and total token volume.</p>
+    </div>
+  </section>
+
+  <section id="scope">
+    <h2>Scope and non-goals</h2>
+    <h3 id="in-scope">In scope</h3>
+    <ul>
+      <li>Add a GLM orchestration profile distinct from existing GLM reviewer profiles.</li>
+      <li>Add a GLM-5.2 high UI design specialist profile for design direction, visual critique, UX tradeoff analysis, and UI implementation review.</li>
+      <li>Keep both GPT-5.5 medium and GLM-5.2 high in Pi scoped models so the operator can switch between them.</li>
+      <li>Preserve GPT-5.5 medium as the normal Pi default and code-writing route for favorable coding-plan economics.</li>
+      <li>Make Explore the default broad code-discovery path before GPT implementation.</li>
+      <li>Add or update E2E/test-running prompt guidance so long test loops are process/log driven and fixes are delegated narrowly.</li>
+      <li>Add verification and pilot metric collection guidance.</li>
+    </ul>
+    <h3 id="non-goals">Non-goals</h3>
+    <ul>
+      <li>Do not remove GPT-5.5 from the system.</li>
+      <li>Do not weaken high-risk pre-PR review gates.</li>
+      <li>Do not migrate every implementation task to GLM.</li>
+      <li>Do not claim cost savings until pilot metrics show reduced GPT-5.5 turn count and token volume.</li>
+    </ul>
+  </section>
+
+  <section id="agent-routing-matrix">
+    <h2>Agent routing matrix</h2>
+    <p>This is the target agent roster after the plan is implemented. GPT-5.5 medium remains the default operator/coding-plan model; GLM-5.2 high is added where reasoning, orchestration, UI design, and long-loop supervision are likely to benefit from the capability/cost tradeoff.</p>
+    <table id="agent-roster-table">
+      <thead><tr><th>Agent / route</th><th>Model</th><th>Purpose</th><th>Used by run-plan</th><th>Used by pre-pr-implementation-review</th></tr></thead>
+      <tbody>
+        <tr><td>Default Pi session</td><td>GPT-5.5 medium</td><td>Normal interactive coding-plan work, lightweight implementation, command steering, and day-to-day edits where the subscription economics are favorable.</td><td>Owns the default run-plan session unless the operator scopes the session to GLM for planning/orchestration-heavy work.</td><td>Coordinates review kickoff and applies small non-risky dispositions when no specialist review is needed.</td></tr>
+        <tr><td><code>orchestrator-glm</code></td><td>GLM-5.2 high</td><td>Planning, decomposition, routing decisions, long debug-loop supervision, failure triage, review synthesis, and deciding which specialist should receive each scoped packet.</td><td>Optional scoped parent for orchestration-heavy run-plan executions; invoked either by switching the active Pi session to the GLM-5.2 scoped model before starting the plan/run, or by delegating a bounded planning/orchestration packet to the <code>orchestrator-glm</code> subagent from a GPT-5.5 default session. It should delegate code-writing to <code>developer-mid</code> after Explore narrows files and evidence.</td><td>Summarizes review findings, decides whether issues are in scope, and prepares focused fix packets; does not replace required high-risk review gates.</td></tr>
+        <tr><td><code>ui-design-glm</code></td><td>GLM-5.2 high</td><td>UI design direction, visual critique, UX tradeoff analysis, accessibility-aware design review, and design-focused implementation guidance.</td><td>Invoked for UI-heavy phases before implementation to shape design intent and after implementation to review UI fidelity.</td><td>Used when the PR touches UI/UX surfaces and the review needs design-quality or accessibility-oriented judgment before final readiness.</td></tr>
+        <tr><td><code>Explore</code> / <code>explore</code></td><td>Cheap explore model / GPT-5.4-mini-class</td><td>Read-only file discovery, symbol lookup, call graph hints, and scoped codebase reconnaissance.</td><td>First step for unfamiliar code paths; produces target files, relevant snippets, and constraints before expensive implementation agents run.</td><td>Used to inspect changed callsites or verify reviewer claims without spending high-capability implementation tokens.</td></tr>
+        <tr><td><code>developer-mid</code></td><td>GPT-5.5 medium</td><td>Default scoped code-writing and targeted test-running delegate.</td><td>Primary implementer for normal phases once the parent supplies files, expected behavior, verification commands, and edge cases.</td><td>Primary fixer for concrete review findings with bounded scope and explicit verification.</td></tr>
+        <tr><td><code>developer-high</code></td><td>GPT-5.5 high</td><td>Complex implementation, high-risk refactors, tricky concurrency/state/data migration work, or failures where medium cannot converge.</td><td>Escalation only; used when <code>developer-mid</code> is likely insufficient or has failed on a clearly bounded task.</td><td>Escalation fixer for high-risk findings that need stronger implementation reasoning.</td></tr>
+        <tr><td><code>quality-reviewer</code></td><td>GPT-5.5</td><td>Production-safety implementation review for security, data loss, regressions, and performance issues with measurable impact.</td><td>Post-phase or pre-PR review gate according to existing run-plan policy.</td><td>Primary Codex/GPT review leg for substantive implementation diffs.</td></tr>
+        <tr><td><code>glm5.2-high</code></td><td>GLM-5.2 high</td><td>Normal bounded GLM review leg for implementation concerns where an independent non-OpenAI pass adds value.</td><td>Optional post-phase review for higher-risk phases when model diversity is worth the spend.</td><td>Applicable GLM review leg for normal high-risk bounded review, complementing GPT review rather than duplicating every low-risk pass.</td></tr>
+        <tr><td><code>glm5.2-xhigh</code></td><td>GLM-5.2 xhigh</td><td>Very-high-stakes GLM review profile only: security-critical, data-loss, destructive migration, auth/privacy, major persistence/concurrency, release-blocking, or prior-review-missed-risk scenarios.</td><td>Never a default run-plan participant; reserved for explicitly identified very-high-stakes plan phases where normal GLM high or GPT review is not enough.</td><td>Reserved for final/exceptional-risk review only when the diff, user request, or prior feedback shows very high stakes. Do not use for routine PR readiness or normal high-risk work.</td></tr>
+        <tr><td>Claude review partner</td><td>Claude Opus / configured Claude review model</td><td>Independent review partner for plans, implementation risk, and cases where model diversity matters.</td><td>Used only when the workflow or risk profile calls for an additional external review leg.</td><td>Preserved as an applicable high-risk review backstop; not replaced by GLM.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="workflow-usage">
+    <h2>Workflow usage</h2>
+    <h3>run-plan optimized routing</h3>
+    <ol>
+      <li>Start in the GPT-5.5 medium default session for ordinary plans.</li>
+      <li>For plan construction that is orchestration-heavy, review-synthesis-heavy, UI-design-heavy, or dominated by long test/debug loops, use one of two explicit invocation paths: switch the active Pi scoped model to GLM-5.2 high before starting the planning/run-plan session, or keep the GPT-5.5 default parent and invoke <code>orchestrator-glm</code> as a subagent with a bounded planning packet.</li>
+      <li>Use Explore before implementation whenever target files or contracts are not already known.</li>
+      <li>Send <code>developer-mid</code> bounded implementation packets containing target files, intended behavior, verification commands, and relevant snippets.</li>
+      <li>Escalate to <code>developer-high</code> only for complex implementation or when medium fails on a well-scoped task.</li>
+      <li>Invoke <code>ui-design-glm</code> for UI intent before coding and for UI/UX review after implementation.</li>
+      <li>Use risk-based review: GPT review remains the default substantive safety pass; GLM review is added where independent model diversity is valuable.</li>
+    </ol>
+    <h3>pre-pr-implementation-review optimized routing</h3>
+    <ol>
+      <li>Use <code>quality-reviewer</code> for the primary production-safety review leg on substantive diffs.</li>
+      <li>Use <code>glm5.2-high</code> for applicable normal high-risk bounded review; use <code>glm5.2-xhigh</code> only for very-high-stakes final/exceptional-risk review such as security-critical, data-loss, destructive migration, auth/privacy, major persistence/concurrency, release-blocking, or prior-review-missed-risk scenarios.</li>
+      <li>Use Explore to cheaply verify file references, impact scope, and reviewer claims before spawning implementation fixers.</li>
+      <li>Use <code>developer-mid</code> for concrete fixes and targeted tests; escalate to <code>developer-high</code> only for complex or failed fixes.</li>
+      <li>Use <code>orchestrator-glm</code> for synthesis and routing when there are multiple findings, conflicting reviewer opinions, or expensive retry loops.</li>
+      <li>Use <code>ui-design-glm</code> when the diff changes visible UI, interaction design, accessibility behavior, or design-system conventions.</li>
+    </ol>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="progress">
+      <li id="progress-p1"><span class="checkbox">[x]</span> P1 — Add GLM orchestration profile</li>
+      <li id="progress-p2"><span class="checkbox">[x]</span> P2 — Add scoped GLM routing without changing default</li>
+      <li id="progress-p3"><span class="checkbox">[x]</span> P3 — Enforce delegation packets</li>
+      <li id="progress-p4"><span class="checkbox">[x]</span> P4 — Split E2E runner/fixer workflow</li>
+      <li id="progress-p5"><span class="checkbox">[x]</span> P5 — Validate install and pilot metrics</li>
+    </ul>
+  </section>
+
+  <section id="phase-p1-config" class="phase">
+    <h2>P1 — Add GLM orchestration profile</h2>
+    <h3>Tests first</h3>
+    <p>Inspect existing agent definitions and install verification expectations. No product behavior test is required before adding an agent definition, but the phase must verify that Pi can discover the new profile.</p>
+    <h3>End State</h3>
+    <p>A dedicated GLM orchestration agent exists and is documented as planner/orchestrator, not reviewer or code-writing specialist. A dedicated GLM UI design specialist also exists for visual design, UX direction, and UI review tasks.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Create `_pi/agents/orchestrator-glm.md` or equivalent with `model: opencode/glm-5.2` and `thinking: high`.</li>
+      <li>Create `_pi/agents/ui-design-glm.md` or equivalent with `model: opencode/glm-5.2` and `thinking: high` for UI design direction, visual critique, accessibility-aware UX review, and design-focused implementation guidance.</li>
+      <li>Give the orchestrator planning, orchestration, triage, process, and subagent delegation instructions.</li>
+      <li>Explicitly direct broad discovery to Explore, code-writing to `developer-mid`, and UI design/design-review questions to the GLM UI design specialist.</li>
+      <li>Update `_pi/README.md` and `AGENTS.md` agent catalog if needed.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>./install.sh --pi
+./scripts/verify-pi-install.sh
+test -f ~/.pi/agent/agents/orchestrator-glm.md
+test -f ~/.pi/agent/agents/ui-design-glm.md
+rg -n "orchestrator-glm|ui-design-glm|GLM-5.2" _pi/agents _pi/README.md AGENTS.md
+# Manual confirmation: open /agents in Pi and confirm both new repo-managed subagents appear.</code></pre>
+    <p class="small"><strong>Note:</strong> Do not use <code>pi list</code> as the only discovery check for these agents. Repo-managed Pi subagents install to <code>~/.pi/agent/agents/</code>; <code>pi list</code> reports package-managed installs and can miss them.</p>
+  </section>
+
+  <section id="phase-p2-routing" class="phase">
+    <h2>P2 — Add scoped GLM routing without changing default</h2>
+    <h3>Tests first</h3>
+    <p>Before edits, grep prompt templates and installer code for hard-coded GPT-5.5 defaults and scoped-model configuration behavior.</p>
+    <h3>End State</h3>
+    <p>Pi keeps GPT-5.5 medium as the default and keeps both GPT-5.5 medium and GLM-5.2 high available as scoped models, with clear instructions for when to switch to GLM for planning/orchestration-heavy work.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Do not change `install.sh` Pi defaults away from GPT-5.5 medium for this pilot.</li>
+      <li>Update `install.sh` so `enabledModels` explicitly includes both `openai-codex/gpt-5.5` and `opencode/glm-5.2`, while preserving `defaultProvider: openai-codex` and `defaultModel: gpt-5.5`.</li>
+      <li>Update `scripts/verify-pi-install.sh` to assert the installed `~/.pi/agent/settings.json` has unchanged GPT-5.5 defaults and contains both `openai-codex/gpt-5.5` and `opencode/glm-5.2` in `enabledModels`.</li>
+      <li>Update `_pi/prompts/run-plan.md`, `_pi/prompts/dev:run.md`, `_pi/prompts/dev:plan.md`, or wrapper guidance to describe both invocation paths for GLM planning: operator switches the active scoped model to GLM-5.2 high before planning, or the GPT-5.5 default parent delegates a bounded planning/orchestration packet to <code>orchestrator-glm</code>.</li>
+      <li>Document the default-vs-scoped model decision and planning invocation paths in `_pi/README.md` and relevant prompt guidance.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>rg -n "model: openai/gpt-5.5|DEFAULT_PROVIDER|DEFAULT_MODEL|enabledModels|opencode/glm-5.2|glm-5.2" _pi install.sh scripts/verify-pi-install.sh
+./install.sh --pi
+./scripts/verify-pi-install.sh
+python3 - &lt;&lt;'PY'
+import json, pathlib
+settings = json.loads(pathlib.Path.home().joinpath('.pi/agent/settings.json').read_text())
+assert settings.get('defaultProvider') == 'openai-codex'
+assert settings.get('defaultModel') == 'gpt-5.5'
+enabled = settings.get('enabledModels', [])
+assert 'openai-codex/gpt-5.5' in enabled
+assert 'opencode/glm-5.2' in enabled
+print('Pi defaults and scoped models verified')
+PY</code></pre>
+  </section>
+
+  <section id="phase-p3-delegation" class="phase">
+    <h2>P3 — Enforce delegation packets</h2>
+    <h3>Tests first</h3>
+    <p>Review current `developer-mid`, `developer-high`, `Explore`, `run-plan`, and `dev:run` guidance to identify where broad discovery or implementation is underspecified.</p>
+    <h3>End State</h3>
+    <p>Expensive implementation agents receive scoped packets instead of rediscovering the repo, and broad discovery is explicitly routed to Explore.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Update `developer-mid` to describe its role as the GPT-5.5 medium code-writing delegate.</li>
+      <li>Update run-plan/dev-run guidance to require target files, desired behavior, verification commands, and Explore-derived context before delegating code.</li>
+      <li>Clarify that `developer-high` is an escalation path for complex/risky implementation only.</li>
+      <li>Clarify that GLM orchestrator may edit only low-risk docs/config/prompt changes directly.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>rg -n "Explore|developer-mid|developer-high|orchestr" _pi/agents _pi/prompts skills/run-plan/SKILL.md</code></pre>
+  </section>
+
+  <section id="phase-p4-e2e" class="phase">
+    <h2>P4 — Split E2E runner/fixer workflow</h2>
+    <h3>Tests first</h3>
+    <p>Read existing Playwright/E2E prompt templates and identify current places that spawn `developer-mid` directly from long-running failures.</p>
+    <h3>End State</h3>
+    <p>Long-running E2E workflows use process/log supervision and cheap investigation first, then delegate narrowed fixes to GPT-5.5 medium.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Update `_pi/prompts/test:run-playwright.md` and `_pi/prompts/test:run-playwright:all.md`.</li>
+      <li>Require failure packets containing command, failing scenario, relevant logs, suspected files, and targeted verification.</li>
+      <li>Use Explore for callsite discovery before spawning `developer-mid` on ambiguous failures.</li>
+      <li>Prevent GPT-5.5 agents from supervising whole E2E loops unless explicitly escalated.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>rg -n "developer-mid|Explore|process|failure packet" _pi/prompts/test:run-playwright*.md</code></pre>
+  </section>
+
+  <section id="phase-p5-validation" class="phase">
+    <h2>P5 — Validate install and pilot metrics</h2>
+    <h3>Tests first</h3>
+    <p>Define the pilot metrics before enabling global defaults so success can be measured instead of assumed.</p>
+    <h3>End State</h3>
+    <p>The changed configuration installs cleanly and includes an explicit one-week pilot measurement plan.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Run repo verification for Pi install resources, including enabled-model assertions for both `openai-codex/gpt-5.5` and `opencode/glm-5.2`.</li>
+      <li>Start one controlled Pi session using the scoped GLM-5.2 high model and confirm `developer-mid` still routes to GPT-5.5 medium.</li>
+      <li>Record pilot metrics: GPT-5.5 turn count, GLM turn count, token cost estimates, intervention rate, review escape rate, and E2E loop duration.</li>
+      <li>Document rollback: restore GPT-5.5 prompt/default routing if GLM orchestration regresses task completion or review safety.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>./install.sh --pi
+./scripts/verify-pi-install.sh
+pi --list-models | rg "glm-5.2|gpt-5.5|gpt-5.4-mini"
+python3 - &lt;&lt;'PY'
+import json, pathlib
+settings = json.loads(pathlib.Path.home().joinpath('.pi/agent/settings.json').read_text())
+assert settings.get('defaultProvider') == 'openai-codex'
+assert settings.get('defaultModel') == 'gpt-5.5'
+assert 'openai-codex/gpt-5.5' in settings.get('enabledModels', [])
+assert 'opencode/glm-5.2' in settings.get('enabledModels', [])
+assert pathlib.Path.home().joinpath('.pi/agent/agents/orchestrator-glm.md').is_file()
+assert pathlib.Path.home().joinpath('.pi/agent/agents/ui-design-glm.md').is_file()
+print('Pi routing pilot install verified')
+PY</code></pre>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <ul>
+      <li id="ac-1">GPT-5.5 medium remains the Pi default for cost-effective coding-plan work.</li>
+      <li id="ac-2">GLM-5.2 high is available as a scoped model for planning/orchestration-heavy sessions because `enabledModels` includes `opencode/glm-5.2` while the default remains `openai-codex/gpt-5.5`.</li>
+      <li id="ac-3">A GLM-5.2 high UI design specialist exists for UI design direction, visual critique, UX tradeoff analysis, and UI review.</li>
+      <li id="ac-4">Explore remains the first-choice broad code discovery route.</li>
+      <li id="ac-5">High-risk implementation and pre-PR review retain GPT-5.5/Claude escalation paths.</li>
+      <li id="ac-6">E2E/test-running guidance separates long log/process supervision from code-writing fixes.</li>
+      <li id="ac-7">The plan records the economic caveat that GLM API cost must be paired with token-volume reduction to beat the current $400/month subscription baseline.</li>
+    </ul>
+  </section>
+
+  <section id="verification">
+    <h2>Final verification</h2>
+    <ol>
+      <li>Run `./scripts/verify-pi-install.sh` from `ai-configs`.</li>
+      <li>Run `./install.sh --pi` in a safe environment or dry-run equivalent if available.</li>
+      <li>Inspect `~/.pi/agent/settings.json`; confirm `defaultProvider` is `openai-codex`, `defaultModel` is `gpt-5.5`, and `enabledModels` includes both `openai-codex/gpt-5.5` and `opencode/glm-5.2`.</li>
+      <li>Inspect `~/.pi/agent/agents/`; confirm `orchestrator-glm.md` and `ui-design-glm.md` were installed from `_pi/agents/`.</li>
+      <li>Open Pi scoped-model/model controls and `/agents`; confirm GPT-5.5 medium remains default, GLM-5.2 high is available for switching, and the GLM orchestrator, Explore, developer-mid, and developer-high profiles show expected model routing.</li>
+      <li>Run one small controlled planning task and one delegated implementation dry run to confirm routing behavior.</li>
+      <li>Collect pilot metrics for one week before removing or reducing OpenAI subscription capacity.</li>
+    </ol>
+  </section>
+
+  <section id="resume-instructions">
+    <h2>Resume Instructions (Agent)</h2>
+    <p>Start by reading this plan fully. Work through the first unchecked item in <a href="#progress">Progress</a>. Do not broaden scope beyond routing and prompt/config changes for the GLM/GPT/Explore split. Preserve GPT-5.5 medium as the Pi default and code-writing route; add GLM-5.2 high as a scoped planning/orchestration option; preserve GPT-5.5 high and Claude as escalation/review backstops. After each phase, run the phase verification, update this source HTML progress checkbox, push the update to Doct, and continue to the next unchecked phase unless blocked.</p>
+  </section>
+
+  <section id="decisions-deviations-log">
+    <h2>Decisions / Deviations Log</h2>
+    <p class="small">2026-07-09: Incorporated browser feedback to keep GPT-5.5 medium as the Pi default because current coding-plan subscription economics are favorable, while adding GLM-5.2 high as a scoped model for planning/orchestration-heavy sessions.</p>
+    <p class="small">2026-07-09: Incorporated browser feedback to add a GLM-5.2 high UI design specialist route for UI design direction, visual critique, UX tradeoff analysis, and UI review.</p>
+    <p class="small">2026-07-09: Incorporated browser feedback to reserve <code>glm5.2-xhigh</code> for very-high-stakes situations only, not routine run-plan or pre-PR work.</p>
+    <p class="small">2026-07-09: Incorporated Codex execution-readiness feedback requiring concrete `enabledModels` changes for `opencode/glm-5.2` and installed-agent verification under `~/.pi/agent/agents/` instead of relying on `pi list`.</p>
+    <p class="small">2026-07-09: Clarified that GLM planning can be invoked either by switching the active Pi scoped model before planning or by delegating a bounded planning/orchestration packet to the <code>orchestrator-glm</code> subagent from the GPT-5.5 default parent.</p>
+    <p class="small">2026-07-09: Completed P1-P4 locally: added <code>orchestrator-glm</code> and <code>ui-design-glm</code>, preserved GPT-5.5 defaults while enabling scoped GLM-5.2, updated delegation-packet guidance, and split Playwright supervision from fixer packets.</p>
+    <p class="small">2026-07-09: Completed P5 with <code>./install.sh --pi</code>, <code>./scripts/verify-pi-install.sh</code>, installed-agent file checks, settings assertions for <code>openai-codex/gpt-5.5</code> and <code>opencode/glm-5.2</code>, and <code>pi --list-models</code> confirmation. Manual Pi UI confirmation remains operator-facing because it requires interactive model/agents controls.</p>
+  </section>
+</main>
+</body>
+</html>
