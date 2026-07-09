@@ -1533,6 +1533,16 @@ install_omp() {
     local omp_models_source="$omp_source_dir/models.yml"
     local omp_models_target="$omp_agent_dir/models.yml"
     local omp_config_path="$omp_agent_dir/config.yml"
+    local bun_cmd=""
+
+    if command -v bun >/dev/null 2>&1; then
+        bun_cmd="$(command -v bun)"
+    elif [ -x "$HOME/.bun/bin/bun" ]; then
+        bun_cmd="$HOME/.bun/bin/bun"
+    else
+        echo -e "${RED}Error: bun is required to merge the OMP GPT-5.6 model catalog safely.${NC}" >&2
+        return 1
+    fi
 
     # This is a home-directory install only. Do not write into the repo.
     # Do not write OMP artifacts into the repository itself.
@@ -1593,7 +1603,7 @@ install_omp() {
     install_omp_system_file "$omp_agent_dir"
 
     if [ -f "$omp_models_source" ]; then
-        OMP_MODELS_SOURCE="$omp_models_source" OMP_MODELS_TARGET="$omp_models_target" bun - <<'TS'
+        OMP_MODELS_SOURCE="$omp_models_source" OMP_MODELS_TARGET="$omp_models_target" "$bun_cmd" - <<'TS'
 import { chmod, mkdir, open, rename, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { YAML } from "bun";
