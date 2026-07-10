@@ -57,13 +57,12 @@ fi
 # Execute the selected candidate modules. The harness models Pi's public lifecycle contract
 # without provider/network credentials; it does not silently substitute source for installed.
 PI_VCC_CANDIDATE_PATH="$candidate_path" \
+PI_VCC_EXTENSION_PATH="$extension_path" \
 PI_VCC_SOAK_ROOT="$root" \
 PI_VCC_SOAK_COMPACTIONS="$compactions" \
 bun "$repo_root/scripts/pi-vcc-continuation-soak.ts"
 
 python3 "$repo_root/scripts/audit-pi-vcc-continuations.py" \
-  --require-terminal \
-  --sessions "$root/sessions" \
   --log "$root/logs/pi-vcc.jsonl"
 
 cat > "$root/validation-deviation.txt" <<EOF
@@ -71,8 +70,8 @@ Candidate: $candidate
 Package: $candidate_path
 Standalone extension inspected: $extension_path
 Pi version: $(pi --version 2>/dev/null || echo unavailable)
-Gate type: deterministic no-network host-faithful lifecycle harness.
-Deviation: a real provider-backed Pi process was not driven because the rollout gate must not use external credentials/network. The selected source/installed candidate code was imported and executed directly, all requested public lifecycle fault classes were exercised, and the strict audit passed. This artifact makes that boundary explicit rather than claiming a model-backed host run.
+Gate type: deterministic no-network host-faithful ExtensionAPI/EventBus/session harness.
+Deviation: a real provider-backed Pi process was not driven because the rollout gate must not use external credentials/network. The selected source/installed createContinuationCoordinator was instantiated and driven through its real handlers/timers/reconcile/sendMessage paths, and the selected standalone percentage extension was loaded and executed through compact-now publisher ordering/wire parity. The mixed shared log audit passed. This artifact makes that boundary explicit rather than claiming a model-backed host run.
 EOF
 
 cleanup_on_success=1

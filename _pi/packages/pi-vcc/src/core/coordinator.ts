@@ -1,34 +1,43 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import {
-  CONTINUATION_MESSAGE_CUSTOM_TYPE,
-  CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE,
-  CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
-  CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
-  adaptContinuationInitiatorOutcome,
-  continuationMessageDetailsFor,
-  createContinuationOutcomeWire,
-  createContinuationRequestWire,
-  createContinuationSnapshotWire,
-  reconcileContinuationEntries,
-  type ContinuationAttemptOutcome,
-  type ContinuationInitiator,
-  type ContinuationLifecycleEpochs,
-  type ContinuationResumePolicy,
-  type ContinuationState,
-  type ContinuationTransactionSnapshot,
+	type ContinuationEvent,
+	createContinuationTransaction,
+	isContinuationTerminal,
+	transitionContinuation,
+} from "./continuation";
+import {
+	adaptContinuationInitiatorOutcome,
+	CONTINUATION_MESSAGE_CUSTOM_TYPE,
+	CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE,
+	CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+	CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+	type ContinuationAttemptOutcome,
+	type ContinuationInitiator,
+	type ContinuationLifecycleEpochs,
+	type ContinuationResumePolicy,
+	type ContinuationState,
+	type ContinuationTransactionSnapshot,
+	continuationMessageDetailsFor,
+	createContinuationOutcomeWire,
+	createContinuationRequestWire,
+	createContinuationSnapshotWire,
+	reconcileContinuationEntries,
 } from "./continuation-protocol";
 import {
-  createContinuationTransaction,
-  isContinuationTerminal,
-  transitionContinuation,
-  type ContinuationEvent,
-} from "./continuation";
-import { getPiVccLogPath, logContinuationTransaction, logPiVccEvent } from "./log";
+	getPiVccLogPath,
+	logContinuationTransaction,
+	logPiVccEvent,
+} from "./log";
 
 export const CONTINUATION_WAKE_EVENT = "pi-vcc:continuation-requested";
+export const CONTINUATION_SAFETY_READY_WAKE_EVENT =
+	"pi-vcc:continuation-safety-ready";
 export const CONTINUATION_AUTHORITY_ENV = "PI_VCC_CONTINUATION_AUTHORITY";
 const CONTINUATION_PROMPT =
-  "Pi-vcc interrupted active work for compaction or recovery. Continue from the preserved state and resume the next concrete step; use vcc_recall if details from before compaction are needed.";
+	"Pi-vcc interrupted active work for compaction or recovery. Continue from the preserved state and resume the next concrete step; use vcc_recall if details from before compaction are needed.";
 const DEFAULT_DEADLINE_MS = 60_000;
 const DEFAULT_RETRY_LIMIT = 2;
 const DEFAULT_RETRY_DELAY_MS = 100;
@@ -36,338 +45,584 @@ const DEFAULT_RETRY_DELAY_MS = 100;
 export type ContinuationAuthority = "coordinator" | "legacy";
 
 export interface ContinuationRequestInput {
-  initiator: ContinuationInitiator;
-  outcome: ContinuationAttemptOutcome;
-  attemptId: string;
-  compactionId?: string;
-  requestId?: string;
-  originatingRequestId?: string;
-  resumePolicy?: ContinuationResumePolicy;
-  pendingToolCount?: number;
-  deadlineMs?: number;
-  retryLimit?: number;
-  transactionId?: string;
+	initiator: ContinuationInitiator;
+	outcome: ContinuationAttemptOutcome;
+	attemptId: string;
+	compactionId?: string;
+	requestId?: string;
+	originatingRequestId?: string;
+	resumePolicy?: ContinuationResumePolicy;
+	pendingToolCount?: number;
+	deadlineMs?: number;
+	retryLimit?: number;
+	transactionId?: string;
 }
 
 export interface ContinuationCoordinatorOptions {
-  authority?: ContinuationAuthority;
-  now?: () => number;
-  setTimer?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
-  clearTimer?: (timer: ReturnType<typeof setTimeout>) => void;
-  retryDelayMs?: number;
+	authority?: ContinuationAuthority;
+	now?: () => number;
+	setTimer?: (
+		callback: () => void,
+		delayMs: number,
+	) => ReturnType<typeof setTimeout>;
+	clearTimer?: (timer: ReturnType<typeof setTimeout>) => void;
+	retryDelayMs?: number;
 }
 
 export interface ContinuationCoordinator {
-  authority: ContinuationAuthority;
-  request(input: ContinuationRequestInput, ctx: ExtensionContext): ContinuationTransactionSnapshot;
-  reconcile(ctx: ExtensionContext): void;
-  getPending(): ContinuationTransactionSnapshot | undefined;
-  dispose(): void;
+	authority: ContinuationAuthority;
+	request(
+		input: ContinuationRequestInput,
+		ctx: ExtensionContext,
+	): ContinuationTransactionSnapshot;
+	reconcile(ctx: ExtensionContext): void;
+	getPending(): ContinuationTransactionSnapshot | undefined;
+	dispose(): void;
 }
 
-const transactionIdFor = (input: ContinuationRequestInput, now: number): string =>
-  input.transactionId ?? `vcc-${now.toString(36)}-${input.attemptId}`;
+const transactionIdFor = (
+	input: ContinuationRequestInput,
+	now: number,
+): string =>
+	input.transactionId ?? `vcc-${now.toString(36)}-${input.attemptId}`;
 
 const logEventForState = (state: ContinuationState) => {
-  if (state === "failed_loudly") return "failed" as const;
-  return state;
+	if (state === "failed_loudly") return "failed" as const;
+	return state;
 };
 
 const readAuthority = (): ContinuationAuthority =>
-  process.env[CONTINUATION_AUTHORITY_ENV]?.trim().toLowerCase() === "legacy" ? "legacy" : "coordinator";
+	process.env[CONTINUATION_AUTHORITY_ENV]?.trim().toLowerCase() === "legacy"
+		? "legacy"
+		: "coordinator";
 
 const isRealUserMessage = (message: any): boolean =>
-  message?.role === "user" && typeof message?.customType !== "string";
+	message?.role === "user" && typeof message?.customType !== "string";
 
 const isIndependentConsumedInput = (message: any): boolean =>
-  (message?.role === "custom" && message.customType !== CONTINUATION_MESSAGE_CUSTOM_TYPE)
-  || message?.role === "user";
+	(message?.role === "custom" &&
+		message.customType !== CONTINUATION_MESSAGE_CUSTOM_TYPE) ||
+	message?.role === "user";
 
-const classifyAssistantResult = (message: any): "progress" | "error" | "aborted" | undefined => {
-  if (message?.role !== "assistant") return undefined;
-  if (message.stopReason === "error") return "error";
-  if (message.stopReason === "aborted") return "aborted";
-  return "progress";
+const classifyAssistantResult = (
+	message: any,
+): "progress" | "error" | "aborted" | undefined => {
+	if (message?.role !== "assistant") return undefined;
+	if (message.stopReason === "error") return "error";
+	if (message.stopReason === "aborted") return "aborted";
+	return "progress";
+};
+
+const mergeEpochMax = (
+	current: ContinuationLifecycleEpochs,
+	incoming: ContinuationLifecycleEpochs,
+): ContinuationLifecycleEpochs => ({
+	session: Math.max(current.session, incoming.session),
+	input: Math.max(current.input, incoming.input),
+	agent: Math.max(current.agent, incoming.agent),
+	turn: Math.max(current.turn, incoming.turn),
+	message: Math.max(current.message, incoming.message),
+	settlement: Math.max(current.settlement, incoming.settlement),
+});
+
+const withEpochBaseline = (
+	snapshot: ContinuationTransactionSnapshot,
+	baseline: ContinuationLifecycleEpochs,
+): ContinuationTransactionSnapshot => {
+	const merged = mergeEpochMax(baseline, snapshot.epochs);
+	const consumedEpochs = snapshot.consumedEpochs
+		? mergeEpochMax(merged, snapshot.consumedEpochs)
+		: undefined;
+	return {
+		...snapshot,
+		epochs: merged,
+		...(consumedEpochs ? { consumedEpochs } : {}),
+	};
 };
 
 export const createContinuationCoordinator = (
-  pi: ExtensionAPI,
-  options: ContinuationCoordinatorOptions = {},
+	pi: ExtensionAPI,
+	options: ContinuationCoordinatorOptions = {},
 ): ContinuationCoordinator => {
-  const authority = options.authority ?? readAuthority();
-  const now = options.now ?? Date.now;
-  const setTimer = options.setTimer ?? setTimeout;
-  const clearTimer = options.clearTimer ?? clearTimeout;
-  const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
-  let current: ContinuationTransactionSnapshot | undefined;
-  let watchdog: ReturnType<typeof setTimeout> | undefined;
-  let lastContext: ExtensionContext | undefined;
-  let disposed = false;
-  let shuttingDownForReload = false;
-  let epochs: ContinuationLifecycleEpochs = {
-    session: 0,
-    input: 0,
-    agent: 0,
-    turn: 0,
-    message: 0,
-    settlement: 0,
-  };
+	const authority = options.authority ?? readAuthority();
+	const now = options.now ?? Date.now;
+	const setTimer = options.setTimer ?? setTimeout;
+	const clearTimer = options.clearTimer ?? clearTimeout;
+	const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+	let current: ContinuationTransactionSnapshot | undefined;
+	let lastTerminal: ContinuationTransactionSnapshot | undefined;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	let lastContext: ExtensionContext | undefined;
+	let disposed = false;
+	let sessionShutDown = false;
+	let epochs: ContinuationLifecycleEpochs = {
+		session: 0,
+		input: 0,
+		agent: 0,
+		turn: 0,
+		message: 0,
+		settlement: 0,
+	};
+	let wakeUnsubscribe: (() => void) | undefined;
+	let safetyWakeUnsubscribe: (() => void) | undefined;
 
-  const cancelTimer = () => {
-    if (watchdog !== undefined) clearTimer(watchdog);
-    watchdog = undefined;
-  };
+	const cancelTimer = () => {
+		if (timer !== undefined) clearTimer(timer);
+		timer = undefined;
+	};
 
-  const persistSnapshot = (snapshot: ContinuationTransactionSnapshot) => {
-    pi.appendEntry(CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE, createContinuationSnapshotWire(snapshot));
-    logContinuationTransaction(logEventForState(snapshot.state), snapshot, now());
-  };
+	const persistSnapshot = (snapshot: ContinuationTransactionSnapshot) => {
+		pi.appendEntry(
+			CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+			createContinuationSnapshotWire(snapshot),
+		);
+		logContinuationTransaction(
+			logEventForState(snapshot.state),
+			snapshot,
+			now(),
+		);
+	};
 
-  const persistOutcome = (snapshot: ContinuationTransactionSnapshot) => {
-    pi.appendEntry(CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE, createContinuationOutcomeWire(snapshot));
-  };
+	const persistOutcome = (snapshot: ContinuationTransactionSnapshot) => {
+		pi.appendEntry(
+			CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE,
+			createContinuationOutcomeWire(snapshot),
+		);
+	};
 
-  const warnFailure = (snapshot: ContinuationTransactionSnapshot, ctx: ExtensionContext) => {
-    const identifiers = [
-      `transaction=${snapshot.transactionId}`,
-      `attempt=${snapshot.attemptId}`,
-      snapshot.compactionId ? `compaction=${snapshot.compactionId}` : undefined,
-    ].filter(Boolean).join(" ");
-    ctx.ui.notify(
-      `Pi-vcc continuation failed (${identifiers}; retries=${snapshot.retryCount}; pending-tools=${snapshot.pendingToolCount}). ` +
-      `See ${getPiVccLogPath()}. Manual action: send “continue” after checking the interrupted task state.`,
-      "warning",
-    );
-  };
+	const warnFailure = (
+		snapshot: ContinuationTransactionSnapshot,
+		ctx: ExtensionContext,
+	) => {
+		const identifiers = [
+			`transaction=${snapshot.transactionId}`,
+			`attempt=${snapshot.attemptId}`,
+			snapshot.compactionId ? `compaction=${snapshot.compactionId}` : undefined,
+		]
+			.filter(Boolean)
+			.join(" ");
+		ctx.ui.notify(
+			`Pi-vcc continuation failed (${identifiers}; retries=${snapshot.retryCount}; pending-tools=${snapshot.pendingToolCount}). ` +
+				`See ${getPiVccLogPath()}. Manual action: send “continue” after checking the interrupted task state.`,
+			"warning",
+		);
+	};
 
-  const armTimer = (snapshot: ContinuationTransactionSnapshot, delayOverride?: number) => {
-    cancelTimer();
-    if (disposed || isContinuationTerminal(snapshot)) return;
-    const delay = delayOverride ?? Math.max(0, snapshot.deadlineAt - now());
-    watchdog = setTimer(() => {
-      watchdog = undefined;
-      if (!current || current.transactionId !== snapshot.transactionId || isContinuationTerminal(current)) return;
-      apply({ type: "deadline", at: Math.max(now(), current.deadlineAt), epochs }, lastContext);
-    }, delay);
-  };
+	const subscribeWakes = () => {
+		wakeUnsubscribe?.();
+		safetyWakeUnsubscribe?.();
+		const wake = () => {
+			if (lastContext) reconcile(lastContext);
+		};
+		wakeUnsubscribe = pi.events.on(CONTINUATION_WAKE_EVENT, wake);
+		safetyWakeUnsubscribe = pi.events.on(
+			CONTINUATION_SAFETY_READY_WAKE_EVENT,
+			wake,
+		);
+	};
 
-  const submit = (ctx: ExtensionContext) => {
-    if (!current || isContinuationTerminal(current) || current.pendingToolCount > 0 || disposed) return;
-    if (authority !== "coordinator") {
-      armTimer(current);
-      return;
-    }
-    const submitted = transitionContinuation(current, { type: "submitted", at: now(), epochs });
-    if (submitted.disposition !== "applied") return;
-    current = submitted.snapshot;
-    persistSnapshot(current);
-    try {
-      pi.sendMessage({
-        customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
-        content: CONTINUATION_PROMPT,
-        display: false,
-        details: continuationMessageDetailsFor(current),
-      }, { triggerTurn: true, deliverAs: "steer" });
-    } catch {
-      // A synchronous throw is submission failure evidence; async host rejection is detected by no consumption.
-      const retry = transitionContinuation(current, { type: "agent_settled", at: now(), epochs });
-      current = retry.snapshot;
-      persistSnapshot(current);
-      if (retry.decision === "retry") armTimer(current, retryDelayMs);
-      else if (retry.decision === "fail_loudly") {
-        persistOutcome(current);
-        warnFailure(current, ctx);
-      }
-      return;
-    }
-    armTimer(current);
-  };
+	const unsubscribeWakes = () => {
+		wakeUnsubscribe?.();
+		safetyWakeUnsubscribe?.();
+		wakeUnsubscribe = undefined;
+		safetyWakeUnsubscribe = undefined;
+	};
 
-  const apply = (event: ContinuationEvent, ctx = lastContext) => {
-    if (!current || disposed) return;
-    const result = transitionContinuation(current, event);
-    if (result.disposition === "ignored_invalid" || result.disposition === "ignored_stale") return;
-    current = result.snapshot;
-    if (result.disposition === "applied") persistSnapshot(current);
-    if (isContinuationTerminal(current)) {
-      cancelTimer();
-      persistOutcome(current);
-      if (current.state === "failed_loudly" && ctx) warnFailure(current, ctx);
-      return;
-    }
-    if ((result.decision === "retry" || result.decision === "submit") && ctx) {
-      if (result.decision === "retry") armTimer(current, retryDelayMs);
-      else submit(ctx);
-      return;
-    }
-    armTimer(current);
-  };
+	const armDeadline = (snapshot: ContinuationTransactionSnapshot) => {
+		cancelTimer();
+		if (disposed || sessionShutDown || isContinuationTerminal(snapshot)) return;
+		timer = setTimer(
+			() => {
+				timer = undefined;
+				if (
+					!current ||
+					current.transactionId !== snapshot.transactionId ||
+					isContinuationTerminal(current)
+				)
+					return;
+				apply(
+					{ type: "deadline", at: Math.max(now(), current.deadlineAt), epochs },
+					lastContext,
+				);
+			},
+			Math.max(0, snapshot.deadlineAt - now()),
+		);
+	};
 
-  const reconcile = (ctx: ExtensionContext) => {
-    if (disposed) return;
-    lastContext = ctx;
-    const entries = ctx.sessionManager.getBranch() as any[];
-    const reconciled = reconcileContinuationEntries(entries);
-    if (reconciled.invalidEntryIds.length > 0) {
-      logPiVccEvent("continuation_invalid_entries", { count: reconciled.invalidEntryIds.length });
-    }
-    const pending = reconciled.pending[0];
-    if (!pending) {
-      if (!current || isContinuationTerminal(current)) cancelTimer();
-      current = undefined;
-      return;
-    }
-    current = pending;
-    epochs = { ...epochs, ...pending.epochs };
-    if (now() >= current.deadlineAt) {
-      apply({ type: "deadline", at: now(), epochs }, ctx);
-      return;
-    }
-    if (current.state === "waiting_tools" || current.pendingToolCount > 0) {
-      armTimer(current);
-      return;
-    }
-    if (current.state === "consumed" || current.state === "progressed" || current.state === "submitted") {
-      armTimer(current);
-      return;
-    }
-    submit(ctx);
-  };
+	const armRetry = (snapshot: ContinuationTransactionSnapshot) => {
+		cancelTimer();
+		if (disposed || sessionShutDown || isContinuationTerminal(snapshot)) return;
+		const remaining = snapshot.deadlineAt - now();
+		if (remaining <= 0) {
+			apply({ type: "deadline", at: now(), epochs }, lastContext);
+			return;
+		}
+		timer = setTimer(
+			() => {
+				timer = undefined;
+				if (
+					!current ||
+					current.transactionId !== snapshot.transactionId ||
+					isContinuationTerminal(current)
+				)
+					return;
+				if (now() >= current.deadlineAt) {
+					apply({ type: "deadline", at: now(), epochs }, lastContext);
+					return;
+				}
+				if (lastContext) submit(lastContext);
+			},
+			Math.min(retryDelayMs, remaining),
+		);
+	};
 
-  const request = (input: ContinuationRequestInput, ctx: ExtensionContext) => {
-    lastContext = ctx;
-    if (current && !isContinuationTerminal(current)) return current;
-    const createdAt = now();
-    const adapted = adaptContinuationInitiatorOutcome(input.initiator, input.outcome);
-    const snapshot = createContinuationTransaction({
-      transactionId: transactionIdFor(input, createdAt),
-      origin: adapted.origin,
-      reason: adapted.reason,
-      ...(input.compactionId ? { compactionId: input.compactionId } : {}),
-      attemptId: input.attemptId,
-      ...(input.requestId ? { requestId: input.requestId } : {}),
-      ...(input.originatingRequestId ? { originatingRequestId: input.originatingRequestId } : {}),
-      resumePolicy: input.resumePolicy ?? "active",
-      createdAt,
-      deadlineMs: input.deadlineMs ?? DEFAULT_DEADLINE_MS,
-      pendingToolCount: input.pendingToolCount ?? 0,
-      retryLimit: input.retryLimit ?? DEFAULT_RETRY_LIMIT,
-      epochs,
-    });
-    pi.appendEntry(CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE, createContinuationRequestWire(snapshot));
-    current = snapshot;
-    logContinuationTransaction("created", snapshot, createdAt);
-    if (snapshot.resumePolicy === "terminal") {
-      apply({ type: "supersede", at: createdAt, reason: "explicitly_stopped", epochs }, ctx);
-    } else if (snapshot.pendingToolCount > 0) {
-      const waiting = transitionContinuation(snapshot, {
-        type: "tools_pending",
-        at: createdAt,
-        pendingToolCount: snapshot.pendingToolCount,
-        epochs,
-      });
-      current = waiting.snapshot;
-      persistSnapshot(current);
-      armTimer(current);
-    } else {
-      submit(ctx);
-    }
-    return current;
-  };
+	const activateNext = (ctx: ExtensionContext) => {
+		if (disposed || sessionShutDown) return;
+		const reconciled = reconcileContinuationEntries(
+			ctx.sessionManager.getBranch() as any[],
+		);
+		const pending = reconciled.pending[0];
+		if (!pending) {
+			current = undefined;
+			cancelTimer();
+			return;
+		}
 
-  let wakeUnsubscribe = pi.events.on(CONTINUATION_WAKE_EVENT, () => {
-    if (lastContext) reconcile(lastContext);
-  });
+		current = withEpochBaseline(pending, epochs);
+		epochs = mergeEpochMax(epochs, current.epochs);
+		if (now() >= current.deadlineAt) {
+			apply({ type: "deadline", at: now(), epochs }, ctx);
+			return;
+		}
+		if (current.resumePolicy === "terminal") {
+			apply(
+				{ type: "supersede", at: now(), reason: "explicitly_stopped", epochs },
+				ctx,
+			);
+			return;
+		}
 
-  pi.on("session_start", (event, ctx) => {
-    epochs.session += 1;
-    lastContext = ctx;
-    if (shuttingDownForReload) {
-      wakeUnsubscribe = pi.events.on(CONTINUATION_WAKE_EVENT, () => {
-        if (lastContext) reconcile(lastContext);
-      });
-    }
-    shuttingDownForReload = false;
-    reconcile(ctx);
-  });
-  pi.on("agent_start", () => { epochs.agent += 1; });
-  pi.on("turn_start", () => { epochs.turn += 1; });
-  pi.on("input", (event, ctx) => {
-    lastContext = ctx;
-    if (!current || isContinuationTerminal(current) || event.source === "extension") return;
-    epochs.input += 1;
-    apply({ type: "supersede", at: now(), reason: "real_user_input", epochs }, ctx);
-  });
-  pi.on("tool_execution_end", (_event, ctx) => {
-    lastContext = ctx;
-    if (!current || current.state !== "waiting_tools" || current.pendingToolCount <= 0) return;
-    const pendingToolCount = current.pendingToolCount - 1;
-    if (pendingToolCount === 0) {
-      current = { ...current, pendingToolCount: 0 };
-      apply({ type: "tools_ready", at: now(), epochs }, ctx);
-    } else {
-      apply({ type: "tools_pending", at: now(), pendingToolCount, epochs }, ctx);
-    }
-  });
-  pi.on("message_start", (event, ctx) => {
-    epochs.message += 1;
-    lastContext = ctx;
-    if (!current || isContinuationTerminal(current)) return;
-    const message = event.message as any;
-    if (isRealUserMessage(message)) {
-      apply({ type: "supersede", at: now(), reason: "real_user_input", epochs }, ctx);
-      return;
-    }
-    const matching = message?.role === "custom"
-      && message.customType === CONTINUATION_MESSAGE_CUSTOM_TYPE
-      && message.details?.transactionId === current.transactionId;
-    if (!matching && isIndependentConsumedInput(message)) {
-      epochs.input += 1;
-      apply({ type: "supersede", at: now(), reason: "independent_input", epochs }, ctx);
-      return;
-    }
-    apply({ type: "message_start", at: now(), message, epochs }, ctx);
-  });
-  pi.on("message_end", (event, ctx) => {
-    lastContext = ctx;
-    const result = classifyAssistantResult((event as any).message);
-    if (result) apply({ type: "assistant_result", at: now(), result, epochs }, ctx);
-  });
-  pi.on("agent_end", (event, ctx) => {
-    lastContext = ctx;
-    const messages = (event as any).messages;
-    const result = classifyAssistantResult(Array.isArray(messages) ? messages.at(-1) : undefined);
-    if (result && current?.state === "consumed") apply({ type: "assistant_result", at: now(), result, epochs }, ctx);
-  });
-  pi.on("agent_settled", (_event, ctx) => {
-    epochs.settlement += 1;
-    lastContext = ctx;
-    apply({ type: "agent_settled", at: now(), epochs }, ctx);
-    if (current?.state === "retrying") submit(ctx);
-  });
-  pi.on("session_shutdown", (event, ctx) => {
-    cancelTimer();
-    wakeUnsubscribe();
-    lastContext = ctx;
-    if (!current || isContinuationTerminal(current)) return;
-    if (event.reason === "reload") {
-      shuttingDownForReload = true;
-      persistSnapshot(current);
-      return;
-    }
-    apply({ type: "supersede", at: now(), reason: "session_replaced", epochs: { ...epochs, session: epochs.session + 1 } }, ctx);
-  });
+		const ready = reconciled.safetyReady.find(
+			(candidate) =>
+				candidate.transactionId === current?.transactionId &&
+				candidate.attemptId === current.attemptId &&
+				candidate.requestId === current.requestId,
+		);
+		if (
+			(current.state === "waiting_tools" || current.pendingToolCount > 0) &&
+			ready
+		) {
+			current = { ...current, pendingToolCount: 0 };
+			apply({ type: "tools_ready", at: now(), epochs }, ctx);
+			return;
+		}
+		if (current.state === "waiting_tools" || current.pendingToolCount > 0) {
+			armDeadline(current);
+			return;
+		}
+		if (
+			current.state === "consumed" ||
+			current.state === "progressed" ||
+			current.state === "submitted"
+		) {
+			armDeadline(current);
+			return;
+		}
+		submit(ctx);
+	};
 
-  return {
-    authority,
-    request,
-    reconcile,
-    getPending: () => current,
-    dispose: () => {
-      if (disposed) return;
-      disposed = true;
-      cancelTimer();
-      if (!shuttingDownForReload) wakeUnsubscribe();
-    },
-  };
+	const finishTerminal = (ctx: ExtensionContext | undefined) => {
+		if (!current || !isContinuationTerminal(current)) return;
+		const terminal = current;
+		lastTerminal = terminal;
+		cancelTimer();
+		persistOutcome(terminal);
+		if (terminal.state === "failed_loudly" && ctx) warnFailure(terminal, ctx);
+		current = undefined;
+		if (ctx && !sessionShutDown && !disposed) activateNext(ctx);
+	};
+
+	const handleSubmissionFailure = (ctx: ExtensionContext) => {
+		if (!current) return;
+		const retry = transitionContinuation(current, {
+			type: "agent_settled",
+			at: now(),
+			epochs,
+		});
+		current = retry.snapshot;
+		if (retry.disposition === "applied") persistSnapshot(current);
+		if (isContinuationTerminal(current)) finishTerminal(ctx);
+		else if (retry.decision === "retry") armRetry(current);
+		else armDeadline(current);
+	};
+
+	const submit = (ctx: ExtensionContext) => {
+		if (
+			!current ||
+			isContinuationTerminal(current) ||
+			current.pendingToolCount > 0 ||
+			disposed ||
+			sessionShutDown
+		)
+			return;
+		if (authority !== "coordinator") {
+			armDeadline(current);
+			return;
+		}
+		const submitted = transitionContinuation(current, {
+			type: "submitted",
+			at: now(),
+			epochs,
+		});
+		if (submitted.disposition !== "applied") return;
+		current = submitted.snapshot;
+		persistSnapshot(current);
+		try {
+			pi.sendMessage(
+				{
+					customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+					content: CONTINUATION_PROMPT,
+					display: false,
+					details: continuationMessageDetailsFor(current),
+				},
+				{ triggerTurn: true, deliverAs: "steer" },
+			);
+		} catch {
+			handleSubmissionFailure(ctx);
+			return;
+		}
+		armDeadline(current);
+	};
+
+	const apply = (event: ContinuationEvent, ctx = lastContext) => {
+		if (!current || disposed) return;
+		const result = transitionContinuation(current, event);
+		if (
+			result.disposition === "ignored_invalid" ||
+			result.disposition === "ignored_stale"
+		)
+			return;
+		current = result.snapshot;
+		if (result.disposition === "applied") persistSnapshot(current);
+		if (isContinuationTerminal(current)) {
+			finishTerminal(ctx);
+			return;
+		}
+		if (result.decision === "retry") {
+			armRetry(current);
+			return;
+		}
+		if (result.decision === "submit" && ctx) {
+			submit(ctx);
+			return;
+		}
+		armDeadline(current);
+	};
+
+	const reconcile = (ctx: ExtensionContext) => {
+		if (disposed || sessionShutDown) return;
+		lastContext = ctx;
+		const reconciled = reconcileContinuationEntries(
+			ctx.sessionManager.getBranch() as any[],
+		);
+		if (reconciled.invalidEntryIds.length > 0) {
+			logPiVccEvent("continuation_invalid_entries", {
+				count: reconciled.invalidEntryIds.length,
+			});
+		}
+		const currentPending =
+			current && !isContinuationTerminal(current)
+				? reconciled.pending.find(
+						(snapshot) => snapshot.transactionId === current?.transactionId,
+					)
+				: undefined;
+		if (currentPending) {
+			current = withEpochBaseline(currentPending, epochs);
+			epochs = mergeEpochMax(epochs, current.epochs);
+			const ready = reconciled.safetyReady.find(
+				(candidate) =>
+					candidate.transactionId === current?.transactionId &&
+					candidate.attemptId === current.attemptId &&
+					candidate.requestId === current.requestId,
+			);
+			if (
+				(current.state === "waiting_tools" || current.pendingToolCount > 0) &&
+				ready
+			) {
+				current = { ...current, pendingToolCount: 0 };
+				apply({ type: "tools_ready", at: now(), epochs }, ctx);
+			}
+			return;
+		}
+		activateNext(ctx);
+	};
+
+	const request = (input: ContinuationRequestInput, ctx: ExtensionContext) => {
+		lastContext = ctx;
+		const createdAt = now();
+		const adapted = adaptContinuationInitiatorOutcome(
+			input.initiator,
+			input.outcome,
+		);
+		const snapshot = createContinuationTransaction({
+			transactionId: transactionIdFor(input, createdAt),
+			origin: adapted.origin,
+			reason: adapted.reason,
+			...(input.compactionId ? { compactionId: input.compactionId } : {}),
+			attemptId: input.attemptId,
+			...(input.requestId ? { requestId: input.requestId } : {}),
+			...(input.originatingRequestId
+				? { originatingRequestId: input.originatingRequestId }
+				: {}),
+			resumePolicy: input.resumePolicy ?? "active",
+			createdAt,
+			deadlineMs: input.deadlineMs ?? DEFAULT_DEADLINE_MS,
+			pendingToolCount: input.pendingToolCount ?? 0,
+			retryLimit: input.retryLimit ?? DEFAULT_RETRY_LIMIT,
+			epochs,
+		});
+		pi.appendEntry(
+			CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+			createContinuationRequestWire(snapshot),
+		);
+		logContinuationTransaction("created", snapshot, createdAt);
+		if (!current || isContinuationTerminal(current)) activateNext(ctx);
+		return snapshot;
+	};
+
+	subscribeWakes();
+
+	pi.on("session_start", (_event, ctx) => {
+		sessionShutDown = false;
+		epochs.session += 1;
+		lastContext = ctx;
+		subscribeWakes();
+		reconcile(ctx);
+	});
+	pi.on("agent_start", () => {
+		epochs.agent += 1;
+	});
+	pi.on("turn_start", () => {
+		epochs.turn += 1;
+	});
+	pi.on("input", (event, ctx) => {
+		lastContext = ctx;
+		if (
+			!current ||
+			isContinuationTerminal(current) ||
+			event.source === "extension"
+		)
+			return;
+		epochs.input += 1;
+		apply(
+			{ type: "supersede", at: now(), reason: "real_user_input", epochs },
+			ctx,
+		);
+	});
+	pi.on("message_start", (event, ctx) => {
+		epochs.message += 1;
+		lastContext = ctx;
+		if (!current || isContinuationTerminal(current)) return;
+		const message = event.message as any;
+		if (isRealUserMessage(message)) {
+			apply(
+				{ type: "supersede", at: now(), reason: "real_user_input", epochs },
+				ctx,
+			);
+			return;
+		}
+		const matching =
+			message?.role === "custom" &&
+			message.customType === CONTINUATION_MESSAGE_CUSTOM_TYPE &&
+			message.details?.transactionId === current.transactionId;
+		if (!matching && isIndependentConsumedInput(message)) {
+			epochs.input += 1;
+			apply(
+				{ type: "supersede", at: now(), reason: "independent_input", epochs },
+				ctx,
+			);
+			return;
+		}
+		apply({ type: "message_start", at: now(), message, epochs }, ctx);
+	});
+	pi.on("message_end", (event, ctx) => {
+		lastContext = ctx;
+		const result = classifyAssistantResult((event as any).message);
+		if (!result || !current || isContinuationTerminal(current)) return;
+		if (
+			result === "progress" &&
+			(current.state === "waiting_tools" || current.pendingToolCount > 0)
+		) {
+			current = { ...current, pendingToolCount: 0 };
+			persistSnapshot(current);
+			apply({ type: "tools_ready", at: now(), epochs }, ctx);
+			return;
+		}
+		apply({ type: "assistant_result", at: now(), result, epochs }, ctx);
+	});
+	pi.on("agent_end", (event, ctx) => {
+		lastContext = ctx;
+		const messages = (event as any).messages;
+		const result = classifyAssistantResult(
+			Array.isArray(messages) ? messages.at(-1) : undefined,
+		);
+		if (!result || !current || isContinuationTerminal(current)) return;
+		if (
+			result === "progress" &&
+			(current.state === "waiting_tools" || current.pendingToolCount > 0)
+		) {
+			current = { ...current, pendingToolCount: 0 };
+			persistSnapshot(current);
+			apply({ type: "tools_ready", at: now(), epochs }, ctx);
+			return;
+		}
+		if (current.state === "consumed")
+			apply({ type: "assistant_result", at: now(), result, epochs }, ctx);
+	});
+	pi.on("agent_settled", (_event, ctx) => {
+		epochs.settlement += 1;
+		lastContext = ctx;
+		apply({ type: "agent_settled", at: now(), epochs }, ctx);
+	});
+	pi.on("session_shutdown", (event, ctx) => {
+		cancelTimer();
+		unsubscribeWakes();
+		lastContext = ctx;
+		sessionShutDown = true;
+		if (event.reason === "reload") return;
+
+		const reconciled = reconcileContinuationEntries(
+			ctx.sessionManager.getBranch() as any[],
+		);
+		for (const pending of reconciled.pending) {
+			const baseline = withEpochBaseline(pending, {
+				...epochs,
+				session: epochs.session + 1,
+			});
+			const terminal = transitionContinuation(baseline, {
+				type: "supersede",
+				at: Math.max(now(), baseline.createdAt),
+				reason: "session_replaced",
+				epochs: baseline.epochs,
+			}).snapshot;
+			if (!isContinuationTerminal(terminal)) continue;
+			persistSnapshot(terminal);
+			persistOutcome(terminal);
+			if (current?.transactionId === terminal.transactionId)
+				current = undefined;
+		}
+	});
+
+	return {
+		authority,
+		request,
+		reconcile,
+		getPending: () => current ?? lastTerminal,
+		dispose: () => {
+			if (disposed) return;
+			disposed = true;
+			cancelTimer();
+			unsubscribeWakes();
+		},
+	};
 };
