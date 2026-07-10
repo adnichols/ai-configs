@@ -17,6 +17,9 @@ const protocol = await import(
 const { createContinuationCoordinator } = await import(
   pathToFileURL(join(candidate, "src/core/coordinator.ts")).href
 );
+const { registerBeforeCompactHook } = await import(
+  pathToFileURL(join(candidate, "src/hooks/before-compact.ts")).href
+);
 const { default: percentageCompaction, PI_VCC_LOAD_MARKER } = await import(
   pathToFileURL(extensionPath).href
 );
@@ -74,6 +77,13 @@ const pi = {
       throw new Error("soak synchronous send failure");
     }
     sent.push({ message, options });
+    const entry = {
+      id: `entry-${entries.length + 1}`,
+      type: "message",
+      message,
+    };
+    entries.push(entry);
+    appendFileSync(sessionPath, `${JSON.stringify(entry)}\n`);
   },
   events: {
     on: (channel: string, handler: (data: unknown) => void) => {
@@ -101,6 +111,7 @@ const coordinator = createContinuationCoordinator(pi, {
     timer.cancelled = true;
   },
 });
+registerBeforeCompactHook(pi, coordinator);
 
 const emit = (event: string, payload: any = {}) => {
   for (const handler of handlers[event] ?? [])
@@ -209,29 +220,52 @@ const standaloneCtx = {
 await standaloneHandlers.session_start?.({}, standaloneCtx);
 await standaloneHandlers.agent_start?.({}, standaloneCtx);
 await standaloneCommands["compact-now"].handler("", standaloneCtx);
+const packageBeforeCompact = handlers.session_before_compact?.at(-1);
+const packageSessionCompact = handlers.session_compact?.at(-1);
+if (!packageBeforeCompact || !packageSessionCompact)
+  throw new Error("package compaction ownership handlers were not registered");
+const packageCompaction = await packageBeforeCompact(
+  {
+    customInstructions: standaloneCompact.customInstructions,
+    preparation: {
+      previousSummary: undefined,
+      tokensBefore: 100,
+      fileOps: { read: [], written: [], edited: [] },
+    },
+    branchEntries: [
+      { id: "standalone-u1", type: "message", message: { role: "user", content: "compact" } },
+      { id: "standalone-a1", type: "message", message: { role: "assistant", content: "working", stopReason: "stop" } },
+      { id: "standalone-u2", type: "message", message: { role: "user", content: "continue" } },
+      { id: "standalone-a2", type: "message", message: { role: "assistant", content: "working", stopReason: "stop" } },
+    ],
+    reason: "manual",
+  },
+  ctx,
+);
 now = Date.now() + 1_000;
 standaloneCompact.onComplete();
-if (
-  standaloneEntries.map((entry) => entry.customType).join(",") !==
-  protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE
-) {
-  throw new Error("standalone compact-now wrote more than its request");
+await packageSessionCompact(
+  {
+    compactionEntry: { id: "standalone-compact", details: packageCompaction.compaction.details },
+    reason: "manual",
+  },
+  ctx,
+);
+if (standaloneEntries.length !== 0) {
+  throw new Error("standalone compact-now callback published instead of session_compact");
 }
+const standaloneRequest = entries.find(
+  (entry) =>
+    entry.customType === protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE &&
+    entry.data.snapshot.attemptId === "compact-now-1",
+);
 if (
-  standaloneEntries[0]?.data?.outcomeHint !== "compacted" ||
-  standaloneEntries[0]?.data?.snapshot?.resumePolicy !== "terminal"
+  standaloneRequest?.data?.outcomeHint !== "compacted" ||
+  standaloneRequest?.data?.snapshot?.resumePolicy !== "terminal"
 ) {
-  throw new Error("standalone compact-now omitted terminal policy/outcome hint");
+  throw new Error("session_compact omitted compact-now terminal policy/outcome hint");
 }
-if (
-  standaloneActions[0] !==
-    `append:${protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE}` ||
-  standaloneActions[1] !== "emit:pi-vcc:continuation-requested"
-) {
-  throw new Error("standalone request-before-wake ordering failed");
-}
-const standaloneTransactionId =
-  standaloneEntries[0].data.snapshot.transactionId;
+const standaloneTransactionId = standaloneRequest.data.snapshot.transactionId;
 const standaloneOutcome = entries.find(
   (entry) =>
     entry.customType === protocol.CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&

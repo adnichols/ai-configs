@@ -31,7 +31,7 @@ afterAll(async () => {
 });
 
 const setup = (
-	authority: "coordinator" | "legacy" = "coordinator",
+	authority: "coordinator" = "coordinator",
 	options: {
 		sendFailures?: number;
 		entries?: any[];
@@ -267,13 +267,14 @@ describe("continuation coordinator", () => {
 		expect(reloaded.coordinator.getPending()?.state).toBe("failed_loudly");
 	});
 
-	it("shadow/rollback authority never sends", () => {
-		const h = setup("legacy");
-		request(h);
-		expect(h.entries[0].customType).toBe(
-			CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
-		);
-		expect(h.sent).toHaveLength(0);
+	it("rejects removed runtime legacy authority", () => {
+		const previous = process.env.PI_VCC_CONTINUATION_AUTHORITY;
+		process.env.PI_VCC_CONTINUATION_AUTHORITY = "legacy";
+		try {
+			expect(() => createContinuationCoordinator({ events: { on: () => () => {} } } as any)).toThrow("unsupported");
+		} finally {
+			if (previous === undefined) delete process.env.PI_VCC_CONTINUATION_AUTHORITY; else process.env.PI_VCC_CONTINUATION_AUTHORITY = previous;
+		}
 	});
 
 	it("requires matching consumption, progress, then settlement", () => {
@@ -437,6 +438,15 @@ describe("continuation coordinator", () => {
 		});
 		expect(h.coordinator.getPending()?.pendingToolCount).toBe(0);
 		expect(h.sent).toHaveLength(1);
+	});
+
+	it("toolUse assistant message_end does not release tool safety", () => {
+		const h = setup();
+		request(h, { pendingToolCount: 1 });
+		h.emit("message_end", { message: { role: "assistant", stopReason: "toolUse" } });
+		expect(h.coordinator.getPending()?.state).toBe("waiting_tools");
+		expect(h.coordinator.getPending()?.pendingToolCount).toBe(1);
+		expect(h.sent).toHaveLength(0);
 	});
 
 	it("a lifecycle-safe completed assistant boundary releases tool safety", () => {

@@ -35,12 +35,17 @@ afterAll(async () => {
 const setup = async () => {
   let command: any;
   let compactOptions: any;
+  const handlers: Record<string, Array<(event: any, ctx?: any) => any>> = {};
   const requests: any[] = [];
   const notifications: any[] = [];
   const sentUserMessages: any[] = [];
   const pi = {
     registerCommand: (_name: string, value: any) => {
       command = value;
+    },
+    on: (eventName: string, callback: (event: any, ctx?: any) => any) => {
+      handlers[eventName] ??= [];
+      handlers[eventName].push(callback);
     },
     sendUserMessage: (content: string, options: any) =>
       sentUserMessages.push({ content, options }),
@@ -61,9 +66,39 @@ const setup = async () => {
     },
   } as any;
   const { registerPiVccCommand } = await import("../src/commands/pi-vcc");
+  const { registerBeforeCompactHook } = await import("../src/hooks/before-compact");
   registerPiVccCommand(pi, coordinator);
+  registerBeforeCompactHook(pi, coordinator);
+
+  const completeThroughSessionCompact = async () => {
+    const before = handlers.session_before_compact?.[0];
+    const compacted = handlers.session_compact?.[0];
+    if (!before || !compacted) throw new Error("compaction handlers were not registered");
+    const result = await before({
+      customInstructions: compactOptions.customInstructions,
+      preparation: {
+        previousSummary: undefined,
+        tokensBefore: 100,
+        fileOps: { read: [], written: [], edited: [] },
+      },
+      branchEntries: [
+        { id: "u1", type: "message", message: { role: "user", content: "Do the work" } },
+        { id: "a1", type: "message", message: { role: "assistant", content: [{ type: "text", text: "Working" }], stopReason: "stop" } },
+        { id: "u2", type: "message", message: { role: "user", content: "Continue" } },
+        { id: "a2", type: "message", message: { role: "assistant", content: [{ type: "text", text: "Still working" }], stopReason: "stop" } },
+      ],
+      reason: "manual",
+    }, ctx);
+    compactOptions.onComplete();
+    await compacted({
+      compactionEntry: { id: "compact-1", details: result.compaction.details },
+      reason: "manual",
+    }, ctx);
+  };
+
   return {
     invoke: async (args = "") => command.handler(args, ctx),
+    completeThroughSessionCompact,
     getCompactOptions: () => compactOptions,
     requests,
     notifications,
@@ -72,10 +107,10 @@ const setup = async () => {
 };
 
 describe("package /pi-vcc command protocol parity", () => {
-  it("publishes active success through the coordinator", async () => {
+  it("publishes active success through session_compact exactly once", async () => {
     const h = await setup();
     await h.invoke("");
-    h.getCompactOptions().onComplete();
+    await h.completeThroughSessionCompact();
     expect(h.requests).toHaveLength(1);
     expect(h.requests[0]).toMatchObject({
       initiator: "package-pi-vcc",
@@ -101,10 +136,10 @@ describe("package /pi-vcc command protocol parity", () => {
     });
   });
 
-  it("uses terminal policy with a direct follow-up and does not create a continuation turn", async () => {
+  it("uses terminal policy with a direct follow-up and one session_compact publication", async () => {
     const h = await setup();
     await h.invoke("-- continue with the requested follow-up");
-    h.getCompactOptions().onComplete();
+    await h.completeThroughSessionCompact();
     expect(h.requests).toHaveLength(1);
     expect(h.requests[0]).toMatchObject({
       initiator: "package-pi-vcc",

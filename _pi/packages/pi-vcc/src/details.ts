@@ -14,5 +14,6 @@ export interface PiVccCompactionDetails {
   retainedNonMessageEntries?: boolean;
   continuationAttemptId?: string;
   continuationRequestId?: string;
+  continuationTransactionId?: string;
   continuationResumePolicy?: "active" | "terminal" | "auto";
 }

@@ -21,12 +21,14 @@ export const registerPiVccCommand = (
 		handler: async (args, ctx) => {
 			const { followUpPrompt, keepUserTurns } = parseKeepAndPrompt(args);
 			const attemptId = `package-${Date.now().toString(36)}`;
+			const transactionId = `vcc-command-${attemptId}`;
 			ctx.compact({
 				customInstructions: buildPiVccCustomInstructions(
 					keepUserTurns,
 					JSON.stringify({
 						source: "package-pi-vcc",
 						attemptId,
+						transactionId,
 						resumePolicy: followUpPrompt ? "terminal" : "active",
 					}),
 				),
@@ -41,15 +43,6 @@ export const registerPiVccCommand = (
 					} else {
 						ctx.ui.notify("Compacted with pi-vcc", "info");
 					}
-					coordinator.request(
-						{
-							initiator: "package-pi-vcc",
-							outcome: "compacted",
-							attemptId,
-							resumePolicy: followUpPrompt ? "terminal" : "active",
-						},
-						ctx,
-					);
 					if (followUpPrompt) {
 						try {
 							pi.sendUserMessage(followUpPrompt, { deliverAs: "steer" });
@@ -85,6 +78,7 @@ export const registerPiVccCommand = (
 							initiator: "package-pi-vcc",
 							outcome: legacyOutcome,
 							attemptId,
+							transactionId,
 							resumePolicy: followUpPrompt ? "terminal" : "active",
 						},
 						ctx,

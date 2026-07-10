@@ -129,7 +129,7 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
     requests: dict[str, tuple[Path, int, dict[str, Any]]] = {}
     outcomes: dict[str, tuple[Path, int, dict[str, Any]]] = {}
     session_submissions: dict[str, list[int]] = defaultdict(list)
-    session_consumptions: dict[str, int] = defaultdict(int)
+    session_consumptions: dict[str, list[str]] = defaultdict(list)
     last_session_snapshot: dict[str, dict[str, Any]] = {}
     log_submissions: dict[str, list[dict[str, Any]]] = defaultdict(list)
     last_log_epochs: dict[str, tuple[int, ...]] = {}
@@ -140,6 +140,16 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
             findings.append(f"missing session path: {root}")
             continue
         for path, line_number, entry in iter_jsonl(root):
+            if entry.get("type") == "message":
+                message = entry.get("message")
+                if isinstance(message, dict) and message.get("role") == "custom" and message.get("customType") == PROTOCOL:
+                    details = message.get("details")
+                    tx = details.get("transactionId") if isinstance(details, dict) else None
+                    if isinstance(tx, str) and tx:
+                        session_consumptions[tx].append(json.dumps(message, sort_keys=True))
+                    else:
+                        findings.append(f"{path}:{line_number}: malformed continuation consumption message")
+                continue
             if entry.get("type") != "custom":
                 continue
             custom_type = entry.get("customType")
@@ -175,8 +185,6 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
                 last_session_snapshot[tx] = snapshot
                 if snapshot["state"] == "submitted":
                     session_submissions[tx].append(snapshot["submissionCount"])
-                if snapshot["state"] == "consumed":
-                    session_consumptions[tx] += 1
             elif custom_type == OUTCOME_TYPE:
                 if tx not in requests:
                     findings.append(f"{path}:{line_number}: outcome without prior request: {tx}")
@@ -241,11 +249,14 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
         counts = [record.get("submissionCount") for record in records]
         if len(counts) != len(set(counts)):
             findings.append(f"duplicate active log submission: {tx}")
-    for tx, count in sorted(session_consumptions.items()):
-        request = requests.get(tx)
-        retry_limit = request[2]["retryLimit"] if request else 0
-        if count > retry_limit + 1:
-            findings.append(f"duplicate continuation consumption/turn evidence: {tx}")
+    for tx, consumptions in sorted(session_consumptions.items()):
+        permitted = max(session_submissions.get(tx, [0]), default=0)
+        if tx not in requests:
+            findings.append(f"continuation consumption without durable request: {tx}")
+        if len(consumptions) > permitted:
+            findings.append(f"more continuation consumptions than submissions: {tx}")
+        if len(consumptions) != len(set(consumptions)):
+            findings.append(f"duplicate identical continuation consumption: {tx}")
     return findings
 
 
@@ -289,6 +300,18 @@ def self_test() -> list[str]:
         findings = audit([sessions], [], False)
         if not any("malformed continuation record" in finding for finding in findings):
             return ["self-test did not detect malformed continuation record"]
+        submitted = {**base_snapshot, "state": "submitted", "submissionCount": 1}
+        snapshot = {"type": "custom", "customType": SNAPSHOT_TYPE, "data": {"protocol": PROTOCOL, "version": VERSION, "kind": "snapshot", "snapshot": submitted}}
+        consumption_message = {
+            "type": "message",
+            "message": {"role": "custom", "customType": PROTOCOL, "content": "continue", "details": {"transactionId": "tx-good"}},
+        }
+        write_jsonl(sessions, [request, snapshot, consumption_message, consumption_message, outcome])
+        findings = audit([sessions], [logs], True)
+        if not any("duplicate identical continuation consumption" in finding for finding in findings):
+            return ["self-test did not detect duplicate persisted continuation messages"]
+        if not any("more continuation consumptions than submissions" in finding for finding in findings):
+            return ["self-test did not enforce one consumption per submission"]
         write_jsonl(sessions, [request, outcome])
         malformed_uncorrelated_log = {
             "timestampEpoch": 160, "transactionId": "tx-malformed", "event": "submitted",

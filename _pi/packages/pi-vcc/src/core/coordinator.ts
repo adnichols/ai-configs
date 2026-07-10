@@ -42,7 +42,7 @@ const DEFAULT_DEADLINE_MS = 60_000;
 const DEFAULT_RETRY_LIMIT = 2;
 const DEFAULT_RETRY_DELAY_MS = 100;
 
-export type ContinuationAuthority = "coordinator" | "legacy";
+export type ContinuationAuthority = "coordinator";
 
 export interface ContinuationRequestInput {
 	initiator: ContinuationInitiator;
@@ -91,10 +91,11 @@ const logEventForState = (state: ContinuationState) => {
 	return state;
 };
 
-const readAuthority = (): ContinuationAuthority =>
-	process.env[CONTINUATION_AUTHORITY_ENV]?.trim().toLowerCase() === "legacy"
-		? "legacy"
-		: "coordinator";
+const readAuthority = (): ContinuationAuthority => {
+	const configured = process.env[CONTINUATION_AUTHORITY_ENV]?.trim().toLowerCase();
+	if (configured && configured !== "coordinator") throw new Error(`${CONTINUATION_AUTHORITY_ENV}=${configured} is unsupported; restore the archived release for rollback`);
+	return "coordinator";
+};
 
 const isRealUserMessage = (message: any): boolean =>
 	message?.role === "user" && typeof message?.customType !== "string";
@@ -110,7 +111,8 @@ const classifyAssistantResult = (
 	if (message?.role !== "assistant") return undefined;
 	if (message.stopReason === "error") return "error";
 	if (message.stopReason === "aborted") return "aborted";
-	return "progress";
+	if (message.stopReason === "stop") return "progress";
+	return undefined;
 };
 
 const mergeEpochMax = (
@@ -417,10 +419,6 @@ export const createContinuationCoordinator = (
 			sessionShutDown
 		)
 			return;
-		if (authority !== "coordinator") {
-			armDeadline(current);
-			return;
-		}
 		const submitted = transitionContinuation(current, {
 			type: "submitted",
 			at: now(),

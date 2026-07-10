@@ -67,7 +67,7 @@ const parseCompactionIntent = (customInstructions?: string): CompactionIntent | 
     const parsed = JSON.parse(payload.slice(jsonStart));
     if (!parsed || typeof parsed !== "object") return undefined;
     const intent: CompactionIntent = {};
-    for (const key of ["source", "reason", "boundary", "preserve", "requestId", "attemptId", "resumePolicy"] as const) {
+    for (const key of ["source", "reason", "boundary", "preserve", "requestId", "attemptId", "transactionId", "resumePolicy"] as const) {
       const value = parsed[key];
       const cleaned = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
       if (cleaned) intent[key] = cleaned.slice(0, 500) as never;
@@ -284,11 +284,13 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
       sourceMessageCount: details.sourceMessageCount,
       retainedNonMessageEntries: details.retainedNonMessageEntries,
     });
-    if (!details.interruptedInFlightTurn) return;
-    if (event.willRetry === true || details.requiresContinuation === false) return;
+    const commandOrigin = details.compactionIntent?.source === "package-pi-vcc" || details.compactionIntent?.source === "package-compact-now";
+    if (!commandOrigin && !details.interruptedInFlightTurn) return;
+    if (event.willRetry === true || (!commandOrigin && details.requiresContinuation === false)) return;
     if (details.compactionIntent?.source === "compact_context") return;
     coordinator.request({
-      initiator: details.compactionIntent?.source === "compact_context" ? "compact_context"
+      initiator: details.compactionIntent?.source === "package-compact-now" ? "package-compact-now"
+        : details.compactionIntent?.source === "compact_context" ? "compact_context"
         : details.reason === "threshold" ? "host-threshold"
           : details.reason === "overflow" ? "host-overflow"
             : "package-pi-vcc",
@@ -298,6 +300,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
       requestId: details.continuationRequestId ?? details.compactionIntent?.requestId,
       originatingRequestId: details.continuationRequestId ?? details.compactionIntent?.requestId,
       resumePolicy: details.continuationResumePolicy ?? details.compactionIntent?.resumePolicy ?? "active",
+      transactionId: details.continuationTransactionId ?? details.compactionIntent?.transactionId,
     }, ctx);
   });
 
@@ -420,6 +423,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
       retainedNonMessageEntries,
       continuationAttemptId: compactionIntent?.attemptId,
       continuationRequestId: compactionIntent?.requestId,
+      continuationTransactionId: compactionIntent?.transactionId,
       continuationResumePolicy: compactionIntent?.resumePolicy,
     };
 

@@ -41,7 +41,7 @@ const setup = (
 	} = {},
 ) => {
 	(globalThis as any)[PI_VCC_LOAD_MARKER] = piVccLoaded;
-	process.env.PI_VCC_CONTINUATION_AUTHORITY = options.authority ?? "legacy";
+	process.env.PI_VCC_STANDALONE_CONTINUATION_AUTHORITY = options.authority ?? "legacy";
 
 	const handlers: HandlerMap = {};
 	const commands: CommandMap = {};
@@ -1186,9 +1186,11 @@ describe("percentage-compaction extension", () => {
 
 		await commands["compact-now"].handler("keep goals", ctx);
 		expect(compactCalls).toHaveLength(1);
-		expect(compactCalls[0]?.customInstructions).toBe(
-			`${PI_VCC_MANUAL_BYPASS_MARKER}\nkeep goals`,
+		expect(compactCalls[0]?.customInstructions).toStartWith(
+			`${PI_VCC_MANUAL_BYPASS_MARKER}\n`,
 		);
+		expect(compactCalls[0]?.customInstructions).toContain('"source":"package-compact-now"');
+		expect(compactCalls[0]?.customInstructions).toContain('"preserve":"keep goals"');
 
 		const result = await handlers.session_before_compact?.(
 			{ customInstructions: compactCalls[0]?.customInstructions },
@@ -1202,9 +1204,10 @@ describe("percentage-compaction extension", () => {
 
 		await commands["compact-now"].handler("", ctx);
 		expect(compactCalls).toHaveLength(1);
-		expect(compactCalls[0]?.customInstructions).toBe(
-			PI_VCC_MANUAL_BYPASS_MARKER,
+		expect(compactCalls[0]?.customInstructions).toStartWith(
+			`${PI_VCC_MANUAL_BYPASS_MARKER}\n`,
 		);
+		expect(compactCalls[0]?.customInstructions).toContain('"source":"package-compact-now"');
 
 		const result = await handlers.session_before_compact?.(
 			{ customInstructions: PI_VCC_MANUAL_BYPASS_MARKER },
@@ -1222,7 +1225,7 @@ describe("percentage-compaction extension", () => {
 			new Error("Nothing to compact (session too small)"),
 			"no-safe-cut",
 		],
-	])("compact-now publishes only a terminal-policy request and wake for %s", async (_label, error, reason) => {
+	])("compact-now callback publication is deterministic for %s", async (_label, error, reason) => {
 		const {
 			commands,
 			compactCalls,
@@ -1236,6 +1239,13 @@ describe("percentage-compaction extension", () => {
 		expect(compactCalls).toHaveLength(1);
 		if (error) compactCalls[0].onError(error);
 		else compactCalls[0].onComplete();
+
+		if (!error) {
+			expect(appendedEntries).toHaveLength(0);
+			expect(emittedEvents).toHaveLength(0);
+			expect(sentMessages).toHaveLength(0);
+			return;
+		}
 
 		expect(appendedEntries).toHaveLength(1);
 		const request = appendedEntries[0];

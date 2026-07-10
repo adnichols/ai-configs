@@ -42,6 +42,7 @@ export interface CompactionIntent {
   preserve?: string;
   requestId?: string;
   attemptId?: string;
+  transactionId?: string;
   resumePolicy?: "active" | "terminal" | "auto";
 }
 

@@ -241,7 +241,7 @@ describe("compaction intent and overflow fallback", () => {
     const result = handler({
       preparation: basePreparation,
       branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","reason":"done","boundary":"subtask_complete","preserve":"keep tests"}',
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","reason":"done","boundary":"subtask_complete","preserve":"keep tests","attemptId":"attempt-1","transactionId":"transaction-1","resumePolicy":"active"}',
     });
 
     expect(result.cancel).toBeUndefined();
@@ -253,7 +253,13 @@ describe("compaction intent and overflow fallback", () => {
       reason: "done",
       boundary: "subtask_complete",
       preserve: "keep tests",
+      attemptId: "attempt-1",
+      transactionId: "transaction-1",
+      resumePolicy: "active",
     });
+    expect(result.compaction.details.continuationAttemptId).toBe("attempt-1");
+    expect(result.compaction.details.continuationTransactionId).toBe("transaction-1");
+    expect(result.compaction.details.continuationResumePolicy).toBe("active");
   });
 
   it("ignores malformed marker JSON payload but keeps marker behavior", async () => {

@@ -109,7 +109,7 @@ const CONTINUATION_SAFETY_READY_ENTRY_CUSTOM_TYPE =
 	"pi-vcc-continuation-safety-ready";
 const CONTINUATION_WAKE_EVENT = "pi-vcc:continuation-requested";
 const CONTINUATION_SAFETY_READY_WAKE_EVENT = "pi-vcc:continuation-safety-ready";
-const CONTINUATION_AUTHORITY_ENV = "PI_VCC_CONTINUATION_AUTHORITY";
+const CONTINUATION_AUTHORITY_ENV = "PI_VCC_STANDALONE_CONTINUATION_AUTHORITY";
 const CONTINUATION_DEADLINE_MS = 60_000;
 const CONTINUATION_RETRY_LIMIT = 2;
 
@@ -336,10 +336,14 @@ const buildResumeMessage = (pending: PendingModelCompaction) =>
 	`Pi VCC compaction completed for an active ${pending.boundary} workflow. Continue from the preserved state. ` +
 	"If the preserved state says the task is complete, blocked, stopped, or awaiting user input, report that instead of doing more work.";
 
-const continuationAuthority = () =>
-	process.env[CONTINUATION_AUTHORITY_ENV]?.trim().toLowerCase() === "legacy"
-		? "legacy"
-		: "coordinator";
+const continuationAuthority = (): "coordinator" | "legacy" => {
+	const configured = process.env[CONTINUATION_AUTHORITY_ENV]?.trim().toLowerCase();
+	if (!configured) return "coordinator";
+	if (configured === "coordinator" || configured === "legacy") return configured;
+	throw new Error(
+		`${CONTINUATION_AUTHORITY_ENV}=${configured} is unsupported; expected coordinator or legacy`,
+	);
+};
 
 const continuationAdapter = (
 	initiator: ContinuationInitiator,
@@ -841,20 +845,7 @@ export default function (pi: ExtensionAPI) {
 					originatingRequestId: options.originatingRequestId,
 				});
 				ctx.ui.notify(options.completionMessage, "info");
-				if (
-					options.resumePolicy === "terminal" &&
-					continuationAuthority() === "coordinator"
-				) {
-					publishTerminalCommandRequest({
-						initiator: options.initiator,
-						outcome: "compacted",
-						attemptId: String(attemptId),
-						requestId: options.originatingRequestId,
-						originatingRequestId: options.originatingRequestId,
-						resumePolicy: "terminal",
-						pendingToolCount: 0,
-					});
-				} else if (options.resumeMessage) {
+				if (options.resumePolicy !== "terminal" && options.resumeMessage) {
 					if (continuationAuthority() === "legacy") {
 						try {
 							pi.sendMessage(
@@ -1166,9 +1157,13 @@ export default function (pi: ExtensionAPI) {
 			triggerCompaction(ctx, {
 				initiator: "package-compact-now",
 				resumePolicy: "terminal",
-				customInstructions: customInstructions
-					? `${PI_VCC_MANUAL_BYPASS_MARKER}\n${customInstructions}`
-					: PI_VCC_MANUAL_BYPASS_MARKER,
+				customInstructions: `${PI_VCC_MANUAL_BYPASS_MARKER}\n${JSON.stringify({
+				source: "package-compact-now",
+				attemptId: `compact-now-${nextCompactionAttemptId + 1}`,
+				transactionId: `vcc-command-compact-now-${nextCompactionAttemptId + 1}`,
+				resumePolicy: "terminal",
+				...(customInstructions ? { preserve: customInstructions } : {}),
+			})}`,
 				startMessage: "Compacting context...",
 				completionMessage: "Compaction complete",
 				ratchetPercent: usage?.percent ?? undefined,
