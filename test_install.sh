@@ -45,19 +45,19 @@ test_section() {
 
 test_case() {
     local test_name="$1"
-    ((TESTS_RUN++))
+    TESTS_RUN=$((TESTS_RUN + 1))
     echo -n "Testing: $test_name ... "
 }
 
 test_pass() {
     echo -e "${GREEN}PASS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 test_fail() {
     local reason="$1"
     echo -e "${RED}FAIL${NC} - $reason"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
     FAILED_TESTS+=("$reason")
 }
 
@@ -116,8 +116,8 @@ test_repository_structure() {
     
     local missing_dirs=()
     
-    [[ ! -d "$SCRIPT_DIR/agents" ]] && missing_dirs+=("agents")
-    [[ ! -d "$SCRIPT_DIR/commands" ]] && missing_dirs+=("commands")
+    [[ ! -d "$SCRIPT_DIR/_claude/agents" ]] && missing_dirs+=("_claude/agents")
+    [[ ! -d "$SCRIPT_DIR/_claude/commands" ]] && missing_dirs+=("_claude/commands")
     
     if [[ ${#missing_dirs[@]} -gt 0 ]]; then
         test_fail "Missing directories: ${missing_dirs[*]}"
@@ -125,8 +125,8 @@ test_repository_structure() {
     fi
     
     # Check for content in directories
-    local agents_count=$(find "$SCRIPT_DIR/agents" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-    local commands_count=$(find "$SCRIPT_DIR/commands" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+    local agents_count=$(find "$SCRIPT_DIR/_claude/agents" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+    local commands_count=$(find "$SCRIPT_DIR/_claude/commands" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
     
     if [[ "$agents_count" -eq 0 ]]; then
         test_fail "No .md files in agents directory"
@@ -176,26 +176,13 @@ test_cross_platform_compatibility() {
 
 # Test 4: Error handling
 test_error_handling() {
-    test_case "Error handling with invalid repository"
-    
-    # Create a temporary directory without required structure
-    local temp_dir="/tmp/invalid-repo-$$"
-    mkdir -p "$temp_dir"
-    
-    # Change to invalid directory and try to run installer
-    cd "$temp_dir"
-    
-    # The installer should fail gracefully
-    if "$SCRIPT_DIR/install.sh" >/dev/null 2>&1; then
-        test_fail "Installer should have failed in invalid directory"
-        rm -rf "$temp_dir"
-        cd "$SCRIPT_DIR"
+    test_case "Error handling for unknown option"
+
+    if "$SCRIPT_DIR/install.sh" --not-a-real-mode >/dev/null 2>&1; then
+        test_fail "Installer should reject an unknown option"
         return
     fi
-    
-    # Clean up and return to script directory
-    rm -rf "$temp_dir"
-    cd "$SCRIPT_DIR"
+
     test_pass
 }
 
@@ -445,23 +432,15 @@ test_posix_compliance() {
 # Test 7: Exit codes
 test_exit_codes() {
     test_case "Proper exit codes"
-    
-    # Test running from wrong directory (should exit with specific code)
-    local temp_dir="/tmp/wrong-dir-$$"
-    mkdir -p "$temp_dir"
-    cd "$temp_dir"
-    
+
     local exit_code=0
-    "$SCRIPT_DIR/install.sh" >/dev/null 2>&1 || exit_code=$?
-    
-    cd "$SCRIPT_DIR"
-    rm -rf "$temp_dir"
-    
+    "$SCRIPT_DIR/install.sh" --not-a-real-mode >/dev/null 2>&1 || exit_code=$?
+
     if [[ $exit_code -eq 0 ]]; then
-        test_fail "Should have failed with non-zero exit code when run from wrong directory"
+        test_fail "Unknown options should return a non-zero exit code"
         return
     fi
-    
+
     test_pass
 }
 

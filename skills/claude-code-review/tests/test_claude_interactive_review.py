@@ -18,7 +18,6 @@ ROOT = Path(__file__).resolve().parents[3]
 LAUNCHER = ROOT / "skills/claude-code-review/scripts/claude_interactive_review.py"
 GUARDRAIL = ROOT / "skills/claude-code-review/scripts/check_no_direct_claude_review_launches.py"
 FAKE_CLAUDE = ROOT / "skills/claude-code-review/tests/fixtures/fake_claude.py"
-LINEAR_REVIEW = ROOT / "_opencode/scripts/linear_build_review.py"
 
 
 def run_cmd(args: list[str], *, env: dict[str, str] | None = None, cwd: Path | None = None, timeout: int = 30) -> subprocess.CompletedProcess[str]:
@@ -380,107 +379,6 @@ class GuardrailTestCase(unittest.TestCase):
             proc = self.run_guardrail(root)
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn(str(plan), proc.stdout)
-
-
-class OpenCodeResolverTestCase(unittest.TestCase):
-    def load_module(self):
-        spec = importlib.util.spec_from_file_location("linear_build_review_under_test", LINEAR_REVIEW)
-        self.assertIsNotNone(spec)
-        module = importlib.util.module_from_spec(spec)
-        assert spec and spec.loader
-        spec.loader.exec_module(module)
-        return module
-
-    def test_env_override_resolves_launcher(self) -> None:
-        with tempfile.TemporaryDirectory() as td:
-            path = Path(td) / "launcher.py"
-            path.write_text("# launcher\n", encoding="utf-8")
-            old = os.environ.get("CLAUDE_REVIEW_LAUNCHER")
-            os.environ["CLAUDE_REVIEW_LAUNCHER"] = str(path)
-            try:
-                self.assertEqual(self.load_module().resolve_claude_review_launcher(), path)
-            finally:
-                if old is None:
-                    os.environ.pop("CLAUDE_REVIEW_LAUNCHER", None)
-                else:
-                    os.environ["CLAUDE_REVIEW_LAUNCHER"] = old
-
-    def test_repo_checkout_resolves_launcher(self) -> None:
-        old_launcher = os.environ.pop("CLAUDE_REVIEW_LAUNCHER", None)
-        old_home = os.environ.get("HOME")
-        with tempfile.TemporaryDirectory() as td:
-            os.environ["HOME"] = td
-            try:
-                self.assertEqual(self.load_module().resolve_claude_review_launcher(), LAUNCHER)
-            finally:
-                if old_home is None:
-                    os.environ.pop("HOME", None)
-                else:
-                    os.environ["HOME"] = old_home
-                if old_launcher is not None:
-                    os.environ["CLAUDE_REVIEW_LAUNCHER"] = old_launcher
-
-    def test_installed_agents_resolves_before_repo_checkout(self) -> None:
-        old_launcher = os.environ.pop("CLAUDE_REVIEW_LAUNCHER", None)
-        old_home = os.environ.get("HOME")
-        with tempfile.TemporaryDirectory() as td:
-            home = Path(td)
-            installed = home / ".agents/skills/claude-code-review/scripts/claude_interactive_review.py"
-            installed.parent.mkdir(parents=True)
-            installed.write_text("# installed launcher\n", encoding="utf-8")
-            os.environ["HOME"] = str(home)
-            try:
-                self.assertEqual(self.load_module().resolve_claude_review_launcher(), installed)
-            finally:
-                if old_home is None:
-                    os.environ.pop("HOME", None)
-                else:
-                    os.environ["HOME"] = old_home
-                if old_launcher is not None:
-                    os.environ["CLAUDE_REVIEW_LAUNCHER"] = old_launcher
-
-    def test_opencode_compatibility_copy_resolves_launcher(self) -> None:
-        old_launcher = os.environ.pop("CLAUDE_REVIEW_LAUNCHER", None)
-        old_home = os.environ.get("HOME")
-        with tempfile.TemporaryDirectory() as td:
-            home = Path(td) / "home"
-            os.environ["HOME"] = str(home)
-            opencode = home / ".config/opencode/skills/claude-code-review/scripts/claude_interactive_review.py"
-            opencode.parent.mkdir(parents=True)
-            opencode.write_text("# opencode launcher\n", encoding="utf-8")
-            module = self.load_module()
-            module.__file__ = str(Path(td) / "checkout/_opencode/scripts/linear_build_review.py")
-            try:
-                self.assertEqual(module.resolve_claude_review_launcher(), opencode)
-            finally:
-                if old_home is None:
-                    os.environ.pop("HOME", None)
-                else:
-                    os.environ["HOME"] = old_home
-                if old_launcher is not None:
-                    os.environ["CLAUDE_REVIEW_LAUNCHER"] = old_launcher
-
-    def test_missing_launcher_failure_message_lists_install_and_override(self) -> None:
-        old_launcher = os.environ.pop("CLAUDE_REVIEW_LAUNCHER", None)
-        old_home = os.environ.get("HOME")
-        with tempfile.TemporaryDirectory() as td:
-            os.environ["HOME"] = str(Path(td) / "home")
-            module = self.load_module()
-            module.__file__ = str(Path(td) / "checkout/_opencode/scripts/linear_build_review.py")
-            try:
-                with self.assertRaises(FileNotFoundError) as exc:
-                    module.resolve_claude_review_launcher()
-                message = str(exc.exception)
-                self.assertIn("Run ./install.sh --opencode", message)
-                self.assertIn("CLAUDE_REVIEW_LAUNCHER", message)
-                self.assertIn(".config/opencode/skills/claude-code-review", message)
-            finally:
-                if old_home is None:
-                    os.environ.pop("HOME", None)
-                else:
-                    os.environ["HOME"] = old_home
-                if old_launcher is not None:
-                    os.environ["CLAUDE_REVIEW_LAUNCHER"] = old_launcher
 
 
 class RealClaudeTestCase(unittest.TestCase):

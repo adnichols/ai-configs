@@ -1,6 +1,6 @@
 ---
 name: hermes-opencode-linear-build
-description: Use this skill when wiring Hermes or any external orchestrator to run Linear issue builds through OpenCode over the OpenCode HTTP API. Trigger when the user asks how Hermes should launch, monitor, resume, or supervise `/cmd:linear-build-workspace`, OpenCode workspace-backed Linear builds, run ledgers, or external API control of OpenCode. This skill keeps Hermes as a thin supervisor and OpenCode as the build orchestrator.
+description: Compatibility-only workflow for explicitly requested OpenCode Linear builds. Use only after verifying the independently maintained `/cmd:linear-build-workspace` command plus both required helper scripts exist under `~/.config/opencode`; otherwise route to maintained Pi/Codex workflows.
 ---
 
 # Hermes to OpenCode Linear Build Workflow
@@ -31,13 +31,13 @@ OpenCode is responsible for:
 
 ## Required OpenCode Side Components
 
-The target OpenCode config must have:
+This is now a compatibility workflow, not an ai-configs-installed workflow. The target OpenCode config must independently provide:
 
 - `~/.config/opencode/commands/cmd:linear-build-workspace.md`
 - `~/.config/opencode/scripts/create_linear_workspace.py`
 - `~/.config/opencode/scripts/linear_build_orchestrator.py`
 
-After installing or changing these, long-lived OpenCode servers may need a safe restart before the command is available.
+The former ai-configs `_opencode/` source tree is retired, and `ai-configs/install.sh` does not create or update these files. If any component is missing, stop with a clear blocker and use a maintained Pi/Codex workflow instead. After independently installing or changing them, long-lived OpenCode servers may need a safe restart before the command is available.
 
 ## Server Discovery
 

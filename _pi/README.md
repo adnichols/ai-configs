@@ -4,12 +4,11 @@ This directory contains Pi-specific resources:
 
 - `prompts/` — prompt templates exposed as slash commands
 - `agents/` — @tintinweb/pi-subagents-compatible agent definitions
-- `extensions/` — Pi runtime extensions, including the maintained `/plan` and `/prd` mode workflows
+- `extensions/` — Pi runtime extensions, including the maintained `/prd` workflow and utility integrations
 - `models.json` — managed custom model entries merged into Pi's global `models.json`
 
 Repo-owned default Pi/Codex shared skills live in the repo-level `skills/` tree, and `skills/install-matrix.json` also inventories package-backed and optional-profile shared skills fetched via `npx skills`. The installed default shared runtime location remains `~/.agents/skills`.
 
-The prompt templates are copied from `_omp/commands`, and the agent definitions are ported from `_omp/agents` into the flat markdown format expected by `@tintinweb/pi-subagents`.
 
 ## Installation
 
@@ -21,7 +20,7 @@ These resources are installed by `install.sh` to Pi's global agent directory. Th
 
 Plan-reviewer browser action comments route through default shared skills in `~/.agents/skills`: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests. Rarely used browser/CDP helper skills such as `brave-cdp` and `chrome-cdp` remain inventoried in `skills/install-matrix.json` under the optional `ops-browser` profile and are not loaded into Pi/Codex default context.
 
-`pi list` only shows the package-managed set; it does not list repo-managed files like `todo.ts`, `simple-multi-status.ts`, `pi-plan-mode`, or `pi-prd-mode`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
+`pi list` only shows the package-managed set; it does not list repo-managed files like `todo.ts`, `simple-multi-status.ts`, or `pi-prd-mode`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
 
 ```bash
 ./install.sh --pi      # Install Pi prompt templates + subagents + extensions and sync shared skills
@@ -64,8 +63,6 @@ Installed layout:
 │   ├── explore.md
 │   └── ...
 └── extensions/
-    ├── pi-plan-mode/
-    │   └── index.ts
     ├── pi-prd-mode/
     │   └── index.ts
     ├── aoe-status/
@@ -76,7 +73,7 @@ Installed layout:
     └── todo.ts
 ```
 
-The installer copies the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md`. For OMP, that same shared source file is installed as `~/.omp/agent/SYSTEM.md`, matching OMP's `SYSTEM.md` additive-system semantics.
+The installer copies the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md`.
 
 The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` with Codex model IDs and thinking-level mappings preserved, so Pi uses the proxy instead of ChatGPT OAuth.
 
@@ -118,7 +115,7 @@ Each Markdown file becomes a slash command using the filename:
 
 Prompt templates in this repo are kept as top-level files in `_pi/prompts/`, so no extra nested prompt-directory discovery is required.
 
-The `/plan` command is provided by the `pi-plan-mode` extension, and the `/prd` command is provided by the `pi-prd-mode` extension, not by prompt templates.
+Planning remains available through prompt templates and shared skills such as `/dev:plan`, `/dev:reviewed-html-plan`, and `/skill:reviewed-html-plan`. The `/prd` command is provided by the `pi-prd-mode` extension.
 
 ## Extensions
 
@@ -130,20 +127,6 @@ This repo also ships `aoe-status`, a lightweight lifecycle reporter for Agent of
 - reports `idle` on load/session start, `running` on agent/turn start, `idle` on agent end, and `stopped` on shutdown,
 - refreshes the latest status every 30 seconds so AoE does not fall back to stale pane parsing after the registry TTL,
 - stores only status, pid, cwd, session file path, and timestamps, never prompts, messages, tool arguments, or model output.
-
-This repo now ships a maintained `pi-plan-mode` extension that:
-
-- powers `/plan` mode for `thoughts/` planning workflows,
-- keeps planning-mode file writes scoped to `thoughts/`,
-- defaults active browser-reviewed plans to `thoughts/plans/<slug>.html` while still accepting explicit legacy Markdown plan paths,
-- displays the current registered Doct plan review URL in the plan-mode widget when available,
-- allows the narrow Doct plan registration/comment commands and the `process` tool needed for queue-backed browser comment iteration,
-- steers HTML plan edits toward `/dev:reviewed-html-plan` for registration, browser feedback, PM review, and GPT/GLM Pi subagent plan review,
-- keeps `/review:plan` and `/review:plan-adversarial` available as explicit inline review paths, with HTML plans accepted as first-class inputs,
-- leaves execution handoff manual via `/cmd:execute-plan <plan> --target ...` so Pi can launch from a fresh session without popping a menu,
-- reminds the operator to stop the active Doct plan comment listener before execution,
-- keeps alternate review commands such as `/review:change-claude-code` as explicit opt-ins rather than hidden plan-mode fallbacks,
-- disables `/plan` mode before dispatching into execution so implementation is not blocked by planning-only restrictions.
 
 This repo also ships a maintained `pi-prd-mode` extension that:
 
@@ -227,11 +210,7 @@ local path packages:
 
 Use `pi list` on a host to verify what is currently registered. To verify both surfaces together, run `scripts/verify-pi-install.sh` from this repo.
 
-These files are based on `_omp/agents`, but normalized for the `@tintinweb/pi-subagents` loader:
-
-- every agent has a `name`
-- `tools` is flattened to a comma-separated built-in Pi tool list when possible
-- unsupported OMP-only nested permission/tool metadata is omitted from the frontmatter used by `@tintinweb/pi-subagents`
+The maintained agent files use the flat frontmatter expected by `@tintinweb/pi-subagents`: every agent has a `name`, and `tools` is a comma-separated Pi tool list when specified.
 
 Example installed agents:
 
@@ -340,10 +319,8 @@ Use `/dev:pm-review <plan> implementation` after execution when you want a corre
 - `/cmd:execute-plan` is the canonical wrapper for choosing between `/run-plan <plan>` and `/dev:run <plan>`.
 - `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
 - `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean GPT/GLM consensus over all in-scope P1/P2/P3 findings means `OPEN_PR_READY`; the runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for a Codex thumbs-up.
-- In Pi `/plan` mode, the extension offers both execution paths as post-review exit choices and stages this handoff command for the selected target.
-- When that extension path is used, `/plan` mode is disabled before execution so planning-only tool restrictions do not leak into implementation.
-- In Pi, the handoff command starts a fresh session and then launches the selected execution flow from that clean context.
-- `/review:change-claude-code` remains available for an explicit manual review request, but it is not part of the automatic `/plan`-mode review-to-execution path.
+- In Pi, `/cmd:execute-plan` starts a fresh session and launches the selected execution flow from clean context.
+- `/review:change-claude-code` remains available as an explicit manual review request; it is not an automatic planning-mode fallback.
 
 Use `/dev:plan-from-prd <prd>` after a reviewed PRD delta is ready to become an execution plan.
 
@@ -381,7 +358,7 @@ Skills:
 
 - Pi global resources live under `~/.pi/agent/`, not `~/.pi/`.
 - Repo-managed extensions live in `~/.pi/agent/extensions/`; package-managed installs are reported by `pi list`.
-- `~/.pi/agent/APPEND_SYSTEM.md` is installed from the repo-root `APPEND_SYSTEM.md`; OMP receives that same shared source as `~/.omp/agent/SYSTEM.md`.
+- `~/.pi/agent/APPEND_SYSTEM.md` is installed from the repo-root `APPEND_SYSTEM.md`.
 - Project-local Pi resources can also live under `.pi/prompts/`, `.pi/skills/`, `.pi/agents/`, and `.pi/extensions/`.
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.

@@ -12,6 +12,6 @@ In Discord, Aaron introduced two Hermes agents for Nodaste collaboration: <@1492
 §
 Discord agent identities: this agent is Chief; <@&1492542870631223499> / Dever agent is Dever; only Aaron can change identity assignments.
 §
-OpenCode Linear build: source skill ~/.agents/skills/hermes-opencode-linear-build/SKILL.md, installed under nerd skills/productivity. Hermes launches/monitors `/cmd:linear-build-workspace <ISSUE_KEY> <BASE_REF>`; OpenCode owns orchestration. Bundle repo ~/code/hermes-configs.
+OpenCode Linear build is compatibility-only: before using `hermes-opencode-linear-build`, verify the independently maintained command and both helper scripts exist under ~/.config/opencode. If absent, use maintained Pi/Codex workflows. When provisioned, Hermes launches/monitors `/cmd:linear-build-workspace <ISSUE_KEY> <BASE_REF>` and OpenCode owns orchestration. Bundle repo ~/code/hermes-configs.
 §
 On Aaron's macOS setup, background launchd jobs reading Obsidian vaults under ~/Documents can hit TCC permission issues; prefer Obsidian app-context triggers or a polling fallback over direct launchd-first designs.

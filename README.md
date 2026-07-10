@@ -4,10 +4,7 @@ Shared configuration repo for:
 
 - Claude Code
 - Codex
-- Gemini CLI
-- Oh My Pi (`_omp`)
 - Pi (`_pi`)
-- OpenCode
 
 It packages prompt/command surfaces, agent definitions, shared skills, helper scripts, and install tooling in one place.
 
@@ -17,9 +14,6 @@ It packages prompt/command surfaces, agent definitions, shared skills, helper sc
 ai-configs/
 ├── _claude/      # Claude source config
 ├── _codex/       # Codex source config
-├── _gemini/      # Gemini source config
-├── _omp/         # OMP source config
-├── _opencode/    # OpenCode source config
 ├── _pi/          # Pi source config
 ├── scripts/      # Shared helper scripts fanned out by install.sh
 ├── skills/       # Repo-owned shared skills + install matrix for package-backed skills
@@ -52,10 +46,7 @@ Single-surface installs:
 ```bash
 bash ~/ai-configs/install.sh --claude
 bash ~/ai-configs/install.sh --codex
-bash ~/ai-configs/install.sh --gemini
-bash ~/ai-configs/install.sh --omp
 bash ~/ai-configs/install.sh --pi
-bash ~/ai-configs/install.sh --opencode
 bash ~/ai-configs/install.sh --skills
 bash ~/ai-configs/install.sh --tools
 ```
@@ -76,20 +67,17 @@ bash ~/ai-configs/install.sh --all ~
 ## What the installer does
 
 - installs Claude config into `.claude/`
-- installs Gemini config into `.gemini/`
 - does not create project `.codex/`; Codex uses global `~/.codex/config.toml`
 - mirrors Codex prompts into `~/.codex/prompts`
 - keeps Codex prompt availability aligned with Pi, using Pi-delegating wrappers for Pi-only multi-model/subagent commands
 - refreshes Codex-discoverable shared skills in `~/.agents/skills`
 - mirrors shared helper scripts into the runtime locations that need them
-- installs OMP to `~/.omp/agent/`
-- copies repo-managed OMP extensions into `~/.omp/agent/extensions/`
 - installs Pi to `~/.pi/agent/`
 - copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`)
-- installs OpenCode resources to `~/.config/opencode/`
+- removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`
 - with `--update`, first runs `npx skills update -g -y` for globally installed skills tracked by skills.sh, then runs the normal ai-configs sync
-- installs the shared repo-root `APPEND_SYSTEM.md` to Pi as `~/.pi/agent/APPEND_SYSTEM.md` and to OMP as `~/.omp/agent/SYSTEM.md`
+- installs the shared repo-root `APPEND_SYSTEM.md` to Pi as `~/.pi/agent/APPEND_SYSTEM.md`
 - preserves local settings files where appropriate
 
 To update an existing install from this repo, run the same `install.sh` command again. To also refresh skills installed through skills.sh, add `--update`.
@@ -102,17 +90,8 @@ Claude-specific agents, commands, and default settings.
 ### `_codex/`
 Codex prompt files plus config templates. Global Codex prompt discovery is handled by the installer.
 
-### `_gemini/`
-Gemini TOML command definitions plus the `GEMINI.template.md` persona template.
-
-### `_omp/`
-OMP commands, agents, repo-managed extensions, and OMP-local docs. The repo-managed planning entrypoint is the `/aplan` extension/alias, which is installed under `~/.omp/agent/extensions/`, enters built-in `/plan` mode while queueing repo-managed planning guidance for the next planning turn, preserves native `/plan`, auto-runs `/review:change-integrate` after standard plan review leaves inline comments, supports `/dev:pm-review` as a corrective PM reshaping pass, and hands reviewed plans off through prepared `/cmd:execute-plan ... --target ...` execution choices. This tree also now ships a vendored `pi-vcc` extension for OMP under `_omp/extensions/pi-vcc`, installed to `~/.omp/agent/extensions/pi-vcc`, which provides algorithmic compaction, the `/pi-vcc` manual compaction command, and the `vcc_recall` tool.
-
 ### `_pi/`
 Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.
-
-### `_opencode/`
-OpenCode commands, agents, prompts, repo-local-only skills, onboarding docs, and helper scripts.
 
 ### `scripts/`
 Canonical shared helper scripts used across multiple runtimes.
@@ -169,7 +148,7 @@ Shared skills install to:
 ~/.agents/skills/
 ```
 
-Consumer-specific compatibility links are created where needed, but `~/.agents/skills` is the canonical shared runtime location. Codex discovers user skills directly from this location. Repo-owned payloads come from `skills/`; package-backed payloads are fetched per `skills/install-matrix.json`.
+Claude compatibility links are created where needed, but `~/.agents/skills` is the canonical shared runtime location. Codex discovers user skills directly from this location. Repo-owned payloads come from `skills/`; package-backed payloads are fetched per `skills/install-matrix.json`.
 
 `skills/install-matrix.json` also records optional profiles (`creative-content`, `macos`, `rust`, and `ops-browser`). Skills with `defaultInstall: false` stay available as managed inventory but are backed out of the default `~/.agents/skills` discovery surface so Pi and Codex do not load rarely used profiles into every session.
 
@@ -201,9 +180,9 @@ The repo keeps long-lived and working documentation separate:
 
 ## Notes
 
-- This repo intentionally no longer tracks accumulated local runtime trees like `.claude/`, `.gemini/`, `.codex/`, `.opencode/`, `.agent/`, or `.agents/`.
-- If older notes or scripts reference pre-cleanup paths such as `claude/...`, `codex/...`, `gemini/...`, or `opencode/...`, use the underscored source paths instead.
-- Installed runtime paths remain the normal dot-directories used by each tool.
+- This repo intentionally no longer tracks accumulated local runtime trees like `.claude/`, `.codex/`, `.pi/`, `.agent/`, or `.agents/`.
+- The retired `_gemini/`, `_omp/`, and `_opencode/` source trees are no longer installed or maintained here.
+- Installed runtime paths remain the normal dot-directories used by each maintained tool.
 
 For a host-level verification of both Pi installation surfaces, run:
 
@@ -214,7 +193,5 @@ bash ./scripts/verify-pi-install.sh
 ## More specific docs
 
 - `_pi/README.md`
-- `_opencode/OPENCODE_ONBOARDING.md`
-- `_opencode/QUICKSTART.md`
 - `AGENTS.md`
 - `CLAUDE.md`

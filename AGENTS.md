@@ -16,7 +16,6 @@ Located under `_pi/agents/` and invoked via Pi subagent system:
 
 ## Implementation & Architecture (Claude/Codex)
 - `developer` (sonnet; `_claude/agents/developer.md`) — Implements specs with tests and enforces zero linting violations.
-- `developer` (sonnet; `_opencode/agents/developer.md`) — Architectural specification implementation with tests and zero linting violations.
 - `developer-fidelity` (sonnet; `_claude/agents/developer-fidelity.md`) — Implements specifications with absolute fidelity—no extra tests, features, or safeguards.
 - `simplify-planner` (opus; `_claude/agents/simplify-planner.md`) — Refactor planning specialist who produces cleanup plans that preserve existing behaviour.
 
@@ -42,7 +41,6 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 - `quality-reviewer-glm` (opencode/glm-5.2; `_pi/agents/quality-reviewer-glm.md`) — Legacy xhigh compatibility alias for independent Pi GLM review gates that have not migrated to split GLM profiles.
 - `glm5.2-high` (opencode/glm-5.2 high reasoning; `_pi/agents/glm5.2-high.md`) — GLM reviewer profile for normal high-risk bounded review.
 - `glm5.2-xhigh` (opencode/glm-5.2 xhigh reasoning; `_pi/agents/glm5.2-xhigh.md`) — GLM reviewer profile reserved for final or exceptional-risk review.
-- `quality-reviewer` (sonnet; `_opencode/agents/quality-reviewer.md`) — Reviews code for real issues (security, data loss, performance) with measurable impact focus.
 - `quality-reviewer` (inherits workspace default model; `_claude/agents/quality-reviewer.md`) — Production safety review covering security, data loss, regressions, and performance.
 - `quality-reviewer-fidelity` (sonnet; `_claude/agents/quality-reviewer-fidelity.md`) — Ensures code matches specification requirements exactly with no scope expansion.
 - `fidelity-reviewer` (opus; `_claude/agents/fidelity-reviewer.md`) — Compares generated task lists against source specifications and researches discrepancies.
@@ -59,14 +57,10 @@ These agents are typically invoked by other agents or for specific tool-use task
 - `codebase-analyzer` (`_claude/agents/codebase-analyzer.md`) — Explains how code works, traces execution paths and data flows.
 - `codebase-locator` (`_claude/agents/codebase-locator.md`) — Finds where things are in the codebase.
 - `codebase-pattern-finder` (`_claude/agents/codebase-pattern-finder.md`) — Identifies architectural patterns and conventions.
-- `explore` (temperature 0.1; `_opencode/agents/explore.md`) — Fast code exploration using Serena tools for search and analysis.
-- `multi-reviewer` (gpt-5.6-luna; `_opencode/agents/multi-reviewer.md`) — Reviews specifications and writes structured feedback to a file.
-- `playwright-runner` (`_opencode/agents/playwright-runner.md`) — Runs E2E tests in isolated PTY sessions with real-time failure streaming.
 - `thoughts-analyzer` (`_claude/agents/thoughts-analyzer.md`) — Synthesizes context from plans, specs, and research in `thoughts/`.
 - `thoughts-locator` (`_claude/agents/thoughts-locator.md`) — Finds relevant documentation within `thoughts/`.
 - `web-search-researcher` (`_claude/agents/web-search-researcher.md`) — Finds external information using web search.
 - `worktree-creator` (`_claude/agents/worktree-creator.md`) — Manages git worktrees for parallel execution.
-- `worktree-creator` (deepinfra/MiniMaxAI/MiniMax-M2.1; `_opencode/agents/worktree-creator.md`) — Creates git worktrees for Linear issues.
 
 ---
 
@@ -187,7 +181,7 @@ Agents should treat this `AGENTS.md` as authoritative for project-specific rules
 
 ## Pi Configuration (New)
 
-The `_pi/` directory provides Pi prompt templates, subagents, and extensions. Repo-owned shared Pi skills live under `skills/`, while `skills/install-matrix.json` also inventories package-backed shared skills fetched via `npx skills`. `_pi/prompts/` contains slash-command prompt templates and `_pi/agents/` contains pi-subagents-compatible agent definitions ported from `_omp/agents`.
+The `_pi/` directory provides Pi prompt templates, subagents, and extensions. Repo-owned shared Pi skills live under `skills/`, while `skills/install-matrix.json` also inventories package-backed shared skills fetched via `npx skills`. `_pi/prompts/` contains slash-command prompt templates and `_pi/agents/` contains the maintained pi-subagents-compatible agent definitions.
 
 ### Quick Reference
 
@@ -306,7 +300,6 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 **Reviews:**
 - `/skill:adn-dev-wf` — Broader reviewed-plan development workflow
 - `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus GPT/GLM Pi subagent plan reviews, and stop at execution-ready handoff
-- `/skill:omp-review-partner` — Use OMP with OpenCode Zen Kimi models for read-only plan and implementation reviews
 - `/skill:review-change` — Review code changes against plan
 - `/skill:review-change-integrate` — Integrate code-review feedback
 - `/skill:pre-pr-implementation-review` — Run GPT-5.6 Sol plus applicable GLM-5.2 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed, preserving truthful GLM skips for low-risk scopes; inside `run-plan` it hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.

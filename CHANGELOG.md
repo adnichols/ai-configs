@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Retire legacy configuration surfaces] - 2026-07-09
+
+### Removed
+
+- Removed the `_gemini/`, `_omp/`, and `_opencode/` source trees and their installer modes.
+- Removed the repo-managed Pi `pi-plan-mode` extension; planning remains available through maintained prompts and shared skills.
+- Removed the retired `omp-review-partner` shared skill and added managed-install cleanup for existing copies and compatibility links.
+
+### Changed
+
+- Default and `--all` installation now cover Claude, Codex, Pi, shared skills, and optional tools only.
+- Updated README, setup, Pi, agent, architecture, ADR, changelog, and Hermes workflow guidance to reflect the maintained surfaces.
+- OpenCode-based Hermes workflows are now explicitly compatibility-only and require independent component preflight; maintained Pi/Codex workflows are the fallback.
+- Ambiguous user-modified Gemini, OMP, OpenCode, and Pi plan-mode runtime files are preserved for explicit host cleanup rather than deleted automatically.
+
 ## [Pi LSP provisioning strategy] - 2026-04-08
 
 ### Added
@@ -25,6 +40,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [OpenCode `review:plan` wrapper] - 2026-04-06
 
+> **Retired:** The `_opencode/` source tree and installer support were removed in July 2026. This entry is retained as release history only.
+
 ### Added
 
 - Added `_opencode/commands/review:plan.md` as a first-class OpenCode reviewed-plan entrypoint.
@@ -32,8 +49,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- OpenCode reviewed-plan flow is now discoverable without requiring users to invoke the lower-level `review:change*` surfaces directly.
-- Runtime verification clarified that OpenCode command changes must be installed into `~/.config/opencode/commands` before `opencode run` sees them.
+- At the time, the OpenCode reviewed-plan flow became discoverable without requiring users to invoke the lower-level `review:change*` surfaces directly.
+- Runtime verification established that command changes needed installation into `~/.config/opencode/commands` before `opencode run` saw them.
 
 ### Technical Notes
 

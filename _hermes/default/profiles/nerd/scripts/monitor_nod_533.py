@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Quiet watchdog for OpenCode Linear build NOD-533.
 
-Prints only when the run reaches a terminal/blocking state or appears stalled.
-State is kept locally so repeated cron ticks stay quiet after reporting.
+Compatibility-only watchdog for an independently provisioned OpenCode build.
+Prints when required components are missing, the run reaches a terminal/blocking
+state, or appears stalled. State is kept locally to avoid duplicate reports.
 """
 from __future__ import annotations
 
@@ -131,6 +132,17 @@ def summarize(state: dict, ledger: str, workspace: dict, status: dict, reason: s
 def main() -> int:
     old = load_state()
     now = int(time.time())
+    if not Path(ORCH).is_file():
+        if old.get("reported") != "missing_orchestrator":
+            old.update({"reported": "missing_orchestrator", "last_seen": now})
+            save_state(old)
+            print(
+                f"Linear build {ISSUE}: COMPATIBILITY_COMPONENT_MISSING — "
+                f"{ORCH} is absent. ai-configs no longer installs OpenCode helpers; "
+                "use a maintained Pi/Codex workflow or provision the compatibility component explicitly."
+            )
+        return 0
+
     workspace = find_workspace()
     status = session_status()
     if not workspace:

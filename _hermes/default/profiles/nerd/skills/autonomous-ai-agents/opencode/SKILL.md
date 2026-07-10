@@ -56,7 +56,7 @@ terminal(command="opencode run 'Add retry logic to API calls and update tests'",
 
 When the user has `opencode server` running (commonly `http://localhost:63333`), Hermes can operate OpenCode sessions directly with `curl` via terminal. Prefer read/list/status endpoints first, and only create/send prompts when the user has asked to run a coding session.
 
-For Aaron's Linear-backed OpenCode issue workflow, do not use generic manual workdir/worktree patterns from this skill. Load `hermes-opencode-linear-build` and launch OpenCode's `/cmd:linear-build-workspace <ISSUE_KEY> <BASE_REF>` command. OpenCode owns workspace creation and build orchestration; Hermes only monitors liveness and terminal status.
+For Aaron's Linear-backed OpenCode issue workflow, first verify the independently maintained `cmd:linear-build-workspace` command plus `create_linear_workspace.py` and `linear_build_orchestrator.py` exist under `~/.config/opencode`. Only then load the compatibility-only `hermes-opencode-linear-build` workflow. If any component is absent, use a maintained Pi/Codex workflow instead of generic manual OpenCode workdir/worktree patterns.
 
 Readiness checks:
 

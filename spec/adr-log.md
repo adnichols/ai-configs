@@ -31,7 +31,7 @@ This document captures key architectural decisions and their rationale.
 ---
 
 ## ADR 0002: Add an OpenCode-native `review:plan` wrapper on top of existing reviewer surfaces
-**Status:** Accepted (implemented and verified)
+**Status:** Retired (historical)
 **Date:** 2026-04
 
 **Context:** OpenCode already had stronger single-reviewer review commands (`review:change-gpt` and `review:change-k2.5`) but lacked an explicit `review:plan` entrypoint. Pi had a reviewed-plan wrapper, but its prompt depended on Pi-specific reviewer agents, model strings, and transport assumptions that should not be copied into OpenCode unchanged.
@@ -48,12 +48,8 @@ This document captures key architectural decisions and their rationale.
 - Expand the change to include adversarial review, PRD workflow parity, or Pi interactive review transports.
 
 **Current state:**
-- `_opencode/commands/review:plan.md`
-- `_opencode/commands/review:change-gpt.md`
-- `_opencode/commands/review:change-k2.5.md`
-- `_opencode/agents/reviewer-gpt.md`
-- `_opencode/agents/reviewer-kimi.md`
-- `install.sh`
+- Historical record only. The `_opencode/` source tree and installer support were removed in July 2026.
+- See `spec/architecture/opencode-review-plan-wrapper.md` for the retired design.
 
 ---
 

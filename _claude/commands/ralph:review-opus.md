@@ -1,5 +1,5 @@
 ---
-description: Iterative code review loop (Opus) — run /review, apply quick fixes, stop when no straightforward fixes remain
+description: Iterative Opus code review loop — review the diff, apply quick fixes, stop when no straightforward fixes remain
 argument-hint: "[BASE_REF]"
 agent: build
 subtask: true
@@ -9,7 +9,7 @@ reasoningEffort: xhigh
 
 # Review Loop (Auto-Fix)
 
-Run OpenCode's `/review` command in a loop. Apply quick / straightforward fixes surfaced by the review, then re-run. Stop when there are no more quick fixes to apply (or after 3 iterations) and report remaining issues.
+Run a read-only Opus review of the current diff in a loop, using the active Claude command model and repository tools. Apply quick / straightforward fixes surfaced by the review, then re-run. Stop when there are no more quick fixes to apply (or after 3 iterations) and report remaining issues.
 
 ## Inputs
 
@@ -51,7 +51,7 @@ If there are uncommitted changes, they are in-scope for review.
 
 Repeat until termination (max 3 iterations):
 
-1. Run OpenCode's `/review` on the current working tree and diff against `base_ref`.
+1. Review the current working tree and diff against `base_ref` for concrete correctness, regression, security, data-loss, and performance issues. Do not delegate to OpenCode or require its `/review` command.
 2. From the review output, split issues into:
    - **Quick / straightforward fixes**: small, local, high-confidence changes (formatting, obvious bug fix, missing null-check, incorrect import, broken command snippet, etc.).
    - **Not quick**: anything that requires broader refactor, unclear intent, architectural redesign, product decision, or investigation beyond a short tight loop.

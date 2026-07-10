@@ -20,7 +20,7 @@ Delegate coding tasks to [Codex](https://github.com/openai/codex) via the Hermes
 - Refactoring
 - PR reviews
 - Batch issue fixing
-- For Aaron's current Linear-backed OpenCode repo workflow under `~/code/`, load `hermes-opencode-linear-build`: OpenCode's `/cmd:linear-build-workspace` command owns review orchestration. Do not have Hermes run Codex review gates directly unless Aaron explicitly asks for a legacy/manual review. Codex CLI v0.128.0 no longer accepts the older `-a/--ask-for-approval` flag; use `-s read-only` for read-only reviews and rely on the default non-interactive `approval: never` behavior shown by `codex exec`.
+- Prefer this maintained Codex path (or maintained Pi) for Aaron's repo work. Use compatibility-only `hermes-opencode-linear-build` only when Aaron explicitly requests it and its OpenCode command plus both helpers pass preflight; while active, that command owns review orchestration. Codex CLI v0.128.0 no longer accepts the older `-a/--ask-for-approval` flag; use `-s read-only` for read-only reviews and rely on the default non-interactive `approval: never` behavior shown by `codex exec`.
 
 Requires the codex CLI and a git repository.
 

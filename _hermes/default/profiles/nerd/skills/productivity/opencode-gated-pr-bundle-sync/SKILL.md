@@ -75,7 +75,7 @@ Use this skill when the user asks to:
 - pull/install the current bundle into another Hermes profile
 - verify whether a receiving Hermes instance has current bundled workflow skills
 
-Do not use this for general repo coding workflow execution. Use `hermes-opencode-linear-build` for current Linear-backed OpenCode PR work; `opencode-http-coding-workflow` is now a compatibility wrapper/HTTP helper.
+Do not use this for general repo coding workflow execution. Prefer maintained Pi/Codex workflows. Use `hermes-opencode-linear-build` only as a compatibility path after verifying its independently maintained OpenCode command and both helpers; `opencode-http-coding-workflow` is a compatibility wrapper/HTTP helper.
 
 ## Push / Export Flow
 
@@ -139,11 +139,7 @@ For skill content changes, identify the canonical source before editing. Most bu
 ~/.hermes/profiles/nerd/skills/<category>/<skill-name>/SKILL.md
 ```
 
-Some externally-authored/shared skills may live outside the profile tree first. For Aaron's current OpenCode Linear build workflow, the canonical source skill is:
-
-```text
-~/.agents/skills/hermes-opencode-linear-build/SKILL.md
-```
+Some externally-authored/shared skills may live outside the profile tree first. The compatibility OpenCode Linear build skill may have an external source at `~/.agents/skills/hermes-opencode-linear-build/SKILL.md`, but it is not the default coding workflow and remains usable only when its required OpenCode components pass preflight.
 
 When a user points out a canonical source path, copy or reconcile that source into the profile skill before rebuilding, then verify with `cmp -s <source> <profile-skill>` or an equivalent checksum. Do not overwrite the canonical source with an older profile copy.
 

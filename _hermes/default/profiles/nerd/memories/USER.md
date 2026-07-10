@@ -12,7 +12,7 @@ Aaron runs Nodaste; for calendar summaries, treat it as primary and ignore Workd
 §
 Signals: use ccore by default for send/create; still check vault signals during transition. Notify-only watcher; no auto-response. In Discord keep briefs short; put detail in Obsidian/doct docs and preserve doct permalinks.
 §
-Code: OpenCode edits; Hermes gates/reviews; PR titles include Linear ID.
+Code: use maintained Pi/Codex workflows by default; use the compatibility-only OpenCode build workflow only after its command and both helpers are verified present. Hermes supervises/reviews; PR titles include Linear ID.
 §
 Top priorities: C-Core, DocT, HUD. Goal: HUD is the main surface with C-Core underneath; C-Core trust/reliability for shared team use is gating.
 §

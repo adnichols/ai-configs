@@ -1,6 +1,6 @@
 ---
 name: opencode-http-coding-workflow
-description: "Compatibility wrapper for Aaron's former Hermes-orchestrated OpenCode HTTP workflow. For new Linear-backed OpenCode builds, load `hermes-opencode-linear-build`: OpenCode runs `/cmd:linear-build-workspace` and owns orchestration; Hermes only launches, monitors, nudges, and verifies terminal status."
+description: "Compatibility-only wrapper for an independently provisioned OpenCode HTTP workflow. Use only when Aaron explicitly requests OpenCode and the command plus both required helpers pass preflight; otherwise use maintained Pi/Codex workflows."
 version: 0.2.0
 author: Hermes Agent
 license: MIT
@@ -16,35 +16,15 @@ metadata:
 
 This skill used to describe a Hermes-side gated workflow where Hermes created OpenCode workspaces, ran/recorded deterministic gates, called Codex and Claude reviewers, prompted PM review stages, and drove Linear transitions. That controller and its scripts have been removed from this skill.
 
-That operating model is retired for new Linear-backed OpenCode work.
+That operating model is retired. For new work, prefer a maintained Pi/Codex workflow. Use `hermes-opencode-linear-build` only as a compatibility path after verifying its independently maintained OpenCode command and both helpers exist.
 
-For new work, use:
-
-```text
-/skill hermes-opencode-linear-build
-```
-
-The OpenCode command is now the orchestrator:
+When the compatibility path is provisioned, the OpenCode command is the orchestrator:
 
 ```text
 /cmd:linear-build-workspace <ISSUE_KEY> <BASE_REF>
 ```
 
-Active OpenCode command/helper files live at:
-
-```text
-~/.config/opencode/commands/cmd:linear-build-workspace.md
-~/.config/opencode/scripts/create_linear_workspace.py
-~/.config/opencode/scripts/linear_build_orchestrator.py
-```
-
-The version-controlled source normally lives at:
-
-```text
-~/code/ai-configs/_opencode/commands/cmd:linear-build-workspace.md
-~/code/ai-configs/_opencode/scripts/create_linear_workspace.py
-~/code/ai-configs/_opencode/scripts/linear_build_orchestrator.py
-```
+This compatibility workflow is usable only when its OpenCode command/helper files are independently maintained under `~/.config/opencode`. The former ai-configs `_opencode/` source tree has been retired, and `ai-configs/install.sh` no longer creates or updates those files. If the command or helpers are absent, stop with a clear blocker and use a maintained Pi/Codex workflow instead.
 
 ## New Operating Model
 
@@ -134,9 +114,9 @@ The OpenCode command and `linear_build_orchestrator.py` own those stages now.
 
 ## What to Do Instead
 
-1. Load `hermes-opencode-linear-build`.
-2. Verify the OpenCode command/helper files exist.
-3. Launch `/cmd:linear-build-workspace <ISSUE_KEY> <BASE_REF>` in OpenCode.
+1. Prefer a maintained Pi/Codex workflow for new work.
+2. If the user explicitly wants the compatibility OpenCode path, verify the command and both helper files exist first.
+3. Only after that preflight, load `hermes-opencode-linear-build` and launch `/cmd:linear-build-workspace <ISSUE_KEY> <BASE_REF>`.
 4. Monitor OpenCode messages, `.opencode/tmp/<ISSUE_KEY>-workspace.json`, and the run ledger in `thoughts/runs/<issue-slug>.md`.
 5. If OpenCode stalls, resume the same process from the ledger rather than taking over.
 6. Report only terminal completion or an explicit OpenCode-recorded blocker.
@@ -159,10 +139,11 @@ When reporting status, keep it concise:
 2. **Calling old controller scripts for new work.** Use the OpenCode command and ledger instead.
 3. **Running tests or review gates from Hermes.** OpenCode owns validation/review; Hermes can read results.
 4. **Reporting timeout as completion.** Inspect messages and the run ledger before reporting.
-5. **Forgetting to load the replacement skill.** `hermes-opencode-linear-build` is the canonical skill for new Linear builds.
+5. **Treating compatibility as the default.** Prefer maintained Pi/Codex workflows; use `hermes-opencode-linear-build` only after component preflight.
 
 ## Verification Checklist
 
-- [ ] `hermes-opencode-linear-build` was loaded for new Linear work.
+- [ ] A maintained Pi/Codex workflow was preferred, or the user explicitly requested the compatibility OpenCode path.
+- [ ] Before loading `hermes-opencode-linear-build`, the command and both helper files were verified present.
 - [ ] Hermes launched/resumed `/cmd:linear-build-workspace` rather than running old gates.
 - [ ] Status/final report was grounded in OpenCode messages, run ledger, PR/Linear read-only checks, or a recorded blocker.

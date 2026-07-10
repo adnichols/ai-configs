@@ -9,7 +9,7 @@ import re
 import sys
 from pathlib import Path
 
-DEFAULT_ROOTS = ["_pi", "skills", "_opencode", "_claude", "_omp", "_codex", "scripts"]
+DEFAULT_ROOTS = ["_pi", "skills", "_claude", "_codex", "scripts"]
 REVIEW_HINT_RE = re.compile(r"claude-code-review|review|reviewed-html-plan|run-plan|codex-full-build|linear_build|linear-build|review:change-claude-code|review:plan-adversarial|_pi/README\.md", re.I)
 FORBIDDEN_MARKER = "[FORBIDDEN-EXAMPLE]"
 FORBIDDEN_FENCE = "forbidden-claude-launch"

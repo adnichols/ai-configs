@@ -29,7 +29,7 @@ quality gates, an independent reviewer subagent, and an auto-fix loop.
 **This skill vs github-code-review:** This skill verifies YOUR changes before committing.
 `github-code-review` reviews OTHER people's PRs on GitHub with inline comments.
 
-For Aaron's current Linear-backed OpenCode repo workflow, this verification skill is not a substitute for OpenCode's `/cmd:linear-build-workspace` review orchestration. Load `hermes-opencode-linear-build`; Hermes should not run separate review gates unless Aaron explicitly asks for a legacy/manual review.
+Prefer maintained Pi/Codex review workflows. If Aaron explicitly requests the compatibility OpenCode build workflow, first verify its command and both helper scripts exist, then load `hermes-opencode-linear-build`; while that workflow is active, Hermes should not run separate review gates unless Aaron explicitly asks for a legacy/manual review.
 
 ## Step 1 — Get the diff
 

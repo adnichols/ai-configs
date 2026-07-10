@@ -14,14 +14,11 @@ bash ~/ai-configs/install.sh --all
 This installs the project-facing runtime directories as needed:
 
 - `.claude/`
-- `.gemini/`
-- `.codex/`
 
 And global/home resources where those tools expect them:
 
-- `~/.omp/agent/`
+- `~/.codex/`
 - `~/.pi/agent/`
-- `~/.config/opencode/`
 - `~/.agents/skills/`
 
 Shared skill inventory is declared in `skills/install-matrix.json`; default repo-owned payloads are copied from `skills/`, and default package-backed payloads are fetched via `npx skills`. Optional-profile skills are recorded in the matrix with `defaultInstall: false` and are not placed in `~/.agents/skills` by default.
@@ -31,10 +28,7 @@ Shared skill inventory is declared in `skills/install-matrix.json`; default repo
 ```bash
 bash ~/ai-configs/install.sh --claude
 bash ~/ai-configs/install.sh --codex
-bash ~/ai-configs/install.sh --gemini
-bash ~/ai-configs/install.sh --omp
 bash ~/ai-configs/install.sh --pi
-bash ~/ai-configs/install.sh --opencode
 bash ~/ai-configs/install.sh --skills
 bash ~/ai-configs/install.sh --tools
 ```
@@ -66,8 +60,8 @@ In this repo:
 
 Examples:
 - `_claude/` is repo source, `.claude/` is installed runtime
-- `_codex/` is repo source, `.codex/` is installed runtime
-- `_gemini/` is repo source, `.gemini/` is installed runtime
+- `_codex/` is repo source, while Codex installs globally under `~/.codex/`
+- `_pi/` is repo source, while Pi installs globally under `~/.pi/agent/`
 
 Shared helper scripts live in repo-level `scripts/` and are copied into runtime locations by `install.sh`.
 
@@ -76,8 +70,8 @@ Shared helper scripts live in repo-level `scripts/` and are copied into runtime 
 After install, sanity check the surfaces you care about:
 
 ```bash
-ls .claude .gemini .codex 2>/dev/null
-ls ~/.omp/agent ~/.pi/agent ~/.config/opencode ~/.agents/skills 2>/dev/null
+ls .claude 2>/dev/null
+ls ~/.codex ~/.pi/agent ~/.agents/skills 2>/dev/null
 ```
 
 ## Troubleshooting
@@ -99,9 +93,5 @@ Check:
 ls ~/.agents/skills
 ```
 
-### OpenCode onboarding
-Use:
-
-```text
-_opencode/OPENCODE_ONBOARDING.md
-```
+### Retired surfaces still present
+Re-run any maintained install mode to remove positively identified managed deprecated shared-skill entries such as `omp-review-partner`. Gemini, OMP, OpenCode, and Pi plan-mode runtime trees may contain user changes, so inspect and remove them explicitly during host cleanup.

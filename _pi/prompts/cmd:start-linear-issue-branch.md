@@ -151,7 +151,7 @@ Output contract:
 - Do not modify any other files
 
 Guidance:
-- Mimic the format and intent of _opencode/commands/dev:plan.md (spec + phases + progress + resumability).
+- Follow the repository's maintained planning format: specification, phases, progress, and resumability.
 - This is a first draft: it's OK to include a dedicated Research phase and to mark things as unvalidated.
 - You MUST do lightweight validation by inspecting the codebase (Glob/Grep/Read) so the plan references real files, patterns, and constraints.
 - You MUST NOT change application code.

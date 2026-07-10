@@ -122,14 +122,14 @@
       "sha256": "6f6b1ebe9d46a8c0f56623aadc16b7bff403300650b847d9a7cde76af83500e4"
     },
     {
-      "bytes": 2157,
+      "bytes": 2280,
       "path": "profiles/nerd/memories/MEMORY.md",
-      "sha256": "cc6c8855f6a6556d4e4039b00be2a271b0571cc0fd065dbd22524ec80f5fd905"
+      "sha256": "fd618f1888cc7a2918625cd4caaf8012ceed60d60ab594e613d1501e5a65aca2"
     },
     {
-      "bytes": 1378,
+      "bytes": 1526,
       "path": "profiles/nerd/memories/USER.md",
-      "sha256": "ffade66d394f817804d0c95dca0923c89c8ea414d0ca2154679e56e64a891be3"
+      "sha256": "dfc005c06b07588aa338b9e02e5ee8d9915bc2ee140424e35b8796a0bf11a7a4"
     },
     {
       "bytes": 1732,
@@ -142,9 +142,9 @@
       "sha256": "63a966382c5b9e1f4c874b9166c014aedabc3afba0daec25dcfb9938b6ea185b"
     },
     {
-      "bytes": 6474,
+      "bytes": 7076,
       "path": "profiles/nerd/scripts/monitor_nod_533.py",
-      "sha256": "e0fb4ab95f374fe462b9b693cbfab1f9aec45c73c33bdd3ebe54006d9381f9a8"
+      "sha256": "705710794a2a2285705394c669a94841a5c0ca456a2e8962fe49bdfa5fefb5a7"
     },
     {
       "bytes": 3365,
@@ -197,9 +197,9 @@
       "sha256": "03c8a174119e3e1bd8384dc04fbcaa6947d9957c7084dfcce2de38d07aa155d3"
     },
     {
-      "bytes": 5829,
+      "bytes": 5816,
       "path": "profiles/nerd/skills/autonomous-ai-agents/codex/SKILL.md",
-      "sha256": "caafdffbcd2ca3c2d117c501b7d1eb7e7bfa665c0c5a065206d5d71ba839a30a"
+      "sha256": "bff5dccc28b0adef48c54560e1706e67510172bd77669680f4c14473510dfc63"
     },
     {
       "bytes": 5131,
@@ -262,9 +262,9 @@
       "sha256": "3b8414c78e6babdfb8631a8f1dca94333b1696731ca2a9886be1801b776266bf"
     },
     {
-      "bytes": 10975,
+      "bytes": 11063,
       "path": "profiles/nerd/skills/autonomous-ai-agents/opencode/SKILL.md",
-      "sha256": "214e3ee814efc9afe5af5d2ca984876bab5a8b69d2dd8cbb8de9f2c3e6a24c04"
+      "sha256": "a53b1dfc62f3b680aece3cd40fd34fda362a2595221d5ca4f25385e00cb06320"
     },
     {
       "bytes": 4824,
@@ -1947,9 +1947,9 @@
       "sha256": "43962f5a398b4badeeb94280299ba4511940ad0e32afcfce5f2a6e1afd21c7a8"
     },
     {
-      "bytes": 16705,
+      "bytes": 16777,
       "path": "profiles/nerd/skills/github/github-pr-workflow/SKILL.md",
-      "sha256": "0fd5cc7b98bdb7b33595bce7e5fd3699b83760fe43d2543bf06e6a386e0b567a"
+      "sha256": "69a61b61f7b91cbd3c62dab42ecdb6056acc9d8ef2fb4ad7cffd041f33c39229"
     },
     {
       "bytes": 4879,
@@ -2577,9 +2577,9 @@
       "sha256": "016198b563b8f8c4441b002bce8ad0e0865f2f39f1da22476beb7a7daed482aa"
     },
     {
-      "bytes": 13903,
+      "bytes": 13157,
       "path": "profiles/nerd/skills/productivity/codex-coding-workflow/SKILL.md",
-      "sha256": "2a5e8e9d871fa67e272675d7b6d8a20114890b424966e38f4381e0a41319d96e"
+      "sha256": "45e7cf6d30eb34fd527b34d54087f02512348e44e30d43031b87c8a93fb8b7e1"
     },
     {
       "bytes": 3353,
@@ -2637,9 +2637,9 @@
       "sha256": "9b1fccd6c09a125dacb0bd88ed1e472973ee20b541aadd1ab7ab0589a1c37ec1"
     },
     {
-      "bytes": 11718,
+      "bytes": 11915,
       "path": "profiles/nerd/skills/productivity/hermes-opencode-linear-build/SKILL.md",
-      "sha256": "f592887384bc3445c21e2c4bc26dd6ee62406ffd04cb34d19ef311314909f570"
+      "sha256": "b66eaa678c4a0ab76203cf2de3a4f726070ab09c60f2098f972e85f1d1dde60c"
     },
     {
       "bytes": 2505,
@@ -2722,9 +2722,9 @@
       "sha256": "8476bafbf0becc09a74a5329e0c54aeeb92badd4d3eb6ee7a25519656ed8ae60"
     },
     {
-      "bytes": 14813,
+      "bytes": 15016,
       "path": "profiles/nerd/skills/productivity/opencode-gated-pr-bundle-sync/SKILL.md",
-      "sha256": "6f0be13ef809ce347ee0d310fce06cd8afa821feb39b8be2e2446ccafe433988"
+      "sha256": "90c1ca2eade57cba925b795055850a88fe2d13bc61af1998b45058f6a83da1ab"
     },
     {
       "bytes": 2742,
@@ -2732,9 +2732,9 @@
       "sha256": "f9c13943152b86a09b63b58101dbfbf2b1b256d9ecb2890528a37bcbb694e7d4"
     },
     {
-      "bytes": 6153,
+      "bytes": 6452,
       "path": "profiles/nerd/skills/productivity/opencode-http-coding-workflow/SKILL.md",
-      "sha256": "9056787ed7e50f3bb28aa7dff24e95028839ce98309d6d48fff90bbfbd1fc90a"
+      "sha256": "c0e91d6d093604c0befd818e89ccab0bf98ce7f6b1da2dbd26b209491e75240d"
     },
     {
       "bytes": 15609,
@@ -3472,9 +3472,9 @@
       "sha256": "ce7e38367ea54fb86e32d41be2fb3682482b7e3d748316cb666b3d4e3ca51a40"
     },
     {
-      "bytes": 8756,
+      "bytes": 8796,
       "path": "profiles/nerd/skills/software-development/requesting-code-review/SKILL.md",
-      "sha256": "e469186ae731adafe2932780d6471ed6b820b3ecc0941e007a1a0040723ea53d"
+      "sha256": "7b6be4a0769681d7d0bf845c9fb7293059c2616530f4e8c5e536e552f2c56fce"
     },
     {
       "bytes": 10926,
@@ -3522,9 +3522,9 @@
       "sha256": "c9d3864e4d625271493c5daaf945bb50905f7cf83107525be31c982183b10e65"
     },
     {
-      "bytes": 545,
+      "bytes": 505,
       "path": "profiles/writing/memories/MEMORY.md",
-      "sha256": "efc03a209bbe4a0fc6fe7cc369f4d36425082c13185b7be5251b329a39ff75ee"
+      "sha256": "6cbd16215373a8d4df739eb04a8d8d8d8e5aa8d40c73468a3b3d158dac8f5e9c"
     },
     {
       "bytes": 1292,

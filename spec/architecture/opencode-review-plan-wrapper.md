@@ -1,17 +1,19 @@
 # OpenCode `review:plan` Wrapper
 
 **Last Updated:** 2026-04-06
-**Status:** ✅ Implemented
+**Status:** Retired (historical)
+
+> The `_opencode/` source tree was removed in July 2026. This document is retained only as an architectural record; the command and referenced files are no longer installed or maintained by ai-configs.
 
 ## Overview
 
-OpenCode now has a first-class `review:plan` command at `_opencode/commands/review:plan.md`. The command adds an explicit reviewed-plan entrypoint without replacing the stricter existing single-reviewer review surfaces.
+OpenCode previously had a first-class `review:plan` command at `_opencode/commands/review:plan.md`. The command adds an explicit reviewed-plan entrypoint without replacing the stricter existing single-reviewer review surfaces.
 
-The shipped implementation is an OpenCode-native wrapper around the existing GPT and Kimi review contracts. It resolves the plan path once, launches both reviewer legs in parallel with `Task`, waits for both to finish, then returns a combined review-only summary without running `/review:change-integrate`.
+The retired implementation was an OpenCode-native wrapper around the existing GPT and Kimi review contracts. It resolves the plan path once, launches both reviewer legs in parallel with `Task`, waits for both to finish, then returns a combined review-only summary without running `/review:change-integrate`.
 
 ## Command Contract
 
-Implemented in `_opencode/commands/review:plan.md`.
+Previously implemented in `_opencode/commands/review:plan.md`.
 
 Supported inputs match the existing OpenCode review commands:
 - a single plan file such as `thoughts/plans/<slug>.md`
@@ -38,27 +40,27 @@ The wrapper contract is:
 
 ## Behaviors
 
-- `review:plan` is now a discoverable OpenCode command instead of requiring users to know the `review:change*` family.
-- The wrapper reuses existing OpenCode reviewer agents rather than introducing Pi-specific `reviewer-plan-*` agents.
-- The wrapper preserves OpenCode's provider/model configuration by depending on `reviewer-gpt` and `reviewer-kimi`.
-- The wrapper reports partial failure explicitly if one review leg cannot start or complete.
+- Historically, `review:plan` made plan review discoverable without requiring users to know the `review:change*` family.
+- The retired wrapper reused the existing OpenCode reviewer agents rather than introducing Pi-specific `reviewer-plan-*` agents.
+- It preserved the then-current OpenCode provider/model configuration through `reviewer-gpt` and `reviewer-kimi`.
+- It reported partial failure explicitly if one review leg could not start or complete.
 
 ## Constraints
 
 - The wrapper is intentionally review-only and never performs integration cleanup itself.
 - It does not implement adversarial review, PRD review parity, execution-routing parity, Kimi naming aliases, or Pi interactive review transports.
-- Runtime command availability depends on the installed OpenCode config under `~/.config/opencode/commands`; editing `_opencode/commands/` alone does not refresh the live OpenCode command registry.
+- At the time, runtime command availability depended on the installed OpenCode config under `~/.config/opencode/commands`; the ai-configs source/install path is now retired.
 - Full two-reviewer completion depends on reviewer provider availability. In the 2026-04-06 verification run, GPT completed but the Kimi leg failed with `ProviderModelNotFoundError`.
 
 ## Dependencies
 
-The wrapper depends on these existing review surfaces:
+The retired wrapper depended on these review surfaces:
 - `_opencode/commands/review:change-gpt.md`
 - `_opencode/commands/review:change-k2.5.md`
 - `_opencode/agents/reviewer-gpt.md`
 - `_opencode/agents/reviewer-kimi.md`
 
-It also depends on `install.sh` copying `_opencode/commands/` into `~/.config/opencode/commands` for the live CLI runtime.
+It also depended on the former installer copying `_opencode/commands/` into `~/.config/opencode/commands`.
 
 ## Testing
 

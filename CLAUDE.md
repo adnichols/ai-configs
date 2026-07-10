@@ -4,16 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Structure
 
-This is a Claude Code, Codex, and Gemini CLI configuration repository containing:
+This is a Claude Code, Codex, and Pi configuration repository containing:
 
 ### Configuration Directories (Source of Truth)
 - **_claude/**: Claude Code configuration
   - `agents/` - Agent definitions for specialized tasks
   - `commands/` - Slash commands for task processing and code management
   - `settings.local.json` - Claude Code project settings
-- **_gemini/**: Gemini CLI configuration
-  - `commands/` - Gemini commands (TOML)
-  - `GEMINI.template.md` - Gemini context template
 - **_codex/**: Codex configuration
   - `prompts/` - Codex prompts
   - `config.toml` - Reference-only Codex configuration template
@@ -31,9 +28,6 @@ Install configurations to any project using:
 # Install Claude Code
 bash /path/to/ai-configs/install.sh --claude
 
-# Install Gemini CLI
-bash /path/to/ai-configs/install.sh --gemini
-
 # Sync global Codex prompts/scripts
 bash /path/to/ai-configs/install.sh --codex
 
@@ -41,7 +35,7 @@ bash /path/to/ai-configs/install.sh --codex
 bash /path/to/ai-configs/install.sh --all
 ```
 
-This copies the appropriate project configuration to `.claude/` and `.gemini/` directories. Codex uses global resources under `~/.codex/` and does not get a project `.codex/` directory.
+This copies the appropriate project configuration to `.claude/`. Codex uses global resources under `~/.codex/`, and Pi uses global resources under `~/.pi/agent/`.
 
 ## Updating
 
@@ -100,7 +94,7 @@ Important slash commands:
 
 ### Code Review Commands
 - `/cmd:local-review`: Isolated code review in separate worktree
-- `/review:spec`: Multi-model specification review with inline comments (works across Claude, Gemini, Codex)
+- `/review:spec`: Multi-model specification review with inline comments
 - `/review:change`: Review a single change plan file (phases + progress)
 - `/review:change-integrate`: Integrate review comments into the plan file
 - `/review:spec-integrate`: Integrate spec review comments into the specification (Claude only)
@@ -405,8 +399,8 @@ ltui issues --help
 
 To keep installed configurations up-to-date:
 
-1. **Update source**: Edit files in `_claude/`, `_codex/`, `_gemini/`, `_pi/`, `_omp/`, or `_opencode/` as appropriate
+1. **Update source**: Edit files in `_claude/`, `_codex/`, or `_pi/` as appropriate
 2. **Sync to projects**: Run `bash install.sh --all` in target projects
 3. **Preserve settings**: Local settings files are never overwritten
 
-The underscored tool directories (`_claude/`, `_codex/`, `_gemini/`, `_pi/`, `_omp/`, `_opencode/`) are the source of truth. Installed dot-directories are runtime artifacts and should not be committed.
+The underscored tool directories (`_claude/`, `_codex/`, `_pi/`) are the source of truth. Installed dot-directories are runtime artifacts and should not be committed.

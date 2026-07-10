@@ -6,7 +6,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/adn-dev-wf",
@@ -18,13 +17,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/algorithmic-art"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills",
       "defaultInstall": false,
@@ -35,7 +30,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/appkit-interop",
@@ -49,13 +43,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/brand-guidelines"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills",
       "defaultInstall": false,
@@ -66,7 +56,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/build-run-debug",
@@ -80,7 +69,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/brave-cdp",
@@ -94,13 +82,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/canvas-design"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills",
       "defaultInstall": false,
@@ -111,13 +95,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/ccore_DONOTUSE",
-      "legacySources": [
-        "_opencode/skills/ccore"
-      ],
       "notes": "Repo-owned local skill retained in ai-configs.",
       "sourceType": "repo"
     },
@@ -126,7 +106,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/chrome-cdp",
@@ -139,11 +118,10 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [
         "codex",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/claude-code-review",
-      "notes": "Pi/OpenCode/Codex: required Claude Code reviews use the canonical private-tmux interactive launcher; Codex must use the shared launcher or Pi-delegated wrapper instead of direct Claude transports.",
+      "notes": "Pi/Codex: required Claude Code reviews use the canonical private-tmux interactive launcher; Codex must use the shared launcher or Pi-delegated wrapper instead of direct Claude transports.",
       "sourceType": "repo"
     },
     "claude-review-partner": {
@@ -160,7 +138,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/cmd-create-handoff",
@@ -175,7 +152,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/cmd-create-pr",
@@ -203,7 +179,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/cmd-graduate",
@@ -231,7 +206,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/cmd-resume-handoff",
@@ -246,7 +220,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/cmd-start-linear-issue",
@@ -261,7 +234,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/cmd-start-linear-issue-branch",
@@ -276,26 +248,10 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/codex-review-partner",
-      "legacySources": [
-        "opencode/skills/claude-review-partner"
-      ],
       "notes": "Promoted from an older repo-local review-partner skill and normalized to launch the real `codex` CLI in exec mode.",
-      "sourceType": "repo"
-    },
-    "omp-review-partner": {
-      "class": "universal-installable",
-      "allowedConsumers": [
-        "codex",
-        "claude",
-        "opencode",
-        "pi"
-      ],
-      "canonicalSource": "skills/omp-review-partner",
-      "notes": "Uses `omp` with OpenCode Zen Kimi models as a read-only review partner for plan reviews, implementation reviews, and technical pairing.",
       "sourceType": "repo"
     },
     "codex-full-build": {
@@ -312,7 +268,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/dependency-selection",
@@ -327,13 +282,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/design-skill",
-      "legacySources": [
-        "_opencode/skills/design-skill"
-      ],
       "notes": "Repo-owned copy captured from ~/.agents/skills/design-skill after the previous arjunkshah/design-skill upstream became unavailable to non-interactive installers.",
       "sourceType": "repo"
     },
@@ -355,13 +306,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/doc-coauthoring"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills",
       "defaultInstall": false,
@@ -372,15 +319,13 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/doct-document-ops",
       "legacySources": [
-        "_opencode/skills/doct-document-ops",
         "_pi/skills/doct-document-ops"
       ],
-      "notes": "Canonicalized from identical OpenCode and Pi copies; retains scripts and references for shared-path use.",
+      "notes": "Canonical shared skill retaining its scripts and references.",
       "sourceType": "repo"
     },
     "docx": {
@@ -388,13 +333,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/docx"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
@@ -403,13 +344,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/frontend-design"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
@@ -418,7 +355,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "notes": "Fetched via `npx skills add ogulcancelik/herdr`; exposes the upstream herdr terminal multiplexer control skill to all shared-skill consumers.",
@@ -450,13 +386,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/internal-comms"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills",
       "defaultInstall": false,
@@ -467,15 +399,13 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/linear",
       "legacySources": [
-        "skills/linear",
-        "_opencode/skills/linear"
+        "skills/linear"
       ],
-      "notes": "Existing canonical skill retained; OpenCode copy is identical.",
+      "notes": "Existing canonical skill retained.",
       "sourceType": "repo"
     },
     "liquid-glass": {
@@ -483,7 +413,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/liquid-glass",
@@ -497,13 +426,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/mcp-builder"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
@@ -512,11 +437,10 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/opencode-safe-restart",
-      "notes": "Conservative detached supervisor for restarting OpenCode services and resuming only sessions that were definitely active immediately before restart. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Conservative detached supervisor for restarting configured services and resuming only sessions that were definitely active immediately before restart. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "repo",
       "defaultInstall": false,
       "profile": "ops-browser"
@@ -526,7 +450,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/packaging-notarization",
@@ -540,13 +463,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/pdf"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
@@ -555,14 +474,10 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/planning-workflow",
-      "legacySources": [
-        "_opencode/skills/planning-workflow"
-      ],
-      "notes": "Promoted from the OpenCode skill tree as shared planning doctrine.",
+      "notes": "Canonical shared planning doctrine.",
       "sourceType": "repo"
     },
     "playwright-skill": {
@@ -570,13 +485,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/playwright-skill"
-      ],
-      "notes": "Fetched via `npx skills add lackeyjb/playwright-skill`; previously vendored in the OpenCode skill tree.",
+      "notes": "Fetched via `npx skills add lackeyjb/playwright-skill`.",
       "sourceType": "external-package",
       "packageSource": "lackeyjb/playwright-skill"
     },
@@ -585,13 +496,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/pptx"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
@@ -600,16 +507,14 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/product-principles",
       "legacySources": [
         "skills/product-principles",
-        "_opencode/skills/product-principles",
         "_pi/skills/product-principles"
       ],
-      "notes": "Existing canonical skill retained; OpenCode and Pi copies are identical.",
+      "notes": "Existing canonical skill retained.",
       "sourceType": "repo"
     },
     "pre-pr-implementation-review": {
@@ -627,14 +532,10 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/repo-agents-bootstrap",
-      "legacySources": [
-        "_opencode/skills/repo-agents-bootstrap"
-      ],
-      "notes": "Promoted from the OpenCode skill tree as shared repo bootstrap guidance.",
+      "notes": "Canonical shared repo bootstrap guidance.",
       "sourceType": "repo"
     },
     "review-change": {
@@ -678,13 +579,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/rust-engineer"
-      ],
-      "notes": "Fetched via `npx skills add jeffallan/claude-skills`; previously vendored in the OpenCode skill tree. Optional profile: rust; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Fetched via `npx skills add jeffallan/claude-skills`. Optional profile: rust; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
       "packageSource": "jeffallan/claude-skills",
       "defaultInstall": false,
@@ -695,7 +592,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/sentry-cli",
@@ -710,11 +606,10 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/run-plan",
-      "notes": "Codex/Claude/OpenCode/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews, Codex plus applicable Claude Code Opus 4.7 xhigh pre-PR implementation review, fixes through full P1/P2/P3 consensus, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
+      "notes": "Codex/Claude/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews, Codex plus applicable Claude Code Opus 4.7 xhigh pre-PR implementation review, fixes through full P1/P2/P3 consensus, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
       "sourceType": "repo"
     },
     "signing-entitlements": {
@@ -722,7 +617,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/signing-entitlements",
@@ -736,13 +630,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/skill-creator"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
@@ -751,13 +641,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/slack-gif-creator"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills",
       "defaultInstall": false,
@@ -768,7 +654,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/swiftpm-macos",
@@ -782,7 +667,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/swiftui-patterns",
@@ -796,7 +680,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/telemetry",
@@ -810,7 +693,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/test-triage",
@@ -824,13 +706,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/theme-factory"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills",
       "defaultInstall": false,
@@ -841,13 +719,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/vercel-react-best-practices"
-      ],
-      "notes": "Fetched via `npx skills add vercel-labs/agent-skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add vercel-labs/agent-skills`.",
       "sourceType": "external-package",
       "packageSource": "vercel-labs/agent-skills"
     },
@@ -856,7 +730,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/view-refactor",
@@ -882,13 +755,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/web-artifacts-builder"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills",
       "defaultInstall": false,
@@ -899,13 +768,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/web-design-guidelines"
-      ],
-      "notes": "Fetched via `npx skills add vercel-labs/agent-skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add vercel-labs/agent-skills`.",
       "sourceType": "external-package",
       "packageSource": "vercel-labs/agent-skills"
     },
@@ -914,13 +779,9 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/webapp-testing"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
@@ -929,7 +790,6 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
       "canonicalSource": "skills/macos/window-management",
@@ -943,38 +803,18 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "opencode",
         "pi"
       ],
-      "legacySources": [
-        "_opencode/skills/xlsx"
-      ],
-      "notes": "Fetched via `npx skills add anthropics/skills`; previously vendored from an upstream package copy in the OpenCode tree.",
+      "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     }
   },
-  "repoLocalOnlySkills": {
-    "opencode-conversation-reviewer": {
-      "class": "repo-local-only",
-      "allowedConsumers": [
-        "opencode"
-      ],
-      "sourcePath": "_opencode/skills/opencode-conversation-reviewer",
-      "notes": "Excluded from shared promotion per locked decision; depends on opencode db."
-    },
-    "template": {
-      "class": "repo-local-only",
-      "allowedConsumers": [],
-      "sourcePath": "_opencode/skills/template",
-      "notes": "Excluded from shared promotion per locked decision; scaffold placeholder only."
-    }
-  },
   "skillProfiles": {
-    "default": "Installed by default into ~/.agents/skills and exposed to Pi/Codex/compatible consumers.",
+    "default": "Installed by default into ~/.agents/skills and exposed to Pi, Codex, and compatible consumers.",
     "creative-content": "Optional creative, branding, communications, and artifact-generation skills.",
     "macos": "Optional macOS SwiftUI/AppKit/build/signing/testing skills.",
     "rust": "Optional Rust-specific engineering skills.",
-    "ops-browser": "Optional local browser/CDP, OpenCode service, and VM control skills."
+    "ops-browser": "Optional local browser/CDP and VM control skills."
   }
 }

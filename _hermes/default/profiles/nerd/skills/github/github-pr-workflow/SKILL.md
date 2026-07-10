@@ -18,7 +18,7 @@ Complete guide for managing the PR lifecycle. Each section shows the `gh` way fi
 
 - Authenticated with GitHub (see `github-auth` skill)
 - Inside a git repository with a GitHub remote
-- For Aaron's repositories under `~/code/`, also load the repo-appropriate coding workflow before committing/pushing. If Aaron asks for Linear-backed OpenCode-driven work, load `hermes-opencode-linear-build`: OpenCode owns `/cmd:linear-build-workspace`, including commit/push/PR. Hermes may inspect read-only GitHub/PR status and report completion, but should not directly patch/write repo files, run validation, or create PRs unless Aaron explicitly authorizes a bypass.
+- For Aaron's repositories under `~/code/`, also load the repo-appropriate coding workflow before committing/pushing. If Aaron asks for Linear-backed OpenCode-driven work, first verify the independently maintained OpenCode command and both helper scripts required by `hermes-opencode-linear-build`. If they are absent, use a maintained Pi/Codex workflow. When the compatibility workflow is provisioned, OpenCode owns `/cmd:linear-build-workspace`, including commit/push/PR; Hermes remains read-only unless Aaron explicitly authorizes a bypass.
 
 ## Operating discipline for Aaron
 

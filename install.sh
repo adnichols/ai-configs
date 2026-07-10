@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Installation script for Claude Code, Codex, Gemini, Oh My Pi, and optional OpenCode
+# Installation script for Claude Code, Codex, Pi, shared skills, and optional tools
 
 if [ -z "${BASH_VERSION:-}" ]; then
     if command -v bash >/dev/null 2>&1; then
@@ -16,7 +16,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR"
 TARGET_DIR="."
 INSTALL_MODE="--default"
-APPEND_AGENTS=false
 INSTALL_TOOLS=false
 INSTALL_SKILLS=false
 UPDATE_SKILLS=false
@@ -27,7 +26,7 @@ AI_CONFIGS_BACKUP_RUN_ID="$(date +"%Y%m%d-%H%M%S")"
 AI_CONFIGS_REPO_NAME='ai-configs'
 AI_CONFIGS_REPO_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 CENTRAL_ONLY_PROJECT_SKILLS=(ccore todoist-cli brave-cdp chrome-cdp)
-DEPRECATED_SHARED_SKILLS=(agent-browser scoped-plan-run html-plan-reviewer)
+DEPRECATED_SHARED_SKILLS=(agent-browser scoped-plan-run html-plan-reviewer omp-review-partner)
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
 # Homebrew's node/npm/npx can be installed but absent from PATH.
@@ -48,107 +47,53 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 print_usage() {
-    echo "Usage: $0 [--claude|--codex|--gemini|--omp|--opencode|--pi|--tools|--skills|--all] [--update] [--append-agents] [target-directory]"
+    echo "Usage: $0 [--claude|--codex|--pi|--tools|--skills|--all] [--update] [target-directory]"
     echo ""
     echo "Options:"
     echo "  --claude    Install Claude Code configuration and refresh shared skills for Claude"
     echo "  --codex     Sync global Codex prompts/scripts and refresh shared skills for Codex"
-    echo "  --gemini    Install Gemini CLI configuration only"
-    echo "  --opencode  Install OpenCode configuration and refresh shared skills for OpenCode"
     echo "  --pi        Install Pi prompt templates, subagents, and extensions, then refresh shared skills"
-    echo "  --omp       Install Oh My Pi configuration and refresh shared skills"
     echo "  --tools     Install CLI tools only (e.g., ltui)"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
-    echo "  --all       Install everything: Claude, Codex, Gemini, Oh My Pi, OpenCode, Pi, tools, and shared skills"
+    echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
     echo "  --update    Update globally installed skills tracked by skills.sh before shared-skill sync"
-    echo "  --append-agents"
-    echo "             Ensure GEMINI.md exists and contains required Personas."
-    echo "             If GEMINI.md exists but is missing the Personas section, append it from the template."
     echo ""
     echo "Default behavior (no args):"
-    echo "  Installs Claude, Codex, Gemini, Oh My Pi, OpenCode, Pi, and shared skills (no tools)."
+    echo "  Installs Claude, Codex, Pi, and shared skills (no tools)."
     echo ""
     echo "Notes:"
-    echo "  - OpenCode does NOT auto-install opencode.json (copy config-template.json manually if needed)"
     echo "  - Default shared skills are declared in skills/install-matrix.json and synced into ~/.agents/skills"
     echo "  - Codex discovers shared default-profile skills directly from ~/.agents/skills"
-    echo "  - Claude/OpenCode consume compatible shared skills via per-skill links into ~/.agents/skills"
-    echo "  - When using --omp or --all, commands, agents, and repo-managed extensions are installed to ~/.omp/agent"
-    echo "  - When using --opencode or --all, commands, prompts, and agents are installed to ~/.config/opencode"
+    echo "  - Claude consumes compatible shared skills via per-skill links into ~/.agents/skills"
     echo "  - When using --pi or --all, Pi prompt templates, subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills, while Pi packages still include pi-gpt-config"
     echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @ff-labs/pi-fff, pi-codex-goal from git:github.com/adnichols/pi-codex-goal, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OMP, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
     echo "  - In non-interactive mode, existing configs are preserved automatically"
     echo ""
     echo "Examples:"
-    echo "  $0                               # Default: install Claude + Codex + Gemini + OMP + OpenCode + Pi + shared skills"
+    echo "  $0                               # Default: install Claude + Codex + Pi + shared skills"
     echo "  $0 --claude                      # Install Claude to current directory"
     echo "  $0 --codex                       # Sync global Codex resources"
-    echo "  $0 --gemini ~/my-project         # Install Gemini to ~/my-project"
-    echo "  $0 --opencode ~/my-project       # Install OpenCode to ~/my-project"
     echo "  $0 --pi                          # Install Pi prompt templates, subagents, extensions, and refresh shared skills"
-    echo "  $0 --omp ~/my-project            # Install Oh My Pi config to ~/.omp/agent"
     echo "  $0 --tools                       # Install CLI tools globally"
     echo "  $0 --skills                      # Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  $0 --skills --update             # Update skills.sh-managed global skills, then sync shared skills"
-    echo "  $0 --all --append-agents         # Install everything and ensure GEMINI.md Personas"
+    echo "  $0 --all                         # Install all maintained surfaces and tools"
 }
 
-ensure_gemini_personas() {
-    # Ensure GEMINI.md has the required Personas section
-    local project_root="$1"
-    local template_path="$REPO_ROOT/_gemini/GEMINI.template.md"
-    local gemini_path="$project_root/GEMINI.md"
-    local gemini_created=false
+cleanup_retired_runtime_surfaces() {
+    local target_root="$1"
+    local path
 
-    # Do not touch the config repo's own files via this path
-    if [ "$project_root" = "$REPO_ROOT" ]; then
-        return
-    fi
-
-    if [ ! -f "$template_path" ]; then
-        return
-    fi
-
-    if [ ! -f "$gemini_path" ]; then
-        echo "  - No GEMINI.md found; installing from template..."
-        cp "$template_path" "$gemini_path"
-        gemini_created=true
-    fi
-
-    if grep -q "Available Personas" "$gemini_path"; then
-        return
-    fi
-
-    echo "  - Existing GEMINI.md found without 'Available Personas' section."
-    echo "    (These Personas are REQUIRED for Gemini commands to function)"
-
-    local should_append=false
-
-    if [ "$APPEND_AGENTS" = true ]; then
-        should_append=true
-    elif [ -t 0 ]; then
-        printf "  - Append missing Personas to GEMINI.md now? [Y/n] "
-        read -r reply
-        case "$reply" in
-            ""|"Y"|"y")
-                should_append=true
-                ;;
-            *)
-                echo "  - Skipping append. WARNING: Commands may fail without defined Personas."
-                ;;
-        esac
-    else
-        echo "  - Skipping automatic append (non-interactive; run with --append-agents or edit manually)."
-    fi
-
-    if [ "$should_append" = true ]; then
-        echo "  - Appending Personas from template..."
-        # Extract everything from "## Available Personas" to the end
-        awk 'BEGIN{flag=0} /^## Available Personas/{flag=1} flag {print}' "$template_path" >> "$gemini_path"
-    fi
+    # The retired Gemini, OMP, and Pi plan-mode trees may have been modified
+    # after install. Preserve ambiguous live files here; host cleanup is an
+    # explicit operator action after inspection.
+    # OpenCode, Gemini, and OMP may contain user-owned files mixed into the
+    # same directories. Their source trees are retired, but cleanup
+    # intentionally leaves ambiguous live configuration untouched.
 }
 
 # Setup thoughts directory structure
@@ -1195,39 +1140,52 @@ cleanup_deprecated_shared_skills() {
     local shared_skills_dir="$HOME/.agents/skills"
     local skill_name
     local path
+    local source_rel
     local backup_path
+    local shared_managed
+    local removed_skills=()
 
     for skill_name in "${DEPRECATED_SHARED_SKILLS[@]}"; do
+        source_rel="skills/$skill_name"
         path="$shared_skills_dir/$skill_name"
-        if [ -e "$path" ] || [ -L "$path" ]; then
+        shared_managed=false
+        if [ -d "$path" ] && is_repo_managed_skill_dir "$path" "$source_rel"; then
+            shared_managed=true
             backup_path="$(backup_existing_path "$path" "deprecated/shared/$skill_name")"
             rm -rf "$path"
+            removed_skills+=("$skill_name")
             echo "    - Removed deprecated shared skill: $skill_name (backup: $backup_path)"
+        elif [ -e "$path" ] || [ -L "$path" ]; then
+            echo "    - Preserved non-managed skill named $skill_name at $path"
         fi
 
-        path="$HOME/.claude/skills/$skill_name"
-        if [ -e "$path" ] || [ -L "$path" ]; then
-            backup_path="$(backup_existing_path "$path" "deprecated/claude/$skill_name")"
-            rm -rf "$path"
-            echo "    - Removed deprecated Claude skill link: $skill_name (backup: $backup_path)"
-        fi
-
-        path="$HOME/.config/opencode/skills/$skill_name"
-        if [ -e "$path" ] || [ -L "$path" ]; then
-            backup_path="$(backup_existing_path "$path" "deprecated/opencode/$skill_name")"
-            rm -rf "$path"
-            echo "    - Removed deprecated OpenCode skill link: $skill_name (backup: $backup_path)"
-        fi
-
-        path="$HOME/.pi/agent/skills/$skill_name"
-        if [ -e "$path" ] || [ -L "$path" ]; then
-            backup_path="$(backup_existing_path "$path" "deprecated/pi/$skill_name")"
-            rm -rf "$path"
-            echo "    - Removed deprecated Pi-local skill: $skill_name (backup: $backup_path)"
-        fi
+        for path in \
+            "$HOME/.claude/skills/$skill_name" \
+            "$HOME/.config/opencode/skills/$skill_name" \
+            "$HOME/.pi/agent/skills/$skill_name"; do
+            if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+                continue
+            fi
+            if [ -L "$path" ] && [ "$(readlink "$path")" = "$shared_skills_dir/$skill_name" ]; then
+                if [ "$shared_managed" = true ] || [ ! -e "$shared_skills_dir/$skill_name" ]; then
+                    rm -f "$path"
+                    echo "    - Removed deprecated managed or dangling skill link: $path"
+                else
+                    echo "    - Preserved skill link named $skill_name because its shared target is not ai-configs-managed: $path"
+                fi
+            elif [ -d "$path" ] && is_repo_managed_skill_dir "$path" "$source_rel"; then
+                backup_path="$(backup_existing_path "$path" "deprecated/consumer/$skill_name")"
+                rm -rf "$path"
+                echo "    - Removed deprecated managed skill copy: $path (backup: $backup_path)"
+            else
+                echo "    - Preserved non-managed skill entry named $skill_name at $path"
+            fi
+        done
     done
 
-    remove_skill_lock_entries "${DEPRECATED_SHARED_SKILLS[@]}"
+    if [ ${#removed_skills[@]} -gt 0 ]; then
+        remove_skill_lock_entries "${removed_skills[@]}"
+    fi
 }
 
 consumer_entry_is_repo_managed() {
@@ -1400,7 +1358,6 @@ sync_shared_skills() {
     cleanup_optional_profile_shared_skills
 
     sync_consumer_skill_links "claude" "$HOME/.claude/skills" "$@"
-    sync_consumer_skill_links "opencode" "$HOME/.config/opencode/skills" "$@"
     cleanup_pi_shared_skill_mirrors "$HOME/.pi/agent/skills"
 
     echo -e "${GREEN}✓ Shared skills synced successfully${NC}"
@@ -1498,18 +1455,6 @@ install_codex() {
 }
 
 
-# Install shared system guidance for OMP.
-install_omp_system_file() {
-    local agent_target="$1"
-    local append_system_source="$REPO_ROOT/APPEND_SYSTEM.md"
-    local system_target="$agent_target/SYSTEM.md"
-
-    if [ -f "$append_system_source" ]; then
-        cp "$append_system_source" "$system_target"
-        echo "  - Installed SYSTEM.md from repo APPEND_SYSTEM.md"
-    fi
-}
-
 # Install shared appended system guidance for Pi.
 install_pi_append_system_file() {
     local agent_target="$1"
@@ -1519,362 +1464,6 @@ install_pi_append_system_file() {
     if [ -f "$append_system_source" ]; then
         cp "$append_system_source" "$append_system_target"
         echo "  - Installed APPEND_SYSTEM.md"
-    fi
-}
-
-install_omp() {
-    local is_update=false
-    local omp_root_dir="$HOME/.omp"
-    local omp_agent_dir="$omp_root_dir/agent"
-    local omp_commands_dir="$omp_agent_dir/commands"
-    local omp_agents_dir="$omp_agent_dir/agents"
-    local omp_extensions_dir="$omp_agent_dir/extensions"
-    local omp_source_dir="$REPO_ROOT/_omp"
-    local omp_models_source="$omp_source_dir/models.yml"
-    local omp_models_target="$omp_agent_dir/models.yml"
-    local omp_config_path="$omp_agent_dir/config.yml"
-    local bun_cmd=""
-
-    if command -v bun >/dev/null 2>&1; then
-        bun_cmd="$(command -v bun)"
-    elif [ -x "$HOME/.bun/bin/bun" ]; then
-        bun_cmd="$HOME/.bun/bin/bun"
-    else
-        echo -e "${RED}Error: bun is required to merge the OMP GPT-5.6 model catalog safely.${NC}" >&2
-        return 1
-    fi
-
-    # This is a home-directory install only. Do not write into the repo.
-    # Do not write OMP artifacts into the repository itself.
-
-    if [ ! -d "$omp_source_dir" ]; then
-        echo -e "${YELLOW}No _omp directory found in repository, skipping OMP install...${NC}"
-        return
-    fi
-
-    if [ -d "$omp_agent_dir" ]; then
-        is_update=true
-        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-        echo -e "${GREEN}  Updating Oh My Pi Configuration${NC}"
-        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo -e "${GREEN}Updating Oh My Pi configuration at $omp_agent_dir${NC}"
-    else
-        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-        echo -e "${GREEN}  Installing Oh My Pi Configuration${NC}"
-        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo -e "${GREEN}Installing Oh My Pi configuration to $omp_agent_dir${NC}"
-        mkdir -p "$omp_agent_dir"
-    fi
-
-    echo "  - Installing OMP commands..."
-    rm -rf "$omp_commands_dir"
-    mkdir -p "$omp_commands_dir"
-    if [ -d "$omp_source_dir/commands" ]; then
-        cp -r "$omp_source_dir/commands/." "$omp_commands_dir/"
-    fi
-
-    echo "  - Installing OMP agents..."
-    rm -rf "$omp_agents_dir"
-    mkdir -p "$omp_agents_dir"
-    if [ -d "$omp_source_dir/agents" ]; then
-        cp -r "$omp_source_dir/agents/." "$omp_agents_dir/"
-    fi
-
-    echo "  - Installing OMP extensions..."
-    mkdir -p "$omp_extensions_dir"
-    if [ -d "$omp_source_dir/extensions" ]; then
-        # Remove only repo-managed extension entries before re-copying so
-        # foreign extensions injected by other apps at runtime (i.e. any
-        # extension not tracked under _omp/extensions) are preserved across
-        # reinstalls. Entries that ARE tracked here are treated as
-        # ai-configs-managed and overwritten every run.
-        shopt -s nullglob
-        for entry in "$omp_source_dir/extensions"/*; do
-            local omp_ext_base
-            omp_ext_base="$(basename "$entry")"
-            rm -rf "$omp_extensions_dir/$omp_ext_base"
-        done
-        shopt -u nullglob
-        cp -r "$omp_source_dir/extensions/." "$omp_extensions_dir/"
-    fi
-
-    install_omp_system_file "$omp_agent_dir"
-
-    if [ -f "$omp_models_source" ]; then
-        OMP_MODELS_SOURCE="$omp_models_source" OMP_MODELS_TARGET="$omp_models_target" "$bun_cmd" - <<'TS'
-import { chmod, mkdir, open, rename, stat } from "node:fs/promises";
-import { dirname } from "node:path";
-import { YAML } from "bun";
-
-const sourcePath = process.env.OMP_MODELS_SOURCE!;
-const targetPath = process.env.OMP_MODELS_TARGET!;
-const source = YAML.parse(await Bun.file(sourcePath).text()) ?? {};
-const targetFile = Bun.file(targetPath);
-const target = (await targetFile.exists()) ? (YAML.parse(await targetFile.text()) ?? {}) : {};
-if (!source || typeof source !== "object" || Array.isArray(source) || !target || typeof target !== "object" || Array.isArray(target)) {
-  throw new Error("OMP models.yml must contain a YAML object");
-}
-
-const sourceProviders = (source as any).providers ?? {};
-const targetProviders = (target as any).providers ?? {};
-if (Array.isArray(sourceProviders) || typeof sourceProviders !== "object" || Array.isArray(targetProviders) || typeof targetProviders !== "object") {
-  throw new Error("OMP models.yml providers must be a YAML object");
-}
-
-const merged: any = { ...target, providers: { ...targetProviders } };
-for (const [providerName, managedProviderValue] of Object.entries(sourceProviders)) {
-  if (!managedProviderValue || typeof managedProviderValue !== "object" || Array.isArray(managedProviderValue)) {
-    throw new Error(`OMP managed provider ${providerName} must be a YAML object`);
-  }
-  const managedProvider: any = managedProviderValue;
-  const localValue = merged.providers[providerName];
-  const localProvider: any = localValue && typeof localValue === "object" && !Array.isArray(localValue) ? localValue : {};
-  const { models: managedModels = [], ...managedFields } = managedProvider;
-  const localModels = localProvider.models ?? [];
-  if (!Array.isArray(localModels) || !Array.isArray(managedModels)) {
-    throw new Error(`OMP provider ${providerName} models must be a YAML list`);
-  }
-  const managedIds = new Set(managedModels.filter((model: any) => model && typeof model === "object").map((model: any) => model.id));
-  merged.providers[providerName] = {
-    ...localProvider,
-    ...managedFields,
-    models: localModels.filter((model: any) => !(model && typeof model === "object" && managedIds.has(model.id))).concat(managedModels),
-  };
-}
-
-await mkdir(dirname(targetPath), { recursive: true });
-const tmpPath = `${targetPath}.ai-configs.tmp.${process.pid}`;
-let mode = 0o600;
-try { mode = (await stat(targetPath)).mode & 0o777; } catch {}
-const handle = await open(tmpPath, "w", mode);
-try {
-  await chmod(tmpPath, mode);
-  await handle.writeFile(YAML.stringify(merged, null, 2));
-  await handle.sync();
-} finally {
-  await handle.close();
-}
-await rename(tmpPath, targetPath);
-TS
-        echo "  - Merged GPT-5.6 model catalog"
-    fi
-
-    if [ -f "$omp_config_path" ]; then
-        OMP_CONFIG_PATH="$omp_config_path" python3 <<'PY'
-import os
-import re
-from pathlib import Path
-
-path = Path(os.environ["OMP_CONFIG_PATH"])
-text = path.read_text()
-replacements = {
-    "slow": ("openai-codex/gpt-5.5:xhigh", "openai-codex/gpt-5.6-sol:high"),
-    "plan": ("openai-codex/gpt-5.5:high", "openai-codex/gpt-5.6-sol:medium"),
-    "vision": ("openai-codex/gpt-5.5:medium", "openai-codex/gpt-5.6-sol:medium"),
-}
-changed = False
-for role, (old_model, new_model) in replacements.items():
-    pattern = rf"(?m)^(\s{{2}}{re.escape(role)}:\s*){re.escape(old_model)}\s*$"
-    replacement = rf"\g<1>{new_model}"
-    updated, count = re.subn(pattern, replacement, text, count=1)
-    if count:
-        text = updated
-        changed = True
-if changed:
-    tmp_path = path.with_name(f"{path.name}.ai-configs.tmp.{os.getpid()}")
-    mode = path.stat().st_mode & 0o777
-    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
-    os.chmod(tmp_path, mode)
-    with os.fdopen(fd, "w") as file:
-        file.write(text)
-        file.flush()
-        os.fsync(file.fileno())
-    tmp_path.replace(path)
-    print("updated")
-else:
-    print("unchanged")
-PY
-        echo "  - Migrated legacy OMP GPT-5.5 roles when present; preserved custom role choices"
-    fi
-
-    if [ "$is_update" = true ]; then
-        echo -e "${GREEN}✓ Oh My Pi update complete${NC}"
-    else
-        echo -e "${GREEN}✓ Oh My Pi installation complete${NC}"
-    fi
-    echo ""
-    echo "Note: OMP commands, agents, and repo-managed extensions are installed to $HOME/.omp/agent"
-}
-install_opencode() {
-    local target_root="$1"
-    local is_update=false
-    local opencode_config_dir="$HOME/.config/opencode"
-    local opencode_prompts_dir="$opencode_config_dir/prompts"
-    local opencode_plugin_dir="$opencode_config_dir/plugin"
-    local opencode_commands_dir="$opencode_config_dir/commands"
-    local opencode_agents_dir="$opencode_config_dir/agents"
-    local opencode_scripts_dir="$opencode_config_dir/scripts"
-    local opencode_skills_dir="$opencode_config_dir/skills"
-    local legacy_command_dir="$opencode_config_dir/command"
-    local legacy_agent_dir="$opencode_config_dir/agent"
-    local legacy_skill_dir="$opencode_config_dir/skill"
-
-    # This is a home-directory install only. Do not write into the repo.
-    # (target_root is accepted for CLI parity with other installers.)
-
-    remove_legacy_dir() {
-        local legacy_dir="$1"
-        local label="$2"
-
-        # Legacy singular dirs are always removed to avoid interactive prompts and
-        # ensure a single canonical layout under ~/.config/opencode/{commands,agents,skills}.
-        if [ -L "$legacy_dir" ]; then
-            rm -f "$legacy_dir"
-            return
-        fi
-        if [ -e "$legacy_dir" ]; then
-            echo "  - Removing legacy OpenCode $label directory..."
-            rm -rf "$legacy_dir"
-        fi
-    }
-
-
-    # Detect if this is an update
-    if [ -d "$opencode_config_dir" ]; then
-        is_update=true
-        echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
-        echo -e "${GREEN}  Updating OpenCode Configuration${NC}"
-        echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo -e "${GREEN}Updating OpenCode configuration at $opencode_config_dir${NC}"
-    else
-        echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
-        echo -e "${GREEN}  Installing OpenCode Configuration${NC}"
-        echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo -e "${GREEN}Installing OpenCode configuration to $opencode_config_dir${NC}"
-        mkdir -p "$opencode_config_dir"
-    fi
-
-    # Create OpenCode config directory structure
-    echo "  - Creating OpenCode config directory structure..."
-    mkdir -p "$opencode_prompts_dir"
-    mkdir -p "$opencode_plugin_dir"
-
-    # Cleanup / migrate legacy singular directories
-    remove_legacy_dir "$legacy_command_dir" "commands"
-    remove_legacy_dir "$legacy_agent_dir" "agents"
-    remove_legacy_dir "$legacy_skill_dir" "skills"
-
-    # Install prompts
-    echo "  - Installing OpenCode prompts..."
-    mkdir -p "$opencode_prompts_dir"
-    cp "$REPO_ROOT/_opencode/prompts/glm-reasoning.md" "$opencode_prompts_dir/" 2>/dev/null || true
-
-    # Install commands (authoritative global location)
-    echo "  - Installing OpenCode commands to ~/.config/opencode/commands..."
-    rm -rf "$opencode_commands_dir"
-    mkdir -p "$opencode_commands_dir"
-    if [ -d "$REPO_ROOT/_opencode/commands" ]; then
-        cp -r "$REPO_ROOT/_opencode/commands/"* "$opencode_commands_dir/"
-    fi
-
-    # Install agents
-    echo "  - Installing OpenCode agents to ~/.config/opencode/agents..."
-    rm -rf "$opencode_agents_dir"
-    mkdir -p "$opencode_agents_dir"
-    if [ -d "$REPO_ROOT/_opencode/agents" ]; then
-        cp -r "$REPO_ROOT/_opencode/agents/"* "$opencode_agents_dir/"
-    fi
-
-    # Install scripts
-    echo "  - Installing OpenCode scripts to ~/.config/opencode/scripts..."
-    rm -rf "$opencode_scripts_dir"
-    mkdir -p "$opencode_scripts_dir"
-    if [ -d "$REPO_ROOT/_opencode/scripts" ]; then
-        rsync -a --exclude='__pycache__/' --exclude='*.pyc' "$REPO_ROOT/_opencode/scripts/" "$opencode_scripts_dir/"
-    fi
-
-    # Shared skills are managed centrally via ~/.agents/skills.
-    echo "  - Preparing OpenCode shared-skill compatibility directory at ~/.config/opencode/skills..."
-    mkdir -p "$opencode_skills_dir"
-
-    # Install documentation to home config (not the repo)
-    echo "  - Installing OpenCode documentation..."
-    cp "$REPO_ROOT/_opencode/AGENTS.md" "$opencode_config_dir/AGENTS.md" 2>/dev/null || true
-    cp "$REPO_ROOT/_opencode/OPENCODE_ONBOARDING.md" "$opencode_config_dir/OPENCODE_ONBOARDING.md" 2>/dev/null || true
-
-    if [ "$is_update" = true ]; then
-        echo -e "${GREEN}✓ OpenCode update complete${NC}"
-    else
-        echo -e "${GREEN}✓ OpenCode installation complete${NC}"
-    fi
-    echo ""
-    echo "Note: OpenCode configuration file opencode.json is not auto-installed"
-    echo "      Copy _opencode/config-template.json to your repo root and customize as needed"
-    echo "      Commands, agents, prompts, and scripts are installed to $HOME/.config/opencode"
-    echo "      Compatible shared skills are linked from ~/.config/opencode/skills to ~/.agents/skills"
-    echo "      Documentation installed to $HOME/.config/opencode/OPENCODE_ONBOARDING.md"
-}
-
-install_gemini() {
-    local target_root="$1"
-    local target="$target_root/.gemini"
-    local is_update=false
-
-    # Ensure GEMINI.md has the required Personas
-    ensure_gemini_personas "$target_root"
-
-    # Detect if this is an update
-    if [ -d "$target" ]; then
-        is_update=true
-        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-        echo -e "${GREEN}  Updating Gemini CLI Configuration${NC}"
-        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo -e "${GREEN}Updating Gemini configuration at $target${NC}"
-    else
-        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-        echo -e "${GREEN}  Installing Gemini CLI Configuration${NC}"
-        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo -e "${GREEN}Installing Gemini configuration to $target${NC}"
-        mkdir -p "$target"
-    fi
-
-    # Install commands
-    echo "  - Installing commands..."
-    if [ -d "$target/commands" ]; then
-        rm -rf "$target/commands"
-    fi
-    mkdir -p "$target/commands"
-    cp -r "$REPO_ROOT/_gemini/commands/"* "$target/commands/"
-
-    # Install shared scripts used by Gemini command prompts
-    echo "  - Installing scripts..."
-    if [ -d "$target/scripts" ]; then
-        rm -rf "$target/scripts"
-    fi
-    cp -r "$REPO_ROOT/scripts" "$target/"
-
-    # Setup thoughts directory structure
-    if [ "$target_root" != "$HOME" ]; then
-        setup_thoughts_structure "$target_root"
-        create_permanent_docs "$target_root"
-    fi
-
-    if [ "$is_update" = true ]; then
-        echo -e "${GREEN}✓ Gemini update complete${NC}"
-    else
-        echo -e "${GREEN}✓ Gemini installation complete${NC}"
-    fi
-    echo ""
-    if [ "$APPEND_AGENTS" = true ]; then
-        echo "Note: GEMINI.md was created or updated with required Personas."
-    else
-        echo "Note: To ensure GEMINI.md has all required Personas, re-run with --append-agents."
     fi
 }
 
@@ -2318,7 +1907,7 @@ install_pi() {
     local pi_extensions_dir="$pi_agent_dir/extensions"
     local pi_source_dir="$REPO_ROOT/_pi"
 
-    # This is a home-directory install only. Similar to skills and opencode.
+    # This is a home-directory install only, similar to shared skills.
     if [ ! -d "$pi_source_dir" ]; then
         echo -e "${YELLOW}No _pi directory found in repository, skipping Pi install...${NC}"
         return
@@ -2340,7 +1929,7 @@ install_pi() {
         mkdir -p "$pi_agent_dir"
     fi
 
-    # Install prompt templates copied from OMP commands.
+    # Install Pi prompt templates.
     echo "  - Installing Pi prompt templates..."
     rm -rf "$pi_prompts_dir"
     mkdir -p "$pi_prompts_dir"
@@ -3047,16 +2636,12 @@ install_pi_npm_packages() {
 # Argument parsing
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --claude|--codex|--gemini|--omp|--opencode|--pi|--tools|--skills|--all|--default)
+        --claude|--codex|--pi|--tools|--skills|--all|--default)
             INSTALL_MODE="$1"
             shift
             ;;
         --update)
             UPDATE_SKILLS=true
-            shift
-            ;;
-        --append-agents)
-            APPEND_AGENTS=true
             shift
             ;;
         --help|-h)
@@ -3076,6 +2661,11 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
+# Preserve ambiguous retired runtime trees, but remove positively identified
+# managed deprecated skills before installing any maintained surface.
+cleanup_retired_runtime_surfaces "$TARGET_DIR"
+cleanup_deprecated_shared_skills
+
 # Main installation logic
 case "$INSTALL_MODE" in
     --default)
@@ -3083,15 +2673,9 @@ case "$INSTALL_MODE" in
         echo ""
         install_codex "$TARGET_DIR"
         echo ""
-        install_gemini "$TARGET_DIR"
-        echo ""
-        install_omp "$TARGET_DIR"
-        echo ""
-        install_opencode "$TARGET_DIR"
-        echo ""
         install_pi
         echo ""
-        sync_shared_skills claude opencode
+        sync_shared_skills claude
         echo ""
         enforce_central_project_skills "$TARGET_DIR"
         ;;
@@ -3106,24 +2690,6 @@ case "$INSTALL_MODE" in
         install_codex "$TARGET_DIR"
         echo ""
         sync_shared_skills
-        enforce_central_project_skills "$TARGET_DIR"
-        ;;
-    --gemini)
-        install_gemini "$TARGET_DIR"
-        enforce_central_project_skills "$TARGET_DIR"
-        ;;
-    --omp)
-        install_omp "$TARGET_DIR"
-        echo ""
-        sync_shared_skills
-        echo ""
-        enforce_central_project_skills "$TARGET_DIR"
-        ;;
-    --opencode)
-        install_opencode "$TARGET_DIR"
-        echo ""
-        sync_shared_skills opencode
-        echo ""
         enforce_central_project_skills "$TARGET_DIR"
         ;;
     --pi)
@@ -3144,17 +2710,11 @@ case "$INSTALL_MODE" in
         echo ""
         install_codex "$TARGET_DIR"
         echo ""
-        install_gemini "$TARGET_DIR"
-        echo ""
-        install_omp "$TARGET_DIR"
-        echo ""
-        install_opencode "$TARGET_DIR"
-        echo ""
         install_pi
         echo ""
         install_tools
         echo ""
-        sync_shared_skills claude opencode
+        sync_shared_skills claude
         echo ""
         enforce_central_project_skills "$TARGET_DIR"
         ;;

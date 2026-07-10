@@ -38,15 +38,17 @@ cleanup() {
       rm -rf "$dir"
     fi
   done
+  if [[ -n "${TMP_ROOT:-}" && -d "$TMP_ROOT" ]]; then
+    rm -rf "$TMP_ROOT"
+  fi
 }
 
 trap cleanup EXIT
 
+TMP_ROOT="$(mktemp -d)"
+
 new_tmp_dir() {
-  local dir
-  dir="$(mktemp -d)"
-  TMP_DIRS+=("$dir")
-  printf '%s\n' "$dir"
+  mktemp -d "$TMP_ROOT/case.XXXXXX"
 }
 
 create_fake_tool_bin() {
@@ -258,34 +260,34 @@ seed_phase_two_home() {
 
   mkdir -p \
     "$home/.claude/skills/custom-local" \
-    "$home/.config/opencode/skills/custom-local" \
-    "$home/.config/opencode/skills/cmd-debug" \
-    "$home/.config/opencode/skills/$old_skill" \
     "$home/.pi/agent/skills/$old_skill" \
-    "$home/.omp/agent" \
     "$home/.agents/skills/external-skill" \
     "$home/.agents/skills/linear" \
     "$home/.agents/skills/$old_skill" \
     "$home/.agents/skills/algorithmic-art" \
+    "$home/.agents/skills/omp-review-partner" \
     "$home/.claude/skills/linear" \
     "$home/.claude/skills/$old_skill" \
     "$home/.claude/skills/algorithmic-art" \
-    "$home/.config/opencode/skills/algorithmic-art"
+    "$home/.config/opencode/skills"
 
   printf 'external\n' > "$home/.agents/skills/external-skill/SKILL.md"
   printf 'foreign-linear\n' > "$home/.agents/skills/linear/SKILL.md"
   printf 'old-%s\n' "$old_skill" > "$home/.agents/skills/$old_skill/SKILL.md"
+  printf '{"repo":"ai-configs","source":"skills/%s","managed":true}\n' "$old_skill" > "$home/.agents/skills/$old_skill/.ai-configs-managed.json"
   printf 'old-optional-algorithmic-art\n' > "$home/.agents/skills/algorithmic-art/SKILL.md"
   printf '{"repo":"ai-configs","source":"external-package:anthropics/skills#algorithmic-art","managed":true}\n' > "$home/.agents/skills/algorithmic-art/.ai-configs-managed.json"
+  printf 'retired omp review partner\n' > "$home/.agents/skills/omp-review-partner/SKILL.md"
+  printf '{"repo":"ai-configs","source":"skills/omp-review-partner","managed":true}\n' > "$home/.agents/skills/omp-review-partner/.ai-configs-managed.json"
   ln -s "$home/.agents/skills/algorithmic-art" "$home/.claude/skills/algorithmic-art"
-  ln -s "$home/.agents/skills/algorithmic-art" "$home/.config/opencode/skills/algorithmic-art"
+  ln -s "$home/.agents/skills/omp-review-partner" "$home/.claude/skills/omp-review-partner"
+  ln -s "$home/.agents/skills/omp-review-partner" "$home/.config/opencode/skills/omp-review-partner"
   printf 'old-claude-linear\n' > "$home/.claude/skills/linear/SKILL.md"
-  printf 'old-claude-%s\n' "$old_skill" > "$home/.claude/skills/$old_skill/SKILL.md"
-  printf 'foreign-opencode-cmd-debug\n' > "$home/.config/opencode/skills/cmd-debug/SKILL.md"
-  printf 'old-opencode-%s\n' "$old_skill" > "$home/.config/opencode/skills/$old_skill/SKILL.md"
-  printf 'old-pi-%s\n' "$old_skill" > "$home/.pi/agent/skills/$old_skill/SKILL.md"
+  rm -rf "$home/.claude/skills/$old_skill" "$home/.pi/agent/skills/$old_skill"
+  ln -s "$home/.agents/skills/$old_skill" "$home/.claude/skills/$old_skill"
+  ln -s "$home/.agents/skills/$old_skill" "$home/.pi/agent/skills/$old_skill"
   mkdir -p "$home/.agents"
-  printf '{"skills":{"%s":{"source":"old"},"linear":{"source":"old"}}}\n' "$old_skill" > "$home/.agents/.skill-lock.json"
+  printf '{"skills":{"%s":{"source":"old"},"linear":{"source":"old"},"omp-review-partner":{"source":"old"}}}\n' "$old_skill" > "$home/.agents/.skill-lock.json"
 }
 
 assert_file_contains() {
@@ -358,7 +360,6 @@ assert_shared_skill_install_state() {
   local home="$1"
   local backup_dir
   local claude_backup_dir
-  local opencode_backup_dir
   # Split the retired skill name so stale-name greps can still guard active surfaces.
   local old_skill="scoped""-plan-run"
 
@@ -405,13 +406,15 @@ assert_shared_skill_install_state() {
   assert_file_contains "$home/.agents/skills/run-plan/.ai-configs-managed.json" '"managed": true' || return 1
   [[ ! -e "$home/.agents/skills/$old_skill" ]] || return 1
   [[ ! -e "$home/.claude/skills/$old_skill" ]] || return 1
-  [[ ! -e "$home/.config/opencode/skills/$old_skill" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/$old_skill" ]] || return 1
+  [[ ! -e "$home/.agents/skills/omp-review-partner" ]] || return 1
+  [[ ! -e "$home/.claude/skills/omp-review-partner" ]] || return 1
+  [[ ! -e "$home/.config/opencode/skills/omp-review-partner" ]] || return 1
   assert_file_not_contains "$home/.agents/.skill-lock.json" "$old_skill" || return 1
+  assert_file_not_contains "$home/.agents/.skill-lock.json" 'omp-review-partner' || return 1
 
   [[ ! -e "$home/.agents/skills/algorithmic-art" ]] || return 1
   [[ ! -e "$home/.claude/skills/algorithmic-art" ]] || return 1
-  [[ ! -e "$home/.config/opencode/skills/algorithmic-art" ]] || return 1
   backup_dir="$(find_optional_backup_dir "$home" creative-content algorithmic-art)"
   [[ -n "$backup_dir" ]] || return 1
   assert_file_contains "$backup_dir/SKILL.md" 'old-optional-algorithmic-art' || return 1
@@ -430,29 +433,18 @@ assert_shared_skill_install_state() {
   assert_file_contains "$home/.agents/skills/herdr/.ai-configs-managed.json" '"source": "external-package:ogulcancelik/herdr#herdr"' || return 1
 
   [[ -d "$home/.claude/skills/custom-local" ]] || return 1
-  [[ -d "$home/.config/opencode/skills/custom-local" ]] || return 1
 
   claude_backup_dir="$(find_consumer_backup_dir "$home" claude linear)"
   [[ -n "$claude_backup_dir" ]] || return 1
   assert_file_contains "$claude_backup_dir/SKILL.md" 'old-claude-linear' || return 1
 
-  opencode_backup_dir="$(find_consumer_backup_dir "$home" opencode cmd-debug)"
-  [[ -n "$opencode_backup_dir" ]] || return 1
-  assert_file_contains "$opencode_backup_dir/SKILL.md" 'foreign-opencode-cmd-debug' || return 1
-
   assert_symlink_target "$home/.claude/skills/linear" "$home/.agents/skills/linear" || return 1
-  assert_symlink_target "$home/.config/opencode/skills/linear" "$home/.agents/skills/linear" || return 1
   assert_symlink_target "$home/.claude/skills/adn-dev-wf" "$home/.agents/skills/adn-dev-wf" || return 1
-  assert_symlink_target "$home/.config/opencode/skills/adn-dev-wf" "$home/.agents/skills/adn-dev-wf" || return 1
   assert_symlink_target "$home/.claude/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
-  assert_symlink_target "$home/.config/opencode/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
   assert_symlink_target "$home/.claude/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
-  assert_symlink_target "$home/.config/opencode/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
   assert_symlink_target "$home/.claude/skills/herdr" "$home/.agents/skills/herdr" || return 1
-  assert_symlink_target "$home/.config/opencode/skills/herdr" "$home/.agents/skills/herdr" || return 1
 
   [[ ! -e "$home/.claude/skills/cmd-debug" ]] || return 1
-  [[ ! -e "$home/.config/opencode/skills/cmd-debug" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/linear" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/cmd-debug" ]] || return 1
 }
@@ -531,16 +523,13 @@ test_update_modifier_normalizes_skills_sh_mutated_managed_skills() {
 
 test_update_modifier_syncs_skills_for_modes_without_normal_skill_sync() {
   local home
-  local target
 
   home="$(new_tmp_dir)"
-  target="$(new_tmp_dir)"
   seed_phase_two_home "$home"
 
-  run_installer "$home" --gemini --update "$target" || return 1
+  run_installer "$home" --tools --update || return 1
   assert_file_contains "$home/.agents/fake-npx-skills-update.log" 'update -g -y' || return 1
   assert_file_contains "$home/.agents/skills/linear/.ai-configs-managed.json" '"source": "skills/linear"' || return 1
-  [[ -d "$target/.gemini" ]] || return 1
 }
 
 test_default_mode_reuses_shared_sync_without_mutating_repo_root() {
@@ -564,7 +553,7 @@ test_default_mode_reuses_shared_sync_without_mutating_repo_root() {
   [[ -d "$target/.claude" ]] || return 1
   [[ ! -e "$target/.codex" ]] || return 1
   [[ -d "$home/.codex/prompts" ]] || return 1
-  [[ -d "$target/.gemini" ]] || return 1
+  [[ ! -e "$target/.gemini" ]] || return 1
 }
 
 test_single_surface_modes_reuse_shared_sync() {
@@ -579,12 +568,10 @@ test_single_surface_modes_reuse_shared_sync() {
   assert_symlink_target "$home/.claude/skills/linear" "$home/.agents/skills/linear" || return 1
 
   home="$(new_tmp_dir)"
-  target="$(new_tmp_dir)"
   seed_phase_two_home "$home"
-  run_installer "$home" --opencode "$target" || return 1
+  run_installer "$home" --codex || return 1
   [[ -d "$home/.agents/skills" ]] || return 1
-  assert_symlink_target "$home/.config/opencode/skills/linear" "$home/.agents/skills/linear" || return 1
-  [[ ! -e "$home/.config/opencode/skills/cmd-debug" ]] || return 1
+  [[ -d "$home/.codex/prompts" ]] || return 1
 
   home="$(new_tmp_dir)"
   seed_phase_two_home "$home"
@@ -592,13 +579,6 @@ test_single_surface_modes_reuse_shared_sync() {
   [[ -d "$home/.agents/skills" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/linear" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/cmd-debug" ]] || return 1
-
-  home="$(new_tmp_dir)"
-  target="$(new_tmp_dir)"
-  seed_phase_two_home "$home"
-  run_installer "$home" --omp "$target" || return 1
-  [[ -d "$home/.agents/skills" ]] || return 1
-  [[ ! -e "$home/.omp/agent/skills" ]] || return 1
 }
 
 test_project_local_central_skill_overrides_are_removed() {
@@ -632,6 +612,18 @@ test_project_local_central_skill_overrides_are_removed() {
   [[ -n "$(find "$home/.agents/skill-backups/ai-configs" -path '*/project-local/*/todoist-cli/SKILL.md' -print -quit 2>/dev/null)" ]] || return 1
 }
 
+test_non_managed_retired_skill_is_preserved() {
+  local home
+  home="$(new_tmp_dir)"
+  mkdir -p "$home/.agents/skills/omp-review-partner" "$home/.agents"
+  printf 'user-owned skill\n' > "$home/.agents/skills/omp-review-partner/SKILL.md"
+  printf '{"skills":{"omp-review-partner":{"source":"user"}}}\n' > "$home/.agents/.skill-lock.json"
+
+  run_installer "$home" --skills || return 1
+  assert_file_contains "$home/.agents/skills/omp-review-partner/SKILL.md" 'user-owned skill' || return 1
+  assert_file_contains "$home/.agents/.skill-lock.json" 'omp-review-partner' || return 1
+}
+
 test_failpoint_after_backup_keeps_destination_recoverable() {
   local home
   local output_file
@@ -658,9 +650,23 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   local output_file
   home="$(new_tmp_dir)"
 
-  mkdir -p "$home/.pi/agent/extensions" "$home/.omp/agent/extensions"
+  mkdir -p \
+    "$home/.pi/agent/extensions/pi-plan-mode" \
+    "$home/.omp/agent/extensions/aplan" \
+    "$home/.omp/agent/extensions/foreign" \
+    "$home/.config/opencode/commands" \
+    "$home/.config/opencode/custom" \
+    "$home/.gemini/commands" \
+    "$home/.gemini/custom"
   printf 'pi-herdr-sentinel\n' > "$home/.pi/agent/extensions/herdr-agent-state.ts"
-  printf 'omp-herdr-sentinel\n' > "$home/.omp/agent/extensions/herdr-agent-state.ts"
+  printf 'stale-plan-mode\n' > "$home/.pi/agent/extensions/pi-plan-mode/index.ts"
+  printf 'stale-aplan\n' > "$home/.omp/agent/extensions/aplan/index.ts"
+  printf 'foreign-omp\n' > "$home/.omp/agent/extensions/foreign/index.ts"
+  printf 'stale-opencode\n' > "$home/.config/opencode/commands/stale.md"
+  printf 'custom-opencode\n' > "$home/.config/opencode/custom/keep.txt"
+  printf 'stale-gemini\n' > "$home/.gemini/commands/cmd:debug.toml"
+  printf 'custom-gemini-command\n' > "$home/.gemini/commands/custom.toml"
+  printf 'custom-gemini\n' > "$home/.gemini/custom/keep.txt"
 
   output_file="$home/pi-install.log"
   run_installer_capture "$home" "$output_file" --pi || {
@@ -670,18 +676,16 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'HERDR_INTEGRATION_ID=pi' || return 1
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'managed by ai-configs' || return 1
   [[ -f "$home/.pi/agent/extensions/todo.ts" ]] || return 1
-  [[ -d "$home/.pi/agent/extensions/pi-plan-mode" ]] || return 1
+  assert_file_contains "$home/.pi/agent/extensions/pi-plan-mode/index.ts" 'stale-plan-mode' || return 1
+  assert_file_contains "$home/.omp/agent/extensions/aplan/index.ts" 'stale-aplan' || return 1
+  assert_file_contains "$home/.omp/agent/extensions/foreign/index.ts" 'foreign-omp' || return 1
+  assert_file_contains "$home/.config/opencode/commands/stale.md" 'stale-opencode' || return 1
+  assert_file_contains "$home/.config/opencode/custom/keep.txt" 'custom-opencode' || return 1
+  assert_file_contains "$home/.gemini/commands/cmd:debug.toml" 'stale-gemini' || return 1
+  assert_file_contains "$home/.gemini/commands/custom.toml" 'custom-gemini-command' || return 1
+  assert_file_contains "$home/.gemini/custom/keep.txt" 'custom-gemini' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'git:github.com/adnichols/pi-codex-goal' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'npm:pi-codex-goal' || return 1
-
-  output_file="$home/omp-install.log"
-  run_installer_capture "$home" "$output_file" --omp || {
-    cat "$output_file" >&2
-    return 1
-  }
-  assert_file_contains "$home/.omp/agent/extensions/herdr-agent-state.ts" 'omp-herdr-sentinel' || return 1
-  [[ -d "$home/.omp/agent/extensions/aplan" ]] || return 1
-  [[ -d "$home/.omp/agent/extensions/pi-vcc" ]] || return 1
 }
 
 test_pi_codex_goal_fork_install_purges_stale_npm() {
@@ -877,36 +881,23 @@ test_phase_three_docs_use_canonical_shared_skill_paths() {
   assert_file_contains "README.md" 'skills/install-matrix.json' || return 1
   assert_file_contains "_pi/README.md" 'skills/install-matrix.json' || return 1
 
-  assert_file_contains "_omp/commands/cmd:send-plan-to-doct.md" 'doct-agent documents publish-plan' || return 1
-  assert_file_contains "_opencode/commands/cmd:send-plan-to-doct.md" 'doct-agent documents publish-plan' || return 1
   assert_file_contains "_pi/prompts/cmd:send-plan-to-doct.md" 'doct-agent plans register' || return 1
   assert_file_contains "_codex/prompts/cmd:send-plan-to-doct.md" 'doct-agent plans register' || return 1
-  assert_file_not_contains "_omp/commands/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
   assert_file_not_contains "_pi/prompts/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
   assert_file_not_contains "_codex/prompts/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
-  assert_file_not_contains "_opencode/commands/cmd:send-plan-to-doct.md" 'publish-coding-plan.sh' || return 1
 
   assert_file_contains "skills/install-matrix.json" '"playwright-skill"' || return 1
   assert_file_contains "skills/install-matrix.json" '"packageSource": "lackeyjb/playwright-skill"' || return 1
 
-  # removed root duplicate
-  # assert_file_not_contains "OPENCODE_ONBOARDING.md" 'cp -r ./_opencode/skills/playwright-skill/' || return 1
-  assert_file_not_contains "_opencode/OPENCODE_ONBOARDING.md" 'cp -r ./_opencode/skills/playwright-skill/' || return 1
-  assert_file_not_contains "_opencode/QUICKSTART.md" 'cp -r _opencode/skills/playwright-skill/' || return 1
-  # removed root duplicate
-  # assert_file_contains "OPENCODE_ONBOARDING.md" '~/.agents/skills/playwright-skill' || return 1
-  assert_file_contains "_opencode/OPENCODE_ONBOARDING.md" '~/.agents/skills/playwright-skill' || return 1
-  assert_file_contains "_opencode/QUICKSTART.md" '~/.agents/skills/playwright-skill' || return 1
 }
 
 test_phase_three_duplicate_skill_trees_are_removed() {
   [[ ! -d ".agents/skills/dependency-selection" ]] || return 1
   [[ ! -d "_pi/skills" ]] || return 1
-  [[ -d "_opencode/skills" ]] || return 1
-  [[ -d "_opencode/skills/codex-computer-use" ]] || return 1
-  [[ -d "_opencode/skills/opencode-conversation-reviewer" ]] || return 1
-  [[ -d "_opencode/skills/template" ]] || return 1
-  [[ ! -d "_opencode/skills/playwright-skill" ]] || return 1
+  [[ ! -d "_opencode" ]] || return 1
+  [[ ! -d "_omp" ]] || return 1
+  [[ ! -d "_gemini" ]] || return 1
+  [[ ! -d "_pi/extensions/pi-plan-mode" ]] || return 1
 
   [[ ! -d "skills/algorithmic-art" ]] || return 1
   [[ ! -d "skills/brand-guidelines" ]] || return 1
@@ -930,80 +921,8 @@ test_phase_three_duplicate_skill_trees_are_removed() {
   [[ ! -d "skills/webapp-testing" ]] || return 1
   [[ ! -d "skills/xlsx" ]] || return 1
 
-  local unexpected
-  unexpected="$(find _opencode/skills -mindepth 1 -maxdepth 1 -type d ! -name 'codex-computer-use' ! -name 'opencode-conversation-reviewer' ! -name 'template' -print)"
-  [[ -z "$unexpected" ]]
 }
 
-test_omp_model_catalog_merge_preserves_local_entries() {
-  local home
-  home="$(new_tmp_dir)"
-  mkdir -p "$home/.omp/agent"
-  cat > "$home/.omp/agent/models.yml" <<'EOF'
-providers:
-  local-provider:
-    baseUrl: http://localhost:9999/v1
-    apiKey: local
-    api: openai-completions
-    models:
-      - id: local-model
-        name: Local Model
-        contextWindow: 1000
-        maxTokens: 100
-  openai-codex:
-    baseUrl: http://old-proxy/v1
-    apiKey: old-key
-    api: openai-completions
-    models:
-      - id: local-codex-model
-        name: Local Codex Model
-        contextWindow: 1000
-        maxTokens: 100
-      - id: gpt-5.6-sol
-        name: Stale Sol
-        contextWindow: 1
-        maxTokens: 1
-EOF
-  cat > "$home/.omp/agent/config.yml" <<'EOF'
-modelRoles:
-  default: fireworks/kimi-k2.6:high
-  slow: custom/slow-model:high
-  plan: openai-codex/gpt-5.5:high
-  vision: openai-codex/gpt-5.5:medium
-EOF
-  chmod 600 "$home/.omp/agent/models.yml" "$home/.omp/agent/config.yml"
-
-  local fake_bin real_bun_bin
-  fake_bin="$(create_fake_tool_bin "$home")"
-  real_bun_bin="$(dirname "$(command -v bun)")"
-  HOME="$home" PATH="$real_bun_bin:$fake_bin:$PATH" ./install.sh --omp >/dev/null
-
-  HOME_TO_CHECK="$home" bun - <<'TS'
-import { stat } from "node:fs/promises";
-import { join } from "node:path";
-import { YAML } from "bun";
-const home = process.env.HOME_TO_CHECK!;
-const models = YAML.parse(await Bun.file(join(home, ".omp/agent/models.yml")).text());
-if (!("local-provider" in models.providers)) throw new Error("local provider was not preserved");
-const openaiModels = models.providers["openai-codex"].models;
-const ids = new Set(openaiModels.map((model: any) => model.id));
-for (const id of ["local-codex-model", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.6-terra"]) {
-  if (!ids.has(id)) throw new Error(`missing ${id}`);
-}
-const sol = openaiModels.find((model: any) => model.id === "gpt-5.6-sol");
-if (sol.contextWindow !== 372000) throw new Error("managed Sol metadata was not updated");
-const config = await Bun.file(join(home, ".omp/agent/config.yml")).text();
-for (const expected of [
-  "slow: custom/slow-model:high",
-  "plan: openai-codex/gpt-5.6-sol:medium",
-  "vision: openai-codex/gpt-5.6-sol:medium",
-]) {
-  if (!config.includes(expected)) throw new Error(`missing role ${expected}`);
-}
-if (((await stat(join(home, ".omp/agent/models.yml"))).mode & 0o777) !== 0o600) throw new Error("models mode changed");
-if (((await stat(join(home, ".omp/agent/config.yml"))).mode & 0o777) !== 0o600) throw new Error("config mode changed");
-TS
-}
 
 test_codex_pi_skill_and_prompt_parity() {
   python3 - <<'PY'
@@ -1073,7 +992,6 @@ test_phase_four_validation_proves_final_alignment() {
   local home
   local target
   local claude_symlinks
-  local opencode_symlinks
   local stale_tree_refs
   local stale_install_instructions
 
@@ -1095,18 +1013,13 @@ test_phase_four_validation_proves_final_alignment() {
   [[ ! -e "$home/.agents/skills/brave-cdp" ]] || return 1
 
   claude_symlinks="$(find "$home/.claude/skills" -mindepth 1 -maxdepth 1 -type l | sort)"
-  opencode_symlinks="$(find "$home/.config/opencode/skills" -mindepth 1 -maxdepth 1 -type l | sort)"
   assert_command_output_contains "$claude_symlinks" "$home/.claude/skills/linear" || return 1
-  assert_command_output_contains "$opencode_symlinks" "$home/.config/opencode/skills/linear" || return 1
   assert_command_output_contains "$claude_symlinks" "$home/.claude/skills/run-plan" || return 1
-  assert_command_output_contains "$opencode_symlinks" "$home/.config/opencode/skills/run-plan" || return 1
   assert_command_output_not_contains "$claude_symlinks" "$home/.claude/skills/cmd-debug" || return 1
-  assert_command_output_not_contains "$opencode_symlinks" "$home/.config/opencode/skills/cmd-debug" || return 1
   assert_command_output_not_contains "$claude_symlinks" "$home/.claude/skills/algorithmic-art" || return 1
-  assert_command_output_not_contains "$opencode_symlinks" "$home/.config/opencode/skills/algorithmic-art" || return 1
 
   assert_no_dangling_symlinks "$home/.claude/skills" || return 1
-  assert_no_dangling_symlinks "$home/.config/opencode/skills" || return 1
+  [[ ! -e "$home/.config/opencode/skills/omp-review-partner" ]] || return 1
 
   [[ ! -e "$home/.pi/agent/skills/linear" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/doct-document-ops" ]] || return 1
@@ -1115,20 +1028,14 @@ test_phase_four_validation_proves_final_alignment() {
   assert_file_contains "$home/.agents/skills/doct-document-ops/SKILL.md" 'doct-agent plans register' || return 1
   assert_file_not_contains "$home/.agents/skills/doct-document-ops/SKILL.md" 'publish-coding-plan.sh' || return 1
 
-  stale_tree_refs="$(git grep -n '_opencode/skills/\|_pi/skills/' README.md SETUP.md AGENTS.md _pi _opencode _omp skills install.sh || true)"
-  assert_command_output_not_contains "$stale_tree_refs" 'cp -r ./_opencode/skills' || return 1
-  assert_command_output_not_contains "$stale_tree_refs" '~/.config/opencode/skills/doct-document-ops/scripts/publish-coding-plan.sh' || return 1
+  stale_tree_refs="$(git grep -n '_pi/skills/' README.md SETUP.md AGENTS.md _pi skills install.sh || true)"
   assert_command_output_not_contains "$stale_tree_refs" '$HOME/.pi/agent/skills/doct-document-ops/scripts/publish-coding-plan.sh' || return 1
 
-  stale_install_instructions="$(git grep -n 'cp -r .*skills' README.md SETUP.md AGENTS.md _pi _opencode _omp skills install.sh || true)"
+  stale_install_instructions="$(git grep -n 'cp -r .*skills' README.md SETUP.md AGENTS.md _pi skills install.sh || true)"
   [[ -z "$stale_install_instructions" ]] || return 1
 
   assert_file_not_contains "README.md" 'install to `~/.claude/skills`' || return 1
-  assert_file_not_contains "README.md" 'install to `~/.config/opencode/skills`' || return 1
   assert_file_not_contains "README.md" 'install to `~/.pi/agent/skills`' || return 1
-  # removed root duplicate
-  # assert_file_not_contains "OPENCODE_ONBOARDING.md" 'install to `~/.config/opencode/skills`' || return 1
-  assert_file_not_contains "_opencode/OPENCODE_ONBOARDING.md" 'install to `~/.config/opencode/skills`' || return 1
 
   assert_file_contains "thoughts/archive/plans/skill-consolidation-to-agents.md" '- [x] P4 - Validate migration behavior, preservation rules, consumer compatibility wiring, and final repo alignment.' || return 1
   assert_file_contains "thoughts/archive/plans/skill-consolidation-to-agents.md" '2026-04-02 (P4): Ran the final temp-home validation flow' || return 1
@@ -1143,6 +1050,7 @@ main() {
   run_test test_default_mode_reuses_shared_sync_without_mutating_repo_root
   run_test test_single_surface_modes_reuse_shared_sync
   run_test test_project_local_central_skill_overrides_are_removed
+  run_test test_non_managed_retired_skill_is_preserved
   run_test test_failpoint_after_backup_keeps_destination_recoverable
   run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
   run_test test_pi_codex_goal_fork_install_purges_stale_npm
@@ -1152,7 +1060,6 @@ main() {
   run_test test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails
   run_test test_phase_three_docs_use_canonical_shared_skill_paths
   run_test test_phase_three_duplicate_skill_trees_are_removed
-  run_test test_omp_model_catalog_merge_preserves_local_entries
   run_test test_codex_pi_skill_and_prompt_parity
   run_test test_phase_four_validation_proves_final_alignment
 
