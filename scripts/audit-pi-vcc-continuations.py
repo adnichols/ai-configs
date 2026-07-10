@@ -129,7 +129,7 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
     requests: dict[str, tuple[Path, int, dict[str, Any]]] = {}
     outcomes: dict[str, tuple[Path, int, dict[str, Any]]] = {}
     session_submissions: dict[str, list[int]] = defaultdict(list)
-    session_consumptions: dict[str, list[str]] = defaultdict(list)
+    session_consumptions: dict[str, list[int]] = defaultdict(list)
     last_session_snapshot: dict[str, dict[str, Any]] = {}
     log_submissions: dict[str, list[dict[str, Any]]] = defaultdict(list)
     last_log_epochs: dict[str, tuple[int, ...]] = {}
@@ -145,8 +145,15 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
                 if isinstance(message, dict) and message.get("role") == "custom" and message.get("customType") == PROTOCOL:
                     details = message.get("details")
                     tx = details.get("transactionId") if isinstance(details, dict) else None
-                    if isinstance(tx, str) and tx:
-                        session_consumptions[tx].append(json.dumps(message, sort_keys=True))
+                    submission_count = details.get("submissionCount") if isinstance(details, dict) else None
+                    if (
+                        isinstance(tx, str)
+                        and tx
+                        and isinstance(submission_count, int)
+                        and not isinstance(submission_count, bool)
+                        and submission_count > 0
+                    ):
+                        session_consumptions[tx].append(submission_count)
                     else:
                         findings.append(f"{path}:{line_number}: malformed continuation consumption message")
                 continue
@@ -250,13 +257,16 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
         if len(counts) != len(set(counts)):
             findings.append(f"duplicate active log submission: {tx}")
     for tx, consumptions in sorted(session_consumptions.items()):
-        permitted = max(session_submissions.get(tx, [0]), default=0)
+        submissions = set(session_submissions.get(tx, []))
+        permitted = max(submissions, default=0)
         if tx not in requests:
             findings.append(f"continuation consumption without durable request: {tx}")
         if len(consumptions) > permitted:
             findings.append(f"more continuation consumptions than submissions: {tx}")
+        if any(ordinal not in submissions for ordinal in consumptions):
+            findings.append(f"continuation consumption without matching submission ordinal: {tx}")
         if len(consumptions) != len(set(consumptions)):
-            findings.append(f"duplicate identical continuation consumption: {tx}")
+            findings.append(f"duplicate continuation consumption submission ordinal: {tx}")
     return findings
 
 
@@ -302,16 +312,33 @@ def self_test() -> list[str]:
             return ["self-test did not detect malformed continuation record"]
         submitted = {**base_snapshot, "state": "submitted", "submissionCount": 1}
         snapshot = {"type": "custom", "customType": SNAPSHOT_TYPE, "data": {"protocol": PROTOCOL, "version": VERSION, "kind": "snapshot", "snapshot": submitted}}
-        consumption_message = {
+        first_consumption = {
             "type": "message",
-            "message": {"role": "custom", "customType": PROTOCOL, "content": "continue", "details": {"transactionId": "tx-good"}},
+            "message": {"role": "custom", "customType": PROTOCOL, "content": "continue", "details": {"transactionId": "tx-good", "submissionCount": 1}},
         }
-        write_jsonl(sessions, [request, snapshot, consumption_message, consumption_message, outcome])
+        write_jsonl(sessions, [request, snapshot, first_consumption, first_consumption, outcome])
         findings = audit([sessions], [logs], True)
-        if not any("duplicate identical continuation consumption" in finding for finding in findings):
-            return ["self-test did not detect duplicate persisted continuation messages"]
+        if not any("duplicate continuation consumption submission ordinal" in finding for finding in findings):
+            return ["self-test did not detect repeated continuation submission ordinal"]
         if not any("more continuation consumptions than submissions" in finding for finding in findings):
             return ["self-test did not enforce one consumption per submission"]
+        first_retry = {**submitted, "submissionCount": 2, "retryCount": 1}
+        first_retry_snapshot = {"type": "custom", "customType": SNAPSHOT_TYPE, "data": {"protocol": PROTOCOL, "version": VERSION, "kind": "snapshot", "snapshot": first_retry}}
+        second_consumption = {
+            "type": "message",
+            "message": {"role": "custom", "customType": PROTOCOL, "content": "continue", "details": {"transactionId": "tx-good", "submissionCount": 2}},
+        }
+        second_retry = {**submitted, "submissionCount": 3, "retryCount": 2, "retryLimit": 2}
+        second_retry_snapshot = {"type": "custom", "customType": SNAPSHOT_TYPE, "data": {"protocol": PROTOCOL, "version": VERSION, "kind": "snapshot", "snapshot": second_retry}}
+        third_consumption = {
+            "type": "message",
+            "message": {"role": "custom", "customType": PROTOCOL, "content": "continue", "details": {"transactionId": "tx-good", "submissionCount": 3}},
+        }
+        retry_terminal = {**terminal, "submissionCount": 3, "retryCount": 2, "retryLimit": 2}
+        retry_outcome = {**outcome, "data": {**outcome["data"], "snapshot": retry_terminal}}
+        write_jsonl(sessions, [request, snapshot, first_consumption, first_retry_snapshot, second_consumption, second_retry_snapshot, third_consumption, retry_outcome])
+        if audit([sessions], [logs], True):
+            return ["self-test rejected two legitimate retries with distinct submission ordinals"]
         write_jsonl(sessions, [request, outcome])
         malformed_uncorrelated_log = {
             "timestampEpoch": 160, "transactionId": "tx-malformed", "event": "submitted",

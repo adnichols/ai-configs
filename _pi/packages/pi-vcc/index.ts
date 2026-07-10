@@ -13,8 +13,8 @@ export * from "./src/core/log-schema";
 export const PI_VCC_LOAD_MARKER = "__ADN_PI_VCC_LOADED__";
 
 export default (pi: ExtensionAPI) => {
-  (globalThis as any)[PI_VCC_LOAD_MARKER] = true;
   const coordinator = createContinuationCoordinator(pi);
+  (globalThis as any)[PI_VCC_LOAD_MARKER] = true;
   registerBeforeCompactHook(pi, coordinator);
   registerPiVccCommand(pi, coordinator);
   registerVccRecallCommand(pi);

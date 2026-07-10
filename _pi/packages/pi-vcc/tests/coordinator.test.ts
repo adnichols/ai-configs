@@ -13,6 +13,7 @@ import {
 	createContinuationRequestWire,
 	createContinuationSafetyReadyWire,
 } from "../src/core/continuation-protocol";
+import piVcc, { PI_VCC_LOAD_MARKER } from "../index";
 import { createContinuationCoordinator } from "../src/core/coordinator";
 
 let previousLogPath: string | undefined;
@@ -267,13 +268,30 @@ describe("continuation coordinator", () => {
 		expect(reloaded.coordinator.getPending()?.state).toBe("failed_loudly");
 	});
 
-	it("rejects removed runtime legacy authority", () => {
+	it("rejects removed runtime legacy authority atomically", () => {
 		const previous = process.env.PI_VCC_CONTINUATION_AUTHORITY;
+		const previousMarker = (globalThis as any)[PI_VCC_LOAD_MARKER];
+		delete (globalThis as any)[PI_VCC_LOAD_MARKER];
 		process.env.PI_VCC_CONTINUATION_AUTHORITY = "legacy";
+		let registrations = 0;
 		try {
-			expect(() => createContinuationCoordinator({ events: { on: () => () => {} } } as any)).toThrow("unsupported");
+			expect(() =>
+				piVcc({
+					events: { on: () => () => {} },
+					on: () => {
+						registrations += 1;
+					},
+				} as any),
+			).toThrow("unsupported");
+			expect((globalThis as any)[PI_VCC_LOAD_MARKER]).toBeUndefined();
+			expect(registrations).toBe(0);
 		} finally {
-			if (previous === undefined) delete process.env.PI_VCC_CONTINUATION_AUTHORITY; else process.env.PI_VCC_CONTINUATION_AUTHORITY = previous;
+			if (previous === undefined)
+				delete process.env.PI_VCC_CONTINUATION_AUTHORITY;
+			else process.env.PI_VCC_CONTINUATION_AUTHORITY = previous;
+			if (previousMarker === undefined)
+				delete (globalThis as any)[PI_VCC_LOAD_MARKER];
+			else (globalThis as any)[PI_VCC_LOAD_MARKER] = previousMarker;
 		}
 	});
 
@@ -300,7 +318,9 @@ describe("continuation coordinator", () => {
 			message: {
 				role: "custom",
 				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
-				details: continuationMessageDetailsFor(first),
+				details: continuationMessageDetailsFor(
+					beforeReload.coordinator.getPending()!,
+				),
 			},
 		});
 		beforeReload.emit("message_end", {

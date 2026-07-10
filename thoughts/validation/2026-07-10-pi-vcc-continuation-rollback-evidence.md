@@ -16,8 +16,8 @@ Recorded 2026-07-10 for the `pi-vcc-continuation-guarantee` implementation.
 
 ## Rollback switch and procedure
 
-- Runtime authority switch: `PI_VCC_CONTINUATION_AUTHORITY=legacy` disables coordinator sends while preserving persisted protocol evidence. Default is `coordinator`.
-- Installed rollback procedure: run `./install.sh --pi` from the recorded pre-change archive/worktree, then run `bash scripts/verify-pi-vcc-install.sh` and the installed soak. Never patch installed Pi `dist`, the stable package mirror, or the live extension directly.
+- The package has no runtime legacy-authority rollback switch: `PI_VCC_CONTINUATION_AUTHORITY` accepts only `coordinator`, and any other value fails package loading before the loaded marker or dependent publishers are registered.
+- Installed rollback procedure: restore the recorded pre-change archive/worktree, run `./install.sh --pi` from it, then run `bash scripts/verify-pi-vcc-install.sh` and the installed soak. Never patch installed Pi `dist`, the stable package mirror, or the live extension directly.
 - Candidate install command after a committed checkpoint: `./install.sh --pi`.
 - No rollback execution is claimed in this artifact. Archives were created and hashed; an actual rollback was not performed.
 

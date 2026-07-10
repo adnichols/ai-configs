@@ -140,6 +140,7 @@ export interface ContinuationMessageDetails {
 	version: typeof CONTINUATION_PROTOCOL_VERSION;
 	transactionId: string;
 	attemptId: string;
+	submissionCount: number;
 	compactionId?: string;
 	requestId?: string;
 	originatingRequestId?: string;
@@ -295,7 +296,13 @@ export const isContinuationMessageDetails = (
 		!isRecord(value) ||
 		!hasExactKeys(
 			value,
-			["protocol", "version", "transactionId", "attemptId"],
+			[
+				"protocol",
+				"version",
+				"transactionId",
+				"attemptId",
+				"submissionCount",
+			],
 			["compactionId", "requestId", "originatingRequestId"],
 		)
 	)
@@ -306,6 +313,8 @@ export const isContinuationMessageDetails = (
 		value.version === CONTINUATION_PROTOCOL_VERSION &&
 		isNonEmptyString(value.transactionId) &&
 		isNonEmptyString(value.attemptId) &&
+		isFiniteNonNegativeInteger(value.submissionCount) &&
+		value.submissionCount > 0 &&
 		(value.compactionId === undefined ||
 			isNonEmptyString(value.compactionId)) &&
 		(value.requestId === undefined || isNonEmptyString(value.requestId)) &&
@@ -321,6 +330,7 @@ export const continuationMessageDetailsFor = (
 	version: CONTINUATION_PROTOCOL_VERSION,
 	transactionId: snapshot.transactionId,
 	attemptId: snapshot.attemptId,
+	submissionCount: snapshot.submissionCount,
 	...(snapshot.compactionId ? { compactionId: snapshot.compactionId } : {}),
 	...(snapshot.requestId ? { requestId: snapshot.requestId } : {}),
 	...(snapshot.originatingRequestId
@@ -336,6 +346,7 @@ export const isMatchingContinuationDetails = (
 	return (
 		value.transactionId === snapshot.transactionId &&
 		value.attemptId === snapshot.attemptId &&
+		value.submissionCount === snapshot.submissionCount &&
 		value.compactionId === snapshot.compactionId &&
 		value.requestId === snapshot.requestId &&
 		value.originatingRequestId === snapshot.originatingRequestId
