@@ -63,6 +63,8 @@ PI_VCC_SOAK_COMPACTIONS="$compactions" \
 bun "$repo_root/scripts/pi-vcc-continuation-soak.ts"
 
 python3 "$repo_root/scripts/audit-pi-vcc-continuations.py" \
+  --sessions "$root/sessions" \
+  --require-terminal \
   --log "$root/logs/pi-vcc.jsonl"
 
 cat > "$root/validation-deviation.txt" <<EOF

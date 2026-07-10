@@ -1222,28 +1222,47 @@ describe("percentage-compaction extension", () => {
 			new Error("Nothing to compact (session too small)"),
 			"no-safe-cut",
 		],
-	])("compact-now publishes durable terminal protocol disposition for %s", async (_label, error, reason) => {
-		const { commands, compactCalls, appendedEntries, sentMessages, ctx } =
-			setup(20, true, { authority: "coordinator" });
+	])("compact-now publishes only a terminal-policy request and wake for %s", async (_label, error, reason) => {
+		const {
+			commands,
+			compactCalls,
+			appendedEntries,
+			emittedEvents,
+			actionOrder,
+			sentMessages,
+			ctx,
+		} = setup(20, true, { authority: "coordinator" });
 		await commands["compact-now"].handler("", ctx);
 		expect(compactCalls).toHaveLength(1);
 		if (error) compactCalls[0].onError(error);
 		else compactCalls[0].onComplete();
 
-		const request = appendedEntries.find(
-			(entry) => entry.customType === "pi-vcc-continuation-request",
-		);
-		const outcome = appendedEntries.find(
-			(entry) => entry.customType === "pi-vcc-continuation-outcome",
-		);
-		expect(request).toBeDefined();
+		expect(appendedEntries).toHaveLength(1);
+		const request = appendedEntries[0];
+		expect(request.customType).toBe("pi-vcc-continuation-request");
 		expect(request.data.snapshot.resumePolicy).toBe("terminal");
 		expect(request.data.snapshot.reason).toBe(reason);
-		expect(outcome.data.transactionId).toBe(
-			request.data.snapshot.transactionId,
+		expect(request.data.outcomeHint).toBe(
+			reason === "failed"
+				? "failure"
+				: reason === "cancelled"
+					? "cancellation"
+					: reason,
 		);
-		expect(outcome.data.terminalState).toBe("superseded");
-		expect(outcome.data.terminalReason).toBe("explicitly_stopped");
+		expect(emittedEvents).toEqual([
+			{
+				channel: "pi-vcc:continuation-requested",
+				data: {
+					transactionId: request.data.snapshot.transactionId,
+					attemptId: request.data.snapshot.attemptId,
+					requestId: request.data.snapshot.requestId,
+				},
+			},
+		]);
+		expect(actionOrder).toEqual([
+			"append:pi-vcc-continuation-request",
+			"emit:pi-vcc:continuation-requested",
+		]);
 		expect(
 			sentMessages.filter(
 				(entry) => entry.message.customType === "pi-vcc-continuation",

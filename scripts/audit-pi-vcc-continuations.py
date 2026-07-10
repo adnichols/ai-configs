@@ -91,7 +91,16 @@ def valid_wire(custom_type: str, data: Any) -> bool:
     if not isinstance(data, dict) or data.get("protocol") != PROTOCOL or data.get("version") != VERSION:
         return False
     if custom_type == REQUEST_TYPE:
-        return set(data) == {"protocol", "version", "kind", "snapshot"} and data.get("kind") == "request" and valid_snapshot(data.get("snapshot"), request=True)
+        return (
+            set(data) <= {"protocol", "version", "kind", "snapshot", "outcomeHint"}
+            and {"protocol", "version", "kind", "snapshot"} <= set(data)
+            and data.get("kind") == "request"
+            and valid_snapshot(data.get("snapshot"), request=True)
+            and (
+                "outcomeHint" not in data
+                or data.get("outcomeHint") in {"compacted", "no-safe-cut", "cancellation", "failure"}
+            )
+        )
     if custom_type == SNAPSHOT_TYPE:
         return set(data) == {"protocol", "version", "kind", "snapshot"} and data.get("kind") == "snapshot" and valid_snapshot(data.get("snapshot"))
     if custom_type == OUTCOME_TYPE:
@@ -121,8 +130,10 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
     outcomes: dict[str, tuple[Path, int, dict[str, Any]]] = {}
     session_submissions: dict[str, list[int]] = defaultdict(list)
     session_consumptions: dict[str, int] = defaultdict(int)
+    last_session_snapshot: dict[str, dict[str, Any]] = {}
     log_submissions: dict[str, list[dict[str, Any]]] = defaultdict(list)
     last_log_epochs: dict[str, tuple[int, ...]] = {}
+    strict_log_candidates = 0
 
     for root in sessions:
         if not root.exists():
@@ -153,6 +164,15 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
             elif custom_type == SNAPSHOT_TYPE:
                 if tx not in requests:
                     findings.append(f"{path}:{line_number}: snapshot without prior request: {tx}")
+                previous_snapshot = last_session_snapshot.get(tx)
+                if previous_snapshot:
+                    previous_epochs = tuple(previous_snapshot["epochs"][key] for key in ("session", "input", "agent", "turn", "message", "settlement"))
+                    current_epochs = tuple(snapshot["epochs"][key] for key in ("session", "input", "agent", "turn", "message", "settlement"))
+                    if any(current < old for current, old in zip(current_epochs, previous_epochs)):
+                        findings.append(f"{path}:{line_number}: stale-session/lifecycle epoch regression: {tx}")
+                    if snapshot["deadlineAt"] < previous_snapshot["deadlineAt"]:
+                        findings.append(f"{path}:{line_number}: continuation deadline regressed: {tx}")
+                last_session_snapshot[tx] = snapshot
                 if snapshot["state"] == "submitted":
                     session_submissions[tx].append(snapshot["submissionCount"])
                 if snapshot["state"] == "consumed":
@@ -173,11 +193,16 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
             event = record.get("event")
             tx = record.get("transactionId")
             # The shared pi-vcc log also contains ordinary diagnostics such as
-            # compaction_failed/manual_compaction_complete. Strict continuation
-            # records are uniquely identified by their numeric timestamp plus a
-            # transaction that is durably present in the audited sessions.
-            if not isinstance(record.get("timestampEpoch"), int) or not isinstance(tx, str) or tx not in requests:
+            # compaction_failed/manual_compaction_complete. Any record with the
+            # strict timestamp/transaction shape claims to be a continuation
+            # transaction and must be audited even if no durable request
+            # correlates it. Ordinary diagnostics omit that strict shape.
+            strict_shape = isinstance(record.get("timestampEpoch"), int) and isinstance(tx, str) and bool(tx)
+            if not strict_shape:
                 continue
+            strict_log_candidates += 1
+            if sessions and tx not in requests:
+                findings.append(f"{path}:{line_number}: continuation log without durable request: {tx}")
             keys = set(record)
             unknown = keys - LOG_KEYS
             forbidden = keys & FORBIDDEN
@@ -202,6 +227,8 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
                 if request and record["sessionEpoch"] < request[2]["epochs"]["session"]:
                     findings.append(f"{path}:{line_number}: stale-session send: {tx}")
 
+    if logs and not sessions and strict_log_candidates == 0:
+        findings.append("log-only audit requires at least one auditable continuation record")
     if require_terminal:
         for tx in sorted(set(requests) - set(outcomes)):
             findings.append(f"nonterminal durable session transaction: {tx}")
@@ -215,7 +242,9 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool) -> lis
         if len(counts) != len(set(counts)):
             findings.append(f"duplicate active log submission: {tx}")
     for tx, count in sorted(session_consumptions.items()):
-        if count > 1:
+        request = requests.get(tx)
+        retry_limit = request[2]["retryLimit"] if request else 0
+        if count > retry_limit + 1:
             findings.append(f"duplicate continuation consumption/turn evidence: {tx}")
     return findings
 
@@ -260,6 +289,26 @@ def self_test() -> list[str]:
         findings = audit([sessions], [], False)
         if not any("malformed continuation record" in finding for finding in findings):
             return ["self-test did not detect malformed continuation record"]
+        write_jsonl(sessions, [request, outcome])
+        malformed_uncorrelated_log = {
+            "timestampEpoch": 160, "transactionId": "tx-malformed", "event": "submitted",
+            "sessionEpoch": 1, "inputEpoch": 0, "agentEpoch": 0, "turnEpoch": 0,
+            "messageEpoch": 0, "settlementEpoch": 0, "content": "private continuation payload",
+        }
+        write_jsonl(logs, [ordinary_log, continuation_log, malformed_uncorrelated_log])
+        findings = audit([sessions], [logs], False)
+        if not any("continuation log without durable request" in finding for finding in findings):
+            return ["self-test sessions audit ignored an uncorrelated continuation record"]
+        if not any("privacy-forbidden continuation log keys" in finding for finding in findings):
+            return ["self-test sessions audit ignored privacy-invalid continuation fields"]
+        write_jsonl(logs, [ordinary_log, {"timestampEpoch": 160, "transactionId": "uncorrelated", "event": "bogus"}])
+        findings = audit([], [logs], False)
+        if not any("malformed continuation log record" in finding for finding in findings):
+            return ["self-test log-only audit ignored an uncorrelated malformed transaction record"]
+        write_jsonl(logs, [ordinary_log])
+        findings = audit([], [logs], False)
+        if not any("requires at least one auditable continuation record" in finding for finding in findings):
+            return ["self-test log-only audit falsely passed without a continuation record"]
     return []
 
 

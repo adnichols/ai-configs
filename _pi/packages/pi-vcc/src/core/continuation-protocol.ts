@@ -176,6 +176,7 @@ export interface ContinuationRequestWire {
 	version: typeof CONTINUATION_PROTOCOL_VERSION;
 	kind: "request";
 	snapshot: ContinuationTransactionSnapshot;
+	outcomeHint?: ContinuationAttemptOutcome;
 }
 
 export interface ContinuationSnapshotWire {
@@ -423,12 +424,18 @@ export const isContinuationRequestWire = (
 	value: unknown,
 ): value is ContinuationRequestWire =>
 	isRecord(value) &&
-	hasExactKeys(value, ["protocol", "version", "kind", "snapshot"]) &&
+	hasExactKeys(
+		value,
+		["protocol", "version", "kind", "snapshot"],
+		["outcomeHint"],
+	) &&
 	value.protocol === CONTINUATION_PROTOCOL_NAME &&
 	value.version === CONTINUATION_PROTOCOL_VERSION &&
 	value.kind === "request" &&
 	isContinuationTransactionSnapshot(value.snapshot) &&
-	value.snapshot.state === "created";
+	value.snapshot.state === "created" &&
+	(value.outcomeHint === undefined ||
+		isOneOf(CONTINUATION_ATTEMPT_OUTCOMES, value.outcomeHint));
 
 export const isContinuationSnapshotWire = (
 	value: unknown,
@@ -531,12 +538,14 @@ export const serializeContinuationWire = (wire: ContinuationWire): string => {
 
 export const createContinuationRequestWire = (
 	snapshot: ContinuationTransactionSnapshot,
+	outcomeHint?: ContinuationAttemptOutcome,
 ): ContinuationRequestWire => {
 	const wire: ContinuationRequestWire = {
 		protocol: CONTINUATION_PROTOCOL_NAME,
 		version: CONTINUATION_PROTOCOL_VERSION,
 		kind: "request",
 		snapshot,
+		...(outcomeHint ? { outcomeHint } : {}),
 	};
 	if (!isContinuationRequestWire(wire))
 		throw new TypeError(

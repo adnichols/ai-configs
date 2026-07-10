@@ -14,6 +14,13 @@ Located under `_pi/agents/` and invoked via Pi subagent system:
 - `developer-glm` (opencode/glm-5.2; `_pi/agents/developer-glm.md`) — GLM implementation agent for specification-driven coding work.
 - `developer-mm` (MiniMax; `_pi/agents/developer-mm.md`) — Alternative implementation agent using MiniMax model.
 
+### Pi Subagent Reasoning-Effort Policy
+
+- Treat each agent definition's `reasoningEffort` or `thinking` frontmatter as authoritative for that profile.
+- When invoking a named agent, do not pass a caller-side `thinking` or reasoning-effort override merely because the task appears difficult. Choose the agent profile whose configured effort matches the task instead (for example, `developer-mid` for medium or `developer-high` for high).
+- Override an agent's configured effort only when the user explicitly requests a different effort or a documented workflow explicitly requires it. Record the reason when doing so.
+- In particular, invoking `developer-high` means using its configured `high` effort, not upgrading it to `xhigh`.
+
 ## Implementation & Architecture (Claude/Codex)
 - `developer` (sonnet; `_claude/agents/developer.md`) — Implements specs with tests and enforces zero linting violations.
 - `developer-fidelity` (sonnet; `_claude/agents/developer-fidelity.md`) — Implements specifications with absolute fidelity—no extra tests, features, or safeguards.

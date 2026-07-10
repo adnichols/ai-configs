@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -33,11 +33,12 @@ type TimerRecord = { callback: () => void; due: number; cancelled: boolean };
 const handlers: HandlerMap = {};
 const wakeHandlers = new Map<string, Set<(data: unknown) => void>>();
 const entries: any[] = [];
+const sessionPath = join(root, "sessions", "soak-session.jsonl");
 const sent: any[] = [];
 const sendAttempts: any[] = [];
 const notifications: any[] = [];
 const timers: TimerRecord[] = [];
-let now = 1_000;
+let now = Date.now();
 let syncFailures = 0;
 
 const ctx = {
@@ -48,19 +49,24 @@ const ctx = {
   },
 } as any;
 
+const appendSessionEntry = (customType: string, data: unknown) => {
+  const entry = {
+    id: `entry-${entries.length + 1}`,
+    type: "custom",
+    customType,
+    data,
+  };
+  entries.push(entry);
+  appendFileSync(sessionPath, `${JSON.stringify(entry)}\n`);
+};
+
 const pi = {
   on: (event: string, handler: any) => {
     const eventHandlers = handlers[event] ?? [];
     eventHandlers.push(handler);
     handlers[event] = eventHandlers;
   },
-  appendEntry: (customType: string, data: unknown) =>
-    entries.push({
-      id: `entry-${entries.length + 1}`,
-      type: "custom",
-      customType,
-      data,
-    }),
+  appendEntry: appendSessionEntry,
   sendMessage: (message: unknown, options: unknown) => {
     sendAttempts.push({ message, options });
     if (syncFailures > 0) {
@@ -180,10 +186,14 @@ percentageCompaction({
   appendEntry: (customType: string, data: unknown) => {
     standaloneActions.push(`append:${customType}`);
     standaloneEntries.push({ customType, data });
+    appendSessionEntry(customType, data);
   },
   events: {
     on: () => () => {},
-    emit: (channel: string) => standaloneActions.push(`emit:${channel}`),
+    emit: (channel: string, data: unknown) => {
+      standaloneActions.push(`emit:${channel}`);
+      pi.events.emit(channel, data);
+    },
   },
   sendMessage: () => {
     throw new Error("standalone terminal command must not send continuation");
@@ -199,14 +209,19 @@ const standaloneCtx = {
 await standaloneHandlers.session_start?.({}, standaloneCtx);
 await standaloneHandlers.agent_start?.({}, standaloneCtx);
 await standaloneCommands["compact-now"].handler("", standaloneCtx);
+now = Date.now() + 1_000;
 standaloneCompact.onComplete();
 if (
   standaloneEntries.map((entry) => entry.customType).join(",") !==
-  `${protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE},${protocol.CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE}`
+  protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE
 ) {
-  throw new Error(
-    "standalone compact-now did not publish request/outcome parity",
-  );
+  throw new Error("standalone compact-now wrote more than its request");
+}
+if (
+  standaloneEntries[0]?.data?.outcomeHint !== "compacted" ||
+  standaloneEntries[0]?.data?.snapshot?.resumePolicy !== "terminal"
+) {
+  throw new Error("standalone compact-now omitted terminal policy/outcome hint");
 }
 if (
   standaloneActions[0] !==
@@ -215,22 +230,33 @@ if (
 ) {
   throw new Error("standalone request-before-wake ordering failed");
 }
+const standaloneTransactionId =
+  standaloneEntries[0].data.snapshot.transactionId;
+const standaloneOutcome = entries.find(
+  (entry) =>
+    entry.customType === protocol.CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+    entry.data.transactionId === standaloneTransactionId,
+);
+if (
+  standaloneOutcome?.data.terminalState !== "superseded" ||
+  standaloneOutcome?.data.terminalReason !== "explicitly_stopped"
+) {
+  throw new Error("coordinator did not own standalone terminal outcome");
+}
 
 // Actual coordinator fault matrix.
 request(0, { pendingToolCount: 2 });
 emit("tool_execution_end", { toolCallId: "unrelated", toolName: "read" });
 if (sent.length !== 0 || active()?.pendingToolCount !== 2)
   throw new Error("unrelated tool completion released continuation");
-entries.push({
-  id: `entry-${entries.length + 1}`,
-  type: "custom",
-  customType: protocol.CONTINUATION_SAFETY_READY_ENTRY_CUSTOM_TYPE,
-  data: protocol.createContinuationSafetyReadyWire({
+appendSessionEntry(
+  protocol.CONTINUATION_SAFETY_READY_ENTRY_CUSTOM_TYPE,
+  protocol.createContinuationSafetyReadyWire({
     transactionId: "soak-tx-0",
     attemptId: "attempt-0",
     requestId: "request-0",
   }),
-});
+);
 pi.events.emit("pi-vcc:continuation-safety-ready", {
   transactionId: "soak-tx-0",
 });
@@ -325,7 +351,7 @@ if (
     "session replacement did not terminalize every pending request",
   );
 }
-entries.length = 0;
+const replacementSessionStart = entries.length;
 emit("session_start", { reason: "new" });
 
 for (let index = 11; index < count + 11; index += 1) {
@@ -333,7 +359,7 @@ for (let index = 11; index < count + 11; index += 1) {
   consumeProgressSettle();
 }
 
-const outcomes = entries.filter(
+const outcomes = entries.slice(replacementSessionStart).filter(
   (entry) =>
     entry.customType === protocol.CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE,
 );

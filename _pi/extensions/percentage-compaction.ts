@@ -105,7 +105,6 @@ const getPiVccLogPath = () =>
 const CONTINUATION_PROTOCOL_NAME = "pi-vcc-continuation" as const;
 const CONTINUATION_PROTOCOL_VERSION = 1 as const;
 const CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE = "pi-vcc-continuation-request";
-const CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE = "pi-vcc-continuation-outcome";
 const CONTINUATION_SAFETY_READY_ENTRY_CUSTOM_TYPE =
 	"pi-vcc-continuation-safety-ready";
 const CONTINUATION_WAKE_EVENT = "pi-vcc:continuation-requested";
@@ -459,6 +458,7 @@ const publishContinuationRequest = (
 		version: CONTINUATION_PROTOCOL_VERSION,
 		kind: "request",
 		snapshot,
+		outcomeHint: options.outcome,
 	};
 	pi.appendEntry(CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE, wire);
 	pi.events.emit(CONTINUATION_WAKE_EVENT, {
@@ -468,28 +468,6 @@ const publishContinuationRequest = (
 	});
 	logContinuationTransaction("created", snapshot, createdAt);
 	return { transactionId, snapshot };
-};
-
-const publishContinuationOutcome = (
-	pi: ExtensionAPI,
-	snapshot: Record<string, any>,
-	terminalState: "settled" | "superseded" | "failed_loudly",
-	terminalReason: string,
-) => {
-	const terminalSnapshot = {
-		...snapshot,
-		state: terminalState,
-		terminalReason,
-	};
-	pi.appendEntry(CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE, {
-		protocol: CONTINUATION_PROTOCOL_NAME,
-		version: CONTINUATION_PROTOCOL_VERSION,
-		kind: "outcome",
-		transactionId: terminalSnapshot.transactionId,
-		terminalState,
-		terminalReason,
-		snapshot: terminalSnapshot,
-	});
 };
 
 const publishContinuationSafetyReady = (
@@ -609,8 +587,7 @@ export default function (pi: ExtensionAPI) {
 						flooredPercent: pending.flooredPercent,
 						queuedTurn: pending.queuedTurn,
 						deliveryAttempts: pending.attempts,
-						pendingToolResultCount: pending.pendingToolCallIds.size,
-						pendingToolCallIds: [...pending.pendingToolCallIds],
+						pendingToolCount: pending.pendingToolCallIds.size,
 					},
 				},
 				{ deliverAs: "steer", triggerTurn: true },
@@ -635,7 +612,7 @@ export default function (pi: ExtensionAPI) {
 				flooredPercent: pending.flooredPercent,
 				attempts: pending.attempts,
 				lastError: pending.lastError,
-				pendingToolCallIds: [...pending.pendingToolCallIds],
+				pendingToolCount: pending.pendingToolCallIds.size,
 			});
 			ctx.ui.notify(
 				`No-cut continuation delivery failed after ${pending.attempts} attempts: ${pending.lastError}. Continue manually from the interrupted turn. Logged to ${getPiVccLogPath()}.`,
@@ -705,8 +682,7 @@ export default function (pi: ExtensionAPI) {
 						interruptedReason: pending.interrupted.reason,
 						queuedTurn: pending.queuedTurn,
 						deliveryAttempts: pending.attempts,
-						pendingToolResultCount: pending.interrupted.pendingToolCallIds.size,
-						pendingToolCallIds: [...pending.interrupted.pendingToolCallIds],
+						pendingToolCount: pending.interrupted.pendingToolCallIds.size,
 					},
 				},
 				{ deliverAs: "steer", triggerTurn: true },
@@ -732,7 +708,7 @@ export default function (pi: ExtensionAPI) {
 				interruptedReason: pending.interrupted.reason,
 				attempts: pending.attempts,
 				lastError: pending.lastError,
-				pendingToolCallIds: [...pending.interrupted.pendingToolCallIds],
+				pendingToolCount: pending.interrupted.pendingToolCallIds.size,
 			});
 			ctx.ui.notify(
 				`Compaction continuation delivery failed after ${pending.attempts} attempts: ${pending.lastError}. Continue manually from the interrupted turn. Logged to ${getPiVccLogPath()}.`,
@@ -814,19 +790,9 @@ export default function (pi: ExtensionAPI) {
 		safetyReadyTransactions.add(transaction.transactionId);
 	};
 
-	const publishTerminalCommandDisposition = (
+	const publishTerminalCommandRequest = (
 		options: Parameters<typeof publishContinuationRequest>[1],
-	) => {
-		const transaction = publishRequest(options);
-		publishContinuationOutcome(
-			pi,
-			transaction.snapshot,
-			"superseded",
-			"explicitly_stopped",
-		);
-		rememberCurrentTransaction(transaction);
-		return transaction;
-	};
+	) => rememberCurrentTransaction(publishRequest(options));
 
 	const triggerCompaction = (
 		ctx: ExtensionContext,
@@ -879,7 +845,7 @@ export default function (pi: ExtensionAPI) {
 					options.resumePolicy === "terminal" &&
 					continuationAuthority() === "coordinator"
 				) {
-					publishTerminalCommandDisposition({
+					publishTerminalCommandRequest({
 						initiator: options.initiator,
 						outcome: "compacted",
 						attemptId: String(attemptId),
@@ -957,7 +923,7 @@ export default function (pi: ExtensionAPI) {
 					options.resumePolicy === "terminal" &&
 					continuationAuthority() === "coordinator"
 				) {
-					publishTerminalCommandDisposition({
+					publishTerminalCommandRequest({
 						initiator: options.initiator,
 						outcome: noCutReason
 							? "no-safe-cut"
@@ -1010,10 +976,10 @@ export default function (pi: ExtensionAPI) {
 						compactionErrorReason: reason,
 						interruptedTurn: options.interruptedTurn
 							? {
-									...options.interruptedTurn,
-									pendingToolCallIds: [
-										...options.interruptedTurn.pendingToolCallIds,
-									],
+									interrupted: options.interruptedTurn.interrupted,
+									reason: options.interruptedTurn.reason,
+									pendingToolCount:
+										options.interruptedTurn.pendingToolCallIds.size,
 								}
 							: undefined,
 						usagePercent: options.ratchetPercent,

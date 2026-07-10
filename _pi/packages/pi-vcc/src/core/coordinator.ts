@@ -165,6 +165,7 @@ export const createContinuationCoordinator = (
 	};
 	let wakeUnsubscribe: (() => void) | undefined;
 	let safetyWakeUnsubscribe: (() => void) | undefined;
+	const queuedBehindActive = new Set<string>();
 
 	const cancelTimer = () => {
 		if (timer !== undefined) clearTimer(timer);
@@ -192,6 +193,7 @@ export const createContinuationCoordinator = (
 
 	const warnFailure = (
 		snapshot: ContinuationTransactionSnapshot,
+		lastLifecycleState: ContinuationState,
 		ctx: ExtensionContext,
 	) => {
 		const identifiers = [
@@ -201,9 +203,18 @@ export const createContinuationCoordinator = (
 		]
 			.filter(Boolean)
 			.join(" ");
+		const epochSummary = [
+			`session:${snapshot.epochs.session}`,
+			`input:${snapshot.epochs.input}`,
+			`agent:${snapshot.epochs.agent}`,
+			`turn:${snapshot.epochs.turn}`,
+			`message:${snapshot.epochs.message}`,
+			`settlement:${snapshot.epochs.settlement}`,
+		].join(",");
 		ctx.ui.notify(
-			`Pi-vcc continuation failed (${identifiers}; retries=${snapshot.retryCount}; pending-tools=${snapshot.pendingToolCount}). ` +
-				`See ${getPiVccLogPath()}. Manual action: send “continue” after checking the interrupted task state.`,
+			`Pi-vcc continuation failed (${identifiers}; retries=${snapshot.retryCount}; pending-tools=${snapshot.pendingToolCount}; ` +
+				`last-state=${lastLifecycleState}; epochs=${epochSummary}). See ${getPiVccLogPath()}. ` +
+				`Manual action: send “continue” after checking the interrupted task state.`,
 			"warning",
 		);
 	};
@@ -276,11 +287,24 @@ export const createContinuationCoordinator = (
 		);
 	};
 
+	const rememberQueuedBehindActive = (
+		pending: readonly ContinuationTransactionSnapshot[],
+		activeTransactionId = pending[0]?.transactionId,
+	) => {
+		const activeIndex = pending.findIndex(
+			(snapshot) => snapshot.transactionId === activeTransactionId,
+		);
+		if (activeIndex < 0) return;
+		for (const snapshot of pending.slice(activeIndex + 1))
+			queuedBehindActive.add(snapshot.transactionId);
+	};
+
 	const activateNext = (ctx: ExtensionContext) => {
 		if (disposed || sessionShutDown) return;
 		const reconciled = reconcileContinuationEntries(
 			ctx.sessionManager.getBranch() as any[],
 		);
+		rememberQueuedBehindActive(reconciled.pending);
 		const pending = reconciled.pending[0];
 		if (!pending) {
 			current = undefined;
@@ -290,15 +314,31 @@ export const createContinuationCoordinator = (
 
 		current = withEpochBaseline(pending, epochs);
 		epochs = mergeEpochMax(epochs, current.epochs);
-		if (now() >= current.deadlineAt) {
-			apply({ type: "deadline", at: now(), epochs }, ctx);
-			return;
-		}
 		if (current.resumePolicy === "terminal") {
 			apply(
 				{ type: "supersede", at: now(), reason: "explicitly_stopped", epochs },
 				ctx,
 			);
+			return;
+		}
+		if (current.state === "progressed") {
+			cancelTimer();
+			return;
+		}
+		const wasQueuedBehindActive = queuedBehindActive.delete(
+			current.transactionId,
+		);
+		if (
+			now() >= current.deadlineAt &&
+			current.submissionCount === 0 &&
+			wasQueuedBehindActive
+		) {
+			const deadlineMs = current.deadlineAt - current.createdAt;
+			current = { ...current, deadlineAt: now() + deadlineMs };
+			persistSnapshot(current);
+		}
+		if (now() >= current.deadlineAt) {
+			apply({ type: "deadline", at: now(), epochs }, ctx);
 			return;
 		}
 
@@ -316,28 +356,40 @@ export const createContinuationCoordinator = (
 			apply({ type: "tools_ready", at: now(), epochs }, ctx);
 			return;
 		}
-		if (current.state === "waiting_tools" || current.pendingToolCount > 0) {
+		if (current.pendingToolCount > 0 && current.state !== "waiting_tools") {
+			apply(
+				{
+					type: "tools_pending",
+					at: now(),
+					pendingToolCount: current.pendingToolCount,
+					epochs,
+				},
+				ctx,
+			);
+			return;
+		}
+		if (current.state === "waiting_tools") {
 			armDeadline(current);
 			return;
 		}
-		if (
-			current.state === "consumed" ||
-			current.state === "progressed" ||
-			current.state === "submitted"
-		) {
+		if (current.state === "consumed" || current.state === "submitted") {
 			armDeadline(current);
 			return;
 		}
 		submit(ctx);
 	};
 
-	const finishTerminal = (ctx: ExtensionContext | undefined) => {
+	const finishTerminal = (
+		ctx: ExtensionContext | undefined,
+		lastLifecycleState: ContinuationState,
+	) => {
 		if (!current || !isContinuationTerminal(current)) return;
 		const terminal = current;
 		lastTerminal = terminal;
 		cancelTimer();
 		persistOutcome(terminal);
-		if (terminal.state === "failed_loudly" && ctx) warnFailure(terminal, ctx);
+		if (terminal.state === "failed_loudly" && ctx)
+			warnFailure(terminal, lastLifecycleState, ctx);
 		current = undefined;
 		if (ctx && !sessionShutDown && !disposed) activateNext(ctx);
 	};
@@ -351,7 +403,7 @@ export const createContinuationCoordinator = (
 		});
 		current = retry.snapshot;
 		if (retry.disposition === "applied") persistSnapshot(current);
-		if (isContinuationTerminal(current)) finishTerminal(ctx);
+		if (isContinuationTerminal(current)) finishTerminal(ctx, "submitted");
 		else if (retry.decision === "retry") armRetry(current);
 		else armDeadline(current);
 	};
@@ -396,6 +448,7 @@ export const createContinuationCoordinator = (
 
 	const apply = (event: ContinuationEvent, ctx = lastContext) => {
 		if (!current || disposed) return;
+		const previousState = current.state;
 		const result = transitionContinuation(current, event);
 		if (
 			result.disposition === "ignored_invalid" ||
@@ -405,7 +458,7 @@ export const createContinuationCoordinator = (
 		current = result.snapshot;
 		if (result.disposition === "applied") persistSnapshot(current);
 		if (isContinuationTerminal(current)) {
-			finishTerminal(ctx);
+			finishTerminal(ctx, previousState);
 			return;
 		}
 		if (result.decision === "retry") {
@@ -414,6 +467,10 @@ export const createContinuationCoordinator = (
 		}
 		if (result.decision === "submit" && ctx) {
 			submit(ctx);
+			return;
+		}
+		if (current.state === "progressed") {
+			cancelTimer();
 			return;
 		}
 		armDeadline(current);
@@ -437,6 +494,10 @@ export const createContinuationCoordinator = (
 					)
 				: undefined;
 		if (currentPending) {
+			rememberQueuedBehindActive(
+				reconciled.pending,
+				currentPending.transactionId,
+			);
 			current = withEpochBaseline(currentPending, epochs);
 			epochs = mergeEpochMax(epochs, current.epochs);
 			const ready = reconciled.safetyReady.find(
@@ -460,10 +521,14 @@ export const createContinuationCoordinator = (
 	const request = (input: ContinuationRequestInput, ctx: ExtensionContext) => {
 		lastContext = ctx;
 		const createdAt = now();
+		const hasActiveTransaction = Boolean(
+			current && !isContinuationTerminal(current),
+		);
 		const adapted = adaptContinuationInitiatorOutcome(
 			input.initiator,
 			input.outcome,
 		);
+		const deadlineMs = input.deadlineMs ?? DEFAULT_DEADLINE_MS;
 		const snapshot = createContinuationTransaction({
 			transactionId: transactionIdFor(input, createdAt),
 			origin: adapted.origin,
@@ -476,14 +541,15 @@ export const createContinuationCoordinator = (
 				: {}),
 			resumePolicy: input.resumePolicy ?? "active",
 			createdAt,
-			deadlineMs: input.deadlineMs ?? DEFAULT_DEADLINE_MS,
+			deadlineMs,
 			pendingToolCount: input.pendingToolCount ?? 0,
 			retryLimit: input.retryLimit ?? DEFAULT_RETRY_LIMIT,
 			epochs,
 		});
+		if (hasActiveTransaction) queuedBehindActive.add(snapshot.transactionId);
 		pi.appendEntry(
 			CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
-			createContinuationRequestWire(snapshot),
+			createContinuationRequestWire(snapshot, input.outcome),
 		);
 		logContinuationTransaction("created", snapshot, createdAt);
 		if (!current || isContinuationTerminal(current)) activateNext(ctx);

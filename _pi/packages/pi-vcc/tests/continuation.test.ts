@@ -365,7 +365,7 @@ describe("continuation state machine", () => {
 
 describe("continuation persisted protocol", () => {
 	it("round-trips requests, snapshots, and outcomes through JSON with strict parsing", () => {
-		const request = createContinuationRequestWire(created());
+		const request = createContinuationRequestWire(created(), "compacted");
 		const submitted = step(request.snapshot, { type: "submitted", at: 120 });
 		const snapshot = createContinuationSnapshotWire(submitted);
 		const outcome = createContinuationOutcomeWire(
@@ -380,6 +380,7 @@ describe("continuation persisted protocol", () => {
 		expect(
 			parseContinuationRequest(serializeContinuationWire(request)),
 		).toEqual(request);
+		expect(request.outcomeHint).toBe("compacted");
 		expect(
 			parseContinuationSnapshot(serializeContinuationWire(snapshot)),
 		).toEqual(snapshot);
