@@ -38,7 +38,8 @@ Plan readiness rules:
 
 - If the work is ready to execute without inventing missing semantics, write `Status: execution-ready`.
 - If foundational questions still remain but the next safe handoff is more research, write `Status: research-ready` and make the next research action explicit.
-- If a foundational decision needs new user intent before any safe plan can be written, ask exactly one targeted question and stop without writing the plan.
+- If a foundational decision needs new user intent and the active artifact is an HTML/Markdoc plan with browser review, write a non-ready plan with a prominent `Decision Required` block so the user can decide through plan feedback. Include every viable option, a thorough explanation of each option's behavior/benefits/costs/risks/implementation and compatibility implications/reversibility, and the agent's recommendation with rationale, confidence, and evidence.
+- If no browser-reviewed plan surface is available, ask exactly one targeted question directly and stop without writing the plan.
 
 Legacy bundles:
 
@@ -52,7 +53,7 @@ Legacy bundles:
 1. If `$ARGUMENTS` looks like a path to an existing plan file, treat it as `plan_path`.
 2. Otherwise derive `slug` from `$ARGUMENTS`.
    - Use lowercase, digits, and hyphens only.
-   - If multiple plausible slugs exist, ask once with `question` and use the user's choice.
+   - If multiple plausible slugs exist, choose the clearest faithful slug from the request and repo conventions; mention the derived slug in the final planning summary.
 3. Set `plan_path` to the repo's active plan path from local guidance. If local guidance does not define one and the user did not supply an existing plan path, ask one targeted question and stop. Do not infer a markdown path.
 4. Ensure the parent directory for `plan_path` exists (create it if missing).
 
@@ -149,9 +150,12 @@ If the plan is rendered or delivered as HTML, use the standard reviewer layout: 
 
 `Open Questions / Decision Points` guidance:
 
-- Include this section only when `Status: research-ready`.
+- Include this section only when the plan is non-ready.
+- In browser-reviewed HTML/Markdoc plans, render each product-shaping question as a prominent `Decision Required` block near the top under Decision Attention, with a stable ID and a table-of-contents link.
+- Each block must include the exact question, why it blocks readiness, every viable option supported by current evidence, a thorough explanation of each option's resulting behavior, benefits, costs/risks, implementation and compatibility implications, and reversibility or migration consequences.
+- State the agent's recommended option, why it is preferred, confidence level, and supporting evidence. Tell the reviewer to select an option or leave a Doct comment with a custom decision.
 - Do not leave unresolved `Open Questions / Decision Points` in an `execution-ready` plan.
-- A `research-ready` plan must state the exact next research action and the condition for later promotion to `execution-ready`.
+- A non-ready plan must state the exact resolution path for each item: browser reviewer choice for a product decision or a concrete next research action for a researchable unknown, plus the condition for later promotion to `execution-ready`.
 
 Keep scope faithful to the user's stated intent and the repository's guardrails.
 

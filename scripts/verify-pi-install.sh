@@ -16,7 +16,6 @@ PI_GLM_SCOPED_MODEL_VALUE="opencode/glm-5.2"
 
 EXPECTED_GIT_PACKAGES=(
   "git:github.com/edxeth/pi-gpt-config"
-  "git:github.com/adnichols/pi-codex-goal"
 )
 
 EXPECTED_NPM_PACKAGES=(
@@ -70,11 +69,7 @@ if not isinstance(settings, dict):
 
 settings["defaultProvider"] = DEFAULT_PROVIDER
 settings["defaultModel"] = DEFAULT_MODEL
-pi_codex_goal = settings.get("piCodexGoal")
-if not isinstance(pi_codex_goal, dict):
-    pi_codex_goal = {}
-pi_codex_goal["disableTokenBudgets"] = True
-settings["piCodexGoal"] = pi_codex_goal
+settings.pop("piCodexGoal", None)
 
 models = settings.get("enabledModels")
 if models is None:
@@ -262,9 +257,8 @@ if data.get("defaultProvider") != default_provider:
     errors.append(f"defaultProvider={data.get('defaultProvider')!r}")
 if data.get("defaultModel") != default_model:
     errors.append(f"defaultModel={data.get('defaultModel')!r}")
-pi_codex_goal = data.get("piCodexGoal")
-if not isinstance(pi_codex_goal, dict) or pi_codex_goal.get("disableTokenBudgets") is not True:
-    errors.append("piCodexGoal.disableTokenBudgets is not true")
+if "piCodexGoal" in data:
+    errors.append("retired piCodexGoal settings remain")
 enabled = data.get("enabledModels", [])
 if not isinstance(enabled, list):
     errors.append("enabledModels is not a list")
@@ -332,10 +326,10 @@ else
   echo "  pi-multi-pass registration: absent"
 fi
 
-if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'npm:pi-codex-goal'; then
-  note_failure "npm:pi-codex-goal is still registered; expected git:github.com/adnichols/pi-codex-goal"
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-codex-goal'; then
+  note_failure "retired pi-codex-goal package is still registered"
 else
-  echo "  upstream npm pi-codex-goal registration: absent"
+  echo "  pi-codex-goal registration: absent"
 fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"

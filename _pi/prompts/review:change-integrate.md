@@ -103,8 +103,8 @@ Use the available repo exploration tools in this session.
 
 - Identify only open questions or decisions that materially affect readiness for the stated scope.
 - Provide only low-confidence decisions that would change execution readiness, not optional idea backlog.
-- If you have specific issues you know, with high confidence that you need input from the user on, then ask those using the question tool.
-- If you've asked questions with the question tool, incorporate those answers into the final plan and re-assess whether there are more open questions.
+- If you have specific issues that require user input, ask those directly in the conversation.
+- Incorporate the user's answers into the final plan and re-assess whether more open questions remain.
 ---
 
 ## Next Step

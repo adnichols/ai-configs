@@ -121,8 +121,6 @@ const DEFAULT_PRD_TOOLS = [
 	"web_search",
 	"fetch_content",
 	"get_search_content",
-	"question",
-	"questionnaire",
 	"subagent",
 	"Agent",
 	"get_subagent_result",
@@ -818,8 +816,8 @@ Purpose:
 - Compare each answer round against the current intent and spec baseline.
 - Ask up to 10 targeted clarification questions when needed to clarify product intent and decisions.
 - After a substantive PRD update, run /${PRD_CLARIFY_COMMAND} first so the critical thinker runs before optional research and before the next question is asked.
-- When clarification is still needed, use the question tool to ask the critical thinker's prioritized questions instead of printing a plain-text list.
-- Make each question show a recommended choice and why it is recommended.
+- When clarification is still needed, ask the critical thinker's prioritized questions directly in the conversation.
+- Make each question include a recommended choice and why it is recommended.
 - Do not run /${PRD_REVIEW_COMMAND} automatically after edits; use it only when you and the user have clarified the intent and agree a wider review is valuable.
 - Treat /${PRD_REVIEW_COMMAND} as the explicit review gate before handoff.
 - Once the PRD review is approved, hand off through /${DEV_PLAN_FROM_PRD_COMMAND} <prd-path> in a fresh session.
@@ -854,7 +852,7 @@ Rules:
 - Do not make implementation changes outside the PRD/spec/review artifact surface.
 - Preserve truthful recovery status after errors or interruptions.
 - Keep clarification questions high-signal and limited to the set that materially improves intent clarity or decision quality (up to 10 at a time).
-- The required clarification order is: critical thinker → optional researcher → question tool.
+- The required clarification order is: critical thinker → optional researcher → direct user questions.
 
 ${prdInstruction}
 ${specInstruction}`,

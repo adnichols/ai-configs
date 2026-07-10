@@ -50,7 +50,7 @@ Use lowercase, digits, and hyphens for the slug. If the user gave an existing Ma
 4. Read any source issue, handoff, existing plan, PRD, or specification the input references.
 5. Inspect the repo enough to validate important claims, file paths, commands, data shapes, and integration points. Do not rely on the user's description alone for executable plan details.
 
-Ask at most one short batch of blocking questions only when repo evidence cannot resolve a decision that changes user-visible behavior, security/privacy posture, data handling, scope, or compatibility.
+When repo evidence cannot resolve a decision that changes user-visible behavior, security/privacy posture, data handling, scope, or compatibility, capture it in the HTML plan as a prominent `Decision Required` block for browser feedback. Do not ask it separately in chat unless Doct registration or browser review is unavailable.
 
 ### 2. Create or refresh the HTML plan
 
@@ -60,14 +60,14 @@ The plan should follow the `planning-workflow` execution artifact contract while
 
 - standard reviewer layout: dark-mode theme with explicit dark background, light foreground, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a full-width single-column page; place a concise table of contents near the top of the document immediately after the title/status summary, and format it as a horizontal section with responsive columns so the rest of the plan keeps full width; do not use a permanent left sidebar/rail,
 - stable `id` attributes on major sections, phase wrappers, acceptance criteria, BDD scenarios, diagrams, figures, and likely comment targets,
-- a near-top `Decision Attention / Low-confidence Areas` section for blockers, required user input, unresolved decisions, and weak evidence,
+- a near-top `Decision Attention / Low-confidence Areas` section for blockers, required user input, unresolved decisions, and weak evidence; each unresolved product decision is a visually prominent `Decision Required` block with a stable ID, the exact question, every viable option, a thorough explanation of each option's behavior/benefits/costs/risks/implementation and compatibility implications/reversibility, and the agent's recommended option with rationale, confidence, and supporting evidence,
 - a `Progress` section containing the only checkboxes,
 - canonical content: status, goal, Decision Attention / Low-confidence Areas, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
 - one-to-one mapping between progress checkboxes and detailed phases,
 - each phase includes `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, and `Verify`,
 - explicit UI-impact triage with repo-appropriate design evidence for real UI-impacting work,
 - exact verification commands grounded in repo reality,
-- no unresolved open questions when the status is `execution-ready`.
+- no unresolved open questions when the status is `execution-ready`; plans awaiting a reviewer choice remain non-ready and explicitly instruct the reviewer to select an option or leave a Doct comment with a custom decision.
 
 If a prior reviewed plan exists, preserve truthful completed progress, stable IDs where possible, and append-only decisions/deviations history.
 
@@ -95,8 +95,8 @@ For each listener-delivered or pending comment:
 3. Use the annotation context, heading path, quoted text, and reviewer note.
 4. Classify the comment as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, or `DISAGREE_REPO_EVIDENCE`.
 5. Edit the plan for readiness blockers and useful clarity that preserves scope.
-6. Ask the user for product questions that cannot be resolved from repo evidence.
-7. Ack and resolve only after the plan actually addresses the comment.
+6. For product questions that cannot be resolved from repo evidence, add or update the plan's prominent `Decision Required` block with all viable options, thorough option explanations, and an agent recommendation; obtain the choice through Doct feedback rather than a separate chat question.
+7. Ack and resolve only after the plan actually addresses the comment; after the user chooses, move the result into `Locked decisions` and append the rationale to `Decisions / Deviations log`.
 8. Keep or restart the durable listener after each dispatch if more browser feedback is expected; do not leave review handoff dependent on a one-time queue check.
 
 Keep the local HTML plan authoritative for implementation and Doct authoritative for review state. After editing the local file, push updates with `doct-agent plans update` or keep `doct-agent plans watch` running during active review. `plans watch` is source sync only; it does not replace the comment listener.
@@ -115,7 +115,7 @@ The PM pass evaluates whether the plan will satisfy the intended user/operator o
 - early-stage stage fit and the smallest complete slice,
 - whether verification proves the shipped workflow, not just helper behavior.
 
-Default behavior is corrective: reshape the HTML plan directly when the right direction is inferable from repo evidence. Stop for a focused question only when a product-shaping decision remains low-confidence.
+Default behavior is corrective: reshape the HTML plan directly when the right direction is inferable from repo evidence. When a product-shaping decision remains low-confidence, keep the plan blocked and surface the decision prominently in the HTML plan for Doct feedback, with all viable options, thorough explanations, and the agent's recommendation.
 
 After material PM edits, ensure the review URL still points at the latest plan and the plan remains browser-reviewable.
 
@@ -279,4 +279,4 @@ Review URL: <canonical Doct URL>
 <Only when execution-ready: name the repo's preferred execution command for this explicit HTML plan path from repo-local guidance.>
 ```
 
-If the plan is blocked, replace the execution handoff with the single blocking question or blocker summary needed to continue. Do not suggest a Markdown-only execution command unless the repo explicitly supports converting the reviewed HTML plan back to Markdown.
+If the plan is blocked, replace the execution handoff with a pointer to the unresolved `Decision Required` block(s) in the canonical Doct plan and ask the user to select an option or comment there. Do not restate an abbreviated option list in chat, and do not suggest a Markdown-only execution command unless the repo explicitly supports converting the reviewed HTML plan back to Markdown.

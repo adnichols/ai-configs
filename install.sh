@@ -27,6 +27,7 @@ AI_CONFIGS_REPO_NAME='ai-configs'
 AI_CONFIGS_REPO_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 CENTRAL_ONLY_PROJECT_SKILLS=(ccore todoist-cli brave-cdp chrome-cdp)
 DEPRECATED_SHARED_SKILLS=(agent-browser scoped-plan-run html-plan-reviewer omp-review-partner)
+RETIRED_PI_EXTENSIONS=(questionnaire.ts)
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
 # Homebrew's node/npm/npx can be installed but absent from PATH.
@@ -68,7 +69,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills, while Pi packages still include pi-gpt-config"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @ff-labs/pi-fff, pi-codex-goal from git:github.com/adnichols/pi-codex-goal, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @ff-labs/pi-fff, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
     echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OMP, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
     echo "  - In non-interactive mode, existing configs are preserved automatically"
@@ -1573,11 +1574,7 @@ settings["gptConfig"] = {
     "toolDiscipline": "off",
     "showFooter": True,
 }
-pi_codex_goal = settings.get("piCodexGoal")
-if not isinstance(pi_codex_goal, dict):
-    pi_codex_goal = {}
-pi_codex_goal["disableTokenBudgets"] = True
-settings["piCodexGoal"] = pi_codex_goal
+settings.pop("piCodexGoal", None)
 
 models = settings.get("enabledModels")
 if models is None:
@@ -1948,6 +1945,9 @@ install_pi() {
     # Install extensions.
     echo "  - Installing Pi extensions..."
     mkdir -p "$pi_extensions_dir"
+    for retired_extension in "${RETIRED_PI_EXTENSIONS[@]}"; do
+        rm -rf "$pi_extensions_dir/$retired_extension"
+    done
     if [ -d "$pi_source_dir/extensions" ]; then
         # Detect external clobbering of ai-configs-managed extensions before
         # restoring them, so the drift is visible in the install log. The main
@@ -2002,7 +2002,8 @@ install_pi() {
     echo "Note: Pi prompt templates, subagents, extensions, and managed model entries are installed to $HOME/.pi/agent"
     echo "      Prompt templates load from ~/.pi/agent/prompts, shared installable skills load from ~/.agents/skills, subagents load from ~/.pi/agent/agents, extensions load from ~/.pi/agent/extensions, and custom models load from ~/.pi/agent/models.json"
 
-    # Remove deprecated Pi git packages before installing supported ones
+    # Remove retired goal tooling and deprecated Pi git packages before installing supported ones.
+    remove_retired_pi_goal_plugin "$pi_agent_dir"
     remove_deprecated_pi_git_packages
 
     # Install pi-gpt-config extension via pi package manager
@@ -2010,10 +2011,6 @@ install_pi() {
 
     # Install npm-based pi extensions
     install_pi_npm_packages
-
-    # Install the managed pi-codex-goal fork so pi-vcc compaction persistence
-    # stays pinned until the fork is intentionally retired.
-    install_pi_codex_goal_package
 
     # Install pi-interactive-shell, preferring the sibling local fork when present,
     # otherwise install from the GitHub fork.
@@ -2031,6 +2028,48 @@ install_pi() {
     # repo-owned default model contract so obsolete multi-Codex routes cannot be reintroduced.
     configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
     cleanup_pi_multi_codex_config "$pi_agent_dir"
+}
+
+remove_retired_pi_goal_plugin() {
+    local pi_agent_dir="$1"
+    local settings_path="$pi_agent_dir/settings.json"
+    local source
+
+    while IFS= read -r source; do
+        [ -n "$source" ] || continue
+        echo "  - Removing retired Pi goal package $source..."
+        pi remove "$source" 2>/dev/null || true
+    done < <(pi list 2>/dev/null | awk '/^  [^ ]/ && /pi-codex-goal/ { sub(/^  /, ""); print }')
+
+    python3 - "$settings_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+if not settings_path.exists():
+    raise SystemExit(0)
+try:
+    data = json.loads(settings_path.read_text())
+except json.JSONDecodeError:
+    raise SystemExit(0)
+if not isinstance(data, dict):
+    raise SystemExit(0)
+packages = data.get("packages")
+if isinstance(packages, list):
+    data["packages"] = [
+        item for item in packages
+        if "pi-codex-goal" not in (
+            item.get("source", "") if isinstance(item, dict) else item if isinstance(item, str) else ""
+        )
+    ]
+data.pop("piCodexGoal", None)
+settings_path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+
+    rm -rf \
+        "$pi_agent_dir/git/github.com/adnichols/pi-codex-goal" \
+        "$pi_agent_dir/npm/node_modules/pi-codex-goal"
 }
 
 remove_deprecated_pi_git_packages() {
@@ -2071,131 +2110,6 @@ install_pi_gpt_config_package() {
             echo -e "    ${YELLOW}⚠ pi install command not available or failed${NC}"
             echo "      To install manually, run:"
             echo "        pi install git:github.com/edxeth/pi-gpt-config"
-            return 1
-        fi
-    fi
-}
-
-purge_stale_pi_codex_goal_registrations() {
-    local settings_path="$1"
-    local desired_source="$2"
-
-    python3 - "$settings_path" "$desired_source" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-settings_path = Path(sys.argv[1])
-desired = sys.argv[2]
-try:
-    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-except json.JSONDecodeError:
-    data = {}
-if not isinstance(data, dict):
-    data = {}
-packages = data.get("packages")
-if not isinstance(packages, list):
-    packages = []
-
-def source_for(item):
-    if isinstance(item, str):
-        return item
-    if isinstance(item, dict) and isinstance(item.get("source"), str):
-        return item["source"]
-    return None
-
-next_packages = []
-removed = []
-has_desired = False
-for item in packages:
-    source = source_for(item)
-    if not (isinstance(source, str) and "pi-codex-goal" in source):
-        next_packages.append(item)
-        continue
-    if source == desired and not has_desired:
-        has_desired = True
-        next_packages.append(item)
-        continue
-    removed.append(source)
-
-if removed:
-    data["packages"] = next_packages
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
-    settings_path.write_text(json.dumps(data, indent=2) + "\n")
-    for source in removed:
-        print(source)
-PY
-}
-
-install_pi_codex_goal_package() {
-    local desired_source="git:github.com/adnichols/pi-codex-goal"
-    local pi_agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
-    local settings_path="$pi_agent_dir/settings.json"
-
-    echo ""
-    echo -e "${GREEN}  Installing pi-codex-goal fork via pi package manager...${NC}"
-
-    local removed_source
-    while IFS= read -r removed_source; do
-        [ -n "$removed_source" ] || continue
-        echo "  - Purged stale pi-codex-goal package registration $removed_source from $settings_path"
-    done < <(purge_stale_pi_codex_goal_registrations "$settings_path" "$desired_source")
-
-    local existing_source normalized_existing_source has_desired=false
-    while IFS= read -r existing_source; do
-        [ -n "$existing_source" ] || continue
-        case "$existing_source" in
-            "$desired_source"|"$desired_source"@*|"$desired_source"\ @*)
-                normalized_existing_source="$desired_source"
-                ;;
-            *)
-                normalized_existing_source="$existing_source"
-                ;;
-        esac
-        if [ "$normalized_existing_source" = "$desired_source" ]; then
-            has_desired=true
-            continue
-        fi
-        echo "  - Removing legacy pi-codex-goal package $existing_source..."
-        if pi remove "$existing_source" 2>/dev/null; then
-            echo -e "    ${GREEN}✓ removed $existing_source${NC}"
-        else
-            echo -e "    ${YELLOW}⚠ Failed to remove legacy pi-codex-goal package $existing_source${NC}"
-            echo "      To remove manually, run:"
-            echo "        pi remove $existing_source"
-        fi
-    done < <(
-        {
-            pi list 2>/dev/null | awk '/^  [^ ]/ && /pi-codex-goal/ { sub(/^  /, ""); print }'
-            python3 - "$settings_path" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-settings_path = Path(sys.argv[1])
-try:
-    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-except json.JSONDecodeError:
-    data = {}
-for item in data.get("packages", []) if isinstance(data.get("packages"), list) else []:
-    source = item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
-    if isinstance(source, str) and "pi-codex-goal" in source:
-        print(source)
-PY
-        } | sort -u
-    )
-
-    if [ "$has_desired" = true ]; then
-        echo "  - pi-codex-goal fork already registered with Pi, updating..."
-        pi update "$desired_source" 2>/dev/null || echo -e "    ${YELLOW}⚠ Update check skipped (pi update may require manual run)${NC}"
-    else
-        echo "  - Installing pi-codex-goal fork from $desired_source..."
-        if pi install "$desired_source" 2>/dev/null; then
-            echo -e "    ${GREEN}✓ pi-codex-goal fork installed${NC}"
-        else
-            echo -e "    ${YELLOW}⚠ Failed to install pi-codex-goal fork via pi package manager${NC}"
-            echo "      To install manually, run:"
-            echo "        pi install $desired_source"
             return 1
         fi
     fi
@@ -2571,7 +2485,6 @@ install_pi_npm_packages() {
         "@sting8k/pi-vcc"
         "lsp-pi"
         "pi-multi-pass"
-        "pi-codex-goal"
     )
     local deprecated_git_packages=(
         "git:github.com/adnichols/pi-codex-conversion"

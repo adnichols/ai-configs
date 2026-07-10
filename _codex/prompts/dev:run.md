@@ -38,7 +38,7 @@ Use `Explore`/`explore` before implementation whenever target files or contracts
 - Do not hand control back merely because the plan is now in a resumable state; keep executing until all `## Progress` items are complete or a real blocker requires one targeted question.
 - Every response must either (a) take the next concrete action by actually invoking a tool (read/search/edit/run) or updating the plan file, or (b) ask for user input due to an unresolvable decision. Narration is not an action.
 - If unsure, investigate and retry until evidence supports a decision; do not ask the user just for uncertainty.
-- Use `question` only when a decision between viable options requires user input due to insufficient evidence.
+- Ask the user directly only when a decision between viable options requires input due to insufficient evidence.
 - You may re-chunk work only when the split preserves the plan's scope, acceptance criteria, locked decisions, and overall end state.
 
 Unresolvable decision examples:

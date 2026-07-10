@@ -93,9 +93,6 @@ for item in data.get("packages", []) if isinstance(data.get("packages"), list) e
     source = item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
     if isinstance(source, str):
         rendered_source = source
-        goal_ref = os.environ.get("AI_CONFIGS_FAKE_PI_LIST_GOAL_REF")
-        if goal_ref and "pi-codex-goal" in rendered_source:
-            rendered_source = f"{rendered_source}@{goal_ref}"
         print(f"  {rendered_source}")
         print(f"    /fake/{source.replace('/', '_')}")
 PY
@@ -684,11 +681,11 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   assert_file_contains "$home/.gemini/commands/cmd:debug.toml" 'stale-gemini' || return 1
   assert_file_contains "$home/.gemini/commands/custom.toml" 'custom-gemini-command' || return 1
   assert_file_contains "$home/.gemini/custom/keep.txt" 'custom-gemini' || return 1
-  assert_file_contains "$home/.pi/agent/settings.json" 'git:github.com/adnichols/pi-codex-goal' || return 1
-  assert_file_not_contains "$home/.pi/agent/settings.json" 'npm:pi-codex-goal' || return 1
+  assert_file_not_contains "$home/.pi/agent/settings.json" 'pi-codex-goal' || return 1
+  assert_file_not_contains "$home/.pi/agent/settings.json" 'piCodexGoal' || return 1
 }
 
-test_pi_codex_goal_fork_install_purges_stale_npm() {
+test_pi_install_removes_retired_goal_packages() {
   local home output_file settings_path
   home="$(new_tmp_dir)"
   output_file="$home/pi-install.log"
@@ -697,8 +694,10 @@ test_pi_codex_goal_fork_install_purges_stale_npm() {
   mkdir -p "$(dirname "$settings_path")"
   cat > "$settings_path" <<'JSON'
 {
+  "piCodexGoal": {"disableTokenBudgets": true},
   "packages": [
-    "npm:pi-codex-goal"
+    "npm:pi-codex-goal",
+    "git:github.com/adnichols/pi-codex-goal"
   ]
 }
 JSON
@@ -708,34 +707,10 @@ JSON
     return 1
   }
 
-  assert_file_contains "$output_file" 'Removing deprecated Pi package pi-codex-goal' || return 1
-  assert_file_contains "$settings_path" 'git:github.com/adnichols/pi-codex-goal' || return 1
-  assert_file_not_contains "$settings_path" 'npm:pi-codex-goal' || return 1
-}
-
-test_pi_codex_goal_fork_install_tolerates_rendered_ref_suffix() {
-  local home output_file settings_path
-  home="$(new_tmp_dir)"
-  output_file="$home/pi-install.log"
-  settings_path="$home/.pi/agent/settings.json"
-
-  mkdir -p "$(dirname "$settings_path")"
-  cat > "$settings_path" <<'JSON'
-{
-  "packages": [
-    "git:github.com/adnichols/pi-codex-goal"
-  ]
-}
-JSON
-
-  AI_CONFIGS_FAKE_PI_LIST_GOAL_REF='fe5f306' run_installer_capture "$home" "$output_file" --pi || {
-    cat "$output_file" >&2
-    return 1
-  }
-
-  assert_file_contains "$output_file" 'pi-codex-goal fork already registered with Pi, updating' || return 1
-  assert_file_not_contains "$output_file" 'Removing legacy pi-codex-goal package git:github.com/adnichols/pi-codex-goal@fe5f306' || return 1
-  assert_file_contains "$settings_path" 'git:github.com/adnichols/pi-codex-goal' || return 1
+  assert_file_contains "$output_file" 'Removing retired Pi goal package npm:pi-codex-goal' || return 1
+  assert_file_contains "$output_file" 'Removing retired Pi goal package git:github.com/adnichols/pi-codex-goal' || return 1
+  assert_file_not_contains "$settings_path" 'pi-codex-goal' || return 1
+  assert_file_not_contains "$settings_path" 'piCodexGoal' || return 1
 }
 
 test_verify_pi_install_reports_stale_goal_package() {
@@ -783,9 +758,7 @@ PY
     cat "$output_file" >&2
     return 1
   fi
-  assert_file_contains "$output_file" 'Missing:' || return 1
-  assert_file_contains "$output_file" '    - git:github.com/adnichols/pi-codex-goal' || return 1
-  assert_file_contains "$output_file" 'npm:pi-codex-goal is still registered' || return 1
+  assert_file_contains "$output_file" 'retired pi-codex-goal package is still registered' || return 1
 }
 
 test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails() {
@@ -1053,8 +1026,7 @@ main() {
   run_test test_non_managed_retired_skill_is_preserved
   run_test test_failpoint_after_backup_keeps_destination_recoverable
   run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
-  run_test test_pi_codex_goal_fork_install_purges_stale_npm
-  run_test test_pi_codex_goal_fork_install_tolerates_rendered_ref_suffix
+  run_test test_pi_install_removes_retired_goal_packages
   run_test test_verify_pi_install_reports_stale_goal_package
   run_test test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails
   run_test test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails

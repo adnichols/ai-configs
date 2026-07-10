@@ -67,7 +67,6 @@ Installed layout:
     │   └── index.ts
     ├── aoe-status/
     │   └── index.ts
-    ├── questionnaire.ts
     ├── simple-multi-status.ts
     ├── percentage-compaction.ts
     └── todo.ts
@@ -163,13 +162,6 @@ To use with pi-vcc, run `./install.sh --pi`; `pi list` should show the stable mi
 
 **Note:** With the vendored pi-vcc installed, no additional compaction configuration is needed. The extension proactively starts pi-vcc compaction at the configured hard-backstop percentage, and pi-vcc handles the actual algorithmic compaction when triggered. This repo now ships the `/pi-vcc` manual-bypass marker and the agent-only-tail fallback directly in the vendored package, so rerunning `./install.sh --pi` refreshes both behaviors without patching global npm files.
 
-This repo also vendors Pi's `questionnaire.ts` extension, which auto-loads on install and provides:
-
-- a `questionnaire` tool for asking one or more interactive questions,
-- single-question option picking and multi-question tabbed flows,
-- optional custom typed answers via “Type something”,
-- structured result details for the agent with selected option indices and custom-answer markers.
-
 This repo also vendors Pi's `todo.ts` extension, which auto-loads on install and provides:
 
 - a `todo` tool for branch-aware task tracking with **proactive planning guidance** — agents are encouraged to create comprehensive todo lists BEFORE beginning work,
@@ -187,7 +179,6 @@ In addition to the repo-managed files under `~/.pi/agent/extensions/`, `install.
 
 Git-managed packages:
 - `pi-gpt-config`
-- `git:github.com/adnichols/pi-codex-goal`
 
 npm-managed packages:
 - `@tintinweb/pi-subagents`
@@ -201,8 +192,6 @@ npm-managed packages:
 - `@tmustier/pi-files-widget`
 - `@tmustier/pi-raw-paste`
 - `@ff-labs/pi-fff`
-
-`pi-codex-goal` installs Codex-style `/goal` and `/create-goal` persistent objectives for long-running Pi work. ai-configs installs Aaron's fork from `git:github.com/adnichols/pi-codex-goal` so Pi-VCC in-flight compaction preserves active goals without duplicate continuation triggers; stale `npm:pi-codex-goal` registrations are removed during `install.sh --pi`. The managed installer also sets `piCodexGoal.disableTokenBudgets: true` in Pi settings so model-created goals remain unbudgeted unless this policy is deliberately changed.
 
 local path packages:
 - `~/.pi/agent/local-packages/ai-configs/pi-vcc` (a stable mirror synced from `./_pi/packages/pi-vcc`; install tests and worktrees must not register their transient checkout path)

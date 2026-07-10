@@ -21,7 +21,7 @@ Use it after each meaningful batch of new user answers:
 Required order per round:
 1. Run the critical thinker first on the updated PRD.
 2. Only run the researcher if the critical thinker identifies a decision-relevant gap that needs external defaults, prior art, or precedent.
-3. After those support passes, use the `question` tool to ask the prioritized clarification questions from the critical thinker whenever more clarification is still needed, or explicitly say no further clarification questions are currently needed.
+3. After those support passes, ask the prioritized clarification questions directly whenever more clarification is still needed, or explicitly say no further clarification questions are currently needed.
 
 Do not run `/review:prd` from this command.
 Do not launch any of the seven final PRD reviewers from this command.
@@ -83,10 +83,10 @@ const researchResult = await get_subagent_result({ agent_id: research.agent_id ?
 Using the PRD plus the support-agent outputs:
 
 - Treat the critical thinker's `## Clarification questions` section as the default source for the next user questions.
-- If the PRD still has unresolved contradictions, missing required behavior, or unclear intent, ask those questions with the `question` tool instead of printing them as plain text.
-- Preserve the critic's priority order. Ask all material questions for the round unless the user cancels or answers make later questions obsolete.
-- For each `question` tool call, use the critic's suggested options when present. If an option set is still missing, synthesize a short high-signal option list from the PRD/baseline and rely on the tool's built-in freeform path for custom answers.
-- Make the critic's recommendation visible in the `question` tool: mark the recommended option in its label and use the option description to explain why it is recommended.
+- If the PRD still has unresolved contradictions, missing required behavior, or unclear intent, ask those questions directly in the conversation.
+- Preserve the critic's priority order. Ask all material questions for the round unless the user's answers make later questions obsolete.
+- For each question, include every viable option supported by current evidence and a thorough explanation of each option's resulting behavior, benefits, costs/risks, implementation and compatibility implications, and reversibility.
+- Make the critic's recommendation explicit, including why it is preferred, confidence level, and supporting evidence. Allow the user to provide a custom answer when the listed options do not fit.
 - If the critic recommends a choice that is not already one of the listed options, revise the option list so the recommended choice is present before asking the user.
 - Keep the question set high-signal; do not pad it just to reach 10.
 - If the PRD is internally coherent and no further clarification is currently needed, say that explicitly.
@@ -105,7 +105,7 @@ Using the PRD plus the support-agent outputs:
 - [Finding] or `Skipped — not needed for this round`
 
 ### Next Step
-- `Used question tool for the prioritized clarification set.`
+- `Asked the prioritized clarification set directly.`
 - or `No further clarification questions are currently needed.`
 
 ### Review Gate

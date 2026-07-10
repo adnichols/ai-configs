@@ -99,6 +99,16 @@ Required sections for new plans unless repo-local overrides say otherwise:
 
 Decision Attention must appear near the top of every non-trivial plan. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
 
+For an HTML/Markdoc plan under browser review, put every product-shaping question in Decision Attention as a prominent `Decision Required` block instead of moving the question into chat. Give each decision a stable ID and include:
+
+- the exact decision question and why it blocks readiness,
+- every viable option supported by current evidence (do not present a partial shortlist while hiding a known viable choice),
+- a thorough explanation of each option: resulting behavior, benefits, costs/risks, implementation and compatibility implications, and reversibility or migration consequences,
+- the agent's recommended option, rationale, confidence level, and the evidence that drove the recommendation,
+- an explicit browser-feedback instruction telling the reviewer to select an option or add a Doct comment with a custom decision.
+
+Use a visually distinct warning/callout style and link each unresolved decision from the near-top table of contents or summary so it cannot be missed. Keep the plan non-execution-ready until the reviewer resolves every required decision. After feedback arrives, replace the unresolved block with the chosen decision in `Locked decisions` and append the choice and rationale to `Decisions / Deviations log`.
+
 Legacy heading aliases may be preserved in historical plans, but new plans should use canonical headings unless the repo explicitly says otherwise.
 
 ## TDD + BDD rules
@@ -189,9 +199,11 @@ If any item above is still missing, the plan is `not ready`: stay in `discovery`
 
 - Treat any materially outcome-shaping unknown as a `low-confidence` decision: contracts, migrations, rollout semantics, compatibility behavior, safety constraints, or cross-surface behavior.
 - Resolve low-confidence decisions from repo evidence first.
-- If repo evidence is insufficient and the choice changes intended behavior, ask the user before finalizing the plan.
+- If repo evidence is insufficient and the choice changes intended behavior, obtain the user's decision before finalizing the plan.
+- For a browser-reviewed HTML/Markdoc plan, obtain that decision through a prominent `Decision Required` block in the plan and Doct feedback; do not duplicate it as a chat question unless the review surface is unavailable.
+- For a non-browser plan, ask the user directly.
 - If the answer is researchable without user intent input, delegate research immediately or emit a non-ready `research-ready` research plan artifact.
-- A non-ready plan artifact must list the unresolved low-confidence decisions, make the exact next research action explicit, and stay clearly separate from an `execution-ready` handoff.
+- A non-ready plan artifact must list unresolved low-confidence decisions and the exact action that resolves each one: reviewer selection for product decisions or a concrete research action for researchable unknowns. Keep it clearly separate from an `execution-ready` handoff.
 - Never bury low-confidence decisions inside future execution phases or assume implementation will resolve them later.
 
 ## UI-impact triage

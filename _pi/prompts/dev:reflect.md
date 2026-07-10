@@ -99,7 +99,7 @@ If `--dry-run`, print an inventory of exact edits and stop.
 Otherwise:
 
 - Auto-apply high-confidence updates grounded in logged decisions and evidence.
-- Use `question` for low-confidence updates, scope changes, or requirement-affecting decisions.
+- Ask the user directly about low-confidence updates, scope changes, or requirement-affecting decisions.
 
 ## Output
 
