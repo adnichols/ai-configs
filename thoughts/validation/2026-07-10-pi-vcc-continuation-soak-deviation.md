@@ -1,0 +1,5 @@
+# Pi VCC continuation rollout validation boundary
+
+The source rollout gate uses `scripts/run-pi-vcc-continuation-soak.sh` to execute the selected source or installed package modules in an isolated `PI_CODING_AGENT_DIR`, session directory, and log directory. It drives the public lifecycle state machine through ten deterministic mixed transactions, including no consumption, retry, provider-style terminal error, missing tool deadline, user supersession, and session replacement, then runs the strict session/log audit.
+
+A provider-backed Pi model process is intentionally not claimed by this gate: the required rollout command must not use external provider/network credentials, and Pi 0.80.6 does not expose a credential-free stub provider CLI for lifecycle injection. The soak fails closed if the selected installed candidate is absent and never silently imports the source candidate. Parent-owned post-checkpoint installation may run the same script with `--candidate installed` after `./install.sh --pi`.

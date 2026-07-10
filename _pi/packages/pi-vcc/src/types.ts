@@ -40,6 +40,9 @@ export interface CompactionIntent {
   reason?: string;
   boundary?: string;
   preserve?: string;
+  requestId?: string;
+  attemptId?: string;
+  resumePolicy?: "active" | "terminal" | "auto";
 }
 
 export const isBashExecutionMessage = (msg: PiMessage): msg is BashExecutionMessage =>

@@ -15,9 +15,10 @@ type ToolMap = Record<string, any>;
 const setup = (
   percent: number | null | (() => number | null) = COMPACTION_NUDGE_PERCENT + 1,
   piVccLoaded = true,
-  options: { sendMessageThrows?: boolean } = {},
+  options: { sendMessageThrows?: boolean; authority?: "legacy" | "coordinator" } = {},
 ) => {
   (globalThis as any)[PI_VCC_LOAD_MARKER] = piVccLoaded;
+  process.env.PI_VCC_CONTINUATION_AUTHORITY = options.authority ?? "legacy";
 
   const handlers: HandlerMap = {};
   const commands: CommandMap = {};
@@ -25,6 +26,8 @@ const setup = (
   const notifications: Array<{ message: string; level: string }> = [];
   const compactCalls: Array<any> = [];
   const sentMessages: Array<{ message: any; options: any }> = [];
+  const appendedEntries: Array<{ customType: string; data: any }> = [];
+  const emittedEvents: Array<{ channel: string; data: any }> = [];
   let remainingSendMessageFailures = options.sendMessageThrows ? Number.POSITIVE_INFINITY : 0;
   if (typeof (options as any).sendMessageFailures === "number") {
     remainingSendMessageFailures = (options as any).sendMessageFailures;
@@ -55,6 +58,13 @@ const setup = (
     registerTool: (tool: any) => {
       tools[tool.name] = tool;
     },
+    appendEntry: (customType: string, data: any) => {
+      appendedEntries.push({ customType, data });
+    },
+    events: {
+      emit: (channel: string, data: any) => emittedEvents.push({ channel, data }),
+      on: () => () => {},
+    },
     sendMessage: (message: any, messageOptions: any) => {
       if (remainingSendMessageFailures > 0) {
         remainingSendMessageFailures -= 1;
@@ -64,7 +74,7 @@ const setup = (
     },
   } as any);
 
-  return { handlers, commands, tools, notifications, compactCalls, sentMessages, ctx };
+  return { handlers, commands, tools, notifications, compactCalls, sentMessages, appendedEntries, emittedEvents, ctx };
 };
 
 const assistantStop = { message: { role: "assistant", stopReason: "stop" }, toolResults: [] };
@@ -911,6 +921,72 @@ describe("percentage-compaction extension", () => {
 
     expect(result).toEqual({ cancel: true });
     expect(notifications.some((entry) => entry.level === "error" && entry.message.includes("Pi-vcc is not loaded"))).toBe(true);
+  });
+
+  test("coordinator authority publishes durable request before advisory wake and never sends legacy continuation", async () => {
+    const { handlers, compactCalls, sentMessages, appendedEntries, emittedEvents, ctx } = setup(96.2, true, { authority: "coordinator" });
+
+    await handlers.turn_end?.(assistantToolUse(1, [toolResult("tc_1", "read", "source")]), ctx);
+    await delay(0);
+    compactCalls[0].onError(new Error("Compaction cancelled"));
+
+    expect(sentMessages.filter((entry) => entry.message.customType === "pi-vcc-continuation")).toHaveLength(0);
+    expect(appendedEntries).toHaveLength(1);
+    expect(appendedEntries[0].customType).toBe("pi-vcc-continuation-request");
+    expect(emittedEvents).toHaveLength(1);
+    expect(emittedEvents[0].channel).toBe("pi-vcc:continuation-requested");
+    expect(appendedEntries[0].data.snapshot.transactionId).toBe(emittedEvents[0].data.transactionId);
+    expect(appendedEntries[0].data.snapshot.origin).toBe("hard-backstop");
+    expect(appendedEntries[0].data.snapshot.reason).toBe("cancelled");
+  });
+
+  test("compact_context resume policy is persisted and active/terminal/auto semantics are deterministic", async () => {
+    const active = setup(65, true, { authority: "coordinator" });
+    const activeResult = await active.tools.compact_context.execute("tc_active", {
+      reason: "done",
+      boundary: "subtask_complete",
+      resumePolicy: "active",
+    });
+    expect(activeResult.details.resumePolicy).toBe("active");
+    expect(activeResult.details.willResume).toBe(true);
+
+    const terminal = setup(65, true, { authority: "coordinator" });
+    const terminalResult = await terminal.tools.compact_context.execute("tc_terminal", {
+      reason: "continue remaining work",
+      boundary: "after_test_loop",
+      resumePolicy: "terminal",
+    });
+    expect(terminalResult.details.willResume).toBe(false);
+
+    const auto = setup(65, true, { authority: "coordinator" });
+    const autoResult = await auto.tools.compact_context.execute("tc_auto", {
+      reason: "done",
+      boundary: "after_test_loop",
+    });
+    expect(autoResult.details.resumePolicy).toBe("auto");
+    expect(autoResult.details.willResume).toBe(true);
+    expect(activeResult.details.requestId).not.toBe(terminalResult.details.requestId);
+  });
+
+  test("mismatched hard-backstop completion cannot erase pending compact_context request", async () => {
+    let percent = 81;
+    const { handlers, tools, compactCalls, ctx } = setup(() => percent, true, { authority: "coordinator" });
+    const queued = await tools.compact_context.execute("tc_request", {
+      reason: "remaining work",
+      boundary: "subtask_complete",
+      resumePolicy: "active",
+    });
+
+    await handlers.turn_end?.(assistantToolUse(2, []), ctx);
+    await delay(0);
+    expect(compactCalls).toHaveLength(1);
+    compactCalls[0].onComplete();
+
+    percent = 65;
+    await handlers.turn_end?.({ message: toolResult("tc_request"), toolResults: [] }, ctx);
+    await handlers.turn_end?.(assistantStop, ctx);
+    expect(compactCalls).toHaveLength(2);
+    expect(compactCalls[1].customInstructions).toContain(queued.details.requestId);
   });
 
   test("event matrix prevents repeated hard-backstop compaction across tool loops", async () => {

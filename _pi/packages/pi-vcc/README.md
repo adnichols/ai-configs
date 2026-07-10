@@ -11,8 +11,9 @@ Vendored into `ai-configs` from `sting8k/pi-vcc` so this repo can ship a pinned 
   - `/pi-vcc` carries the `__PI_VCC_MANUAL_BYPASS__` marker directly in-source so repo-managed auto-compaction and manual compaction both use pi-vcc without global patching
   - the compaction hook keeps the repo-local agent-only fallback tail and shifts the cut backward so a live `toolResult` never outlives its matching assistant tool call; if the kept tail would contain an orphaned tool result, pi-vcc reports a no-cut classification instead of forcing an unsafe cut
   - no-cut paths record diagnostic classifications such as `tiny_session`, `post_compaction_tail_too_short`, and `active_turn_no_safe_cut` for hook debugging and future extension status surfaces
-  - operational compaction failures and continuation-delivery failures are appended to `~/.pi/logs/pi-vcc.jsonl`, so repeated failures can be watched centrally with `tail -f ~/.pi/logs/pi-vcc.jsonl`
-  - when pi-vcc compacts before the assistant has finished its response, it sends a follow-up continue prompt after compaction so the agent resumes instead of stalling, with a reminder to use `vcc_recall` for pre-compaction details; compactions at the completed-response boundary stay silent
+  - continuation transactions use a strict privacy allowlist in `~/.pi/logs/pi-vcc.jsonl`; records distinguish created, waiting, submitted, consumed, progressed, settled, superseded, retrying, and failed without preserve/message/tool content or raw tool IDs
+  - when pi-vcc interrupts active work, one package coordinator persists the request, submits with `deliverAs: "steer"`, confirms matching lifecycle progress, retries bounded failures, and surfaces an actionable warning with transaction/attempt/compaction IDs, retry and pending-tool counts, log path, and manual action
+  - `PI_VCC_CONTINUATION_AUTHORITY=legacy` is the explicit rollback switch; the production default is `coordinator`, and the two authorities never send concurrently
   - high-value upstream `0.3.18` uptake is intentionally selective: TUI-safe wrapping, `bashExecution` normalization/search/report correctness fixes, keep-token parsing, compaction reason/willRetry metadata, and overflow retry fallback; upstream commit extraction is intentionally skipped/deferred because commit details remain available through transcript and recall
   - upstream `0.4.0` uptake is intentionally deferred while stabilizing the vendored fork; installer output suppresses the stale-upstream notice by default unless `PI_VCC_SHOW_UPSTREAM_STALE=1` is set
   - this vendored copy preserves redaction, including compressed bash command redaction, even though upstream removed `src/core/redact.ts`
@@ -205,6 +206,16 @@ Debug logging is off by default. Enable it in `~/.pi/agent/pi-vcc-config.json`:
 ```
 
 When enabled, each compaction writes detailed info to `/tmp/pi-vcc-debug.json` — message counts, cut boundary, summary preview, sections.
+
+Continuation rollout checks are read-only/no-network:
+
+```bash
+bash scripts/verify-pi-vcc-install.sh
+bash scripts/run-pi-vcc-continuation-soak.sh --candidate source --compactions 10 --fault-matrix all
+python3 scripts/audit-pi-vcc-continuations.py --require-terminal --sessions ~/.pi/agent/sessions --log ~/.pi/logs/pi-vcc.jsonl
+```
+
+The soak executes the selected source or installed candidate modules in an isolated Pi directory and records the no-provider host-faithful boundary explicitly; it never silently substitutes source for an installed candidate.
 
 ## Related Work
 

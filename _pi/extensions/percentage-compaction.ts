@@ -17,10 +17,15 @@ export const PI_VCC_LOAD_MARKER = "__ADN_PI_VCC_LOADED__";
 
 type NudgeBand = "soft" | "strong";
 type Boundary = "subtask_complete" | "before_topic_switch" | "after_test_loop" | "manual_recovery";
+type ResumePolicy = "active" | "terminal" | "auto";
+type ContinuationOutcome = "compacted" | "no-safe-cut" | "cancellation" | "failure";
+type ContinuationInitiator = "package-compact-now" | "compact_context" | "hard-backstop";
 
 interface PendingModelCompaction {
+  requestId: string;
   reason: string;
   boundary: Boundary;
+  resumePolicy: ResumePolicy;
   preserve?: string;
   requestedTurn: number;
   toolCallId?: string;
@@ -48,6 +53,7 @@ interface InterruptedCompactionTurn {
 
 interface PendingCompactionContinuation {
   attemptId: number;
+  originatingRequestId?: string;
   reason: "cancelled" | "failed";
   interrupted: InterruptedCompactionTurn;
   queuedTurn: number;
@@ -79,6 +85,13 @@ const COMPACTION_CONTINUATION_DELAY_MS = NO_CUT_CONTINUATION_DELAY_MS;
 const COMPACTION_CONTINUATION_MAX_WAIT_MS = NO_CUT_CONTINUATION_MAX_WAIT_MS;
 const COMPACTION_CONTINUATION_RETRY_MS = NO_CUT_CONTINUATION_RETRY_MS;
 const PI_VCC_LOG_PATH = join(homedir(), ".pi", "logs", "pi-vcc.jsonl");
+const CONTINUATION_PROTOCOL_NAME = "pi-vcc-continuation" as const;
+const CONTINUATION_PROTOCOL_VERSION = 1 as const;
+const CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE = "pi-vcc-continuation-request";
+const CONTINUATION_WAKE_EVENT = "pi-vcc:continuation-requested";
+const CONTINUATION_AUTHORITY_ENV = "PI_VCC_CONTINUATION_AUTHORITY";
+const CONTINUATION_DEADLINE_MS = 60_000;
+const CONTINUATION_RETRY_LIMIT = 2;
 
 // Keep this diagnostic sanitizer in sync with _pi/packages/pi-vcc/src/core/log.ts.
 const SECRET_KEY_PATTERN = /(^|[_-])(token|secret|authorization|password|api[_-]?key|apikey)($|[_-])/i;
@@ -216,11 +229,14 @@ const deliveredToolCallIds = (event: TurnEndEvent): string[] => {
   return [...ids];
 };
 
-const buildIntentInstructions = (pending: PendingModelCompaction) =>
+const buildIntentInstructions = (pending: PendingModelCompaction, attemptId: string) =>
   `${PI_VCC_MANUAL_BYPASS_MARKER}\n${JSON.stringify({
     source: "compact_context",
     reason: pending.reason,
     boundary: pending.boundary,
+    resumePolicy: pending.resumePolicy,
+    requestId: pending.requestId,
+    attemptId,
     ...(pending.preserve ? { preserve: pending.preserve } : {}),
   })}`;
 
@@ -240,6 +256,8 @@ const ACTIVE_SUBTASK_TEXT =
   /\b(continue|next steps?|next:|remaining|active|open todos?|run-plan active|in_progress|still running)\b/i;
 
 const shouldResumeAfterCompactContext = (pending: PendingModelCompaction): boolean => {
+  if (pending.resumePolicy === "active") return true;
+  if (pending.resumePolicy === "terminal") return false;
   if (
     pending.boundary === "after_test_loop" ||
     pending.boundary === "before_topic_switch" ||
@@ -256,8 +274,100 @@ const shouldResumeAfterCompactContext = (pending: PendingModelCompaction): boole
 
 const buildResumeMessage = (pending: PendingModelCompaction) =>
   `Pi VCC compaction completed for an active ${pending.boundary} workflow. Continue from the preserved state. ` +
-  "If the preserved state says the task is complete, blocked, stopped, or awaiting user input, " +
-  "report that instead of doing more work.";
+  "If the preserved state says the task is complete, blocked, stopped, or awaiting user input, report that instead of doing more work.";
+
+const continuationAuthority = () =>
+  process.env[CONTINUATION_AUTHORITY_ENV]?.trim().toLowerCase() === "legacy" ? "legacy" : "coordinator";
+
+const continuationAdapter = (initiator: ContinuationInitiator, outcome: ContinuationOutcome) => ({
+  origin: initiator === "compact_context" ? "compact_context"
+    : initiator === "hard-backstop" ? "hard-backstop"
+      : "package-command",
+  reason: outcome === "cancellation" ? "cancelled" : outcome === "failure" ? "failed" : outcome,
+});
+
+const logContinuationTransaction = (event: "created", snapshot: Record<string, any>, now: number) => {
+  try {
+    const epochs = snapshot.epochs as Record<string, number>;
+    const record = {
+      timestampEpoch: now,
+      event,
+      transactionId: snapshot.transactionId,
+      ...(snapshot.compactionId ? { compactionId: snapshot.compactionId } : {}),
+      attemptId: snapshot.attemptId,
+      ...(snapshot.requestId ? { requestId: snapshot.requestId } : {}),
+      ...(snapshot.originatingRequestId ? { originatingRequestId: snapshot.originatingRequestId } : {}),
+      origin: snapshot.origin,
+      reason: snapshot.reason,
+      resumePolicy: snapshot.resumePolicy,
+      state: snapshot.state,
+      retryCount: snapshot.retryCount,
+      retryLimit: snapshot.retryLimit,
+      submissionCount: snapshot.submissionCount,
+      elapsedMs: Math.max(0, now - snapshot.createdAt),
+      deadlineAt: snapshot.deadlineAt,
+      pendingToolCount: snapshot.pendingToolCount,
+      sessionEpoch: epochs.session,
+      inputEpoch: epochs.input,
+      agentEpoch: epochs.agent,
+      turnEpoch: epochs.turn,
+      messageEpoch: epochs.message,
+      settlementEpoch: epochs.settlement,
+    };
+    mkdirSync(dirname(PI_VCC_LOG_PATH), { recursive: true });
+    appendFileSync(PI_VCC_LOG_PATH, JSON.stringify(record) + "\n");
+  } catch {}
+};
+
+const publishContinuationRequest = (
+  pi: ExtensionAPI,
+  options: {
+    initiator: ContinuationInitiator;
+    outcome: ContinuationOutcome;
+    attemptId: string;
+    requestId?: string;
+    originatingRequestId?: string;
+    resumePolicy: ResumePolicy;
+    pendingToolCount: number;
+  },
+) => {
+  const createdAt = Date.now();
+  const transactionId = `vcc-${createdAt.toString(36)}-${options.attemptId}`;
+  const adapted = continuationAdapter(options.initiator, options.outcome);
+  const snapshot = {
+    protocol: CONTINUATION_PROTOCOL_NAME,
+    version: CONTINUATION_PROTOCOL_VERSION,
+    transactionId,
+    origin: adapted.origin,
+    reason: adapted.reason,
+    attemptId: options.attemptId,
+    ...(options.requestId ? { requestId: options.requestId } : {}),
+    ...(options.originatingRequestId ? { originatingRequestId: options.originatingRequestId } : {}),
+    resumePolicy: options.resumePolicy,
+    state: "created",
+    createdAt,
+    deadlineAt: createdAt + CONTINUATION_DEADLINE_MS,
+    pendingToolCount: options.pendingToolCount,
+    submissionCount: 0,
+    retryCount: 0,
+    retryLimit: CONTINUATION_RETRY_LIMIT,
+    epochs: { session: 0, input: 0, agent: 0, turn: 0, message: 0, settlement: 0 },
+  };
+  const wire = {
+    protocol: CONTINUATION_PROTOCOL_NAME,
+    version: CONTINUATION_PROTOCOL_VERSION,
+    kind: "request",
+    snapshot,
+  };
+  pi.appendEntry(CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE, wire);
+  pi.events.emit(CONTINUATION_WAKE_EVENT, {
+    transactionId,
+    attemptId: options.attemptId,
+    requestId: options.requestId,
+  });
+  logContinuationTransaction("created", snapshot, createdAt);
+  return transactionId;
+};
 
 export default function (pi: ExtensionAPI) {
   let compactionInFlight = false;
@@ -293,11 +403,13 @@ export default function (pi: ExtensionAPI) {
     pendingCompactionContinuation = undefined;
   };
 
-  const finishCompaction = (options: { compacted?: boolean } = {}) => {
+  const finishCompaction = (options: { compacted?: boolean; originatingRequestId?: string; clearPending?: boolean } = {}) => {
     compactionInFlight = false;
     activeCompactionOwner = undefined;
     currentCompactionAttemptId = undefined;
-    pendingModelCompaction = undefined;
+    if (options.clearPending || (options.originatingRequestId && pendingModelCompaction?.requestId === options.originatingRequestId)) {
+      pendingModelCompaction = undefined;
+    }
     lastNudgePercentBand = undefined;
     if (scheduledPiVccCompaction) {
       clearTimeout(scheduledPiVccCompaction);
@@ -497,6 +609,9 @@ export default function (pi: ExtensionAPI) {
       resumeMessage?: string;
       noCutRecovery?: NoCutRecoveryOptions;
       interruptedTurn?: InterruptedCompactionTurn;
+      initiator: ContinuationInitiator;
+      resumePolicy: ResumePolicy;
+      originatingRequestId?: string;
     },
   ) => {
     if (compactionInFlight) return false;
@@ -505,8 +620,10 @@ export default function (pi: ExtensionAPI) {
       return false;
     }
 
-    clearPendingNoCutContinuation();
-    clearPendingCompactionContinuation();
+    if (continuationAuthority() === "legacy") {
+      clearPendingNoCutContinuation();
+      clearPendingCompactionContinuation();
+    }
     compactionInFlight = true;
     activeCompactionOwner = "pi-vcc";
     const attemptId = ++nextCompactionAttemptId;
@@ -520,22 +637,34 @@ export default function (pi: ExtensionAPI) {
         if (currentCompactionAttemptId !== attemptId) return;
         if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
         noCutRetryState = undefined;
-        finishCompaction({ compacted: true });
+        finishCompaction({ compacted: true, originatingRequestId: options.originatingRequestId });
         ctx.ui.notify(options.completionMessage, "info");
         if (options.resumeMessage) {
-          try {
-            pi.sendMessage(
-              {
-                customType: "compaction-resume",
-                content: options.resumeMessage,
-                display: true,
-                details: { reason: options.reason },
-              },
-              { deliverAs: "followUp", triggerTurn: true },
-            );
-          } catch (err) {
-            logPiVccError("post_compaction_resume_delivery_failed", err, { reason: options.reason, attemptId });
-            ctx.ui.notify(`Post-compaction resume delivery failed: ${(err as Error).message}. Logged to ${PI_VCC_LOG_PATH}.`, "warning");
+          if (continuationAuthority() === "legacy") {
+            try {
+              pi.sendMessage(
+                {
+                  customType: "compaction-resume",
+                  content: options.resumeMessage,
+                  display: true,
+                  details: { reason: options.reason },
+                },
+                { deliverAs: "followUp", triggerTurn: true },
+              );
+            } catch (err) {
+              logPiVccError("post_compaction_resume_delivery_failed", err, { reason: options.reason, attemptId });
+              ctx.ui.notify(`Post-compaction resume delivery failed: ${(err as Error).message}. Logged to ${PI_VCC_LOG_PATH}.`, "warning");
+            }
+          } else {
+            publishContinuationRequest(pi, {
+              initiator: options.initiator,
+              outcome: "compacted",
+              attemptId: String(attemptId),
+              requestId: options.originatingRequestId,
+              originatingRequestId: options.originatingRequestId,
+              resumePolicy: options.resumePolicy,
+              pendingToolCount: options.interruptedTurn?.pendingToolCallIds.size ?? 0,
+            });
           }
         }
       },
@@ -559,10 +688,22 @@ export default function (pi: ExtensionAPI) {
           }
           awaitingPostCompactionAssistantResponse = false;
         }
-        if (ownsCurrentAttempt) finishCompaction();
+        if (ownsCurrentAttempt) finishCompaction({ originatingRequestId: options.originatingRequestId });
         if (noCutReason) {
           ctx.ui.notify("No safe compaction cut available; continuing session.", "info");
-          if (options.noCutRecovery) queueNoCutContinuation(ctx, noCutReason, options.noCutRecovery);
+          if (options.noCutRecovery && continuationAuthority() === "legacy") {
+            queueNoCutContinuation(ctx, noCutReason, options.noCutRecovery);
+          } else if (continuationAuthority() === "coordinator" && options.interruptedTurn?.interrupted) {
+            publishContinuationRequest(pi, {
+              initiator: options.initiator,
+              outcome: "no-safe-cut",
+              attemptId: String(attemptId),
+              requestId: options.originatingRequestId,
+              originatingRequestId: options.originatingRequestId,
+              resumePolicy: options.resumePolicy,
+              pendingToolCount: options.interruptedTurn.pendingToolCallIds.size,
+            });
+          }
         } else {
           if (!ownsCurrentAttempt) return;
           if (options.ratchetPercent !== undefined) lastAutoCompactionPercent = options.ratchetPercent;
@@ -580,7 +721,16 @@ export default function (pi: ExtensionAPI) {
             usagePercent: options.ratchetPercent,
           });
           ctx.ui.notify(`Compaction failed: ${err.message}; continuing interrupted turn if needed. Logged to ${PI_VCC_LOG_PATH}.`, "warning");
-          queueCompactionContinuation(ctx, attemptId, reason, options.interruptedTurn);
+          if (continuationAuthority() === "legacy") queueCompactionContinuation(ctx, attemptId, reason, options.interruptedTurn);
+          else if (options.interruptedTurn?.interrupted) publishContinuationRequest(pi, {
+            initiator: options.initiator,
+            outcome: reason === "cancelled" ? "cancellation" : "failure",
+            attemptId: String(attemptId),
+            requestId: options.originatingRequestId,
+            originatingRequestId: options.originatingRequestId,
+            resumePolicy: options.resumePolicy,
+            pendingToolCount: options.interruptedTurn.pendingToolCallIds.size,
+          });
         }
       },
     });
@@ -653,15 +803,24 @@ export default function (pi: ExtensionAPI) {
           type: "string",
           enum: ["subtask_complete", "before_topic_switch", "after_test_loop", "manual_recovery"],
         },
+        resumePolicy: {
+          type: "string",
+          enum: ["active", "terminal", "auto"],
+          description: "Whether successful compaction should resume active work; defaults to auto",
+        },
       },
     },
     async execute(toolCallId: string, params: any) {
       const reason = clampText(params.reason, 240) ?? "semantic boundary";
       const boundary = params.boundary as Boundary;
       const preserve = clampText(params.preserve, 500);
+      const resumePolicy = (params.resumePolicy ?? "auto") as ResumePolicy;
+      const requestId = `compact-context-${Date.now().toString(36)}-${toolCallId}`;
       pendingModelCompaction = {
+        requestId,
         reason,
         boundary,
+        resumePolicy,
         preserve,
         toolCallId,
         requestedTurn: turnCounter,
@@ -687,6 +846,8 @@ export default function (pi: ExtensionAPI) {
       const customInstructions = args.trim();
       const usage = ctx.getContextUsage();
       triggerCompaction(ctx, {
+        initiator: "package-compact-now",
+        resumePolicy: "terminal",
         customInstructions: customInstructions
           ? `${PI_VCC_MANUAL_BYPASS_MARKER}\n${customInstructions}`
           : PI_VCC_MANUAL_BYPASS_MARKER,
@@ -747,11 +908,13 @@ export default function (pi: ExtensionAPI) {
 
     for (const id of deliveredToolCallIds(event)) outstandingAssistantToolCallIds.delete(id);
     if (completedResponse) outstandingAssistantToolCallIds.clear();
-    clearDeliveredNoCutTools(event);
-    clearDeliveredCompactionContinuationTools(event);
-    if (noCutContinuationIsSafe(event)) sendPendingNoCutContinuation(ctx);
-    if (compactionContinuationIsSafe(event)) sendPendingCompactionContinuation(ctx);
-    if (pendingCompactionContinuation) return;
+    if (continuationAuthority() === "legacy") {
+      clearDeliveredNoCutTools(event);
+      clearDeliveredCompactionContinuationTools(event);
+      if (noCutContinuationIsSafe(event)) sendPendingNoCutContinuation(ctx);
+      if (compactionContinuationIsSafe(event)) sendPendingCompactionContinuation(ctx);
+      if (pendingCompactionContinuation) return;
+    }
 
     if (compactionInFlight || scheduledPiVccCompaction) return;
 
@@ -763,9 +926,12 @@ export default function (pi: ExtensionAPI) {
     if (pendingModelCompaction && canRunPendingCompaction(pendingModelCompaction, event, pendingToolResultDelivered)) {
       const pending = pendingModelCompaction;
       if (!uninterpretedFailure || pending.boundary === "manual_recovery") {
-        pendingModelCompaction = undefined;
+        const attemptToken = `compact-context-${nextCompactionAttemptId + 1}`;
         triggerCompaction(ctx, {
-          customInstructions: buildIntentInstructions(pending),
+          initiator: "compact_context",
+          resumePolicy: pending.resumePolicy,
+          originatingRequestId: pending.requestId,
+          customInstructions: buildIntentInstructions(pending, attemptToken),
           startMessage: `✓ Compacting at semantic boundary: ${pending.boundary}`,
           completionMessage: "Compacted with pi-vcc",
           ratchetPercent: usagePercent ?? undefined,
@@ -802,6 +968,8 @@ export default function (pi: ExtensionAPI) {
         return;
       }
       schedulePiVccCompaction(ctx, {
+        initiator: "hard-backstop",
+        resumePolicy: "active",
         startMessage: completedResponse
           ? `✓ Auto-compacting at ${currentPercent}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`
           : `↻ Context at ${currentPercent}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%). Interrupting agent for pi-vcc compaction...`,
@@ -832,8 +1000,10 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_compact", async () => {
     noCutRetryState = undefined;
-    clearPendingNoCutContinuation();
-    clearPendingCompactionContinuation();
+    if (continuationAuthority() === "legacy") {
+      clearPendingNoCutContinuation();
+      clearPendingCompactionContinuation();
+    }
     finishCompaction({ compacted: true });
   });
 

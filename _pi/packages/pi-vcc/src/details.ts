@@ -12,4 +12,7 @@ export interface PiVccCompactionDetails {
   willRetry?: boolean;
   compactionIntent?: CompactionIntent;
   retainedNonMessageEntries?: boolean;
+  continuationAttemptId?: string;
+  continuationRequestId?: string;
+  continuationResumePolicy?: "active" | "terminal" | "auto";
 }
