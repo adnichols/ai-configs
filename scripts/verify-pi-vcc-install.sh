@@ -12,7 +12,12 @@ settings="$agent_dir/settings.json"
 hash_tree() {
   local path="$1"
   if [[ ! -d "$path" ]]; then echo "missing"; return; fi
-  find "$path" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}'
+  (
+    cd "$path"
+    while IFS= read -r -d '' file; do
+      printf '%s  %s\n' "$(sha256sum "$file" | awk '{print $1}')" "$file"
+    done < <(find . -type f -print0 | sort -z)
+  ) | sha256sum | awk '{print $1}'
 }
 hash_file() {
   local path="$1"
