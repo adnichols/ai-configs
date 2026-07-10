@@ -48,7 +48,7 @@ const getRegisteredHandlers = async (
   const sentMessages: Array<{ message: any; options: any }> = [];
   const ctx = { isIdle: () => (typeof isIdle === "function" ? isIdle() : isIdle) };
 
-  registerBeforeCompactHook({
+  const pi = {
     on: (eventName: string, callback: (event: any, ctx?: any) => any) => {
       handlers[eventName] ??= [];
       handlers[eventName].push(callback);
@@ -59,6 +59,21 @@ const getRegisteredHandlers = async (
     sendMessage: (message: any, options: any) => {
       if (sendMessageImpl) return sendMessageImpl(message, options);
       sentMessages.push({ message, options });
+    },
+  } as any;
+  registerBeforeCompactHook(pi, {
+    authority: "coordinator",
+    request: (_input: any, _ctx: any) => {
+      const details = _input;
+      try {
+        pi.sendMessage({
+          customType: "pi-vcc-continuation",
+          content: "Pi-vcc compacted the active in-flight conversation. Continue and use vcc_recall if needed.",
+          display: false,
+          details,
+        }, { triggerTurn: true, deliverAs: "steer" });
+      } catch {}
+      return details;
     },
   } as any);
 
@@ -212,6 +227,8 @@ describe("package load marker", () => {
       on: () => {},
       registerCommand: () => {},
       registerTool: () => {},
+      appendEntry: () => {},
+      events: { on: () => () => {}, emit: () => {} },
     } as any);
 
     expect((globalThis as any)[PI_VCC_LOAD_MARKER]).toBe(true);
@@ -224,7 +241,7 @@ describe("compaction intent and overflow fallback", () => {
     const result = handler({
       preparation: basePreparation,
       branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","reason":"done","boundary":"subtask_complete","preserve":"keep tests"}',
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","reason":"done","boundary":"subtask_complete","preserve":"keep tests","attemptId":"attempt-1","transactionId":"transaction-1","resumePolicy":"active"}',
     });
 
     expect(result.cancel).toBeUndefined();
@@ -236,7 +253,13 @@ describe("compaction intent and overflow fallback", () => {
       reason: "done",
       boundary: "subtask_complete",
       preserve: "keep tests",
+      attemptId: "attempt-1",
+      transactionId: "transaction-1",
+      resumePolicy: "active",
     });
+    expect(result.compaction.details.continuationAttemptId).toBe("attempt-1");
+    expect(result.compaction.details.continuationTransactionId).toBe("transaction-1");
+    expect(result.compaction.details.continuationResumePolicy).toBe("active");
   });
 
   it("ignores malformed marker JSON payload but keeps marker behavior", async () => {
@@ -505,7 +528,7 @@ describe("active compaction continuation", () => {
     expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
   });
 
-  it("retries continuation delivery when sendMessage briefly fails", async () => {
+  it("does not claim delivery when coordinator submission throws synchronously", async () => {
     const sentMessages: Array<{ message: any; options: any }> = [];
     let attempts = 0;
     const { handlers, ctx } = await getRegisteredHandlers(true, (message, options) => {
@@ -527,9 +550,8 @@ describe("active compaction continuation", () => {
     }, ctx);
     await delay(200);
 
-    expect(attempts).toBeGreaterThanOrEqual(2);
-    expect(sentMessages).toHaveLength(1);
-    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
+    expect(attempts).toBe(1);
+    expect(sentMessages).toHaveLength(0);
   });
 
   it("does not prompt after the assistant has finished the turn", async () => {

@@ -4,7 +4,8 @@ import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { compile } from "../core/summarize";
-import { logPiVccError, logPiVccEvent } from "../core/log";
+import { logPiVccEvent } from "../core/log";
+import type { ContinuationCoordinator } from "../core/coordinator";
 import { parseKeepAndPrompt, PI_VCC_COMPACT_INSTRUCTION } from "../core/compact-args";
 import type { PiVccCompactionDetails } from "../details";
 import type { CompactionIntent, CompactionReason, NoCutClassification } from "../types";
@@ -14,11 +15,6 @@ export { PI_VCC_COMPACT_INSTRUCTION } from "../core/compact-args";
 const CONFIG_PATH = join(homedir(), ".pi", "agent", "pi-vcc-config.json");
 const MIN_MESSAGES_TO_COMPACT = 3;
 const AGENT_ONLY_FALLBACK_TAIL_MESSAGES = 4;
-const CONTINUE_AFTER_COMPACTION_PROMPT =
-  "Pi-vcc compacted the active in-flight conversation. Continue from where you left off; use vcc_recall if you need details from before compaction, and resume the next concrete step without summarizing the compaction.";
-const CONTINUE_AFTER_COMPACTION_DELAY_MS = 50;
-const CONTINUE_AFTER_COMPACTION_MAX_WAIT_MS = 60000;
-const CONTINUE_AFTER_COMPACTION_RETRY_MS = 100;
 
 export interface CompactionStats {
   summarized: number;
@@ -71,10 +67,10 @@ const parseCompactionIntent = (customInstructions?: string): CompactionIntent | 
     const parsed = JSON.parse(payload.slice(jsonStart));
     if (!parsed || typeof parsed !== "object") return undefined;
     const intent: CompactionIntent = {};
-    for (const key of ["source", "reason", "boundary", "preserve"] as const) {
+    for (const key of ["source", "reason", "boundary", "preserve", "requestId", "attemptId", "transactionId", "resumePolicy"] as const) {
       const value = parsed[key];
       const cleaned = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
-      if (cleaned) intent[key] = cleaned.slice(0, 500);
+      if (cleaned) intent[key] = cleaned.slice(0, 500) as never;
     }
     return Object.keys(intent).length ? intent : undefined;
   } catch {
@@ -255,20 +251,11 @@ function buildOwnCut(
   };
 }
 
-export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
+export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: ContinuationCoordinator) => {
   let agentTurnActive = false;
   let activeAgentFinishedResponse = false;
-  let continueTimer: ReturnType<typeof setTimeout> | undefined;
-
-  const cancelPendingContinuation = (reason: string) => {
-    if (!continueTimer) return;
-    clearTimeout(continueTimer);
-    continueTimer = undefined;
-    logPiVccEvent("continuation_cancelled", { reason });
-  };
 
   pi.on("agent_start", () => {
-    cancelPendingContinuation("agent_started");
     agentTurnActive = true;
     activeAgentFinishedResponse = false;
   });
@@ -285,7 +272,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
     activeAgentFinishedResponse = false;
   });
 
-  pi.on("session_compact", (event) => {
+  pi.on("session_compact", (event, ctx) => {
     const details = event.compactionEntry.details as PiVccCompactionDetails | undefined;
     if (details?.compactor !== "pi-vcc") return;
     logPiVccEvent("session_compact", {
@@ -297,56 +284,24 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       sourceMessageCount: details.sourceMessageCount,
       retainedNonMessageEntries: details.retainedNonMessageEntries,
     });
-    if (!details.interruptedInFlightTurn) return;
-    if (event.willRetry === true || details.requiresContinuation === false) return;
-    if (continueTimer) {
-      logPiVccEvent("continuation_already_pending", {
-        compactionEntryId: event.compactionEntry.id,
-        reason: details.reason,
-        willRetry: details.willRetry,
-      });
-      return;
-    }
-
-    logPiVccEvent("continuation_scheduled", {
-      compactionEntryId: event.compactionEntry.id,
-      reason: details.reason,
-      willRetry: details.willRetry,
-    });
-
-    const startedAt = Date.now();
-    const sendContinuation = () => {
-      try {
-        continueTimer = undefined;
-        pi.sendMessage(
-          {
-            customType: "pi-vcc-continuation",
-            content: CONTINUE_AFTER_COMPACTION_PROMPT,
-            display: false,
-            details: { compactor: "pi-vcc" },
-          },
-          { triggerTurn: true, deliverAs: "steer" },
-        );
-        logPiVccEvent("continuation_delivered", {
-          compactionEntryId: event.compactionEntry.id,
-          reason: details.reason,
-          willRetry: details.willRetry,
-        });
-      } catch (err) {
-        if (Date.now() - startedAt < CONTINUE_AFTER_COMPACTION_MAX_WAIT_MS) {
-          continueTimer = setTimeout(sendContinuation, CONTINUE_AFTER_COMPACTION_RETRY_MS);
-        } else {
-          logPiVccError("continuation_delivery_failed", err, {
-            reason: details.reason,
-            willRetry: details.willRetry,
-            compactionEntryId: event.compactionEntry.id,
-          });
-          continueTimer = undefined;
-        }
-      }
-    };
-
-    continueTimer = setTimeout(sendContinuation, CONTINUE_AFTER_COMPACTION_DELAY_MS);
+    const commandOrigin = details.compactionIntent?.source === "package-pi-vcc" || details.compactionIntent?.source === "package-compact-now";
+    if (!commandOrigin && !details.interruptedInFlightTurn) return;
+    if (event.willRetry === true || (!commandOrigin && details.requiresContinuation === false)) return;
+    if (details.compactionIntent?.source === "compact_context") return;
+    coordinator.request({
+      initiator: details.compactionIntent?.source === "package-compact-now" ? "package-compact-now"
+        : details.compactionIntent?.source === "compact_context" ? "compact_context"
+        : details.reason === "threshold" ? "host-threshold"
+          : details.reason === "overflow" ? "host-overflow"
+            : "package-pi-vcc",
+      outcome: "compacted",
+      attemptId: details.continuationAttemptId ?? details.compactionIntent?.attemptId ?? event.compactionEntry.id,
+      compactionId: event.compactionEntry.id,
+      requestId: details.continuationRequestId ?? details.compactionIntent?.requestId,
+      originatingRequestId: details.continuationRequestId ?? details.compactionIntent?.requestId,
+      resumePolicy: details.continuationResumePolicy ?? details.compactionIntent?.resumePolicy ?? "active",
+      transactionId: details.continuationTransactionId ?? details.compactionIntent?.transactionId,
+    }, ctx);
   });
 
   pi.on("session_before_compact", (event) => {
@@ -466,6 +421,10 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI) => {
       willRetry,
       compactionIntent,
       retainedNonMessageEntries,
+      continuationAttemptId: compactionIntent?.attemptId,
+      continuationRequestId: compactionIntent?.requestId,
+      continuationTransactionId: compactionIntent?.transactionId,
+      continuationResumePolicy: compactionIntent?.resumePolicy,
     };
 
     return {

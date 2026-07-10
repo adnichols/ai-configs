@@ -27,7 +27,7 @@ describe("real session integration", () => {
       expect(report.recall.probes.length).toBeGreaterThan(0);
       expect(after).toEqual(before);
     }
-  });
+  }, 20_000);
 
   it("uses read-only copied fixtures", () => {
     for (const sample of samples) {

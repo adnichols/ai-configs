@@ -1,6 +1,12 @@
 import { appendFileSync, mkdirSync } from "fs";
 import { homedir } from "os";
 import { dirname, join } from "path";
+import {
+  continuationLogRecordFor,
+  isStrictContinuationLogRecord,
+  type ContinuationLogEvent,
+} from "./log-schema";
+import type { ContinuationTransactionSnapshot } from "./continuation-protocol";
 
 export const PI_VCC_LOG_PATH = join(homedir(), ".pi", "logs", "pi-vcc.jsonl");
 
@@ -65,4 +71,20 @@ export const logPiVccEvent = (event: string, data: Record<string, unknown> = {})
 
 export const logPiVccError = (event: string, err: unknown, data: Record<string, unknown> = {}) => {
   logPiVccEvent(event, { ...data, error: serializeError(err) });
+};
+
+export const logContinuationTransaction = (
+  event: ContinuationLogEvent,
+  snapshot: ContinuationTransactionSnapshot,
+  now = Date.now(),
+) => {
+  try {
+    const record = continuationLogRecordFor(event, snapshot, now);
+    if (!isStrictContinuationLogRecord(record)) throw new TypeError("Invalid continuation transaction log record");
+    const logPath = getPiVccLogPath();
+    mkdirSync(dirname(logPath), { recursive: true });
+    appendFileSync(logPath, JSON.stringify(record) + "\n");
+  } catch {
+    // Logging must never interfere with compaction or recovery.
+  }
 };
