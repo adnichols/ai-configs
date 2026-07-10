@@ -32,7 +32,7 @@ After committed review fixes at `62c9b40`, source intentionally drifts from inst
 
 - Current package source tree hash: `1f3c72c63fbf16510acd7ef5b77973baca877c7f9bf3a970711aee3ddc96d0e7`.
 - Current standalone source extension SHA-256: `4ab45dee4cd10ec44b4158398453d93bd6b4bcd6538cc2a183f78823b4430df6`.
-- Installed stable/live remain at the initial committed candidate hashes above until parent installation.
+- After final installation, stable/live were updated to the committed review-fix source hashes: package `1f3c72c63fbf16510acd7ef5b77973baca877c7f9bf3a970711aee3ddc96d0e7`; extension `4ab45dee4cd10ec44b4158398453d93bd6b4bcd6538cc2a183f78823b4430df6`.
 
 ## Verification evidence
 
@@ -45,6 +45,8 @@ After review fixes, source soak evidence:
 
 - `bash scripts/run-pi-vcc-continuation-soak.sh --candidate source --compactions 10 --fault-matrix all` → PASS with the actual selected `createContinuationCoordinator`, host-faithful handlers/timers/EventBus/session mock, selected standalone extension publisher, and mixed-log audit.
 - `bash scripts/verify-pi-vcc-install.sh --source-only` → PASS.
-- Strict `bash scripts/verify-pi-vcc-install.sh` is expected to return nonzero before parent installation because source/stable and source/live hashes differ. This expected drift is not an installed rollout pass.
+- Strict `bash scripts/verify-pi-vcc-install.sh` after final installation → exit `0`, Pi `0.80.6`, matching package/extension hashes, registered package, enabled extension path.
+- `bash scripts/run-pi-vcc-continuation-soak.sh --candidate installed --compactions 10 --fault-matrix all` after final installation → PASS with 10 terminal coordinator transactions, selected installed standalone publisher, and strict audit.
+- `python3 scripts/audit-pi-vcc-continuations.py --require-terminal --sessions ~/.pi/agent/sessions --log ~/.pi/logs/pi-vcc.jsonl` → PASS after mixed-log recognition was restricted to strict transaction records tied to audited durable requests.
 
-The final candidate checkpoint/archive is recorded above. Post-install strict verifier and installed-soak results must still be appended before rollout is considered complete.
+The final candidate checkpoint/archive and post-install rollout evidence are recorded. No rollback execution is claimed.
