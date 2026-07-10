@@ -10,7 +10,9 @@ Recorded 2026-07-10 for the `pi-vcc-continuation-guarantee` implementation.
 - Original candidate checkpoint: `a860ec7` (`fix(pi-vcc): guarantee continuation after compaction`).
 - Original candidate archive: `/tmp/pi-vcc-rollback/candidate-a860ec7.tar.gz`.
 - Original candidate archive SHA-256: `c0afabd58761391c50d2f27dd1fb16bc34407d73c873561ed4c4ff18a77e2c9c`.
-- The `a860ec7` candidate archive is superseded by the current uncommitted review fixes. Parent will create the next committed candidate checkpoint/archive after review fixes are accepted; this artifact must then be updated with that commit and archive hash before installation.
+- The `a860ec7` candidate archive is superseded by final review-fix checkpoint `62c9b40` (`fix(pi-vcc): close continuation review gaps`).
+- Final candidate archive: `/tmp/pi-vcc-rollback/candidate-62c9b40.tar.gz`.
+- Final candidate archive SHA-256: `25e2cc258638b96bc04faa67add8c8728c228077df07938e81c6b4cec422562d`.
 
 ## Rollback switch and procedure
 
@@ -26,7 +28,7 @@ At the initial committed candidate before these review fixes, source/stable/live
 - Package source and stable mirror tree hash: `058ed95cc742175c4b9d58c335b31ef6b1ec8778ebbb0bd05c14a8067d700263`.
 - Standalone source and live extension SHA-256: `4a2101a55bd92be8e53a95842a442b474150085ffd0114bbc02d1732a694af4a`.
 
-After current uncommitted review fixes, source intentionally drifts from installed runtime until the parent performs the prescribed install:
+After committed review fixes at `62c9b40`, source intentionally drifts from installed runtime until the prescribed install:
 
 - Current package source tree hash: `1f3c72c63fbf16510acd7ef5b77973baca877c7f9bf3a970711aee3ddc96d0e7`.
 - Current standalone source extension SHA-256: `4ab45dee4cd10ec44b4158398453d93bd6b4bcd6538cc2a183f78823b4430df6`.
@@ -45,4 +47,4 @@ After review fixes, source soak evidence:
 - `bash scripts/verify-pi-vcc-install.sh --source-only` → PASS.
 - Strict `bash scripts/verify-pi-vcc-install.sh` is expected to return nonzero before parent installation because source/stable and source/live hashes differ. This expected drift is not an installed rollout pass.
 
-Parent must append the final committed candidate hash/archive plus post-install strict verifier and installed-soak results before rollout is considered complete.
+The final candidate checkpoint/archive is recorded above. Post-install strict verifier and installed-soak results must still be appended before rollout is considered complete.
