@@ -1,28 +1,47 @@
 ---
 name: linear
-description: "Linear: manage issues, projects, teams via GraphQL + curl."
-version: 1.0.0
+description: "Use when reading or managing Linear issues, projects, teams, comments, attachments, or documents. Prefer the authenticated ltui CLI; use direct GraphQL only as an explicit fallback when ltui cannot perform the operation."
+version: 1.1.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
 prerequisites:
-  env_vars: [LINEAR_API_KEY]
-  commands: [curl]
+  commands: [ltui]
 metadata:
   hermes:
-    tags: [Linear, Project Management, Issues, GraphQL, API, Productivity]
+    tags: [Linear, Project Management, Issues, ltui, Productivity]
 ---
 
-# Linear — Issue & Project Management
+# Linear via ltui — Issue & Project Management
 
-Manage Linear issues, projects, and teams directly via the GraphQL API using `curl`. No MCP server, no OAuth flow, no extra dependencies.
+Manage Linear issues, projects, teams, comments, attachments, and documents through the authenticated `ltui` CLI.
 
-## Setup
+## Authentication rule
 
-1. Get a personal API key from **Linear Settings > Account > Security & access > Personal API keys** (URL: https://linear.app/settings/account/security). Note: the org-level *Settings > API* page only shows OAuth apps and workspace-member keys, not personal keys.
-2. Set `LINEAR_API_KEY` in your environment (via `hermes setup` or your env config)
+1. Run `ltui auth list` to verify an authenticated profile.
+2. If a profile reports `hasKey: true`, Linear access is available even when `LINEAR_API_KEY` is absent from the Hermes environment.
+3. Do not ask Aaron to create or export `LINEAR_API_KEY` when authenticated `ltui` is available.
+4. Use direct GraphQL/curl only when `ltui` lacks the required operation or is unavailable. Ask for API-key setup only if that fallback is genuinely required and no authenticated path exists.
 
-## API Basics
+## Primary API: ltui
+
+Run commands from the relevant repository root so `.ltui.json` supplies the correct team/project defaults when present.
+
+```bash
+ltui auth list
+ltui --format json issues view NOD-1260 --include-comments --include-history
+ltui --format json issues attachments NOD-1260
+ltui --format json --limit 100 issues list --team NOD --state 'In Progress'
+ltui issues update NOD-1260 --state Done
+```
+
+Global flags such as `--format`, `--fields`, and `--limit` belong before the subcommand. Use each subcommand's `--help` rather than guessing unsupported flags.
+
+## Direct GraphQL fallback
+
+The remaining GraphQL examples and helper script in this skill are fallback-only. They require `LINEAR_API_KEY` and must not be selected merely because the environment variable is absent; first verify `ltui auth list` and whether `ltui` supports the operation.
+
+### API basics
 
 - **Endpoint:** `https://api.linear.app/graphql` (POST)
 - **Auth header:** `Authorization: $LINEAR_API_KEY` (no "Bearer" prefix for API keys)
@@ -37,7 +56,7 @@ curl -s -X POST https://api.linear.app/graphql \
   -d '{"query": "{ viewer { id name } }"}' | python3 -m json.tool
 ```
 
-## Python helper script (ergonomic alternative)
+### Python helper script (fallback alternative)
 
 For faster one-liners that don't need hand-written GraphQL, this skill ships a stdlib Python CLI at `scripts/linear_api.py`. Zero dependencies. Same auth (reads `LINEAR_API_KEY`).
 
@@ -53,11 +72,11 @@ python3 "$SCRIPT" raw 'query { viewer { name } }'
 
 All subcommands: `whoami`, `list-teams`, `list-projects`, `list-states`, `list-issues`, `get-issue`, `search-issues`, `create-issue`, `update-issue`, `update-status`, `add-comment`, `list-documents`, `get-document`, `search-documents`, `raw`. Run with `--help` for flags.
 
-Use the script when: you want a quick answer without crafting GraphQL. Use curl when: you need a query the script doesn't wrap, or you want to compose filters inline.
+Use the script only when `ltui` cannot perform the operation and direct GraphQL credentials are already available. Use curl for unsupported query shapes.
 
-## Repo-local `ltui` fallback / preferred path in code repos
+## Repo-local ltui configuration
 
-When working inside Aaron's code repos, first check for repo-local Linear configuration such as `.ltui.json` and the `ltui` CLI before falling back to raw GraphQL. This is especially useful when `LINEAR_API_KEY` is not exported in the Hermes process but the local `ltui` profile is already authenticated.
+When working inside Aaron's code repos, check repo-local Linear configuration such as `.ltui.json`. The local `ltui` profile owns authentication independently of the Hermes process environment.
 
 Typical pattern from a repo root:
 ```bash
