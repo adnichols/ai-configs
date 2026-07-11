@@ -93,7 +93,8 @@
           "reasoning": true,
           "thinkingLevelMap": {
             "minimal": "low",
-            "xhigh": "xhigh"
+            "xhigh": "xhigh",
+            "max": "max"
           },
           "input": ["text", "image"],
           "cost": {
@@ -111,7 +112,8 @@
           "reasoning": true,
           "thinkingLevelMap": {
             "minimal": "low",
-            "xhigh": "xhigh"
+            "xhigh": "xhigh",
+            "max": "max"
           },
           "input": ["text", "image"],
           "cost": {
@@ -129,7 +131,8 @@
           "reasoning": true,
           "thinkingLevelMap": {
             "minimal": "low",
-            "xhigh": "xhigh"
+            "xhigh": "xhigh",
+            "max": "max"
           },
           "input": ["text", "image"],
           "cost": {
