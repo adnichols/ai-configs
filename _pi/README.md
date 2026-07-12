@@ -74,7 +74,7 @@ Installed layout:
 
 The installer copies the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md`.
 
-The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` with Codex model IDs and thinking-level mappings preserved, so Pi uses the proxy instead of ChatGPT OAuth.
+The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route.
 
 `install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. Repository-owned agents use Sol medium for normal capable work, Sol high for consequential implementation and review, and Luna medium only for bounded structured feedback.
 

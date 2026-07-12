@@ -3,7 +3,7 @@
     "openai-codex": {
       "name": "OpenAI Codex (local CLI Proxy API)",
       "baseUrl": "http://127.0.0.1:8318/v1",
-      "api": "openai-completions",
+      "api": "openai-responses",
       "apiKey": "local-cliproxyapi",
       "headers": {
         "User-Agent": "codex-tui/0.142.5 (Linux; x86_64)",
