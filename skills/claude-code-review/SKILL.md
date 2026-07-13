@@ -21,7 +21,7 @@ python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_revi
 The launcher owns all Claude Code process mechanics. For required reviews, pass `--timeout-seconds 3600` unless the user explicitly asks for a longer limit; do not rely on implicit defaults or short outer tool timeouts.
 
 - creates a fresh private tmux server from the real caller process,
-- checks `claude auth status` inside that private tmux server as an early signal,
+- removes an inherited `CLAUDE_CONFIG_DIR` override and resolves `claude` through the configured non-interactive POSIX-style login shell (`sh`, `bash`, `zsh`, `ksh`, or `dash`), so stale harness profiles cannot shadow the current user login; unsupported shells fail clearly,
 - starts exactly one interactive Claude TUI with the launcher-internal command pinned to Opus 4.7 on Extra High (`claude --model claude-opus-4-7 --effort xhigh`),
 - pastes the prompt through tmux,
 - extracts only the answer region after the post-submit boundary,
@@ -59,8 +59,7 @@ Write the review prompt to a file, then pass that path via `--prompt-file`. Keep
 
 Launcher failures are classified and agent-legible:
 
-- missing `tmux` or `claude`,
-- private-tmux auth unavailable,
+- missing `tmux`, the configured login shell, or `claude`,
 - TUI reports not logged in,
 - TUI readiness timeout,
 - prompt-boundary uncertainty,

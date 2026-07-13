@@ -103,6 +103,19 @@ if [[ -n "$OUTPUT_PATH" ]]; then
   mkdir -p "$(dirname "$OUTPUT_PATH")"
 fi
 
+LOGIN_SHELL="${SHELL:-/bin/zsh}"
+if [[ ! -x "$LOGIN_SHELL" ]]; then
+  echo "Configured login shell is unavailable: $LOGIN_SHELL" >&2
+  exit 1
+fi
+case "${LOGIN_SHELL##*/}" in
+  sh|bash|zsh|ksh|dash) ;;
+  *)
+    echo "Configured login shell is unsupported for review automation: $LOGIN_SHELL; use sh, bash, zsh, ksh, or dash" >&2
+    exit 1
+    ;;
+esac
+
 TMP_OUTPUT="$(mktemp)"
 cleanup() {
   rm -f "$TMP_OUTPUT"
@@ -110,7 +123,7 @@ cleanup() {
 trap cleanup EXIT
 
 printf '%s\n\n%s' "$REVIEW_CONTRACT" "$PROMPT_CONTENT" |
-  env CODEX_REVIEW_PARTNER_ACTIVE=1 codex exec \
+  env CODEX_REVIEW_PARTNER_ACTIVE=1 "$LOGIN_SHELL" -l -c 'exec codex "$@"' codex exec \
     -m gpt-5.6-sol \
     -c 'model_reasoning_effort="high"' \
     -s read-only \

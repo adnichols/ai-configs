@@ -116,6 +116,27 @@ class LauncherTestCase(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
             self.assertIn("Fake Claude review body", output.read_text(encoding="utf-8"))
 
+    def test_login_shell_does_not_source_interactive_zshrc(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            env = self.make_fake_env(tmp)
+            (tmp / "zdotdir" / ".zshrc").write_text("export FAKE_CLAUDE_AUTH=0\n", encoding="utf-8")
+            proc = run_cmd(args, env=env, timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            self.assertIn("Fake Claude review body", output.read_text(encoding="utf-8"))
+
+    def test_non_posix_configured_login_shell_fails_clearly(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            unsupported_shell = tmp / "tcsh"
+            unsupported_shell.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+            unsupported_shell.chmod(0o755)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"SHELL": str(unsupported_shell)}), timeout=15)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("CLAUDE_REVIEW_UNSUPPORTED_LOGIN_SHELL", output.read_text(encoding="utf-8"))
+
     def test_prompt_cleared_tui_output_succeeds_before_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
@@ -126,14 +147,16 @@ class LauncherTestCase(unittest.TestCase):
             self.assertIn("Fake Claude review body", text)
             self.assertIn("clear_boundary=prompt-cleared marker/sentinel extraction before baseline", text)
 
-    def test_auth_preflight_false_fails_closed(self) -> None:
+    def test_inherited_claude_config_dir_is_removed_before_tui_launch(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             args, output = self.launcher_args(tmp)
-            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_AUTH": "0"}), timeout=20)
-            self.assertNotEqual(proc.returncode, 0)
-            self.assertIn("CLAUDE_AUTH_UNAVAILABLE_IN_TMUX_PREFLIGHT", output.read_text(encoding="utf-8"))
-            self.assertIn("inspect=tmux", output.read_text(encoding="utf-8"))
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {
+                "CLAUDE_CONFIG_DIR": "/stale/harness/profile",
+                "FAKE_CLAUDE_REJECT_CONFIG_DIR": "1",
+            }), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            self.assertIn("Fake Claude review body", output.read_text(encoding="utf-8"))
 
     def test_tui_not_logged_in_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -215,16 +238,6 @@ class LauncherTestCase(unittest.TestCase):
         spec.loader.exec_module(module)
         self.assertEqual(module.CLAUDE_REVIEW_MODEL, "claude-opus-4-7")
         self.assertEqual(module.CLAUDE_REVIEW_EFFORT, "xhigh")
-
-    def test_auth_status_accepts_compact_json(self) -> None:
-        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
-        self.assertIsNotNone(spec)
-        module = importlib.util.module_from_spec(spec)
-        assert spec and spec.loader
-        spec.loader.exec_module(module)
-        self.assertTrue(module.auth_status_logged_in('{"loggedIn":true,"authMethod":"fake"}\nEXIT=0\n'))
-        self.assertTrue(module.auth_status_logged_in('noise\n{"authMethod":"fake","loggedIn": true}\nEXIT=0\n'))
-        self.assertFalse(module.auth_status_logged_in('{"loggedIn":false,"authMethod":"none"}\nEXIT=1\n'))
 
     def test_prompt_cleared_answer_extraction_rejects_visible_prompt(self) -> None:
         spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)

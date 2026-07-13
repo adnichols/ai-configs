@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import secrets
@@ -86,10 +85,25 @@ def require_tool(name: str) -> None:
         raise LauncherError("CLAUDE_REVIEW_MISSING_PREREQUISITE", f"missing required tool: {name}")
 
 
+def login_shell() -> str:
+    shell = os.environ.get("SHELL") or "/bin/zsh"
+    resolved = shutil.which(shell)
+    if resolved is None:
+        raise LauncherError("CLAUDE_REVIEW_MISSING_PREREQUISITE", f"configured login shell is unavailable: {shell}")
+    if Path(resolved).name not in {"sh", "bash", "zsh", "ksh", "dash"}:
+        raise LauncherError(
+            "CLAUDE_REVIEW_UNSUPPORTED_LOGIN_SHELL",
+            f"configured login shell is unsupported for review automation: {resolved}; use sh, bash, zsh, ksh, or dash",
+        )
+    return resolved
+
+
 def require_claude_login_shell() -> None:
-    proc = run(["zsh", "-ilc", "command -v claude"], check=False, timeout=30)
+    env = os.environ.copy()
+    env.pop("CLAUDE_CONFIG_DIR", None)
+    proc = run([login_shell(), "-l", "-c", "command -v claude"], env=env, check=False, timeout=30)
     if proc.returncode != 0 or not proc.stdout.strip():
-        raise LauncherError("CLAUDE_REVIEW_MISSING_PREREQUISITE", "missing required tool in login shell: claude")
+        raise LauncherError("CLAUDE_REVIEW_MISSING_PREREQUISITE", "missing required tool in clean login shell: claude")
 
 
 def tmux(socket: str, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -145,40 +159,13 @@ def start_private_tmux(socket: str, session: str) -> None:
     tmux(socket, ["set-option", "-g", "history-limit", str(TMUX_HISTORY_LIMIT)], check=False)
 
 
-def auth_status_logged_in(text: str) -> bool:
-    decoder = json.JSONDecoder()
-    for index, char in enumerate(text):
-        if char != "{":
-            continue
-        try:
-            payload, _ = decoder.raw_decode(text[index:])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict) and payload.get("loggedIn") is True:
-            return True
-    return False
-
-
-def auth_preflight(socket: str, session: str, cwd: Path, output: Path) -> None:
-    auth_path = output.with_suffix(output.suffix + ".auth.json")
-    command = f"cd {sh_quote(str(cwd))} && zsh -ilc 'claude auth status; printf EXIT=%s\\n $?' > {sh_quote(str(auth_path))} 2>&1"
-    tmux(socket, ["new-window", "-t", session, "-n", "auth", command])
-    deadline = time.time() + 60
-    while time.time() < deadline:
-        if auth_path.exists() and "EXIT=" in auth_path.read_text(errors="replace"):
-            break
-        time.sleep(0.5)
-    text = auth_path.read_text(errors="replace") if auth_path.exists() else ""
-    if not auth_status_logged_in(text):
-        raise LauncherError("CLAUDE_AUTH_UNAVAILABLE_IN_TMUX_PREFLIGHT", "claude auth status inside private tmux did not report loggedIn true; run /login or unlock the keychain", 20)
-
-
 def sh_quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
 
 def launch_tui(socket: str, session: str, window: str, cwd: Path) -> None:
-    command = f"cd {sh_quote(str(cwd))} && zsh -ilc 'claude --model {CLAUDE_REVIEW_MODEL} --effort {CLAUDE_REVIEW_EFFORT}'"
+    shell_command = f"exec claude --model {CLAUDE_REVIEW_MODEL} --effort {CLAUDE_REVIEW_EFFORT}"
+    command = f"cd {sh_quote(str(cwd))} && env -u CLAUDE_CONFIG_DIR {sh_quote(login_shell())} -l -c {sh_quote(shell_command)}"
     tmux(socket, ["new-window", "-t", session, "-n", window, command])
     tmux(socket, ["resize-window", "-t", f"{session}:{window}", "-x", "220", "-y", "60"], check=False)
 
@@ -290,7 +277,6 @@ def run_smoke(args: argparse.Namespace) -> int:
         require_tool("tmux")
         require_claude_login_shell()
         start_private_tmux(socket, session)
-        auth_preflight(socket, session, cwd, output)
         launch_tui(socket, session, window, cwd)
         wait_for_prompt(socket, session, window, output, min(args.timeout_seconds, READY_TIMEOUT_SECONDS))
         text = f"CLAUDE_REVIEW_SMOKE_READY\nsocket={socket}\nsession={session}\nwindow={window}\nmodel={CLAUDE_REVIEW_MODEL}\neffort={CLAUDE_REVIEW_EFFORT}\nreadiness_regex={READY_RE.pattern}\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
@@ -321,7 +307,6 @@ def run_review(args: argparse.Namespace) -> int:
         session = "review"
         window = "claude-review"
         start_private_tmux(socket, session)
-        auth_preflight(socket, session, cwd, output)
         launch_tui(socket, session, window, cwd)
         wait_for_prompt(socket, session, window, output, min(args.timeout_seconds, READY_TIMEOUT_SECONDS))
         final_prompt = compose_prompt(prompt_file, marker, sentinel)

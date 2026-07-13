@@ -55,9 +55,11 @@ Optional output capture:
   --output /tmp/codex-plan-review.md
 ```
 
+The wrapper resolves `${SHELL:-/bin/zsh}` and invokes `codex` through a non-interactive POSIX-style login shell (`sh`, `bash`, `zsh`, `ksh`, or `dash`). This reloads the current user CLI/auth context instead of reusing a stale long-lived harness process environment; unsupported shells fail clearly.
+
 ## Direct CLI pattern
 
-Use this only when the wrapper is unnecessary:
+Use this only when the wrapper is unnecessary and login-shell normalization is not required:
 
 ```bash
 codex exec \

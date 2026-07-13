@@ -39,7 +39,9 @@ def interactive() -> int:
             print("Claude Code fake loading", flush=True)
             time.sleep(300)
             return 0
-        if os.environ.get("FAKE_CLAUDE_NOT_LOGGED_IN") == "1":
+        if os.environ.get("FAKE_CLAUDE_NOT_LOGGED_IN") == "1" or (
+            os.environ.get("FAKE_CLAUDE_REJECT_CONFIG_DIR") == "1" and os.environ.get("CLAUDE_CONFIG_DIR")
+        ):
             print("Not logged in · Please run /login", flush=True)
             time.sleep(300)
             return 0
