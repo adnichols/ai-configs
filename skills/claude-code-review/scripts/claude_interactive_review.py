@@ -135,7 +135,7 @@ def check_tui_unavailable(text: str, *, after_submit: bool = False) -> None:
     if re.search(r"not logged in|please run /login", text, re.I):
         suffix = " after submit" if after_submit else ""
         raise LauncherError("CLAUDE_AUTH_UNAVAILABLE_IN_TUI", f"Claude TUI reported not logged in{suffix}; run /login in Claude Code or unlock the keychain", 21)
-    if re.search(r"session limit|rate limit|limit reached|resets\s+\d", text, re.I):
+    if re.search(r"\bsession limit\b|\brate limit\b|\blimit reached\b|\bresets\s+\d", text, re.I):
         suffix = " after submit" if after_submit else ""
         raise LauncherError("CLAUDE_SESSION_LIMIT_IN_TUI", f"Claude TUI reported a session/rate limit{suffix}; wait for reset or choose a non-required review path only if the workflow allows it", 25)
 

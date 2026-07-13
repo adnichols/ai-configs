@@ -182,8 +182,12 @@ class LauncherTestCase(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         assert spec and spec.loader
         spec.loader.exec_module(module)
-        banner = "Extended: Fable 5 is included in your weekly limit. If you hit your limit, you can continue on Fable 5 with usage credits."
-        module.check_tui_unavailable(banner)
+        banners = [
+            "Extended: Fable 5 is included in your weekly limit. If you hit your limit, you can continue on Fable 5 with usage credits.",
+            "We're extending Claude Fable 5 access on all paid plans, as well as keeping Claude Code’s weekly rate limits 50% higher, through July 19.",
+        ]
+        for banner in banners:
+            module.check_tui_unavailable(banner)
 
     def test_collapsed_paste_can_establish_prompt_baseline(self) -> None:
         spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
