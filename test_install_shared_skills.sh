@@ -425,9 +425,13 @@ assert_shared_skill_install_state() {
   assert_file_contains "$home/.agents/skills/design-skill/.ai-configs-managed.json" '"source": "skills/design-skill"' || return 1
 
   [[ -f "$home/.agents/skills/herdr/SKILL.md" ]] || return 1
-  assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'external package=ogulcancelik/herdr skill=herdr' || return 1
+  assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'Do not gate Herdr use on `HERDR_ENV=1`' || return 1
+  assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'from an ordinary terminal' || return 1
   [[ -f "$home/.agents/skills/herdr/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/herdr/.ai-configs-managed.json" '"source": "external-package:ogulcancelik/herdr#herdr"' || return 1
+  assert_file_contains "$home/.agents/skills/herdr/.ai-configs-managed.json" '"source": "skills/herdr"' || return 1
+  if [[ -f "$home/.agents/fake-npx-skills.log" ]]; then
+    assert_file_not_contains "$home/.agents/fake-npx-skills.log" $'ogulcancelik/herdr\therdr' || return 1
+  fi
 
   [[ -d "$home/.claude/skills/custom-local" ]] || return 1
 
