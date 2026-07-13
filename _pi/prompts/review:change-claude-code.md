@@ -1,33 +1,31 @@
 ---
-description: Run a review-only change review using Claude Code through the canonical private-tmux interactive launcher
+description: Run a review-only change review using the deterministic background Claude Code review tool
 argument-hint: '[--claude-smoke] <existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
 ---
 
 # Change Review via Claude Code
 
-Run a read-only Claude Code review through the shared canonical launcher. Do not launch Claude Code directly from this prompt. Do not use `interactive_shell` for Claude, direct `process`/`bash` snippets, `claude -p` [FORBIDDEN-EXAMPLE], `claude --print` [FORBIDDEN-EXAMPLE], prompt piping, or any fallback transport.
+Run a read-only Claude Code review through the `claude_review` tool. Do not launch Claude Code or the canonical Python launcher through `bash`, `process`, `interactive_shell`, raw tmux, prompt piping, or another model provider.
 
 Documents to review: $ARGUMENTS
 
 ## Smoke mode
 
-If `$ARGUMENTS` is exactly `--claude-smoke`, run this from the current Pi prompt context and stop after reporting the result:
+If `$ARGUMENTS` is exactly `--claude-smoke`, call:
 
-```bash
-python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" --smoke --cwd "$PWD" --review-name pi-review-change-smoke --output /tmp/pi-claude-review-smoke.txt
+```text
+claude_review({
+  action: "smoke",
+  cwd: "$PWD",
+  output: "/tmp/pi-claude-review-smoke.txt"
+})
 ```
 
-Pass condition:
-
-```bash
-rg -n -e CLAUDE_REVIEW_SMOKE_READY -e socket -e session /tmp/pi-claude-review-smoke.txt
-```
-
-Smoke failure is a prerequisite/auth/readiness blocker from the real Pi caller context. Preserve the output and inspect command. Do not retry with a different Claude transport.
+The tool returns immediately and sends a completion notification. After notification, read `/tmp/pi-claude-review-smoke.txt` and require `CLAUDE_REVIEW_SMOKE_READY`, `socket=`, and `session=`. A classified failure is a prerequisite/auth/readiness blocker from the real Pi caller context. Do not retry with a different transport.
 
 ## Review mode
 
-This command is review-only and must use the canonical Claude Code launcher, which pins required Claude Code reviews to Opus 4.8 on Extra High.
+This command is review-only. The canonical launcher owns Claude model, effort, interactive TUI, tmux, prompt extraction, and timeout behavior.
 
 Your reviewer name is `CLAUDE`.
 
@@ -43,7 +41,7 @@ To respond to other reviewers in returned review text:
 [REVIEW:CLAUDE] RE: [OtherReviewer] - Your response [/REVIEW]
 ```
 
-The launcher is review-output-only. Claude must not edit the plan file directly; if inline plan comments are needed, report copyable `[REVIEW:CLAUDE] ... [/REVIEW]` comments in `/tmp/pi-claude-review-output.md`.
+Claude must not edit the plan. If inline plan comments are needed, it returns copyable comments in `/tmp/pi-claude-review-output.md`.
 
 ## Scope
 
@@ -69,15 +67,22 @@ Review the provided plan as a cohesive unit. Decide whether it is ready to execu
 ## Launch
 
 1. Resolve the plan path.
-2. Write the Claude review prompt to `/tmp/pi-claude-review-prompt.txt`.
-3. Run the shared launcher from the exact central path below as a single-line command, with no shell line continuations.
-4. Read `/tmp/pi-claude-review-output.md` after completion and validate whether Claude found blocker-level issues.
+2. Write the bounded read-only Claude prompt to `/tmp/pi-claude-review-prompt.txt`.
+3. Call:
 
-```bash
-python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" --cwd "$PWD" --prompt-file /tmp/pi-claude-review-prompt.txt --output /tmp/pi-claude-review-output.md --review-name pi-review-change-claude --timeout-seconds 900
+```text
+claude_review({
+  action: "start",
+  cwd: "$PWD",
+  promptFile: "/tmp/pi-claude-review-prompt.txt",
+  output: "/tmp/pi-claude-review-output.md"
+})
 ```
 
-The prompt written to `/tmp/pi-claude-review-prompt.txt` should instruct Claude Code to:
+4. Continue other work; do not poll.
+5. On the automatic completion notification, read `/tmp/pi-claude-review-output.md` and validate whether Claude found blocker-level issues.
+
+The prompt should instruct Claude Code to:
 
 - inspect the target plan,
 - look only for blockers, material risks, missing decisions, incorrect references, scope drift, or execution-readiness defects,
@@ -91,13 +96,15 @@ The prompt written to `/tmp/pi-claude-review-prompt.txt` should instruct Claude 
 
 ## Validate result
 
-After the launcher exits:
+After completion:
 
 - read `/tmp/pi-claude-review-output.md`,
-- if it begins with a classified launcher failure, report that blocker and the inspect/transcript path,
+- if the job or artifact reports a classified launcher failure, report that blocker and the inspect/transcript/log paths,
 - otherwise inspect the plan and confirm structure remains intact,
-- confirm any returned Claude comment suggestions use `[REVIEW:CLAUDE]`,
+- confirm returned Claude comment suggestions use `[REVIEW:CLAUDE]`,
 - report only material findings.
+
+A missing or malformed artifact is review infrastructure failure even when the child process exited zero.
 
 ## Summary format
 

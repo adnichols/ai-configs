@@ -1,6 +1,6 @@
 ---
 name: pre-pr-implementation-review
-description: Run a bounded pre-PR implementation review with a Codex review leg and an applicable Claude Code Opus 4.7 xhigh review leg, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, inside run-plan, or whenever the user asks for Codex plus applicable Claude Code code review of a branch/diff; inside run-plan this gate hands back to PR creation rather than waiting for any Codex PR thumbs-up.
+description: Run a bounded pre-PR implementation review with a Codex review leg and an applicable Claude Code review leg, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, inside run-plan, or whenever the user asks for Codex plus applicable Claude Code code review of a branch/diff; inside run-plan this gate hands back to PR creation rather than waiting for any Codex PR thumbs-up.
 ---
 
 # Pre-PR Implementation Review
@@ -98,7 +98,7 @@ Some runtimes expose an explicit Pi GPT/GLM wrapper for this same lifecycle. Tha
 Launch applicable reviewers in the same turn when possible:
 
 - **Codex** is the primary review leg. In Codex, run it as a Codex subagent/native review task when that facility is available; otherwise use `codex-review-partner` in `implementation-review` mode. In Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper.
-- **Claude Code** is the high-risk second-reviewer leg when the high-risk trigger or an explicit override applies. Use `claude-code-review` and its canonical private-tmux interactive launcher, pinned to Opus 4.7 on Extra High.
+- **Claude Code** is the high-risk second-reviewer leg when the high-risk trigger or an explicit override applies. Use `claude-code-review`; the canonical launcher owns model, effort, and private-tmux mechanics.
 
 Do not use Pi `quality-reviewer`, GLM reviewer profiles, GPT subagents, Kimi, OMP, OpenCode, or other model-subagent substitutes to satisfy the Codex/Claude Code gate described in this section. If the explicit Pi GPT/GLM wrapper is the selected surface, use the wrapper route above and label its output as Pi GPT/GLM evidence.
 
@@ -118,16 +118,18 @@ When this skill is invoked from Codex, run the Codex leg as a subagent/native re
 
 When this skill is invoked from Pi for the Codex/Claude Code route, run the Codex leg as a subprocess with that same wrapper; do not use a Pi GPT subagent for the Codex leg.
 
-Run Claude Code only when applicable:
+Run Claude Code only when applicable. In Pi, write the bounded prompt file and call:
 
-```bash
-python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" \
-  --cwd /path/to/repo \
-  --prompt-file /tmp/pre-pr-claude-review.md \
-  --output thoughts/validation/pre-pr-reviews/<date-branch>-claude.md \
-  --review-name claude-pre-pr-review \
-  --timeout-seconds 3600
+```text
+claude_review({
+  action: "start",
+  cwd: "/path/to/repo",
+  promptFile: "/tmp/pre-pr-claude-review.md",
+  output: "thoughts/validation/pre-pr-reviews/<date-branch>-claude.md"
+})
 ```
+
+Do not poll. Consume the completion notification and read the artifact. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
 
 The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate.
 
@@ -146,7 +148,7 @@ Use this prompt shape for each reviewer:
 ```text
 Read-only pre-PR implementation review. Do not edit files.
 
-Reviewer: <Codex | Claude Code Opus 4.7 xhigh>
+Reviewer: <Codex | Claude Code>
 Plan/scope: <plan path or standalone scope summary>
 Base/comparison: <base branch or range>
 Changed files:

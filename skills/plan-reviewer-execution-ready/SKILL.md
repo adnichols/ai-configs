@@ -42,7 +42,7 @@ Do not edit product code, tests, generated files, local environment files, or un
 Run these independent read-only readiness review legs:
 
 - **Codex** is the primary review leg. In Codex, run it as a Codex subagent/native review task when that facility is available; otherwise use `codex-review-partner` in `plan-review` mode. In Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper.
-- **Claude Code** is the high-risk second-reviewer leg. Run it only when the high-risk policy applies: data loss risk, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, another explicit P1/P2 risk surface, or an explicit override. Use `claude-code-review` and its canonical private-tmux interactive launcher, pinned to Opus 4.7 on Extra High.
+- **Claude Code** is the high-risk second-reviewer leg. Run it only when the high-risk policy applies: data loss risk, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, another explicit P1/P2 risk surface, or an explicit override. Use `claude-code-review`; the canonical launcher owns model, effort, and private-tmux mechanics.
 
 Do not use Pi `quality-reviewer`, GLM reviewer profiles, GPT subagents, Kimi, OMP, OpenCode, or other model-subagent substitutes for this gate. If Codex or a required Claude Code review is unavailable, stop with a tooling blocker and leave the plan not execution-ready unless the user explicitly waives the missing reviewer. If Claude Code is skipped under the low-risk policy, record the skip and override decision.
 
@@ -84,16 +84,18 @@ In Codex, run the Codex review leg as a subagent/native review task when availab
   --output thoughts/validation/<slug>-codex-plan-review.md
 ```
 
-Run Claude Code through the canonical launcher only when the high-risk second-reviewer trigger or an explicit override applies:
+Run Claude Code only when the high-risk second-reviewer trigger or an explicit override applies. In Pi, write the bounded prompt file and call:
 
-```bash
-python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" \
-  --cwd /path/to/repo \
-  --prompt-file /tmp/claude-plan-readiness-review.md \
-  --output thoughts/validation/<slug>-claude-plan-review.md \
-  --review-name claude-plan-readiness \
-  --timeout-seconds 3600
+```text
+claude_review({
+  action: "start",
+  cwd: "/path/to/repo",
+  promptFile: "/tmp/claude-plan-readiness-review.md",
+  output: "thoughts/validation/<slug>-claude-plan-review.md"
+})
 ```
+
+Do not poll. Consume the completion notification and read the artifact. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
 
 After material plan edits, rerun the Codex leg and any required Claude Code leg until all applicable reviewers clear by substance. Codex must not claim execution readiness if Codex independent review or a required Claude Code review is unavailable; ack with a tooling blocker and leave the plan not execution-ready.
 

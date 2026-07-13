@@ -378,7 +378,7 @@
         "pi"
       ],
       "canonicalSource": "skills/plan-reviewer-execution-ready",
-      "notes": "Codex/Pi: handles Doct plan execution-ready request comments with a Codex readiness-review leg plus applicable Claude Code Opus 4.7 xhigh review when the high-risk second-reviewer trigger applies; Pi invokes Codex as a subprocess.",
+      "notes": "Codex/Pi: handles Doct plan execution-ready request comments with a Codex readiness-review leg plus applicable canonical Claude Code review when the high-risk second-reviewer trigger applies; Pi invokes Codex as a subprocess.",
       "sourceType": "repo"
     },
     "internal-comms": {
@@ -524,7 +524,7 @@
         "pi"
       ],
       "canonicalSource": "skills/pre-pr-implementation-review",
-      "notes": "Pi/Codex: runs bounded pre-PR implementation review loops with a Codex review leg plus applicable Claude Code Opus 4.7 xhigh review when the high-risk second-reviewer trigger applies; Pi invokes Codex as a subprocess.",
+      "notes": "Pi/Codex: runs bounded pre-PR implementation review loops with a Codex review leg plus applicable canonical Claude Code review when the high-risk second-reviewer trigger applies; Pi invokes Codex as a subprocess.",
       "sourceType": "repo"
     },
     "repo-agents-bootstrap": {
@@ -558,7 +558,7 @@
         "pi"
       ],
       "canonicalSource": "skills/reviewed-html-plan",
-      "notes": "Pi/Codex: creates and gates HTML plans through Doct browser feedback, PM review, Codex plan review, and applicable Claude Code Opus 4.7 xhigh plan review; Pi invokes Codex as a subprocess.",
+      "notes": "Pi/Codex: creates and gates HTML plans through Doct browser feedback, PM review, Codex plan review, and applicable canonical Claude Code plan review; Pi invokes Codex as a subprocess.",
       "sourceType": "repo"
     },
     "review-change-integrate": {
@@ -609,7 +609,7 @@
         "pi"
       ],
       "canonicalSource": "skills/run-plan",
-      "notes": "Codex/Claude/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews, Codex plus applicable Claude Code Opus 4.7 xhigh pre-PR implementation review, fixes through full P1/P2/P3 consensus, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
+      "notes": "Codex/Claude/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews, Codex plus applicable canonical Claude Code pre-PR implementation review, fixes through full P1/P2/P3 consensus, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
       "sourceType": "repo"
     },
     "signing-entitlements": {

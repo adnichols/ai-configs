@@ -317,6 +317,32 @@ class GuardrailTestCase(unittest.TestCase):
             proc = self.run_guardrail(root)
             self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
 
+    def test_guardrail_rejects_direct_launcher_from_pi_surfaces(self) -> None:
+        bad_lines = [
+            'python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" --smoke',
+            "process({ action: 'start', command: 'python3 /tmp/claude_interactive_review.py' })",
+            "interactive_shell({ command: 'python3 /tmp/claude_interactive_review.py' })",
+            "/tmp/claude_interactive_review.py --smoke",
+        ]
+        for line in bad_lines:
+            with self.subTest(line=line), tempfile.TemporaryDirectory() as td:
+                root = Path(td) / "_pi" / "prompts"
+                root.mkdir(parents=True)
+                (root / "review:change-claude-code.md").write_text(line + "\n", encoding="utf-8")
+                proc = self.run_guardrail(Path(td))
+                self.assertNotEqual(proc.returncode, 0, proc.stdout)
+
+    def test_guardrail_allows_canonical_launcher_for_non_pi_consumers(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "skills" / "claude-code-review"
+            root.mkdir(parents=True)
+            (root / "SKILL.md").write_text(
+                'python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" --smoke\n',
+                encoding="utf-8",
+            )
+            proc = self.run_guardrail(Path(td))
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
     def test_guardrail_rejects_direct_transport_candidates(self) -> None:
         bad_lines = [
             "claude -p prompt",
@@ -412,7 +438,7 @@ class RealClaudeTestCase(unittest.TestCase):
                 "real-smoke",
                 "--timeout-seconds",
                 "120",
-            ], timeout=180)
+            ], timeout=300)
             self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
             self.assertIn("CLAUDE_REVIEW_SMOKE_READY", output.read_text(encoding="utf-8"))
 
@@ -437,7 +463,7 @@ class RealClaudeTestCase(unittest.TestCase):
                 "real-e2e-review",
                 "--timeout-seconds",
                 "300",
-            ], timeout=420)
+            ], timeout=660)
             text = output.read_text(encoding="utf-8") if output.exists() else ""
             if proc.returncode == 25 and "CLAUDE_SESSION_LIMIT_IN_TUI" in text:
                 self.skipTest("real Claude session/rate limit is active")

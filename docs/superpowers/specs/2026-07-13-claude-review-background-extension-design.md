@@ -123,10 +123,10 @@ For smoke jobs it invokes the same launcher with `--smoke` and a 120-second laun
 
 The extension starts the command with `node:child_process.spawn` using an argument array rather than a shell string. This avoids quoting ambiguity and prevents agent-controlled shell expansion.
 
-Outer watchdogs are fixed slightly beyond the launcher limits:
+Outer watchdogs cover the launcher's complete valid lifecycle—not only its answer timeout—including login-shell discovery, auth preflight, TUI readiness, prompt-boundary setup, teardown, and margin:
 
-- review: 3,690 seconds,
-- smoke: 180 seconds.
+- review: 4,200 seconds,
+- smoke: 300 seconds.
 
 There is no output-quietness timeout. Silence is not treated as failure.
 
@@ -141,27 +141,28 @@ Each job has:
 - start and completion timestamps,
 - child PID while running,
 - stdout and stderr log paths,
+- a durable terminal-state JSON path,
 - status: `running`, `succeeded`, `failed`, `timed_out`, or `cancelled`,
 - exit code and completion classification.
 
-The extension rejects a second active job targeting the same output path. Different output paths may run concurrently.
+The extension atomically reserves the canonicalized output identity before any awaited stale-output cleanup, rejects a second active job targeting that identity, and releases only the owning reservation. Different output paths may run concurrently.
 
 The initial `start` or `smoke` call returns immediately after the child has spawned successfully. A spawn failure is returned synchronously as a tool error.
 
 On child exit the extension validates the result:
 
-- Exit zero requires the output artifact to exist and contain the expected launcher success marker/metadata for that action.
+- Exit zero requires the output artifact to exist and contain the expected launcher success marker/metadata for that action; review artifacts must also contain a final `VERDICT:` line.
 - Nonzero exit requires a classified launcher failure artifact. Missing output is reported as review infrastructure failure with stdout/stderr log paths.
 - A zero exit with a missing or malformed artifact is infrastructure failure, never a clean review.
 - Completion notification is emitted exactly once with `pi.sendMessage(..., { triggerTurn: true })`.
 
-Notifications contain only a bounded summary. Full review content remains in the output artifact so large reviews do not flood the Pi context.
+Notifications contain only a bounded summary. Full review content remains in the output artifact so large reviews do not flood the Pi context. Active jobs plus a bounded terminal-history ring remain in memory; every terminal result is persisted to its JSON state file before old history is evicted.
 
 ## Shutdown behavior
 
 Active jobs are session-scoped in the first implementation.
 
-On `session_shutdown`, the extension terminates active launcher children, waits a short bounded grace period, force-kills remaining child process groups, and writes cancellation status to their job metadata. It does not leave an untracked Claude or launcher process running.
+On `session_shutdown`, the extension suppresses normal completion-triggered LLM turns, terminates active launcher children, waits a short bounded grace period, force-kills remaining child process groups, cleans job-owned private tmux sockets, and writes cancellation status to durable job metadata. It does not leave an untracked Claude or launcher process running or start work in a session being destroyed.
 
 Because the canonical launcher intentionally preserves failed tmux state for inspection, shutdown and cancellation messages must surface any output artifact, transcript, or tmux inspect command that the launcher produced before termination.
 
@@ -177,7 +178,7 @@ The extension adds a `tool_call` policy guard for Pi calls that attempt to invok
 Direct Claude review launcher invocation is disabled. Use claude_review.
 ```
 
-The guard also blocks direct `interactive_shell` Claude launches when the supplied command or prompt is explicitly a required plan/code review. It does not block unrelated interactive Claude delegation.
+The guard also blocks direct review-intent Claude launches through `bash`, `process`, or `interactive_shell`. It does not block unrelated Claude delegation or benign source inspection/diff/parity commands that merely reference the launcher path.
 
 The existing source scanner at `skills/claude-code-review/scripts/check_no_direct_claude_review_launches.py` is updated so `claude_review` is the only accepted Pi required-review entrypoint. Canonical launcher internals and approved tests remain exempt.
 

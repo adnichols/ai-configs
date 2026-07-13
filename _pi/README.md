@@ -252,7 +252,7 @@ Example installed agents:
 - `review-change-integrate`
 - `review-change-kimi`
 - `review-change-opus`
-- `review-change-claude-code` — Claude Code review-only pass through the shared private-tmux interactive launcher
+- `review-change-claude-code` — Claude Code review-only pass through the deterministic invisible-background `claude_review` tool; the shared launcher owns private-tmux Claude mechanics
 - `pre-pr-implementation-review` — runnable independently or automatically from `run-plan` before PR creation; it is not a terminal replacement for PM review, base freshness, opening the PR, or proving local merge readiness
 
 ## Usage
@@ -309,7 +309,7 @@ Use `/dev:pm-review <plan> implementation` after execution when you want a corre
 - `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
 - `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean GPT/GLM consensus over all in-scope P1/P2/P3 findings means `OPEN_PR_READY`; the runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for a Codex thumbs-up.
 - In Pi, `/cmd:execute-plan` starts a fresh session and launches the selected execution flow from clean context.
-- `/review:change-claude-code` remains available as an explicit manual review request; it is not an automatic planning-mode fallback.
+- `/review:change-claude-code` remains available as an explicit manual review request; it is not an automatic planning-mode fallback. It writes a bounded prompt and calls the repo-owned `claude_review` tool, which always runs without an overlay, returns immediately, and notifies Pi when the validated artifact is ready.
 
 Use `/dev:plan-from-prd <prd>` after a reviewed PRD delta is ready to become an execution plan.
 

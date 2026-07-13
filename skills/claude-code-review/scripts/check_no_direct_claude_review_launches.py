@@ -16,6 +16,8 @@ FORBIDDEN_FENCE = "forbidden-claude-launch"
 CANONICAL_LAUNCHER_SUFFIX = "claude-code-review/scripts/claude_interactive_review.py"
 GUARDRAIL_SUFFIX = "claude-code-review/scripts/check_no_direct_claude_review_launches.py"
 TEST_SUFFIX_FRAGMENT = "claude-code-review/tests/"
+EXTENSION_RUNTIME_SUFFIX = "_pi/extensions/claude-review/runtime.ts"
+EXTENSION_TEST_FRAGMENT = "_pi/extensions/claude-review/tests/"
 ALLOWED_LAUNCHER_FORMS = (
     "zsh -ilc 'command -v claude'",
     "claude auth status",
@@ -47,6 +49,7 @@ MULTILINE_DIRECT_PATTERNS = [
     re.compile(r"\bos\.execv?p?\s*\([^\n)]*\[[^\]]*['\"]claude['\"]", re.S),
     re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\s*=\s*\[\s*['\"]claude['\"]", re.S),
 ]
+PI_DIRECT_LAUNCHER_RE = re.compile(r"claude_interactive_review\.py", re.I)
 
 
 def rel_suffix(path: Path) -> str:
@@ -55,11 +58,21 @@ def rel_suffix(path: Path) -> str:
 
 def is_exempt_path(path: Path) -> bool:
     rel = rel_suffix(path)
-    return rel.endswith(GUARDRAIL_SUFFIX) or TEST_SUFFIX_FRAGMENT in rel
+    return (
+        rel.endswith(GUARDRAIL_SUFFIX)
+        or rel.endswith(EXTENSION_RUNTIME_SUFFIX)
+        or TEST_SUFFIX_FRAGMENT in rel
+        or EXTENSION_TEST_FRAGMENT in rel
+    )
 
 
 def is_launcher_path(path: Path) -> bool:
     return rel_suffix(path).endswith(CANONICAL_LAUNCHER_SUFFIX)
+
+
+def is_pi_path(path: Path) -> bool:
+    rel = rel_suffix(path)
+    return rel.startswith("_pi/") or "/_pi/" in rel
 
 
 def is_scan_path(path: Path) -> bool:
@@ -150,6 +163,10 @@ def scan_file(path: Path) -> list[tuple[int, str]]:
     findings: list[tuple[int, str]] = []
     seen_lines: set[int] = set()
     for idx, line in enumerate(lines):
+        if is_pi_path(path) and PI_DIRECT_LAUNCHER_RE.search(line):
+            findings.append((idx + 1, line.strip()))
+            seen_lines.add(idx + 1)
+            continue
         if not line_has_invocation_candidate(line):
             continue
         if is_marked_forbidden_example(lines, idx):

@@ -17,7 +17,7 @@ Load and follow these skills when this workflow reaches their surface:
 - `doct-document-ops` for HTML/Markdoc plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, Markdown/text fallback publishing, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
 - `codex-review-partner` for the read-only Codex plan-review leg. In Codex, use a Codex subagent/native review task when available; in Pi, run Codex as a subprocess through the installed wrapper.
-- `claude-code-review` for the read-only Claude Code Opus 4.7 xhigh plan-review leg when the high-risk second-reviewer trigger or an explicit override applies.
+- `claude-code-review` for the read-only Claude Code plan-review leg when the high-risk second-reviewer trigger or an explicit override applies; the canonical launcher owns model and effort selection.
 - Domain skills required by the target repository guidance, stack, or plan surface.
 
 If a required review tool is unavailable, follow the relevant skill's remediation first. Stop only when the dependency cannot be restored safely or the next step requires a real product decision.
@@ -139,16 +139,18 @@ In Codex, run the Codex leg as a subagent/native review task when available; oth
 
 In Pi, run the Codex leg as a subprocess with that same wrapper; do not use a Pi GPT subagent for the Codex leg.
 
-Run Claude Code through the canonical launcher only when the high-risk second-reviewer trigger or an explicit override applies:
+Run Claude Code only when the high-risk second-reviewer trigger or an explicit override applies. In Pi, write the bounded prompt file and dispatch it through the deterministic background tool:
 
-```bash
-python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" \
-  --cwd /path/to/repo \
-  --prompt-file /tmp/reviewed-html-plan-claude-review.md \
-  --output thoughts/validation/<slug>-claude-plan-review.md \
-  --review-name claude-reviewed-html-plan \
-  --timeout-seconds 3600
+```text
+claude_review({
+  action: "start",
+  cwd: "/path/to/repo",
+  promptFile: "/tmp/reviewed-html-plan-claude-review.md",
+  output: "thoughts/validation/<slug>-claude-plan-review.md"
+})
 ```
+
+Do not poll; consume the completion notification and then read the artifact. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
 
 Codex or Pi may integrate plan edits, but after material edits the coordinating agent must rerun Codex and any required Claude Code review before marking the plan execution-ready. If Codex or a required Claude Code reviewer is unavailable, leave the plan blocked on review infrastructure.
 
@@ -167,7 +169,7 @@ Use Codex for the primary review leg. The review input should include:
 
 #### Claude Code
 
-Use Claude Code only when the plan has the high-risk second-reviewer trigger or an explicit override. Use `claude-code-review` through its canonical private-tmux launcher, pinned to Opus 4.7 on Extra High. Give Claude Code a bounded readiness prompt, not open-ended repo exploration. Do not ask Claude Code to edit files.
+Use Claude Code only when the plan has the high-risk second-reviewer trigger or an explicit override. Use `claude-code-review`; in Pi this means the deterministic background `claude_review` tool, while non-Pi runtimes call the canonical launcher directly. The launcher owns model and effort selection. Give Claude Code a bounded readiness prompt, not open-ended repo exploration. Do not ask Claude Code to edit files.
 
 For both plan review legs, stay limited to readiness concerns, including at least:
 

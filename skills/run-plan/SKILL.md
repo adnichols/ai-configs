@@ -188,7 +188,7 @@ Before launching Claude Code, classify the review scope using the high-risk seco
 
 When this shared workflow is surfaced through Pi reviewer profiles instead of the Codex/Claude Code gate, preserve the current applicable GLM routing: use `glm5.2-high` for normal high-risk bounded review, reserve `glm5.2-xhigh` for final or exceptional-risk review, and treat `quality-reviewer-glm` as a legacy xhigh compatibility alias only. For low-risk/docs-only/UI-copy/tests/narrow follow-ups, record the GLM skipped classification rather than inventing a GLM verdict.
 
-When the Claude Code leg applies, use `claude-code-review` through its canonical private-tmux interactive launcher, pinned to Opus 4.7 on Extra High. Do not use Pi `quality-reviewer`, GLM reviewer profiles, GPT subagents, Kimi, OMP, OpenCode, or other model-subagent substitutes for this review. If a required Claude Code review is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
+When the Claude Code leg applies, use `claude-code-review`; the canonical launcher owns model, effort, and private-tmux mechanics. Do not use Pi `quality-reviewer`, GLM reviewer profiles, GPT subagents, Kimi, OMP, OpenCode, or other model-subagent substitutes for this review. If a required Claude Code review is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
@@ -272,7 +272,7 @@ Do not run redundant full reviewer gates over an unchanged diff. If the latest r
 When the standalone pre-PR gate is required, it must use:
 
 - Codex for the primary review leg. In Codex, use a Codex subagent/native review task when available; in Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper.
-- Claude Code via `claude-code-review` when the high-risk second-reviewer trigger or an explicit override applies, pinned to Opus 4.7 on Extra High.
+- Claude Code via `claude-code-review` when the high-risk second-reviewer trigger or an explicit override applies; the canonical launcher owns model and effort selection.
 
 For Pi-only GPT/GLM pre-PR surfaces that wrap this same lifecycle, the equivalent route is GPT plus applicable GLM using `glm5.2-high` for normal high-risk bounded review and `glm5.2-xhigh` for final or exceptional-risk review. Preserve truthful low-risk GLM skip records and do not route new work through the legacy `quality-reviewer-glm` alias except for compatibility with older independent GLM gates.
 
@@ -286,16 +286,18 @@ In Codex, satisfy this gate directly rather than delegating back to Pi. Run the 
   --output thoughts/validation/pre-pr-reviews/<date-branch>-codex.md
 ```
 
-When running from Pi, use the same wrapper to run Codex as a subprocess; do not use a Pi GPT subagent for the Codex leg. Run Claude Code only when applicable:
+When running from Pi, use the same wrapper to run Codex as a subprocess; do not use a Pi GPT subagent for the Codex leg. Run Claude Code only when applicable by writing the bounded prompt file and calling:
 
-```bash
-python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" \
-  --cwd /path/to/repo \
-  --prompt-file /tmp/pre-pr-claude-review.md \
-  --output thoughts/validation/pre-pr-reviews/<date-branch>-claude.md \
-  --review-name claude-pre-pr-review \
-  --timeout-seconds 3600
+```text
+claude_review({
+  action: "start",
+  cwd: "/path/to/repo",
+  promptFile: "/tmp/pre-pr-claude-review.md",
+  output: "thoughts/validation/pre-pr-reviews/<date-branch>-claude.md"
+})
 ```
+
+Do not poll. Consume the completion notification and read the artifact. Non-Pi runtimes follow `claude-code-review` and call the canonical Python launcher directly.
 
 The coordinating agent must consume the Codex and Claude Code review artifacts/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same applicable reviewer set after material fixes. If Codex or a required Claude Code reviewer is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the Codex/Claude gate.
 
@@ -303,7 +305,7 @@ Pass the plan path, base/comparison range, changed files, scope contract, and la
 
 Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and rerun all applicable reviewers within the bounded pre-PR review budget until they return no unresolved blocking in-scope P1/P2 findings. P3 findings block only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
-If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If Codex review infrastructure or a required Claude Code Opus 4.7 xhigh review is unavailable, stop unless the user explicitly waives this pre-PR gate.
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If Codex review infrastructure or a required Claude Code review is unavailable, stop unless the user explicitly waives this pre-PR gate.
 
 When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
@@ -400,7 +402,7 @@ A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for t
 
 1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
 2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with Codex and, when the high-risk second-reviewer trigger or explicit override applies, Claude Code. In Codex, run the Codex leg as a subagent/native review task when available; in Pi, run Codex as a subprocess through `codex-review-partner`. Run Claude Code through `claude-code-review` on Opus 4.7 xhigh when applicable. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why Claude Code remains skipped or provide the explicit override reason. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+3. Run read-only adversarial implementation reviews with Codex and, when the high-risk second-reviewer trigger or explicit override applies, Claude Code. In Codex, run the Codex leg as a subagent/native review task when available; in Pi, run Codex as a subprocess through `codex-review-partner`. Run Claude Code through `claude-code-review` when applicable; the canonical launcher owns model and effort selection. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why Claude Code remains skipped or provide the explicit override reason. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
 5. Repeat the adversarial reviewer-pair pass once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after both adversarial passes report no additional in-scope findings or only documented out-of-scope follow-ups.
 
