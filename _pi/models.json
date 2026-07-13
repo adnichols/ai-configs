@@ -103,7 +103,7 @@
             "cacheRead": 0.1,
             "cacheWrite": 1.25
           },
-          "contextWindow": 372000,
+          "contextWindow": 272000,
           "maxTokens": 128000
         },
         {
@@ -122,7 +122,7 @@
             "cacheRead": 0.5,
             "cacheWrite": 6.25
           },
-          "contextWindow": 372000,
+          "contextWindow": 272000,
           "maxTokens": 128000
         },
         {
@@ -141,7 +141,7 @@
             "cacheRead": 0.25,
             "cacheWrite": 3.125
           },
-          "contextWindow": 372000,
+          "contextWindow": 272000,
           "maxTokens": 128000
         }
       ]
