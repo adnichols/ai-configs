@@ -35,11 +35,13 @@ Capture these behaviors as defaults:
 - Root `AGENTS.md` tells agents to use the shared planning skill and names any repo-specific planning inputs or overrides.
 - Plan-first execution with phase checkpoints under the repo's canonical execution workflow.
 - In Pi-style reviewed-plan repos, the handoff stays explicit: `/review:plan` -> `/review:change-integrate` -> optional `/review:plan-adversarial` -> `/cmd:execute-plan` -> execution. Alternate reviewers such as `/review:change-claude-code` remain explicit opt-ins, not hidden fallbacks.
-- Phase advancement only when the latest review returns `VERDICT: PASS_NO_ISSUES`, or `VERDICT: PASS_LOW_RISK_ONLY` after each remaining item is proven out-of-scope, low-risk, not required for truthful verification, and logged in the repo's discovery ledger (for example `thoughts/discoveries/<plan-or-feature>.md`) plus the plan's `## Decisions / Deviations Log`.
+- Phase advancement requires no unresolved concrete in-scope blocker: unmet acceptance criteria, incomplete wiring, regressions, credible current-path security/data-loss/correctness risks, or misleading verification. Speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, and unsupported hypothetical paths do not block the phase and must not expand its scope.
+- Default to one implementation review plus one targeted rereview after fixes. A third round is allowed only when the prior fix introduced or exposed a new concrete blocker; after three total rounds, stop with a convergence blocker.
+- Complete the promised slice before advancement: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation. Resize an outcome before implementation if it cannot be delivered as an independently useful complete slice.
 - Resumability: `Progress` with stable IDs, explicit `Resume Instructions`, and append-only decision/deviation logs.
 - Evidence-first validation: lint, unit, build, e2e (and contract tests if applicable) before claiming done.
-- Review loops are hard gates: reviewer narrative alone never clears a phase; only the verdict-based phase-advance rule above can do that.
-- Execution feedback loops must reassess the `original test scope` and original plan when substantive misses appear; repeated or cross-surface misses widen coverage or plan scope instead of staying local.
+- Reviews are scoped reliability gates, not open-ended product audits. Reviewer findings must be triaged against the accepted current slice before any fix is made.
+- Execution feedback loops must reassess the original test scope and plan when substantive misses appear. Repeated or cross-surface misses trigger a scope/product decision or resize instead of automatic scope expansion.
 - Commit and push discipline with rationale, not just code diffs.
 - Test-first posture: define behavior before implementation wherever practical.
 - Keep planning depth `complexity-aware`: simple tasks stay lightweight, while non-trivial ready plans need complete contracts plus a `test coverage matrix` strong enough to catch partial implementations.

@@ -29,7 +29,9 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not let reviewer subagents edit files during review. Reviews are read-only.
 - Do not ask reviewers to review the whole product for open-ended problems.
 - Do not proceed past a blocked plan decision by silently choosing a larger scope.
-- Do not silently defer work that is required by the plan, required for verification, or introduced by this branch; fix it before merge or stop with a blocker.
+- Complete the promised slice before merge: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
+- If the promised outcome cannot be completed safely, stop and resize it to a smaller independently useful complete slice rather than shipping a partial skeleton.
+- Do not expand the change for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, or unsupported hypothetical paths.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
 - Do not create a PR until the GPT plus applicable Claude Code pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the Claude Code leg is truthfully skipped under the low-risk policy, or the user explicitly waives that gate.
 - Do not stop after the GPT/Claude Code pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
@@ -82,7 +84,7 @@ Two refinements override a naive "not introduced by this branch" reading of ques
 - If this diff creates, extends, or routes new inputs to a shared primitive (collector, rewriter, mapper, scanner, serializer, validator), that primitive's correctness across every input this diff can now feed it is in scope even if the primitive predates the branch.
 - A fail-closed/bail/reject path reachable by valid, schema-conformant input is in scope when this diff can route valid input to it; "it fails closed" is not a reason to defer. Deferral on fail-closed grounds is valid only when the closed path is reachable solely by invalid input.
 
-A finding may be deferred as `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an existing test — or add one — proving the deferred input class is handled or genuinely unreachable. A "fail-closed" or "pre-existing" deferral without that evidence is not valid.
+A finding may be recorded as `OUT_OF_SCOPE_FOLLOW_UP` when evidence shows it is not required for the accepted current behavior, truthful verification, or a regression caused by this diff. Evidence may come from the plan/product contract, supported-path definition, code reachability, or existing tests; do not add implementation or tests solely to prove a speculative or unsupported scenario is out of scope.
 
 ## Workflow
 
@@ -202,12 +204,12 @@ Finding | Source | Classification | Decision | Evidence
 For each scoped reviewer finding:
 
 - Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`.
-- Record `OUT_OF_SCOPE_FOLLOW_UP` without fixing it only after documenting why it is outside this plan, where it will be tracked, and a cited test proving the deferred input class is handled or unreachable. Without that test evidence, treat it as in scope.
+- Record `OUT_OF_SCOPE_FOLLOW_UP` without fixing it after documenting why it is outside this plan and where it will be tracked. Do not create code or tests solely to dispose of speculative future risks, unsupported paths, unrelated architecture work, or polish.
 - Stop and ask the user for `QUESTION`.
 
 Do not implement fixes directly from reviewer prose. Convert them through this triage step first.
 
-### 8. Repeat Review Loop
+### 8. Targeted Rereview
 
 After fixing in-scope findings:
 
@@ -215,7 +217,7 @@ After fixing in-scope findings:
 2. Rerun the first scoped quality review with the previous findings and current diff.
 3. Rerun the applicable Claude Code scoped review with the same bounded scope, or preserve the recorded low-risk skip when it still applies.
 4. If any reviewer returns `REVIEW_INCOMPLETE_RERUN_NEEDED`, run at most one narrowed follow-up slice for that cycle and append the result to a coverage ledger. If that follow-up is still incomplete or unusable, stop with a review-budget blocker or ask the user to waive/narrow the gate.
-5. Repeat until GPT and any applicable Claude Code reviewer return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` and the coverage ledger shows no incomplete required slices within the review budget.
+5. Stop after this targeted rereview when GPT and any applicable Claude Code reviewer return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS`, or report the remaining convergence/scope blocker. Run a third total review cycle only when the targeted rereview identifies a new concrete blocker introduced or exposed by the fix.
 
 The coverage ledger must record completed slices, the single allowed incomplete rerun slice, and final synthesized gate status.
 
@@ -225,7 +227,7 @@ Stop and report a convergence blocker if:
 - a narrow/optional component keeps producing new edge-case findings after two cycles and should be reverted, deferred, or redesigned instead of patched through review,
 - reviewers disagree on scope and the plan does not resolve it,
 - a needed fix would clearly expand the plan,
-- three total review cycles have run since the first scoped review.
+- three total review cycles have run since the first scoped review; the third cycle is permitted only for a new concrete blocker introduced or exposed by the prior fix.
 
 ### 9. GPT/Claude Code Pre-PR Review Gate
 
@@ -240,7 +242,7 @@ When the standalone pre-PR gate is required, it must use:
 
 Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
 
-Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and rerun all applicable reviewers within the bounded pre-PR review budget until they return no unresolved blocking in-scope P1/P2 findings. P3 findings block only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
+Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and run one targeted rereview limited to the findings and resulting edits. A third total review cycle is allowed only for a new concrete blocker introduced or exposed by the fix; otherwise return clean consensus or a convergence/scope blocker. P3 findings block only when they are plan-required, verification-required, or regression-caused; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
 If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If GPT review infrastructure or a required Claude Code review is unavailable, stop unless the user explicitly waives this pre-PR gate.
 
@@ -459,7 +461,7 @@ Classify every finding as exactly one of:
 - QUESTION
 
 Do not recommend unrelated cleanup, hardening, new features, or broad product audits.
-For an adjacent problem, first decide its severity and whether this diff can reach it, then classify. A problem this diff can trigger — including through a primitive it extends, or a fail-closed path reachable by valid input — is in scope even if the affected code predates the branch. Only problems genuinely unreachable from this diff go under OUT_OF_SCOPE_FOLLOW_UP, with the reason, a tracking destination, and a cited test showing the input is handled or unreachable.
+For an adjacent problem, first decide its severity and whether it is required for the accepted current behavior. A problem this diff can trigger on a supported current path — including through a primitive it extends or a fail-closed path reachable by valid input — is in scope even if the affected code predates the branch. Speculative future scale, unsupported paths, unrelated architecture work, and polish go under `OUT_OF_SCOPE_FOLLOW_UP` with the reason and tracking destination; do not expand the change merely to prove they are harmless.
 Do not put IN_PLAN, PLAN_PREREQUISITE, REGRESSION_FROM_THIS_DIFF, QUESTION, BDD gaps, verification gaps, implicit-only coverage, or plan-required work in a deferred/out-of-scope section.
 
 Return one verdict:

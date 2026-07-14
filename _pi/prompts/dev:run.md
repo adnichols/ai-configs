@@ -123,31 +123,32 @@ For each phase in order (as tracked by `## Progress`):
 
 #### Required post-implementation review pass
 
-After implementing the phase, delegate exactly one `quality-reviewer` pass with this prompt:
+After implementing the phase, delegate exactly one read-only `quality-reviewer` pass with this prompt:
 
-> Review the implementation of phase N of this plan: `<plan_path>`
+> Read-only review of phase N of this plan: `<plan_path>`. Do not edit files.
 >
-> Read the plan file fully. Find phase N and its `### Tests first`, `### Work`, `### End State`, and `### Verify` sections. Review the implementation for gaps, regressions, plan fidelity issues, missing counterexample/boundary/parity coverage, stale verify commands, stale fixtures/contracts, unresolved evidence-source mismatches, or phase-sizing defects that would make the phase unsafe to advance.
+> Read the plan file fully. Find phase N and its `### Tests first`, `### Work`, `### End State`, and `### Verify` sections. Report only concrete blockers within the promised slice: unmet acceptance criteria, incomplete wiring, regressions, credible current-path security/data-loss/correctness risks, or misleading verification.
 >
-> Do NOT flag style preferences, speculative enhancements, or test coverage beyond what the plan specifies or clearly implies.
+> Do NOT flag or propose fixes for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, unsupported hypothetical paths, or test coverage beyond what the plan specifies or clearly implies.
 >
-> Fix every non-low-risk issue directly during this pass. Do not just report issues.
+> Confirm that the promised slice is complete: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
 >
-> If the real problem is that the phase bundles too much work to converge safely as one slice, say so plainly instead of brute-forcing more edits.
+> If the real problem is that the phase cannot deliver an independently useful complete slice without changing scope, return a scope decision instead of expanding it.
 >
 > Start the final summary with exactly one of:
-> - `No issues found.`
-> - `Only low-risk items remain.`
-> - `Phase needs same-scope split.`
+> - `Phase clear.`
+> - `Blocking findings.`
+> - `Phase needs scope decision.`
 >
-> If only low-risk items remain, list them briefly with why each is outside the phase's required end state and where it should be tracked. Do not include plan-required work, verification gaps, BDD gaps, or regressions in this category.
+> List independent future enhancements only when useful, and state explicitly that they do not block or expand the current phase.
 
 #### Review pass handling
 
-- `No issues found.` -> the phase may advance after any missing verification is run.
-- `Only low-risk items remain.` -> first verify each item is outside the phase's required end state, planned tests, and verification truthfulness; log each item with evidence and tracking destination in `## Decisions / Deviations Log`, then the phase may advance after any missing verification is run.
-- `Phase needs same-scope split.` -> re-chunk the phase, log the split, and restart at the first new child phase.
-- Any other review result or failed verification -> keep the phase unchecked, investigate whether a same-scope split resolves it, and otherwise ask exactly one blocking question.
+- `Phase clear.` -> the phase may advance after any missing verification is run.
+- `Blocking findings.` -> verify and fix only concrete in-scope blockers, run targeted verification, then run one targeted rereview limited to the findings and resulting edits.
+- `Phase needs scope decision.` -> keep the phase unchecked and ask one blocking scope/product question; do not widen the phase automatically.
+- A third review round is allowed only when the previous fix introduced or exposed a new concrete blocker. After three total rounds, stop and report a convergence blocker.
+- Independent future enhancements, architecture improvements, polish, and unrelated defects do not block phase advancement and must not expand the change.
 
 #### Hard rule: never mark a failed phase complete
 

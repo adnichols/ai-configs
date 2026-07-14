@@ -7,7 +7,7 @@ description: Run a bounded pre-PR implementation review with a Codex review leg 
 
 Use this skill to catch implementation issues that would otherwise appear during pull request review. It is a code-review-and-fix loop, not a plan review, not a general cleanup pass, and not the end of `run-plan`.
 
-The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. This is local review-agent consensus, not a requirement to wait for a Codex PR bot comment, PR-hosted thumbs-up, `reviewDecision: APPROVED`, or any other external approval. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings must be triaged, but they are not automatically PR-blocking: fix them only when they are plan-required, verification-required, regression-caused, or a small safe cleanup; otherwise document them as non-blocking follow-ups with evidence.
+The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. This is local review-agent consensus, not a requirement to wait for a Codex PR bot comment, PR-hosted thumbs-up, `reviewDecision: APPROVED`, or any other external approval. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings are non-blocking unless they are plan-required, verification-required, or regressions caused by this change; do not fix optional polish merely because it is cheap.
 
 When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review; base freshness may still be pending until final verification and the scoped commit make a safe rebase possible. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement to the `run-plan` caller so it can rerun final verification if needed, complete base freshness safely, commit, push, open the PR, inspect the current PR snapshot for actionable feedback/mergeability, and complete once local merge-readiness consensus is proven. Do not tell the caller to wait for a Codex thumbs-up or human approval after local review-agent consensus is clean.
 
@@ -38,8 +38,8 @@ Do not use the current branch's same-named upstream as the PR base; that usually
 Reviewers must use these severities:
 
 - `P1`: PR-blocking production failure risk: security exposure, data loss, crash, broken core acceptance criterion, corrupt migration, dangerous concurrency/resource leak, or verification evidence that is materially false.
-- `P2`: PR-blocking correctness/reliability risk: user-visible regression, missing required edge-case handling, important error-handling gap, significant performance issue, API/contract mismatch, or tests that would allow a materially incomplete implementation to pass.
-- `P3`: lower-severity improvement, maintainability concern, or minor gap. P3 findings require an explicit disposition, but only block the gate when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately.
+- `P2`: PR-blocking correctness/reliability risk on the accepted current behavior: user-visible regression, missing required supported-path edge-case handling, important error-handling gap, significant current-path performance issue, API/contract mismatch, or tests that would allow a materially incomplete implementation to pass.
+- `P3`: lower-severity improvement, maintainability concern, polish, or minor gap. P3 findings require an explicit disposition, but block only when they are plan-required, verification-required, or regression-caused.
 
 Also classify every finding with the run-plan labels when a plan is present:
 
@@ -58,7 +58,7 @@ A finding is in scope — regardless of whether the affected code predates this 
 - This diff creates, extends, or routes new inputs to a shared primitive (collector, rewriter, mapper, scanner, serializer, validator). That primitive's correctness across every input this diff can now feed it is in scope. "Not introduced by this branch" does not apply to a primitive whose reachable input domain this branch changed.
 - The issue is a fail-closed/bail/reject path reachable by valid, schema-conformant input. Failing closed on valid input is an in-scope correctness/reliability regression, not a deferrable follow-up. "Fail-closed" justifies deferral only when the closed path is reachable solely by invalid input.
 
-A finding may be classified `OUT_OF_SCOPE_FOLLOW_UP` only when you can cite an existing test — or add one — proving the deferred input class is actually handled or genuinely unreachable. A deferral whose justification is "fail-closed" or "pre-existing," without that evidence, is not valid; treat it as in scope.
+A finding may be classified `OUT_OF_SCOPE_FOLLOW_UP` when evidence shows it is not required for the accepted current behavior, truthful verification, or a regression caused by this diff. Evidence may come from the product contract, supported-path definition, code reachability, or existing tests; do not add implementation or tests solely to prove a speculative or unsupported scenario is out of scope.
 
 ## Review loop
 
@@ -168,7 +168,7 @@ Classify every finding with:
 - Severity: P1, P2, or P3
 - Scope: IN_PLAN, PLAN_PREREQUISITE, REGRESSION_FROM_THIS_DIFF, OUT_OF_SCOPE_FOLLOW_UP, or QUESTION
 
-Every in-scope P1/P2 finding blocks a clean ready-for-PR verdict until it is fixed, rejected as a false positive with evidence, or reclassified as a true out-of-scope follow-up with evidence and a tracking destination. P3 findings block only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately; otherwise return them as non-blocking follow-ups.
+Every in-scope P1/P2 finding blocks a clean ready-for-PR verdict until it is fixed, rejected as a false positive with evidence, or reclassified as a true out-of-scope follow-up with evidence and a tracking destination. P3 findings block only when they are plan-required, verification-required, or regression-caused; otherwise return them as non-blocking follow-ups.
 
 Check especially:
 - security, auth, data loss, and privacy risks
@@ -208,19 +208,19 @@ Finding | Reviewer | Severity | Scope | Decision | Evidence
 
 For each finding:
 
-- Fix `P1`/`P2` findings classified `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`. Fix P3 only when plan-required, verification-required, regression-caused, or cheap and safe; otherwise document as a non-blocking follow-up.
+- Fix `P1`/`P2` findings classified `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`. Fix P3 only when plan-required, verification-required, or regression-caused; otherwise document it as a non-blocking follow-up.
 - Stop for user input on `QUESTION` findings that affect whether a finding should be fixed, deferred, or excluded from this PR.
-- Document `OUT_OF_SCOPE_FOLLOW_UP` findings with evidence, a tracking destination, and a cited test proving the deferred input class is handled or genuinely unreachable. If you cannot cite or add such a test, treat the finding as in scope rather than deferring it.
+- Document `OUT_OF_SCOPE_FOLLOW_UP` findings with evidence and a tracking destination. Do not create code or tests solely to dispose of speculative future risks, unsupported paths, unrelated architecture work, or polish.
 - Verify reviewer claims against the code before changing anything; false positives should be recorded as rejected with evidence.
 
-### 4. Fix, verify, and rereview until clean
+### 4. Fix, verify, and run one targeted rereview
 
 After applying any in-scope fix:
 
 1. Run the smallest meaningful targeted tests for the touched code.
 2. Rerun any plan-required verification invalidated by the fix.
-3. Rerun Codex and any applicable Claude Code reviewer against only the changed files and prior blocking findings, not as a fresh whole-diff hunt for unrelated new issues.
-4. Repeat until all applicable reviewers return `CLEAN_FOR_PR` by substance with no unresolved blocking in-scope P1/P2 findings, or until Codex is clean and Claude Code is truthfully skipped under the low-risk policy.
+3. Rerun Codex and any applicable Claude Code reviewer once against only the changed files, prior blocking findings, and resulting edits, not as a fresh whole-diff hunt for unrelated new issues.
+4. Allow a third total review cycle only when that targeted rereview identifies a new concrete blocker introduced or exposed by the fix. Otherwise stop after the targeted rereview with either `CLEAN_FOR_PR` or a convergence/scope blocker.
 
 Do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. Do not open or proceed to a PR while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and local merge-readiness checking. The pre-PR gate must not require a later Codex PR thumbs-up after its own Codex review leg is clean.
 
@@ -228,7 +228,7 @@ Hard stop the review loop when any of these is true:
 
 - two fix attempts do not resolve the same finding or same failure family,
 - a narrow/optional component keeps producing new edge-case findings after two cycles, indicating it should be reverted, deferred, or redesigned instead of patched through review,
-- three total review cycles have run since the initial pre-PR packet,
+- three total review cycles have run since the initial pre-PR packet; the third cycle is permitted only for a new concrete blocker introduced or exposed by the prior fix,
 - a P1/P2 fix requires a product or scope decision,
 - reviewers disagree on whether a finding is in scope and the plan does not resolve it,
 - required reviewer infrastructure is unavailable and the user has not waived it,

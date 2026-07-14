@@ -89,7 +89,7 @@ If incomplete, return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with exactly:
 4. Remaining checks
 5. One recommended narrow follow-up slice
 
-Thoroughness means scoped evidence plus a verdict or explicit incomplete-review handoff, not endless search. A partial scoped verdict with a clear coverage ledger is better than no verdict. Prioritize P1/P2 issues with measurable impact; include P3 findings only when they are plan-required, verification-required, regression-caused, or cheap and safe enough to fix immediately.
+Thoroughness means scoped evidence plus a verdict or explicit incomplete-review handoff, not endless search. A partial scoped verdict with a clear coverage ledger is better than no verdict. Prioritize P1/P2 issues with measurable current-path impact; include P3 findings only when they are plan-required, verification-required, or regression-caused. Do not recommend optional polish merely because it is cheap.
 
 ## Review Process
 

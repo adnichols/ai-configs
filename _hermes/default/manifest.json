@@ -3462,9 +3462,9 @@
       "sha256": "947964336ce83eca1f119e2a041934083cb10b066765d2bfd1a8ee7520dfa52f"
     },
     {
-      "bytes": 2414,
+      "bytes": 3407,
       "path": "profiles/nerd/skills/software-development/plan/SKILL.md",
-      "sha256": "2b53f82feb133ec65012004fd4e9917dfcb7c4b7952b9f465cd259dd4247f9d4"
+      "sha256": "c2fc1401517a1af630af2fca6c554bc3b5a80b6f58385dc4e7ee654140df1fe9"
     },
     {
       "bytes": 13172,
@@ -3502,9 +3502,9 @@
       "sha256": "39361054f58ecc8de9cac0f1364aee94e795a446030bb57595f7b7ca0c1ffbbe"
     },
     {
-      "bytes": 7116,
+      "bytes": 8343,
       "path": "profiles/nerd/skills/software-development/writing-plans/SKILL.md",
-      "sha256": "933ba96af41b636a5ed89e48d3c9bc836aeb0a9199145cd86b9101381ea31677"
+      "sha256": "dc761d28d13b688aa4f7b3da8f0140eefccaf848d4e2970621e6556c6fcb7bb6"
     },
     {
       "bytes": 3795,
@@ -8327,9 +8327,9 @@
       "sha256": "55d5811c0b2d872dc59d87432720a113150dbbce2872524a36b3860a8967095d"
     },
     {
-      "bytes": 9336,
+      "bytes": 10295,
       "path": "skills/software-development/dev-plan/SKILL.md",
-      "sha256": "895f9fc6cc2cb97a422ed1dfa3c4db40b0834420f4250627812f2988211a2e64"
+      "sha256": "41d8fce0e98bd182ad616e589e0dc3d9014b522132756b90d0707bc28e080287"
     },
     {
       "bytes": 11410,
@@ -8367,14 +8367,14 @@
       "sha256": "947964336ce83eca1f119e2a041934083cb10b066765d2bfd1a8ee7520dfa52f"
     },
     {
-      "bytes": 9608,
+      "bytes": 10567,
       "path": "skills/software-development/plan/SKILL.md",
-      "sha256": "a899069b7913c4ee65f71175772d3fde62f6b1261a8af8e5350b7df7e5fe42f9"
+      "sha256": "2ac8df054f2119ae9cc68127158086a507027b7d1584a4320c5f60518751775c"
     },
     {
-      "bytes": 19635,
+      "bytes": 22322,
       "path": "skills/software-development/planning-workflow/SKILL.md",
-      "sha256": "e32e910ca74cbe0e3fada792b291af7328b4a0207a3ee5a402246e4cbeb8e5aa"
+      "sha256": "9b1b2e88e1cd254ebeaa38ed780e9ad19ab900253f914cfcdbb5bebf435cf918"
     },
     {
       "bytes": 13172,
@@ -8387,14 +8387,14 @@
       "sha256": "1126afb626b38f5b398afac61de1c2c5551913d020f7c745e5468a78f143bcfd"
     },
     {
-      "bytes": 17244,
+      "bytes": 18446,
       "path": "skills/software-development/reviewed-html-plan/SKILL.md",
-      "sha256": "da57b3150535afb17c2d4d097389b5a85a1ab9c763b6058e76724953b84592cd"
+      "sha256": "8f1217470e16777808a031b5a15d855fee39afbc6a8cb81fc66ce4de9042eb77"
     },
     {
-      "bytes": 37510,
+      "bytes": 38382,
       "path": "skills/software-development/run-plan/SKILL.md",
-      "sha256": "ed1554a21734b982e108b38f986954da0c178f023cc399cad5e75854c087eb8e"
+      "sha256": "fc243503e2d4a87b31b32ee0a08a7d5751d7156c4ac0bdd1637e714f5dd2e3ef"
     },
     {
       "bytes": 10926,
@@ -8422,9 +8422,9 @@
       "sha256": "39361054f58ecc8de9cac0f1364aee94e795a446030bb57595f7b7ca0c1ffbbe"
     },
     {
-      "bytes": 19940,
+      "bytes": 22627,
       "path": "skills/software-development/writing-plans/SKILL.md",
-      "sha256": "ef127a1ff626a5118d7ec7dff106df4be129b4e4eaee9a710c19b263fe312b88"
+      "sha256": "453402062a3150f63045ca063f1cd0364329b30d4c18d06e0f86b6427ebd9158"
     },
     {
       "bytes": 3795,

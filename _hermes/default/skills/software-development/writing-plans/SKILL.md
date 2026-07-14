@@ -93,32 +93,47 @@ Write plans as execution artifacts, not brainstorming notes. A ready plan must b
 - Preserve the validated source scope. A ready plan should include only work that is critical to achieving the stated goal and verifying it.
 - When the requested scope is vague, tighten it by sharpening the Goal / Non-goals or other scoped language instead of widening the phase list to absorb adjacent surfaces.
 - Do not promote adjacent cleanup, optional follow-ups, broader parity not required by the source intent, or extra explicitness that does not materially change go/no-go confidence into required plan work unless source requirements or validated repo evidence show they are necessary for success.
+- Plan complete promised slices, not skeletons. Every claimed functional outcome must be connected, usable, and verifiable within its stated scope, without required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
+- If the requested outcome cannot be completed safely in one change, resize it before implementation to a smaller independently useful complete slice. Independent future enhancements, scale work, optional hardening, and polish may remain out of scope; work required for the current slice to function as claimed may not.
 - When a plan is rendered or delivered as HTML/Markdoc, load `doct-document-ops` and use the standard reviewer layout by default: a dark-mode visual theme with explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, plus a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so reviewers can scan links without sacrificing plan body width. Do not use a permanent left sidebar/rail for navigation. Do not leave color mode or navigation layout to browser, OS, or agent-selected defaults.
 - When a plan is rendered, delivered, registered, or reviewed as HTML/Markdoc, delegate service details to `doct-document-ops`: register through `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc>`, update through `doct-agent plans update`, share the canonical Doct URL, and process comments/actions through `doct-agent plans queue/agent/ack/resolve`.
 - Every user-facing HTML plan URL must be the canonical Doct URL from `https://doct.nodaste.com`; do not share local `plan-review`, loopback, or Tailscale service URLs unless the user explicitly requested a legacy local review service.
+
+### Product-owner context contract
+
+Near the top of every implementation plan, before implementation history, current-code detail, progress, phases, or verification mechanics, include a standalone product-owner context section. Write it for a product owner who has no prior issue, Linear, incident, or repository context. It must:
+
+- explain the situation in plain language, defining unavoidable domain terms instead of leading with file paths, symbols, request traces, or issue chronology,
+- explain why the change is needed now and what new evidence, failure, decision, or timing makes the work timely,
+- state the key conclusion unmistakably, especially whether the plan addresses a customer/runtime product defect, a stale test or evidence problem, an operational/documentation gap, or a combination,
+- separate the impact on `Customers`, `Runtime product behavior`, `Security / permissions`, `Testing / release confidence`, and `Deployment / migration`; explicitly say `No change` or `Not applicable` rather than silently omitting an unaffected dimension,
+- distinguish observed facts from proposed work so a reviewer does not confuse a failing test with a shipped-product failure.
+
+Keep this complexity-aware. A lightweight plan must satisfy the contract with concise labeled prose. A non-trivial plan must use a clearly scannable impact table or an equivalent structured block with those five impact dimensions. This is an authoring and review contract, not a Doct renderer requirement; preserve the standard dark full-width layout and fit the section into that layout.
 
 Required sections for new plans unless repo-local overrides say otherwise:
 
 1. Title
 2. Status
-3. Goal
-4. Decision Attention / Low-confidence Areas
-5. Why this plan exists
-6. Authority and inputs
-7. Current implementation reality
-8. Progress
-9. Resume instructions (agent)
-10. Product intent alignment
-11. Locked decisions
-12. Acceptance criteria
-13. BDD scenarios
-14. Phase-by-phase execution plan
-15. Verification strategy
-16. Delivery order
-17. Non-goals
-18. Decisions / Deviations log
+3. Product-owner context (situation, why now, key conclusion, and impact breakdown)
+4. Goal
+5. Decision Attention / Low-confidence Areas
+6. Why this plan exists
+7. Authority and inputs
+8. Current implementation reality
+9. Progress
+10. Resume instructions (agent)
+11. Product intent alignment
+12. Locked decisions
+13. Acceptance criteria
+14. BDD scenarios
+15. Phase-by-phase execution plan
+16. Verification strategy
+17. Delivery order
+18. Non-goals
+19. Decisions / Deviations log
 
-Decision Attention must appear near the top of every non-trivial plan. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
+Decision Attention must appear near the top of every non-trivial plan, immediately after the product-owner context and goal/status framing. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
 
 Legacy heading aliases may be preserved in historical plans, but new plans should use canonical headings unless the repo explicitly says otherwise.
 
@@ -179,6 +194,7 @@ Phase guidance:
 An `execution-ready` plan is ready only when all of the following are true:
 
 - important questions are resolved,
+- the near-top product-owner context is standalone, plain-language, explicit about why now and the key conclusion, and separates all five impact dimensions,
 - Decision Attention is near the top and truthfully reports blockers, user-input needs, and low-confidence areas,
 - required plan work stays faithful to the validated source scope, with optional adjacent improvements excluded or called out as non-goals rather than required phases,
 - acceptance criteria and BDD scenarios are concrete,
@@ -231,8 +247,8 @@ For `UI impact: yes`, include high-fidelity existing and target mocks or screens
 ## Complexity-aware completeness
 
 - Keep the doctrine `complexity-aware` and domain-agnostic: scale planning depth to the real task shape, not the stack.
-- Simple local wiring or narrow refactor tasks should stay `lightweight`; do not force heavyweight schema, protocol, or rollout sections when they do not improve confidence.
-- Non-trivial, migration-heavy, compatibility-sensitive, or multi-surface work requires complete contracts before it can be `execution-ready`.
+- Simple local wiring or narrow refactor tasks should stay `lightweight`; they may use concise labeled prose for product-owner context and should not be forced into heavyweight schema, protocol, rollout, or tabular sections when those do not improve confidence.
+- Non-trivial, migration-heavy, compatibility-sensitive, or multi-surface work requires complete contracts before it can be `execution-ready`, including a scannable product-owner impact table or equivalent structured block.
 - Every non-trivial ready plan must include a `test coverage matrix` that maps acceptance criteria and BDD scenarios to planned test layers, intended suites or files, and `### Verify` commands strong enough to catch partial implementations.
 - If task complexity is uncertain, bias toward more explicit contracts and acceptance-to-test mapping until evidence justifies a lighter plan.
 

@@ -1022,6 +1022,101 @@ test_phase_three_duplicate_skill_trees_are_removed() {
 }
 
 
+test_plan_authoring_contract_is_product_owner_friendly() {
+  python3 - <<'PY'
+from pathlib import Path
+
+canonical = [
+    Path('skills/planning-workflow/SKILL.md'),
+    Path('skills/reviewed-html-plan/SKILL.md'),
+    Path('skills/dev-plan/SKILL.md'),
+]
+hermes_authoring_surfaces = [
+    Path('_hermes/default/skills/software-development/planning-workflow/SKILL.md'),
+    Path('_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/dev-plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/writing-plans/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md'),
+]
+required_impacts = [
+    'Customers',
+    'Runtime product behavior',
+    'Security / permissions',
+    'Testing / release confidence',
+    'Deployment / migration',
+]
+for path in canonical + hermes_authoring_surfaces:
+    text = path.read_text()
+    missing = [label for label in required_impacts if label not in text]
+    if missing:
+        raise SystemExit(f'{path} missing product-owner impact dimensions: {missing}')
+    lowered = text.lower()
+    for phrase in ['product-owner context', 'needed now', 'stale test']:
+        if phrase not in lowered:
+            raise SystemExit(f'{path} missing product-owner contract phrase: {phrase}')
+    if 'lightweight plans must' not in lowered and 'a lightweight plan must' not in lowered:
+        raise SystemExit(f'{path} must require concise product-owner context for lightweight plans')
+
+universal_context_surfaces = [
+    Path('skills/planning-workflow/SKILL.md'),
+    Path('skills/dev-plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/planning-workflow/SKILL.md'),
+    Path('_hermes/default/skills/software-development/writing-plans/SKILL.md'),
+    Path('_hermes/default/skills/software-development/dev-plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md'),
+]
+for path in universal_context_surfaces:
+    if 'every implementation plan' not in path.read_text().lower():
+        raise SystemExit(f'{path} scopes product-owner context too narrowly')
+
+prompt_and_workflow_surfaces = [
+    Path('_pi/prompts/dev:plan.md'),
+    Path('_codex/prompts/dev:plan.md'),
+    Path('_claude/commands/dev:plan.md'),
+    Path('_pi/prompts/dev:plan-from-prd.md'),
+    Path('_codex/prompts/dev:plan-from-prd.md'),
+    Path('_pi/prompts/cmd:start-linear-issue-branch.md'),
+    Path('_codex/prompts/cmd:start-linear-issue-branch.md'),
+    Path('_claude/commands/cmd:start-linear-issue-branch.md'),
+]
+prompt_impact_phrases = {
+    'Customers': ['customers'],
+    'Runtime product behavior': ['runtime product behavior'],
+    'Security / permissions': ['security / permissions', 'security or permissions'],
+    'Testing / release confidence': ['testing / release confidence', 'testing or release confidence'],
+    'Deployment / migration': ['deployment / migration', 'deployment or migration'],
+}
+for path in prompt_and_workflow_surfaces:
+    lowered = path.read_text().lower()
+    for phrase in ['product-owner context', 'needed now', 'stale test']:
+        if phrase not in lowered:
+            raise SystemExit(f'{path} missing product-owner prompt contract: {phrase}')
+    if 'must use' not in lowered or 'concise labeled prose' not in lowered:
+        raise SystemExit(f'{path} must require concise product-owner context for lightweight plans')
+    for label, alternatives in prompt_impact_phrases.items():
+        if not any(phrase in lowered for phrase in alternatives):
+            raise SystemExit(f'{path} missing product-owner impact dimension: {label}')
+
+planning = canonical[0].read_text()
+if planning.index('Product-owner context (situation') > planning.index('Current implementation reality'):
+    raise SystemExit('planning-workflow must place product-owner context before technical reality')
+if planning.index('Product-owner context (situation') > planning.index('Decision Attention / Low-confidence Areas'):
+    raise SystemExit('planning-workflow must place product-owner context before Decision Attention')
+
+reviewed = canonical[1].read_text()
+if reviewed.index('standalone `Product-owner context`') > reviewed.index('a near-top `Decision Attention'):
+    raise SystemExit('reviewed-html-plan must put product-owner context before Decision Attention')
+for phrase in ['dark-mode theme', 'full-width single-column', 'listenerInstructions', 'BDD scenarios']:
+    if phrase not in reviewed:
+        raise SystemExit(f'reviewed-html-plan lost preserved contract: {phrase}')
+PY
+}
+
+
 test_codex_pi_skill_and_prompt_parity() {
   python3 - <<'PY'
 import json
@@ -1138,6 +1233,42 @@ test_phase_four_validation_proves_final_alignment() {
   assert_file_contains "thoughts/archive/plans/skill-consolidation-to-agents.md" '2026-04-02 (P4): Ran the final temp-home validation flow' || return 1
 }
 
+test_review_guidance_is_bounded_and_scope_safe() {
+  local prompt
+  local hermes_run_plan
+
+  for prompt in _codex/prompts/dev:run.md _pi/prompts/dev:run.md; do
+    assert_file_contains "$prompt" 'Read-only review of phase N' || return 1
+    assert_file_contains "$prompt" 'After three total rounds, stop and report a convergence blocker.' || return 1
+    assert_file_contains "$prompt" 'speculative future scale' || return 1
+    assert_file_not_contains "$prompt" 'Fix every non-low-risk issue directly' || return 1
+    assert_file_not_contains "$prompt" 'No issues found.' || return 1
+  done
+
+  assert_file_contains "skills/planning-workflow/SKILL.md" 'Plan complete promised slices, not skeletons.' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'Complete the promised slice before merge' || return 1
+  assert_file_contains "skills/pre-pr-implementation-review/SKILL.md" 'do not fix optional polish merely because it is cheap' || return 1
+  assert_file_contains "skills/pre-pr-implementation-review/SKILL.md" 'run one targeted rereview' || return 1
+  assert_file_not_contains "skills/pre-pr-implementation-review/SKILL.md" 'rereview until clean' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'Run a third total review cycle only when' || return 1
+  assert_file_not_contains "skills/run-plan/SKILL.md" 'Repeat Review Loop' || return 1
+  assert_file_not_contains "AGENTS.md" 'keep the review/fix loop running until' || return 1
+  assert_file_not_contains "skills/repo-agents-bootstrap/SKILL.md" 'Phase advancement only when the latest review returns' || return 1
+  assert_file_contains "skills/run-plan/agents/openai.yaml" 'one targeted rereview after fixes' || return 1
+  assert_file_contains "skills/install-matrix.json" 'runtime-native scoped reviews with one targeted rereview after fixes' || return 1
+  assert_file_contains "_pi/README.md" 'plan-required, verification-required, or regression-caused P3 findings remain blocking' || return 1
+  assert_file_not_contains "skills/run-plan/agents/openai.yaml" 'full P1/P2/P3 consensus' || return 1
+  assert_file_not_contains "skills/install-matrix.json" 'full P1/P2/P3 consensus' || return 1
+  assert_file_not_contains "_pi/README.md" 'all in-scope P1/P2/P3 findings' || return 1
+
+  hermes_run_plan="_hermes/default/skills/software-development/run-plan/SKILL.md"
+  assert_file_contains "$hermes_run_plan" 'Complete the promised slice before merge' || return 1
+  assert_file_contains "$hermes_run_plan" 'Run a third total review cycle only when' || return 1
+  assert_file_contains "$hermes_run_plan" 'do not add implementation or tests solely to prove a speculative or unsupported scenario is out of scope' || return 1
+  assert_file_not_contains "$hermes_run_plan" 'Repeat Review Loop' || return 1
+  assert_file_not_contains "$hermes_run_plan" 'cheap and safe enough to fix immediately' || return 1
+}
+
 main() {
   run_test test_skills_mode_installs_additively_and_is_idempotent
   run_test test_skills_mode_does_not_update_skills_sh_by_default
@@ -1158,8 +1289,10 @@ main() {
   run_test test_pi_interaction_doctrine_is_versioned_and_read_only_by_default
   run_test test_phase_three_docs_use_canonical_shared_skill_paths
   run_test test_phase_three_duplicate_skill_trees_are_removed
+  run_test test_plan_authoring_contract_is_product_owner_friendly
   run_test test_codex_pi_skill_and_prompt_parity
   run_test test_phase_four_validation_proves_final_alignment
+  run_test test_review_guidance_is_bounded_and_scope_safe
 
   printf '\nTests run: %s\n' "$TESTS_RUN"
   printf 'Passed: %s\n' "$TESTS_PASSED"

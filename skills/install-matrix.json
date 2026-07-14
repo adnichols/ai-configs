@@ -485,7 +485,7 @@
         "pi"
       ],
       "canonicalSource": "skills/run-plan",
-      "notes": "Codex/Claude/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews, Codex plus applicable canonical Claude Code pre-PR implementation review, fixes through full P1/P2/P3 consensus, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
+      "notes": "Codex/Claude/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews with one targeted rereview after fixes, Codex plus applicable canonical Claude Code pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
       "sourceType": "repo"
     },
     "signing-entitlements": {
