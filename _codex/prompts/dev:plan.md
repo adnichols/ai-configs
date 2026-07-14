@@ -98,6 +98,7 @@ Write (or update) `plan_path` with:
 
 - Title
 - Status
+- Product-owner context near the top, before implementation history and technical detail. For non-trivial plans, use a scannable impact table or equivalent structured block that explains the plain-language situation for a reader with no issue/Linear context, why the work is needed now, the unmistakable conclusion (runtime/customer defect versus stale test or operational evidence), and separate impact on Customers, Runtime product behavior, Security / permissions, Testing / release confidence, and Deployment / migration. Lightweight plans must use at least concise labeled prose; say `No change` or `Not applicable` for unaffected dimensions.
 - Goal / Non-goals
 - Current State (Validated)
 - Proposed Approach
@@ -152,6 +153,7 @@ If repo guidance requires a checked-in plan server, validate/serve/open the plan
 
 Before finishing:
 
+- The product-owner context stands alone, precedes implementation history/technical detail, explains why now and the key conclusion, and covers all five impact dimensions at complexity-appropriate depth.
 - Every acceptance criterion has at least one phase `### Verify` item that provides evidence.
 - Every progress checkbox corresponds to a phase header.
 - Every phase includes `### Tests first`, `### End State`, `### Work`, and `### Verify`.

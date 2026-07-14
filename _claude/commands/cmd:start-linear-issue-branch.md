@@ -159,6 +159,7 @@ Guidance:
 - `## Progress` must be phase-level, include stable IDs (P1, P2, ...), and contain the ONLY checkboxes in the document.
 
 Plan content requirements (from dev:plan):
+- Include near the top, before implementation history and technical detail: standalone product-owner context for a reader with no prior issue/Linear context, why the work is needed now, an unmistakable conclusion distinguishing a runtime/customer defect from a stale test or evidence problem, and separate Customers / Runtime product behavior / Security or permissions / Testing or release confidence / Deployment or migration impact. Use a scannable table or equivalent structured block for non-trivial plans; lightweight drafts must use at least concise labeled prose.
 - Include: Goal / Non-goals / Current State (Validated) / Proposed Approach
 - Include: Acceptance Criteria (observable) and Verification Strategy
 - Include: Resume Instructions (Agent)

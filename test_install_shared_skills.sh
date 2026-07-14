@@ -1022,6 +1022,102 @@ test_phase_three_duplicate_skill_trees_are_removed() {
 }
 
 
+test_plan_authoring_contract_is_product_owner_friendly() {
+  python3 - <<'PY'
+from pathlib import Path
+
+canonical = [
+    Path('skills/planning-workflow/SKILL.md'),
+    Path('skills/reviewed-html-plan/SKILL.md'),
+    Path('skills/dev-plan/SKILL.md'),
+]
+hermes_authoring_surfaces = [
+    Path('_hermes/default/skills/software-development/planning-workflow/SKILL.md'),
+    Path('_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/dev-plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/writing-plans/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md'),
+]
+required_impacts = [
+    'Customers',
+    'Runtime product behavior',
+    'Security / permissions',
+    'Testing / release confidence',
+    'Deployment / migration',
+]
+for path in canonical + hermes_authoring_surfaces:
+    text = path.read_text()
+    missing = [label for label in required_impacts if label not in text]
+    if missing:
+        raise SystemExit(f'{path} missing product-owner impact dimensions: {missing}')
+    lowered = text.lower()
+    for phrase in ['product-owner context', 'needed now', 'stale test']:
+        if phrase not in lowered:
+            raise SystemExit(f'{path} missing product-owner contract phrase: {phrase}')
+    if 'lightweight plans must' not in lowered and 'a lightweight plan must' not in lowered:
+        raise SystemExit(f'{path} must require concise product-owner context for lightweight plans')
+
+universal_context_surfaces = [
+    Path('skills/planning-workflow/SKILL.md'),
+    Path('skills/dev-plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/planning-workflow/SKILL.md'),
+    Path('_hermes/default/skills/software-development/writing-plans/SKILL.md'),
+    Path('_hermes/default/skills/software-development/dev-plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md'),
+]
+for path in universal_context_surfaces:
+    if 'every implementation plan' not in path.read_text().lower():
+        raise SystemExit(f'{path} scopes product-owner context too narrowly')
+
+prompt_and_workflow_surfaces = [
+    Path('_pi/prompts/dev:plan.md'),
+    Path('_codex/prompts/dev:plan.md'),
+    Path('_claude/commands/dev:plan.md'),
+    Path('_pi/prompts/dev:plan-from-prd.md'),
+    Path('_codex/prompts/dev:plan-from-prd.md'),
+    Path('_pi/prompts/cmd:start-linear-issue-branch.md'),
+    Path('_codex/prompts/cmd:start-linear-issue-branch.md'),
+    Path('_claude/commands/cmd:start-linear-issue-branch.md'),
+    Path('skills/adn-dev-wf/references/stages.md'),
+]
+prompt_impact_phrases = {
+    'Customers': ['customers'],
+    'Runtime product behavior': ['runtime product behavior'],
+    'Security / permissions': ['security / permissions', 'security or permissions'],
+    'Testing / release confidence': ['testing / release confidence', 'testing or release confidence'],
+    'Deployment / migration': ['deployment / migration', 'deployment or migration'],
+}
+for path in prompt_and_workflow_surfaces:
+    lowered = path.read_text().lower()
+    for phrase in ['product-owner context', 'needed now', 'stale test']:
+        if phrase not in lowered:
+            raise SystemExit(f'{path} missing product-owner prompt contract: {phrase}')
+    if 'must use' not in lowered or 'concise labeled prose' not in lowered:
+        raise SystemExit(f'{path} must require concise product-owner context for lightweight plans')
+    for label, alternatives in prompt_impact_phrases.items():
+        if not any(phrase in lowered for phrase in alternatives):
+            raise SystemExit(f'{path} missing product-owner impact dimension: {label}')
+
+planning = canonical[0].read_text()
+if planning.index('Product-owner context (situation') > planning.index('Current implementation reality'):
+    raise SystemExit('planning-workflow must place product-owner context before technical reality')
+if planning.index('Product-owner context (situation') > planning.index('Decision Attention / Low-confidence Areas'):
+    raise SystemExit('planning-workflow must place product-owner context before Decision Attention')
+
+reviewed = canonical[1].read_text()
+if reviewed.index('standalone `Product-owner context`') > reviewed.index('a near-top `Decision Attention'):
+    raise SystemExit('reviewed-html-plan must put product-owner context before Decision Attention')
+for phrase in ['dark-mode theme', 'full-width single-column', 'listenerInstructions', 'BDD scenarios']:
+    if phrase not in reviewed:
+        raise SystemExit(f'reviewed-html-plan lost preserved contract: {phrase}')
+PY
+}
+
+
 test_codex_pi_skill_and_prompt_parity() {
   python3 - <<'PY'
 import json
@@ -1158,6 +1254,7 @@ main() {
   run_test test_pi_interaction_doctrine_is_versioned_and_read_only_by_default
   run_test test_phase_three_docs_use_canonical_shared_skill_paths
   run_test test_phase_three_duplicate_skill_trees_are_removed
+  run_test test_plan_authoring_contract_is_product_owner_friendly
   run_test test_codex_pi_skill_and_prompt_parity
   run_test test_phase_four_validation_proves_final_alignment
 

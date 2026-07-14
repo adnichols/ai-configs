@@ -76,28 +76,41 @@ Write plans as execution artifacts, not brainstorming notes. A ready plan must b
 - When a plan is rendered, delivered, registered, or reviewed as HTML/Markdoc, delegate service details to `doct-document-ops`: register through `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc>`, preserve `listenerInstructions`, start the returned durable listener before asking for browser feedback, update through `doct-agent plans update`, share the canonical Doct URL, and process comments/actions through Doct listener/queue/agent/ack/resolve commands.
 - Every user-facing HTML plan URL must be the canonical Doct URL from `https://doct.nodaste.com`; do not share local `plan-review`, loopback, or Tailscale service URLs unless the user explicitly requested a legacy local review service.
 
+### Product-owner context contract
+
+Near the top of every implementation plan, before implementation history, current-code detail, progress, phases, or verification mechanics, include a standalone product-owner context section. Write it for a product owner who has no prior issue, Linear, incident, or repository context. It must:
+
+- explain the situation in plain language, defining unavoidable domain terms instead of leading with file paths, symbols, request traces, or issue chronology,
+- explain why the change is needed now and what new evidence, failure, decision, or timing makes the work timely,
+- state the key conclusion unmistakably, especially whether the plan addresses a customer/runtime product defect, a stale test or evidence problem, an operational/documentation gap, or a combination,
+- separate the impact on `Customers`, `Runtime product behavior`, `Security / permissions`, `Testing / release confidence`, and `Deployment / migration`; explicitly say `No change` or `Not applicable` rather than silently omitting an unaffected dimension,
+- distinguish observed facts from proposed work so a reviewer does not confuse a failing test with a shipped-product failure.
+
+Keep this complexity-aware. A lightweight plan must satisfy the contract with concise labeled prose. A non-trivial plan must use a clearly scannable impact table or an equivalent structured block with those five impact dimensions. This is an authoring and review contract, not a Doct renderer requirement; preserve the standard dark full-width layout and fit the section into that layout.
+
 Required sections for new plans unless repo-local overrides say otherwise:
 
 1. Title
 2. Status
-3. Goal
-4. Decision Attention / Low-confidence Areas
-5. Why this plan exists
-6. Authority and inputs
-7. Current implementation reality
-8. Progress
-9. Resume instructions (agent)
-10. Product intent alignment
-11. Locked decisions
-12. Acceptance criteria
-13. BDD scenarios
-14. Phase-by-phase execution plan
-15. Verification strategy
-16. Delivery order
-17. Non-goals
-18. Decisions / Deviations log
+3. Product-owner context (situation, why now, key conclusion, and impact breakdown)
+4. Goal
+5. Decision Attention / Low-confidence Areas
+6. Why this plan exists
+7. Authority and inputs
+8. Current implementation reality
+9. Progress
+10. Resume instructions (agent)
+11. Product intent alignment
+12. Locked decisions
+13. Acceptance criteria
+14. BDD scenarios
+15. Phase-by-phase execution plan
+16. Verification strategy
+17. Delivery order
+18. Non-goals
+19. Decisions / Deviations log
 
-Decision Attention must appear near the top of every non-trivial plan. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
+Decision Attention must appear near the top of every non-trivial plan, immediately after the product-owner context and goal/status framing. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
 
 For an HTML/Markdoc plan under browser review, put every product-shaping question in Decision Attention as a prominent `Decision Required` block instead of moving the question into chat. Give each decision a stable ID and include:
 
@@ -168,6 +181,7 @@ Phase guidance:
 An `execution-ready` plan is ready only when all of the following are true:
 
 - important questions are resolved,
+- the near-top product-owner context is standalone, plain-language, explicit about why now and the key conclusion, and separates all five impact dimensions,
 - Decision Attention is near the top and truthfully reports blockers, user-input needs, and low-confidence areas,
 - required plan work stays faithful to the validated source scope, with optional adjacent improvements excluded or called out as non-goals rather than required phases,
 - acceptance criteria and BDD scenarios are concrete,
@@ -222,8 +236,8 @@ For `UI impact: yes`, include high-fidelity existing and target mocks or screens
 ## Complexity-aware completeness
 
 - Keep the doctrine `complexity-aware` and domain-agnostic: scale planning depth to the real task shape, not the stack.
-- Simple local wiring or narrow refactor tasks should stay `lightweight`; do not force heavyweight schema, protocol, or rollout sections when they do not improve confidence.
-- Non-trivial, migration-heavy, compatibility-sensitive, or multi-surface work requires complete contracts before it can be `execution-ready`.
+- Simple local wiring or narrow refactor tasks should stay `lightweight`; they may use concise labeled prose for product-owner context and should not be forced into heavyweight schema, protocol, rollout, or tabular sections when those do not improve confidence.
+- Non-trivial, migration-heavy, compatibility-sensitive, or multi-surface work requires complete contracts before it can be `execution-ready`, including a scannable product-owner impact table or equivalent structured block.
 - Every non-trivial ready plan must include a `test coverage matrix` that maps acceptance criteria and BDD scenarios to planned test layers, intended suites or files, and `### Verify` commands strong enough to catch partial implementations.
 - If task complexity is uncertain, bias toward more explicit contracts and acceptance-to-test mapping until evidence justifies a lighter plan.
 
