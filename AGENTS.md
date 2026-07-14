@@ -84,7 +84,9 @@ Many of the Codex prompts in this repo assume that application repositories defi
 - In this repo, operate directly on `main`; do not create feature branches or worktrees unless the user explicitly asks for them.
 - This is an intentional repo-specific exception to the usual branch-first guidance used in many other repos. Do not "correct" this back to a branch workflow unless the user explicitly asks to change the protocol.
 - Run the repository’s primary test command(s) before committing any change that touches behavior, plus any additional checks (lint, build, etc.) defined in the project’s AGENTS.md or TESTING.md.
-- For BDD/TDD phase plans, keep the review/fix loop running until the latest review reports `No issues found.` or only explicitly logged low-risk deferred items remain. Do not advance phases with unresolved substantive issues.
+- For BDD/TDD phase plans, review the implemented slice for concrete in-scope failures: unmet acceptance criteria, incomplete wiring, regressions, credible current-path security/data-loss/correctness risks, or misleading verification. Do not expand scope for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, or unsupported hypothetical paths.
+- Default to one implementation review plus one targeted rereview after fixes. A third review is allowed only when the prior fix introduced or exposed a new concrete blocker; after three total rounds, stop and report a convergence blocker.
+- Complete the promised slice before claiming success: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or tests that avoid the real implementation. If the promised outcome cannot be completed safely, resize it before implementation to a smaller independently useful complete slice.
 - Validate planned verification commands against real repo/package/target names before execution; correct obvious drift in the plan immediately instead of carrying stale commands forward.
 - When a phase spans multiple required surfaces (HTTP/CLI/MCP/UI/etc.), make parity expectations explicit and treat missing registry/dispatcher/wrapper wiring as implementation work, not optional cleanup.
 - When locked schemas, payloads, response shapes, or evidence sources change, update stale fixtures/tests in the touched scope during the same run rather than leaving contract drift for a later phase.
@@ -128,7 +130,9 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
     - Verify that the change is present in the file (avoid batching updates at the end).
     - Keep any “Relevant Files” / “Changed Files” sections accurate as files are created or modified.
   - For BDD/TDD execution plans:
-    - Keep review/fix loops running until the latest review finds no substantive issues; only explicitly logged low-risk deferred items may remain when advancing.
+    - Review for concrete in-scope failures and do not widen the change for speculative risks, unrelated architecture work, or polish.
+    - Use one implementation review plus one targeted rereview after fixes by default. Allow a third round only for a new concrete blocker introduced or exposed by the fix, then stop with a convergence blocker.
+    - Require a complete promised slice: no required stubs, TODO behavior, dead-end surfaces, missing wiring, fake success, or verification that bypasses the real implementation. Resize incomplete outcomes before implementation rather than shipping a partial skeleton.
     - Validate `### Verify` commands against actual repo/package/target names before execution.
     - Make multi-surface parity expectations explicit when behavior must match across HTTP/CLI/MCP/UI or similar interfaces.
     - Update stale fixtures/tests when locked contracts, payloads, schemas, or evidence sources change.
@@ -299,7 +303,7 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 
 **Reviews:**
 - `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus Codex and applicable Claude Code plan reviews, and stop at execution-ready handoff
-- `/skill:pre-pr-implementation-review` — Run Codex plus applicable Claude Code pre-PR implementation review until in-scope P1/P2/P3 findings are addressed; inside `run-plan` it hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
+- `/skill:pre-pr-implementation-review` — Run one Codex plus applicable Claude Code pre-PR implementation review and one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
 - `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
 
 ### Configuration

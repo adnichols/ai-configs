@@ -56,16 +56,18 @@ If the repo needs additional planning rules beyond the shared skill, reference t
 
 Codify the quality-gated loop:
 
-- implement one phase
-- review
-- re-review until the latest verdict is `VERDICT: PASS_NO_ISSUES` or `VERDICT: PASS_LOW_RISK_ONLY` with every remaining item proven out-of-scope, low-risk, not required for truthful verification, and logged in the repo's discovery ledger (for example `thoughts/discoveries/<plan-or-feature>.md`) plus the plan's `## Decisions / Deviations Log`
+- implement one complete promised slice
+- run one scoped review for concrete current-path failures
+- fix in-scope blockers and run one targeted rereview of the findings and resulting edits
+- allow a third review only for a new concrete blocker introduced or exposed by the fix; after three rounds, stop with a convergence blocker
+- do not expand the change for speculative future scale, ideal architecture, unrelated defects, or polish
 - only then move to the next phase
 
 Require the repo guidance to name the canonical discovery-ledger destination explicitly so documented out-of-scope low-risk findings always have a durable home.
 
 Require non-trivial ready plans to include a `test coverage matrix` that maps acceptance criteria and scenarios to intended tests and verify commands.
 
-Codify the execution feedback loop: substantive review misses must reassess the `original test scope` and original plan, and repeated or cross-surface misses must widen coverage or plan scope before the phase can advance.
+Codify the execution feedback loop: substantive review misses must reassess the original test scope and plan, and repeated or cross-surface misses must trigger a scope/product decision or resize instead of automatic scope expansion.
 
 Require phase-level progress updates and resumable handoff notes.
 
