@@ -1235,6 +1235,7 @@ test_phase_four_validation_proves_final_alignment() {
 
 test_review_guidance_is_bounded_and_scope_safe() {
   local prompt
+  local hermes_run_plan
 
   for prompt in _codex/prompts/dev:run.md _pi/prompts/dev:run.md; do
     assert_file_contains "$prompt" 'Read-only review of phase N' || return 1
@@ -1253,6 +1254,19 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_not_contains "skills/run-plan/SKILL.md" 'Repeat Review Loop' || return 1
   assert_file_not_contains "AGENTS.md" 'keep the review/fix loop running until' || return 1
   assert_file_not_contains "skills/repo-agents-bootstrap/SKILL.md" 'Phase advancement only when the latest review returns' || return 1
+  assert_file_contains "skills/run-plan/agents/openai.yaml" 'one targeted rereview after fixes' || return 1
+  assert_file_contains "skills/install-matrix.json" 'runtime-native scoped reviews with one targeted rereview after fixes' || return 1
+  assert_file_contains "_pi/README.md" 'plan-required, verification-required, or regression-caused P3 findings remain blocking' || return 1
+  assert_file_not_contains "skills/run-plan/agents/openai.yaml" 'full P1/P2/P3 consensus' || return 1
+  assert_file_not_contains "skills/install-matrix.json" 'full P1/P2/P3 consensus' || return 1
+  assert_file_not_contains "_pi/README.md" 'all in-scope P1/P2/P3 findings' || return 1
+
+  hermes_run_plan="_hermes/default/skills/software-development/run-plan/SKILL.md"
+  assert_file_contains "$hermes_run_plan" 'Complete the promised slice before merge' || return 1
+  assert_file_contains "$hermes_run_plan" 'Run a third total review cycle only when' || return 1
+  assert_file_contains "$hermes_run_plan" 'do not add implementation or tests solely to prove a speculative or unsupported scenario is out of scope' || return 1
+  assert_file_not_contains "$hermes_run_plan" 'Repeat Review Loop' || return 1
+  assert_file_not_contains "$hermes_run_plan" 'cheap and safe enough to fix immediately' || return 1
 }
 
 main() {
