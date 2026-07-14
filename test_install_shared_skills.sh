@@ -254,17 +254,29 @@ seed_phase_two_home() {
   local home="$1"
   # Split the retired skill name so stale-name greps can still guard active surfaces.
   local old_skill="scoped""-plan-run"
+  local skill
+  local retired_skills=(
+    adn-dev-wf
+    cmd-debug
+    cmd-research
+    cmd-start-linear-issue
+    cmd-start-linear-issue-branch
+    opencode-safe-restart
+    plan-reviewer-build
+    plan-reviewer-execution-ready
+    review-change
+    review-change-integrate
+  )
 
   mkdir -p \
     "$home/.claude/skills/custom-local" \
-    "$home/.pi/agent/skills/$old_skill" \
+    "$home/.pi/agent/skills" \
     "$home/.agents/skills/external-skill" \
     "$home/.agents/skills/linear" \
     "$home/.agents/skills/$old_skill" \
     "$home/.agents/skills/algorithmic-art" \
     "$home/.agents/skills/omp-review-partner" \
     "$home/.claude/skills/linear" \
-    "$home/.claude/skills/$old_skill" \
     "$home/.claude/skills/algorithmic-art" \
     "$home/.config/opencode/skills"
 
@@ -280,11 +292,28 @@ seed_phase_two_home() {
   ln -s "$home/.agents/skills/omp-review-partner" "$home/.claude/skills/omp-review-partner"
   ln -s "$home/.agents/skills/omp-review-partner" "$home/.config/opencode/skills/omp-review-partner"
   printf 'old-claude-linear\n' > "$home/.claude/skills/linear/SKILL.md"
-  rm -rf "$home/.claude/skills/$old_skill" "$home/.pi/agent/skills/$old_skill"
   ln -s "$home/.agents/skills/$old_skill" "$home/.claude/skills/$old_skill"
   ln -s "$home/.agents/skills/$old_skill" "$home/.pi/agent/skills/$old_skill"
-  mkdir -p "$home/.agents"
-  printf '{"skills":{"%s":{"source":"old"},"linear":{"source":"old"},"omp-review-partner":{"source":"old"}}}\n' "$old_skill" > "$home/.agents/.skill-lock.json"
+
+  for skill in "${retired_skills[@]}"; do
+    mkdir -p "$home/.agents/skills/$skill"
+    printf 'retired %s\n' "$skill" > "$home/.agents/skills/$skill/SKILL.md"
+    printf '{"repo":"ai-configs","source":"skills/%s","managed":true}\n' "$skill" > "$home/.agents/skills/$skill/.ai-configs-managed.json"
+    ln -s "$home/.agents/skills/$skill" "$home/.claude/skills/$skill"
+    ln -s "$home/.agents/skills/$skill" "$home/.pi/agent/skills/$skill"
+  done
+
+  python3 - "$home/.agents/.skill-lock.json" "$old_skill" "${retired_skills[@]}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+names = sys.argv[2:]
+skills = {name: {"source": "old"} for name in names}
+skills.update({"linear": {"source": "old"}, "omp-review-partner": {"source": "old"}})
+path.write_text(json.dumps({"skills": skills}) + "\n")
+PY
 }
 
 assert_file_contains() {
@@ -357,8 +386,21 @@ assert_shared_skill_install_state() {
   local home="$1"
   local backup_dir
   local claude_backup_dir
+  local skill
   # Split the retired skill name so stale-name greps can still guard active surfaces.
   local old_skill="scoped""-plan-run"
+  local retired_skills=(
+    adn-dev-wf
+    cmd-debug
+    cmd-research
+    cmd-start-linear-issue
+    cmd-start-linear-issue-branch
+    opencode-safe-restart
+    plan-reviewer-build
+    plan-reviewer-execution-ready
+    review-change
+    review-change-integrate
+  )
 
   [[ -d "$home/.agents/skills" ]] || return 1
   [[ -f "$home/.agents/skills/external-skill/SKILL.md" ]] || return 1
@@ -374,26 +416,12 @@ assert_shared_skill_install_state() {
   assert_file_contains "$home/.agents/skills/linear/.ai-configs-managed.json" '"source": "skills/linear"' || return 1
   assert_file_contains "$home/.agents/skills/linear/.ai-configs-managed.json" '"managed": true' || return 1
 
-  [[ -f "$home/.agents/skills/adn-dev-wf/SKILL.md" ]] || return 1
-  [[ -f "$home/.agents/skills/adn-dev-wf/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/adn-dev-wf/.ai-configs-managed.json" '"repo": "ai-configs"' || return 1
-  assert_file_contains "$home/.agents/skills/adn-dev-wf/.ai-configs-managed.json" '"source": "skills/adn-dev-wf"' || return 1
-  assert_file_contains "$home/.agents/skills/adn-dev-wf/.ai-configs-managed.json" '"managed": true' || return 1
-
-  [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" ]] || return 1
-  [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'claude-code-review' || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" '"repo": "ai-configs"' || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" '"source": "skills/plan-reviewer-execution-ready"' || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/.ai-configs-managed.json" '"managed": true' || return 1
-
-  [[ -f "$home/.agents/skills/plan-reviewer-build/SKILL.md" ]] || return 1
-  [[ -f "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-build/SKILL.md" 'run-plan' || return 1
-  assert_file_not_contains "$home/.agents/skills/plan-reviewer-build/SKILL.md" "$old_skill" || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" '"repo": "ai-configs"' || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" '"source": "skills/plan-reviewer-build"' || return 1
-  assert_file_contains "$home/.agents/skills/plan-reviewer-build/.ai-configs-managed.json" '"managed": true' || return 1
+  for skill in "${retired_skills[@]}"; do
+    [[ ! -e "$home/.agents/skills/$skill" ]] || return 1
+    [[ ! -e "$home/.claude/skills/$skill" ]] || return 1
+    [[ ! -e "$home/.pi/agent/skills/$skill" ]] || return 1
+    assert_file_not_contains "$home/.agents/.skill-lock.json" "\"$skill\"" || return 1
+  done
 
   [[ -f "$home/.agents/skills/run-plan/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/run-plan/.ai-configs-managed.json" ]] || return 1
@@ -440,7 +468,6 @@ assert_shared_skill_install_state() {
   assert_file_contains "$claude_backup_dir/SKILL.md" 'old-claude-linear' || return 1
 
   assert_symlink_target "$home/.claude/skills/linear" "$home/.agents/skills/linear" || return 1
-  assert_symlink_target "$home/.claude/skills/adn-dev-wf" "$home/.agents/skills/adn-dev-wf" || return 1
   assert_symlink_target "$home/.claude/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
   assert_symlink_target "$home/.claude/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
   assert_symlink_target "$home/.claude/skills/herdr" "$home/.agents/skills/herdr" || return 1
@@ -652,6 +679,7 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   home="$(new_tmp_dir)"
 
   mkdir -p \
+    "$home/.pi/agent/agents" \
     "$home/.pi/agent/extensions/pi-plan-mode" \
     "$home/.omp/agent/extensions/aplan" \
     "$home/.omp/agent/extensions/foreign" \
@@ -659,6 +687,11 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
     "$home/.config/opencode/custom" \
     "$home/.gemini/commands" \
     "$home/.gemini/custom"
+  printf 'stale-glm-reviewer\n' > "$home/.pi/agent/agents/quality-reviewer-glm.md"
+  printf 'stale-glm-reviewer\n' > "$home/.pi/agent/agents/glm5.2-high.md"
+  printf 'stale-glm-reviewer\n' > "$home/.pi/agent/agents/glm5.2-xhigh.md"
+  printf 'stale-glm-agent\n' > "$home/.pi/agent/agents/developer-glm.md"
+  printf 'stale-glm-agent\n' > "$home/.pi/agent/agents/orchestrator-glm.md"
   printf 'pi-herdr-sentinel\n' > "$home/.pi/agent/extensions/herdr-agent-state.ts"
   printf 'stale-plan-mode\n' > "$home/.pi/agent/extensions/pi-plan-mode/index.ts"
   printf 'stale-aplan\n' > "$home/.omp/agent/extensions/aplan/index.ts"
@@ -677,6 +710,13 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'HERDR_INTEGRATION_ID=pi' || return 1
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'managed by ai-configs' || return 1
   [[ -f "$home/.pi/agent/extensions/todo.ts" ]] || return 1
+  [[ -f "$home/.pi/agent/agents/general-glm.md" ]] || return 1
+  [[ -f "$home/.pi/agent/agents/ui-design-glm.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/quality-reviewer-glm.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/glm5.2-high.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/glm5.2-xhigh.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/developer-glm.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/orchestrator-glm.md" ]] || return 1
   assert_file_contains "$home/.pi/agent/extensions/pi-plan-mode/index.ts" 'stale-plan-mode' || return 1
   assert_file_contains "$home/.omp/agent/extensions/aplan/index.ts" 'stale-aplan' || return 1
   assert_file_contains "$home/.omp/agent/extensions/foreign/index.ts" 'foreign-omp' || return 1
@@ -825,7 +865,6 @@ test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails() {
   cp -R "$SCRIPT_DIR/_pi/extensions" "$temp_repo/_pi/"
   cp -R "$SCRIPT_DIR/_pi/packages" "$temp_repo/_pi/"
   cp "$SCRIPT_DIR/_pi/models.json" "$temp_repo/_pi/models.json"
-  cp -R "$SCRIPT_DIR/skills/adn-dev-wf" "$temp_repo/skills/"
   printf '{}\n' > "$temp_repo/skills/install-matrix.json"
   printf 'Doctrine-Version: {{AI_CONFIGS_VERSION}}\n\nsystem\n' > "$temp_repo/APPEND_SYSTEM.md"
   printf 'readme\n' > "$temp_repo/_pi/README.md"
@@ -1037,7 +1076,6 @@ for prompt in sorted(pi_prompts - set(pi_delegated) - codex_specific_prompts):
 for skill in [
     'pre-pr-implementation-review',
     'reviewed-html-plan',
-    'plan-reviewer-execution-ready',
     'run-plan',
 ]:
     text = Path('skills', skill, 'SKILL.md').read_text()
@@ -1064,8 +1102,8 @@ test_phase_four_validation_proves_final_alignment() {
   [[ -f "$home/.agents/skills/external-skill/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/linear/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/doct-document-ops/SKILL.md" ]] || return 1
-  [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" ]] || return 1
-  [[ -f "$home/.agents/skills/plan-reviewer-build/SKILL.md" ]] || return 1
+  [[ ! -e "$home/.agents/skills/plan-reviewer-execution-ready" ]] || return 1
+  [[ ! -e "$home/.agents/skills/plan-reviewer-build" ]] || return 1
   [[ -f "$home/.agents/skills/run-plan/SKILL.md" ]] || return 1
   [[ ! -e "$home/.agents/skills/scoped""-plan-run" ]] || return 1
   [[ ! -e "$home/.agents/skills/algorithmic-art" ]] || return 1

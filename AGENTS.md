@@ -5,13 +5,11 @@ Current roster of bespoke Claude, Codex, and Pi agents defined in this repositor
 ## Pi Subagents (Implementation)
 Located under `_pi/agents/` and invoked via Pi subagent system:
 
-- `general-glm` (opencode/glm-5.2; `_pi/agents/general-glm.md`) — General-purpose GLM subagent for research, coding, debugging, and other delegated tasks.
-- `orchestrator-glm` (opencode/glm-5.2 high; `_pi/agents/orchestrator-glm.md`) — Planning/orchestration route for decomposition, routing, long debug-loop supervision, failure triage, and review synthesis; delegates broad discovery to Explore and code-writing to developer-mid.
-- `ui-design-glm` (opencode/glm-5.2 high; `_pi/agents/ui-design-glm.md`) — UI design specialist for visual direction, UX tradeoff analysis, accessibility-aware critique, and UI implementation review.
+- `general-glm` (opencode/glm-5.2; `_pi/agents/general-glm.md`) — General-purpose GLM subagent for research, coding, debugging, and other explicitly delegated tasks.
+- `ui-design-glm` (opencode/glm-5.2 high; `_pi/agents/ui-design-glm.md`) — UI design specialist for visual direction, UX tradeoff analysis, accessibility guidance, and design-focused implementation guidance.
 - `Explore` (gpt-5.4-mini; `_pi/agents/explore.md`) — Low-cost read-only codebase exploration before escalating to reviewer agents.
 - `developer-mid` (gpt-5.6-sol; `_pi/agents/developer-mid.md`) — Default GPT-5.6 Sol medium implementation agent for standard scoped code-writing packets.
 - `developer-high` (gpt-5.6-sol; `_pi/agents/developer-high.md`) — High-capability implementation agent for complex scenarios (multi-file refactoring, algorithmic challenges, concurrent systems, complex domain logic).
-- `developer-glm` (opencode/glm-5.2; `_pi/agents/developer-glm.md`) — GLM implementation agent for specification-driven coding work.
 - `developer-mm` (MiniMax; `_pi/agents/developer-mm.md`) — Alternative implementation agent using MiniMax model.
 
 ### Pi Subagent Reasoning-Effort Policy
@@ -45,9 +43,6 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 
 ## Review & Fidelity Safeguards
 - `quality-reviewer` (gpt-5.6-sol; `_pi/agents/quality-reviewer.md`) — Pi production-safety review for real issues (security, data loss, regressions, performance).
-- `quality-reviewer-glm` (opencode/glm-5.2; `_pi/agents/quality-reviewer-glm.md`) — Legacy xhigh compatibility alias for independent Pi GLM review gates that have not migrated to split GLM profiles.
-- `glm5.2-high` (opencode/glm-5.2 high reasoning; `_pi/agents/glm5.2-high.md`) — GLM reviewer profile for normal high-risk bounded review.
-- `glm5.2-xhigh` (opencode/glm-5.2 xhigh reasoning; `_pi/agents/glm5.2-xhigh.md`) — GLM reviewer profile reserved for final or exceptional-risk review.
 - `quality-reviewer` (inherits workspace default model; `_claude/agents/quality-reviewer.md`) — Production safety review covering security, data loss, regressions, and performance.
 - `quality-reviewer-fidelity` (sonnet; `_claude/agents/quality-reviewer-fidelity.md`) — Ensures code matches specification requirements exactly with no scope expansion.
 - `fidelity-reviewer` (opus; `_claude/agents/fidelity-reviewer.md`) — Compares generated task lists against source specifications and researches discrepancies.
@@ -218,13 +213,10 @@ Pi now supports both:
 /dev:run thoughts/plans/<plan>.html
 
 # Git & Linear
-/skill:cmd-start-linear-issue-branch <ISSUE_KEY>
 /skill:cmd-create-pr
 
 # Development
-/skill:cmd-research "how does X work"
-/skill:cmd-debug "issue description"
-# GPT plus applicable GLM; GLM can be truthfully skipped for low-risk scopes
+# Codex plus applicable Claude Code review
 /skill:pre-pr-implementation-review thoughts/plans/<plan>.html
 
 # Context
@@ -241,9 +233,8 @@ unless it already satisfies that format.
 
 Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
-- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan: implementation, implementation-stage PM review, applicable GPT/GLM or Codex/Claude pre-PR review, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus without waiting for a Codex thumbs-up or external approval.
-- `/skill:adn-dev-wf <task | plan>` remains available for the broader reviewed-plan workflow that owns plan refresh, blocker-only review, review integration, direct execution, and bounded implementation-stage PM follow-up.
-- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM and GPT/GLM Pi subagent plan review; it must register through `doct-agent plans register`, follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
+- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan: implementation, implementation-stage PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus without waiting for a Codex thumbs-up or external approval.
+- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM, Codex, and applicable Claude Code plan review; it must register through `doct-agent plans register`, follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
 - `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown plan publishing guidance, listener startup, readiness metadata, canonical URL rules, and comment mechanics; other planning skills should reference it instead of duplicating command recipes.
 - `/skill:dev-plan <task>` remains available for planning-only work.
 - `/dev:run <plan>` remains available when you already have an execution-ready reviewed plan and want direct execution only.
@@ -296,12 +287,8 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 
 **Git & Linear:**
 - `/skill:cmd-create-pr` — Create GitHub pull request
-- `/skill:cmd-start-linear-issue` — Start Linear issue with worktree
-- `/skill:cmd-start-linear-issue-branch` — Start Linear issue on branch
 
 **Development:**
-- `/skill:cmd-research` — Research codebase area
-- `/skill:cmd-debug` — Debug investigation
 - `/skill:dev-plan` — Materialize execution plan
 - `/skill:cmd-graduate` — Graduate completed work to spec/
 - `/skill:sentry-cli` — Investigate Sentry issues/events and safely mute, resolve, or unresolve issues after confirmation
@@ -311,11 +298,8 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:cmd-resume-handoff` — Resume from handoff
 
 **Reviews:**
-- `/skill:adn-dev-wf` — Broader reviewed-plan development workflow
-- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus GPT/GLM Pi subagent plan reviews, and stop at execution-ready handoff
-- `/skill:review-change` — Review code changes against plan
-- `/skill:review-change-integrate` — Integrate code-review feedback
-- `/skill:pre-pr-implementation-review` — Run GPT-5.6 Sol plus applicable GLM-5.2 Pi subagent pre-PR implementation review until in-scope P1/P2/P3 findings are addressed, preserving truthful GLM skips for low-risk scopes; inside `run-plan` it hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
+- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus Codex and applicable Claude Code plan reviews, and stop at execution-ready handoff
+- `/skill:pre-pr-implementation-review` — Run Codex plus applicable Claude Code pre-PR implementation review until in-scope P1/P2/P3 findings are addressed; inside `run-plan` it hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
 - `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
 
 ### Configuration

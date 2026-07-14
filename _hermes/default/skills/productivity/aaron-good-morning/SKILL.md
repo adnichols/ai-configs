@@ -265,21 +265,18 @@ The HTML briefing should still preserve the `/gm` section order from `adn_vault/
 - FOCUS RECOMMENDATION
 
 Additional HTML-specific requirements learned from review:
-## Multi-Model Review (mandatory)
+## Independent Review (mandatory)
 
-Every `/gm` run must pass a cross-model accuracy review before the HTML artifact is registered and published.
+Every `/gm` run must pass an independent accuracy review before the HTML artifact is registered and published.
 
 ### Protocol
 
 1. **Build** the GM HTML artifact with the default model (the model configured in `model.default`, currently `glm-5.2:cloud`).
-2. **Review** with a second model from a different family:
-   - If the default model is GLM (z.ai / custom endpoint), the reviewer is GPT via OpenAI Codex (`--provider openai-codex -m gpt-5.6-sol`), reasoning level high.
-   - If the default model is GPT (OpenAI / OpenAI Codex), the reviewer is GLM via the custom endpoint (`--provider custom -m glm-5.2:cloud`).
-   - If neither GLM nor GPT is the default, use GPT via OpenAI Codex (`gpt-5.6-sol`, high reasoning) as the reviewer.
+2. **Review** with GPT via OpenAI Codex (`--provider openai-codex -m gpt-5.6-sol`), reasoning level high, regardless of the builder model.
 3. The reviewer receives the full HTML artifact text and is asked to verify: (a) every section is present and follows the `/gm` section order, (b) data items are internally consistent (no contradictions between sections), (c) no section is obviously incomplete or missing required fields, (d) no stale/duplicate/ghost items remain, and (e) the artifact is a faithful, accurate, and complete briefing for the day.
 4. If the reviewer raises substantive issues, fix them in the HTML before publishing.
 5. If the reviewer confirms the artifact is accurate and complete, proceed to register and publish.
-6. Record the review outcome in the HTML artifact as a hidden or footer comment: `<!-- multi-model-review: <default_model> built, <reviewer_model> reviewed, <PASS|ISSUES_FIXED> <ISO timestamp> -->`.
+6. Record the review outcome in the HTML artifact as a hidden or footer comment: `<!-- independent-review: <default_model> built, <reviewer_model> reviewed, <PASS|ISSUES_FIXED> <ISO timestamp> -->`.
 
 ### Implementation notes
 
@@ -287,7 +284,7 @@ Every `/gm` run must pass a cross-model accuracy review before the HTML artifact
 - The subagent goal should be: "Review the Good Morning HTML briefing for accuracy, completeness, and internal consistency. Return PASS or a list of specific issues."
 - Pass the full HTML content and the `/gm` section-order checklist as context.
 - Do not register the artifact with Doct or create the Todoist review task until the review passes.
-- If the OpenAI Codex provider is unavailable (auth expired, network issue), record `[MULTI-MODEL REVIEW SKIPPED — <reason>]` in the HTML footer comment and proceed with publishing — do not block the morning briefing on reviewer unavailability.
+- If the OpenAI Codex provider is unavailable (auth expired, network issue), record `[INDEPENDENT REVIEW SKIPPED — <reason>]` in the HTML footer comment and proceed with publishing — do not block the morning briefing on reviewer unavailability.
 - This protocol applies to both interactive and cron-mode GM runs.
 
 ## Guardrails

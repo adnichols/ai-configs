@@ -1,6 +1,6 @@
 ---
 name: reviewed-html-plan
-description: Create and gate execution-ready HTML/Markdoc development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, read-only GPT plus GLM Pi subagent plan reviews, and a started/verified comment listener. Use whenever Aaron asks for a plan, the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
+description: Create and gate execution-ready HTML/Markdoc development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, a read-only GPT plan review, and a started/verified comment listener. Use whenever Aaron asks for a plan, the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
 ---
 
 # Reviewed HTML Plan Workflow
@@ -17,7 +17,6 @@ Load and follow these skills when this workflow reaches their surface:
 - `doct-document-ops` for HTML/Markdoc plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, Markdown/text fallback publishing, plan updates, comment/action queue handling, claim/ack/resolve behavior, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
 - Pi `quality-reviewer` for the read-only GPT plan-review pass.
-- Pi `quality-reviewer-glm` for the read-only GLM plan-review pass.
 - Domain skills required by the target repository guidance, stack, or plan surface.
 
 If a required review tool is unavailable, follow the relevant skill's remediation first. Stop only when the dependency cannot be restored safely or the next step requires a real product decision.
@@ -118,11 +117,9 @@ Default behavior is corrective: reshape the HTML plan directly when the right di
 
 After material PM edits, ensure the review URL still points at the latest plan and the plan remains browser-reviewable.
 
-### 6. Read-only GPT and GLM Pi subagent plan reviews
+### 6. Read-only GPT Pi subagent plan review
 
-Run both reviewers before execution, and keep them read-only.
-
-#### GPT
+Run the independent GPT reviewer before execution, and keep it read-only.
 
 Use the Pi `quality-reviewer` subagent for the GPT review leg. The review input should include:
 
@@ -135,11 +132,7 @@ Use the Pi `quality-reviewer` subagent for the GPT review leg. The review input 
 - instruction to avoid adjacent implementation expansion,
 - instruction not to edit files.
 
-#### GLM
-
-Use the Pi `quality-reviewer-glm` subagent for the GLM review leg with high/xhigh thinking when supported. Give it a bounded readiness prompt, not open-ended repo exploration. Do not ask GLM to edit files.
-
-For GLM plan review, stay limited to readiness concerns, including at least:
+Keep the review limited to readiness concerns, including at least:
 
 - whether the plan has executable phases,
 - whether acceptance criteria and verification are testable,
@@ -149,13 +142,13 @@ For GLM plan review, stay limited to readiness concerns, including at least:
 - whether architecture/dependency risks are resolved enough to execute,
 - whether recovery/operator/error behavior is specified when relevant.
 
-Use bounded scope rather than bounded tool calls. Do not cap tool calls. Use an 8-minute target review window with the last minute reserved for a final response; for narrow follow-up slices, use a 12-minute target window with the last 90 seconds reserved for a final response. If GLM cannot complete the assigned readiness scope inside the window, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
+Use bounded scope rather than bounded tool calls. Do not cap tool calls. If the reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
 
 Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt. If the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
 
-Split GLM readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The parent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
+Split readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The parent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
 
-Ask both reviewers for one of these verdicts:
+Ask the reviewer for one of these verdicts:
 
 ```text
 VERDICT: PLAN_EXECUTION_READY
@@ -167,7 +160,7 @@ Normalize fuzzy reviewer output by substance, but never normalize empty, tool-on
 
 ### 7. Integrate and iterate to execution-ready
 
-For every GPT/GLM finding, triage before editing:
+For every GPT finding, triage before editing:
 
 ```text
 Finding | Source | Classification | Decision | Evidence
@@ -181,7 +174,7 @@ Use these classifications:
 - `OUT_OF_SCOPE_FOLLOW_UP`: do not add to this plan only when it is outside the plan, not required for truthful verification, and not an acceptance-criteria/BDD gap; record it with evidence and a tracking destination if useful.
 - `DISAGREE_REPO_EVIDENCE`: do not change the plan; record the evidence if the disagreement matters.
 
-After fixing readiness blockers, rerun both GPT and GLM plan reviews. If any reviewer returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked. Repeat until both agree by substance that the plan is execution-ready. When they do, update the same Doct-registered HTML/Markdoc plan and status/board metadata using the current `doct-document-ops` Doct flow.
+After fixing readiness blockers, rerun the GPT plan review. If the reviewer returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked. Repeat until the independent reviewer agrees by substance that the plan is execution-ready. When they do, update the same Doct-registered HTML/Markdoc plan and status/board metadata using the current `doct-document-ops` Doct flow.
 
 #### Independent sign-off gate (do not self-certify)
 
@@ -192,7 +185,7 @@ The closing ready verdict that marks a plan `execution-ready` must come from an 
 - The independent ready verdict must not be followed by any later non-pass review, and should post-date the last material plan edit. If you edit the plan after the independent pass, re-review.
 - Record reviews truthfully in the `review-record` section with the real reviewer identity. Do not relabel a self-review as `codex`/`claude-code` to satisfy the gate — actually run the independent tool.
 
-This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/GPT/GLM gates and Doct review state are the enforcement surface.
+This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/GPT gate and Doct review state are the enforcement surface.
 
 Stop and report a convergence blocker if:
 
@@ -208,7 +201,7 @@ If AI reviews materially reshape product intent, run one final PM check before d
 Before final output, inspect the HTML plan for obvious handoff blockers:
 
 - unresolved browser-review comments remain in the queue,
-- the Doct registered plan has not been updated after successful GPT and GLM plan reviews, or its lifecycle/board/readiness state is stale,
+- the Doct registered plan has not been updated after successful GPT plan review, or its lifecycle/board/readiness state is stale,
 - unresolved inline review markers or unresolved question sections remain,
 - status is not `execution-ready`,
 - near-top Decision Attention is missing or hides unresolved decisions,
@@ -217,7 +210,7 @@ Before final output, inspect the HTML plan for obvious handoff blockers:
 - an active phase is missing `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, or `Verify`,
 - UI impact is missing, `unknown`, or lacks required design evidence for real UI-impacting work,
 - verification commands are stale or not copy/paste ready,
-- GPT or GLM did not agree by substance that the plan is ready,
+- GPT did not agree by substance that the plan is ready,
 - PM review left unresolved product-intent or user-impact gaps.
 
 Do not start implementation as part of this skill.
@@ -236,7 +229,6 @@ Review URL: <canonical Doct URL>
 - Browser feedback: <processed / skipped by request / blocked>
 - PM review: <ready / reshaped plan / blocked>
 - GPT review: <verdict>
-- GLM review: <verdict>
 
 ### Changes made during review
 - ...

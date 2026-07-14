@@ -1,17 +1,6 @@
 {
   "version": 3,
   "installableSkills": {
-    "adn-dev-wf": {
-      "class": "universal-installable",
-      "allowedConsumers": [
-        "codex",
-        "claude",
-        "pi"
-      ],
-      "canonicalSource": "skills/adn-dev-wf",
-      "notes": "Canonical reviewed-plan development workflow replacing the older prompt-chained handoff and retired quality-gated execution path.",
-      "sourceType": "repo"
-    },
     "algorithmic-art": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -161,19 +150,6 @@
       "notes": "Pi-originated workflow skill promoted as a universal installable skill.",
       "sourceType": "repo"
     },
-    "cmd-debug": {
-      "class": "consumer-specific-installable",
-      "allowedConsumers": [
-        "codex",
-        "pi"
-      ],
-      "canonicalSource": "skills/cmd-debug",
-      "legacySources": [
-        "_pi/skills/cmd-debug"
-      ],
-      "notes": "Pi/Codex: orchestrates subagent-based debugging workflows; Codex delegates to Pi when Pi subagent parity is required.",
-      "sourceType": "repo"
-    },
     "cmd-graduate": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -188,19 +164,6 @@
       "notes": "Pi-originated workflow skill promoted as a universal installable skill.",
       "sourceType": "repo"
     },
-    "cmd-research": {
-      "class": "consumer-specific-installable",
-      "allowedConsumers": [
-        "codex",
-        "pi"
-      ],
-      "canonicalSource": "skills/cmd-research",
-      "legacySources": [
-        "_pi/skills/cmd-research"
-      ],
-      "notes": "Pi/Codex: supports subagent-based codebase research orchestration; Codex delegates to Pi when Pi subagent parity is required.",
-      "sourceType": "repo"
-    },
     "cmd-resume-handoff": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -211,34 +174,6 @@
       "canonicalSource": "skills/cmd-resume-handoff",
       "legacySources": [
         "_pi/skills/cmd-resume-handoff"
-      ],
-      "notes": "Pi-originated workflow skill promoted as a universal installable skill.",
-      "sourceType": "repo"
-    },
-    "cmd-start-linear-issue": {
-      "class": "universal-installable",
-      "allowedConsumers": [
-        "codex",
-        "claude",
-        "pi"
-      ],
-      "canonicalSource": "skills/cmd-start-linear-issue",
-      "legacySources": [
-        "_pi/skills/cmd-start-linear-issue"
-      ],
-      "notes": "Pi-originated workflow skill promoted as a universal installable skill.",
-      "sourceType": "repo"
-    },
-    "cmd-start-linear-issue-branch": {
-      "class": "universal-installable",
-      "allowedConsumers": [
-        "codex",
-        "claude",
-        "pi"
-      ],
-      "canonicalSource": "skills/cmd-start-linear-issue-branch",
-      "legacySources": [
-        "_pi/skills/cmd-start-linear-issue-branch"
       ],
       "notes": "Pi-originated workflow skill promoted as a universal installable skill.",
       "sourceType": "repo"
@@ -361,26 +296,6 @@
       "notes": "Repo-owned override of the upstream Herdr control skill. Allows Codex and Claude to control a reachable Herdr session from outside a managed pane instead of treating `HERDR_ENV=1` as a hard prerequisite.",
       "sourceType": "repo"
     },
-    "plan-reviewer-build": {
-      "class": "consumer-specific-installable",
-      "allowedConsumers": [
-        "codex",
-        "pi"
-      ],
-      "canonicalSource": "skills/plan-reviewer-build",
-      "notes": "Codex/Pi: handles Doct plan Build Plan request comments by delegating explicit execution-ready plan paths to run-plan.",
-      "sourceType": "repo"
-    },
-    "plan-reviewer-execution-ready": {
-      "class": "consumer-specific-installable",
-      "allowedConsumers": [
-        "codex",
-        "pi"
-      ],
-      "canonicalSource": "skills/plan-reviewer-execution-ready",
-      "notes": "Codex/Pi: handles Doct plan execution-ready request comments with a Codex readiness-review leg plus applicable canonical Claude Code review when the high-risk second-reviewer trigger applies; Pi invokes Codex as a subprocess.",
-      "sourceType": "repo"
-    },
     "internal-comms": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -431,19 +346,6 @@
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
-    },
-    "opencode-safe-restart": {
-      "class": "universal-installable",
-      "allowedConsumers": [
-        "codex",
-        "claude",
-        "pi"
-      ],
-      "canonicalSource": "skills/opencode-safe-restart",
-      "notes": "Conservative detached supervisor for restarting configured services and resuming only sessions that were definitely active immediately before restart. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
-      "sourceType": "repo",
-      "defaultInstall": false,
-      "profile": "ops-browser"
     },
     "packaging-notarization": {
       "class": "universal-installable",
@@ -538,19 +440,6 @@
       "notes": "Canonical shared repo bootstrap guidance.",
       "sourceType": "repo"
     },
-    "review-change": {
-      "class": "consumer-specific-installable",
-      "allowedConsumers": [
-        "codex",
-        "pi"
-      ],
-      "canonicalSource": "skills/review-change",
-      "legacySources": [
-        "_pi/skills/review-change"
-      ],
-      "notes": "Pi/Codex: depends on subagent-based review orchestration; Codex delegates to Pi when model/subagent parity is required.",
-      "sourceType": "repo"
-    },
     "reviewed-html-plan": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
@@ -559,19 +448,6 @@
       ],
       "canonicalSource": "skills/reviewed-html-plan",
       "notes": "Pi/Codex: creates and gates HTML plans through Doct browser feedback, PM review, Codex plan review, and applicable canonical Claude Code plan review; Pi invokes Codex as a subprocess.",
-      "sourceType": "repo"
-    },
-    "review-change-integrate": {
-      "class": "consumer-specific-installable",
-      "allowedConsumers": [
-        "codex",
-        "pi"
-      ],
-      "canonicalSource": "skills/review-change-integrate",
-      "legacySources": [
-        "_pi/skills/review-change-integrate"
-      ],
-      "notes": "Pi/Codex: integrates review findings; Codex delegates implementation or rereview slices to Pi only when subagent parity is required.",
       "sourceType": "repo"
     },
     "rust-engineer": {

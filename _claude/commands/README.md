@@ -39,9 +39,8 @@ This directory contains a comprehensive set of commands that support a complete 
 
 ### Autopilot Loop Commands
 18. **`run-plan`** - Full lifecycle reviewed-plan execution through PR creation and monitoring
-19. **`adn-dev-wf`** - Broader reviewed-plan workflow skill for plan refresh, review integration, direct execution, and PM follow-up
-20. **`ralph:review-gpt.md`** - Run `/review` in a loop (GPT-5.6 Sol), apply quick fixes, stop when no straightforward fixes remain
-21. **`ralph:review-opus.md`** - Run `/review` in a loop (Opus), apply quick fixes, stop when no straightforward fixes remain
+19. **`ralph:review-gpt.md`** - Run `/review` in a loop (GPT-5.6 Sol), apply quick fixes, stop when no straightforward fixes remain
+20. **`ralph:review-opus.md`** - Run `/review` in a loop (Opus), apply quick fixes, stop when no straightforward fixes remain
 
 ## Command Workflows
 

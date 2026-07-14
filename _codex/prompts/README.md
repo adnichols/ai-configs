@@ -39,11 +39,10 @@ This directory contains a comprehensive set of commands that support a complete 
 
 ### Workflow Skills
 18. **`run-plan`** - Full lifecycle reviewed-plan execution through PR creation and monitoring
-19. **`adn-dev-wf`** - Broader reviewed-plan workflow skill for plan refresh, review integration, direct execution, and PM follow-up
 
 ### Codex Compatibility Notes
 - Codex prompts are kept at parity with Pi prompt availability where practical.
-- Prompts whose implementation depends on Pi subagents, GPT/GLM/Kimi/Opus model routing, or Pi-only orchestration are exposed in Codex as Pi-delegating wrappers.
+- Prompts whose implementation depends on Pi-only subagents or orchestration are exposed in Codex as Pi-delegating wrappers.
 - Those wrappers run `pi -p --approve "<pi slash command> $ARGUMENTS"` from the same repository/worktree and treat missing Pi/subagent/model availability as a tooling blocker rather than silently substituting a Codex-only review.
 
 ## Command Workflows
@@ -193,11 +192,6 @@ All commands use consistent:
 - Continue a reviewed plan through full lifecycle execution, PR creation, and post-PR monitoring
 - Use this as the default execution handoff after review integration
 
-**`/skill:adn-dev-wf`**:
-- Continue the broader reviewed-plan workflow from a task request or an existing plan
-- Create or reshape the plan as needed, integrate review comments, then execute directly
-- Use `quality-reviewer` once per phase and keep `## Progress` truthful
-
 ## Fidelity-Preserving Agents
 
 ### developer
@@ -285,7 +279,7 @@ Commands use colon-delimited namespacing:
 - `test:` - Test orchestration commands
 - `simplify:[phase]:` - Code simplification commands (e.g., `simplify:1:create-plan`)
 - `cmd:` - Git and utility commands (e.g., `cmd:commit-push`, `cmd:start-linear-issue`)
-- `skill:` - Repo-owned workflow skills such as `adn-dev-wf`
+- `skill:` - Repo-owned workflow skills such as `run-plan`
 - `[number]:` - Cross-workflow phase commands (e.g., `3:process-tasks`)
 
 This flat structure ensures compatibility with all AI coding agents that don't traverse subdirectories.
