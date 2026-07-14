@@ -45,4 +45,4 @@ Canonical continuation after a reviewed plan is ready:
 - `/run-plan <plan>` for full lifecycle execution through PR creation and monitoring
 - `/dev:run <plan>` for direct execution-only handoff
 
-Plan-reviewer browser action comments are routed through default shared skills installed to `~/.agents/skills`: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests. When those skills require GPT/GLM Pi subagents, Codex delegates that reviewer-pair gate to Pi rather than replacing it with a Codex-only review. Optional-profile skills in `skills/install-matrix.json` are not installed into the default Codex discovery surface.
+Plan review and execution use the maintained `reviewed-html-plan` and `run-plan` workflows directly. Optional-profile skills in `skills/install-matrix.json` are not installed into the default Codex discovery surface.

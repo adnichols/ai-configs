@@ -186,9 +186,7 @@ Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUME
 
 Before launching Claude Code, classify the review scope using the high-risk second-reviewer policy. Use Claude Code when the diff touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface. Skip Claude Code by default for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason; record the skip in the review ledger.
 
-When this shared workflow is surfaced through Pi reviewer profiles instead of the Codex/Claude Code gate, preserve the current applicable GLM routing: use `glm5.2-high` for normal high-risk bounded review, reserve `glm5.2-xhigh` for final or exceptional-risk review, and treat `quality-reviewer-glm` as a legacy xhigh compatibility alias only. For low-risk/docs-only/UI-copy/tests/narrow follow-ups, record the GLM skipped classification rather than inventing a GLM verdict.
-
-When the Claude Code leg applies, use `claude-code-review`; the canonical launcher owns model, effort, and private-tmux mechanics. Do not use Pi `quality-reviewer`, GLM reviewer profiles, GPT subagents, Kimi, OMP, OpenCode, or other model-subagent substitutes for this review. If a required Claude Code review is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
+When the Claude Code leg applies, use `claude-code-review`; the canonical launcher owns model, effort, and private-tmux mechanics. Do not use alternate model-subagent reviewers for this review. If a required Claude Code review is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
@@ -274,8 +272,6 @@ When the standalone pre-PR gate is required, it must use:
 - Codex for the primary review leg. In Codex, use a Codex subagent/native review task when available; in Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper.
 - Claude Code via `claude-code-review` when the high-risk second-reviewer trigger or an explicit override applies; the canonical launcher owns model and effort selection.
 
-For Pi-only GPT/GLM pre-PR surfaces that wrap this same lifecycle, the equivalent route is GPT plus applicable GLM using `glm5.2-high` for normal high-risk bounded review and `glm5.2-xhigh` for final or exceptional-risk review. Preserve truthful low-risk GLM skip records and do not route new work through the legacy `quality-reviewer-glm` alias except for compatibility with older independent GLM gates.
-
 In Codex, satisfy this gate directly rather than delegating back to Pi. Run the Codex leg as a subagent/native review task when available and run the applicable Claude Code leg through the canonical launcher. If a subprocess Codex leg is needed, use:
 
 ```bash
@@ -353,7 +349,6 @@ The PR body must include:
 - second scoped quality-review verdict,
 - implementation-stage PM review verdict, artifact/notes location, any plan/Doct updates, and any PM-triggered rerun requirements,
 - Codex/Claude pre-PR review verdicts and artifact path, or explicit waived/not-run status,
-- Pi GPT/GLM pre-PR verdicts when that surface is used, including the applicable GLM verdict or truthful GLM skipped classification,
 - base freshness and mergeability/rebase status before PR creation,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - known residual risks.
@@ -596,7 +591,6 @@ Report:
 - runtime-native scoped quality-review verdicts,
 - implementation-stage PM review verdict,
 - Codex/Claude pre-PR review verdicts or waived/not-run status,
-- Pi GPT/GLM pre-PR verdicts when that surface is used, including applicable GLM verdict or truthful GLM skipped classification,
 - base freshness and rebase status,
 - PR feedback snapshot result,
 - PR mergeability or base-freshness result,

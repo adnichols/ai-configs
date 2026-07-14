@@ -18,7 +18,7 @@ These resources are installed by `install.sh` to Pi's global agent directory. Th
 - repo-managed model entries: merged from `_pi/models.json` into `~/.pi/agent/models.json` without replacing local API keys
 - package-managed Pi installs: registered via `pi install` / `pi update` and visible in `pi list`
 
-Plan-reviewer browser action comments route through default shared skills in `~/.agents/skills`: `plan-reviewer-execution-ready` for readiness review requests and `plan-reviewer-build` for Build Plan requests. Rarely used browser/CDP helper skills such as `brave-cdp` and `chrome-cdp` remain inventoried in `skills/install-matrix.json` under the optional `ops-browser` profile and are not loaded into Pi/Codex default context.
+Plan review and execution use the maintained `reviewed-html-plan` and `run-plan` workflows directly. Rarely used browser/CDP helper skills such as `brave-cdp` and `chrome-cdp` remain inventoried in `skills/install-matrix.json` under the optional `ops-browser` profile and are not loaded into Pi/Codex default context.
 
 `pi list` only shows the package-managed set; it does not list repo-managed files like `todo.ts`, `simple-multi-status.ts`, or `pi-prd-mode`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
 
@@ -54,12 +54,9 @@ Installed layout:
 ├── agents/
 │   ├── developer-mid.md
 │   ├── developer-mm.md
-│   ├── orchestrator-glm.md
+│   ├── general-glm.md
 │   ├── ui-design-glm.md
 │   ├── quality-reviewer.md
-│   ├── quality-reviewer-glm.md
-│   ├── glm5.2-high.md
-│   ├── glm5.2-xhigh.md
 │   ├── explore.md
 │   └── ...
 └── extensions/
@@ -208,10 +205,9 @@ Example installed agents:
 
 - `developer-mid`
 - `developer-mm`
+- `general-glm`
+- `ui-design-glm`
 - `quality-reviewer`
-- `quality-reviewer-glm`
-- `glm5.2-high`
-- `glm5.2-xhigh`
 - `Explore`
 - `research`
 - `plan-gpt`
@@ -222,24 +218,19 @@ Example installed agents:
 ## Skills Overview
 
 ### Canonical workflow
-- `adn-dev-wf` — reviewed-plan workflow from plan creation through direct execution and PM follow-up
-- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in Doct, follows returned `listenerInstructions`, starts the durable queue-backed listener, processes browser feedback, runs PM plus GPT/GLM Pi subagent plan reviews, and stops at execution-ready handoff
+- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in Doct, follows returned `listenerInstructions`, starts the durable queue-backed listener, processes browser feedback, runs PM plus Codex and applicable Claude Code plan reviews, and stops at execution-ready handoff
 
 ### Dev / execution
-- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: durable Pi goal tracking, implementation, scoped reviews, implementation-stage PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
+- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: durable Pi goal tracking, implementation, scoped reviews, implementation-stage PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
 - `dev:run` — direct GPT-5.6 Sol medium execution with one `quality-reviewer` pass after each phase
-- `orchestrator-glm` — GLM-5.2 high planning/orchestration route for decomposition, routing, long debug-loop supervision, failure triage, and review synthesis; use it by switching the active scoped model to `opencode/glm-5.2` or delegating a bounded packet from the GPT-5.6 Sol parent
-- `ui-design-glm` — GLM-5.2 high UI design specialist for visual direction, UX tradeoffs, accessibility-aware critique, and UI implementation review
-- `pre-pr-implementation-review` — GPT-5.6 Sol plus applicable GLM-5.2 Pi subagent pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; `glm5.2-high` handles normal high-risk bounded review, `glm5.2-xhigh` is reserved for final or exceptional-risk review, `quality-reviewer-glm` remains a legacy xhigh compatibility alias, and low-risk scopes record a truthful GLM skip; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
+- `general-glm` — retained general-purpose GLM route for explicitly delegated research, coding, debugging, and analysis; it is not a review gate
+- `ui-design-glm` — retained GLM-5.2 high UI design specialist for visual direction, UX tradeoffs, accessibility guidance, and design-focused implementation guidance; it is not a review gate
+- `pre-pr-implementation-review` — Codex plus applicable Claude Code pre-PR implementation review loop until in-scope P1/P2/P3 findings are addressed; when invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
 
 ### Git / workflow
 - `cmd-create-pr`
-- `cmd-start-linear-issue`
-- `cmd-start-linear-issue-branch`
 
 ### Development
-- `cmd-research`
-- `cmd-debug`
 - `dev-plan`
 - `dev:pm-review` — adversarial PM review that reshapes plans against intended outcomes, product principles, and early-stage scope fit
 - `cmd-graduate`
@@ -251,8 +242,6 @@ Example installed agents:
 - `cmd-resume-handoff`
 - `review-plan`
 - `review-plan-adversarial`
-- `review-change`
-- `review-change-integrate`
 - `review-change-kimi`
 - `review-change-opus`
 - `review-change-claude-code` — Claude Code review-only pass through the deterministic invisible-background `claude_review` tool; the shared launcher owns private-tmux Claude mechanics
@@ -285,13 +274,13 @@ Prompt templates:
 
 ## Reviewed-plan handoff
 
-Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-ready-PR execution: durable Pi goal tracking, implementation, implementation-stage PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html` or the repo-selected Markdoc source, and `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown publishing guidance, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics.
+Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-ready-PR execution: durable Pi goal tracking, implementation, implementation-stage PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html` or the repo-selected Markdoc source, and `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown publishing guidance, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics.
 
 Canonical browser-reviewed HTML plan flow:
 
 ```text
 /dev:plan <plan>
-/dev:reviewed-html-plan <plan>    # register, monitor browser comments, PM-review, and run GPT/GLM plan reviews
+/dev:reviewed-html-plan <plan>    # register, monitor browser comments, PM-review, and run Codex/Claude Code plan reviews
 /cmd:execute-plan <plan>
 ```
 
@@ -309,8 +298,8 @@ Optional second pass: run `/review:plan-adversarial <plan>` after `/review:chang
 Use `/dev:pm-review <plan> implementation` after execution when you want a corrective PM pass that checks whether the intended user outcome was actually realized and, if not, reshapes the plan with the missing completion work instead of stopping at findings.
 
 - `/cmd:execute-plan` is the canonical wrapper for choosing between `/run-plan <plan>` and `/dev:run <plan>`.
-- `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, applicable GPT/GLM pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
-- `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean GPT/GLM consensus over all in-scope P1/P2/P3 findings means `OPEN_PR_READY`; the runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for a Codex thumbs-up.
+- `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
+- `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean Codex and applicable Claude Code consensus over all in-scope P1/P2/P3 findings means `OPEN_PR_READY`; the runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for a Codex thumbs-up.
 - In Pi, `/cmd:execute-plan` starts a fresh session and launches the selected execution flow from clean context.
 - `/review:change-claude-code` remains available as an explicit manual review request; it is not an automatic planning-mode fallback. It writes a bounded prompt and calls the repo-owned `claude_review` tool, which always runs without an overlay, returns immediately, and notifies Pi when the validated artifact is ready.
 
@@ -341,7 +330,6 @@ Skills:
 ```text
 /run-plan thoughts/plans/user-profile-redesign.html
 /skill:reviewed-html-plan user-profile-redesign
-/skill:cmd-start-linear-issue-branch ENG-123
 /skill:doct-document-ops
 /skill:sentry-cli
 ```
@@ -354,4 +342,4 @@ Skills:
 - Project-local Pi resources can also live under `.pi/prompts/`, `.pi/skills/`, `.pi/agents/`, and `.pi/extensions/`.
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.
-- GPT-5.6 Sol medium is the normal repository-owned Pi OpenAI code-writing route. For planning/orchestration-heavy, review-synthesis-heavy, UI-design-heavy, or long test/debug-loop work, explicitly switch the active scoped model to `opencode/glm-5.2` or delegate a bounded packet to `orchestrator-glm`; do not reroute unrelated sessions. Use `Explore`/`explore` for broad discovery before sending scoped code-writing packets to `developer-mid`, and reserve `developer-high` for complex or failed scoped implementation work.
+- GPT-5.6 Sol medium is the normal repository-owned Pi code-writing route. Use `Explore`/`explore` for broad discovery before sending scoped code-writing packets to `developer-mid`, reserve `developer-high` for complex or failed scoped implementation work, and use `ui-design-glm` only for design direction and design-focused implementation guidance. `general-glm` remains available for explicitly delegated non-review work.

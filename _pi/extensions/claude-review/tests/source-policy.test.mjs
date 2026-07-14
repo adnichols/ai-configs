@@ -37,7 +37,6 @@ test("shared Pi-capable review workflows describe the deterministic tool", async
     "skills/reviewed-html-plan/SKILL.md",
     "skills/run-plan/SKILL.md",
     "skills/pre-pr-implementation-review/SKILL.md",
-    "skills/plan-reviewer-execution-ready/SKILL.md",
   ]) {
     const source = await text(file);
     assert.match(source, /claude_review\(\{/, `${file} must show the Pi tool route`);

@@ -314,9 +314,9 @@ if command -v pi >/dev/null 2>&1; then
   fi
 
   if pi --list-models "$PI_GLM_SCOPED_MODEL_VALUE" 2>/dev/null | grep -Eq '^[[:space:]]*opencode[[:space:]]+glm-5\.2([[:space:]]|$)'; then
-    echo "  Pi reviewer GLM model route: $PI_GLM_SCOPED_MODEL_VALUE"
+    echo "  Pi retained GLM scoped model route: $PI_GLM_SCOPED_MODEL_VALUE"
   else
-    note_failure "Pi cannot resolve reviewer GLM model route $PI_GLM_SCOPED_MODEL_VALUE"
+    note_failure "Pi cannot resolve retained GLM scoped model route $PI_GLM_SCOPED_MODEL_VALUE"
   fi
 fi
 

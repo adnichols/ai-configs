@@ -26,7 +26,22 @@ AI_CONFIGS_BACKUP_RUN_ID="$(date +"%Y%m%d-%H%M%S")"
 AI_CONFIGS_REPO_NAME='ai-configs'
 AI_CONFIGS_REPO_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 CENTRAL_ONLY_PROJECT_SKILLS=(ccore todoist-cli brave-cdp chrome-cdp)
-DEPRECATED_SHARED_SKILLS=(agent-browser scoped-plan-run html-plan-reviewer omp-review-partner)
+DEPRECATED_SHARED_SKILLS=(
+    agent-browser
+    scoped-plan-run
+    html-plan-reviewer
+    omp-review-partner
+    adn-dev-wf
+    cmd-debug
+    cmd-research
+    cmd-start-linear-issue
+    cmd-start-linear-issue-branch
+    opencode-safe-restart
+    plan-reviewer-build
+    plan-reviewer-execution-ready
+    review-change
+    review-change-integrate
+)
 RETIRED_PI_EXTENSIONS=(questionnaire.ts)
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
