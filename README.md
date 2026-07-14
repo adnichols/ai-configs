@@ -159,13 +159,17 @@ Claude compatibility links are created where needed, but `~/.agents/skills` is t
 bash ./install.sh --skills --update
 ```
 
-`ltui` lives in the standalone `Nodaste-Lab/ltui` repository and can be installed with:
+`--tools` installs or updates `ltui` from the standalone `Nodaste-Lab/ltui` repository and refreshes the managed Herdr plugin set:
+
+- `persiyanov/herdr-reviewr`
 
 ```bash
 bash ./install.sh --tools
 ```
 
-For testing or pinning a branch:
+The Herdr plugin installer intentionally reruns `herdr plugin install <source> --yes`, which resolves the current upstream revision and replaces an older managed checkout while preserving the plugin's configuration directory. If Herdr is not installed, the plugin step is skipped with a warning.
+
+For testing or pinning an `ltui` branch:
 
 ```bash
 LTUI_REPO_URL=/path/to/ltui LTUI_REF=linear-rate-limit-reduction bash ./install.sh --tools

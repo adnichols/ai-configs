@@ -30,6 +30,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@tmustier/pi-files-widget"
   "npm:@tmustier/pi-raw-paste"
   "npm:@ff-labs/pi-fff"
+  "npm:@pi-kaush/pi-inline-skill-identifier"
 )
 
 FAILURES=0

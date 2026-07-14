@@ -69,7 +69,7 @@ print_usage() {
     echo "  --claude    Install Claude Code configuration and refresh shared skills for Claude"
     echo "  --codex     Sync global Codex prompts/scripts and refresh shared skills for Codex"
     echo "  --pi        Install Pi prompt templates, subagents, and extensions, then refresh shared skills"
-    echo "  --tools     Install CLI tools only (e.g., ltui)"
+    echo "  --tools     Install/update CLI tools and managed Herdr plugins"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
     echo "  --update    Update globally installed skills tracked by skills.sh before shared-skill sync"
@@ -84,7 +84,8 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills, while Pi packages still include pi-gpt-config"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @ff-labs/pi-fff, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @ff-labs/pi-fff, @pi-kaush/pi-inline-skill-identifier, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
     echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OMP, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
     echo "  - In non-interactive mode, existing configs are preserved automatically"
@@ -94,7 +95,7 @@ print_usage() {
     echo "  $0 --claude                      # Install Claude to current directory"
     echo "  $0 --codex                       # Sync global Codex resources"
     echo "  $0 --pi                          # Install Pi prompt templates, subagents, extensions, and refresh shared skills"
-    echo "  $0 --tools                       # Install CLI tools globally"
+    echo "  $0 --tools                       # Install/update CLI tools and managed Herdr plugins"
     echo "  $0 --skills                      # Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  $0 --skills --update             # Update skills.sh-managed global skills, then sync shared skills"
     echo "  $0 --all                         # Install all maintained surfaces and tools"
@@ -529,7 +530,34 @@ install_tools() {
     echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
     echo ""
 
+    install_herdr_plugins
+    echo ""
     install_ltui
+}
+
+install_herdr_plugins() {
+    echo "Installing managed Herdr plugins..."
+
+    local herdr_plugins=(
+        "persiyanov/herdr-reviewr"
+    )
+
+    if ! command -v herdr >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠ Herdr not found in PATH; skipping managed Herdr plugins${NC}"
+        return 0
+    fi
+
+    for source in "${herdr_plugins[@]}"; do
+        echo "  - Installing/updating $source..."
+        if herdr plugin install "$source" --yes; then
+            echo -e "    ${GREEN}✓ $source installed and current${NC}"
+        else
+            echo -e "    ${RED}✗ Failed to install/update Herdr plugin $source${NC}"
+            return 1
+        fi
+    done
+
+    echo -e "${GREEN}✓ Managed Herdr plugins processed${NC}"
 }
 
 install_ltui() {
@@ -2497,6 +2525,7 @@ install_pi_npm_packages() {
         "@tmustier/pi-files-widget"
         "@tmustier/pi-raw-paste"
         "@ff-labs/pi-fff"
+        "@pi-kaush/pi-inline-skill-identifier"
     )
     local deprecated_npm_packages=(
         "pi-subagents"

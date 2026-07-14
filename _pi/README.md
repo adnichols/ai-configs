@@ -192,6 +192,7 @@ npm-managed packages:
 - `@tmustier/pi-files-widget`
 - `@tmustier/pi-raw-paste`
 - `@ff-labs/pi-fff`
+- `@pi-kaush/pi-inline-skill-identifier`
 
 local path packages:
 - `~/.pi/agent/local-packages/ai-configs/pi-vcc` (a stable mirror synced from `./_pi/packages/pi-vcc`; install tests and worktrees must not register their transient checkout path)

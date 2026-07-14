@@ -247,6 +247,20 @@ esac
 EOF
   chmod +x "$bin_dir/npx"
 
+  cat > "$bin_dir/herdr" <<'EOF'
+#!/bin/bash
+set -eu
+
+if [[ "${1:-}" == "plugin" && "${2:-}" == "install" ]]; then
+  mkdir -p "$HOME/.config/herdr"
+  printf '%s\n' "$*" >> "$HOME/.config/herdr/fake-plugin-installs.log"
+  exit 0
+fi
+
+exit 0
+EOF
+  chmod +x "$bin_dir/herdr"
+
   printf '%s\n' "$bin_dir"
 }
 
@@ -791,6 +805,7 @@ packages = [
     "npm:@tmustier/pi-files-widget",
     "npm:@tmustier/pi-raw-paste",
     "npm:@ff-labs/pi-fff",
+    "npm:@pi-kaush/pi-inline-skill-identifier",
     "npm:pi-codex-goal",
     pi_vcc,
 ]
@@ -1212,6 +1227,7 @@ test_phase_four_validation_proves_final_alignment() {
 
   assert_no_dangling_symlinks "$home/.claude/skills" || return 1
   [[ ! -e "$home/.config/opencode/skills/omp-review-partner" ]] || return 1
+  assert_file_contains "$home/.config/herdr/fake-plugin-installs.log" 'plugin install persiyanov/herdr-reviewr --yes' || return 1
 
   [[ ! -e "$home/.pi/agent/skills/linear" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/doct-document-ops" ]] || return 1
