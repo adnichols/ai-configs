@@ -4,7 +4,7 @@
  * This extension:
  * - Registers a `todo` tool for the LLM to manage todos
  * - Registers a `/todos` command for users to view the list
- * - Encourages agents to create comprehensive todo lists BEFORE beginning work
+ * - Guides agents to use todos only for authorized multi-step execution or explicit task tracking
  *
  * State is stored in tool result details (not external files), which allows
  * proper branching - when you branch, the todo state is automatically
@@ -140,20 +140,18 @@ export default function (pi: ExtensionAPI) {
 		name: "todo",
 		label: "Todo",
 		description:
-			"Track and manage a persistent todo list within the session. Use this proactively for comprehensive planning BEFORE beginning substantive work. The todo tool is for trackable, actionable items that persist across the conversation.",
+			"Track and manage a persistent todo list within the session. Use it for explicitly requested task tracking or authorized multi-step execution. Do not create todos for ordinary questions, explanations, research, diagnosis, review, planning discussion, or status requests.",
 		promptSnippet:
-			"Create the initial plan with one todo add call using texts: string[] whenever there is more than one todo, then update progress as you go",
+			"Use todos only for explicit task tracking or authorized multi-step execution; skip them for read-only and conversational requests",
 		promptGuidelines: [
-			"BEFORE doing substantive work on the upcoming user request, create a comprehensive phased todo list first. You MUST call todo with action: 'add' to initialize the full plan in this turn.",
-			"When adding more than one todo, strongly prefer a single todo add call with texts: string[]. Do not emit many separate add calls unless only one item is being added.",
-			"For the initial multi-step plan, default to texts: string[] as the primary form. Use text only when adding exactly one todo item.",
-			"You MUST cover the entire request from investigation through implementation and verification — not just the next immediate step.",
-			"You MUST make todo descriptions specific enough that a future turn can execute them without re-planning. Keep task text to a short label (5-10 words). Put file paths, implementation steps, and specifics in mental context, not the todo text.",
-			"You MUST keep tasks ordered: exactly one active task (not marked done) and all later tasks not done. Toggle tasks to done as you complete them.",
-			"After the initial todo list is created, continue with the user's request in the same turn. Do not emit additional todo calls unless task state materially changed (completions, new discoveries requiring tasks).",
-			"When the user asks to track tasks, create a todo list, or manage action items, use the todo tool instead of conversational responses.",
-			"When the user mentions 'todo', 'tasks', or asks to see their todos, call todo with action: 'list'.",
-			"After completing work, offer to update or clear the todo list using the todo tool.",
+			"Do not create a todo list for questions, explanations, read-only inspection, research, diagnosis, review, planning discussion, or status requests unless the user explicitly asks to track tasks.",
+			"Create an initial todo list only when the user explicitly requests task tracking or authorizes substantive multi-step execution. Simple one-step changes do not require a todo list.",
+			"When adding more than one todo, use one add call with texts: string[]. Use text only when adding exactly one item.",
+			"Cover only the authorized scope. Do not turn analysis, recommendations, or a question into implementation tasks.",
+			"Keep todo descriptions specific, measurable, and short (5-10 words), with enough coverage to resume authorized work without re-planning.",
+			"Keep tasks ordered and toggle items as they are completed. Add or revise items only when the authorized scope or execution state materially changes.",
+			"After creating a todo list for authorized execution, continue with that work in the same turn unless blocked.",
+			"When the user explicitly asks to create, view, update, or clear their todo list, use this tool instead of only describing the action.",
 		],
 		parameters: TodoParams,
 

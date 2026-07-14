@@ -72,7 +72,9 @@ Installed layout:
     └── todo.ts
 ```
 
-The installer copies the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md`.
+The installer renders the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md` through `scripts/render_pi_append_system.py`. It replaces `{{AI_CONFIGS_VERSION}}` with `YYYY-MM-DD+<git-sha>` and appends `-dirty` only when the doctrine file differs from that commit, so behavior reports can be tied back to repository history. Installation fails outside a Git checkout, when the doctrine is untracked, or if the template token is missing, duplicated, or remains unresolved.
+
+The doctrine is request-type-first: questions, explanations, inspection, research, diagnosis, review, planning discussion, and status requests remain read-only unless the user separately authorizes a change. Persistence instructions increase effort only within the already-authorized scope.
 
 The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route.
 
@@ -164,10 +166,11 @@ To use with pi-vcc, run `./install.sh --pi`; `pi list` should show the stable mi
 
 This repo also vendors Pi's `todo.ts` extension, which auto-loads on install and provides:
 
-- a `todo` tool for branch-aware task tracking with **proactive planning guidance** — agents are encouraged to create comprehensive todo lists BEFORE beginning work,
+- a `todo` tool for branch-aware task tracking during explicitly requested tracking or authorized multi-step execution,
+- no automatic todo creation for ordinary questions, explanations, research, diagnosis, review, planning discussion, or status requests,
 - a `/todos` command for inspecting the current branch todo list,
 - session-detail persistence so todo state follows Pi branching correctly,
-- best practices baked into the tool description: decompose tasks into small steps, update progress as you go, keep todos specific and measurable.
+- scoped guidance to keep authorized execution steps specific, measurable, and current without turning recommendations into implementation tasks.
 
 ## Subagents
 
@@ -347,7 +350,7 @@ Skills:
 
 - Pi global resources live under `~/.pi/agent/`, not `~/.pi/`.
 - Repo-managed extensions live in `~/.pi/agent/extensions/`; package-managed installs are reported by `pi list`.
-- `~/.pi/agent/APPEND_SYSTEM.md` is installed from the repo-root `APPEND_SYSTEM.md`.
+- `~/.pi/agent/APPEND_SYSTEM.md` is rendered from the repo-root `APPEND_SYSTEM.md` with its install date and source Git SHA recorded on the `Doctrine-Version` line.
 - Project-local Pi resources can also live under `.pi/prompts/`, `.pi/skills/`, `.pi/agents/`, and `.pi/extensions/`.
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.

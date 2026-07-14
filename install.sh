@@ -1456,15 +1456,19 @@ install_codex() {
 }
 
 
-# Install shared appended system guidance for Pi.
+# Install shared appended system guidance for Pi with traceable repo metadata.
 install_pi_append_system_file() {
     local agent_target="$1"
     local append_system_source="$REPO_ROOT/APPEND_SYSTEM.md"
     local append_system_target="$agent_target/APPEND_SYSTEM.md"
 
     if [ -f "$append_system_source" ]; then
-        cp "$append_system_source" "$append_system_target"
-        echo "  - Installed APPEND_SYSTEM.md"
+        local version
+        version="$(python3 "$REPO_ROOT/scripts/render_pi_append_system.py" \
+            --repo "$REPO_ROOT" \
+            --source "$append_system_source" \
+            --target "$append_system_target")" || return 1
+        echo "  - Installed APPEND_SYSTEM.md (${version})"
     fi
 }
 

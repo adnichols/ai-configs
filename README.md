@@ -77,7 +77,8 @@ bash ~/ai-configs/install.sh --all ~
 - removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`
 - with `--update`, first runs `npx skills update -g -y` for globally installed skills tracked by skills.sh, then runs the normal ai-configs sync
-- installs the shared repo-root `APPEND_SYSTEM.md` to Pi as `~/.pi/agent/APPEND_SYSTEM.md`
+- renders the tracked repo-root `APPEND_SYSTEM.md` to `~/.pi/agent/APPEND_SYSTEM.md`, replacing `{{AI_CONFIGS_VERSION}}` with `YYYY-MM-DD+<git-sha>` and adding `-dirty` only when the doctrine differs from that commit; non-Git or untracked doctrine installs fail rather than recording ambiguous provenance
+- keeps Pi request-type-first: questions, explanations, diagnosis, review, planning discussion, and status are read-only unless the user separately authorizes a change
 - preserves local settings files where appropriate
 
 To update an existing install from this repo, run the same `install.sh` command again. To also refresh skills installed through skills.sh, add `--update`.

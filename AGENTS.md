@@ -188,6 +188,12 @@ Agents should treat this `AGENTS.md` as authoritative for project-specific rules
 
 ## Pi Configuration (New)
 
+### Interaction authority boundary
+
+Pi's global `APPEND_SYSTEM.md` uses request-type-first authority. Questions, explanations, inspection, research, comparison, diagnosis, review, planning discussion, and status requests authorize read-only work and a response, not implementation. File edits, state-changing commands, external actions, and execution todos require an explicit change/build/implement/fix request or an unambiguous continuation of an already authorized implementation. Persistence language changes how long Pi works within scope; it never expands that scope. Workflow-specific autonomy instructions apply only after the corresponding execution workflow has been explicitly invoked.
+
+The installed doctrine records `Doctrine-Version: YYYY-MM-DD+<git-sha>` and adds `-dirty` when `APPEND_SYSTEM.md` differs from the recorded commit. Use that value with `git log -- APPEND_SYSTEM.md` when investigating behavior regressions.
+
 The `_pi/` directory provides Pi prompt templates, subagents, and extensions. Repo-owned shared Pi skills live under `skills/`, while `skills/install-matrix.json` also inventories package-backed shared skills fetched via `npx skills`. `_pi/prompts/` contains slash-command prompt templates and `_pi/agents/` contains the maintained pi-subagents-compatible agent definitions.
 
 ### Quick Reference
