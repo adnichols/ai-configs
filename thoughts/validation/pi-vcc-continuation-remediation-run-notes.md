@@ -20,7 +20,7 @@ Execute `thoughts/plans/pi-vcc-continuation-interruption-remediation.html` throu
 - Workspace: `759bfae3-44f1-4ce5-9bff-9077d9933a21`
 - URL: `https://doct.nodaste.com/d/workspace_759bfae3-44f1-4ce5-9bff-9077d9933a21/docs/1aeb915c-6159-42d5-aef6-4e27f9764e5a`
 - State: lifecycle `active`, board `in_progress`, execution-ready metadata true.
-- Durable listener: process `proc_1` with repeating `plan_comment_dispatch` watch.
+- Durable listener: process `proc_6` with repeating `plan_comment_dispatch` watch.
 - Note: an initial registration command discovered the source was already registered and created an unintended duplicate document `f8dbb7d4-0ae2-491c-a4d5-3bbd82b650c1`; the existing execution-ready document above remains canonical. No destructive cleanup was performed.
 
 ## Review / verification ledger
@@ -39,9 +39,9 @@ Execute `thoughts/plans/pi-vcc-continuation-interruption-remediation.html` throu
 
 ### Base freshness
 
-- Working branch starts at `20f76fd`.
-- Current `origin/main` is `764fede`; branch is behind by five commits.
-- Upstream changes do not touch the pi-vcc core files, but `install.sh` changed. Rebase and rerun affected install/source verification are required before rollout and PR.
+- The implementation checkpoint was rebased successfully onto `origin/main` at `764fede` with no conflicts.
+- All source gates were rerun after rebase and passed before installation.
+- The upstream `install.sh` auto-discovery behavior exposed a stale explicit extension registration on dever; the installer/verifier remediation is included and validated.
 
 ### Review state
 
@@ -75,3 +75,15 @@ Execute `thoughts/plans/pi-vcc-continuation-interruption-remediation.html` throu
 - Final scoped quality verdict: `PASS_SCOPED`; evidence is in `thoughts/validation/pi-vcc-final-quality-review.md`.
 - Implementation-stage PM verdict: `Ready after integration`; no product decision remains open. P6 and base integration remain the only readiness gates.
 - Canonical Claude Code review was applicable and attempted repeatedly after a successful smoke. Each substantive review text reported `PASS_SCOPED`, but the launcher classified every artifact `CLAUDE_REVIEW_ARTIFACT_INVALID`. Per policy this is recorded as a persistent review-infrastructure failure, not a clean Claude verdict and not replaced with an alternate transport.
+
+### Final source and P6 rollout
+
+- Final source suite after rebase: `267 passed, 0 failed` package tests; `54 passed, 0 failed` percentage-compaction tests; 31 named regressions; audit self-test, source verifier, 14-host source real-runtime matrix, 20-compaction source soak, and `git diff --check` PASS.
+- Installed the committed candidate on mbp and dever using `./install.sh --pi`; no installed package or live extension was edited directly.
+- mbp installed verification: exact-one package registration, one auto-discovered percentage-compaction path, source/installed hashes equal — PASS.
+- dever installed verification: exact-one package registration, stale explicit extension path removed by installer, one auto-discovered path, source/installed hashes equal — PASS.
+- mbp and dever installed fault matrix: 20 terminal transactions with embedded audit — PASS on both.
+- mbp and dever installed real-host matrix: 14 file-backed AgentSession hosts — PASS on both.
+- Bounded post-install audit since `2026-07-15T02:35:35Z` with `--require-terminal` — PASS on both.
+- Rollout prerequisites fixed during P6: auto-discovered extension de-duplication, fail-closed ambiguous relative registrations, global Pi runtime resolution for installed harnesses without development dependencies, and mtime-bounded stale JSONL filtering.
+- P6 is complete; no unresolved continuation interruption or product decision remains.

@@ -21,6 +21,10 @@ No remaining P1/P2/P3 issue was found in the bounded plan failure families.
 - source install verifier: PASS.
 - `git diff --check`: PASS.
 
+## P6 post-rebase closure
+
+Post-rebase rollout prerequisites were reviewed separately and closed: exact-one auto-discovered extension registration, preservation/fail-closed reporting of ambiguous foreign-relative entries, cross-platform installed Pi runtime resolution in the real-host harness, and bounded audit exclusion of wholly stale JSONL files. Both mbp and dever pass installed verifier, 20-compaction fault matrix, 14-host real-runtime matrix, and bounded post-install audit.
+
 ## Verdict
 
 VERDICT: PASS_SCOPED
