@@ -63,6 +63,38 @@ def main() -> int:
     if mode == "malformed-success":
         output.write_text("VERDICT: CLEAN_FOR_PR\n", encoding="utf-8")
         return 0
+    if mode == "provider-error":
+        output.write_text(
+            "Provider error: no final review was produced.\n\n"
+            "---\nCLAUDE_REVIEW_LAUNCHER_METADATA\n"
+            "socket=fake-socket\nsession=review\n",
+            encoding="utf-8",
+        )
+        return 0
+    if mode == "tool-only":
+        output.write_text(
+            "Tool-only output; Claude did not produce a review answer.\n\n"
+            "---\nCLAUDE_REVIEW_LAUNCHER_METADATA\n"
+            "socket=fake-socket\nsession=review\n",
+            encoding="utf-8",
+        )
+        return 0
+    if mode == "no-verdict":
+        output.write_text(
+            "## Findings\nNo blocking issues were found.\n\n"
+            "---\nCLAUDE_REVIEW_LAUNCHER_METADATA\n"
+            "socket=fake-socket\nsession=review\n",
+            encoding="utf-8",
+        )
+        return 0
+    if mode == "alternate-verdict":
+        output.write_text(
+            "Final assessment: clean for pull request.\nNo blocking findings.\n\n"
+            "---\nCLAUDE_REVIEW_LAUNCHER_METADATA\n"
+            "socket=fake-socket\nsession=review\n",
+            encoding="utf-8",
+        )
+        return 0
     if mode == "nonzero-no-artifact":
         return 17
 

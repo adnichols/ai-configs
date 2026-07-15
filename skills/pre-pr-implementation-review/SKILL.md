@@ -127,11 +127,11 @@ claude_review({
 })
 ```
 
-Do not poll. Consume the completion notification and read the artifact. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
+Do not poll while the originating Pi session remains active. Consume the completion notification and read the artifact; after reload/restart, recover the persisted job with `claude_review` list/status. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
 
 The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate.
 
-A reviewer result with no final verdict is not a review result. Treat empty output, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
+Launcher transport validity does not universally require a `VERDICT:` line, but this pre-PR workflow does require one of its locked final verdicts. A non-empty artifact with launcher metadata may therefore be valid transport yet still be unusable for this gate if its workflow verdict is missing. Treat empty output, missing launcher metadata, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
 
 For every quality reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; bound the assigned scope instead.
 

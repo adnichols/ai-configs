@@ -21,7 +21,7 @@ claude_review({
 })
 ```
 
-The tool returns immediately and sends a completion notification. After notification, read `/tmp/pi-claude-review-smoke.txt` and require `CLAUDE_REVIEW_SMOKE_READY`, `socket=`, and `session=`. A classified failure is a prerequisite/auth/readiness blocker from the real Pi caller context. Do not retry with a different transport.
+The tool returns immediately and sends a completion notification while this session remains available. After reload/restart, recover the persisted job with `claude_review` list/status. Then read `/tmp/pi-claude-review-smoke.txt` and require `CLAUDE_REVIEW_SMOKE_READY`, `socket=`, and `session=`. A classified failure is a prerequisite/auth/readiness blocker from the real Pi caller context. Do not retry with a different transport.
 
 ## Review mode
 
@@ -79,8 +79,9 @@ claude_review({
 })
 ```
 
-4. Continue other work; do not poll.
-5. On the automatic completion notification, read `/tmp/pi-claude-review-output.md` and validate whether Claude found blocker-level issues.
+4. Continue other work; do not poll while this session remains active.
+5. On the automatic completion notification, read `/tmp/pi-claude-review-output.md`. If this session was reloaded, replaced, or restarted first, recover the persisted job with `claude_review` list/status and then read the artifact.
+6. Treat launcher artifact validity and this workflow's readiness decision as separate checks: a review can be valid transport without using a literal `VERDICT:` line.
 
 The prompt should instruct Claude Code to:
 
@@ -99,6 +100,8 @@ The prompt should instruct Claude Code to:
 After completion:
 
 - read `/tmp/pi-claude-review-output.md`,
+- first validate transport: successful launcher completion, non-empty normalized review text, launcher metadata (`CLAUDE_REVIEW_LAUNCHER_METADATA`, `socket=`, and `session=`), and no classified launcher/provider failure,
+- do not require a literal `VERDICT:` line for transport validity; interpret Claude's blocker findings under this command's summary format,
 - if the job or artifact reports a classified launcher failure, report that blocker and the inspect/transcript/log paths,
 - otherwise inspect the plan and confirm structure remains intact,
 - confirm returned Claude comment suggestions use `[REVIEW:CLAUDE]`,

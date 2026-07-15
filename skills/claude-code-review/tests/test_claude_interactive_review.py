@@ -83,7 +83,7 @@ class LauncherTestCase(unittest.TestCase):
             self.assertIn("model=claude-opus-4-7", text)
             self.assertIn("effort=xhigh", text)
             argv_entries = [json.loads(line) for line in argv_file.read_text(encoding="utf-8").splitlines()]
-            self.assertIn(["--model", "claude-opus-4-7", "--effort", "xhigh"], argv_entries)
+            self.assertTrue(any(entry[:4] == ["--model", "claude-opus-4-7", "--effort", "xhigh"] and "--session-id" in entry for entry in argv_entries), argv_entries)
             socket_line = next(line for line in text.splitlines() if line.startswith("socket="))
             socket = socket_line.split("=", 1)[1]
             tmux_probe = run_cmd(["tmux", "-L", socket, "list-sessions"], timeout=5)
@@ -145,7 +145,25 @@ class LauncherTestCase(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
             text = output.read_text(encoding="utf-8")
             self.assertIn("Fake Claude review body", text)
-            self.assertIn("clear_boundary=prompt-cleared marker/sentinel extraction before baseline", text)
+            self.assertIn("clear_boundary=persisted Claude session JSONL after visible completion sentinel before baseline", text)
+
+    def test_long_alternate_screen_review_recovers_full_answer_from_session_jsonl(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_LONG_ALT_SCREEN": "1"}), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("VERDICT: PLAN_NEEDS_REVISION", text)
+            self.assertIn("Detailed review line 001", text)
+            self.assertIn("Detailed review line 100", text)
+            self.assertIn("clear_boundary=persisted Claude session JSONL", text)
+            self.assertIn("session_record=", text)
+            transcript_path = Path(next(line for line in text.splitlines() if line.startswith("transcript=")).split("=", 1)[1])
+            transcript = transcript_path.read_text(encoding="utf-8")
+            self.assertIn("CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345", transcript)
+            self.assertNotIn("CLAUDE_REVIEW_ANSWER_START_", transcript)
+            self.assertNotIn("VERDICT: PLAN_NEEDS_REVISION", transcript)
 
     def test_inherited_claude_config_dir_is_removed_before_tui_launch(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -265,7 +283,7 @@ class LauncherTestCase(unittest.TestCase):
         self.assertIn("Real answer", answer)
         self.assertNotIn("CLAUDE_REVIEW_FINAL_SENTINEL", answer)
 
-    def test_markerless_sentinel_answer_extraction_requires_real_verdict(self) -> None:
+    def test_markerless_sentinel_answer_extraction_accepts_nonempty_review_without_universal_verdict(self) -> None:
         spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
         self.assertIsNotNone(spec)
         module = importlib.util.module_from_spec(spec)
@@ -274,10 +292,60 @@ class LauncherTestCase(unittest.TestCase):
         sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
         markerless_answer = f"Review body\nVERDICT: PLAN_NEEDS_REVISION\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
         visible_template = f"Claude review launcher emission protocol\n<review text here>\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
-        no_verdict = f"Review body\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        no_verdict = f"## Findings\nNo blocking issues.\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        empty_answer = f"{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
         self.assertIn("PLAN_NEEDS_REVISION", module.extract_prompt_cleared_answer(markerless_answer, "missing-marker", sentinel))
         self.assertIsNone(module.extract_prompt_cleared_answer(visible_template, "missing-marker", sentinel))
-        self.assertIsNone(module.extract_prompt_cleared_answer(no_verdict, "missing-marker", sentinel))
+        self.assertIn("No blocking issues", module.extract_prompt_cleared_answer(no_verdict, "missing-marker", sentinel))
+        self.assertIsNone(module.extract_prompt_cleared_answer(empty_answer, "missing-marker", sentinel))
+
+    def test_session_jsonl_recovery_reads_only_assistant_answer_region(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cwd = tmp / "repo"
+            cwd.mkdir()
+            session_id = "11111111-2222-4333-8444-555555555555"
+            marker = "CLAUDE_REVIEW_ANSWER_START_deadbeef"
+            sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
+            record = module.claude_session_record(cwd, session_id)
+            record.parent.mkdir(parents=True)
+            entries = [
+                {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": f"prompt {marker} template {sentinel}"}]}},
+                {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": f"{marker}\n## Findings\nLong valid review\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"}]}},
+            ]
+            record.write_text("\n".join(json.dumps(entry) for entry in entries) + "\n", encoding="utf-8")
+            recovered = module.recover_session_answer(cwd, session_id, marker, sentinel)
+            self.assertIsNotNone(recovered)
+            assert recovered
+            self.assertEqual(recovered[0], "## Findings\nLong valid review")
+            self.assertEqual(recovered[1], record)
+
+    def test_signal_cleanup_kills_the_exact_private_tmux_server(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        handlers: dict[int, object] = {}
+        calls: list[tuple[str, list[str], bool]] = []
+        original_signal = module.signal.signal
+        original_tmux = module.tmux
+        try:
+            module.signal.signal = lambda signum, handler: handlers.__setitem__(signum, handler)
+            module.tmux = lambda socket, args, check=True: calls.append((socket, args, check))
+            module.install_signal_cleanup("exact-private-socket")
+            with self.assertRaises(SystemExit) as raised:
+                handlers[module.signal.SIGTERM](module.signal.SIGTERM, None)
+            self.assertEqual(raised.exception.code, 128 + module.signal.SIGTERM)
+            self.assertEqual(calls, [("exact-private-socket", ["kill-server"], False)])
+        finally:
+            module.signal.signal = original_signal
+            module.tmux = original_tmux
 
     def test_smoke_success_tears_down(self) -> None:
         with tempfile.TemporaryDirectory() as td:
