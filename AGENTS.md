@@ -16,7 +16,7 @@ Located under `_pi/agents/` and invoked via Pi subagent system:
 
 - Treat each agent definition's `reasoningEffort` or `thinking` frontmatter as authoritative for that profile.
 - When invoking a named agent, do not pass a caller-side `thinking` or reasoning-effort override merely because the task appears difficult. Choose the agent profile whose configured effort matches the task instead (for example, `developer-mid` for medium or `developer-high` for high).
-- Override an agent's configured effort only when the user explicitly requests a different effort or a documented workflow explicitly requires it. Record the reason when doing so.
+- Never pass a caller-side `thinking` or reasoning-effort override to a named or built-in agent. If a different effort is required, select or define a profile whose frontmatter declares that effort; the runtime guard strips unknown-profile overrides and pins known profiles to their declarations.
 - In particular, invoking `developer-high` means using its configured `high` effort, not upgrading it to `xhigh`.
 
 ## Implementation & Architecture (Claude/Codex)

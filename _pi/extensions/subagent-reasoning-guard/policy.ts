@@ -72,10 +72,16 @@ export function enforceAgentThinking(
 		configDirName,
 		allowProjectProfile,
 	);
-	if (!profilePath) return { action: "unchanged", agent };
-
 	const requested =
 		typeof input.thinking === "string" ? input.thinking : undefined;
+	if (!profilePath) {
+		if ("thinking" in input) {
+			delete input.thinking;
+			return { action: "removed", agent, requested };
+		}
+		return { action: "unchanged", agent };
+	}
+
 	const configured = configuredThinking(readFileSync(profilePath, "utf8"));
 
 	if (configured) {

@@ -95,14 +95,27 @@ describe("subagent reasoning guard", () => {
 		expect(input.thinking).toBeUndefined();
 	});
 
-	test("leaves unknown built-in agent types unchanged", () => {
+	test("removes overrides from unknown built-in agent types", () => {
 		const { cwd, home } = fixture();
-		const input = { subagent_type: "general-purpose", thinking: "xhigh" };
+		const input: { subagent_type: string; thinking?: string } = {
+			subagent_type: "general-purpose",
+			thinking: "xhigh",
+		};
+
+		const result = enforceAgentThinking(input, cwd, home, ".pi");
+
+		expect(result.action).toBe("removed");
+		expect(input.thinking).toBeUndefined();
+	});
+
+	test("leaves unknown agent types alone when no override was requested", () => {
+		const { cwd, home } = fixture();
+		const input = { subagent_type: "general-purpose" };
 
 		const result = enforceAgentThinking(input, cwd, home, ".pi");
 
 		expect(result.action).toBe("unchanged");
-		expect(input.thinking).toBe("xhigh");
+		expect(input).not.toHaveProperty("thinking");
 	});
 
 	test("mutates Agent tool input and warns when rejecting elevation", () => {
