@@ -84,7 +84,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills, while Pi packages still include pi-gpt-config"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @ff-labs/pi-fff, @pi-kaush/pi-inline-skill-identifier, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-side-agents, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @ff-labs/pi-fff, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
     echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OMP, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
@@ -2603,6 +2603,7 @@ install_pi_npm_packages() {
         "@tmustier/pi-raw-paste"
         "@ff-labs/pi-fff"
         "@pi-kaush/pi-inline-skill-identifier"
+        "@howaboua/pi-vent"
     )
     local deprecated_npm_packages=(
         "pi-subagents"

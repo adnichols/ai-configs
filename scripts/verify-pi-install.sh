@@ -31,6 +31,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@tmustier/pi-raw-paste"
   "npm:@ff-labs/pi-fff"
   "npm:@pi-kaush/pi-inline-skill-identifier"
+  "npm:@howaboua/pi-vent"
 )
 
 FAILURES=0
