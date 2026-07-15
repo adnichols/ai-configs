@@ -2604,6 +2604,7 @@ install_pi_npm_packages() {
         "@ff-labs/pi-fff"
         "@pi-kaush/pi-inline-skill-identifier"
         "@howaboua/pi-vent"
+        "@howaboua/pi-codex-conversion"
     )
     local deprecated_npm_packages=(
         "pi-subagents"

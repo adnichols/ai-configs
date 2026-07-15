@@ -807,6 +807,7 @@ packages = [
     "npm:@ff-labs/pi-fff",
     "npm:@pi-kaush/pi-inline-skill-identifier",
     "npm:@howaboua/pi-vent",
+    "npm:@howaboua/pi-codex-conversion",
     "npm:pi-codex-goal",
     pi_vcc,
 ]
