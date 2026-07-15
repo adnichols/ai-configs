@@ -1557,7 +1557,13 @@ def is_managed(item):
     source = source_of(item)
     if not isinstance(source, str) or source.startswith(("npm:", "git:", "http:")):
         return False
-    resolved = os.path.realpath(os.path.expanduser(source))
+    expanded = os.path.expanduser(source)
+    # Global settings can contain cwd-relative paths. Any relative entry with a
+    # repo-managed basename is ambiguous and could double-load the auto-discovered
+    # live file when Pi starts from a different directory, so remove it.
+    if not os.path.isabs(expanded):
+        return os.path.basename(expanded) in managed_names
+    resolved = os.path.realpath(expanded)
     return os.path.dirname(resolved) == live_root and os.path.basename(resolved) in managed_names
 
 filtered = [item for item in extensions if not is_managed(item)]

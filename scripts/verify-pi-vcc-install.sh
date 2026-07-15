@@ -96,12 +96,21 @@ for item in data.get("packages", []):
     value = source(item)
     if isinstance(value, str) and not value.startswith(("npm:", "git:", "http:")):
         packages.append(os.path.realpath(os.path.expanduser(value)))
-extensions = [
-    os.path.realpath(os.path.expanduser(value))
-    for value in data.get("extensions", [])
-    if isinstance(value, str)
-]
-print(f"{packages.count(stable)} {extensions.count(extension)}")
+extension_name = os.path.basename(extension)
+
+def matches_managed_extension(item):
+    value = source(item)
+    if not isinstance(value, str) or value.startswith(("npm:", "git:", "http:")):
+        return False
+    expanded = os.path.expanduser(value)
+    if not os.path.isabs(expanded):
+        return os.path.basename(expanded) == extension_name
+    return os.path.realpath(expanded) == extension
+
+explicit_extension_count = sum(
+    1 for item in data.get("extensions", []) if matches_managed_extension(item)
+)
+print(f"{packages.count(stable)} {explicit_extension_count}")
 PY
 )"
 set -- $counts
