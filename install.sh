@@ -42,7 +42,11 @@ DEPRECATED_SHARED_SKILLS=(
     review-change
     review-change-integrate
 )
-RETIRED_PI_EXTENSIONS=(questionnaire.ts)
+RETIRED_PI_EXTENSIONS=(
+    questionnaire.ts
+    subagent-reasoning-guard.ts
+    subagent-reasoning-policy.ts
+)
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
 # Homebrew's node/npm/npx can be installed but absent from PATH.
