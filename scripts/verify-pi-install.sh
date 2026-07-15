@@ -14,9 +14,7 @@ PI_DEFAULT_MODEL="gpt-5.6-sol"
 PI_DEFAULT_MODEL_VALUE="${PI_DEFAULT_PROVIDER}/${PI_DEFAULT_MODEL}"
 PI_GLM_SCOPED_MODEL_VALUE="opencode/glm-5.2"
 
-EXPECTED_GIT_PACKAGES=(
-  "git:github.com/edxeth/pi-gpt-config"
-)
+EXPECTED_GIT_PACKAGES=()
 
 EXPECTED_NPM_PACKAGES=(
   "npm:@tintinweb/pi-subagents"
@@ -33,6 +31,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@pi-kaush/pi-inline-skill-identifier"
   "npm:@howaboua/pi-vent"
   "npm:@howaboua/pi-codex-conversion"
+  "npm:@howaboua/pi-explore-subagents"
 )
 
 FAILURES=0

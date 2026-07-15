@@ -771,6 +771,34 @@ JSON
   assert_file_not_contains "$settings_path" 'piCodexGoal' || return 1
 }
 
+test_pi_install_replaces_gpt_config_packages() {
+  local home output_file settings_path
+  home="$(new_tmp_dir)"
+  output_file="$home/pi-install.log"
+  settings_path="$home/.pi/agent/settings.json"
+
+  mkdir -p "$(dirname "$settings_path")"
+  cat > "$settings_path" <<'JSON'
+{
+  "packages": [
+    "git:github.com/edxeth/pi-gpt-config",
+    "npm:@howaboua/pi-dynamic-tools"
+  ]
+}
+JSON
+
+  run_installer_capture "$home" "$output_file" --pi || {
+    cat "$output_file" >&2
+    return 1
+  }
+
+  assert_file_contains "$output_file" 'Removing deprecated Pi package git:github.com/edxeth/pi-gpt-config' || return 1
+  assert_file_contains "$output_file" 'Removing deprecated Pi package @howaboua/pi-dynamic-tools' || return 1
+  assert_file_not_contains "$settings_path" 'git:github.com/edxeth/pi-gpt-config' || return 1
+  assert_file_not_contains "$settings_path" 'npm:@howaboua/pi-dynamic-tools' || return 1
+  assert_file_contains "$settings_path" 'npm:@howaboua/pi-explore-subagents' || return 1
+}
+
 test_verify_pi_install_reports_stale_goal_package() {
   local home fake_bin output_file settings_path local_fork
   home="$(new_tmp_dir)"
@@ -793,7 +821,6 @@ pi_vcc = sys.argv[2]
 local_fork = sys.argv[3]
 
 packages = [
-    "git:github.com/edxeth/pi-gpt-config",
     "npm:@tintinweb/pi-subagents",
     "npm:@aliou/pi-processes",
     "npm:pi-web-access",
@@ -808,6 +835,7 @@ packages = [
     "npm:@pi-kaush/pi-inline-skill-identifier",
     "npm:@howaboua/pi-vent",
     "npm:@howaboua/pi-codex-conversion",
+    "npm:@howaboua/pi-explore-subagents",
     "npm:pi-codex-goal",
     pi_vcc,
 ]
@@ -1300,6 +1328,7 @@ main() {
   run_test test_failpoint_after_backup_keeps_destination_recoverable
   run_test test_agent_extension_installs_preserve_or_manage_herdr_extensions
   run_test test_pi_install_removes_retired_goal_packages
+  run_test test_pi_install_replaces_gpt_config_packages
   run_test test_verify_pi_install_reports_stale_goal_package
   run_test test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails
   run_test test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails

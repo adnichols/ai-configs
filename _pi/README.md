@@ -188,9 +188,6 @@ Pi subagents load agent definitions from `~/.pi/agent/agents/`.
 
 In addition to the repo-managed files under `~/.pi/agent/extensions/`, `install.sh --pi` also registers Pi packages via `pi install` / `pi update`. These are the entries that appear in `pi list`. `pi-multi-pass` is intentionally not installed; multi-account Codex routing is replaced by the single local `openai-codex` CLI Proxy API provider.
 
-Git-managed packages:
-- `pi-gpt-config`
-
 npm-managed packages:
 - `@tintinweb/pi-subagents`
 - `@aliou/pi-processes`
@@ -206,6 +203,7 @@ npm-managed packages:
 - `@pi-kaush/pi-inline-skill-identifier`
 - `@howaboua/pi-vent`
 - `@howaboua/pi-codex-conversion`
+- `@howaboua/pi-explore-subagents`
 
 local path packages:
 - `~/.pi/agent/local-packages/ai-configs/pi-vcc` (a stable mirror synced from `./_pi/packages/pi-vcc`; install tests and worktrees must not register their transient checkout path)
