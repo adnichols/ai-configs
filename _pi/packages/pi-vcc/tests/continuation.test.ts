@@ -235,25 +235,34 @@ describe("continuation state machine", () => {
 		expect(turn.decision).toBe("none");
 	});
 
-	it("settlement without consumption retries, then fails at the absolute deadline", () => {
+	it("settlement without acceptance uses the full two-retry budget before failing", () => {
 		const submitted = step(created(), { type: "submitted", at: 120 });
-		const retry = transitionContinuation(submitted, {
+		const firstRetry = transitionContinuation(submitted, {
 			type: "agent_settled",
 			at: 200,
 			epochs: { settlement: 1 },
 		});
-		expect(retry.decision).toBe("retry");
-		expect(retry.snapshot.state).toBe("retrying");
-		expect(retry.snapshot.retryCount).toBe(1);
+		expect(firstRetry.decision).toBe("retry");
+		expect(firstRetry.snapshot.retryCount).toBe(1);
 
-		const resubmitted = step(retry.snapshot, { type: "submitted", at: 300 });
-		const failed = transitionContinuation(resubmitted, {
+		const secondSubmission = step(firstRetry.snapshot, { type: "submitted", at: 300 });
+		const secondRetry = transitionContinuation(secondSubmission, {
 			type: "agent_settled",
-			at: 1_100,
+			at: 400,
 			epochs: { settlement: 2 },
+		});
+		expect(secondRetry.decision).toBe("retry");
+		expect(secondRetry.snapshot.retryCount).toBe(2);
+
+		const thirdSubmission = step(secondRetry.snapshot, { type: "submitted", at: 500 });
+		const failed = transitionContinuation(thirdSubmission, {
+			type: "agent_settled",
+			at: 600,
+			epochs: { settlement: 3 },
 		});
 		expect(failed.decision).toBe("fail_loudly");
 		expect(failed.snapshot.state).toBe("failed_loudly");
+		expect(failed.snapshot.terminalReason).toBe("retry_limit_exhausted");
 	});
 
 	it.each([
@@ -280,6 +289,29 @@ describe("continuation state machine", () => {
 		expect(settled.snapshot.state).toBe("retrying");
 		expect(settled.decision).toBe("retry");
 	});
+
+	it.each(["error", "aborted"] as const)(
+		"terminal assistant %s after partial progress enters the bounded retry path",
+		(result) => {
+			const partial = progressed();
+			const terminal = step(partial, {
+				type: "assistant_result",
+				at: 155,
+				result,
+				epochs: { message: 4 },
+			});
+			const settled = transitionContinuation(terminal, {
+				type: "agent_settled",
+				at: 160,
+				nextRetryAt: result === "error" ? 1_160 : 2_160,
+				epochs: { settlement: 1 },
+			});
+			expect(settled.snapshot.state).toBe("retrying");
+			expect(settled.snapshot.retryCount).toBe(1);
+			expect(settled.snapshot.nextRetryAt).toBe(result === "error" ? 1_160 : 2_160);
+			expect(settled.decision).toBe("retry");
+		},
+	);
 
 	it("only settles after progress followed by agent_settled", () => {
 		const submitted = step(created(), { type: "submitted", at: 120 });
@@ -487,6 +519,63 @@ describe("continuation persisted protocol", () => {
 		expect(reconciled.orphanSnapshotTransactionIds).toEqual(["orphan"]);
 		expect(reconciled.orphanOutcomeTransactionIds).toEqual(["orphan"]);
 		expect(reconciled.orphanSafetyReadyTransactionIds).toEqual([]);
+	});
+
+	it("dual-reads version 1 history, writes version 2, and deduplicates copied branch entry IDs", () => {
+		const current = created();
+		const {
+			queuedAt: _queuedAt,
+			phaseEpoch: _phaseEpoch,
+			...legacyFields
+		} = current;
+		const legacy = { ...legacyFields, version: 1 as const };
+		const legacyRequest = {
+			protocol: "pi-vcc-continuation" as const,
+			version: 1 as const,
+			kind: "request" as const,
+			snapshot: legacy,
+		};
+		expect(parseContinuationRequest(legacyRequest)?.snapshot.version).toBe(1);
+		expect(createContinuationRequestWire(current).version).toBe(2);
+
+		const copied = {
+			id: "copied-request-id",
+			type: "custom",
+			customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+			data: legacyRequest,
+		};
+		const reconciled = reconcileContinuationEntries([copied, structuredClone(copied)]);
+		expect(reconciled.pending).toHaveLength(1);
+		expect(reconciled.duplicateRequestTransactionIds).toEqual([]);
+	});
+
+	it("correlates durable acceptance by transaction, attempt, and submission ordinal", () => {
+		const submitted = step(created(), { type: "submitted", at: 120 });
+		const details = continuationMessageDetailsFor(submitted);
+		const reconciled = reconcileContinuationEntries([
+			{
+				id: "request",
+				type: "custom",
+				customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+				data: createContinuationRequestWire(created()),
+			},
+			{
+				id: "snapshot",
+				type: "custom",
+				customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+				data: createContinuationSnapshotWire(submitted),
+			},
+			{
+				id: "accepted",
+				type: "custom_message",
+				customType: "pi-vcc-continuation",
+				details,
+				timestamp: 130,
+			},
+		]);
+		expect(reconciled.durableAcceptances).toEqual([
+			{ entryId: "accepted", details, timestamp: 130 },
+		]);
 	});
 });
 

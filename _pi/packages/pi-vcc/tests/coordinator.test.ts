@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createContinuationTransaction } from "../src/core/continuation";
+import { createContinuationTransaction, transitionContinuation } from "../src/core/continuation";
 import {
 	CONTINUATION_MESSAGE_CUSTOM_TYPE,
 	CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE,
@@ -12,6 +12,7 @@ import {
 	continuationMessageDetailsFor,
 	createContinuationRequestWire,
 	createContinuationSafetyReadyWire,
+	createContinuationSnapshotWire,
 } from "../src/core/continuation-protocol";
 import piVcc, { PI_VCC_LOAD_MARKER } from "../index";
 import { createContinuationCoordinator } from "../src/core/coordinator";
@@ -37,15 +38,25 @@ const setup = (
 		sendFailures?: number;
 		entries?: any[];
 		clock?: number;
+		retryDelaysMs?: readonly number[];
+		acceptanceDeadlineMs?: number;
+		idleProgressDeadlineMs?: number;
+		toolStallDeadlineMs?: number;
+		isIdle?: boolean;
+		appendFailureCustomType?: string;
+		appendFailureMatchOrdinal?: number;
+		onSessionReplacement?: (reason: "reload" | "new" | "resume" | "fork") => void;
 	} = {},
 ) => {
 	const handlers: Record<string, Array<(event: any, ctx: any) => any>> = {};
-	const wakeHandlers = new Set<(data: unknown) => void>();
+	const wakeHandlers = new Set<{ channel: string; handler: (data: unknown) => void }>();
 	const entries = options.entries ?? [];
 	const sent: any[] = [];
 	const sendAttempts: any[] = [];
 	const notifications: any[] = [];
 	let remainingSendFailures = options.sendFailures ?? 0;
+	let appendFailureMatches = 0;
+	let idle = options.isIdle ?? false;
 	let clock = options.clock ?? 100;
 	const timers: Array<{
 		callback: () => void;
@@ -53,6 +64,7 @@ const setup = (
 		cancelled: boolean;
 	}> = [];
 	const ctx = {
+		isIdle: () => idle,
 		sessionManager: { getBranch: () => entries },
 		ui: {
 			notify: (message: string, level: string) =>
@@ -65,13 +77,18 @@ const setup = (
 			eventHandlers.push(handler);
 			handlers[event] = eventHandlers;
 		},
-		appendEntry: (customType: string, data: any) =>
+		appendEntry: (customType: string, data: any) => {
+			if (customType === options.appendFailureCustomType) {
+				appendFailureMatches += 1;
+				if (appendFailureMatches === (options.appendFailureMatchOrdinal ?? 1)) throw new Error(`injected ${customType} persistence failure`);
+			}
 			entries.push({
 				id: `entry-${entries.length + 1}`,
 				type: "custom",
 				customType,
 				data,
-			}),
+			});
+		},
 		sendMessage: (message: any, messageOptions: any) => {
 			sendAttempts.push({ message, options: messageOptions });
 			if (remainingSendFailures > 0) {
@@ -81,12 +98,15 @@ const setup = (
 			sent.push({ message, options: messageOptions });
 		},
 		events: {
-			on: (_channel: string, handler: any) => {
-				wakeHandlers.add(handler);
-				return () => wakeHandlers.delete(handler);
+			on: (channel: string, handler: (data: unknown) => void) => {
+				const subscription = { channel, handler };
+				wakeHandlers.add(subscription);
+				return () => wakeHandlers.delete(subscription);
 			},
-			emit: (_channel: string, data: unknown) => {
-				for (const handler of wakeHandlers) handler(data);
+			emit: (channel: string, data: unknown) => {
+				for (const subscription of wakeHandlers) {
+					if (subscription.channel === channel) subscription.handler(data);
+				}
 			},
 		},
 	} as any;
@@ -101,7 +121,11 @@ const setup = (
 		clearTimer: (timer: any) => {
 			timer.cancelled = true;
 		},
-		retryDelayMs: 5,
+		retryDelaysMs: options.retryDelaysMs ?? [5, 5],
+		acceptanceDeadlineMs: options.acceptanceDeadlineMs,
+		idleProgressDeadlineMs: options.idleProgressDeadlineMs,
+		toolStallDeadlineMs: options.toolStallDeadlineMs,
+		onSessionReplacement: options.onSessionReplacement,
 	});
 	const emit = (event: string, payload: any = {}) => {
 		for (const handler of handlers[event] ?? [])
@@ -131,6 +155,7 @@ const setup = (
 		emit,
 		advance,
 		fireTimer,
+		setIdle: (value: boolean) => { idle = value; },
 		pi,
 	};
 };
@@ -170,10 +195,10 @@ const settleCurrent = (h: ReturnType<typeof setup>) => {
 };
 
 describe("continuation coordinator", () => {
-	it("registers one listener callback across both wake channels and persists request before submission", () => {
+	it("registers both wake-channel subscriptions and persists request before submission", () => {
 		const h = setup();
 		request(h);
-		expect(h.wakeHandlers.size).toBe(1);
+		expect(h.wakeHandlers.size).toBe(2);
 		expect(h.entries[0].customType).toBe(
 			CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
 		);
@@ -265,7 +290,271 @@ describe("continuation coordinator", () => {
 
 		reloaded.advance(350);
 		reloaded.fireTimer(100);
-		expect(reloaded.coordinator.getPending()?.state).toBe("failed_loudly");
+		expect(reloaded.coordinator.getPending()?.state).toBe("retrying");
+		expect(reloaded.coordinator.getPending()?.nextRetryAt).toBe(355);
+		reloaded.advance(355);
+		reloaded.fireTimer(5);
+		expect(reloaded.sent).toHaveLength(1);
+		reloaded.emit("agent_settled");
+		expect(reloaded.coordinator.getPending()?.state).toBe("retrying");
+		reloaded.advance(360);
+		reloaded.fireTimer(5);
+		expect(reloaded.coordinator.getPending()?.acceptanceDeadlineAt).toBe(460);
+	});
+
+	it.each(["reload", "new", "resume", "fork"] as const)(
+		"%s releases the old package lease and registers exactly one functional replacement set",
+		(reason) => {
+			const previousMarker = (globalThis as any)[PI_VCC_LOAD_MARKER];
+			delete (globalThis as any)[PI_VCC_LOAD_MARKER];
+			const makePi = () => {
+				const handlers: Record<string, any[]> = {};
+				const entries: any[] = [];
+				const sent: any[] = [];
+				let lifecycleRegistrations = 0;
+				let commandRegistrations = 0;
+				let toolRegistrations = 0;
+				const pi = {
+					on: (event: string, handler: any) => {
+						lifecycleRegistrations += 1;
+						(handlers[event] ??= []).push(handler);
+					},
+					appendEntry: (customType: string, data: any) => entries.push({ type: "custom", customType, data }),
+					sendMessage: (message: any, options: any) => sent.push({ message, options }),
+					registerCommand: () => { commandRegistrations += 1; },
+					registerTool: () => { toolRegistrations += 1; },
+					events: { on: () => () => {} },
+				} as any;
+				const ctx = {
+					isIdle: () => true,
+					sessionManager: { getBranch: () => entries },
+					ui: { notify: () => {} },
+				} as any;
+				return { pi, ctx, handlers, entries, sent, counts: () => ({ lifecycleRegistrations, commandRegistrations, toolRegistrations }) };
+			};
+			try {
+				const first = makePi();
+				piVcc(first.pi);
+				const firstOwner = (globalThis as any)[PI_VCC_LOAD_MARKER];
+				const firstCounts = first.counts();
+				expect(firstCounts.lifecycleRegistrations).toBeGreaterThan(0);
+				expect(firstCounts.commandRegistrations).toBeGreaterThan(0);
+				expect(firstCounts.toolRegistrations).toBeGreaterThan(0);
+				if (reason !== "reload") {
+					firstOwner.coordinator.request({
+						initiator: "compact_context",
+						outcome: "compacted",
+						attemptId: `${reason}-attempt`,
+						transactionId: `${reason}-old-work`,
+					}, first.ctx);
+				}
+				for (const handler of first.handlers.session_shutdown ?? []) handler({ reason }, first.ctx);
+				expect((globalThis as any)[PI_VCC_LOAD_MARKER]).toBeUndefined();
+				if (reason !== "reload") {
+					expect(first.entries.some((entry) =>
+						entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+						entry.data.transactionId === `${reason}-old-work` &&
+						entry.data.terminalReason === "session_replaced",
+					)).toBe(true);
+				}
+
+				const replacement = makePi();
+				piVcc(replacement.pi);
+				const replacementOwner = (globalThis as any)[PI_VCC_LOAD_MARKER];
+				expect(replacementOwner).not.toBe(firstOwner);
+				expect(replacement.counts()).toEqual(firstCounts);
+				replacementOwner.coordinator.request({
+					initiator: "compact_context",
+					outcome: "compacted",
+					attemptId: `${reason}-replacement-attempt`,
+					transactionId: `${reason}-replacement-work`,
+				}, replacement.ctx);
+				expect(replacement.sent).toHaveLength(1);
+				expect(replacement.sent[0].message.details.transactionId).toBe(`${reason}-replacement-work`);
+				piVcc(replacement.pi);
+				expect(replacement.counts()).toEqual(firstCounts);
+			} finally {
+				(globalThis as any)[PI_VCC_LOAD_MARKER]?.coordinator?.dispose();
+				if (previousMarker === undefined) delete (globalThis as any)[PI_VCC_LOAD_MARKER];
+				else (globalThis as any)[PI_VCC_LOAD_MARKER] = previousMarker;
+			}
+		},
+	);
+
+	it.each(["new", "resume", "fork"] as const)(
+		"%s releases lifecycle ownership even when replacement outcome persistence fails",
+		(reason) => {
+			const replacements: string[] = [];
+			const h = setup("coordinator", {
+				appendFailureCustomType: CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE,
+				onSessionReplacement: (replacementReason) => replacements.push(replacementReason),
+			});
+			request(h);
+			expect(h.timers.some((timer) => !timer.cancelled)).toBe(true);
+			expect(h.wakeHandlers.size).toBe(2);
+
+			expect(() => h.emit("session_shutdown", { reason })).toThrow("persistence failure");
+			expect(replacements).toEqual([reason]);
+			expect(h.wakeHandlers.size).toBe(0);
+			expect(h.timers.every((timer) => timer.cancelled)).toBe(true);
+			expect(h.notifications).toHaveLength(1);
+			expect(h.notifications[0]?.message).toContain("could not durably terminalize");
+
+			const entriesBeforeStaleEvents = h.entries.length;
+			h.emit("session_start", { reason });
+			h.emit("agent_settled");
+			for (const timer of h.timers) timer.callback();
+			expect(h.entries).toHaveLength(entriesBeforeStaleEvents);
+			expect(replacements).toEqual([reason]);
+		},
+	);
+
+	it("reports the exact queued transaction whose replacement terminalization persistence fails", () => {
+		const replacements: string[] = [];
+		const h = setup("coordinator", {
+			appendFailureCustomType: CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE,
+			appendFailureMatchOrdinal: 2,
+			onSessionReplacement: (reason) => replacements.push(reason),
+		});
+		request(h);
+		request(h, {
+			transactionId: "tx-2",
+			attemptId: "attempt-2",
+			requestId: "request-2",
+			originatingRequestId: "request-2",
+		});
+		expect(h.wakeHandlers.size).toBe(2);
+		expect(() => h.emit("session_shutdown", { reason: "new" })).toThrow("persistence failure");
+		expect(replacements).toEqual(["new"]);
+		expect(h.notifications).toHaveLength(1);
+		expect(h.notifications[0]?.message).toContain("transaction=tx-2");
+		expect(h.notifications[0]?.message).not.toContain("transaction=unknown");
+		expect(h.wakeHandlers.size).toBe(0);
+		expect(h.timers.every((timer) => timer.cancelled)).toBe(true);
+	});
+
+	it.each([
+		["new", 1],
+		["new", 2],
+		["resume", 1],
+		["resume", 2],
+		["fork", 1],
+		["fork", 2],
+	] as const)(
+		"%s outcome #%d persistence failure releases the package lease for exactly one replacement registration",
+		(reason, failureOrdinal) => {
+			const previousMarker = (globalThis as any)[PI_VCC_LOAD_MARKER];
+			delete (globalThis as any)[PI_VCC_LOAD_MARKER];
+			const makePi = (failOutcomeOrdinal?: number) => {
+				const handlers: Record<string, any[]> = {};
+				const entries: any[] = [];
+				const wakeHandlers = new Set<{ channel: string; handler: (data: unknown) => void }>();
+				let outcomeAppends = 0;
+				let registrations = 0;
+				const pi = {
+					on: (event: string, handler: any) => { registrations += 1; (handlers[event] ??= []).push(handler); },
+					appendEntry: (customType: string, data: any) => {
+						if (customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE) {
+							outcomeAppends += 1;
+							if (outcomeAppends === failOutcomeOrdinal) throw new Error("injected replacement outcome failure");
+						}
+						entries.push({ id: `entry-${entries.length + 1}`, type: "custom", customType, data });
+					},
+					sendMessage: () => {},
+					registerCommand: () => { registrations += 1; },
+					registerTool: () => { registrations += 1; },
+					events: {
+						on: (channel: string, handler: (data: unknown) => void) => {
+							const subscription = { channel, handler };
+							wakeHandlers.add(subscription);
+							return () => wakeHandlers.delete(subscription);
+						},
+					},
+				} as any;
+				const ctx = {
+					isIdle: () => true,
+					sessionManager: { getBranch: () => entries },
+					ui: { notify: () => {} },
+				} as any;
+				return { pi, ctx, handlers, entries, wakeHandlers, registrations: () => registrations };
+			};
+			try {
+				const first = makePi(failureOrdinal);
+				piVcc(first.pi);
+				const firstOwner = (globalThis as any)[PI_VCC_LOAD_MARKER];
+				firstOwner.coordinator.request({
+					initiator: "compact_context",
+					outcome: "compacted",
+					attemptId: `${reason}-failure-attempt-1`,
+					transactionId: `${reason}-failure-tx-1`,
+				}, first.ctx);
+				if (failureOrdinal === 2) {
+					firstOwner.coordinator.request({
+						initiator: "compact_context",
+						outcome: "compacted",
+						attemptId: `${reason}-failure-attempt-2`,
+						transactionId: `${reason}-failure-tx-2`,
+					}, first.ctx);
+				}
+				expect(first.wakeHandlers.size).toBe(2);
+				expect(() => {
+					for (const handler of first.handlers.session_shutdown ?? []) handler({ reason }, first.ctx);
+				}).toThrow("replacement outcome failure");
+				expect((globalThis as any)[PI_VCC_LOAD_MARKER]).toBeUndefined();
+				expect(first.wakeHandlers.size).toBe(0);
+
+				const replacement = makePi();
+				piVcc(replacement.pi);
+				const replacementRegistrations = replacement.registrations();
+				expect(replacementRegistrations).toBeGreaterThan(0);
+				piVcc(replacement.pi);
+				expect(replacement.registrations()).toBe(replacementRegistrations);
+				expect((globalThis as any)[PI_VCC_LOAD_MARKER]).not.toBe(firstOwner);
+			} finally {
+				(globalThis as any)[PI_VCC_LOAD_MARKER]?.coordinator?.dispose();
+				if (previousMarker === undefined) delete (globalThis as any)[PI_VCC_LOAD_MARKER];
+				else (globalThis as any)[PI_VCC_LOAD_MARKER] = previousMarker;
+			}
+		},
+	);
+
+	it("double package load acquires one process-wide lease before registering handlers", () => {
+		const previousMarker = (globalThis as any)[PI_VCC_LOAD_MARKER];
+		delete (globalThis as any)[PI_VCC_LOAD_MARKER];
+		let lifecycleRegistrations = 0;
+		let commandRegistrations = 0;
+		let toolRegistrations = 0;
+		const pi = {
+			on: () => {
+				lifecycleRegistrations += 1;
+			},
+			registerCommand: () => {
+				commandRegistrations += 1;
+			},
+			registerTool: () => {
+				toolRegistrations += 1;
+			},
+			events: { on: () => () => {} },
+		} as any;
+		try {
+			piVcc(pi);
+			const firstCounts = {
+				lifecycleRegistrations,
+				commandRegistrations,
+				toolRegistrations,
+			};
+			piVcc(pi);
+			expect({ lifecycleRegistrations, commandRegistrations, toolRegistrations }).toEqual(firstCounts);
+			expect((globalThis as any)[PI_VCC_LOAD_MARKER]).toMatchObject({
+				protocol: "pi-vcc-continuation",
+				version: 2,
+				status: "active",
+			});
+		} finally {
+			(globalThis as any)[PI_VCC_LOAD_MARKER]?.coordinator?.dispose();
+			if (previousMarker === undefined) delete (globalThis as any)[PI_VCC_LOAD_MARKER];
+			else (globalThis as any)[PI_VCC_LOAD_MARKER] = previousMarker;
+		}
 	});
 
 	it("rejects removed runtime legacy authority atomically", () => {
@@ -344,7 +633,9 @@ describe("continuation coordinator", () => {
 					entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE,
 			),
 		).toHaveLength(0);
-		expect(reloaded.timers.every((timer) => timer.cancelled)).toBe(true);
+		const activeProgressTimers = reloaded.timers.filter((timer) => !timer.cancelled);
+		expect(activeProgressTimers).toHaveLength(1);
+		expect(activeProgressTimers[0]?.delay).toBe(59_850);
 
 		reloaded.emit("agent_settled");
 		expect(reloaded.coordinator.getPending()?.transactionId).toBe("tx-2");
@@ -358,6 +649,76 @@ describe("continuation coordinator", () => {
 		);
 		expect(firstOutcome?.data.terminalState).toBe("settled");
 	});
+
+	it.each(["settled", "failed_loudly", "superseded"] as const)(
+		"reload completes a missing %s outcome once and activates the queued follower",
+		(terminalState) => {
+			const base = createContinuationTransaction({
+				transactionId: "terminal-gap-tx",
+				origin: "compact_context",
+				reason: "compacted",
+				attemptId: "terminal-gap-attempt",
+				requestId: "terminal-gap-request",
+				resumePolicy: "active",
+				createdAt: 100,
+				deadlineMs: 100,
+			});
+			let terminal = base;
+			if (terminalState === "settled") {
+				const submitted = transitionContinuation(base, { type: "submitted", at: 110 }).snapshot;
+				const accepted = transitionContinuation(submitted, {
+					type: "durable_acceptance",
+					at: 120,
+					details: continuationMessageDetailsFor(submitted),
+				}).snapshot;
+				const progressed = transitionContinuation(accepted, {
+					type: "assistant_result",
+					at: 130,
+					result: "progress",
+					pendingToolCount: 0,
+				}).snapshot;
+				terminal = transitionContinuation(progressed, { type: "agent_settled", at: 140 }).snapshot;
+			} else if (terminalState === "failed_loudly") {
+				terminal = transitionContinuation(base, { type: "fail", at: 110, reason: "unrecoverable_error" }).snapshot;
+			} else {
+				terminal = transitionContinuation(base, { type: "supersede", at: 110, reason: "real_user_input" }).snapshot;
+			}
+			const follower = createContinuationTransaction({
+				transactionId: "terminal-gap-follower",
+				origin: "compact_context",
+				reason: "compacted",
+				attemptId: "terminal-gap-follower-attempt",
+				requestId: "terminal-gap-follower-request",
+				resumePolicy: "active",
+				createdAt: 101,
+				deadlineMs: 100,
+			});
+			const entries: any[] = [
+				{ id: "terminal-gap-request-entry", type: "custom", customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE, data: createContinuationRequestWire(base) },
+				{ id: "terminal-gap-snapshot-entry", type: "custom", customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE, data: createContinuationSnapshotWire(terminal) },
+				{ id: "terminal-gap-follower-entry", type: "custom", customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE, data: createContinuationRequestWire(follower) },
+			];
+			const h = setup("coordinator", { entries, clock: 200 });
+			h.emit("session_start", { reason: "reload" });
+			expect(entries.filter((entry) =>
+				entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+				entry.data.transactionId === "terminal-gap-tx"
+			)).toHaveLength(1);
+			expect(h.coordinator.getPending()).toMatchObject({
+				transactionId: "terminal-gap-follower",
+				state: "submitted",
+			});
+			expect(h.sent).toHaveLength(1);
+
+			h.emit("session_start", { reason: "reload" });
+			h.coordinator.reconcile(h.ctx);
+			expect(entries.filter((entry) =>
+				entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+				entry.data.transactionId === "terminal-gap-tx"
+			)).toHaveLength(1);
+			expect(h.sent).toHaveLength(1);
+		},
+	);
 
 	it.each([
 		"error",
@@ -379,6 +740,66 @@ describe("continuation coordinator", () => {
 		h.fireTimer(5);
 		expect(h.sent).toHaveLength(2);
 	});
+
+	it.each(["error", "aborted"])(
+		"does not reconsume persisted acceptance from failed %s ordinal before retry success",
+		(stopReason) => {
+			const h = setup();
+			request(h);
+			const firstDetails = h.sent[0].message.details;
+			h.entries.push({
+				id: `persisted-${stopReason}-ordinal-1`,
+				type: "custom_message",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: firstDetails,
+				timestamp: 101,
+			});
+			h.advance(101);
+			h.emit("message_end", { message: { role: "assistant", stopReason } });
+			h.emit("agent_settled");
+			expect(h.coordinator.getPending()).toMatchObject({
+				state: "retrying",
+				retryCount: 1,
+				submissionCount: 1,
+				acceptedAt: undefined,
+			});
+
+			h.advance(106);
+			h.fireTimer(5);
+			expect(h.sent).toHaveLength(2);
+			expect(h.sent[1].message.details.submissionCount).toBe(2);
+			expect(h.coordinator.getPending()).toMatchObject({
+				state: "submitted",
+				submissionCount: 2,
+				acceptedAt: undefined,
+			});
+
+			h.entries.push({
+				id: `persisted-${stopReason}-ordinal-2`,
+				type: "custom_message",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: h.sent[1].message.details,
+				timestamp: 107,
+			});
+			h.advance(107);
+			h.emit("message_end", {
+				message: { role: "assistant", stopReason: "stop" },
+			});
+			h.emit("agent_settled");
+			expect(h.coordinator.getPending()).toMatchObject({
+				state: "settled",
+				submissionCount: 2,
+				terminalReason: "progressed_then_agent_settled",
+			});
+			expect(
+				h.entries.filter(
+					(entry) =>
+						entry.type === "custom_message" &&
+						entry.details?.transactionId === "tx-1",
+				),
+			).toHaveLength(2);
+		},
+	);
 
 	it("a retry timer resubmits instead of synthesizing deadline expiry", () => {
 		const h = setup("coordinator", { sendFailures: 1 });
@@ -479,22 +900,20 @@ describe("continuation coordinator", () => {
 		expect(h.sent).toHaveLength(1);
 	});
 
-	it("deadline includes pending tool wait and warns with sanitized lifecycle diagnostics", () => {
+	it("pending tool safety wait does not consume the activated acceptance budget", () => {
 		const h = setup();
-		h.emit("agent_start");
-		h.emit("turn_start");
 		request(h, { pendingToolCount: 3 });
 		expect(h.sent).toHaveLength(0);
-		h.advance(200);
-		h.fireTimer(100);
-		expect(h.coordinator.getPending()?.state).toBe("failed_loudly");
-		const warning = h.notifications.at(-1)?.message ?? "";
-		expect(warning).toContain("pending-tools=3");
-		expect(warning).toContain("last-state=waiting_tools");
-		expect(warning).toContain(
-			"epochs=session:0,input:0,agent:1,turn:1,message:0,settlement:0",
-		);
-		expect(warning).not.toContain("tool-id-secret");
+		expect(h.timers.filter((timer) => !timer.cancelled)).toHaveLength(0);
+
+		h.advance(5_000);
+		h.emit("message_end", {
+			message: { role: "assistant", stopReason: "stop" },
+		});
+		expect(h.coordinator.getPending()?.state).toBe("submitted");
+		expect(h.coordinator.getPending()?.submittedAt).toBe(5_000);
+		expect(h.coordinator.getPending()?.acceptanceDeadlineAt).toBe(5_100);
+		expect(h.sent).toHaveLength(1);
 	});
 
 	it("real user and independent input supersede before matching consumption", () => {
@@ -532,7 +951,7 @@ describe("continuation coordinator", () => {
 		expect(h.sent).toHaveLength(1);
 	});
 
-	it("reload rehydrates all pending work in order and restores exactly one listener", () => {
+	it("reload releases listeners while preserving pending work for the replacement coordinator", () => {
 		const h = setup();
 		request(h);
 		request(h, {
@@ -545,17 +964,17 @@ describe("continuation coordinator", () => {
 		expect(h.wakeHandlers.size).toBe(0);
 
 		h.emit("session_start", { reason: "reload" });
-		expect(h.wakeHandlers.size).toBe(1);
+		expect(h.wakeHandlers.size).toBe(0);
 		expect(h.coordinator.getPending()?.transactionId).toBe("tx-1");
 		h.emit("session_start", { reason: "reload" });
-		expect(h.wakeHandlers.size).toBe(1);
+		expect(h.wakeHandlers.size).toBe(0);
 	});
 
 	it.each([
 		"new",
 		"resume",
 		"fork",
-	])("terminalizes every pending old-session request before %s and restores one listener", (reason) => {
+	])("terminalizes every pending old-session request before %s and leaves the old coordinator disposed", (reason) => {
 		const h = setup();
 		request(h);
 		request(h, {
@@ -586,7 +1005,7 @@ describe("continuation coordinator", () => {
 		const replacementEntries: any[] = [];
 		h.ctx.sessionManager.getBranch = () => replacementEntries;
 		h.emit("session_start", { reason });
-		expect(h.wakeHandlers.size).toBe(1);
+		expect(h.wakeHandlers.size).toBe(0);
 		expect(h.coordinator.getPending()).toBeUndefined();
 	});
 
@@ -655,5 +1074,872 @@ describe("continuation coordinator", () => {
 		expect(outcomes[0].data.terminalState).toBe("superseded");
 		expect(outcomes[0].data.terminalReason).toBe("explicitly_stopped");
 		expect(h.sent).toHaveLength(0);
+	});
+
+	it("accepts a persisted top-level custom_message without message_start", () => {
+		const h = setup("coordinator", { idleProgressDeadlineMs: 60 });
+		const snapshot = request(h);
+		const acceptanceTimer = h.timers.find((timer) => !timer.cancelled);
+		h.advance(125);
+		h.entries.push({
+			id: "durable-continuation",
+			type: "custom_message",
+			customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+			details: continuationMessageDetailsFor(snapshot),
+			timestamp: 125,
+		});
+		h.coordinator.reconcile(h.ctx);
+		expect(h.coordinator.getPending()?.state).toBe("consumed");
+		expect(h.coordinator.getPending()?.acceptedAt).toBe(125);
+		expect(acceptanceTimer?.cancelled).toBe(true);
+		expect(h.timers.some((timer) => !timer.cancelled && timer.delay === 60)).toBe(true);
+	});
+
+	it("reconciles no-message_start acceptance before assistant progress and settles exactly once", () => {
+		const h = setup("coordinator", { idleProgressDeadlineMs: 60, retryDelaysMs: [1_000, 2_000] });
+		const submitted = request(h);
+		h.entries.push({
+			id: "host-persisted-without-message-start",
+			type: "custom_message",
+			customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+			details: continuationMessageDetailsFor(submitted),
+			timestamp: 101,
+		});
+		h.advance(102);
+		h.emit("message_end", { message: { role: "assistant", stopReason: "stop" } });
+		expect(h.coordinator.getPending()?.state).toBe("progressed");
+		expect(h.coordinator.getPending()?.acceptedAt).toBe(101);
+		h.emit("agent_settled");
+		expect(h.coordinator.getPending()?.state).toBe("settled");
+		h.emit("agent_settled");
+		expect(h.entries.filter((entry) => entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE)).toHaveLength(1);
+		expect(h.sent).toHaveLength(1);
+	});
+
+	it("folds persistence after custom message_end but before agent_settled without resending a streaming steer", () => {
+		const h = setup("coordinator", { idleProgressDeadlineMs: 60, retryDelaysMs: [1_000, 2_000] });
+		const submitted = request(h);
+		h.emit("message_end", {
+			message: {
+				role: "custom",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(submitted),
+			},
+		});
+		h.entries.push({
+			id: "host-persisted-after-message-end",
+			type: "custom_message",
+			customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+			details: continuationMessageDetailsFor(submitted),
+			timestamp: 101,
+		});
+		h.advance(102);
+		h.emit("agent_settled");
+		expect(h.coordinator.getPending()?.state).toBe("retrying");
+		expect(h.coordinator.getPending()?.retryCount).toBe(1);
+		expect(h.sent).toHaveLength(1);
+	});
+
+	it("does not fold failed-ordinal durable acceptance during retry backoff", () => {
+		const h = setup("coordinator", { retryDelaysMs: [1_000, 2_000] });
+		const submitted = request(h);
+		h.emit("agent_settled");
+		expect(h.coordinator.getPending()?.state).toBe("retrying");
+		h.entries.push({
+			id: "late-failed-ordinal-acceptance",
+			type: "custom_message",
+			customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+			details: continuationMessageDetailsFor(submitted),
+			timestamp: 150,
+		});
+		h.advance(1_100);
+		h.fireTimer(1_000);
+		expect(h.coordinator.getPending()).toMatchObject({
+			state: "submitted",
+			submissionCount: 2,
+			acceptedAt: undefined,
+		});
+		expect(h.sent).toHaveLength(2);
+	});
+
+	it("ignores unrelated assistant and tool activity before durable acceptance", () => {
+		const h = setup();
+		request(h);
+		const before = h.coordinator.getPending();
+		h.emit("message_end", {
+			message: {
+				role: "assistant",
+				stopReason: "toolUse",
+				content: [{ type: "toolCall", id: "private-id", name: "read" }],
+			},
+		});
+		h.emit("tool_execution_start", { toolCallId: "private-id" });
+		h.emit("tool_execution_end", { toolCallId: "private-id" });
+		const after = h.coordinator.getPending();
+		expect(after?.state).toBe("submitted");
+		expect(after?.acceptedAt).toBeUndefined();
+		expect(after?.lastProgressAt).toBeUndefined();
+		expect(after?.acceptanceDeadlineAt).toBe(before?.acceptanceDeadlineAt);
+	});
+
+	it.each([4_726, 5_246])("gives queued work a full 100ms activation budget after %dms of queue wait", (queueWait) => {
+		const h = setup();
+		request(h, { deadlineMs: queueWait + 1_000 });
+		request(h, {
+			transactionId: "tx-2",
+			attemptId: "attempt-2",
+			requestId: "request-2",
+			originatingRequestId: "request-2",
+			deadlineMs: 100,
+		});
+		h.advance(100 + queueWait);
+		settleCurrent(h);
+		const queued = h.coordinator.getPending();
+		expect(queued?.transactionId).toBe("tx-2");
+		expect(queued?.submittedAt).toBe(100 + queueWait);
+		expect(queued?.acceptanceDeadlineAt).toBe(200 + queueWait);
+	});
+
+	it.each(["error", "aborted"])("paces %s after partial progress through the first 1s retry", (stopReason) => {
+		const h = setup("coordinator", { retryDelaysMs: [1_000, 2_000] });
+		const snapshot = request(h, { retryLimit: 2, deadlineMs: 15_000 });
+		h.emit("message_start", {
+			message: {
+				role: "custom",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(snapshot),
+			},
+		});
+		h.emit("message_end", { message: { role: "assistant", stopReason: "stop" } });
+		h.emit("message_end", { message: { role: "assistant", stopReason } });
+		h.emit("agent_settled");
+		expect(h.coordinator.getPending()?.state).toBe("retrying");
+		expect(h.coordinator.getPending()?.retryCount).toBe(1);
+		expect(h.sent).toHaveLength(1);
+		h.fireTimer(1_000);
+		expect(h.sent).toHaveLength(2);
+	});
+
+	it("uses host idle readiness to resubmit an asynchronously rejected delivery without settlement", () => {
+		const h = setup("coordinator", { retryDelaysMs: [1_000, 2_000], isIdle: true });
+		request(h, { retryLimit: 2, deadlineMs: 10 });
+		h.advance(110);
+		h.fireTimer(10);
+		expect(h.coordinator.getPending()?.state).toBe("retrying");
+		expect(h.sent).toHaveLength(1);
+
+		h.advance(1_110);
+		h.fireTimer(1_000);
+		expect(h.sent).toHaveLength(2);
+		expect(h.sent.map((entry) => entry.message.details.submissionCount)).toEqual([1, 2]);
+	});
+
+	it("preserves settlement gating while the host remains active", () => {
+		const h = setup("coordinator", { retryDelaysMs: [1_000, 2_000], isIdle: false });
+		request(h, { retryLimit: 2, deadlineMs: 10 });
+		h.advance(110);
+		h.fireTimer(10);
+		h.advance(1_110);
+		h.fireTimer(1_000);
+		expect(h.sent).toHaveLength(1);
+	});
+
+	it("gates acceptance-expiry retries on settlement without double-counting duplicate settlement", () => {
+		const h = setup("coordinator", { retryDelaysMs: [1_000, 2_000] });
+		request(h, { retryLimit: 2, deadlineMs: 10 });
+		h.advance(110);
+		h.fireTimer(10);
+		expect(h.coordinator.getPending()?.state).toBe("retrying");
+		expect(h.coordinator.getPending()?.retryCount).toBe(1);
+		expect(h.sent).toHaveLength(1);
+
+		h.emit("agent_start");
+		h.advance(500);
+		h.emit("agent_settled");
+		h.emit("agent_settled");
+		expect(h.coordinator.getPending()?.retryCount).toBe(1);
+		expect(h.sent).toHaveLength(1);
+		h.advance(1_500);
+		h.fireTimer(1_000);
+		expect(h.sent).toHaveLength(2);
+
+		h.advance(1_510);
+		h.fireTimer(10);
+		expect(h.coordinator.getPending()?.retryCount).toBe(2);
+		h.advance(3_510);
+		h.fireTimer(2_000);
+		expect(h.sent).toHaveLength(2);
+		h.advance(3_600);
+		h.emit("agent_settled");
+		expect(h.sent).toHaveLength(2);
+		h.advance(5_600);
+		h.fireTimer(2_000);
+		expect(h.sent).toHaveLength(3);
+		expect(h.sent.map((entry) => entry.message.details.submissionCount)).toEqual([1, 2, 3]);
+	});
+
+	it("paces two retries at exactly 1s then 2s after settlement", () => {
+		const h = setup("coordinator", { retryDelaysMs: [1_000, 2_000] });
+		request(h, { retryLimit: 2, deadlineMs: 15_000 });
+		for (const [delay, stopReason] of [[1_000, "aborted"], [2_000, "error"]] as const) {
+			const snapshot = h.coordinator.getPending()!;
+			h.emit("message_start", {
+				message: {
+					role: "custom",
+					customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+					details: continuationMessageDetailsFor(snapshot),
+				},
+			});
+			h.emit("message_end", { message: { role: "assistant", stopReason } });
+			h.emit("agent_settled");
+			expect(h.coordinator.getPending()?.state).toBe("retrying");
+			h.fireTimer(delay);
+		}
+		expect(h.sent).toHaveLength(3);
+		expect(h.sent.map((entry) => entry.message.details.submissionCount)).toEqual([1, 2, 3]);
+	});
+
+	it("refreshes tool stall only for correlated tool_execution_update events and stalls after true silence", () => {
+		const h = setup("coordinator", { toolStallDeadlineMs: 50, idleProgressDeadlineMs: 60 });
+		const snapshot = request(h);
+		h.emit("message_start", {
+			message: {
+				role: "custom",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(snapshot),
+			},
+		});
+		h.emit("message_end", {
+			message: {
+				role: "assistant",
+				stopReason: "toolUse",
+				content: [{ type: "toolCall", id: "long-tool", name: "bash" }],
+			},
+		});
+		for (const at of [140, 180, 220]) {
+			h.advance(at);
+			h.emit("tool_execution_update", { toolCallId: "long-tool", toolName: "bash" });
+			expect(h.coordinator.getPending()?.toolStallDeadlineAt).toBe(at + 50);
+		}
+		h.advance(240);
+		h.emit("tool_execution_update", { toolCallId: "other-tool", toolName: "bash" });
+		expect(h.coordinator.getPending()?.toolStallDeadlineAt).toBe(270);
+		expect(h.coordinator.getPending()?.state).toBe("progressed");
+		h.advance(270);
+		h.fireTimer(50);
+		expect(h.coordinator.getPending()?.state).toBe("stalled");
+		expect(h.notifications).toHaveLength(1);
+	});
+
+	it("stalls an outstanding tool, retains queue ownership, then resumes on correlated progress", () => {
+		const h = setup("coordinator", { toolStallDeadlineMs: 50, idleProgressDeadlineMs: 60 });
+		const snapshot = request(h);
+		h.emit("message_start", {
+			message: {
+				role: "custom",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(snapshot),
+			},
+		});
+		h.emit("message_end", {
+			message: {
+				role: "assistant",
+				stopReason: "toolUse",
+				content: [{ type: "toolCall", id: "redacted", name: "read" }],
+			},
+		});
+		request(h, {
+			transactionId: "tx-2",
+			attemptId: "attempt-2",
+			requestId: "request-2",
+			originatingRequestId: "request-2",
+		});
+		h.advance(150);
+		h.fireTimer(50);
+		expect(h.coordinator.getPending()?.state).toBe("stalled");
+		expect(h.coordinator.getPending()?.transactionId).toBe("tx-1");
+		expect(h.sent).toHaveLength(1);
+		expect(h.notifications).toHaveLength(1);
+		expect(h.notifications[0]?.message).not.toContain("redacted");
+
+		h.advance(160);
+		h.emit("tool_execution_end", { toolCallId: "redacted" });
+		expect(h.coordinator.getPending()?.state).toBe("progressed");
+		expect(h.coordinator.getPending()?.pendingToolCount).toBe(0);
+		h.emit("agent_settled");
+		expect(h.coordinator.getPending()?.transactionId).toBe("tx-2");
+		expect(h.sent).toHaveLength(2);
+	});
+
+	it("keeps status-only messages neutral and supersedes model-driving or unknown custom input", () => {
+		for (const message of [
+			{ role: "custom", customType: "ad-process:update" },
+			{ role: "custom", customType: "heartbeat", details: { piVccInputIntent: "status" } },
+		]) {
+			const h = setup();
+			request(h);
+			h.emit("message_start", { message });
+			expect(h.coordinator.getPending()?.state).toBe("submitted");
+		}
+		for (const customType of ["vcc-recall", "claude-review-completion", "compaction-nudge", "unknown-model-input"]) {
+			const h = setup();
+			request(h);
+			h.emit("message_start", { message: { role: "custom", customType } });
+			expect(h.coordinator.getPending()?.state).toBe("superseded");
+			expect(h.coordinator.getPending()?.terminalReason).toBe("independent_input");
+		}
+	});
+
+	it("rehydrates version 1 active tools with a stall watchdog and restores representable correlation", () => {
+		const base = createContinuationTransaction({
+			transactionId: "legacy-tool-tx",
+			origin: "compact_context",
+			reason: "compacted",
+			attemptId: "legacy-tool-attempt",
+			requestId: "legacy-tool-request",
+			resumePolicy: "active",
+			createdAt: 100,
+			deadlineMs: 60_000,
+		});
+		const submitted = transitionContinuation(base, { type: "submitted", at: 110 }).snapshot;
+		const accepted = transitionContinuation(submitted, {
+			type: "durable_acceptance",
+			at: 120,
+			details: continuationMessageDetailsFor(submitted),
+		}).snapshot;
+		const progressed = transitionContinuation(accepted, {
+			type: "assistant_result",
+			at: 130,
+			result: "progress",
+			pendingToolCount: 1,
+			toolStallDeadlineAt: 1_030,
+		}).snapshot;
+		const {
+			queuedAt: _queuedAt,
+			phaseEpoch: _phaseEpoch,
+			submittedAt: _submittedAt,
+			acceptanceDeadlineAt: _acceptanceDeadlineAt,
+			progressDeadlineAt: _progressDeadlineAt,
+			toolStallDeadlineAt: _toolStallDeadlineAt,
+			...legacyFields
+		} = progressed;
+		const legacy = { ...legacyFields, version: 1 as const };
+		const requestSnapshot = { ...legacy, state: "created" as const, submissionCount: 0, pendingToolCount: 0, acceptedAt: undefined, lastProgressAt: undefined, lastAssistantResult: undefined };
+		const entries = [
+			{
+				id: "legacy-tool-request-entry",
+				type: "custom",
+				customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+				data: { protocol: "pi-vcc-continuation", version: 1, kind: "request", snapshot: requestSnapshot },
+			},
+			{
+				id: "legacy-tool-acceptance",
+				type: "custom_message",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: { ...continuationMessageDetailsFor(submitted), version: 1 },
+				timestamp: 120,
+			},
+			{
+				id: "legacy-tool-snapshot-entry",
+				type: "custom",
+				customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+				data: { protocol: "pi-vcc-continuation", version: 1, kind: "snapshot", snapshot: legacy },
+			},
+			{
+				id: "legacy-tool-call-message",
+				type: "message",
+				message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: "legacy-tool-id", name: "bash" }] },
+			},
+		];
+		const h = setup("coordinator", { entries, clock: 200, toolStallDeadlineMs: 50 });
+		h.emit("session_start", { reason: "reload" });
+		expect(h.coordinator.getPending()?.version).toBe(2);
+		expect(h.coordinator.getPending()?.toolStallDeadlineAt).toBe(250);
+		expect(h.timers.some((timer) => !timer.cancelled && timer.delay === 50)).toBe(true);
+		h.advance(250);
+		h.fireTimer(50);
+		expect(h.coordinator.getPending()?.state).toBe("stalled");
+		h.advance(260);
+		h.emit("tool_execution_update", { toolCallId: "legacy-tool-id" });
+		expect(h.coordinator.getPending()?.state).toBe("progressed");
+		expect(h.coordinator.getPending()?.toolStallDeadlineAt).toBe(310);
+	});
+
+	it("rehydrates version 2 active-tool correlation and completes after matching stalled recovery", () => {
+		const base = createContinuationTransaction({
+			transactionId: "v2-tool-tx",
+			origin: "compact_context",
+			reason: "compacted",
+			attemptId: "v2-tool-attempt",
+			requestId: "v2-tool-request",
+			resumePolicy: "active",
+			createdAt: 100,
+			deadlineMs: 60_000,
+		});
+		const submitted = transitionContinuation(base, { type: "submitted", at: 110 }).snapshot;
+		const accepted = transitionContinuation(submitted, {
+			type: "durable_acceptance",
+			at: 120,
+			details: continuationMessageDetailsFor(submitted),
+		}).snapshot;
+		const progressed = transitionContinuation(accepted, {
+			type: "assistant_result",
+			at: 130,
+			result: "progress",
+			pendingToolCount: 1,
+			toolStallDeadlineAt: 250,
+		}).snapshot;
+		const entries = [
+			{
+				id: "v2-tool-request-entry",
+				type: "custom",
+				customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+				data: createContinuationRequestWire(base, "compacted"),
+			},
+			{
+				id: "v2-tool-acceptance",
+				type: "custom_message",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(submitted),
+				timestamp: 120,
+			},
+			{
+				id: "v2-tool-snapshot-entry",
+				type: "custom",
+				customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+				data: { protocol: "pi-vcc-continuation", version: 2, kind: "snapshot", snapshot: progressed },
+			},
+			{
+				id: "v2-tool-call-message",
+				type: "message",
+				message: { role: "assistant", stopReason: "toolUse", content: [{ type: "toolCall", id: "v2-tool-id", name: "bash" }] },
+			},
+		];
+		const h = setup("coordinator", { entries, clock: 200, toolStallDeadlineMs: 50, idleProgressDeadlineMs: 60 });
+		h.emit("session_start", { reason: "reload" });
+		expect(h.coordinator.getPending()?.state).toBe("progressed");
+		expect(h.timers.filter((timer) => !timer.cancelled && timer.delay === 50)).toHaveLength(1);
+		expect(h.sent).toHaveLength(0);
+
+		h.advance(250);
+		h.fireTimer(50);
+		expect(h.coordinator.getPending()?.state).toBe("stalled");
+		h.advance(260);
+		h.emit("tool_execution_update", { toolCallId: "v2-tool-id" });
+		expect(h.coordinator.getPending()?.state).toBe("progressed");
+		expect(h.coordinator.getPending()?.toolStallDeadlineAt).toBe(310);
+		h.emit("tool_execution_end", { toolCallId: "v2-tool-id" });
+		expect(h.coordinator.getPending()?.pendingToolCount).toBe(0);
+		h.emit("agent_settled");
+		expect(h.coordinator.getPending()?.state).toBe("settled");
+		expect(h.sent).toHaveLength(0);
+		expect(entries.filter((entry) => entry.customType === CONTINUATION_MESSAGE_CUSTOM_TYPE)).toHaveLength(1);
+		expect(entries.filter((entry) => entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE)).toHaveLength(1);
+	});
+
+	it.each([1, 2] as const)(
+		"rehydrates version %i partial parallel-tool batches and settles the remaining tool exactly once",
+		(version) => {
+			const base = createContinuationTransaction({
+				transactionId: `v${version}-parallel-tool-tx`,
+				origin: "compact_context",
+				reason: "compacted",
+				attemptId: `v${version}-parallel-tool-attempt`,
+				requestId: `v${version}-parallel-tool-request`,
+				resumePolicy: "active",
+				createdAt: 100,
+				deadlineMs: 60_000,
+			});
+			const submitted = transitionContinuation(base, { type: "submitted", at: 110 }).snapshot;
+			const accepted = transitionContinuation(submitted, {
+				type: "durable_acceptance",
+				at: 120,
+				details: continuationMessageDetailsFor(submitted),
+			}).snapshot;
+			const parallel = transitionContinuation(accepted, {
+				type: "assistant_result",
+				at: 130,
+				result: "progress",
+				pendingToolCount: 2,
+				toolStallDeadlineAt: 250,
+			}).snapshot;
+			const partiallyCompleted = transitionContinuation(parallel, {
+				type: "tool_progress",
+				at: 140,
+				pendingToolCount: 1,
+				toolStallDeadlineAt: 250,
+			}).snapshot;
+			const toVersion = (snapshot: typeof partiallyCompleted) => {
+				if (version === 2) return snapshot;
+				const {
+					queuedAt: _queuedAt,
+					phaseEpoch: _phaseEpoch,
+					submittedAt: _submittedAt,
+					acceptanceDeadlineAt: _acceptanceDeadlineAt,
+					progressDeadlineAt: _progressDeadlineAt,
+					toolStallDeadlineAt: _toolStallDeadlineAt,
+					nextRetryAt: _nextRetryAt,
+					activatedAt: _activatedAt,
+					...legacy
+				} = snapshot;
+				return { ...legacy, version: 1 as const };
+			};
+			const requestSnapshot = toVersion({
+				...base,
+				state: "created",
+				pendingToolCount: 0,
+				submissionCount: 0,
+			});
+			const persisted = toVersion(partiallyCompleted);
+			const entries = [
+				{
+					id: `v${version}-parallel-request-entry`,
+					type: "custom",
+					customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+					data: { protocol: "pi-vcc-continuation", version, kind: "request", snapshot: requestSnapshot },
+				},
+				{
+					id: `v${version}-parallel-acceptance`,
+					type: "custom_message",
+					customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+					details: { ...continuationMessageDetailsFor(submitted), version },
+					timestamp: 120,
+				},
+				{
+					id: `v${version}-parallel-snapshot-entry`,
+					type: "custom",
+					customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+					data: { protocol: "pi-vcc-continuation", version, kind: "snapshot", snapshot: persisted },
+				},
+				{
+					id: `v${version}-parallel-assistant-message`,
+					type: "message",
+					message: {
+						role: "assistant",
+						stopReason: "toolUse",
+						content: [
+							{ type: "toolCall", id: `v${version}-completed-tool`, name: "read" },
+							{ type: "toolCall", id: `v${version}-remaining-tool`, name: "bash" },
+						],
+					},
+				},
+			];
+			entries.push(
+				{
+					id: `v${version}-parallel-independent-input`,
+					type: "custom_message",
+					customType: "vcc-recall",
+					details: {},
+				},
+				{
+					id: `v${version}-parallel-post-boundary-assistant`,
+					type: "message",
+					message: {
+						role: "assistant",
+						stopReason: "toolUse",
+						content: [{ type: "toolCall", id: `v${version}-post-boundary-tool`, name: "bash" }],
+					},
+				},
+			);
+			const h = setup("coordinator", { entries, clock: 200, toolStallDeadlineMs: 50 });
+			h.emit("session_start", { reason: "reload" });
+			expect(h.coordinator.getPending()?.pendingToolCount).toBe(1);
+
+			// The persisted count proves that one call finished, but Pi has not yet
+			// persisted either result. An unrelated ID remains non-authoritative;
+			// the matching update disambiguates the still-running call.
+			h.emit("tool_execution_update", { toolCallId: "unrelated-tool" });
+			h.emit("tool_execution_end", { toolCallId: `v${version}-post-boundary-tool` });
+			expect(h.coordinator.getPending()?.lastProgressAt).toBe(140);
+			expect(h.coordinator.getPending()?.pendingToolCount).toBe(1);
+			h.advance(210);
+			h.emit("tool_execution_update", { toolCallId: `v${version}-remaining-tool` });
+			expect(h.coordinator.getPending()?.lastProgressAt).toBe(210);
+			h.advance(220);
+			h.emit("tool_execution_end", { toolCallId: `v${version}-remaining-tool` });
+			expect(h.coordinator.getPending()?.pendingToolCount).toBe(0);
+			h.emit("agent_settled");
+			expect(h.coordinator.getPending()?.state).toBe("settled");
+			expect(entries.filter((entry) => entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE)).toHaveLength(1);
+			h.emit("tool_execution_end", { toolCallId: `v${version}-completed-tool` });
+			h.emit("agent_settled");
+			expect(entries.filter((entry) => entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE)).toHaveLength(1);
+		},
+	);
+
+	it("rehydrates version 1 retrying work after folding durable acceptance before scheduling resubmission", () => {
+		const base = createContinuationTransaction({
+			transactionId: "legacy-retrying-tx",
+			origin: "compact_context",
+			reason: "compacted",
+			attemptId: "legacy-retrying-attempt",
+			requestId: "legacy-retrying-request",
+			resumePolicy: "active",
+			createdAt: 100,
+			deadlineMs: 60_000,
+		});
+		const submitted = transitionContinuation(base, { type: "submitted", at: 110 }).snapshot;
+		const retrying = transitionContinuation(submitted, {
+			type: "acceptance_deadline",
+			at: submitted.acceptanceDeadlineAt!,
+			nextRetryAt: submitted.acceptanceDeadlineAt! + 1_000,
+		}).snapshot;
+		const { queuedAt: _queuedAt, phaseEpoch: _phaseEpoch, submittedAt: _submittedAt, acceptanceDeadlineAt: _acceptanceDeadlineAt, nextRetryAt: _nextRetryAt, ...legacyFields } = retrying;
+		const legacy = { ...legacyFields, version: 1 as const };
+		const {
+			queuedAt: _submittedQueuedAt,
+			phaseEpoch: _submittedPhaseEpoch,
+			submittedAt: _submittedTimestamp,
+			acceptanceDeadlineAt: _submittedAcceptanceDeadline,
+			...legacySubmittedFields
+		} = submitted;
+		const legacySubmitted = { ...legacySubmittedFields, version: 1 as const };
+		const entries = [
+			{
+				id: "legacy-retrying-request-entry",
+				type: "custom",
+				customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+				data: {
+					protocol: "pi-vcc-continuation",
+					version: 1,
+					kind: "request",
+					snapshot: { ...legacy, state: "created", submissionCount: 0, retryCount: 0 },
+				},
+			},
+			{
+				id: "legacy-retrying-submitted-entry",
+				type: "custom",
+				customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+				data: { protocol: "pi-vcc-continuation", version: 1, kind: "snapshot", snapshot: legacySubmitted },
+			},
+			{
+				id: "legacy-retrying-snapshot-entry",
+				type: "custom",
+				customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+				data: { protocol: "pi-vcc-continuation", version: 1, kind: "snapshot", snapshot: legacy },
+			},
+			{
+				id: "legacy-retrying-durable-message",
+				type: "custom_message",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: { ...continuationMessageDetailsFor(submitted), version: 1 },
+				timestamp: 120,
+			},
+		];
+		const h = setup("coordinator", { entries, clock: 200, idleProgressDeadlineMs: 60 });
+		h.emit("session_start", { reason: "reload" });
+		expect(h.coordinator.getPending()?.version).toBe(2);
+		expect(h.coordinator.getPending()?.state).toBe("consumed");
+		expect(h.coordinator.getPending()?.acceptedAt).toBe(120);
+		expect(h.sent).toHaveLength(0);
+		expect(h.coordinator.getPending()?.nextRetryAt).toBeUndefined();
+	});
+
+	it("fails closed when version 1 retrying persistence cannot explain a matching durable ordinal", () => {
+		const base = createContinuationTransaction({
+			transactionId: "legacy-ambiguous-retry-tx",
+			origin: "compact_context",
+			reason: "compacted",
+			attemptId: "legacy-ambiguous-retry-attempt",
+			requestId: "legacy-ambiguous-retry-request",
+			resumePolicy: "active",
+			createdAt: 100,
+			deadlineMs: 100,
+		});
+		const submitted = transitionContinuation(base, { type: "submitted", at: 110 }).snapshot;
+		const retrying = transitionContinuation(submitted, {
+			type: "acceptance_deadline",
+			at: submitted.acceptanceDeadlineAt!,
+			nextRetryAt: 215,
+		}).snapshot;
+		const toLegacy = (snapshot: typeof base) => {
+			const legacy = { ...snapshot } as any;
+			for (const key of ["queuedAt", "phaseEpoch", "submittedAt", "acceptanceDeadlineAt", "progressDeadlineAt", "toolStallDeadlineAt", "nextRetryAt"]) delete legacy[key];
+			legacy.version = 1;
+			return legacy;
+		};
+		const entries = [
+			{
+				id: "legacy-ambiguous-request-entry",
+				type: "custom",
+				customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+				data: { protocol: "pi-vcc-continuation", version: 1, kind: "request", snapshot: toLegacy(base) },
+			},
+			{
+				id: "legacy-ambiguous-retrying-entry",
+				type: "custom",
+				customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+				data: { protocol: "pi-vcc-continuation", version: 1, kind: "snapshot", snapshot: toLegacy(retrying) },
+			},
+			{
+				id: "legacy-ambiguous-durable-message",
+				type: "custom_message",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: { ...continuationMessageDetailsFor(submitted), version: 1 },
+				timestamp: 120,
+			},
+		];
+		const h = setup("coordinator", { entries, clock: 200, retryDelaysMs: [5, 5] });
+		h.emit("session_start", { reason: "reload" });
+		expect(h.coordinator.getPending()).toMatchObject({ state: "retrying", acceptedAt: undefined });
+		h.fireTimer(5);
+		expect(h.sent).toHaveLength(1);
+		expect(h.sent[0].message.details.submissionCount).toBe(2);
+	});
+
+	it.each(["error", "aborted"] as const)(
+		"rehydrates version 1 accepted %s retry persistence without reconsuming the failed ordinal",
+		(stopReason) => {
+			const base = createContinuationTransaction({
+				transactionId: `legacy-${stopReason}-retry-tx`,
+				origin: "compact_context",
+				reason: "compacted",
+				attemptId: `legacy-${stopReason}-retry-attempt`,
+				requestId: `legacy-${stopReason}-retry-request`,
+				resumePolicy: "active",
+				createdAt: 100,
+				deadlineMs: 100,
+			});
+			const submitted = transitionContinuation(base, { type: "submitted", at: 110 }).snapshot;
+			const accepted = transitionContinuation(submitted, {
+				type: "durable_acceptance",
+				at: 120,
+				details: continuationMessageDetailsFor(submitted),
+			}).snapshot;
+			const failed = transitionContinuation(accepted, {
+				type: "assistant_result",
+				at: 130,
+				result: stopReason,
+			}).snapshot;
+			const retrying = transitionContinuation(failed, {
+				type: "agent_settled",
+				at: 140,
+				nextRetryAt: 145,
+			}).snapshot;
+			const toLegacy = (snapshot: typeof base) => {
+				const legacy = { ...snapshot } as any;
+				for (const key of ["queuedAt", "phaseEpoch", "submittedAt", "acceptanceDeadlineAt", "progressDeadlineAt", "toolStallDeadlineAt", "nextRetryAt"]) delete legacy[key];
+				legacy.version = 1;
+				return legacy;
+			};
+			const entries = [
+				{
+					id: `legacy-${stopReason}-request-entry`,
+					type: "custom",
+					customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+					data: { protocol: "pi-vcc-continuation", version: 1, kind: "request", snapshot: toLegacy(base) },
+				},
+				...[
+					submitted,
+					accepted,
+					failed,
+					retrying,
+				].map((snapshot, index) => ({
+					id: `legacy-${stopReason}-snapshot-${index}`,
+					type: "custom",
+					customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+					data: { protocol: "pi-vcc-continuation", version: 1, kind: "snapshot", snapshot: toLegacy(snapshot) },
+				})),
+				{
+					id: `legacy-${stopReason}-durable-message`,
+					type: "custom_message",
+					customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+					details: { ...continuationMessageDetailsFor(submitted), version: 1 },
+					timestamp: 120,
+				},
+			];
+			const h = setup("coordinator", { entries, clock: 200, retryDelaysMs: [5, 5] });
+			h.emit("session_start", { reason: "reload" });
+			expect(h.coordinator.getPending()).toMatchObject({
+				version: 2,
+				state: "retrying",
+				submissionCount: 1,
+				acceptedAt: undefined,
+			});
+			expect(h.sent).toHaveLength(0);
+			h.fireTimer(5);
+			expect(h.sent).toHaveLength(1);
+			expect(h.sent[0].message.details.submissionCount).toBe(2);
+		},
+	);
+
+	it("rehydrates version 1 submitted work after folding durable acceptance before timers or sends", () => {
+		const base = createContinuationTransaction({
+			transactionId: "legacy-tx",
+			origin: "compact_context",
+			reason: "compacted",
+			attemptId: "legacy-attempt",
+			requestId: "legacy-request",
+			resumePolicy: "active",
+			createdAt: 100,
+			deadlineMs: 60_000,
+		});
+		const submitted = transitionContinuation(base, {
+			type: "submitted",
+			at: 110,
+		}).snapshot;
+		const { queuedAt: _queuedAt, phaseEpoch: _phaseEpoch, submittedAt: _submittedAt, acceptanceDeadlineAt: _acceptanceDeadlineAt, ...legacyFields } = submitted;
+		const legacy = { ...legacyFields, version: 1 as const };
+		const entries = [
+			{
+				id: "legacy-request-entry",
+				type: "custom",
+				customType: CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE,
+				data: {
+					protocol: "pi-vcc-continuation",
+					version: 1,
+					kind: "request",
+					snapshot: { ...legacy, state: "created", submissionCount: 0 },
+				},
+			},
+			{
+				id: "legacy-snapshot-entry",
+				type: "custom",
+				customType: CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+				data: {
+					protocol: "pi-vcc-continuation",
+					version: 1,
+					kind: "snapshot",
+					snapshot: legacy,
+				},
+			},
+			{
+				id: "legacy-durable-message",
+				type: "custom_message",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: { ...continuationMessageDetailsFor(submitted), version: 1 },
+				timestamp: 120,
+			},
+		];
+		const h = setup("coordinator", { entries, clock: 200, idleProgressDeadlineMs: 60 });
+		h.emit("session_start", { reason: "reload" });
+		expect(h.coordinator.getPending()?.version).toBe(2);
+		expect(h.coordinator.getPending()?.state).toBe("consumed");
+		expect(h.coordinator.getPending()?.acceptedAt).toBe(120);
+		expect(h.sent).toHaveLength(0);
+		const adaptedIndex = h.entries.findIndex((entry) =>
+			entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+			entry.data.snapshot.version === 2 &&
+			entry.data.snapshot.transactionId === "legacy-tx"
+		);
+		expect(adaptedIndex).toBeGreaterThan(2);
+		expect(h.timers.some((timer) => !timer.cancelled)).toBe(true);
+	});
+
+	it("ignores cancelled or stale phase timers after durable acceptance", () => {
+		const h = setup("coordinator", { idleProgressDeadlineMs: 60 });
+		const snapshot = request(h);
+		const staleTimer = h.timers.find((timer) => !timer.cancelled)!;
+		h.emit("message_start", {
+			message: {
+				role: "custom",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(snapshot),
+			},
+		});
+		expect(staleTimer.cancelled).toBe(true);
+		staleTimer.callback();
+		expect(h.coordinator.getPending()?.state).toBe("consumed");
+		expect(h.notifications).toHaveLength(0);
 	});
 });

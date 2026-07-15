@@ -11,8 +11,12 @@ Vendored into `ai-configs` from `sting8k/pi-vcc` so this repo can ship a pinned 
   - `/pi-vcc` carries the `__PI_VCC_MANUAL_BYPASS__` marker directly in-source so repo-managed auto-compaction and manual compaction both use pi-vcc without global patching
   - the compaction hook keeps the repo-local agent-only fallback tail and shifts the cut backward so a live `toolResult` never outlives its matching assistant tool call; if the kept tail would contain an orphaned tool result, pi-vcc reports a no-cut classification instead of forcing an unsafe cut
   - no-cut paths record diagnostic classifications such as `tiny_session`, `post_compaction_tail_too_short`, and `active_turn_no_safe_cut` for hook debugging and future extension status surfaces
-  - continuation transactions use a strict privacy allowlist in `~/.pi/logs/pi-vcc.jsonl`; records distinguish created, waiting, submitted, consumed, progressed, settled, superseded, retrying, and failed without preserve/message/tool content or raw tool IDs
-  - when pi-vcc interrupts active work, one package coordinator persists the request, submits with `deliverAs: "steer"`, confirms matching lifecycle progress, retries bounded failures, and surfaces an actionable warning with transaction/attempt/compaction IDs, retry and pending-tool counts, log path, and manual action
+  - continuation protocol version 2 writes phase-specific timing/epoch evidence while dual-reading immutable version-1 history; durable matching top-level `custom_message` persistence or matching continuation `message_start` is the acceptance boundary, and the first later assistant/tool lifecycle reconciles that durable boundary before classifying progress
+  - continuation transactions use a strict privacy allowlist in `~/.pi/logs/pi-vcc.jsonl`; records distinguish created, waiting, submitted, consumed, progressed, stalled, settled, superseded, retrying, and failed without preserve/message/tool content or raw tool IDs
+  - when pi-vcc interrupts active work, one process-wide package coordinator persists the request, submits with `deliverAs: "steer"`, gives queued work a full 15-second acceptance budget, tracks 60-second idle/15-minute tool-stall windows, records acceptance-expiry retry intent, uses host idle readiness for dropped idle sends while preserving settlement gating during active runs, applies the 1s/2s backoff, and retains ownership while stalled
+  - session replacement through reload, new, resume, or fork releases the old process lease during the old runner's shutdown; new/resume/fork attempt to terminalize old-session work, but a persistence failure is logged and surfaced without retaining stale lease/listener/timer ownership, so every replacement runner can still register exactly one functional coordinator, handler, command, and tool set
+  - reload reconstruction derives V1 and V2 tool-call correlation from durable assistant calls minus durable results; when Pi has reduced the pending count before persisting a parallel batch's results, the unmatched IDs remain non-authoritative candidates until a matching live update/completion disambiguates the still-running call, while unrelated activity stalls fail-closed
+  - the continuation audit requires every settled transaction to have exactly one runtime-matching durable delivery across all retry submission ordinals; failed attempts without durable delivery remain retryable, while zero delivery and cross-retry duplicate delivery fail the audit
   - package continuation authority is coordinator-only; `PI_VCC_CONTINUATION_AUTHORITY` accepts only `coordinator`, and rollback requires restoring/reinstalling an archived package release rather than a runtime switch that could strand requests
   - high-value upstream `0.3.18` uptake is intentionally selective: TUI-safe wrapping, `bashExecution` normalization/search/report correctness fixes, keep-token parsing, compaction reason/willRetry metadata, and overflow retry fallback; upstream commit extraction is intentionally skipped/deferred because commit details remain available through transcript and recall
   - upstream `0.4.0` uptake is intentionally deferred while stabilizing the vendored fork; installer output suppresses the stale-upstream notice by default unless `PI_VCC_SHOW_UPSTREAM_STALE=1` is set
@@ -211,8 +215,9 @@ Continuation rollout checks are read-only/no-network:
 
 ```bash
 bash scripts/verify-pi-vcc-install.sh
-bash scripts/run-pi-vcc-continuation-soak.sh --candidate source --compactions 10 --fault-matrix all
-python3 scripts/audit-pi-vcc-continuations.py --require-terminal --sessions ~/.pi/agent/sessions --log ~/.pi/logs/pi-vcc.jsonl
+bash scripts/run-pi-vcc-continuation-soak.sh --candidate source --compactions 20 --fault-matrix all
+bun scripts/pi-vcc-real-host-integration.ts --candidate source --cases all --session-mode file-backed --provider deterministic-fake
+python3 scripts/audit-pi-vcc-continuations.py --require-terminal --since 24h --sessions ~/.pi/agent/sessions --log ~/.pi/logs/pi-vcc.jsonl
 ```
 
 The soak executes the selected source or installed candidate modules in an isolated Pi directory and records the no-provider host-faithful boundary explicitly; it never silently substitutes source for an installed candidate.

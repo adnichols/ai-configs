@@ -9,6 +9,7 @@ import percentageCompaction, {
 	PI_VCC_LOAD_MARKER,
 	PI_VCC_MANUAL_BYPASS_MARKER,
 } from "../_pi/extensions/percentage-compaction";
+import { reconcileContinuationEntries } from "../_pi/packages/pi-vcc/src/core/continuation-protocol";
 
 type HandlerMap = Record<string, (event: any, ctx: any) => any>;
 type CommandMap = Record<
@@ -1363,8 +1364,42 @@ describe("percentage-compaction extension", () => {
 		expect(appendedEntries[0].data.snapshot.transactionId).toBe(
 			emittedEvents[0].data.transactionId,
 		);
-		expect(appendedEntries[0].data.snapshot.origin).toBe("hard-backstop");
-		expect(appendedEntries[0].data.snapshot.reason).toBe("cancelled");
+		expect(appendedEntries[0].data).toMatchObject({
+			protocol: "pi-vcc-continuation",
+			version: 2,
+			kind: "request",
+			snapshot: {
+				protocol: "pi-vcc-continuation",
+				version: 2,
+				origin: "hard-backstop",
+				reason: "cancelled",
+				phaseEpoch: 0,
+			},
+		});
+		expect(appendedEntries[0].data.snapshot.queuedAt).toBe(
+			appendedEntries[0].data.snapshot.createdAt,
+		);
+		expect(
+			appendedEntries[0].data.snapshot.deadlineAt -
+				appendedEntries[0].data.snapshot.createdAt,
+		).toBe(15_000);
+		expect(appendedEntries[1].data.version).toBe(2);
+		const reconciled = reconcileContinuationEntries(
+			appendedEntries.map((entry, index) => ({
+				id: `percentage-entry-${index}`,
+				type: "custom",
+				customType: entry.customType,
+				data: entry.data,
+			})),
+		);
+		expect(reconciled.invalidEntryIds).toEqual([]);
+		expect(reconciled.pending).toHaveLength(1);
+		expect(reconciled.pending[0]).toMatchObject({
+			version: 2,
+			transactionId: appendedEntries[0].data.snapshot.transactionId,
+			state: "created",
+		});
+		expect(reconciled.safetyReady).toHaveLength(1);
 	});
 
 	test("coordinator publisher preserves live lifecycle epochs and persists safety-ready before wake", async () => {

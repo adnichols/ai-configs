@@ -1515,6 +1515,78 @@ install_pi_append_system_file() {
     fi
 }
 
+remove_repo_managed_pi_extension_registrations() {
+    local pi_agent_dir="$1"
+    local pi_source_extensions_dir="$2"
+    local pi_live_extensions_dir="$3"
+    local settings_path="$pi_agent_dir/settings.json"
+
+    [ -f "$settings_path" ] || return 0
+    [ -d "$pi_source_extensions_dir" ] || return 0
+
+    python3 - "$settings_path" "$pi_source_extensions_dir" "$pi_live_extensions_dir" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+source_dir = Path(sys.argv[2])
+live_dir = Path(sys.argv[3])
+managed_names = {entry.name for entry in source_dir.iterdir()}
+
+try:
+    data = json.loads(settings_path.read_text())
+except Exception:
+    raise SystemExit(0)
+
+extensions = data.get("extensions")
+if not isinstance(extensions, list):
+    raise SystemExit(0)
+
+live_root = os.path.realpath(live_dir)
+non_local_prefixes = ("npm:", "git:", "http:", "https:", "github:", "ssh:")
+ambiguous_relative = []
+
+def source_of(item):
+    if isinstance(item, str):
+        return item
+    if isinstance(item, dict):
+        return item.get("source")
+    return None
+
+def is_managed(item):
+    source = source_of(item)
+    if not isinstance(source, str) or source.startswith(non_local_prefixes):
+        return False
+    expanded = os.path.expanduser(source)
+    if not os.path.isabs(expanded):
+        normalized = os.path.normpath(expanded).replace(os.sep, "/")
+        basename = os.path.basename(normalized)
+        if normalized == f".pi/agent/extensions/{basename}" and basename in managed_names:
+            return True
+        if basename in managed_names:
+            ambiguous_relative.append(source)
+        return False
+    resolved = os.path.realpath(expanded)
+    return os.path.dirname(resolved) == live_root and os.path.basename(resolved) in managed_names
+
+filtered = [item for item in extensions if not is_managed(item)]
+for source in ambiguous_relative:
+    print(
+        f"  ! Preserving ambiguous relative Pi extension registration: {source}",
+        file=sys.stderr,
+    )
+if filtered == extensions:
+    raise SystemExit(0)
+if filtered:
+    data["extensions"] = filtered
+else:
+    data.pop("extensions", None)
+settings_path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+}
+
 ensure_pi_prompt_paths() {
     local pi_agent_dir="$1"
     local pi_prompts_dir="$2"
@@ -2022,6 +2094,11 @@ install_pi() {
         done
         shopt -u nullglob
         cp -r "$pi_source_dir/extensions/." "$pi_extensions_dir/"
+        # Pi auto-discovers ~/.pi/agent/extensions. Remove stale explicit
+        # registrations for repo-managed files so the same extension is not
+        # loaded twice on hosts that predate auto-discovery.
+        remove_repo_managed_pi_extension_registrations \
+            "$pi_agent_dir" "$pi_source_dir/extensions" "$pi_extensions_dir"
 
         if [ "$herdr_ext_clobbered" = true ]; then
             echo -e "  ${YELLOW}→ herdr-agent-state.ts was modified externally (likely 'herdr integration install pi'); restored ai-configs version${NC}"

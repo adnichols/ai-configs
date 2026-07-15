@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi VCC Continuation Interruption Remediation Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #121a2d;
+      --panel-2: #18233a;
+      --text: #eef3ff;
+      --muted: #a9b5cf;
+      --accent: #7dd3fc;
+      --accent-2: #a7f3d0;
+      --warning: #fbbf24;
+      --danger: #fda4af;
+      --border: #2a3857;
+      --code: #090d18;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(1500px, 100%); margin: 0 auto; padding: 32px clamp(20px, 4vw, 64px) 72px; }
+    h1, h2, h3 { line-height: 1.2; scroll-margin-top: 24px; }
+    h1 { font-size: clamp(2rem, 4vw, 3.4rem); margin-bottom: 8px; }
+    h2 { margin-top: 0; color: var(--accent); }
+    h3 { color: var(--accent-2); }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: var(--code); padding: 0.12rem 0.35rem; border-radius: 5px; }
+    pre { overflow-x: auto; background: var(--code); padding: 16px; border: 1px solid var(--border); border-radius: 10px; }
+    section, article { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin: 18px 0; }
+    article.phase { background: var(--panel-2); }
+    .muted { color: var(--muted); }
+    .status { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+    .pill { border: 1px solid var(--border); border-radius: 999px; padding: 6px 11px; background: var(--panel-2); }
+    .pill.ready { color: var(--accent-2); }
+    .pill.warning { color: var(--warning); }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px 20px; }
+    .toc a { display: block; padding: 5px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { text-align: left; vertical-align: top; border: 1px solid var(--border); padding: 10px; }
+    th { background: #1a2945; }
+    .callout { border-left: 5px solid var(--warning); background: #211d12; }
+    .danger { border-left-color: var(--danger); background: #26151c; }
+    .criteria td:first-child, .scenarios td:first-child { white-space: nowrap; font-weight: 700; color: var(--accent-2); }
+    .progress label { display: block; margin: 8px 0; }
+    ul, ol { padding-left: 1.4rem; }
+  </style>
+</head>
+<body>
+<main>
+  <header id="title">
+    <h1>Pi VCC Continuation Interruption Remediation</h1>
+    <p class="muted">Evidence-backed plan to stop compaction continuation loss, false failure, queue starvation, and misleading audit results on mbp and dever.</p>
+    <div class="status">
+      <span class="pill">Status: Complete; mbp and dever rollout validated</span>
+      <span class="pill">Date: 2026-07-14</span>
+      <span class="pill">Scope: pi-vcc coordinator, percentage compaction publisher, validation tooling</span>
+      <span class="pill warning">UI impact: text-only</span>
+    </div>
+  </header>
+
+  <nav aria-labelledby="toc-heading">
+    <section>
+      <h2 id="toc-heading">Table of contents</h2>
+      <div class="toc">
+        <a href="#product-owner-context">Product-owner context</a>
+        <a href="#goal">Goal</a>
+        <a href="#decision-attention">Decision Attention</a>
+        <a href="#why-now">Why this plan exists</a>
+        <a href="#authority">Authority and inputs</a>
+        <a href="#reality">Current implementation reality</a>
+        <a href="#inventory">Cause inventory</a>
+        <a href="#progress">Progress</a>
+        <a href="#resume">Resume instructions</a>
+        <a href="#product-intent">Product intent alignment</a>
+        <a href="#locked-decisions">Locked decisions</a>
+        <a href="#acceptance">Acceptance criteria</a>
+        <a href="#bdd">BDD scenarios</a>
+        <a href="#phase-p1">P1 — Lock real regressions</a>
+        <a href="#phase-p2">P2 — Correct acceptance and progress</a>
+        <a href="#phase-p3">P3 — Repair timing, queues, retries, supersession</a>
+        <a href="#phase-p4">P4 — Enforce single ownership</a>
+        <a href="#phase-p5">P5 — Make evidence trustworthy</a>
+        <a href="#phase-p6">P6 — Roll out on both machines</a>
+        <a href="#verification">Verification strategy</a>
+        <a href="#coverage-matrix">Test coverage matrix</a>
+        <a href="#delivery">Delivery order</a>
+        <a href="#non-goals">Non-goals</a>
+        <a href="#review-record">Review record</a>
+        <a href="#deviations">Decisions / Deviations log</a>
+      </div>
+    </section>
+  </nav>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <p><strong>Situation:</strong> Pi VCC compacts a long-running agent session and injects a hidden continuation message so work resumes. The continuation coordinator added on July 10 records a transaction and tries to prove that the hidden message was accepted, consumed, made progress, and settled. Recent sessions show that the proof model does not match the real Pi host lifecycle.</p>
+    <p><strong>Why now:</strong> the failure remains reproducible after the continuation-guarantee rollout. The last week contains one confirmed silent continuation loss on dever, 31 deadline failures across mbp and dever, repeated false supersession, and two queued transactions activated with only about five seconds left.</p>
+    <p><strong>Key conclusion:</strong> this is a runtime coordination defect plus an observability defect. Most recorded failures are false failures while the agent is still working, but at least one is a real continuation loss that ended the session. Both must be fixed because false terminalization can release later queued work into an active turn and turn monitoring noise into a real interruption.</p>
+    <table>
+      <thead><tr><th>Impact dimension</th><th>Assessment</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>Internal/operator-facing today. Long Pi tasks can stop after compaction or receive duplicate/late continuation work.</td></tr>
+        <tr><td>Runtime product behavior</td><td>Changed. Continuation acceptance, progress, timeout, retry, queue, supersession, and singleton behavior will be corrected.</td></tr>
+        <tr><td>Security / permissions</td><td>No permission-model change. Session fixtures and logs must remain metadata-only and retain the existing secret allowlist.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Changed materially. The existing “host-faithful” mock missed real host behavior; real session shapes and installed-runtime gates become required.</td></tr>
+        <tr><td>Deployment / migration</td><td>No destructive data migration. Protocol version 2 is dual-read/version-2-write: existing version-1 history remains immutable and is reconciled through a deterministic compatibility adapter before any new version-2 snapshot is persisted.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Make the normal compaction path self-healing: after pi-vcc interrupts active work, exactly one continuation is durably accepted, the coordinator recognizes active tool-driven progress without a false deadline, queued work receives a full activation budget, unrelated extension status messages do not cancel recovery, and true delivery failures retry safely before ending with actionable evidence.</p>
+  </section>
+
+  <section id="decision-attention" class="callout">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <p><strong>No product decision required.</strong> The evidence supports an ai-configs-owned first remedy: use the matching durable <code>custom_message</code> session entry (or matching continuation <code>message_start</code>) as the sole acceptance boundary, then use later correlated lifecycle activity as progress evidence, rather than depending on the void <code>ExtensionAPI.sendMessage()</code> return. A Pi host API change is an escalation gate only if the real-host RED tests prove that durable entry correlation cannot distinguish accepted from lost sends.</p>
+    <p><strong>Implementation attention:</strong> the persistence contract is locked below as protocol version 2 with dual-read/version-2-write compatibility. Do not convert routine continuation recovery into a manual “send continue” workflow, and do not treat arbitrary extension-generated status messages as independent user intent.</p>
+  </section>
+
+  <section id="why-now">
+    <h2>Why this plan exists</h2>
+    <p>The July 10 continuation coordinator was designed around an absolute 60-second transaction deadline, <code>message_start</code> consumption, and a void send call. Real sessions show four mismatches:</p>
+    <ol>
+      <li>Pi persists accepted continuation messages as top-level <code>custom_message</code> entries, while the audit and some lifecycle assumptions look for a normal <code>message</code> entry with role <code>custom</code>.</li>
+      <li>Long continuation work emits assistant <code>toolUse</code> messages for minutes before a final <code>stop</code>, but the coordinator does not count tool-driven work as progress.</li>
+      <li><code>sendMessage()</code> returns before the async host prompt completes. A rejected idle prompt can therefore look accepted to pi-vcc while producing no durable continuation entry.</li>
+      <li>The deadline starts at request creation, so queued requests and active tool work consume the same budget.</li>
+    </ol>
+  </section>
+
+  <section id="authority">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>User request on 2026-07-14: pull current <code>ai-configs/main</code>, inspect the last week of mbp and dever Pi sessions, inventory interruption causes, and produce a remediation plan.</li>
+      <li>Repository head inspected: <code>20f76fd</code> on <code>main</code>.</li>
+      <li>Session window: entries from 2026-07-07 through 2026-07-14 under <code>~/.pi/agent/sessions</code> on mbp and dever.</li>
+      <li>Runtime logs: <code>~/.pi/logs/pi-vcc.jsonl</code> on both machines.</li>
+      <li>Implementation: <code>_pi/packages/pi-vcc/src/core/</code>, <code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code>, and <code>_pi/extensions/percentage-compaction.ts</code>.</li>
+      <li>Existing plans and rollout evidence: <code>pi-vcc-continuation-guarantee.html</code>, compaction-race/no-cut plans, and July 10 validation artifacts.</li>
+      <li>Pi host contract inspected in installed <code>@earendil-works/pi-coding-agent</code> and <code>/home/anichols/code/3p/pi-mono</code>: extension <code>sendMessage</code> returns <code>void</code> while the host runs <code>sendCustomMessage(...).catch(...)</code> asynchronously.</li>
+    </ul>
+  </section>
+
+  <section id="reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>DEFAULT_DEADLINE_MS = 60_000</code> and the deadline is anchored at transaction creation.</li>
+      <li><code>submit()</code> persists <code>submitted</code>, calls the void <code>pi.sendMessage()</code>, and then only arms the absolute deadline. It retries synchronous throws, but not a silent async prompt rejection.</li>
+      <li>Consumption requires a matching <code>message_start</code>; persisted <code>custom_message</code> acceptance is not reconciled.</li>
+      <li>Assistant <code>toolUse</code> is ignored by <code>classifyAssistantResult</code>; only <code>stop</code>, <code>error</code>, and <code>aborted</code> are classified.</li>
+      <li>Any non-continuation custom message can supersede an active transaction as <code>independent_input</code>.</li>
+      <li>Queued deadlines are refreshed only after they have already expired. A request activated shortly before expiry receives only its remaining few seconds.</li>
+      <li>The package load marker is a presence flag, not a singleton guard; a second load can register a second coordinator before/without being rejected.</li>
+      <li>The audit aborts on malformed JSONL, does not recognize top-level <code>custom_message</code> continuation entries, and treats copied entry IDs across resumed/forked branches as duplicates.</li>
+      <li>The install verifier uses Bash <code>readarray</code>, which fails on the default macOS Bash used by mbp.</li>
+    </ul>
+  </section>
+
+  <section id="inventory">
+    <h2>Cause inventory from the last week</h2>
+    <table>
+      <thead><tr><th>Cause</th><th>Evidence</th><th>Classification</th><th>Remedy direction</th></tr></thead>
+      <tbody>
+        <tr id="cause-1"><td>Silent async send loss has no acceptance watchdog</td><td>dever transaction <code>vcc-mrjpfpvc-38e1300a</code> persisted <code>submitted</code>, never persisted a continuation <code>custom_message</code>, timed out, and the session ended at the failure outcome.</td><td>Confirmed runtime interruption</td><td>Separate submission from durable acceptance; retry when the matching durable message does not appear within an acceptance window.</td></tr>
+        <tr id="cause-2"><td>Accepted steer is not recognized</td><td>30 of 31 deadline failures persisted a matching continuation <code>custom_message</code>; only 7 recorded a <code>consumed</code> snapshot.</td><td>Confirmed lifecycle-attribution defect</td><td>Reconcile matching top-level <code>custom_message</code> entries as durable acceptance/consumption evidence.</td></tr>
+        <tr id="cause-3"><td>Tool-driven progress is invisible</td><td>Representative mbp and dever sessions contain repeated assistant <code>toolUse</code> and tool-result entries before and after the coordinator writes <code>failed_loudly: deadline_expired</code>.</td><td>Confirmed false terminalization</td><td>Track active progress on matching continuation turns, including tool-use/tool-result activity; stop the delivery deadline once work is active.</td></tr>
+        <tr id="cause-4"><td>One absolute deadline covers queue wait and execution</td><td>mbp <code>vcc-mris3es1-1b91b739</code> activated with 4.726 seconds left; dever <code>vcc-mrjp1s3q-65ef3607</code> activated with 5.246 seconds left.</td><td>Confirmed queue starvation</td><td>Use phase-specific clocks: queue age, acceptance deadline, and idle-progress watchdog. Give each activated request a full acceptance budget.</td></tr>
+        <tr id="cause-5"><td>Status custom messages falsely supersede recovery</td><td>At least 7 transactions ended as <code>independent_input</code>. Timelines show <code>ad-process:update</code> arriving immediately after the supersede snapshot while the continuation turn was still executing tools.</td><td>Confirmed false supersession</td><td>Only real user input or an explicit continuation-replacement protocol may supersede. UI/status/telemetry custom messages must be neutral.</td></tr>
+        <tr id="cause-6"><td>Abort retries storm too quickly</td><td>Three dever transactions exhausted retries; examples retried after 100 ms and failed after three aborted turns in roughly 5 seconds.</td><td>Confirmed recovery-quality defect</td><td>Retry after host settlement/readiness with bounded exponential backoff and per-attempt acceptance evidence.</td></tr>
+        <tr id="cause-7"><td>Duplicate package/coordinator ownership is not prevented</td><td>One mbp session contains two compaction entries and two identical continuation requests for <code>vcc-command-package-mrft78xt</code>. The package marker does not reject a second initialization.</td><td>Confirmed duplicate publication; load cause strongly indicated</td><td>Add a global singleton lease/owner marker, idempotent initialization, and exact-one install verification.</td></tr>
+        <tr id="cause-8"><td>Audit output is not trustworthy</td><td>The current audit misses real <code>custom_message</code> delivery, counts copied branch entries as duplicates, and aborts on the first malformed line. Shared dever logs also contain test stack traces from <code>percentage-compaction.test.ts</code>.</td><td>Confirmed observability defect</td><td>Deduplicate by entry ID, tolerate/report malformed lines, recognize real entry shapes, add time/session filters, and isolate all test logs.</td></tr>
+        <tr id="cause-9"><td>Session JSONL writes can interleave</td><td>Two dever session lines contain concatenated JSON objects: one <code>ad-process:update</code> inside a tool result and one message inside another message.</td><td>Confirmed Pi host persistence defect; not pi-vcc-owned</td><td>Make audit resilient now; file an upstream serialized-writer fix if current Pi main still reproduces it.</td></tr>
+        <tr id="cause-10"><td>mbp install verification is broken</td><td><code>scripts/verify-pi-vcc-install.sh</code> exits 127 because macOS Bash lacks <code>readarray</code>. dever verification passes on Pi 0.80.7; mbp runs Pi 0.80.6.</td><td>Confirmed rollout-gate defect</td><td>Use portable shell or a small existing-language helper and verify both installed versions explicitly.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="progress" class="progress">
+    <h2>Progress</h2>
+    <label><input type="checkbox" checked disabled /> P1 — Lock real-session regressions and protocol invariants</label>
+    <label><input type="checkbox" checked disabled /> P2 — Correct durable acceptance and active progress recognition</label>
+    <label><input type="checkbox" checked disabled /> P3 — Repair timing, queue, retry, and supersession semantics</label>
+    <label><input type="checkbox" checked disabled /> P4 — Enforce exactly one coordinator and producer path</label>
+    <label><input type="checkbox" checked disabled /> P5 — Make audit, logs, and install verification trustworthy</label>
+    <label><input type="checkbox" checked disabled /> P6 — Install and validate on mbp and dever</label>
+    <p><strong>Final evidence (2026-07-15):</strong> after rebasing onto <code>origin/main</code>, 267 package tests, 54 percentage-compaction tests, and 31 named regressions pass; audit self-test, portable source verifier, 14-host file-backed <code>AgentSession</code> matrix, 20-compaction all-fault source soak, and <code>git diff --check</code> pass. The committed candidate was installed on mbp and dever. Both hosts pass exact-one installed verification, the 20-compaction installed fault matrix, the 14-host installed real-runtime matrix, and bounded post-install session/log audit.</p>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions (agent)</h2>
+    <p>Read this plan fully. Start with the first unchecked Progress item and execute one phase at a time. Write the RED tests before production changes, update the matching checkbox immediately after that phase passes its Verify commands, and keep the Decisions / Deviations log append-only. Do not implement the optional Pi host API change unless P1 proves the durable-entry acceptance contract is insufficient.</p>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <ul>
+      <li><strong>Golden path:</strong> a user starts a long Pi task; compaction is invisible recovery infrastructure and work continues without a manual prompt.</li>
+      <li><strong>Self-healing:</strong> silent send loss, temporary host unavailability, queued requests, and aborts are retried safely inside the original workflow.</li>
+      <li><strong>Fail closed:</strong> real user input, session replacement, or persistent provider/host failure stops automatic recovery with a durable, actionable outcome.</li>
+      <li><strong>Actionable errors:</strong> terminal failure says which phase failed (acceptance, execution, retry, session replacement), what was attempted, and the exact manual recovery action.</li>
+      <li><strong>Repository alignment:</strong> update README/validation commands so operators do not rely on the currently broken whole-history audit or macOS-incompatible verifier.</li>
+      <li><strong>UI impact:</strong> text-only. Notifications and audit summaries become more precise; no screen or visual design changes.</li>
+      <li><strong>Current/target text evidence:</strong> current failures collapse to “continuation failed” plus a generic manual “send continue.” Target output names the failed phase, whether durable acceptance/progress was observed, retry count/backoff, the transaction identifier, and one exact next action only after automatic recovery is exhausted.</li>
+    </ul>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li>A persisted, transaction-matching top-level <code>custom_message</code> is the current host’s durable acceptance evidence. <code>sendMessage()</code> returning is not acceptance.</li>
+      <li>Delivery/acceptance timeout ends only when a transaction-matching durable continuation <code>custom_message</code> is persisted or the matching continuation <code>message_start</code> is observed. Tool/assistant lifecycle activity before that boundary is non-authoritative and cannot establish acceptance. Only post-acceptance active work is governed by the separate progress watchdog.</li>
+      <li>Queue wait does not consume the activated request’s acceptance budget.</li>
+      <li>Real user input, session replacement, terminal resume policy, explicitly independent/replacement-marked custom messages, known model-driving custom types, and unknown unmarked custom messages supersede fail-closed. Only matching continuation messages and explicitly classified status-only messages are neutral.</li>
+      <li>Retries use host readiness plus the locked <code>1_000 ms</code>/<code>2_000 ms</code> schedule; 100 ms rapid-fire retry loops are removed.</li>
+      <li>The package owns a single coordinator process-wide. Duplicate initialization is idempotently rejected before any handlers are registered.</li>
+      <li>Audits are branch-copy aware and malformed-line tolerant. Malformed persistence remains a finding, but one bad line does not hide all later evidence.</li>
+      <li>Raw session content is not committed. Regression fixtures contain only the minimum anonymized entry shapes and identifiers needed to reproduce lifecycle ordering.</li>
+      <li>A Pi host API change is not required initially. If P1 cannot prove safe acceptance from durable entries, stop and create a separate upstream plan for an awaitable/acknowledged send contract.</li>
+      <li><strong>Protocol compatibility:</strong> introduce protocol version 2 and continue parsing version-1 request, snapshot, outcome, safety-ready, and continuation-message entries. New writes use version 2 only. Version-1 entries are never rewritten in place; reconciliation adapts them in memory and persists a version-2 snapshot only when the transaction next changes or when the active transaction is first rehydrated.</li>
+      <li><strong>Version-2 lifecycle representation:</strong> retain the externally useful lifecycle states, add a non-terminal fail-closed <code>stalled</code> state, and make timing evidence explicit with <code>queuedAt</code>, <code>activatedAt</code>, <code>submittedAt</code>, <code>acceptanceDeadlineAt</code>, <code>acceptedAt</code>, <code>lastProgressAt</code>, <code>progressDeadlineAt</code>, <code>toolStallDeadlineAt</code>, <code>nextRetryAt</code>, and a monotonic <code>phaseEpoch</code>. Milestone timestamps remain immutable once observed; only phase deadlines and retry scheduling fields are cleared when their phase ends.</li>
+      <li><strong>Clock ownership:</strong> <code>createdAt</code>/<code>queuedAt</code> are diagnostic and do not consume the active acceptance budget. Activation records <code>activatedAt</code>; each submission records <code>submittedAt</code> and a fresh <code>acceptanceDeadlineAt</code>; matching durable persistence or matching continuation <code>message_start</code> records <code>acceptedAt</code> and clears the acceptance deadline. Only assistant/tool activity occurring after that acceptance boundary may record <code>lastProgressAt</code> and refresh <code>progressDeadlineAt</code>; pre-acceptance activity is ignored for transaction progress. Retry scheduling records <code>nextRetryAt</code>. Every timer callback must match transaction ID and <code>phaseEpoch</code>.</li>
+      <li><strong>Version-1 reconciliation:</strong> first correlate any durable matching continuation message and later assistant/tool evidence. A version-1 <code>submitted</code> entry with a durable match becomes accepted without resubmission; without a match it receives one fresh acceptance window from reconciliation time. Version-1 <code>consumed</code>/<code>progressed</code> map to accepted/active evidence, <code>retrying</code> maps to a paced retry wait, and terminal outcomes remain terminal. Reconciliation persists the adapted version-2 snapshot before arming a timer or sending.</li>
+      <li><strong>Locked timing defaults:</strong> acceptance must persist within <code>15_000 ms</code> of each submission; active work without outstanding tools uses a <code>60_000 ms</code> inactivity window; outstanding tools use a <code>900_000 ms</code> hard silence ceiling. The existing retry limit remains two retries (three total submissions), with deterministic delays of <code>1_000 ms</code> then <code>2_000 ms</code>. These constants are named, logged, configurable only through the existing coordinator test/options seam, and covered by fake-clock boundary tests.</li>
+      <li><strong>Lost-tool fail-closed behavior:</strong> tool start/result or other correlated progress refreshes the tool-stall ceiling. At the 15-minute ceiling, persist <code>stalled</code>, warn once with the outstanding-tool count and exact recovery action, retain transaction ownership, and do not resend or activate queued work. Later correlated progress returns to active; real user input/session replacement may supersede; agent settlement without successful progress follows the normal bounded retry/failure path.</li>
+      <li><strong>Custom-message intent contract:</strong> classify matching protocol continuations first. A non-matching custom message is neutral only when <code>details.piVccInputIntent === "status"</code> or its exact custom type is in the audited status-only compatibility allowlist (initially <code>ad-process:update</code>). Explicit <code>independent</code>/<code>replace-continuation</code> markers, known model-driving types such as <code>vcc-recall</code>, <code>claude-review-completion</code>, and <code>compaction-nudge</code>, and unknown unmarked custom messages supersede fail-closed. The classifier and allowlist live in one tested module; producers must not be inferred from display text.</li>
+    </ol>
+  </section>
+
+  <section id="acceptance" class="criteria">
+    <h2>Acceptance criteria</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Observable outcome</th><th>Primary proof</th></tr></thead>
+      <tbody>
+        <tr id="ac-1"><td>AC-1</td><td>An idle continuation whose async host prompt is dropped is detected before terminal deadline, retried safely, and either produces one durable matching message or one actionable terminal failure.</td><td>Real-host adapter regression plus coordinator test.</td></tr>
+        <tr id="ac-2"><td>AC-2</td><td>A persisted matching <code>custom_message</code> is recognized even when no matching <code>message_start</code> event arrives.</td><td>Session-shape fixture from mbp/dever.</td></tr>
+        <tr id="ac-3"><td>AC-3</td><td>A continuation executing tools for more than 60 seconds is not marked failed while lifecycle activity continues.</td><td>Fake-clock tool-chain regression.</td></tr>
+        <tr id="ac-4"><td>AC-4</td><td>A request queued behind another transaction receives its full acceptance budget when activated.</td><td>4.7/5.2-second starvation regression.</td></tr>
+        <tr id="ac-5"><td>AC-5</td><td><code>ad-process:update</code> and custom messages explicitly marked <code>piVccInputIntent: "status"</code> do not supersede the active continuation; real user input and non-status model-driving/unknown custom messages do.</td><td>Cross-extension message tests.</td></tr>
+        <tr id="ac-6"><td>AC-6</td><td>Aborted/error continuation attempts retry with bounded backoff and no rapid three-turn storm; success on a later attempt settles once.</td><td>Fake-clock retry/backoff tests.</td></tr>
+        <tr id="ac-7"><td>AC-7</td><td>Loading pi-vcc twice registers one coordinator and one set of hooks/commands, without duplicate requests or outcomes.</td><td>Double-load package integration test.</td></tr>
+        <tr id="ac-8"><td>AC-8</td><td>The audit recognizes top-level continuation messages, deduplicates copied entry IDs across branches, reports malformed lines without aborting, and supports a bounded recent-session window.</td><td>Audit fixture/self-test.</td></tr>
+        <tr id="ac-9"><td>AC-9</td><td>All tests write to isolated logs; the real <code>~/.pi/logs/pi-vcc.jsonl</code> contains no test stack traces.</td><td>Test environment assertion and clean-log check.</td></tr>
+        <tr id="ac-10"><td>AC-10</td><td>The read-only install verifier passes on macOS Bash and Linux and proves exactly one stable package registration plus the expected live extension.</td><td>mbp and dever verifier output.</td></tr>
+        <tr id="ac-11"><td>AC-11</td><td>Installed source/installed fault-matrix soaks end every required transaction with no silent loss, false active deadline, duplicate turn, or stale queue activation.</td><td>Soak plus bounded audit on both machines.</td></tr>
+        <tr id="ac-12"><td>AC-12</td><td>Reloading a session with version-1 pending or terminal entries deterministically reconciles to version-2 semantics without rewriting history, duplicate submission, shortened activation budget, or revival of terminal work.</td><td>Mixed-version protocol and reload fixtures.</td></tr>
+        <tr id="ac-13"><td>AC-13</td><td>A missing tool completion cannot silently hold the queue forever: after 15 minutes without correlated tool/progress evidence, the transaction enters fail-closed <code>stalled</code>, warns once, retains ownership, and neither resends nor activates queued work until authoritative lifecycle evidence arrives.</td><td>Fake-clock lost-tool and recovery tests.</td></tr>
+        <tr id="ac-14"><td>AC-14</td><td>Status-only <code>ad-process:update</code> remains neutral, while <code>vcc-recall</code>, <code>claude-review-completion</code>, <code>compaction-nudge</code>, explicit independent/replacement markers, and unknown unmarked custom messages supersede without their later activity being attributed to the continuation.</td><td>Central custom-message classifier and cross-extension fixtures.</td></tr>
+        <tr id="ac-15"><td>AC-15</td><td>Assistant/tool lifecycle activity observed after submission but before a matching durable continuation entry or matching continuation <code>message_start</code> does not clear the acceptance deadline, set <code>acceptedAt</code>, or count as continuation progress.</td><td>Pre-acceptance counterexample in fake-clock and real-host integration tests.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd" class="scenarios">
+    <h2>BDD scenarios</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Given / When / Then</th></tr></thead>
+      <tbody>
+        <tr id="bdd-1"><td>BDD-1</td><td><strong>Given</strong> Pi is idle after compaction and the async host prompt rejects after <code>sendMessage()</code> returns, <strong>when</strong> no matching durable message appears, <strong>then</strong> pi-vcc retries after readiness/backoff and does not silently wait until the absolute deadline.</td></tr>
+        <tr id="bdd-2"><td>BDD-2</td><td><strong>Given</strong> a steer is accepted during streaming but no matching <code>message_start</code> is emitted, <strong>when</strong> the matching top-level <code>custom_message</code> is persisted, <strong>then</strong> the transaction becomes accepted and is not failed as undelivered.</td></tr>
+        <tr id="bdd-3"><td>BDD-3</td><td><strong>Given</strong> a continuation turn runs tools for longer than 60 seconds, <strong>when</strong> assistant tool-use/tool-result activity continues, <strong>then</strong> the delivery deadline is inactive and the progress watchdog is refreshed.</td></tr>
+        <tr id="bdd-4"><td>BDD-4</td><td><strong>Given</strong> a second request waits 55 seconds behind active work, <strong>when</strong> it becomes active, <strong>then</strong> it receives a fresh full acceptance window rather than five seconds.</td></tr>
+        <tr id="bdd-5"><td>BDD-5</td><td><strong>Given</strong> <code>ad-process:update</code> or subagent status arrives during continuation work, <strong>when</strong> its message lifecycle fires, <strong>then</strong> the active transaction remains owned and continues.</td></tr>
+        <tr id="bdd-6"><td>BDD-6</td><td><strong>Given</strong> a real interactive user message arrives, <strong>when</strong> the continuation is pending or active, <strong>then</strong> the transaction is durably superseded and no retry revives it.</td></tr>
+        <tr id="bdd-7"><td>BDD-7</td><td><strong>Given</strong> the provider aborts the continuation, <strong>when</strong> the host settles, <strong>then</strong> retries are spaced by bounded backoff, re-check acceptance each time, and stop after the configured limit with one warning.</td></tr>
+        <tr id="bdd-8"><td>BDD-8</td><td><strong>Given</strong> pi-vcc is discovered through two equivalent package paths, <strong>when</strong> both factories load, <strong>then</strong> only the first owns the coordinator and the second performs no registrations.</td></tr>
+        <tr id="bdd-9"><td>BDD-9</td><td><strong>Given</strong> resumed/forked session files copy the same entry IDs and one file contains a malformed concatenated line, <strong>when</strong> the recent-session audit runs, <strong>then</strong> copied IDs count once, the malformed line is reported, and later valid transactions are still audited.</td></tr>
+        <tr id="bdd-10"><td>BDD-10</td><td><strong>Given</strong> a coordinator reload occurs with accepted or active work, <strong>when</strong> it reconciles the branch, <strong>then</strong> phase-specific timers and ownership are restored without duplicate submission.</td></tr>
+        <tr id="bdd-11"><td>BDD-11</td><td><strong>Given</strong> a branch contains only version-1 continuation records, <strong>when</strong> the version-2 coordinator reconciles it, <strong>then</strong> durable acceptance and progress evidence are folded first, the adapted version-2 snapshot is persisted before timers or sends, and terminal version-1 work is never revived.</td></tr>
+        <tr id="bdd-12"><td>BDD-12</td><td><strong>Given</strong> an accepted continuation has an outstanding tool and no tool result or other correlated progress for 15 minutes, <strong>when</strong> the hard tool-stall timer fires, <strong>then</strong> pi-vcc persists <code>stalled</code>, warns once, retains ownership, and sends no retry; <strong>when</strong> a later matching tool result arrives, <strong>then</strong> active progress resumes without duplication.</td></tr>
+        <tr id="bdd-13"><td>BDD-13</td><td><strong>Given</strong> a continuation is pending or active, <strong>when</strong> <code>ad-process:update</code> arrives, <strong>then</strong> it remains neutral; <strong>but when</strong> <code>vcc-recall</code>, <code>claude-review-completion</code>, <code>compaction-nudge</code>, or an unknown unmarked custom message drives the model, <strong>then</strong> the continuation is superseded and subsequent activity is not credited to it.</td></tr>
+        <tr id="bdd-14"><td>BDD-14</td><td><strong>Given</strong> a continuation was submitted but its matching custom message has not been durably persisted and no matching continuation <code>message_start</code> occurred, <strong>when</strong> unrelated assistant/tool lifecycle events fire, <strong>then</strong> the acceptance deadline remains armed and those events are not attributed to the continuation.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <article id="phase-p1" class="phase">
+    <h2>P1 — Lock real-session regressions and protocol invariants</h2>
+    <h3>End State</h3>
+    <p>Production behavior is unchanged, while focused fixtures and a passing RED-verifier prove that current <code>20f76fd</code> still exhibits silent send loss, accepted-without-message_start, active tool timeout, lost-tool stall, queue starvation, custom-message misclassification, retry storm, duplicate load, version-1 reload, branched sessions, and malformed JSONL behavior.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Add anonymized fixtures derived from the listed mbp/dever transactions; preserve ordering and metadata only.</li>
+      <li>Upgrade the existing host-faithful harness for fast state-machine coverage, and add a separate file-backed real-host integration using the installed runtime’s <code>createAgentSession</code>/<code>SessionManager</code>, actual extension loading, a deterministic no-network fake provider, and real session persistence.</li>
+      <li>Require every new test to fail against current <code>20f76fd</code> for the intended behavioral reason.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <p><code>_pi/packages/pi-vcc/tests/coordinator.test.ts</code>, <code>_pi/packages/pi-vcc/tests/continuation.test.ts</code>, <code>_pi/packages/pi-vcc/tests/integration/continuation-runtime.test.ts</code>, new metadata-only fixtures/support helpers, <code>scripts/pi-vcc-real-host-integration.ts</code>, <code>scripts/verify-pi-vcc-red-regressions.ts</code>, <code>scripts/percentage-compaction.test.ts</code>, audit self-tests.</p>
+    <h3>Work</h3>
+    <p>Encode the locked version-2, timing, custom-message, stalled-tool, and real-host contracts as fixtures and failing assertions only. The RED verifier must run the named regression cases, require their expected failure identifiers, fail if a case unexpectedly passes or fails for the wrong reason, and separately prove the pre-existing unrelated test suite remains green. Do not edit production protocol/coordinator behavior in P1.</p>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. The representation and compatibility behavior are locked above. If the real-host test cannot observe a matching durable entry reliably, stop and record the upstream Pi acknowledgement API as a new required dependency before P2.</p>
+    <h3>Verify</h3>
+    <pre>bun scripts/verify-pi-vcc-red-regressions.ts --candidate source --expect-current-failures all
+python3 scripts/audit-pi-vcc-continuations.py --self-test
+# The RED verifier exits zero only when every named new regression fails for its expected current-behavior reason and the unrelated baseline remains green.</pre>
+  </article>
+
+  <article id="phase-p2" class="phase">
+    <h2>P2 — Correct durable acceptance and active progress recognition</h2>
+    <h3>End State</h3>
+    <p>The coordinator detects silent send loss, recognizes accepted messages from real session persistence, treats tool-driven continuation work as active progress, and fails closed with retained ownership when tool completion goes silent beyond the locked ceiling.</p>
+    <h3>Tests first</h3>
+    <p>Turn the P1 RED cases for BDD-1 through BDD-3, BDD-10 through BDD-12, and BDD-14 green without weakening their real session shapes, persistence ordering, correlation boundary, or timing assertions.</p>
+    <h3>Expected files</h3>
+    <p><code>_pi/packages/pi-vcc/src/core/continuation-protocol.ts</code>, <code>continuation.ts</code>, <code>coordinator.ts</code>, <code>log-schema.ts</code>, <code>log.ts</code>, and the P1 tests.</p>
+    <h3>Work</h3>
+    <ul>
+      <li>Implement the locked dual-read/version-2-write protocol, phase timestamps, monotonic <code>phaseEpoch</code>, deterministic version-1 adapter, and persist-before-timer/send reload ordering.</li>
+      <li>Extend reconciliation to find matching top-level <code>custom_message</code> entries by protocol, transaction ID, attempt ID, and submission ordinal.</li>
+      <li>After each submit, arm an acceptance watchdog. If no durable acceptance appears, re-reconcile and retry safely rather than waiting for the final transaction deadline.</li>
+      <li>Ignore assistant/tool events for acceptance and progress until matching durable continuation persistence or matching continuation <code>message_start</code> establishes the correlation boundary; only then recognize later assistant <code>toolUse</code>, matching tool-result activity, and assistant boundaries as progress.</li>
+      <li>Cancel the acceptance timer once accepted. Apply the locked 60-second no-tool inactivity window and 15-minute outstanding-tool stall ceiling; implement fail-closed <code>stalled</code> ownership and recovery without retrying or releasing the queue.</li>
+      <li>Persist enough phase/timing information to rehydrate correctly after reload without logging message content or tool IDs.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/continuation.test.ts tests/coordinator.test.ts tests/integration/continuation-runtime.test.ts tests/log-schema.test.ts)
+(cd _pi/packages/pi-vcc &amp;&amp; bun test)</pre>
+  </article>
+
+  <article id="phase-p3" class="phase">
+    <h2>P3 — Repair timing, queue, retry, and supersession semantics</h2>
+    <h3>End State</h3>
+    <p>Each phase has the correct clock, queued requests cannot starve, retries are paced by readiness, status-only messages remain neutral, and independent/model-driving/unknown custom input supersedes fail-closed instead of being misattributed as continuation progress.</p>
+    <h3>Tests first</h3>
+    <p>Turn the P1 RED tests for BDD-4 through BDD-7 and BDD-13 green, including exact regressions for the observed 4.726-second and 5.246-second activation budgets and counterexamples for status-only versus model-driving custom messages.</p>
+    <h3>Expected files</h3>
+    <p><code>_pi/packages/pi-vcc/src/core/continuation.ts</code>, <code>coordinator.ts</code>, a central custom-message intent classifier/allowlist module, protocol/types, and coordinator/integration/cross-extension fixture tests.</p>
+    <h3>Work</h3>
+    <ul>
+      <li>Replace the single creation-anchored deadline with explicit queue age, acceptance deadline from activation/submission, and progress inactivity timeout.</li>
+      <li>Refresh the full acceptance window whenever a queued transaction becomes active, not only after it is already expired.</li>
+      <li>Use the locked <code>1_000 ms</code>/<code>2_000 ms</code> retry delays and wait for a host settlement/readiness boundary before resubmission after error/abort.</li>
+      <li>Implement the locked custom-message intent classifier: matching continuation first; explicit/allowlisted status-only messages neutral; explicit independent/replacement, known model-driving, and unknown unmarked messages supersede fail-closed.</li>
+      <li>Make late timers and stale lifecycle callbacks transaction/phase/epoch safe.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/continuation.test.ts tests/coordinator.test.ts tests/integration/continuation-runtime.test.ts)
+(cd _pi/packages/pi-vcc &amp;&amp; bun test)</pre>
+  </article>
+
+  <article id="phase-p4" class="phase">
+    <h2>P4 — Enforce exactly one coordinator and producer path</h2>
+    <h3>End State</h3>
+    <p>Duplicate package discovery or reload cannot register multiple coordinators, hooks, commands, or continuation publishers.</p>
+    <h3>Tests first</h3>
+    <p>Add a package factory double-load test and a producer parity test covering package command, successful compaction hook, <code>compact_context</code>, hard backstop, no-cut, cancellation, and failure.</p>
+    <h3>Expected files</h3>
+    <p><code>_pi/packages/pi-vcc/index.ts</code>, coordinator ownership helper/types, package command/hook tests, <code>_pi/extensions/percentage-compaction.ts</code>, <code>scripts/percentage-compaction.test.ts</code>, install verifier.</p>
+    <h3>Work</h3>
+    <ul>
+      <li>Replace the boolean load marker with a process-wide owner record containing protocol/version and a dispose/unregister boundary where supported.</li>
+      <li>Reject/idempotently skip a second initialization before any handler registration.</li>
+      <li>Ensure every compaction initiator publishes one request and only the package coordinator sends continuations.</li>
+      <li>Strengthen install verification to require exactly one registered stable mirror and one enabled percentage-compaction extension path.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/pi-vcc-command.test.ts tests/before-compact.test.ts tests/coordinator.test.ts)
+bun test scripts/percentage-compaction.test.ts
+bash scripts/verify-pi-vcc-install.sh --source-only</pre>
+  </article>
+
+  <article id="phase-p5" class="phase">
+    <h2>P5 — Make audit, logs, and install verification trustworthy</h2>
+    <h3>End State</h3>
+    <p>A bounded audit accurately reports recent runtime outcomes on both machines, continues past malformed lines, and is not polluted by tests or forked-session copies.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Add audit fixtures for top-level <code>custom_message</code>, copied entry IDs across branches, malformed concatenated lines, continued valid entries after corruption, and time-window filtering.</li>
+      <li>Add a portability test or shell static check proving the verifier uses no Bash-4-only builtins.</li>
+      <li>Assert every test suite sets <code>PI_VCC_LOG_PATH</code> to an isolated temporary file.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <p><code>scripts/audit-pi-vcc-continuations.py</code>, its self-tests/fixtures, <code>scripts/verify-pi-vcc-install.sh</code>, <code>scripts/run-pi-vcc-continuation-soak.sh</code>, <code>scripts/pi-vcc-continuation-soak.ts</code>, <code>scripts/percentage-compaction.test.ts</code>, package tests, README validation guidance.</p>
+    <h3>Work</h3>
+    <ul>
+      <li>Add <code>--since</code> or equivalent bounded-window filtering and per-session/transaction summaries.</li>
+      <li>Deduplicate copied session branch entries by durable entry ID before transaction checks.</li>
+      <li>Recognize real top-level <code>custom_message</code> delivery and correlate submission ordinals.</li>
+      <li>Report malformed lines with file/line and continue scanning; distinguish runtime finding from audit limitation.</li>
+      <li>Keep test logs isolated and optionally tag log records with a non-sensitive runtime/session identifier for correlation.</li>
+      <li>Make the install verifier portable to macOS Bash 3.2 and Linux.</li>
+      <li>Document the two observed interleaved-write corruptions as a Pi host persistence finding; create a separate upstream issue/plan only if current Pi main reproduces it.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>python3 scripts/audit-pi-vcc-continuations.py --self-test
+bash scripts/verify-pi-vcc-install.sh --source-only
+bun test scripts/percentage-compaction.test.ts
+(cd _pi/packages/pi-vcc &amp;&amp; bun test)
+git diff --check</pre>
+  </article>
+
+  <article id="phase-p6" class="phase">
+    <h2>P6 — Install and validate on mbp and dever</h2>
+    <h3>End State</h3>
+    <p>Both machines run the same committed candidate and pass source, installed, fault-matrix, portability, and bounded recent-session audits with no unresolved continuation interruption.</p>
+    <h3>Tests first</h3>
+    <p>No new production behavior begins in this phase. If installed validation reveals a new failure shape, return to the appropriate earlier phase, add a RED regression, and fix there.</p>
+    <h3>Expected files</h3>
+    <p><code>scripts/pi-vcc-real-host-integration.ts</code>, the existing soak/audit/verifier surfaces, plan progress/log updates, and sanitized validation evidence under <code>thoughts/validation/</code>. No direct edits to installed mirrors or live extensions.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Run all source tests and source soak from a committed ai-configs checkpoint.</li>
+      <li>Install only through <code>./install.sh --pi</code> on mbp and dever.</li>
+      <li>Verify hashes, exact-one registration, live extension, and Pi version on both machines.</li>
+      <li>Run the installed synthetic fault matrix with at least 20 compactions for fast repetition, then run the separate file-backed real-host integration through the installed <code>AgentSession</code>, extension loader, deterministic fake provider, and actual JSONL persistence. Required real-host cases are idle async rejection, pre-acceptance unrelated tool activity, streaming steer without <code>message_start</code>, durable top-level <code>custom_message</code>, &gt;60-second post-acceptance tool activity, missing tool completion/stall recovery, queued activation, status-only and model-driving custom messages, abort/backoff, version-1 reload, and duplicate loading.</li>
+      <li>Run a bounded recent-session audit that excludes pre-candidate history and requires every candidate transaction to reach a truthful terminal outcome.</li>
+      <li>Preserve sanitized evidence for any failure before rollback. Roll back only through a recorded source checkpoint and <code>./install.sh --pi</code>.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>(cd _pi/packages/pi-vcc &amp;&amp; bun test)
+bun test scripts/percentage-compaction.test.ts
+bash scripts/run-pi-vcc-continuation-soak.sh --candidate source --compactions 20 --fault-matrix all
+bash scripts/verify-pi-vcc-install.sh --source-only
+
+# After ./install.sh --pi on each machine:
+bash scripts/verify-pi-vcc-install.sh
+bash scripts/run-pi-vcc-continuation-soak.sh --candidate installed --compactions 20 --fault-matrix all
+bun scripts/pi-vcc-real-host-integration.ts --candidate installed --cases all --session-mode file-backed --provider deterministic-fake
+python3 scripts/audit-pi-vcc-continuations.py --require-terminal --since 24h --sessions ~/.pi/agent/sessions --log ~/.pi/logs/pi-vcc.jsonl</pre>
+  </article>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ol>
+      <li><strong>Pure state-machine tests:</strong> phase transitions, timers, backoff, stale events, and compatibility.</li>
+      <li><strong>Host-contract tests:</strong> keep the fast handcrafted harness, but require a separate installed-runtime <code>AgentSession</code>/extension-loader/file-backed session integration with a deterministic fake provider for void send, async rejection, real <code>custom_message</code> persistence, streaming steer, tool-driven progress, and reload.</li>
+      <li><strong>Producer parity tests:</strong> package command, hook, semantic compaction, hard backstop, no-cut, cancellation, and failure.</li>
+      <li><strong>Persistence/audit tests:</strong> branch copies, malformed lines, reload, terminal reconciliation, and privacy allowlist.</li>
+      <li><strong>Installed runtime tests:</strong> source and installed candidates on both Pi 0.80.6/0.80.7 environments, upgraded as appropriate by installation.</li>
+      <li><strong>Golden-path proof:</strong> a long tool-driven task compacts and keeps working without a warning, manual “continue,” duplicate turn, or false audit failure.</li>
+    </ol>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>Test coverage matrix</h2>
+    <table>
+      <thead><tr><th>Acceptance / scenarios</th><th>Planned test layer and files</th><th>Execution gate</th></tr></thead>
+      <tbody>
+        <tr><td>AC-1–AC-3; BDD-1–BDD-3</td><td>State-machine and real-host adapter tests in <code>tests/continuation.test.ts</code>, <code>tests/coordinator.test.ts</code>, and <code>tests/integration/continuation-runtime.test.ts</code>.</td><td><code>(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/continuation.test.ts tests/coordinator.test.ts tests/integration/continuation-runtime.test.ts)</code></td></tr>
+        <tr><td>AC-4–AC-6, AC-13–AC-15; BDD-4–BDD-7, BDD-12–BDD-14</td><td>Fake-clock queue, custom-message classification, pre-acceptance correlation counterexamples, readiness, locked backoff, lost-tool stall/recovery, and stale-epoch tests in coordinator/state-machine/cross-extension fixture suites.</td><td><code>(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/continuation.test.ts tests/coordinator.test.ts tests/integration/continuation-runtime.test.ts)</code></td></tr>
+        <tr><td>AC-7; BDD-8</td><td>Package double-load, hook/command registration, and producer-parity tests plus percentage-compaction tests.</td><td><code>(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/pi-vcc-command.test.ts tests/before-compact.test.ts tests/coordinator.test.ts) &amp;&amp; bun test scripts/percentage-compaction.test.ts</code></td></tr>
+        <tr><td>AC-8–AC-10; BDD-9</td><td>Audit self-tests/fixtures, isolated-log assertions, and portable install-verifier checks.</td><td><code>python3 scripts/audit-pi-vcc-continuations.py --self-test &amp;&amp; bash scripts/verify-pi-vcc-install.sh --source-only</code></td></tr>
+        <tr><td>AC-12; BDD-10–BDD-11</td><td>Mixed version-1/version-2 protocol parsing, branch folding, reload, timer restoration, and terminal non-revival tests in protocol/coordinator/runtime suites.</td><td><code>(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/continuation.test.ts tests/coordinator.test.ts tests/integration/continuation-runtime.test.ts tests/log-schema.test.ts)</code></td></tr>
+        <tr><td>AC-1–AC-6, AC-11–AC-15; complete golden path</td><td>Installed synthetic fault-matrix soak plus the separate file-backed installed-runtime <code>AgentSession</code>/extension-loader integration and bounded post-candidate audits on mbp and dever.</td><td><code>bash scripts/run-pi-vcc-continuation-soak.sh --candidate installed --compactions 20 --fault-matrix all</code>, then <code>bun scripts/pi-vcc-real-host-integration.ts --candidate installed --cases all --session-mode file-backed --provider deterministic-fake</code>, then the bounded <code>--require-terminal</code> audit.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="delivery">
+    <h2>Delivery order</h2>
+    <p>P1 real regressions → P2 acceptance/progress → P3 timing/retry/supersession → P4 singleton ownership → P5 trustworthy evidence → P6 two-machine rollout. Do not roll out the coordinator changes before the audit can distinguish accepted active work from true delivery loss.</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Changing pi-vcc summarization, pruning, recall ranking, or context percentage accounting.</li>
+      <li>Turning pi-vcc into a task/goal supervisor.</li>
+      <li>Guaranteeing continuation through process kill, machine shutdown, missing credentials, or permanent provider outage.</li>
+      <li>Directly patching installed Pi <code>dist</code>, live extensions, or stable package mirrors.</li>
+      <li>Fixing Pi session-writer interleaving inside this ai-configs change unless current Pi main reproduction proves a small upstream patch is required.</li>
+      <li>Broad upstream pi-vcc uptake unrelated to continuation correctness.</li>
+    </ul>
+  </section>
+
+  <section id="review-record">
+    <h2>Review record</h2>
+    <ul>
+      <li>2026-07-14 — PM/product-intent review: reshaped the plan to lock the protocol version, compatibility adapter, timer ownership, truthful operator text, and acceptance-to-test mapping. Independent readiness review is still pending; this entry does not certify execution readiness.</li>
+      <li>2026-07-14 — Independent Codex review: <code>PLAN_NEEDS_REVISION</code>. Blocking findings were contradictory P1 RED/implementation semantics, undefined timing and lost-tool behavior, over-broad custom-message neutrality, and a rollout gate that did not exercise real <code>AgentSession</code>/extension-loader/session persistence. The plan was revised; a fresh independent review is required.</li>
+      <li>2026-07-14 — Fresh independent Codex review: <code>PLAN_NEEDS_REVISION</code>. The remaining blocker was ambiguous acceptance from uncorrelated pre-continuation tool activity. Acceptance is now locked to matching durable persistence or matching continuation <code>message_start</code>, with pre-acceptance lifecycle activity explicitly non-authoritative. A fresh independent review is required.</li>
+      <li>2026-07-14 — Final fresh independent Codex reviewer: <code>PLAN_EXECUTION_READY</code>. No blocking findings remained after the acceptance-correlation correction.</li>
+      <li>2026-07-14 — Independent Claude Code reviewer (Opus 4.7, Extra High, canonical launcher): <code>PLAN_EXECUTION_READY</code>. No blocking findings; optional clarity notes were non-readiness-critical.</li>
+      <li>2026-07-14 — Final PM/product-intent check: the reviewed plan preserves invisible/self-healing continuation recovery, fail-closed behavior for ambiguous model-driving input and stalled tools, actionable operator guidance, metadata-only fixture privacy, and the smallest ai-configs-owned remedy. No product decision remains open.</li>
+      <li>2026-07-15 — Implementation-stage PM/product-intent review: P1–P5 implement the intended invisible golden path and bounded fail-closed recovery without exporting routine remediation to the operator. Current source verification passes: 267 package tests, 54 percentage-compaction tests, 31 named regressions, audit self-test, portable source verifier, 14-host file-backed <code>AgentSession</code> matrix, and 20-compaction all-fault soak. Latest scoped Codex review reports <code>PASS_SCOPED</code>. Canonical Claude runs repeatedly produced substantive <code>PASS_SCOPED</code> text but invalid launcher artifacts, recorded as review-infrastructure failure rather than a verdict. No product decision was blocked.</li>
+      <li>2026-07-15 — P6 rollout review: the rebased committed candidate is installed on mbp and dever; both hosts pass exact-one installed verification, installed fault-matrix soak, installed 14-host real-runtime matrix, and bounded recent-session audit. Rollout prerequisites discovered after rebase—auto-discovered extension de-duplication, global Pi runtime resolution in the harness, and stale-file-aware bounded audit scanning—were fixed, reviewed, and revalidated.</li>
+    </ul>
+  </section>
+
+  <section id="deviations">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li>2026-07-14 — Current <code>main</code> was fast-forwarded from <code>7253c25</code> to <code>20f76fd</code> before discovery.</li>
+      <li>2026-07-14 — Whole-directory audit findings were recalibrated by durable entry ID because resumed/forked session files copy prior entries.</li>
+      <li>2026-07-14 — The July 10 plan’s creation-anchored absolute deadline is reversed: queue wait, acceptance, and active progress require separate clocks.</li>
+      <li>2026-07-14 — A durable top-level continuation <code>custom_message</code> is locked as acceptance evidence because it is present in 30 of 31 deadline-failed transactions and absent in the confirmed silently lost continuation.</li>
+      <li>2026-07-14 — Pi host API work remains an escalation gate, not required scope, because ai-configs can first reconcile actual persisted host evidence.</li>
+      <li>2026-07-14 — Timer defaults were locked at 15-second acceptance, 60-second active no-tool inactivity, 15-minute outstanding-tool stall, and 1-second/2-second retry delays with two retries.</li>
+      <li>2026-07-14 — Custom messages now fail closed unless they are the matching continuation or explicitly/compatibly classified status-only; model-driving and unknown unmarked messages supersede.</li>
+      <li>2026-07-14 — Installed validation now requires a deterministic no-network real-host gate using file-backed <code>AgentSession</code>, actual extension loading, and actual session persistence in addition to the fast synthetic soak.</li>
+      <li>2026-07-15 — P1's pre-fix <code>--expect-current-failures all</code> verifier mode is intentionally non-zero after remediation because every named regression is green. Post-fix verification uses <code>--expect-fixed all</code>; the baseline mode was also run and correctly rejected the already-fixed candidate rather than producing a false RED pass.</li>
+      <li>2026-07-15 — Source phases P1–P5 passed their targeted package tests, audit self-test, percentage-compaction suite, Bash-3.2-portable exact-one source verifier, real-host file-backed harness, full package suite, 20-compaction all-fault source soak, and <code>git diff --check</code>. P6 remains intentionally unchecked pending parent-owned mbp/dever installation and validation.</li>
+      <li>2026-07-15 — Second scoped review remediation makes post-persistence assistant/tool lifecycle reconcile acceptance before progress, gates acceptance-expiry retry backoff on host settlement/readiness, releases the singleton lease through real reload shutdown, arms V1 outstanding-tool stall timing while restoring tool IDs only from representable durable branch evidence, and treats V1/V2 acceptance details as one runtime-equivalent exact-one identity. The real-host no-<code>message_start</code> case suppresses only the extension-runner delivery of the source-emitted custom start; real <code>sendMessage</code>, external lifecycle emission, and file persistence ordering remain intact and asserted.</li>
+      <li>2026-07-15 — Final scoped remediation uses <code>ctx.isIdle()</code> at the scheduled retry boundary to recover idle asynchronous host rejection while retaining settlement gating for active runs; releases singleton ownership after terminalizing old work for <code>new</code>, <code>resume</code>, and <code>fork</code> as well as reload; and reconstructs outstanding V2 tool correlation from durable branch messages so matching updates/results can recover a reloaded stalled transaction exactly once. Package lifecycle tests cover all four replacement reasons, and the real-host harness proves idle rejection recovery plus a non-reload replacement path. P6 remains intentionally unchecked.</li>
+      <li>2026-07-15 — Release-scoped remediation handles partial parallel-tool reload by subtracting durable results and retaining count-ambiguous durable call IDs only as non-authoritative candidates until matching live lifecycle evidence identifies the remaining call; settled audit transactions now require exactly one runtime-matching durable delivery across retry ordinals; and <code>new</code>/<code>resume</code>/<code>fork</code> release lease, listeners, and timers in a finally-safe boundary even when old-session outcome persistence throws. V1/V2 parallel reload, audit zero/cross-retry duplicate, and parameterized replacement failure-injection regressions cover these boundaries. P6 remains intentionally unchecked.</li>
+      <li>2026-07-15 — Final source-stage verification passes with 267 package tests, 54 percentage-compaction tests, 31 named regressions, audit self-test, Bash-3.2-portable source verifier, 14 file-backed real-host sessions, and the 20-compaction all-fault source soak. This supersedes earlier interim counts in the execution notes.</li>
+      <li>2026-07-15 — Base freshness remained an integration prerequisite, not a product decision: the implementation was rebased onto <code>origin/main</code> at <code>764fede</code>, and all source gates were rerun successfully before P6.</li>
+      <li>2026-07-15 — Current Pi auto-discovers files under <code>~/.pi/agent/extensions</code>. The installer now removes only unambiguous stale explicit registrations for repo-managed live files, preserves ambiguous/foreign entries, and the verifier fails closed on any ambiguous relative entry or enabled count other than one.</li>
+      <li>2026-07-15 — Installed real-host validation resolves the globally installed Pi runtime when a stable package mirror has no development <code>node_modules</code>; this keeps the gate faithful on both Homebrew macOS and Linux installations.</li>
+      <li>2026-07-15 — Bounded audit traversal skips only JSONL files whose modification time predates <code>--since</code>; active/in-window files remain fully parsed and malformed lines remain findings. This excludes unrelated historical corruption while preserving fail-closed recent evidence.</li>
+      <li>2026-07-15 — P6 complete: mbp and dever run the committed candidate and pass exact-one verifier, installed 20-compaction fault matrix, installed 14-host real-runtime matrix, and bounded post-install audit.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
