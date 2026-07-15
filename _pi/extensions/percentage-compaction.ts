@@ -103,14 +103,14 @@ const DEFAULT_PI_VCC_LOG_PATH = join(homedir(), ".pi", "logs", "pi-vcc.jsonl");
 const getPiVccLogPath = () =>
 	process.env.PI_VCC_LOG_PATH?.trim() || DEFAULT_PI_VCC_LOG_PATH;
 const CONTINUATION_PROTOCOL_NAME = "pi-vcc-continuation" as const;
-const CONTINUATION_PROTOCOL_VERSION = 1 as const;
+const CONTINUATION_PROTOCOL_VERSION = 2 as const;
 const CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE = "pi-vcc-continuation-request";
 const CONTINUATION_SAFETY_READY_ENTRY_CUSTOM_TYPE =
 	"pi-vcc-continuation-safety-ready";
 const CONTINUATION_WAKE_EVENT = "pi-vcc:continuation-requested";
 const CONTINUATION_SAFETY_READY_WAKE_EVENT = "pi-vcc:continuation-safety-ready";
 const CONTINUATION_AUTHORITY_ENV = "PI_VCC_STANDALONE_CONTINUATION_AUTHORITY";
-const CONTINUATION_DEADLINE_MS = 60_000;
+const CONTINUATION_DEADLINE_MS = 15_000;
 const CONTINUATION_RETRY_LIMIT = 2;
 
 // Keep this diagnostic sanitizer in sync with _pi/packages/pi-vcc/src/core/log.ts.
@@ -443,7 +443,9 @@ const publishContinuationRequest = (
 		resumePolicy: options.resumePolicy,
 		state: "created",
 		createdAt,
+		queuedAt: createdAt,
 		deadlineAt: createdAt + CONTINUATION_DEADLINE_MS,
+		phaseEpoch: 0,
 		pendingToolCount: options.pendingToolCount,
 		submissionCount: 0,
 		retryCount: 0,

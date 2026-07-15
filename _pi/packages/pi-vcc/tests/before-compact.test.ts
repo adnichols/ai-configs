@@ -231,7 +231,13 @@ describe("package load marker", () => {
       events: { on: () => () => {}, emit: () => {} },
     } as any);
 
-    expect((globalThis as any)[PI_VCC_LOAD_MARKER]).toBe(true);
+    expect((globalThis as any)[PI_VCC_LOAD_MARKER]).toMatchObject({
+      protocol: "pi-vcc-continuation",
+      version: 2,
+      status: "active",
+    });
+    (globalThis as any)[PI_VCC_LOAD_MARKER].coordinator.dispose();
+    delete (globalThis as any)[PI_VCC_LOAD_MARKER];
   });
 });
 

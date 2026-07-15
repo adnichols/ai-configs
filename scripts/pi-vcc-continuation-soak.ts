@@ -33,7 +33,7 @@ process.env.PI_VCC_CONTINUATION_AUTHORITY = "coordinator";
 type HandlerMap = Record<string, Array<(event: any, ctx: any) => any>>;
 type TimerRecord = { callback: () => void; due: number; cancelled: boolean };
 
-const handlers: HandlerMap = {};
+let handlers: HandlerMap = {};
 const wakeHandlers = new Map<string, Set<(data: unknown) => void>>();
 const entries: any[] = [];
 const sessionPath = join(root, "sessions", "soak-session.jsonl");
@@ -45,6 +45,7 @@ let now = Date.now();
 let syncFailures = 0;
 
 const ctx = {
+  isIdle: () => true,
   sessionManager: { getBranch: () => entries },
   ui: {
     notify: (message: string, level: string) =>
@@ -98,20 +99,24 @@ const pi = {
   },
 } as any;
 
-const coordinator = createContinuationCoordinator(pi, {
-  authority: "coordinator",
-  now: () => now,
-  retryDelayMs: 5,
-  setTimer: (callback: () => void, delay: number) => {
-    const timer = { callback, due: now + delay, cancelled: false };
-    timers.push(timer);
-    return timer as any;
-  },
-  clearTimer: (timer: TimerRecord) => {
-    timer.cancelled = true;
-  },
-});
-registerBeforeCompactHook(pi, coordinator);
+const createCoordinator = () => {
+  const next = createContinuationCoordinator(pi, {
+    authority: "coordinator",
+    now: () => now,
+    retryDelayMs: 5,
+    setTimer: (callback: () => void, delay: number) => {
+      const timer = { callback, due: now + delay, cancelled: false };
+      timers.push(timer);
+      return timer as any;
+    },
+    clearTimer: (timer: TimerRecord) => {
+      timer.cancelled = true;
+    },
+  });
+  registerBeforeCompactHook(pi, next);
+  return next;
+};
+let coordinator = createCoordinator();
 
 const emit = (event: string, payload: any = {}) => {
   for (const handler of handlers[event] ?? [])
@@ -119,6 +124,11 @@ const emit = (event: string, payload: any = {}) => {
 };
 const advance = (time: number) => {
   now = time;
+};
+const replaceCoordinator = (reason: "reload" | "new" | "resume" | "fork") => {
+  handlers = {};
+  coordinator = createCoordinator();
+  emit("session_start", { reason });
 };
 const fireDue = () => {
   const due = timers.filter((timer) => !timer.cancelled && timer.due <= now);
@@ -128,15 +138,29 @@ const fireDue = () => {
   }
 };
 const active = () => coordinator.getPending();
+const persistDurableAcceptance = (snapshot: any) => {
+  const details = protocol.continuationMessageDetailsFor(snapshot);
+  const durableDelivery = {
+    id: `entry-${entries.length + 1}`,
+    type: "custom_message",
+    customType: protocol.CONTINUATION_MESSAGE_CUSTOM_TYPE,
+    content: "Continue after compaction",
+    details,
+  };
+  entries.push(durableDelivery);
+  appendFileSync(sessionPath, `${JSON.stringify(durableDelivery)}\n`);
+  return details;
+};
 const consumeProgressSettle = () => {
   const snapshot = active();
   if (snapshot?.state !== "submitted")
     throw new Error(`expected submitted transaction, got ${snapshot?.state}`);
+  const details = persistDurableAcceptance(snapshot);
   emit("message_start", {
     message: {
       role: "custom",
       customType: protocol.CONTINUATION_MESSAGE_CUSTOM_TYPE,
-      details: protocol.continuationMessageDetailsFor(snapshot),
+      details,
     },
   });
   emit("message_end", { message: { role: "assistant", stopReason: "stop" } });
@@ -314,6 +338,7 @@ consumeProgressSettle();
 
 request(3);
 let snapshot = active()!;
+persistDurableAcceptance(snapshot);
 emit("message_start", {
   message: {
     role: "custom",
@@ -329,6 +354,7 @@ consumeProgressSettle();
 
 request(4);
 snapshot = active()!;
+persistDurableAcceptance(snapshot);
 emit("message_start", {
   message: {
     role: "custom",
@@ -362,9 +388,9 @@ request(8);
 emit("session_shutdown", { reason: "reload" });
 if ([...wakeHandlers.values()].some((listeners) => listeners.size !== 0))
   throw new Error("reload did not remove listeners");
-emit("session_start", { reason: "reload" });
+replaceCoordinator("reload");
 if ([...wakeHandlers.values()].some((listeners) => listeners.size !== 1))
-  throw new Error("reload did not restore exactly one listener");
+  throw new Error("reload replacement did not restore exactly one listener");
 consumeProgressSettle();
 
 request(9);
@@ -386,7 +412,9 @@ if (
   );
 }
 const replacementSessionStart = entries.length;
-emit("session_start", { reason: "new" });
+replaceCoordinator("new");
+if ([...wakeHandlers.values()].some((listeners) => listeners.size !== 1))
+  throw new Error("new-session replacement did not restore exactly one listener");
 
 for (let index = 11; index < count + 11; index += 1) {
   request(index);

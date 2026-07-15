@@ -14,6 +14,7 @@ export const CONTINUATION_LOG_EVENTS = [
   "submitted",
   "consumed",
   "progressed",
+  "stalled",
   "settled",
   "superseded",
   "retrying",
@@ -47,6 +48,16 @@ export const CONTINUATION_LOG_KEYS = [
   "turnEpoch",
   "messageEpoch",
   "settlementEpoch",
+  "phaseEpoch",
+  "queuedAt",
+  "activatedAt",
+  "submittedAt",
+  "acceptanceDeadlineAt",
+  "acceptedAt",
+  "lastProgressAt",
+  "progressDeadlineAt",
+  "toolStallDeadlineAt",
+  "nextRetryAt",
 ] as const;
 export type ContinuationLogKey = typeof CONTINUATION_LOG_KEYS[number];
 
@@ -76,6 +87,16 @@ export interface ContinuationLogRecord {
   turnEpoch: number;
   messageEpoch: number;
   settlementEpoch: number;
+  phaseEpoch: number;
+  queuedAt?: number;
+  activatedAt?: number;
+  submittedAt?: number;
+  acceptanceDeadlineAt?: number;
+  acceptedAt?: number;
+  lastProgressAt?: number;
+  progressDeadlineAt?: number;
+  toolStallDeadlineAt?: number;
+  nextRetryAt?: number;
 }
 
 export const continuationLogRecordFor = (
@@ -110,6 +131,16 @@ export const continuationLogRecordFor = (
   turnEpoch: snapshot.epochs.turn,
   messageEpoch: snapshot.epochs.message,
   settlementEpoch: snapshot.epochs.settlement,
+  phaseEpoch: snapshot.phaseEpoch ?? 0,
+  ...(snapshot.queuedAt === undefined ? {} : { queuedAt: snapshot.queuedAt }),
+  ...(snapshot.activatedAt === undefined ? {} : { activatedAt: snapshot.activatedAt }),
+  ...(snapshot.submittedAt === undefined ? {} : { submittedAt: snapshot.submittedAt }),
+  ...(snapshot.acceptanceDeadlineAt === undefined ? {} : { acceptanceDeadlineAt: snapshot.acceptanceDeadlineAt }),
+  ...(snapshot.acceptedAt === undefined ? {} : { acceptedAt: snapshot.acceptedAt }),
+  ...(snapshot.lastProgressAt === undefined ? {} : { lastProgressAt: snapshot.lastProgressAt }),
+  ...(snapshot.progressDeadlineAt === undefined ? {} : { progressDeadlineAt: snapshot.progressDeadlineAt }),
+  ...(snapshot.toolStallDeadlineAt === undefined ? {} : { toolStallDeadlineAt: snapshot.toolStallDeadlineAt }),
+  ...(snapshot.nextRetryAt === undefined ? {} : { nextRetryAt: snapshot.nextRetryAt }),
 });
 
 export const isStrictContinuationLogRecord = (value: unknown): value is ContinuationLogRecord => {
@@ -136,5 +167,6 @@ export const isStrictContinuationLogRecord = (value: unknown): value is Continua
     && typeof record.agentEpoch === "number"
     && typeof record.turnEpoch === "number"
     && typeof record.messageEpoch === "number"
-    && typeof record.settlementEpoch === "number";
+    && typeof record.settlementEpoch === "number"
+    && typeof record.phaseEpoch === "number";
 };
