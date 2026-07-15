@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const args = process.argv.slice(2);
@@ -19,9 +19,23 @@ if (!["source", "installed"].includes(candidateName) || cases !== "all" || sessi
 const candidate = resolve(candidateName === "source"
   ? "_pi/packages/pi-vcc"
   : process.env.PI_VCC_INSTALLED_PACKAGE ?? join(process.env.HOME ?? "", ".pi/agent/local-packages/ai-configs/pi-vcc"));
-const runtime = await import(pathToFileURL(join(candidate, "node_modules/@earendil-works/pi-coding-agent/dist/index.js")).href);
-const faux = await import(pathToFileURL(join(candidate, "node_modules/@earendil-works/pi-ai/dist/providers/faux.js")).href);
-const typebox = await import(pathToFileURL(join(candidate, "node_modules/typebox/build/index.mjs")).href);
+const candidateRuntimeRoot = join(candidate, "node_modules/@earendil-works/pi-coding-agent");
+const piExecutable = Bun.which("pi");
+const installedRuntimeRoot = piExecutable
+  ? dirname(dirname(realpathSync(piExecutable)))
+  : undefined;
+const runtimeRoot = existsSync(join(candidateRuntimeRoot, "dist/index.js"))
+  ? candidateRuntimeRoot
+  : installedRuntimeRoot && existsSync(join(installedRuntimeRoot, "dist/index.js"))
+    ? installedRuntimeRoot
+    : undefined;
+if (!runtimeRoot) throw new Error("Unable to resolve the installed Pi runtime package");
+const dependencyRoot = existsSync(join(candidate, "node_modules/@earendil-works/pi-ai"))
+  ? join(candidate, "node_modules")
+  : join(runtimeRoot, "node_modules");
+const runtime = await import(pathToFileURL(join(runtimeRoot, "dist/index.js")).href);
+const faux = await import(pathToFileURL(join(dependencyRoot, "@earendil-works/pi-ai/dist/providers/faux.js")).href);
+const typebox = await import(pathToFileURL(join(dependencyRoot, "typebox/build/index.mjs")).href);
 const protocol = await import(pathToFileURL(join(candidate, "src/core/continuation-protocol.ts")).href);
 const { PI_VCC_LOAD_MARKER } = await import(pathToFileURL(join(candidate, "index.ts")).href);
 if (typeof runtime.createAgentSession !== "function" || typeof runtime.SessionManager?.create !== "function") {
