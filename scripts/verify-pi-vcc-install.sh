@@ -106,7 +106,10 @@ PY
 )"
 set -- $counts
 registration_count="${1:-0}"
-extension_count="${2:-0}"
+explicit_extension_count="${2:-0}"
+autodiscovered_extension_count=0
+[ "$live_extension_hash" != "missing" ] && autodiscovered_extension_count=1
+enabled_extension_count=$((autodiscovered_extension_count + explicit_extension_count))
 
 printf 'Pi version: %s\n' "$pi_version"
 printf 'source package: %s %s\n' "$source_package" "$source_hash"
@@ -114,7 +117,9 @@ printf 'stable mirror: %s %s\n' "$stable_package" "$stable_hash"
 printf 'source extension: %s %s\n' "$source_extension" "$source_extension_hash"
 printf 'live extension: %s %s\n' "$live_extension" "$live_extension_hash"
 printf 'stable package registrations: %s\n' "$registration_count"
-printf 'enabled extension path registrations: %s\n' "$extension_count"
+printf 'autodiscovered extension paths: %s\n' "$autodiscovered_extension_count"
+printf 'explicit extension path registrations: %s\n' "$explicit_extension_count"
+printf 'enabled extension paths: %s\n' "$enabled_extension_count"
 
 failures=0
 [ "$stable_hash" != "missing" ] || { echo "FAIL: stable mirror missing" >&2; failures=1; }
@@ -122,7 +127,7 @@ failures=0
 [ "$source_hash" = "$stable_hash" ] || { echo "FAIL: stable mirror hash differs from source" >&2; failures=1; }
 [ "$source_extension_hash" = "$live_extension_hash" ] || { echo "FAIL: live extension hash differs from source" >&2; failures=1; }
 [ "$registration_count" = "1" ] || { echo "FAIL: expected exactly one stable package registration" >&2; failures=1; }
-[ "$extension_count" = "1" ] || { echo "FAIL: expected exactly one enabled percentage-compaction extension path" >&2; failures=1; }
+[ "$enabled_extension_count" = "1" ] || { echo "FAIL: expected exactly one enabled percentage-compaction extension path (autodiscovered plus explicit)" >&2; failures=1; }
 
 if [ "$failures" -ne 0 ]; then
   echo "install state: strict installed verification failed" >&2
