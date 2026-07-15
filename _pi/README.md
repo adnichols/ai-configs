@@ -199,7 +199,6 @@ npm-managed packages:
 - `pi-no-soft-cursor`
 - `@tmustier/pi-files-widget`
 - `@tmustier/pi-raw-paste`
-- `@ff-labs/pi-fff`
 - `@pi-kaush/pi-inline-skill-identifier`
 - `@howaboua/pi-vent`
 - `@howaboua/pi-codex-conversion`
@@ -208,6 +207,8 @@ npm-managed packages:
 local path packages:
 - `~/.pi/agent/local-packages/ai-configs/pi-vcc` (a stable mirror synced from `./_pi/packages/pi-vcc`; install tests and worktrees must not register their transient checkout path)
 - `../3p/pi-interactive-shell` (preferred when present; otherwise `git:github.com/adnichols/pi-interactive-shell`)
+
+`@ff-labs/pi-fff` is intentionally retired from the managed install because its native FFF search library can abort the Pi process on macOS during concurrent live grep and filesystem watcher activity.
 
 Use `pi list` on a host to verify what is currently registered. To verify both surfaces together, run `scripts/verify-pi-install.sh` from this repo.
 

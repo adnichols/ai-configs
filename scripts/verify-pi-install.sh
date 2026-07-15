@@ -27,7 +27,6 @@ EXPECTED_NPM_PACKAGES=(
   "npm:pi-no-soft-cursor"
   "npm:@tmustier/pi-files-widget"
   "npm:@tmustier/pi-raw-paste"
-  "npm:@ff-labs/pi-fff"
   "npm:@pi-kaush/pi-inline-skill-identifier"
   "npm:@howaboua/pi-vent"
   "npm:@howaboua/pi-codex-conversion"
@@ -223,11 +222,15 @@ print_list "installed: " "$INSTALLED_REPO_EXTENSIONS"
 report_expected_vs_actual "  Comparison:" "$EXPECTED_REPO_EXTENSIONS" "$INSTALLED_REPO_EXTENSIONS" true
 
 print_section "2) Package-managed Pi installs (registered via 'pi install'; these DO appear in 'pi list')"
-print_list "expected git: " "$(printf '%s\n' "${EXPECTED_GIT_PACKAGES[@]}")"
+EXPECTED_GIT_PACKAGE_LINES=""
+if ((${#EXPECTED_GIT_PACKAGES[@]} > 0)); then
+  EXPECTED_GIT_PACKAGE_LINES="$(printf '%s\n' "${EXPECTED_GIT_PACKAGES[@]}")"
+fi
+print_list "expected git: " "$EXPECTED_GIT_PACKAGE_LINES"
 print_list "expected npm: " "$(printf '%s\n' "${EXPECTED_NPM_PACKAGES[@]}")"
 print_list "expected local: " "$EXPECTED_LOCAL_PACKAGES"
 print_list "registered: " "$INSTALLED_PI_PACKAGES"
-ALL_EXPECTED_PACKAGES="$(printf '%s\n' "${EXPECTED_GIT_PACKAGES[@]}" "${EXPECTED_NPM_PACKAGES[@]}")"
+ALL_EXPECTED_PACKAGES="$(printf '%s\n%s\n' "$EXPECTED_GIT_PACKAGE_LINES" "$(printf '%s\n' "${EXPECTED_NPM_PACKAGES[@]}")")"
 ALL_EXPECTED_PACKAGES="$(printf '%s\n%s\n' "$ALL_EXPECTED_PACKAGES" "$EXPECTED_LOCAL_PACKAGES")"
 report_expected_vs_actual "  Comparison:" "$ALL_EXPECTED_PACKAGES" "$INSTALLED_PI_PACKAGES" true
 
@@ -332,6 +335,12 @@ if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-codex-goal'; then
   note_failure "retired pi-codex-goal package is still registered"
 else
   echo "  pi-codex-goal registration: absent"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq '@ff-labs/pi-fff'; then
+  note_failure "retired @ff-labs/pi-fff package is still registered"
+else
+  echo "  @ff-labs/pi-fff registration: absent"
 fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"

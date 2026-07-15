@@ -755,7 +755,8 @@ test_pi_install_removes_retired_goal_packages() {
   "piCodexGoal": {"disableTokenBudgets": true},
   "packages": [
     "npm:pi-codex-goal",
-    "git:github.com/adnichols/pi-codex-goal"
+    "git:github.com/adnichols/pi-codex-goal",
+    "npm:@ff-labs/pi-fff"
   ]
 }
 JSON
@@ -767,8 +768,10 @@ JSON
 
   assert_file_contains "$output_file" 'Removing retired Pi goal package npm:pi-codex-goal' || return 1
   assert_file_contains "$output_file" 'Removing retired Pi goal package git:github.com/adnichols/pi-codex-goal' || return 1
+  assert_file_contains "$output_file" 'Removing deprecated Pi package @ff-labs/pi-fff' || return 1
   assert_file_not_contains "$settings_path" 'pi-codex-goal' || return 1
   assert_file_not_contains "$settings_path" 'piCodexGoal' || return 1
+  assert_file_not_contains "$settings_path" '@ff-labs/pi-fff' || return 1
 }
 
 test_pi_install_replaces_gpt_config_packages() {
@@ -847,7 +850,11 @@ PY
     cat "$output_file" >&2
     return 1
   fi
-  assert_file_contains "$output_file" 'retired pi-codex-goal package is still registered' || return 1
+  if ! grep -Fq 'retired pi-codex-goal package is still registered' "$output_file" ||
+    ! grep -Fq 'retired @ff-labs/pi-fff package is still registered' "$output_file"; then
+    cat "$output_file" >&2
+    return 1
+  fi
 }
 
 test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails() {
