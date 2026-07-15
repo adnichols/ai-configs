@@ -97,25 +97,30 @@ for item in data.get("packages", []):
     if isinstance(value, str) and not value.startswith(("npm:", "git:", "http:")):
         packages.append(os.path.realpath(os.path.expanduser(value)))
 extension_name = os.path.basename(extension)
+non_local_prefixes = ("npm:", "git:", "http:", "https:", "github:", "ssh:")
 
-def matches_managed_extension(item):
+def extension_classification(item):
     value = source(item)
-    if not isinstance(value, str) or value.startswith(("npm:", "git:", "http:")):
-        return False
+    if not isinstance(value, str) or value.startswith(non_local_prefixes):
+        return "other"
     expanded = os.path.expanduser(value)
     if not os.path.isabs(expanded):
-        return os.path.basename(expanded) == extension_name
-    return os.path.realpath(expanded) == extension
+        normalized = os.path.normpath(expanded).replace(os.sep, "/")
+        if normalized == f".pi/agent/extensions/{extension_name}":
+            return "managed"
+        return "ambiguous" if os.path.basename(normalized) == extension_name else "other"
+    return "managed" if os.path.realpath(expanded) == extension else "other"
 
-explicit_extension_count = sum(
-    1 for item in data.get("extensions", []) if matches_managed_extension(item)
-)
-print(f"{packages.count(stable)} {explicit_extension_count}")
+classifications = [extension_classification(item) for item in data.get("extensions", [])]
+explicit_extension_count = classifications.count("managed")
+ambiguous_extension_count = classifications.count("ambiguous")
+print(f"{packages.count(stable)} {explicit_extension_count} {ambiguous_extension_count}")
 PY
 )"
 set -- $counts
 registration_count="${1:-0}"
 explicit_extension_count="${2:-0}"
+ambiguous_extension_count="${3:-0}"
 autodiscovered_extension_count=0
 [ "$live_extension_hash" != "missing" ] && autodiscovered_extension_count=1
 enabled_extension_count=$((autodiscovered_extension_count + explicit_extension_count))
@@ -128,6 +133,7 @@ printf 'live extension: %s %s\n' "$live_extension" "$live_extension_hash"
 printf 'stable package registrations: %s\n' "$registration_count"
 printf 'autodiscovered extension paths: %s\n' "$autodiscovered_extension_count"
 printf 'explicit extension path registrations: %s\n' "$explicit_extension_count"
+printf 'ambiguous relative extension registrations: %s\n' "$ambiguous_extension_count"
 printf 'enabled extension paths: %s\n' "$enabled_extension_count"
 
 failures=0
@@ -136,6 +142,7 @@ failures=0
 [ "$source_hash" = "$stable_hash" ] || { echo "FAIL: stable mirror hash differs from source" >&2; failures=1; }
 [ "$source_extension_hash" = "$live_extension_hash" ] || { echo "FAIL: live extension hash differs from source" >&2; failures=1; }
 [ "$registration_count" = "1" ] || { echo "FAIL: expected exactly one stable package registration" >&2; failures=1; }
+[ "$ambiguous_extension_count" = "0" ] || { echo "FAIL: ambiguous relative percentage-compaction registration; use the managed ~/.pi/agent/extensions path or remove the explicit entry" >&2; failures=1; }
 [ "$enabled_extension_count" = "1" ] || { echo "FAIL: expected exactly one enabled percentage-compaction extension path (autodiscovered plus explicit)" >&2; failures=1; }
 
 if [ "$failures" -ne 0 ]; then

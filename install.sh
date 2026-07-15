@@ -1545,6 +1545,8 @@ if not isinstance(extensions, list):
     raise SystemExit(0)
 
 live_root = os.path.realpath(live_dir)
+non_local_prefixes = ("npm:", "git:", "http:", "https:", "github:", "ssh:")
+ambiguous_relative = []
 
 def source_of(item):
     if isinstance(item, str):
@@ -1555,18 +1557,26 @@ def source_of(item):
 
 def is_managed(item):
     source = source_of(item)
-    if not isinstance(source, str) or source.startswith(("npm:", "git:", "http:")):
+    if not isinstance(source, str) or source.startswith(non_local_prefixes):
         return False
     expanded = os.path.expanduser(source)
-    # Global settings can contain cwd-relative paths. Any relative entry with a
-    # repo-managed basename is ambiguous and could double-load the auto-discovered
-    # live file when Pi starts from a different directory, so remove it.
     if not os.path.isabs(expanded):
-        return os.path.basename(expanded) in managed_names
+        normalized = os.path.normpath(expanded).replace(os.sep, "/")
+        basename = os.path.basename(normalized)
+        if normalized == f".pi/agent/extensions/{basename}" and basename in managed_names:
+            return True
+        if basename in managed_names:
+            ambiguous_relative.append(source)
+        return False
     resolved = os.path.realpath(expanded)
     return os.path.dirname(resolved) == live_root and os.path.basename(resolved) in managed_names
 
 filtered = [item for item in extensions if not is_managed(item)]
+for source in ambiguous_relative:
+    print(
+        f"  ! Preserving ambiguous relative Pi extension registration: {source}",
+        file=sys.stderr,
+    )
 if filtered == extensions:
     raise SystemExit(0)
 if filtered:
