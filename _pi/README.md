@@ -137,6 +137,17 @@ This repo also ships a maintained `pi-prd-mode` extension that:
 - offers `/dev:plan-from-prd <prd>` as the reviewed-PRD handoff path,
 - disables `/prd` before dispatching into the fresh planning session so PRD mode restrictions do not leak into execution planning.
 
+This repo also ships the `claude-review` extension, which provides the `claude_review` tool for required Claude Code review gates:
+
+- accepted jobs run under a detached supervisor and survive Pi turn completion, session replacement, workspace/session shutdown, extension reload, and Pi exit,
+- terminal state is persisted under `~/.pi/agent/cache/claude-review/` and recovered by `list` / `status` in later sessions; a file-backed atomic notification claim prevents concurrent Pi sessions from triggering duplicate completion turns,
+- routine lifecycle shutdown stops only the current extension observer; it does not classify the review as cancelled or kill the launcher,
+- explicit `cancel` and the fixed outer watchdog still terminate the launcher process tree; the launcher kills its exact private tmux server on termination, with controller fallback discovery across `$TMUX_TMPDIR`, Node's temp directory, `/tmp`, and `/private/tmp`,
+- long alternate-screen reviews are recovered from Claude's persisted session JSONL when the completion sentinel remains visible but the answer marker and verdict have scrolled beyond the 60-row terminal viewport,
+- review transport success means successful launcher completion plus non-empty normalized review text, required launcher metadata, and no classified launcher/provider failure,
+- a literal `VERDICT:` line is workflow-specific rather than a universal transport requirement; each calling review workflow remains responsible for interpreting its expected verdict,
+- genuinely lost detached supervisors are recovered as `interrupted` with orphan cleanup rather than being mislabeled `cancelled` or silently dropped.
+
 This repo also ships `simple-multi-status.ts`, a lightweight multi-line status widget that auto-loads on install and shows:
 
 - the active model,
@@ -303,7 +314,7 @@ Use `/dev:pm-review <plan> implementation` after execution when you want a corre
 - `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
 - `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean Codex and applicable Claude Code consensus with no unresolved blocking in-scope P1/P2 findings means `OPEN_PR_READY`; plan-required, verification-required, or regression-caused P3 findings remain blocking. The runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for a Codex thumbs-up.
 - In Pi, `/cmd:execute-plan` starts a fresh session and launches the selected execution flow from clean context.
-- `/review:change-claude-code` remains available as an explicit manual review request; it is not an automatic planning-mode fallback. It writes a bounded prompt and calls the repo-owned `claude_review` tool, which always runs without an overlay, returns immediately, and notifies Pi when the validated artifact is ready.
+- `/review:change-claude-code` remains available as an explicit manual review request; it is not an automatic planning-mode fallback. It writes a bounded prompt and calls the repo-owned `claude_review` tool, which always runs without an overlay, returns immediately, and persists the job under a detached supervisor. The originating session is notified when still available; after reload/restart, use `claude_review` list/status to recover the validated artifact and interpret the workflow verdict separately from transport success.
 
 Use `/dev:plan-from-prd <prd>` after a reviewed PRD delta is ready to become an execution plan.
 

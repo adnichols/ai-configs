@@ -152,7 +152,7 @@ claude_review({
 })
 ```
 
-Do not poll; consume the completion notification and then read the artifact. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
+Do not poll while the originating Pi session remains active; consume the completion notification and then read the artifact. After reload/restart, recover the persisted job with `claude_review` list/status. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
 
 Codex or Pi may integrate plan edits, but after material edits the coordinating agent must rerun Codex and any required Claude Code review before marking the plan execution-ready. If Codex or a required Claude Code reviewer is unavailable, leave the plan blocked on review infrastructure.
 
@@ -185,7 +185,7 @@ For both plan review legs, stay limited to readiness concerns, including at leas
 
 For every reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
 
-Empty output, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
+Launcher transport validity does not universally require a `VERDICT:` line, but this readiness workflow still requires one of its locked workflow verdicts. A transport-valid artifact without that workflow verdict is unusable for the gate. Empty output, missing launcher metadata, tool-only output, provider errors, or transcripts ending in tool use do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
 
 Split a readiness review into focused passes when a plan spans three or more product surfaces, or when the readiness scope is otherwise too broad for one concrete readiness packet. Use focused passes such as product intent and scope boundaries, BDD/verification adequacy, architecture/dependency risks, and recovery/operator/error behavior. The parent must synthesize all slice verdicts and cannot mark the plan execution-ready until every required slice is complete or explicitly blocked.
 

@@ -11,6 +11,7 @@ import sys
 import termios
 import time
 import tty
+from pathlib import Path
 
 
 def auth_status() -> int:
@@ -27,6 +28,20 @@ def restore_tty(old_tty) -> None:
             pass
 
 
+def persist_session_answer(session_id: str | None, answer: str) -> None:
+    if not session_id:
+        return
+    project_key = re.sub(r"[^A-Za-z0-9_-]", "-", os.getcwd())
+    record = Path.home() / ".claude" / "projects" / project_key / f"{session_id}.jsonl"
+    record.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "type": "assistant",
+        "sessionId": session_id,
+        "message": {"role": "assistant", "content": [{"type": "text", "text": answer}]},
+    }
+    record.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+
+
 def interactive() -> int:
     old_tty = None
     try:
@@ -35,6 +50,11 @@ def interactive() -> int:
     except Exception:
         old_tty = None
     try:
+        session_id = None
+        if "--session-id" in sys.argv:
+            index = sys.argv.index("--session-id")
+            if index + 1 < len(sys.argv):
+                session_id = sys.argv[index + 1]
         if os.environ.get("FAKE_CLAUDE_NO_READY") == "1":
             print("Claude Code fake loading", flush=True)
             time.sleep(300)
@@ -74,7 +94,16 @@ def interactive() -> int:
                     print("\n⎿  You've hit your session limit · resets 11:30am (America/Denver)\n❯ ", flush=True)
                     continue
                 time.sleep(float(os.environ.get("FAKE_CLAUDE_ANSWER_DELAY", "1.5")))
-                print(f"\n✻ Cooked for 0s\n{marker}\nVERDICT: PASS_SCOPED\nFake Claude review body\n{sentinel}\n❯ ", flush=True)
+                if os.environ.get("FAKE_CLAUDE_LONG_ALT_SCREEN") == "1":
+                    body = "\n".join(f"Detailed review line {index:03d}" for index in range(1, 101))
+                    answer = f"{marker}\nVERDICT: PLAN_NEEDS_REVISION\n{body}\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+                    persist_session_answer(session_id, answer)
+                    print("\x1b[?1049h\x1b[2J\x1b[H", end="")
+                    print(f"{answer}\n❯ ", flush=True)
+                else:
+                    answer = f"{marker}\nVERDICT: PASS_SCOPED\nFake Claude review body\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+                    persist_session_answer(session_id, answer)
+                    print(f"\n✻ Cooked for 0s\n{marker}\nVERDICT: PASS_SCOPED\nFake Claude review body\n{sentinel}\n❯ ", flush=True)
                 buf = ""
     finally:
         restore_tty(old_tty)

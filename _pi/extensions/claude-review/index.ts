@@ -67,6 +67,10 @@ export default function claudeReviewExtension(pi: ExtensionAPI) {
     },
   });
 
+  pi.on("session_start", () => {
+    manager.activate();
+  });
+
   pi.on("tool_call", (event) => {
     if (!isForbiddenDirectReviewToolCall(event.toolName, event.input)) return;
     return {
@@ -76,6 +80,8 @@ export default function claudeReviewExtension(pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async () => {
+    // Stop only this extension instance's observers. Detached supervisors own
+    // accepted jobs so reloads, session switches, and Pi exit do not cancel them.
     await manager.shutdown();
   });
 
@@ -83,21 +89,23 @@ export default function claudeReviewExtension(pi: ExtensionAPI) {
     name: "claude_review",
     label: "Claude Review",
     description:
-      "Run required Claude Code reviews through the canonical interactive-tmux launcher in a deterministic invisible background job. The tool fixes transport, launcher, model/effort ownership, timeouts, and presentation; it never opens an overlay and never kills a job for output silence.",
+      "Run required Claude Code reviews through the canonical interactive-tmux launcher under a durable detached supervisor. Jobs survive Pi session/reload lifecycle, persist terminal state, never open an overlay, and are never killed for output silence.",
     promptSnippet:
-      "Start, inspect, or cancel deterministic background Claude Code review jobs; completion is delivered automatically",
+      "Start, recover, inspect, or explicitly cancel durable background Claude Code review jobs",
     promptGuidelines: [
       "Use claude_review for required Claude Code plan or implementation reviews; do not launch Claude reviews through bash, process, or interactive_shell.",
       "Before claude_review action=start, write a bounded read-only review prompt to a file and provide that promptFile plus an output artifact path.",
-      "After a claude_review completion notification, read the output artifact and treat missing, malformed, timed-out, or classified launcher failures as review infrastructure failures rather than clean verdicts.",
+      "After completion, read the output artifact: transport success means a non-empty normalized review plus launcher metadata and no classified provider/launcher failure; interpret any workflow verdict separately.",
+      "Use claude_review list/status after reload or restart to recover durable jobs whose original completion notification could not be delivered.",
     ],
     parameters: Params,
 
     async execute(_toolCallId, params: ToolParams, _signal, _onUpdate, ctx: ExtensionContext) {
+      manager.activate();
       if (params.action === "list") {
         const jobs = manager.list();
         return {
-          content: [{ type: "text", text: jobs.length ? jobs.map(formatJob).join("\n\n") : "No Claude review jobs in this session." }],
+          content: [{ type: "text", text: jobs.length ? jobs.map(formatJob).join("\n\n") : "No persisted Claude review jobs." }],
           details: { action: "list", jobs },
         };
       }
@@ -132,7 +140,7 @@ export default function claudeReviewExtension(pi: ExtensionAPI) {
       return {
         content: [{
           type: "text",
-          text: `Claude ${params.action === "smoke" ? "smoke" : "review"} dispatched invisibly in the background.\njobId=${job.jobId}\noutput=${job.output}\nPi will be notified exactly once when it completes; no polling is required.`,
+          text: `Claude ${params.action === "smoke" ? "smoke" : "review"} dispatched invisibly under a detached supervisor.\njobId=${job.jobId}\noutput=${job.output}\nThe job survives Pi session/reload lifecycle. This session will be notified on completion when still available; otherwise recover it later with list/status.`,
         }],
         details: { action: params.action, job },
       };

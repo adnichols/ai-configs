@@ -295,7 +295,7 @@ claude_review({
 })
 ```
 
-Do not poll. Consume the completion notification and read the artifact. Non-Pi runtimes follow `claude-code-review` and call the canonical Python launcher directly.
+Do not poll while the originating Pi session remains active. Consume the completion notification and read the artifact; after reload/restart, recover the persisted job with `claude_review` list/status. Launcher transport validity and this workflow's required verdict are separate checks. Non-Pi runtimes follow `claude-code-review` and call the canonical Python launcher directly.
 
 The coordinating agent must consume the Codex and Claude Code review artifacts/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same applicable reviewer set after material fixes. If Codex or a required Claude Code reviewer is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the Codex/Claude gate.
 

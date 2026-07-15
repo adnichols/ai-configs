@@ -1,19 +1,23 @@
 import { spawn, spawnSync } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { mkdir, realpath, stat, unlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { createHash, randomUUID } from "node:crypto";
+
+import { classifyArtifact as classifyArtifactContract } from "./artifact-contract.mjs";
 
 export const REVIEW_TIMEOUT_SECONDS = 3600;
 export const SMOKE_TIMEOUT_SECONDS = 120;
 export const REVIEW_WATCHDOG_MS = 4_200_000;
 export const SMOKE_WATCHDOG_MS = 300_000;
 const DEFAULT_KILL_GRACE_MS = 2_000;
+const DEFAULT_POLL_INTERVAL_MS = 100;
 const MAX_SUMMARY_CHARS = 5_000;
 
 export type ClaudeReviewAction = "start" | "smoke";
-export type ClaudeReviewStatus = "running" | "succeeded" | "failed" | "timed_out" | "cancelled";
+export type ClaudeReviewStatus = "running" | "succeeded" | "failed" | "timed_out" | "cancelled" | "interrupted";
 
 export interface LaunchRequest {
   action: ClaudeReviewAction;
@@ -43,6 +47,9 @@ export interface JobSnapshot {
   stderrLog: string;
   stateFile: string;
   pid?: number;
+  supervisorPid?: number;
+  launcherPid?: number;
+  heartbeatAt?: string;
   startedAt: string;
   completedAt?: string;
   exitCode?: number | null;
@@ -54,11 +61,14 @@ export interface CompletionEvent extends JobSnapshot {}
 interface ManagerOptions {
   launcherPath: string;
   cacheDir: string;
+  supervisorPath?: string;
   pythonExecutable?: string;
+  nodeExecutable?: string;
   onComplete?: (event: CompletionEvent) => void | Promise<void>;
   reviewWatchdogMs?: number;
   smokeWatchdogMs?: number;
   killGraceMs?: number;
+  pollIntervalMs?: number;
   maxCompletedJobs?: number;
   spawnImpl?: typeof spawn;
   cleanupTmuxImpl?: (reviewName: string, pid: number | undefined) => void;
@@ -68,17 +78,22 @@ interface ManagerOptions {
 
 interface InternalJob extends JobSnapshot {
   reviewName: string;
-  child?: ReturnType<typeof spawn>;
-  stdoutFd?: number;
-  stderrFd?: number;
-  watchdog?: ReturnType<typeof setTimeout>;
-  forceKillTimer?: ReturnType<typeof setTimeout>;
-  requestedTerminalStatus?: "timed_out" | "cancelled";
-  suppressNotification: boolean;
-  finalized: boolean;
+  reservationFile: string;
+  notificationFile: string;
   notificationSent: boolean;
-  done: Promise<JobSnapshot>;
-  resolveDone: (job: JobSnapshot) => void;
+  recovered: boolean;
+  poller?: ReturnType<typeof setInterval>;
+}
+
+interface SupervisorRequest {
+  reviewName: string;
+  launcherPath: string;
+  launcherArgs: string[];
+  pythonExecutable: string;
+  stateFile: string;
+  reservationFile: string;
+  watchdogMs: number;
+  killGraceMs: number;
 }
 
 export function buildLauncherArgs(request: LaunchRequest): string[] {
@@ -102,21 +117,7 @@ export function buildLauncherArgs(request: LaunchRequest): string[] {
 }
 
 export function classifyArtifact(action: ClaudeReviewAction, text: string): { ok: boolean; classification: string } {
-  const normalized = text.replace(/\r/g, "");
-  const firstCode = normalized.match(/^\s*(CLAUDE_[A-Z0-9_]+)/)?.[1];
-  if (firstCode && firstCode !== "CLAUDE_REVIEW_SMOKE_READY" && firstCode !== "CLAUDE_REVIEW_LAUNCHER_METADATA") {
-    return { ok: false, classification: firstCode };
-  }
-  if (action === "smoke") {
-    const ok = normalized.includes("CLAUDE_REVIEW_SMOKE_READY")
-      && /^socket=.+$/m.test(normalized)
-      && /^session=.+$/m.test(normalized);
-    return { ok, classification: ok ? "CLAUDE_REVIEW_SMOKE_READY" : "CLAUDE_REVIEW_ARTIFACT_INVALID" };
-  }
-  const metadataIndex = normalized.indexOf("CLAUDE_REVIEW_LAUNCHER_METADATA");
-  const answer = metadataIndex >= 0 ? normalized.slice(0, metadataIndex).replace(/---\s*$/, "").trim() : "";
-  const ok = metadataIndex >= 0 && /^VERDICT:\s*\S+/m.test(answer);
-  return { ok, classification: ok ? "CLAUDE_REVIEW_SUCCEEDED" : "CLAUDE_REVIEW_ARTIFACT_INVALID" };
+  return classifyArtifactContract(action, text);
 }
 
 function bounded(text: string): string {
@@ -125,11 +126,34 @@ function bounded(text: string): string {
 }
 
 function safeRead(file: string): string {
+  try { return readFileSync(file, "utf8"); } catch { return ""; }
+}
+
+function processExists(pid: number | undefined): boolean {
+  if (!pid) return false;
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
+function supervisorIsHealthy(job: Pick<JobSnapshot, "pid" | "supervisorPid" | "heartbeatAt">): boolean {
+  if (!processExists(job.supervisorPid ?? job.pid)) return false;
+  const heartbeat = Date.parse(job.heartbeatAt ?? "");
+  return Number.isFinite(heartbeat) && Date.now() - heartbeat < 15_000;
+}
+
+function killPidTree(pid: number | undefined, signal: NodeJS.Signals): void {
+  if (!pid) return;
   try {
-    return readFileSync(file, "utf8");
+    if (process.platform !== "win32") process.kill(-pid, signal);
+    else process.kill(pid, signal);
   } catch {
-    return "";
+    try { process.kill(pid, signal); } catch { /* already gone */ }
   }
+}
+
+function atomicWriteJson(file: string, value: unknown): void {
+  const tmp = `${file}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  renameSync(tmp, file);
 }
 
 function snapshot(job: InternalJob): JobSnapshot {
@@ -146,6 +170,9 @@ function snapshot(job: InternalJob): JobSnapshot {
     stderrLog: job.stderrLog,
     stateFile: job.stateFile,
     pid: job.pid,
+    supervisorPid: job.supervisorPid,
+    launcherPid: job.launcherPid,
+    heartbeatAt: job.heartbeatAt,
     startedAt: job.startedAt,
     completedAt: job.completedAt,
     exitCode: job.exitCode,
@@ -153,14 +180,23 @@ function snapshot(job: InternalJob): JobSnapshot {
   };
 }
 
+function isJobSnapshot(value: unknown): value is JobSnapshot {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<JobSnapshot>;
+  const statuses: ClaudeReviewStatus[] = ["running", "succeeded", "failed", "timed_out", "cancelled", "interrupted"];
+  return typeof item.jobId === "string"
+    && (item.action === "start" || item.action === "smoke")
+    && statuses.includes(item.status as ClaudeReviewStatus)
+    && typeof item.cwd === "string"
+    && typeof item.output === "string"
+    && typeof item.stateFile === "string"
+    && typeof item.startedAt === "string";
+}
+
 async function resolveExistingDirectory(value: string, label: string): Promise<string> {
   const resolved = path.resolve(value);
   let info;
-  try {
-    info = await stat(resolved);
-  } catch {
-    throw new Error(`${label} does not exist: ${resolved}`);
-  }
+  try { info = await stat(resolved); } catch { throw new Error(`${label} does not exist: ${resolved}`); }
   if (!info.isDirectory()) throw new Error(`${label} is not a directory: ${resolved}`);
   return realpath(resolved);
 }
@@ -168,11 +204,7 @@ async function resolveExistingDirectory(value: string, label: string): Promise<s
 async function resolveExistingFile(value: string, label: string): Promise<string> {
   const resolved = path.resolve(value);
   let info;
-  try {
-    info = await stat(resolved);
-  } catch {
-    throw new Error(`${label} does not exist: ${resolved}`);
-  }
+  try { info = await stat(resolved); } catch { throw new Error(`${label} does not exist: ${resolved}`); }
   if (!info.isFile()) throw new Error(`${label} is not a file: ${resolved}`);
   return realpath(resolved);
 }
@@ -180,52 +212,40 @@ async function resolveExistingFile(value: string, label: string): Promise<string
 export function cleanupPrivateTmuxSockets(
   reviewName: string,
   pid: number | undefined,
-  options: {
-    socketDir?: string;
-    tmuxExecutable?: string;
-    spawnSyncImpl?: typeof spawnSync;
-  } = {},
+  options: { socketDir?: string; socketRoots?: string[]; tmuxExecutable?: string; spawnSyncImpl?: typeof spawnSync } = {},
 ): void {
   if (!pid || typeof process.getuid !== "function") return;
-  const base = options.socketDir ?? path.join(process.env.TMUX_TMPDIR ?? os.tmpdir(), `tmux-${process.getuid()}`);
+  const roots = options.socketDir
+    ? [path.dirname(options.socketDir)]
+    : (options.socketRoots ?? [process.env.TMUX_TMPDIR, os.tmpdir(), "/tmp", "/private/tmp"]).filter((value): value is string => Boolean(value));
+  const bases = options.socketDir ? [options.socketDir] : [...new Set(roots.map((root) => path.join(root, `tmux-${process.getuid()}`)))];
   const prefix = `claude-review-${reviewName.replace(/[^A-Za-z0-9_.-]+/g, "-").replace(/^-+|-+$/g, "")}-${pid}-`;
-  let names: string[];
-  try { names = readdirSync(base); } catch { return; }
   const run = options.spawnSyncImpl ?? spawnSync;
-  for (const name of names) {
-    if (!name.startsWith(prefix)) continue;
-    try {
-      run(options.tmuxExecutable ?? "tmux", ["-L", name, "kill-server"], {
-        stdio: "ignore",
-        timeout: 5_000,
-        shell: false,
-      });
-    } catch { /* socket is already gone or tmux is unavailable */ }
-  }
-}
-
-function killProcessTree(job: InternalJob, signal: NodeJS.Signals): void {
-  const child = job.child;
-  if (!child || child.exitCode !== null || child.signalCode !== null) return;
-  try {
-    if (process.platform !== "win32" && child.pid) {
-      process.kill(-child.pid, signal);
-    } else {
-      child.kill(signal);
+  const killed = new Set<string>();
+  for (const base of bases) {
+    let names: string[];
+    try { names = readdirSync(base); } catch { continue; }
+    for (const name of names) {
+      if (!name.startsWith(prefix) || killed.has(name)) continue;
+      killed.add(name);
+      try {
+        run(options.tmuxExecutable ?? "tmux", ["-S", path.join(base, name), "kill-server"], { stdio: "ignore", timeout: 5_000, shell: false });
+      } catch { /* socket is already gone or tmux is unavailable */ }
     }
-  } catch {
-    try { child.kill(signal); } catch { /* already gone */ }
   }
 }
 
 export class ClaudeReviewJobManager {
   private readonly launcherPath: string;
   private readonly cacheDir: string;
+  private readonly supervisorPath: string;
   private readonly pythonExecutable: string;
+  private readonly nodeExecutable: string;
   private readonly onComplete?: ManagerOptions["onComplete"];
   private readonly reviewWatchdogMs: number;
   private readonly smokeWatchdogMs: number;
   private readonly killGraceMs: number;
+  private readonly pollIntervalMs: number;
   private readonly maxCompletedJobs: number;
   private readonly spawnImpl: typeof spawn;
   private readonly cleanupTmuxImpl: (reviewName: string, pid: number | undefined) => void;
@@ -233,31 +253,48 @@ export class ClaudeReviewJobManager {
   private readonly makeId: () => string;
   private readonly jobs = new Map<string, InternalJob>();
   private readonly activeOutputs = new Map<string, string>();
+  private observing = false;
   private shuttingDown = false;
 
   constructor(options: ManagerOptions) {
     this.launcherPath = path.resolve(options.launcherPath);
     this.cacheDir = path.resolve(options.cacheDir);
+    this.supervisorPath = path.resolve(options.supervisorPath ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "supervisor.mjs"));
     this.pythonExecutable = options.pythonExecutable ?? "python3";
+    this.nodeExecutable = options.nodeExecutable ?? process.execPath;
     this.onComplete = options.onComplete;
     this.reviewWatchdogMs = options.reviewWatchdogMs ?? REVIEW_WATCHDOG_MS;
     this.smokeWatchdogMs = options.smokeWatchdogMs ?? SMOKE_WATCHDOG_MS;
     this.killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
+    this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     this.maxCompletedJobs = Math.max(1, options.maxCompletedJobs ?? 100);
     this.spawnImpl = options.spawnImpl ?? spawn;
     this.cleanupTmuxImpl = options.cleanupTmuxImpl ?? cleanupPrivateTmuxSockets;
     this.now = options.now ?? (() => new Date());
     this.makeId = options.makeId ?? (() => randomUUID().replaceAll("-", "").slice(0, 12));
+    mkdirSync(this.cacheDir, { recursive: true });
+    this.recoverPersistedJobs();
+  }
+
+  activate(): void {
+    if (this.observing || this.shuttingDown) return;
+    this.observing = true;
+    for (const job of this.jobs.values()) {
+      if (job.status !== "running") continue;
+      if (!supervisorIsHealthy(job)) this.reconcileInterrupted(job, true);
+      if (job.status === "running") this.watch(job);
+    }
   }
 
   async start(request: StartRequest): Promise<JobSnapshot> {
     if (this.shuttingDown) throw new Error("Claude review manager is shutting down");
     const cwd = await resolveExistingDirectory(request.cwd, "cwd");
-    const promptFile = request.action === "start"
-      ? await resolveExistingFile(request.promptFile ?? "", "promptFile")
-      : undefined;
+    const promptFile = request.action === "start" ? await resolveExistingFile(request.promptFile ?? "", "promptFile") : undefined;
     if (!existsSync(this.launcherPath) || !statSync(this.launcherPath).isFile()) {
       throw new Error(`canonical Claude review launcher not found: ${this.launcherPath}. Run ./install.sh --pi`);
+    }
+    if (!existsSync(this.supervisorPath) || !statSync(this.supervisorPath).isFile()) {
+      throw new Error(`Claude review supervisor not found: ${this.supervisorPath}. Run ./install.sh --pi`);
     }
 
     const requestedOutput = path.resolve(cwd, request.output);
@@ -265,42 +302,28 @@ export class ClaudeReviewJobManager {
     const output = path.join(await realpath(path.dirname(requestedOutput)), path.basename(requestedOutput));
     const jobId = `claude-review-${this.makeId()}`;
     const reviewName = jobId;
-    if (this.activeOutputs.has(output)) {
-      throw new Error(`output already has an active Claude review job: ${output}`);
-    }
-    this.activeOutputs.set(output, jobId);
-
     const stdoutLog = path.join(this.cacheDir, `${jobId}.stdout.log`);
     const stderrLog = path.join(this.cacheDir, `${jobId}.stderr.log`);
-    const stateFile = path.join(this.cacheDir, `${jobId}.json`);
-    let stdoutFd: number | undefined;
-    let stderrFd: number | undefined;
+    const stateFile = path.join(this.cacheDir, `${jobId}.state.json`);
+    const requestFile = path.join(this.cacheDir, `${jobId}.request.json`);
+    const reservationFile = this.reservationPath(output);
+    this.reserveOutput(output, jobId, stateFile, reservationFile);
+
     try {
       await unlink(output);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        this.activeOutputs.delete(output);
+        this.releaseReservation(reservationFile, jobId);
         throw new Error(`cannot clear stale Claude review output before launch: ${output}: ${String(error)}`);
       }
     }
-    try {
-      mkdirSync(this.cacheDir, { recursive: true });
-      stdoutFd = openSync(stdoutLog, "a", 0o600);
-      stderrFd = openSync(stderrLog, "a", 0o600);
-    } catch (error) {
-      if (stdoutFd !== undefined) try { closeSync(stdoutFd); } catch { /* closed */ }
-      if (stderrFd !== undefined) try { closeSync(stderrFd); } catch { /* closed */ }
-      if (this.activeOutputs.get(output) === jobId) this.activeOutputs.delete(output);
-      throw error;
-    }
-    let resolveDone = (_job: JobSnapshot) => {};
-    const done = new Promise<JobSnapshot>((resolve) => { resolveDone = resolve; });
+
     const job: InternalJob = {
       jobId,
       reviewName,
       action: request.action,
       status: "running",
-      summary: `Claude ${request.action === "smoke" ? "smoke" : "review"} running in background`,
+      summary: `Claude ${request.action === "smoke" ? "smoke" : "review"} running under detached supervisor`,
       cwd,
       promptFile,
       output,
@@ -308,171 +331,264 @@ export class ClaudeReviewJobManager {
       stderrLog,
       stateFile,
       startedAt: this.now().toISOString(),
-      suppressNotification: false,
-      finalized: false,
+      reservationFile,
+      notificationFile: path.join(this.cacheDir, `${jobId}.notification.lock`),
       notificationSent: false,
-      stdoutFd,
-      stderrFd,
-      done,
-      resolveDone,
+      recovered: false,
     };
-    this.jobs.set(jobId, job);
+    atomicWriteJson(stateFile, snapshot(job));
+    const supervisorRequest: SupervisorRequest = {
+      reviewName,
+      launcherPath: this.launcherPath,
+      launcherArgs: buildLauncherArgs({ action: request.action, cwd, promptFile, output, reviewName }),
+      pythonExecutable: this.pythonExecutable,
+      stateFile,
+      reservationFile,
+      watchdogMs: request.action === "smoke" ? this.smokeWatchdogMs : this.reviewWatchdogMs,
+      killGraceMs: this.killGraceMs,
+    };
+    atomicWriteJson(requestFile, supervisorRequest);
 
-    const args = buildLauncherArgs({ action: request.action, cwd, promptFile, output, reviewName });
-    let child;
+    let supervisor;
     try {
-      child = this.spawnImpl(this.pythonExecutable, [this.launcherPath, ...args], {
+      supervisor = this.spawnImpl(this.nodeExecutable, [this.supervisorPath, requestFile], {
         cwd,
-        detached: process.platform !== "win32",
+        detached: true,
         shell: false,
-        stdio: ["ignore", stdoutFd, stderrFd],
+        stdio: "ignore",
+      });
+      await new Promise<void>((resolve, reject) => {
+        supervisor!.once("spawn", resolve);
+        supervisor!.once("error", reject);
       });
     } catch (error) {
-      await this.finalize(job, null, null, "failed", "CLAUDE_REVIEW_SPAWN_FAILED", String(error));
+      job.status = "failed";
+      job.classification = "CLAUDE_REVIEW_SUPERVISOR_SPAWN_FAILED";
+      job.summary = bounded(`${String(error)}\nstdout=${stdoutLog}\nstderr=${stderrLog}`);
+      job.completedAt = this.now().toISOString();
+      atomicWriteJson(stateFile, snapshot(job));
+      this.releaseReservation(reservationFile, jobId);
       throw error;
     }
-    job.child = child;
-    job.pid = child.pid;
-
-    child.once("error", (error) => {
-      void this.finalize(job, null, null, "failed", "CLAUDE_REVIEW_SPAWN_FAILED", String(error));
-    });
-    child.once("exit", (code, signal) => {
-      void this.handleExit(job, code, signal);
-    });
-
-    const watchdogMs = request.action === "smoke" ? this.smokeWatchdogMs : this.reviewWatchdogMs;
-    job.watchdog = setTimeout(() => {
-      if (job.finalized) return;
-      job.requestedTerminalStatus = "timed_out";
-      killProcessTree(job, "SIGTERM");
-      job.forceKillTimer = setTimeout(() => killProcessTree(job, "SIGKILL"), this.killGraceMs);
-    }, watchdogMs);
-    job.watchdog.unref?.();
-
+    supervisor.unref();
+    job.pid = supervisor.pid;
+    job.supervisorPid = supervisor.pid;
+    let ownershipPublished = false;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      try {
+        const persisted = JSON.parse(readFileSync(stateFile, "utf8"));
+        if (isJobSnapshot(persisted) && persisted.supervisorPid === supervisor.pid) {
+          ownershipPublished = true;
+          break;
+        }
+      } catch { /* supervisor has not published its ownership yet */ }
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    if (!ownershipPublished) {
+      try { process.kill(supervisor.pid!, "SIGKILL"); } catch {}
+      job.status = "failed";
+      job.classification = "CLAUDE_REVIEW_SUPERVISOR_START_TIMEOUT";
+      job.summary = bounded(`Detached supervisor did not publish ownership; output=${output}\nstdout=${stdoutLog}\nstderr=${stderrLog}`);
+      job.completedAt = this.now().toISOString();
+      atomicWriteJson(stateFile, snapshot(job));
+      this.releaseReservation(reservationFile, jobId);
+      try { unlinkSync(requestFile); } catch {}
+      throw new Error(job.summary);
+    }
+    this.jobs.set(jobId, job);
+    this.activeOutputs.set(output, jobId);
+    this.watch(job);
     return snapshot(job);
   }
 
   status(jobId: string): JobSnapshot | undefined {
     const job = this.jobs.get(jobId);
-    return job ? snapshot(job) : undefined;
+    if (!job) return undefined;
+    this.refresh(job, true);
+    return snapshot(job);
   }
 
   list(): JobSnapshot[] {
-    return [...this.jobs.values()]
-      .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
-      .map(snapshot);
+    for (const job of this.jobs.values()) this.refresh(job, true);
+    return [...this.jobs.values()].sort((a, b) => a.startedAt.localeCompare(b.startedAt)).map(snapshot);
   }
 
   async cancel(jobId: string): Promise<boolean> {
     const job = this.jobs.get(jobId);
-    if (!job || job.finalized || job.status !== "running") return false;
-    job.requestedTerminalStatus = "cancelled";
-    killProcessTree(job, "SIGTERM");
-    job.forceKillTimer = setTimeout(() => killProcessTree(job, "SIGKILL"), this.killGraceMs);
+    if (!job) return false;
+    this.refresh(job, false);
+    if (job.status !== "running") return false;
+    const pid = job.supervisorPid ?? job.pid;
+    if (!processExists(pid)) {
+      this.reconcileInterrupted(job, false);
+      return false;
+    }
+    try { process.kill(pid!, "SIGTERM"); } catch { this.reconcileInterrupted(job, false); return false; }
     return true;
   }
 
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
-    const active = [...this.jobs.values()].filter((job) => !job.finalized && job.status === "running");
-    await Promise.all(active.map(async (job) => {
-      job.suppressNotification = true;
-      await this.cancel(job.jobId);
-      await job.done;
-    }));
+    this.observing = false;
+    for (const job of this.jobs.values()) {
+      if (job.poller) clearInterval(job.poller);
+      job.poller = undefined;
+    }
   }
 
-  private async handleExit(job: InternalJob, code: number | null, signal: NodeJS.Signals | null): Promise<void> {
-    if (job.finalized) return;
-    if (job.requestedTerminalStatus === "timed_out") {
-      this.cleanupTmuxImpl(job.reviewName, job.pid);
-      await this.finalize(job, code, signal, "timed_out", "CLAUDE_REVIEW_OUTER_TIMEOUT", `Outer watchdog timed out; private tmux cleanup attempted; output=${job.output}`);
-      return;
-    }
-    if (job.requestedTerminalStatus === "cancelled") {
-      this.cleanupTmuxImpl(job.reviewName, job.pid);
-      await this.finalize(job, code, signal, "cancelled", "CLAUDE_REVIEW_CANCELLED", `Claude review job was cancelled and private tmux cleanup was attempted; output=${job.output}`);
-      return;
-    }
-
-    const artifactExists = existsSync(job.output);
-    const artifact = artifactExists ? safeRead(job.output) : "";
-    if (code === 0) {
-      if (!artifactExists) {
-        await this.finalize(job, code, signal, "failed", "CLAUDE_REVIEW_ARTIFACT_MISSING", `Launcher exited zero but did not create output=${job.output}`);
-        return;
-      }
-      const result = classifyArtifact(job.action, artifact);
-      if (!result.ok) {
-        await this.finalize(job, code, signal, "failed", result.classification, bounded(artifact || `Invalid output=${job.output}`));
-        return;
-      }
-      await this.finalize(job, code, signal, "succeeded", result.classification, `Claude ${job.action === "smoke" ? "smoke" : "review"} succeeded; output=${job.output}`);
-      return;
-    }
-
-    if (artifactExists) {
-      const result = classifyArtifact(job.action, artifact);
-      const classification = result.ok ? "CLAUDE_REVIEW_PROCESS_FAILED" : result.classification;
-      await this.finalize(job, code, signal, "failed", classification, bounded(artifact));
-      return;
-    }
-    const stderr = safeRead(job.stderrLog);
-    const stdout = safeRead(job.stdoutLog);
-    await this.finalize(
-      job,
-      code,
-      signal,
-      "failed",
-      "CLAUDE_REVIEW_PROCESS_FAILED",
-      bounded(`Launcher exited ${code ?? "without code"} and produced no artifact.\nstdout=${job.stdoutLog}\nstderr=${job.stderrLog}\n${stderr || stdout}`),
-    );
-  }
-
-  private async finalize(
-    job: InternalJob,
-    code: number | null,
-    signal: NodeJS.Signals | null,
-    status: ClaudeReviewStatus,
-    classification: string,
-    summary: string,
-  ): Promise<void> {
-    if (job.finalized) return;
-    job.finalized = true;
-    if (job.watchdog) clearTimeout(job.watchdog);
-    if (job.forceKillTimer) clearTimeout(job.forceKillTimer);
-    if (job.stdoutFd !== undefined) { try { closeSync(job.stdoutFd); } catch { /* closed */ } job.stdoutFd = undefined; }
-    if (job.stderrFd !== undefined) { try { closeSync(job.stderrFd); } catch { /* closed */ } job.stderrFd = undefined; }
-    job.status = status;
-    job.classification = classification;
-    job.summary = bounded(`${summary}\nstdout=${job.stdoutLog}\nstderr=${job.stderrLog}`);
-    job.completedAt = this.now().toISOString();
-    job.exitCode = code;
-    job.signal = signal;
-    if (this.activeOutputs.get(job.output) === job.jobId) this.activeOutputs.delete(job.output);
-    job.child = undefined;
-    const result = snapshot(job);
+  private recoverPersistedJobs(): void {
+    let files: string[];
     try {
-      writeFileSync(job.stateFile, `${JSON.stringify(result, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-    } catch (error) {
-      job.summary = bounded(`${job.summary}\nstate persistence failed: ${String(error)}`);
-    }
-    job.resolveDone(snapshot(job));
-    if (!job.notificationSent) {
-      job.notificationSent = true;
-      if (!job.suppressNotification) {
-        try { await this.onComplete?.(snapshot(job)); } catch { /* state file and status remain available */ }
-      }
+      files = readdirSync(this.cacheDir).filter((name) => /^claude-review-[^.]+(?:\.state)?\.json$/.test(name));
+    } catch { return; }
+    for (const name of files) {
+      const stateFile = path.join(this.cacheDir, name);
+      const legacyState = !name.endsWith(".state.json");
+      let persisted: unknown;
+      try { persisted = JSON.parse(readFileSync(stateFile, "utf8")); } catch { continue; }
+      if (!isJobSnapshot(persisted)) continue;
+      const job: InternalJob = {
+        ...persisted,
+        reviewName: persisted.jobId,
+        supervisorPid: legacyState ? undefined : persisted.supervisorPid,
+        launcherPid: persisted.launcherPid ?? (legacyState ? persisted.pid : undefined),
+        reservationFile: this.reservationPath(persisted.output),
+        notificationFile: path.join(this.cacheDir, `${persisted.jobId}.notification.lock`),
+        notificationSent: persisted.status !== "running",
+        recovered: true,
+      };
+      this.jobs.set(job.jobId, job);
+      if (job.status === "running") this.activeOutputs.set(job.output, job.jobId);
     }
     this.pruneCompletedHistory();
   }
 
+  private watch(job: InternalJob): void {
+    if (!this.observing || job.poller || job.status !== "running") return;
+    job.poller = setInterval(() => this.refresh(job, true), this.pollIntervalMs);
+    job.poller.unref?.();
+  }
+
+  private refresh(job: InternalJob, notify: boolean): void {
+    if (job.status !== "running") return;
+    let persisted: unknown;
+    try { persisted = JSON.parse(readFileSync(job.stateFile, "utf8")); } catch { return; }
+    if (!isJobSnapshot(persisted) || persisted.jobId !== job.jobId) return;
+    Object.assign(job, persisted);
+    if (job.status === "running") {
+      if (!supervisorIsHealthy(job)) this.reconcileInterrupted(job, notify);
+      return;
+    }
+    this.finishObservedJob(job, notify);
+  }
+
+  private reconcileInterrupted(job: InternalJob, notify: boolean): void {
+    if (job.status !== "running") return;
+    const artifact = existsSync(job.output) ? safeRead(job.output) : "";
+    const classified = artifact ? classifyArtifact(job.action, artifact) : undefined;
+    if (job.launcherPid && processExists(job.launcherPid)) {
+      killPidTree(job.launcherPid, "SIGTERM");
+      this.cleanupTmuxImpl(job.reviewName, job.launcherPid);
+      killPidTree(job.launcherPid, "SIGKILL");
+    }
+    if (classified?.ok) {
+      job.status = "succeeded";
+      job.classification = classified.classification;
+      job.summary = bounded(`Recovered a valid completed launcher artifact after supervisor interruption; output=${job.output}\nstdout=${job.stdoutLog}\nstderr=${job.stderrLog}`);
+    } else if (classified && classified.classification !== "CLAUDE_REVIEW_ARTIFACT_INVALID") {
+      job.status = "failed";
+      job.classification = classified.classification;
+      job.summary = bounded(`${artifact}\nstdout=${job.stdoutLog}\nstderr=${job.stderrLog}`);
+    } else {
+      job.status = "interrupted";
+      job.classification = "CLAUDE_REVIEW_INTERRUPTED";
+      job.summary = bounded(`Detached supervisor disappeared before a terminal state was persisted; orphan cleanup attempted; output=${job.output}\nstdout=${job.stdoutLog}\nstderr=${job.stderrLog}`);
+    }
+    job.completedAt = this.now().toISOString();
+    job.exitCode = null;
+    job.signal = null;
+    atomicWriteJson(job.stateFile, snapshot(job));
+    this.releaseReservation(job.reservationFile, job.jobId);
+    this.finishObservedJob(job, notify);
+  }
+
+  private finishObservedJob(job: InternalJob, notify: boolean): void {
+    if (job.poller) clearInterval(job.poller);
+    job.poller = undefined;
+    if (this.activeOutputs.get(job.output) === job.jobId) this.activeOutputs.delete(job.output);
+    if (notify && !job.notificationSent && !this.shuttingDown && this.claimNotification(job)) {
+      job.notificationSent = true;
+      try {
+        void Promise.resolve(this.onComplete?.(snapshot(job))).catch(() => {});
+      } catch { /* state remains discoverable when the originating Pi runtime is unavailable */ }
+    }
+    this.pruneCompletedHistory();
+  }
+
+  private claimNotification(job: InternalJob): boolean {
+    let fd: number | undefined;
+    try {
+      fd = openSync(job.notificationFile, "wx", 0o600);
+      writeFileSync(fd, `${JSON.stringify({ jobId: job.jobId, claimedAt: this.now().toISOString(), claimantPid: process.pid })}\n`, "utf8");
+      closeSync(fd);
+      return true;
+    } catch (error) {
+      if (fd !== undefined) try { closeSync(fd); } catch {}
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
+      return false;
+    }
+  }
+
+  private reservationPath(output: string): string {
+    const digest = createHash("sha256").update(output).digest("hex");
+    return path.join(this.cacheDir, `output-${digest}.lock`);
+  }
+
+  private reserveOutput(output: string, jobId: string, stateFile: string, reservationFile: string): void {
+    if (this.activeOutputs.has(output)) throw new Error(`output already has an active Claude review job: ${output}`);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      let fd: number | undefined;
+      try {
+        fd = openSync(reservationFile, "wx", 0o600);
+        writeFileSync(fd, `${JSON.stringify({ jobId, output, stateFile, ownerPid: process.pid, createdAt: Date.now() })}\n`, "utf8");
+        closeSync(fd);
+        return;
+      } catch (error) {
+        if (fd !== undefined) try { closeSync(fd); } catch {}
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        let existing: { jobId?: string; stateFile?: string; ownerPid?: number; createdAt?: number } = {};
+        try { existing = JSON.parse(readFileSync(reservationFile, "utf8")); } catch {}
+        let existingState: JobSnapshot | undefined;
+        try {
+          const parsed = JSON.parse(readFileSync(existing.stateFile ?? "", "utf8"));
+          if (isJobSnapshot(parsed)) existingState = parsed;
+        } catch {}
+        const reservationOwnerIsStarting = processExists(existing.ownerPid)
+          && typeof existing.createdAt === "number"
+          && Date.now() - existing.createdAt < 30_000
+          && (!existingState || (existingState.status === "running" && !existingState.heartbeatAt));
+        if (reservationOwnerIsStarting || (existingState?.status === "running" && supervisorIsHealthy(existingState))) {
+          throw new Error(`output already has an active Claude review job: ${output}`);
+        }
+        try { unlinkSync(reservationFile); } catch {}
+      }
+    }
+    throw new Error(`could not reserve Claude review output: ${output}`);
+  }
+
+  private releaseReservation(reservationFile: string, jobId: string): void {
+    try {
+      const reservation = JSON.parse(readFileSync(reservationFile, "utf8"));
+      if (reservation.jobId === jobId) unlinkSync(reservationFile);
+    } catch { /* already released or replaced */ }
+  }
+
   private pruneCompletedHistory(): void {
     const completed = [...this.jobs.values()]
-      .filter((candidate) => candidate.finalized)
+      .filter((candidate) => candidate.status !== "running")
       .sort((a, b) => (a.completedAt ?? a.startedAt).localeCompare(b.completedAt ?? b.startedAt));
     for (const stale of completed.slice(0, Math.max(0, completed.length - this.maxCompletedJobs))) {
+      if (stale.poller) clearInterval(stale.poller);
       this.jobs.delete(stale.jobId);
     }
   }
@@ -504,9 +620,7 @@ export function isForbiddenDirectReviewToolCall(toolName: string, input: unknown
   if (launcherReferenceIsExecution(command)) return true;
   if (DIRECT_CLAUDE_RE.test(command) && REVIEW_INTENT_RE.test(command)) return true;
   const spawnRequest = data.spawn && typeof data.spawn === "object" ? data.spawn as Record<string, unknown> : undefined;
-  return spawnRequest?.agent === "claude"
-    && typeof spawnRequest.prompt === "string"
-    && REVIEW_INTENT_RE.test(spawnRequest.prompt);
+  return spawnRequest?.agent === "claude" && typeof spawnRequest.prompt === "string" && REVIEW_INTENT_RE.test(spawnRequest.prompt);
 }
 
 export function defaultLauncherPath(): string {

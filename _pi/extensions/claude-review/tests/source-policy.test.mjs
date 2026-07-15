@@ -20,6 +20,7 @@ test("public tool schema exposes review intent but no transport controls", async
   assert.doesNotMatch(source, /autoExitOnQuiet/);
   assert.match(source, /pi\.on\("tool_call"/);
   assert.match(source, /pi\.on\("session_shutdown"/);
+  assert.match(source, /detached supervisor/);
 });
 
 test("Pi review prompts route Claude through claude_review", async () => {
@@ -30,6 +31,18 @@ test("Pi review prompts route Claude through claude_review", async () => {
 
   const adversarial = await text("_pi/prompts/review:plan-adversarial.md");
   assert.match(adversarial, /deterministic `claude_review` tool/);
+});
+
+test("artifact contract documentation separates transport success from workflow verdict", async () => {
+  for (const file of ["_pi/README.md", "skills/claude-code-review/SKILL.md", "_pi/prompts/review:change-claude-code.md"]) {
+    const source = await text(file);
+    assert.match(source, /transport validity|transport success/i, `${file} must describe transport validity`);
+    assert.match(source, /VERDICT:/, `${file} must explain workflow verdict handling`);
+    assert.match(source, /reload|restart/, `${file} must describe lifecycle recovery`);
+    if (file !== "_pi/prompts/review:change-claude-code.md") assert.match(source, /session JSONL/i, `${file} must describe long-review recovery`);
+  }
+  const runtime = await text("_pi/extensions/claude-review/runtime.ts");
+  assert.doesNotMatch(runtime, /\^VERDICT:/, "runtime transport validation must not require an exact verdict line");
 });
 
 test("shared Pi-capable review workflows describe the deterministic tool", async () => {

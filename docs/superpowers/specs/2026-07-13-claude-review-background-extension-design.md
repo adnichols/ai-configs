@@ -14,8 +14,8 @@ The canonical launcher at `skills/claude-code-review/scripts/claude_interactive_
 - interactive Claude Code rather than print mode,
 - fixed model and effort,
 - authentication and TUI-readiness checks,
-- prompt paste, answer-boundary detection, and normalized artifact extraction,
-- classified failures, transcript preservation, and successful teardown.
+- prompt paste, answer-boundary detection, persisted Claude-session JSONL recovery for long alternate-screen output, and normalized artifact extraction,
+- classified failures, transcript preservation, exact-socket signal cleanup, and successful teardown.
 
 The remaining reliability gap is how Pi starts that launcher. A review can be run through blocking `bash`, a managed process, or `pi-interactive-shell` with foreground, dispatch-overlay, or headless-dispatch presentation. Those choices remain under agent control. `pi-interactive-shell` also defaults headless dispatch to an output-quietness kill heuristic, which is unsafe for a Claude review that may be healthy but silent while reasoning.
 
@@ -31,7 +31,7 @@ The tool must remove agent control over transport, presentation mode, model, eff
 - Change Claude authentication, subscription, account limits, or credential storage.
 - Make `pi-interactive-shell` less capable for unrelated interactive-agent delegation.
 - Build a general-purpose background process manager.
-- Guarantee that a review survives Pi process termination, `/reload`, session replacement, or machine restart. Active reviews are session-scoped in the first implementation and fail visibly during shutdown rather than becoming untracked orphan processes.
+- Guarantee survival across machine or host failure. Reviews do survive routine Pi process termination, `/reload`, and session replacement through a detached supervisor; after host failure, persisted state is reconciled and genuinely lost supervisors become `interrupted` with orphan cleanup.
 - Block all possible non-review Claude CLI usage. Enforcement is limited to known required-review routes and the canonical launcher.
 
 ## Architecture
@@ -130,7 +130,7 @@ Outer watchdogs cover the launcher's complete valid lifecycle—not only its ans
 
 There is no output-quietness timeout. Silence is not treated as failure.
 
-The launcher remains the single source of truth for Claude model, effort, readiness regex, prompt protocol, and tmux behavior. Prompts and skills must not repeat model/version claims that can drift from launcher constants.
+The launcher remains the single source of truth for Claude model, effort, readiness regex, prompt protocol, Claude session-id assignment, terminal/JSONL answer recovery, and tmux behavior. Prompts and skills must not repeat model/version claims that can drift from launcher constants.
 
 ## Job lifecycle
 
@@ -142,16 +142,16 @@ Each job has:
 - child PID while running,
 - stdout and stderr log paths,
 - a durable terminal-state JSON path,
-- status: `running`, `succeeded`, `failed`, `timed_out`, or `cancelled`,
+- status: `running`, `succeeded`, `failed`, `timed_out`, `cancelled`, or `interrupted`,
 - exit code and completion classification.
 
 The extension atomically reserves the canonicalized output identity before any awaited stale-output cleanup, rejects a second active job targeting that identity, and releases only the owning reservation. Different output paths may run concurrently.
 
-The initial `start` or `smoke` call returns immediately after the child has spawned successfully. A spawn failure is returned synchronously as a tool error.
+The initial `start` or `smoke` call returns immediately after the detached supervisor has spawned and published ownership. A spawn failure is returned synchronously as a tool error. Output reservations remain owned during the pre-heartbeat startup window, and completion notification uses an atomic file-backed claim so concurrent Pi sessions cannot trigger duplicate completion turns.
 
 On child exit the extension validates the result:
 
-- Exit zero requires the output artifact to exist and contain the expected launcher success marker/metadata for that action; review artifacts must also contain a final `VERDICT:` line.
+- Exit zero requires the output artifact to exist and satisfy the canonical launcher artifact contract for that action. Review transport success requires non-empty normalized review text, launcher metadata, and no classified launcher/provider failure; a literal `VERDICT:` line is interpreted by the calling workflow rather than universally required by the process controller.
 - Nonzero exit requires a classified launcher failure artifact. Missing output is reported as review infrastructure failure with stdout/stderr log paths.
 - A zero exit with a missing or malformed artifact is infrastructure failure, never a clean review.
 - Completion notification is emitted exactly once with `pi.sendMessage(..., { triggerTurn: true })`.
@@ -160,13 +160,13 @@ Notifications contain only a bounded summary. Full review content remains in the
 
 ## Shutdown behavior
 
-Active jobs are session-scoped in the first implementation.
+Accepted jobs are owned by a detached per-job supervisor rather than by the originating extension instance.
 
-On `session_shutdown`, the extension suppresses normal completion-triggered LLM turns, terminates active launcher children, waits a short bounded grace period, force-kills remaining child process groups, cleans job-owned private tmux sockets, and writes cancellation status to durable job metadata. It does not leave an untracked Claude or launcher process running or start work in a session being destroyed.
+On `session_shutdown`, the extension stops only its local observers and suppresses any further notification through the destroyed session. It does not signal or reclassify active jobs. The supervisor continues the canonical launcher, enforces the fixed outer watchdog, persists terminal state atomically, and releases the output reservation. A replacement extension instance reloads persisted jobs and resumes observation; if no session is available for notification, `list` / `status` still discovers the result.
 
-Because the canonical launcher intentionally preserves failed tmux state for inspection, shutdown and cancellation messages must surface any output artifact, transcript, or tmux inspect command that the launcher produced before termination.
+Explicit `cancel` signals the supervisor, which terminates the launcher process tree, applies bounded force-kill fallback, and persists `cancelled`. The Python launcher handles termination signals by killing the exact private tmux socket it created; the supervisor additionally searches `$TMUX_TMPDIR`, Node's temp directory, `/tmp`, and `/private/tmp` for job-owned sockets so macOS `$TMPDIR` differences do not leak Claude processes. Outer watchdog expiry follows the same cleanup path but persists `timed_out`. If recovery finds that a running job's supervisor genuinely disappeared, it reconciles any valid terminal artifact or records `interrupted` and attempts orphan launcher/tmux cleanup.
 
-Cross-session durability can be added later only if real usage demonstrates a need. It would require a separate supervisor and persisted completion delivery, which is deliberately excluded from this scoped reliability fix.
+Because the canonical launcher intentionally preserves failed tmux state for inspection, terminal summaries surface the output artifact, transcript, and log paths when available.
 
 ## Enforcement and migration
 
@@ -278,5 +278,5 @@ The change is complete when:
 4. Long output silence does not terminate a healthy review.
 5. Completion wakes Pi exactly once and points to a validated artifact.
 6. Failure never becomes a clean verdict and never triggers an alternate transport.
-7. Cancellation and session shutdown leave no untracked launcher child.
+7. Explicit cancellation and watchdog timeout leave no untracked launcher child, while routine session shutdown lets accepted work finish under the detached supervisor and remain recoverable.
 8. Source, installed, stress, launcher regression, and bounded real-Claude tests pass or report a truthful external Claude limit blocker.

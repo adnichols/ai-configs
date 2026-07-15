@@ -86,29 +86,38 @@ test("real Pi ResourceLoader registers and runs claude_review without an LLM", a
   const completed = await waitForStatus(tool, result.details.job.jobId, repo);
   assert.equal(completed.status, "succeeded");
   assert.match(await readFile(output, "utf8"), /CLAUDE_REVIEW_SMOKE_READY/);
-  assert.match(result.content[0].text, /dispatched invisibly in the background/);
+  assert.match(result.content[0].text, /dispatched invisibly under a detached supervisor/);
 
-  const hangPrompt = path.join(home, "hang-prompt.md");
-  await writeFile(hangPrompt, "MODE=hang\n");
-  const hanging = await tool.execute(
-    "hang-call",
-    { action: "start", cwd: repo, promptFile: hangPrompt, output: path.join(home, "hang-output.md") },
+  const lifecyclePrompt = path.join(home, "lifecycle-prompt.md");
+  await writeFile(lifecyclePrompt, "MODE=no-verdict\nDELAY=0.3\n");
+  const lifecycleJob = await tool.execute(
+    "lifecycle-call",
+    { action: "start", cwd: repo, promptFile: lifecyclePrompt, output: path.join(home, "lifecycle-output.md") },
     new AbortController().signal,
     () => {},
     { cwd: repo },
   );
-  const childPid = hanging.details.job.pid;
-  assert.ok(childPid && process.kill(childPid, 0) === true);
+  const supervisorPid = lifecycleJob.details.job.pid;
+  assert.ok(supervisorPid && process.kill(supervisorPid, 0) === true);
   const shutdownHandler = extension.handlers.get("session_shutdown")?.[0];
   assert.ok(shutdownHandler, "session shutdown cleanup should be registered");
   await shutdownHandler();
-  const afterShutdown = await tool.execute(
-    "shutdown-status",
-    { action: "status", jobId: hanging.details.job.jobId },
-    new AbortController().signal,
-    () => {},
-    { cwd: repo },
-  );
-  assert.equal(afterShutdown.details.job.status, "cancelled");
-  assert.throws(() => process.kill(childPid, 0));
+  assert.doesNotThrow(() => process.kill(supervisorPid, 0), "session shutdown must not cancel accepted work");
+
+  const replacementLoader = new sdk.DefaultResourceLoader({
+    cwd: repo,
+    agentDir: path.join(home, ".pi/agent"),
+    additionalExtensionPaths: [extensionPath],
+    settingsManager: sdk.SettingsManager.inMemory({}),
+  });
+  await replacementLoader.reload();
+  const replacementLoaded = replacementLoader.getExtensions();
+  assert.deepEqual(replacementLoaded.errors, []);
+  const replacementExtension = replacementLoaded.extensions.find((item) => item.resolvedPath === resolvedExtensionPath);
+  const replacementTool = replacementExtension?.tools.get("claude_review")?.definition;
+  assert.ok(replacementTool, "replacement extension should recover the review tool");
+  const recovered = await waitForStatus(replacementTool, lifecycleJob.details.job.jobId, repo);
+  assert.equal(recovered.status, "succeeded");
+  assert.match(await readFile(recovered.output, "utf8"), /No blocking issues were found/);
+  await replacementExtension.handlers.get("session_shutdown")?.[0]?.();
 });

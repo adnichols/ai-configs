@@ -4,14 +4,17 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import secrets
 import shutil
+import signal
 import string
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 READY_RE = re.compile(r"❯")
@@ -163,11 +166,21 @@ def sh_quote(value: str) -> str:
     return "'" + value.replace("'", "'\\''") + "'"
 
 
-def launch_tui(socket: str, session: str, window: str, cwd: Path) -> None:
-    shell_command = f"exec claude --model {CLAUDE_REVIEW_MODEL} --effort {CLAUDE_REVIEW_EFFORT}"
+def launch_tui(socket: str, session: str, window: str, cwd: Path, *, claude_session_id: str | None = None) -> None:
+    session_arg = f" --session-id {sh_quote(claude_session_id)}" if claude_session_id else ""
+    shell_command = f"exec claude --model {CLAUDE_REVIEW_MODEL} --effort {CLAUDE_REVIEW_EFFORT}{session_arg}"
     command = f"cd {sh_quote(str(cwd))} && env -u CLAUDE_CONFIG_DIR {sh_quote(login_shell())} -l -c {sh_quote(shell_command)}"
     tmux(socket, ["new-window", "-t", session, "-n", window, command])
     tmux(socket, ["resize-window", "-t", f"{session}:{window}", "-x", "220", "-y", "60"], check=False)
+
+
+def install_signal_cleanup(socket: str) -> None:
+    def cleanup_and_exit(signum: int, _frame: object) -> None:
+        tmux(socket, ["kill-server"], check=False)
+        raise SystemExit(128 + signum)
+
+    signal.signal(signal.SIGTERM, cleanup_and_exit)
+    signal.signal(signal.SIGINT, cleanup_and_exit)
 
 
 def teardown_success(socket: str, session: str, window: str) -> None:
@@ -254,9 +267,74 @@ def extract_sentinel_only_answer(text: str, sentinel: str) -> str | None:
     if sentinel_line_index is None:
         return None
     answer = "\n".join(lines[:sentinel_line_index]).strip()
-    if not answer or "VERDICT:" not in answer or answer_is_prompt_template(answer):
+    if not answer or answer_is_prompt_template(answer):
         return None
     return answer
+
+
+def claude_session_record(cwd: Path, session_id: str) -> Path:
+    project_key = re.sub(r"[^A-Za-z0-9_-]", "-", str(cwd))
+    return Path.home() / ".claude" / "projects" / project_key / f"{session_id}.jsonl"
+
+
+def recover_session_answer(cwd: Path, session_id: str, marker: str, sentinel: str) -> tuple[str, Path] | None:
+    expected = claude_session_record(cwd, session_id)
+    candidates = [expected]
+    projects = Path.home() / ".claude" / "projects"
+    if not expected.exists() and projects.is_dir():
+        candidates.extend(projects.glob(f"*/{session_id}.jsonl"))
+    for record in candidates:
+        if not record.is_file():
+            continue
+        assistant_text: list[str] = []
+        try:
+            for raw_line in record.read_text(encoding="utf-8", errors="replace").splitlines():
+                try:
+                    entry = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    continue
+                message = entry.get("message")
+                if entry.get("type") != "assistant" or not isinstance(message, dict):
+                    continue
+                content = message.get("content")
+                if isinstance(content, str):
+                    assistant_text.append(content)
+                elif isinstance(content, list):
+                    assistant_text.extend(
+                        block.get("text", "")
+                        for block in content
+                        if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str)
+                    )
+        except OSError:
+            continue
+        combined = "\n".join(assistant_text)
+        if marker not in combined or sentinel not in combined:
+            continue
+        try:
+            answer = extract_answer(combined, marker, sentinel)
+        except LauncherError:
+            continue
+        if answer and not answer_is_prompt_template(answer):
+            return answer, record
+    return None
+
+
+def write_review_success(
+    output: Path,
+    answer: str,
+    raw_transcript: str,
+    *,
+    socket: str,
+    session: str,
+    window: str,
+    boundary: str,
+    session_id: str,
+    session_record: Path,
+) -> None:
+    transcript_path = output.with_suffix(output.suffix + ".transcript.txt")
+    transcript_path.write_text(raw_transcript, encoding="utf-8")
+    metadata = f"\n\n---\nCLAUDE_REVIEW_LAUNCHER_METADATA\nsocket={socket}\nsession={session}\nwindow={window}\nmodel={CLAUDE_REVIEW_MODEL}\neffort={CLAUDE_REVIEW_EFFORT}\ntranscript={transcript_path}\nclaude_session_id={session_id}\nsession_record={session_record}\nreadiness_regex={READY_RE.pattern}\nclear_boundary={boundary}\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
+    output.write_text(answer.strip() + metadata, encoding="utf-8")
 
 
 def prompt_visible_or_collapsed(candidate: str, marker_count: int, sentinel_count: int, prompt_marker_count: int, prompt_sentinel_count: int) -> bool:
@@ -277,6 +355,7 @@ def run_smoke(args: argparse.Namespace) -> int:
         require_tool("tmux")
         require_claude_login_shell()
         start_private_tmux(socket, session)
+        install_signal_cleanup(socket)
         launch_tui(socket, session, window, cwd)
         wait_for_prompt(socket, session, window, output, min(args.timeout_seconds, READY_TIMEOUT_SECONDS))
         text = f"CLAUDE_REVIEW_SMOKE_READY\nsocket={socket}\nsession={session}\nwindow={window}\nmodel={CLAUDE_REVIEW_MODEL}\neffort={CLAUDE_REVIEW_EFFORT}\nreadiness_regex={READY_RE.pattern}\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
@@ -306,8 +385,11 @@ def run_review(args: argparse.Namespace) -> int:
         socket = f"claude-review-{slugify(args.review_name)}-{os.getpid()}-{nonce}"
         session = "review"
         window = "claude-review"
+        claude_session_id = str(uuid.uuid4())
+        session_record = claude_session_record(cwd, claude_session_id)
         start_private_tmux(socket, session)
-        launch_tui(socket, session, window, cwd)
+        install_signal_cleanup(socket)
+        launch_tui(socket, session, window, cwd, claude_session_id=claude_session_id)
         wait_for_prompt(socket, session, window, output, min(args.timeout_seconds, READY_TIMEOUT_SECONDS))
         final_prompt = compose_prompt(prompt_file, marker, sentinel)
         prompt_tmp = output.with_suffix(output.suffix + ".submitted-prompt.md")
@@ -334,12 +416,13 @@ def run_review(args: argparse.Namespace) -> int:
             raw = capture(socket, session, window)
             candidate = normalize(raw)
             check_tui_unavailable(candidate, after_submit=True)
-            prompt_cleared_answer = extract_prompt_cleared_answer(candidate, marker, sentinel)
-            if prompt_cleared_answer:
-                transcript_path = output.with_suffix(output.suffix + ".transcript.txt")
-                transcript_path.write_text(raw, encoding="utf-8")
-                metadata = f"\n\n---\nCLAUDE_REVIEW_LAUNCHER_METADATA\nsocket={socket}\nsession={session}\nwindow={window}\nmodel={CLAUDE_REVIEW_MODEL}\neffort={CLAUDE_REVIEW_EFFORT}\ntranscript={transcript_path}\nreadiness_regex={READY_RE.pattern}\nclear_boundary=prompt-cleared marker/sentinel extraction before baseline\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
-                output.write_text(prompt_cleared_answer.strip() + metadata, encoding="utf-8")
+            recovered = recover_session_answer(cwd, claude_session_id, marker, sentinel) if sentinel in candidate else None
+            prompt_cleared_answer = extract_prompt_cleared_answer(candidate, marker, sentinel) if marker in candidate else None
+            if recovered or prompt_cleared_answer:
+                answer = recovered[0] if recovered else prompt_cleared_answer
+                record = recovered[1] if recovered else session_record
+                boundary = "persisted Claude session JSONL after visible completion sentinel before baseline" if recovered else "prompt-cleared marker/sentinel extraction before baseline"
+                write_review_success(output, answer, raw, socket=socket, session=session, window=window, boundary=boundary, session_id=claude_session_id, session_record=record)
                 teardown_success(socket, session, window)
                 return 0
             marker_count = count_token(candidate, marker)
@@ -369,13 +452,15 @@ def run_review(args: argparse.Namespace) -> int:
                 if candidate_answer and not answer_is_prompt_template(candidate_answer):
                     answer = candidate_answer
             else:
-                answer = extract_prompt_cleared_answer(text, marker, sentinel)
+                answer = extract_prompt_cleared_answer(text, marker, sentinel) if marker in text else None
                 boundary = "prompt-cleared marker/sentinel extraction after submit"
+            recovered = recover_session_answer(cwd, claude_session_id, marker, sentinel) if sentinel in text else None
+            if recovered:
+                answer = recovered[0]
+                session_record = recovered[1]
+                boundary = "persisted Claude session JSONL after visible completion sentinel"
             if answer:
-                transcript_path = output.with_suffix(output.suffix + ".transcript.txt")
-                transcript_path.write_text(last_raw, encoding="utf-8")
-                metadata = f"\n\n---\nCLAUDE_REVIEW_LAUNCHER_METADATA\nsocket={socket}\nsession={session}\nwindow={window}\nmodel={CLAUDE_REVIEW_MODEL}\neffort={CLAUDE_REVIEW_EFFORT}\ntranscript={transcript_path}\nreadiness_regex={READY_RE.pattern}\nclear_boundary={boundary}\nhistory_limit={TMUX_HISTORY_LIMIT}\ncapture_depth={CAPTURE_DEPTH}\n"
-                output.write_text(answer.strip() + metadata, encoding="utf-8")
+                write_review_success(output, answer, last_raw, socket=socket, session=session, window=window, boundary=boundary, session_id=claude_session_id, session_record=session_record)
                 teardown_success(socket, session, window)
                 return 0
             time.sleep(1)
