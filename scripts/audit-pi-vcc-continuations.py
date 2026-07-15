@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import tempfile
@@ -87,11 +88,21 @@ def entry_epoch_seconds(entry: dict[str, Any], path: Path) -> float:
         return 0
 
 
-def iter_jsonl(path: Path, findings: list[str]) -> Iterable[tuple[Path, int, dict[str, Any]]]:
+def iter_jsonl(
+    path: Path,
+    findings: list[str],
+    since: float | None = None,
+) -> Iterable[tuple[Path, int, dict[str, Any]]]:
     if path.is_dir():
         for child in sorted(path.rglob("*.jsonl")):
-            yield from iter_jsonl(child, findings)
+            yield from iter_jsonl(child, findings, since)
         return
+    if since is not None:
+        try:
+            if path.stat().st_mtime < since:
+                return
+        except OSError:
+            pass
     try:
         handle = path.open("r", encoding="utf-8", errors="replace")
     except OSError as exc:
@@ -269,7 +280,7 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool, since:
         if not root.exists():
             findings.append(f"missing session path: {root}")
             continue
-        for path, line_number, entry in iter_jsonl(root, findings):
+        for path, line_number, entry in iter_jsonl(root, findings, since):
             if since is not None and entry_epoch_seconds(entry, path) < since:
                 continue
             entry_id = entry.get("id")
@@ -334,7 +345,7 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool, since:
         if not root.exists():
             findings.append(f"missing log path: {root}")
             continue
-        for path, line_number, record in iter_jsonl(root, findings):
+        for path, line_number, record in iter_jsonl(root, findings, since):
             if since is not None and entry_epoch_seconds(record, path) < since:
                 continue
             event = record.get("event")
@@ -527,16 +538,25 @@ def self_test() -> list[str]:
         write_jsonl(branch_a, [request, snapshot, acceptance, outcome])
         write_jsonl(branch_b, [request, "{malformed}{concatenated}", {**acceptance, "id": "old-filtered", "timestamp": 10}, outcome])
         write_jsonl(logs, [log])
-        findings = audit([root], [logs], True, since=1_800_000_000)
+        for current_path in (branch_a, branch_b, logs):
+            os.utime(current_path, (1_900_000_010, 1_900_000_010))
+        findings = audit([root], [logs], True, since=1_700_000_000)
         if not any("malformed JSONL line" in finding for finding in findings):
             return ["self-test did not report malformed concatenated line"]
         non_malformed = [finding for finding in findings if "malformed JSONL line" not in finding]
         if non_malformed:
             return [f"self-test valid branch-copy fixture failed: {non_malformed}"]
 
+        stale = root / "stale-malformed.jsonl"
+        write_jsonl(stale, ["{historical-malformed}"])
+        os.utime(stale, (100, 100))
+        stale_findings = audit([stale], [], True, since=1_800_000_000)
+        if stale_findings:
+            return [f"self-test did not skip wholly stale JSONL file: {stale_findings}"]
+
         write_jsonl(branch_a, [request, snapshot, acceptance])
         write_jsonl(branch_b, [])
-        findings = audit([root], [], True, since=1_800_000_000)
+        findings = audit([root], [], True, since=1_700_000_000)
         if not any("nonterminal durable session transaction" in finding for finding in findings):
             return ["self-test did not require a terminal outcome"]
 
