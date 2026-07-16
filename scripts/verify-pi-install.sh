@@ -24,7 +24,6 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@fnnm/pi-ast-grep"
   "npm:pi-updater"
   "npm:pi-powerline-footer"
-  "npm:pi-side-agents"
   "npm:pi-no-soft-cursor"
   "npm:@tmustier/pi-files-widget"
   "npm:@tmustier/pi-raw-paste"
@@ -342,6 +341,12 @@ if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq '@ff-labs/pi-fff'; then
   note_failure "retired @ff-labs/pi-fff package is still registered"
 else
   echo "  @ff-labs/pi-fff registration: absent"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'npm:pi-side-agents'; then
+  note_failure "retired pi-side-agents package is still registered"
+else
+  echo "  pi-side-agents registration: absent"
 fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"

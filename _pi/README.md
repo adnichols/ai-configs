@@ -196,7 +196,6 @@ npm-managed packages:
 - `@fnnm/pi-ast-grep`
 - `pi-updater`
 - `pi-powerline-footer`
-- `pi-side-agents`
 - `pi-no-soft-cursor`
 - `@tmustier/pi-files-widget`
 - `@tmustier/pi-raw-paste`

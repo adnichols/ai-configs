@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Retire pi-side-agents] - 2026-07-16
+
+### Removed
+
+- Removed `pi-side-agents` from the managed Pi package set.
+- Added installer cleanup and verification so existing host registrations are removed on the next `install.sh --pi` run.
+
 ## [Retire legacy configuration surfaces] - 2026-07-09
 
 ### Removed
