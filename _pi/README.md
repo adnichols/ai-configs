@@ -148,6 +148,10 @@ This repo also ships the `claude-review` extension, which provides the `claude_r
 - a literal `VERDICT:` line is workflow-specific rather than a universal transport requirement; each calling review workflow remains responsible for interpreting its expected verdict,
 - genuinely lost detached supervisors are recovered as `interrupted` with orphan cleanup rather than being mislabeled `cancelled` or silently dropped.
 
+The repo-owned `codex-review` extension similarly provides `codex_review` for required Pi Codex reviews. It launches the canonical `codex-review-partner` wrapper invisibly, captures only Codex's final message, validates the workflow-specific verdict profile, keeps JSONL/stderr/state evidence under `~/.pi/agent/cache/codex-review/`, and sends exactly one completion follow-up for notification-eligible terminal outcomes. Jobs are session-scoped: graceful shutdown reaps active process groups without a new turn, while next-start reconciliation classifies abrupt interruption. Non-Pi consumers continue to use `run-review.sh` with an explicit `generic-implementation` or `generic-plan` verdict profile; pair mode remains profile-less.
+
+For bounded review-stack installation, use `scripts/install-pi-transactionally.sh`. It snapshots complete `~/.pi` plus the five maintained shared-skill directories (`autoreview`, its `pre-pr-implementation-review` compatibility alias, and the three other review-stack skills), invokes `install.sh --pi-review-stack`, runs the non-mutating `scripts/verify-pi-install.sh --scope pi-review-stack --check-only` verifier, checks source parity and the installed fake-launcher host path, and restores the exact snapshot on structural failure. This mode intentionally skips Pi packages, pi-vcc checks, broad shared-skill synchronization, retired-runtime cleanup, and project-link enforcement.
+
 This repo also ships `simple-multi-status.ts`, a lightweight multi-line status widget that auto-loads on install and shows:
 
 - the active model,

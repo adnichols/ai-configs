@@ -1,0 +1,2 @@
+import assert from 'node:assert/strict';import test from 'node:test';import {redactSummary} from '../runtime.ts';
+test('notification summaries strip controls, redact secrets, and are bounded',()=>{const text='\u001b[31mAuthorization: Bearer abcdefghijklmnop\napi_key=secret-value\n'+ 'x'.repeat(7000);const got=redactSummary(text);assert.doesNotMatch(got,/abcdef|secret-value|\u001b/);assert.ok(got.length<=5100)});

@@ -31,6 +31,8 @@ Review for:
 - producer/consumer and round-trip parity (import vs export, encode vs decode)
 
 If you find issues, rank them by severity and cite files/lines when possible.
+
+End with exactly one final line: `VERDICT: FINDINGS_TO_RESOLVE`, `VERDICT: CLEAN_FOR_PR`, `VERDICT: BLOCKED_BY_QUESTION`, or `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED`.
 ```
 
 ## adversarial-implementation-review
@@ -71,6 +73,8 @@ Review adversarially for:
 - evidence that the fix addresses the root cause rather than one symptom
 
 Stay read-only and scope-bound. Do not propose unrelated cleanup or product expansion. Rank findings by severity and cite files/lines when possible.
+
+End with exactly one final line from the generic implementation vocabulary above.
 ```
 
 ## plan-review
@@ -97,6 +101,8 @@ Review for:
 - rollback or migration issues
 
 Return concrete objections and suggested corrections.
+
+End with exactly one final line: `VERDICT: PLAN_EXECUTION_READY`, `VERDICT: PLAN_NEEDS_REVISION`, `VERDICT: BLOCKED_BY_QUESTION`, or `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED`.
 ```
 
 ## pair

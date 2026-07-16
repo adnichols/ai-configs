@@ -1,0 +1,15 @@
+Four remaining blockers:
+
+1. **P1 — IN_PLAN — nested `~/.pi` symlinks escape the transactional boundary.**  
+   [install.sh](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/install.sh:2171) rejects only a symlinked `~/.pi`, then follows symlinked descendants such as `~/.pi/agent` or `extensions` while deleting and copying files. [install-pi-transactionally.sh](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/scripts/install-pi-transactionally.sh:29) snapshots the symlink itself, not its external target, so rollback cannot restore externally deleted or overwritten data. Tests cover symlinked `~/.pi` and `.agents` parents but not symlinks inside the managed `.pi` tree.
+
+2. **P2 — IN_PLAN — failed cleanup is discarded and terminal evidence can claim completion while descendants survive.**  
+   [runtime.ts](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/_pi/extensions/codex-review/runtime.ts:296) and [runtime.ts](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/_pi/extensions/codex-review/runtime.ts:392) ignore `terminateVerified()` returning false, then remove identity evidence and deliver a terminal result. The test at [runtime.test.mjs](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/_pi/extensions/codex-review/tests/runtime.test.mjs:21) explicitly proves descendants remain alive after terminal completion when identity evidence mismatches. Timeout guidance also unconditionally claims TERM-to-KILL cleanup succeeded.
+
+3. **P2 — IN_PLAN — retention can delete exactly-once evidence before delivery is confirmed.**  
+   [runtime.ts](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/_pi/extensions/codex-review/runtime.ts:319) prunes immediately after initiating delivery, while confirmation occurs later through `message_start`. [runtime.ts](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/_pi/extensions/codex-review/runtime.ts:400) removes terminal jobs regardless of `pending` or `delivering` state. Crossing the 100-job/7-day boundary can therefore delete the durable state before the Pi session row is confirmed, permitting a lost completion after a crash. The 75-job stress test never exercises this boundary.
+
+4. **P2 — IN_PLAN — launcher protocol validation remains incomplete.**  
+   [runtime.ts](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/_pi/extensions/codex-review/runtime.ts:169) does not require the wrapper’s outer exit code to match its reported Codex exit or canonical wrapper exit mapping. It also omits the `CODEX_REVIEW_OUTPUT_COMMIT_FAILED` status emitted by [run-review.sh](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/skills/codex-review-partner/scripts/run-review.sh:317). Consequently, contradictory status/exit combinations can be accepted, while a legitimate canonical output-commit failure is mislabeled as a protocol defect and receives incorrect remediation guidance.
+
+VERDICT: FINDINGS_TO_RESOLVE

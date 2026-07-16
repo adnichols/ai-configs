@@ -7,7 +7,11 @@ description: Use Codex as a second-pass reviewer, adversarial PR-feedback follow
 
 Use Codex as an explicit second pass before you finalize technical work.
 
-When the caller is already Codex, prefer a Codex subagent/native review task when available so the review is independent but still uses the Codex runtime. Use the subprocess wrapper only when the subagent facility is unavailable or when another runtime, such as Pi, must invoke the Codex review leg.
+When the caller is already Codex, prefer a Codex subagent/native review task when available.
+
+In Pi, required Codex review legs must use the managed `codex_review` tool.
+
+Other runtimes may use the wrapper when no managed or native review facility exists.
 
 ## Core rule
 
@@ -32,15 +36,30 @@ Minimum:
 
 1. Create a concise input file with the exact context Codex needs.
 2. In Codex, launch a Codex subagent/native review task when available; otherwise run `scripts/run-review.sh --help` once if you need the subprocess interface.
-3. Invoke the wrapper in the matching mode when running from Pi or when a Codex subprocess fallback is needed.
+3. In Pi, invoke `codex_review` with the workflow-specific verdict profile.
+   In other runtimes, invoke the wrapper in the matching mode when a subprocess fallback is needed.
 4. Review the output critically. Codex is a reviewer, not an oracle.
 5. Verify important claims against the repo, tests, and runtime evidence.
 
-## Wrapper usage
+## Pi managed usage
+
+```text
+codex_review({
+  action: "start",
+  reviewType: "implementation-review",
+  verdictProfile: "generic-implementation",
+  promptFile: "/tmp/review-input.md",
+  output: "/tmp/codex-review.md",
+  cwd: "/path/to/repo"
+})
+```
+
+## Non-Pi / fallback wrapper usage
 
 ```bash
 ~/.agents/skills/codex-review-partner/scripts/run-review.sh \
   --mode implementation-review \
+  --verdict-profile generic-implementation \
   --input /tmp/review-input.md \
   --cwd /path/to/repo
 ```
@@ -50,12 +69,15 @@ Optional output capture:
 ```bash
 ~/.agents/skills/codex-review-partner/scripts/run-review.sh \
   --mode plan-review \
+  --verdict-profile generic-plan \
   --input /tmp/plan.md \
   --cwd /path/to/repo \
   --output /tmp/codex-plan-review.md
 ```
 
-The wrapper resolves `${SHELL:-/bin/zsh}` and invokes `codex` through a non-interactive POSIX-style login shell (`sh`, `bash`, `zsh`, `ksh`, or `dash`). This reloads the current user CLI/auth context instead of reusing a stale long-lived harness process environment; unsupported shells fail clearly.
+Review modes require an explicit compatible `--verdict-profile`; legacy profile-less calls fail before launch with migration syntax. `generic-implementation` accepts `FINDINGS_TO_RESOLVE`, `CLEAN_FOR_PR`, `BLOCKED_BY_QUESTION`, and `REVIEW_INCOMPLETE_RERUN_NEEDED`. `generic-plan` accepts `PLAN_EXECUTION_READY`, `PLAN_NEEDS_REVISION`, `BLOCKED_BY_QUESTION`, and `REVIEW_INCOMPLETE_RERUN_NEEDED`. The exact final non-empty line must be `VERDICT: <TOKEN>`. Pair mode remains profile-less and non-gating.
+
+The wrapper resolves `${SHELL:-/bin/zsh}`, invokes `codex exec --json --output-last-message` through a supported login shell, and keeps progress JSONL separate from the final artifact. Its process-group watchdog is elapsed-time based, never output-silence based.
 
 ## Direct CLI pattern
 
