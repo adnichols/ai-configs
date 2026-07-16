@@ -49,10 +49,20 @@ test("shared Pi-capable review workflows describe the deterministic tool", async
   for (const file of [
     "skills/reviewed-html-plan/SKILL.md",
     "skills/run-plan/SKILL.md",
-    "skills/pre-pr-implementation-review/SKILL.md",
+    "skills/autoreview/SKILL.md",
   ]) {
     const source = await text(file);
     assert.match(source, /claude_review\(\{/, `${file} must show the Pi tool route`);
     assert.doesNotMatch(source, /Opus 4\.7|claude-opus-4-7/, `${file} must leave model ownership to the launcher`);
   }
+});
+
+test("pre-pr implementation review remains a thin autoreview alias", async () => {
+  const source = await text("skills/pre-pr-implementation-review/SKILL.md");
+  assert.match(source, /indefinite compatibility alias/i);
+  assert.match(source, /\/skill:autoreview <same arguments, unchanged>/);
+  assert.match(source, /OPEN_PR_READY/);
+  assert.doesNotMatch(source, /claude_review\(\{/);
+  assert.doesNotMatch(source, /Severity:\s*P1/);
+  assert.doesNotMatch(source, /targeted rereview/);
 });

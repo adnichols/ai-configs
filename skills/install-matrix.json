@@ -419,6 +419,16 @@
       "notes": "Existing canonical skill retained.",
       "sourceType": "repo"
     },
+    "autoreview": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [
+        "codex",
+        "pi"
+      ],
+      "canonicalSource": "skills/autoreview",
+      "notes": "Canonical Pi/Codex bounded pre-PR implementation review policy: Codex plus applicable canonical Claude Code review, concrete behavioral evidence, constrained fixes, release freeze discipline, and OPEN_PR_READY handoff.",
+      "sourceType": "repo"
+    },
     "pre-pr-implementation-review": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
@@ -426,7 +436,7 @@
         "pi"
       ],
       "canonicalSource": "skills/pre-pr-implementation-review",
-      "notes": "Pi/Codex: runs bounded pre-PR implementation review loops with a Codex review leg plus applicable canonical Claude Code review when the high-risk second-reviewer trigger applies; Pi invokes Codex as a subprocess.",
+      "notes": "Indefinite compatibility alias for autoreview; installed for Pi and Codex so existing prompts and automation continue to preserve arguments and OPEN_PR_READY semantics without duplicating policy.",
       "sourceType": "repo"
     },
     "repo-agents-bootstrap": {

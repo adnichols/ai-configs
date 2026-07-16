@@ -59,7 +59,7 @@ Stop before implementation if:
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
-- a required runtime-native review gate is unavailable and the user has not waived it. This means Codex review infrastructure, `claude-code-review` when the high-risk second-reviewer trigger or explicit override applies, and the `pre-pr-implementation-review` skill.
+- a required runtime-native review gate is unavailable and the user has not waived it. This means Codex review infrastructure, `claude-code-review` when the high-risk second-reviewer trigger or explicit override applies, and the `autoreview` skill.
 
 ## Scope Classification
 
@@ -267,7 +267,7 @@ The PM gate is clean only when the implemented outcome satisfies the plan by sub
 
 After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the Codex and applicable Claude Code pre-PR gate before final PR preparation.
 
-Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native scoped Codex and applicable Claude Code reviews already ran after the last code change, used the current base/comparison range, covered the current changed files, and have no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. If Claude Code is skipped because the current PR is docs-only, low-risk UI copy, low-risk tests, or a narrow follow-up, record the low-risk classification and any override decision. Run `$pre-pr-implementation-review <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff.
+Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native scoped Codex and applicable Claude Code reviews already ran after the last code change, used the current base/comparison range, covered the current changed files, and have no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. If Claude Code is skipped because the current PR is docs-only, low-risk UI copy, low-risk tests, or a narrow follow-up, record the low-risk classification and any override decision. Run `$autoreview <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff. Follow the canonical autoreview policy, including its pre-review scope baseline, concrete blocker evidence, smallest-fix ownership boundary, behavioral-verification separation, dependency evidence, known-blocker overflow, and release freeze discipline; do not duplicate or weaken those rules here.
 
 When the standalone pre-PR gate is required, it must use:
 

@@ -22,9 +22,9 @@
       "sha256": "36c43b67c35fbd53550c8547e9b1f70efc195499ccca6568576f3b413c3aad6a"
     },
     {
-      "bytes": 18557,
+      "bytes": 18521,
       "path": "cron/jobs.json",
-      "sha256": "0f17634d04c9ea365a75b0a541e560a4f11a5b02a520d766ae68ae69ddc6cdbb"
+      "sha256": "a07eee72a59ee324f753e4d3816aa6daa6936f7178e871956a94607607dee75b"
     },
     {
       "bytes": 508,
@@ -8392,9 +8392,9 @@
       "sha256": "8f1217470e16777808a031b5a15d855fee39afbc6a8cb81fc66ce4de9042eb77"
     },
     {
-      "bytes": 38382,
+      "bytes": 38644,
       "path": "skills/software-development/run-plan/SKILL.md",
-      "sha256": "fc243503e2d4a87b31b32ee0a08a7d5751d7156c4ac0bdd1637e714f5dd2e3ef"
+      "sha256": "1b5b95b3d4a9cd7b05c47a106b239bf03c8913482f957e638e81ff9698c14001"
     },
     {
       "bytes": 10926,

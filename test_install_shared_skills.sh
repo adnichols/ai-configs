@@ -1223,7 +1223,7 @@ for prompt in sorted(pi_prompts - set(pi_delegated) - codex_specific_prompts):
         raise SystemExit(f"Shared non-delegated prompt drifted: {prompt}")
 
 for skill in [
-    'pre-pr-implementation-review',
+    'autoreview',
     'reviewed-html-plan',
     'run-plan',
 ]:
@@ -1254,6 +1254,11 @@ test_phase_four_validation_proves_final_alignment() {
   [[ ! -e "$home/.agents/skills/plan-reviewer-execution-ready" ]] || return 1
   [[ ! -e "$home/.agents/skills/plan-reviewer-build" ]] || return 1
   [[ -f "$home/.agents/skills/run-plan/SKILL.md" ]] || return 1
+  [[ -f "$home/.agents/skills/autoreview/SKILL.md" ]] || return 1
+  [[ -f "$home/.agents/skills/pre-pr-implementation-review/SKILL.md" ]] || return 1
+  assert_file_contains "$home/.agents/skills/autoreview/SKILL.md" 'name: autoreview' || return 1
+  assert_file_contains "$home/.agents/skills/pre-pr-implementation-review/SKILL.md" 'indefinite compatibility alias' || return 1
+  assert_file_contains "$home/.agents/skills/pre-pr-implementation-review/SKILL.md" '/skill:autoreview <same arguments, unchanged>' || return 1
   [[ ! -e "$home/.agents/skills/scoped""-plan-run" ]] || return 1
   [[ ! -e "$home/.agents/skills/algorithmic-art" ]] || return 1
   [[ ! -e "$home/.agents/skills/brave-cdp" ]] || return 1
@@ -1302,9 +1307,45 @@ test_review_guidance_is_bounded_and_scope_safe() {
 
   assert_file_contains "skills/planning-workflow/SKILL.md" 'Plan complete promised slices, not skeletons.' || return 1
   assert_file_contains "skills/run-plan/SKILL.md" 'Complete the promised slice before merge' || return 1
-  assert_file_contains "skills/pre-pr-implementation-review/SKILL.md" 'do not fix optional polish merely because it is cheap' || return 1
-  assert_file_contains "skills/pre-pr-implementation-review/SKILL.md" 'run one targeted rereview' || return 1
-  assert_file_not_contains "skills/pre-pr-implementation-review/SKILL.md" 'rereview until clean' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'do not fix optional polish merely because it is cheap' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'run one targeted rereview' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'three total review cycles' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'pre-review scope baseline' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'triggering input' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'reachable path' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'observable impact' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'diff relationship' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'existing ownership boundary' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'stop-before protocol' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'protocol, configuration surface, storage format, migration, public API or contract, release process, ownership move, or unrelated refactor' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'all known in-scope P1/P2 failure families in the initial pass' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'overflow count' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'five detailed findings' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'clean source review does not replace required behavioral verification' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'authoritative documentation' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'Release freeze discipline' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'beta/stable promotion, hotfix, backport, signing, packaging, deployment, or release-infrastructure work' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'valid, schema-conformant input' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'shared primitive' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'speculative future scale' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'OUT_OF_SCOPE_FOLLOW_UP' || return 1
+  assert_file_not_contains "skills/autoreview/SKILL.md" 'rereview until clean' || return 1
+  assert_file_not_contains "skills/autoreview/SKILL.md" 'fix every finding' || return 1
+  assert_file_contains "skills/pre-pr-implementation-review/SKILL.md" 'indefinite compatibility alias' || return 1
+  assert_file_contains "skills/pre-pr-implementation-review/SKILL.md" '/skill:autoreview <same arguments, unchanged>' || return 1
+  assert_file_contains "skills/pre-pr-implementation-review/SKILL.md" 'OPEN_PR_READY' || return 1
+  assert_file_not_contains "skills/pre-pr-implementation-review/SKILL.md" 'claude_review({' || return 1
+  assert_file_not_contains "skills/pre-pr-implementation-review/SKILL.md" 'Severity: P1' || return 1
+  assert_file_contains "skills/install-matrix.json" '"autoreview"' || return 1
+  assert_file_contains "skills/install-matrix.json" 'Indefinite compatibility alias for autoreview' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" '$autoreview <plan path>' || return 1
+  assert_file_not_contains "skills/run-plan/SKILL.md" 'pre-pr-implementation-review' || return 1
+  assert_file_contains "_hermes/default/skills/software-development/run-plan/SKILL.md" '$autoreview <plan path>' || return 1
+  assert_file_not_contains "_hermes/default/skills/software-development/run-plan/SKILL.md" 'pre-pr-implementation-review' || return 1
+  assert_file_contains "_hermes/default/cron/jobs.json" '/skill:autoreview' || return 1
+  assert_file_not_contains "_hermes/default/cron/jobs.json" '/skill:pre-pr-implementation-review' || return 1
+  assert_file_contains "AGENTS.md" '/skill:autoreview thoughts/plans/<plan>.html' || return 1
+  assert_file_contains "_pi/README.md" '/skill:autoreview thoughts/plans/my-plan.html' || return 1
   assert_file_contains "skills/run-plan/SKILL.md" 'Run a third total review cycle only when' || return 1
   assert_file_not_contains "skills/run-plan/SKILL.md" 'Repeat Review Loop' || return 1
   assert_file_not_contains "AGENTS.md" 'keep the review/fix loop running until' || return 1
@@ -1322,6 +1363,10 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "$hermes_run_plan" 'do not add implementation or tests solely to prove a speculative or unsupported scenario is out of scope' || return 1
   assert_file_not_contains "$hermes_run_plan" 'Repeat Review Loop' || return 1
   assert_file_not_contains "$hermes_run_plan" 'cheap and safe enough to fix immediately' || return 1
+}
+
+test_hermes_config_sync_preserves_cron_runtime_state() {
+  python3 -m unittest scripts/test_hermes_config_sync.py
 }
 
 main() {
@@ -1349,6 +1394,7 @@ main() {
   run_test test_codex_pi_skill_and_prompt_parity
   run_test test_phase_four_validation_proves_final_alignment
   run_test test_review_guidance_is_bounded_and_scope_safe
+  run_test test_hermes_config_sync_preserves_cron_runtime_state
 
   printf '\nTests run: %s\n' "$TESTS_RUN"
   printf 'Passed: %s\n' "$TESTS_PASSED"

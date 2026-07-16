@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autoreview Behavioral Review Policy Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #121a2d;
+      --panel-2: #18233a;
+      --text: #edf2ff;
+      --muted: #aebbd4;
+      --accent: #72d4ff;
+      --accent-2: #9ef0c5;
+      --warning: #ffd479;
+      --border: #2c3b5b;
+      --code: #0a0f1b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 40px 0 72px; }
+    header, section, article { scroll-margin-top: 24px; }
+    header { padding: 30px; background: linear-gradient(135deg, #172442, #111a2e); border: 1px solid var(--border); border-radius: 18px; }
+    section { margin-top: 26px; padding: 26px; background: var(--panel); border: 1px solid var(--border); border-radius: 15px; }
+    article.phase, article.scenario { margin-top: 18px; padding: 20px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; }
+    h1, h2, h3, h4 { line-height: 1.25; margin-top: 0; }
+    h1 { font-size: clamp(2rem, 5vw, 3.2rem); margin-bottom: 10px; }
+    h2 { color: var(--accent); }
+    h3 { color: var(--accent-2); }
+    p, li, td, th { max-width: 95ch; }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { background: var(--code); padding: 0.12rem 0.35rem; border-radius: 5px; }
+    pre { overflow-x: auto; padding: 16px; background: var(--code); border: 1px solid var(--border); border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    th, td { padding: 12px; border: 1px solid var(--border); vertical-align: top; text-align: left; }
+    th { background: #1b2945; }
+    .status { display: inline-block; padding: 5px 10px; border: 1px solid var(--warning); border-radius: 999px; color: var(--warning); font-weight: 700; }
+    .summary { color: var(--muted); font-size: 1.08rem; }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 9px 22px; padding-left: 20px; }
+    .callout { padding: 16px 18px; border-left: 4px solid var(--accent); background: #101b31; border-radius: 8px; }
+    .warning { border-left-color: var(--warning); }
+    .muted { color: var(--muted); }
+    .progress { list-style: none; padding-left: 0; }
+    .progress li { margin: 9px 0; }
+    input[type="checkbox"] { margin-right: 8px; accent-color: var(--accent); }
+    @media (max-width: 700px) {
+      main { width: min(100% - 22px, 1180px); padding-top: 18px; }
+      header, section { padding: 19px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header id="title">
+    <p class="status">Implementation and local review complete · PR delivery pending</p>
+    <h1>Autoreview Behavioral Review Policy</h1>
+    <p class="summary">Rename the bounded pre-PR review gate to <code>autoreview</code>, preserve the existing review mechanics and compatibility path, and strengthen finding quality while further constraining scope.</p>
+    <p><strong>UI impact:</strong> text-only. This changes agent-facing skill names, policy prose, maintained prompts, installation metadata, and documentation. It does not change a runtime application UI or add new review execution machinery.</p>
+  </header>
+
+  <section id="table-of-contents">
+    <h2>Table of contents</h2>
+    <ul class="toc">
+      <li><a href="#product-owner-context">Product-owner context</a></li>
+      <li><a href="#goal">Goal</a></li>
+      <li><a href="#decision-attention">Decision Attention</a></li>
+      <li><a href="#why-now">Why this plan exists</a></li>
+      <li><a href="#authority">Authority and inputs</a></li>
+      <li><a href="#current-reality">Current implementation reality</a></li>
+      <li><a href="#progress">Progress</a></li>
+      <li><a href="#resume">Resume instructions</a></li>
+      <li><a href="#product-intent">Product intent alignment</a></li>
+      <li><a href="#locked-decisions">Locked decisions</a></li>
+      <li><a href="#acceptance-criteria">Acceptance criteria</a></li>
+      <li><a href="#bdd-scenarios">BDD scenarios</a></li>
+      <li><a href="#coverage-matrix">Test coverage matrix</a></li>
+      <li><a href="#phase-p1">P1 · Canonical policy</a></li>
+      <li><a href="#phase-p2">P2 · Migration and compatibility</a></li>
+      <li><a href="#phase-p3">P3 · Sync and verification</a></li>
+      <li><a href="#verification-strategy">Verification strategy</a></li>
+      <li><a href="#delivery-order">Delivery order</a></li>
+      <li><a href="#non-goals">Non-goals</a></li>
+      <li><a href="#review-record">Review record</a></li>
+      <li><a href="#decisions-log">Decisions / Deviations log</a></li>
+    </ul>
+  </section>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <p><strong>Situation.</strong> The existing <code>pre-pr-implementation-review</code> skill reliably coordinates bounded Codex and applicable Claude Code review before a pull request. Its mechanics are working, but its behavioral contract can more explicitly require concrete evidence, complete first-pass reporting, verification of dependency assumptions, and stronger protection against review-triggered scope expansion.</p>
+    <p><strong>Why now.</strong> The desired review standard is clear: require a concrete failure path, freeze review scope before reviewing, constrain the shape of fixes, report known blockers in one pass, distinguish source review from behavioral proof, verify dependency contracts, and apply release freeze discipline. The user also prefers the shorter <code>autoreview</code> name.</p>
+    <p><strong>Key conclusion.</strong> This is an agent-workflow and documentation improvement, not a customer runtime defect. The repository should keep its existing review mechanics, adopt <code>autoreview</code> as the canonical public skill, retain the old name as a compatibility alias, and integrate only the bounded behavioral rules.</p>
+    <table>
+      <thead><tr><th>Impact dimension</th><th>Expected impact</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>No direct customer-facing change.</td></tr>
+        <tr><td>Runtime product behavior</td><td>No application runtime change. Agent review behavior becomes more evidence-driven and more tightly scope-bounded.</td></tr>
+        <tr><td>Security / permissions</td><td>No permission or transport change. Concrete current-path security findings remain reviewable; speculative hardening remains out of scope.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Higher confidence through explicit evidence requirements, one-pass blocker completeness, behavioral verification separation, and release freeze rules.</td></tr>
+        <tr><td>Deployment / migration</td><td>Shared skills and managed Hermes configuration must be synchronized. The old skill name remains functional, so there is no breaking command migration.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Make <code>/skill:autoreview</code> the obvious, canonical entry point for the current bounded pre-PR implementation review workflow, improve its review-quality instructions without broadening scope, migrate maintained callers and documentation, and preserve <code>/skill:pre-pr-implementation-review</code> as an indefinite compatibility alias.</p>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence areas</h2>
+    <div class="callout">
+      <strong>No product decision required.</strong> The user selected a behavioral-policy improvement without changing review mechanics and expressed a preference for the <code>autoreview</code> name. Compatibility, artifact paths, reviewer transports, and scope rules are locked below. Doct review may refine wording but should not expand implementation scope.
+    </div>
+  </section>
+
+  <section id="why-now">
+    <h2>Why this plan exists</h2>
+    <p>The current gate already bounds review cycles and prevents optional polish from becoming required work. The useful opportunity is not another reviewer engine; it is a better reviewer contract. The change must improve discovery of concrete in-scope defects while reducing plausible-sounding findings, serial one-finding-per-cycle review, contract assumptions, and release-closeout scope expansion.</p>
+  </section>
+
+  <section id="authority">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>The user's July 15, 2026 direction: retain existing mechanics, take only useful behavioral additions, and preserve or strengthen scope bounding.</li>
+      <li><code>skills/pre-pr-implementation-review/SKILL.md</code> as the current policy source.</li>
+      <li><code>skills/run-plan/SKILL.md</code> and the managed Hermes run-plan copy as current callers.</li>
+      <li><code>AGENTS.md</code>, <code>_pi/README.md</code>, <code>skills/install-matrix.json</code>, installation tests, and Claude transport policy tests as maintained discovery and compatibility surfaces.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li>The complete policy lives in <code>skills/pre-pr-implementation-review/SKILL.md</code>; no <code>skills/autoreview</code> skill exists.</li>
+      <li>The gate already has strong P1/P2/P3 semantics, plan-scope labels, shared-primitive and valid-input protections, bounded reviewers, a targeted rereview, a conditional third cycle, durable artifacts, and <code>OPEN_PR_READY</code> handoff.</li>
+      <li><code>run-plan</code>, AGENTS guidance, Pi documentation, install inventory, tests, Hermes run-plan, and one managed Hermes cron prompt name the old skill directly.</li>
+      <li>The Claude source-policy test currently validates the old skill as the full canonical workflow. That assertion must move to <code>autoreview</code>; the alias should be tested as a redirect.</li>
+      <li>Historical plans and handoffs contain the old name as historical evidence. They are not maintained callers and should not be rewritten.</li>
+      <li>The existing artifact directory <code>thoughts/validation/pre-pr-reviews/</code> is operational history and should remain unchanged.</li>
+    </ul>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="progress">
+      <li><label><input type="checkbox" checked disabled> <strong>P1</strong> — Establish <code>autoreview</code> as the canonical bounded review policy and add the selected behavioral constraints.</label></li>
+      <li><label><input type="checkbox" checked disabled> <strong>P2</strong> — Add the compatibility alias and migrate maintained callers, docs, install metadata, Hermes source, and policy tests.</label></li>
+      <li><label><input type="checkbox" disabled> <strong>P3</strong> — Synchronize installed skill/Hermes state and prove naming, transport, review scope, and compatibility invariants.</label></li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions (agent)</h2>
+    <p>Read this plan fully, then begin at the first unchecked item in <a href="#progress">Progress</a>. Work directly on <code>main</code> unless the user explicitly authorizes a branch or PR workflow. After completing each phase, immediately mark its one matching progress item complete in this file and verify the checkbox persisted. Do not add new review execution machinery or broaden the review policy beyond the locked behavioral rules. Ask the user only if a genuinely new product decision is required.</p>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <p>The golden path becomes <code>/skill:autoreview [plan-or-base]</code>. Existing users, historical prompts, and automation invoking <code>/skill:pre-pr-implementation-review</code> continue to work without manual remediation. Ambiguous scope or product-contract changes fail closed with an agent-legible blocker. Routine review continues using the existing Codex and applicable canonical Claude Code mechanics.</p>
+    <p><strong>Dissonance resolved:</strong> maintained docs and callers will use the preferred short name, while the compatibility alias prevents documentation or automation drift from becoming an outage.</p>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li id="ld-1"><strong><code>autoreview</code> is canonical.</strong> The full policy moves to <code>skills/autoreview/SKILL.md</code> and advertises <code>/skill:autoreview</code>.</li>
+      <li id="ld-2"><strong>The old name remains an indefinite compatibility alias.</strong> <code>skills/pre-pr-implementation-review/SKILL.md</code> becomes a small redirect that forwards the same arguments and does not duplicate policy.</li>
+      <li id="ld-3"><strong>No new review execution machinery is added.</strong> Do not add a runner, secret scanner, engine/panel selection, diff chunking, isolation implementation, unrelated runtime dependencies, or new model defaults.</li>
+      <li id="ld-4"><strong>Existing review mechanics remain authoritative.</strong> Preserve Codex plus applicable canonical Claude Code routing, severity and scope labels, review-incomplete handling, bounded cycles, artifacts, verification, PM review separation, and <code>OPEN_PR_READY</code>.</li>
+      <li id="ld-5"><strong>Scope becomes more constrained.</strong> A blocker needs a concrete trigger, reachable path, observable impact, and diff relationship. Fixes stay in the existing ownership boundary and cannot silently introduce protocols, config, storage, migrations, public contracts, release-process changes, ownership moves, or unrelated refactors.</li>
+      <li id="ld-6"><strong>One-pass completeness applies to known blockers.</strong> Reviewers report all known in-scope P1/P2 families in the initial pass. The five-finding cap remains; overflow is summarized by count and failure family rather than withheld.</li>
+      <li id="ld-7"><strong>Source review does not replace behavioral proof.</strong> User-visible surfaces still require plan-required or smallest-appropriate runtime verification.</li>
+      <li id="ld-8"><strong>Dependency contracts require authoritative evidence.</strong> Findings that depend on framework, library, CLI, protocol, or platform behavior must cite docs, types, source, or equivalent authoritative evidence before acceptance.</li>
+      <li id="ld-9"><strong>Release freeze discipline is canonical in autoreview.</strong> Callers reference it rather than duplicating a second policy.</li>
+      <li id="ld-10"><strong>Historical artifacts remain unchanged.</strong> Do not rewrite old plans, handoffs, or validation notes. Preserve <code>thoughts/validation/pre-pr-reviews/</code>.</li>
+      <li id="ld-11"><strong>Maintained Hermes configuration migrates.</strong> Update the managed run-plan and active cron prompt to the canonical name, then follow source-first sync and verification.</li>
+    </ol>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Criterion</th><th>Required evidence</th></tr></thead>
+      <tbody>
+        <tr id="ac-1"><td>AC1</td><td><code>skills/autoreview/SKILL.md</code> contains the complete existing review gate plus the seven selected behavioral additions.</td><td>Focused content assertions and semantic review of the canonical skill.</td></tr>
+        <tr id="ac-2"><td>AC2</td><td>The policy requires concrete trigger/path/impact/diff evidence and prevents speculative or unsupported findings from blocking.</td><td>Static assertions cover the evidence threshold and existing speculative-scope exclusions remain present.</td></tr>
+        <tr id="ac-3"><td>AC3</td><td>Scope baseline and fix-shape rules stop contract, ownership, architecture, migration, and release-process expansion unless the user explicitly changes scope.</td><td>Policy tests assert the stop boundary and reviewer prompt includes it.</td></tr>
+        <tr id="ac-4"><td>AC4</td><td>Reviewers disclose all known in-scope P1/P2 failure families in one pass while retaining the five detailed finding cap and bounded rereview budget.</td><td>Canonical prompt and bounded-review tests prove both completeness and convergence language.</td></tr>
+        <tr id="ac-5"><td>AC5</td><td>A clean source review remains distinct from required behavioral/runtime verification, and dependency-contract findings require authoritative evidence.</td><td>Canonical policy and prompt contain both rules.</td></tr>
+        <tr id="ac-6"><td>AC6</td><td>Release/hotfix/backport/signing/packaging/deployment review uses freeze discipline and does not promote non-blocking design work.</td><td>Canonical policy contains one release section; callers do not duplicate it.</td></tr>
+        <tr id="ac-7"><td>AC7</td><td><code>/skill:pre-pr-implementation-review</code> continues to work as a compatibility alias without maintaining a second policy copy.</td><td>Alias content and installation tests prove both skills install.</td></tr>
+        <tr id="ac-8"><td>AC8</td><td>Maintained Codex, Pi, and Hermes callers and user-facing docs prefer <code>autoreview</code>; remaining active old-name references are intentional compatibility declarations.</td><td>Repository-wide active-reference audit with historical artifacts excluded.</td></tr>
+        <tr id="ac-9"><td>AC9</td><td>Claude review transport ownership is unchanged and remains enforced against the canonical skill.</td><td><code>source-policy.test.mjs</code> passes with <code>skills/autoreview/SKILL.md</code> in the canonical list and alias redirect assertions.</td></tr>
+        <tr id="ac-10"><td>AC10</td><td>Shared installed skills and managed Hermes state match repository source after synchronization, and the verified source-of-truth change is delivered through the explicitly requested <code>run-plan</code> pull-request lifecycle.</td><td>Installer, diff checks, Pi verification, Hermes dry-run/apply/export/verify, JSON validation, fresh <code>origin/main</code> ancestry, clean worktree, PR creation, current feedback snapshot, and local merge-readiness consensus.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd-scenarios">
+    <h2>BDD scenarios</h2>
+    <article class="scenario" id="bdd-canonical-name">
+      <h3>BDD1 — Canonical command uses the preferred name</h3>
+      <p><strong>Given</strong> an agent needs a bounded pre-PR review, <strong>when</strong> it follows current AGENTS or Pi documentation, <strong>then</strong> it invokes <code>/skill:autoreview</code> and receives the existing Codex/applicable-Claude review workflow.</p>
+    </article>
+    <article class="scenario" id="bdd-compatibility-alias">
+      <h3>BDD2 — Existing automation remains compatible</h3>
+      <p><strong>Given</strong> a historical prompt invokes <code>/skill:pre-pr-implementation-review</code>, <strong>when</strong> the skill loads, <strong>then</strong> it forwards to the canonical autoreview policy with the same arguments and does not require the operator to repair the command.</p>
+    </article>
+    <article class="scenario" id="bdd-concrete-finding">
+      <h3>BDD3 — Concrete current-path defect blocks</h3>
+      <p><strong>Given</strong> a diff exposes a valid supported input to an incorrect path, <strong>when</strong> a reviewer can show the trigger, reachable path, observable impact, and relationship to the diff, <strong>then</strong> it reports the finding with existing severity and scope labels and the gate blocks when required.</p>
+    </article>
+    <article class="scenario" id="bdd-speculative-finding">
+      <h3>BDD4 — Speculative hardening does not widen scope</h3>
+      <p><strong>Given</strong> a reviewer imagines unsupported future scale or an unrelated architecture improvement, <strong>when</strong> it cannot demonstrate a current accepted behavior failure, <strong>then</strong> it omits the finding or records a non-blocking evidenced follow-up rather than changing code or tests.</p>
+    </article>
+    <article class="scenario" id="bdd-fix-shape">
+      <h3>BDD5 — Review fix would change the contract</h3>
+      <p><strong>Given</strong> an accepted finding appears to require a new protocol, config surface, migration, public API, ownership move, or release-process change, <strong>when</strong> the coordinator classifies the fix, <strong>then</strong> it stops with an actionable scope/product-decision blocker instead of implementing the broader design.</p>
+    </article>
+    <article class="scenario" id="bdd-one-pass">
+      <h3>BDD6 — Reviewer knows more than five blockers</h3>
+      <p><strong>Given</strong> a reviewer identifies more than five in-scope P1/P2 findings, <strong>when</strong> it returns the initial review, <strong>then</strong> it details the five highest-impact findings and reports the count and failure families of the remaining known blockers rather than releasing them one per later cycle.</p>
+    </article>
+    <article class="scenario" id="bdd-behavior-proof">
+      <h3>BDD7 — Clean source review does not bypass verification</h3>
+      <p><strong>Given</strong> source review is clean for a UI, CLI, HTTP, MCP, or generated-artifact change, <strong>when</strong> the plan requires behavioral proof, <strong>then</strong> autoreview records the clean review but the caller still runs the required runtime verification before completion.</p>
+    </article>
+    <article class="scenario" id="bdd-dependency-contract">
+      <h3>BDD8 — Dependency behavior is uncertain</h3>
+      <p><strong>Given</strong> a finding depends on third-party behavior, <strong>when</strong> the reviewer or coordinator cannot validate it from authoritative docs, types, or source, <strong>then</strong> the claim is not accepted as a blocking finding.</p>
+    </article>
+    <article class="scenario" id="bdd-release-freeze">
+      <h3>BDD9 — Release closeout finds non-blocking design debt</h3>
+      <p><strong>Given</strong> a release or hotfix review discovers a maintainability or broader hardening concern, <strong>when</strong> the current release is not unsafe without it, <strong>then</strong> the concern remains outside the release change and is not used to widen the branch.</p>
+    </article>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>Test coverage matrix</h2>
+    <table>
+      <thead><tr><th>Acceptance / scenarios</th><th>Test layer</th><th>Intended suites or files</th><th>Verification</th></tr></thead>
+      <tbody>
+        <tr><td>AC1–AC6; BDD3–BDD9</td><td>Static behavioral policy contract</td><td><code>test_install_shared_skills.sh</code></td><td>Assertions for canonical content, banned scope-expanding phrases, five-finding overflow, verification distinction, dependency evidence, and release freeze.</td></tr>
+        <tr><td>AC7–AC8; BDD1–BDD2</td><td>Install and maintained-reference compatibility</td><td><code>skills/install-matrix.json</code>, <code>test_install_shared_skills.sh</code></td><td>Install both skill directories; audit maintained references; exclude historical <code>thoughts/</code>.</td></tr>
+        <tr><td>AC9</td><td>Claude transport source policy</td><td><code>_pi/extensions/claude-review/tests/source-policy.test.mjs</code></td><td><code>node --test _pi/extensions/claude-review/tests/source-policy.test.mjs</code></td></tr>
+        <tr><td>AC10</td><td>Runtime/config synchronization</td><td><code>install.sh</code>, <code>scripts/verify-pi-install.sh</code>, <code>scripts/hermes_config_sync.py</code></td><td>Install, source/installed diff, Pi verify, Hermes dry-run/apply/export/verify, JSON parse, and <code>git diff --check</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="phase-p1">
+    <h2>P1 — Canonical autoreview policy</h2>
+    <article class="phase">
+      <h3>End State</h3>
+      <p><code>skills/autoreview/SKILL.md</code> is the complete canonical review workflow. It retains every existing mechanic and adds the bounded behavioral quality rules without introducing new reviewer engines or broader fix authority.</p>
+
+      <h3>Tests first</h3>
+      <p>Update the review-guidance contract in <code>test_install_shared_skills.sh</code> so it targets <code>skills/autoreview/SKILL.md</code> and initially fails until the canonical skill contains:</p>
+      <ul>
+        <li>trigger, reachable path, observable impact, and diff-relationship evidence;</li>
+        <li>scope baseline and same-owner-boundary fix rules;</li>
+        <li>explicit stop conditions for contract/protocol/config/storage/migration/release-process expansion;</li>
+        <li>all-known-blocker one-pass behavior with five detailed findings plus overflow families;</li>
+        <li>source-review versus behavioral-verification separation;</li>
+        <li>authoritative dependency-contract verification;</li>
+        <li>release freeze discipline;</li>
+        <li>the existing targeted rereview and three-cycle ceiling.</li>
+      </ul>
+      <p>Strict runtime TDD is not applicable because the deliverable is declarative skill policy. Static contract tests plus an implementation review are the compensating proof.</p>
+
+      <h3>Expected files</h3>
+      <ul>
+        <li><code>skills/autoreview/SKILL.md</code> — new canonical skill.</li>
+        <li><code>test_install_shared_skills.sh</code> — canonical behavioral assertions.</li>
+      </ul>
+
+      <h3>Work</h3>
+      <ol>
+        <li>Copy the current full policy into the new canonical skill, rename its frontmatter and public usage examples to <code>autoreview</code>, and preserve runtime-specific Codex/Pi/Claude mechanics verbatim unless a naming reference must change.</li>
+        <li>Add a pre-review scope baseline covering task/plan, intended behavior, supported paths, non-goals, owner boundaries, product surfaces, and initial changed files.</li>
+        <li>Add the concrete-failure evidence threshold to severity/scope rules and the reviewer prompt. A blocker must show trigger/state, reachable path, observable impact, and why the diff introduces or exposes it.</li>
+        <li>Add the fix-shape governor: prefer the smallest correct fix at the existing ownership boundary; stop for product/scope input before any new protocol, config, storage, migration, public API, release process, ownership move, or unrelated refactor.</li>
+        <li>Require all known in-scope P1/P2 failure families in the first pass. Keep five detailed findings; require overflow count and family summary.</li>
+        <li>State that clean source review cannot substitute for plan-required behavioral verification of UI, CLI, HTTP, MCP, generated artifacts, or other operator-visible surfaces.</li>
+        <li>Require authoritative docs/types/source before accepting findings that depend on dependency or platform behavior.</li>
+        <li>Add release freeze discipline covering release, beta/stable, hotfix, backport, signing, packaging, deployment, and release-infrastructure work. Keep non-blocking design/hardening outside the release lane.</li>
+        <li>Preserve existing valid-input/shared-primitive scope protections so the stronger governor cannot hide a concrete current-path regression.</li>
+      </ol>
+
+      <h3>Open questions / decision dependencies</h3>
+      <p>None.</p>
+
+      <h3>Verify</h3>
+      <pre><code>rg -n "triggering input|reachable path|observable impact|scope baseline|ownership boundary|known blockers|behavioral verification|authoritative|release freeze|targeted rereview|three total review cycles" skills/autoreview/SKILL.md
+rg -n "speculative future scale|optional polish|OUT_OF_SCOPE_FOLLOW_UP|valid, schema-conformant input|shared primitive" skills/autoreview/SKILL.md
+bash test_install_shared_skills.sh</code></pre>
+    </article>
+  </section>
+
+  <section id="phase-p2">
+    <h2>P2 — Compatibility alias and maintained-surface migration</h2>
+    <article class="phase">
+      <h3>End State</h3>
+      <p>The old command remains functional as a thin redirect, while all maintained discovery surfaces and active managed callers prefer <code>autoreview</code>. Historical evidence remains untouched.</p>
+
+      <h3>Tests first</h3>
+      <p>Extend install and source-policy tests before migration so they fail until:</p>
+      <ul>
+        <li>both <code>autoreview</code> and <code>pre-pr-implementation-review</code> install for Codex and Pi;</li>
+        <li>the canonical skill carries Claude transport guidance;</li>
+        <li>the alias names <code>autoreview</code> and contains no duplicated full policy;</li>
+        <li>maintained callers use the canonical name;</li>
+        <li>only explicit compatibility declarations retain the old name outside historical <code>thoughts/</code>.</li>
+      </ul>
+
+      <h3>Expected files</h3>
+      <ul>
+        <li><code>skills/pre-pr-implementation-review/SKILL.md</code> — compatibility redirect.</li>
+        <li><code>skills/install-matrix.json</code> — canonical and alias entries.</li>
+        <li><code>skills/run-plan/SKILL.md</code> — canonical gate naming.</li>
+        <li><code>AGENTS.md</code> and <code>_pi/README.md</code> — canonical quick reference plus compatibility note.</li>
+        <li><code>_pi/extensions/claude-review/tests/source-policy.test.mjs</code> — canonical transport checks and alias redirect check.</li>
+        <li><code>test_install_shared_skills.sh</code> — inventory, compatibility, and scope assertions.</li>
+        <li><code>_hermes/default/skills/software-development/run-plan/SKILL.md</code> — canonical invocation.</li>
+        <li><code>_hermes/default/cron/jobs.json</code> — active supervisor prompt uses <code>/skill:autoreview</code>.</li>
+      </ul>
+
+      <h3>Work</h3>
+      <ol>
+        <li>Replace the old full skill body with a small compatibility skill that preserves the name, accepts the same argument shapes, and immediately directs the agent to run the canonical <code>autoreview</code> workflow with those arguments. It must not redefine reviewer mechanics, scope, severities, or convergence policy.</li>
+        <li>Add <code>autoreview</code> as the canonical Codex/Pi repo-owned installable skill. Keep the old entry installed and describe it explicitly as an indefinite compatibility alias.</li>
+        <li>Update run-plan's required-gate and explicit invocation language from <code>$pre-pr-implementation-review</code> to <code>$autoreview</code>. Keep generic prose such as “pre-PR review” when it describes lifecycle position rather than the skill name.</li>
+        <li>Update AGENTS and Pi quick references to advertise <code>/skill:autoreview</code>, explain that the old command remains supported, and retain the <code>OPEN_PR_READY</code> contract.</li>
+        <li>Move Claude transport source-policy expectations to the canonical skill and add a narrow alias assertion.</li>
+        <li>Update the managed Hermes run-plan and the active Heddle supervisor prompt to use the canonical invocation. Do not rewrite historical plans, archived evidence, handoffs, or prior validation notes.</li>
+        <li>Audit maintained references. Any remaining old-name reference outside <code>thoughts/</code> must be an intentional alias declaration, install inventory entry, or compatibility test.</li>
+      </ol>
+
+      <h3>Open questions / decision dependencies</h3>
+      <p>None.</p>
+
+      <h3>Verify</h3>
+      <pre><code>python3 -m json.tool skills/install-matrix.json &gt;/dev/null
+python3 -m json.tool _hermes/default/cron/jobs.json &gt;/dev/null
+node --test _pi/extensions/claude-review/tests/source-policy.test.mjs
+bash test_install_shared_skills.sh
+rg -n --glob '!thoughts/**' --glob '!**/.git/**' 'pre-pr-implementation-review' .
+rg -n --glob '!thoughts/**' --glob '!**/.git/**' 'autoreview' AGENTS.md _pi skills _hermes/default</code></pre>
+    </article>
+  </section>
+
+  <section id="phase-p3">
+    <h2>P3 — Runtime synchronization and final coherence</h2>
+    <article class="phase">
+      <h3>End State</h3>
+      <p>Repo source, installed shared skills, and managed/live Hermes configuration agree on the canonical and compatibility surfaces. Validation proves the rename did not weaken scope, convergence, Claude transport, or run-plan lifecycle behavior, and the verified change is delivered through the explicitly requested feature-branch pull-request lifecycle.</p>
+
+      <h3>Tests first</h3>
+      <p>No new product test is introduced in this phase. The RED contracts were added in P1 and P2. This phase runs the real installer and configuration synchronization gates against the complete change and performs a semantic coherence review across all touched policy surfaces.</p>
+
+      <h3>Expected files</h3>
+      <ul>
+        <li>No new source files beyond P1/P2.</li>
+        <li>Installed copies under <code>~/.agents/skills/autoreview</code> and <code>~/.agents/skills/pre-pr-implementation-review</code> are updated by the supported installer.</li>
+        <li>Live Hermes configuration is updated through <code>scripts/hermes_config_sync.py</code>, not direct edits.</li>
+      </ul>
+
+      <h3>Work</h3>
+      <ol>
+        <li>Run the shared-skill installer so both canonical and alias skills are discoverable by Codex and Pi.</li>
+        <li>Verify installed canonical and alias files match repository source.</li>
+        <li>Preview the source-first Hermes install, apply it, export live state back to the repository authority, and verify no disallowed drift or runtime state was captured.</li>
+        <li>Run Pi installation verification and all focused policy/install tests.</li>
+        <li>Perform a semantic coherence review confirming the same rules across canonical autoreview, run-plan, Hermes run-plan, AGENTS, Pi docs, and tests: concrete evidence, no speculative widening, five-finding overflow, targeted rereview, optional P3 disposition, canonical Claude transport, and <code>OPEN_PR_READY</code>.</li>
+        <li>Confirm the compatibility alias does not create recursive skill invocation or duplicate drift-prone policy.</li>
+        <li>After all source, install, Hermes, PM, and pre-PR review gates pass, stage only the scoped files, commit the current feature branch, confirm fresh <code>origin/main</code> ancestry, push, create the pull request, inspect the current PR feedback snapshot, and establish local merge-readiness consensus. This is the explicit workflow override requested by the <code>run-plan</code> invocation.</li>
+      </ol>
+
+      <h3>Open questions / decision dependencies</h3>
+      <p>None.</p>
+
+      <h3>Verify</h3>
+      <pre><code>bash test_install_shared_skills.sh
+node --test _pi/extensions/claude-review/tests/source-policy.test.mjs
+bash ./install.sh --skills
+diff -q skills/autoreview/SKILL.md ~/.agents/skills/autoreview/SKILL.md
+diff -q skills/pre-pr-implementation-review/SKILL.md ~/.agents/skills/pre-pr-implementation-review/SKILL.md
+bash scripts/verify-pi-install.sh
+python3 scripts/hermes_config_sync.py install --dry-run
+python3 scripts/hermes_config_sync.py install --apply
+python3 scripts/hermes_config_sync.py export
+python3 scripts/hermes_config_sync.py verify
+python3 -m json.tool skills/install-matrix.json &gt;/dev/null
+python3 -m json.tool _hermes/default/cron/jobs.json &gt;/dev/null
+git diff --check
+git status --short
+# After the scoped commit and push:
+git fetch origin main
+git merge-base --is-ancestor origin/main HEAD
+test -z "$(git status --short)"
+gh pr view --json url,headRefOid,baseRefName,mergeStateStatus,statusCheckRollup,reviews,comments</code></pre>
+    </article>
+  </section>
+
+  <section id="verification-strategy">
+    <h2>Verification strategy</h2>
+    <ol>
+      <li><strong>Contract tests first:</strong> make policy and compatibility expectations executable before changing the skill source.</li>
+      <li><strong>Focused syntax and source policy:</strong> validate JSON and Claude transport ownership independently.</li>
+      <li><strong>Installer reality:</strong> install into the supported shared location and compare source to installed files.</li>
+      <li><strong>Hermes source-of-truth workflow:</strong> use only the supported dry-run/apply/export/verify sequence.</li>
+      <li><strong>Semantic review:</strong> confirm all maintained surfaces mean the same thing, not merely that the new name appears.</li>
+      <li><strong>Scope audit:</strong> prove historical artifacts are untouched and no new review execution subsystem or unrelated dependency entered the repository.</li>
+    </ol>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>P1 defines and tests the canonical policy.</li>
+      <li>P2 introduces compatibility and migrates maintained callers.</li>
+      <li>P3 installs, synchronizes, verifies, performs final semantic review, then completes the explicitly requested feature-branch PR delivery lifecycle.</li>
+    </ol>
+    <p>Repository guidance says normal <code>ai-configs</code> work occurs directly on <code>main</code>. The user explicitly invoked the full <code>run-plan</code> wrapper and required PR creation, current PR feedback inspection, and local merge-readiness consensus, so that later instruction governs this execution.</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Adding or replacing the existing reviewer runner, launcher, or transport implementation.</li>
+      <li>Adding new reviewer engines, reviewer panels, secret scanning, diff chunking, isolation machinery, or unrelated runtime dependencies.</li>
+      <li>Changing Codex or Claude Code model, effort, launcher, or transport policy.</li>
+      <li>Changing P1/P2/P3 definitions, the existing scope labels, or valid-input/shared-primitive protections except to add the concrete evidence threshold.</li>
+      <li>Increasing review cycles or adding a “review until zero findings” rule.</li>
+      <li>Making generic maintainability, test-gap, future-scale, architecture, or hardening suggestions block the gate.</li>
+      <li>Renaming the existing <code>thoughts/validation/pre-pr-reviews/</code> artifact directory.</li>
+      <li>Rewriting historical plans, handoffs, archived documents, or prior validation evidence.</li>
+      <li>Changing application code or any end-user runtime product.</li>
+    </ul>
+  </section>
+
+  <section id="review-record">
+    <h2>Review record</h2>
+    <table>
+      <thead><tr><th>Gate</th><th>Status</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr><td>Browser feedback</td><td>Processed</td><td>Doct thread <code>2d560c95-1e9c-469d-b9cc-09de2a6332fb</code> was incorporated and resolved. The plan now describes the desired local policy directly and contains no source-provenance dependency.</td></tr>
+        <tr><td>PM product-intent review</td><td>Ready after correction</td><td>The plan preserves the working review mechanics, makes the preferred command obvious, keeps compatibility automatic, tightens blocker evidence and fix boundaries, and does not broaden implementation scope. The remaining handoff/provenance authority link was removed.</td></tr>
+        <tr><td>Codex independent plan review</td><td>Ready</td><td>Cycle 1 returned <code>PLAN_NEEDS_REVISION</code>: add the repository-required direct-to-<code>main</code> commit/push after Hermes synchronization, and remove the unsupported <code>skills/run-plan/agents/openai.yaml</code> edit. Both corrections were integrated. Fresh independent cycle 2 returned <code>PLAN_EXECUTION_READY</code>.</td></tr>
+        <tr><td>Claude Code plan review</td><td>Skipped — low risk</td><td>Text-only agent workflow and documentation change; no auth/security boundary, persistence, concurrency, migration, data-loss, release-runtime, or release-blocking CI surface is introduced.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="decisions-log">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li><strong>2026-07-15:</strong> Initial analysis identified concrete behavioral review improvements while preserving the working review mechanics.</li>
+      <li><strong>2026-07-15:</strong> User clarified that review coverage should improve without importing mechanics and without increasing scope creep.</li>
+      <li><strong>2026-07-15:</strong> Browser feedback removed source-provenance detail so the plan is self-contained and focused only on the desired local policy change.</li>
+      <li><strong>2026-07-15:</strong> Plan locks <code>autoreview</code> as canonical and the old skill as an indefinite compatibility alias.</li>
+      <li><strong>2026-07-15:</strong> Numeric file/LOC expansion was rejected as a hard scope boundary; semantic owner/contract boundaries remain authoritative.</li>
+      <li><strong>2026-07-15:</strong> Independent Codex review cycle 1 required the repository-mandated direct-to-<code>main</code> commit/push after Hermes sync and removed an unnecessary <code>openai.yaml</code> edit from scope.</li>
+      <li><strong>2026-07-15:</strong> Plan is review-ready but not marked execution-ready until Doct/browser and applicable independent plan review are complete.</li>
+      <li><strong>2026-07-15:</strong> Fresh independent Codex review cycle 2 returned <code>PLAN_EXECUTION_READY</code> after both readiness findings were integrated.</li>
+      <li><strong>2026-07-16:</strong> The user explicitly invoked the full <code>run-plan</code> lifecycle, overriding the plan's repository-default direct-to-<code>main</code> delivery with feature-branch commit, push, PR creation, current feedback inspection, and local merge-readiness consensus.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
