@@ -44,9 +44,9 @@
 </head>
 <body><main>
 <header id="title">
-  <p><span class="badge">Plan only</span><span class="badge ready">Status: execution-ready</span><span class="badge warn">Reliability-critical</span></p>
+  <p><span class="badge">Implementation complete</span><span class="badge ready">Pre-PR review clean</span><span class="badge warn">Reliability-critical</span></p>
   <h1>Deterministic Background Codex Review Extension</h1>
-  <p class="muted">Replace Pi’s prompt-owned Codex review subprocess orchestration with one repo-owned <code>codex_review</code> tool that captures the actual final Codex message, validates a mode-specific verdict, reports infrastructure failures truthfully, and notifies Pi exactly once.</p>
+  <p class="muted">Implement and validate one repo-owned <code>codex_review</code> tool that replaces Pi’s prompt-owned Codex review subprocess orchestration, captures the actual final Codex message, validates a mode-specific verdict, reports infrastructure failures truthfully, and notifies Pi exactly once.</p>
 </header>
 
 <section id="toc"><h2>Table of contents</h2><div class="toc-grid">
@@ -57,9 +57,9 @@
 </div></section>
 
 <section id="product-owner"><h2>Product-owner context</h2>
-  <p><strong>Situation:</strong> Pi already uses Codex as the primary GPT reviewer, but Pi starts it through a skill-owned shell wrapper rather than a managed Pi review tool. The inner Codex command is reasonably deterministic; the outer lifecycle is not. A process can emit progress commentary without a final verdict, return an empty or stale artifact, be interrupted without a durable classification, or require the coordinating agent to infer whether a usable review actually finished.</p>
-  <p><strong>Why now:</strong> session evidence shows this is not hypothetical. In an identifiable cohort of about 210 Codex review-partner invocations, roughly a dozen lacked a recorded completed turn and ended with progress-only commentary such as “I’ll inspect the diff…”. Separately, Pi GPT reviewer subagents have returned completed-but-empty outputs. We have therefore selected the Codex CLI as the more reliable GPT review runtime, but its Pi integration still needs the same managed lifecycle that already exists for <code>claude_review</code>.</p>
-  <p><strong>Key conclusion:</strong> this plan addresses an agent/review infrastructure reliability defect, not a customer runtime defect. The fix is a purpose-built Pi extension plus a hardened Codex launcher contract. It improves completion truthfulness and transport reliability; it does not claim that any model will find every defect.</p>
+  <p><strong>Situation at plan inception:</strong> Pi used Codex as the primary GPT reviewer but started it through a skill-owned shell wrapper rather than a managed Pi review tool. The implementation now supplies the managed route, has passed final live installed validation, and received clean Codex plus applicable Claude Code pre-PR verdicts after the operator authorized one final narrow evidence-retention rereview.</p>
+  <p><strong>Why now at plan inception:</strong> session evidence showed this was not hypothetical. In an identifiable cohort of about 210 Codex review-partner invocations, roughly a dozen lacked a recorded completed turn and ended with progress-only commentary such as “I’ll inspect the diff…”. Separately, Pi GPT reviewer subagents returned completed-but-empty outputs. That evidence motivated implementing the same managed lifecycle for Codex that already existed for <code>claude_review</code>.</p>
+  <p><strong>Key conclusion:</strong> this implementation addresses an agent/review infrastructure reliability defect, not a customer runtime defect. The fix is a purpose-built Pi extension plus a hardened Codex launcher contract. It improves completion truthfulness and transport reliability; it does not claim that any model will find every defect.</p>
   <table><thead><tr><th>Impact dimension</th><th>Expected impact</th></tr></thead><tbody>
     <tr><td>Customers</td><td>No direct application-customer behavior change. Engineering changes reach review with more reliable local gate evidence.</td></tr>
     <tr><td>Runtime product behavior</td><td>Pi gains a <code>codex_review</code> tool with managed background jobs, validated artifacts, and automatic completion delivery.</td></tr>
@@ -85,8 +85,8 @@
 </section>
 
 <section id="why"><h2>Why this plan exists</h2>
-  <p>The repository’s review policy already says Codex is the primary GPT review leg and that Pi should not substitute a GPT subagent. However, the actual Pi launch remains a shell/process concern distributed through prompts and skills. The result is a policy/implementation mismatch: we selected Codex for reliability without yet giving it the deterministic outer controller that makes required reviews trustworthy.</p>
-  <p class="callout"><strong>Observed facts versus proposal:</strong> observed sessions show progress-only and incomplete Codex review turns. The proposed plugin will detect and classify those outcomes; it cannot retroactively prove why each historical process stopped, and it cannot guarantee model defect recall.</p>
+  <p>At plan inception, the repository’s review policy already said Codex was the primary GPT review leg and that Pi should not substitute a GPT subagent, while the actual Pi launch remained a shell/process concern distributed through prompts and skills. The implementation closes that mismatch with a live-validated deterministic outer controller and clean pre-PR review consensus.</p>
+  <p class="callout"><strong>Observed facts versus implementation:</strong> observed sessions showed progress-only and incomplete Codex review turns. The implemented plugin detects and classifies those outcomes; it cannot retroactively prove why each historical process stopped, and it cannot guarantee model defect recall.</p>
 </section>
 
 <section id="authority"><h2>Authority and inputs</h2><ul>
@@ -98,22 +98,23 @@
   <li>Installed Codex CLI support for <code>--output-last-message</code>, read-only sandboxing, fixed model selection, and fixed reasoning effort.</li>
 </ul></section>
 
-<section id="reality"><h2>Current implementation reality</h2>
+<section id="reality"><h2>Pre-implementation baseline (historical)</h2>
+  <p>This table records the repository state used to derive the plan. The changed surfaces are now implemented and live-validated; P5 tracks the explicit review-convergence stop.</p>
   <table><thead><tr><th>Surface</th><th>Current behavior</th><th>Reliability gap</th></tr></thead><tbody>
     <tr><td><code>skills/codex-review-partner/scripts/run-review.sh</code></td><td>Normalizes the login shell, pins <code>gpt-5.6-sol</code> with high effort, selects read-only sandboxing, pipes a mode contract to <code>codex exec</code>, tees stdout, and optionally copies it to an output file.</td><td>It does not use <code>--output-last-message</code>, has no smoke mode, does not require a final verdict, and can preserve progress-only or malformed output as if it were the review artifact.</td></tr>
     <tr><td>Pi workflow skills</td><td><code>pre-pr-implementation-review</code>, <code>run-plan</code>, and <code>reviewed-html-plan</code> tell Pi to invoke the wrapper as a subprocess.</td><td>Background lifecycle, completion notification, timeout ownership, cancellation, artifact classification, and exactly-once delivery remain prompt-owned.</td></tr>
     <tr><td><code>_pi/extensions/claude-review/</code></td><td>Provides a proven job manager, durable evidence paths, watchdogs, cancellation, exactly-once notification, artifact classification, policy blocking, stress tests, and installed real E2E.</td><td>Codex does not yet have the corresponding extension.</td></tr>
-    <tr><td><code>install.sh --pi</code></td><td>Copies every repo-managed entry under <code>_pi/extensions/</code> into <code>~/.pi/agent/extensions/</code> while preserving foreign extensions.</td><td>No installer redesign is needed; verification and documentation must recognize the new extension.</td></tr>
+    <tr><td><code>install.sh --pi</code></td><td>Copied every repo-managed entry under <code>_pi/extensions/</code> into <code>~/.pi/agent/extensions/</code> while preserving foreign extensions.</td><td>A mutation-bounded review-stack mode, transactional rollback, non-mutating verification, and documentation were required for final live validation.</td></tr>
     <tr><td>Review evidence</td><td>Codex is more completion-reliable than Pi reviewer subagents and already supplies useful findings.</td><td>A nontrivial minority of identifiable Codex review sessions ended without a completed final verdict. Process output and model review output are not currently separated strongly enough.</td></tr>
   </tbody></table>
 </section>
 
 <section id="progress"><h2>Progress</h2>
-  <label><input type="checkbox" /> P1 — Harden the canonical launcher and lock failure behavior with tests.</label>
-  <label><input type="checkbox" /> P2 — Implement the managed <code>codex_review</code> Pi extension.</label>
-  <label><input type="checkbox" /> P3 — Migrate required-review workflows and enforce canonical routing.</label>
-  <label><input type="checkbox" /> P4 — Prove concurrency, cleanup, installation, and source parity.</label>
-  <label><input type="checkbox" /> P5 — Run real Codex validation and a session-regression audit.</label>
+  <label><input type="checkbox" checked /> P1 — Harden the canonical launcher and lock failure behavior with tests.</label>
+  <label><input type="checkbox" checked /> P2 — Implement the managed <code>codex_review</code> Pi extension.</label>
+  <label><input type="checkbox" checked /> P3 — Migrate required-review workflows and enforce canonical routing.</label>
+  <label><input type="checkbox" checked /> P4 — Prove concurrency, cleanup, installation, and source parity. <em>Deterministic stress, transactional live install, non-mutating verification, installed same-process host behavior, and installed-source parity passed.</em></label>
+  <label><input type="checkbox" checked /> P5 — Run real Codex validation and a session-regression audit. <em>Installed smoke/tiny review, bounded Pi/Codex session audit, Claude Code convergence review, and the operator-authorized final narrow Codex evidence-retention rereview all passed.</em></label>
 </section>
 
 <section id="resume"><h2>Resume instructions (agent)</h2>
@@ -348,7 +349,7 @@ python3 skills/codex-review-partner/scripts/check_no_direct_codex_review_launche
   <h3>Verify</h3><pre>node --test _pi/extensions/codex-review/tests/installed-host-notification.test.mjs
 RUN_REAL_CODEX_TOOL_E2E=1 node --test _pi/extensions/codex-review/tests/installed-real-e2e.test.mjs
 python3 -m unittest scripts.tests.test_audit_codex_review_sessions
-python3 scripts/audit-codex-review-sessions.py --require-terminal ~/.pi/agent/cache/codex-review
+python3 scripts/audit-codex-review-sessions.py --require-terminal --codex-sessions-root ~/.codex/sessions ~/.pi/agent/cache/codex-review
 python3 skills/codex-review-partner/scripts/check_no_direct_codex_review_launches.py
 node --test _pi/extensions/codex-review/tests/*.test.mjs
 bash scripts/verify-pi-install.sh --scope pi-review-stack --check-only</pre>
@@ -386,7 +387,7 @@ bash scripts/verify-pi-install.sh --scope pi-review-stack --check-only</pre>
   <li><strong>2026-07-15 Codex readiness pass 7 — PLAN_EXECUTION_READY:</strong> approved the bounded verifier semantics, default compatibility, transaction/P4/P5 commands, and package-free/no-write/rollback tests with no findings.</li>
   <li><strong>2026-07-15 scoped-verifier second-reviewer pass 1 — INFRASTRUCTURE FAILURE:</strong> substantive output said ready, but the verdict line was indented and the canonical controller correctly classified the artifact invalid. No plan verdict was inferred.</li>
   <li><strong>2026-07-15 scoped-verifier narrower rerun — PLAN_EXECUTION_READY:</strong> returned a transport-valid column-one verdict and approved the same final correction.</li>
-  <li><strong>Final synthesized gate:</strong> PM findings are integrated; the latest material edit is followed by independent Codex and applicable second-reviewer <code>PLAN_EXECUTION_READY</code> verdicts. The plan is execution-ready. No implementation has started.</li>
+  <li><strong>Final synthesized plan gate:</strong> PM findings were integrated; independent Codex and applicable second-reviewer passes returned <code>PLAN_EXECUTION_READY</code>. Implementation then proceeded. The first implementation review returned in-scope findings, both initial Claude implementation-review legs timed out at approval prompts, and the fresh post-fix bounded implementation gate remains pending.</li>
 </ul></section>
 
 <section id="verification"><h2>Verification strategy</h2><ol>
@@ -427,7 +428,13 @@ bash scripts/verify-pi-install.sh --scope pi-review-stack --check-only</pre>
   <li>2026-07-15 — Pass-4 follow-up locked accepted-job state persistence before return, synchronous cleanup for initial persistence failure, and a transactional live Pi install/rollback boundary.</li>
   <li>2026-07-15 — Pass-5 follow-up made starting-state reconciliation explicit and constrained live validation to a mutation-bounded review-stack installer mode whose complete mutated roots are snapshotted and rollback-tested.</li>
   <li>2026-07-15 — Pass-6 follow-up added a non-mutating review-stack verification scope so bounded installs do not require skipped package surfaces and final validation cannot repair drift.</li>
+  <li>2026-07-15 — Implementation captured a redacted real <code>codex-cli 0.144.4</code> success event shape. No authoritative authentication, rate-limit, or provider-failure capture was available, so those specialized mappings remain disabled and unknown nonzero exits use the locked generic classification.</li>
+  <li>2026-07-15 — The initial bounded Codex implementation-review slices ran and returned <code>FIX_IN_SCOPE_FINDINGS</code>; both initial Claude implementation-review legs timed out at approval prompts without a verdict. Those findings were fixed through targeted rereviews. Source, temp-HOME, transactional live install, installed smoke/tiny review, and bounded real session-audit evidence are complete; only the final fresh post-fix bounded implementation gate remains pending.</li>
+  <li>2026-07-15 — Process deviation: the P5 audit test and audit implementation were added in one edit, so a separate observed RED command was not captured for that test file. The deterministic audit suite subsequently passed against both accepted and rejected fixture shapes.</li>
+  <li>2026-07-16 — Final live evidence passed after legacy terminal-state reconciliation was made non-blocking: transactional installation committed, installed parity and check-only verification passed, real installed smoke/tiny review passed, and the two resulting jobs passed bounded Pi-delivery/verdict/Codex-thread audit.</li>
+  <li>2026-07-16 — Final review convergence stop: Claude’s targeted pass returned <code>PASS_SCOPED</code>. The final allowed Codex pass found restart reconciliation deleting failed-cleanup evidence; the source and regression test now retain reservation, staging, launcher-status, and process-identity evidence when cleanup is uncertain. Full deterministic and transactional installed verification passed after the fix. A fourth Codex pass requires explicit operator authorization.</li>
+  <li>2026-07-16 — The operator said “continue,” authorizing one final narrowly scoped Codex rereview of the evidence-retention fix. After transactionally repairing stale installed launcher parity, the permitted infrastructure rerun returned <code>CLEAN_FOR_PR</code> and confirmed the finding is resolved with no direct P1/P2 regression.</li>
 </ul></section>
 
-<section id="changelog"><h2>Plan changelog</h2><ul><li>2026-07-14 — Initial review-ready plan created from the existing Claude review extension, Codex launcher, Pi install path, workflow policy, and session reliability evidence. Doct execution-readiness metadata remains false until the reviewed-plan gate completes.</li><li>2026-07-14 — PM/product-principles review integrated: added installed host/session completion proof, locked outcome-to-budget/error guidance, narrowed runtime guard enforcement to mechanically reliable signatures, and preserved existing workflow-specific review budgets.</li><li>2026-07-14 — Independent Codex review integrated: locked workflow-specific verdict profiles, non-destructive output publication, versioned launcher failure/status protocol with inner timeout, direct-wrapper compatibility, and state-persistence-failure notification semantics.</li><li>2026-07-14 — Adversarial Codex rereview integrated: added crash reconciliation, cache privacy/retention and post-publication verification, real structured provider-classification evidence, strict final-line verdict grammar, and complete phase verification commands.</li><li>2026-07-15 — Operator-authorized additional cycle integrated all pass-3 contract inconsistencies and prepared fresh independent sign-off.</li><li>2026-07-15 — Pass-4 findings integrated: initial state persistence is now part of accepted-start atomicity, and live installation is transactional with tested rollback and non-mutating verification.</li><li>2026-07-15 — Pass-5 findings integrated: startup reconciliation covers both states, and live validation uses a bounded installer mode whose full mutation roots are snapshotted and tested.</li><li>2026-07-15 — Pass-6 findings integrated: bounded and final install checks now use a non-mutating review-stack verifier scope rather than the repairing full verifier.</li><li>2026-07-15 — Final Codex and applicable second-reviewer passes returned <code>PLAN_EXECUTION_READY</code>; status advanced to execution-ready with no implementation started.</li></ul></section>
+<section id="changelog"><h2>Plan changelog</h2><ul><li>2026-07-14 — Initial review-ready plan created from the existing Claude review extension, Codex launcher, Pi install path, workflow policy, and session reliability evidence.</li><li>2026-07-15 — PM, Codex, and applicable second-reviewer plan findings were integrated through an execution-ready reviewed-plan gate.</li><li>2026-07-15 — Implementation completed through deterministic and temp-HOME verification; initial implementation-review findings were fixed.</li><li>2026-07-16 — Transactional live install, installed parity, real smoke/tiny review, and bounded live session audit completed.</li><li>2026-07-16 — Claude convergence passed; the final allowed Codex pass found one evidence-retention issue that was fixed and fully verified.</li><li>2026-07-16 — Operator-authorized final narrow Codex rereview returned <code>CLEAN_FOR_PR</code>; all five phases and the pre-PR review gate are complete.</li></ul></section>
 </main></body></html>

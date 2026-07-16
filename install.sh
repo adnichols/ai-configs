@@ -63,12 +63,13 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 print_usage() {
-    echo "Usage: $0 [--claude|--codex|--pi|--tools|--skills|--all] [--update] [target-directory]"
+    echo "Usage: $0 [--claude|--codex|--pi|--pi-review-stack|--tools|--skills|--all] [--update] [target-directory]"
     echo ""
     echo "Options:"
     echo "  --claude    Install Claude Code configuration and refresh shared skills for Claude"
     echo "  --codex     Sync global Codex prompts/scripts and refresh shared skills for Codex"
     echo "  --pi        Install Pi prompt templates, subagents, and extensions, then refresh shared skills"
+    echo "  --pi-review-stack  Mutation-bounded Pi config plus four maintained review skills; no packages/global cleanup"
     echo "  --tools     Install/update CLI tools and managed Herdr plugins"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
@@ -2151,6 +2152,65 @@ install_pi() {
     cleanup_pi_multi_codex_config "$pi_agent_dir"
 }
 
+install_pi_review_stack() {
+    local pi_source="$REPO_ROOT/_pi"
+    local agent="$HOME/.pi/agent"
+    local shared="$HOME/.agents/skills"
+    local skill entry base target parent_metadata managed_pi_path
+    if [ -L "$HOME/.pi" ]; then
+        echo "Error: mutation-bounded Pi review-stack installation requires ~/.pi to be a real directory, not a symlink." >&2
+        return 1
+    fi
+    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
+        if [ -L "$managed_pi_path" ]; then
+            echo "Error: mutation-bounded Pi review-stack installation refuses symlinks at managed ~/.pi paths: $managed_pi_path" >&2
+            return 1
+        fi
+    done
+    parent_metadata="$(mktemp)"
+    python3 - "$parent_metadata" "$HOME/.agents" "$HOME/.agents/skills" <<'PY'
+import json, os, stat, sys
+out = {}
+for raw in sys.argv[2:]:
+    if os.path.isdir(raw):
+        resolved = os.path.realpath(raw)
+        value = os.stat(resolved)
+        out[resolved] = {"mode": stat.S_IMODE(value.st_mode), "atime_ns": value.st_atime_ns, "mtime_ns": value.st_mtime_ns}
+json.dump(out, open(sys.argv[1], "w"))
+PY
+    mkdir -p "$agent/prompts" "$agent/agents" "$agent/extensions" "$shared"
+    chmod 700 "$HOME/.pi" "$agent" "$agent/prompts" "$agent/agents" "$agent/extensions" 2>/dev/null || true
+
+    for target in prompts agents extensions; do
+        if [ -d "$pi_source/$target" ]; then
+            shopt -s nullglob
+            for entry in "$pi_source/$target"/*; do
+                base="$(basename "$entry")"
+                rm -rf "$agent/$target/$base"
+                cp -a "$entry" "$agent/$target/$base"
+            done
+            shopt -u nullglob
+        fi
+    done
+    install_pi_models_from_repo "$pi_source" "$agent"
+    cp "$pi_source/README.md" "$agent/README.md"
+    install_pi_append_system_file "$agent"
+
+    for skill in codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
+        rm -rf "$shared/$skill"
+        cp -a "$REPO_ROOT/skills/$skill" "$shared/$skill"
+    done
+    python3 - "$parent_metadata" <<'PY'
+import json, os, sys
+for raw, value in json.load(open(sys.argv[1])).items():
+    if os.path.isdir(raw):
+        os.chmod(raw, value["mode"])
+        os.utime(raw, ns=(value["atime_ns"], value["mtime_ns"]))
+PY
+    rm -f "$parent_metadata"
+    echo -e "${GREEN}✓ Mutation-bounded Pi review stack installed${NC}"
+}
+
 remove_retired_pi_goal_plugin() {
     local pi_agent_dir="$1"
     local settings_path="$pi_agent_dir/settings.json"
@@ -2656,7 +2716,7 @@ install_pi_npm_packages() {
 # Argument parsing
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --claude|--codex|--pi|--tools|--skills|--all|--default)
+        --claude|--codex|--pi|--pi-review-stack|--tools|--skills|--all|--default)
             INSTALL_MODE="$1"
             shift
             ;;
@@ -2681,10 +2741,19 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
+# The review-stack transaction treats the complete ~/.pi tree as one snapshot
+# boundary. Following a symlink here would mutate storage outside that boundary.
+if [ "$INSTALL_MODE" = "--pi-review-stack" ] && [ -L "$HOME/.pi" ]; then
+    echo "Error: --pi-review-stack requires ~/.pi to be a real directory, not a symlink, so the complete snapshot boundary is truthful. Replace the symlink with a real directory before installing." >&2
+    exit 1
+fi
+
 # Preserve ambiguous retired runtime trees, but remove positively identified
 # managed deprecated skills before installing any maintained surface.
-cleanup_retired_runtime_surfaces "$TARGET_DIR"
-cleanup_deprecated_shared_skills
+if [ "$INSTALL_MODE" != "--pi-review-stack" ]; then
+    cleanup_retired_runtime_surfaces "$TARGET_DIR"
+    cleanup_deprecated_shared_skills
+fi
 
 # Main installation logic
 case "$INSTALL_MODE" in
@@ -2718,6 +2787,9 @@ case "$INSTALL_MODE" in
         sync_shared_skills
         echo ""
         enforce_central_project_skills "$TARGET_DIR"
+        ;;
+    --pi-review-stack)
+        install_pi_review_stack
         ;;
     --tools)
         install_tools
