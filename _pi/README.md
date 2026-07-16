@@ -191,6 +191,7 @@ In addition to the repo-managed files under `~/.pi/agent/extensions/`, `install.
 npm-managed packages:
 - `@tintinweb/pi-subagents`
 - `@aliou/pi-processes`
+- `@narumitw/pi-goal`
 - `pi-web-access`
 - `@fnnm/pi-ast-grep`
 - `pi-updater`

@@ -19,6 +19,7 @@ EXPECTED_GIT_PACKAGES=()
 EXPECTED_NPM_PACKAGES=(
   "npm:@tintinweb/pi-subagents"
   "npm:@aliou/pi-processes"
+  "npm:@narumitw/pi-goal"
   "npm:pi-web-access"
   "npm:@fnnm/pi-ast-grep"
   "npm:pi-updater"

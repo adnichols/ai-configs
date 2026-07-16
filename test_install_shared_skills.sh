@@ -741,6 +741,7 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   assert_file_contains "$home/.gemini/custom/keep.txt" 'custom-gemini' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'pi-codex-goal' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'piCodexGoal' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" 'npm:@narumitw/pi-goal' || return 1
 }
 
 test_pi_install_removes_retired_goal_packages() {
@@ -826,6 +827,7 @@ local_fork = sys.argv[3]
 packages = [
     "npm:@tintinweb/pi-subagents",
     "npm:@aliou/pi-processes",
+    "npm:@narumitw/pi-goal",
     "npm:pi-web-access",
     "npm:@fnnm/pi-ast-grep",
     "npm:pi-updater",
