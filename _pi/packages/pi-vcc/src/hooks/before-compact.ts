@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { convertToLlm } from "@earendil-works/pi-coding-agent";
+import { convertToLlm, estimateTokens } from "@earendil-works/pi-coding-agent";
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -15,6 +15,7 @@ export { PI_VCC_COMPACT_INSTRUCTION } from "../core/compact-args";
 const CONFIG_PATH = join(homedir(), ".pi", "agent", "pi-vcc-config.json");
 const MIN_MESSAGES_TO_COMPACT = 3;
 const AGENT_ONLY_FALLBACK_TAIL_MESSAGES = 4;
+const DEFAULT_KEEP_RECENT_TOKENS = 20_000;
 
 export interface CompactionStats {
   summarized: number;
@@ -132,6 +133,27 @@ const adjustCutIdxForToolResult = (liveMessages: EntryWithMessage[], cutIdx: num
   return matchingIdx >= 0 ? matchingIdx : null;
 };
 
+const estimateTailTokens = (liveMessages: EntryWithMessage[], cutIdx: number): number =>
+  liveMessages.slice(cutIdx).reduce((sum, entry) => sum + estimateTokens(entry.message as any), 0);
+
+const findTokenBoundedCutIdx = (liveMessages: EntryWithMessage[], keepRecentTokens: number): number | null => {
+  const budget = Number.isFinite(keepRecentTokens)
+    ? Math.max(1, Math.floor(keepRecentTokens))
+    : DEFAULT_KEEP_RECENT_TOKENS;
+  let cutIdx: number | null = null;
+  let retainedTokens = 0;
+
+  for (let i = liveMessages.length - 1; i > 0; i--) {
+    const nextTokens = estimateTokens(liveMessages[i].message as any);
+    if (retainedTokens > 0 && retainedTokens + nextTokens > budget && cutIdx !== null) break;
+    retainedTokens += nextTokens;
+    if (liveMessages[i].message.role !== "toolResult") cutIdx = i;
+    if (retainedTokens >= budget && cutIdx !== null) break;
+  }
+
+  return cutIdx;
+};
+
 const keptTailHasOrphanedToolResult = (liveMessages: EntryWithMessage[], cutIdx: number): boolean => {
   for (let i = cutIdx; i < liveMessages.length; i++) {
     const message = liveMessages[i]?.message;
@@ -220,6 +242,7 @@ function buildOwnCut(
   branchEntries: any[],
   keepUserTurns = 1,
   keepUserTurnsExplicit = false,
+  keepRecentTokens = DEFAULT_KEEP_RECENT_TOKENS,
 ): { messages: any[]; firstKeptEntryId: string } | null {
   const liveMessages = liveMessagesSinceLastCompaction(branchEntries);
 
@@ -232,6 +255,15 @@ function buildOwnCut(
   }, []);
 
   let cutIdx = userIndices[userIndices.length - normalizedKeepUserTurns] ?? -1;
+
+  if (
+    !keepUserTurnsExplicit &&
+    estimateTailTokens(liveMessages, Math.max(0, cutIdx)) > keepRecentTokens
+  ) {
+    const boundedCutIdx = findTokenBoundedCutIdx(liveMessages, keepRecentTokens);
+    if (boundedCutIdx === null) return null;
+    cutIdx = boundedCutIdx;
+  }
 
   if (cutIdx <= 0) {
     if (keepUserTurnsExplicit) return null;
@@ -313,7 +345,12 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
       (agentTurnActive && !activeAgentFinishedResponse) || inferActiveTurnFromBranchEntries(branchEntries as any[]);
 
     const keepOptions = parseKeepOptions(customInstructions);
-    const ownCut = buildOwnCut(branchEntries as any[], keepOptions.keepUserTurns, keepOptions.explicit);
+    const ownCut = buildOwnCut(
+      branchEntries as any[],
+      keepOptions.keepUserTurns,
+      keepOptions.explicit,
+      preparation.settings?.keepRecentTokens ?? DEFAULT_KEEP_RECENT_TOKENS,
+    );
     if (!ownCut) {
       const piVccBypass = customInstructions?.startsWith(PI_VCC_COMPACT_INSTRUCTION) ?? false;
       lastNoCutClassification = classifyNoCut(branchEntries as any[], eventContext);
@@ -339,23 +376,13 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
     const keptEntries = keptIdx >= 0
       ? (branchEntries as any[]).slice(keptIdx).filter((e: any) => e.type === "message")
       : [];
-    const keptChars = keptEntries.reduce((sum: number, e: any) => {
-      const c = e.message?.content;
-      if (typeof c === "string") return sum + c.length;
-      if (Array.isArray(c)) {
-        return sum + c.reduce((s: number, p: any) => {
-          if (p.text) return s + p.text.length;
-          if (p.type === "toolCall") return s + (p.name?.length ?? 0) + (typeof p.input === "string" ? p.input.length : JSON.stringify(p.input ?? "").length);
-          if (p.type === "toolResult") return s + (typeof p.content === "string" ? p.content.length : JSON.stringify(p.content ?? "").length);
-          return s;
-        }, 0);
-      }
-      return sum;
-    }, 0);
     lastStats = {
       summarized: agentMessages.length,
       kept: keptEntries.length,
-      keptTokensEst: Math.round(keptChars / 4),
+      keptTokensEst: estimateTailTokens(
+        keptEntries.map((entry: any) => ({ entry, message: entry.message })),
+        0,
+      ),
       reason,
       willRetry,
       compactionIntent,

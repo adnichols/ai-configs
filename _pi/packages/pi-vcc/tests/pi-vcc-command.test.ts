@@ -5,6 +5,12 @@ import { join } from "node:path";
 
 mock.module("@earendil-works/pi-coding-agent", () => ({
   convertToLlm: (messages: any[]) => messages,
+  estimateTokens: (message: any) => {
+    const content = message?.content;
+    if (typeof content === "string") return Math.ceil(content.length / 4);
+    if (!Array.isArray(content)) return 0;
+    return Math.ceil(content.reduce((sum: number, part: any) => sum + String(part?.text ?? "").length, 0) / 4);
+  },
 }));
 
 mock.module("typebox", () => ({

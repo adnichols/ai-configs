@@ -195,6 +195,14 @@ const isCompletedAssistantResponse = (message: TurnEndEvent["message"]) => {
 	return !("stopReason" in message && message.stopReason === "toolUse");
 };
 
+const isUsablePostCompactionAssistantResponse = (
+	message: TurnEndEvent["message"],
+) => {
+	if (message.role !== "assistant") return false;
+	if (!("stopReason" in message)) return true;
+	return message.stopReason !== "error" && message.stopReason !== "aborted";
+};
+
 const isInterruptedAgentWork = (message: TurnEndEvent["message"]) =>
 	(message.role === "assistant" &&
 		"stopReason" in message &&
@@ -1262,7 +1270,7 @@ export default function (pi: ExtensionAPI) {
 		if (compactionInFlight || scheduledPiVccCompaction) return;
 
 		if (awaitingPostCompactionAssistantResponse) {
-			if (!completedResponse) return;
+			if (!isUsablePostCompactionAssistantResponse(event.message)) return;
 			awaitingPostCompactionAssistantResponse = false;
 		}
 
