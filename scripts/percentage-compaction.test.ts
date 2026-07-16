@@ -134,6 +134,10 @@ const assistantStopWithText = (text: string) => ({
 	},
 	toolResults: [],
 });
+const assistantError = {
+	message: { role: "assistant", stopReason: "error" },
+	toolResults: [],
+};
 const toolResult = (
 	toolCallId = "tc_1",
 	toolName = "compact_context",
@@ -1052,7 +1056,7 @@ describe("percentage-compaction extension", () => {
 		expect(sentMessages).toHaveLength(0);
 	});
 
-	test("does not compact during post-compaction tool turns even when usage changes", async () => {
+	test("post-compaction tool response re-arms hard backstop when usage changes", async () => {
 		let percent = 80.123456;
 		const { handlers, compactCalls, ctx } = setup(() => percent);
 
@@ -1064,10 +1068,88 @@ describe("percentage-compaction extension", () => {
 		await handlers.turn_end?.(assistantToolUse(), ctx);
 		await delay(0);
 
-		expect(compactCalls).toHaveLength(1);
+		expect(compactCalls).toHaveLength(2);
 
 		await handlers.turn_end?.(assistantStop, ctx);
 		await delay(0);
+		expect(compactCalls).toHaveLength(2);
+	});
+
+	test("post-compaction tool response does not repeat at unchanged usage", async () => {
+		const { handlers, compactCalls, ctx } = setup(80.123456);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
+		compactCalls[0].onComplete();
+
+		await handlers.turn_end?.(assistantToolUse(), ctx);
+		await delay(0);
+
+		expect(compactCalls).toHaveLength(1);
+	});
+
+	test("post-compaction error does not release the telemetry latch", async () => {
+		let percent = 80.123456;
+		const { handlers, compactCalls, ctx } = setup(() => percent);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
+		compactCalls[0].onComplete();
+
+		percent = 81;
+		await handlers.turn_end?.(assistantError, ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(1);
+
+		await handlers.turn_end?.(assistantToolUse(), ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(2);
+	});
+
+	test("every successful compaction re-arms on the next tool response", async () => {
+		let percent = 80.1;
+		const { handlers, compactCalls, ctx } = setup(() => percent);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
+		compactCalls[0].onComplete();
+
+		percent = 81;
+		await handlers.turn_end?.(assistantToolUse(), ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(2);
+		compactCalls[1].onComplete();
+
+		percent = 45;
+		await handlers.turn_end?.(assistantToolUse(), ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(2);
+
+		percent = 81;
+		await handlers.turn_end?.(assistantToolUse(), ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(3);
+	});
+
+	test("long post-compaction tool loop re-arms the hard backstop before overflow", async () => {
+		let percent = 35;
+		const { handlers, compactCalls, ctx } = setup(() => percent);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		percent = 80.1;
+		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(1);
+		compactCalls[0].onComplete();
+
+		for (let turn = 0; turn < 40; turn += 1) {
+			percent = 40 + turn * 1.1;
+			await handlers.turn_end?.(assistantToolUse(), ctx);
+			await delay(0);
+			if (compactCalls.length === 2) break;
+		}
+
+		expect(percent).toBeGreaterThanOrEqual(HARD_AUTO_COMPACTION_PERCENT);
 		expect(compactCalls).toHaveLength(2);
 	});
 
