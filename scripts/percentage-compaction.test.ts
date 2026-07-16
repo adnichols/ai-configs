@@ -391,6 +391,148 @@ describe("percentage-compaction extension", () => {
 		expect(compactCalls).toHaveLength(1);
 	});
 
+	test("compact_context does not inherit stale sibling state when its assistant turn_end is delayed", async () => {
+		const { handlers, tools, compactCalls, ctx } = setup(65);
+
+		// A prior unrelated batch had siblings. In the real host, tool execution can
+		// begin before the assistant toolUse turn_end for the new batch is observed.
+		await handlers.turn_end?.(assistantToolUse(3, []), ctx);
+		await handlers.message_end?.(
+			{
+				message: {
+					role: "assistant",
+					stopReason: "toolUse",
+					content: [
+						{
+							type: "toolCall",
+							id: "tc_compact",
+							name: "compact_context",
+							arguments: {},
+						},
+					],
+				},
+			},
+			ctx,
+		);
+
+		await tools.compact_context.execute("tc_compact", {
+			reason: "compact after completed test loop",
+			boundary: "after_test_loop",
+			resumePolicy: "active",
+		});
+
+		// The compact_context call is the only tool in its actual batch, but its
+		// tool result arrives before that batch's assistant turn_end callback.
+		await handlers.turn_end?.(
+			{
+				message: toolResult(
+					"tc_compact",
+					"compact_context",
+					"compact queued",
+				),
+				toolResults: [],
+			},
+			ctx,
+		);
+
+		// The semantic boundary is safe now; compaction must not wait for a later
+		// terminal assistant response or require the operator to press Escape.
+		expect(compactCalls).toHaveLength(1);
+	});
+
+	test("compact_context still defers real siblings observed at message_end", async () => {
+		const { handlers, tools, compactCalls, ctx } = setup(65);
+
+		await handlers.message_end?.(
+			{
+				message: {
+					role: "assistant",
+					stopReason: "toolUse",
+					content: [
+						{
+							type: "toolCall",
+							id: "tc_compact",
+							name: "compact_context",
+							arguments: {},
+						},
+						{
+							type: "toolCall",
+							id: "tc_read",
+							name: "read",
+							arguments: {},
+						},
+					],
+				},
+			},
+			ctx,
+		);
+
+		await tools.compact_context.execute("tc_compact", {
+			reason: "compact after sibling output is interpreted",
+			boundary: "after_test_loop",
+		});
+		await handlers.turn_end?.(
+			{
+				message: toolResult("tc_compact", "compact_context", "queued"),
+				toolResults: [],
+			},
+			ctx,
+		);
+		expect(compactCalls).toHaveLength(0);
+
+		await handlers.turn_end?.(
+			assistantStopWithText("I interpreted the sibling output."),
+			ctx,
+		);
+		expect(compactCalls).toHaveLength(1);
+	});
+
+	test("compact_context re-observes siblings added to the same assistant message", async () => {
+		const { handlers, tools, compactCalls, ctx } = setup(65);
+		const message = {
+			role: "assistant",
+			stopReason: "toolUse",
+			content: [
+				{
+					type: "toolCall",
+					id: "tc_compact",
+					name: "compact_context",
+					arguments: {},
+				},
+			],
+		};
+
+		await handlers.message_end?.({ message }, ctx);
+		await tools.compact_context.execute("tc_compact", {
+			reason: "compact after replacement sibling is interpreted",
+			boundary: "after_test_loop",
+		});
+
+		// Pi permits a later message_end handler to replace assistant content by
+		// mutating the same message object before turn_end.
+		message.content.push({
+			type: "toolCall",
+			id: "tc_read",
+			name: "read",
+			arguments: {},
+		});
+		await handlers.turn_end?.({ message, toolResults: [] }, ctx);
+		await handlers.turn_end?.(
+			{
+				message: toolResult("tc_compact", "compact_context", "queued"),
+				toolResults: [],
+			},
+			ctx,
+		);
+		expect(compactCalls).toHaveLength(0);
+
+		await handlers.turn_end?.(
+			assistantStopWithText("I interpreted the replacement sibling output."),
+			ctx,
+		);
+		expect(compactCalls).toHaveLength(1);
+	});
+
 	test("compact_context ignores unrelated tool results before its own result", async () => {
 		const { handlers, tools, compactCalls, ctx } = setup(65);
 

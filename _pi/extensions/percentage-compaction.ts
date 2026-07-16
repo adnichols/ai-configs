@@ -532,6 +532,7 @@ export default function (pi: ExtensionAPI) {
 	let turnCounter = 0;
 	let lastToolBatchId = 0;
 	let lastAssistantToolCallCount = 0;
+	const observedAssistantToolMessageSignatures = new WeakMap<object, string>();
 	let outstandingAssistantToolCallIds = new Set<string>();
 	let userMessageCount = 0;
 	let pendingNoCutContinuation: PendingNoCutContinuation | undefined;
@@ -1130,6 +1131,8 @@ export default function (pi: ExtensionAPI) {
 			const preserve = clampText(params.preserve, 500);
 			const resumePolicy = (params.resumePolicy ?? "auto") as ResumePolicy;
 			const requestId = `compact-context-${Date.now().toString(36)}-${toolCallId}`;
+			const observedBatchContainsTool =
+				outstandingAssistantToolCallIds.has(toolCallId);
 			pendingModelCompaction = {
 				requestId,
 				reason,
@@ -1138,8 +1141,11 @@ export default function (pi: ExtensionAPI) {
 				preserve,
 				toolCallId,
 				requestedTurn: turnCounter,
-				toolBatchId: lastToolBatchId,
-				sawSiblingTools: lastAssistantToolCallCount > 1,
+				toolBatchId: observedBatchContainsTool
+					? lastToolBatchId
+					: undefined,
+				sawSiblingTools:
+					observedBatchContainsTool && lastAssistantToolCallCount > 1,
 			};
 			const willResume = shouldResumeAfterCompactContext(
 				pendingModelCompaction,
@@ -1199,6 +1205,30 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
+	const observeAssistantToolBatch = (message: any) => {
+		if (
+			message?.role !== "assistant" ||
+			message?.stopReason !== "toolUse"
+		)
+			return;
+
+		const toolCallIds = assistantToolCallIds(message);
+		const signature = toolCallIds.join("\u0000");
+		if (observedAssistantToolMessageSignatures.get(message) === signature) return;
+		observedAssistantToolMessageSignatures.set(message, signature);
+		lastToolBatchId += 1;
+		lastAssistantToolCallCount = toolCallCount(message);
+		outstandingAssistantToolCallIds = new Set(toolCallIds);
+		if (
+			pendingModelCompaction &&
+			assistantToolBatchIncludes(message, pendingModelCompaction.toolCallId)
+		) {
+			pendingModelCompaction.toolBatchId = lastToolBatchId;
+			pendingModelCompaction.sawSiblingTools =
+				lastAssistantToolCallCount > 1;
+		}
+	};
+
 	pi.on("turn_end", async (event: TurnEndEvent, ctx: ExtensionContext) => {
 		turnCounter += 1;
 
@@ -1214,27 +1244,7 @@ export default function (pi: ExtensionAPI) {
 					)),
 		);
 
-		if (
-			event.message.role === "assistant" &&
-			"stopReason" in event.message &&
-			event.message.stopReason === "toolUse"
-		) {
-			lastToolBatchId += 1;
-			lastAssistantToolCallCount = toolCallCount(event.message);
-			outstandingAssistantToolCallIds = new Set(
-				assistantToolCallIds(event.message),
-			);
-			if (
-				pendingModelCompaction &&
-				assistantToolBatchIncludes(
-					event.message,
-					pendingModelCompaction.toolCallId,
-				)
-			) {
-				pendingModelCompaction.toolBatchId = lastToolBatchId;
-				pendingModelCompaction.sawSiblingTools = lastAssistantToolCallCount > 1;
-			}
-		}
+		observeAssistantToolBatch(event.message);
 		if (
 			hasFailureOutput(event.message) ||
 			turnToolResults.some(hasFailureOutput)
@@ -1382,6 +1392,11 @@ export default function (pi: ExtensionAPI) {
 		continuationEpochs.session += 1;
 	});
 	pi.on("message_end", async (event: any) => {
+		// message_end fires after the model has declared the complete tool batch
+		// but before those tools execute. Capture it here so compact_context does
+		// not inherit sibling metadata from the preceding batch while waiting for
+		// the later turn_end lifecycle callback.
+		observeAssistantToolBatch(event?.message);
 		if (
 			event?.message?.role === "user" &&
 			typeof event.message.customType !== "string"
