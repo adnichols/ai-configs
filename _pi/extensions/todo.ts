@@ -30,6 +30,34 @@ interface TodoDetails {
 	error?: string;
 }
 
+const TODO_ACTIONS = new Set<TodoDetails["action"]>(["list", "add", "toggle", "clear"]);
+
+const isTodo = (value: unknown): value is Todo => {
+	if (!value || typeof value !== "object") return false;
+	const todo = value as Partial<Todo>;
+	return Number.isInteger(todo.id) && typeof todo.text === "string" && typeof todo.done === "boolean";
+};
+
+export const isTodoDetails = (value: unknown): value is TodoDetails => {
+	if (!value || typeof value !== "object") return false;
+	const details = value as Partial<TodoDetails>;
+	return (
+		typeof details.action === "string" &&
+		TODO_ACTIONS.has(details.action as TodoDetails["action"]) &&
+		Array.isArray(details.todos) &&
+		details.todos.every(isTodo) &&
+		Number.isInteger(details.nextId) &&
+		(details.addedIds === undefined ||
+			(Array.isArray(details.addedIds) && details.addedIds.every((id) => Number.isInteger(id)))) &&
+		(details.error === undefined || typeof details.error === "string")
+	);
+};
+
+const resultText = (content: Array<{ type: string; text?: string }>): string => {
+	const text = content.find((item) => item.type === "text");
+	return text?.text ?? "";
+};
+
 const TodoParams = Type.Object({
 	action: StringEnum(["list", "add", "toggle", "clear"] as const),
 	text: Type.Optional(Type.String({ description: "Todo text (single add)" })),
@@ -123,8 +151,8 @@ export default function (pi: ExtensionAPI) {
 			const msg = entry.message;
 			if (msg.role !== "toolResult" || msg.toolName !== "todo") continue;
 
-			const details = msg.details as TodoDetails | undefined;
-			if (details) {
+			const details = msg.details;
+			if (isTodoDetails(details)) {
 				todos = details.todos;
 				nextId = details.nextId;
 			}
@@ -262,11 +290,9 @@ export default function (pi: ExtensionAPI) {
 		},
 
 		renderResult(result, { expanded }, theme, _context) {
-			const details = result.details as TodoDetails | undefined;
-			if (!details) {
-				const text = result.content[0];
-				return new Text(text?.type === "text" ? text.text : "", 0, 0);
-			}
+			const renderFallback = () => new Text(resultText(result.content), 0, 0);
+			const details = result.details;
+			if (!isTodoDetails(details)) return renderFallback();
 
 			if (details.error) {
 				return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
@@ -297,6 +323,7 @@ export default function (pi: ExtensionAPI) {
 					const addedTodos = todoList.filter((todo) => addedIds.includes(todo.id));
 					if (addedTodos.length <= 1) {
 						const added = addedTodos[0] ?? todoList[todoList.length - 1];
+						if (!added) return renderFallback();
 						return new Text(
 							theme.fg("success", "✓ Added ") +
 								theme.fg("accent", `#${added.id}`) +
@@ -323,6 +350,8 @@ export default function (pi: ExtensionAPI) {
 				case "clear":
 					return new Text(theme.fg("success", "✓ ") + theme.fg("muted", "Cleared all todos"), 0, 0);
 			}
+
+			return renderFallback();
 		},
 	});
 
