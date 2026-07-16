@@ -715,6 +715,14 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   printf 'stale-gemini\n' > "$home/.gemini/commands/cmd:debug.toml"
   printf 'custom-gemini-command\n' > "$home/.gemini/commands/custom.toml"
   printf 'custom-gemini\n' > "$home/.gemini/custom/keep.txt"
+  cat > "$home/.pi/agent/settings.json" <<'JSON'
+{
+  "powerline": {
+    "fixedEditor": true,
+    "welcome": false
+  }
+}
+JSON
 
   output_file="$home/pi-install.log"
   run_installer_capture "$home" "$output_file" --pi || {
@@ -742,6 +750,16 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   assert_file_not_contains "$home/.pi/agent/settings.json" 'pi-codex-goal' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'piCodexGoal' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:@narumitw/pi-goal' || return 1
+  python3 - "$home/.pi/agent/settings.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings = json.loads(Path(sys.argv[1]).read_text())
+powerline = settings.get("powerline")
+if powerline != {"fixedEditor": False, "welcome": False}:
+    raise SystemExit(f"unexpected powerline settings: {powerline!r}")
+PY
 }
 
 test_pi_install_removes_retired_goal_packages() {

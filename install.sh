@@ -1695,6 +1695,14 @@ settings["gptConfig"] = {
 }
 settings.pop("piCodexGoal", None)
 
+powerline = settings.get("powerline")
+if powerline is None:
+    powerline = {}
+elif not isinstance(powerline, dict):
+    raise SystemExit("settings powerline must be an object when present")
+powerline["fixedEditor"] = False
+settings["powerline"] = powerline
+
 models = settings.get("enabledModels")
 if models is None:
     models = []

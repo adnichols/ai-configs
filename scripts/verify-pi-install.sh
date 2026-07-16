@@ -72,6 +72,14 @@ settings["defaultProvider"] = DEFAULT_PROVIDER
 settings["defaultModel"] = DEFAULT_MODEL
 settings.pop("piCodexGoal", None)
 
+powerline = settings.get("powerline")
+if powerline is None:
+    powerline = {}
+elif not isinstance(powerline, dict):
+    raise SystemExit("settings powerline must be an object when present")
+powerline["fixedEditor"] = False
+settings["powerline"] = powerline
+
 models = settings.get("enabledModels")
 if models is None:
     models = []
@@ -264,6 +272,9 @@ if data.get("defaultModel") != default_model:
     errors.append(f"defaultModel={data.get('defaultModel')!r}")
 if "piCodexGoal" in data:
     errors.append("retired piCodexGoal settings remain")
+powerline = data.get("powerline")
+if not isinstance(powerline, dict) or powerline.get("fixedEditor") is not False:
+    errors.append("powerline.fixedEditor is not false")
 enabled = data.get("enabledModels", [])
 if not isinstance(enabled, list):
     errors.append("enabledModels is not a list")
