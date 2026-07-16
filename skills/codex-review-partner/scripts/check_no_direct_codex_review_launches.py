@@ -8,6 +8,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[3]
 FILES = [
+    ROOT / "skills/autoreview/SKILL.md",
     ROOT / "skills/pre-pr-implementation-review/SKILL.md",
     ROOT / "skills/run-plan/SKILL.md",
     ROOT / "skills/reviewed-html-plan/SKILL.md",

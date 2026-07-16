@@ -1,0 +1,3 @@
+- P2 — `IN_PLAN` — [_pi/extensions/codex-review/tests/source-policy.test.mjs:4](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/_pi/extensions/codex-review/tests/source-policy.test.mjs:4): the alias-policy test does not enforce that `pre-pr-implementation-review` only delegates. An in-memory alias retaining `/skill:autoreview` while adding its own `codex_review` call with the wrong profile passes both the new assertions and the direct-launch scanner. This allows canonical/alias routing and convergence policy to drift while CI remains green. Add a guard rejecting routing/reviewer-policy content in the alias, or lock its normalized body to the thin delegation contract.
+
+VERDICT: FINDINGS_TO_RESOLVE

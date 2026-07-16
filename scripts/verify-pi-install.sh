@@ -85,7 +85,7 @@ PY
   then
     echo "FAIL: installed rendered APPEND_SYSTEM.md" >&2; failures=$((failures+1))
   fi
-  for skill in codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
+  for skill in autoreview codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
     if ! diff -qr "$REPO_ROOT/skills/$skill" "$HOME/.agents/skills/$skill" >/dev/null 2>&1; then echo "FAIL: installed skill parity $skill" >&2; failures=$((failures+1)); fi
   done
   if ((failures)); then echo "Pi review-stack verification failed with $failures issue(s)." >&2; exit 1; fi

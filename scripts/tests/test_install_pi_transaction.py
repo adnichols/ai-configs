@@ -31,7 +31,7 @@ class InstallTransactionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d); foreign=home/'foreign';foreign.write_text('keep');models=home/'.pi/agent/models.json';models.parent.mkdir(parents=True);models.write_text(json.dumps({'providers':{'caller-owned':{'apiKey':'secret','models':[{'id':'local'}]}}}));env={**os.environ,'HOME':d}
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
-            self.assertEqual(foreign.read_text(),'keep');installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
+            self.assertEqual(foreign.read_text(),'keep');installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);self.assertTrue((home/'.agents/skills/autoreview/SKILL.md').is_file());append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
             subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(before,manifest(home))
     def test_preexisting_agents_parent_metadata_is_not_mutated(self):

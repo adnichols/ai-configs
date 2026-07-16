@@ -12,7 +12,7 @@ for MANAGED_PI_PATH in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/ag
   fi
 done
 SNAPSHOT="$(mktemp -d)"; chmod 700 "$SNAPSHOT"
-SKILLS=(codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan)
+SKILLS=(autoreview codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan)
 
 manifest() {
   python3 - "$HOME" "$@" <<'PY'
@@ -32,7 +32,7 @@ print(json.dumps(out,sort_keys=True))
 PY
 }
 
-PATHS=(.pi .agents/skills/codex-review-partner .agents/skills/pre-pr-implementation-review .agents/skills/reviewed-html-plan .agents/skills/run-plan)
+PATHS=(.pi .agents/skills/autoreview .agents/skills/codex-review-partner .agents/skills/pre-pr-implementation-review .agents/skills/reviewed-html-plan .agents/skills/run-plan)
 PARENT_METADATA="$SNAPSHOT/parent-metadata.json"
 python3 - "$PARENT_METADATA" "$HOME/.agents" "$HOME/.agents/skills" <<'PY'
 import json,os,stat,sys
