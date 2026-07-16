@@ -17,12 +17,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import fcntl
 import fnmatch
 import hashlib
 import json
 import os
 import re
 import shutil
+import stat
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -123,6 +125,11 @@ MANAGED_TOP_LEVEL_TARGETS = [
     *TOP_LEVEL_FILES,
     *TOP_LEVEL_DIRS,
 ]
+
+CRON_RUNTIME_FIELDS = (
+    "enabled", "state", "paused_at", "paused_reason", "next_run_at", "last_run_at",
+    "last_status", "last_error", "last_delivery_error", "fire_claim", "run_claim",
+)
 
 
 def now_stamp() -> str:
@@ -426,6 +433,95 @@ def install_config(bundle: Path, hermes_home: Path, dry_run: bool, backups: list
     write_yaml(dst, merged)
 
 
+def load_cron_jobs(path: Path) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Unable to read cron jobs from {path}: {exc}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("jobs"), list):
+        raise ValueError(f"Cron jobs file must contain a top-level jobs list: {path}")
+    job_ids = set()
+    for job in data["jobs"]:
+        if not isinstance(job, dict) or not isinstance(job.get("id"), str) or not job["id"]:
+            raise ValueError(f"Every cron job must be an object with a non-empty string id: {path}")
+        if job["id"] in job_ids:
+            raise ValueError(f"Cron job ids must be unique ({job['id']}): {path}")
+        job_ids.add(job["id"])
+    return data
+
+
+def merge_cron_jobs(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    existing_by_id = {job["id"]: job for job in existing["jobs"]}
+    merged = dict(incoming)
+    merged_jobs = []
+
+    for incoming_job in incoming["jobs"]:
+        job = dict(incoming_job)
+        existing_job = existing_by_id.get(job["id"])
+        if existing_job is not None:
+            for field in CRON_RUNTIME_FIELDS:
+                if field in existing_job:
+                    job[field] = existing_job[field]
+
+            existing_repeat = existing_job.get("repeat")
+            if isinstance(existing_repeat, dict) and "completed" in existing_repeat:
+                incoming_repeat = job.get("repeat")
+                repeat = dict(incoming_repeat) if isinstance(incoming_repeat, dict) else {}
+                repeat["completed"] = existing_repeat["completed"]
+                job["repeat"] = repeat
+        merged_jobs.append(job)
+
+    merged["jobs"] = merged_jobs
+    if "updated_at" in existing:
+        merged["updated_at"] = existing["updated_at"]
+    return merged
+
+
+def atomic_write_json(path: Path, data: dict[str, Any], mode: int) -> None:
+    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temp_path, mode)
+        os.replace(temp_path, path)
+        dir_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
+def install_cron_jobs(src: Path, dst: Path, dry_run: bool, backups: list[tuple[Path, Path]]) -> None:
+    print(f"MERGE {src} -> {dst} (runtime state preserved)")
+    if dry_run:
+        return
+
+    incoming = load_cron_jobs(src)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = dst.parent / ".jobs.lock"
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        if dst.exists():
+            existing = load_cron_jobs(dst)
+            b = backup_path(dst)
+            b.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(dst, b)
+            backups.append((dst, b))
+            mode = stat.S_IMODE(dst.stat().st_mode)
+            merged = merge_cron_jobs(existing, incoming)
+        else:
+            mode = stat.S_IMODE(src.stat().st_mode)
+            merged = incoming
+        atomic_write_json(dst, merged, mode)
+
+
 def install_all(bundle: Path, hermes_home: Path, dry_run: bool) -> None:
     if not bundle.exists():
         raise SystemExit(f"Bundle not found: {bundle}. Run export first.")
@@ -447,7 +543,7 @@ def install_all(bundle: Path, hermes_home: Path, dry_run: bool) -> None:
             install_file(src, hermes_home / "memories" / mem, dry_run, backups)
     cron_jobs = bundle / "cron" / "jobs.json"
     if cron_jobs.exists():
-        install_file(cron_jobs, hermes_home / "cron" / "jobs.json", dry_run, backups)
+        install_cron_jobs(cron_jobs, hermes_home / "cron" / "jobs.json", dry_run, backups)
 
     profiles = bundle / "profiles"
     if profiles.exists():
@@ -468,7 +564,7 @@ def install_all(bundle: Path, hermes_home: Path, dry_run: bool) -> None:
                     install_file(src, target / "memories" / mem, dry_run, backups)
             cron_jobs = profile / "cron" / "jobs.json"
             if cron_jobs.exists():
-                install_file(cron_jobs, target / "cron" / "jobs.json", dry_run, backups)
+                install_cron_jobs(cron_jobs, target / "cron" / "jobs.json", dry_run, backups)
 
     if backups and not dry_run:
         print("Backups written:")

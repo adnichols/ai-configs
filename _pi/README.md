@@ -238,7 +238,7 @@ Example installed agents:
 - `dev:run` — direct GPT-5.6 Sol medium execution with one `quality-reviewer` pass after each phase
 - `general-glm` — retained general-purpose GLM route for explicitly delegated research, coding, debugging, and analysis; it is not a review gate
 - `ui-design-glm` — retained GLM-5.2 high UI design specialist for visual direction, UX tradeoffs, accessibility guidance, and design-focused implementation guidance; it is not a review gate
-- `pre-pr-implementation-review` — Codex plus applicable Claude Code pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
+- `autoreview` — canonical Codex plus applicable Claude Code pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
 
 ### Git / workflow
 - `cmd-create-pr`
@@ -258,7 +258,8 @@ Example installed agents:
 - `review-change-kimi`
 - `review-change-opus`
 - `review-change-claude-code` — Claude Code review-only pass through the deterministic invisible-background `claude_review` tool; the shared launcher owns private-tmux Claude mechanics
-- `pre-pr-implementation-review` — runnable independently or automatically from `run-plan` before PR creation; it is not a terminal replacement for PM review, base freshness, opening the PR, or proving local merge readiness
+- `autoreview` — runnable independently or automatically from `run-plan` before PR creation; it is not a terminal replacement for PM review, base freshness, opening the PR, or proving local merge readiness
+- `pre-pr-implementation-review` — indefinite compatibility alias for `autoreview`; it preserves arguments and the `OPEN_PR_READY` handoff without duplicating the canonical policy
 
 ## Usage
 
@@ -279,7 +280,7 @@ Prompt templates:
 /review:change-kimi thoughts/plans/my-plan.html
 /review:change-opus thoughts/plans/my-plan.html
 /review:change-claude-code thoughts/plans/my-plan.html
-/skill:pre-pr-implementation-review thoughts/plans/my-plan.html
+/skill:autoreview thoughts/plans/my-plan.html
 /run-plan thoughts/plans/my-plan.html
 /dev:plan-from-prd thoughts/plans/prd-my-feature.md
 /cmd:send-plan-to-doct thoughts/plans/my-plan.md
@@ -312,7 +313,7 @@ Use `/dev:pm-review <plan> implementation` after execution when you want a corre
 
 - `/cmd:execute-plan` is the canonical wrapper for choosing between `/run-plan <plan>` and `/dev:run <plan>`.
 - `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
-- `/skill:pre-pr-implementation-review` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean Codex and applicable Claude Code consensus with no unresolved blocking in-scope P1/P2 findings means `OPEN_PR_READY`; plan-required, verification-required, or regression-caused P3 findings remain blocking. The runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for a Codex thumbs-up.
+- `/skill:autoreview` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean Codex and applicable Claude Code consensus with no unresolved blocking in-scope P1/P2 findings means `OPEN_PR_READY`; plan-required, verification-required, or regression-caused P3 findings remain blocking. The runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for a Codex thumbs-up. `/skill:pre-pr-implementation-review` remains supported indefinitely as a thin argument-preserving compatibility alias.
 - In Pi, `/cmd:execute-plan` starts a fresh session and launches the selected execution flow from clean context.
 - `/review:change-claude-code` remains available as an explicit manual review request; it is not an automatic planning-mode fallback. It writes a bounded prompt and calls the repo-owned `claude_review` tool, which always runs without an overlay, returns immediately, and persists the job under a detached supervisor. The originating session is notified when still available; after reload/restart, use `claude_review` list/status to recover the validated artifact and interpret the workflow verdict separately from transport success.
 

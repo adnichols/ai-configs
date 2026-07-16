@@ -221,7 +221,7 @@ Pi now supports both:
 
 # Development
 # Codex plus applicable Claude Code review
-/skill:pre-pr-implementation-review thoughts/plans/<plan>.html
+/skill:autoreview thoughts/plans/<plan>.html
 
 # Context
 /skill:cmd-create-handoff "pausing work"
@@ -303,7 +303,8 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 
 **Reviews:**
 - `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus Codex and applicable Claude Code plan reviews, and stop at execution-ready handoff
-- `/skill:pre-pr-implementation-review` — Run one Codex plus applicable Claude Code pre-PR implementation review and one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
+- `/skill:autoreview` — Canonical bounded Codex plus applicable Claude Code pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
+- `/skill:pre-pr-implementation-review` — Indefinite compatibility alias for `/skill:autoreview`; it preserves arguments and the same `OPEN_PR_READY` handoff semantics.
 - `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
 
 ### Configuration
