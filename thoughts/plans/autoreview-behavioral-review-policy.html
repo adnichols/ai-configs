@@ -61,7 +61,7 @@
 <body>
 <main>
   <header id="title">
-    <p class="status">Implementation and local review complete · PR delivery pending</p>
+    <p class="status">Complete · PR #39 open · local merge readiness clean</p>
     <h1>Autoreview Behavioral Review Policy</h1>
     <p class="summary">Rename the bounded pre-PR review gate to <code>autoreview</code>, preserve the existing review mechanics and compatibility path, and strengthen finding quality while further constraining scope.</p>
     <p><strong>UI impact:</strong> text-only. This changes agent-facing skill names, policy prose, maintained prompts, installation metadata, and documentation. It does not change a runtime application UI or add new review execution machinery.</p>
@@ -155,7 +155,7 @@
     <ul class="progress">
       <li><label><input type="checkbox" checked disabled> <strong>P1</strong> — Establish <code>autoreview</code> as the canonical bounded review policy and add the selected behavioral constraints.</label></li>
       <li><label><input type="checkbox" checked disabled> <strong>P2</strong> — Add the compatibility alias and migrate maintained callers, docs, install metadata, Hermes source, and policy tests.</label></li>
-      <li><label><input type="checkbox" disabled> <strong>P3</strong> — Synchronize installed skill/Hermes state and prove naming, transport, review scope, and compatibility invariants.</label></li>
+      <li><label><input type="checkbox" checked disabled> <strong>P3</strong> — Synchronize installed skill/Hermes state and prove naming, transport, review scope, and compatibility invariants.</label></li>
     </ul>
   </section>
 
@@ -475,6 +475,7 @@ gh pr view --json url,headRefOid,baseRefName,mergeStateStatus,statusCheckRollup,
       <li><strong>2026-07-15:</strong> Plan is review-ready but not marked execution-ready until Doct/browser and applicable independent plan review are complete.</li>
       <li><strong>2026-07-15:</strong> Fresh independent Codex review cycle 2 returned <code>PLAN_EXECUTION_READY</code> after both readiness findings were integrated.</li>
       <li><strong>2026-07-16:</strong> The user explicitly invoked the full <code>run-plan</code> lifecycle, overriding the plan's repository-default direct-to-<code>main</code> delivery with feature-branch commit, push, PR creation, current feedback inspection, and local merge-readiness consensus.</li>
+      <li><strong>2026-07-16:</strong> Pull request <a href="https://github.com/adnichols/ai-configs/pull/39">#39</a> was opened from fresh <code>origin/main</code>. GitHub reported the head mergeable, the explicit merge-tree check was clean, and the current feedback snapshot contained no comments or reviews; the only pending item was the external CodeRabbit status, which is not required for local review-agent consensus.</li>
     </ul>
   </section>
 </main>

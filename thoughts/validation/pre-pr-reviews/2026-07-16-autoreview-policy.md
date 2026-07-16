@@ -57,4 +57,19 @@ Implementation-stage PM review is clean. The canonical command is now obvious, c
 - Non-blocking follow-ups: none required; Claude Code advisory notes describe optional future hardening only.
 - Result: `OPEN_PR_READY`
 
-No Codex PR thumbs-up or external approval is required after this clean local review-agent consensus. The `run-plan` caller must complete base freshness, commit, push, PR creation, current PR feedback inspection, and local merge-readiness confirmation.
+No Codex PR thumbs-up or external approval is required after this clean local review-agent consensus. The `run-plan` caller subsequently completed base freshness, commit, push, PR creation, current PR feedback inspection, and local merge-readiness confirmation as recorded below.
+
+## PR delivery and current snapshot
+
+- PR: https://github.com/adnichols/ai-configs/pull/39
+- Base/head: `main` ← `autoreview-policy`
+- GitHub mergeability at snapshot: `MERGEABLE`
+- Current PR comments: none
+- Current inline review comments: none
+- Current PR reviews: none
+- Status checks: CodeRabbit pending; no failed check and no actionable feedback was present
+- Base freshness: `origin/main` is an ancestor of the pushed head
+- Local conflict check: `git merge-tree --write-tree origin/main HEAD` succeeded
+- Local merge-readiness consensus: clean
+
+The pending external CodeRabbit status does not change the clean Codex/Claude local review-agent consensus and is not a reason to wait for a thumbs-up or external approval.
