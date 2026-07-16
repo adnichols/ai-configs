@@ -11,7 +11,9 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const repoRoot = resolve(import.meta.dir, "..");
-const candidate = resolve(repoRoot, "_pi/packages/pi-vcc");
+const candidate = process.env.PI_VCC_REPRO_PACKAGE
+	? resolve(process.env.PI_VCC_REPRO_PACKAGE)
+	: resolve(repoRoot, "_pi/packages/pi-vcc");
 const percentageExtension = resolve(
 	repoRoot,
 	"_pi/extensions/percentage-compaction.ts",
@@ -99,6 +101,11 @@ const providerErrors: Array<{
 	call: number;
 	estimatedTokens: number;
 	compactionsAtFailure: number;
+}> = [];
+const providerContextSamples: Array<{
+	call: number;
+	estimatedTokens: number;
+	compactions: number;
 }> = [];
 let toolExecutions = 0;
 const sessionManager = runtime.SessionManager.create(root, sessionDir);
@@ -215,6 +222,15 @@ const longRunCompleted = () =>
 				entry.message?.stopReason === "stop" &&
 				assistantText(entry).includes("long run complete"),
 		);
+const userText = (entry: any) =>
+	Array.isArray(entry?.message?.content)
+		? entry.message.content
+				.filter((part: any) => part?.type === "text")
+				.map((part: any) => part.text)
+				.join("")
+		: typeof entry?.message?.content === "string"
+			? entry.message.content
+			: "";
 const waitFor = async (description: string, predicate: () => boolean) => {
 	const deadline = Date.now() + 3_000;
 	while (Date.now() < deadline) {
@@ -228,6 +244,11 @@ try {
 	const longRunResponses = Array.from({ length: 100 }, (_, index) =>
 		(context: any, _options: any, state: { callCount: number }) => {
 			const estimatedTokens = estimateContextTokens(context);
+			providerContextSamples.push({
+				call: state.callCount,
+				estimatedTokens,
+				compactions: compactionCount(),
+			});
 			if (
 				estimatedTokens >=
 				(contextWindow * providerFailurePercent) / 100
@@ -260,7 +281,7 @@ try {
 	const piVccCommand = session._extensionRunner.getCommand("pi-vcc");
 	if (!piVccCommand) throw new Error("pi-vcc command was not registered");
 	await piVccCommand.handler(
-		"",
+		"Continue the deterministic long tool-driven run.",
 		session._extensionRunner.createCommandContext(),
 	);
 	await waitFor("controlled baseline compaction", () => compactionCount() === 1);
@@ -270,10 +291,35 @@ try {
 			providerErrors.length > 0 ||
 			(longRunCompleted() && !session.isStreaming && !session.isCompacting),
 	);
+	const finalBranch = sessionManager.getBranch();
+	const followUpIndex = finalBranch.findIndex(
+		(entry: any) =>
+			entry.type === "message" &&
+			entry.message?.role === "user" &&
+			userText(entry).includes("Continue the deterministic long tool-driven run."),
+	);
+	const oversizedTurnCompactionIndex = finalBranch.findIndex(
+		(entry: any, index: number) =>
+			index > followUpIndex && entry.type === "compaction",
+	);
+	const oversizedTurnCompaction = finalBranch[oversizedTurnCompactionIndex];
+	const oversizedTurnFirstKeptIndex = finalBranch.findIndex(
+		(entry: any) => entry.id === oversizedTurnCompaction?.firstKeptEntryId,
+	);
+	const firstPostOversizedCompactionSample = providerContextSamples.find(
+		(sample) => sample.compactions >= 2,
+	);
 	const result = {
 		root,
 		toolExecutions,
 		compactions: compactionCount(),
+		oversizedTurnCut: {
+			followUpIndex,
+			compactionIndex: oversizedTurnCompactionIndex,
+			firstKeptIndex: oversizedTurnFirstKeptIndex,
+			firstKeptEntryId: oversizedTurnCompaction?.firstKeptEntryId,
+		},
+		firstPostOversizedCompactionSample,
 		providerErrors,
 		assistantErrors: assistantErrors().map((entry: any) =>
 			entry.message.errorMessage,
@@ -288,6 +334,19 @@ try {
 		process.exit(1);
 	}
 	if (!longRunCompleted()) throw new Error("Long run never reached terminal stop");
+	if (followUpIndex < 0) throw new Error("Long-run follow-up user turn was not persisted");
+	if (oversizedTurnCompactionIndex < 0)
+		throw new Error("The oversized user turn was never compacted");
+	if (oversizedTurnFirstKeptIndex <= followUpIndex)
+		throw new Error(
+			"Oversized user turn compaction retained the entire active turn instead of splitting it",
+		);
+	if (!firstPostOversizedCompactionSample)
+		throw new Error("No provider response followed the oversized-turn compaction");
+	if (firstPostOversizedCompactionSample.estimatedTokens >= contextWindow * 0.4)
+		throw new Error(
+			`Oversized-turn compaction retained too much context: ${firstPostOversizedCompactionSample.estimatedTokens}`,
+		);
 	if (assistantErrors().length > 0)
 		throw new Error("Long run persisted an assistant error");
 	if (toolExecutions < 70)

@@ -11,6 +11,20 @@ import {
 
 mock.module("@earendil-works/pi-coding-agent", () => ({
   convertToLlm: (messages: any[]) => messages,
+  estimateTokens: (message: any) => {
+    const content = message?.content;
+    if (typeof content === "string") return Math.ceil(content.length / 4);
+    if (!Array.isArray(content)) return 0;
+    const chars = content.reduce((sum: number, part: any) => {
+      if (typeof part?.text === "string") return sum + part.text.length;
+      if (typeof part?.thinking === "string") return sum + part.thinking.length;
+      if (part?.type === "toolCall") {
+        return sum + String(part.name ?? "").length + JSON.stringify(part.arguments ?? "").length;
+      }
+      return sum;
+    }, 0);
+    return Math.ceil(chars / 4);
+  },
 }));
 
 mock.module("typebox", () => ({
@@ -158,6 +172,34 @@ describe("before-compact cut policy", () => {
     expect(result.compaction.summary).toContain('Read "a.ts"');
   });
 
+  it("token-bounds a repeated compaction inside the same agent-only turn", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: {
+        ...basePreparation,
+        settings: { keepRecentTokens: 120 },
+      },
+      branchEntries: [
+        messageEntry("1", userMsg("Original long-running goal")),
+        messageEntry("2", assistantText("Initial progress")),
+        compactionEntry("c1", "3"),
+        messageEntry("3", assistantText(`Prior retained work ${"P".repeat(1_200)}`)),
+        messageEntry("4", assistantWithToolCall("Read", { path: "large-a.log" }, "tc_a")),
+        messageEntry("5", toolResult("Read", `large result A ${"A".repeat(1_200)}`, false, "tc_a")),
+        messageEntry("6", assistantText(`interpreted large result A ${"I".repeat(1_200)}`)),
+        messageEntry("7", assistantWithToolCall("Read", { path: "recent-b.log" }, "tc_b")),
+        messageEntry("8", toolResult("Read", `recent result B ${"B".repeat(200)}`, false, "tc_b")),
+        messageEntry("9", assistantText("Continue from the recent result.")),
+      ],
+      reason: "threshold",
+    });
+
+    expect(result.cancel).toBeUndefined();
+    expect(result.compaction.firstKeptEntryId).toBe("7");
+    const { getLastCompactionStats } = await import("../src/hooks/before-compact");
+    expect(getLastCompactionStats()?.keptTokensEst).toBeLessThanOrEqual(120);
+  });
+
   it("keeps the matching assistant tool call live when fallback would start at a tool result", async () => {
     const handler = await getBeforeCompactHandler();
     const result = handler({
@@ -215,6 +257,104 @@ describe("before-compact cut policy", () => {
     expect(result.compaction.firstKeptEntryId).toBe("3");
     expect(result.compaction.summary).toContain("First request");
     expect(result.compaction.summary).not.toContain("Follow-up request");
+  });
+
+  it("splits an oversized latest user turn to keep a token-bounded tail", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: {
+        ...basePreparation,
+        settings: { keepRecentTokens: 120 },
+      },
+      branchEntries: [
+        messageEntry("1", userMsg("Earlier completed request")),
+        messageEntry("2", assistantText("Earlier completed response")),
+        messageEntry("3", userMsg(`Continue the active goal. ${"G".repeat(1_200)}`)),
+        messageEntry("4", assistantWithToolCall("Read", { path: "large-a.log" }, "tc_a")),
+        messageEntry("5", toolResult("Read", `large result A ${"A".repeat(1_200)}`, false, "tc_a")),
+        messageEntry("6", assistantText(`interpreted large result A ${"I".repeat(1_200)}`)),
+        messageEntry("7", assistantWithToolCall("Read", { path: "recent-b.log" }, "tc_b")),
+        messageEntry("8", toolResult("Read", `recent result B ${"B".repeat(200)}`, false, "tc_b")),
+        messageEntry("9", assistantText("Continue from the recent result.")),
+      ],
+      reason: "threshold",
+    });
+
+    expect(result.cancel).toBeUndefined();
+    expect(result.compaction.firstKeptEntryId).toBe("7");
+    expect(result.compaction.summary).toContain("large result A");
+    expect(result.compaction.summary).not.toContain("recent result B");
+    const { getLastCompactionStats } = await import("../src/hooks/before-compact");
+    expect(getLastCompactionStats()?.keptTokensEst).toBeLessThanOrEqual(120);
+  });
+
+  it("splits an oversized turn when its user message is the first live entry", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: {
+        ...basePreparation,
+        settings: { keepRecentTokens: 120 },
+      },
+      branchEntries: [
+        messageEntry("1", userMsg(`Continue the active goal. ${"G".repeat(1_200)}`)),
+        messageEntry("2", assistantWithToolCall("Read", { path: "large-a.log" }, "tc_a")),
+        messageEntry("3", toolResult("Read", `large result A ${"A".repeat(1_200)}`, false, "tc_a")),
+        messageEntry("4", assistantText(`interpreted large result A ${"I".repeat(1_200)}`)),
+        messageEntry("5", assistantWithToolCall("Read", { path: "recent-b.log" }, "tc_b")),
+        messageEntry("6", toolResult("Read", `recent result B ${"B".repeat(200)}`, false, "tc_b")),
+        messageEntry("7", assistantText("Continue from the recent result.")),
+      ],
+      reason: "threshold",
+    });
+
+    expect(result.cancel).toBeUndefined();
+    expect(result.compaction.firstKeptEntryId).toBe("5");
+    const { getLastCompactionStats } = await import("../src/hooks/before-compact");
+    expect(getLastCompactionStats()?.keptTokensEst).toBeLessThanOrEqual(120);
+  });
+
+  it("cuts after a completed oversized tool pair instead of pulling its call over budget", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: {
+        ...basePreparation,
+        settings: { keepRecentTokens: 65 },
+      },
+      branchEntries: [
+        messageEntry("1", userMsg("Earlier request")),
+        messageEntry("2", assistantText("Earlier response")),
+        messageEntry("3", userMsg(`Continue the active goal. ${"G".repeat(1_200)}`)),
+        messageEntry("4", assistantWithToolCall("Write", { path: "large.txt", content: "W".repeat(4_000) }, "tc_large")),
+        messageEntry("5", toolResult("Write", "Wrote large.txt", false, "tc_large")),
+        messageEntry("6", assistantText("The large write completed; continue with the next step.")),
+      ],
+      reason: "threshold",
+    });
+
+    expect(result.cancel).toBeUndefined();
+    expect(result.compaction.firstKeptEntryId).toBe("6");
+    const { getLastCompactionStats } = await import("../src/hooks/before-compact");
+    expect(getLastCompactionStats()?.keptTokensEst).toBeLessThanOrEqual(65);
+  });
+
+  it("honors an explicit keep boundary even when that turn exceeds the token budget", async () => {
+    const handler = await getBeforeCompactHandler();
+    const result = handler({
+      preparation: {
+        ...basePreparation,
+        settings: { keepRecentTokens: 65 },
+      },
+      branchEntries: [
+        messageEntry("1", userMsg("Earlier request")),
+        messageEntry("2", assistantText("Earlier response")),
+        messageEntry("3", userMsg(`Keep this full turn. ${"K".repeat(1_200)}`)),
+        messageEntry("4", assistantText(`Large active response ${"R".repeat(1_200)}`)),
+      ],
+      customInstructions: "__PI_VCC_MANUAL_BYPASS__\nkeep:1",
+    });
+
+    expect(result.cancel).toBeUndefined();
+    expect(result.compaction.firstKeptEntryId).toBe("3");
   });
 });
 
