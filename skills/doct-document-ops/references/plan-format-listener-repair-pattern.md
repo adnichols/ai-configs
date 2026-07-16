@@ -12,7 +12,7 @@ For reviewer-facing implementation plans, the successful path is:
    - Evidence to look for: `documentId`, `workspaceId`, `documentVersionId`, render/html version IDs, and nonzero `anchorTargets`.
    - `documents get` can prove a document exists, but it does not prove it is the commentable plan-review surface.
 4. Check queue once with `doct-agent plans queue list --workspace-id <workspace-id> --document-id <document-id> --json`.
-5. Start or verify a document-specific listener/watcher before final response.
+5. Process any startup claims, then start or verify a document-specific listener before final response. `plans watch` is source sync and does not satisfy this step.
 6. If a wrong text-doc URL was already shared, delete or clearly supersede it so there is one canonical URL.
 
 ## Final response checklist
@@ -24,6 +24,6 @@ When handing the plan back, include:
 - workspace ID,
 - proof `plans show` succeeded, such as anchor target count or render id,
 - current queue item count,
-- listener job/process id and last verified status.
+- listener job/process/session id, last verified status, and the host wake mechanism (Codex active terminal/automation, Pi repeating process watch, or another verified equivalent).
 
-Do not say or imply a listener is running unless you have verified a process, cron job, or harness background command for that exact document ID.
+Do not say or imply comments will be handled automatically unless you have verified both a live process for that exact document ID and a host path that re-activates or remains attached to the processing agent. On Codex, a surviving exec session without an active poll or native wake path is `LISTENER_WAKE_UNAVAILABLE`, not complete supervision.
