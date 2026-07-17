@@ -12,6 +12,8 @@ for MANAGED_PI_PATH in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/ag
   fi
 done
 SNAPSHOT="$(mktemp -d)"; chmod 700 "$SNAPSHOT"
+mkdir -p "$SNAPSHOT/runtime-cache/python" "$SNAPSHOT/runtime-cache/xdg"
+export PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX="$SNAPSHOT/runtime-cache/python" XDG_CACHE_HOME="$SNAPSHOT/runtime-cache/xdg"
 SKILLS=(autoreview codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan)
 
 manifest() {
@@ -89,7 +91,20 @@ diff -qr "$ROOT/_pi/extensions/codex-review" "$HOME/.pi/agent/extensions/codex-r
 for skill in "${SKILLS[@]}"; do diff -qr "$ROOT/skills/$skill" "$HOME/.agents/skills/$skill" >/dev/null; done
 failpoint after-parity
 
-launcher="$HOME/.agents/skills/codex-review-partner/scripts/run-review.sh"; cp "$launcher" "$SNAPSHOT/real-launcher"; cp "$ROOT/_pi/extensions/codex-review/tests/fixtures/fake_launcher.py" "$launcher"; chmod 755 "$launcher"
+review_scripts="$HOME/.agents/skills/codex-review-partner/scripts"
+helper="$review_scripts/process_identity.py"; supervisor="$review_scripts/review_supervisor.py"
+python3 - "$helper" "$supervisor" <<'PY'
+import os,stat,sys
+for file in sys.argv[1:]:
+ mode=stat.S_IMODE(os.stat(file).st_mode)
+ if not mode & stat.S_IRUSR or not mode & stat.S_IXUSR:
+  raise SystemExit(f"installed review helper is not owner-readable/executable: {file} mode={oct(mode)}")
+PY
+python3 "$helper" snapshot --pid $$ >/dev/null
+python3 "$supervisor" --preflight >/dev/null
+failpoint after-preflight
+
+launcher="$review_scripts/run-review.sh"; cp "$launcher" "$SNAPSHOT/real-launcher"; cp "$ROOT/_pi/extensions/codex-review/tests/fixtures/fake_launcher.py" "$launcher"; chmod 755 "$launcher"
 PI_REVIEW_STACK_TEST_HOME="$HOME" node --test "$ROOT/_pi/extensions/codex-review/tests/installed-host-notification.test.mjs"
 cp "$SNAPSHOT/real-launcher" "$launcher"; chmod 755 "$launcher"
 failpoint after-host

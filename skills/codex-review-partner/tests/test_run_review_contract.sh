@@ -5,6 +5,8 @@ ROOT="$(mktemp -d)"
 trap 'rm -rf "$ROOT"' EXIT
 LAUNCHER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/run-review.sh"
 mkdir -p "$ROOT/bin" "$ROOT/work tree"
+export HOME="$ROOT"
+printf 'export PATH=%q\n' "$ROOT/bin:/usr/bin:/bin" >"$ROOT/.bash_profile"
 
 cat >"$ROOT/bin/codex" <<'EOF'
 #!/usr/bin/env python3
@@ -37,6 +39,14 @@ printf 'Review this bounded packet.\n' >"$ROOT/input.md"
 
 run() {
   PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" "$@"
+}
+
+portable_stat() {
+  python3 - "$1" <<'PY'
+import json,os,stat,sys
+value=os.stat(sys.argv[1])
+print(json.dumps({'inode':value.st_ino,'mode':stat.S_IMODE(value.st_mode),'mtime_ns':value.st_mtime_ns},sort_keys=True))
+PY
 }
 
 assert_fails() {
@@ -82,17 +92,18 @@ d=json.load(open(sys.argv[1])); assert d['protocolVersion']==1 and d['outcome']=
 assert d['cliVersion']
 PY
 
-# The extension-owned sidecar is atomic, nonce-bound, and records durable /proc identity.
+# The extension-owned sidecar is atomic, nonce-bound, and records durable adapter identity.
 identity="$ROOT/process-identity.json"
 FAKE_CODEX_MODE=identity-pause FAKE_FINAL=$'Body\nVERDICT: CLEAN_FOR_PR\n' run --mode implementation-review --verdict-profile generic-implementation --input "$ROOT/input.md" --output "$ROOT/identity-output" --status-file "$ROOT/identity-status" --process-identity-file "$identity" --job-nonce nonce-123 --timeout-seconds 3 >"$ROOT/identity-events" &
 identity_launcher=$!
 for _ in $(seq 1 100); do [[ -s "$identity" ]] && break; sleep .01; done
-python3 - "$identity" <<'PY'
-import json,pathlib,sys
-d=json.load(open(sys.argv[1]));assert d['protocolVersion']==1 and d['nonce']=='nonce-123'
-assert d['bootId']==pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
-raw=pathlib.Path(f"/proc/{d['codexPid']}/stat").read_text();tail=raw[raw.rfind(')')+2:].split()
-assert int(tail[2])==d['codexPgid'] and tail[19]==d['processStartIdentity']
+python3 - "$identity" "$LAUNCHER" <<'PY'
+import json,pathlib,subprocess,sys
+d=json.load(open(sys.argv[1]));assert d['protocolVersion']==2 and d['nonce']=='nonce-123'
+helper=pathlib.Path(sys.argv[2]).with_name('process_identity.py')
+snapshot=json.loads(subprocess.check_output([sys.executable,str(helper),'snapshot','--pid',str(d['leaderPid'])],text=True))
+record=snapshot['process'];assert snapshot['bootId']==d['bootId']
+assert record['pgid']==d['leaderPgid'] and record['sid']==d['leaderSid'] and record['startIdentity']==d['leaderStartIdentity']
 PY
 wait "$identity_launcher"
 
@@ -101,10 +112,10 @@ printf '\x00caller-owned\xffbytes\n' >"$output"
 chmod 640 "$output"
 touch -t 202001020304.05 "$output"
 cp "$output" "$ROOT/output-before"
-before_stat="$(stat -c '%i %a %Y' "$output")"
+before_stat="$(portable_stat "$output")"
 assert_fails 'final status publication failed' env CODEX_REVIEW_TEST_FAIL_FINAL_STATUS_WRITE=1 FAKE_FINAL=$'Body\nVERDICT: CLEAN_FOR_PR\n' PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode implementation-review --verdict-profile generic-implementation --input "$ROOT/input.md" --output "$output" --status-file "$status" --timeout-seconds 3
 cmp "$ROOT/output-before" "$output"
-[[ "$(stat -c '%i %a %Y' "$output")" == "$before_stat" ]]
+[[ "$(portable_stat "$output")" == "$before_stat" ]]
 
 # TERM before the protected final rename leaves the original wholly untouched.
 marker="$ROOT/before-commit"; allow="$ROOT/allow-commit"
@@ -115,7 +126,7 @@ kill -TERM "$interrupted_pid"
 set +e; wait "$interrupted_pid"; interrupted_code=$?; set -e
 [[ "$interrupted_code" == 143 ]]
 cmp "$ROOT/output-before" "$output"
-[[ "$(stat -c '%i %a %Y' "$output")" == "$before_stat" ]]
+[[ "$(portable_stat "$output")" == "$before_stat" ]]
 assert_fails 'terminated by signal' env FAKE_CODEX_MODE=signal PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode smoke --input "$ROOT/input.md" --status-file "$status" --timeout-seconds 3
 python3 - "$status" <<'PY'
 import json,sys
@@ -161,14 +172,15 @@ PY
 
 # Inner timeout kills the full process group and records timeout precedence.
 assert_fails 'timed out' env FAKE_CODEX_MODE=timeout FAKE_CHILD_PID="$ROOT/child.pid" PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode smoke --input "$ROOT/input.md" --status-file "$status" --timeout-seconds 1
-python3 - "$status" "$ROOT/child.pid" <<'PY'
-import json,os,sys,time
+python3 - "$status" "$ROOT/child.pid" "$LAUNCHER" <<'PY'
+import json,pathlib,subprocess,sys,time
 d=json.load(open(sys.argv[1])); assert d['classification']=='CODEX_REVIEW_INNER_TIMEOUT' and d['timeout'] is True
 assert d['codexExitCode']==137 and d['codexSignal'] in (9,'9')
 pid=int(open(sys.argv[2]).read())
+helper=pathlib.Path(sys.argv[3]).with_name('process_identity.py')
 for _ in range(40):
-    try: os.kill(pid,0)
-    except ProcessLookupError: break
+    value=json.loads(subprocess.check_output([sys.executable,str(helper),'snapshot','--pid',str(pid)],text=True))
+    if not value['process'] or not value['process']['alive']: break
     time.sleep(.05)
 else: raise AssertionError('descendant survived timeout')
 PY

@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+VERIFY_RUNTIME_CACHE="$(mktemp -d)"
+export PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX="$VERIFY_RUNTIME_CACHE/python" XDG_CACHE_HOME="$VERIFY_RUNTIME_CACHE/xdg"
+trap 'rm -rf "$VERIFY_RUNTIME_CACHE"' EXIT
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PI_AGENT_DIR="${PI_AGENT_DIR:-${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}}"
@@ -87,6 +91,10 @@ PY
   fi
   for skill in autoreview codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
     if ! diff -qr "$REPO_ROOT/skills/$skill" "$HOME/.agents/skills/$skill" >/dev/null 2>&1; then echo "FAIL: installed skill parity $skill" >&2; failures=$((failures+1)); fi
+  done
+  for helper in process_identity.py review_supervisor.py; do
+    installed="$HOME/.agents/skills/codex-review-partner/scripts/$helper"
+    if [ ! -r "$installed" ] || [ ! -x "$installed" ]; then echo "FAIL: installed review helper must be owner-readable and executable: $installed" >&2; failures=$((failures+1)); fi
   done
   if ((failures)); then echo "Pi review-stack verification failed with $failures issue(s)." >&2; exit 1; fi
   echo "Pi review-stack verification passed (check-only)."

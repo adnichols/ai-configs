@@ -25,13 +25,18 @@ class InstallTransactionTest(unittest.TestCase):
         result=[]
         for current in currents:
             value=current.lstat();kind,payload=payloads[current]
-            result.append((str(current.relative_to(path.parent)),kind,stat.S_IMODE(value.st_mode),value.st_uid,value.st_gid,value.st_atime_ns,value.st_mtime_ns,value.st_ctime_ns,payload))
+            # Reading a symlink may update its access time on Linux even when
+            # the installer rejects it without mutating the link or target.
+            # Keep exact content/ownership/mode/mtime/ctime checks, but do not
+            # mistake that read-only access-time update for an install write.
+            atime=None if kind=='L' else value.st_atime_ns
+            result.append((str(current.relative_to(path.parent)),kind,stat.S_IMODE(value.st_mode),value.st_uid,value.st_gid,atime,value.st_mtime_ns,value.st_ctime_ns,payload))
         return result
     def test_bounded_install_and_scoped_check_only(self):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d); foreign=home/'foreign';foreign.write_text('keep');models=home/'.pi/agent/models.json';models.parent.mkdir(parents=True);models.write_text(json.dumps({'providers':{'caller-owned':{'apiKey':'secret','models':[{'id':'local'}]}}}));env={**os.environ,'HOME':d}
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
-            self.assertEqual(foreign.read_text(),'keep');installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);self.assertTrue((home/'.agents/skills/autoreview/SKILL.md').is_file());append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
+            self.assertEqual(foreign.read_text(),'keep');installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);self.assertTrue((home/'.agents/skills/autoreview/SKILL.md').is_file());scripts=home/'.agents/skills/codex-review-partner/scripts';self.assertEqual(stat.S_IMODE((scripts/'process_identity.py').stat().st_mode)&0o500,0o500);self.assertEqual(stat.S_IMODE((scripts/'review_supervisor.py').stat().st_mode)&0o500,0o500);append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
             subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(before,manifest(home))
     def test_preexisting_agents_parent_metadata_is_not_mutated(self):
@@ -49,11 +54,18 @@ class InstallTransactionTest(unittest.TestCase):
                 self.assertEqual(before,[self.metadata(target) for target in targets])
                 self.assertTrue((home/'.agents').is_symlink() if kind=='agents' else (home/'.agents/skills').is_symlink());self.assertEqual((external/'foreign').read_text(),'keep');self.assertTrue((home/'.agents/skills/codex-review-partner/SKILL.md').is_file())
     def test_transaction_rolls_back_every_structural_failpoint(self):
-        for point in ('after-install','after-verify','after-parity','after-host'):
+        for point in ('after-install','after-verify','after-parity','after-preflight','after-host'):
             with self.subTest(point=point),tempfile.TemporaryDirectory() as d:
                 home=Path(d);(home/'.pi').mkdir();(home/'.pi/foreign').write_text('old');before=manifest(home);env={**os.environ,'HOME':d,'PI_REVIEW_STACK_FAILPOINT':point}
                 r=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                 self.assertNotEqual(r.returncode,0);self.assertEqual(before,manifest(home))
+    def test_installed_preflight_precedes_fake_launcher_substitution(self):
+        text=(ROOT/'scripts/install-pi-transactionally.sh').read_text()
+        parity=text.index('failpoint after-parity')
+        helper=text.index('python3 "$helper" snapshot --pid $$')
+        supervisor=text.index('python3 "$supervisor" --preflight')
+        fake=text.index('fake_launcher.py')
+        self.assertLess(parity,helper);self.assertLess(helper,supervisor);self.assertLess(supervisor,fake)
     def test_symlinked_pi_is_rejected_without_touching_link_or_external_tree(self):
         for command,failpoint in ((['bash','install.sh','--pi-review-stack'],None),(['bash','scripts/install-pi-transactionally.sh'],'after-install')):
             with self.subTest(command=command[-1]),tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as external_d:

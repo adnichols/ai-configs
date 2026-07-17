@@ -79,6 +79,19 @@ Review modes require an explicit compatible `--verdict-profile`; legacy profile-
 
 The wrapper resolves `${SHELL:-/bin/zsh}`, invokes `codex exec --json --output-last-message` through a supported login shell, and keeps progress JSONL separate from the final artifact. Its process-group watchdog is elapsed-time based, never output-silence based.
 
+## Supported hosts and process safety
+
+The managed launcher supports Linux and macOS with the system Python standard library. It does not require an external `setsid` executable or a Homebrew PATH change. `process_identity.py` uses Linux `/proc` only inside the Linux adapter and Darwin `libproc` plus kernel boot time inside the macOS adapter. `review_supervisor.py` creates the private session with `os.setsid()`, monitors both the launcher and Pi owner identities, and verifies SID-wide TERM-to-KILL cleanup before reporting success.
+
+Unsupported platforms, unavailable Darwin `libproc`, malformed identity output, PID/start/boot/session mismatch, and cleanup uncertainty fail closed. Inspect the launcher stderr, status file, and process-identity sidecar named by the `codex_review` completion. Do not rerun a required review while `CODEX_REVIEW_CLEANUP_FAILED` evidence remains unresolved, and do not work around capability failures with `ps` parsing, direct `codex exec`, or a model/subagent fallback.
+
+Installed-stack diagnostics:
+
+```bash
+python3 ~/.agents/skills/codex-review-partner/scripts/process_identity.py preflight
+python3 ~/.agents/skills/codex-review-partner/scripts/review_supervisor.py --preflight
+```
+
 ## Direct CLI pattern
 
 Use this only when the wrapper is unnecessary and login-shell normalization is not required:

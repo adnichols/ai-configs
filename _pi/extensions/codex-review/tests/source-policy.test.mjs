@@ -48,3 +48,14 @@ test('extension does not depend on overlay/process extensions',async()=>{
     assert.doesNotMatch(text,/pi-interactive-shell|pi-processes/);
   }
 });
+
+test('portable review paths do not reintroduce Linux-only shell or proc assumptions',async()=>{
+  const runtime=await readFile(path.join(repo,'_pi/extensions/codex-review/runtime.ts'),'utf8');
+  const launcher=await readFile(path.join(repo,'skills/codex-review-partner/scripts/run-review.sh'),'utf8');
+  const contract=await readFile(path.join(repo,'skills/codex-review-partner/tests/test_run_review_contract.sh'),'utf8');
+  assert.doesNotMatch(runtime,/\/proc\//);
+  assert.doesNotMatch(launcher,/\bsetsid\s+python|\/proc\/|stat -c|prctl/);
+  assert.doesNotMatch(contract,/stat -c|\/proc\//);
+  assert.match(launcher,/process_identity\.py/);
+  assert.match(launcher,/review_supervisor\.py/);
+});

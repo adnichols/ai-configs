@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse,json,os,pathlib,signal,subprocess,sys,time
-p=argparse.ArgumentParser(); p.add_argument('--mode'); p.add_argument('--verdict-profile'); p.add_argument('--input'); p.add_argument('--cwd'); p.add_argument('--output',required=True); p.add_argument('--status-file',required=True); p.add_argument('--process-identity-file',required=True); p.add_argument('--job-nonce',required=True); p.add_argument('--timeout-seconds'); p.add_argument('--managed-process-group',action='store_true'); a=p.parse_args()
+p=argparse.ArgumentParser(); p.add_argument('--mode'); p.add_argument('--verdict-profile'); p.add_argument('--input'); p.add_argument('--cwd'); p.add_argument('--output',required=True); p.add_argument('--status-file',required=True); p.add_argument('--process-identity-file',required=True); p.add_argument('--job-nonce',required=True); p.add_argument('--owner-pid'); p.add_argument('--owner-start-identity'); p.add_argument('--owner-boot-id'); p.add_argument('--timeout-seconds'); p.add_argument('--managed-process-group',action='store_true'); a=p.parse_args()
 text=pathlib.Path(a.input).read_text() if a.input else ''
 mode=next((line.split('=',1)[1] for line in text.splitlines() if line.startswith('MODE=')),'success')
 delay=float(next((line.split('=',1)[1] for line in text.splitlines() if line.startswith('DELAY=')),'0'))
@@ -13,14 +13,17 @@ if mode=='launcher-death':
     code='import signal,subprocess,sys,time,pathlib,os; signal.signal(signal.SIGTERM,signal.SIG_IGN); c=subprocess.Popen([sys.executable,"-c","import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(60)"]); pathlib.Path(os.environ["FAKE_DESCENDANT_PID"]).write_text(f"{os.getpid()} {c.pid}"); time.sleep(60)'
     child_env={**os.environ,'FAKE_DESCENDANT_PID':descendant_pid}
     codex=subprocess.Popen([sys.executable,'-c',code],preexec_fn=os.setsid,env=child_env)
+    helper=pathlib.Path(__file__).resolve().with_name('process_identity.py')
+    if not helper.exists(): helper=pathlib.Path(__file__).resolve().parents[5]/'skills/codex-review-partner/scripts/process_identity.py'
     for _ in range(100):
-        try:
-            raw=pathlib.Path(f'/proc/{codex.pid}/stat').read_text();tail=raw[raw.rfind(')')+2:].split();break
-        except FileNotFoundError: time.sleep(.01)
+        snapshot=json.loads(subprocess.check_output([sys.executable,str(helper),'snapshot','--pid',str(codex.pid)],text=True))
+        if snapshot.get('process'): break
+        time.sleep(.01)
     for _ in range(100):
         if pathlib.Path(descendant_pid).exists(): break
         time.sleep(.01)
-    evidence={'protocolVersion':1,'nonce':a.job_nonce,'codexPid':codex.pid,'codexPgid':int(tail[2]),'processStartIdentity':tail[19],'bootId':pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()}
+    record=snapshot['process']
+    evidence={'protocolVersion':2,'adapterVersion':1,'platform':snapshot['platform'],'nonce':a.job_nonce,'bootId':snapshot['bootId'],'phase':'ready','leaderPid':record['pid'],'leaderPgid':record['pgid'],'leaderSid':record['sid'],'leaderStartIdentity':record['startIdentity']}
     tmp=pathlib.Path(a.process_identity_file+'.tmp');tmp.write_text(json.dumps(evidence));os.chmod(tmp,0o600);os.replace(tmp,a.process_identity_file)
     pathlib.Path(launcher_ready).write_text('ready')
     time.sleep(60)

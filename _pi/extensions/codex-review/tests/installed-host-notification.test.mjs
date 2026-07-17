@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
-import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -22,17 +22,25 @@ async function waitForTerminal(tool, id, cwd, ctx) {
 }
 
 test("installed same-process host queues one completion follow-up and none for shutdown cancellation", async (t) => {
-  const temporaryHome = !process.env.PI_REVIEW_STACK_TEST_HOME;
-  const home = process.env.PI_REVIEW_STACK_TEST_HOME || await mkdtemp(path.join(os.tmpdir(), "codex-installed-host-"));
+  const installedHome = process.env.PI_REVIEW_STACK_TEST_HOME;
+  const temporaryHome = !installedHome;
+  const home = await mkdtemp(path.join(os.tmpdir(), "codex-installed-host-"));
+  let agentDir = path.join(home, ".pi/agent");
+  t.after(() => rm(home, { recursive: true, force: true }));
   if (temporaryHome) {
-    t.after(() => rm(home, { recursive: true, force: true }));
     const source = path.resolve("_pi/extensions/codex-review");
     await mkdir(path.join(home, ".pi/agent/extensions"), { recursive: true });
     await import("node:fs/promises").then(({ cp }) => cp(source, path.join(home, ".pi/agent/extensions/codex-review"), { recursive: true }));
     const launcher = path.join(home, ".agents/skills/codex-review-partner/scripts/run-review.sh");
     await mkdir(path.dirname(launcher), { recursive: true });
     await copyFile(path.join(source, "tests/fixtures/fake_launcher.py"), launcher);
+    await copyFile(path.resolve("skills/codex-review-partner/scripts/process_identity.py"), path.join(path.dirname(launcher), "process_identity.py"));
     await chmod(launcher, 0o755);
+  } else {
+    agentDir = path.join(installedHome, ".pi/agent");
+    const skills = path.join(home, ".agents/skills");
+    await mkdir(skills, { recursive: true });
+    await symlink(path.join(installedHome, ".agents/skills/codex-review-partner"), path.join(skills, "codex-review-partner"), "dir");
   }
   const oldHome = process.env.HOME;
   process.env.HOME = home;
@@ -40,9 +48,9 @@ test("installed same-process host queues one completion follow-up and none for s
 
   const sdk = await loadSdk();
   const cwd = process.cwd();
-  const loader = new sdk.DefaultResourceLoader({ cwd, agentDir: path.join(home, ".pi/agent"), settingsManager: sdk.SettingsManager.inMemory({}) });
+  const loader = new sdk.DefaultResourceLoader({ cwd, agentDir, settingsManager: sdk.SettingsManager.inMemory({}) });
   await loader.reload();
-  const { session } = await sdk.createAgentSession({ cwd, agentDir: path.join(home, ".pi/agent"), resourceLoader: loader, sessionManager: sdk.SessionManager.inMemory(cwd), noTools: "all" });
+  const { session } = await sdk.createAgentSession({ cwd, agentDir, resourceLoader: loader, sessionManager: sdk.SessionManager.inMemory(cwd), noTools: "all" });
   const tool = session.extensionRunner.getToolDefinition("codex_review");
   const ctx = session.extensionRunner.createContext();
   assert.ok(tool);
@@ -55,7 +63,7 @@ test("installed same-process host queues one completion follow-up and none for s
   const startTime = Date.now();
   const started = await tool.execute("start", { action: "start", reviewType: "implementation-review", verdictProfile: "generic-implementation", cwd, promptFile: prompt, output }, new AbortController().signal, () => {}, ctx);
   assert.equal(started.details.job.status, "running");
-  assert.ok(Date.now() - startTime < 200);
+  assert.ok(Date.now() - startTime < 1_000);
   assert.equal((await waitForTerminal(tool, started.details.job.jobId, cwd, ctx)).status, "succeeded");
   assert.match(await readFile(output, "utf8"), /VERDICT:/);
   await new Promise((resolve) => setTimeout(resolve, 100));

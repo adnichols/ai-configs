@@ -1,9 +1,10 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, closeSync, constants, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const REVIEW_TIMEOUT_SECONDS = 3600;
 export const SMOKE_TIMEOUT_SECONDS = 180;
@@ -31,21 +32,26 @@ const COMPATIBLE: Record<ReviewType, VerdictProfile[]> = {
 };
 
 export interface StartRequest { action: "start" | "smoke"; reviewType?: ReviewType; verdictProfile?: VerdictProfile; cwd: string; promptFile?: string; output: string }
-export interface LaunchRequest extends StartRequest { stagingOutput: string; launcherStatus: string; processIdentityFile: string; jobNonce: string }
+export interface LaunchRequest extends StartRequest { stagingOutput: string; launcherStatus: string; processIdentityFile: string; jobNonce: string; ownerPid: number; ownerStartIdentity: string; ownerBootId: string }
 export interface JobSnapshot {
   jobId: string; jobNonce: string; action: "start" | "smoke"; reviewType?: ReviewType; verdictProfile?: VerdictProfile; status: JobStatus; classification?: string; verdict?: string;
   summary: string; cwd: string; promptFile?: string; output: string; stdoutLog: string; stderrLog: string; stateFile: string; reservationFile: string;
-  stagingOutput: string; launcherStatus: string; processIdentityFile: string; startedAt: string; completedAt?: string; pid?: number; pgid?: number; processStartIdentity?: string; bootId?: string; ownerPid?: number; ownerStartIdentity?: string; ownerBootId?: string; exitCode?: number | null; signal?: NodeJS.Signals | null;
+  stagingOutput: string; launcherStatus: string; processIdentityFile: string; startedAt: string; completedAt?: string; pid?: number; pgid?: number; sid?: number; processStartIdentity?: string; bootId?: string; platform?: string; ownerPid?: number; ownerStartIdentity?: string; ownerBootId?: string; exitCode?: number | null; signal?: NodeJS.Signals | null;
   deliveryId: string; deliveryState: DeliveryState; deliveryAttempts: number; cancellationReason?: "user" | "session_shutdown";
 }
 interface InternalJob extends JobSnapshot { child?: ChildProcess; watchdog?: ReturnType<typeof setTimeout>; finishing: boolean; finishPromise?: Promise<void> }
-interface ProcessIdentity { pid: number; ppid: number; startTime: string; pgid: number; state: string }
-interface CodexProcessEvidence { protocolVersion: 1; nonce: string; codexPid: number; codexPgid: number; processStartIdentity: string; bootId: string }
+export interface ProcessIdentity { pid: number; ppid: number; pgid: number; sid: number; state: string; startIdentity: string; alive: boolean; zombie: boolean }
+export interface ProcessInspector { preflight(): { platform: string; bootId: string }; snapshot(pid: number): ProcessIdentity | undefined; listSession(sid: number): ProcessIdentity[]; listGroup?(pgid: number): ProcessIdentity[] }
+interface ManagedProcessEvidence { protocolVersion: 2; adapterVersion: number; platform: string; nonce: string; bootId: string; leaderPid: number; leaderPgid: number; leaderSid: number; leaderStartIdentity: string; codexPid?: number; codexPgid?: number; codexStartIdentity?: string }
+interface LegacyProcessEvidence { protocolVersion: 1; nonce: string; codexPid: number; codexPgid: number; processStartIdentity: string; bootId: string }
+type ProcessEvidence = ManagedProcessEvidence | LegacyProcessEvidence;
 type GroupEvidence = Map<number, Map<number, string>>;
+type OwnerStatus = "active" | "inactive" | "unknown";
 interface Options {
   launcherPath: string; cacheDir: string; onComplete?: (event: JobSnapshot) => void; reviewWatchdogMs?: number; smokeWatchdogMs?: number; killGraceMs?: number;
   writeState?: (file: string, value: JobSnapshot) => void; spawnImpl?: typeof spawn; now?: () => Date; makeId?: () => string; maxCompletedJobs?: number;
-  deliveryEvidence?: (deliveryId: string) => boolean | Promise<boolean>; sessionsDir?: string;
+  deliveryEvidence?: (deliveryId: string) => boolean | Promise<boolean>; sessionsDir?: string; processInspector?: ProcessInspector; processIdentityHelperPath?: string;
+  signalProcess?: (pid: number, signal: NodeJS.Signals) => boolean; signalGroup?: (pgid: number, signal: NodeJS.Signals) => boolean;
 }
 
 export function validateVerdict(profile: VerdictProfile, text: string): { ok: boolean; verdict?: string } {
@@ -63,7 +69,7 @@ export function assertCompatible(reviewType: ReviewType, profile: VerdictProfile
 export function buildLauncherArgs(request: LaunchRequest): string[] {
   const args = ["--mode", request.action === "smoke" ? "smoke" : request.reviewType!];
   if (request.action === "start") args.push("--verdict-profile", request.verdictProfile!, "--input", request.promptFile!);
-  args.push("--cwd", request.cwd, "--output", request.stagingOutput, "--status-file", request.launcherStatus, "--process-identity-file", request.processIdentityFile, "--job-nonce", request.jobNonce, "--timeout-seconds", String(request.action === "smoke" ? SMOKE_TIMEOUT_SECONDS : REVIEW_TIMEOUT_SECONDS));
+  args.push("--cwd", request.cwd, "--output", request.stagingOutput, "--status-file", request.launcherStatus, "--process-identity-file", request.processIdentityFile, "--job-nonce", request.jobNonce, "--owner-pid", String(request.ownerPid), "--owner-start-identity", request.ownerStartIdentity, "--owner-boot-id", request.ownerBootId, "--timeout-seconds", String(request.action === "smoke" ? SMOKE_TIMEOUT_SECONDS : REVIEW_TIMEOUT_SECONDS));
   return args;
 }
 
@@ -109,56 +115,63 @@ function safeUnlink(file: string): void { try { unlinkSync(file); } catch { /* m
 function safeRead(file: string): string { try { return readFileSync(file, "utf8"); } catch { return ""; } }
 function hash(text: string): string { return createHash("sha256").update(text).digest("hex"); }
 function delay(ms: number): Promise<void> { return new Promise((resolve) => setTimeout(resolve, ms)); }
-function processIdentity(pid: number): ProcessIdentity | undefined {
-  try {
-    const raw = readFileSync(`/proc/${pid}/stat`, "utf8"); const tail = raw.slice(raw.lastIndexOf(")") + 2).split(" ");
-    return { pid, ppid: Number(tail[1]), pgid: Number(tail[2]), startTime: tail[19], state: tail[0] };
-  } catch { return undefined; }
+function startIdentityMatches(expected: string, actual: string): boolean { return expected === actual || actual === `linux-jiffies:${expected}`; }
+function bootIdentityMatches(expected: string, actual: string): boolean { return expected === actual || actual === `linux:${expected}`; }
+function validProcess(value: any): value is ProcessIdentity {
+  return value && Number.isInteger(value.pid) && value.pid > 0 && Number.isInteger(value.ppid) && value.ppid >= 0
+    && Number.isInteger(value.pgid) && value.pgid > 0 && Number.isInteger(value.sid) && value.sid > 0
+    && typeof value.state === "string" && typeof value.startIdentity === "string" && value.startIdentity.length > 0
+    && typeof value.alive === "boolean" && typeof value.zombie === "boolean" && value.alive !== value.zombie;
 }
-function currentBootId(): string | undefined { try { return readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim(); } catch { return undefined; } }
-function readCodexEvidence(job: JobSnapshot): CodexProcessEvidence | undefined {
+function sourceProcessIdentityHelperPath(): string {
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../skills/codex-review-partner/scripts/process_identity.py");
+}
+export class HelperProcessInspector implements ProcessInspector {
+  private readonly helperPath: string; private platformIdentity?: { platform: string; bootId: string };
+  constructor(helperPath: string) { this.helperPath = helperPath; }
+  private invoke(args: string[]): any {
+    const text = execFileSync("python3", [this.helperPath, ...args], { encoding: "utf8", timeout: 10_000, maxBuffer: 16 * 1024 * 1024, shell: false });
+    const value = JSON.parse(text);
+    if (value?.protocolVersion !== 2 || value?.adapterVersion !== 1 || !["linux", "darwin"].includes(value.platform) || typeof value.bootId !== "string" || !value.bootId) throw new Error("process identity helper protocol is malformed or unsupported");
+    return value;
+  }
+  preflight(): { platform: string; bootId: string } { if (this.platformIdentity) return this.platformIdentity; const value = this.invoke(["preflight"]); if (!validProcess(value.process)) throw new Error("process identity helper preflight omitted its live process"); this.platformIdentity = { platform: value.platform, bootId: value.bootId }; return this.platformIdentity; }
+  snapshot(pid: number): ProcessIdentity | undefined { const value = this.invoke(["snapshot", "--pid", String(pid)]); if (value.process === null) return undefined; if (!validProcess(value.process) || value.process.pid !== pid) throw new Error("process identity helper returned a mismatched snapshot"); return value.process; }
+  listSession(sid: number): ProcessIdentity[] { const value = this.invoke(["list", "--sid", String(sid)]); if (!Array.isArray(value.processes) || value.processes.some((record: unknown) => !validProcess(record) || (record as ProcessIdentity).sid !== sid)) throw new Error("process identity helper returned malformed private-session membership"); return value.processes; }
+  listGroup(pgid: number): ProcessIdentity[] { const value = this.invoke(["list", "--pgid", String(pgid)]); if (!Array.isArray(value.processes) || value.processes.some((record: unknown) => !validProcess(record) || (record as ProcessIdentity).pgid !== pgid)) throw new Error("process identity helper returned malformed process-group membership"); return value.processes; }
+}
+function defaultInspector(options: Options): ProcessInspector {
+  if (options.processInspector) return options.processInspector;
+  const sibling = path.join(path.dirname(options.launcherPath), "process_identity.py");
+  return new HelperProcessInspector(options.processIdentityHelperPath ?? (existsSync(sibling) ? sibling : sourceProcessIdentityHelperPath()));
+}
+function readProcessEvidence(job: JobSnapshot, current: { platform: string; bootId: string }): ProcessEvidence | undefined {
   try {
     const value = JSON.parse(readFileSync(job.processIdentityFile, "utf8"));
-    if (value?.protocolVersion !== 1 || value.nonce !== job.jobNonce || value.bootId !== currentBootId()
-      || !Number.isInteger(value.codexPid) || value.codexPid <= 0 || !Number.isInteger(value.codexPgid) || value.codexPgid <= 0
-      || typeof value.processStartIdentity !== "string" || !value.processStartIdentity) return undefined;
-    return value;
+    if (value?.nonce !== job.jobNonce) return undefined;
+    if (value.protocolVersion === 2) {
+      if (value.adapterVersion !== 1 || value.platform !== current.platform || value.bootId !== current.bootId
+        || !Number.isInteger(value.leaderPid) || value.leaderPid <= 0 || !Number.isInteger(value.leaderPgid) || value.leaderPgid <= 0
+        || !Number.isInteger(value.leaderSid) || value.leaderSid <= 0 || typeof value.leaderStartIdentity !== "string" || !value.leaderStartIdentity) return undefined;
+      return value;
+    }
+    if (value.protocolVersion === 1 && current.platform === "linux") {
+      const legacy = value as LegacyProcessEvidence;
+      if (!bootIdentityMatches(legacy.bootId, current.bootId) || !Number.isInteger(legacy.codexPid) || legacy.codexPid <= 0 || !Number.isInteger(legacy.codexPgid) || legacy.codexPgid <= 0 || typeof legacy.processStartIdentity !== "string" || !legacy.processStartIdentity) return undefined;
+      return { ...legacy, processStartIdentity: legacy.processStartIdentity.startsWith("linux-jiffies:") ? legacy.processStartIdentity : `linux-jiffies:${legacy.processStartIdentity}` };
+    }
+    return undefined;
   } catch { return undefined; }
 }
-function groupMembers(pgid: number): ProcessIdentity[] {
-  const members: ProcessIdentity[] = [];
-  let names: string[]; try { names = readdirSync("/proc"); } catch { return members; }
-  for (const name of names) { if (!/^\d+$/.test(name)) continue; const identity = processIdentity(Number(name)); if (identity?.pgid === pgid) members.push(identity); }
-  return members;
-}
-function signalGroup(pgid: number, signal: NodeJS.Signals): boolean { try { process.kill(-pgid, signal); return true; } catch (error: any) { return error?.code === "ESRCH"; } }
-function groupAlive(pgid: number): boolean { try { process.kill(-pgid, 0); return true; } catch (error: any) { return error?.code !== "ESRCH"; } }
+function signalGroup(pgid: number, signal: NodeJS.Signals): boolean { try { process.kill(-pgid, signal); return true; } catch { return false; } }
+function signalProcess(pid: number, signal: NodeJS.Signals): boolean { try { process.kill(pid, signal); return true; } catch (error: any) { return error?.code === "ESRCH"; } }
 function addGroupEvidence(groups: GroupEvidence, identity: ProcessIdentity): void {
   let members = groups.get(identity.pgid); if (!members) { members = new Map(); groups.set(identity.pgid, members); }
-  members.set(identity.pid, identity.startTime);
+  members.set(identity.pid, identity.startIdentity);
 }
-function groupEvidenceMatches(pgid: number, members: Map<number, string>): boolean {
-  return [...members].some(([pid, startTime]) => { const identity = processIdentity(pid); return identity?.state !== "Z" && identity?.pgid === pgid && identity.startTime === startTime; });
-}
-function discoverDescendantGroups(root: ProcessIdentity): { descendants: GroupEvidence; launcher: GroupEvidence } | undefined {
-  const currentRoot = processIdentity(root.pid);
-  if (!currentRoot || currentRoot.startTime !== root.startTime || currentRoot.pgid !== root.pgid) return undefined;
-  const processes = new Map<number, ProcessIdentity>();
-  let names: string[]; try { names = readdirSync("/proc"); } catch { return undefined; }
-  for (const name of names) { if (!/^\d+$/.test(name)) continue; const identity = processIdentity(Number(name)); if (identity) processes.set(identity.pid, identity); }
-  const descendantPids = new Set([root.pid]); let changed = true;
-  while (changed) {
-    changed = false;
-    for (const identity of processes.values()) if (!descendantPids.has(identity.pid) && descendantPids.has(identity.ppid)) { descendantPids.add(identity.pid); changed = true; }
-  }
-  const descendantPgids = new Set<number>();
-  for (const pid of descendantPids) { const identity = processes.get(pid); if (identity && identity.pgid !== root.pgid) descendantPgids.add(identity.pgid); }
-  const descendants: GroupEvidence = new Map(); const launcher: GroupEvidence = new Map();
-  for (const identity of processes.values()) {
-    if (descendantPgids.has(identity.pgid)) addGroupEvidence(descendants, identity);
-    else if (identity.pgid === root.pgid) addGroupEvidence(launcher, identity);
-  }
-  return { descendants, launcher };
+function groupEvidenceMatches(currentMembers: () => ProcessIdentity[], pgid: number, members: Map<number, string>): boolean {
+  const current = new Map(currentMembers().map((identity) => [identity.pid, identity]));
+  return [...members].some(([pid, startIdentity]) => { const identity = current.get(pid); return identity?.alive && identity.pgid === pgid && identity.startIdentity === startIdentity; });
 }
 function reservationMatches(job: JobSnapshot): boolean { return safeRead(job.reservationFile) === `${job.jobId}\n${job.jobNonce}\n${job.output}\n`; }
 function stateView(job: InternalJob): JobSnapshot { const { child: _child, watchdog: _watchdog, finishing: _finishing, finishPromise: _finishPromise, ...view } = job; return view; }
@@ -216,8 +229,8 @@ function sessionDeliveryIds(sessionsDir: string): Set<string> {
 }
 
 export class CodexReviewJobManager {
-  private readonly options: Options; private readonly jobs = new Map<string, InternalJob>(); private activation?: Promise<void>; private shuttingDown = false; private readonly starts = new Set<Promise<unknown>>(); private startupDeliveryIds?: Set<string>;
-  constructor(options: Options) { this.options = options; mkdirSync(options.cacheDir, { recursive: true, mode: 0o700 }); mkdirSync(this.jobsDir(), { recursive: true, mode: 0o700 }); mkdirSync(this.reservationsDir(), { recursive: true, mode: 0o700 }); }
+  private readonly options: Options; private readonly inspector: ProcessInspector; private readonly jobs = new Map<string, InternalJob>(); private activation?: Promise<void>; private shuttingDown = false; private readonly starts = new Set<Promise<unknown>>(); private startupDeliveryIds?: Set<string>;
+  constructor(options: Options) { this.options = options; this.inspector = defaultInspector(options); mkdirSync(options.cacheDir, { recursive: true, mode: 0o700 }); mkdirSync(this.jobsDir(), { recursive: true, mode: 0o700 }); mkdirSync(this.reservationsDir(), { recursive: true, mode: 0o700 }); }
   private jobsDir() { return path.join(this.options.cacheDir, "jobs"); } private reservationsDir() { return path.join(this.options.cacheDir, "reservations"); }
   private emergencyFile(job: JobSnapshot): string { return `${job.stateFile}.emergency`; }
   private write(job: InternalJob): void { (this.options.writeState ?? atomicWrite)(job.stateFile, stateView(job)); safeUnlink(this.emergencyFile(job)); }
@@ -233,21 +246,35 @@ export class CodexReviewJobManager {
   private normalizePersisted(raw: JobSnapshot): InternalJob {
     return { ...raw, processIdentityFile: raw.processIdentityFile ?? `${raw.stateFile}.process-identity.json`, jobNonce: raw.jobNonce ?? "legacy", deliveryId: raw.deliveryId ?? `legacy:${raw.jobId}`, deliveryState: raw.deliveryState ?? (raw.cancellationReason === "session_shutdown" ? "ineligible" : TERMINAL.has(raw.status) ? "delivered" : "pending"), deliveryAttempts: raw.deliveryAttempts ?? 0, finishing: false };
   }
-  private persistedOwnerIsActive(job: InternalJob): boolean {
-    if (job.ownerPid && job.ownerStartIdentity) {
-      if (job.ownerBootId && job.ownerBootId !== currentBootId()) return false;
-      const owner = processIdentity(job.ownerPid); return owner?.state !== "Z" && owner?.startTime === job.ownerStartIdentity;
-    }
-    if (job.pid && job.processStartIdentity) {
-      const launcher = processIdentity(job.pid); if (!launcher || launcher.state === "Z" || launcher.startTime !== job.processStartIdentity || launcher.ppid <= 1) return false;
-      return processIdentity(launcher.ppid)?.state !== "Z";
-    }
-    return false;
+  private persistedOwnerStatus(job: InternalJob): OwnerStatus {
+    try {
+      const current = this.inspector.preflight();
+      if (job.ownerPid && job.ownerStartIdentity) {
+        if (job.ownerBootId && !bootIdentityMatches(job.ownerBootId, current.bootId)) return "inactive";
+        const owner = this.inspector.snapshot(job.ownerPid); return owner?.alive && startIdentityMatches(job.ownerStartIdentity, owner.startIdentity) ? "active" : "inactive";
+      }
+      if (job.pid && job.processStartIdentity) {
+        const launcher = this.inspector.snapshot(job.pid); if (!launcher?.alive || !startIdentityMatches(job.processStartIdentity, launcher.startIdentity) || launcher.ppid <= 1) return "inactive";
+        return this.inspector.snapshot(launcher.ppid)?.alive ? "active" : "inactive";
+      }
+      const evidenceExists = existsSync(job.processIdentityFile);
+      const evidence = readProcessEvidence(job, current);
+      if (evidence?.protocolVersion === 2) {
+        const leader = this.inspector.snapshot(evidence.leaderPid);
+        return leader?.alive && leader.pgid === evidence.leaderPgid && leader.sid === evidence.leaderSid
+          && startIdentityMatches(evidence.leaderStartIdentity, leader.startIdentity) ? "active" : "inactive";
+      }
+      if (evidenceExists) return "unknown";
+      return "inactive";
+    } catch { return "unknown"; }
   }
   private async reconcile(): Promise<void> {
     for (const name of readdirSync(this.jobsDir()).filter((entry) => entry.endsWith(".state.json"))) {
       const file = path.join(this.jobsDir(), name); const raw = this.readPersisted(file); if (!raw) continue; const job = this.normalizePersisted(raw);
-      if ((raw.status === "starting" || raw.status === "running") && this.persistedOwnerIsActive(job)) continue;
+      if (raw.status === "starting" || raw.status === "running") {
+        const ownerStatus = this.persistedOwnerStatus(job);
+        if (ownerStatus === "active" || ownerStatus === "unknown") continue;
+      }
       this.jobs.set(job.jobId, job);
       if (raw.status === "starting" || raw.status === "running") await this.reconcileInterrupted(job);
       else if (TERMINAL.has(raw.status)) await this.deliver(job);
@@ -256,8 +283,9 @@ export class CodexReviewJobManager {
   private async reconcileInterrupted(job: InternalJob): Promise<void> {
     let classification = "CODEX_REVIEW_INTERRUPTED"; let cleanupVerified = job.status !== "running";
     if (job.status === "running" && job.pid && job.pgid && job.processStartIdentity) {
-      const identity = processIdentity(job.pid); const bootMatches = !job.bootId || job.bootId === currentBootId();
-      if (!bootMatches || (identity && (identity.startTime !== job.processStartIdentity || identity.pgid !== job.pgid)) || !reservationMatches(job)) classification = "CODEX_REVIEW_ORPHAN_IDENTITY_UNCERTAIN";
+      let identity: ProcessIdentity | undefined; let bootMatches = false;
+      try { const current = this.inspector.preflight(); identity = this.inspector.snapshot(job.pid); bootMatches = !job.bootId || bootIdentityMatches(job.bootId, current.bootId); } catch { /* identity uncertainty */ }
+      if (!bootMatches || (identity && (!startIdentityMatches(job.processStartIdentity, identity.startIdentity) || identity.pgid !== job.pgid || (job.sid && identity.sid !== job.sid))) || !reservationMatches(job)) classification = "CODEX_REVIEW_ORPHAN_IDENTITY_UNCERTAIN";
       else {
         cleanupVerified = await this.terminateVerified(job, false); if (!cleanupVerified) classification = "CODEX_REVIEW_ORPHAN_IDENTITY_UNCERTAIN";
       }
@@ -278,19 +306,37 @@ export class CodexReviewJobManager {
     const reviewType = request.action === "start" ? (request.reviewType ?? "implementation-review") : undefined; const verdictProfile = request.action === "start" ? request.verdictProfile : undefined;
     if (request.action === "start") { if (!verdictProfile) throw new Error("verdictProfile is required"); assertCompatible(reviewType!, verdictProfile); }
     if (this.shuttingDown) throw new Error("Codex review manager is shutting down");
+    let platformIdentity: { platform: string; bootId: string }; let owner: ProcessIdentity | undefined;
+    try { platformIdentity = this.inspector.preflight(); owner = this.inspector.snapshot(process.pid); }
+    catch (error) { throw new Error(`CODEX_REVIEW_LAUNCH_FAILED: process inspection preflight failed on ${process.platform}: ${String(error)}`); }
+    if (!owner?.alive) throw new Error(`CODEX_REVIEW_LAUNCH_FAILED: process inspection could not prove Pi owner identity on ${platformIdentity.platform}`);
     const output = canonicalOutput(request.output); if (existsSync(output)) throw new Error(`CODEX_REVIEW_OUTPUT_EXISTS: caller-owned output already exists: ${output}`);
     const id = (this.options.makeId ?? randomUUID)(); const nonce = randomUUID(); const reservationFile = path.join(this.reservationsDir(), `${hash(output)}.reserve`);
     let reservationFd: number; try { reservationFd = openSync(reservationFile, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600); writeFileSync(reservationFd, `${id}\n${nonce}\n${output}\n`); closeSync(reservationFd); } catch { throw new Error(`CODEX_REVIEW_OUTPUT_EXISTS: output is already reserved: ${output}`); }
     if (this.shuttingDown) { safeUnlink(reservationFile); throw new Error("Codex review manager is shutting down"); }
-    const base = path.join(this.jobsDir(), id); const owner = processIdentity(process.pid); const job: InternalJob = { jobId: id, jobNonce: nonce, action: request.action, reviewType, verdictProfile, status: "starting", summary: "Starting Codex review.", cwd, promptFile, output, stdoutLog: `${base}.stdout.jsonl`, stderrLog: `${base}.stderr.log`, stateFile: `${base}.state.json`, reservationFile, stagingOutput: `${base}.staging`, launcherStatus: `${base}.launcher-status.json`, processIdentityFile: `${base}.process-identity.json`, startedAt: (this.options.now ?? (() => new Date()))().toISOString(), ownerPid: process.pid, ownerStartIdentity: owner?.startTime, ownerBootId: currentBootId(), deliveryId: `codex-review:${id}:${nonce}`, deliveryState: "pending", deliveryAttempts: 0, finishing: false };
+    const base = path.join(this.jobsDir(), id); const job: InternalJob = { jobId: id, jobNonce: nonce, action: request.action, reviewType, verdictProfile, status: "starting", summary: "Starting Codex review.", cwd, promptFile, output, stdoutLog: `${base}.stdout.jsonl`, stderrLog: `${base}.stderr.log`, stateFile: `${base}.state.json`, reservationFile, stagingOutput: `${base}.staging`, launcherStatus: `${base}.launcher-status.json`, processIdentityFile: `${base}.process-identity.json`, startedAt: (this.options.now ?? (() => new Date()))().toISOString(), platform: platformIdentity.platform, ownerPid: process.pid, ownerStartIdentity: owner.startIdentity, ownerBootId: platformIdentity.bootId, deliveryId: `codex-review:${id}:${nonce}`, deliveryState: "pending", deliveryAttempts: 0, finishing: false };
     this.jobs.set(id, job);
     try { this.write(job); } catch (error) { safeUnlink(reservationFile); this.jobs.delete(id); throw new Error(`CODEX_REVIEW_INITIAL_STATE_PERSIST_FAILED: starting state: ${String(error)}`); }
     if (this.shuttingDown) { job.deliveryState = "ineligible"; job.cancellationReason = "session_shutdown"; job.status = "cancelled"; job.classification = "CODEX_REVIEW_CANCELLED"; job.completedAt = new Date().toISOString(); job.summary = "CODEX_REVIEW_CANCELLED reason=session_shutdown"; safeUnlink(reservationFile); this.write(job); throw new Error("Codex review manager is shutting down"); }
     const outFd = openSync(job.stdoutLog, "w", 0o600); const errFd = openSync(job.stderrLog, "w", 0o600); let child: ChildProcess;
-    try { child = (this.options.spawnImpl ?? spawn)(this.options.launcherPath, buildLauncherArgs({ ...request, cwd, promptFile, reviewType, verdictProfile, stagingOutput: job.stagingOutput, launcherStatus: job.launcherStatus, processIdentityFile: job.processIdentityFile, jobNonce: job.jobNonce }), { cwd, detached: process.platform !== "win32", shell: false, stdio: ["ignore", outFd, errFd] }); }
+    try { child = (this.options.spawnImpl ?? spawn)(this.options.launcherPath, buildLauncherArgs({ ...request, cwd, promptFile, reviewType, verdictProfile, stagingOutput: job.stagingOutput, launcherStatus: job.launcherStatus, processIdentityFile: job.processIdentityFile, jobNonce: job.jobNonce, ownerPid: job.ownerPid!, ownerStartIdentity: job.ownerStartIdentity!, ownerBootId: job.ownerBootId! }), { cwd, detached: process.platform !== "win32", shell: false, stdio: ["ignore", outFd, errFd] }); }
     catch (error) { closeSync(outFd); closeSync(errFd); safeUnlink(reservationFile); this.jobs.delete(id); throw new Error(`CODEX_REVIEW_LAUNCH_FAILED: ${String(error)}`); }
-    closeSync(outFd); closeSync(errFd); job.child = child; job.pid = child.pid; job.pgid = child.pid; job.bootId = currentBootId(); if (child.pid) job.processStartIdentity = processIdentity(child.pid)?.startTime; job.status = "running"; job.summary = "Codex review is running.";
-    try { this.write(job); } catch (error) { job.deliveryState = "ineligible"; job.finishing = true; if (job.watchdog) clearTimeout(job.watchdog); const cleaned = await this.terminateVerified(job, true); safeUnlink(reservationFile); safeUnlink(job.stagingOutput); safeUnlink(job.launcherStatus); safeUnlink(job.processIdentityFile); this.jobs.delete(id); try { atomicWrite(`${base}.emergency.json`, { classification: "CODEX_REVIEW_INITIAL_STATE_PERSIST_FAILED", pid: job.pid, pgid: job.pgid, processStartIdentity: job.processStartIdentity, cleaned, error: String(error) }); } catch { /* best effort evidence */ } throw new Error(`CODEX_REVIEW_INITIAL_STATE_PERSIST_FAILED: running state: ${String(error)}; cleaned=${cleaned}`); }
+    closeSync(outFd); closeSync(errFd); job.child = child; job.pid = child.pid; job.bootId = platformIdentity.bootId;
+    let launcher: ProcessIdentity | undefined;
+    if (child.pid) { try { launcher = this.inspector.snapshot(child.pid); } catch { /* a fast launcher may exit before inspection */ } }
+    if (launcher?.alive) { job.pgid = launcher.pgid; job.sid = launcher.sid; job.processStartIdentity = launcher.startIdentity; }
+    else { job.pgid = child.pid; job.sid = child.pid; job.processStartIdentity = `unobserved-exited:${nonce}`; }
+    job.status = "running"; job.summary = "Codex review is running.";
+    try { this.write(job); } catch (error) {
+      job.deliveryState = "ineligible"; job.finishing = true; if (job.watchdog) clearTimeout(job.watchdog);
+      const cleaned = await this.terminateVerified(job, true);
+      job.status = "interrupted"; job.completedAt = new Date().toISOString();
+      job.classification = cleaned ? "CODEX_REVIEW_INITIAL_STATE_PERSIST_FAILED" : "CODEX_REVIEW_CLEANUP_FAILED";
+      job.summary = redactSummary(`${job.classification}: running-state persistence failed: ${String(error)}; cleaned=${cleaned}${cleaned ? "" : "; process identity and output reservation evidence retained"}`);
+      this.writeEmergency(job);
+      if (cleaned) { safeUnlink(reservationFile); safeUnlink(job.stagingOutput); safeUnlink(job.launcherStatus); safeUnlink(job.processIdentityFile); this.jobs.delete(id); }
+      throw new Error(`CODEX_REVIEW_INITIAL_STATE_PERSIST_FAILED: running state: ${String(error)}; cleaned=${cleaned}`);
+    }
     this.attach(job);
     if (this.shuttingDown) { await this.cancel(job.jobId, "session_shutdown"); throw new Error("Codex review manager is shutting down"); }
     return stateView(job);
@@ -300,6 +346,7 @@ export class CodexReviewJobManager {
     job.watchdog = setTimeout(() => void this.timeout(job), watchdogMs);
     job.child!.once("error", () => void this.finish(job, null, null, "CODEX_REVIEW_LAUNCH_FAILED", false, true));
     job.child!.once("close", (code, signal) => void this.finish(job, code, signal as NodeJS.Signals | null, undefined, false, true));
+    if (job.child!.exitCode !== null || job.child!.signalCode !== null) queueMicrotask(() => void this.finish(job, job.child!.exitCode, job.child!.signalCode as NodeJS.Signals | null, undefined, false, true));
   }
   private async timeout(job: InternalJob): Promise<void> { if (job.status !== "running") return; await this.finish(job, job.child?.exitCode ?? null, job.child?.signalCode as NodeJS.Signals | null, undefined, true, true); }
   private async finish(job: InternalJob, code: number | null, signal: NodeJS.Signals | null, forced?: string, outerTimeout = false, cleanupDescendants = false): Promise<void> {
@@ -355,53 +402,177 @@ export class CodexReviewJobManager {
   }
   private async terminateVerified(job: InternalJob, requireChildClose: boolean): Promise<boolean> {
     const grace = this.options.killGraceMs ?? 500;
-    const waitGroupsGone = async (pgids: number[]): Promise<boolean> => { const settle = Math.max(grace, 250); for (let elapsed = 0; elapsed < settle && pgids.some(groupAlive); elapsed += 25) await delay(25); return pgids.every((pgid) => !groupAlive(pgid)); };
-    const terminateEvidence = async (evidence: CodexProcessEvidence): Promise<boolean> => {
-      const identity = processIdentity(evidence.codexPid);
-      if (!identity) return groupMembers(evidence.codexPgid).filter((member) => member.state !== "Z").length === 0;
-      if (identity.startTime !== evidence.processStartIdentity || identity.pgid !== evidence.codexPgid) return false;
-      const members = new Map(groupMembers(evidence.codexPgid).map((member) => [member.pid, member.startTime]));
-      if (members.get(evidence.codexPid) !== evidence.processStartIdentity) return false;
-      if (!signalGroup(evidence.codexPgid, "SIGTERM")) return false;
-      for (let elapsed = 0; elapsed < grace && groupEvidenceMatches(evidence.codexPgid, members); elapsed += 25) await delay(25);
-      if (groupEvidenceMatches(evidence.codexPgid, members) && !signalGroup(evidence.codexPgid, "SIGKILL")) return false;
-      for (let elapsed = 0; elapsed < grace && groupEvidenceMatches(evidence.codexPgid, members); elapsed += 25) await delay(25);
-      return !groupEvidenceMatches(evidence.codexPgid, members);
+    const sendProcess = this.options.signalProcess ?? signalProcess;
+    const sendGroup = this.options.signalGroup ?? signalGroup;
+    const stopped = (identity: ProcessIdentity): boolean => identity.state.toUpperCase().startsWith("T");
+    const sameIdentity = (actual: ProcessIdentity | undefined, expected: ProcessIdentity): boolean => Boolean(actual?.alive
+      && actual.pid === expected.pid && actual.startIdentity === expected.startIdentity && actual.pgid === expected.pgid && actual.sid === expected.sid);
+    const liveSession = (sid: number): ProcessIdentity[] => this.inspector.listSession(sid).filter((member) => member.alive);
+    const liveGroup = (pgid: number, sid?: number): ProcessIdentity[] => {
+      const members = this.inspector.listGroup ? this.inspector.listGroup(pgid) : sid ? liveSession(sid).filter((member) => member.pgid === pgid) : [];
+      return members.filter((member) => member.alive && member.pgid === pgid && (sid === undefined || member.sid === sid));
     };
-    const codexEvidence = readCodexEvidence(job);
-    if (!job.pid || !job.pgid || !job.processStartIdentity || (!job.child && !reservationMatches(job))) return codexEvidence ? terminateEvidence(codexEvidence) : (!job.pid || !processIdentity(job.pid));
-    if (job.bootId && job.bootId !== currentBootId()) return false;
-    const identity = processIdentity(job.pid);
-    if (!identity) {
-      if (!codexEvidence) return existsSync(job.processIdentityFile) ? false : waitGroupsGone([job.pgid]);
-      if (await terminateEvidence(codexEvidence)) return waitGroupsGone([job.pgid, codexEvidence.codexPgid]);
-      return waitGroupsGone([job.pgid, codexEvidence.codexPgid]);
+    const freezeIdentity = async (expected: ProcessIdentity): Promise<ProcessIdentity | null | undefined> => {
+      if (expected.pid === process.pid) return undefined;
+      let current = this.inspector.snapshot(expected.pid);
+      if (!current) return null;
+      if (!sameIdentity(current, expected)) return undefined;
+      if (!sendProcess(expected.pid, "SIGSTOP")) return undefined;
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        current = this.inspector.snapshot(expected.pid);
+        if (!current) return null;
+        if (!sameIdentity(current, expected)) return undefined;
+        if (stopped(current)) return current;
+        await delay(5);
+      }
+      return undefined;
+    };
+    const establishAnchor = async (members: () => ProcessIdentity[], pgid: number, evidence: Map<number, string>): Promise<ProcessIdentity | null | undefined> => {
+      const listed = members().filter((member) => member.alive && member.pgid === pgid);
+      if (listed.some((member) => member.pid === process.pid)) return undefined;
+      const candidates = listed.filter((member) => evidence.get(member.pid) === member.startIdentity);
+      if (listed.length > 0 && candidates.length === 0) return undefined;
+      for (const candidate of candidates) {
+        const anchor = await freezeIdentity(candidate);
+        if (anchor) return anchor;
+        if (anchor === undefined) return undefined;
+      }
+      const remaining = members().filter((member) => member.alive && member.pgid === pgid);
+      return remaining.length === 0 ? null : undefined;
+    };
+    const anchoredSignal = (anchor: ProcessIdentity, signum: NodeJS.Signals): boolean => {
+      const current = this.inspector.snapshot(anchor.pid);
+      return sameIdentity(current, anchor) && Boolean(current && stopped(current)) && sendGroup(anchor.pgid, signum);
+    };
+    const signalWithAnchor = async (members: () => ProcessIdentity[], pgid: number, evidence: Map<number, string>, signum: NodeJS.Signals): Promise<"signalled" | "gone" | "failed"> => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const anchor = await establishAnchor(members, pgid, evidence);
+        if (anchor === undefined) return "failed";
+        if (anchor === null) return "gone";
+        if (anchoredSignal(anchor, signum)) return "signalled";
+      }
+      return "failed";
+    };
+    const freezeGroup = async (members: () => ProcessIdentity[], pgid: number, evidence: Map<number, string>): Promise<ProcessIdentity | null | undefined> => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const anchor = await establishAnchor(members, pgid, evidence);
+        if (!anchor) return anchor;
+        if (!anchoredSignal(anchor, "SIGSTOP")) continue;
+        const current = this.inspector.snapshot(anchor.pid);
+        if (sameIdentity(current, anchor) && current && stopped(current)) return current;
+      }
+      return undefined;
+    };
+    const terminateGroups = async (members: () => ProcessIdentity[], groups: GroupEvidence): Promise<boolean> => {
+      try {
+        for (const [pgid, evidence] of groups) {
+          const terminated = await signalWithAnchor(members, pgid, evidence, "SIGTERM");
+          if (terminated === "failed") return false;
+          if (terminated === "gone") continue;
+          const resumed = await signalWithAnchor(members, pgid, evidence, "SIGCONT");
+          if (resumed === "failed") return false;
+        }
+        for (let elapsed = 0; elapsed < grace && [...groups].some(([pgid, evidence]) => groupEvidenceMatches(members, pgid, evidence)); elapsed += 25) await delay(25);
+        for (const [pgid, evidence] of groups) {
+          if (!groupEvidenceMatches(members, pgid, evidence)) continue;
+          const killed = await signalWithAnchor(members, pgid, evidence, "SIGKILL");
+          if (killed === "failed") return false;
+        }
+        for (let elapsed = 0; elapsed < Math.max(grace, 250) && [...groups].some(([pgid, evidence]) => groupEvidenceMatches(members, pgid, evidence)); elapsed += 25) await delay(25);
+        const clean = [...groups].every(([pgid, evidence]) => !groupEvidenceMatches(members, pgid, evidence));
+        return clean;
+      } catch { return false; }
+    };
+    const captureSession = async (sid: number, leaderEvidence?: ManagedProcessEvidence): Promise<GroupEvidence | undefined> => {
+      try {
+        let requireLeader = Boolean(leaderEvidence);
+        if (leaderEvidence) {
+          const leader = this.inspector.snapshot(leaderEvidence.leaderPid);
+          if (!leader) requireLeader = false;
+          else if (leader.startIdentity !== leaderEvidence.leaderStartIdentity || leader.pgid !== leaderEvidence.leaderPgid || leader.sid !== sid) return undefined;
+          else if (!leader.alive) requireLeader = false;
+        }
+        let previous = ""; let stable = 0; const frozen = new Map<number, ProcessIdentity>();
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+          if (leaderEvidence && requireLeader) {
+            const leader = this.inspector.snapshot(leaderEvidence.leaderPid);
+            if (!leader) requireLeader = false;
+            else if (leader.startIdentity !== leaderEvidence.leaderStartIdentity || leader.pgid !== leaderEvidence.leaderPgid || leader.sid !== sid) return undefined;
+            else if (!leader.alive) requireLeader = false;
+          }
+          let members = liveSession(sid);
+          const discovered: GroupEvidence = new Map(); for (const member of members) addGroupEvidence(discovered, member);
+          for (const [pgid, evidence] of discovered) {
+            const existing = frozen.get(pgid), current = existing ? this.inspector.snapshot(existing.pid) : undefined;
+            if (!existing || !sameIdentity(current, existing) || !current || !stopped(current)) {
+              const anchor = await freezeGroup(() => liveSession(sid), pgid, evidence);
+              if (anchor === undefined) return undefined;
+              if (anchor) frozen.set(pgid, anchor);
+            }
+          }
+          members = liveSession(sid); const groups: GroupEvidence = new Map(); for (const member of members) addGroupEvidence(groups, member);
+          const key = JSON.stringify(members.map((member) => [member.pid, member.pgid, member.startIdentity]).sort((a, b) => Number(a[0]) - Number(b[0])));
+          const allFrozen = [...groups].every(([pgid]) => { const anchor = frozen.get(pgid), current = anchor ? this.inspector.snapshot(anchor.pid) : undefined; return Boolean(anchor && sameIdentity(current, anchor) && current && stopped(current)); });
+          if (key === previous && allFrozen) { stable += 1; if (stable >= 2) return groups; } else stable = 0;
+          previous = key; await delay(25);
+        }
+        return undefined;
+      } catch { return undefined; }
+    };
+
+    let current: { platform: string; bootId: string };
+    try { current = this.inspector.preflight(); } catch { return false; }
+    const evidenceExists = existsSync(job.processIdentityFile);
+    const processEvidence = readProcessEvidence(job, current);
+    if (evidenceExists && !processEvidence) return false;
+    if (!job.pid || !job.pgid || !job.processStartIdentity || (!job.child && !reservationMatches(job))) return false;
+    if (job.bootId && !bootIdentityMatches(job.bootId, current.bootId)) return false;
+
+    if (processEvidence?.protocolVersion === 2) {
+      const sessionEmpty = (): boolean => { try { return liveSession(processEvidence.leaderSid).length === 0; } catch { return false; } };
+      let drained = sessionEmpty();
+      for (let attempt = 0; attempt < 4 && !drained; attempt += 1) {
+        const groups = await captureSession(processEvidence.leaderSid, processEvidence);
+        if (groups) await terminateGroups(() => liveSession(processEvidence.leaderSid), groups);
+        drained = sessionEmpty();
+        if (!drained) await delay(25);
+      }
+      if (!drained) return false;
+    } else if (processEvidence?.protocolVersion === 1) {
+      let codex: ProcessIdentity | undefined;
+      try { codex = this.inspector.snapshot(processEvidence.codexPid); } catch { return false; }
+      if (codex) {
+        if (!startIdentityMatches(processEvidence.processStartIdentity, codex.startIdentity) || codex.pgid !== processEvidence.codexPgid) return false;
+        const legacyMembers = () => liveGroup(codex!.pgid, codex!.sid);
+        if (codex.alive) {
+          const seed = new Map<number, string>([[codex.pid, codex.startIdentity]]);
+          const anchor = await freezeGroup(legacyMembers, codex.pgid, seed);
+          if (anchor === undefined) return false;
+          if (anchor === null) codex = undefined;
+        }
+        if (codex) {
+          const legacyGroups: GroupEvidence = new Map(); for (const member of legacyMembers()) addGroupEvidence(legacyGroups, member);
+          if (legacyGroups.size && !await terminateGroups(legacyMembers, legacyGroups)) return false;
+        }
+      }
     }
-    if (identity.startTime !== job.processStartIdentity || identity.pgid !== job.pgid) return false;
-    const rootEvidence = new Map<number, string>([[identity.pid, identity.startTime]]);
-    if (!groupEvidenceMatches(job.pgid, rootEvidence) || !signalGroup(job.pgid, "SIGSTOP")) return false;
-    await delay(10);
-    const discovered = discoverDescendantGroups(identity);
-    if (!discovered) { if (groupEvidenceMatches(job.pgid, rootEvidence)) signalGroup(job.pgid, "SIGCONT"); return false; }
-    const terminateGroups = async (groups: GroupEvidence, resume = false): Promise<boolean> => {
-      for (const [pgid, members] of groups) {
-        if (!groupEvidenceMatches(pgid, members)) continue;
-        if (!signalGroup(pgid, "SIGTERM")) return false;
-        if (resume) signalGroup(pgid, "SIGCONT");
+
+    let launcher: ProcessIdentity | undefined;
+    try { launcher = this.inspector.snapshot(job.pid); } catch { return false; }
+    if (launcher) {
+      if (!startIdentityMatches(job.processStartIdentity, launcher.startIdentity) || launcher.pgid !== job.pgid || (job.sid !== undefined && launcher.sid !== job.sid)) return false;
+      const launcherSid = launcher.sid;
+      const launcherMembers = () => liveSession(launcherSid).filter((member) => member.pgid === job.pgid);
+      const launcherGroups: GroupEvidence = new Map(); for (const member of launcherMembers()) addGroupEvidence(launcherGroups, member);
+      if (launcherGroups.size) {
+        const anchor = await freezeGroup(launcherMembers, job.pgid, launcherGroups.get(job.pgid)!);
+        if (anchor === undefined) return false;
+        if (anchor && !await terminateGroups(launcherMembers, launcherGroups)) return false;
       }
-      for (let elapsed = 0; elapsed < grace && [...groups].some(([pgid, members]) => groupEvidenceMatches(pgid, members)); elapsed += 25) await delay(25);
-      for (const [pgid, members] of groups) {
-        if (!groupEvidenceMatches(pgid, members)) continue;
-        if (!signalGroup(pgid, "SIGKILL")) return false;
-      }
-      for (let elapsed = 0; elapsed < grace && [...groups].some(([pgid, members]) => groupEvidenceMatches(pgid, members)); elapsed += 25) await delay(25);
-      return [...groups].every(([pgid, members]) => !groupEvidenceMatches(pgid, members));
-    };
-    if (!await terminateGroups(discovered.descendants)) return false;
-    if (codexEvidence && !await terminateEvidence(codexEvidence)) return false;
-    if (!await terminateGroups(discovered.launcher, true)) return false;
-    if (job.child && requireChildClose) await this.waitForChildClose(job.child, grace);
-    return (!requireChildClose || !job.child || job.child.exitCode !== null || job.child.signalCode !== null);
+    }
+    if (job.child && requireChildClose) await this.waitForChildClose(job.child, Math.max(grace, 250));
+    if (requireChildClose && job.child && job.child.exitCode === null && job.child.signalCode === null) return false;
+    return true;
   }
   status(id: string): JobSnapshot | undefined { const job = this.jobs.get(id); return job ? stateView(job) : undefined; }
   list(): JobSnapshot[] { return [...this.jobs.values()].map(stateView).sort((a, b) => b.startedAt.localeCompare(a.startedAt)); }
