@@ -726,6 +726,9 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   [[ -f "$home/.pi/agent/extensions/todo.ts" ]] || return 1
   [[ -f "$home/.pi/agent/agents/general-glm.md" ]] || return 1
   [[ -f "$home/.pi/agent/agents/ui-design-glm.md" ]] || return 1
+  [[ -f "$home/.pi/agent/agents/Explore.md" ]] || return 1
+  [[ "$(cat "$home/.pi/agent/agents/Explore.md")" == $'---\nenabled: false\n---' ]] || return 1
+  [[ -z "$(find "$home/.pi/agent/agents" -maxdepth 1 -type f -name 'explore.md' -print -quit)" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/quality-reviewer-glm.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/glm5.2-high.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/glm5.2-xhigh.md" ]] || return 1

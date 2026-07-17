@@ -57,7 +57,7 @@ Installed layout:
 │   ├── general-glm.md
 │   ├── ui-design-glm.md
 │   ├── quality-reviewer.md
-│   ├── explore.md
+│   ├── Explore.md        # disables tintinweb's bundled Explore persona
 │   └── ...
 └── extensions/
     ├── pi-prd-mode/
@@ -221,7 +221,6 @@ Example installed agents:
 - `general-glm`
 - `ui-design-glm`
 - `quality-reviewer`
-- `Explore`
 - `research`
 - `plan-gpt`
 - `reviewer-plan-adversarial-gpt`
@@ -356,4 +355,5 @@ Skills:
 - Project-local Pi resources can also live under `.pi/prompts/`, `.pi/skills/`, `.pi/agents/`, and `.pi/extensions/`.
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.
-- GPT-5.6 Sol medium is the normal repository-owned Pi code-writing route. Use `Explore`/`explore` for broad discovery before sending scoped code-writing packets to `developer-mid`, reserve `developer-high` for complex or failed scoped implementation work, and use `ui-design-glm` only for design direction and design-focused implementation guidance. `general-glm` remains available for explicitly delegated non-review work.
+- `_pi/agents/Explore.md` is only an `enabled: false` override for tintinweb's bundled `Explore` persona; it does not define a repository-owned Explore persona. It does not affect the separately installed `@howaboua/pi-explore-subagents` extension or its `explore_subagent` tool, which remains the intended isolated-discovery path.
+- GPT-5.6 Sol medium is the normal repository-owned Pi code-writing route. Use direct targeted reads or `explore_subagent` for discovery before sending scoped code-writing packets to `developer-mid`, reserve `developer-high` for complex or failed scoped implementation work, and use `ui-design-glm` only for design direction and design-focused implementation guidance. `general-glm` remains available for explicitly delegated non-review work.

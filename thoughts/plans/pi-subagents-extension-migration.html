@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pi Subagents Extension Migration Plan</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a2d; --panel2:#18233a; --text:#edf2ff; --muted:#aebbd4; --accent:#72d4ff; --good:#9ef0c5; --warn:#ffd479; --border:#2c3b5b; --code:#0a0f1b; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1180px,calc(100% - 40px)); margin:auto; padding:40px 0 72px; }
+    header,section { scroll-margin-top:24px; }
+    header { padding:30px; background:linear-gradient(135deg,#172442,#111a2e); border:1px solid var(--border); border-radius:18px; }
+    section { margin-top:26px; padding:26px; background:var(--panel); border:1px solid var(--border); border-radius:15px; }
+    article { margin-top:18px; padding:20px; background:var(--panel2); border:1px solid var(--border); border-radius:12px; }
+    h1,h2,h3,h4 { line-height:1.25; margin-top:0; } h1 { font-size:clamp(2rem,5vw,3.2rem); margin-bottom:10px; } h2 { color:var(--accent); } h3 { color:var(--good); }
+    p,li,td,th { max-width:100ch; } a { color:var(--accent); } code,pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; } code { background:var(--code); padding:.12rem .35rem; border-radius:5px; } pre { overflow:auto; padding:16px; background:var(--code); border:1px solid var(--border); border-radius:10px; }
+    table { width:100%; border-collapse:collapse; margin-top:14px; } th,td { padding:12px; border:1px solid var(--border); vertical-align:top; text-align:left; } th { background:#1b2945; }
+    .status { display:inline-block; padding:5px 10px; border:1px solid var(--warn); border-radius:999px; color:var(--warn); font-weight:700; }
+    .summary,.muted { color:var(--muted); } .summary { font-size:1.08rem; } .toc { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:9px 22px; padding-left:20px; }
+    .callout { padding:16px 18px; border-left:4px solid var(--accent); background:#101b31; border-radius:8px; } .warning { border-left-color:var(--warn); }
+    .progress { list-style:none; padding-left:0; } .progress li { margin:9px 0; } input[type="checkbox"] { margin-right:8px; accent-color:var(--accent); }
+    @media (max-width:700px) { main { width:min(100% - 22px,1180px); padding-top:18px; } header,section { padding:19px; } table { display:block; overflow:auto; } }
+  </style>
+</head>
+<body><main>
+  <header id="title">
+    <p class="status">Draft · browser review requested · not authorized for execution</p>
+    <h1>Migrate Pi Orchestration to <code>pi-subagents</code></h1>
+    <p class="summary">Replace <code>@tintinweb/pi-subagents</code> with nicobailon’s mainstream <code>pi-subagents</code> extension, expose only the repository’s custom agent catalog, migrate orchestration prompts and runtime integration points, and verify the installed Pi surface without running both general-purpose systems side by side.</p>
+    <p><strong>Estimated implementation size:</strong> one focused change, approximately 25–35 maintained files plus tests and this plan. The 38 active custom agent bodies remain substantially intact; the risk is orchestration and installation semantics, not persona rewrites.</p>
+    <p><strong>UI impact:</strong> no application UI. Pi’s agent/tool list, slash-command behavior, async status, and installer output are operator-facing surfaces and require installed-runtime smoke evidence.</p>
+  </header>
+
+  <section id="toc"><h2>Table of contents</h2><ul class="toc">
+    <li><a href="#owner-context">Product-owner context</a></li><li><a href="#goal">Goal</a></li><li><a href="#decision-attention">Decision Attention</a></li><li><a href="#authority">Authority and evidence</a></li><li><a href="#current-reality">Current reality</a></li><li><a href="#target-contract">Target contract</a></li><li><a href="#locked-decisions">Locked decisions</a></li><li><a href="#acceptance">Acceptance criteria</a></li><li><a href="#bdd">BDD scenarios</a></li><li><a href="#coverage">Coverage matrix</a></li><li><a href="#progress">Progress</a></li><li><a href="#resume">Resume instructions</a></li><li><a href="#p1">P1 · RED installer contract</a></li><li><a href="#p2">P2 · Agent schema</a></li><li><a href="#p3">P3 · Orchestration migration</a></li><li><a href="#p4">P4 · Installed verification</a></li><li><a href="#rollout">Rollout and rollback</a></li><li><a href="#non-goals">Non-goals</a></li><li><a href="#review-record">Review record</a></li>
+  </ul></section>
+
+  <section id="owner-context"><h2>Product-owner context</h2>
+    <p><strong>Situation.</strong> The current general-purpose extension is <code>@tintinweb/pi-subagents</code>. It supplies the <code>Agent</code>, <code>get_subagent_result</code>, and <code>steer_subagent</code> tools and also contributes a built-in uppercase <code>Explore</code> agent pinned to Claude Haiku 4.5. That bundled role is the source of unexpected Haiku exploration runs.</p>
+    <p><strong>User intent.</strong> Standardize on the more widely adopted nicobailon extension while continuing to use only repository-owned agent definitions. Extension-provided agent personas, skills, and prompt templates must not silently enter the active catalog. The repository-owned Explore persona has been removed; a minimal <code>Explore.md</code> file containing only <code>enabled: false</code> remains temporarily to disable tintinweb's bundled Explore persona. Isolated discovery is provided by the separately installed <code>@howaboua/pi-explore-subagents</code> extension.</p>
+    <p><strong>Why the migration is worthwhile.</strong> <code>pi-subagents</code> provides one structured <code>subagent</code> tool for single, parallel, chain, async, status, and management operations; a dedicated <code>subagent_wait</code> primitive; child-process crash isolation; explicit fresh/fork context; durable run artifacts; and a cleaner representation of the existing multi-reviewer fan-outs.</p>
+    <table><thead><tr><th>Dimension</th><th>Expected result</th></tr></thead><tbody>
+      <tr><td>Correctness</td><td>No extension-provided agent can unexpectedly select Haiku or another unapproved model; custom frontmatter remains the model source of truth.</td></tr>
+      <tr><td>Operator experience</td><td><code>./install.sh --pi</code> performs the complete migration and leaves truthful settings, docs, package listing, and diagnostics.</td></tr>
+      <tr><td>Performance</td><td>Individual child startup may be slower because children are separate Pi processes; fan-out coordination becomes simpler and less error-prone.</td></tr>
+      <tr><td>Stability</td><td>Child crashes are isolated; async status/artifacts improve recovery. Verification must cover process and extension-loading differences.</td></tr>
+      <tr><td>Compatibility</td><td>Custom role names and substantive prompts remain stable. Maintained Pi callers move to the new tool contract in one cutover.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="goal"><h2>Goal</h2>
+    <p>Make <code>pi-subagents</code> the sole general-purpose Pi subagent orchestration extension managed by this repository, disable and filter all of its bundled personas/skills/prompts, preserve the repository’s 38 active custom agents and intended model/reasoning assignments, keep isolated discovery on the dedicated <code>explore_subagent</code> tool, migrate maintained Pi workflows to <code>subagent</code>/<code>subagent_wait</code>, and prove the source and installed surfaces are coherent and recoverable.</p>
+  </section>
+
+  <section id="decision-attention"><h2>Decision Attention / low-confidence areas</h2>
+    <div class="callout"><strong>No blocking product decision remains.</strong> The plan adopts a single cutover, no dual-running transition, built-ins disabled, package skills/prompts filtered, and custom agents retained. Browser review should challenge implementation detail, not reopen the selected product direction without new evidence.</div>
+    <ul>
+      <li><strong>Specialized explore tool:</strong> retain <code>@howaboua/pi-explore-subagents</code> as the sole intended Explore implementation. It exposes the separately named <code>explore_subagent</code> tool with user-controlled shallow/deep Codex configuration and does not become the general-purpose agent catalog.</li>
+      <li><strong>Async semantics:</strong> nicobailon’s current guidance prefers async launches. Deterministic review/PRD commands that must finish in the same invocation will launch one async group and explicitly call <code>subagent_wait({ id })</code>; they must not return a premature success.</li>
+      <li><strong>Frontmatter compatibility:</strong> <code>reasoningEffort</code> is not the target schema. Convert it to <code>thinking</code>. Remove <code>mode: subagent</code> and hardcoded tintinweb extension paths. Preserve other fields unless an installed smoke test proves they are invalid.</li>
+      <li><strong>Historical transcripts:</strong> pi-vcc should continue recognizing old <code>Agent</code>/<code>get_subagent_result</code> records so compaction of existing sessions does not lose evidence, while new fixtures cover <code>subagent</code>/<code>subagent_wait</code>.</li>
+    </ul>
+  </section>
+
+  <section id="authority"><h2>Authority and evidence</h2>
+    <ul>
+      <li>User direction in this session: switch to nicobailon’s extension and do not use extension-provided subagents.</li>
+      <li>Repository authority: <code>AGENTS.md</code>, <code>install.sh</code>, <code>scripts/verify-pi-install.sh</code>, <code>test_install_shared_skills.sh</code>, <code>_pi/README.md</code>, <code>_pi/agents/</code>, maintained Pi prompts, <code>pi-prd-mode</code>, and vendored <code>pi-vcc</code>.</li>
+      <li>Pi package filtering contract: <code>docs/packages.md</code> documents object-form package entries, omitted resource keys meaning “all,” and <code>[]</code> meaning “none.”</li>
+      <li>Upstream inspected at nicobailon/pi-subagents commit <code>315e1eb1482c4ac2d912a8d95aac4287dc7e60ac</code>, package version <code>0.34.0</code>, dated 2026-07-16.</li>
+      <li>Upstream configuration supports <code>subagents.disableBuiltins: true</code>, <code>agentOverrides</code>, <code>thinking</code>, <code>defaultContext</code>, parallel <code>tasks</code>, async execution, and <code>subagent_wait</code>.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality"><h2>Current implementation reality</h2>
+    <table><thead><tr><th>Surface</th><th>Observed state</th><th>Migration implication</th></tr></thead><tbody>
+      <tr><td>Managed package</td><td><code>install.sh</code> installs <code>@tintinweb/pi-subagents</code> and explicitly treats <code>pi-subagents</code> as deprecated.</td><td>Invert package policy and remove tintinweb during install.</td></tr>
+      <tr><td>Verification/docs</td><td><code>scripts/verify-pi-install.sh</code>, <code>test_install_shared_skills.sh</code>, installer help, and <code>_pi/README.md</code> name tintinweb.</td><td>Update source-of-truth lists and add semantic settings checks.</td></tr>
+      <tr><td>Custom agents</td><td>38 active custom personas plus one non-persona <code>Explore.md</code> disable override for tintinweb. Among active agents, 28 use <code>reasoningEffort</code>, 31 use <code>mode: subagent</code>, and 15 hardcode tintinweb’s Linuxbrew extension path.</td><td>Mechanically normalize the active catalog; prompt bodies largely remain. Remove the disable override only when tintinweb itself is removed.</td></tr>
+      <tr><td>Critical prompts</td><td><code>review:plan</code>, <code>review:prd</code>, <code>prd:clarify-round</code>, and <code>review:plan-adversarial</code> invoke <code>Agent</code>/<code>get_subagent_result</code>.</td><td>Rewrite actual orchestration, including join behavior and result handling.</td></tr>
+      <tr><td>Legacy terminology</td><td>Additional Pi prompts mention <code>Task(...)</code> or <code>subagent_type</code>.</td><td>Normalize maintained Pi guidance so models do not invent nonexistent tools.</td></tr>
+      <tr><td>PRD mode</td><td>Tool allowlists include both systems partially: <code>subagent</code>, <code>Agent</code>, <code>get_subagent_result</code>, and <code>steer_subagent</code>, but not <code>subagent_wait</code>.</td><td>Expose only the new runtime tools after cutover.</td></tr>
+      <tr><td>pi-vcc</td><td>Name-regex protection already catches “subagent,” but explicit protected names and many compile fixtures center old result records.</td><td>Add representative new result/wait fixtures without breaking old-session compatibility.</td></tr>
+      <tr><td>Unrelated worktree state</td><td><code>scripts/herdr_session_supervisor.py</code> and <code>tests/</code> are untracked before planning.</td><td>Do not modify, stage, remove, or rely on those paths.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="target-contract"><h2>Target workflow and configuration contract</h2>
+    <p><strong>Golden path:</strong> an operator runs <code>./install.sh --pi</code>. The installer removes tintinweb, installs or updates nicobailon, normalizes the package entry so only its extension loads, sets built-ins disabled while preserving unrelated settings, copies the custom agents, and finishes with documentation and verification aligned to the actual state.</p>
+    <pre><code>{
+  "packages": [
+    {
+      "source": "npm:pi-subagents",
+      "skills": [],
+      "prompts": []
+    }
+  ],
+  "subagents": {
+    "disableBuiltins": true
+  }
+}</code></pre>
+    <p>The package entry intentionally omits <code>extensions</code>, so Pi loads the package’s extension. Empty <code>skills</code> and <code>prompts</code> arrays suppress package-provided orchestration guidance. Existing unrelated <code>subagents</code> keys and package entries must survive normalization.</p>
+    <p><strong>Recovery path:</strong> rerunning <code>./install.sh --pi</code> is idempotent and heals a stale tintinweb registration, a string-form unfiltered <code>npm:pi-subagents</code> entry, missing <code>disableBuiltins</code>, or stale copied custom agents. The verifier reports the exact missing/stale property and rerun command.</p>
+    <p><strong>Fail-closed boundary:</strong> if settings are malformed or cannot be safely merged, do not replace the file with defaults. Stop with the path, parse/shape problem, and exact backup/repair guidance.</p>
+  </section>
+
+  <section id="locked-decisions"><h2>Locked decisions</h2><ol>
+    <li><strong>One general-purpose orchestrator.</strong> Do not install tintinweb and nicobailon together beyond the brief package-manager replacement operation.</li>
+    <li><strong>No bundled agent catalog.</strong> Set <code>subagents.disableBuiltins: true</code>. The repository’s custom agents remain available, including names that coincide with upstream built-ins.</li>
+    <li><strong>No bundled package guidance.</strong> Store <code>npm:pi-subagents</code> in object form with <code>skills: []</code> and <code>prompts: []</code>; omit <code>extensions</code>.</li>
+    <li><strong>Preserve custom model policy.</strong> Convert <code>reasoningEffort</code> to <code>thinking</code>; do not alter model IDs or caller-side reasoning policy. There is no custom Explore model assignment after the preparatory removal.</li>
+    <li><strong>Remove obsolete frontmatter.</strong> Remove <code>mode: subagent</code> and all <code>@tintinweb/pi-subagents</code> extension paths. Omitted <code>extensions</code> restores normal extension discovery.</li>
+    <li><strong>Explicit context.</strong> Independent reviewers/researchers use <code>context: "fresh"</code> with self-contained task packets. Use <code>context: "fork"</code> only where a maintained workflow intentionally depends on the parent transcript.</li>
+    <li><strong>Single fan-out call.</strong> Convert each fixed reviewer fan-out to one <code>subagent({ tasks: [...], concurrency: N, async: true })</code> call and one <code>subagent_wait({ id })</code> join.</li>
+    <li><strong>No premature workflow completion.</strong> Review and PRD commands that promise integrated output must wait for all required children and fail visibly on missing/failed results.</li>
+    <li><strong>Historical vcc compatibility.</strong> Retain recognition of old tool names in pi-vcc while making the new tool/result shapes first-class in tests and comments.</li>
+    <li><strong>Specialized exploration stays separate.</strong> Retain <code>@howaboua/pi-explore-subagents</code> and its <code>explore_subagent</code> tool for this migration; do not route general review/implementation workflows through it.</li>
+    <li><strong>No custom fork.</strong> Consume released <code>npm:pi-subagents</code>; do not vendor or patch upstream unless implementation discovers a concrete blocker and returns for a new decision.</li>
+  </ol></section>
+
+  <section id="acceptance"><h2>Acceptance criteria</h2><table><thead><tr><th>ID</th><th>Criterion</th><th>Evidence</th></tr></thead><tbody>
+    <tr><td>AC1</td><td>Managed installation contains <code>npm:pi-subagents</code> and not <code>npm:@tintinweb/pi-subagents</code>.</td><td>Fake installer test, <code>pi list</code>, and verifier output.</td></tr>
+    <tr><td>AC2</td><td>The settings entry loads the extension but filters package skills/prompts, and <code>subagents.disableBuiltins</code> is true without destroying unrelated settings.</td><td>JSON semantic assertions for fresh, migration, and idempotent installs.</td></tr>
+    <tr><td>AC3</td><td>All 38 active repository custom agents install; while tintinweb remains installed, exact-case <code>Explore.md</code> installs with only <code>enabled: false</code> and lowercase <code>explore.md</code> is absent. The override is removed during the nicobailon cutover. No active installed custom agent contains <code>reasoningEffort</code>, <code>mode: subagent</code>, or tintinweb paths.</td><td>Source/install parity and frontmatter contract checks.</td></tr>
+    <tr><td>AC4</td><td>Each prior reasoning profile is represented by the same <code>thinking</code> level, and model IDs remain unchanged.</td><td>Before/after mapping fixture or explicit static assertions.</td></tr>
+    <tr><td>AC5</td><td>Maintained Pi prompts contain no executable <code>Agent</code>, <code>get_subagent_result</code>, <code>steer_subagent</code>, <code>Task(...)</code>, or <code>subagent_type</code> guidance.</td><td>Repository audit plus prompt contract tests.</td></tr>
+    <tr><td>AC6</td><td>Plan and PRD fan-outs use one parallel async group, explicit context/concurrency, and <code>subagent_wait</code> before integration.</td><td>Focused assertions and installed prompt inspection.</td></tr>
+    <tr><td>AC7</td><td><code>pi-prd-mode</code> exposes <code>subagent</code>/<code>subagent_wait</code> and no longer depends on tintinweb-only tools.</td><td>Extension tests or static allowlist assertions.</td></tr>
+    <tr><td>AC8</td><td>pi-vcc preserves complete new subagent results and wait records during compaction while remaining compatible with historical old-tool records.</td><td>Updated <code>compile.test.ts</code> and related package tests.</td></tr>
+    <tr><td>AC9</td><td>Installed Pi diagnostics list the 38 custom roles, expose neither upstream bundled-only roles such as <code>oracle</code>/<code>delegate</code> nor a general-purpose <code>Explore</code> role, and do expose the dedicated <code>explore_subagent</code> tool.</td><td>Installed-runtime doctor/list/models/tool smoke artifact.</td></tr>
+    <tr><td>AC10</td><td>Rerunning the installer heals stale/unfiltered state and remains idempotent; failures explain the exact next action.</td><td>Migration/idempotence tests and verifier negative cases.</td></tr>
+    <tr><td>AC11</td><td>Documentation and installer help accurately describe package filtering, disabled built-ins, custom agent ownership, orchestration tools, and the specialized explore exception.</td><td>Maintained-reference audit.</td></tr>
+    <tr><td>AC12</td><td>Unrelated pre-existing work remains untouched.</td><td>Final scoped diff and worktree audit.</td></tr>
+  </tbody></table></section>
+
+  <section id="bdd"><h2>BDD scenarios</h2>
+    <article><h3>BDD1 — Fresh install exposes only custom agents</h3><p><strong>Given</strong> a new Pi agent directory, <strong>when</strong> <code>./install.sh --pi</code> completes, <strong>then</strong> nicobailon’s extension is registered with bundled skills/prompts filtered, built-ins disabled, and the 38 active custom definitions copied.</p></article>
+    <article><h3>BDD2 — Existing tintinweb host self-heals</h3><p><strong>Given</strong> settings contain tintinweb and no nicobailon entry, <strong>when</strong> the installer runs, <strong>then</strong> tintinweb is removed, nicobailon is installed and filtered, built-ins are disabled, unrelated settings remain, and the verifier reports clean state.</p></article>
+    <article><h3>BDD3 — Unfiltered nicobailon entry is normalized</h3><p><strong>Given</strong> settings contain string-form <code>npm:pi-subagents</code>, <strong>when</strong> the installer reruns, <strong>then</strong> the entry becomes object form with empty skills/prompts and no duplicate source.</p></article>
+    <article><h3>BDD4 — Unexpected upstream persona cannot run</h3><p><strong>Given</strong> upstream bundles <code>oracle</code> and <code>delegate</code> but the repo does not define those names, <strong>when</strong> agent discovery runs, <strong>then</strong> those personas are absent because built-ins are disabled.</p></article>
+    <article><h3>BDD5 — Explore discovery uses the dedicated package</h3><p><strong>Given</strong> the repository-owned Explore persona has been removed, tintinweb's bundled persona is disabled by the exact-case <code>Explore.md</code> override, and nicobailon built-ins will be disabled after cutover, <strong>when</strong> installed agents and tools are inspected, <strong>then</strong> no general-purpose <code>Explore</code> role or Haiku 4.5 mapping appears and the <code>explore_subagent</code> tool is available from <code>@howaboua/pi-explore-subagents</code>.</p></article>
+    <article><h3>BDD6 — Parallel plan review completes before synthesis</h3><p><strong>Given</strong> a plan review invokes GPT and Kimi reviewers, <strong>when</strong> the command runs, <strong>then</strong> both tasks launch in one parallel run, the parent waits for that run, and synthesis starts only after both required results are terminal and available.</p></article>
+    <article><h3>BDD7 — Seven-way PRD review preserves role parity</h3><p><strong>Given</strong> the seven existing PRD reviewer roles, <strong>when</strong> review starts, <strong>then</strong> all seven custom names, task boundaries, output expectations, and completion accounting are preserved under one bounded parallel group.</p></article>
+    <article><h3>BDD8 — Child failure is actionable</h3><p><strong>Given</strong> one required reviewer fails or times out, <strong>when</strong> <code>subagent_wait</code> returns, <strong>then</strong> the parent reports the failed role/run and recovery action instead of claiming integrated review success.</p></article>
+    <article><h3>BDD9 — Compaction preserves active and completed evidence</h3><p><strong>Given</strong> a transcript contains <code>subagent</code> and <code>subagent_wait</code> calls/results, <strong>when</strong> pi-vcc compacts it, <strong>then</strong> material task/result evidence remains in the summary and protected-tool logic does not discard it.</p></article>
+    <article><h3>BDD10 — Malformed settings fail closed</h3><p><strong>Given</strong> <code>settings.json</code> is malformed or has an incompatible root shape, <strong>when</strong> migration runs, <strong>then</strong> it does not overwrite user state and prints the file path and exact repair/rerun guidance.</p></article>
+  </section>
+
+  <section id="coverage"><h2>Test coverage matrix</h2><table><thead><tr><th>Acceptance/scenarios</th><th>Layer</th><th>Files</th><th>Verification</th></tr></thead><tbody>
+    <tr><td>AC1–AC2, AC10; BDD1–BDD3, BDD10</td><td>Installer/config contract</td><td><code>test_install_shared_skills.sh</code>, <code>install.sh</code>, <code>scripts/verify-pi-install.sh</code></td><td>Fresh, migration, malformed, and rerun fixtures; JSON semantic checks rather than string-only checks.</td></tr>
+    <tr><td>AC3–AC4; BDD4–BDD5</td><td>Agent catalog/frontmatter</td><td><code>_pi/agents/*.md</code>, installer tests</td><td>Count/parity, transitional-stub removal, banned-key/path audit, model/thinking mapping, and installed agent-list inspection.</td></tr>
+    <tr><td>AC5–AC7; BDD6–BDD8</td><td>Prompt and extension orchestration</td><td>maintained <code>_pi/prompts/*.md</code>, <code>_pi/extensions/pi-prd-mode/index.ts</code></td><td>Static invocation contract plus real installed smoke of one small single run and one two-agent parallel/wait run.</td></tr>
+    <tr><td>AC8; BDD9</td><td>Compaction regression</td><td><code>_pi/packages/pi-vcc/tests/compile.test.ts</code>, protected-tool tests/comments</td><td><code>(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/compile.test.ts)</code>, then package suite if focused tests pass.</td></tr>
+    <tr><td>AC9, AC11–AC12</td><td>Installed/operator surface and scope</td><td><code>_pi/README.md</code>, installer help, installed settings/agents</td><td><code>./install.sh --pi</code>, <code>bash scripts/verify-pi-install.sh</code>, Pi diagnostics/list/models smoke, source/install diff, <code>git diff --check</code>, scoped status.</td></tr>
+  </tbody></table></section>
+
+  <section id="progress"><h2>Progress</h2><ul class="progress">
+    <li><label><input type="checkbox" disabled> <strong>P1</strong> — Lock failing installer/config/catalog contracts before changing package policy.</label></li>
+    <li><label><input type="checkbox" disabled> <strong>P2</strong> — Normalize all custom agent frontmatter without changing role intent or models.</label></li>
+    <li><label><input type="checkbox" disabled> <strong>P3</strong> — Migrate prompts, PRD mode, and pi-vcc to the new orchestration contract.</label></li>
+    <li><label><input type="checkbox" disabled> <strong>P4</strong> — Install, smoke-test, document, and verify the complete cutover.</label></li>
+  </ul></section>
+
+  <section id="resume"><h2>Resume instructions (agent)</h2>
+    <p>Read this plan fully and start at the first unchecked phase. Work directly on <code>main</code> unless the user explicitly requests another workflow. Preserve unrelated untracked files. Add the phase’s failing contract first, confirm the expected RED failure, then implement only enough to make it pass. Immediately check the corresponding progress box in this file after the phase is complete and verified. If upstream <code>pi-subagents</code> behavior contradicts a locked assumption, stop and record the evidence in the Decisions/Deviations section rather than inventing compatibility code.</p>
+  </section>
+
+  <section id="p1"><h2>P1 — RED: installer, filtering, and catalog ownership contract</h2>
+    <h3>End state</h3><p>Tests precisely describe the desired package replacement, filtered package entry, disabled built-ins, preserved unrelated settings, custom-agent parity, migration behavior, and actionable malformed-settings failure before implementation changes.</p>
+    <h3>Tests first</h3><ul>
+      <li>Add a fake-Pi fresh-install assertion expecting <code>npm:pi-subagents</code> and rejecting tintinweb.</li>
+      <li>Add a migration fixture containing tintinweb, unrelated package entries, and unrelated <code>subagents</code> keys. Expect one object-form nicobailon entry with <code>skills: []</code>, <code>prompts: []</code>, omitted <code>extensions</code>, and <code>disableBuiltins: true</code>.</li>
+      <li>Add an idempotence fixture beginning with string-form/unfiltered nicobailon and verify normalization without duplicates.</li>
+      <li>Add malformed JSON/root-shape coverage proving the installer fails without overwriting the file and emits an exact next step.</li>
+      <li>Add source/install custom-agent count and banned-frontmatter assertions. They should fail until P2.</li>
+    </ul>
+    <h3>Implementation</h3><ul>
+      <li>Invert <code>npm_packages</code>/<code>deprecated_npm_packages</code> in <code>install.sh</code>.</li>
+      <li>After <code>pi install</code>/<code>pi update</code>, normalize only the matching package entry and merge <code>subagents.disableBuiltins</code> while preserving all other data.</li>
+      <li>Make settings parsing fail closed; do not silently replace malformed JSON with <code>{}</code> in this migration path.</li>
+      <li>Update expected package identity in <code>scripts/verify-pi-install.sh</code> and add semantic checks for filters/built-ins, with rerun guidance.</li>
+    </ul>
+    <h3>Expected files</h3><ul><li><code>install.sh</code></li><li><code>scripts/verify-pi-install.sh</code></li><li><code>test_install_shared_skills.sh</code></li></ul>
+    <h3>Verify</h3><pre><code>bash -n install.sh scripts/verify-pi-install.sh test_install_shared_skills.sh
+bash test_install_shared_skills.sh
+rg -n '@tintinweb/pi-subagents|npm:pi-subagents|disableBuiltins|"skills": \[\]|"prompts": \[\]' install.sh scripts/verify-pi-install.sh test_install_shared_skills.sh</code></pre>
+  </section>
+
+  <section id="p2"><h2>P2 — Normalize the repository-owned agent catalog</h2>
+    <h3>End state</h3><p>All 38 active custom agents use nicobailon-compatible frontmatter and retain their names, models, tools, reasoning levels, colors, descriptions, and substantive instructions. The temporary tintinweb-only <code>Explore.md</code> disable override is removed in the same cutover that removes tintinweb; isolated discovery remains available through <code>explore_subagent</code>.</p>
+    <h3>Tests first</h3><ul>
+      <li>Capture a mapping of each file’s current <code>name</code>, <code>model</code>, and <code>reasoningEffort</code>/<code>thinking</code> before edits; assert the post-migration name/model and normalized thinking values.</li>
+      <li>Assert zero <code>reasoningEffort</code>, zero <code>mode: subagent</code>, and zero tintinweb paths under <code>_pi/agents</code>.</li>
+      <li>Assert the installed destination is byte-identical to source after the installer copies the normalized catalog.</li>
+    </ul>
+    <h3>Implementation</h3><ul>
+      <li>Before cutover, assert exact-case <code>Explore.md</code> contains only <code>enabled: false</code> and lowercase <code>explore.md</code> is absent. During the nicobailon cutover, remove the now-unnecessary override and assert neither file installs.</li>
+      <li>Convert 28 <code>reasoningEffort</code> keys to <code>thinking</code>.</li>
+      <li>Remove 31 <code>mode: subagent</code> keys.</li>
+      <li>Remove 15 hardcoded <code>@tintinweb/pi-subagents/index.ts</code> <code>extensions</code> values so normal extension discovery applies.</li>
+      <li>Review agents with <code>tools: ..., subagent</code> deliberately. Retain nested delegation only where currently intended; do not add it broadly.</li>
+      <li>Normalize lingering Pi-specific <code>Task</code>/<code>subagent_type</code> prose inside custom agent bodies, such as <code>multi-reviewer.md</code>, without rewriting Claude-only agent catalogs.</li>
+    </ul>
+    <h3>Expected files</h3><ul><li><code>_pi/agents/*.md</code> (approximately 32 mechanically affected files plus deletion of the stub)</li><li><code>test_install_shared_skills.sh</code></li></ul>
+    <h3>Verify</h3><pre><code>test "$(find _pi/agents -maxdepth 1 -name '*.md' | wc -l | tr -d ' ')" = 38
+! rg -n '^reasoningEffort:|^mode:\s*subagent|@tintinweb/pi-subagents|subagent_type|Task\(' _pi/agents
+bash test_install_shared_skills.sh</code></pre>
+  </section>
+
+  <section id="p3"><h2>P3 — Migrate orchestration prompts and integration points</h2>
+    <h3>End state</h3><p>Maintained Pi workflows use only <code>subagent</code> and <code>subagent_wait</code>, preserve role/concurrency/completion behavior, and pi-vcc safely summarizes both new and historical records.</p>
+    <h3>Tests first</h3><ul>
+      <li>Add prompt assertions that ban executable tintinweb and generic <code>Task</code> syntax from maintained Pi prompts.</li>
+      <li>Add positive assertions for parallel task count, explicit role names, <code>async: true</code>, <code>context: "fresh"</code>, bounded concurrency, and a required wait/join before integration in plan and PRD review prompts.</li>
+      <li>Add PRD-mode assertions for <code>subagent</code>/<code>subagent_wait</code> and absence of tintinweb-only tools.</li>
+      <li>Add pi-vcc fixtures containing successful/failed <code>subagent</code> and <code>subagent_wait</code> results, plus retain one historical <code>get_subagent_result</code> compatibility fixture.</li>
+    </ul>
+    <h3>Implementation</h3><ul>
+      <li><strong><code>review:plan.md</code>:</strong> replace two launches/two joins with one two-task parallel async run and one wait.</li>
+      <li><strong><code>review:prd.md</code>:</strong> replace seven launches/joins with one seven-task run, concurrency seven unless upstream/runtime limits require a lower explicit value, and one wait.</li>
+      <li><strong><code>prd:clarify-round.md</code>:</strong> retain sequential critic → conditional researcher semantics using separate async runs and waits.</li>
+      <li><strong><code>review:plan-adversarial.md</code>:</strong> migrate synthesis invocation and required completion behavior.</li>
+      <li>Normalize maintained guidance in <code>cmd:debug</code>, <code>cmd:research</code>, Linear start prompts, <code>dev:plan</code>, Playwright prompts, and any other active Pi prompt found by the final audit.</li>
+      <li>Update <code>pi-prd-mode</code> default/review orchestration tool lists to <code>subagent</code> and <code>subagent_wait</code>; remove <code>Agent</code>, <code>get_subagent_result</code>, and <code>steer_subagent</code>.</li>
+      <li>Update pi-vcc protected-tool comments/fixtures for new names. Preserve explicit old-name compatibility where needed for existing sessions.</li>
+    </ul>
+    <h3>Expected files</h3><ul>
+      <li><code>_pi/prompts/review:plan.md</code>, <code>review:prd.md</code>, <code>prd:clarify-round.md</code>, <code>review:plan-adversarial.md</code></li>
+      <li><code>_pi/prompts/cmd:debug.md</code>, <code>cmd:research.md</code>, Linear-start prompts, <code>dev:plan.md</code>, Playwright prompts, and any final-audit matches</li>
+      <li><code>_pi/extensions/pi-prd-mode/index.ts</code> and focused tests if present/added</li>
+      <li><code>_pi/packages/pi-vcc/src/core/protected-tools.ts</code>, comments, and <code>tests/compile.test.ts</code></li>
+    </ul>
+    <h3>Verify</h3><pre><code>! rg -n '\bAgent\s*\(|get_subagent_result|steer_subagent|subagent_type|\bTask\s*\(' _pi/prompts _pi/agents
+rg -n 'subagent_wait|async: true|context: "fresh"|tasks:' _pi/prompts/review:plan.md _pi/prompts/review:prd.md _pi/prompts/prd:clarify-round.md _pi/prompts/review:plan-adversarial.md
+(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/compile.test.ts)
+(cd _pi/packages/pi-vcc &amp;&amp; bun test tests)</code></pre>
+  </section>
+
+  <section id="p4"><h2>P4 — Documentation, installed-runtime smoke, and closeout</h2>
+    <h3>End state</h3><p>The repository and installed Pi configuration agree; diagnostics prove only the 38 custom general-purpose agents are exposed and Explore is absent; a real single child and parallel/wait run complete; rerun is idempotent; and rollback is documented.</p>
+    <h3>Tests first</h3><ul>
+      <li>Add maintained-reference assertions that docs/help name nicobailon and explain built-in/resource filtering.</li>
+      <li>Add verifier negative tests for missing <code>disableBuiltins</code>, unfiltered package resources, stale tintinweb registration, and missing nicobailon package.</li>
+      <li>Prepare bounded installed-smoke prompts that write no repository files: list/doctor/models, a negative check that Explore is unavailable, and one two-agent read-only parallel run with explicit wait.</li>
+    </ul>
+    <h3>Implementation</h3><ul>
+      <li>Update <code>_pi/README.md</code>, installer help/comments, and package inventory text.</li>
+      <li>Run <code>./install.sh --pi</code>; verify package/settings/agent parity and rerun once for idempotence.</li>
+      <li>Use installed diagnostics or a non-mutating Pi invocation to prove bundled-only <code>oracle</code>/<code>delegate</code> and general-purpose <code>Explore</code> roles are absent while the 38 custom roles and dedicated <code>explore_subagent</code> tool are present.</li>
+      <li>Run a bounded single-agent and two-agent parallel/wait smoke against a temporary or read-only task. Record command, run IDs/status, elapsed time, model mapping, and outcome under <code>thoughts/validation/</code> if the execution workflow requires durable evidence.</li>
+      <li>Run the full scoped checks and inspect the diff for unrelated files.</li>
+    </ul>
+    <h3>Expected files</h3><ul><li><code>_pi/README.md</code></li><li><code>install.sh</code> help/comments</li><li><code>scripts/verify-pi-install.sh</code></li><li><code>test_install_shared_skills.sh</code></li><li>optional validation artifact under <code>thoughts/validation/</code></li></ul>
+    <h3>Verify</h3><pre><code>bash -n install.sh scripts/verify-pi-install.sh test_install_shared_skills.sh
+bash test_install_shared_skills.sh
+(cd _pi/packages/pi-vcc &amp;&amp; bun test tests)
+./install.sh --pi
+./install.sh --pi
+bash scripts/verify-pi-install.sh
+pi list
+# Run installed /subagents-doctor and agent list; prove Explore is absent,
+# one negative Explore-availability check, and one two-agent parallel + wait smoke.
+diff -ru _pi/agents "$HOME/.pi/agent/agents"
+git diff --check
+git status --short</code></pre>
+  </section>
+
+  <section id="rollout"><h2>Rollout, observability, and rollback</h2>
+    <ol>
+      <li><strong>Preflight:</strong> record current <code>pi list</code>, settings package/subagents blocks, and installed agent/model mapping. Do not include secrets.</li>
+      <li><strong>Source verification:</strong> complete P1–P3 checks before touching the live installation.</li>
+      <li><strong>Cutover:</strong> run the repository installer once; do not manually install both packages first.</li>
+      <li><strong>Health checks:</strong> verifier clean, no tintinweb package/path, filters and built-in disablement present, custom catalog count correct, diagnostics clean, and smoke runs terminal.</li>
+      <li><strong>Idempotence:</strong> rerun installer and confirm no duplicate package entry, no settings churn, and no agent drift.</li>
+      <li><strong>Rollback trigger:</strong> rollback if custom agents fail discovery, required tools are unavailable in child sessions, review fan-outs cannot reliably join, settings are damaged, or pi-vcc loses result evidence.</li>
+      <li><strong>Rollback action:</strong> revert the focused source change or restore the preflight settings backup, rerun the prior installer version, and verify tintinweb’s previous package/tool surface. Preserve failed async artifacts/logs for diagnosis; do not run both systems as a long-lived workaround.</li>
+    </ol>
+  </section>
+
+  <section id="non-goals"><h2>Non-goals</h2><ul>
+    <li>Rewriting the 38 substantive active agent personas or changing their selected models.</li>
+    <li>Migrating Claude or Codex agent/tool syntax that belongs to those environments.</li>
+    <li>Replacing or redesigning <code>@howaboua/pi-explore-subagents</code> in the same change.</li>
+    <li>Adopting upstream bundled agents, skills, prompts, profiles, watchdog, memory, scheduling, or saved chains.</li>
+    <li>Building a custom subagent extension, vendoring nicobailon, or adding compatibility wrappers without a demonstrated blocker.</li>
+    <li>Changing review product policy, reviewer count, severity rules, or acceptance criteria beyond invocation mechanics.</li>
+    <li>Rewriting historical plans, handoffs, transcripts, or validation artifacts that mention old tool names.</li>
+  </ul></section>
+
+  <section id="review-record"><h2>Review record and decisions/deviations</h2>
+    <ul>
+      <li>2026-07-16: initial repository audit found 39 custom-agent files, 29 <code>reasoningEffort</code> keys, 32 <code>mode: subagent</code> keys, 15 hardcoded tintinweb extension paths, four behavior-critical orchestration prompts, additional legacy terminology, PRD-mode tool drift, and pi-vcc fixtures centered on old result names.</li>
+      <li>2026-07-16: user removed the repository-owned Explore persona. The minimal exact-case <code>Explore.md</code> override was restored because it is currently required to disable tintinweb's bundled Explore; it contains only <code>enabled: false</code> and does not affect <code>@howaboua/pi-explore-subagents</code>. The migration baseline is 38 active custom agents plus this temporary non-persona override, with isolated discovery supplied by <code>@howaboua/pi-explore-subagents</code>.</li>
+      <li>2026-07-16: upstream nicobailon package version 0.34.0 and Pi package filtering documentation confirmed the target configuration and tool/frontmatter semantics.</li>
+      <li>2026-07-16: retained <code>@howaboua/pi-explore-subagents</code> as an explicit specialized exception; it is not the general-purpose catalog and will not be used to hide upstream bundled roles.</li>
+      <li>Browser comments and later PM/Codex/applicable Claude review outcomes should be appended here. Do not mark this plan execution-ready until browser review is resolved and the reviewed-plan workflow records readiness.</li>
+    </ul>
+  </section>
+</main></body></html>
