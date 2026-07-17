@@ -94,7 +94,15 @@ PY
   done
   for helper in process_identity.py review_supervisor.py; do
     installed="$HOME/.agents/skills/codex-review-partner/scripts/$helper"
-    if [ ! -r "$installed" ] || [ ! -x "$installed" ]; then echo "FAIL: installed review helper must be owner-readable and executable: $installed" >&2; failures=$((failures+1)); fi
+    if ! python3 - "$installed" <<'PY'
+import os, stat, sys
+try:
+    mode = os.stat(sys.argv[1]).st_mode
+except OSError:
+    raise SystemExit(1)
+raise SystemExit(0 if mode & stat.S_IRUSR and mode & stat.S_IXUSR else 1)
+PY
+    then echo "FAIL: installed review helper must be owner-readable and executable: $installed" >&2; failures=$((failures+1)); fi
   done
   if ((failures)); then echo "Pi review-stack verification failed with $failures issue(s)." >&2; exit 1; fi
   echo "Pi review-stack verification passed (check-only)."

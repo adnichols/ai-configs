@@ -39,6 +39,9 @@ class InstallTransactionTest(unittest.TestCase):
             self.assertEqual(foreign.read_text(),'keep');installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);self.assertTrue((home/'.agents/skills/autoreview/SKILL.md').is_file());scripts=home/'.agents/skills/codex-review-partner/scripts';self.assertEqual(stat.S_IMODE((scripts/'process_identity.py').stat().st_mode)&0o500,0o500);self.assertEqual(stat.S_IMODE((scripts/'review_supervisor.py').stat().st_mode)&0o500,0o500);append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
             subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(before,manifest(home))
+            helper=scripts/'process_identity.py';helper.chmod(0o050)
+            result=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+            self.assertNotEqual(result.returncode,0);self.assertIn('owner-readable and executable',result.stderr)
     def test_preexisting_agents_parent_metadata_is_not_mutated(self):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d);parents=[home/'.agents',home/'.agents/skills'];parents[1].mkdir(parents=True);os.chmod(parents[0],0o751);os.chmod(parents[1],0o753);before=[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents];env={**os.environ,'HOME':d}

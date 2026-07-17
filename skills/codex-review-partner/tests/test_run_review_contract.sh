@@ -29,6 +29,7 @@ if mode == 'timeout':
     time.sleep(30)
 if mode == 'nonzero':
     print(json.dumps({'type':'error','message':'unknown provider shape'}), flush=True); sys.exit(9)
+if mode == 'exit137': sys.exit(137)
 if mode == 'signal': os.kill(os.getpid(), signal.SIGTERM)
 text=os.environ.get('FAKE_FINAL','Review complete.\nVERDICT: CLEAN_FOR_PR\n')
 if mode != 'missing': path.write_text(text)
@@ -169,6 +170,25 @@ python3 - "$status" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1])); assert d['classification']=='CODEX_REVIEW_CODEX_EXIT_NONZERO' and d['matchedSource']=='generic'
 PY
+assert_fails 'Codex exited nonzero (137)' env FAKE_CODEX_MODE=exit137 PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode smoke --input "$ROOT/input.md" --status-file "$status" --timeout-seconds 3
+python3 - "$status" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1])); assert d['classification']=='CODEX_REVIEW_CODEX_EXIT_NONZERO' and d['codexExitCode']==137 and d['codexSignal'] is None
+PY
+
+# Missing or malformed cleanup evidence is never accepted as a normal outcome.
+for result_mode in missing malformed cleanup-false inconsistent missing-signal invalid-signal-reason; do
+  rm -f "$status.supervisor-result.json" "$status.supervisor-failed.txt"
+  assert_fails 'cleanup could not be verified' env CODEX_REVIEW_TEST_SUPERVISOR_RESULT="$result_mode" FAKE_FINAL=CODEX_REVIEW_SMOKE_READY PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode smoke --input "$ROOT/input.md" --status-file "$status" --timeout-seconds 3
+  python3 - "$status" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1])); assert d['classification']=='CODEX_REVIEW_CLEANUP_FAILED' and d['matchedSource']=='cleanup'
+PY
+  if [[ "$result_mode" == missing ]]; then [[ -s "$status.supervisor-failed.txt" ]]; else [[ -s "$status.supervisor-result.json" ]]; fi
+done
+mkdir -p "$ROOT/evidence-tmp"
+assert_fails 'retained supervisor evidence' env TMPDIR="$ROOT/evidence-tmp" CODEX_REVIEW_TEST_SUPERVISOR_RESULT=missing FAKE_FINAL=CODEX_REVIEW_SMOKE_READY PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode smoke --input "$ROOT/input.md" --timeout-seconds 3
+find "$ROOT/evidence-tmp/codex-review-evidence" -name '*.supervisor-failed.txt' -type f | grep . >/dev/null
 
 # Inner timeout kills the full process group and records timeout precedence.
 assert_fails 'timed out' env FAKE_CODEX_MODE=timeout FAKE_CHILD_PID="$ROOT/child.pid" PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode smoke --input "$ROOT/input.md" --status-file "$status" --timeout-seconds 1

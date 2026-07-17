@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import ctypes.util
+import errno
 import json
 import os
 import pathlib
@@ -29,6 +30,10 @@ class ProcessIdentityError(RuntimeError):
 
 class UnsupportedPlatformError(ProcessIdentityError):
     """The current operating system has no maintained adapter."""
+
+
+class ProcessAccessDeniedError(ProcessIdentityError):
+    """Darwin denied inspection of an unrelated system process."""
 
 
 @dataclass(frozen=True)
@@ -117,9 +122,11 @@ class LinuxAdapter:
             try:
                 record = self.snapshot(int(entry.name))
             except ProcessIdentityError:
-                # A process may exit or become unreadable between enumeration and
-                # inspection. A direct requested snapshot still fails explicitly.
-                continue
+                try:
+                    entry.stat()
+                except FileNotFoundError:
+                    continue
+                raise
             if record is not None:
                 records.append(record)
         return sorted(records, key=lambda record: record.pid)
@@ -196,6 +203,8 @@ class DarwinAdapter:
             error = ctypes.get_errno()
             if error in (0, 3):  # ESRCH may be lost by older libproc builds.
                 return None
+            if error == errno.EPERM:  # Normal for unrelated protected processes.
+                raise ProcessAccessDeniedError(f"darwin process identity denied for pid {pid}: {os.strerror(error)}")
             raise ProcessIdentityError(f"darwin process identity unavailable for pid {pid}: {os.strerror(error)}")
         if received != size:
             raise ProcessIdentityError(f"darwin proc_pidinfo returned {received} bytes for pid {pid}; expected {size}")
@@ -205,6 +214,8 @@ class DarwinAdapter:
             sid = os.getsid(pid)
         except ProcessLookupError:
             return None
+        except PermissionError as error:
+            raise ProcessAccessDeniedError(f"darwin session identity denied for pid {pid}: {error}") from error
         except OSError as error:
             raise ProcessIdentityError(f"darwin session identity unavailable for pid {pid}: {error}") from error
         status = int(info.pbi_status)
@@ -235,7 +246,9 @@ class DarwinAdapter:
         for pid in self._pids():
             try:
                 record = self.snapshot(pid)
-            except ProcessIdentityError:
+            except ProcessAccessDeniedError:
+                # Darwin denies proc_pidinfo for unrelated system processes
+                # (for example pid 1) during every normal enumeration.
                 continue
             if record is not None:
                 records.append(record)

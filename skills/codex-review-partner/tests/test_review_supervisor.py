@@ -59,6 +59,16 @@ class FakeAdapter:
 
 
 class ReviewSupervisorTest(unittest.TestCase):
+    def arguments(self, directory):
+        return argparse.Namespace(
+            parent_pid=101, parent_start_identity="parent", parent_boot_id="fake-boot",
+            owner_pid=102, owner_start_identity="owner", owner_boot_id="fake-boot",
+            ready_file=f"{directory}/ready", failed_file=f"{directory}/failed",
+            identity_file=f"{directory}/identity", result_file=f"{directory}/result",
+            nonce="nonce", login_shell="/bin/sh", work_dir=directory,
+            timeout_seconds=10, command=["exec"],
+        )
+
     def test_parent_death_signal_is_handled_before_codex_launch(self):
         current = os.getpid()
         adapter = FakeAdapter([
@@ -114,6 +124,28 @@ class ReviewSupervisorTest(unittest.TestCase):
             adapter.records[201] = record(201, 300, start=anchor.startIdentity, state="T")
             self.assertFalse(supervisor.signal_anchored_group(adapter, anchor, signal.SIGTERM))
             killpg.assert_not_called()
+
+    def test_post_launch_publication_failure_cleans_private_session(self):
+        current = os.getpid()
+        child = mock.Mock(pid=103)
+        adapter = FakeAdapter([
+            record(101, 101, sid=101, start="parent"),
+            record(102, 102, sid=102, start="owner"),
+            record(current, current, sid=current, start="supervisor"),
+            record(103, 103, sid=current, start="child"),
+        ])
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            identity, "adapter_for_platform", return_value=adapter
+        ), mock.patch.object(supervisor.os, "setsid"), mock.patch.object(
+            supervisor, "optional_linux_parent_death_signal"
+        ), mock.patch.object(supervisor, "atomic_json"), mock.patch.object(
+            supervisor, "atomic_text", side_effect=OSError("ready publication failed")
+        ), mock.patch.object(supervisor, "cleanup_private_session") as cleanup, mock.patch.object(
+            supervisor.subprocess, "Popen", return_value=child
+        ):
+            with self.assertRaisesRegex(OSError, "ready publication failed"):
+                supervisor.supervise(self.arguments(directory))
+        cleanup.assert_called_once_with(adapter, adapter.snapshot(current))
 
     def test_group_stop_is_anchored_by_a_per_process_freeze(self):
         adapter = FakeAdapter([record(201, 200)])

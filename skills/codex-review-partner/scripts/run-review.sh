@@ -165,13 +165,65 @@ fi
 wait "$CODEX_PID"; CODEX_EXIT=$?
 set -e
 
-read -r RESULT_CODE RESULT_SIGNAL TIMED_OUT RESULT_CLEANUP < <(python3 - "$SUPERVISOR_RESULT" "$CODEX_EXIT" <<'PY'
+if ! RESULT_FIELDS="$(python3 - "$SUPERVISOR_RESULT" "$CODEX_EXIT" <<'PY'
 import json,sys
-try: value=json.load(open(sys.argv[1]))
-except (OSError,json.JSONDecodeError): value={}
-print(value.get('codexExitCode',sys.argv[2]),value.get('codexSignal',''),str(bool(value.get('timeout'))).lower(),str(bool(value.get('cleanupVerified'))).lower())
-PY
+try:
+    value=json.load(open(sys.argv[1]))
+except (OSError,json.JSONDecodeError) as error:
+    raise SystemExit(f'invalid supervisor result: {error}')
+if not isinstance(value,dict) or value.get('cleanupVerified') is not True:
+    raise SystemExit('supervisor cleanup was not verified')
+code=value.get('codexExitCode')
+signal=value.get('codexSignal')
+timeout=value.get('timeout')
+reason=value.get('reason')
+supervisor_exit=int(sys.argv[2])
+if 'codexSignal' not in value or not isinstance(code,int) or isinstance(code,bool) or not isinstance(timeout,bool) or signal is not None and not isinstance(signal,(int,str)) or not isinstance(reason,str):
+    raise SystemExit('supervisor result has invalid field types')
+coherent = (
+    reason == 'completed' and not timeout and code == supervisor_exit and (signal is None or code > 128 and signal in (code-128,str(code-128)))
+    or reason == 'timeout' and timeout and supervisor_exit == 124 and code == 137 and signal in (9,'9')
+    or reason in ('signal:1','signal:2','signal:15') and not timeout and supervisor_exit == 128+int(reason.split(':',1)[1]) and code == supervisor_exit and signal in (supervisor_exit-128,str(supervisor_exit-128))
+    or reason in ('launcher-lost','owner-lost') and not timeout and supervisor_exit == 125 and code == 143 and signal in (15,'15')
 )
+if not coherent:
+    raise SystemExit('supervisor result is inconsistent with supervisor exit')
+print(code,'' if signal is None else signal,str(timeout).lower(),sep='|')
+PY
+)"; then
+  RETAINED_EVIDENCE=()
+  if [[ -n "$STATUS_FILE" ]]; then
+    EVIDENCE_BASE="$STATUS_FILE"
+  elif [[ -n "$PROCESS_IDENTITY_FILE" ]]; then
+    EVIDENCE_BASE="$PROCESS_IDENTITY_FILE"
+  else
+    EVIDENCE_DIR="${TMPDIR:-/tmp}/codex-review-evidence"
+    mkdir -p "$EVIDENCE_DIR"; chmod 700 "$EVIDENCE_DIR"
+    EVIDENCE_BASE="$EVIDENCE_DIR/$EFFECTIVE_JOB_NONCE"
+  fi
+  mkdir -p "$(dirname "$EVIDENCE_BASE")"
+  if [[ -f "$SUPERVISOR_RESULT" ]]; then
+    RETAINED_RESULT="${EVIDENCE_BASE}.supervisor-result.json"
+    if cp "$SUPERVISOR_RESULT" "$RETAINED_RESULT" && chmod 600 "$RETAINED_RESULT"; then
+      RETAINED_EVIDENCE+=("$RETAINED_RESULT")
+    fi
+  fi
+  if [[ -f "$SUPERVISOR_FAILED" ]]; then
+    RETAINED_FAILURE="${EVIDENCE_BASE}.supervisor-failed.txt"
+    if cp "$SUPERVISOR_FAILED" "$RETAINED_FAILURE" && chmod 600 "$RETAINED_FAILURE"; then
+      RETAINED_EVIDENCE+=("$RETAINED_FAILURE")
+    fi
+  fi
+  write_status failure CODEX_REVIEW_CLEANUP_FAILED cleanup "$CODEX_EXIT" '' false not-checked
+  if ((${#RETAINED_EVIDENCE[@]})); then
+    echo "Codex review cleanup could not be verified; retained supervisor evidence: ${RETAINED_EVIDENCE[*]}" >&2
+  else
+    [[ -f "$SUPERVISOR_FAILED" ]] && cat "$SUPERVISOR_FAILED" >&2
+    echo "Codex review cleanup could not be verified; no durable supervisor result was available" >&2
+  fi
+  exit 125
+fi
+IFS='|' read -r RESULT_CODE RESULT_SIGNAL TIMED_OUT <<<"$RESULT_FIELDS"
 if [[ "$TIMED_OUT" == true ]]; then
   write_status failure CODEX_REVIEW_INNER_TIMEOUT inner-timeout "$RESULT_CODE" "$RESULT_SIGNAL" true not-checked
   echo "Codex review timed out after ${TIMEOUT_SECONDS}s" >&2; exit 124
@@ -181,13 +233,12 @@ if (( CODEX_EXIT != 0 )); then
     write_status failure CODEX_REVIEW_LAUNCH_FAILED exec "$CODEX_EXIT" '' false not-checked
     echo "Codex launch failed ($CODEX_EXIT)" >&2; exit "$CODEX_EXIT"
   fi
-  if (( CODEX_EXIT > 128 )); then
-    SIGNAL_NUMBER=$((CODEX_EXIT - 128))
-    write_status failure CODEX_REVIEW_CODEX_SIGNAL signal "$CODEX_EXIT" "$SIGNAL_NUMBER" false not-checked
-    echo "Codex terminated by signal $SIGNAL_NUMBER" >&2; exit "$CODEX_EXIT"
+  if [[ -n "$RESULT_SIGNAL" ]]; then
+    write_status failure CODEX_REVIEW_CODEX_SIGNAL signal "$RESULT_CODE" "$RESULT_SIGNAL" false not-checked
+    echo "Codex terminated by signal $RESULT_SIGNAL" >&2; exit "$CODEX_EXIT"
   fi
-  write_status failure CODEX_REVIEW_CODEX_EXIT_NONZERO generic "$CODEX_EXIT" '' false not-checked
-  echo "Codex exited nonzero ($CODEX_EXIT); inspect JSONL/stderr evidence" >&2; exit "$CODEX_EXIT"
+  write_status failure CODEX_REVIEW_CODEX_EXIT_NONZERO generic "$RESULT_CODE" '' false not-checked
+  echo "Codex exited nonzero ($RESULT_CODE); inspect JSONL/stderr evidence" >&2; exit "$CODEX_EXIT"
 fi
 if [[ ! -s "$FINAL_MESSAGE" ]]; then
   write_status failure CODEX_REVIEW_ARTIFACT_MISSING final-message 0 '' false missing

@@ -52,6 +52,24 @@ def atomic_json(path: str, value: object) -> None:
     atomic_text(path, json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
 
 
+def publish_result(path: str, value: dict[str, object]) -> None:
+    test_mode = os.environ.get("CODEX_REVIEW_TEST_SUPERVISOR_RESULT")
+    if test_mode == "missing":
+        raise SupervisorError("injected missing supervisor result")
+    if test_mode == "malformed":
+        atomic_text(path, "{not-json\n")
+        return
+    if test_mode == "cleanup-false":
+        value = {**value, "cleanupVerified": False}
+    if test_mode == "inconsistent":
+        value = {**value, "codexExitCode": 9}
+    if test_mode == "missing-signal":
+        value = {key: item for key, item in value.items() if key != "codexSignal"}
+    if test_mode == "invalid-signal-reason":
+        value = {**value, "reason": "signal:garbage", "codexExitCode": 143, "codexSignal": 15}
+    atomic_json(path, value)
+
+
 def identity_matches(adapter: process_identity.PlatformAdapter, pid: int, start: str, boot: str) -> bool:
     if adapter.boot_identity() != boot:
         return False
@@ -466,52 +484,65 @@ def supervise(arguments: argparse.Namespace) -> int:
         env=environment,
         preexec_fn=os.setpgrp,
     )
-    child_identity = adapter.snapshot(child.pid)
-    if child_identity is None or child_identity.sid != leader.sid:
-        child.kill()
-        child.wait()
-        raise SupervisorError("Codex child did not join the private supervisor session")
-    evidence.update(
-        phase="ready",
-        codexPid=child_identity.pid,
-        codexPgid=child_identity.pgid,
-        codexStartIdentity=child_identity.startIdentity,
-    )
-    atomic_json(arguments.identity_file, evidence)
-    atomic_text(arguments.ready_file, "ready\n")
-
-    deadline = time.monotonic() + arguments.timeout_seconds
-    while child.poll() is None:
-        if stop_reason:
-            break
-        if time.monotonic() >= deadline:
-            stop_reason = "timeout"
-            break
-        if not identity_matches(adapter, arguments.parent_pid, arguments.parent_start_identity, arguments.parent_boot_id):
-            stop_reason = "launcher-lost"
-            break
-        if not identity_matches(adapter, arguments.owner_pid, arguments.owner_start_identity, arguments.owner_boot_id):
-            stop_reason = "owner-lost"
-            break
-        time.sleep(MONITOR_INTERVAL_SECONDS)
-
-    if stop_reason is None:
-        child.wait()
-        cleanup_private_session(adapter, leader)
-        exit_code, child_signal = process_result(child)
-        atomic_json(arguments.result_file, {"reason": "completed", "codexExitCode": exit_code, "codexSignal": child_signal, "timeout": False, "cleanupVerified": True})
-        return exit_code
-
-    cleanup_private_session(adapter, leader)
+    cleanup_verified = False
     try:
-        child.wait(timeout=TERM_GRACE_SECONDS)
-    except subprocess.TimeoutExpired:
-        pass
-    if stop_reason == "timeout":
-        atomic_json(arguments.result_file, {"reason": stop_reason, "codexExitCode": 137, "codexSignal": 9, "timeout": True, "cleanupVerified": True})
-        return 124
-    atomic_json(arguments.result_file, {"reason": stop_reason, "codexExitCode": 143, "codexSignal": 15, "timeout": False, "cleanupVerified": True})
-    return 143 if stop_reason.startswith("signal:") else 125
+        child_identity = adapter.snapshot(child.pid)
+        if child_identity is None or child_identity.sid != leader.sid:
+            child.kill()
+            child.wait()
+            raise SupervisorError("Codex child did not join the private supervisor session")
+        evidence.update(
+            phase="ready",
+            codexPid=child_identity.pid,
+            codexPgid=child_identity.pgid,
+            codexStartIdentity=child_identity.startIdentity,
+        )
+        atomic_json(arguments.identity_file, evidence)
+        atomic_text(arguments.ready_file, "ready\n")
+
+        deadline = time.monotonic() + arguments.timeout_seconds
+        while child.poll() is None:
+            if stop_reason:
+                break
+            if time.monotonic() >= deadline:
+                stop_reason = "timeout"
+                break
+            if not identity_matches(adapter, arguments.parent_pid, arguments.parent_start_identity, arguments.parent_boot_id):
+                stop_reason = "launcher-lost"
+                break
+            if not identity_matches(adapter, arguments.owner_pid, arguments.owner_start_identity, arguments.owner_boot_id):
+                stop_reason = "owner-lost"
+                break
+            time.sleep(MONITOR_INTERVAL_SECONDS)
+
+        if stop_reason is None:
+            child.wait()
+            cleanup_private_session(adapter, leader)
+            cleanup_verified = True
+            exit_code, child_signal = process_result(child)
+            publish_result(arguments.result_file, {"reason": "completed", "codexExitCode": exit_code, "codexSignal": child_signal, "timeout": False, "cleanupVerified": True})
+            return exit_code
+
+        cleanup_private_session(adapter, leader)
+        cleanup_verified = True
+        try:
+            child.wait(timeout=TERM_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            pass
+        if stop_reason == "timeout":
+            publish_result(arguments.result_file, {"reason": stop_reason, "codexExitCode": 137, "codexSignal": 9, "timeout": True, "cleanupVerified": True})
+            return 124
+        if stop_reason.startswith("signal:"):
+            stop_signal = int(stop_reason.split(":", 1)[1])
+            stop_exit = 128 + stop_signal
+            publish_result(arguments.result_file, {"reason": stop_reason, "codexExitCode": stop_exit, "codexSignal": stop_signal, "timeout": False, "cleanupVerified": True})
+            return stop_exit
+        publish_result(arguments.result_file, {"reason": stop_reason, "codexExitCode": 143, "codexSignal": 15, "timeout": False, "cleanupVerified": True})
+        return 125
+    except BaseException:
+        if not cleanup_verified:
+            cleanup_private_session(adapter, leader)
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:

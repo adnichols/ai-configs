@@ -539,37 +539,39 @@ export class CodexReviewJobManager {
       }
       if (!drained) return false;
     } else if (processEvidence?.protocolVersion === 1) {
-      let codex: ProcessIdentity | undefined;
-      try { codex = this.inspector.snapshot(processEvidence.codexPid); } catch { return false; }
-      if (codex) {
-        if (!startIdentityMatches(processEvidence.processStartIdentity, codex.startIdentity) || codex.pgid !== processEvidence.codexPgid) return false;
-        const legacyMembers = () => liveGroup(codex!.pgid, codex!.sid);
-        if (codex.alive) {
-          const seed = new Map<number, string>([[codex.pid, codex.startIdentity]]);
-          const anchor = await freezeGroup(legacyMembers, codex.pgid, seed);
-          if (anchor === undefined) return false;
-          if (anchor === null) codex = undefined;
-        }
+      try {
+        let codex = this.inspector.snapshot(processEvidence.codexPid);
         if (codex) {
-          const legacyGroups: GroupEvidence = new Map(); for (const member of legacyMembers()) addGroupEvidence(legacyGroups, member);
-          if (legacyGroups.size && !await terminateGroups(legacyMembers, legacyGroups)) return false;
+          if (!startIdentityMatches(processEvidence.processStartIdentity, codex.startIdentity) || codex.pgid !== processEvidence.codexPgid) return false;
+          const legacyMembers = () => liveGroup(codex!.pgid, codex!.sid);
+          if (codex.alive) {
+            const seed = new Map<number, string>([[codex.pid, codex.startIdentity]]);
+            const anchor = await freezeGroup(legacyMembers, codex.pgid, seed);
+            if (anchor === undefined) return false;
+            if (anchor === null) codex = undefined;
+          }
+          if (codex) {
+            const legacyGroups: GroupEvidence = new Map(); for (const member of legacyMembers()) addGroupEvidence(legacyGroups, member);
+            if (legacyGroups.size && !await terminateGroups(legacyMembers, legacyGroups)) return false;
+          }
         }
-      }
+      } catch { return false; }
     }
 
-    let launcher: ProcessIdentity | undefined;
-    try { launcher = this.inspector.snapshot(job.pid); } catch { return false; }
-    if (launcher) {
-      if (!startIdentityMatches(job.processStartIdentity, launcher.startIdentity) || launcher.pgid !== job.pgid || (job.sid !== undefined && launcher.sid !== job.sid)) return false;
-      const launcherSid = launcher.sid;
+    try {
+      const launcher = this.inspector.snapshot(job.pid);
+      if (launcher && (!startIdentityMatches(job.processStartIdentity, launcher.startIdentity) || launcher.pgid !== job.pgid || (job.sid !== undefined && launcher.sid !== job.sid))) return false;
+      const launcherSid = launcher?.sid ?? job.sid;
+      if (launcherSid === undefined) return false;
       const launcherMembers = () => liveSession(launcherSid).filter((member) => member.pgid === job.pgid);
+      if (!launcher) return launcherMembers().length === 0;
       const launcherGroups: GroupEvidence = new Map(); for (const member of launcherMembers()) addGroupEvidence(launcherGroups, member);
       if (launcherGroups.size) {
         const anchor = await freezeGroup(launcherMembers, job.pgid, launcherGroups.get(job.pgid)!);
         if (anchor === undefined) return false;
         if (anchor && !await terminateGroups(launcherMembers, launcherGroups)) return false;
       }
-    }
+    } catch { return false; }
     if (job.child && requireChildClose) await this.waitForChildClose(job.child, Math.max(grace, 250));
     if (requireChildClose && job.child && job.child.exitCode === null && job.child.signalCode === null) return false;
     return true;

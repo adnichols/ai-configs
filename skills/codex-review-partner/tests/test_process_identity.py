@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "scripts/process_identity.py"
@@ -70,6 +71,23 @@ class ProcessIdentityTest(unittest.TestCase):
             self.assertEqual(record.startIdentity, "linux-jiffies:987654")
             self.assertTrue(record.zombie)
             self.assertEqual(adapter.boot_identity(), "linux:fixture-boot")
+
+    def test_linux_enumeration_propagates_inspection_failure_for_existing_process(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            proc = pathlib.Path(temporary)
+            (proc / "321").mkdir()
+            (proc / "321/stat").write_text("malformed\n")
+            with self.assertRaisesRegex(identity.ProcessIdentityError, "malformed linux process stat"):
+                identity.LinuxAdapter(proc).list_processes()
+
+    def test_darwin_enumeration_skips_access_denial_but_propagates_other_failures(self):
+        adapter = object.__new__(identity.DarwinAdapter)
+        adapter._pids = lambda: [321]
+        adapter.snapshot = mock.Mock(side_effect=identity.ProcessAccessDeniedError("protected"))
+        self.assertEqual(adapter.list_processes(), [])
+        adapter.snapshot = mock.Mock(side_effect=identity.ProcessIdentityError("malformed"))
+        with self.assertRaisesRegex(identity.ProcessIdentityError, "malformed"):
+            adapter.list_processes()
 
     def test_unknown_platform_fails_explicitly(self):
         with self.assertRaisesRegex(identity.UnsupportedPlatformError, "supported platforms are linux and darwin"):

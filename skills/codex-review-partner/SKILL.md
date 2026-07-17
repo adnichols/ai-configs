@@ -85,6 +85,8 @@ The managed launcher supports Linux and macOS with the system Python standard li
 
 Unsupported platforms, unavailable Darwin `libproc`, malformed identity output, PID/start/boot/session mismatch, and cleanup uncertainty fail closed. Inspect the launcher stderr, status file, and process-identity sidecar named by the `codex_review` completion. Do not rerun a required review while `CODEX_REVIEW_CLEANUP_FAILED` evidence remains unresolved, and do not work around capability failures with `ps` parsing, direct `codex exec`, or a model/subagent fallback.
 
+The repository intentionally retains its standard-library identity adapter and supervisor after evaluating `psutil`, `supervisor`, and `circus`. None supplies the complete per-job private-session, owner-loss, PID/start/boot/SID, atomic-evidence, fixed-point cleanup, and transactional system-Python contract without an added compiled dependency or host-level service. The reviewed plan records the execution approval and candidate details; re-evaluate this exception by January 2027.
+
 Installed-stack diagnostics:
 
 ```bash

@@ -9,10 +9,26 @@ import { CodexReviewJobManager, HelperProcessInspector } from "../runtime.ts";
 
 const launcher = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../skills/codex-review-partner/scripts/run-review.sh");
 const inspector = new HelperProcessInspector(path.join(path.dirname(launcher), "process_identity.py"));
-function live(pid) { try { return Boolean(inspector.snapshot(pid)?.alive); } catch { return false; } }
-function liveGroupMembers(pgid) { try { return inspector.listGroup(pgid).filter((record) => record.alive).map((record) => record.pid); } catch { return []; } }
-async function waitGone(pids) { for (let i = 0; i < 120; i += 1) { if (pids.every((pid) => !live(pid))) return; await new Promise((resolve) => setTimeout(resolve, 25)); } throw new Error(`live production descendants: ${pids.filter(live).join(",")}`); }
-async function waitGroupGone(pgid) { for (let i = 0; i < 120; i += 1) { if (liveGroupMembers(pgid).length === 0) return; await new Promise((resolve) => setTimeout(resolve, 25)); } throw new Error(`live production launcher-group members: ${liveGroupMembers(pgid).join(",")}`); }
+function live(pid) { return Boolean(inspector.snapshot(pid)?.alive); }
+function liveGroupMembers(pgid) { return inspector.listGroup(pgid).filter((record) => record.alive).map((record) => record.pid); }
+async function waitGone(pids) {
+  let inspectionError;
+  for (let i = 0; i < 120; i += 1) {
+    try { if (pids.every((pid) => !live(pid))) return; inspectionError = undefined; } catch (error) { inspectionError = error; }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  if (inspectionError) throw inspectionError;
+  throw new Error(`live production descendants: ${pids.filter(live).join(",")}`);
+}
+async function waitGroupGone(pgid) {
+  let inspectionError;
+  for (let i = 0; i < 120; i += 1) {
+    try { if (liveGroupMembers(pgid).length === 0) return; inspectionError = undefined; } catch (error) { inspectionError = error; }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  if (inspectionError) throw inspectionError;
+  throw new Error(`live production launcher-group members: ${liveGroupMembers(pgid).join(",")}`);
+}
 
 async function fixture(t, treeMode = "normal") {
   const root = await mkdtemp(path.join(os.tmpdir(), "codex-production-tree-")); t.after(() => rm(root, { recursive: true, force: true }));
