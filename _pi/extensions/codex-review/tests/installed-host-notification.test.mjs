@@ -13,15 +13,19 @@ async function loadSdk() {
 }
 
 async function waitForTerminal(tool, id, cwd, ctx) {
-  for (let attempt = 0; attempt < 600; attempt += 1) {
-    const result = await tool.execute("status", { action: "status", jobId: id }, new AbortController().signal, () => {}, ctx ?? { cwd });
+  let result;
+  for (let attempt = 0; attempt < 1_500; attempt += 1) {
+    result = await tool.execute("status", { action: "status", jobId: id }, new AbortController().signal, () => {}, ctx ?? { cwd });
     if (!["starting", "running"].includes(result.details.job.status)) return result.details.job;
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  throw new Error("timed out waiting for installed Codex job");
+  const job = result?.details?.job;
+  const state = job?.stateFile ? await readFile(job.stateFile, "utf8").catch(() => "<unreadable>") : "<missing>";
+  const stderr = job?.stderrLog ? await readFile(job.stderrLog, "utf8").catch(() => "<unreadable>") : "<missing>";
+  throw new Error(`timed out waiting for installed Codex job\nstate=${state}\nstderr=${stderr}`);
 }
 
-test("installed same-process host queues one completion follow-up and none for shutdown cancellation", async (t) => {
+test("installed same-process host keeps reviews visible, follows up only after detachment, and suppresses shutdown cancellation", async (t) => {
   const installedHome = process.env.PI_REVIEW_STACK_TEST_HOME;
   const temporaryHome = !installedHome;
   const home = await mkdtemp(path.join(os.tmpdir(), "codex-installed-host-"));
@@ -59,21 +63,46 @@ test("installed same-process host queues one completion follow-up and none for s
   t.after(() => rm(testDir, { recursive: true, force: true }));
   const prompt = path.join(testDir, "prompt.md");
   const output = path.join(testDir, "review.md");
-  await writeFile(prompt, "MODE=success\n");
-  const startTime = Date.now();
-  const started = await tool.execute("start", { action: "start", reviewType: "implementation-review", verdictProfile: "generic-implementation", cwd, promptFile: prompt, output }, new AbortController().signal, () => {}, ctx);
-  assert.equal(started.details.job.status, "running");
-  assert.ok(Date.now() - startTime < 1_000);
-  assert.equal((await waitForTerminal(tool, started.details.job.jobId, cwd, ctx)).status, "succeeded");
+  await writeFile(prompt, "MODE=success\nDELAY=0.3\n");
+  const updates = [];
+  let settled = false;
+  const execution = tool.execute("start", { action: "start", reviewType: "implementation-review", verdictProfile: "generic-implementation", cwd, promptFile: prompt, output }, new AbortController().signal, (update) => updates.push(update), ctx).finally(() => { settled = true; });
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert.equal(settled, false);
+  assert.ok(updates.length > 0);
+  assert.equal(updates[0].details.job.status, "running");
+  assert.equal(updates[0].details.job.originSessionId, session.sessionId);
+  const completed = await execution;
+  assert.equal(completed.details.job.status, "succeeded");
+  assert.equal(completed.details.job.deliveryState, "delivering");
+  await session.extensionRunner.emit({ type: "message_start", message: { role: "toolResult", toolName: "codex_review", details: completed.details } });
+  const delivered = await tool.execute("status", { action: "status", jobId: completed.details.job.jobId }, new AbortController().signal, () => {}, ctx);
+  assert.equal(delivered.details.job.deliveryState, "delivered");
   assert.match(await readFile(output, "utf8"), /VERDICT:/);
   await new Promise((resolve) => setTimeout(resolve, 100));
   const completions = () => session.agent.state.messages.filter((message) => message.role === "custom" && message.customType === "codex-review-completion");
+  assert.equal(completions().length, 0, "attached visible completion must return through the tool, not queue a duplicate turn");
+
+  const detachedPrompt = path.join(testDir, "detached.md");
+  await writeFile(detachedPrompt, "MODE=success\nDELAY=0.3\n");
+  const detachedController = new AbortController();
+  const detachedUpdates = [];
+  const detachedExecution = tool.execute("detached", { action: "start", reviewType: "implementation-review", verdictProfile: "generic-implementation", cwd, promptFile: detachedPrompt, output: path.join(testDir, "detached-output.md") }, detachedController.signal, (update) => detachedUpdates.push(update), ctx);
+  while (detachedUpdates.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
+  detachedController.abort();
+  await assert.rejects(detachedExecution, /continues under the managed controller/);
+  for (let attempt = 0; attempt < 100 && completions().length === 0; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(completions().length, 1);
   assert.match(String(completions()[0].content), /Read and triage/);
 
   const delayedPrompt = path.join(testDir, "delayed.md");
   await writeFile(delayedPrompt, "MODE=success\nDELAY=5\n");
-  await tool.execute("delayed", { action: "start", reviewType: "implementation-review", verdictProfile: "generic-implementation", cwd, promptFile: delayedPrompt, output: path.join(testDir, "delayed-output.md") }, new AbortController().signal, () => {}, ctx);
+  const delayedController = new AbortController();
+  const delayedUpdates = [];
+  const delayedExecution = tool.execute("delayed", { action: "start", reviewType: "implementation-review", verdictProfile: "generic-implementation", cwd, promptFile: delayedPrompt, output: path.join(testDir, "delayed-output.md") }, delayedController.signal, (update) => delayedUpdates.push(update), ctx);
+  while (delayedUpdates.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
+  delayedController.abort();
+  await assert.rejects(delayedExecution, /continues under the managed controller/);
   await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
   session.dispose();
   await new Promise((resolve) => setTimeout(resolve, 100));

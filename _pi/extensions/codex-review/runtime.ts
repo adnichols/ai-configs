@@ -31,13 +31,13 @@ const COMPATIBLE: Record<ReviewType, VerdictProfile[]> = {
   "plan-review": ["reviewed-html-plan", "generic-plan"],
 };
 
-export interface StartRequest { action: "start" | "smoke"; reviewType?: ReviewType; verdictProfile?: VerdictProfile; cwd: string; promptFile?: string; output: string }
+export interface StartRequest { action: "start" | "smoke"; reviewType?: ReviewType; verdictProfile?: VerdictProfile; cwd: string; promptFile?: string; output: string; originSessionId?: string; onAccepted?: (job: JobSnapshot) => void }
 export interface LaunchRequest extends StartRequest { stagingOutput: string; launcherStatus: string; processIdentityFile: string; jobNonce: string; ownerPid: number; ownerStartIdentity: string; ownerBootId: string }
 export interface JobSnapshot {
   jobId: string; jobNonce: string; action: "start" | "smoke"; reviewType?: ReviewType; verdictProfile?: VerdictProfile; status: JobStatus; classification?: string; verdict?: string;
   summary: string; cwd: string; promptFile?: string; output: string; stdoutLog: string; stderrLog: string; stateFile: string; reservationFile: string;
   stagingOutput: string; launcherStatus: string; processIdentityFile: string; startedAt: string; completedAt?: string; pid?: number; pgid?: number; sid?: number; processStartIdentity?: string; bootId?: string; platform?: string; ownerPid?: number; ownerStartIdentity?: string; ownerBootId?: string; exitCode?: number | null; signal?: NodeJS.Signals | null;
-  deliveryId: string; deliveryState: DeliveryState; deliveryAttempts: number; cancellationReason?: "user" | "session_shutdown";
+  deliveryId: string; deliveryState: DeliveryState; deliveryAttempts: number; originSessionId?: string; cancellationReason?: "user" | "session_shutdown";
 }
 interface InternalJob extends JobSnapshot { child?: ChildProcess; watchdog?: ReturnType<typeof setTimeout>; finishing: boolean; finishPromise?: Promise<void> }
 export interface ProcessIdentity { pid: number; ppid: number; pgid: number; sid: number; state: string; startIdentity: string; alive: boolean; zombie: boolean }
@@ -220,8 +220,17 @@ function sessionDeliveryIds(sessionsDir: string): Set<string> {
       if (info.isDirectory()) { visit(file); continue; }
       if (!name.endsWith(".jsonl")) continue;
       for (const line of safeRead(file).split("\n")) {
-        if (!line.includes("codex-review-completion")) continue;
-        try { const row = JSON.parse(line); const message = row?.type === "custom_message" ? row : row?.message; const details = message?.details; if ((row?.type === "custom_message" || message?.role === "custom") && message?.customType === "codex-review-completion") { if (typeof details?.deliveryId === "string") deliveries.add(details.deliveryId); if (typeof details?.jobId === "string") deliveries.add(`legacy:${details.jobId}`); } } catch { /* ignore partial/unrelated session rows */ }
+        if (!line.includes("codex-review-completion") && !line.includes('"toolName":"codex_review"')) continue;
+        try {
+          const row = JSON.parse(line); const message = row?.type === "custom_message" ? row : row?.message; const details = message?.details;
+          if ((row?.type === "custom_message" || message?.role === "custom") && message?.customType === "codex-review-completion") {
+            if (typeof details?.deliveryId === "string") deliveries.add(details.deliveryId);
+            if (typeof details?.jobId === "string") deliveries.add(`legacy:${details.jobId}`);
+          }
+          if (message?.role === "toolResult" && message?.toolName === "codex_review" && details?.phase === "completed" && typeof details?.job?.deliveryId === "string") {
+            deliveries.add(details.job.deliveryId);
+          }
+        } catch { /* ignore partial/unrelated session rows */ }
       }
     }
   };
@@ -229,14 +238,14 @@ function sessionDeliveryIds(sessionsDir: string): Set<string> {
 }
 
 export class CodexReviewJobManager {
-  private readonly options: Options; private readonly inspector: ProcessInspector; private readonly jobs = new Map<string, InternalJob>(); private activation?: Promise<void>; private shuttingDown = false; private readonly starts = new Set<Promise<unknown>>(); private startupDeliveryIds?: Set<string>;
+  private readonly options: Options; private readonly inspector: ProcessInspector; private readonly jobs = new Map<string, InternalJob>(); private activation?: Promise<void>; private activeSessionId?: string; private shuttingDown = false; private readonly starts = new Set<Promise<unknown>>(); private startupDeliveryIds?: Set<string>;
   constructor(options: Options) { this.options = options; this.inspector = defaultInspector(options); mkdirSync(options.cacheDir, { recursive: true, mode: 0o700 }); mkdirSync(this.jobsDir(), { recursive: true, mode: 0o700 }); mkdirSync(this.reservationsDir(), { recursive: true, mode: 0o700 }); }
   private jobsDir() { return path.join(this.options.cacheDir, "jobs"); } private reservationsDir() { return path.join(this.options.cacheDir, "reservations"); }
   private emergencyFile(job: JobSnapshot): string { return `${job.stateFile}.emergency`; }
   private write(job: InternalJob): void { (this.options.writeState ?? atomicWrite)(job.stateFile, stateView(job)); safeUnlink(this.emergencyFile(job)); }
   private writeEmergency(job: InternalJob): boolean { try { atomicWrite(this.emergencyFile(job), stateView(job)); return true; } catch { return false; } }
   private persistDelivery(job: InternalJob): boolean { try { this.write(job); return true; } catch { return this.writeEmergency(job); } }
-  activate(): Promise<void> { if (!this.activation) this.activation = this.reconcile().then(() => this.prune()); return this.activation; }
+  activate(sessionId?: string): Promise<void> { if (sessionId) this.activeSessionId = sessionId; if (!this.activation) this.activation = this.reconcile().then(() => this.prune()); return this.activation; }
   private readPersisted(file: string): JobSnapshot | undefined {
     let main: JobSnapshot | undefined; let emergency: JobSnapshot | undefined;
     try { main = JSON.parse(readFileSync(file, "utf8")); } catch { /* malformed main evidence */ }
@@ -277,7 +286,7 @@ export class CodexReviewJobManager {
       }
       this.jobs.set(job.jobId, job);
       if (raw.status === "starting" || raw.status === "running") await this.reconcileInterrupted(job);
-      else if (TERMINAL.has(raw.status)) await this.deliver(job);
+      else if (TERMINAL.has(raw.status)) await this.deliver(job, true);
     }
   }
   private async reconcileInterrupted(job: InternalJob): Promise<void> {
@@ -293,7 +302,7 @@ export class CodexReviewJobManager {
     if (cleanupVerified) { if (reservationMatches(job)) safeUnlink(job.reservationFile); safeUnlink(job.stagingOutput); safeUnlink(job.launcherStatus); safeUnlink(job.processIdentityFile); }
     job.status = "interrupted"; job.classification = classification; job.completedAt = new Date().toISOString(); job.summary = `${classification}; persisted job was not resumed${cleanupVerified ? "." : "; cleanup was not verified and process evidence was retained."}`; job.deliveryState = "pending";
     try { this.write(job); } catch (error) { job.classification = "CODEX_REVIEW_STATE_PERSIST_FAILED"; job.summary = redactSummary(`${job.classification}: reconciliation persistence failed: ${String(error)}`); this.writeEmergency(job); }
-    await this.deliver(job);
+    await this.deliver(job, true);
   }
   async start(request: StartRequest): Promise<JobSnapshot> {
     const operation = this.startInternal(request); this.starts.add(operation); try { return await operation; } finally { this.starts.delete(operation); }
@@ -314,7 +323,7 @@ export class CodexReviewJobManager {
     const id = (this.options.makeId ?? randomUUID)(); const nonce = randomUUID(); const reservationFile = path.join(this.reservationsDir(), `${hash(output)}.reserve`);
     let reservationFd: number; try { reservationFd = openSync(reservationFile, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600); writeFileSync(reservationFd, `${id}\n${nonce}\n${output}\n`); closeSync(reservationFd); } catch { throw new Error(`CODEX_REVIEW_OUTPUT_EXISTS: output is already reserved: ${output}`); }
     if (this.shuttingDown) { safeUnlink(reservationFile); throw new Error("Codex review manager is shutting down"); }
-    const base = path.join(this.jobsDir(), id); const job: InternalJob = { jobId: id, jobNonce: nonce, action: request.action, reviewType, verdictProfile, status: "starting", summary: "Starting Codex review.", cwd, promptFile, output, stdoutLog: `${base}.stdout.jsonl`, stderrLog: `${base}.stderr.log`, stateFile: `${base}.state.json`, reservationFile, stagingOutput: `${base}.staging`, launcherStatus: `${base}.launcher-status.json`, processIdentityFile: `${base}.process-identity.json`, startedAt: (this.options.now ?? (() => new Date()))().toISOString(), platform: platformIdentity.platform, ownerPid: process.pid, ownerStartIdentity: owner.startIdentity, ownerBootId: platformIdentity.bootId, deliveryId: `codex-review:${id}:${nonce}`, deliveryState: "pending", deliveryAttempts: 0, finishing: false };
+    const base = path.join(this.jobsDir(), id); const job: InternalJob = { jobId: id, jobNonce: nonce, action: request.action, reviewType, verdictProfile, status: "starting", summary: "Starting Codex review.", cwd, promptFile, output, stdoutLog: `${base}.stdout.jsonl`, stderrLog: `${base}.stderr.log`, stateFile: `${base}.state.json`, reservationFile, stagingOutput: `${base}.staging`, launcherStatus: `${base}.launcher-status.json`, processIdentityFile: `${base}.process-identity.json`, startedAt: (this.options.now ?? (() => new Date()))().toISOString(), platform: platformIdentity.platform, ownerPid: process.pid, ownerStartIdentity: owner.startIdentity, ownerBootId: platformIdentity.bootId, deliveryId: `codex-review:${id}:${nonce}`, deliveryState: "pending", deliveryAttempts: 0, originSessionId: request.originSessionId ?? this.activeSessionId, finishing: false };
     this.jobs.set(id, job);
     try { this.write(job); } catch (error) { safeUnlink(reservationFile); this.jobs.delete(id); throw new Error(`CODEX_REVIEW_INITIAL_STATE_PERSIST_FAILED: starting state: ${String(error)}`); }
     if (this.shuttingDown) { job.deliveryState = "ineligible"; job.cancellationReason = "session_shutdown"; job.status = "cancelled"; job.classification = "CODEX_REVIEW_CANCELLED"; job.completedAt = new Date().toISOString(); job.summary = "CODEX_REVIEW_CANCELLED reason=session_shutdown"; safeUnlink(reservationFile); this.write(job); throw new Error("Codex review manager is shutting down"); }
@@ -337,6 +346,7 @@ export class CodexReviewJobManager {
       if (cleaned) { safeUnlink(reservationFile); safeUnlink(job.stagingOutput); safeUnlink(job.launcherStatus); safeUnlink(job.processIdentityFile); this.jobs.delete(id); }
       throw new Error(`CODEX_REVIEW_INITIAL_STATE_PERSIST_FAILED: running state: ${String(error)}; cleaned=${cleaned}`);
     }
+    request.onAccepted?.(stateView(job));
     this.attach(job);
     if (this.shuttingDown) { await this.cancel(job.jobId, "session_shutdown"); throw new Error("Codex review manager is shutting down"); }
     return stateView(job);
@@ -385,8 +395,15 @@ export class CodexReviewJobManager {
     await this.deliver(job); this.prune();
   }
   private async deliveryWasRecorded(deliveryId: string): Promise<boolean> { if (this.options.deliveryEvidence) return Boolean(await this.options.deliveryEvidence(deliveryId)); this.startupDeliveryIds ??= sessionDeliveryIds(this.options.sessionsDir ?? path.join(os.homedir(), ".pi", "agent", "sessions")); return this.startupDeliveryIds.has(deliveryId); }
-  private async deliver(job: InternalJob): Promise<void> {
+  private async deliver(job: InternalJob, recovered = false): Promise<void> {
     if (job.deliveryState === "ineligible" || job.deliveryState === "delivered" || !TERMINAL.has(job.status)) return;
+    if (recovered && this.activeSessionId && job.originSessionId !== this.activeSessionId) {
+      if (!job.originSessionId) {
+        job.deliveryState = "ineligible";
+        this.persistDelivery(job);
+      }
+      return;
+    }
     if (job.deliveryState === "delivering") {
       if (await this.deliveryWasRecorded(job.deliveryId)) { job.deliveryState = "delivered"; this.persistDelivery(job); return; }
       job.deliveryState = "pending"; if (!this.persistDelivery(job)) return;

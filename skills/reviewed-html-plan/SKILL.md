@@ -143,7 +143,7 @@ codex_review({ action:"start", reviewType:"plan-review", verdictProfile:"reviewe
 
 Do not use a Pi GPT subagent. Read the single completion artifact. Clean/needs-revision/product-question/incomplete remain workflow verdicts; transport failures get only the documented narrower unusable-output rerun, while required incomplete slices continue under this workflow's existing stop rules.
 
-Run Claude Code only when the high-risk second-reviewer trigger or an explicit override applies. In Pi, write the bounded prompt file and dispatch it through the deterministic background tool:
+Run Claude Code only when the high-risk second-reviewer trigger or an explicit override applies. In Pi, write the bounded prompt file, tell the user the Claude reviewer subprocess is starting and that you will wait, and run it through the visibly-active deterministic tool:
 
 ```text
 claude_review({
@@ -154,7 +154,7 @@ claude_review({
 })
 ```
 
-Do not poll while the originating Pi session remains active; consume the completion notification and then read the artifact. After reload/restart, recover the persisted job with `claude_review` list/status. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
+Do not poll while the originating Pi session remains active; the visible tool call returns when the reviewer exits, after which you read the artifact. If the visible call is interrupted, consume its completion notification. After reload/restart, recover the persisted job with `claude_review` list/status. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
 
 Codex or Pi may integrate plan edits, but after material edits the coordinating agent must rerun Codex and any required Claude Code review before marking the plan execution-ready. If Codex or a required Claude Code reviewer is unavailable, leave the plan blocked on review infrastructure.
 
@@ -173,7 +173,7 @@ Use Codex for the primary review leg. The review input should include:
 
 #### Claude Code
 
-Use Claude Code only when the plan has the high-risk second-reviewer trigger or an explicit override. Use `claude-code-review`; in Pi this means the deterministic background `claude_review` tool, while non-Pi runtimes call the canonical launcher directly. The launcher owns model and effort selection. Give Claude Code a bounded readiness prompt, not open-ended repo exploration. Do not ask Claude Code to edit files.
+Use Claude Code only when the plan has the high-risk second-reviewer trigger or an explicit override. Use `claude-code-review`; in Pi this means the visibly-running deterministic `claude_review` subprocess tool, while non-Pi runtimes call the canonical launcher directly. The launcher owns model and effort selection. Give Claude Code a bounded readiness prompt, not open-ended repo exploration. Do not ask Claude Code to edit files.
 
 For both plan review legs, stay limited to readiness concerns, including at least:
 

@@ -1,5 +1,6 @@
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import path from "node:path";
 
@@ -36,6 +37,9 @@ type ToolParams = {
   cwd?: string;
   jobId?: string;
 };
+type AttachedReview = { resolve: (job: JobSnapshot) => void; detached: boolean; completion?: JobSnapshot };
+
+const TERMINAL = new Set(["succeeded", "failed", "timed_out", "cancelled", "interrupted"]);
 
 function normalizePath(value: string, cwd: string): string {
   const clean = value.startsWith("@") ? value.slice(1) : value;
@@ -48,40 +52,83 @@ function formatJob(job: JobSnapshot): string {
   return `${job.jobId} status=${job.status}${classification}${completed}\noutput=${job.output}\nstate=${job.stateFile}\nstdout=${job.stdoutLog}\nstderr=${job.stderrLog}\n${job.summary}`;
 }
 
+function runningText(job: JobSnapshot): string {
+  const pid = job.supervisorPid ?? job.pid;
+  return `Claude reviewer subprocess running.\njobId=${job.jobId}${pid ? ` pid=${pid}` : ""}\noutput=${job.output}\nThe agent is waiting for this reviewer and will continue automatically when it exits.`;
+}
+
 function requireString(value: string | undefined, name: string): string {
   if (!value?.trim()) throw new Error(`${name} is required`);
   return value;
 }
 
 export default function claudeReviewExtension(pi: ExtensionAPI) {
+  const attached = new Map<string, AttachedReview>();
+  let activeContext: ExtensionContext | undefined;
+
+  const setRunningStatus = (job?: JobSnapshot) => {
+    if (!activeContext?.hasUI) return;
+    const pid = job?.supervisorPid ?? job?.pid;
+    activeContext.ui.setStatus(
+      "claude-review",
+      job ? activeContext.ui.theme.fg("warning", `◐ Claude reviewer ${job.jobId}${pid ? ` pid:${pid}` : ""}`) : undefined,
+    );
+  };
+
+  const sendCompletion = (job: JobSnapshot) => {
+    pi.sendMessage({
+      customType: "claude-review-completion",
+      content: `Claude review background job completed.\n${formatJob(job)}\nRead and triage the output artifact; do not infer a verdict from process exit alone.`,
+      display: true,
+      details: job,
+    }, { triggerTurn: true, deliverAs: "followUp" });
+  };
+
   const manager = new ClaudeReviewJobManager({
     launcherPath: defaultLauncherPath(),
     cacheDir: defaultCacheDir(),
+    deferNotification: (job) => Boolean(attached.get(job.jobId) && !attached.get(job.jobId)?.detached),
     onComplete: (job) => {
-      pi.sendMessage({
-        customType: "claude-review-completion",
-        content: `Claude review background job completed.\n${formatJob(job)}\nRead and triage the output artifact; do not infer a verdict from process exit alone.`,
-        display: true,
-        details: job,
-      }, { triggerTurn: true, deliverAs: "followUp" });
+      const waiter = attached.get(job.jobId);
+      if (waiter) {
+        waiter.completion = job;
+        if (waiter.detached) {
+          attached.delete(job.jobId);
+          sendCompletion(job);
+        } else {
+          waiter.resolve(job);
+        }
+      } else {
+        sendCompletion(job);
+      }
+      setRunningStatus(manager.list().find((candidate) => candidate.status === "running" && candidate.originSessionId === activeContext?.sessionManager.getSessionId()));
     },
   });
 
-  pi.on("session_start", () => {
-    manager.activate();
+  pi.on("session_start", (_event, ctx) => {
+    activeContext = ctx;
+    manager.activate(ctx.sessionManager.getSessionId());
+    const running = manager.list().find((job) => job.status === "running" && job.originSessionId === ctx.sessionManager.getSessionId());
+    setRunningStatus(running);
+  });
+
+  pi.on("message_start", (event) => {
+    const message = event.message as any;
+    if (message?.role === "toolResult" && message.toolName === "claude_review" && message.details?.phase === "completed" && typeof message.details?.job?.jobId === "string") {
+      manager.confirmDelivery(message.details.job.jobId);
+    }
   });
 
   pi.on("tool_call", (event) => {
     if (!isForbiddenDirectReviewToolCall(event.toolName, event.input)) return;
     return {
       block: true,
-      reason: "Direct Claude review launch is disabled. Use the claude_review tool so the review always runs through the deterministic background controller.",
+      reason: "Direct Claude review launch is disabled. Use the claude_review tool so the review always runs through the deterministic managed controller.",
     };
   });
 
   pi.on("session_shutdown", async () => {
-    // Stop only this extension instance's observers. Detached supervisors own
-    // accepted jobs so reloads, session switches, and Pi exit do not cancel them.
+    activeContext = undefined;
     await manager.shutdown();
   });
 
@@ -89,19 +136,22 @@ export default function claudeReviewExtension(pi: ExtensionAPI) {
     name: "claude_review",
     label: "Claude Review",
     description:
-      "Run required Claude Code reviews through the canonical interactive-tmux launcher under a durable detached supervisor. Jobs survive Pi session/reload lifecycle, persist terminal state, never open an overlay, and are never killed for output silence.",
+      "Run required Claude Code reviews as visible managed subprocess tool calls backed by a durable detached supervisor. The tool remains visibly running until completion; accepted jobs still survive Pi session/reload lifecycle.",
     promptSnippet:
-      "Start, recover, inspect, or explicitly cancel durable background Claude Code review jobs",
+      "Start, recover, inspect, or explicitly cancel visible managed Claude Code review subprocesses",
     promptGuidelines: [
       "Use claude_review for required Claude Code plan or implementation reviews; do not launch Claude reviews through bash, process, or interactive_shell.",
       "Before claude_review action=start, write a bounded read-only review prompt to a file and provide that promptFile plus an output artifact path.",
-      "After completion, read the output artifact: transport success means a non-empty normalized review plus launcher metadata and no classified provider/launcher failure; interpret any workflow verdict separately.",
-      "Use claude_review list/status after reload or restart to recover durable jobs whose original completion notification could not be delivered.",
+      "Immediately before claude_review action=start, tell the user that the Claude reviewer subprocess is starting and that you will wait for it.",
+      "claude_review action=start remains visibly running and does not return until the reviewer exits; then read the output artifact and interpret the workflow verdict separately from transport success.",
+      "Use claude_review list/status after reload or restart to recover durable jobs whose original visible tool call was interrupted.",
     ],
     parameters: Params,
 
-    async execute(_toolCallId, params: ToolParams, _signal, _onUpdate, ctx: ExtensionContext) {
-      manager.activate();
+    async execute(_toolCallId, params: ToolParams, signal, onUpdate, ctx) {
+      activeContext = ctx;
+      const originSessionId = ctx.sessionManager?.getSessionId?.();
+      manager.activate(originSessionId);
       if (params.action === "list") {
         const jobs = manager.list();
         return {
@@ -136,14 +186,71 @@ export default function claudeReviewExtension(pi: ExtensionAPI) {
       const promptFile = params.action === "start"
         ? normalizePath(requireString(params.promptFile, "promptFile"), cwd)
         : undefined;
-      const job = await manager.start({ action: params.action, cwd, promptFile, output });
-      return {
-        content: [{
-          type: "text",
-          text: `Claude ${params.action === "smoke" ? "smoke" : "review"} dispatched invisibly under a detached supervisor.\njobId=${job.jobId}\noutput=${job.output}\nThe job survives Pi session/reload lifecycle. This session will be notified on completion when still available; otherwise recover it later with list/status.`,
-        }],
-        details: { action: params.action, job },
-      };
+      let accepted: JobSnapshot | undefined;
+      let resolveTerminal!: (job: JobSnapshot) => void;
+      let rejectAbort!: (error: Error) => void;
+      const terminal = new Promise<JobSnapshot>((resolvePromise) => { resolveTerminal = resolvePromise; });
+      const aborted = new Promise<never>((_resolve, reject) => { rejectAbort = reject; });
+      let interval: ReturnType<typeof setInterval> | undefined;
+      let abortHandler: (() => void) | undefined;
+      try {
+        const job = await manager.start({
+          action: params.action,
+          cwd,
+          promptFile,
+          output,
+          originSessionId,
+          onAccepted: (candidate) => {
+            accepted = candidate;
+            attached.set(candidate.jobId, { resolve: resolveTerminal, detached: false });
+          },
+        });
+        accepted ??= job;
+        if (TERMINAL.has(job.status)) resolveTerminal(job);
+        setRunningStatus(job);
+        const emitUpdate = () => {
+          const current = manager.status(job.jobId) ?? job;
+          onUpdate?.({ content: [{ type: "text", text: runningText(current) }], details: { action: params.action, phase: "running", job: current } });
+        };
+        emitUpdate();
+        interval = setInterval(emitUpdate, 1_000);
+        abortHandler = () => {
+          const waiter = attached.get(job.jobId);
+          if (waiter) {
+            waiter.detached = true;
+            if (waiter.completion) manager.deliverDetached(job.jobId);
+          }
+          rejectAbort(Object.assign(new Error(`Claude reviewer ${job.jobId} continues under the detached supervisor; completion will be reported automatically.`), { name: "AbortError" }));
+        };
+        if (signal?.aborted) abortHandler();
+        else signal?.addEventListener("abort", abortHandler, { once: true });
+        const completed = await Promise.race([terminal, aborted]);
+        return {
+          content: [{ type: "text", text: `Claude reviewer subprocess completed.\n${formatJob(completed)}\nRead and triage the output artifact now; do not infer a verdict from process exit alone.` }],
+          details: { action: params.action, phase: "completed", job: completed },
+        };
+      } finally {
+        if (interval) clearInterval(interval);
+        if (abortHandler) signal?.removeEventListener("abort", abortHandler);
+        if (accepted) {
+          const waiter = attached.get(accepted.jobId);
+          if (waiter && !waiter.detached) attached.delete(accepted.jobId);
+        }
+        setRunningStatus(manager.list().find((candidate) => candidate.status === "running" && candidate.originSessionId === originSessionId));
+      }
+    },
+    renderCall(args, theme) {
+      return new Text(theme.fg("toolTitle", theme.bold("Claude reviewer subprocess ")) + theme.fg("muted", args.action), 0, 0);
+    },
+    renderResult(result, { isPartial }, theme) {
+      const job = result.details?.job as JobSnapshot | undefined;
+      const pid = job?.supervisorPid ?? job?.pid;
+      if (isPartial && job) return new Text(theme.fg("warning", `◐ running ${job.jobId}${pid ? ` pid=${pid}` : ""} — agent waiting`), 0, 0);
+      if (job) {
+        const color = job.status === "succeeded" ? "success" : "warning";
+        return new Text(theme.fg(color, `✓ ${job.jobId} ${job.status}${job.classification ? ` ${job.classification}` : ""}`), 0, 0);
+      }
+      return new Text(result.content.map((part: any) => part.type === "text" ? part.text : "").join("\n"), 0, 0);
     },
   });
 }

@@ -26,7 +26,7 @@ Use this after the standard `/review:plan` flow when you want an explicit challe
 
 ## Execution Mode
 
-- Launch the Claude Code review via `/review:change-claude-code`, which owns the deterministic background `claude_review` lifecycle while the canonical launcher owns private-tmux Claude mechanics.
+- Launch the Claude Code review via `/review:change-claude-code`, which owns the visibly-running deterministic `claude_review` subprocess lifecycle while the canonical launcher owns private-tmux Claude mechanics.
 - Launch the GPT review via the canonical `/review:change-gpt` prompt.
 - Do not use the old adversarial reviewer subagents.
 - Do not run the adversarial review directly in the primary agent.
@@ -89,7 +89,7 @@ Use these prompt templates as the canonical transport + lifecycle specs:
 
 For each leg:
 
-- follow that prompt template's fixed background-tool and artifact lifecycle rules,
+- follow that prompt template's fixed visible-subprocess and artifact lifecycle rules,
 - keep the Claude Code review on the deterministic `claude_review` tool owned by `/review:change-claude-code`; do not construct launcher or shell calls,
 - run exactly one review per reviewer,
 - do not invent alternate launcher shapes,

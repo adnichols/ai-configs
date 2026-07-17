@@ -18,7 +18,7 @@ test('maintained Pi workflows and review skill select codex_review without Pi-wr
     const text=await readFile(path.join(repo,file),'utf8');
     assert.match(text,/codex_review/);
     assert.match(text,new RegExp(`verdictProfile[\\s\\S]{0,120}${profile}`));
-    assert.doesNotMatch(text,/In Pi[^\n]*(subprocess|wrapper|run Codex as)/i);
+    assert.doesNotMatch(text,/In Pi[^\n]*(Codex[^\n]*subprocess|wrapper|run Codex as)/i);
   }
   const alias=await readFile(path.join(repo,'skills/pre-pr-implementation-review/SKILL.md'),'utf8');
   assert.match(alias,/\/skill:autoreview/);
@@ -42,11 +42,26 @@ test('all blocked signatures include a valid compatible replacement',()=>{
   }
 });
 
-test('extension does not depend on overlay/process extensions',async()=>{
+test('extension exposes a visible pending subprocess row without depending on overlay/process extensions',async()=>{
   for(const file of ['runtime.ts','index.ts']){
     const text=await readFile(path.join(repo,'_pi/extensions/codex-review',file),'utf8');
     assert.doesNotMatch(text,/pi-interactive-shell|pi-processes/);
+    if(file==='index.ts'){
+      assert.match(text,/reviewer subprocess running/);
+      assert.match(text,/phase: "running"/);
+      assert.match(text,/renderResult/);
+      assert.doesNotMatch(text,/dispatched invisibly/);
+    }
   }
+});
+
+test('completion delivery is bound to the originating Pi session',async()=>{
+  const index=await readFile(path.join(repo,'_pi/extensions/codex-review/index.ts'),'utf8');
+  const runtime=await readFile(path.join(repo,'_pi/extensions/codex-review/runtime.ts'),'utf8');
+  assert.match(index,/sessionManager\.getSessionId\(\)/);
+  assert.match(index,/originSessionId/);
+  assert.match(runtime,/job\.originSessionId !== this\.activeSessionId/);
+  assert.match(runtime,/if \(!job\.originSessionId\)/);
 });
 
 test('portable review paths do not reintroduce Linux-only shell or proc assumptions',async()=>{

@@ -69,7 +69,7 @@ print_usage() {
     echo "  --claude    Install Claude Code configuration and refresh shared skills for Claude"
     echo "  --codex     Sync global Codex prompts/scripts and refresh shared skills for Codex"
     echo "  --pi        Install Pi prompt templates, subagents, and extensions, then refresh shared skills"
-    echo "  --pi-review-stack  Mutation-bounded Pi config plus five maintained review skills; no packages/global cleanup"
+    echo "  --pi-review-stack  Mutation-bounded Pi config plus six maintained review skills; no packages/global cleanup"
     echo "  --tools     Install/update CLI tools and managed Herdr plugins"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
@@ -2196,7 +2196,7 @@ PY
     cp "$pi_source/README.md" "$agent/README.md"
     install_pi_append_system_file "$agent"
 
-    for skill in autoreview codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
+    for skill in autoreview claude-code-review codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
         rm -rf "$shared/$skill"
         cp -a "$REPO_ROOT/skills/$skill" "$shared/$skill"
     done

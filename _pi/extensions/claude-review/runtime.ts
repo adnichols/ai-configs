@@ -32,6 +32,8 @@ export interface StartRequest {
   cwd: string;
   promptFile?: string;
   output: string;
+  originSessionId?: string;
+  onAccepted?: (job: JobSnapshot) => void;
 }
 
 export interface JobSnapshot {
@@ -54,6 +56,7 @@ export interface JobSnapshot {
   completedAt?: string;
   exitCode?: number | null;
   signal?: NodeJS.Signals | null;
+  originSessionId?: string;
 }
 
 export interface CompletionEvent extends JobSnapshot {}
@@ -65,6 +68,8 @@ interface ManagerOptions {
   pythonExecutable?: string;
   nodeExecutable?: string;
   onComplete?: (event: CompletionEvent) => void | Promise<void>;
+  deferNotification?: (event: CompletionEvent) => boolean;
+  sessionsDir?: string;
   reviewWatchdogMs?: number;
   smokeWatchdogMs?: number;
   killGraceMs?: number;
@@ -177,6 +182,7 @@ function snapshot(job: InternalJob): JobSnapshot {
     completedAt: job.completedAt,
     exitCode: job.exitCode,
     signal: job.signal,
+    originSessionId: job.originSessionId,
   };
 }
 
@@ -242,6 +248,8 @@ export class ClaudeReviewJobManager {
   private readonly pythonExecutable: string;
   private readonly nodeExecutable: string;
   private readonly onComplete?: ManagerOptions["onComplete"];
+  private readonly deferNotification?: ManagerOptions["deferNotification"];
+  private readonly sessionsDir: string;
   private readonly reviewWatchdogMs: number;
   private readonly smokeWatchdogMs: number;
   private readonly killGraceMs: number;
@@ -253,7 +261,9 @@ export class ClaudeReviewJobManager {
   private readonly makeId: () => string;
   private readonly jobs = new Map<string, InternalJob>();
   private readonly activeOutputs = new Map<string, string>();
+  private startupDeliveredJobIds?: Set<string>;
   private observing = false;
+  private activeSessionId?: string;
   private shuttingDown = false;
 
   constructor(options: ManagerOptions) {
@@ -263,6 +273,8 @@ export class ClaudeReviewJobManager {
     this.pythonExecutable = options.pythonExecutable ?? "python3";
     this.nodeExecutable = options.nodeExecutable ?? process.execPath;
     this.onComplete = options.onComplete;
+    this.deferNotification = options.deferNotification;
+    this.sessionsDir = options.sessionsDir ?? path.join(os.homedir(), ".pi", "agent", "sessions");
     this.reviewWatchdogMs = options.reviewWatchdogMs ?? REVIEW_WATCHDOG_MS;
     this.smokeWatchdogMs = options.smokeWatchdogMs ?? SMOKE_WATCHDOG_MS;
     this.killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
@@ -276,13 +288,17 @@ export class ClaudeReviewJobManager {
     this.recoverPersistedJobs();
   }
 
-  activate(): void {
+  activate(sessionId?: string): void {
+    if (sessionId) this.activeSessionId = sessionId;
     if (this.observing || this.shuttingDown) return;
     this.observing = true;
     for (const job of this.jobs.values()) {
-      if (job.status !== "running") continue;
-      if (!supervisorIsHealthy(job)) this.reconcileInterrupted(job, true);
-      if (job.status === "running") this.watch(job);
+      if (job.status === "running") {
+        if (!supervisorIsHealthy(job)) this.reconcileInterrupted(job, true);
+        if (job.status === "running") this.watch(job);
+      } else {
+        this.finishObservedJob(job, true);
+      }
     }
   }
 
@@ -331,6 +347,7 @@ export class ClaudeReviewJobManager {
       stderrLog,
       stateFile,
       startedAt: this.now().toISOString(),
+      originSessionId: request.originSessionId ?? this.activeSessionId,
       reservationFile,
       notificationFile: path.join(this.cacheDir, `${jobId}.notification.lock`),
       notificationSent: false,
@@ -397,6 +414,7 @@ export class ClaudeReviewJobManager {
     }
     this.jobs.set(jobId, job);
     this.activeOutputs.set(output, jobId);
+    request.onAccepted?.(snapshot(job));
     this.watch(job);
     return snapshot(job);
   }
@@ -447,14 +465,15 @@ export class ClaudeReviewJobManager {
       let persisted: unknown;
       try { persisted = JSON.parse(readFileSync(stateFile, "utf8")); } catch { continue; }
       if (!isJobSnapshot(persisted)) continue;
+      const notificationFile = path.join(this.cacheDir, `${persisted.jobId}.notification.lock`);
       const job: InternalJob = {
         ...persisted,
         reviewName: persisted.jobId,
         supervisorPid: legacyState ? undefined : persisted.supervisorPid,
         launcherPid: persisted.launcherPid ?? (legacyState ? persisted.pid : undefined),
         reservationFile: this.reservationPath(persisted.output),
-        notificationFile: path.join(this.cacheDir, `${persisted.jobId}.notification.lock`),
-        notificationSent: persisted.status !== "running",
+        notificationFile,
+        notificationSent: existsSync(notificationFile) || this.deliveredSessionJobIds().has(persisted.jobId),
         recovered: true,
       };
       this.jobs.set(job.jobId, job);
@@ -516,13 +535,79 @@ export class ClaudeReviewJobManager {
     if (job.poller) clearInterval(job.poller);
     job.poller = undefined;
     if (this.activeOutputs.get(job.output) === job.jobId) this.activeOutputs.delete(job.output);
-    if (notify && !job.notificationSent && !this.shuttingDown && this.claimNotification(job)) {
-      job.notificationSent = true;
-      try {
-        void Promise.resolve(this.onComplete?.(snapshot(job))).catch(() => {});
-      } catch { /* state remains discoverable when the originating Pi runtime is unavailable */ }
+    const sessionMatches = !this.activeSessionId || job.originSessionId === this.activeSessionId;
+    if (notify && sessionMatches && !job.notificationSent && !this.shuttingDown) {
+      const view = snapshot(job);
+      if (this.deferNotification?.(view)) {
+        this.invokeCompletion(view);
+      } else if (this.claimNotification(job)) {
+        job.notificationSent = true;
+        this.invokeCompletion(view);
+      }
     }
     this.pruneCompletedHistory();
+  }
+
+  confirmDelivery(jobId: string): boolean {
+    const job = this.jobs.get(jobId);
+    if (!job || job.status === "running") return false;
+    if (job.notificationSent) return true;
+    if (!this.claimNotification(job)) return false;
+    job.notificationSent = true;
+    return true;
+  }
+
+  deliverDetached(jobId: string): boolean {
+    const job = this.jobs.get(jobId);
+    if (!job || job.status === "running" || job.notificationSent || this.shuttingDown) return false;
+    const sessionMatches = !this.activeSessionId || job.originSessionId === this.activeSessionId;
+    if (!sessionMatches || !this.claimNotification(job)) return false;
+    job.notificationSent = true;
+    this.invokeCompletion(snapshot(job));
+    return true;
+  }
+
+  private invokeCompletion(job: JobSnapshot): void {
+    try {
+      void Promise.resolve(this.onComplete?.(job)).catch(() => {});
+    } catch { /* state remains discoverable when the originating Pi runtime is unavailable */ }
+  }
+
+  private deliveredSessionJobIds(): Set<string> {
+    if (this.startupDeliveredJobIds) return this.startupDeliveredJobIds;
+    const delivered = new Set<string>();
+    const visit = (dir: string): void => {
+      let names: string[];
+      try { names = readdirSync(dir); } catch { return; }
+      for (const name of names) {
+        const file = path.join(dir, name);
+        let info;
+        try { info = statSync(file); } catch { continue; }
+        if (info.isDirectory()) {
+          visit(file);
+          continue;
+        }
+        if (!name.endsWith(".jsonl")) continue;
+        for (const line of safeRead(file).split("\n")) {
+          if (!line.includes("claude-review-completion") && !line.includes('\"toolName\":\"claude_review\"')) continue;
+          try {
+            const row = JSON.parse(line);
+            const message = row?.type === "custom_message" ? row : row?.message;
+            const customJobId = (row?.type === "custom_message" || message?.role === "custom") && message?.customType === "claude-review-completion"
+              ? message?.details?.jobId
+              : undefined;
+            const toolJobId = message?.role === "toolResult" && message?.toolName === "claude_review" && message?.details?.phase === "completed"
+              ? message?.details?.job?.jobId
+              : undefined;
+            if (typeof customJobId === "string") delivered.add(customJobId);
+            if (typeof toolJobId === "string") delivered.add(toolJobId);
+          } catch { /* ignore partial or unrelated session rows */ }
+        }
+      }
+    };
+    visit(this.sessionsDir);
+    this.startupDeliveredJobIds = delivered;
+    return delivered;
   }
 
   private claimNotification(job: InternalJob): boolean {

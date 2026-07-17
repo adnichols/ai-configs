@@ -1,6 +1,6 @@
 ---
 name: claude-code-review
-description: Run read-only Claude Code plan/code reviews through the canonical private-tmux interactive launcher. In Pi, use the deterministic background claude_review tool; non-Pi consumers call the launcher directly.
+description: Run read-only Claude Code plan/code reviews through the canonical private-tmux interactive launcher. In Pi, use the visibly-running deterministic claude_review subprocess tool; non-Pi consumers call the launcher directly.
 ---
 
 # Claude Code Review
@@ -9,9 +9,9 @@ Use this skill when a required Claude Code review must run reliably and produce 
 
 The canonical Python launcher owns all Claude Code process mechanics: private tmux, authentication checks, interactive TUI startup, model/effort selection, prompt delivery, terminal-boundary extraction, persisted Claude-session JSONL recovery when long alternate-screen output scrolls beyond the viewport, timeout classification, transcript preservation, signal cleanup, and successful teardown. Do not duplicate or override those mechanics in callers.
 
-## Pi: required background tool
+## Pi: required visible subprocess tool
 
-In Pi, required Claude Code reviews must use the `claude_review` tool. The tool always runs invisibly under a detached supervisor, returns immediately, applies no output-silence timeout, and persists job state independently of the originating Pi session. When that session remains available it is notified when the artifact is ready; after reload, session replacement, or Pi exit, recover the job with `list` or `status`.
+In Pi, required Claude Code reviews must use the `claude_review` tool. Before starting it, tell the user that the Claude reviewer subprocess is starting and that you will wait for it. The tool remains visibly active with its job ID and supervisor PID until the reviewer exits, applies no output-silence timeout, and then returns the terminal result directly so the agent can read and triage the artifact in the same turn. The accepted job is still owned by a detached supervisor and persists independently if the visible tool call is interrupted, the session is replaced, or Pi exits. In that detached case the originating session receives the completion notification when available; after reload, session replacement, or Pi exit, recover the job with `list` or `status`.
 
 Write the bounded read-only prompt to a file, then call:
 
@@ -34,7 +34,7 @@ claude_review({
 })
 ```
 
-Do not poll after starting a normal job while the originating session remains active. Consume the automatic completion notification, then read `output`. Use `action: "status"` or `"list"` to recover persisted work after reload/restart or for explicit diagnosis; use `"cancel"` only for genuine user-requested cancellation.
+Do not poll after starting a normal job: the visible tool call remains active and returns when the reviewer exits. Then read `output`. If that tool call was interrupted, consume its automatic completion notification when it arrives. Use `action: "status"` or `"list"` to recover persisted work after reload/restart or for explicit diagnosis; use `"cancel"` only for genuine user-requested cancellation.
 
 Pi must not invoke the launcher through `bash`, `process`, `interactive_shell`, prompt piping, raw tmux, or direct Claude CLI commands. The Pi extension blocks known direct review routes and points callers back to `claude_review`.
 

@@ -1,5 +1,5 @@
 ---
-description: Run a review-only change review using the deterministic background Claude Code review tool
+description: Run a review-only change review using the visibly-running deterministic Claude Code subprocess tool
 argument-hint: '[--claude-smoke] <existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
 ---
 
@@ -21,7 +21,7 @@ claude_review({
 })
 ```
 
-The tool returns immediately and sends a completion notification while this session remains available. After reload/restart, recover the persisted job with `claude_review` list/status. Then read `/tmp/pi-claude-review-smoke.txt` and require `CLAUDE_REVIEW_SMOKE_READY`, `socket=`, and `session=`. A classified failure is a prerequisite/auth/readiness blocker from the real Pi caller context. Do not retry with a different transport.
+Tell the user the Claude smoke subprocess is starting and that you will wait for it. The tool remains visibly running until the smoke process exits and then returns its terminal result directly. If the visible call is interrupted, use its completion notification while this session remains available; after reload/restart, recover the persisted job with `claude_review` list/status. Then read `/tmp/pi-claude-review-smoke.txt` and require `CLAUDE_REVIEW_SMOKE_READY`, `socket=`, and `session=`. A classified failure is a prerequisite/auth/readiness blocker from the real Pi caller context. Do not retry with a different transport.
 
 ## Review mode
 
@@ -68,7 +68,8 @@ Review the provided plan as a cohesive unit. Decide whether it is ready to execu
 
 1. Resolve the plan path.
 2. Write the bounded read-only Claude prompt to `/tmp/pi-claude-review-prompt.txt`.
-3. Call:
+3. Tell the user the Claude reviewer subprocess is starting and that you will wait for it.
+4. Call:
 
 ```text
 claude_review({
@@ -79,9 +80,9 @@ claude_review({
 })
 ```
 
-4. Continue other work; do not poll while this session remains active.
-5. On the automatic completion notification, read `/tmp/pi-claude-review-output.md`. If this session was reloaded, replaced, or restarted first, recover the persisted job with `claude_review` list/status and then read the artifact.
-6. Treat launcher artifact validity and this workflow's readiness decision as separate checks: a review can be valid transport without using a literal `VERDICT:` line.
+5. Keep the visible tool call active and do not poll; it returns when the reviewer exits.
+6. Read `/tmp/pi-claude-review-output.md` from the terminal tool result. If the visible call was interrupted, consume its automatic completion notification; if this session was reloaded, replaced, or restarted first, recover the persisted job with `claude_review` list/status and then read the artifact.
+7. Treat launcher artifact validity and this workflow's readiness decision as separate checks: a review can be valid transport without using a literal `VERDICT:` line.
 
 The prompt should instruct Claude Code to:
 

@@ -396,6 +396,121 @@ test("shutdown leaves accepted work running and a replacement manager recovers c
   assert.equal(afterRestartNotifications.length, 0, "persisted terminal jobs must not re-notify on every session");
 });
 
+test("replacement Pi session cannot claim another session's completion", async (t) => {
+  const f = await fixture(t);
+  await writeFile(f.promptFile, "MODE=no-verdict\nDELAY=0.3\n");
+  const originalNotifications = [];
+  const original = managerFor(f.root, originalNotifications);
+  original.activate("session-a");
+  const started = await original.start({ action: "start", cwd: f.cwd, promptFile: f.promptFile, output: f.output, originSessionId: "session-a" });
+  await original.shutdown();
+
+  const foreignNotifications = [];
+  const foreign = managerFor(f.root, foreignNotifications);
+  t.after(() => foreign.shutdown());
+  foreign.activate("session-b");
+  const completed = await waitForTerminal(foreign, started.jobId);
+  assert.equal(completed.status, "succeeded");
+  assert.equal(foreignNotifications.length, 0);
+});
+
+test("reloaded originating Pi session may receive its completion", async (t) => {
+  const f = await fixture(t);
+  await writeFile(f.promptFile, "MODE=no-verdict\nDELAY=0.3\n");
+  const original = managerFor(f.root, []);
+  original.activate("session-a");
+  const started = await original.start({ action: "start", cwd: f.cwd, promptFile: f.promptFile, output: f.output, originSessionId: "session-a" });
+  await original.shutdown();
+
+  const notifications = [];
+  const reloaded = managerFor(f.root, notifications);
+  t.after(() => reloaded.shutdown());
+  reloaded.activate("session-a");
+  const completed = await waitForTerminal(reloaded, started.jobId);
+  assert.equal(completed.status, "succeeded");
+  assert.equal(notifications.length, 1);
+});
+
+test("originating Pi session receives a completion that became terminal before reload", async (t) => {
+  const f = await fixture(t);
+  await writeFile(f.promptFile, "MODE=no-verdict\nDELAY=0.1\n");
+  const original = managerFor(f.root, []);
+  original.activate("session-a");
+  const started = await original.start({ action: "start", cwd: f.cwd, promptFile: f.promptFile, output: f.output, originSessionId: "session-a" });
+  await original.shutdown();
+  await new Promise((resolve) => setTimeout(resolve, 350));
+
+  const notifications = [];
+  const reloaded = managerFor(f.root, notifications);
+  t.after(() => reloaded.shutdown());
+  reloaded.activate("session-a");
+  assert.equal(reloaded.status(started.jobId)?.status, "succeeded");
+  assert.equal(notifications.length, 1);
+});
+
+test("deferred attached completion is claimed only after the terminal tool result is recorded", async (t) => {
+  const f = await fixture(t);
+  await writeFile(f.promptFile, "MODE=no-verdict\nDELAY=0.1\n");
+  const notifications = [];
+  const manager = managerFor(f.root, notifications, { deferNotification: () => true });
+  manager.activate("session-a");
+  const started = await manager.start({ action: "start", cwd: f.cwd, promptFile: f.promptFile, output: f.output, originSessionId: "session-a" });
+  const completed = await waitForTerminal(manager, started.jobId);
+  assert.equal(notifications.length, 1);
+  assert.equal(manager.confirmDelivery(completed.jobId), true);
+  await manager.shutdown();
+
+  const restartedNotifications = [];
+  const restarted = managerFor(f.root, restartedNotifications);
+  t.after(() => restarted.shutdown());
+  restarted.activate("session-a");
+  assert.equal(restartedNotifications.length, 0);
+});
+
+test("recorded terminal claude_review tool result prevents restart redelivery", async (t) => {
+  const f = await fixture(t);
+  await writeFile(f.promptFile, "MODE=no-verdict\nDELAY=0.1\n");
+  const notifications = [];
+  const manager = managerFor(f.root, notifications, { deferNotification: () => true });
+  manager.activate("session-a");
+  const started = await manager.start({ action: "start", cwd: f.cwd, promptFile: f.promptFile, output: f.output, originSessionId: "session-a" });
+  await waitForTerminal(manager, started.jobId);
+  assert.equal(notifications.length, 1);
+  await manager.shutdown();
+
+  const sessions = path.join(f.root, "sessions");
+  await import("node:fs/promises").then(({ mkdir }) => mkdir(sessions));
+  await writeFile(path.join(sessions, "session.jsonl"), `${JSON.stringify({ type: "message", message: { role: "toolResult", toolName: "claude_review", details: { phase: "completed", job: { jobId: started.jobId } } } })}\n`);
+  const restartedNotifications = [];
+  const restarted = managerFor(f.root, restartedNotifications, { sessionsDir: sessions });
+  t.after(() => restarted.shutdown());
+  restarted.activate("session-a");
+  assert.equal(restartedNotifications.length, 0);
+});
+
+test("foreign Pi startup preserves terminal completion for the originating session", async (t) => {
+  const f = await fixture(t);
+  await writeFile(f.promptFile, "MODE=no-verdict\nDELAY=0.1\n");
+  const original = managerFor(f.root, []);
+  original.activate("session-a");
+  const started = await original.start({ action: "start", cwd: f.cwd, promptFile: f.promptFile, output: f.output, originSessionId: "session-a" });
+  await original.shutdown();
+  await new Promise((resolve) => setTimeout(resolve, 350));
+
+  const foreignNotifications = [];
+  const foreign = managerFor(f.root, foreignNotifications);
+  foreign.activate("session-b");
+  assert.equal(foreign.status(started.jobId)?.status, "succeeded");
+  assert.equal(foreignNotifications.length, 0);
+  await foreign.shutdown();
+
+  const originNotifications = [];
+  const resumed = managerFor(f.root, originNotifications);
+  t.after(() => resumed.shutdown());
+  resumed.activate("session-a");
+  assert.equal(originNotifications.length, 1);
+});
+
 test("upgrade recovery loads legacy terminal state files", async (t) => {
   const f = await fixture(t);
   const cache = path.join(f.root, "cache");

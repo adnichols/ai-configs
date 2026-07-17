@@ -64,7 +64,7 @@ test("real Pi ResourceLoader registers and runs claude_review without an LLM", a
     await toolCallGuard({ toolName: "process", input: { action: "start", command: "python3 /tmp/claude_interactive_review.py" } }),
     {
       block: true,
-      reason: "Direct Claude review launch is disabled. Use the claude_review tool so the review always runs through the deterministic background controller.",
+      reason: "Direct Claude review launch is disabled. Use the claude_review tool so the review always runs through the deterministic managed controller.",
     },
   );
   assert.equal(
@@ -72,33 +72,49 @@ test("real Pi ResourceLoader registers and runs claude_review without an LLM", a
     undefined,
   );
 
-  const output = path.join(home, "smoke.txt");
-  const startedAt = Date.now();
-  const result = await tool.execute(
+  const output = path.join(home, "visible-output.md");
+  const visiblePrompt = path.join(home, "visible-prompt.md");
+  await writeFile(visiblePrompt, "MODE=no-verdict\nDELAY=0.3\n");
+  const updates = [];
+  let settled = false;
+  const execution = tool.execute(
     "start-call",
-    { action: "smoke", cwd: repo, output },
+    { action: "start", cwd: repo, promptFile: visiblePrompt, output },
     new AbortController().signal,
-    () => {},
+    (update) => updates.push(update),
     { cwd: repo },
-  );
-  assert.ok(Date.now() - startedAt < 200, "real tool execute should return immediately");
-  assert.equal(result.details.job.status, "running");
-  const completed = await waitForStatus(tool, result.details.job.jobId, repo);
-  assert.equal(completed.status, "succeeded");
-  assert.match(await readFile(output, "utf8"), /CLAUDE_REVIEW_SMOKE_READY/);
-  assert.match(result.content[0].text, /dispatched invisibly under a detached supervisor/);
+  ).finally(() => { settled = true; });
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert.equal(settled, false, "visible review tool call must remain active while the subprocess runs");
+  assert.ok(updates.length > 0, "visible review tool call must publish a running update");
+  assert.equal(updates[0].details.phase, "running");
+  assert.match(updates[0].content[0].text, /reviewer subprocess running/);
+  const result = await execution;
+  assert.equal(result.details.phase, "completed");
+  assert.equal(result.details.job.status, "succeeded");
+  const messageStartHandler = extension.handlers.get("message_start")?.[0];
+  assert.ok(messageStartHandler, "terminal tool results should acknowledge durable completion delivery");
+  await messageStartHandler({ message: { role: "toolResult", toolName: "claude_review", details: result.details } });
+  assert.match(await readFile(output, "utf8"), /No blocking issues were found/);
+  assert.match(result.content[0].text, /reviewer subprocess completed/);
 
   const lifecyclePrompt = path.join(home, "lifecycle-prompt.md");
-  await writeFile(lifecyclePrompt, "MODE=no-verdict\nDELAY=0.3\n");
-  const lifecycleJob = await tool.execute(
+  await writeFile(lifecyclePrompt, "MODE=no-verdict\nDELAY=0.5\n");
+  const lifecycleUpdates = [];
+  const lifecycleController = new AbortController();
+  const lifecycleExecution = tool.execute(
     "lifecycle-call",
     { action: "start", cwd: repo, promptFile: lifecyclePrompt, output: path.join(home, "lifecycle-output.md") },
-    new AbortController().signal,
-    () => {},
+    lifecycleController.signal,
+    (update) => lifecycleUpdates.push(update),
     { cwd: repo },
   );
-  const supervisorPid = lifecycleJob.details.job.pid;
+  while (lifecycleUpdates.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
+  const lifecycleJob = lifecycleUpdates[0].details.job;
+  const supervisorPid = lifecycleJob.supervisorPid ?? lifecycleJob.pid;
   assert.ok(supervisorPid && process.kill(supervisorPid, 0) === true);
+  lifecycleController.abort();
+  await assert.rejects(lifecycleExecution, /continues under the detached supervisor/);
   const shutdownHandler = extension.handlers.get("session_shutdown")?.[0];
   assert.ok(shutdownHandler, "session shutdown cleanup should be registered");
   await shutdownHandler();
@@ -116,7 +132,7 @@ test("real Pi ResourceLoader registers and runs claude_review without an LLM", a
   const replacementExtension = replacementLoaded.extensions.find((item) => item.resolvedPath === resolvedExtensionPath);
   const replacementTool = replacementExtension?.tools.get("claude_review")?.definition;
   assert.ok(replacementTool, "replacement extension should recover the review tool");
-  const recovered = await waitForStatus(replacementTool, lifecycleJob.details.job.jobId, repo);
+  const recovered = await waitForStatus(replacementTool, lifecycleJob.jobId, repo);
   assert.equal(recovered.status, "succeeded");
   assert.match(await readFile(recovered.output, "utf8"), /No blocking issues were found/);
   await replacementExtension.handlers.get("session_shutdown")?.[0]?.();

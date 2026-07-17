@@ -60,10 +60,10 @@ test("installed claude_review performs real smoke and tiny review", { timeout: 9
   const tool = await loadInstalledTool();
 
   const smokeOutput = path.join(root, "smoke.txt");
-  const smokeStart = Date.now();
-  const smoke = await tool.execute("smoke", { action: "smoke", cwd: process.cwd(), output: smokeOutput }, new AbortController().signal, () => {}, { cwd: process.cwd() });
-  assert.ok(Date.now() - smokeStart < 500, "installed smoke dispatch must return immediately");
-  const smokeJob = await waitForStatus(tool, smoke.details.job.jobId, 360_000);
+  const smokeUpdates = [];
+  const smoke = await tool.execute("smoke", { action: "smoke", cwd: process.cwd(), output: smokeOutput }, new AbortController().signal, (update) => smokeUpdates.push(update), { cwd: process.cwd() });
+  assert.ok(smokeUpdates.length > 0, "installed smoke must expose its running subprocess state");
+  const smokeJob = smoke.details.job;
   if (smokeJob.status !== "succeeded") {
     const evidence = await readFile(smokeOutput, "utf8").catch(() => smokeJob.summary);
     if (/CLAUDE_(?:SESSION_LIMIT_IN_TUI|AUTH_UNAVAILABLE_IN_(?:TUI|TMUX_PREFLIGHT)|REVIEW_MISSING_PREREQUISITE)/.test(evidence)) {
@@ -79,10 +79,10 @@ test("installed claude_review performs real smoke and tiny review", { timeout: 9
   const promptFile = path.join(root, "prompt.md");
   const reviewOutput = path.join(root, "review.md");
   await writeFile(promptFile, "Read-only smoke review. Do not edit files. Return exactly `VERDICT: PASS_SCOPED` followed by one short sentence.\n");
-  const reviewStart = Date.now();
-  const review = await tool.execute("review", { action: "start", cwd: process.cwd(), promptFile, output: reviewOutput }, new AbortController().signal, () => {}, { cwd: process.cwd() });
-  assert.ok(Date.now() - reviewStart < 500, "installed review dispatch must return immediately");
-  const reviewJob = await waitForStatus(tool, review.details.job.jobId, 660_000);
+  const reviewUpdates = [];
+  const review = await tool.execute("review", { action: "start", cwd: process.cwd(), promptFile, output: reviewOutput }, new AbortController().signal, (update) => reviewUpdates.push(update), { cwd: process.cwd() });
+  assert.ok(reviewUpdates.length > 0, "installed review must expose its running subprocess state");
+  const reviewJob = review.details.job;
   if (reviewJob.status !== "succeeded") {
     const evidence = await readFile(reviewOutput, "utf8").catch(() => reviewJob.summary);
     if (/CLAUDE_(?:SESSION_LIMIT_IN_TUI|AUTH_UNAVAILABLE_IN_(?:TUI|TMUX_PREFLIGHT)|REVIEW_MISSING_PREREQUISITE)/.test(evidence)) {

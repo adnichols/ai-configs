@@ -21,6 +21,27 @@ test("public tool schema exposes review intent but no transport controls", async
   assert.match(source, /pi\.on\("tool_call"/);
   assert.match(source, /pi\.on\("session_shutdown"/);
   assert.match(source, /detached supervisor/);
+  assert.match(source, /reviewer subprocess running/);
+  assert.match(source, /phase: "running"/);
+  assert.match(source, /renderResult/);
+  assert.doesNotMatch(source, /dispatched invisibly/);
+});
+
+test("completion delivery is bound to the originating Pi session", async () => {
+  const index = await text("_pi/extensions/claude-review/index.ts");
+  const runtime = await text("_pi/extensions/claude-review/runtime.ts");
+  assert.match(index, /sessionManager\.getSessionId\(\)/);
+  assert.match(index, /originSessionId/);
+  assert.match(runtime, /job\.originSessionId === this\.activeSessionId/);
+  assert.match(runtime, /sessionMatches/);
+});
+
+test("restart recovery indexes session delivery evidence once", async () => {
+  const runtime = await text("_pi/extensions/claude-review/runtime.ts");
+  assert.match(runtime, /private startupDeliveredJobIds\?: Set<string>/);
+  assert.match(runtime, /if \(this\.startupDeliveredJobIds\) return this\.startupDeliveredJobIds/);
+  assert.match(runtime, /this\.deliveredSessionJobIds\(\)\.has\(persisted\.jobId\)/);
+  assert.doesNotMatch(runtime, /sessionHasDelivery\(jobId/);
 });
 
 test("Pi review prompts route Claude through claude_review", async () => {
