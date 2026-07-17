@@ -36,6 +36,7 @@ export type ContinuationEvent =
   | { type: "retry_ready"; at: number; nextRetryAt: number; epochs?: Partial<ContinuationLifecycleEpochs> }
   | { type: "acceptance_deadline"; at: number; nextRetryAt?: number; epochs?: Partial<ContinuationLifecycleEpochs> }
   | { type: "progress_deadline"; at: number; epochs?: Partial<ContinuationLifecycleEpochs> }
+  | { type: "progress_deadline_deferred"; at: number; progressDeadlineAt: number; epochs?: Partial<ContinuationLifecycleEpochs> }
   | { type: "tool_stall"; at: number; epochs?: Partial<ContinuationLifecycleEpochs> }
   | { type: "deadline"; at: number; epochs?: Partial<ContinuationLifecycleEpochs> }
   | { type: "supersede"; at: number; reason: ContinuationSupersedeReason; epochs?: Partial<ContinuationLifecycleEpochs> }
@@ -170,6 +171,17 @@ export const transitionContinuation = (snapshot: ContinuationTransactionSnapshot
     if (snapshot.pendingToolCount <= 0 || snapshot.acceptedAt === undefined || snapshot.toolStallDeadlineAt === undefined || event.at < snapshot.toolStallDeadlineAt) return output(snapshot, "ignored_stale", "none", "tool_stall_deadline_not_reached");
     if (snapshot.state === "stalled") return output(snapshot, "idempotent", "none", "already_stalled");
     return output(changed(snapshot, event, { state: "stalled", toolStallDeadlineAt: undefined, stalledWarningIssued: true }), "applied", "warn_stalled", "outstanding_tool_hard_silence");
+  }
+  if (event.type === "progress_deadline_deferred") {
+    if (
+      snapshot.pendingToolCount > 0 ||
+      snapshot.acceptedAt === undefined ||
+      snapshot.progressDeadlineAt === undefined ||
+      event.at < snapshot.progressDeadlineAt ||
+      !Number.isFinite(event.progressDeadlineAt) ||
+      event.progressDeadlineAt <= event.at
+    ) return output(snapshot, "ignored_stale", "none", "progress_deadline_deferral_invalid");
+    return output(changed(snapshot, event, { progressDeadlineAt: event.progressDeadlineAt, deadlineAt: event.progressDeadlineAt }), "applied", "none", "active_host_progress_deadline_deferred");
   }
   if (event.type === "progress_deadline") {
     if (snapshot.pendingToolCount > 0 || snapshot.progressDeadlineAt === undefined || event.at < snapshot.progressDeadlineAt) return output(snapshot, "ignored_stale", "none", "progress_deadline_not_reached");

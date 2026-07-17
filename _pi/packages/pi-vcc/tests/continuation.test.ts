@@ -334,6 +334,76 @@ describe("continuation state machine", () => {
 		).toBe("settled");
 	});
 
+	it("defers a reached no-tool progress deadline without claiming progress", () => {
+		const snapshot = {
+			...progressed(),
+			lastProgressAt: 150,
+			pendingToolCount: 0,
+			progressDeadlineAt: 200,
+			deadlineAt: 200,
+		};
+		const deferred = transitionContinuation(snapshot, {
+			type: "progress_deadline_deferred",
+			at: 200,
+			progressDeadlineAt: 260,
+		});
+		expect(deferred.disposition).toBe("applied");
+		expect(deferred.decision).toBe("none");
+		expect(deferred.snapshot).toMatchObject({
+			state: "progressed",
+			lastProgressAt: 150,
+			lastAssistantResult: "progress",
+			pendingToolCount: 0,
+			progressDeadlineAt: 260,
+			deadlineAt: 260,
+			phaseEpoch: (snapshot.phaseEpoch ?? 0) + 1,
+		});
+		expect(
+			transitionContinuation(snapshot, {
+				type: "progress_deadline_deferred",
+				at: 199,
+				progressDeadlineAt: 259,
+			}).disposition,
+		).toBe("ignored_stale");
+
+		const invalidCases: Array<{
+			name: string;
+			snapshot: ContinuationTransactionSnapshot;
+			event: ContinuationEvent;
+		}> = [
+			{
+				name: "pending tools",
+				snapshot: { ...snapshot, pendingToolCount: 1 },
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: 260 },
+			},
+			{
+				name: "missing durable acceptance",
+				snapshot: { ...snapshot, acceptedAt: undefined },
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: 260 },
+			},
+			{
+				name: "missing current progress deadline",
+				snapshot: { ...snapshot, progressDeadlineAt: undefined },
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: 260 },
+			},
+			{
+				name: "non-finite replacement deadline",
+				snapshot,
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: Number.POSITIVE_INFINITY },
+			},
+			{
+				name: "replacement deadline at the event boundary",
+				snapshot,
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: 200 },
+			},
+		];
+		for (const invalidCase of invalidCases) {
+			const result = transitionContinuation(invalidCase.snapshot, invalidCase.event);
+			expect(result.disposition, invalidCase.name).toBe("ignored_stale");
+			expect(result.snapshot, invalidCase.name).toEqual(invalidCase.snapshot);
+		}
+	});
+
 	it("can reach each terminal state exactly once", () => {
 		const terminalSnapshots = [
 			step(progressed(), { type: "agent_settled", at: 160 }),

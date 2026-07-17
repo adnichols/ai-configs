@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -62,6 +62,32 @@ const appendSessionEntry = (customType: string, data: unknown) => {
   };
   entries.push(entry);
   appendFileSync(sessionPath, `${JSON.stringify(entry)}\n`);
+};
+const appendBranchMessage = (message: unknown) => {
+  const entry = {
+    id: `entry-${entries.length + 1}`,
+    type: "message",
+    message,
+  };
+  entries.push(entry);
+  appendFileSync(sessionPath, `${JSON.stringify(entry)}\n`);
+};
+const transactionSnapshots = (transactionId: string) => entries.filter(
+  (entry) =>
+    entry.customType === protocol.CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+    entry.data?.snapshot?.transactionId === transactionId,
+);
+const transactionLogRecords = (transactionId: string) => {
+  try {
+    return readFileSync(process.env.PI_VCC_LOG_PATH!, "utf8")
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line))
+      .filter((record) => record.transactionId === transactionId);
+  } catch {
+    return [];
+  }
 };
 
 const pi = {
@@ -415,6 +441,124 @@ const replacementSessionStart = entries.length;
 replaceCoordinator("new");
 if ([...wakeHandlers.values()].some((listeners) => listeners.size !== 1))
   throw new Error("new-session replacement did not restore exactly one listener");
+
+const highFrequencyTransactionId = "soak-high-frequency-checkpoint";
+const highFrequency = request(10_000, {
+  transactionId: highFrequencyTransactionId,
+  attemptId: `${highFrequencyTransactionId}-attempt`,
+  requestId: `${highFrequencyTransactionId}-request`,
+  originatingRequestId: `${highFrequencyTransactionId}-request`,
+});
+const highFrequencyDetails = persistDurableAcceptance(highFrequency);
+emit("message_start", {
+  message: {
+    role: "custom",
+    customType: protocol.CONTINUATION_MESSAGE_CUSTOM_TYPE,
+    details: highFrequencyDetails,
+  },
+});
+const highFrequencyToolMessage = {
+  role: "assistant",
+  stopReason: "toolUse",
+  content: [{ type: "toolCall", id: "soak-high-frequency-tool", name: "bash" }],
+};
+appendBranchMessage(highFrequencyToolMessage);
+emit("message_end", { message: highFrequencyToolMessage });
+const highFrequencyOrigin = now;
+const highFrequencySnapshotsBefore = transactionSnapshots(highFrequencyTransactionId).length;
+const highFrequencyLogsBefore = transactionLogRecords(highFrequencyTransactionId).length;
+for (let offset = 100; offset < 30_000; offset += 100) {
+  advance(highFrequencyOrigin + offset);
+  emit("tool_execution_update", { toolCallId: "soak-high-frequency-tool", toolName: "bash" });
+}
+if (
+  transactionSnapshots(highFrequencyTransactionId).length !== highFrequencySnapshotsBefore ||
+  transactionLogRecords(highFrequencyTransactionId).length !== highFrequencyLogsBefore
+) {
+  throw new Error("high-frequency liveness persisted before its checkpoint boundary");
+}
+advance(highFrequencyOrigin + 30_000);
+emit("tool_execution_update", { toolCallId: "soak-high-frequency-tool", toolName: "bash" });
+if (
+  transactionSnapshots(highFrequencyTransactionId).length !== highFrequencySnapshotsBefore + 1 ||
+  transactionLogRecords(highFrequencyTransactionId).length !== highFrequencyLogsBefore + 1
+) {
+  throw new Error("high-frequency liveness did not persist exactly once at the checkpoint boundary");
+}
+advance(highFrequencyOrigin + 30_001);
+emit("tool_execution_end", { toolCallId: "soak-high-frequency-tool", toolName: "bash" });
+emit("agent_settled");
+if (
+  transactionSnapshots(highFrequencyTransactionId).length !== highFrequencySnapshotsBefore + 3 ||
+  transactionLogRecords(highFrequencyTransactionId).length !== highFrequencyLogsBefore + 3
+) {
+  throw new Error("high-frequency material transitions exceeded the bounded snapshot/log formula");
+}
+
+const reloadTransactionId = "soak-active-tool-reload-grace";
+let reloadSnapshot = request(10_001, {
+  transactionId: reloadTransactionId,
+  attemptId: `${reloadTransactionId}-attempt`,
+  requestId: `${reloadTransactionId}-request`,
+  originatingRequestId: `${reloadTransactionId}-request`,
+});
+const reloadDetails = persistDurableAcceptance(reloadSnapshot);
+emit("message_start", {
+  message: {
+    role: "custom",
+    customType: protocol.CONTINUATION_MESSAGE_CUSTOM_TYPE,
+    details: reloadDetails,
+  },
+});
+const reloadToolMessage = {
+  role: "assistant",
+  stopReason: "toolUse",
+  content: [{ type: "toolCall", id: "soak-reload-tool", name: "bash" }],
+};
+appendBranchMessage(reloadToolMessage);
+emit("message_end", { message: reloadToolMessage });
+const reloadOrigin = now;
+advance(reloadOrigin + 100);
+emit("tool_execution_update", { toolCallId: "soak-reload-tool", toolName: "bash" });
+const reloadSnapshotsBefore = transactionSnapshots(reloadTransactionId).length;
+const reloadLogsBefore = transactionLogRecords(reloadTransactionId).length;
+const staleTimers = timers.filter((timer) => !timer.cancelled);
+emit("session_shutdown", { reason: "reload" });
+advance(reloadOrigin + 200);
+replaceCoordinator("reload");
+reloadSnapshot = active()!;
+if (
+  reloadSnapshot.transactionId !== reloadTransactionId ||
+  reloadSnapshot.toolStallDeadlineAt !== now + 900_000 ||
+  transactionSnapshots(reloadTransactionId).length !== reloadSnapshotsBefore ||
+  transactionLogRecords(reloadTransactionId).length !== reloadLogsBefore
+) {
+  throw new Error("first active-tool reload did not grant an unpersisted fresh stall interval");
+}
+for (const staleTimer of staleTimers) staleTimer.callback();
+if (active()?.toolStallDeadlineAt !== now + 900_000) {
+  throw new Error("stale pre-reload timer changed restored active-tool liveness");
+}
+emit("session_shutdown", { reason: "reload" });
+advance(reloadOrigin + 400);
+replaceCoordinator("reload");
+reloadSnapshot = active()!;
+if (
+  reloadSnapshot.transactionId !== reloadTransactionId ||
+  reloadSnapshot.toolStallDeadlineAt !== now + 900_000 ||
+  transactionSnapshots(reloadTransactionId).length !== reloadSnapshotsBefore ||
+  transactionLogRecords(reloadTransactionId).length !== reloadLogsBefore
+) {
+  throw new Error("repeated active-tool reload did not preserve the bounded grace contract");
+}
+emit("tool_execution_end", { toolCallId: "soak-reload-tool", toolName: "bash" });
+emit("agent_settled");
+if (
+  transactionSnapshots(reloadTransactionId).length !== reloadSnapshotsBefore + 2 ||
+  transactionLogRecords(reloadTransactionId).length !== reloadLogsBefore + 2
+) {
+  throw new Error("active-tool reload completion did not flush only material transitions");
+}
 
 for (let index = 11; index < count + 11; index += 1) {
   request(index);

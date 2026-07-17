@@ -29,6 +29,7 @@ export const CONTINUATION_AUTHORITY_ENV = "PI_VCC_CONTINUATION_AUTHORITY";
 export const DEFAULT_ACCEPTANCE_DEADLINE_MS = 15_000;
 export const DEFAULT_IDLE_PROGRESS_DEADLINE_MS = 60_000;
 export const DEFAULT_TOOL_STALL_DEADLINE_MS = 900_000;
+export const DEFAULT_TOOL_LIVENESS_CHECKPOINT_MS = 30_000;
 export const DEFAULT_RETRY_DELAYS_MS = [1_000, 2_000] as const;
 const DEFAULT_RETRY_LIMIT = 2;
 const CONTINUATION_PROMPT = "Pi-vcc interrupted active work for compaction or recovery. Continue from the preserved state and resume the next concrete step; use vcc_recall if details from before compaction are needed.";
@@ -42,7 +43,7 @@ export interface ContinuationCoordinatorOptions {
   authority?: ContinuationAuthority; now?: () => number;
   setTimer?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearTimer?: (timer: ReturnType<typeof setTimeout>) => void;
-  retryDelayMs?: number; retryDelaysMs?: readonly number[]; acceptanceDeadlineMs?: number; idleProgressDeadlineMs?: number; toolStallDeadlineMs?: number;
+  retryDelayMs?: number; retryDelaysMs?: readonly number[]; acceptanceDeadlineMs?: number; idleProgressDeadlineMs?: number; toolStallDeadlineMs?: number; toolLivenessCheckpointMs?: number;
   onSessionReplacement?: (reason: "reload" | "new" | "resume" | "fork") => void;
 }
 export interface ContinuationCoordinator {
@@ -50,6 +51,7 @@ export interface ContinuationCoordinator {
   request(input: ContinuationRequestInput, ctx: ExtensionContext): ContinuationTransactionSnapshot;
   reconcile(ctx: ExtensionContext): void;
   getPending(): ContinuationTransactionSnapshot | undefined;
+  getNextToolLivenessCheckpointAt(): number | undefined;
   dispose(): void;
 }
 
@@ -118,16 +120,30 @@ const restoredOutstandingToolIds = (entries: readonly any[], snapshot: Continuat
   return { confirmed: new Set(), ambiguous: new Set(outstanding) };
 };
 const toTimestamp = (value: number | undefined, fallback: number) => value !== undefined && Number.isFinite(value) ? value : fallback;
+const requirePositiveIntegerOption = (name: string, value: number, minimum = 1) => {
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value < minimum) {
+    const minimumDescription = minimum === 1 ? "a finite positive integer" : `a finite integer >= ${minimum}`;
+    throw new TypeError(`${name} must be ${minimumDescription} milliseconds; received ${String(value)}`);
+  }
+};
+export const continuationLivenessCheckpointOrigin = (snapshot: ContinuationTransactionSnapshot) => snapshot.lastProgressAt ?? snapshot.acceptedAt ?? snapshot.createdAt;
 
 export const createContinuationCoordinator = (pi: ExtensionAPI, options: ContinuationCoordinatorOptions = {}): ContinuationCoordinator => {
   const authority = options.authority ?? readAuthority(); const now = options.now ?? Date.now; const setTimer = options.setTimer ?? setTimeout; const clearTimer = options.clearTimer ?? clearTimeout;
   const acceptanceMs = options.acceptanceDeadlineMs ?? DEFAULT_ACCEPTANCE_DEADLINE_MS;
   const progressMs = options.idleProgressDeadlineMs ?? DEFAULT_IDLE_PROGRESS_DEADLINE_MS;
   const toolStallMs = options.toolStallDeadlineMs ?? DEFAULT_TOOL_STALL_DEADLINE_MS;
+  const configuredToolLivenessCheckpointMs = options.toolLivenessCheckpointMs ?? DEFAULT_TOOL_LIVENESS_CHECKPOINT_MS;
+  requirePositiveIntegerOption("toolStallDeadlineMs", toolStallMs, 2);
+  requirePositiveIntegerOption("toolLivenessCheckpointMs", configuredToolLivenessCheckpointMs);
+  const toolLivenessCheckpointMs = Math.min(configuredToolLivenessCheckpointMs, Math.floor(toolStallMs / 2));
   const retryDelays = options.retryDelayMs === undefined ? options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS : [options.retryDelayMs, options.retryDelayMs];
   let current: ContinuationTransactionSnapshot | undefined; let lastTerminal: ContinuationTransactionSnapshot | undefined; let timer: ReturnType<typeof setTimeout> | undefined;
   let lastContext: ExtensionContext | undefined; let disposed = false; let sessionShutDown = false; let wakeUnsubscribe: (() => void) | undefined; let safetyWakeUnsubscribe: (() => void) | undefined;
   let retryReadyTransactionId: string | undefined;
+  let durableTransactionId: string | undefined;
+  let durablePhaseEpoch = -1;
+  let nextToolLivenessCheckpointAt: number | undefined;
   let epochs: ContinuationLifecycleEpochs = { session: 0, input: 0, agent: 0, turn: 0, message: 0, settlement: 0 };
   const acceptanceBudgets = new Map<string, number>();
   const activeToolCallIds = new Set<string>();
@@ -159,7 +175,16 @@ export const createContinuationCoordinator = (pi: ExtensionAPI, options: Continu
   };
 
   const cancelTimer = () => { if (timer !== undefined) clearTimer(timer); timer = undefined; };
-  const persistSnapshot = (snapshot: ContinuationTransactionSnapshot) => { pi.appendEntry(CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE, createContinuationSnapshotWire(snapshot)); logContinuationTransaction(logEventForState(snapshot.state), snapshot, now()); };
+  const rememberDurableSnapshot = (snapshot: ContinuationTransactionSnapshot) => {
+    durableTransactionId = snapshot.transactionId;
+    durablePhaseEpoch = snapshot.phaseEpoch ?? 0;
+    nextToolLivenessCheckpointAt = continuationLivenessCheckpointOrigin(snapshot) + toolLivenessCheckpointMs;
+  };
+  const persistSnapshot = (snapshot: ContinuationTransactionSnapshot) => {
+    pi.appendEntry(CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE, createContinuationSnapshotWire(snapshot));
+    logContinuationTransaction(logEventForState(snapshot.state), snapshot, now());
+    rememberDurableSnapshot(snapshot);
+  };
   const persistOutcome = (snapshot: ContinuationTransactionSnapshot) => pi.appendEntry(CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE, createContinuationOutcomeWire(snapshot));
   const warnFailure = (snapshot: ContinuationTransactionSnapshot, previous: ContinuationState, ctx: ExtensionContext) => ctx.ui.notify(`Pi-vcc continuation failed in ${snapshot.acceptedAt === undefined ? "acceptance" : "execution"} (transaction=${snapshot.transactionId}; attempt=${snapshot.attemptId}; retries=${snapshot.retryCount}; last-state=${previous}). See ${getPiVccLogPath()}. Manual action: send “continue” after checking the interrupted task state.`, "warning");
   const warnStalled = (snapshot: ContinuationTransactionSnapshot, ctx: ExtensionContext) => ctx.ui.notify(`Pi-vcc continuation stalled with ${snapshot.pendingToolCount} outstanding tool(s) (transaction=${snapshot.transactionId}). Ownership is retained and queued continuation work is paused. Recovery action: allow the tool to finish or send new input to supersede this continuation.`, "warning");
@@ -184,7 +209,9 @@ export const createContinuationCoordinator = (pi: ExtensionAPI, options: Continu
     else if (current.acceptedAt !== undefined) { deadline = current.progressDeadlineAt; type = "progress_deadline"; }
     if (deadline === undefined || type === undefined) return;
     const transactionId = current.transactionId; const phaseEpoch = current.phaseEpoch ?? 0;
-    timer = setTimer(() => {
+    let scheduledTimer: ReturnType<typeof setTimeout>;
+    scheduledTimer = setTimer(() => {
+      if (timer !== scheduledTimer) return;
       timer = undefined;
       if (!current || current.transactionId !== transactionId || (current.phaseEpoch ?? 0) !== phaseEpoch || disposed || sessionShutDown) return;
       const at = Math.max(now(), deadline!);
@@ -202,19 +229,35 @@ export const createContinuationCoordinator = (pi: ExtensionAPI, options: Continu
         const delay = retryDelays[Math.min(current.retryCount, retryDelays.length - 1)] ?? retryDelays.at(-1) ?? 0;
         apply({ type, at, nextRetryAt: at + delay, epochs }, lastContext); return;
       }
+      if (type === "progress_deadline" && lastContext && !lastContext.isIdle()) {
+        apply({ type: "progress_deadline_deferred", at, progressDeadlineAt: at + progressMs, epochs }, lastContext);
+        return;
+      }
       apply({ type, at, epochs } as ContinuationEvent, lastContext);
     }, Math.max(0, deadline - now()));
+    timer = scheduledTimer;
   };
 
-  const apply = (event: ContinuationEvent, ctx = lastContext) => {
-    if (!current || disposed) return; const previous = current.state; const result = transitionContinuation(current, event);
+  const apply = (event: ContinuationEvent, ctx = lastContext, durability: "immediate" | "tool_liveness_checkpoint" = "immediate") => {
+    if (!current || disposed) return; const before = current; const previous = before.state; const result = transitionContinuation(before, event);
     if (result.disposition === "ignored_invalid" || result.disposition === "ignored_stale") return;
     current = result.snapshot;
     if (current.state === "retrying" || isContinuationTerminal(current)) clearToolCorrelation();
     if (current.acceptedAt !== undefined || isContinuationTerminal(current)) {
       retryReadyTransactionId = undefined;
     }
-    if (result.disposition === "applied") persistSnapshot(current);
+    if (result.disposition === "applied") {
+      const onlyLivenessRefresh =
+        durability === "tool_liveness_checkpoint" &&
+        event.type === "tool_progress" &&
+        before.state === "progressed" &&
+        current.state === "progressed" &&
+        before.pendingToolCount === current.pendingToolCount &&
+        current.pendingToolCount > 0 &&
+        before.lastAssistantResult === current.lastAssistantResult;
+      const checkpointDue = nextToolLivenessCheckpointAt === undefined || event.at >= nextToolLivenessCheckpointAt;
+      if (!onlyLivenessRefresh || checkpointDue) persistSnapshot(current);
+    }
     if (isContinuationTerminal(current)) { finishTerminal(ctx, previous); return; }
     if (result.decision === "warn_stalled") { if (ctx) warnStalled(current, ctx); cancelTimer(); return; }
     if (result.decision === "submit" && ctx) { submit(ctx); return; }
@@ -302,12 +345,30 @@ export const createContinuationCoordinator = (pi: ExtensionAPI, options: Continu
       persistSnapshot(adapted);
     }
     if (adapted.activatedAt === undefined) { adapted = { ...adapted, activatedAt: at, phaseEpoch: (adapted.phaseEpoch ?? 0) + 1 }; persistSnapshot(adapted); }
+    if (
+      snapshot.version === 2 &&
+      adapted.acceptedAt !== undefined &&
+      adapted.pendingToolCount > 0 &&
+      adapted.state !== "stalled" &&
+      !isContinuationTerminal(adapted)
+    ) {
+      const toolStallDeadlineAt = at + toolStallMs;
+      adapted = { ...adapted, toolStallDeadlineAt, deadlineAt: toolStallDeadlineAt, phaseEpoch: (adapted.phaseEpoch ?? 0) + 1 };
+    }
     return adapted;
   };
 
   const activateNext = (ctx: ExtensionContext) => {
     if (disposed || sessionShutDown) return; const reconciled = reconcileContinuationEntries(ctx.sessionManager.getBranch() as any[]); const pending = reconciled.pending[0];
-    if (!pending) { current = undefined; cancelTimer(); return; }
+    if (!pending) {
+      current = undefined;
+      durableTransactionId = undefined;
+      durablePhaseEpoch = -1;
+      nextToolLivenessCheckpointAt = undefined;
+      cancelTimer();
+      return;
+    }
+    rememberDurableSnapshot(pending);
     if (isContinuationTerminal(pending)) {
       current = withEpochBaseline(pending, epochs);
       epochs = mergeEpochMax(epochs, current.epochs);
@@ -328,18 +389,29 @@ export const createContinuationCoordinator = (pi: ExtensionAPI, options: Continu
   const reconcile = (ctx: ExtensionContext) => {
     if (disposed || sessionShutDown) return; lastContext = ctx; const reconciled = reconcileContinuationEntries(ctx.sessionManager.getBranch() as any[]);
     if (reconciled.invalidEntryIds.length) logPiVccEvent("continuation_invalid_entries", { count: reconciled.invalidEntryIds.length });
-    const pending = current && !isContinuationTerminal(current) ? reconciled.pending.find((entry) => entry.transactionId === current!.transactionId) : undefined;
+    const activeTransactionId = current && !isContinuationTerminal(current) ? current.transactionId : undefined;
+    const pending = activeTransactionId ? reconciled.pending.find((entry) => entry.transactionId === activeTransactionId) : undefined;
     if (!pending) { activateNext(ctx); return; }
     rememberAcceptanceBudget(pending);
-    current = withEpochBaseline(pending, epochs); epochs = mergeEpochMax(epochs, current.epochs);
-    if (isContinuationTerminal(current)) { finishTerminal(ctx, current.state); return; }
-    if (current.version === 1) {
-      restoreToolCorrelation(ctx, current);
-      current = adaptRehydrated(current, ctx, reconciled.durableAcceptances, reconciled.snapshots);
-    }
+
+    // Durable acceptance and safety-ready messages are authoritative without a
+    // matching snapshot. Fold those narrow events against the exact live state
+    // before deciding whether the durable snapshot itself has advanced.
     reconcileDurableAcceptance(ctx);
+    if (!current || current.transactionId !== activeTransactionId || isContinuationTerminal(current)) return;
     const ready = reconciled.safetyReady.find((candidate) => candidate.transactionId === current!.transactionId && candidate.attemptId === current!.attemptId && candidate.requestId === current!.requestId);
     if (ready && current.acceptedAt === undefined && current.pendingToolCount > 0) { current = { ...current, pendingToolCount: 0 }; apply({ type: "tools_ready", at: now(), epochs }, ctx); return; }
+
+    const pendingPhaseEpoch = pending.phaseEpoch ?? 0;
+    const hasNewerDurableSnapshot = durableTransactionId !== pending.transactionId || pendingPhaseEpoch > durablePhaseEpoch;
+    if (!hasNewerDurableSnapshot) return;
+
+    rememberDurableSnapshot(pending);
+    restoreToolCorrelation(ctx, pending);
+    current = adaptRehydrated(withEpochBaseline(pending, epochs), ctx, reconciled.durableAcceptances, reconciled.snapshots);
+    epochs = mergeEpochMax(epochs, current.epochs);
+    if (isContinuationTerminal(current)) { finishTerminal(ctx, current.state); return; }
+    reconcileDurableAcceptance(ctx);
     armCurrentTimer();
   };
 
@@ -435,7 +507,8 @@ export const createContinuationCoordinator = (pi: ExtensionAPI, options: Continu
     if (!current || current.acceptedAt === undefined || isContinuationTerminal(current)) return;
     const id = (event as any).toolCallId;
     if (typeof id !== "string" || (!activeToolCallIds.has(id) && !confirmAmbiguousTool(id))) return;
-    apply({ type: "tool_progress", at: now(), pendingToolCount: Math.max(1, current.pendingToolCount), toolStallDeadlineAt: now() + toolStallMs, epochs }, ctx);
+    const at = now();
+    apply({ type: "tool_progress", at, pendingToolCount: Math.max(1, current.pendingToolCount), toolStallDeadlineAt: at + toolStallMs, epochs }, ctx, "tool_liveness_checkpoint");
   });
   pi.on("tool_execution_end", (event, ctx) => {
     lastContext = ctx;
@@ -517,5 +590,12 @@ export const createContinuationCoordinator = (pi: ExtensionAPI, options: Continu
     if (terminalizationError !== undefined) throw terminalizationError;
   });
 
-  return { authority, request, reconcile, getPending: () => current ?? lastTerminal, dispose: () => { if (disposed) return; disposed = true; cancelTimer(); unsubscribeWakes(); } };
+  return {
+    authority,
+    request,
+    reconcile,
+    getPending: () => current ?? lastTerminal,
+    getNextToolLivenessCheckpointAt: () => nextToolLivenessCheckpointAt,
+    dispose: () => { if (disposed) return; disposed = true; cancelTimer(); unsubscribeWakes(); },
+  };
 };
