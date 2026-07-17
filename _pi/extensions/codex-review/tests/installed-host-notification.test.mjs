@@ -13,7 +13,7 @@ async function loadSdk() {
 }
 
 async function waitForTerminal(tool, id, cwd, ctx) {
-  for (let attempt = 0; attempt < 300; attempt += 1) {
+  for (let attempt = 0; attempt < 600; attempt += 1) {
     const result = await tool.execute("status", { action: "status", jobId: id }, new AbortController().signal, () => {}, ctx ?? { cwd });
     if (!["starting", "running"].includes(result.details.job.status)) return result.details.job;
     await new Promise((resolve) => setTimeout(resolve, 20));
