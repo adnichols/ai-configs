@@ -1,5 +1,25 @@
 #!/usr/bin/env python3
-"""Classify pi-vcc package registrations without substring matching."""
+"""Classify pi-vcc package registrations without substring matching.
+
+Approval / reuse rationale
+--------------------------
+This module intentionally exceeds a thin helper because exact-one install/verify
+must match Pi's package manager semantics, not a generic Git URL library.
+
+Candidates considered and rejected for the remote classifier:
+1. dulwich / GitPython URL helpers — parse Git transport forms, but not Pi's
+   package-manager prefixes (`git:`, `git+https`, settings-facing variants) or
+   Pi's host/path normalization.
+2. urllib.parse alone — insufficient for Pi package prefixes, scp-like forms,
+   and Pi-specific path normalization (for example trailing `/.`).
+3. re-only host/path patterns — repeatedly false-passed/false-failed Pi edge
+   cases (authority delimiter traps, uppercase hosts, percent-encoded paths).
+
+Chosen approach: shell out to the installed `@earendil-works/pi-coding-agent`
+`parseGitUrl` implementation and classify only on its returned host/path. Local
+and npm identity remain small pure-Python checks. Fail closed when Pi's parser
+cannot be loaded so exact-one verification never silently undercounts.
+"""
 
 from __future__ import annotations
 

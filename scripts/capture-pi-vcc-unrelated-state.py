@@ -30,10 +30,16 @@ def normalized_settings(path, stable):
         raise ValueError("settings.json must contain a JSON object")
     packages = data.get("packages")
     if isinstance(packages, list):
-        data["packages"] = [
+        packages = [
             item for item in packages
             if not is_pi_vcc_source(package_source(item), stable)
         ]
+        # Canonicalize managed-only installs: missing packages and empty filtered
+        # packages must hash identically so adding only pi-vcc is not "unrelated".
+        if packages:
+            data["packages"] = packages
+        else:
+            data.pop("packages", None)
     return json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
 
 

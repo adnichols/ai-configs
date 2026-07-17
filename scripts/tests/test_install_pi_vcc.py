@@ -412,6 +412,13 @@ class InstallPiVccTest(unittest.TestCase):
                     self.assertIn(f"backup={backups[0]}", result.stderr)
                     self.assertNotIn("backup=none", result.stderr)
                     self.assertEqual(prior_tree, tree_manifest(backups[0]))
+                if failpoint == "restore-mirror":
+                    backups = list(parent.glob(".pi-vcc-backup.*"))
+                    self.assertEqual(len(backups), 1)
+                    self.assertIn(f"backup={backups[0]}", result.stderr)
+                    self.assertNotIn("backup=none", result.stderr)
+                    self.assertEqual(prior_tree, tree_manifest(backups[0]))
+                    self.assertFalse(stable.exists())
                 if failpoint == "restore-settings":
                     live_settings = json.loads(settings.read_text())
                     self.assertNotEqual(settings.read_bytes(), prior_settings)

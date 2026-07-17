@@ -96,6 +96,24 @@ class CapturePiVccUnrelatedStateTest(unittest.TestCase):
             self.assertNotEqual(first_bytes, third_bytes)
             self.assertNotEqual(first["normalizedSettingsHash"], third["normalizedSettingsHash"])
 
+    def test_missing_packages_and_only_pi_vcc_packages_hash_identically(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            agent = root / "agent"
+            stable = agent / "local-packages/ai-configs/pi-vcc"
+            stable.mkdir(parents=True)
+            (stable / "package.json").write_text(json.dumps({"name": "@adnichols/pi-vcc"}))
+            settings = agent / "settings.json"
+            settings.write_text(json.dumps({"theme": "dark"}))
+            first_bytes, first = self.capture(agent, root / "first.json")
+            settings.write_text(json.dumps({
+                "theme": "dark",
+                "packages": [str(stable), "git:adnichols/pi-vcc"],
+            }))
+            second_bytes, second = self.capture(agent, root / "second.json")
+            self.assertEqual(first_bytes, second_bytes)
+            self.assertEqual(first["normalizedSettingsHash"], second["normalizedSettingsHash"])
+
 
 if __name__ == "__main__":
     unittest.main()
