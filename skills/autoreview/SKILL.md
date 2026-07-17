@@ -9,6 +9,8 @@ Use this skill to catch implementation issues that would otherwise appear during
 
 The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. This is local review-agent consensus, not a requirement to wait for a Codex PR bot comment, PR-hosted thumbs-up, `reviewDecision: APPROVED`, or any other external approval. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings are non-blocking unless they are plan-required, verification-required, or regressions caused by this change; do not fix optional polish merely because it is cheap.
 
+**Explicit operator override:** PR creation and a clean review verdict are separate decisions. If the operator explicitly instructs the agent to open, create, or publish the PR regardless of review status or coverage, obey immediately and do not delay PR creation for another review attempt, missing reviewer coverage, an unusable review artifact, or unresolved review findings. Preserve the requested draft/ready state. Record the override and disclose the actual review status, incomplete coverage, infrastructure failures, and known unresolved findings in the PR body; never relabel the gate as clean or claim merge readiness.
+
 When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review; base freshness may still be pending until final verification and the scoped commit make a safe rebase possible. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement to the `run-plan` caller so it can rerun final verification if needed, complete base freshness safely, commit, push, open the PR, inspect the current PR snapshot for actionable feedback/mergeability, and complete once local merge-readiness consensus is proven. Do not tell the caller to wait for a Codex thumbs-up or human approval after local review-agent consensus is clean.
 
 ## Inputs
@@ -126,7 +128,7 @@ Launch applicable reviewers in the same turn when possible:
 
 Do not use alternate model-subagent reviewers to satisfy the Codex/Claude Code gate described in this section.
 
-Both reviews are read-only. If Codex or a required Claude Code review is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate; do not silently substitute another model.
+Both reviews are read-only. If Codex or a required Claude Code review is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate or directs opening the PR regardless; do not silently substitute another model.
 
 ### Runtime launch rules
 
@@ -157,9 +159,9 @@ claude_review({
 
 Do not poll either managed review while the originating Pi session remains active. Consume each completion notification and read its artifact; after reload/restart, recover persisted jobs with the matching `codex_review` or `claude_review` list/status action. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
 
-The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate.
+The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate or directs opening the PR regardless.
 
-Launcher transport validity does not universally require a `VERDICT:` line, but this pre-PR workflow does require one of its locked final verdicts. A non-empty artifact with launcher metadata may therefore be valid transport yet still be unusable for this gate if its workflow verdict is missing. Treat empty output, missing launcher metadata, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
+Launcher transport validity does not universally require a `VERDICT:` line, but this pre-PR workflow does require one of its locked final verdicts. A non-empty artifact with launcher metadata may therefore be valid transport yet still be unusable for this gate if its workflow verdict is missing. Treat empty output, missing launcher metadata, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate or directs opening the PR regardless.
 
 For every quality reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; bound the assigned scope instead.
 
@@ -257,7 +259,7 @@ After applying any in-scope fix:
 3. Rerun Codex and any applicable Claude Code reviewer once against only the changed files, prior blocking findings, and resulting edits, not as a fresh whole-diff hunt for unrelated new issues.
 4. Allow a third total review cycle only when that targeted rereview identifies a new concrete blocker introduced or exposed by the fix. Otherwise stop after the targeted rereview with either `CLEAN_FOR_PR` or a convergence/scope blocker.
 
-Do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. Do not open or proceed to a PR while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and local merge-readiness checking. The pre-PR gate must not require a later Codex PR thumbs-up after its own Codex review leg is clean.
+Absent an explicit operator instruction to open the PR regardless, do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding and do not open or proceed to a PR with those findings unresolved. An explicit operator override ends this prohibition: open the PR as directed, disclose the non-clean review state, and do not represent it as `CLEAN_FOR_PR` or merge-ready. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and local merge-readiness checking. The pre-PR gate must not require a later Codex PR thumbs-up after its own Codex review leg is clean.
 
 Hard stop the review loop when any of these is true:
 
@@ -266,7 +268,7 @@ Hard stop the review loop when any of these is true:
 - three total review cycles have run since the initial pre-PR packet; the third cycle is permitted only for a new concrete blocker introduced or exposed by the prior fix,
 - a P1/P2 fix requires a product or scope decision,
 - reviewers disagree on whether a finding is in scope and the plan does not resolve it,
-- required reviewer infrastructure is unavailable and the user has not waived it,
+- required reviewer infrastructure is unavailable and the user has not waived it or directed opening the PR regardless,
 - verification cannot run for reasons the agent cannot resolve.
 
 On a hard stop, report the convergence blocker and recommend the smallest path: revert/defer the unstable slice, narrow the PR, or ask the user for an explicit scope decision. Do not launch “final clean gate” review cycles beyond the budget.

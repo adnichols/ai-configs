@@ -9,6 +9,8 @@ Use this skill when the user has a plan file and wants it implemented all the wa
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
+PR creation is not hostage to testing or review coverage. If the operator explicitly says to open, create, or publish the PR regardless of verification or review status, open it without further testing or review delay. Preserve the requested draft/ready state and disclose the real verification and gate status, skipped or failing checks, missing coverage, infrastructure failures, and unresolved findings in the PR body. Do not claim passing verification, clean review consensus, or local merge readiness when it has not been established.
+
 The Codex/Claude pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
 
 This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the implementation has local merge-readiness consensus: final verification is passing, all applicable review agents agree by substance that there are no unresolved blocking in-scope findings, the branch is current enough to merge, the PR exists, and the latest PR snapshot has no actionable feedback already present. Do not wait for a PR-hosted Codex approval, thumbs-up, or any other explicit external approval after local review-agent consensus is clean. In Pi, back this with the goal extension as the durable run state, plus the todo tool and explicit working notes for phase progress. In Codex, back this with Codex goal/task state and the installed Codex prompts so the readiness obligation survives normal turn-to-turn execution.
@@ -32,9 +34,9 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Complete the promised slice before merge: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
 - If the promised outcome cannot be completed safely, stop and resize it to a smaller independently useful complete slice rather than shipping a partial skeleton.
 - Do not expand the change for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, or unsupported hypothetical paths.
-- Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
-- Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, or a concrete blocker prevents that review.
-- Do not create a PR until the Codex plus applicable Claude Code pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the Claude Code leg is truthfully recorded as skipped for a low-risk/docs-only scope, or the user explicitly waives that gate.
+- Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported, unless the operator explicitly instructs the agent to open the PR regardless of testing status. That explicit instruction is controlling: stop retrying or waiting on verification, open the PR, and disclose skipped, incomplete, unavailable, or failing checks without calling them passing.
+- Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
+- Do not create a PR until the Codex plus applicable Claude Code pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the Claude Code leg is truthfully recorded as skipped for a low-risk/docs-only scope, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
 - Do not stop after the Codex/Claude pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
 - Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
 - Do not mark the active run state complete just because the implementation PR exists.
@@ -59,7 +61,7 @@ Stop before implementation if:
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
-- a required runtime-native review gate is unavailable and the user has not waived it. This means Codex review infrastructure, `claude-code-review` when the high-risk second-reviewer trigger or explicit override applies, and the `autoreview` skill.
+- a required runtime-native review gate is unavailable and the user has not waived it or explicitly directed opening the PR regardless. This means Codex review infrastructure, `claude-code-review` when the high-risk second-reviewer trigger or explicit override applies, and the `autoreview` skill.
 
 ## Scope Classification
 
@@ -202,7 +204,7 @@ If any reviewer cannot complete the assigned scope, it must return `REVIEW_INCOM
 
 Split a normal review only when a diff has more than 20 changed files, more than 2000 diff lines, or clearly independent product surfaces that one bounded slice cannot review. Use at most two slices per reviewer in the initial cycle. Do not split a small or medium diff merely to get more opinions, and do not create generic failure-family slices unless the diff actually touches those failure families.
 
-Empty output, tool-only output, provider errors, or transcripts ending in tool use are review infrastructure failures, not passes. Rerun once with a narrower bounded prompt; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
+Empty output, tool-only output, provider errors, or transcripts ending in tool use are review infrastructure failures, not passes. Rerun once with a narrower bounded prompt; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate or directs opening the PR regardless.
 
 If either reviewer reports broad adjacent risks, keep them out of the PR only when they satisfy the `OUT_OF_SCOPE_FOLLOW_UP` definition and are documented. If the risk maps to the plan, verification, or this diff, treat it as in-scope and fix it.
 
@@ -297,13 +299,13 @@ claude_review({
 
 Do not poll while the originating Pi session remains active. Consume the completion notification and read the artifact; after reload/restart, recover the persisted job with `claude_review` list/status. Launcher transport validity and this workflow's required verdict are separate checks. Non-Pi runtimes follow `claude-code-review` and call the canonical Python launcher directly.
 
-The coordinating agent must consume the Codex and Claude Code review artifacts/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same applicable reviewer set after material fixes. If Codex or a required Claude Code reviewer is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the Codex/Claude gate.
+The coordinating agent must consume the Codex and Claude Code review artifacts/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same applicable reviewer set after material fixes. If Codex or a required Claude Code reviewer is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the Codex/Claude gate or directs opening the PR regardless.
 
 Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
 
 Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and run one targeted rereview limited to the findings and resulting edits. A third total review cycle is allowed only for a new concrete blocker introduced or exposed by the fix; otherwise return clean consensus or a convergence/scope blocker. P3 findings block only when they are plan-required, verification-required, or regression-caused; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
-If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If Codex review infrastructure or a required Claude Code review is unavailable, stop unless the user explicitly waives this pre-PR gate.
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If Codex review infrastructure or a required Claude Code review is unavailable, stop unless the user explicitly waives this pre-PR gate or explicitly directs opening the PR regardless; in the latter case, open it and disclose the infrastructure failure and missing coverage.
 
 When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
@@ -311,7 +313,7 @@ Record the Codex verdict, Claude Code verdict or skip record, artifact path, wai
 
 ## Final Verification
 
-Run the plan's final verification commands after the Codex/Claude pre-PR review gate is clean for all blocking in-scope P1/P2 findings, or after the applicable Claude Code leg is truthfully skipped under the low-risk policy. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect.
+Run the plan's final verification commands after the Codex/Claude pre-PR review gate is clean for all blocking in-scope P1/P2 findings, or after the applicable Claude Code leg is truthfully skipped under the low-risk policy. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect. If the operator explicitly directs opening the PR regardless of testing status, do not delay PR creation for further verification; record exactly which checks passed, failed, were skipped, or could not run.
 
 Do not hide failures. Fix failures when they are in scope, required for truthful verification, or caused by this branch. Otherwise, report them as pre-existing or documented out-of-scope follow-ups with evidence and tracking destination.
 
@@ -332,7 +334,7 @@ Record the target branch, fetch result, rebase/skip decision, rerun verification
 
 ## Commit, Push, and PR
 
-When implementation, scoped reviews, implementation-stage PM review, the applicable Codex/Claude pre-PR review gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run:
+When implementation, scoped reviews, implementation-stage PM review, the applicable Codex/Claude pre-PR review gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run. An explicit operator instruction to open the PR regardless of testing or review status bypasses only those testing/review gates and requires truthful disclosure; it does not turn skipped or failing evidence into a passing or merge-ready result.
 
 1. Review `git diff --stat` and `git diff --name-only`.
 2. Commit only the scoped changes.
