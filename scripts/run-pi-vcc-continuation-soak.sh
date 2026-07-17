@@ -5,14 +5,16 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 candidate="source"
 compactions=10
 fault_matrix="all"
+artifacts_dir=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --candidate) candidate="${2:?missing candidate}"; shift 2 ;;
     --compactions) compactions="${2:?missing count}"; shift 2 ;;
     --fault-matrix) fault_matrix="${2:?missing matrix}"; shift 2 ;;
+    --artifacts-dir) artifacts_dir="${2:?missing artifacts directory}"; shift 2 ;;
     -h|--help)
-      echo "Usage: $0 --candidate source|installed --compactions N --fault-matrix all"
+      echo "Usage: $0 --candidate source|installed --compactions N --fault-matrix all [--artifacts-dir empty-path]"
       exit 0
       ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
@@ -23,11 +25,34 @@ done
 [[ "$compactions" =~ ^[0-9]+$ && "$compactions" -ge 10 ]] || { echo "compactions must be an integer >= 10" >&2; exit 2; }
 [[ "$fault_matrix" == "all" ]] || { echo "only --fault-matrix all is supported" >&2; exit 2; }
 
-root="$(mktemp -d "${TMPDIR:-/tmp}/pi-vcc-continuation-soak.XXXXXX")"
+preserve_artifacts=0
+if [[ -n "$artifacts_dir" ]]; then
+  root="$(python3 - "$artifacts_dir" <<'PY'
+from pathlib import Path
+import sys
+print(Path(sys.argv[1]).expanduser().resolve())
+PY
+)"
+  if [[ -e "$root" ]]; then
+    [[ -d "$root" ]] || { echo "--artifacts-dir must be a directory: $root" >&2; exit 2; }
+    [[ -z "$(find "$root" -mindepth 1 -maxdepth 1 -print -quit)" ]] || {
+      echo "--artifacts-dir must be empty: $root" >&2
+      exit 2
+    }
+  else
+    mkdir -p "$root"
+  fi
+  preserve_artifacts=1
+  echo "pi-vcc soak artifacts: $root"
+else
+  root="$(mktemp -d "${TMPDIR:-/tmp}/pi-vcc-continuation-soak.XXXXXX")"
+fi
 cleanup_on_success=0
 finish() {
   status=$?
-  if [[ $status -eq 0 && $cleanup_on_success -eq 1 ]]; then
+  if [[ $preserve_artifacts -eq 1 ]]; then
+    :
+  elif [[ $status -eq 0 && $cleanup_on_success -eq 1 ]]; then
     rm -rf "$root"
   else
     echo "pi-vcc soak artifacts preserved: $root" >&2

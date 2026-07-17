@@ -334,6 +334,39 @@ describe("continuation state machine", () => {
 		).toBe("settled");
 	});
 
+	it("defers a reached no-tool progress deadline without claiming progress", () => {
+		const snapshot = {
+			...progressed(),
+			lastProgressAt: 150,
+			pendingToolCount: 0,
+			progressDeadlineAt: 200,
+			deadlineAt: 200,
+		};
+		const deferred = transitionContinuation(snapshot, {
+			type: "progress_deadline_deferred",
+			at: 200,
+			progressDeadlineAt: 260,
+		});
+		expect(deferred.disposition).toBe("applied");
+		expect(deferred.decision).toBe("none");
+		expect(deferred.snapshot).toMatchObject({
+			state: "progressed",
+			lastProgressAt: 150,
+			lastAssistantResult: "progress",
+			pendingToolCount: 0,
+			progressDeadlineAt: 260,
+			deadlineAt: 260,
+			phaseEpoch: (snapshot.phaseEpoch ?? 0) + 1,
+		});
+		expect(
+			transitionContinuation(snapshot, {
+				type: "progress_deadline_deferred",
+				at: 199,
+				progressDeadlineAt: 259,
+			}).disposition,
+		).toBe("ignored_stale");
+	});
+
 	it("can reach each terminal state exactly once", () => {
 		const terminalSnapshots = [
 			step(progressed(), { type: "agent_settled", at: 160 }),

@@ -263,7 +263,13 @@ def continuation_message_details(entry: dict[str, Any]) -> dict[str, Any] | None
     return None
 
 
-def audit(sessions: list[Path], logs: list[Path], require_terminal: bool, since: float | None = None) -> list[str]:
+def audit(
+    sessions: list[Path],
+    logs: list[Path],
+    require_terminal: bool,
+    since: float | None = None,
+    require_min_transactions: int = 0,
+) -> list[str]:
     findings: list[str] = []
     requests: dict[str, tuple[Path, int, dict[str, Any]]] = {}
     outcomes: dict[str, tuple[Path, int, dict[str, Any]]] = {}
@@ -378,6 +384,10 @@ def audit(sessions: list[Path], logs: list[Path], require_terminal: bool, since:
 
     if logs and not sessions and strict_log_candidates == 0:
         findings.append("log-only audit requires at least one auditable continuation record")
+    if len(requests) < require_min_transactions:
+        findings.append(
+            f"minimum continuation transaction requirement not met: expected at least {require_min_transactions}, found {len(requests)}"
+        )
     if require_terminal:
         for tx in sorted(set(requests) - set(outcomes)):
             findings.append(f"nonterminal durable session transaction: {tx}")
@@ -676,7 +686,23 @@ def self_test() -> list[str]:
 
         if parse_since("24h", now=100_000) != 13_600:
             return ["self-test relative --since parsing failed"]
+        passing_minimum = audit([branch_a], [], True, require_min_transactions=1)
+        if any("minimum continuation transaction" in finding for finding in passing_minimum):
+            return ["self-test rejected a satisfied --require-min-transactions gate"]
+        minimum_findings = audit([branch_a], [], True, require_min_transactions=2)
+        if not any("expected at least 2, found 1" in finding for finding in minimum_findings):
+            return ["self-test did not enforce --require-min-transactions"]
     return []
+
+
+def positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
 
 
 def main() -> int:
@@ -684,6 +710,12 @@ def main() -> int:
     parser.add_argument("--sessions", action="append", default=[], help="Session JSONL file or directory (repeatable)")
     parser.add_argument("--log", action="append", default=[], help="Mixed/shared JSONL log (repeatable)")
     parser.add_argument("--require-terminal", action="store_true", help="Require every persisted request to have a durable session outcome")
+    parser.add_argument(
+        "--require-min-transactions",
+        type=positive_int,
+        default=0,
+        help="Require at least this many durable continuation requests",
+    )
     parser.add_argument("--since", help="Bound the audit to a relative window such as 24h/7d or an ISO-8601 timestamp")
     parser.add_argument("--self-test", action="store_true", help="Run deterministic fixture tests")
     args = parser.parse_args()
@@ -698,6 +730,7 @@ def main() -> int:
                 [Path(item) for item in args.log],
                 args.require_terminal,
                 parse_since(args.since),
+                args.require_min_transactions,
             )
         except ValueError as exc:
             print(f"audit error: {exc}", file=sys.stderr)

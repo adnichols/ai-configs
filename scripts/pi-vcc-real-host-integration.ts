@@ -1,19 +1,39 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const args = process.argv.slice(2);
-const option = (name: string, fallback: string) => {
-  const index = args.indexOf(name);
-  return index >= 0 ? args[index + 1] ?? fallback : fallback;
-};
-const candidateName = option("--candidate", "source");
-const cases = option("--cases", "all");
-const sessionMode = option("--session-mode", "file-backed");
-const providerName = option("--provider", "deterministic-fake");
+const values = new Map<string, string>();
+const allowedOptions = new Set(["--candidate", "--cases", "--session-mode", "--provider", "--artifacts-dir"]);
+for (let index = 0; index < args.length; index += 2) {
+  const name = args[index];
+  const value = args[index + 1];
+  if (!name || !allowedOptions.has(name) || !value || value.startsWith("--")) {
+    throw new Error("Usage: --candidate source|installed --cases all --session-mode file-backed --provider deterministic-fake [--artifacts-dir empty-path]");
+  }
+  values.set(name, value);
+}
+const candidateName = values.get("--candidate") ?? "source";
+const cases = values.get("--cases") ?? "all";
+const sessionMode = values.get("--session-mode") ?? "file-backed";
+const providerName = values.get("--provider") ?? "deterministic-fake";
 if (!["source", "installed"].includes(candidateName) || cases !== "all" || sessionMode !== "file-backed" || providerName !== "deterministic-fake") {
-  throw new Error("Usage: --candidate source|installed --cases all --session-mode file-backed --provider deterministic-fake");
+  throw new Error("Usage: --candidate source|installed --cases all --session-mode file-backed --provider deterministic-fake [--artifacts-dir empty-path]");
+}
+const requestedArtifactsDir = values.get("--artifacts-dir");
+let root = "";
+if (requestedArtifactsDir) {
+  root = resolve(requestedArtifactsDir);
+  if (existsSync(root)) {
+    if (!statSync(root).isDirectory() || readdirSync(root).length !== 0) {
+      throw new Error(`--artifacts-dir must be nonexistent or an empty directory: ${root}`);
+    }
+  } else {
+    mkdirSync(root, { recursive: true });
+  }
+  root = realpathSync(root);
+  console.log(`pi-vcc real-host artifacts: ${root}`);
 }
 
 const candidate = resolve(candidateName === "source"
@@ -38,12 +58,14 @@ const faux = await import(pathToFileURL(join(dependencyRoot, "@earendil-works/pi
 const typebox = await import(pathToFileURL(join(dependencyRoot, "typebox/build/index.mjs")).href);
 const protocol = await import(pathToFileURL(join(candidate, "src/core/continuation-protocol.ts")).href);
 const { PI_VCC_LOAD_MARKER } = await import(pathToFileURL(join(candidate, "index.ts")).href);
-if (typeof runtime.createAgentSession !== "function" || typeof runtime.SessionManager?.create !== "function") {
-  throw new Error("Pi runtime does not expose createAgentSession and SessionManager");
+if (typeof runtime.createAgentSession !== "function" || typeof runtime.SessionManager?.create !== "function" || typeof runtime.ModelRuntime?.create !== "function") {
+  throw new Error("Pi runtime does not expose createAgentSession, SessionManager, and ModelRuntime");
 }
 
-const root = mkdtempSync(join(tmpdir(), "pi-vcc-real-host-"));
-process.env.PI_VCC_LOG_PATH = join(root, "pi-vcc.jsonl");
+if (!root) root = mkdtempSync(join(tmpdir(), "pi-vcc-real-host-"));
+mkdirSync(join(root, "sessions"), { recursive: true });
+mkdirSync(join(root, "logs"), { recursive: true });
+process.env.PI_VCC_LOG_PATH = join(root, "logs", "pi-vcc.jsonl");
 const originalSetTimeout = globalThis.setTimeout;
 const scaledSetTimeout = ((callback: (...args: any[]) => void, delay?: number, ...timerArgs: any[]) => {
   const requested = delay ?? 0;
@@ -74,6 +96,7 @@ interface Host {
   core: any;
   events: Array<{ type: string; transactionId?: string; persistedAtEvent?: boolean }>;
   request(transactionId: string, deadlineMs?: number): any;
+  flushArtifacts(): void;
   dispose(): void;
 }
 
@@ -83,9 +106,9 @@ const createHost = async (
   options: { suppressContinuationMessageStartForExtensions?: boolean; packagePaths?: string[] } = {},
 ): Promise<Host> => {
   hostOrdinal += 1;
-  const hostRoot = join(root, `host-${hostOrdinal}`);
-  const sessionDir = join(hostRoot, "sessions");
-  const agentDir = join(hostRoot, "agent");
+  const hostRoot = join(root, "hosts", `host-${hostOrdinal}`);
+  const sessionDir = join(root, "sessions", `host-${hostOrdinal}`);
+  const agentDir = join(root, "agents", `host-${hostOrdinal}`);
   mkdirSync(sessionDir, { recursive: true });
   mkdirSync(agentDir, { recursive: true });
   writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: options.packagePaths ?? [candidate], extensions: [] }));
@@ -104,25 +127,17 @@ const createHost = async (
     }],
     tokensPerSecond: 100_000,
   });
-  const authStorage = runtime.AuthStorage.inMemory();
-  authStorage.setRuntimeApiKey(core.provider, "deterministic-no-network-key");
-  const modelRegistry = runtime.ModelRegistry.inMemory(authStorage);
-  modelRegistry.registerProvider(core.provider, {
+  const modelRuntime = await runtime.ModelRuntime.create({
+    modelsPath: null,
+    allowModelNetwork: false,
+  });
+  await modelRuntime.setRuntimeApiKey(core.provider, "deterministic-no-network-key");
+  modelRuntime.registerProvider(core.provider, {
     api: core.api,
     baseUrl: "http://127.0.0.1:0",
     apiKey: "deterministic-no-network-key",
     streamSimple: core.streamSimple,
-    models: core.models.map((model: any) => ({
-      id: model.id,
-      name: model.name,
-      api: model.api,
-      baseUrl: model.baseUrl,
-      reasoning: model.reasoning,
-      input: model.input,
-      cost: model.cost,
-      contextWindow: model.contextWindow,
-      maxTokens: model.maxTokens,
-    })),
+    models: core.models,
   });
 
   const sessionManager = runtime.SessionManager.create(hostRoot, sessionDir);
@@ -137,7 +152,7 @@ const createHost = async (
     cwd: hostRoot,
     agentDir,
     model: core.getModel(),
-    modelRegistry,
+    modelRuntime,
     sessionManager,
     tools: customTools.length ? ["host_progress_tool"] : [],
     customTools,
@@ -207,7 +222,14 @@ const createHost = async (
         retryLimit: 2,
       }, session._extensionRunner.createContext());
     },
+    flushArtifacts() {
+      const sessionFile = sessionManager.getSessionFile();
+      if (sessionFile && !existsSync(sessionFile)) {
+        sessionManager.appendMessage(faux.fauxAssistantMessage("real-host validation artifact flush"));
+      }
+    },
     dispose() {
+      this.flushArtifacts();
       (globalThis as any)[PI_VCC_LOAD_MARKER]?.coordinator?.dispose?.();
       session.dispose();
       delete (globalThis as any)[PI_VCC_LOAD_MARKER];
@@ -220,6 +242,20 @@ const durableMessages = (host: Host, transactionId: string) => host.sessionManag
   entry.type === "custom_message" && entry.customType === protocol.CONTINUATION_MESSAGE_CUSTOM_TYPE && entry.details?.transactionId === transactionId);
 const outcomes = (host: Host, transactionId: string) => host.sessionManager.getBranch().filter((entry: any) =>
   entry.type === "custom" && entry.customType === protocol.CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE && entry.data?.transactionId === transactionId);
+const snapshots = (host: Host, transactionId: string) => host.sessionManager.getBranch().filter((entry: any) =>
+  entry.type === "custom" && entry.customType === protocol.CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE && entry.data?.snapshot?.transactionId === transactionId);
+const transactionLogRecords = (transactionId: string) => {
+  try {
+    return readFileSync(process.env.PI_VCC_LOG_PATH!, "utf8")
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line))
+      .filter((record) => record.transactionId === transactionId);
+  } catch {
+    return [];
+  }
+};
 
 const REQUIRED_REAL_HOST_CASES = [
   "duplicate-package-discovery-singleton",
@@ -230,6 +266,8 @@ const REQUIRED_REAL_HOST_CASES = [
   "missing-tool-completion-stall-recovery",
   "durable-top-level-custom-message",
   "postaccept-tool-activity-over-60s",
+  "active-inference-over-progress-deadline",
+  "high-frequency-tool-checkpoint-reload",
   "queued-activation-full-budget",
   "status-neutral-model-driving-supersession",
   "abort-backoff-persisted-acceptance",
@@ -269,6 +307,10 @@ try {
     if (reloadRequests.length !== 1 || durableMessages(host, "reload-singleton").length !== 0) {
       throw new Error("reload singleton path duplicated request publication or submitted while tool-unsafe");
     }
+    await host.session._extensionRunner.emit({ type: "session_shutdown", reason: "new" });
+    if (outcomes(host, "reload-singleton").length !== 1) {
+      throw new Error("reload singleton validation transaction did not terminalize for artifact audit");
+    }
     host.dispose();
 
     const duplicateAlias = join(root, "pi-vcc-duplicate-alias");
@@ -295,6 +337,7 @@ try {
     if ((globalThis as any)[PI_VCC_LOAD_MARKER] !== undefined || outcomes(oldHost, "new-replacement-old").length !== 1) {
       throw new Error("actual new-session shutdown did not terminalize old work and release singleton ownership");
     }
+    oldHost.flushArtifacts();
     oldHost.session.dispose();
 
     const replacement = await createHost();
@@ -476,6 +519,94 @@ try {
     host.dispose();
   });
 
+  registerCase("active-inference-over-progress-deadline", async () => {
+    let inferenceStarted = false;
+    let releaseInference!: () => void;
+    const heldInference = new Promise<void>((resolveInference) => { releaseInference = resolveInference; });
+    const host = await createHost(async () => ({
+      content: [{ type: "text", text: "tool completed before slow inference" }],
+      details: {},
+    }));
+    host.core.setResponses([
+      faux.fauxAssistantMessage([faux.fauxToolCall("host_progress_tool", {}, { id: "active-inference-tool" })], { stopReason: "toolUse" }),
+      async () => {
+        inferenceStarted = true;
+        await heldInference;
+        return faux.fauxAssistantMessage("slow post-tool inference completed");
+      },
+    ]);
+    host.request("active-inference");
+    await waitFor("slow post-tool provider inference", () => inferenceStarted);
+    if (host.ctx.isIdle()) throw new Error("real host reported idle during active provider inference");
+    const snapshotsBeforeDeadline = snapshots(host, "active-inference").length;
+    const logsBeforeDeadline = transactionLogRecords("active-inference").length;
+    await sleep(75);
+    const active = host.coordinator.getPending();
+    if (active?.state !== "progressed" || active.pendingToolCount !== 0 || outcomes(host, "active-inference").length !== 0) {
+      throw new Error(`active inference lost continuation ownership: ${JSON.stringify(active)}`);
+    }
+    if (snapshots(host, "active-inference").length !== snapshotsBeforeDeadline + 1 || transactionLogRecords("active-inference").length !== logsBeforeDeadline + 1) {
+      throw new Error("active inference deadline did not produce exactly one durable deferral checkpoint");
+    }
+    releaseInference();
+    await waitFor("active inference settlement", () => outcomes(host, "active-inference").length === 1);
+    if (outcomes(host, "active-inference")[0]?.data?.terminalState !== "settled") {
+      throw new Error("active inference did not settle successfully after provider completion");
+    }
+    host.dispose();
+  });
+
+  registerCase("high-frequency-tool-checkpoint-reload", async () => {
+    let updatesEmitted = 0;
+    let releaseTool!: () => void;
+    const heldTool = new Promise<void>((resolveTool) => { releaseTool = resolveTool; });
+    const host = await createHost(async (_id, _params, _signal, onUpdate) => {
+      for (let index = 0; index < 200; index += 1) {
+        updatesEmitted += 1;
+        onUpdate?.({ content: [{ type: "text", text: `stream-${index}` }], details: {} });
+      }
+      await heldTool;
+      return { content: [{ type: "text", text: "high-frequency tool complete" }], details: {} };
+    });
+    host.core.setResponses([
+      faux.fauxAssistantMessage([faux.fauxToolCall("host_progress_tool", {}, { id: "high-frequency-tool" })], { stopReason: "toolUse" }),
+      faux.fauxAssistantMessage("high-frequency continuation complete"),
+    ]);
+    host.request("high-frequency-reload");
+    await waitFor("high-frequency tool updates", () => updatesEmitted === 200);
+    await sleep(20);
+    const snapshotsBeforeReload = snapshots(host, "high-frequency-reload").length;
+    const logsBeforeReload = transactionLogRecords("high-frequency-reload").length;
+    if (snapshotsBeforeReload > 8 || logsBeforeReload !== snapshotsBeforeReload + 1) {
+      throw new Error(`high-frequency writes were not bounded before reload: snapshots=${snapshotsBeforeReload} logs=${logsBeforeReload}`);
+    }
+
+    const reloadAt = Date.now();
+    await host.session.reload();
+    await waitFor("active-tool replacement coordinator", () => Boolean(host.coordinator));
+    host.coordinator.reconcile(host.ctx);
+    const restored = host.coordinator.getPending();
+    if (
+      restored?.transactionId !== "high-frequency-reload" ||
+      restored.state !== "progressed" ||
+      restored.pendingToolCount !== 1 ||
+      (restored.toolStallDeadlineAt ?? 0) < reloadAt + 899_000
+    ) {
+      throw new Error(`active-tool reload did not grant a fresh stall interval: restored=${JSON.stringify(restored)} outcomes=${JSON.stringify(outcomes(host, "high-frequency-reload").map((entry: any) => entry.data))} snapshots=${JSON.stringify(snapshots(host, "high-frequency-reload").map((entry: any) => entry.data?.snapshot))}`);
+    }
+    if (snapshots(host, "high-frequency-reload").length !== snapshotsBeforeReload || transactionLogRecords("high-frequency-reload").length !== logsBeforeReload) {
+      throw new Error("active-tool reload persisted synthetic liveness instead of retaining bounded durable evidence");
+    }
+    releaseTool();
+    await waitFor("high-frequency reload settlement", () => outcomes(host, "high-frequency-reload").length === 1);
+    const finalSnapshots = snapshots(host, "high-frequency-reload").length;
+    const finalLogs = transactionLogRecords("high-frequency-reload").length;
+    if (finalSnapshots > snapshotsBeforeReload + 4 || finalLogs !== finalSnapshots + 1) {
+      throw new Error(`high-frequency terminal writes exceeded material-transition bound: snapshots=${finalSnapshots} logs=${finalLogs}`);
+    }
+    host.dispose();
+  });
+
   registerCase("queued-activation-full-budget", async () => {
     const host = await createHost();
     host.core.setResponses([
@@ -553,8 +684,10 @@ try {
       attemptId: "v1-reload-attempt", requestId: "v1-reload-request", originatingRequestId: "v1-reload-origin", resumePolicy: "active",
       state: "created", createdAt: Date.now(), deadlineAt: Date.now() + 15_000, pendingToolCount: 0, submissionCount: 0, retryCount: 0, retryLimit: 2, epochs,
     };
-    const progressed = { ...created, state: "progressed", submissionCount: 1, acceptedAt: created.createdAt + 1, lastProgressAt: created.createdAt + 2, lastAssistantResult: "progress" };
+    const submitted = { ...created, state: "submitted", submissionCount: 1, submittedAt: created.createdAt + 1 };
+    const progressed = { ...submitted, state: "progressed", acceptedAt: created.createdAt + 2, lastProgressAt: created.createdAt + 3, lastAssistantResult: "progress" };
     host.sessionManager.appendCustomEntry(protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE, { protocol: protocol.CONTINUATION_PROTOCOL_NAME, version: 1, kind: "request", snapshot: created });
+    host.sessionManager.appendCustomEntry(protocol.CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE, { protocol: protocol.CONTINUATION_PROTOCOL_NAME, version: 1, kind: "snapshot", snapshot: submitted });
     host.sessionManager.appendCustomEntry(protocol.CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE, { protocol: protocol.CONTINUATION_PROTOCOL_NAME, version: 1, kind: "snapshot", snapshot: progressed });
     host.sessionManager.appendCustomMessageEntry(protocol.CONTINUATION_MESSAGE_CUSTOM_TYPE, "legacy continuation", false, {
       protocol: protocol.CONTINUATION_PROTOCOL_NAME, version: 1, transactionId: "v1-reload", attemptId: "v1-reload-attempt", submissionCount: 1,
@@ -583,7 +716,7 @@ try {
     await run();
   }
 
-  const sessionFiles = Array.from({ length: hostOrdinal }, (_, index) => join(root, `host-${index + 1}`, "sessions"));
+  const sessionFiles = Array.from({ length: hostOrdinal }, (_, index) => join(root, "sessions", `host-${index + 1}`));
   const persistedText = sessionFiles.flatMap((directory) => {
     try {
       return Array.from(new Bun.Glob("**/*.jsonl").scanSync({ cwd: directory, absolute: true })).map((path) => readFileSync(path, "utf8"));
@@ -600,6 +733,6 @@ try {
   const owner = (globalThis as any)[PI_VCC_LOAD_MARKER];
   owner?.coordinator?.dispose?.();
   delete (globalThis as any)[PI_VCC_LOAD_MARKER];
-  if (process.env.PI_VCC_KEEP_REAL_HOST_ARTIFACTS !== "1") rmSync(root, { recursive: true, force: true });
-  else console.log(`pi-vcc real-host artifacts: ${root}`);
+  if (!requestedArtifactsDir && process.env.PI_VCC_KEEP_REAL_HOST_ARTIFACTS !== "1") rmSync(root, { recursive: true, force: true });
+  else if (!requestedArtifactsDir) console.log(`pi-vcc real-host artifacts: ${root}`);
 }

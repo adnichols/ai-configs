@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi VCC Active Progress and Snapshot Checkpointing Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a1020;
+      --panel: #121a2c;
+      --panel-2: #18243b;
+      --text: #eef4ff;
+      --muted: #aab7d0;
+      --accent: #7dd3fc;
+      --accent-2: #a7f3d0;
+      --warning: #fbbf24;
+      --danger: #fda4af;
+      --border: #2a3958;
+      --code: #080d18;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: min(1500px, 100%); margin: 0 auto; padding: 32px clamp(20px, 4vw, 64px) 72px; }
+    h1, h2, h3 { line-height: 1.2; scroll-margin-top: 24px; }
+    h1 { font-size: clamp(2rem, 4vw, 3.4rem); margin-bottom: 8px; }
+    h2 { margin-top: 0; color: var(--accent); }
+    h3 { color: var(--accent-2); }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: var(--code); padding: 0.12rem 0.35rem; border-radius: 5px; }
+    pre { overflow-x: auto; white-space: pre-wrap; background: var(--code); padding: 16px; border: 1px solid var(--border); border-radius: 10px; }
+    section, article { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin: 18px 0; }
+    article.phase { background: var(--panel-2); }
+    .muted { color: var(--muted); }
+    .status { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+    .pill { border: 1px solid var(--border); border-radius: 999px; padding: 6px 11px; background: var(--panel-2); }
+    .pill.ready { color: var(--accent-2); }
+    .pill.warning { color: var(--warning); }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px 20px; }
+    .toc a { display: block; padding: 5px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { text-align: left; vertical-align: top; border: 1px solid var(--border); padding: 10px; }
+    th { background: #1a2945; }
+    .callout { border-left: 5px solid var(--warning); background: #211d12; }
+    .danger { border-left-color: var(--danger); background: #26151c; }
+    .criteria td:first-child, .scenarios td:first-child { white-space: nowrap; font-weight: 700; color: var(--accent-2); }
+    .progress label { display: block; margin: 8px 0; }
+    ul, ol { padding-left: 1.4rem; }
+  </style>
+</head>
+<body>
+<main>
+  <header id="title">
+    <h1>Pi VCC Active Progress and Snapshot Checkpointing</h1>
+    <p class="muted">Post-deploy reliability follow-up for false 60-second continuation failures and high-frequency continuation snapshot amplification.</p>
+    <div class="status">
+      <span class="pill ok">Status: Execution ready; implementation in progress</span>
+      <span class="pill">Date: 2026-07-17</span>
+      <span class="pill">Scope: pi-vcc continuation coordinator and validation</span>
+      <span class="pill warning">UI impact: no UI implementation; false-warning suppression only</span>
+    </div>
+  </header>
+
+  <nav aria-labelledby="toc-heading">
+    <section>
+      <h2 id="toc-heading">Table of contents</h2>
+      <div class="toc">
+        <a href="#product-owner-context">Product-owner context</a>
+        <a href="#goal">Goal</a>
+        <a href="#decision-attention">Decision Attention</a>
+        <a href="#why-now">Why this plan exists</a>
+        <a href="#authority">Authority and inputs</a>
+        <a href="#reality">Current implementation reality</a>
+        <a href="#red-evidence">Pre-execution RED evidence</a>
+        <a href="#progress">Progress</a>
+        <a href="#resume">Resume instructions</a>
+        <a href="#product-intent">Product intent alignment</a>
+        <a href="#locked-decisions">Locked decisions</a>
+        <a href="#acceptance">Acceptance criteria</a>
+        <a href="#bdd">BDD scenarios</a>
+        <a href="#phase-p1">P1 — Active-host timeout semantics</a>
+        <a href="#phase-p2">P2 — Durable liveness checkpointing</a>
+        <a href="#phase-p3">P3 — Runtime validation and rollout</a>
+        <a href="#verification">Verification strategy</a>
+        <a href="#coverage-matrix">Test coverage matrix</a>
+        <a href="#delivery">Delivery order</a>
+        <a href="#non-goals">Non-goals</a>
+        <a href="#review-record">Review record</a>
+        <a href="#deviations">Decisions / Deviations log</a>
+      </div>
+    </section>
+  </nav>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <p><strong>Situation:</strong> Pi VCC resumes long-running work after context compaction by tracking a continuation transaction. The latest deployment fixed lost acceptance and tool-progress attribution, but post-deploy sessions exposed two narrower defects in the same coordinator.</p>
+    <p><strong>Why now:</strong> the conservative post-deploy audit found 13 continuation transactions. Two were marked <code>failed_loudly</code> exactly 60 seconds after their last tool completed even though the model was still generating the next response; normal assistant work appeared 4.6 and 16 seconds after the false warnings. Separately, those 13 transactions produced 34,114 continuation snapshots, including 27,136 snapshots in one 43-minute transaction, and expanded the shared pi-vcc log to roughly 70 MB.</p>
+    <p><strong>Key conclusion:</strong> both are shipped runtime defects, not stale tests. Continuation delivery is succeeding, but the coordinator confuses active model inference with inactivity and durably records every streaming tool update instead of checkpointing liveness at a bounded cadence.</p>
+    <table>
+      <thead><tr><th>Impact dimension</th><th>Assessment</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>Internal/operator-facing today. Long tasks show false failure warnings and may release continuation ownership while work is still active.</td></tr>
+        <tr><td>Runtime product behavior</td><td>Changed. Active host work retains ownership beyond the fixed 60-second interval; streaming tool liveness remains exact in memory but is checkpointed durably.</td></tr>
+        <tr><td>Security / permissions</td><td>No change. No new data fields, credentials, permissions, message content, or tool identifiers are persisted.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Changed materially. Two deterministic RED regressions already reproduce the live failures, and the real-host/soak gates gain active-inference and write-amplification assertions.</td></tr>
+        <tr><td>Deployment / migration</td><td>No schema or destructive migration. Existing protocol versions remain valid. The planned rollout target is the complete precursor footprint—mbp and dever—from the same committed candidate, installed only through scoped <code>./install.sh --pi-vcc</code> with per-host byte-preserved rollback evidence.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Keep continuation ownership truthful and bounded: never fail an accepted continuation while Pi reports that its next model turn is still active, preserve exact in-memory tool-stall freshness, and reduce durable session/log writes from one per streaming update to one bounded liveness checkpoint per interval without weakening reload or terminal-state recovery.</p>
+  </section>
+
+  <section id="decision-attention" class="callout">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <p><strong>No product decision required.</strong> The host already exposes <code>ExtensionContext.isIdle()</code>, and the deployed coordinator already uses it to gate retry submission. The same host truth should prevent active inference from being terminalized as inactivity.</p>
+    <p><strong>Locked review focus:</strong> reviewers should pressure-test the 30-second durable liveness checkpoint and its reload bound. The proposed default is deliberately far below the 15-minute production tool-stall ceiling, while the effective interval is capped at half of any shorter configured stall deadline so tests or future configurations cannot persist a deadline that is already unsafe on reload.</p>
+    <p><strong>Rollout target:</strong> mbp and dever are both in scope for the later execution workflow because the completed precursor deployed and validated this shared coordinator on both hosts. This planning decision does not authorize installation in the current planning-only workflow.</p>
+    <p><strong>Resolved review-convergence blocker:</strong> temporary peer dependencies run only inside a bounded test subshell whose exit trap removes package <code>node_modules</code>. Every identity and install gate then removes and asserts absence of that directory. The shared package-tree identity algorithm covers every copied entry by type, relative path, and permission mode, hashes regular-file content, and rejects symlinks or special files before mutation. Installer tests inject directory and file symlinks and prove fail-before-mutation behavior, so two hosts cannot certify different payloads behind one hash. Doct v12 received independent <code>PLAN_EXECUTION_READY</code> verdicts from Codex and Claude plus final PM <code>EXECUTION_READY</code> closure.</p>
+  </section>
+
+  <section id="why-now">
+    <h2>Why this plan exists</h2>
+    <ul>
+      <li>The July 14 remediation correctly separated acceptance, progress, and tool-stall timers, but the no-tool progress deadline still terminalizes unconditionally when its timer fires.</li>
+      <li><code>agent_start</code> and <code>turn_start</code> increment diagnostic epochs but do not cancel or defer the progress deadline. A provider response taking more than 60 seconds after a tool result is therefore classified as dead work.</li>
+      <li>Every correlated <code>tool_execution_update</code> calls the normal transition path. Every applied transition appends a full snapshot and a full transaction log record, so a tool emitting updates every roughly 250 ms creates four durable records per second.</li>
+      <li>The resulting session growth can immediately recreate context pressure after compaction and makes runtime audits unnecessarily expensive, even when continuation delivery itself succeeds.</li>
+    </ul>
+  </section>
+
+  <section id="authority">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>User request: audit all Pi sessions since the last pi-vcc deploy, diagnose continuation errors, build deterministic reproductions for both active defects, and produce a reviewed execution-ready plan without implementing production fixes.</li>
+      <li>Conservative deployment boundary: percentage-compaction extension refresh at 2026-07-16 18:35 MDT.</li>
+      <li>Post-deploy audit: 30 compactions, 13 active-work continuations, zero assistant <code>stopReason=error</code> events, zero post-refresh <code>compaction_failed</code> events, two false <code>deadline_expired</code> terminalizations, and 34,114 snapshots.</li>
+      <li>Runtime evidence: the affected transactions resumed normal assistant/tool activity after the warning, proving the coordinator lost ownership before the host stopped.</li>
+      <li>Repository authority: root <code>AGENTS.md</code>; completed precursor plan <code>thoughts/plans/pi-vcc-continuation-interruption-remediation.html</code>; current coordinator, transition, protocol, log, unit, real-host, soak, audit, verifier, and installer surfaces.</li>
+      <li>Current base: <code>c1c2582</code> before this plan/test-only change.</li>
+    </ul>
+  </section>
+
+  <section id="reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>DEFAULT_IDLE_PROGRESS_DEADLINE_MS = 60_000</code>. After the last correlated tool finishes, the coordinator arms <code>progressDeadlineAt</code>.</li>
+      <li>The progress timer callback applies <code>progress_deadline</code> without consulting <code>ctx.isIdle()</code>. The pure transition then writes <code>failed_loudly: deadline_expired</code>.</li>
+      <li><code>agent_start</code> and <code>turn_start</code> are subscribed but only increment lifecycle epochs; ordinary model inference produces no persisted progress until an assistant result is available.</li>
+      <li><code>tool_execution_update</code> correctly correlates the active tool ID and refreshes the in-memory tool-stall deadline, but it calls <code>apply()</code>.</li>
+      <li><code>apply()</code> persists every applied transition through <code>pi.appendEntry()</code> and <code>logContinuationTransaction()</code>. There is no distinction between material state changes and high-frequency liveness refreshes.</li>
+      <li>The persisted protocol shape already contains all required state. The defect is write policy, so a protocol-version bump would add migration risk without adding information.</li>
+    </ul>
+  </section>
+
+  <section id="red-evidence" class="danger">
+    <h2>Pre-execution RED evidence</h2>
+    <p><strong>Immutable regression file:</strong> <code>_pi/packages/pi-vcc/tests/coordinator.test.ts</code>. Production code was not changed.</p>
+    <table>
+      <thead><tr><th>RED test</th><th>Live failure reproduced</th><th>Observed current result</th></tr></thead>
+      <tbody>
+        <tr id="red-active-host"><td><code>does not expire accepted progress while the host is still running the next model turn</code></td><td>An accepted transaction completes its tool, Pi starts the next turn, the host remains non-idle, and the 60-second timer fires before the model emits its next assistant message.</td><td>Expected <code>progressed</code>; received <code>failed_loudly</code>.</td></tr>
+        <tr id="red-checkpoint"><td><code>checkpoints correlated tool liveness without persisting every update</code></td><td>A correlated streaming tool refreshes its 15-minute stall deadline repeatedly before the 30-second durable checkpoint boundary.</td><td>Expected snapshot count to remain 4; received 12 after eight updates.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Full-suite isolation:</strong> the coordinator suite currently reports 69 passing tests and exactly these two expected failures. The temporary peer-dependency links used to run the package tests were removed afterward.</p>
+    <pre><code>runtime_root="$(dirname "$(dirname "$(realpath "$(command -v pi)")")")"
+pkg="_pi/packages/pi-vcc"
+trap 'rm -rf "$pkg/node_modules"' EXIT
+mkdir -p "$pkg/node_modules/@earendil-works"
+ln -s "$runtime_root" "$pkg/node_modules/@earendil-works/pi-coding-agent"
+ln -s "$runtime_root/node_modules/typebox" "$pkg/node_modules/typebox"
+bun test "$pkg/tests/coordinator.test.ts"</code></pre>
+  </section>
+
+  <section id="progress" class="progress">
+    <h2>Progress</h2>
+    <label><input type="checkbox" checked disabled /> P1 — Preserve ownership while the host remains active</label>
+    <label><input type="checkbox" checked disabled /> P2 — Checkpoint streaming tool liveness without per-update persistence</label>
+    <label><input type="checkbox" disabled /> P3 — Validate source and installed runtime behavior</label>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions (agent)</h2>
+    <p>Read this plan fully, inspect the current diff, and start at the first unchecked Progress item. Treat the two named RED tests as immutable behavioral contracts: do not edit, relax, skip, or replace them unless the user changes the requirement. Complete each phase, run its Verify commands, update the matching checkbox immediately, and append any evidence-driven deviation. Do not broaden this follow-up into protocol migration, compaction policy, audit redesign, or upstream uptake.</p>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <ul>
+      <li><strong>Golden path:</strong> compaction remains invisible recovery infrastructure; a slow provider response after tool completion does not ask the operator to send “continue.”</li>
+      <li><strong>Self-healing:</strong> when the progress timer fires during active host work, the coordinator retains ownership and re-arms a bounded check automatically.</li>
+      <li><strong>Fail-closed boundary:</strong> an idle host with no correlated progress by the deadline still produces the existing durable, actionable failure. Session replacement, real user input, tool stall, retry, and terminal semantics do not weaken.</li>
+      <li><strong>Truthful durability:</strong> live deadline state remains exact in memory; durable checkpoints bound reload staleness without pretending every streaming update is a distinct workflow milestone.</li>
+      <li><strong>UI impact:</strong> no UI implementation. The only observable text impact is suppression of the false warning while work is active; true failure/stall warning copy remains unchanged.</li>
+      <li><strong>Repository alignment:</strong> existing unit, real-host, soak, audit, install, and source/installed hash gates remain the release path; no manual live-file patching is introduced.</li>
+    </ul>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li><strong>Host activity is the timeout authority.</strong> At a no-tool progress deadline, <code>ctx.isIdle() === false</code> means Pi is still running the turn. The coordinator must retain ownership and must not emit a terminal outcome or warning.</li>
+      <li><strong>Lifecycle starts remain diagnostic.</strong> <code>agent_start</code> and <code>turn_start</code> do not themselves prove successful progress or settlement. They may update epochs, but the timeout decision uses current host activity and the successful terminal boundary remains <code>agent_settled</code> after progress.</li>
+      <li><strong>Active deferral is bounded and durable.</strong> When a progress deadline fires at time <code>at</code> while the host is active, persist exactly one snapshot and matching transaction-log record with unchanged state, <code>lastProgressAt</code>, pending count, and assistant result; set <code>progressDeadlineAt = deadlineAt = at + idleProgressDeadlineMs</code>; increment the phase epoch; emit no outcome or warning; and arm the persisted remaining interval. Rehydrate computes <code>max(0, deadlineAt - now())</code>; a past-due restored deadline therefore fires immediately and re-evaluates current host activity rather than reusing the old decision. If the host later becomes idle without a qualifying settlement/progress event, the next deadline preserves the existing fail-loudly path.</li>
+      <li><strong>Only high-frequency tool updates are coalesced.</strong> Requests, activation, submission, acceptance, assistant results, tool starts, tool completions, pending-count changes, retry transitions, stalls, supersession, settlement, and failures remain immediate durable snapshots.</li>
+      <li><strong>In-memory liveness remains exact.</strong> Every correlated <code>tool_execution_update</code> still refreshes <code>lastProgressAt</code>, <code>toolStallDeadlineAt</code>, <code>deadlineAt</code>, phase epoch, and the live timer immediately.</li>
+      <li><strong>Timing options have a supported domain.</strong> The checkpoint interval and tool-stall deadline must be finite positive integer milliseconds, and <code>toolStallDeadlineMs</code> must be at least <code>2</code>. Invalid zero, one-millisecond stall, negative, fractional, or non-finite values fail coordinator construction with an actionable option-specific error.</li>
+      <li><strong>Durable liveness uses a 30-second default checkpoint.</strong> For valid options, <code>effectiveCheckpointMs = min(configuredCheckpointMs, floor(toolStallDeadlineMs / 2))</code>, so a shorter configured stall window cannot be invalidated by a slower durability cadence.</li>
+      <li><strong>Checkpoint origin is durable progress time.</strong> On creation or rehydrate, derive the next checkpoint from the latest durable snapshot’s <code>lastProgressAt</code>, falling back in order to its <code>acceptedAt</code> and <code>createdAt</code>. A process reload therefore loses at most one effective checkpoint interval of tool-update freshness. When an active tool is restored, stale durable liveness cannot prove inactivity after process downtime, so rehydrate grants one fresh configured tool-stall interval from <code>now()</code>; this may delay a genuine stall by at most one configured stall interval per reload but prevents a pre-crash uncheckpointed update from being falsely stalled.</li>
+      <li><strong>No protocol-version bump.</strong> The existing version-2 snapshot shape is sufficient. Checkpoint cadence is coordinator policy and test/options configuration, not persisted wire semantics.</li>
+      <li><strong>No hidden per-update log path.</strong> A coalesced update writes neither a session snapshot nor a transaction log record. The checkpoint snapshot produces the existing matching log record once.</li>
+      <li><strong>Terminal truth flushes.</strong> Any material or terminal transition persists the current full in-memory snapshot before/outside its outcome as the existing state machine requires, so checkpointing cannot hide final pending count, deadline, state, or terminal reason.</li>
+      <li><strong>Existing RED tests are immutable.</strong> Additional boundary, reload, log-count, real-host, or soak tests may be added, but the two named regressions may not be weakened to accommodate an implementation shortcut.</li>
+      <li><strong>Same-process reconcile cannot regress live liveness.</strong> Track the latest durable continuation evidence applied for the active transaction. A wake/reconcile with no newer durable snapshot/message/outcome for that transaction—including a wake caused only by queued work—must preserve the current in-memory <code>lastProgressAt</code>, tool-stall/progress deadlines, phase epoch, active-tool correlation, and armed timer. Rehydrate/fold only when newer relevant durable evidence exists; immediate material transitions already flush the current live snapshot before that evidence becomes authoritative.</li>
+      <li><strong>Rollout and rollback are pi-vcc-only.</strong> Add a scoped <code>./install.sh --pi-vcc [package-source]</code> mode that invokes only vendored pi-vcc stable-mirror synchronization and exact-one package registration. Candidate install uses the committed repo package; rollback uses a byte-preserved pre-install package bundle. Neither path refreshes prompts, extensions, skills, models, or unrelated packages.</li>
+      <li><strong>Package identity covers the copied tree.</strong> Use one shared standard-library package-tree identity algorithm in verifier and installer paths. It enumerates every entry in deterministic relative-path order; hashes entry type, relative path, and permission mode plus regular-file bytes; rejects symlinks and non-file/non-directory entries before any mutation; and verifies the copied stable tree has the same identity before registration. Temporary test-only <code>node_modules</code> must be removed and absent before every source identity, candidate install, and reinstall.</li>
+      <li><strong>Scoped installation is transactional.</strong> Copy the validated source to a uniquely created staging sibling on the stable mirror's filesystem, verify the staged full-tree identity, then rename the current stable mirror to a retained backup and atomically rename staging into place. Update exact-one registration only after the swap. Any staging, identity, swap, or registration failure automatically restores the prior mirror and prior settings before returning nonzero; the backup is deleted only after installed verification succeeds.</li>
+    </ol>
+  </section>
+
+  <section id="acceptance" class="criteria">
+    <h2>Acceptance criteria</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Observable outcome</th><th>Primary proof</th></tr></thead>
+      <tbody>
+        <tr id="ac-1"><td>AC-1</td><td>An accepted continuation with zero pending tools is not terminalized when its progress deadline fires while <code>ctx.isIdle()</code> is false; exactly one durable snapshot/log checkpoint records the deferred deadline without claiming new assistant progress.</td><td>Existing RED fake-clock test, durable-field/count assertions, and real-host delayed-provider case.</td></tr>
+        <tr id="ac-2"><td>AC-2</td><td>After active inference eventually emits successful assistant progress and settles, the transaction reaches exactly one <code>settled: progressed_then_agent_settled</code> outcome with no earlier failure warning.</td><td>Coordinator and real-host event/outcome assertions.</td></tr>
+        <tr id="ac-3"><td>AC-3</td><td>An accepted continuation that eventually becomes idle without progress still reaches the existing actionable <code>failed_loudly: deadline_expired</code> path; active deferral does not remain a silent owner after the host reports idle.</td><td>Idle counterexample and timer-boundary tests.</td></tr>
+        <tr id="ac-4"><td>AC-4</td><td>Each correlated streaming tool update refreshes the live stall deadline immediately, but updates before the effective checkpoint boundary append no snapshots or transaction log records.</td><td>Existing RED snapshot-count test plus log-count assertion.</td></tr>
+        <tr id="ac-5"><td>AC-5</td><td>The first correlated update at or after the checkpoint boundary appends exactly one current snapshot/log record; later updates begin a new interval.</td><td>30,099/30,100 ms fake-clock boundary assertions.</td></tr>
+        <tr id="ac-6"><td>AC-6</td><td>Tool start/end, pending-count changes, assistant results, stalls, retries, supersession, settlement, and terminal outcomes remain immediately durable.</td><td>Existing coordinator suite plus focused persistence-class tests.</td></tr>
+        <tr id="ac-7"><td>AC-7</td><td>Reload after active-host deadline deferral or during a coalescing interval restores the latest durable state without duplicate submission, false stall, or lost terminalization: progress deadlines retain their persisted future remainder or immediate past-due re-evaluation; a restored active tool receives one fresh configured stall interval from reload time because pre-crash coalesced progress may be absent; and stale pre-reload timers never execute. Repeated reloads may extend a genuine tool stall by one configured interval each, but cannot falsely terminalize activity that may have occurred inside the lost checkpoint window.</td><td>Future/past-due progress-deadline tests, active-tool reload-grace boundary tests, repeated-reload bounded-delay test, stale-timer test, and file-backed reload assertions.</td></tr>
+        <tr id="ac-8"><td>AC-8</td><td>A high-frequency update case no longer produces write amplification: durable snapshot/log growth is bounded by material transitions plus elapsed checkpoint intervals, not update count.</td><td>Soak counters and bounded audit of generated session/log artifacts.</td></tr>
+        <tr id="ac-9"><td>AC-9</td><td>The same clean committed candidate and source-package hash are mechanically verified and cross-host compared before either installation, then pass all package, percentage-compaction, source real-host, source soak, source verifier, installed verifier, installed real-host, installed soak, and generated-candidate audit gates on both mbp and dever before rollout is complete.</td><td>Shared expected commit/hash, clean-worktree assertions, compared per-host identity JSON, command output, candidate timestamps, source/installed hashes, preserved rollback bundles, and unrelated-state manifests.</td></tr>
+        <tr id="ac-10"><td>AC-10</td><td>Invalid checkpoint/stall options fail construction deterministically: checkpoint values must be finite positive integer milliseconds and tool-stall values must additionally be at least 2 ms; valid shorter stall windows cap checkpoint cadence at half the stall window.</td><td>Coordinator option-validation and short-window boundary tests.</td></tr>
+        <tr id="ac-11"><td>AC-11</td><td>Checkpoint origin is derived in the locked order <code>lastProgressAt → acceptedAt → createdAt</code>, and each fallback produces the expected next-checkpoint boundary after creation or rehydrate.</td><td>Focused fake-clock tests for all three durable snapshot shapes.</td></tr>
+        <tr id="ac-12"><td>AC-12</td><td>Candidate install and rollback touch only the pi-vcc stable mirror and exact-one package registration; the scoped installer stages and verifies before atomic swap and automatically restores the prior mirror/settings on any later failure; each host unconditionally restores the preserved pre-install package hash without changing unrelated Pi-managed files/packages, then reinstalls and rechecks the source-identical candidate as its final state.</td><td>Installer transaction/failpoint tests, before/after manifests, expected-package verifier, and per-host rollback/reinstall drill evidence.</td></tr>
+        <tr id="ac-13"><td>AC-13</td><td>A same-process wake/reconcile during an uncheckpointed correlated tool-update interval cannot replace exact live liveness with the older durable snapshot; queued-request wakes also preserve the active transaction, and the timer still fires at the live deadline.</td><td>Fake-clock reconcile/wake tests with unchanged durable evidence, queued work, phase epoch, deadline, and timer assertions.</td></tr>
+        <tr id="ac-14"><td>AC-14</td><td>Scoped install rejects any explicit package source whose resolved path overlaps the stable mirror in either direction, including symlink aliases, before deleting the mirror or changing registration.</td><td>Temporary-HOME equal/symlink/nested/ancestor source tests with pre/post mirror and settings manifests.</td></tr>
+        <tr id="ac-15"><td>AC-15</td><td>The candidate identity equals the exact admissible tree copied by the installer: temporary package <code>node_modules</code> is absent before the first and every later identity, every directory and regular file contributes type/path/mode identity, regular content contributes bytes, and any symlink or special entry causes verifier and installer failure before stable-mirror or registration mutation.</td><td>Tree-identity unit tests, injected file/directory symlink and mode-change counterexamples, pre/post mutation manifests, and source/stable post-copy hash equality.</td></tr>
+        <tr id="ac-16"><td>AC-16</td><td>A scoped install failure at copy, staged identity, atomic swap, registration update, or final installed verification leaves the previously registered stable package and settings byte-identical and removes staging debris; success exposes only a fully verified package tree.</td><td>Deterministic installer failpoints at every boundary, mirror/settings manifests, staging cleanup assertions, and exact-one registration verification.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd" class="scenarios">
+    <h2>BDD scenarios</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Given / When / Then</th></tr></thead>
+      <tbody>
+        <tr id="bdd-1"><td>BDD-1</td><td><strong>Given</strong> an accepted continuation has completed its last tool and Pi is generating the next model response, <strong>when</strong> 60 seconds elapse with <code>isIdle() === false</code>, <strong>then</strong> ownership remains <code>progressed</code>, exactly one snapshot/log record persists the new deadline and phase epoch without changing <code>lastProgressAt</code>, no failure is persisted, and the persisted remaining interval is armed.</td></tr>
+        <tr id="bdd-2"><td>BDD-2</td><td><strong>Given</strong> BDD-1 was deferred, <strong>when</strong> the assistant later emits a successful result and the agent settles, <strong>then</strong> exactly one settled outcome is persisted.</td></tr>
+        <tr id="bdd-3"><td>BDD-3</td><td><strong>Given</strong> an accepted continuation is genuinely idle and no progress or settlement arrives, <strong>when</strong> the deadline fires, <strong>then</strong> the existing actionable failure is persisted and queued work may proceed under existing rules.</td></tr>
+        <tr id="bdd-4"><td>BDD-4</td><td><strong>Given</strong> a correlated tool emits updates roughly every 250 ms, <strong>when</strong> fewer than 30 seconds have elapsed since durable progress, <strong>then</strong> every live deadline refreshes but snapshot/log counts do not increase.</td></tr>
+        <tr id="bdd-5"><td>BDD-5</td><td><strong>Given</strong> BDD-4 continues from a durable origin at fake-clock time 100 to absolute times 30,099 and 30,100 (29,999 and 30,000 ms elapsed), <strong>when</strong> the first eligible update arrives at the latter boundary, <strong>then</strong> one current snapshot/log record is appended and the next interval starts.</td></tr>
+        <tr id="bdd-6"><td>BDD-6</td><td><strong>Given</strong> a tool completes before the next liveness checkpoint, <strong>when</strong> its matching end event changes pending count to zero, <strong>then</strong> the material transition persists immediately and arms the no-tool progress deadline.</td></tr>
+        <tr id="bdd-7"><td>BDD-7</td><td><strong>Given</strong> Pi reloads with a future persisted progress deadline after active-host deferral, <strong>when</strong> the package rehydrates, <strong>then</strong> it arms exactly the positive remaining interval and sends no duplicate continuation; <strong>given</strong> an active tool whose newest update may be uncheckpointed, <strong>then</strong> rehydrate arms one fresh full configured tool-stall interval from reload time rather than the older durable deadline.</td></tr>
+        <tr id="bdd-8"><td>BDD-8</td><td><strong>Given</strong> a shorter configured tool-stall window, <strong>when</strong> checkpoint cadence is computed, <strong>then</strong> it is no greater than half that window and reload safety remains bounded.</td></tr>
+        <tr id="bdd-9"><td>BDD-9</td><td><strong>Given</strong> unrelated or uncorrelated tool updates, <strong>when</strong> they fire at any rate, <strong>then</strong> neither live transaction state nor durable snapshot/log counts change.</td></tr>
+        <tr id="bdd-10"><td>BDD-10</td><td><strong>Given</strong> checkpoint or stall timing options are zero, negative, fractional, non-finite, or the stall deadline is one millisecond, <strong>when</strong> coordinator construction runs, <strong>then</strong> it fails with an actionable option-specific error; <strong>given</strong> a valid shorter stall window, <strong>then</strong> checkpoint cadence equals the smaller configured interval or half-stall bound.</td></tr>
+        <tr id="bdd-11"><td>BDD-11</td><td><strong>Given</strong> Pi reloads with a past-due persisted active-deferral deadline, <strong>when</strong> it rehydrates, <strong>then</strong> it schedules at zero, re-evaluates current <code>isIdle()</code>, and either durably defers again or applies the existing idle failure without replaying the pre-reload decision.</td></tr>
+        <tr id="bdd-12"><td>BDD-12</td><td><strong>Given</strong> a stale pre-deferral timer callback survives cancellation, <strong>when</strong> its transaction/phase epoch no longer matches, <strong>then</strong> it produces no state, persistence, warning, or timer effect.</td></tr>
+        <tr id="bdd-13"><td>BDD-13</td><td><strong>Given</strong> durable snapshots respectively contain <code>lastProgressAt</code>, only <code>acceptedAt</code>, or only <code>createdAt</code>, <strong>when</strong> checkpoint state is created or rehydrated, <strong>then</strong> the next boundary is computed from the first available field in that exact order.</td></tr>
+        <tr id="bdd-14"><td>BDD-14</td><td><strong>Given</strong> a preserved pre-install pi-vcc package bundle and unrelated Pi files/packages, <strong>when</strong> candidate install, rollback, and candidate reinstall run through <code>--pi-vcc</code>, <strong>then</strong> exact-one registration always points at the stable mirror, the rollback hash matches the bundle, unrelated manifests remain byte-identical, and the final installed real-host audit proves the candidate is active again.</td></tr>
+        <tr id="bdd-15"><td>BDD-15</td><td><strong>Given</strong> correlated tool updates have advanced live liveness without reaching a durable checkpoint, <strong>when</strong> a wake calls <code>reconcile()</code> with no newer durable evidence for the active transaction or only adds a queued request, <strong>then</strong> the live deadline, phase epoch, active-tool correlation, and timer remain unchanged and the timer fires only at the live deadline.</td></tr>
+        <tr id="bdd-16"><td>BDD-16</td><td><strong>Given</strong> one expected full commit SHA and source-package hash, <strong>when</strong> mbp and dever finish source gates, <strong>then</strong> both worktrees are clean, both identity JSON files match the same expected values, and a mechanical cross-host comparison passes before either <code>--pi-vcc</code> install begins.</td></tr>
+        <tr id="bdd-17"><td>BDD-17</td><td><strong>Given</strong> an explicit pi-vcc package source that equals, resolves through a symlink to, is nested beneath, or contains the stable mirror, <strong>when</strong> <code>--pi-vcc</code> validates it, <strong>then</strong> installation fails before deleting or modifying the stable mirror or package registration.</td></tr>
+        <tr id="bdd-18"><td>BDD-18</td><td><strong>Given</strong> package tests used temporary peer-dependency links or a candidate tree contains an injected file/directory symlink, special entry, content change, or mode change, <strong>when</strong> the first or any later identity or scoped installation begins, <strong>then</strong> temporary <code>node_modules</code> has already been removed, unsupported entries fail before mutation, and every admissible copied-tree difference changes the package identity.</td></tr>
+        <tr id="bdd-19"><td>BDD-19</td><td><strong>Given</strong> a valid current stable mirror and settings, <strong>when</strong> deterministic failpoints abort scoped install during copy, staged hash, swap, registration, or post-swap verification, <strong>then</strong> the prior mirror and settings are restored byte-for-byte, exact-one registration remains valid, no partial candidate is observable at the stable path, and temporary staging/backup entries are cleaned or retained only as explicit recovery evidence.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <article id="phase-p1" class="phase">
+    <h2>P1 — Preserve ownership while the host remains active</h2>
+    <h3>End State</h3>
+    <p>The no-tool progress watchdog distinguishes active model inference from true host inactivity. Slow provider responses retain continuation ownership and settle normally; genuinely idle dead work still fails loudly within a bounded interval.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Keep <code>does not expire accepted progress while the host is still running the next model turn</code> unchanged and make it green.</li>
+      <li>Add an idle-host counterexample proving <code>deadline_expired</code> remains terminal when <code>isIdle() === true</code>.</li>
+      <li>Add a repeated active-deferral boundary proving exactly one snapshot/log record persists the moved deadline with unchanged progress fields, stale timers cannot terminalize after phase epoch changes, a future restored deadline arms its positive remainder, a past-due restored deadline schedules at zero and rechecks <code>isIdle()</code>, and later settlement persists exactly once.</li>
+      <li>Add a file-backed real-host case whose deterministic provider delays the post-tool assistant response beyond the scaled 60-second interval while the host remains active.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <p><code>_pi/packages/pi-vcc/src/core/coordinator.ts</code>, <code>_pi/packages/pi-vcc/src/core/continuation.ts</code> only if a pure host-active deferral event is needed, <code>_pi/packages/pi-vcc/tests/coordinator.test.ts</code>, and <code>scripts/pi-vcc-real-host-integration.ts</code>.</p>
+    <h3>Work</h3>
+    <ul>
+      <li>At a validated <code>progress_deadline</code> callback, inspect the current context’s <code>isIdle()</code> before applying terminalization.</li>
+      <li>When non-idle, apply a pure host-active deadline-deferral transition that updates only <code>progressDeadlineAt</code>, <code>deadlineAt</code>, and phase epoch, then immediately persists its one snapshot/log checkpoint. Do not set <code>lastProgressAt</code>, claim assistant progress, warn, emit an outcome, or release queue ownership.</li>
+      <li>When idle, apply the existing pure <code>progress_deadline</code> transition unchanged.</li>
+      <li>Keep timer guards on transaction ID and phase epoch so a deferred/stale callback cannot affect a newer phase or transaction.</li>
+      <li>Preserve <code>agent_settled</code> as the success/failure classification boundary and retain existing retry/tool-stall/session-replacement semantics.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. If the real host reports <code>isIdle() === true</code> during active provider inference, stop with that evidence because the selected authority would be invalid and a Pi host contract change would be required.</p>
+    <h3>Verify</h3>
+    <pre><code># With the temporary peer-dependency prelude from Pre-execution RED evidence active:
+bun test _pi/packages/pi-vcc/tests/coordinator.test.ts --test-name-pattern 'does not expire accepted progress|progress deadline'
+bun scripts/pi-vcc-real-host-integration.ts --candidate source --cases all --session-mode file-backed --provider deterministic-fake</code></pre>
+  </article>
+
+  <article id="phase-p2" class="phase">
+    <h2>P2 — Checkpoint streaming tool liveness without per-update persistence</h2>
+    <h3>End State</h3>
+    <p>Correlated tool updates refresh live state and timers on every event, while durable session/log writes occur only at the bounded liveness checkpoint or an immediate material transition. Reload remains safe without a wire migration.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Keep <code>checkpoints correlated tool liveness without persisting every update</code> unchanged and make it green at the 30,099/30,100 ms boundary.</li>
+      <li>Add matching transaction-log count assertions so session and log amplification cannot diverge.</li>
+      <li>Add material-transition tests proving tool completion, pending-count changes, stall, supersession, and settlement bypass coalescing.</li>
+      <li>Add reload-inside-window and short-stall-configuration tests for BDD-7, BDD-8, BDD-11, and BDD-12, including an update immediately before reload that would have falsely stalled under the older durable deadline, exact fresh-stall-interval boundary assertions, and a repeated-reload case documenting the bounded extension.</li>
+      <li>Add focused creation/rehydration tests for all checkpoint-origin branches in BDD-13: <code>lastProgressAt</code>, <code>acceptedAt</code>, and <code>createdAt</code>.</li>
+      <li>Add BDD-15 fake-clock tests: apply a correlated update before its checkpoint, trigger direct <code>reconcile()</code> and a wake caused by a queued request, prove no live field or phase epoch regresses, then prove the armed timer still fires at the exact live deadline.</li>
+      <li>Add construction validation for checkpoint/stall values <code>0</code>, <code>1</code>, negative, fractional, <code>NaN</code>, and infinity, plus valid shorter-window formula coverage.</li>
+      <li>Add a high-frequency real-host/soak case and assert a bounded snapshot/log formula rather than a loose file-size threshold.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <p><code>_pi/packages/pi-vcc/src/core/coordinator.ts</code>, <code>_pi/packages/pi-vcc/tests/coordinator.test.ts</code>, <code>scripts/pi-vcc-real-host-integration.ts</code>, <code>scripts/pi-vcc-continuation-soak.ts</code>, and existing audit/soak tests only if their expected counters must expose the new bound. No protocol file change is expected.</p>
+    <h3>Work</h3>
+    <ul>
+      <li>Add a named default liveness checkpoint constant and coordinator test/options seam; compute the effective interval from the configured checkpoint and tool-stall deadline.</li>
+      <li>Validate checkpoint/stall options at coordinator construction using the locked finite-positive-integer domain and minimum two-millisecond stall rule; fail with the exact invalid option name/value rather than silently clamping unsupported inputs.</li>
+      <li>Separate transition application from durability policy so current state/timers always update, while callers explicitly select immediate persistence or checkpoint persistence.</li>
+      <li>Use checkpoint persistence only for correlated <code>tool_execution_update</code>. Keep tool start/end and all other existing transition classes immediate.</li>
+      <li>Track the last durable liveness point from the persisted snapshot state rather than update count or wall-clock log time. On checkpoint, append the existing full snapshot and matching log record once.</li>
+      <li>On rehydrate, initialize checkpoint cadence from durable snapshot progress timing without a new wire field. For a restored active tool, replace the stale durable stall deadline with <code>now() + toolStallDeadlineMs</code>; do not apply this grace to no-tool progress deadlines or terminal states. Cancel/guard any pre-reload callback so only the fresh timer can fire.</li>
+      <li>Track the latest durable continuation entry/evidence applied for the active transaction. During same-process reconcile, preserve the live transaction wholesale when that transaction has no newer durable snapshot/message/outcome; a new queued request is not authority to reconstruct and regress the active transaction. Fold or rehydrate only the transaction whose relevant durable evidence advanced.</li>
+      <li>Ensure stale timers are cancelled/re-armed from the exact live deadline even when the latest update was not persisted.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code># With the temporary peer-dependency prelude from Pre-execution RED evidence active:
+bun test _pi/packages/pi-vcc/tests/coordinator.test.ts --test-name-pattern 'checkpoints correlated tool liveness|tool stall|reload|reconcile|wake'
+bun test _pi/packages/pi-vcc/tests/coordinator.test.ts
+bun scripts/pi-vcc-real-host-integration.ts --candidate source --cases all --session-mode file-backed --provider deterministic-fake</code></pre>
+  </article>
+
+  <article id="phase-p3" class="phase">
+    <h2>P3 — Validate source and installed runtime behavior</h2>
+    <h3>End State</h3>
+    <p>The complete source candidate and installed Pi runtimes on mbp and dever pass the continuation fault matrix, active-inference case, bounded write-amplification case, exact-one installation checks, and generated-candidate audit. Both hosts run the same committed source-identical candidate and retain per-host byte-preserved pi-vcc-only rollback evidence.</p>
+    <h3>Tests first</h3>
+    <p>No new production behavior starts in this phase. If a source or installed gate reveals a new failure shape, return to P1 or P2, add a focused RED regression, and fix it there before continuing.</p>
+    <h3>Expected files</h3>
+    <p>Files from P1/P2; <code>scripts/pi-vcc-real-host-integration.ts</code> and <code>scripts/run-pi-vcc-continuation-soak.sh</code> plus <code>scripts/tests/test_pi_vcc_validation_cli.py</code> for the shared <code>--artifacts-dir &lt;empty-path&gt;</code> preservation contract; <code>scripts/audit-pi-vcc-continuations.py</code> and its self-tests for a minimum-candidate-transaction gate; <code>install.sh</code> plus <code>scripts/tests/test_install_pi_vcc.py</code> for scoped <code>--pi-vcc [package-source]</code>; <code>scripts/verify-pi-vcc-install.sh</code> plus <code>scripts/tests/test_verify_pi_vcc_install.py</code> for <code>--expected-package &lt;path&gt;</code>; bounded standard-library helper <code>scripts/capture-pi-vcc-unrelated-state.py</code> plus <code>scripts/tests/test_capture_pi_vcc_unrelated_state.py</code> for normalized unrelated managed-state manifests that exclude volatile runtime session, cache, messenger, status, update-check, and pi-vcc log surfaces so comparisons remain attributable to the scoped installer while Pi is active; optionally <code>_pi/packages/pi-vcc/README.md</code> only if the 30-second checkpoint is operator-relevant; and sanitized validation evidence under <code>thoughts/validation/</code>. Do not edit the stable mirror or live extension directly.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Add the same optional <code>--artifacts-dir &lt;empty-path&gt;</code> contract to the real-host and soak launchers. When supplied, each launcher must accept and create a nonexistent path, accept an existing empty directory, reject an existing non-empty path, write session files beneath <code>&lt;path&gt;/sessions/</code> and its mixed log at <code>&lt;path&gt;/logs/pi-vcc.jsonl</code>, preserve the root on success or failure, and print the resolved path. Without the option, retain current temporary-directory cleanup behavior.</li>
+      <li>Add <code>./install.sh --pi-vcc [package-source]</code>. It must accept the repo package by default or an explicit preserved package directory; resolve and validate that source as an existing directory containing <code>package.json</code> and <code>src/core/coordinator.ts</code>; reject when the resolved source equals, is symlinked to, is nested beneath, or contains the stable mirror path; reject source trees containing symlinks or special entries; compute the shared full-tree identity; copy into a uniquely created staging sibling beneath the stable parent; recompute and require staged identity equality; snapshot prior settings; rename the current stable mirror to a retained backup and atomically rename staging to the stable path; update exact-one registration; run installed identity/registration verification; and only then delete the backup. Any failure automatically restores prior settings and stable mirror and removes staging before returning nonzero. The mode bypasses global deprecated-skill cleanup and every non-pi-vcc install step and leaves prompts, extensions, models, shared skills, and unrelated package registrations byte-identical. Add deterministic temporary-HOME tests for candidate install, explicit-source rollback, missing/malformed/overlapping/symlinked source fail-before-mutation behavior, injected file/directory symlink and mode/content identity counterexamples, plus copy/staged-hash/swap/registration/post-swap-verification failpoints proving automatic byte-identical restoration, exact-one registration, and staging cleanup.</li>
+      <li>Add <code>scripts/verify-pi-vcc-install.sh --expected-package &lt;path&gt;</code> so normal candidate verification compares against the repo package while rollback verification compares against the preserved bundle without requiring a checkout reset. Factor one standard-library tree-identity helper used by verifier and installer: deterministic entry ordering; type, relative path, and permission mode for every directory/regular file; regular-file bytes; explicit rejection of symlinks and special entries. Add <code>--json</code> output with exact <code>sourcePackageHash</code> and, for installed checks, <code>stablePackageHash</code> fields used by pre-install identity and post-install parity assertions.</li>
+      <li>Add a small standard-library manifest helper that normalizes <code>settings.json</code> with pi-vcc package entries removed and hashes every file beneath <code>~/.pi/agent</code> except the stable pi-vcc tree and that normalized settings representation. <code>--output</code> writes deterministic JSON; two outputs compare with <code>cmp</code>. Test inclusion/exclusion boundaries and keep the helper below the repository's custom-code approval threshold.</li>
+      <li>Before either host installs, establish one full expected commit SHA and one machine-readable source-package hash from a clean committed checkout after removing and asserting absence of package <code>node_modules</code>. Run peer-dependent tests in a bounded subshell whose exit trap removes those links. On mbp and dever, remove/assert absent <code>node_modules</code>, then rerun clean-status, full-HEAD, and source-hash assertions after every Stage A source gate before writing per-host identity JSON; collect and mechanically compare both JSON files; then repeat the same absence plus clean commit/hash assertions immediately before each candidate install/reinstall. After each install, require verifier JSON <code>sourcePackageHash</code> and <code>stablePackageHash</code> to equal the shared expected hash.</li>
+      <li>Run the complete package and percentage-compaction suites plus source verifier, source real-host matrix, source soak, generated-artifact audit, installer/verifier tests, and <code>git diff --check</code> on both hosts.</li>
+      <li>Confirm the generated high-frequency case meets the locked record bound and no active-inference case emits <code>failed_loudly</code>.</li>
+      <li>From a committed implementation checkpoint, create each host's empty <code>validation_root</code>, copy the current stable pi-vcc package to <code>rollback/pi-vcc</code>, record recursive package hashes plus unrelated Pi file/package manifests, and verify the rollback bundle with <code>--expected-package</code>. Immediately before candidate installation, capture an ISO-8601 UTC <code>candidate_since</code> timestamp, then install only through <code>./install.sh --pi-vcc "$PWD/_pi/packages/pi-vcc"</code>.</li>
+      <li>On each host, run exact-one candidate verification, installed real-host matrix, installed soak, and a release-blocking audit over only those two preserved generated roots with <code>--require-min-transactions 1</code>. Candidate flags and source-identical hashes provide attribution; do not mix live <code>~/.pi</code> transactions into this gate because existing processes/transactions do not persist a candidate identifier. Keep <code>~/.pi</code> audits informational.</li>
+      <li>After the initial candidate gates pass on each host, unconditionally drill rollback: install the preserved package, verify its exact hash/registration and unrelated manifest, reinstall the committed candidate, verify source-identical hash/registration and unrelated manifest, then run a fresh installed real-host matrix plus non-empty generated-artifact audit. Final host state must be the candidate.</li>
+      <li>If installed validation fails before the unconditional drill completes, preserve that host's generated bundle, run <code>./install.sh --pi-vcc "$validation_root/rollback/pi-vcc"</code>, verify against that exact package with <code>--expected-package</code>, and prove unrelated manifests are unchanged; never patch installed files or reset a worktree. Do not declare rollout complete until both hosts pass the source gates, initial installed gates, rollback drill, candidate reinstall, and final installed recheck.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code># Establish once from the authoritative clean committed checkout, then export
+# these exact values into both mbp and dever source-gate shells.
+rm -rf _pi/packages/pi-vcc/node_modules
+test ! -e _pi/packages/pi-vcc/node_modules
+test -z "$(git status --porcelain)"
+export PI_VCC_EXPECTED_COMMIT="$(git rev-parse HEAD)"
+source_identity_json="$(bash scripts/verify-pi-vcc-install.sh --source-only --json)"
+export PI_VCC_EXPECTED_PACKAGE_HASH="$(printf '%s' "$source_identity_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sourcePackageHash"])')"
+
+# Stage A: run on both mbp and dever before either host installs.
+# Set PI_VCC_HOST_LABEL to exactly mbp or dever. Run peer-dependent package tests
+# in a bounded subshell using the temporary prelude from Pre-execution RED evidence;
+# the subshell exit trap must remove package node_modules before identity continues.
+: "${PI_VCC_EXPECTED_COMMIT:?shared expected commit is required}"
+: "${PI_VCC_EXPECTED_PACKAGE_HASH:?shared expected package hash is required}"
+: "${PI_VCC_HOST_LABEL:?set to mbp or dever}"
+case "$PI_VCC_HOST_LABEL" in mbp|dever) ;; *) echo 'PI_VCC_HOST_LABEL must be mbp or dever' &gt;&amp;2; exit 2 ;; esac
+rm -rf _pi/packages/pi-vcc/node_modules
+test ! -e _pi/packages/pi-vcc/node_modules
+test -z "$(git status --porcelain)"
+candidate_commit="$(git rev-parse HEAD)"
+test "$candidate_commit" = "$PI_VCC_EXPECTED_COMMIT"
+source_identity_json="$(bash scripts/verify-pi-vcc-install.sh --source-only --json)"
+source_package_hash="$(printf '%s' "$source_identity_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sourcePackageHash"])')"
+test "$source_package_hash" = "$PI_VCC_EXPECTED_PACKAGE_HASH"
+(
+  runtime_root="$(dirname "$(dirname "$(realpath "$(command -v pi)")")")"
+  pkg="_pi/packages/pi-vcc"
+  trap 'rm -rf "$pkg/node_modules"' EXIT
+  mkdir -p "$pkg/node_modules/@earendil-works"
+  ln -s "$runtime_root" "$pkg/node_modules/@earendil-works/pi-coding-agent"
+  ln -s "$runtime_root/node_modules/typebox" "$pkg/node_modules/typebox"
+  bun test "$pkg/tests"
+)
+test ! -e _pi/packages/pi-vcc/node_modules
+bun test scripts/percentage-compaction.test.ts
+python3 scripts/tests/test_install_pi_vcc.py
+python3 scripts/tests/test_verify_pi_vcc_install.py
+python3 scripts/tests/test_pi_vcc_validation_cli.py
+python3 scripts/tests/test_capture_pi_vcc_unrelated_state.py
+python3 scripts/audit-pi-vcc-continuations.py --self-test
+bash scripts/verify-pi-vcc-install.sh --source-only
+source_tag="$(date -u +%Y%m%dT%H%M%SZ)"
+source_validation_root="/tmp/pi-vcc-source-validation-$source_tag"
+bun scripts/pi-vcc-real-host-integration.ts --candidate source --cases all --session-mode file-backed --provider deterministic-fake --artifacts-dir "$source_validation_root/real-host"
+bash scripts/run-pi-vcc-continuation-soak.sh --candidate source --compactions 20 --fault-matrix all --artifacts-dir "$source_validation_root/soak"
+python3 scripts/audit-pi-vcc-continuations.py --require-terminal --require-min-transactions 1 --sessions "$source_validation_root/real-host/sessions" --sessions "$source_validation_root/soak/sessions" --log "$source_validation_root/real-host/logs/pi-vcc.jsonl" --log "$source_validation_root/soak/logs/pi-vcc.jsonl"
+git diff --check
+# Recompute identity only after every Stage A gate; do not publish stale pre-test evidence.
+rm -rf _pi/packages/pi-vcc/node_modules
+test ! -e _pi/packages/pi-vcc/node_modules
+test -z "$(git status --porcelain)"
+candidate_commit="$(git rev-parse HEAD)"
+test "$candidate_commit" = "$PI_VCC_EXPECTED_COMMIT"
+source_identity_json="$(bash scripts/verify-pi-vcc-install.sh --source-only --json)"
+source_package_hash="$(printf '%s' "$source_identity_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sourcePackageHash"])')"
+test "$source_package_hash" = "$PI_VCC_EXPECTED_PACKAGE_HASH"
+identity_file="/tmp/pi-vcc-candidate-identity-$PI_VCC_HOST_LABEL.json"
+python3 - "$PI_VCC_HOST_LABEL" "$candidate_commit" "$source_package_hash" &gt; "$identity_file" &lt;&lt;'PY'
+import json, sys
+print(json.dumps({"host": sys.argv[1], "commit": sys.argv[2], "sourcePackageHash": sys.argv[3], "clean": True}, sort_keys=True))
+PY
+
+# STOP after Stage A on both hosts. Collect their two identity JSON files onto one
+# operator machine, set these paths, and compare them before either installation.
+: "${PI_VCC_MBP_IDENTITY_FILE:?collected mbp identity file is required}"
+: "${PI_VCC_DEVER_IDENTITY_FILE:?collected dever identity file is required}"
+python3 - "$PI_VCC_MBP_IDENTITY_FILE" "$PI_VCC_DEVER_IDENTITY_FILE" "$PI_VCC_EXPECTED_COMMIT" "$PI_VCC_EXPECTED_PACKAGE_HASH" &lt;&lt;'PY'
+import json, sys
+mbp, dever = (json.load(open(path, encoding="utf-8")) for path in sys.argv[1:3])
+expected_commit, expected_hash = sys.argv[3:5]
+assert mbp == {"clean": True, "commit": expected_commit, "host": "mbp", "sourcePackageHash": expected_hash}
+assert dever == {"clean": True, "commit": expected_commit, "host": "dever", "sourcePackageHash": expected_hash}
+PY
+
+# Stage B: only after the cross-host comparison passes, continue on each host
+# from the same still-clean commit with installed gates:
+: "${PI_VCC_EXPECTED_COMMIT:?shared expected commit is required}"
+: "${PI_VCC_EXPECTED_PACKAGE_HASH:?shared expected package hash is required}"
+candidate_tag="$(date -u +%Y%m%dT%H%M%SZ)"
+validation_root="/tmp/pi-vcc-installed-validation-$candidate_tag"
+mkdir -p "$validation_root/rollback"
+cp -R "$HOME/.pi/agent/local-packages/ai-configs/pi-vcc" "$validation_root/rollback/pi-vcc"
+bash scripts/verify-pi-vcc-install.sh --expected-package "$validation_root/rollback/pi-vcc"
+python3 scripts/capture-pi-vcc-unrelated-state.py --output "$validation_root/unrelated-before.json"
+# Recheck identity immediately before this host mutates installed state.
+rm -rf _pi/packages/pi-vcc/node_modules
+test ! -e _pi/packages/pi-vcc/node_modules
+test -z "$(git status --porcelain)"
+test "$(git rev-parse HEAD)" = "$PI_VCC_EXPECTED_COMMIT"
+preinstall_identity_json="$(bash scripts/verify-pi-vcc-install.sh --source-only --json)"
+test "$(printf '%s' "$preinstall_identity_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sourcePackageHash"])')" = "$PI_VCC_EXPECTED_PACKAGE_HASH"
+candidate_since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf '%s\n' "$candidate_since" &gt; "$validation_root/candidate-since.txt"
+./install.sh --pi-vcc "$PWD/_pi/packages/pi-vcc"
+installed_identity_json="$(bash scripts/verify-pi-vcc-install.sh --json)"
+printf '%s' "$installed_identity_json" | python3 -c 'import json,os,sys; d=json.load(sys.stdin); e=os.environ["PI_VCC_EXPECTED_PACKAGE_HASH"]; assert d["sourcePackageHash"] == e and d["stablePackageHash"] == e'
+python3 scripts/capture-pi-vcc-unrelated-state.py --output "$validation_root/unrelated-after-candidate.json"
+cmp "$validation_root/unrelated-before.json" "$validation_root/unrelated-after-candidate.json"
+bun scripts/pi-vcc-real-host-integration.ts --candidate installed --cases all --session-mode file-backed --provider deterministic-fake --artifacts-dir "$validation_root/real-host"
+bash scripts/run-pi-vcc-continuation-soak.sh --candidate installed --compactions 20 --fault-matrix all --artifacts-dir "$validation_root/soak"
+python3 scripts/audit-pi-vcc-continuations.py --require-terminal --require-min-transactions 1 --since "$candidate_since" --sessions "$validation_root/real-host/sessions" --sessions "$validation_root/soak/sessions" --log "$validation_root/real-host/logs/pi-vcc.jsonl" --log "$validation_root/soak/logs/pi-vcc.jsonl"
+# Informational only after the generated-candidate gate:
+python3 scripts/audit-pi-vcc-continuations.py --since 24h --sessions ~/.pi/agent/sessions --log ~/.pi/logs/pi-vcc.jsonl
+
+# Required rollback drill after the initial candidate gates pass:
+./install.sh --pi-vcc "$validation_root/rollback/pi-vcc"
+bash scripts/verify-pi-vcc-install.sh --expected-package "$validation_root/rollback/pi-vcc"
+python3 scripts/capture-pi-vcc-unrelated-state.py --output "$validation_root/unrelated-after-rollback.json"
+cmp "$validation_root/unrelated-before.json" "$validation_root/unrelated-after-rollback.json"
+# Recheck source identity again immediately before candidate reinstall.
+rm -rf _pi/packages/pi-vcc/node_modules
+test ! -e _pi/packages/pi-vcc/node_modules
+test -z "$(git status --porcelain)"
+test "$(git rev-parse HEAD)" = "$PI_VCC_EXPECTED_COMMIT"
+reinstall_source_json="$(bash scripts/verify-pi-vcc-install.sh --source-only --json)"
+test "$(printf '%s' "$reinstall_source_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sourcePackageHash"])')" = "$PI_VCC_EXPECTED_PACKAGE_HASH"
+./install.sh --pi-vcc "$PWD/_pi/packages/pi-vcc"
+reinstalled_identity_json="$(bash scripts/verify-pi-vcc-install.sh --json)"
+printf '%s' "$reinstalled_identity_json" | python3 -c 'import json,os,sys; d=json.load(sys.stdin); e=os.environ["PI_VCC_EXPECTED_PACKAGE_HASH"]; assert d["sourcePackageHash"] == e and d["stablePackageHash"] == e'
+python3 scripts/capture-pi-vcc-unrelated-state.py --output "$validation_root/unrelated-after-reinstall.json"
+cmp "$validation_root/unrelated-before.json" "$validation_root/unrelated-after-reinstall.json"
+bun scripts/pi-vcc-real-host-integration.ts --candidate installed --cases all --session-mode file-backed --provider deterministic-fake --artifacts-dir "$validation_root/reinstalled-real-host"
+python3 scripts/audit-pi-vcc-continuations.py --require-terminal --require-min-transactions 1 --sessions "$validation_root/reinstalled-real-host/sessions" --log "$validation_root/reinstalled-real-host/logs/pi-vcc.jsonl"</code></pre>
+    <p><strong>Failure rollback:</strong> if any installed gate fails before or during the drill, preserve <code>$validation_root</code>, run the rollback install/verify/manifest commands above, stop on the known-good package, and do not continue rollout on the other host until the failure is resolved.</p>
+  </article>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ol>
+      <li><strong>Immutable RED regressions:</strong> the two live failures remain fixed behavioral contracts and must turn green without edits.</li>
+      <li><strong>Fake-clock boundaries:</strong> active/idle timeout decisions, stale timer guards, exact 30-second checkpoint boundary, short configured stall windows, and material-persistence bypass.</li>
+      <li><strong>File-backed real host:</strong> actual package loading, <code>ExtensionContext.isIdle()</code>, delayed provider response, high-frequency tool updates, session snapshots, logs, reload, and terminal outcomes.</li>
+      <li><strong>Soak and audit:</strong> repeated compactions and fault cases with bounded record-count assertions, no unresolved/duplicate transactions, and no false active deadline.</li>
+      <li><strong>Installed parity:</strong> source/stable hashes, exact-one registration, installed runtime matrix, installed soak, and bounded post-install audit.</li>
+      <li><strong>Semantic review:</strong> verify that the design retains the previous plan’s acceptance, retry, stall, supersession, reload, privacy, and session-replacement guarantees rather than optimizing writes by bypassing the state machine.</li>
+    </ol>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>Test coverage matrix</h2>
+    <table>
+      <thead><tr><th>Acceptance / scenarios</th><th>Test layer and files</th><th>Execution gate</th></tr></thead>
+      <tbody>
+        <tr><td>AC-1–AC-3; BDD-1–BDD-3</td><td>Fake-clock coordinator tests, durable deferral/reload assertions, and delayed-provider file-backed case in <code>scripts/pi-vcc-real-host-integration.ts</code>.</td><td>Focused coordinator pattern, full coordinator suite, source/installed real-host matrix.</td></tr>
+        <tr><td>AC-4–AC-6; BDD-4–BDD-6, BDD-9</td><td>Snapshot/log counts, exact checkpoint boundary, correlation counterexample, and immediate material-persistence tests in <code>tests/coordinator.test.ts</code>.</td><td>Focused checkpoint pattern and full package suite.</td></tr>
+        <tr><td>AC-7, AC-10–AC-11, AC-13; BDD-7–BDD-8, BDD-10–BDD-13, BDD-15</td><td>Version-2 future/past-due progress-deadline reload, fresh active-tool stall grace including immediately-pre-reload updates and repeated reload, stale-timer guards, all checkpoint-origin fallbacks, same-process reconcile/wake preservation, short-stall formula, and invalid option-domain fake-clock tests plus file-backed reload during streaming.</td><td>Coordinator reload/reconcile/options patterns and source/installed real-host matrix.</td></tr>
+        <tr><td>AC-8</td><td>High-frequency tool case in real-host/soak with bounded snapshots and matching transaction logs per material transition plus elapsed interval.</td><td>Source and installed 20-compaction fault-matrix soaks.</td></tr>
+        <tr><td>AC-9, AC-12, AC-14–AC-16; BDD-14, BDD-16–BDD-19; complete golden path</td><td>Clean commit/full-tree identity files and cross-host comparison; temporary dependency cleanup assertions before every identity; injected symlink/special/mode/content identity counterexamples; transactional installer failpoints with automatic prior-mirror/settings restoration; full package/extension suites; overlapping-source installer tests; scoped installer/verifier tests; source/installed verifier; real-host; soak; generated-candidate audit; pi-vcc-only rollback drill; unrelated-state manifests; and diff validation on mbp and dever.</td><td>All P3 identity, Verify, failpoint, and rollback commands on both hosts.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="delivery">
+    <h2>Delivery order</h2>
+    <p>P1 active-host timeout semantics → P2 streaming durability policy → P3 source and installed validation. Do not optimize persistence before P1 preserves truthful ownership, and do not install before both immutable RED tests plus the broader source gates are green.</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Changing continuation acceptance, retry limits/backoff, queue activation, custom-message classification, singleton ownership, or tool-stall product policy.</li>
+      <li>Changing protocol version, rewriting historical snapshots, compacting old session files, or truncating the existing 70 MB log as part of this behavior fix.</li>
+      <li>Changing pi-vcc summarization, recall, pruning, percentage thresholds, or compaction triggering.</li>
+      <li>Treating <code>turn_start</code> or <code>agent_start</code> as proof of successful assistant progress.</li>
+      <li>Suppressing all continuation snapshots/logs or batching material/terminal transitions.</li>
+      <li>Redesigning Pi host-level stuck-active detection. While <code>ctx.isIdle()</code> truthfully remains false, this coordinator retains ownership and rechecks at each durable deferral boundary.</li>
+      <li>Broad upstream pi-vcc or Pi host uptake, direct installed-file patches, rollout beyond the locked mbp/dever footprint, or unrelated audit cleanup.</li>
+    </ul>
+  </section>
+
+  <section id="review-record">
+    <h2>Review record</h2>
+    <ul>
+      <li>2026-07-17 — Plan authoring began after both deterministic RED regressions were added and the coordinator suite isolated them as the only failures. This entry records the RED baseline and does not certify readiness.</li>
+      <li>2026-07-17 — PM/product-intent review: <code>NEEDS_REVISION</code>. Blocking gaps were non-durable active-host deferral, an undefined sub-2-ms timing-option edge, a non-candidate-bounded installed audit, and an unnamed rollout footprint. The plan now requires durable deferral snapshots, explicit valid timing domains, exact candidate timestamps, and the full mbp/dever precursor footprint. Fresh independent readiness review remains required.</li>
+      <li>2026-07-17 — Claude Code broad review: <code>PLAN_EXECUTION_READY</code> with no blockers on the post-PM coordinator/checkpoint design. Later material P3 revisions superseded this verdict.</li>
+      <li>2026-07-17 — Targeted PM rereview: <code>NEEDS_REVISION</code>. It required distinct future/past-due/stale-timer reload proofs, all three checkpoint-origin fallback tests, generated-only release audit attribution, and operator-executable scoped rollback. Those findings are integrated in AC-7, AC-11–AC-12, BDD-7/11–14, P1/P2 tests, and P3.</li>
+      <li>2026-07-17 — Final targeted PM review: <code>EXECUTION_READY</code> for those four corrections. A later independent GPT review then found two additional execution gaps: source gates were not explicitly per-host and rollback was conditional rather than drilled on the success path. The plan now runs the complete source/installed sequence on mbp and dever and requires rollback plus candidate reinstall/recheck on each host.</li>
+      <li>2026-07-17 — Claude Code final targeted rereview: <code>PLAN_EXECUTION_READY</code> on the pre-GPT version. Because the per-host gate grouping and unconditional rollback drill were edited afterward, this verdict is retained as evidence but does not certify the current version.</li>
+      <li>2026-07-17 — Independent non-gating GPT plan review: <code>NEEDS_REVISION</code>. It required the complete source gate on both hosts and an unconditional successful-path rollback/reinstall drill. Both are now explicit in P3, including a final installed real-host audit after candidate reinstall.</li>
+      <li>2026-07-17 — Latest PM sign-off first found one mechanical omission: planned installer, verifier, artifact-root, manifest, and audit self-tests were not invoked by P3 Verify. The commands and exact planned test files are now present. A fresh closure check returned <code>PM_VERDICT: EXECUTION_READY</code> with no stale or omitted test surface.</li>
+      <li>2026-07-17 — Earlier required Codex attempts produced no semantic artifact because unstable microsecond Darwin boot identity caused false owner-staleness. A later operator-requested retry launched successfully, so review infrastructure is no longer the current blocker.</li>
+      <li>2026-07-17 — Required Codex current-plan review: <code>PLAN_NEEDS_REVISION</code>. It found same-process reconcile could regress uncheckpointed live liveness, the two-host sequence did not mechanically prove one clean commit/package hash, and an explicit install source overlapping the stable mirror could be deleted before copy. The plan now evidence-gates reconcile per active transaction, adds AC-13/BDD-15, adds clean per-host identity JSON and pre-install cross-host comparison, and rejects equal/symlink/nested/ancestor stable-mirror source paths before mutation.</li>
+      <li>2026-07-17 — Fresh high-risk secondary review returned <code>PLAN_EXECUTION_READY</code> for those three corrections. Required Codex targeted rereview still found one TOCTOU gap: identity JSON was created before source gates and not recomputed immediately before installation. The plan now creates identity only after all source gates, repeats clean commit/hash assertions immediately before candidate install and reinstall, and verifies post-install source/stable hashes against the shared expected hash.</li>
+      <li>2026-07-17 — Closing secondary rereview returned <code>PLAN_EXECUTION_READY</code>, but the third required Codex cycle returned <code>PLAN_NEEDS_REVISION</code> with stronger repository evidence: the temporary peer prelude leaves ignored directory symlinks, the file-only hash omits those symlinks, and <code>cp -R</code> includes the complete package tree. The identity gate could therefore certify different host-local install payloads. The new revision closes that family with bounded test subshell cleanup, explicit <code>node_modules</code> absence gates, one full-tree type/path/mode/content identity algorithm shared by verifier and installer, rejection of symlinks/special entries before mutation, post-copy parity before registration, and injected counterexample tests. Fresh final review is required before execution-ready metadata is set.</li>
+      <li>2026-07-17 — Doct v10 high-risk Claude review returned <code>PLAN_EXECUTION_READY</code> and independently confirmed closure of the copied-payload divergence family. Two Codex semantic runs also concluded ready, but their artifacts were invalid because the review prompt omitted the required <code>VERDICT:</code> prefix. No Codex gate pass is claimed from those malformed artifacts. Stage B now also repeats actionable expected-commit/hash environment guards before installed mutation.</li>
+      <li>2026-07-17 — Correctly formatted Codex review of Doct v11 returned <code>PLAN_NEEDS_REVISION</code>. It found the first per-host identity still preceded explicit temporary-dependency cleanup, active-tool reload could falsely stall against an older durable deadline, and replacing the registered stable mirror before post-copy verification was not transaction-safe. The plan now cleans/asserts before the first identity, grants restored active tools one fresh configured stall interval with boundary/repeated-reload tests, and requires staged full-tree verification plus atomic swap and automatic prior-mirror/settings restoration under deterministic failpoints.</li>
+      <li>2026-07-17 — Doct v12 targeted Codex rereview returned <code>VERDICT: PLAN_EXECUTION_READY</code>; targeted high-risk Claude rereview independently returned <code>VERDICT: PLAN_EXECUTION_READY</code>. Both found the three v11 blockers closed with no remaining contradiction.</li>
+      <li>2026-07-17 — Final implementation-stage product-intent check returned <code>PM_VERDICT: EXECUTION_READY</code>. Reload grace, transactional scoped install recovery, and pre-identity cleanup remain consistent across goal, locked decisions, ACs, BDDs, phases, verification, and non-goals. The plan is approved for execution.</li>
+    </ul>
+  </section>
+
+  <section id="deviations">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li>2026-07-17 — This is a narrow post-deploy follow-up rather than a rewrite of the completed July 14 continuation remediation plan.</li>
+      <li>2026-07-17 — The false terminalizations are classified as host-activity decision defects because both affected sessions resumed normal assistant/tool work after the coordinator warning.</li>
+      <li>2026-07-17 — Snapshot amplification is fixed at the coordinator durability boundary rather than by dropping correlated updates; exact live deadline refresh remains required.</li>
+      <li>2026-07-17 — A 30-second default checkpoint was selected as a bounded durability interval well below the 15-minute production tool-stall ceiling, with a half-stall cap for shorter configurations.</li>
+      <li>2026-07-17 — No protocol bump is planned because no persisted field or interpretation changes.</li>
+      <li>2026-07-17 — Active-host deadline deferral is an immediate material snapshot/log transition, not a coalesced liveness update, so reload and audit state remain truthful.</li>
+      <li>2026-07-17 — Checkpoint/stall options fail construction outside the locked finite integer domain instead of relying on an impossible positive-clamp/half-stall combination.</li>
+      <li>2026-07-17 — Rollout completion means the same committed candidate passes generated-candidate installed gates on mbp and dever with pi-vcc-only rollback evidence; this is planned execution scope, not current planning-stage deployment authority.</li>
+      <li>2026-07-17 — Package payload identity is fail-closed: test-only dependencies are absent before identity/install; symlinks and special entries are unsupported; and directory/file type, path, mode, plus file bytes define the copied-tree hash used before and after install.</li>
+      <li>2026-07-17 — P1 implemented and verified: the immutable active-host RED test is green without edits; idle-host failure, durable deferral counts, stale timers, future/past-due reload, and eventual settlement pass in the 284-test package suite and 16-case source real-host matrix.</li>
+      <li>2026-07-17 — P2 implemented and verified: the immutable checkpoint RED test is green without edits; exact boundary, log/snapshot parity, material flushes, option validation, checkpoint origins, same-process reconcile/wake preservation, active-tool reload grace, and repeated reload behavior pass in the full package suite, source real-host matrix, and 20-compaction source soak with 22 audited terminal transactions.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

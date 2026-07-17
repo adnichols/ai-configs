@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$SCRIPT_DIR"
 TARGET_DIR="."
 INSTALL_MODE="--default"
+PI_VCC_PACKAGE_SOURCE=""
 INSTALL_TOOLS=false
 INSTALL_SKILLS=false
 UPDATE_SKILLS=false
@@ -63,12 +64,13 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 print_usage() {
-    echo "Usage: $0 [--claude|--codex|--pi|--pi-review-stack|--tools|--skills|--all] [--update] [target-directory]"
+    echo "Usage: $0 [--claude|--codex|--pi|--pi-vcc|--pi-review-stack|--tools|--skills|--all] [--update] [target-directory]"
     echo ""
     echo "Options:"
     echo "  --claude    Install Claude Code configuration and refresh shared skills for Claude"
     echo "  --codex     Sync global Codex prompts/scripts and refresh shared skills for Codex"
     echo "  --pi        Install Pi prompt templates, subagents, and extensions, then refresh shared skills"
+    echo "  --pi-vcc [package-source]  Transactionally install only pi-vcc (repo package by default)"
     echo "  --pi-review-stack  Mutation-bounded Pi config plus six maintained review skills; no packages/global cleanup"
     echo "  --tools     Install/update CLI tools and managed Herdr plugins"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
@@ -96,6 +98,8 @@ print_usage() {
     echo "  $0 --claude                      # Install Claude to current directory"
     echo "  $0 --codex                       # Sync global Codex resources"
     echo "  $0 --pi                          # Install Pi prompt templates, subagents, extensions, and refresh shared skills"
+    echo "  $0 --pi-vcc                     # Transactionally install only the vendored pi-vcc package"
+    echo "  $0 --pi-vcc /path/to/pi-vcc     # Install or roll back from an explicit preserved package"
     echo "  $0 --tools                       # Install/update CLI tools and managed Herdr plugins"
     echo "  $0 --skills                      # Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  $0 --skills --update             # Update skills.sh-managed global skills, then sync shared skills"
@@ -2637,6 +2641,221 @@ PY
     report_pi_vcc_upstream_status
 }
 
+install_scoped_pi_vcc_package() (
+    set -eE
+
+    local source_input="${PI_VCC_PACKAGE_SOURCE:-$REPO_ROOT/_pi/packages/pi-vcc}"
+    local pi_agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+    local settings_path="$pi_agent_dir/settings.json"
+    local stable_parent="$pi_agent_dir/local-packages/ai-configs"
+    local stable_source="$stable_parent/pi-vcc"
+    local identity_helper="$REPO_ROOT/scripts/pi-vcc-package-tree.py"
+    local verify_script="$REPO_ROOT/scripts/verify-pi-vcc-install.sh"
+    local source_abs source_hash staged_hash
+    local stage_path=""
+    local backup_path=""
+    local settings_snapshot=""
+    local settings_existed=0
+    local settings_snapshot_ready=0
+    local stable_moved=0
+    local candidate_installed=0
+    local committed=0
+    local failpoint="${PI_VCC_INSTALL_FAILPOINT:-}"
+
+    case "$failpoint" in
+        ""|copy|staged-hash|backup-move|swap|registration|post-swap-verification|remove-candidate|restore-mirror|restore-settings) ;;
+        *) echo "Error: unknown PI_VCC_INSTALL_FAILPOINT: $failpoint" >&2; exit 2 ;;
+    esac
+
+    [ -d "$source_input" ] || { echo "Error: pi-vcc package source is not a directory: $source_input" >&2; exit 1; }
+    [ -f "$source_input/package.json" ] || { echo "Error: pi-vcc package source is missing package.json: $source_input" >&2; exit 1; }
+    [ -f "$source_input/src/core/coordinator.ts" ] || { echo "Error: pi-vcc package source is missing src/core/coordinator.ts: $source_input" >&2; exit 1; }
+
+    source_abs="$(python3 - "$source_input" <<'PY'
+import os, sys
+print(os.path.realpath(os.path.expanduser(sys.argv[1])))
+PY
+)"
+    if python3 - "$source_abs" "$stable_source" <<'PY'
+import os, sys
+source = os.path.realpath(os.path.expanduser(sys.argv[1]))
+stable = os.path.realpath(os.path.expanduser(sys.argv[2]))
+try:
+    overlap = os.path.commonpath((source, stable)) in (source, stable)
+except ValueError:
+    overlap = False
+raise SystemExit(0 if overlap else 1)
+PY
+    then
+        echo "Error: pi-vcc package source overlaps the stable mirror: $source_abs" >&2
+        exit 1
+    fi
+    [ ! -L "$source_input" ] || { echo "Error: pi-vcc package source must not be a symlink: $source_input" >&2; exit 1; }
+    [ ! -e "$source_abs/node_modules" ] && [ ! -L "$source_abs/node_modules" ] || {
+        echo "Error: pi-vcc package source node_modules must be absent: $source_abs/node_modules" >&2
+        exit 1
+    }
+    python3 - "$pi_agent_dir" "$HOME" <<'PY'
+import os, stat, sys
+from pathlib import Path
+agent = Path(os.path.abspath(os.path.expanduser(sys.argv[1])))
+home = Path(os.path.abspath(os.path.expanduser(sys.argv[2])))
+targets = []
+try:
+    relative = agent.relative_to(home)
+except ValueError:
+    targets.append(agent)
+else:
+    current = home
+    targets.append(current)
+    for part in relative.parts:
+        current /= part
+        targets.append(current)
+targets.extend((agent / "local-packages", agent / "local-packages/ai-configs"))
+for path in targets:
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        continue
+    if stat.S_ISLNK(mode):
+        raise SystemExit(f"pi-vcc managed path must not contain a symlink ancestor: {path}")
+PY
+    [ ! -L "$stable_source" ] || { echo "Error: pi-vcc stable mirror must not be a symlink: $stable_source" >&2; exit 1; }
+    [ ! -L "$settings_path" ] || { echo "Error: pi-vcc settings path must not be a symlink: $settings_path" >&2; exit 1; }
+    if [ -f "$settings_path" ]; then
+        python3 - "$settings_path" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    value = json.load(handle)
+if not isinstance(value, dict):
+    raise SystemExit("settings.json must contain a JSON object")
+PY
+    elif [ -e "$settings_path" ]; then
+        echo "Error: pi-vcc settings path is not a regular file: $settings_path" >&2
+        exit 1
+    fi
+
+    source_hash="$(python3 "$identity_helper" "$source_abs")"
+
+    rollback_scoped_pi_vcc() {
+        local status=$?
+        local restore_failed=0
+        trap - EXIT INT TERM
+        set +e
+        if [ "$committed" -ne 1 ]; then
+            local candidate_removed=1
+            if [ "$candidate_installed" -eq 1 ]; then
+                if [ "$failpoint" = "remove-candidate" ]; then
+                    candidate_removed=0
+                    restore_failed=1
+                elif ! rm -rf "$stable_source"; then
+                    candidate_removed=0
+                    restore_failed=1
+                fi
+            fi
+            if [ "$stable_moved" -eq 1 ] && [ "$candidate_removed" -eq 1 ] && [ -n "$backup_path" ] && [ -e "$backup_path" ]; then
+                if [ "$failpoint" = "restore-mirror" ]; then
+                    restore_failed=1
+                elif mv "$backup_path" "$stable_source"; then
+                    backup_path=""
+                else
+                    restore_failed=1
+                fi
+            fi
+            if [ "$settings_existed" -eq 1 ] && [ "$settings_snapshot_ready" -eq 1 ]; then
+                if [ "$failpoint" = "restore-settings" ]; then
+                    restore_failed=1
+                elif ! cp -p "$settings_snapshot" "$settings_path"; then
+                    restore_failed=1
+                fi
+            elif [ "$settings_existed" -eq 0 ]; then
+                rm -f "$settings_path" || restore_failed=1
+            fi
+        fi
+        [ -z "$stage_path" ] || rm -rf "$stage_path" || restore_failed=1
+        if [ "$restore_failed" -eq 0 ]; then
+            [ -z "$backup_path" ] || rm -rf "$backup_path" || restore_failed=1
+            [ -z "$settings_snapshot" ] || rm -f "$settings_snapshot" || restore_failed=1
+        fi
+        if [ "$restore_failed" -ne 0 ]; then
+            echo "Error: pi-vcc automatic rollback encountered an error; recovery evidence retained at backup=${backup_path:-none} settings=${settings_snapshot:-none}" >&2
+            status=1
+        fi
+        exit "$status"
+    }
+    trap rollback_scoped_pi_vcc EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+
+    mkdir -p "$stable_parent" "$(dirname "$settings_path")"
+    stage_path="$(mktemp -d "$stable_parent/.pi-vcc-stage.XXXXXX")"
+    settings_snapshot="$(mktemp "$stable_parent/.pi-vcc-settings.XXXXXX")"
+    if [ -f "$settings_path" ]; then
+        settings_existed=1
+        cp -p "$settings_path" "$settings_snapshot"
+        settings_snapshot_ready=1
+    fi
+
+    [ "$failpoint" != "copy" ] || { echo "Injected pi-vcc install failure: copy" >&2; exit 1; }
+    python3 - "$source_abs" "$stage_path" <<'PY'
+import shutil, sys
+shutil.copytree(sys.argv[1], sys.argv[2], dirs_exist_ok=True, symlinks=True, copy_function=shutil.copy2)
+PY
+    staged_hash="$(python3 "$identity_helper" "$stage_path")"
+    [ "$failpoint" != "staged-hash" ] || { echo "Injected pi-vcc install failure: staged-hash" >&2; exit 1; }
+    [ "$source_hash" = "$staged_hash" ] || { echo "Error: staged pi-vcc package identity differs from source" >&2; exit 1; }
+
+    if [ -e "$stable_source" ]; then
+        backup_path="$(mktemp -d "$stable_parent/.pi-vcc-backup.XXXXXX")"
+        rmdir "$backup_path"
+        [ "$failpoint" != "backup-move" ] || { echo "Injected pi-vcc install failure: backup-move" >&2; exit 1; }
+        mv "$stable_source" "$backup_path"
+        stable_moved=1
+    fi
+    [ "$failpoint" != "swap" ] || { echo "Injected pi-vcc install failure: swap" >&2; exit 1; }
+    mv "$stage_path" "$stable_source"
+    stage_path=""
+    candidate_installed=1
+
+    python3 - "$settings_path" "$stable_source" "$REPO_ROOT/scripts" <<'PY'
+import json, os, stat, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, sys.argv[3])
+from pi_vcc_registration import is_pi_vcc_source, package_source
+settings = Path(sys.argv[1])
+source = sys.argv[2]
+stable = Path(source)
+data = json.loads(settings.read_text()) if settings.exists() else {}
+packages = data.get("packages")
+if not isinstance(packages, list):
+    packages = []
+data["packages"] = [item for item in packages if not is_pi_vcc_source(package_source(item), stable)] + [source]
+mode = stat.S_IMODE(settings.stat().st_mode) if settings.exists() else 0o644
+settings.parent.mkdir(parents=True, exist_ok=True)
+with tempfile.NamedTemporaryFile("w", dir=settings.parent, delete=False, encoding="utf-8") as handle:
+    json.dump(data, handle, indent=2)
+    handle.write("\n")
+    temporary = handle.name
+os.chmod(temporary, mode)
+os.replace(temporary, settings)
+PY
+    [ "$failpoint" != "registration" ] || { echo "Injected pi-vcc install failure: registration" >&2; exit 1; }
+    case "$failpoint" in
+        post-swap-verification|remove-candidate|restore-mirror|restore-settings)
+            echo "Injected pi-vcc install failure: $failpoint" >&2
+            exit 1
+            ;;
+    esac
+
+    PI_CODING_AGENT_DIR="$pi_agent_dir" bash "$verify_script" --expected-package "$source_abs" >/dev/null
+
+    committed=1
+    trap - EXIT INT TERM
+    [ -z "$backup_path" ] || rm -rf "$backup_path"
+    rm -f "$settings_snapshot"
+    echo "pi-vcc scoped install: PASS source=$source_abs stable=$stable_source hash=$source_hash"
+)
+
 # Install npm-based pi extensions
 install_pi_npm_packages() {
     echo ""
@@ -2729,33 +2948,48 @@ install_pi_npm_packages() {
     echo -e "${GREEN}  ✓ npm-based extensions processed${NC}"
 }
 
-# Argument parsing
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        --claude|--codex|--pi|--pi-review-stack|--tools|--skills|--all|--default)
-            INSTALL_MODE="$1"
-            shift
-            ;;
-        --update)
-            UPDATE_SKILLS=true
-            shift
-            ;;
-        --help|-h)
-            print_usage
-            exit 0
-            ;;
-        *)
-            if [[ "$1" == -* ]]; then
-                echo -e "${RED}Error: Unknown option $1${NC}"
-                echo ""
+# Argument parsing. The scoped pi-vcc mode intentionally accepts no other
+# installer options or target directory so it cannot fan out into unrelated work.
+if [ "${1:-}" = "--pi-vcc" ]; then
+    INSTALL_MODE="--pi-vcc"
+    shift
+    if [ "$#" -gt 1 ]; then
+        echo -e "${RED}Error: --pi-vcc accepts at most one package-source path${NC}" >&2
+        exit 1
+    fi
+    if [ "$#" -eq 1 ]; then
+        [[ "$1" != -* ]] || { echo -e "${RED}Error: unknown scoped pi-vcc option $1${NC}" >&2; exit 1; }
+        PI_VCC_PACKAGE_SOURCE="$1"
+        shift
+    fi
+else
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --claude|--codex|--pi|--pi-review-stack|--tools|--skills|--all|--default)
+                INSTALL_MODE="$1"
+                shift
+                ;;
+            --update)
+                UPDATE_SKILLS=true
+                shift
+                ;;
+            --help|-h)
                 print_usage
-                exit 1
-            fi
-            TARGET_DIR="$1"
-            shift
-            ;;
-    esac
-done
+                exit 0
+                ;;
+            *)
+                if [[ "$1" == -* ]]; then
+                    echo -e "${RED}Error: Unknown option $1${NC}"
+                    echo ""
+                    print_usage
+                    exit 1
+                fi
+                TARGET_DIR="$1"
+                shift
+                ;;
+        esac
+    done
+fi
 
 # The review-stack transaction treats the complete ~/.pi tree as one snapshot
 # boundary. Following a symlink here would mutate storage outside that boundary.
@@ -2766,7 +3000,7 @@ fi
 
 # Preserve ambiguous retired runtime trees, but remove positively identified
 # managed deprecated skills before installing any maintained surface.
-if [ "$INSTALL_MODE" != "--pi-review-stack" ]; then
+if [ "$INSTALL_MODE" != "--pi-review-stack" ] && [ "$INSTALL_MODE" != "--pi-vcc" ]; then
     cleanup_retired_runtime_surfaces "$TARGET_DIR"
     cleanup_deprecated_shared_skills
 fi
@@ -2803,6 +3037,10 @@ case "$INSTALL_MODE" in
         sync_shared_skills
         echo ""
         enforce_central_project_skills "$TARGET_DIR"
+        ;;
+    --pi-vcc)
+        install_scoped_pi_vcc_package
+        exit 0
         ;;
     --pi-review-stack)
         install_pi_review_stack

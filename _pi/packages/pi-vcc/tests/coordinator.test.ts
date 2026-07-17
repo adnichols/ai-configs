@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,7 +16,10 @@ import {
 	createContinuationSnapshotWire,
 } from "../src/core/continuation-protocol";
 import piVcc, { PI_VCC_LOAD_MARKER } from "../index";
-import { createContinuationCoordinator } from "../src/core/coordinator";
+import {
+	continuationLivenessCheckpointOrigin,
+	createContinuationCoordinator,
+} from "../src/core/coordinator";
 
 let previousLogPath: string | undefined;
 let logDir = "";
@@ -42,6 +46,7 @@ const setup = (
 		acceptanceDeadlineMs?: number;
 		idleProgressDeadlineMs?: number;
 		toolStallDeadlineMs?: number;
+		toolLivenessCheckpointMs?: number;
 		isIdle?: boolean;
 		appendFailureCustomType?: string;
 		appendFailureMatchOrdinal?: number;
@@ -125,6 +130,7 @@ const setup = (
 		acceptanceDeadlineMs: options.acceptanceDeadlineMs,
 		idleProgressDeadlineMs: options.idleProgressDeadlineMs,
 		toolStallDeadlineMs: options.toolStallDeadlineMs,
+		toolLivenessCheckpointMs: options.toolLivenessCheckpointMs,
 		onSessionReplacement: options.onSessionReplacement,
 	});
 	const emit = (event: string, payload: any = {}) => {
@@ -179,6 +185,42 @@ const request = (
 		},
 		h.ctx,
 	);
+
+const acceptWithTool = (
+	h: ReturnType<typeof setup>,
+	toolCallId: string,
+	overrides: Record<string, unknown> = {},
+) => {
+	const snapshot = request(h, overrides);
+	h.emit("message_start", {
+		message: {
+			role: "custom",
+			customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+			details: continuationMessageDetailsFor(snapshot),
+		},
+	});
+	h.emit("message_end", {
+		message: {
+			role: "assistant",
+			stopReason: "toolUse",
+			content: [{ type: "toolCall", id: toolCallId, name: "bash" }],
+		},
+	});
+	return snapshot;
+};
+
+const transactionLogRecords = (transactionId: string) => {
+	try {
+		return readFileSync(process.env.PI_VCC_LOG_PATH!, "utf8")
+			.trim()
+			.split("\n")
+			.filter(Boolean)
+			.map((line) => JSON.parse(line))
+			.filter((record) => record.transactionId === transactionId);
+	} catch {
+		return [];
+	}
+};
 
 const settleCurrent = (h: ReturnType<typeof setup>) => {
 	const snapshot = h.coordinator.getPending();
@@ -1331,6 +1373,260 @@ describe("continuation coordinator", () => {
 		expect(h.notifications).toHaveLength(1);
 	});
 
+	it("durably defers each active-host progress deadline and expires once the host becomes idle", () => {
+		const transactionId = "active-deferral-boundaries";
+		const h = setup("coordinator", {
+			idleProgressDeadlineMs: 60,
+			isIdle: false,
+		});
+		acceptWithTool(h, "active-deferral-tool", { transactionId });
+		h.advance(110);
+		h.emit("tool_execution_end", {
+			toolCallId: "active-deferral-tool",
+			toolName: "bash",
+		});
+		const before = h.coordinator.getPending()!;
+		const snapshotCount = () =>
+			h.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+					entry.data.snapshot.transactionId === transactionId,
+			).length;
+		const snapshotsBefore = snapshotCount();
+		const logsBefore = transactionLogRecords(transactionId).length;
+		const firstDeadlineTimer = h.timers.find(
+			(timer) => !timer.cancelled && timer.delay === 60,
+		)!;
+
+		h.advance(170);
+		h.fireTimer(60);
+		const firstDeferral = h.coordinator.getPending()!;
+		expect(firstDeferral).toMatchObject({
+			state: "progressed",
+			lastProgressAt: before.lastProgressAt,
+			pendingToolCount: before.pendingToolCount,
+			lastAssistantResult: before.lastAssistantResult,
+			progressDeadlineAt: 230,
+			deadlineAt: 230,
+			phaseEpoch: (before.phaseEpoch ?? 0) + 1,
+		});
+		expect(snapshotCount()).toBe(snapshotsBefore + 1);
+		expect(transactionLogRecords(transactionId)).toHaveLength(logsBefore + 1);
+		expect(h.notifications).toHaveLength(0);
+		expect(
+			h.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+					entry.data.transactionId === transactionId,
+			),
+		).toHaveLength(0);
+
+		const secondDeadlineTimer = h.timers.find(
+			(timer) => !timer.cancelled && timer.delay === 60,
+		)!;
+		firstDeadlineTimer.callback();
+		expect(secondDeadlineTimer.cancelled).toBe(false);
+		expect(h.timers.filter((timer) => !timer.cancelled)).toEqual([
+			secondDeadlineTimer,
+		]);
+		expect(snapshotCount()).toBe(snapshotsBefore + 1);
+
+		h.advance(230);
+		h.fireTimer(60);
+		expect(h.coordinator.getPending()).toMatchObject({
+			state: "progressed",
+			progressDeadlineAt: 290,
+			deadlineAt: 290,
+			phaseEpoch: (before.phaseEpoch ?? 0) + 2,
+		});
+		expect(snapshotCount()).toBe(snapshotsBefore + 2);
+		expect(transactionLogRecords(transactionId)).toHaveLength(logsBefore + 2);
+
+		h.setIdle(true);
+		h.advance(290);
+		h.fireTimer(60);
+		expect(h.coordinator.getPending()).toMatchObject({
+			state: "failed_loudly",
+			terminalReason: "deadline_expired",
+		});
+		expect(h.notifications).toHaveLength(1);
+	});
+
+	it("rehydrates future and past-due active deferrals without granting no-tool grace", () => {
+		const transactionId = "active-deferral-reload";
+		const beforeReload = setup("coordinator", {
+			idleProgressDeadlineMs: 60,
+			isIdle: false,
+		});
+		acceptWithTool(beforeReload, "deferral-reload-tool", { transactionId });
+		beforeReload.advance(110);
+		beforeReload.emit("tool_execution_end", {
+			toolCallId: "deferral-reload-tool",
+		});
+		beforeReload.advance(170);
+		beforeReload.fireTimer(60);
+		expect(beforeReload.coordinator.getPending()?.progressDeadlineAt).toBe(230);
+		const stalePreReloadTimer = beforeReload.timers.find(
+			(timer) => !timer.cancelled && timer.delay === 60,
+		)!;
+		beforeReload.coordinator.dispose();
+		const durableEntries = structuredClone(beforeReload.entries);
+
+		const future = setup("coordinator", {
+			entries: structuredClone(durableEntries),
+			clock: 200,
+			idleProgressDeadlineMs: 60,
+			isIdle: false,
+		});
+		future.emit("session_start", { reason: "reload" });
+		expect(future.coordinator.getPending()?.progressDeadlineAt).toBe(230);
+		expect(
+			future.timers.filter((timer) => !timer.cancelled).map((timer) => timer.delay),
+		).toEqual([30]);
+		const futureEntryCount = future.entries.length;
+		stalePreReloadTimer.callback();
+		expect(future.entries).toHaveLength(futureEntryCount);
+		expect(future.coordinator.getPending()?.progressDeadlineAt).toBe(230);
+		future.coordinator.dispose();
+
+		const pastDueActive = setup("coordinator", {
+			entries: structuredClone(durableEntries),
+			clock: 250,
+			idleProgressDeadlineMs: 60,
+			isIdle: false,
+		});
+		pastDueActive.emit("session_start", { reason: "reload" });
+		expect(
+			pastDueActive.timers.filter((timer) => !timer.cancelled).map((timer) => timer.delay),
+		).toEqual([0]);
+		pastDueActive.fireTimer(0);
+		expect(pastDueActive.coordinator.getPending()).toMatchObject({
+			state: "progressed",
+			progressDeadlineAt: 310,
+			deadlineAt: 310,
+		});
+		pastDueActive.coordinator.dispose();
+
+		const pastDueIdle = setup("coordinator", {
+			entries: structuredClone(durableEntries),
+			clock: 250,
+			idleProgressDeadlineMs: 60,
+			isIdle: true,
+		});
+		pastDueIdle.emit("session_start", { reason: "reload" });
+		pastDueIdle.fireTimer(0);
+		expect(pastDueIdle.coordinator.getPending()).toMatchObject({
+			state: "failed_loudly",
+			terminalReason: "deadline_expired",
+		});
+	});
+
+	it("does not expire accepted progress while the host is still running the next model turn", () => {
+		const h = setup("coordinator", {
+			idleProgressDeadlineMs: 60,
+			isIdle: false,
+		});
+		const snapshot = request(h);
+		h.emit("message_start", {
+			message: {
+				role: "custom",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(snapshot),
+			},
+		});
+		h.emit("message_end", {
+			message: {
+				role: "assistant",
+				stopReason: "toolUse",
+				content: [{ type: "toolCall", id: "completed-tool", name: "bash" }],
+			},
+		});
+		h.advance(110);
+		h.emit("tool_execution_end", { toolCallId: "completed-tool", toolName: "bash" });
+		expect(h.coordinator.getPending()).toMatchObject({
+			state: "progressed",
+			pendingToolCount: 0,
+			progressDeadlineAt: 170,
+		});
+
+		// Reproduce the observed sessions: Pi starts the next model turn, but the
+		// provider takes longer than 60 seconds to produce the next assistant
+		// message. Active inference must retain continuation ownership.
+		h.advance(160);
+		h.emit("turn_start");
+		h.advance(170);
+		h.fireTimer(60);
+
+		expect(h.coordinator.getPending()?.state).toBe("progressed");
+		expect(h.notifications).toHaveLength(0);
+		expect(
+			h.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+					entry.data.terminalState === "failed_loudly",
+			),
+		).toHaveLength(0);
+
+		h.advance(176);
+		h.emit("message_end", {
+			message: { role: "assistant", stopReason: "stop" },
+		});
+		h.emit("agent_settled");
+		expect(h.coordinator.getPending()).toMatchObject({
+			state: "settled",
+			terminalReason: "progressed_then_agent_settled",
+		});
+	});
+
+	it("checkpoints correlated tool liveness without persisting every update", () => {
+		const h = setup("coordinator", {
+			toolStallDeadlineMs: 900_000,
+			idleProgressDeadlineMs: 60_000,
+		});
+		const snapshot = request(h);
+		h.emit("message_start", {
+			message: {
+				role: "custom",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(snapshot),
+			},
+		});
+		h.emit("message_end", {
+			message: {
+				role: "assistant",
+				stopReason: "toolUse",
+				content: [{ type: "toolCall", id: "streaming-tool", name: "bash" }],
+			},
+		});
+
+		const snapshotCount = () =>
+			h.entries.filter(
+				(entry) => entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE,
+			).length;
+		const beforeUpdates = snapshotCount();
+
+		// Production tools commonly emit updates every ~250ms. Deadline freshness
+		// remains in memory, while durable liveness is checkpointed at a bounded
+		// cadence instead of appending one session entry and log record per update.
+		for (const at of [350, 600, 850, 1_100, 5_100, 10_100, 20_100, 30_099]) {
+			h.advance(at);
+			h.emit("tool_execution_update", {
+				toolCallId: "streaming-tool",
+				toolName: "bash",
+			});
+			expect(h.coordinator.getPending()?.toolStallDeadlineAt).toBe(at + 900_000);
+		}
+		expect(snapshotCount()).toBe(beforeUpdates);
+
+		h.advance(30_100);
+		h.emit("tool_execution_update", {
+			toolCallId: "streaming-tool",
+			toolName: "bash",
+		});
+		expect(h.coordinator.getPending()?.toolStallDeadlineAt).toBe(930_100);
+		expect(snapshotCount()).toBe(beforeUpdates + 1);
+	});
+
 	it("stalls an outstanding tool, retains queue ownership, then resumes on correlated progress", () => {
 		const h = setup("coordinator", { toolStallDeadlineMs: 50, idleProgressDeadlineMs: 60 });
 		const snapshot = request(h);
@@ -1369,6 +1665,446 @@ describe("continuation coordinator", () => {
 		h.emit("agent_settled");
 		expect(h.coordinator.getPending()?.transactionId).toBe("tx-2");
 		expect(h.sent).toHaveLength(2);
+	});
+
+	it("writes one matching snapshot and transaction log at each liveness checkpoint boundary", () => {
+		const transactionId = "checkpoint-boundary-log";
+		const h = setup("coordinator", {
+			toolStallDeadlineMs: 900_000,
+			toolLivenessCheckpointMs: 30_000,
+		});
+		acceptWithTool(h, "checkpoint-log-tool", { transactionId });
+		const snapshotCount = () =>
+			h.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+					entry.data.snapshot.transactionId === transactionId,
+			).length;
+		const snapshotsBefore = snapshotCount();
+		const logsBefore = transactionLogRecords(transactionId).length;
+
+		h.advance(30_099);
+		h.emit("tool_execution_update", {
+			toolCallId: "checkpoint-log-tool",
+		});
+		expect(snapshotCount()).toBe(snapshotsBefore);
+		expect(transactionLogRecords(transactionId)).toHaveLength(logsBefore);
+
+		h.advance(30_100);
+		h.emit("tool_execution_update", {
+			toolCallId: "checkpoint-log-tool",
+		});
+		expect(snapshotCount()).toBe(snapshotsBefore + 1);
+		expect(transactionLogRecords(transactionId)).toHaveLength(logsBefore + 1);
+
+		h.advance(60_099);
+		h.emit("tool_execution_update", {
+			toolCallId: "checkpoint-log-tool",
+		});
+		expect(snapshotCount()).toBe(snapshotsBefore + 1);
+		h.advance(60_100);
+		h.emit("tool_execution_update", {
+			toolCallId: "checkpoint-log-tool",
+		});
+		expect(snapshotCount()).toBe(snapshotsBefore + 2);
+		expect(transactionLogRecords(transactionId)).toHaveLength(logsBefore + 2);
+	});
+
+	it("caps the effective checkpoint at half of a shorter tool-stall deadline", () => {
+		const transactionId = "short-stall-checkpoint";
+		const h = setup("coordinator", {
+			toolStallDeadlineMs: 10,
+			toolLivenessCheckpointMs: 100,
+		});
+		acceptWithTool(h, "short-stall-tool", { transactionId });
+		const snapshotCount = () =>
+			h.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+					entry.data.snapshot.transactionId === transactionId,
+			).length;
+		const before = snapshotCount();
+		h.advance(104);
+		h.emit("tool_execution_update", { toolCallId: "short-stall-tool" });
+		expect(snapshotCount()).toBe(before);
+		h.advance(105);
+		h.emit("tool_execution_update", { toolCallId: "short-stall-tool" });
+		expect(snapshotCount()).toBe(before + 1);
+		expect(h.coordinator.getPending()?.toolStallDeadlineAt).toBe(115);
+	});
+
+	it("rejects unsupported checkpoint and tool-stall timing options", () => {
+		for (const value of [0, 1, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+			expect(() => setup("coordinator", { toolStallDeadlineMs: value })).toThrow(
+				"toolStallDeadlineMs",
+			);
+		}
+		for (const value of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+			expect(() =>
+				setup("coordinator", { toolLivenessCheckpointMs: value }),
+			).toThrow("toolLivenessCheckpointMs");
+		}
+		expect(() =>
+			setup("coordinator", {
+				toolStallDeadlineMs: 2,
+				toolLivenessCheckpointMs: 1,
+			}),
+		).not.toThrow();
+	});
+
+	it("uses lastProgressAt then acceptedAt then createdAt as the live coordinator checkpoint origin", () => {
+		const base = createContinuationTransaction({
+			transactionId: "checkpoint-origin",
+			origin: "compact_context",
+			reason: "compacted",
+			attemptId: "checkpoint-origin-attempt",
+			resumePolicy: "active",
+			createdAt: 100,
+			deadlineMs: 100,
+		});
+		expect(
+			continuationLivenessCheckpointOrigin({
+				...base,
+				acceptedAt: 120,
+				lastProgressAt: 130,
+			}),
+		).toBe(130);
+		expect(
+			continuationLivenessCheckpointOrigin({
+				...base,
+				acceptedAt: 120,
+			}),
+		).toBe(120);
+		expect(continuationLivenessCheckpointOrigin(base)).toBe(100);
+
+		const h = setup("coordinator", { toolLivenessCheckpointMs: 30 });
+		const submitted = request(h, { transactionId: "checkpoint-origin-live" });
+		expect(h.coordinator.getNextToolLivenessCheckpointAt()).toBe(130);
+		h.advance(120);
+		h.emit("message_start", {
+			message: {
+				role: "custom",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(submitted),
+			},
+		});
+		expect(h.coordinator.getNextToolLivenessCheckpointAt()).toBe(150);
+		h.advance(140);
+		h.emit("message_end", {
+			message: {
+				role: "assistant",
+				stopReason: "toolUse",
+				content: [{ type: "toolCall", id: "checkpoint-origin-tool", name: "bash" }],
+			},
+		});
+		expect(h.coordinator.getNextToolLivenessCheckpointAt()).toBe(170);
+	});
+
+	it("preserves uncheckpointed live liveness and its timer across reconcile and queued-request wakes", () => {
+		const transactionId = "same-process-live-liveness";
+		const h = setup("coordinator", {
+			toolStallDeadlineMs: 50,
+			toolLivenessCheckpointMs: 30_000,
+		});
+		acceptWithTool(h, "same-process-tool", { transactionId });
+		const snapshotsBeforeUpdate = h.entries.filter(
+			(entry) =>
+				entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+				entry.data.snapshot.transactionId === transactionId,
+		).length;
+		h.advance(120);
+		h.emit("tool_execution_update", { toolCallId: "same-process-tool" });
+		const live = h.coordinator.getPending()!;
+		const liveTimer = h.timers.find(
+			(timer) => !timer.cancelled && timer.delay === 50,
+		)!;
+		expect(live.toolStallDeadlineAt).toBe(170);
+
+		h.coordinator.reconcile(h.ctx);
+		expect(h.coordinator.getPending()).toBe(live);
+		expect(liveTimer.cancelled).toBe(false);
+		expect(h.timers.filter((timer) => !timer.cancelled)).toEqual([liveTimer]);
+
+		request(h, {
+			transactionId: "same-process-queued",
+			attemptId: "same-process-queued-attempt",
+			requestId: "same-process-queued-request",
+			originatingRequestId: "same-process-queued-request",
+		});
+		h.pi.events.emit("pi-vcc:continuation-requested", {
+			transactionId: "same-process-queued",
+		});
+		expect(h.coordinator.getPending()).toBe(live);
+		expect(h.coordinator.getPending()).toMatchObject({
+			lastProgressAt: 120,
+			toolStallDeadlineAt: 170,
+			phaseEpoch: live.phaseEpoch,
+		});
+		expect(liveTimer.cancelled).toBe(false);
+		expect(
+			h.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+					entry.data.snapshot.transactionId === transactionId,
+			).length,
+		).toBe(snapshotsBeforeUpdate);
+
+		h.advance(170);
+		h.fireTimer(50);
+		expect(h.coordinator.getPending()).toMatchObject({
+			transactionId,
+			state: "stalled",
+		});
+	});
+
+	it("grants restored active tools one fresh stall interval on every reload", () => {
+		const transactionId = "active-tool-reload-grace";
+		const beforeReload = setup("coordinator", {
+			toolStallDeadlineMs: 50,
+			toolLivenessCheckpointMs: 30_000,
+		});
+		const submitted = acceptWithTool(beforeReload, "reload-grace-tool", {
+			transactionId,
+		});
+		beforeReload.entries.push(
+			{
+				id: "reload-grace-acceptance",
+				type: "custom_message",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(submitted),
+				timestamp: 100,
+			},
+			{
+				id: "reload-grace-tool-call",
+				type: "message",
+				message: {
+					role: "assistant",
+					stopReason: "toolUse",
+					content: [
+						{
+							type: "toolCall",
+							id: "reload-grace-tool",
+							name: "bash",
+						},
+					],
+				},
+			},
+		);
+		beforeReload.advance(124);
+		beforeReload.emit("tool_execution_update", {
+			toolCallId: "reload-grace-tool",
+		});
+		expect(beforeReload.coordinator.getPending()?.toolStallDeadlineAt).toBe(174);
+		const staleTimer = beforeReload.timers.find(
+			(timer) => !timer.cancelled && timer.delay === 50,
+		)!;
+		const durableEntries = structuredClone(beforeReload.entries);
+		const durableSnapshotCount = durableEntries.filter(
+			(entry) =>
+				entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+				entry.data.snapshot.transactionId === transactionId,
+		).length;
+		beforeReload.coordinator.dispose();
+
+		const firstReload = setup("coordinator", {
+			entries: structuredClone(durableEntries),
+			clock: 149,
+			toolStallDeadlineMs: 50,
+			toolLivenessCheckpointMs: 30_000,
+		});
+		firstReload.emit("session_start", { reason: "reload" });
+		expect(firstReload.coordinator.getPending()).toMatchObject({
+			state: "progressed",
+			toolStallDeadlineAt: 199,
+			deadlineAt: 199,
+		});
+		expect(
+			firstReload.timers.filter((timer) => !timer.cancelled).map((timer) => timer.delay),
+		).toEqual([50]);
+		expect(
+			firstReload.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+					entry.data.snapshot.transactionId === transactionId,
+			).length,
+		).toBe(durableSnapshotCount);
+		staleTimer.callback();
+		expect(firstReload.coordinator.getPending()?.toolStallDeadlineAt).toBe(199);
+		firstReload.coordinator.dispose();
+
+		const secondReload = setup("coordinator", {
+			entries: structuredClone(durableEntries),
+			clock: 180,
+			toolStallDeadlineMs: 50,
+			toolLivenessCheckpointMs: 30_000,
+		});
+		secondReload.emit("session_start", { reason: "reload" });
+		expect(secondReload.coordinator.getPending()?.toolStallDeadlineAt).toBe(230);
+		secondReload.advance(229);
+		expect(secondReload.coordinator.getPending()?.state).toBe("progressed");
+		secondReload.advance(230);
+		secondReload.fireTimer(50);
+		expect(secondReload.coordinator.getPending()?.state).toBe("stalled");
+	});
+
+	it("flushes uncheckpointed liveness immediately on material completion, settlement, and supersession", () => {
+		const completionId = "material-completion";
+		const completion = setup("coordinator", {
+			toolStallDeadlineMs: 100,
+			toolLivenessCheckpointMs: 50,
+		});
+		acceptWithTool(completion, "material-completion-tool", {
+			transactionId: completionId,
+		});
+		completion.advance(120);
+		completion.emit("tool_execution_update", {
+			toolCallId: "material-completion-tool",
+		});
+		const completionSnapshots = () =>
+			completion.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+					entry.data.snapshot.transactionId === completionId,
+			).length;
+		const snapshotsBeforeCompletion = completionSnapshots();
+		const logsBeforeCompletion = transactionLogRecords(completionId).length;
+		completion.advance(121);
+		completion.emit("tool_execution_end", {
+			toolCallId: "material-completion-tool",
+		});
+		expect(completion.coordinator.getPending()).toMatchObject({
+			pendingToolCount: 0,
+			lastProgressAt: 121,
+		});
+		expect(completionSnapshots()).toBe(snapshotsBeforeCompletion + 1);
+		expect(transactionLogRecords(completionId)).toHaveLength(
+			logsBeforeCompletion + 1,
+		);
+		completion.emit("agent_settled");
+		expect(completionSnapshots()).toBe(snapshotsBeforeCompletion + 2);
+		expect(transactionLogRecords(completionId)).toHaveLength(
+			logsBeforeCompletion + 2,
+		);
+
+		const supersessionId = "material-supersession";
+		const supersession = setup("coordinator", {
+			toolStallDeadlineMs: 100,
+			toolLivenessCheckpointMs: 50,
+		});
+		acceptWithTool(supersession, "material-supersession-tool", {
+			transactionId: supersessionId,
+		});
+		supersession.advance(120);
+		supersession.emit("tool_execution_update", {
+			toolCallId: "material-supersession-tool",
+		});
+		const snapshotsBeforeSupersession = supersession.entries.filter(
+			(entry) =>
+				entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+				entry.data.snapshot.transactionId === supersessionId,
+		).length;
+		supersession.advance(121);
+		supersession.emit("input", {
+			source: "interactive",
+			text: "new work",
+		});
+		const persistedSupersession = supersession.entries.filter(
+			(entry) =>
+				entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+				entry.data.snapshot.transactionId === supersessionId,
+		).at(-1)?.data.snapshot;
+		expect(persistedSupersession).toMatchObject({
+			state: "superseded",
+			lastProgressAt: 120,
+			toolStallDeadlineAt: undefined,
+		});
+		expect(
+			supersession.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+					entry.data.snapshot.transactionId === supersessionId,
+			).length,
+		).toBe(snapshotsBeforeSupersession + 1);
+	});
+
+	it("persists immediate snapshot and log pairs for tool starts, assistant results, stalls, and retries", () => {
+		const immediatePair = (
+			transactionId: string,
+			h: ReturnType<typeof setup>,
+			action: () => void,
+		) => {
+			const snapshotsBefore = h.entries.filter(
+				(entry) =>
+					entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+					entry.data.snapshot.transactionId === transactionId,
+			).length;
+			const logsBefore = transactionLogRecords(transactionId).length;
+			action();
+			expect(
+				h.entries.filter(
+					(entry) =>
+						entry.customType === CONTINUATION_SNAPSHOT_ENTRY_CUSTOM_TYPE &&
+						entry.data.snapshot.transactionId === transactionId,
+				).length,
+			).toBe(snapshotsBefore + 1);
+			expect(transactionLogRecords(transactionId)).toHaveLength(logsBefore + 1);
+		};
+
+		const toolStartId = "material-tool-start";
+		const toolStart = setup("coordinator", {
+			toolStallDeadlineMs: 100,
+			toolLivenessCheckpointMs: 50,
+		});
+		acceptWithTool(toolStart, "material-tool-start-call", { transactionId: toolStartId });
+		toolStart.advance(120);
+		toolStart.emit("tool_execution_update", { toolCallId: "material-tool-start-call" });
+		toolStart.advance(121);
+		immediatePair(toolStartId, toolStart, () =>
+			toolStart.emit("tool_execution_start", { toolCallId: "material-tool-start-call" }),
+		);
+
+		const assistantId = "material-assistant-result";
+		const assistant = setup("coordinator", {
+			toolStallDeadlineMs: 100,
+			toolLivenessCheckpointMs: 50,
+		});
+		acceptWithTool(assistant, "material-assistant-call", { transactionId: assistantId });
+		assistant.advance(120);
+		assistant.emit("tool_execution_update", { toolCallId: "material-assistant-call" });
+		assistant.advance(121);
+		immediatePair(assistantId, assistant, () =>
+			assistant.emit("message_end", {
+				message: { role: "assistant", stopReason: "error" },
+			}),
+		);
+
+		const stallId = "material-stall";
+		const stall = setup("coordinator", {
+			toolStallDeadlineMs: 100,
+			toolLivenessCheckpointMs: 50,
+		});
+		acceptWithTool(stall, "material-stall-call", { transactionId: stallId });
+		stall.advance(120);
+		stall.emit("tool_execution_update", { toolCallId: "material-stall-call" });
+		stall.advance(220);
+		immediatePair(stallId, stall, () => stall.fireTimer(100));
+		expect(stall.coordinator.getPending()?.state).toBe("stalled");
+
+		const retryId = "material-retry";
+		const retry = setup("coordinator", { retryDelaysMs: [5, 5] });
+		const submitted = request(retry, { transactionId: retryId });
+		retry.emit("message_start", {
+			message: {
+				role: "custom",
+				customType: CONTINUATION_MESSAGE_CUSTOM_TYPE,
+				details: continuationMessageDetailsFor(submitted),
+			},
+		});
+		retry.emit("message_end", {
+			message: { role: "assistant", stopReason: "error" },
+		});
+		immediatePair(retryId, retry, () => retry.emit("agent_settled"));
+		expect(retry.coordinator.getPending()?.state).toBe("retrying");
 	});
 
 	it("keeps status-only messages neutral and supersedes model-driving or unknown custom input", () => {
