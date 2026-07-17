@@ -2640,10 +2640,10 @@ install_pi_npm_packages() {
         "@tmustier/pi-raw-paste"
         "@pi-kaush/pi-inline-skill-identifier"
         "@howaboua/pi-vent"
-        "@howaboua/pi-codex-conversion"
         "@howaboua/pi-explore-subagents"
     )
     local deprecated_npm_packages=(
+        "@howaboua/pi-codex-conversion"
         "pi-subagents"
         "pi-mcp-adapter"
         "@sting8k/pi-vcc"

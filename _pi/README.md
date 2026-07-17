@@ -208,12 +208,13 @@ npm-managed packages:
 - `@tmustier/pi-raw-paste`
 - `@pi-kaush/pi-inline-skill-identifier`
 - `@howaboua/pi-vent`
-- `@howaboua/pi-codex-conversion`
 - `@howaboua/pi-explore-subagents`
 
 local path packages:
 - `~/.pi/agent/local-packages/ai-configs/pi-vcc` (a stable mirror synced from `./_pi/packages/pi-vcc`; install tests and worktrees must not register their transient checkout path)
 - `../3p/pi-interactive-shell` (preferred when present; otherwise `git:github.com/adnichols/pi-interactive-shell`)
+
+`@howaboua/pi-codex-conversion` is retired from the managed install; the installer removes stale npm and git registrations.
 
 `@ff-labs/pi-fff` is intentionally retired from the managed install because its native FFF search library can abort the Pi process on macOS during concurrent live grep and filesystem watcher activity.
 

@@ -760,6 +760,7 @@ test_pi_install_removes_retired_goal_packages() {
   "packages": [
     "npm:pi-codex-goal",
     "git:github.com/adnichols/pi-codex-goal",
+    "npm:@howaboua/pi-codex-conversion",
     "npm:@ff-labs/pi-fff",
     "npm:pi-side-agents"
   ]
@@ -773,10 +774,12 @@ JSON
 
   assert_file_contains "$output_file" 'Removing retired Pi goal package npm:pi-codex-goal' || return 1
   assert_file_contains "$output_file" 'Removing retired Pi goal package git:github.com/adnichols/pi-codex-goal' || return 1
+  assert_file_contains "$output_file" 'Removing deprecated Pi package @howaboua/pi-codex-conversion' || return 1
   assert_file_contains "$output_file" 'Removing deprecated Pi package @ff-labs/pi-fff' || return 1
   assert_file_contains "$output_file" 'Removing deprecated Pi package pi-side-agents' || return 1
   assert_file_not_contains "$settings_path" 'pi-codex-goal' || return 1
   assert_file_not_contains "$settings_path" 'piCodexGoal' || return 1
+  assert_file_not_contains "$settings_path" '@howaboua/pi-codex-conversion' || return 1
   assert_file_not_contains "$settings_path" '@ff-labs/pi-fff' || return 1
   assert_file_not_contains "$settings_path" 'pi-side-agents' || return 1
 }
@@ -859,6 +862,7 @@ PY
     return 1
   fi
   if ! grep -Fq 'retired pi-codex-goal package is still registered' "$output_file" ||
+    ! grep -Fq 'retired @howaboua/pi-codex-conversion package is still registered' "$output_file" ||
     ! grep -Fq 'retired @ff-labs/pi-fff package is still registered' "$output_file" ||
     ! grep -Fq 'retired pi-side-agents package is still registered' "$output_file"; then
     cat "$output_file" >&2

@@ -126,7 +126,6 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@tmustier/pi-raw-paste"
   "npm:@pi-kaush/pi-inline-skill-identifier"
   "npm:@howaboua/pi-vent"
-  "npm:@howaboua/pi-codex-conversion"
   "npm:@howaboua/pi-explore-subagents"
 )
 
@@ -434,6 +433,12 @@ if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-codex-goal'; then
   note_failure "retired pi-codex-goal package is still registered"
 else
   echo "  pi-codex-goal registration: absent"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq '@howaboua/pi-codex-conversion'; then
+  note_failure "retired @howaboua/pi-codex-conversion package is still registered"
+else
+  echo "  @howaboua/pi-codex-conversion registration: absent"
 fi
 
 if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq '@ff-labs/pi-fff'; then
