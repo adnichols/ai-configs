@@ -151,6 +151,7 @@ export default function claudeReviewExtension(pi: ExtensionAPI) {
     async execute(_toolCallId, params: ToolParams, signal, onUpdate, ctx) {
       activeContext = ctx;
       const originSessionId = ctx.sessionManager?.getSessionId?.();
+      const originSessionFile = ctx.sessionManager?.getSessionFile?.();
       manager.activate(originSessionId);
       if (params.action === "list") {
         const jobs = manager.list();
@@ -200,6 +201,7 @@ export default function claudeReviewExtension(pi: ExtensionAPI) {
           promptFile,
           output,
           originSessionId,
+          originSessionFile,
           onAccepted: (candidate) => {
             accepted = candidate;
             attached.set(candidate.jobId, { resolve: resolveTerminal, detached: false });

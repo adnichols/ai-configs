@@ -467,22 +467,29 @@ test("deferred attached completion is claimed only after the terminal tool resul
   assert.equal(restartedNotifications.length, 0);
 });
 
-test("recorded terminal claude_review tool result prevents restart redelivery", async (t) => {
+test("recorded terminal claude_review tool result prevents restart redelivery without scanning the session tree", async (t) => {
   const f = await fixture(t);
   await writeFile(f.promptFile, "MODE=no-verdict\nDELAY=0.1\n");
+  const originSessionFile = path.join(f.root, "origin-session.jsonl");
+  await writeFile(originSessionFile, "");
   const notifications = [];
   const manager = managerFor(f.root, notifications, { deferNotification: () => true });
   manager.activate("session-a");
-  const started = await manager.start({ action: "start", cwd: f.cwd, promptFile: f.promptFile, output: f.output, originSessionId: "session-a" });
+  const started = await manager.start({
+    action: "start",
+    cwd: f.cwd,
+    promptFile: f.promptFile,
+    output: f.output,
+    originSessionId: "session-a",
+    originSessionFile,
+  });
   await waitForTerminal(manager, started.jobId);
   assert.equal(notifications.length, 1);
   await manager.shutdown();
 
-  const sessions = path.join(f.root, "sessions");
-  await import("node:fs/promises").then(({ mkdir }) => mkdir(sessions));
-  await writeFile(path.join(sessions, "session.jsonl"), `${JSON.stringify({ type: "message", message: { role: "toolResult", toolName: "claude_review", details: { phase: "completed", job: { jobId: started.jobId } } } })}\n`);
+  await writeFile(originSessionFile, `${JSON.stringify({ type: "message", message: { role: "toolResult", toolName: "claude_review", details: { phase: "completed", job: { jobId: started.jobId } } } })}\n`);
   const restartedNotifications = [];
-  const restarted = managerFor(f.root, restartedNotifications, { sessionsDir: sessions });
+  const restarted = managerFor(f.root, restartedNotifications, { sessionsDir: path.join(f.root, "missing-session-tree") });
   t.after(() => restarted.shutdown());
   restarted.activate("session-a");
   assert.equal(restartedNotifications.length, 0);

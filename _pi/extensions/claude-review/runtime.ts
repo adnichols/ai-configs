@@ -33,6 +33,7 @@ export interface StartRequest {
   promptFile?: string;
   output: string;
   originSessionId?: string;
+  originSessionFile?: string;
   onAccepted?: (job: JobSnapshot) => void;
 }
 
@@ -57,6 +58,7 @@ export interface JobSnapshot {
   exitCode?: number | null;
   signal?: NodeJS.Signals | null;
   originSessionId?: string;
+  originSessionFile?: string;
 }
 
 export interface CompletionEvent extends JobSnapshot {}
@@ -183,6 +185,7 @@ function snapshot(job: InternalJob): JobSnapshot {
     exitCode: job.exitCode,
     signal: job.signal,
     originSessionId: job.originSessionId,
+    originSessionFile: job.originSessionFile,
   };
 }
 
@@ -261,7 +264,7 @@ export class ClaudeReviewJobManager {
   private readonly makeId: () => string;
   private readonly jobs = new Map<string, InternalJob>();
   private readonly activeOutputs = new Map<string, string>();
-  private startupDeliveredJobIds?: Set<string>;
+  private readonly sessionDeliveryJobIds = new Map<string, Set<string>>();
   private observing = false;
   private activeSessionId?: string;
   private shuttingDown = false;
@@ -348,6 +351,7 @@ export class ClaudeReviewJobManager {
       stateFile,
       startedAt: this.now().toISOString(),
       originSessionId: request.originSessionId ?? this.activeSessionId,
+      originSessionFile: request.originSessionFile ? path.resolve(request.originSessionFile) : undefined,
       reservationFile,
       notificationFile: path.join(this.cacheDir, `${jobId}.notification.lock`),
       notificationSent: false,
@@ -459,12 +463,20 @@ export class ClaudeReviewJobManager {
     try {
       files = readdirSync(this.cacheDir).filter((name) => /^claude-review-[^.]+(?:\.state)?\.json$/.test(name));
     } catch { return; }
+    const recovered: Array<{ persisted: JobSnapshot; stateFile: string; legacyState: boolean }> = [];
     for (const name of files) {
       const stateFile = path.join(this.cacheDir, name);
       const legacyState = !name.endsWith(".state.json");
       let persisted: unknown;
       try { persisted = JSON.parse(readFileSync(stateFile, "utf8")); } catch { continue; }
-      if (!isJobSnapshot(persisted)) continue;
+      if (isJobSnapshot(persisted)) recovered.push({ persisted, stateFile, legacyState });
+    }
+    const running = recovered.filter(({ persisted }) => persisted.status === "running");
+    const completed = recovered
+      .filter(({ persisted }) => persisted.status !== "running")
+      .sort((a, b) => (b.persisted.completedAt ?? b.persisted.startedAt).localeCompare(a.persisted.completedAt ?? a.persisted.startedAt))
+      .slice(0, this.maxCompletedJobs);
+    for (const { persisted, stateFile, legacyState } of [...running, ...completed]) {
       const notificationFile = path.join(this.cacheDir, `${persisted.jobId}.notification.lock`);
       const job: InternalJob = {
         ...persisted,
@@ -473,13 +485,12 @@ export class ClaudeReviewJobManager {
         launcherPid: persisted.launcherPid ?? (legacyState ? persisted.pid : undefined),
         reservationFile: this.reservationPath(persisted.output),
         notificationFile,
-        notificationSent: existsSync(notificationFile) || this.deliveredSessionJobIds().has(persisted.jobId),
+        notificationSent: existsSync(notificationFile) || this.sessionHasDelivery(persisted),
         recovered: true,
       };
       this.jobs.set(job.jobId, job);
       if (job.status === "running") this.activeOutputs.set(job.output, job.jobId);
     }
-    this.pruneCompletedHistory();
   }
 
   private watch(job: InternalJob): void {
@@ -573,41 +584,52 @@ export class ClaudeReviewJobManager {
     } catch { /* state remains discoverable when the originating Pi runtime is unavailable */ }
   }
 
-  private deliveredSessionJobIds(): Set<string> {
-    if (this.startupDeliveredJobIds) return this.startupDeliveredJobIds;
-    const delivered = new Set<string>();
-    const visit = (dir: string): void => {
+  private sessionHasDelivery(job: JobSnapshot): boolean {
+    const sessionFile = this.resolveOriginSessionFile(job);
+    if (!sessionFile) return false;
+    let delivered = this.sessionDeliveryJobIds.get(sessionFile);
+    if (!delivered) {
+      delivered = new Set<string>();
+      for (const line of safeRead(sessionFile).split("\n")) {
+        if (!line.includes("claude-review-completion") && !line.includes('\"toolName\":\"claude_review\"')) continue;
+        try {
+          const row = JSON.parse(line);
+          const message = row?.type === "custom_message" ? row : row?.message;
+          const customJobId = (row?.type === "custom_message" || message?.role === "custom") && message?.customType === "claude-review-completion"
+            ? message?.details?.jobId
+            : undefined;
+          const toolJobId = message?.role === "toolResult" && message?.toolName === "claude_review" && message?.details?.phase === "completed"
+            ? message?.details?.job?.jobId
+            : undefined;
+          if (typeof customJobId === "string") delivered.add(customJobId);
+          if (typeof toolJobId === "string") delivered.add(toolJobId);
+        } catch { /* ignore partial or unrelated session rows */ }
+      }
+      this.sessionDeliveryJobIds.set(sessionFile, delivered);
+    }
+    return delivered.has(job.jobId);
+  }
+
+  private resolveOriginSessionFile(job: JobSnapshot): string | undefined {
+    if (job.originSessionFile && existsSync(job.originSessionFile)) return job.originSessionFile;
+    if (!job.originSessionId) return undefined;
+    const suffix = `_${job.originSessionId}.jsonl`;
+    const visit = (dir: string): string | undefined => {
       let names: string[];
-      try { names = readdirSync(dir); } catch { return; }
+      try { names = readdirSync(dir); } catch { return undefined; }
       for (const name of names) {
-        const file = path.join(dir, name);
+        const candidate = path.join(dir, name);
+        if (name.endsWith(suffix)) return candidate;
         let info;
-        try { info = statSync(file); } catch { continue; }
+        try { info = statSync(candidate); } catch { continue; }
         if (info.isDirectory()) {
-          visit(file);
-          continue;
-        }
-        if (!name.endsWith(".jsonl")) continue;
-        for (const line of safeRead(file).split("\n")) {
-          if (!line.includes("claude-review-completion") && !line.includes('\"toolName\":\"claude_review\"')) continue;
-          try {
-            const row = JSON.parse(line);
-            const message = row?.type === "custom_message" ? row : row?.message;
-            const customJobId = (row?.type === "custom_message" || message?.role === "custom") && message?.customType === "claude-review-completion"
-              ? message?.details?.jobId
-              : undefined;
-            const toolJobId = message?.role === "toolResult" && message?.toolName === "claude_review" && message?.details?.phase === "completed"
-              ? message?.details?.job?.jobId
-              : undefined;
-            if (typeof customJobId === "string") delivered.add(customJobId);
-            if (typeof toolJobId === "string") delivered.add(toolJobId);
-          } catch { /* ignore partial or unrelated session rows */ }
+          const found = visit(candidate);
+          if (found) return found;
         }
       }
+      return undefined;
     };
-    visit(this.sessionsDir);
-    this.startupDeliveredJobIds = delivered;
-    return delivered;
+    return visit(this.sessionsDir);
   }
 
   private claimNotification(job: InternalJob): boolean {

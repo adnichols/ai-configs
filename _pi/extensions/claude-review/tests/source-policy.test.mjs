@@ -36,12 +36,19 @@ test("completion delivery is bound to the originating Pi session", async () => {
   assert.match(runtime, /sessionMatches/);
 });
 
-test("restart recovery indexes session delivery evidence once", async () => {
+test("restart recovery checks only the originating session for delivery evidence", async () => {
+  const index = await text("_pi/extensions/claude-review/index.ts");
   const runtime = await text("_pi/extensions/claude-review/runtime.ts");
-  assert.match(runtime, /private startupDeliveredJobIds\?: Set<string>/);
-  assert.match(runtime, /if \(this\.startupDeliveredJobIds\) return this\.startupDeliveredJobIds/);
-  assert.match(runtime, /this\.deliveredSessionJobIds\(\)\.has\(persisted\.jobId\)/);
-  assert.doesNotMatch(runtime, /sessionHasDelivery\(jobId/);
+  assert.match(index, /sessionManager\?\.getSessionFile\?\.\(\)/);
+  assert.match(runtime, /originSessionFile\?: string/);
+  assert.match(runtime, /this\.sessionHasDelivery\(persisted\)/);
+  assert.match(runtime, /if \(job\.originSessionFile && existsSync\(job\.originSessionFile\)\)/);
+  assert.match(runtime, /private readonly sessionDeliveryJobIds = new Map<string, Set<string>>\(\)/);
+  assert.match(runtime, /this\.sessionDeliveryJobIds\.get\(sessionFile\)/);
+  assert.match(runtime, /\.slice\(0, this\.maxCompletedJobs\)/);
+  assert.doesNotMatch(runtime, /startupDeliveredJobIds/);
+  assert.doesNotMatch(runtime, /deliveredSessionJobIds/);
+  assert.doesNotMatch(runtime, /visit\(this\.sessionsDir\).*safeRead/s);
 });
 
 test("Pi review prompts route Claude through claude_review", async () => {
