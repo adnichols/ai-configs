@@ -1675,6 +1675,19 @@ DEFAULT_MODEL = "gpt-5.6-sol"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
 SPARK_MODEL = "gpt-5.3-codex-spark"
+# Grok models exposed via the local CLI Proxy API (xAI OAuth). These are
+# appended to enabledModels if missing so both managed machines surface them.
+GROK_MODEL_VALUES = [
+    "grok/grok-4.5",
+    "grok/grok-build-0.1",
+    "grok/grok-4.3",
+    "grok/grok-4.20-0309-reasoning",
+    "grok/grok-4.20-0309-non-reasoning",
+    "grok/grok-4.20-multi-agent-0309",
+    "grok/grok-3-mini",
+    "grok/grok-3-mini-fast",
+    "grok/grok-composer-2.5-fast",
+]
 
 changed = []
 
@@ -1717,6 +1730,9 @@ if DEFAULT_MODEL_VALUE not in normalized:
     normalized.insert(0, DEFAULT_MODEL_VALUE)
 if GLM_SCOPED_MODEL_VALUE not in normalized:
     normalized.append(GLM_SCOPED_MODEL_VALUE)
+for grok_model in GROK_MODEL_VALUES:
+    if grok_model not in normalized:
+        normalized.append(grok_model)
 settings["enabledModels"] = normalized
 
 if json.dumps(settings, sort_keys=True) != before_settings:
