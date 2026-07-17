@@ -1,0 +1,3 @@
+1. **P2 — startup reconciliation still deletes failed-cleanup evidence.** In [runtime.ts](/home/anichols/.herdr/worktrees/ai-configs/codex-review-plugin/_pi/extensions/codex-review/runtime.ts:265), `reconcileInterrupted()` unconditionally removes `stagingOutput`, `launcherStatus`, and `processIdentityFile`, even when cleanup failed and the job was classified `CODEX_REVIEW_ORPHAN_IDENTITY_UNCERTAIN`. This removes the identity evidence operators need to safely investigate surviving descendants. The restart tests do not assert evidence retention for this path.
+
+VERDICT: FINDINGS_TO_RESOLVE

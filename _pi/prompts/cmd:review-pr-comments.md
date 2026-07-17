@@ -163,7 +163,7 @@ If the triage found a `REVIEW_ESCAPE`, run this before reporting the PR feedback
 1. Record the missed-defect pattern: feedback URL, affected file/line, why the prior review should have caught it, and the failure family it represents.
 2. Inspect the full PR diff for sibling instances: analogous callsites, repeated assumptions, partial fixes, missing tests, related edge cases, and adjacent plan-bound surfaces.
 3. Run a read-only adversarial implementation review over the current PR diff, the original PR feedback, and the sibling-inspection notes.
-   - If using `codex-review-partner`, use `--mode adversarial-implementation-review`.
+   - In Pi, call `codex_review` with `action:"start"`, `reviewType:"adversarial-implementation-review"`, `verdictProfile:"pre-pr-implementation"`, and explicit `promptFile`, `output`, and `cwd` paths.
    - Ask the reviewer to find additional missed issues in the same failure family, not just to validate the direct fix.
 4. Triage new findings normally. Fix in-scope issues, document true out-of-scope follow-ups, and ask the user about scope questions.
 5. If the adversarial pass finds in-scope issues, rerun it once after fixes before returning to normal PR monitoring.

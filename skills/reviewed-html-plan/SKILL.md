@@ -16,7 +16,7 @@ Load and follow these skills when this workflow reaches their surface:
 - `planning-workflow` for the plan-writing contract and execution-readiness bar.
 - `doct-document-ops` for HTML/Markdoc plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, Markdown/text fallback publishing, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
-- `codex-review-partner` for the read-only Codex plan-review leg. In Codex, use a Codex subagent/native review task when available; in Pi, run Codex as a subprocess through the installed wrapper.
+- `codex-review-partner` for the read-only Codex plan-review leg. In Codex, use a Codex subagent/native review task when available; in Pi, use `codex_review` with the `reviewed-html-plan` profile.
 - `claude-code-review` for the read-only Claude Code plan-review leg when the high-risk second-reviewer trigger or an explicit override applies; the canonical launcher owns model and effort selection.
 - Domain skills required by the target repository guidance, stack, or plan surface.
 
@@ -132,14 +132,16 @@ Run the Codex reviewer before execution, and keep all reviewers read-only. Befor
 In Codex, run the Codex leg as a subagent/native review task when available; otherwise use the installed wrapper from the same repo/worktree:
 
 ```bash
-~/.agents/skills/codex-review-partner/scripts/run-review.sh \
-  --mode plan-review \
-  --input /tmp/reviewed-html-plan-codex-review.md \
-  --cwd /path/to/repo \
-  --output thoughts/validation/<slug>-codex-plan-review.md
+~/.agents/skills/codex-review-partner/scripts/run-review.sh --mode plan-review --verdict-profile generic-plan --input /tmp/reviewed-html-plan-codex-review.md --cwd /path/to/repo --output thoughts/validation/<slug>-codex-plan-review.md # codex-review-policy-exempt: non-Pi Codex runtime only
 ```
 
-In Pi, run the Codex leg as a subprocess with that same wrapper; do not use a Pi GPT subagent for the Codex leg.
+In Pi, write the bounded plan-review prompt and call:
+
+```text
+codex_review({ action:"start", reviewType:"plan-review", verdictProfile:"reviewed-html-plan", promptFile:"/tmp/reviewed-html-plan-codex-review.md", output:"thoughts/validation/<slug>-codex-plan-review.md", cwd:"/path/to/repo" })
+```
+
+Do not use a Pi GPT subagent. Read the single completion artifact. Clean/needs-revision/product-question/incomplete remain workflow verdicts; transport failures get only the documented narrower unusable-output rerun, while required incomplete slices continue under this workflow's existing stop rules.
 
 Run Claude Code only when the high-risk second-reviewer trigger or an explicit override applies. In Pi, write the bounded prompt file and dispatch it through the deterministic background tool:
 

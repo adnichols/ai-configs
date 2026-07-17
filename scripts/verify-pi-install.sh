@@ -13,6 +13,87 @@ PI_DEFAULT_PROVIDER="openai-codex"
 PI_DEFAULT_MODEL="gpt-5.6-sol"
 PI_DEFAULT_MODEL_VALUE="${PI_DEFAULT_PROVIDER}/${PI_DEFAULT_MODEL}"
 PI_GLM_SCOPED_MODEL_VALUE="opencode/glm-5.2"
+VERIFY_SCOPE="full"
+CHECK_ONLY=false
+
+while (($#)); do
+  case "$1" in
+    --scope) VERIFY_SCOPE="${2:-}"; shift 2 ;;
+    --check-only) CHECK_ONLY=true; shift ;;
+    *) echo "Unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+if [ "$VERIFY_SCOPE" = "pi-review-stack" ]; then
+  [ "$CHECK_ONLY" = true ] || { echo "pi-review-stack verification requires --check-only" >&2; exit 2; }
+  failures=0
+  check_tree_entries() {
+    local source="$1" target="$2" entry base
+    [ -d "$target" ] || { echo "FAIL: missing $target" >&2; failures=$((failures+1)); return; }
+    shopt -s nullglob
+    for entry in "$source"/*; do
+      base="$(basename "$entry")"
+      if ! diff -qr "$entry" "$target/$base" >/dev/null 2>&1; then echo "FAIL: installed parity $target/$base" >&2; failures=$((failures+1)); fi
+    done
+    shopt -u nullglob
+  }
+  check_tree_entries "$REPO_ROOT/_pi/prompts" "$PI_AGENT_DIR/prompts"
+  check_tree_entries "$REPO_ROOT/_pi/agents" "$PI_AGENT_DIR/agents"
+  check_tree_entries "$REPO_ROOT/_pi/extensions" "$PI_AGENT_DIR/extensions"
+  for pair in "$REPO_ROOT/_pi/README.md:$PI_AGENT_DIR/README.md"; do
+    left="${pair%%:*}"; right="${pair#*:}"; cmp -s "$left" "$right" || { echo "FAIL: installed parity $right" >&2; failures=$((failures+1)); }
+  done
+  if ! python3 - "$REPO_ROOT/_pi/models.json" "$PI_AGENT_DIR/models.json" <<'PY'
+import json, sys
+source, installed = (json.load(open(value)) for value in sys.argv[1:])
+source_providers = source.get("providers", {})
+installed_providers = installed.get("providers", {})
+for provider_id, provider in source_providers.items():
+    target = installed_providers.get(provider_id)
+    if not isinstance(target, dict): raise SystemExit(1)
+    source_models = provider.get("models", [])
+    target_models = {model.get("id"): model for model in target.get("models", []) if isinstance(model, dict)}
+    for model in source_models:
+        if model.get("id") not in target_models: raise SystemExit(1)
+        if provider_id == "openai-codex":
+            def contains(actual, expected):
+                return all(key in actual and (contains(actual[key], value) if isinstance(value, dict) else actual[key] == value) for key, value in expected.items())
+            if not contains(target_models[model["id"]], model): raise SystemExit(1)
+PY
+  then echo "FAIL: installed merged model contract $PI_AGENT_DIR/models.json" >&2; failures=$((failures+1)); fi
+  if ! python3 - "$REPO_ROOT" "$REPO_ROOT/APPEND_SYSTEM.md" "$PI_AGENT_DIR/APPEND_SYSTEM.md" <<'PY'
+import re, subprocess, sys
+from pathlib import Path
+repo, source_path, installed_path = map(Path, sys.argv[1:])
+token = "{{AI_CONFIGS_VERSION}}"
+source = source_path.read_text()
+installed = installed_path.read_text()
+if source.count(token) != 1 or token in installed:
+    raise SystemExit(1)
+prefix, suffix = source.split(token)
+if not installed.startswith(prefix) or not installed.endswith(suffix):
+    raise SystemExit(1)
+version = installed[len(prefix):len(installed) - len(suffix) if suffix else None]
+commit = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short=8", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
+relative = source_path.resolve().relative_to(repo.resolve()).as_posix()
+committed = subprocess.run(["git", "-C", str(repo), "show", f"HEAD:{relative}"], check=True, capture_output=True).stdout
+dirty = source_path.read_bytes() != committed
+expected = rf"\d{{4}}-\d{{2}}-\d{{2}}\+{re.escape(commit)}{'-dirty' if dirty else ''}"
+if not re.fullmatch(expected, version):
+    raise SystemExit(1)
+PY
+  then
+    echo "FAIL: installed rendered APPEND_SYSTEM.md" >&2; failures=$((failures+1))
+  fi
+  for skill in autoreview codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
+    if ! diff -qr "$REPO_ROOT/skills/$skill" "$HOME/.agents/skills/$skill" >/dev/null 2>&1; then echo "FAIL: installed skill parity $skill" >&2; failures=$((failures+1)); fi
+  done
+  if ((failures)); then echo "Pi review-stack verification failed with $failures issue(s)." >&2; exit 1; fi
+  echo "Pi review-stack verification passed (check-only)."
+  exit 0
+elif [ "$VERIFY_SCOPE" != "full" ]; then
+  echo "Unknown verification scope: $VERIFY_SCOPE" >&2; exit 2
+fi
 
 EXPECTED_GIT_PACKAGES=()
 
@@ -238,7 +319,9 @@ print_section "3) Quick checks"
 echo "  Repo-managed extensions: find ~/.pi/agent/extensions -mindepth 1 -maxdepth 1 -exec basename {} \\; | sort"
 echo "  Package-managed installs: pi list"
 
-if repair_pi_model_defaults; then
+if [ "$CHECK_ONLY" = true ]; then
+  echo "  Pi local Codex defaults repair: skipped (--check-only)"
+elif repair_pi_model_defaults; then
   echo "  Pi local Codex defaults repair: applied"
 else
   note_failure "unable to repair Pi local Codex defaults"

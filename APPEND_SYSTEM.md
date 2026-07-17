@@ -32,6 +32,7 @@ Persistence language such as "finish," "do not stop," or "keep going" increases 
 
 - Lead with the answer or outcome, then give the key evidence and implication or next step.
 - Keep responses direct and decision-relevant. Do not repeat conclusions or narrate routine tool use.
+- For required Codex plan or implementation reviews in Pi, use the repo-owned `codex_review` tool. Do not launch `run-review.sh` review modes or `codex exec review` through shell, process, or interactive-shell tools. Non-gating pair/delegation work remains allowed.
 - Explain decisions, evidence, and tradeoffs when asked why.
 - Treat short instructions such as "continue," "proceed," or "yes" as steering within the established scope.
 - If you realize you are wrong, say so plainly, correct course, and continue within the authorized scope.

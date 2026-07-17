@@ -22,9 +22,14 @@ chmod +x "$TMP_DIR/zsh"
 cat > "$TMP_DIR/bin/codex" <<'EOF'
 #!/bin/bash
 set -euo pipefail
+if [[ "${1:-}" == "--version" ]]; then printf '%s\n' 'codex-cli 0.144.4'; exit 0; fi
 printf '%s\n' "$@" > "$CODEX_ARGS_FILE"
 cat > "$CODEX_STDIN_FILE"
-printf '%s\n' 'VERDICT: PASS_SCOPED' 'Fake Codex review body'
+args=("$@")
+for ((i=0; i<${#args[@]}; i++)); do
+  if [[ "${args[$i]}" == "-o" ]]; then printf '%s\n' 'Fake Codex review body' 'VERDICT: PASS_SCOPED' >"${args[$((i+1))]}"; fi
+done
+printf '%s\n' '{"type":"turn.completed"}'
 EOF
 chmod +x "$TMP_DIR/bin/codex"
 
@@ -34,7 +39,7 @@ SHELL="$TMP_DIR/zsh" \
 LOGIN_SHELL_ARGS_FILE="$TMP_DIR/login-shell.args" \
 CODEX_ARGS_FILE="$TMP_DIR/codex.args" \
 CODEX_STDIN_FILE="$TMP_DIR/codex.stdin" \
-  "$LAUNCHER" --mode implementation-review --input "$TMP_DIR/input.md" --cwd "$TMP_DIR" --output "$TMP_DIR/output.md"
+  "$LAUNCHER" --mode implementation-review --verdict-profile run-plan-pm --input "$TMP_DIR/input.md" --cwd "$TMP_DIR" --output "$TMP_DIR/output.md"
 
 grep -Fx -- '-l' "$TMP_DIR/login-shell.args" >/dev/null
 grep -Fx -- '-c' "$TMP_DIR/login-shell.args" >/dev/null
@@ -48,7 +53,7 @@ grep -F -- 'VERDICT: PASS_SCOPED' "$TMP_DIR/output.md" >/dev/null
 
 cp "$TMP_DIR/zsh" "$TMP_DIR/tcsh"
 if PATH="$TMP_DIR/bin:/usr/bin:/bin" SHELL="$TMP_DIR/tcsh" \
-  "$LAUNCHER" --mode implementation-review --input "$TMP_DIR/input.md" --cwd "$TMP_DIR" >"$TMP_DIR/unsupported.stdout" 2>"$TMP_DIR/unsupported.stderr"; then
+  "$LAUNCHER" --mode implementation-review --verdict-profile run-plan-pm --input "$TMP_DIR/input.md" --cwd "$TMP_DIR" >"$TMP_DIR/unsupported.stdout" 2>"$TMP_DIR/unsupported.stderr"; then
   echo "Expected unsupported tcsh-style login shell to fail" >&2
   exit 1
 fi

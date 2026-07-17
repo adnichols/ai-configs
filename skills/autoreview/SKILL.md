@@ -121,7 +121,7 @@ Before launching Claude Code, classify the review scope using the high-risk seco
 
 Launch applicable reviewers in the same turn when possible:
 
-- **Codex** is the primary review leg. In Codex, run it as a Codex subagent/native review task when that facility is available; otherwise use `codex-review-partner` in `implementation-review` mode. In Pi, run Codex as a subprocess through the installed `codex-review-partner` wrapper.
+- **Codex** is the primary review leg. In Codex, run it as a Codex subagent/native review task when that facility is available; otherwise use `codex-review-partner` in `implementation-review` mode. In Pi, call the managed `codex_review` tool with `reviewType:"implementation-review"` and `verdictProfile:"pre-pr-implementation"`.
 - **Claude Code** is the high-risk second-reviewer leg when the high-risk trigger or an explicit override applies. Use `claude-code-review`; the canonical launcher owns model, effort, and private-tmux mechanics.
 
 Do not use alternate model-subagent reviewers to satisfy the Codex/Claude Code gate described in this section.
@@ -133,14 +133,16 @@ Both reviews are read-only. If Codex or a required Claude Code review is unavail
 When this skill is invoked from Codex, run the Codex leg as a subagent/native review task when available, then run the applicable Claude Code leg through the canonical launcher. If a subprocess Codex leg is needed, use the same worktree and pass the resolved plan/scope and base/range:
 
 ```bash
-~/.agents/skills/codex-review-partner/scripts/run-review.sh \
-  --mode implementation-review \
-  --input /tmp/pre-pr-codex-review.md \
-  --cwd /path/to/repo \
-  --output thoughts/validation/pre-pr-reviews/<date-branch>-codex.md
+~/.agents/skills/codex-review-partner/scripts/run-review.sh --mode implementation-review --verdict-profile generic-implementation --input /tmp/pre-pr-codex-review.md --cwd /path/to/repo --output thoughts/validation/pre-pr-reviews/<date-branch>-codex.md # codex-review-policy-exempt: non-Pi Codex runtime only
 ```
 
-When this skill is invoked from Pi for the Codex/Claude Code route, run the Codex leg as a subprocess with that same wrapper; do not use a Pi GPT subagent for the Codex leg.
+When this skill is invoked from Pi, write the bounded Codex prompt and call:
+
+```text
+codex_review({ action:"start", reviewType:"implementation-review", verdictProfile:"pre-pr-implementation", promptFile:"/tmp/pre-pr-codex-review.md", output:"thoughts/validation/pre-pr-reviews/<date-branch>-codex.md", cwd:"/path/to/repo" })
+```
+
+Do not use a Pi GPT subagent or launch the wrapper through `bash`, `process`, or `interactive_shell` for the Codex leg.
 
 Run Claude Code only when applicable. In Pi, write the bounded prompt file and call:
 
@@ -153,7 +155,7 @@ claude_review({
 })
 ```
 
-Do not poll while the originating Pi session remains active. Consume the completion notification and read the artifact; after reload/restart, recover the persisted job with `claude_review` list/status. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
+Do not poll either managed review while the originating Pi session remains active. Consume each completion notification and read its artifact; after reload/restart, recover persisted jobs with the matching `codex_review` or `claude_review` list/status action. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
 
 The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate.
 
