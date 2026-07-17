@@ -12,7 +12,13 @@ SCRIPT = ROOT / "scripts/capture-pi-vcc-unrelated-state.py"
 class CapturePiVccUnrelatedStateTest(unittest.TestCase):
     def capture(self, agent: Path, output: Path):
         env = {**os.environ, "PI_CODING_AGENT_DIR": str(agent)}
-        subprocess.run(["python3", str(SCRIPT), "--output", str(output)], cwd=ROOT, env=env, check=True)
+        subprocess.run(
+            ["python3", str(SCRIPT), "--output", str(output)],
+            cwd=ROOT,
+            env=env,
+            check=True,
+            timeout=600,
+        )
         return output.read_bytes(), json.loads(output.read_text())
 
     def test_output_is_deterministic_and_excludes_stable_package(self):

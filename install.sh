@@ -2695,22 +2695,15 @@ PY
         echo "Error: pi-vcc package source node_modules must be absent: $source_abs/node_modules" >&2
         exit 1
     }
-    python3 - "$pi_agent_dir" "$HOME" <<'PY'
+    python3 - "$pi_agent_dir" <<'PY'
 import os, stat, sys
 from pathlib import Path
 agent = Path(os.path.abspath(os.path.expanduser(sys.argv[1])))
-home = Path(os.path.abspath(os.path.expanduser(sys.argv[2])))
-targets = []
-try:
-    relative = agent.relative_to(home)
-except ValueError:
-    targets.append(agent)
-else:
-    current = home
+current = Path(agent.anchor)
+targets = [current]
+for part in agent.parts[1:]:
+    current /= part
     targets.append(current)
-    for part in relative.parts:
-        current /= part
-        targets.append(current)
 targets.extend((agent / "local-packages", agent / "local-packages/ai-configs"))
 for path in targets:
     try:
@@ -2763,9 +2756,25 @@ PY
                 fi
             fi
             if [ "$settings_existed" -eq 1 ] && [ "$settings_snapshot_ready" -eq 1 ]; then
-                if [ "$failpoint" = "restore-settings" ]; then
-                    restore_failed=1
-                elif ! cp -p "$settings_snapshot" "$settings_path"; then
+                if ! python3 - "$settings_snapshot" "$settings_path" "$failpoint" <<'PY'
+import os, shutil, sys, tempfile
+source, destination, failpoint = sys.argv[1:]
+parent = os.path.dirname(destination)
+fd, staged = tempfile.mkstemp(prefix=".pi-vcc-settings-restore.", dir=parent)
+os.close(fd)
+try:
+    shutil.copy2(source, staged)
+    if failpoint == "restore-settings":
+        raise OSError("injected pi-vcc settings restore failure")
+    os.replace(staged, destination)
+except BaseException:
+    try:
+        os.unlink(staged)
+    except FileNotFoundError:
+        pass
+    raise
+PY
+                then
                     restore_failed=1
                 fi
             elif [ "$settings_existed" -eq 0 ]; then
@@ -2821,7 +2830,12 @@ PY
 import json, os, stat, sys, tempfile
 from pathlib import Path
 sys.path.insert(0, sys.argv[3])
-from pi_vcc_registration import is_pi_vcc_source, package_source
+from pi_vcc_registration import (
+    PiGitUrlParserUnavailable,
+    is_pi_vcc_source,
+    package_source,
+    require_pi_package_root,
+)
 settings = Path(sys.argv[1])
 source = sys.argv[2]
 stable = Path(source)
@@ -2829,7 +2843,14 @@ data = json.loads(settings.read_text()) if settings.exists() else {}
 packages = data.get("packages")
 if not isinstance(packages, list):
     packages = []
-data["packages"] = [item for item in packages if not is_pi_vcc_source(package_source(item), stable)] + [source]
+try:
+    # Fail closed before rewriting settings if the Pi parser cannot be loaded.
+    require_pi_package_root()
+    data["packages"] = [
+        item for item in packages if not is_pi_vcc_source(package_source(item), stable)
+    ] + [source]
+except PiGitUrlParserUnavailable as exc:
+    raise SystemExit(f"Error: pi-vcc registration classification unavailable: {exc}") from exc
 mode = stat.S_IMODE(settings.stat().st_mode) if settings.exists() else 0o644
 settings.parent.mkdir(parents=True, exist_ok=True)
 with tempfile.NamedTemporaryFile("w", dir=settings.parent, delete=False, encoding="utf-8") as handle:

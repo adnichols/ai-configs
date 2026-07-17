@@ -14,6 +14,7 @@ class PiVccValidationCliTest(unittest.TestCase):
         return subprocess.run(
             command, cwd=ROOT, env={**os.environ, **(env or {})}, text=True,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=600,
         )
 
     def assert_artifact_layout(self, root: Path):

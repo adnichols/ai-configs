@@ -22,6 +22,7 @@ def make_package(path: Path, marker: str = "candidate") -> Path:
 
 
 def fake_environment(root: Path) -> tuple[dict[str, str], Path]:
+    root = root.resolve()
     home = root / "home"
     agent = home / ".pi/agent"
     bin_dir = root / "bin"
@@ -47,6 +48,7 @@ class VerifyPiVccInstallTest(unittest.TestCase):
         return subprocess.run(
             ["bash", str(VERIFY), *map(str, args)], cwd=ROOT, env=env,
             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check,
+            timeout=600,
         )
 
     def install_fixture(self, root: Path, package: Path):
@@ -142,6 +144,91 @@ class VerifyPiVccInstallTest(unittest.TestCase):
             result = self.run_verify(env, "--expected-package", package)
             self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_official_git_forms_are_counted_while_foreign_hosts_are_not(self):
+        # Only forms Pi itself parses as GitHub adnichols|sting8k/pi-vcc are official.
+        official = (
+            "git:adnichols/pi-vcc",
+            "git:github.com/adnichols/pi-vcc@v1",
+            "git:git@github.com:sting8k/pi-vcc@v1",
+            "https://github.com/adnichols/pi-vcc.git@v1",
+            "ssh://github.com/sting8k/pi-vcc",
+            "ssh://git@github.com/adnichols/pi-vcc@v1",
+            "git://github.com/sting8k/pi-vcc",
+            "git:https://github.com/adnichols/pi-vcc",
+            "git:https://github.com/adnichols/pi-vcc/",
+            "git:https://github.com/adnichols/pi-vcc.git/",
+            "git:https://github.com/adnichols/pi-vcc/.",
+            "git:https://user:token@github.com/adnichols/pi-vcc",
+            "git:https://github.com:443/adnichols/pi-vcc",
+            "git:ssh://git@github.com/sting8k/pi-vcc",
+            "git:ssh://git@github.com/sting8k/pi-vcc/",
+            "git:ssh://git@github.com:22/sting8k/pi-vcc",
+            "git:git://github.com/adnichols/pi-vcc",
+            "git:git://github.com/adnichols/pi-vcc/",
+            "git:github.com/adnichols/pi-vcc@release/v1",
+            "git: https://github.com/adnichols/pi-vcc",
+            "git:git+https://github.com/adnichols/pi-vcc",
+            "git:git+ssh://git@github.com/adnichols/pi-vcc",
+            " https://github.com/adnichols/pi-vcc/ ",
+            "ssh://git@GITHUB.COM/adnichols/pi-vcc",
+            "https://GITHUB.COM/sting8k/pi-vcc",
+        )
+        foreign = (
+            "adnichols/pi-vcc",
+            "sting8k/pi-vcc.git#main",
+            "github:github.com/sting8k/pi-vcc",
+            "git@github.com:adnichols/pi-vcc.git@v1",
+            "GIT:https://github.com/adnichols/pi-vcc",
+            "https://adnichols/pi-vcc",
+            "ssh://sting8k/pi-vcc",
+            "git://evil.example/adnichols/pi-vcc",
+            "ssh://git@evil.example/sting8k/pi-vcc",
+            "https://github.com.evil.example/adnichols/pi-vcc",
+            r"https://evil.example\@github.com/adnichols/pi-vcc",
+            "https://github.com:999999/adnichols/pi-vcc",
+            "git:https://github.com/adnichols/pi-vcc@",
+            "https://github.com/adnichols/pi-vcc%40evil",
+            "https://github.com/adnichols%2Fpi-vcc",
+            "https://github.com/adnichols/pi-vcc;param",
+            "git:https://github.com/adnichols//pi-vcc",
+            "git:https://github.com/adnichols/pi-vcc.git%2Egit",
+            " npm:@adnichols/pi-vcc",
+            "https://github.com/ADNICHOLS/pi-vcc",
+            "https://github.com/adnichols/PI-VCC",
+        )
+        for source, should_count in [*((value, True) for value in official), *((value, False) for value in foreign)]:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                package = make_package(root / "candidate")
+                env, agent, stable = self.install_fixture(root, package)
+                (agent / "settings.json").write_text(json.dumps({
+                    "packages": [str(stable), source],
+                    "extensions": [],
+                }) + "\n")
+                result = self.run_verify(env, "--expected-package", package)
+                if should_count:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("exactly one total pi-vcc", result.stderr)
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_missing_pi_parser_fails_closed_exact_one_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = make_package(root / "candidate")
+            env, agent, stable = self.install_fixture(root, package)
+            (agent / "settings.json").write_text(json.dumps({
+                "packages": [str(stable), "git:adnichols/pi-vcc"],
+                "extensions": [],
+            }) + "\n")
+            # Point at a non-Pi layout so classification cannot load parseGitUrl.
+            env = dict(env)
+            env["PI_CODING_AGENT_PACKAGE_ROOT"] = str(root / "not-pi")
+            (root / "not-pi").mkdir()
+            result = self.run_verify(env, "--expected-package", package)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("registration classification unavailable", result.stderr)
+
     def test_symlinked_managed_ancestor_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -165,6 +252,24 @@ class VerifyPiVccInstallTest(unittest.TestCase):
             pi_dir.rename(external)
             pi_dir.symlink_to(external, target_is_directory=True)
             result = self.run_verify(env, "--expected-package", package)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("symlink ancestor", result.stderr)
+
+    def test_custom_agent_root_symlink_ancestor_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            package = make_package(root / "candidate")
+            env, agent, _stable = self.install_fixture(root, package)
+            actual_parent = root / "actual-custom-root"
+            actual_agent = actual_parent / "agent"
+            actual_parent.mkdir()
+            shutil.move(agent, actual_agent)
+            linked_parent = root / "linked-custom-root"
+            linked_parent.symlink_to(actual_parent, target_is_directory=True)
+            env["PI_CODING_AGENT_DIR"] = str(linked_parent / "agent")
+
+            result = self.run_verify(env, "--expected-package", package)
+
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("symlink ancestor", result.stderr)
 

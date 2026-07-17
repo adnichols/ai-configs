@@ -87,22 +87,15 @@ PY
   exit 0
 fi
 
-python3 - "$agent_dir" "$HOME" <<'PY'
+python3 - "$agent_dir" <<'PY'
 import os, stat, sys
 from pathlib import Path
 agent = Path(os.path.abspath(os.path.expanduser(sys.argv[1])))
-home = Path(os.path.abspath(os.path.expanduser(sys.argv[2])))
-targets = []
-try:
-    relative = agent.relative_to(home)
-except ValueError:
-    targets.append(agent)
-else:
-    current = home
+current = Path(agent.anchor)
+targets = [current]
+for part in agent.parts[1:]:
+    current /= part
     targets.append(current)
-    for part in relative.parts:
-        current /= part
-        targets.append(current)
 targets.extend((agent / "local-packages", agent / "local-packages/ai-configs"))
 for path in targets:
     try:
@@ -128,7 +121,12 @@ import os
 import sys
 from pathlib import Path
 sys.path.insert(0, sys.argv[4])
-from pi_vcc_registration import package_source, registration_counts
+from pi_vcc_registration import (
+    PiGitUrlParserUnavailable,
+    package_source,
+    registration_counts,
+    require_pi_package_root,
+)
 
 settings = Path(sys.argv[1])
 stable_path = Path(sys.argv[2])
@@ -138,7 +136,12 @@ try:
 except Exception:
     data = {}
 
-stable_count, pi_vcc_count = registration_counts(data.get("packages"), stable_path)
+try:
+    # Fail closed: exact-one verification cannot pass when the Pi parser is unavailable.
+    require_pi_package_root()
+    stable_count, pi_vcc_count = registration_counts(data.get("packages"), stable_path)
+except PiGitUrlParserUnavailable as exc:
+    raise SystemExit(f"FAIL: pi-vcc registration classification unavailable: {exc}") from exc
 extension_name = os.path.basename(extension)
 non_local_prefixes = ("npm:", "git:", "http:", "https:", "github:", "ssh:")
 

@@ -41,6 +41,7 @@ def tree_manifest(root: Path):
 
 
 def test_environment(root: Path):
+    root = root.resolve()
     home = root / "home"
     agent = home / ".pi/agent"
     bin_dir = root / "bin"
@@ -87,6 +88,7 @@ class InstallPiVccTest(unittest.TestCase):
         return subprocess.run(
             command, cwd=ROOT, env=run_env, text=True,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=600,
         )
 
     def assert_no_transaction_debris(self, stable: Path):
@@ -113,20 +115,118 @@ class InstallPiVccTest(unittest.TestCase):
             self.assertEqual(unrelated.read_text(), "keep\n")
             self.assert_no_transaction_debris(stable)
 
-    def test_relative_stable_registration_is_replaced_without_touching_similar_names(self):
+    def test_relative_and_official_repo_registrations_are_replaced_without_touching_foreign_sources(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             env, _agent, _old, candidate, stable, settings = prepare_install(root)
             settings.write_text(json.dumps({
-                "packages": ["local-packages/ai-configs/pi-vcc", "npm:company-pi-vcc-tools"],
+                "packages": [
+                    "local-packages/ai-configs/pi-vcc",
+                    "git:adnichols/pi-vcc",
+                    "git:github.com/adnichols/pi-vcc@v1",
+                    "git:git@github.com:sting8k/pi-vcc@v1",
+                    "https://github.com/adnichols/pi-vcc.git@v1",
+                    "ssh://github.com/sting8k/pi-vcc",
+                    "ssh://git@github.com/adnichols/pi-vcc@v1",
+                    "git://github.com/sting8k/pi-vcc",
+                    "git:https://github.com/adnichols/pi-vcc",
+                    "git:https://github.com/adnichols/pi-vcc/",
+                    "git:https://github.com/adnichols/pi-vcc.git/",
+                    "git:https://github.com/adnichols/pi-vcc/.",
+                    "git:https://user:token@github.com/adnichols/pi-vcc",
+                    "git:https://github.com:443/adnichols/pi-vcc",
+                    "git:ssh://git@github.com/sting8k/pi-vcc",
+                    "git:ssh://git@github.com/sting8k/pi-vcc/",
+                    "git:ssh://git@github.com:22/sting8k/pi-vcc",
+                    "git:git://github.com/adnichols/pi-vcc",
+                    "git:git://github.com/adnichols/pi-vcc/",
+                    "git:github.com/adnichols/pi-vcc@release/v1",
+                    "git: https://github.com/adnichols/pi-vcc",
+                    "git:git+https://github.com/adnichols/pi-vcc",
+                    "git:git+ssh://git@github.com/adnichols/pi-vcc",
+                    " https://github.com/adnichols/pi-vcc/ ",
+                    "ssh://git@GITHUB.COM/adnichols/pi-vcc",
+                    "https://GITHUB.COM/sting8k/pi-vcc",
+                    # Non-Git / foreign sources must remain untouched.
+                    "adnichols/pi-vcc",
+                    "sting8k/pi-vcc.git#main",
+                    "github:github.com/sting8k/pi-vcc",
+                    "git@github.com:adnichols/pi-vcc.git@v1",
+                    "GIT:https://github.com/adnichols/pi-vcc",
+                    "https://adnichols/pi-vcc",
+                    "ssh://sting8k/pi-vcc",
+                    "git://evil.example/adnichols/pi-vcc",
+                    "ssh://git@evil.example/sting8k/pi-vcc",
+                    "https://github.com.evil.example/adnichols/pi-vcc",
+                    r"https://evil.example\@github.com/adnichols/pi-vcc",
+                    "https://github.com:999999/adnichols/pi-vcc",
+                    "git:https://github.com/adnichols/pi-vcc@",
+                    "https://github.com/adnichols/pi-vcc%40evil",
+                    "https://github.com/adnichols%2Fpi-vcc",
+                    "https://github.com/adnichols/pi-vcc;param",
+                    "git:https://github.com/adnichols//pi-vcc",
+                    "git:https://github.com/adnichols/pi-vcc.git%2Egit",
+                    " npm:@adnichols/pi-vcc",
+                    "https://github.com/ADNICHOLS/pi-vcc",
+                    "https://github.com/adnichols/PI-VCC",
+                    "npm:company-pi-vcc-tools",
+                ],
                 "extensions": [],
             }) + "\n")
             result = self.run_install(env, candidate)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(
                 json.loads(settings.read_text())["packages"],
-                ["npm:company-pi-vcc-tools", str(stable)],
+                [
+                    "adnichols/pi-vcc",
+                    "sting8k/pi-vcc.git#main",
+                    "github:github.com/sting8k/pi-vcc",
+                    "git@github.com:adnichols/pi-vcc.git@v1",
+                    "GIT:https://github.com/adnichols/pi-vcc",
+                    "https://adnichols/pi-vcc",
+                    "ssh://sting8k/pi-vcc",
+                    "git://evil.example/adnichols/pi-vcc",
+                    "ssh://git@evil.example/sting8k/pi-vcc",
+                    "https://github.com.evil.example/adnichols/pi-vcc",
+                    r"https://evil.example\@github.com/adnichols/pi-vcc",
+                    "https://github.com:999999/adnichols/pi-vcc",
+                    "git:https://github.com/adnichols/pi-vcc@",
+                    "https://github.com/adnichols/pi-vcc%40evil",
+                    "https://github.com/adnichols%2Fpi-vcc",
+                    "https://github.com/adnichols/pi-vcc;param",
+                    "git:https://github.com/adnichols//pi-vcc",
+                    "git:https://github.com/adnichols/pi-vcc.git%2Egit",
+                    " npm:@adnichols/pi-vcc",
+                    "https://github.com/ADNICHOLS/pi-vcc",
+                    "https://github.com/adnichols/PI-VCC",
+                    "npm:company-pi-vcc-tools",
+                    str(stable),
+                ],
             )
+
+    def test_missing_pi_parser_fails_closed_before_settings_rewrite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            env, _agent, _old, candidate, stable, settings = prepare_install(root)
+            settings_data = json.loads(settings.read_text())
+            settings_data["packages"] = [str(stable), "git:adnichols/pi-vcc", "npm:company-pi-vcc-tools"]
+            settings.write_text(json.dumps(settings_data, indent=2) + "\n")
+            before_settings = settings.read_bytes()
+            before_tree = tree_manifest(stable)
+            env = dict(env)
+            env["PI_CODING_AGENT_PACKAGE_ROOT"] = str(root / "not-pi")
+            (root / "not-pi").mkdir()
+            result = self.run_install(env, candidate)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(
+                "registration classification unavailable" in result.stderr
+                or "PI_CODING_AGENT_PACKAGE_ROOT" in result.stderr
+                or "parseGitUrl" in result.stderr
+                or "pi-coding-agent" in result.stderr,
+                result.stderr,
+            )
+            self.assertEqual(before_settings, settings.read_bytes())
+            self.assertEqual(before_tree, tree_manifest(stable))
 
     def test_default_source_installs_repo_package_only(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -226,6 +326,29 @@ class InstallPiVccTest(unittest.TestCase):
             self.assertEqual(before_tree, tree_manifest(stable))
             self.assertEqual(before_settings, settings.read_bytes())
 
+    def test_custom_agent_root_symlink_ancestor_fails_before_external_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            env, agent, _old, candidate, stable, settings = prepare_install(root)
+            actual_parent = root / "actual-custom-root"
+            actual_agent = actual_parent / "agent"
+            actual_parent.mkdir()
+            shutil.move(agent, actual_agent)
+            linked_parent = root / "linked-custom-root"
+            linked_parent.symlink_to(actual_parent, target_is_directory=True)
+            env["PI_CODING_AGENT_DIR"] = str(linked_parent / "agent")
+            moved_stable = actual_agent / stable.relative_to(agent)
+            moved_settings = actual_agent / settings.relative_to(agent)
+            before_tree = tree_manifest(moved_stable)
+            before_settings = moved_settings.read_bytes()
+
+            result = self.run_install(env, candidate)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("symlink ancestor", result.stderr)
+            self.assertEqual(before_tree, tree_manifest(moved_stable))
+            self.assertEqual(before_settings, moved_settings.read_bytes())
+
     def test_symlinks_and_special_entries_inside_source_fail_before_mutation(self):
         for variant in ("file-symlink", "directory-symlink", "fifo"):
             with self.subTest(variant=variant), tempfile.TemporaryDirectory() as directory:
@@ -266,8 +389,15 @@ class InstallPiVccTest(unittest.TestCase):
         for failpoint in ("remove-candidate", "restore-mirror", "restore-settings"):
             with self.subTest(failpoint=failpoint), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                env, _agent, _old, candidate, stable, _settings = prepare_install(root)
+                env, agent, _old, candidate, stable, settings = prepare_install(root)
                 prior_tree = tree_manifest(stable)
+                if failpoint == "restore-settings":
+                    settings_data = json.loads(settings.read_text())
+                    settings_data["packages"].insert(0, "git:adnichols/pi-vcc")
+                    settings.write_text(json.dumps(settings_data, indent=2) + "\n")
+                    settings.chmod(0o640)
+                prior_settings = settings.read_bytes()
+                prior_settings_mode = stat.S_IMODE(settings.stat().st_mode)
                 result = self.run_install(env, candidate, failpoint)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("recovery evidence retained", result.stderr)
@@ -282,6 +412,15 @@ class InstallPiVccTest(unittest.TestCase):
                     self.assertIn(f"backup={backups[0]}", result.stderr)
                     self.assertNotIn("backup=none", result.stderr)
                     self.assertEqual(prior_tree, tree_manifest(backups[0]))
+                if failpoint == "restore-settings":
+                    live_settings = json.loads(settings.read_text())
+                    self.assertNotEqual(settings.read_bytes(), prior_settings)
+                    self.assertNotIn("git:adnichols/pi-vcc", live_settings["packages"])
+                    self.assertEqual(stat.S_IMODE(settings.stat().st_mode), prior_settings_mode)
+                    self.assertEqual(list(agent.glob(".pi-vcc-settings-restore.*")), [])
+                    snapshots = list(parent.glob(".pi-vcc-settings.*"))
+                    self.assertEqual(len(snapshots), 1)
+                    self.assertEqual(snapshots[0].read_bytes(), prior_settings)
 
 
 if __name__ == "__main__":

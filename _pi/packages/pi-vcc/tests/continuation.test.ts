@@ -365,6 +365,43 @@ describe("continuation state machine", () => {
 				progressDeadlineAt: 259,
 			}).disposition,
 		).toBe("ignored_stale");
+
+		const invalidCases: Array<{
+			name: string;
+			snapshot: ContinuationTransactionSnapshot;
+			event: ContinuationEvent;
+		}> = [
+			{
+				name: "pending tools",
+				snapshot: { ...snapshot, pendingToolCount: 1 },
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: 260 },
+			},
+			{
+				name: "missing durable acceptance",
+				snapshot: { ...snapshot, acceptedAt: undefined },
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: 260 },
+			},
+			{
+				name: "missing current progress deadline",
+				snapshot: { ...snapshot, progressDeadlineAt: undefined },
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: 260 },
+			},
+			{
+				name: "non-finite replacement deadline",
+				snapshot,
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: Number.POSITIVE_INFINITY },
+			},
+			{
+				name: "replacement deadline at the event boundary",
+				snapshot,
+				event: { type: "progress_deadline_deferred", at: 200, progressDeadlineAt: 200 },
+			},
+		];
+		for (const invalidCase of invalidCases) {
+			const result = transitionContinuation(invalidCase.snapshot, invalidCase.event);
+			expect(result.disposition, invalidCase.name).toBe("ignored_stale");
+			expect(result.snapshot, invalidCase.name).toEqual(invalidCase.snapshot);
+		}
 	});
 
 	it("can reach each terminal state exactly once", () => {
