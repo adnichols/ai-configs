@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  run-review.sh --mode <implementation-review|adversarial-implementation-review|plan-review|pair|smoke> [--verdict-profile <profile>] [--input <file>] [--cwd <dir>] [--output <file>] [--status-file <file>] [--process-identity-file <file> --job-nonce <nonce>] [--timeout-seconds <seconds>]
+  run-review.sh --mode <implementation-review|adversarial-implementation-review|plan-review|pair|smoke> [--verdict-profile <profile>] [--input <file>] [--cwd <dir>] [--output <file>] [--status-file <file>] [--process-identity-file <file> --job-nonce <nonce>] [--owner-pid <pid> --owner-start-identity <identity> --owner-boot-id <identity>] [--timeout-seconds <seconds>]
 
 Review modes require --verdict-profile. Compatible pairs:
   implementation-review: pre-pr-implementation, run-plan-pm, generic-implementation
@@ -18,6 +18,7 @@ EOF
 }
 
 MODE="" INPUT_PATH="" TARGET_CWD="" OUTPUT_PATH="" STATUS_FILE="" PROCESS_IDENTITY_FILE="" JOB_NONCE="" VERDICT_PROFILE="" TIMEOUT_SECONDS=3600
+OWNER_PID="" OWNER_START_IDENTITY="" OWNER_BOOT_ID=""
 while (($#)); do
   case "$1" in
     --mode) MODE="${2:-}"; shift 2 ;;
@@ -27,6 +28,9 @@ while (($#)); do
     --status-file) STATUS_FILE="${2:-}"; shift 2 ;;
     --process-identity-file) PROCESS_IDENTITY_FILE="${2:-}"; shift 2 ;;
     --job-nonce) JOB_NONCE="${2:-}"; shift 2 ;;
+    --owner-pid) OWNER_PID="${2:-}"; shift 2 ;;
+    --owner-start-identity) OWNER_START_IDENTITY="${2:-}"; shift 2 ;;
+    --owner-boot-id) OWNER_BOOT_ID="${2:-}"; shift 2 ;;
     --verdict-profile) VERDICT_PROFILE="${2:-}"; shift 2 ;;
     --timeout-seconds) TIMEOUT_SECONDS="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
@@ -38,6 +42,9 @@ done
 [[ -n "$MODE" ]] || { usage >&2; exit 2; }
 if [[ -n "$PROCESS_IDENTITY_FILE" || -n "$JOB_NONCE" ]]; then
   [[ -n "$PROCESS_IDENTITY_FILE" && -n "$JOB_NONCE" ]] || { echo "--process-identity-file and --job-nonce must be provided together" >&2; exit 2; }
+fi
+if [[ -n "$OWNER_PID" || -n "$OWNER_START_IDENTITY" || -n "$OWNER_BOOT_ID" ]]; then
+  [[ "$OWNER_PID" =~ ^[1-9][0-9]*$ && -n "$OWNER_START_IDENTITY" && -n "$OWNER_BOOT_ID" ]] || { echo "--owner-pid, --owner-start-identity, and --owner-boot-id must be provided together" >&2; exit 2; }
 fi
 
 case "$MODE" in
@@ -80,11 +87,12 @@ case "${LOGIN_SHELL##*/}" in sh|bash|zsh|ksh|dash) ;; *) echo "Configured login 
 PRIVATE_DIR="$(mktemp -d)"; chmod 700 "$PRIVATE_DIR"
 FINAL_MESSAGE="$PRIVATE_DIR/final-message"; STDIN_FILE="$PRIVATE_DIR/prompt"
 EFFECTIVE_PROCESS_IDENTITY_FILE="${PROCESS_IDENTITY_FILE:-$PRIVATE_DIR/process-identity.json}"
+EFFECTIVE_JOB_NONCE="${JOB_NONCE:-$(python3 -c 'import uuid; print(uuid.uuid4())')}"
 cleanup() { rm -rf "$PRIVATE_DIR"; }
 trap cleanup EXIT
 if [[ "$MODE" == smoke ]]; then printf '%s' "$REVIEW_CONTRACT" >"$STDIN_FILE"; else printf '%s\n\n%s' "$REVIEW_CONTRACT" "$(<"$INPUT_PATH")" >"$STDIN_FILE"; fi
 
-CLI_VERSION="$(env CODEX_REVIEW_PARTNER_ACTIVE=1 "$LOGIN_SHELL" -l -c 'exec codex --version' 2>/dev/null || echo unknown)"
+CLI_VERSION="unknown"
 write_status() {
   local outcome="$1" classification="$2" matched="$3" exit_code="$4" signal_name="$5" timed_out="$6" validation="$7"
   [[ -n "$STATUS_FILE" ]] || return 0
@@ -99,168 +107,125 @@ os.replace(tmp,p); os.chmod(p,0o600)
 PY
 }
 
-export CODEX_REVIEW_TIMEOUT_MARKER="$PRIVATE_DIR/timed-out"
-SUPERVISOR="$PRIVATE_DIR/supervisor.py"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IDENTITY_HELPER="$SCRIPT_DIR/process_identity.py"
+SUPERVISOR="$SCRIPT_DIR/review_supervisor.py"
 SUPERVISOR_READY="$PRIVATE_DIR/supervisor-ready"
 SUPERVISOR_FAILED="$PRIVATE_DIR/supervisor-failed"
-cat >"$SUPERVISOR" <<'PY'
-#!/usr/bin/env python3
-import ctypes
-import json
-import os
-import pathlib
-import signal
-import subprocess
-import sys
-import tempfile
-import time
+SUPERVISOR_RESULT="$PRIVATE_DIR/supervisor-result.json"
 
+[[ -r "$IDENTITY_HELPER" && -r "$SUPERVISOR" ]] || { echo "Codex review platform helpers are unavailable for $(uname -s): $IDENTITY_HELPER $SUPERVISOR" >&2; write_status failure CODEX_REVIEW_LAUNCH_FAILED exec 127 '' false not-checked || true; exit 127; }
+if ! python3 "$IDENTITY_HELPER" preflight >"$PRIVATE_DIR/identity-preflight.json" 2>"$PRIVATE_DIR/identity-preflight.err"; then
+  cat "$PRIVATE_DIR/identity-preflight.err" >&2
+  write_status failure CODEX_REVIEW_LAUNCH_FAILED exec 127 '' false not-checked || true
+  exit 127
+fi
+if ! python3 "$SUPERVISOR" --preflight >"$PRIVATE_DIR/supervisor-preflight.json" 2>"$PRIVATE_DIR/supervisor-preflight.err"; then
+  cat "$PRIVATE_DIR/supervisor-preflight.err" >&2
+  write_status failure CODEX_REVIEW_LAUNCH_FAILED exec 127 '' false not-checked || true
+  exit 127
+fi
 
-def atomic_text(path, text, mode=0o600):
-    target = os.path.abspath(path)
-    os.makedirs(os.path.dirname(target), exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=f'.{os.path.basename(target)}.', dir=os.path.dirname(target))
-    try:
-        os.fchmod(fd, mode)
-        with os.fdopen(fd, 'w') as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, target)
-        os.chmod(target, mode)
-    except BaseException:
-        try:
-            os.close(fd)
-        except OSError:
-            pass
-        try:
-            os.unlink(temporary)
-        except OSError:
-            pass
-        raise
-
-
-expected_parent = int(sys.argv[1])
-ready_path, failed_path, identity_path, nonce, login_shell, work_dir = sys.argv[2:8]
-command = sys.argv[8:]
-try:
-    def kill_private_group(_signum, _frame):
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
-        os.killpg(os.getpgrp(), signal.SIGKILL)
-
-    signal.signal(signal.SIGTERM, kill_private_group)
-    libc = ctypes.CDLL(None, use_errno=True)
-    if libc.prctl(1, signal.SIGTERM, 0, 0, 0) != 0:  # PR_SET_PDEATHSIG
-        error = ctypes.get_errno()
-        raise OSError(error, os.strerror(error))
-    if os.getppid() != expected_parent:
-        raise RuntimeError('review launcher parent exited before supervisor initialization')
-
-    hook = os.environ.get('CODEX_REVIEW_TEST_BEFORE_IDENTITY_MARKER')
-    if hook:
-        atomic_text(hook, f'{os.getpid()}\n')
-        allow = os.environ.get('CODEX_REVIEW_TEST_ALLOW_IDENTITY_PUBLICATION', f'{hook}.allow')
-        while not os.path.exists(allow):
-            time.sleep(0.01)
-
-    if os.getppid() != expected_parent:
-        raise RuntimeError('review launcher parent exited before identity publication')
-    pid = os.getpid()
-    pgid = os.getpgid(0)
-    raw = pathlib.Path(f'/proc/{pid}/stat').read_text()
-    tail = raw[raw.rfind(')') + 2:].split()
-    if int(tail[2]) != pgid or pid != pgid:
-        raise RuntimeError(f'private supervisor identity mismatch: pid={pid} pgid={pgid} procPgid={tail[2]}')
-    if identity_path:
-        identity = {
-            'protocolVersion': 1,
-            'nonce': nonce,
-            'codexPid': pid,
-            'codexPgid': pgid,
-            'processStartIdentity': tail[19],
-            'bootId': pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
-        }
-        atomic_text(identity_path, json.dumps(identity, sort_keys=True) + '\n')
-    atomic_text(ready_path, 'ready\n')
-    if os.getppid() != expected_parent:
-        raise RuntimeError('review launcher parent exited before Codex exec')
-    environment = os.environ.copy()
-    environment['CODEX_REVIEW_PARTNER_ACTIVE'] = '1'
-    os.chdir(work_dir)
-    child = subprocess.Popen([login_shell, '-l', '-c', 'exec codex "$@"', 'codex', *command], env=environment)
-    result = child.wait()
-    raise SystemExit(128 + (-result) if result < 0 else result)
-except SystemExit:
-    raise
-except BaseException as error:
-    try:
-        atomic_text(failed_path, f'{type(error).__name__}: {error}\n')
-    except BaseException:
-        pass
-    print(f'Codex supervisor launch failed: {error}', file=sys.stderr, flush=True)
-    raise SystemExit(127)
+snapshot_fields() {
+  python3 - "$IDENTITY_HELPER" "$1" <<'PY'
+import json,subprocess,sys
+value=json.loads(subprocess.check_output([sys.executable,sys.argv[1],'snapshot','--pid',sys.argv[2]],text=True))
+record=value.get('process')
+if not isinstance(record,dict) or not record.get('alive'): raise SystemExit(1)
+print(record['startIdentity'],value['bootId'],sep='\t')
 PY
-chmod 700 "$SUPERVISOR"
+}
+IFS=$'\t' read -r PARENT_START_IDENTITY PARENT_BOOT_ID < <(snapshot_fields "$$")
+if [[ -z "$OWNER_PID" ]]; then
+  OWNER_PID="$PPID"
+  IFS=$'\t' read -r OWNER_START_IDENTITY OWNER_BOOT_ID < <(snapshot_fields "$OWNER_PID")
+fi
+CLI_VERSION="$(env CODEX_REVIEW_PARTNER_ACTIVE=1 "$LOGIN_SHELL" -l -c 'exec codex --version' 2>/dev/null || echo unknown)"
+
 set +e
-# The private supervisor remains the process-group leader, publishes its stable
-# identity, and waits for Codex in the same group. Its parent-death handler
-# kills the complete private group, including descendants, before reparenting
-# can leave an unbounded reviewer process behind.
-setsid python3 "$SUPERVISOR" "$$" "$SUPERVISOR_READY" "$SUPERVISOR_FAILED" "$EFFECTIVE_PROCESS_IDENTITY_FILE" "$JOB_NONCE" "$LOGIN_SHELL" "$WORK_DIR" exec --json -m gpt-5.6-sol -c 'model_reasoning_effort="high"' -s read-only -C "$WORK_DIR" -o "$FINAL_MESSAGE" - <"$STDIN_FILE" &
-CODEX_GROUP=$!
+python3 "$SUPERVISOR" \
+  --parent-pid "$$" --parent-start-identity "$PARENT_START_IDENTITY" --parent-boot-id "$PARENT_BOOT_ID" \
+  --owner-pid "$OWNER_PID" --owner-start-identity "$OWNER_START_IDENTITY" --owner-boot-id "$OWNER_BOOT_ID" \
+  --ready-file "$SUPERVISOR_READY" --failed-file "$SUPERVISOR_FAILED" --identity-file "$EFFECTIVE_PROCESS_IDENTITY_FILE" \
+  --result-file "$SUPERVISOR_RESULT" --nonce "$EFFECTIVE_JOB_NONCE" --login-shell "$LOGIN_SHELL" --work-dir "$WORK_DIR" \
+  --timeout-seconds "$TIMEOUT_SECONDS" -- exec --json -m gpt-5.6-sol -c 'model_reasoning_effort="high"' -s read-only -C "$WORK_DIR" -o "$FINAL_MESSAGE" - <"$STDIN_FILE" &
 CODEX_PID=$!
 for _ in $(seq 1 1000); do
   [[ -s "$SUPERVISOR_READY" || -s "$SUPERVISOR_FAILED" ]] && break
   sleep 0.01
 done
 if [[ ! -s "$SUPERVISOR_READY" ]]; then
-  kill -KILL -- "-$CODEX_GROUP" 2>/dev/null || true
+  kill -TERM "$CODEX_PID" 2>/dev/null || true
   wait "$CODEX_PID" 2>/dev/null || true
   write_status failure CODEX_REVIEW_LAUNCH_FAILED exec 127 '' false not-checked || true
   if [[ -s "$SUPERVISOR_FAILED" ]]; then cat "$SUPERVISOR_FAILED" >&2; fi
   echo "Codex supervisor identity publication failed" >&2
   exit 127
 fi
-python3 - "$$" "$EFFECTIVE_PROCESS_IDENTITY_FILE" "$JOB_NONCE" "$TIMEOUT_SECONDS" <<'PY' &
-import ctypes,json,os,pathlib,signal,sys,time
-expected_parent=int(sys.argv[1]); identity_path=sys.argv[2]; nonce=sys.argv[3]
-libc=ctypes.CDLL(None,use_errno=True)
-if libc.prctl(1,signal.SIGKILL,0,0,0) != 0: raise SystemExit(1)  # PR_SET_PDEATHSIG
-if os.getppid() != expected_parent: raise SystemExit
-time.sleep(int(sys.argv[4]))
-if os.getppid() != expected_parent: raise SystemExit
-def validated_identity():
-    try: evidence=json.loads(pathlib.Path(identity_path).read_text())
-    except (OSError,json.JSONDecodeError): raise SystemExit
-    if evidence.get('protocolVersion') != 1 or evidence.get('nonce') != nonce: raise SystemExit
-    if evidence.get('bootId') != pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip(): raise SystemExit
-    pid=int(evidence['codexPid']); pgid=int(evidence['codexPgid'])
-    try:
-        raw=pathlib.Path(f'/proc/{pid}/stat').read_text(); tail=raw[raw.rfind(')')+2:].split()
-    except OSError: raise SystemExit
-    if tail[0] == 'Z' or int(tail[2]) != pgid or tail[19] != evidence.get('processStartIdentity'): raise SystemExit
-    return pid,pgid
-pid,pgid=validated_identity()
-open(os.environ['CODEX_REVIEW_TIMEOUT_MARKER'],'w').close()
-try: os.killpg(pgid,signal.SIGTERM)
-except ProcessLookupError: raise SystemExit
-time.sleep(2)
-verified_pid,verified_pgid=validated_identity()
-if (verified_pid,verified_pgid) != (pid,pgid): raise SystemExit
-try: os.killpg(pgid,signal.SIGKILL)
-except ProcessLookupError: pass
-PY
-WATCHDOG_PID=$!
 wait "$CODEX_PID"; CODEX_EXIT=$?
-kill "$WATCHDOG_PID" 2>/dev/null; wait "$WATCHDOG_PID" 2>/dev/null
 set -e
 
-TIMED_OUT=false
-if [[ -f "$PRIVATE_DIR/timed-out" ]]; then TIMED_OUT=true; fi
+if ! RESULT_FIELDS="$(python3 - "$SUPERVISOR_RESULT" "$CODEX_EXIT" <<'PY'
+import json,sys
+try:
+    value=json.load(open(sys.argv[1]))
+except (OSError,json.JSONDecodeError) as error:
+    raise SystemExit(f'invalid supervisor result: {error}')
+if not isinstance(value,dict) or value.get('cleanupVerified') is not True:
+    raise SystemExit('supervisor cleanup was not verified')
+code=value.get('codexExitCode')
+signal=value.get('codexSignal')
+timeout=value.get('timeout')
+reason=value.get('reason')
+supervisor_exit=int(sys.argv[2])
+if 'codexSignal' not in value or not isinstance(code,int) or isinstance(code,bool) or not isinstance(timeout,bool) or signal is not None and not isinstance(signal,(int,str)) or not isinstance(reason,str):
+    raise SystemExit('supervisor result has invalid field types')
+coherent = (
+    reason == 'completed' and not timeout and code == supervisor_exit and (signal is None or code > 128 and signal in (code-128,str(code-128)))
+    or reason == 'timeout' and timeout and supervisor_exit == 124 and code == 137 and signal in (9,'9')
+    or reason in ('signal:1','signal:2','signal:15') and not timeout and supervisor_exit == 128+int(reason.split(':',1)[1]) and code == supervisor_exit and signal in (supervisor_exit-128,str(supervisor_exit-128))
+    or reason in ('launcher-lost','owner-lost') and not timeout and supervisor_exit == 125 and code == 143 and signal in (15,'15')
+)
+if not coherent:
+    raise SystemExit('supervisor result is inconsistent with supervisor exit')
+print(code,'' if signal is None else signal,str(timeout).lower(),sep='|')
+PY
+)"; then
+  RETAINED_EVIDENCE=()
+  if [[ -n "$STATUS_FILE" ]]; then
+    EVIDENCE_BASE="$STATUS_FILE"
+  elif [[ -n "$PROCESS_IDENTITY_FILE" ]]; then
+    EVIDENCE_BASE="$PROCESS_IDENTITY_FILE"
+  else
+    EVIDENCE_DIR="${TMPDIR:-/tmp}/codex-review-evidence"
+    mkdir -p "$EVIDENCE_DIR"; chmod 700 "$EVIDENCE_DIR"
+    EVIDENCE_BASE="$EVIDENCE_DIR/$EFFECTIVE_JOB_NONCE"
+  fi
+  mkdir -p "$(dirname "$EVIDENCE_BASE")"
+  if [[ -f "$SUPERVISOR_RESULT" ]]; then
+    RETAINED_RESULT="${EVIDENCE_BASE}.supervisor-result.json"
+    if cp "$SUPERVISOR_RESULT" "$RETAINED_RESULT" && chmod 600 "$RETAINED_RESULT"; then
+      RETAINED_EVIDENCE+=("$RETAINED_RESULT")
+    fi
+  fi
+  if [[ -f "$SUPERVISOR_FAILED" ]]; then
+    RETAINED_FAILURE="${EVIDENCE_BASE}.supervisor-failed.txt"
+    if cp "$SUPERVISOR_FAILED" "$RETAINED_FAILURE" && chmod 600 "$RETAINED_FAILURE"; then
+      RETAINED_EVIDENCE+=("$RETAINED_FAILURE")
+    fi
+  fi
+  write_status failure CODEX_REVIEW_CLEANUP_FAILED cleanup "$CODEX_EXIT" '' false not-checked
+  if ((${#RETAINED_EVIDENCE[@]})); then
+    echo "Codex review cleanup could not be verified; retained supervisor evidence: ${RETAINED_EVIDENCE[*]}" >&2
+  else
+    [[ -f "$SUPERVISOR_FAILED" ]] && cat "$SUPERVISOR_FAILED" >&2
+    echo "Codex review cleanup could not be verified; no durable supervisor result was available" >&2
+  fi
+  exit 125
+fi
+IFS='|' read -r RESULT_CODE RESULT_SIGNAL TIMED_OUT <<<"$RESULT_FIELDS"
 if [[ "$TIMED_OUT" == true ]]; then
-  SIGNAL_NUMBER=''
-  if (( CODEX_EXIT > 128 )); then SIGNAL_NUMBER=$((CODEX_EXIT - 128)); fi
-  write_status failure CODEX_REVIEW_INNER_TIMEOUT inner-timeout "$CODEX_EXIT" "$SIGNAL_NUMBER" true not-checked
+  write_status failure CODEX_REVIEW_INNER_TIMEOUT inner-timeout "$RESULT_CODE" "$RESULT_SIGNAL" true not-checked
   echo "Codex review timed out after ${TIMEOUT_SECONDS}s" >&2; exit 124
 fi
 if (( CODEX_EXIT != 0 )); then
@@ -268,13 +233,12 @@ if (( CODEX_EXIT != 0 )); then
     write_status failure CODEX_REVIEW_LAUNCH_FAILED exec "$CODEX_EXIT" '' false not-checked
     echo "Codex launch failed ($CODEX_EXIT)" >&2; exit "$CODEX_EXIT"
   fi
-  if (( CODEX_EXIT > 128 )); then
-    SIGNAL_NUMBER=$((CODEX_EXIT - 128))
-    write_status failure CODEX_REVIEW_CODEX_SIGNAL signal "$CODEX_EXIT" "$SIGNAL_NUMBER" false not-checked
-    echo "Codex terminated by signal $SIGNAL_NUMBER" >&2; exit "$CODEX_EXIT"
+  if [[ -n "$RESULT_SIGNAL" ]]; then
+    write_status failure CODEX_REVIEW_CODEX_SIGNAL signal "$RESULT_CODE" "$RESULT_SIGNAL" false not-checked
+    echo "Codex terminated by signal $RESULT_SIGNAL" >&2; exit "$CODEX_EXIT"
   fi
-  write_status failure CODEX_REVIEW_CODEX_EXIT_NONZERO generic "$CODEX_EXIT" '' false not-checked
-  echo "Codex exited nonzero ($CODEX_EXIT); inspect JSONL/stderr evidence" >&2; exit "$CODEX_EXIT"
+  write_status failure CODEX_REVIEW_CODEX_EXIT_NONZERO generic "$RESULT_CODE" '' false not-checked
+  echo "Codex exited nonzero ($RESULT_CODE); inspect JSONL/stderr evidence" >&2; exit "$CODEX_EXIT"
 fi
 if [[ ! -s "$FINAL_MESSAGE" ]]; then
   write_status failure CODEX_REVIEW_ARTIFACT_MISSING final-message 0 '' false missing

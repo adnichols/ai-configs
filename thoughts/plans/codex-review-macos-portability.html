@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en" data-readiness="completed">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Codex Review macOS Portability Plan</title>
+  <style>
+    :root { color-scheme:dark; --bg:#07111f; --panel:#101827; --panel2:#152235; --text:#e6edf7; --muted:#a8b3c7; --accent:#70e1ff; --accent2:#a78bfa; --ok:#58d68d; --warn:#f6c453; --danger:#ff7b7b; --border:#2a3b55; --code:#020817; }
+    * { box-sizing:border-box; } html { scroll-behavior:smooth; }
+    body { margin:0; background:radial-gradient(circle at 8% 0%,rgba(112,225,255,.12),transparent 30rem),radial-gradient(circle at 92% 8%,rgba(167,139,250,.12),transparent 28rem),var(--bg); color:var(--text); font:16px/1.62 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1220px,calc(100vw - 48px)); margin:auto; padding:40px 0 76px; }
+    header,section,article { background:rgba(16,24,39,.92); border:1px solid var(--border); border-radius:20px; margin:18px 0; padding:24px; box-shadow:0 22px 70px rgba(0,0,0,.3); }
+    header { padding:32px; } h1,h2,h3,h4 { line-height:1.2; margin:0 0 12px; } h1 { font-size:clamp(2.1rem,5vw,4rem); letter-spacing:-.045em; } h2 { font-size:1.55rem; } h3 { color:#dbeafe; margin-top:20px; }
+    p { margin:0 0 12px; } a { color:var(--accent); } ul,ol { padding-left:1.35rem; } li { margin:.42rem 0; }
+    code,pre { background:var(--code); color:#d1fae5; border-radius:10px; } code { padding:.15em .35em; } pre { padding:14px; overflow:auto; border:1px solid var(--border); }
+    table { width:100%; border-collapse:collapse; margin:14px 0; } th,td { border:1px solid var(--border); padding:10px; vertical-align:top; } th { background:var(--panel2); text-align:left; }
+    label { display:block; margin:.55rem 0; } .muted { color:var(--muted); }
+    .badge { display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:5px 11px; margin:0 8px 8px 0; color:var(--accent); background:rgba(112,225,255,.08); font-size:.9rem; }
+    .badge.warn { color:var(--warn); background:rgba(246,196,83,.1); } .badge.ready { color:var(--ok); background:rgba(88,214,141,.1); }
+    .toc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; } .toc-card { background:rgba(21,34,53,.78); border:1px solid var(--border); border-radius:16px; padding:16px; } .toc-card strong,.toc-card a { display:block; margin:6px 0; }
+    .attention { border-left:5px solid var(--warn); } .criteria { border-left:5px solid var(--ok); } .phase { border-left:5px solid var(--accent2); } .risk { border-left:5px solid var(--danger); } .callout { background:rgba(28,45,69,.72); border:1px solid var(--border); border-radius:14px; padding:14px; }
+    @media (max-width:760px) { main { width:min(100% - 24px,1220px); padding-top:20px; } header,section,article { padding:18px; border-radius:14px; } }
+  </style>
+</head>
+<body><main>
+<header id="title">
+  <p><span class="badge ready">Completed</span><span class="badge ready">Independent review passed</span><span class="badge">macOS + Linux</span><span class="badge">Reliability-critical</span></p>
+  <h1>Make the Managed Codex Reviewer Safe on macOS</h1>
+  <p class="muted">Remove Linux-only process supervision assumptions from the canonical Codex review launcher and Pi extension without weakening identity-safe cleanup, timeout, restart reconciliation, artifact, or notification guarantees.</p>
+</header>
+
+<section id="toc"><h2>Table of contents</h2><div class="toc-grid">
+  <div class="toc-card"><strong>Intent</strong><a href="#product-owner">Product-owner context</a><a href="#goal">Goal</a><a href="#attention">Decision attention</a><a href="#why">Why this plan exists</a></div>
+  <div class="toc-card"><strong>Contract</strong><a href="#authority">Authority and inputs</a><a href="#reality">Pre-change implementation baseline</a><a href="#alignment">Product alignment</a><a href="#decisions">Locked decisions</a></div>
+  <div class="toc-card"><strong>Behavior</strong><a href="#acceptance">Acceptance criteria</a><a href="#bdd">BDD scenarios</a><a href="#coverage">Coverage matrix</a><a href="#risks">Risks</a></div>
+  <div class="toc-card"><strong>Execution</strong><a href="#progress">Progress</a><a href="#resume">Archived execution instructions</a><a href="#phase-1">P1 platform identity</a><a href="#phase-2">P2 supervisor</a><a href="#phase-3">P3 runtime</a><a href="#phase-4">P4 live proof</a></div>
+</div></section>
+
+<section id="product-owner"><h2>Product-owner context</h2>
+  <p><strong>Situation:</strong> Pi’s required Codex reviewer is managed by a repository-owned extension, but its canonical launcher and cleanup logic were implemented against Linux process facilities. On macOS, the launcher first depended on an externally installed <code>setsid</code> executable and then called Linux-only <code>prctl</code> and <code>/proc</code>. A real required plan review failed before Codex started, even after <code>setsid</code> was made available.</p>
+  <p><strong>Why now:</strong> NOD-1368 and two independent NOD-1367 review jobs all failed with <code>CODEX_REVIEW_LAUNCH_FAILED</code> and <code>dlsym(RTLD_DEFAULT, prctl): symbol not found</code>. The missing review blocked otherwise complete planning work, so macOS support is a current workflow outage rather than hypothetical portability debt.</p>
+  <p><strong>Key conclusion:</strong> this is a defect in the shared Codex reviewer stack, not in the reviewed Heddle plans and not in Codex model output. The fix must cover both the shell/Python launcher and the Pi extension’s process-identity and cleanup layer; changing only PATH or skipping <code>prctl</code> would expose the next Linux-only <code>/proc</code> failure and would not restore the promised lifecycle guarantees.</p>
+  <table><thead><tr><th>Impact dimension</th><th>Expected impact</th></tr></thead><tbody>
+    <tr><td>Customers</td><td>No direct application-customer behavior change. Engineering review gates stop blocking macOS-hosted planning and implementation workflows.</td></tr>
+    <tr><td>Runtime product behavior</td><td>The Pi <code>codex_review</code> tool gains supported Darwin execution with the same start, smoke, cancel, timeout, cleanup, restart-reconciliation, artifact, and completion semantics as Linux.</td></tr>
+    <tr><td>Security / permissions</td><td>No broader permissions. Reviews stay read-only. Identity checks must remain PID-reuse-safe and fail closed when the OS cannot prove process ownership.</td></tr>
+    <tr><td>Testing / release confidence</td><td>Material improvement: platform adapters and real macOS smoke/review evidence prevent Linux-only process assumptions from silently returning.</td></tr>
+    <tr><td>Deployment / migration</td><td>No data migration. The transactional Pi review-stack installer replaces the installed launcher, helper files, and extension after cross-platform verification.</td></tr>
+  </tbody></table>
+  <p><strong>UI impact:</strong> text-only. Success retains existing tool output. Unsupported-platform or cleanup uncertainty messages become platform-specific and agent-legible; no visual application UI changes.</p>
+  <div class="callout"><strong>Current visible failure:</strong> <code>CODEX_REVIEW_LAUNCH_FAILED</code> with a Linux <code>prctl</code> symbol error. <strong>Target behavior:</strong> the same macOS request starts normally; a genuine unsupported process-introspection condition fails before Codex launch with the detected platform and exact missing capability.</div>
+</section>
+
+<section id="goal"><h2>Goal</h2>
+  <p>Make the canonical managed Codex review path a first-class Linux and macOS capability while preserving the existing reliable-review contract: immediate dispatch after durable state, one validated final artifact, deterministic timeout/cancellation, no surviving reviewer descendants, identity-safe restart reconciliation, and exactly-once eligible completion delivery.</p>
+</section>
+
+<section id="attention" class="attention"><h2>Decision Attention / Low-confidence areas</h2>
+  <p><strong>No product decision is required.</strong> The defect and required parity are established by repository policy and live evidence. The technical design is locked below from available OS APIs.</p>
+  <ul>
+    <li><strong>High-attention boundary:</strong> do not “fix” macOS by merely bypassing <code>prctl</code>, installing Homebrew <code>setsid</code>, or downgrading cleanup to best effort. Those changes leave <code>/proc</code>-based identity and restart logic broken.</li>
+    <li><strong>Validated Darwin capability:</strong> macOS exposes <code>proc_listallpids</code> and <code>proc_pidinfo(PROC_PIDTBSDINFO)</code> through <code>/usr/lib/libproc.dylib</code>; <code>proc_bsdinfo</code> includes PID, PPID, PGID, status, and microsecond process start time. Python provides <code>os.setsid()</code> on this host.</li>
+    <li><strong>Review substitution for this plan only:</strong> because the defect prevents the canonical Codex gate from running, the requested independent plan review uses the repo’s <code>developer-mid</code> GPT-5.6 Sol medium subagent. This is recorded as an explicit temporary review transport substitution, not a change to maintained review policy.</li>
+  </ul>
+</section>
+
+<section id="why"><h2>Why this plan exists</h2>
+  <p>The original managed-review plan correctly required identity-safe process-group cleanup, but its implementation and tests encoded Linux as though it were the host contract. The launcher uses an external <code>setsid</code>, calls <code>prctl(PR_SET_PDEATHSIG)</code>, and reads <code>/proc/&lt;pid&gt;/stat</code> plus Linux boot ID. The extension independently reads and enumerates <code>/proc</code> for owner identity, descendant groups, cleanup, and restart reconciliation. Its production-topology and launcher tests also use Linux-only process and GNU <code>stat -c</code> assumptions.</p>
+  <p>Therefore the complete promised slice is cross-platform process supervision plus regression and installed-host proof. A PATH workaround alone is explicitly incomplete.</p>
+</section>
+
+<section id="authority"><h2>Authority and inputs</h2><ul>
+  <li>User request in this session to open an isolated <code>ai-configs</code> Herdr worktree and plan the macOS fix.</li>
+  <li>Failure evidence from NOD-1368 job <code>e8090cc8-3d2f-40ab-aed8-0499e2c76190</code> and NOD-1367 jobs <code>7875b8d6-e1ea-44ee-b84c-42d7b6d58b40</code> / <code>a5ba3c88-d874-4535-a2a4-1468ae957c78</code>.</li>
+  <li><code>AGENTS.md</code>, <code>skills/planning-workflow/SKILL.md</code>, <code>skills/product-principles/SKILL.md</code>, and the completed <code>thoughts/plans/codex-review-background-extension.html</code> reliability contract.</li>
+  <li><code>skills/codex-review-partner/scripts/run-review.sh</code> and <code>_pi/extensions/codex-review/runtime.ts</code> as the two affected sources of truth.</li>
+  <li>macOS SDK <code>libproc.h</code>/<code>sys/proc_info.h</code> and live Darwin capability checks for <code>libproc.dylib</code> and <code>os.setsid()</code>.</li>
+</ul></section>
+
+<section id="reality"><h2>Pre-change implementation baseline</h2>
+  <table><thead><tr><th>Surface</th><th>Current behavior</th><th>Portability failure</th></tr></thead><tbody>
+    <tr><td><code>run-review.sh</code></td><td>Builds an embedded Python supervisor, starts it through external <code>setsid</code>, uses <code>prctl</code> for parent-death signals, and reads Linux <code>/proc</code> identity.</td><td>Requires Homebrew PATH repair and then fails immediately on Darwin’s missing <code>prctl</code>.</td></tr>
+    <tr><td>Launcher watchdog</td><td>A second embedded Python process uses <code>prctl</code>, Linux boot ID, and <code>/proc</code> to validate then terminate the reviewer group.</td><td>Cannot run on macOS and duplicates platform-specific identity logic.</td></tr>
+    <tr><td><code>runtime.ts</code></td><td>Reads <code>/proc</code> directly to persist owner/launcher identity, discover descendant groups, verify PID reuse, terminate, and reconcile interrupted jobs.</td><td>Returns no identity on Darwin; cleanup/restart guarantees would degrade even if launcher startup were patched.</td></tr>
+    <tr><td>Tests</td><td>Launcher, fake launcher, restart, runtime, and production-topology tests parse <code>/proc</code>; shell contract tests use GNU <code>stat -c</code>.</td><td>The suite does not execute as a truthful macOS portability gate.</td></tr>
+    <tr><td>Installation</td><td>The bounded transactional installer copies the whole review skill and extension and verifies source parity.</td><td>No installer redesign is required, but parity and installed real E2E must include the new helper/supervisor and pass on macOS.</td></tr>
+  </tbody></table>
+</section>
+
+<section id="progress"><h2>Progress</h2>
+  <label><input type="checkbox" checked /> P1 — Add one cross-platform, PID-reuse-safe process identity adapter.</label>
+  <label><input type="checkbox" checked /> P2 — Replace Linux-only launcher supervision and watchdog behavior.</label>
+  <label><input type="checkbox" checked /> P3 — Route extension cleanup and reconciliation through the shared adapter.</label>
+  <label><input type="checkbox" checked /> P4 — Prove source, installed, Linux, and macOS behavior and repair the live stack.</label>
+</section>
+
+<section id="resume"><h2>Archived execution instructions</h2>
+  <p class="muted">Execution is complete. The original resume contract required phase-by-phase delivery, coupled identity and cleanup guarantees, no PATH-only or fallback workaround, immediate progress updates, and final live adoption only through <code>scripts/install-pi-transactionally.sh</code>. It is retained here as historical implementation evidence, not as an active handoff.</p>
+</section>
+
+<section id="alignment"><h2>Product intent alignment</h2><ul>
+  <li><strong>Golden path:</strong> <code>codex_review</code> works from Pi on supported Linux or macOS without an operator installing <code>setsid</code>, editing PATH, or knowing the host’s process APIs.</li>
+  <li><strong>Safe inference:</strong> the process adapter selects Linux or Darwin from <code>sys.platform</code>/<code>process.platform</code>; callers do not supply a platform flag.</li>
+  <li><strong>Self-healing:</strong> routine PATH absence disappears because Python calls <code>os.setsid()</code> directly. The system does not silently install OS packages or mutate PATH.</li>
+  <li><strong>Fail closed:</strong> unsupported OS, unavailable Darwin <code>libproc</code>, malformed adapter output, identity mismatch, or unverified cleanup cannot become a review result or a claim that descendants were reaped.</li>
+  <li><strong>Actionable errors:</strong> preflight and terminal failures name the platform, missing capability, evidence paths, and whether a rerun is unsafe until cleanup is resolved.</li>
+  <li><strong>Policy continuity:</strong> maintained workflows continue using <code>codex_review</code>; no GPT-subagent fallback is added to runtime policy.</li>
+</ul></section>
+
+<section id="decisions"><h2>Locked decisions</h2><ol>
+  <li id="decision-platform-adapter"><strong>One shared process adapter:</strong> add a Python standard-library helper under <code>skills/codex-review-partner/scripts/</code> that emits a versioned JSON process snapshot. Linux uses existing <code>/proc</code> fields and boot ID. Darwin uses <code>ctypes</code> with <code>/usr/lib/libproc.dylib</code>, <code>proc_listallpids</code>, and <code>proc_pidinfo(PROC_PIDTBSDINFO)</code>; boot identity comes from the kernel boot time. Normalize PID, PPID, PGID, POSIX session ID (SID, via <code>os.getsid(pid)</code>), zombie/alive state, and a start identity precise enough to reject PID reuse. Unknown platforms fail explicitly.</li>
+  <li id="decision-no-ps"><strong>No text <code>ps</code> parsing as authority:</strong> tests may use <code>ps</code> for diagnostics, but production identity and cleanup decisions use kernel-backed structured adapters. This avoids locale, truncation, timestamp-resolution, and formatting ambiguity.</li>
+  <li id="decision-supervisor"><strong>Maintained Python supervisor:</strong> move the embedded supervisor/watchdog logic into a review-skill script that imports the process adapter. The supervisor calls <code>os.setsid()</code> itself before publishing identity, eliminating external <code>setsid</code>. It launches Codex in its private session/group, owns the inner deadline, handles TERM/HUP/INT, and performs TERM-to-KILL cleanup before exit.</li>
+  <li id="decision-custom-approval"><strong>Approved custom implementation and dependency evaluation:</strong> user authorization to continue executing this reviewed plan covered the locked shared-adapter and maintained-supervisor decisions above, including the archived instruction not to introduce a third-party dependency. Three maintained candidates were evaluated: <code>psutil</code> provides useful cross-platform snapshots but adds a compiled dependency to the system-Python install and does not supply the private-session supervisor, owner-loss monitor, atomic evidence protocol, or verified fixed-point cleanup; <code>supervisor</code> is a daemon/configuration-oriented process manager that would require a separately installed service and does not expose the per-job PID/start/boot/SID reconciliation contract; <code>circus</code> is likewise an external process/watchdog stack with additional runtime dependencies and no direct fit for the repository-owned sidecar, exactly-once terminal state, and in-process Pi lifecycle. Retaining the standard-library implementation keeps the transactional install self-contained and couples the unusual identity protocol to its only consumer. Re-evaluate this exception by January 2027 or sooner if a maintained library provides the complete contract without a host-level service.</li>
+  <li id="decision-parent-death"><strong>Portable owner-loss handling:</strong> keep Linux <code>PR_SET_PDEATHSIG</code> only as an optional fast path when available, but make correctness depend on portable identity monitors for both the immediate launcher and the Pi owner process. Before spawning, <code>runtime.ts</code> persists the Pi owner PID/start/boot identity and passes that exact identity through argument-array launcher options into the supervisor. The supervisor snapshots and validates its immediate launcher parent too, then exits through the same verified topology-cleanup path when either the launcher identity or the Pi owner identity disappears or changes. This ensures abrupt Pi loss is detected even while the detached shell launcher remains alive waiting for the supervisor; Darwin receives bounded orphan cleanup without pretending to provide <code>prctl</code>.</li>
+  <li id="decision-runtime"><strong>Runtime adapter boundary:</strong> replace direct <code>/proc</code> reads/enumeration in <code>runtime.ts</code> with a small injected process-inspector interface backed by the shared helper. Tests can inject deterministic snapshots; production uses argument-array <code>execFile</code>/<code>spawn</code> with <code>shell:false</code>. Malformed, stale, mismatched, or unsupported helper results are identity uncertainty, never permission to signal.</li>
+  <li id="decision-topology"><strong>Cleanup parity with private-session capture:</strong> the supervisor creates one private POSIX session with <code>os.setsid()</code>; its SID is the durable topology boundary. Cancellation, outer timeout, post-spawn persistence failure, graceful shutdown, launcher death, and next-start reconciliation validate the session leader identity, freeze its root group, enumerate every live process whose SID equals the persisted private SID (not only current PID/PPID descendants), freeze every identity-matched group in that session, and re-enumerate fresh session membership until two consecutive snapshots are stable. Reparenting therefore cannot remove a process from cleanup authority. Only after the bounded fixed point may cleanup send TERM, CONT where required, bounded wait, KILL, verify the private session is empty, and publish terminal state. Any SID change, identity change, inspection failure, inability to freeze a session group, or failure to stabilize fails closed with retained evidence.</li>
+  <li id="decision-protocol"><strong>Identity protocol versioning:</strong> bump the process-identity sidecar protocol and include <code>platform</code>, normalized boot identity, leader PID/PGID/SID/start identity, nonce, and adapter version. Runtime accepts old Linux v1 evidence only for safe reconciliation compatibility; new launches write the cross-platform version.</li>
+  <li id="decision-tests"><strong>Two-platform release bar:</strong> portable fake tests must pass on both Linux and Darwin. Linux-specific assertions remain platform-gated and Darwin receives equivalent real identity, descendant cleanup, PID-mismatch, cancellation, timeout, and restart tests. A real installed macOS smoke plus tiny review is required before the fix is considered complete.</li>
+  <li id="decision-install"><strong>Transactional adoption:</strong> source verification precedes <code>bash scripts/install-pi-transactionally.sh</code>. The installer’s existing recursive skill/extension copy is the adoption path; modify install code only if a regression test proves new files are omitted.</li>
+</ol></section>
+
+<section id="acceptance" class="criteria"><h2>Acceptance criteria</h2><ol>
+  <li id="ac-1"><strong>AC1:</strong> On a supported macOS host with the normal system Python and Codex CLI, <code>codex_review smoke</code> starts without Homebrew <code>setsid</code>, Linux <code>prctl</code>, or <code>/proc</code> and produces <code>CODEX_REVIEW_SMOKE_READY</code>.</li>
+  <li id="ac-2"><strong>AC2:</strong> Linux behavior remains supported with the same public tool schema, launcher arguments, verdict grammar, status protocol, timeout values, output safety, and completion semantics.</li>
+  <li id="ac-3"><strong>AC3:</strong> Linux and Darwin process snapshots provide PID, PPID, PGID, SID, state, start identity, and boot identity; mismatched start/boot/session/nonce evidence is never signalled.</li>
+  <li id="ac-4"><strong>AC4:</strong> User cancellation, inner timeout, outer timeout, session shutdown, launcher death, and post-spawn persistence failure leave no verified launcher, supervisor, Codex, or descendant process on both platforms before terminal delivery claims cleanup success.</li>
+  <li id="ac-5"><strong>AC5:</strong> Abrupt Pi/launcher loss triggers supervisor parent-loss cleanup; next extension activation classifies persisted work accurately, reaps only identity-matched survivors, preserves uncertain evidence, and does not leave the output reservation permanently blocking a safe future review.</li>
+  <li id="ac-6"><strong>AC6:</strong> Unsupported platforms or unavailable/malformed process-inspection capabilities fail before Codex launch when possible, with a classified, platform-specific message; cleanup uncertainty never becomes <code>CODEX_REVIEW_SUCCEEDED</code> or a false TERM-to-KILL claim.</li>
+  <li id="ac-7"><strong>AC7:</strong> Shell and Node tests no longer assume GNU <code>stat -c</code> or Linux <code>/proc</code> on every host. Platform-specific tests are explicit, and the portable suite is runnable from a clean macOS worktree.</li>
+  <li id="ac-8"><strong>AC8:</strong> The transactional review-stack install preserves foreign configuration, installs the new helper/supervisor with correct permissions, passes source parity, and completes a real installed macOS smoke and tiny validated review with one completion each.</li>
+  <li id="ac-9"><strong>AC9:</strong> Maintained workflow policy remains unchanged: Pi required reviews still route through <code>codex_review</code>; no runtime fallback to GPT subagents, direct <code>codex exec</code>, or alternate models is introduced.</li>
+</ol></section>
+
+<section id="bdd"><h2>BDD scenarios</h2>
+  <article id="bdd-macos-happy"><h3>S1 — macOS golden path</h3><p><strong>Given</strong> Darwin, system Python, a valid Codex session, and no Homebrew <code>setsid</code> on PATH, <strong>when</strong> Pi starts a smoke or tiny review, <strong>then</strong> the launcher creates its private session through <code>os.setsid()</code>, publishes Darwin identity, returns running state, and later delivers exactly one validated completion.</p></article>
+  <article id="bdd-linux-parity"><h3>S2 — Linux parity</h3><p><strong>Given</strong> Linux and the same request, <strong>when</strong> the new adapter/supervisor runs, <strong>then</strong> public artifacts, classifications, lifecycle, and cleanup match the pre-change supported path.</p></article>
+  <article id="bdd-cancel"><h3>S3 — Cancel and descendant cleanup</h3><p><strong>Given</strong> Codex has a TERM-ignoring descendant, <strong>when</strong> the user cancels on Linux or macOS, <strong>then</strong> identity is revalidated, the complete private topology receives TERM then KILL as needed, no member remains, and only then is cancellation delivered.</p></article>
+  <article id="bdd-parent-loss"><h3>S4 — Abrupt launcher/Pi loss</h3><p><strong>Given</strong> a running review whose Pi owner disappears without shutdown while the detached shell launcher may remain alive, <strong>when</strong> the supervisor’s owner-identity monitor detects the Pi PID/start/boot identity loss or change, <strong>then</strong> it cleans its private reviewer topology and exits within the bounded monitor/deadline contract. The same path applies when the immediate launcher identity disappears. On restart, the extension reports interruption without signalling an unrelated reused PID.</p></article>
+  <article id="bdd-fork-race"><h3>S5 — Reparented group during cleanup discovery</h3><p><strong>Given</strong> a Codex descendant creates a new process group in the supervisor’s private session and its parent exits while cleanup is discovering the topology, <strong>when</strong> cancellation or timeout runs, <strong>then</strong> SID-based enumeration still finds and freezes the reparented group and re-enumerates until two consecutive session snapshots are stable before TERM/KILL. If private-session stabilization cannot be proven within the bound, the job reports cleanup uncertainty and retains evidence.</p></article>
+  <article id="bdd-identity-mismatch"><h3>S6 — PID reuse or stale evidence</h3><p><strong>Given</strong> a process now has the persisted PID but a different start identity, boot identity, PGID, or nonce, <strong>when</strong> cleanup/reconciliation runs, <strong>then</strong> no signal is sent, evidence is retained, and the job is classified identity-uncertain with an exact next action.</p></article>
+  <article id="bdd-unsupported"><h3>S7 — Unsupported capability</h3><p><strong>Given</strong> an unsupported OS or inaccessible Darwin <code>libproc</code>, <strong>when</strong> a review starts, <strong>then</strong> preflight fails closed with platform/capability details and no Codex child or accepted reviewer result.</p></article>
+  <article id="bdd-output"><h3>S8 — Review output contract unchanged</h3><p><strong>Given</strong> a valid final response or malformed/progress-only response, <strong>when</strong> the process completes on either platform, <strong>then</strong> the same verdict validation, no-clobber publication, status classification, and completion eligibility rules apply.</p></article>
+</section>
+
+<section id="phase-1" class="phase"><h2>P1 — Add a cross-platform process identity adapter</h2>
+  <h3>End State</h3><p>One versioned helper supplies normalized Linux/Darwin process and topology evidence to both launcher and extension; production code no longer parses <code>ps</code> text or assumes <code>/proc</code>.</p>
+  <h3>Tests first</h3><p>Add adapter tests that fail on current Darwin: self/parent/group/session snapshot, process and SID-membership enumeration, precise start identity, boot identity, zombie/dead handling, malformed PID, unsupported-platform injection, and JSON protocol. Add Linux fixture coverage for current <code>/proc</code> semantics and Darwin <code>libproc</code>/<code>os.getsid()</code> coverage guarded by the actual platform.</p>
+  <h3>Expected files</h3><ul><li><code>skills/codex-review-partner/scripts/process_identity.py</code> (new)</li><li><code>skills/codex-review-partner/tests/test_process_identity.py</code> (new)</li><li>Optional fixture files under <code>skills/codex-review-partner/tests/fixtures/</code></li></ul>
+  <h3>Work</h3><ul><li>Define a small importable module plus CLI returning strict JSON for snapshot/list/private-session operations.</li><li>Implement Linux <code>/proc</code> and boot-ID adapter, including SID.</li><li>Implement Darwin <code>libproc</code> structures/calls, <code>os.getsid(pid)</code>, and kernel boot-time identity using standard-library <code>ctypes</code>.</li><li>Normalize zombie state and start identity; reject short reads and partial structs.</li><li>Keep OS selection internal and expose explicit unsupported/capability errors.</li></ul>
+  <h3>Open questions / decision dependencies</h3><p>None.</p>
+  <h3>Verify</h3><pre>python3 -m unittest discover -s skills/codex-review-partner/tests -p 'test_process_identity.py'
+python3 skills/codex-review-partner/scripts/process_identity.py snapshot --pid $$
+python3 -m py_compile skills/codex-review-partner/scripts/process_identity.py</pre>
+</section>
+
+<section id="phase-2" class="phase"><h2>P2 — Replace Linux-only launcher supervision</h2>
+  <h3>End State</h3><p>The launcher has no external <code>setsid</code> requirement and no unconditional <code>prctl</code>/<code>/proc</code> calls. One maintained supervisor owns parent-loss detection, inner timeout, Codex execution, identity publication, and descendant cleanup.</p>
+  <h3>Tests first</h3><p>Extend launcher contract tests to prove success with a PATH that has no <code>setsid</code>, Darwin supervisor startup, Pi-owner loss while the detached launcher remains alive, immediate-parent loss, TERM-ignoring descendant cleanup, a descendant that forks into a new group during discovery, timeout precedence, identity sidecar v2, and unchanged artifact/status behavior. Replace GNU-only inode/mode assertions with portable Python assertions.</p>
+  <h3>Expected files</h3><ul><li><code>skills/codex-review-partner/scripts/review_supervisor.py</code> (new)</li><li><code>skills/codex-review-partner/scripts/run-review.sh</code></li><li><code>skills/codex-review-partner/tests/test_run_review_contract.sh</code></li><li><code>skills/codex-review-partner/tests/test_run_review_login_shell.sh</code></li></ul>
+  <h3>Work</h3><ul><li>Have the supervisor call <code>os.setsid()</code> before launch and publish identity only after verifying session/group leadership.</li><li>Use the adapter for launcher-parent, Pi-owner, supervisor, and descendant identity.</li><li>Add explicit launcher arguments for the runtime-persisted Pi owner PID/start/boot identity; validate them before readiness and monitor both Pi owner and immediate launcher identities for the lifetime of the review.</li><li>Keep Linux parent-death signals only as an optimization; make the portable dual-identity monitor authoritative on every platform, including a test where Pi dies but the detached launcher remains alive.</li><li>Fold the separate watchdog behavior into the maintained supervisor so one process owns deadline and cleanup.</li><li>Add a standalone <code>review_supervisor.py --preflight</code> mode that imports and exercises the installed adapter/session capability without launching Codex, so the transactional installer can validate the real installed supervisor before substituting a fake launcher.</li><li>Preserve exact Codex CLI model/effort/sandbox/final-message arguments and launcher status classifications.</li><li>Preflight helper/platform capability before Codex launch and write a truthful launch-failure status on unsupported capability.</li></ul>
+  <h3>Open questions / decision dependencies</h3><p>None.</p>
+  <h3>Verify</h3><pre>bash -n skills/codex-review-partner/scripts/run-review.sh
+python3 -m py_compile skills/codex-review-partner/scripts/review_supervisor.py
+for test in skills/codex-review-partner/tests/test_*.sh; do bash "$test"; done</pre>
+</section>
+
+<section id="phase-3" class="phase"><h2>P3 — Make extension cleanup and restart reconciliation portable</h2>
+  <h3>End State</h3><p>The Pi extension consumes the normalized adapter protocol, preserves all existing cleanup and persistence guarantees on Linux, and proves equivalent macOS behavior without direct <code>/proc</code> access.</p>
+  <h3>Tests first</h3><p>Add failing Darwin-capable runtime and production-topology cases for active cancellation, outer timeout, launcher death, Pi-owner death with a surviving detached launcher, post-spawn state failure, shutdown, PID/start/SID mismatch, a separately grouped child that is reparented but retains the private SID during discovery, private-session stabilization failure, and startup reconciliation. Inject deterministic inspector responses for edge cases and use the real adapter for platform integration.</p>
+  <h3>Expected files</h3><ul><li><code>_pi/extensions/codex-review/runtime.ts</code></li><li><code>_pi/extensions/codex-review/tests/runtime.test.mjs</code></li><li><code>_pi/extensions/codex-review/tests/restart-reconciliation.test.mjs</code></li><li><code>_pi/extensions/codex-review/tests/production-topology.test.mjs</code></li><li><code>_pi/extensions/codex-review/tests/fixtures/fake_launcher.py</code></li><li><code>_pi/extensions/codex-review/tests/pi-sdk.test.mjs</code></li></ul>
+  <h3>Work</h3><ul><li>Add an injectable process inspector that invokes the helper by argument array with <code>shell:false</code> and validates its JSON/protocol version.</li><li>Replace owner, launcher, group member, descendant, boot, session, and process-start reads with inspector results.</li><li>Pass the persisted Pi owner PID/start/boot identity to every new launcher invocation without changing public tool input.</li><li>Accept legacy Linux identity evidence only for reconciliation; emit the new protocol for all starts.</li><li>Replace ancestry-only enumeration with bounded private-session capture: validate/freeze the leader group, enumerate all matching SID members, freeze every session group, and re-enumerate until a fixed point before TERM/KILL/verification.</li><li>Make fake launchers and topology helpers platform-neutral.</li><li>Update outcome guidance only where platform/capability detail materially improves the next action.</li></ul>
+  <h3>Open questions / decision dependencies</h3><p>None.</p>
+  <h3>Verify</h3><pre>node --test _pi/extensions/codex-review/tests/runtime.test.mjs
+node --test _pi/extensions/codex-review/tests/restart-reconciliation.test.mjs
+node --test _pi/extensions/codex-review/tests/production-topology.test.mjs
+node --test _pi/extensions/codex-review/tests/pi-sdk.test.mjs
+node --test _pi/extensions/codex-review/tests/*.test.mjs
+node --experimental-strip-types --check _pi/extensions/codex-review/runtime.ts</pre>
+</section>
+
+<section id="phase-4" class="phase"><h2>P4 — Prove both platforms and transactionally repair the installed macOS stack</h2>
+  <h3>End State</h3><p>Source and installed parity pass; the current macOS host completes a real managed smoke and tiny review; Linux portable gates remain green; and no manual PATH link is part of the supported workflow.</p>
+  <h3>Tests first</h3><p>Before installation, run all deterministic suites from the clean worktree and require the real source launcher smoke to pass on macOS. The installed test must exercise the registered extension, not call the supervisor directly.</p>
+  <h3>Expected files</h3><ul><li><code>_pi/extensions/codex-review/tests/source-real-e2e.test.mjs</code> (new real source-launcher pre-install smoke)</li><li><code>_pi/extensions/codex-review/tests/installed-host-notification.test.mjs</code> if fixture portability requires it</li><li><code>_pi/extensions/codex-review/tests/installed-real-e2e.test.mjs</code> if platform assertions are added</li><li><code>scripts/install-pi-transactionally.sh</code> and <code>scripts/verify-pi-install.sh</code> to run the installed helper/permission preflight inside the transaction before fake-launcher host tests and to prove recursive parity</li><li><code>scripts/tests/test_install_pi_transaction.py</code> for deterministic installed-file mode and preflight-order coverage</li><li><code>_pi/README.md</code> and <code>skills/codex-review-partner/SKILL.md</code> for supported-platform and troubleshooting truth</li></ul>
+  <h3>Work</h3><ul><li>Run complete launcher, extension, source-policy, installer, and audit suites.</li><li>Run a real source-host smoke through the worktree extension and worktree launcher before installation; this gate must prove the source path starts without external <code>setsid</code> and must fail the phase before live files are changed.</li><li>Confirm no maintained instruction adds a subagent or direct-Codex fallback.</li><li>Within <code>scripts/install-pi-transactionally.sh</code>, after install/parity and before replacing the launcher with its fake fixture, run the installed helper capability snapshot, run <code>review_supervisor.py --preflight</code> from the installed skill, and assert helper/supervisor owner-readable/executable modes. Any failure must trigger the existing exact rollback.</li><li>Run the installed same-process smoke and tiny review on macOS, audit their jobs, and verify no surviving process groups.</li><li>Capture Linux CI or Linux-host evidence for the same portable suite before merge.</li><li>Remove any temporary local <code>setsid</code> PATH workaround only after installed smoke proves it is unnecessary; do not make cleanup of unrelated operator configuration part of the code change.</li></ul>
+  <h3>Open questions / decision dependencies</h3><p>Linux execution evidence requires the existing CI/Linux host. If unavailable locally, it is an environment gate before merge, not permission to claim Linux parity from Darwin-only tests.</p>
+  <h3>Verify</h3><pre>python3 -m unittest discover -s skills/codex-review-partner/tests -p 'test_*.py'
+for test in skills/codex-review-partner/tests/test_*.sh; do bash "$test"; done
+node --test _pi/extensions/codex-review/tests/*.test.mjs
+python3 skills/codex-review-partner/scripts/check_no_direct_codex_review_launches.py
+python3 -m unittest scripts.tests.test_audit_codex_review_sessions
+python3 -m unittest scripts.tests.test_install_pi_transaction
+RUN_REAL_CODEX_SOURCE_E2E=1 node --test _pi/extensions/codex-review/tests/source-real-e2e.test.mjs
+bash scripts/install-pi-transactionally.sh
+bash scripts/verify-pi-install.sh --scope pi-review-stack --check-only
+diff -qr _pi/extensions/codex-review "$HOME/.pi/agent/extensions/codex-review"
+diff -qr skills/codex-review-partner "$HOME/.agents/skills/codex-review-partner"
+python3 "$HOME/.agents/skills/codex-review-partner/scripts/process_identity.py" snapshot --pid $$
+python3 "$HOME/.agents/skills/codex-review-partner/scripts/review_supervisor.py" --preflight
+python3 - "$HOME/.agents/skills/codex-review-partner/scripts/process_identity.py" "$HOME/.agents/skills/codex-review-partner/scripts/review_supervisor.py" &lt;&lt;'PY'
+import os,stat,sys
+for file in sys.argv[1:]:
+    mode=stat.S_IMODE(os.stat(file).st_mode)
+    assert mode &amp; stat.S_IRUSR and mode &amp; stat.S_IXUSR, (file,oct(mode))
+PY
+RUN_REAL_CODEX_TOOL_E2E=1 node --test _pi/extensions/codex-review/tests/installed-real-e2e.test.mjs
+python3 scripts/audit-codex-review-sessions.py --require-terminal --codex-sessions-root "$HOME/.codex/sessions" "$HOME/.pi/agent/cache/codex-review"</pre>
+</section>
+
+<section id="coverage"><h2>Test coverage matrix</h2><table><thead><tr><th>Acceptance / scenario</th><th>Layer</th><th>Planned proof</th></tr></thead><tbody>
+  <tr><td>AC1; S1</td><td>Launcher + installed E2E</td><td>Darwin run without <code>setsid</code> on PATH; real installed smoke/tiny review.</td></tr>
+  <tr><td>AC2; S2, S8</td><td>Existing regression suites</td><td>All profile, verdict, artifact, status, timeout, and source-policy tests unchanged or strengthened.</td></tr>
+  <tr><td>AC3; S6</td><td>Python adapter + runtime fixtures</td><td>Linux <code>/proc</code>, Darwin <code>libproc</code>/<code>os.getsid()</code>, boot/start/session identity, mismatch/no-signal cases.</td></tr>
+  <tr><td>AC4; S3, S5</td><td>Production topology</td><td>TERM-ignoring child, separately grouped and reparented private-session members, bounded SID stabilization/failure, cancel, timeout, shutdown, launcher death, post-spawn persistence failure.</td></tr>
+  <tr><td>AC5; S4, S6</td><td>Supervisor + restart reconciliation</td><td>Pi-owner loss with launcher survival, immediate-parent loss, identity-matched cleanup, PID reuse, stale nonce, evidence retention, reservation release/quarantine.</td></tr>
+  <tr><td>AC6; S7</td><td>Negative adapter/launcher tests</td><td>Unsupported platform, unavailable libproc, malformed/short helper output, no Codex spawn.</td></tr>
+  <tr><td>AC7</td><td>Portable source suite</td><td>No unconditional <code>/proc</code>, <code>prctl</code>, external <code>setsid</code>, or GNU <code>stat -c</code> in cross-platform paths/tests.</td></tr>
+  <tr><td>AC8</td><td>Transactional install + real host</td><td>Rollback/parity tests, installed host notification, real review, audit, process absence.</td></tr>
+  <tr><td>AC9</td><td>Policy tests</td><td>Maintained workflow scanner and Pi SDK guard continue requiring <code>codex_review</code>.</td></tr>
+</tbody></table></section>
+
+<section id="risks" class="risk"><h2>Risks and mitigations</h2><ul>
+  <li><strong>Darwin struct drift:</strong> define the exact public <code>proc_bsdinfo</code> layout, assert returned byte count, and fail capability preflight on mismatch rather than reading partial memory.</li>
+  <li><strong>PID reuse:</strong> compare platform boot identity plus microsecond process start identity, PGID, and nonce before every signal decision.</li>
+  <li><strong>Parent monitor race:</strong> snapshot expected parent identity before readiness publication, check it again immediately before Codex exec, and use a short bounded monitor interval plus the inner deadline.</li>
+  <li><strong>Cross-group descendants:</strong> preserve topology enumeration and evidence-backed group discovery; do not assume every child stays in the supervisor PGID.</li>
+  <li><strong>Helper failure during cleanup:</strong> retain evidence and report cleanup uncertainty; never claim success or remove all identity evidence.</li>
+  <li><strong>Live installation regression:</strong> use only the existing transactional bounded installer and its rollback/parity gates.</li>
+</ul></section>
+
+<section id="delivery"><h2>Delivery order</h2><ol>
+  <li>Land adapter RED tests and implementation.</li><li>Land launcher/supervisor RED tests and implementation.</li><li>Land extension/runtime RED tests and implementation.</li><li>Run the independent implementation review workflow after implementation.</li><li>Transactionally install and prove real macOS smoke/tiny review.</li><li>Obtain Linux gate evidence, then commit/push/PR only when explicitly requested by the execution workflow or user.</li>
+</ol></section>
+
+<section id="non-goals"><h2>Non-goals</h2><ul>
+  <li>Changing Codex model, effort, sandbox, verdict vocabulary, retry budgets, or review prompts.</li>
+  <li>Adding runtime GPT-subagent fallback when Codex is unavailable.</li>
+  <li>Supporting Windows in this slice; unsupported platforms fail explicitly.</li>
+  <li>Resuming a review across Pi process loss; safe cleanup and truthful interruption remain the contract.</li>
+  <li>Refactoring unrelated Pi extensions or generalizing a repository-wide process-management framework.</li>
+  <li>Rewriting the transactional installer unless tests prove the new files are not installed.</li>
+</ul></section>
+
+<section id="deviations"><h2>Decisions / Deviations log</h2><ul>
+  <li>2026-07-16 — Created an isolated Herdr worktree at <code>/Users/anichols/.herdr/worktrees/ai-configs/fix-codex-review-macos-launcher</code> on branch <code>fix-codex-review-macos-launcher</code> at the user’s request.</li>
+  <li>2026-07-16 — Classified the outage as a shared launcher-plus-extension portability defect. A <code>setsid</code> PATH link repaired only the first failure; the allowed rerun then proved the Linux-only <code>prctl</code> boundary.</li>
+  <li>2026-07-16 — Selected Darwin <code>libproc</code> rather than production <code>ps</code> parsing because the reliability contract requires precise, structured process-start identity and fail-closed PID-reuse protection.</li>
+  <li>2026-07-16 — Per operator instruction, the independent plan-review leg for this plan uses a GPT-5.6 Sol medium Pi subagent in place of the broken Codex review transport. This does not alter maintained review policy.</li>
+  <li>2026-07-16 — The first GPT-5.6 medium review returned <code>PLAN_NEEDS_REVISION</code>. It found that monitoring only the supervisor parent would miss abrupt Pi loss while the detached launcher survived, one-pass descendant enumeration could race a separately grouped supervisor/Codex fork, and P4 lacked an explicit real source-host smoke before installation. The plan now passes the Pi owner identity through the launcher protocol, requires bounded freeze/re-enumerate topology stabilization, and adds source smoke plus installed helper/permission preflight.</li>
+  <li>2026-07-16 — The targeted GPT-5.6 medium rereview confirmed Pi-owner monitoring and source smoke, but found ancestry-based stabilization could lose a reparented process group. The plan now makes the supervisor’s private POSIX SID the durable topology authority, includes SID in both platform adapters and identity protocol, verifies the session is empty before cleanup success, and moves installed helper/permission preflight inside the rollback-protected transaction before fake-launcher substitution.</li>
+  <li>2026-07-16 — The final narrow rereview found the rollback-protected installed preflight exercised only the helper, not the maintained supervisor. P2 now defines <code>review_supervisor.py --preflight</code>, and P4 requires that installed supervisor preflight before fake-launcher substitution.</li>
+  <li>2026-07-17 — At the deterministic-only checkpoint, implemented and verified the P4 source, installer-check, rollback, policy, and documentation work, while leaving P4 unchecked because that execution explicitly prohibited live installation and real Codex E2E and had no Linux host/CI evidence. Those release proofs were completed later and are recorded below.</li>
+  <li>2026-07-17 — A production-safety implementation review found four cleanup/reconciliation gaps: descendants sharing the supervisor group, unanchored process-group signal windows, transient inspection uncertainty being treated as owner death, and legacy Linux v1 state without <code>sid</code>. The implementation now freezes and revalidates identity anchors before group signals, handles same-leader-group members per process, preserves uncertain foreign ownership, and reconciles valid v1 evidence without requiring new state fields.</li>
+  <li>2026-07-17 — Completed P4 on the authoritative sources and live host: complete deterministic suites passed on Darwin and a clean Linux container, the real source smoke passed before installation, the rollback-protected transaction installed recursive source parity and capability/mode checks, and the registered installed same-process host completed one real smoke plus one tiny review. Targeted audit confirmed both installed jobs were terminal, profile-valid, and delivered exactly once with no surviving managed review processes.</li>
+  <li>2026-07-17 — The implementation-stage PM review found hot-install ownership, post-spawn persistence-failure evidence retention, Linux parent-death initialization, and stale P4-record gaps. Those were fixed with v2 supervisor ownership reconciliation, canonical emergency-state retention, pre-<code>prctl</code> signal handlers, and truthful plan history. A Linux-only concurrent supervisor/runtime cleanup race exposed by that fix was then resolved with bounded SID recapture and verified-empty convergence.</li>
+  <li>2026-07-17 — Final gates passed after the fixes: full Darwin deterministic suites, clean-copy Linux portable suites plus installer tests in a committed container checkout, source real smoke, transactional installed parity/preflight, installed real smoke and tiny review, and targeted two-job audit. The final Codex PM rereview returned <code>PASS_SCOPED</code>; the bounded Claude Code implementation review returned <code>CLEAN_FOR_PR</code>.</li>
+  <li>2026-07-17 — PR feedback hardened exception boundaries, verification truthfulness, helper mode checks, enumeration failures, post-launch cleanup, supervisor-result coherence/evidence retention, external-<code>setsid</code> denial, completed-plan metadata, and the documented dependency exception. The bounded adversarial follow-up reached its three-round cap: each concrete finding was fixed and regression-tested, including fail-closed dead-launcher reuse ambiguity, normal exit 137 versus signal 9, durable no-status evidence, exact supported signal reasons, and cleanup-evidence retention; no fourth review round was opened.</li>
+</ul></section>
+
+<section id="review-record"><h2>Review record</h2><ul>
+  <li><strong>Independent GPT-5.6 medium plan review:</strong> first pass and targeted rereviews returned <code>PLAN_NEEDS_REVISION</code>; all cumulative blocking findings were integrated. The final narrow rereview returned <code>PLAN_EXECUTION_READY</code>.</li>
+  <li><strong>Doct browser review:</strong> registered at <a href="https://doct.nodaste.com/d/workspace_759bfae3-44f1-4ce5-9bff-9077d9933a21/docs/c2c14a44-c521-42aa-be3d-d9915462f958">Codex Review macOS Portability</a>; lifecycle active and durable listener started.</li>
+  <li><strong>Implementation reviews:</strong> initial production-safety and PM findings were fixed and regression-tested; final Codex PM verdict <code>PASS_SCOPED</code> and final Claude Code verdict <code>CLEAN_FOR_PR</code>. PR-feedback adversarial review used the repository’s three-round cap; all reported concrete findings were fixed and verified, and the cap prevented a fourth loop.</li>
+  <li><strong>Readiness:</strong> completed; implementation and independent review gates passed, and the registered Doct artifact has no comments or queued reviewer actions.</li>
+</ul></section>
+</main></body></html>
