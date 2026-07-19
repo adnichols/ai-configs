@@ -16,6 +16,6 @@ On Aaron's macOS setup, Obsidian must be running for vault sync; verify app/sync
 §
 On Aaron's machine, `ccore health` can be OK while `ccore space list` fails because local runtime auth vault cannot unlock `account-session.enc` non-interactively; treat C-Core reads as unavailable until `CCORE_PASSPHRASE` is supplied or `ccore init` reseeds auth.
 §
-Aaron's /gm outputs: signal items need status/from/context/sent/responses; plan-review comment watchers must be quiet-by-default and durable until the plan is archived.
+GM signals need status/from/context/sent/responses; plan listeners need durable claim→worker→ack/resolve, not raw `plans listen` PID.
 §
 Hermes config source: ~/code/ai-configs/_hermes/default via scripts/hermes_config_sync.py export/verify/install; after Hermes config changes, export/verify then commit/push ai-configs; excludes secrets/runtime.

@@ -20,15 +20,15 @@
       "schedule_display": "0 8 * * *",
       "repeat": {
         "times": null,
-        "completed": 83
+        "completed": 94
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-04-15T22:28:26.681323-06:00",
-      "next_run_at": "2026-07-08T08:00:00-06:00",
-      "last_run_at": "2026-07-07T08:02:56.547344-06:00",
+      "next_run_at": "2026-07-19T08:00:00-06:00",
+      "last_run_at": "2026-07-18T08:02:39.262032-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -59,15 +59,15 @@
       "schedule_display": "0 6 * * *",
       "repeat": {
         "times": null,
-        "completed": 21
+        "completed": 32
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-06-21T08:26:26.329217-06:00",
-      "next_run_at": "2026-07-08T06:00:00-06:00",
-      "last_run_at": "2026-07-07T07:09:32.432986-06:00",
+      "next_run_at": "2026-07-19T06:00:00-06:00",
+      "last_run_at": "2026-07-18T06:04:46.984460-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -102,15 +102,15 @@
       "schedule_display": "every 1m",
       "repeat": {
         "times": null,
-        "completed": 9629
+        "completed": 16704
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-06-21T09:41:11.831912-06:00",
-      "next_run_at": "2026-07-07T18:14:14.541430-06:00",
-      "last_run_at": "2026-07-07T18:13:14.541430-06:00",
+      "next_run_at": "2026-07-18T13:48:38.360014-06:00",
+      "last_run_at": "2026-07-18T13:47:38.360014-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -147,15 +147,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 211
+        "completed": 1392
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-02T16:59:27.696134-06:00",
-      "next_run_at": "2026-07-07T18:19:15.137790-06:00",
-      "last_run_at": "2026-07-07T18:09:15.137790-06:00",
+      "next_run_at": "2026-07-18T13:54:40.328163-06:00",
+      "last_run_at": "2026-07-18T13:44:40.328163-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -192,15 +192,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 104
+        "completed": 1298
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-04T07:48:06.775694-06:00",
-      "next_run_at": "2026-07-07T18:15:14.625127-06:00",
-      "last_run_at": "2026-07-07T18:05:14.625127-06:00",
+      "next_run_at": "2026-07-18T13:56:29.499285-06:00",
+      "last_run_at": "2026-07-18T13:46:29.499285-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -266,7 +266,57 @@
       "enabled_toolsets": null,
       "workdir": "/Users/anichols/code/heddle",
       "fire_claim": null
+    },
+    {
+      "id": "ff812b6b3074",
+      "name": "Tinker weekly change-risk review",
+      "prompt": "Daily Tinker weekly change-review follow-up for Aaron. Work read-only.\n\nUse America/Denver local date. Read `/Users/anichols/Obsidian/adn_vault/DailyGM/runs/<YYYY-MM-DD>/tinker_changes.json`, produced by the deterministic Good Morning runner. If it is absent, run `python3 /Users/anichols/Obsidian/.agents/scripts/gm/tinker_changes_phase.py --date <YYYY-MM-DD> --days 7` and parse its JSON; do not modify tracked files.\n\nFirst use the deterministic collection as the source of truth for scope. If `commit_count` is 0 and `active_repo_count` is 0, reply exactly: `Tinker weekly review: no commits or local changes across 23 repos in the last 7 days; no review needed.`\n\nOtherwise, inspect only `review_queue` items. For each, use the local Git repository and `gh` as needed to examine the actual commit/PR diff and surrounding code; do not infer behavior from a commit subject alone. Assess whether Aaron should review it as a support-services owner. Prioritize concrete concerns: authentication/authorization and Firebase rules; payment, payroll, booking, membership, inventory, or customer data impacts; destructive/migration behavior; production/deployment changes; cross-app integration; unusually large/complex or poorly tested changes; and clear opportunities for reliability or maintainability improvement.\n\nReturn a concise report with: (1) activity signal, (2) `Review now` items with repo + linked commit/PR + evidence-based reason, (3) `Watch / opportunity` items if warranted, and (4) a clear recommendation. If the deterministic collector found activity but no review-queue items, state that it was below the review threshold and name the affected repos. Do not make changes, open issues, or send messages outside this scheduled delivery.",
+      "skills": [
+        "github-functional-merge-review"
+      ],
+      "skill": "github-functional-merge-review",
+      "model": "gpt-5.6-terra",
+      "provider": "custom:local-(localhost:8317)",
+      "provider_snapshot": null,
+      "model_snapshot": null,
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "15 6 * * *",
+        "display": "15 6 * * *"
+      },
+      "schedule_display": "15 6 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 0
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-07-18T08:27:07.978454-06:00",
+      "next_run_at": "2026-07-19T06:15:00-06:00",
+      "last_run_at": null,
+      "last_status": null,
+      "last_error": null,
+      "last_delivery_error": null,
+      "deliver": "discord:1492535022811480126",
+      "origin": {
+        "platform": "discord",
+        "chat_id": "1528043381756788807",
+        "chat_name": "adn_core / #chief-cos / i would like like to add automation to my morning routine which will look ove...",
+        "thread_id": "1528043381756788807",
+        "user_id": "977568101770088490"
+      },
+      "enabled_toolsets": [
+        "terminal",
+        "file"
+      ],
+      "workdir": "/Users/anichols/Obsidian"
     }
   ],
-  "updated_at": "2026-07-07T18:14:16.611165-06:00"
+  "updated_at": "2026-07-18T13:47:38.360308-06:00"
 }

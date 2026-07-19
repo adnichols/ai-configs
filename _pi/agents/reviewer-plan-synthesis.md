@@ -2,7 +2,7 @@
 name: reviewer-plan-synthesis
 description: GPT synthesis reviewer - consolidates plan review comments into final review guidance
 mode: subagent
-model: openai-codex/gpt-5.6-sol
+model: openai-codex/gpt-5.6-terra
 reasoningEffort: high
 tools: read, grep, find, ls, bash, edit, subagent
 extensions: /home/linuxbrew/.linuxbrew/lib/node_modules/@tintinweb/pi-subagents/index.ts

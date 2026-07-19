@@ -2,7 +2,7 @@
 name: reviewer-plan-adversarial-gpt
 description: GPT adversarial plan reviewer - challenges plans for hidden weaknesses, product-intent drift, and under-specified execution
 mode: subagent
-model: openai-codex/gpt-5.6-sol
+model: openai-codex/gpt-5.6-terra
 provider: openai-codex
 reasoningEffort: high
 tools: read, grep, find, ls, bash, edit, subagent

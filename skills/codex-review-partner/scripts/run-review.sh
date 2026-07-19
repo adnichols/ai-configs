@@ -148,7 +148,7 @@ python3 "$SUPERVISOR" \
   --owner-pid "$OWNER_PID" --owner-start-identity "$OWNER_START_IDENTITY" --owner-boot-id "$OWNER_BOOT_ID" \
   --ready-file "$SUPERVISOR_READY" --failed-file "$SUPERVISOR_FAILED" --identity-file "$EFFECTIVE_PROCESS_IDENTITY_FILE" \
   --result-file "$SUPERVISOR_RESULT" --nonce "$EFFECTIVE_JOB_NONCE" --login-shell "$LOGIN_SHELL" --work-dir "$WORK_DIR" \
-  --timeout-seconds "$TIMEOUT_SECONDS" -- exec --json -m gpt-5.6-sol -c 'model_reasoning_effort="high"' -s read-only -C "$WORK_DIR" -o "$FINAL_MESSAGE" - <"$STDIN_FILE" &
+  --timeout-seconds "$TIMEOUT_SECONDS" -- exec --json -m gpt-5.6-terra -c 'model_reasoning_effort="high"' -s read-only -C "$WORK_DIR" -o "$FINAL_MESSAGE" - <"$STDIN_FILE" &
 CODEX_PID=$!
 for _ in $(seq 1 1000); do
   [[ -s "$SUPERVISOR_READY" || -s "$SUPERVISOR_FAILED" ]] && break

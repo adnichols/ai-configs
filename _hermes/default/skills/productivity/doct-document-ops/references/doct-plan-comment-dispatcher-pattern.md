@@ -11,7 +11,18 @@ A script-only cron listener can appear healthy while doing no useful work if it:
 - stores thread IDs in `seen_item_keys`, and
 - exits without calling `doct-agent plans agent next`, editing/updating the plan, replying, acking, and resolving.
 
-That is notification-only behavior, not a comment listener. Doct queue state is authoritative; local seen-key state is diagnostic only.
+A second unsafe variant is starting `doct-agent plans listen --jsonl` as a generic Hermes background process without a real supervisor/dispatcher consuming each JSONL claim event. That command can remain alive and claim work while no agent worker is launched, leaving threads leased until expiry. A live PID is not evidence that an agent is connected.
+
+That is notification/event-consumption-only behavior, not a complete comment listener. Doct queue state is authoritative; local seen-key state is diagnostic only.
+
+## Startup gate
+
+Do not report a listener as ready unless one of these complete paths is observable:
+
+- a bounded `doct-agent plans agent next --wait --timeout <n> --json` child owned by a dispatcher that launches a Hermes worker for every returned claim; or
+- `plans listen --jsonl` under a real supervisor whose dispatcher/worker handoff is proven by process state and a routed smoke test.
+
+For Aaron's macOS plans that must stay monitored until archival, prefer the document-scoped LaunchAgent dispatcher pattern. Verify the supervisor PID, its current `agent next --wait` child, source-path handoff, and empty queue. Never substitute a raw `plans listen --jsonl` process launched from `terminal(background=true)`.
 
 ## Correct pattern
 

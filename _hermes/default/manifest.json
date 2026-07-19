@@ -1,5 +1,5 @@
 {
-  "file_count": 1686,
+  "file_count": 1698,
   "files": [
     {
       "bytes": 819,
@@ -17,14 +17,14 @@
       "sha256": "38199f2625612e9547f14a62c2fd7964d0998ff37a0ea50c45e6627b7a1bb123"
     },
     {
-      "bytes": 20847,
+      "bytes": 20214,
       "path": "config/config.yaml",
-      "sha256": "36c43b67c35fbd53550c8547e9b1f70efc195499ccca6568576f3b413c3aad6a"
+      "sha256": "220c558fe4c4bc9bc207fc2c4fca806ceca345510d6bcc3f3730abbf4f2aaac6"
     },
     {
-      "bytes": 18521,
+      "bytes": 21785,
       "path": "cron/jobs.json",
-      "sha256": "a07eee72a59ee324f753e4d3816aa6daa6936f7178e871956a94607607dee75b"
+      "sha256": "112ee636603ef3b8ea3c0dc89fb4af7dbdc701abd1f83f01f33776a9e2200ba1"
     },
     {
       "bytes": 508,
@@ -47,9 +47,9 @@
       "sha256": "d51e569fa7e0e1c64e2d584a472bbbfd72d044a06297da971ccc5ecc80fe5d95"
     },
     {
-      "bytes": 2180,
+      "bytes": 2149,
       "path": "memories/MEMORY.md",
-      "sha256": "6f55b4ef79177f39e8c02f6088fe026e677d3d5503379e61252cb1277eb6e405"
+      "sha256": "52720a5f858187c61c32eb2bd11556f1916c48f1f1f71912acfa9276d2e0189f"
     },
     {
       "bytes": 1362,
@@ -119,7 +119,7 @@
     {
       "bytes": 1385,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "6f6b1ebe9d46a8c0f56623aadc16b7bff403300650b847d9a7cde76af83500e4"
+      "sha256": "e8fad905ba9667b9d55a0999c1240121b63bc56cc5e432341646f4d7d42d4deb"
     },
     {
       "bytes": 2280,
@@ -147,9 +147,9 @@
       "sha256": "705710794a2a2285705394c669a94841a5c0ca456a2e8962fe49bdfa5fefb5a7"
     },
     {
-      "bytes": 3365,
+      "bytes": 3421,
       "path": "profiles/nerd/skills/.bundled_manifest",
-      "sha256": "8732735714c93cee5d205ab7b54516e5bbe6d6bb67c4e9c5472330401fc49a52"
+      "sha256": "dcf695fe01b5e99a0c1d7c89bcb720f28eb0baa4984f3207a7e3643606ba557b"
     },
     {
       "bytes": 152,
@@ -1162,9 +1162,9 @@
       "sha256": "4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96"
     },
     {
-      "bytes": 30025,
+      "bytes": 34463,
       "path": "profiles/nerd/skills/creative/humanizer/SKILL.md",
-      "sha256": "4f2eece5122e8296e65930225d744f4fbaf50747e91031c1e17c5ea273911c35"
+      "sha256": "887d5e3467a682da9b166e5293007f8bbbc299f8a6718ae00f26161b7d062b04"
     },
     {
       "bytes": 886,
@@ -2002,6 +2002,16 @@
       "sha256": "a40da498925e43164beeb08b3d9685b1496005cba3c198754de8eb3dfe3fb3f3"
     },
     {
+      "bytes": 6888,
+      "path": "profiles/nerd/skills/hermes-desktop-plugins/SKILL.md",
+      "sha256": "86d898f72cc2b230ce37b5fd751f536b5c16c37b3bebf9cc3a75493094ab759b"
+    },
+    {
+      "bytes": 2308,
+      "path": "profiles/nerd/skills/hermes-desktop-plugins/templates/plugin.js",
+      "sha256": "7d58d7a6793f7e78682415355fee490c8086553f7b1aafb27fee7dbe46844252"
+    },
+    {
       "bytes": 706,
       "path": "profiles/nerd/skills/inference-sh/DESCRIPTION.md",
       "sha256": "ac21c24bb4681d20d6fc3ad3016a14d17310ddfccd7dc638fe16a36a83a466fa"
@@ -2067,9 +2077,9 @@
       "sha256": "f24e6939b47511a7dfc1257f3087c9dafd027fe7836d0e65b0feb3214f598cd1"
     },
     {
-      "bytes": 4055,
+      "bytes": 4054,
       "path": "profiles/nerd/skills/media/youtube-content/scripts/fetch_transcript.py",
-      "sha256": "6b2e5d8bd40d2a1b3cc0840f4c78021b57a1bbe951434cc8b4f2fdb9919629a2"
+      "sha256": "462f96320f641d3372fb54dd34d5e4892c185cb48096f9c5e97b05a77ac02467"
     },
     {
       "bytes": 162,
@@ -3867,9 +3877,9 @@
       "sha256": "2803cd39805b989c465f5b6c1c1d1a4c825510fb5469d5f96eae9eb775b51f37"
     },
     {
-      "bytes": 3365,
+      "bytes": 3421,
       "path": "profiles/writing/skills/.bundled_manifest",
-      "sha256": "e6c39e7b07b0c285febd2f61c2f4322f5289a348a25102d77fb958a0216f17d1"
+      "sha256": "4eb28fcf205c8be4624334f389031d2323e276ff08ab14b5afd35dbfbf79c39b"
     },
     {
       "bytes": 152,
@@ -4082,9 +4092,9 @@
       "sha256": "4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96"
     },
     {
-      "bytes": 30025,
+      "bytes": 34463,
       "path": "profiles/writing/skills/creative/humanizer/SKILL.md",
-      "sha256": "4f2eece5122e8296e65930225d744f4fbaf50747e91031c1e17c5ea273911c35"
+      "sha256": "887d5e3467a682da9b166e5293007f8bbbc299f8a6718ae00f26161b7d062b04"
     },
     {
       "bytes": 886,
@@ -4240,6 +4250,16 @@
       "bytes": 5149,
       "path": "profiles/writing/skills/github/github/SKILL.md",
       "sha256": "ae0e8a8f2ed2c5f75c98cb7a8c8806d9cf94069727081791955e7b8210369cac"
+    },
+    {
+      "bytes": 6888,
+      "path": "profiles/writing/skills/hermes-desktop-plugins/SKILL.md",
+      "sha256": "86d898f72cc2b230ce37b5fd751f536b5c16c37b3bebf9cc3a75493094ab759b"
+    },
+    {
+      "bytes": 2308,
+      "path": "profiles/writing/skills/hermes-desktop-plugins/templates/plugin.js",
+      "sha256": "7d58d7a6793f7e78682415355fee490c8086553f7b1aafb27fee7dbe46844252"
     },
     {
       "bytes": 706,
@@ -4852,6 +4872,11 @@
       "sha256": "acf5ba6ea0b9f45d0ee5acd1d440d5404c22ed6424907f790c17b7b712b97ad8"
     },
     {
+      "bytes": 8190,
+      "path": "scripts/doct_document_comment_listener.py",
+      "sha256": "3f90bb2162391559d4836f86d110743f11e6c61db276f3ce6c3c984dc66b9c2b"
+    },
+    {
       "bytes": 27745,
       "path": "scripts/github_pr_agent_claim.py",
       "sha256": "29679b0177a28a7a5f16406739a893b0aa0ed17c3bd85b1b6f56c3e80d299952"
@@ -4927,6 +4952,11 @@
       "sha256": "1c055a6f9faf826ea7d57c0045fbdcd10caac6a626981698f1c1c99c42386f46"
     },
     {
+      "bytes": 2400,
+      "path": "scripts/test_doct_document_comment_listener.py",
+      "sha256": "5884848f6dcbc85e0b543c1391a7208062614421635a854bde8acf1ffafa1339"
+    },
+    {
       "bytes": 6976,
       "path": "scripts/tmux_scoped_kill_pi.py",
       "sha256": "e9e20e62fa2108770ab30e96bc4a2992ed62edd48a04e3c628e3ffcf930928a8"
@@ -4937,9 +4967,9 @@
       "sha256": "b3b8b24ea583ccf4875cc9156dd8fb3765ef13950a1f0ccc845800479a949860"
     },
     {
-      "bytes": 3319,
+      "bytes": 3421,
       "path": "skills/.bundled_manifest",
-      "sha256": "0e2feaef7b078a15844022285f8ab76e3b4b7bf7dd8f46209bac1ed9f932ad90"
+      "sha256": "624ae43a5bdd48b0c88ece4ad15a4e36dd8a78668e70069f256721187527b53a"
     },
     {
       "bytes": 152,
@@ -5085,6 +5115,11 @@
       "bytes": 2911,
       "path": "skills/autonomous-ai-agents/trace-agent-action-provenance/references/pi-codex-model-usage-tracing.md",
       "sha256": "6cd3b9378f09dba23743e67edb1242f19c601348b5ac5244bc3016a954b11746"
+    },
+    {
+      "bytes": 11179,
+      "path": "skills/computer-use/SKILL.md",
+      "sha256": "33fdce112f142cd3ec1978b53720099b706b3b51e1781d37c3b4f30f32ebdddd"
     },
     {
       "bytes": 116,
@@ -5962,9 +5997,9 @@
       "sha256": "4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96"
     },
     {
-      "bytes": 30025,
+      "bytes": 34463,
       "path": "skills/creative/humanizer/SKILL.md",
-      "sha256": "4f2eece5122e8296e65930225d744f4fbaf50747e91031c1e17c5ea273911c35"
+      "sha256": "887d5e3467a682da9b166e5293007f8bbbc299f8a6718ae00f26161b7d062b04"
     },
     {
       "bytes": 886,
@@ -6802,6 +6837,16 @@
       "sha256": "a9081d4a108b67b4edd3c92c73d823fd1730e37e23be6f069d9bd67dd3b32486"
     },
     {
+      "bytes": 6888,
+      "path": "skills/hermes-desktop-plugins/SKILL.md",
+      "sha256": "86d898f72cc2b230ce37b5fd751f536b5c16c37b3bebf9cc3a75493094ab759b"
+    },
+    {
+      "bytes": 2308,
+      "path": "skills/hermes-desktop-plugins/templates/plugin.js",
+      "sha256": "7d58d7a6793f7e78682415355fee490c8086553f7b1aafb27fee7dbe46844252"
+    },
+    {
       "bytes": 706,
       "path": "skills/inference-sh/DESCRIPTION.md",
       "sha256": "ac21c24bb4681d20d6fc3ad3016a14d17310ddfccd7dc638fe16a36a83a466fa"
@@ -6867,9 +6912,9 @@
       "sha256": "f24e6939b47511a7dfc1257f3087c9dafd027fe7836d0e65b0feb3214f598cd1"
     },
     {
-      "bytes": 4055,
+      "bytes": 4054,
       "path": "skills/media/youtube-content/scripts/fetch_transcript.py",
-      "sha256": "6b2e5d8bd40d2a1b3cc0840f4c78021b57a1bbe951434cc8b4f2fdb9919629a2"
+      "sha256": "462f96320f641d3372fb54dd34d5e4892c185cb48096f9c5e97b05a77ac02467"
     },
     {
       "bytes": 162,
@@ -7372,9 +7417,9 @@
       "sha256": "b5a494a45bfd430bfb3042ee0452a6b88c81481f147ce7fca2c29ed3e93c490a"
     },
     {
-      "bytes": 31503,
+      "bytes": 40258,
       "path": "skills/productivity/aaron-good-morning/SKILL.md",
-      "sha256": "4e8b08dcba5d03087d7328e46aea27b93764efbe0b9584a7852b56b043eb1db2"
+      "sha256": "b069431b1b530d8a15594c232a4efa6e8a5e4f3ef51c0b3db1b3fcc4ab652d46"
     },
     {
       "bytes": 1974,
@@ -7397,6 +7442,11 @@
       "sha256": "87e3b174486fe80c76ed541483ee41674defd5b407ba1e4ea3ef001e4bbdc4a1"
     },
     {
+      "bytes": 5428,
+      "path": "skills/productivity/aaron-good-morning/references/gm-doct-herdr-plan-kanban.md",
+      "sha256": "e0f689b8663c757bf97bd3a886d4cecc439dd3cf52f9e6f82f23798f02552406"
+    },
+    {
       "bytes": 2839,
       "path": "skills/productivity/aaron-good-morning/references/gm-doct-publish-listener-migration-2026-07-03.md",
       "sha256": "dad6b2a55c28b702252933b8ed59c12f39a8a7ca813e729f7c2a1bfb5a82b9df"
@@ -7405,6 +7455,11 @@
       "bytes": 5076,
       "path": "skills/productivity/aaron-good-morning/references/gm-durable-comment-maintainer.md",
       "sha256": "6ff14f0561a37fbd37c57b0fefdef3631461582dda82bb89246f807040461b53"
+    },
+    {
+      "bytes": 3377,
+      "path": "skills/productivity/aaron-good-morning/references/gm-ecosystem-intelligence-planning-2026-07-18.md",
+      "sha256": "60c55995173562a52b20254fdcddb00d5ac9310e8604307622cf9edb3feebdb9"
     },
     {
       "bytes": 2566,
@@ -7452,14 +7507,19 @@
       "sha256": "ad8a22892f0bfb81e3d8a374e9e310b0d5f29e51ff8e113c6959bacc84a6294c"
     },
     {
-      "bytes": 2021,
-      "path": "skills/productivity/doct-document-ops/references/doct-plan-comment-dispatcher-pattern.md",
-      "sha256": "7392faf47b47a7e22f2aa2d1f06ad5a60c54002f7ba4541a99ac411a475aea5b"
+      "bytes": 3254,
+      "path": "skills/productivity/doct-document-ops/references/doct-launchd-until-archived-listener.md",
+      "sha256": "ba9dcb9a0131baac5f80732b4667f26a5f61c7b772f93baf4adc716b936d6c8c"
     },
     {
-      "bytes": 2532,
+      "bytes": 3120,
+      "path": "skills/productivity/doct-document-ops/references/doct-plan-comment-dispatcher-pattern.md",
+      "sha256": "d8dc88a4156b6552a4232822cac487f9ff7dc0e394aa1fd16c2984261939bd57"
+    },
+    {
+      "bytes": 2776,
       "path": "skills/productivity/doct-document-ops/references/doct-plan-update-versioning-and-listeners.md",
-      "sha256": "8a12443ee98cfa0c64101edfbdbc45dacc0d4f6f729d8487cbca9805e1fd6393"
+      "sha256": "75ecf3d3bc87911af25591c1babc82726b52dfe101ad821b921dd975081f4084"
     },
     {
       "bytes": 2790,
@@ -8432,8 +8492,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260714T143339Z",
+  "generated_at": "20260718T194824Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/home/anichols/.hermes"
+  "source_home": "/Users/anichols/.hermes"
 }

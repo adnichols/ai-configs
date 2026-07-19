@@ -40,4 +40,15 @@ Registration/show payloads may put the canonical review URL and listener inputs 
 
 `doct-agent plans agent next --wait --json` can exit non-zero with a timeout message when no routed agent comment arrives. In a durable supervisor that is quiet-by-default, treat that exact timeout as idle/no-work rather than a reportable error. Ordinary conversation comments are not routed claims; use browser agent actions or `plans comments add --submit-action agent` when testing listener wake behavior.
 
-Keep one-claim waits bounded. `--timeout 300` is the known-good listener timeout for browser-review handoff. Do **not** try to make a single `plans agent next --wait` invocation durable with very large values such as `--timeout 86400`; Doct can reject that with `HTTP 422 Unprocessable Entity: Invalid plan comment claim request (unknown)`. For durable monitoring beyond a bounded one-claim wait, use the quiet-by-default dispatcher/scheduled-worker pattern instead of a huge timeout.
+Current production Doct disables `doct-agent plans agent next --wait --timeout 300` because upstream proxy timeouts can terminate the request before a claim returns. For durable browser-review monitoring, use the CLI-provided listener command:
+
+```bash
+doct-agent plans listen \
+  --base-url https://doct.nodaste.com \
+  --workspace-id <workspace-id> \
+  --document-id <document-id> \
+  --jsonl \
+  --lease-seconds 900
+```
+
+Run it as a tracked long-lived background process and verify that the process remains running. Use `plans agent next --wait --timeout 60` only for short diagnostics. Treat old registration payloads that return only `plans listen` as authoritative rather than rewriting them to a 300-second one-shot wait.

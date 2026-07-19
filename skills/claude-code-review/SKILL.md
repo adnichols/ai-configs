@@ -55,7 +55,7 @@ The launcher owns all Claude Code process mechanics. For required reviews, pass 
 
 - creates a fresh private tmux server from the real caller process,
 - removes an inherited `CLAUDE_CONFIG_DIR` override and resolves `claude` through the configured non-interactive POSIX-style login shell (`sh`, `bash`, `zsh`, `ksh`, or `dash`), so stale harness profiles cannot shadow the current user login; unsupported shells fail clearly,
-- starts exactly one interactive Claude TUI with the launcher-internal command pinned to Opus 4.7 on Extra High (`claude --model claude-opus-4-7 --effort xhigh`),
+- starts exactly one interactive Claude TUI with the launcher-internal command pinned to Sonnet 5 on Extra High (`claude --model claude-sonnet-5 --effort xhigh`),
 - pastes the prompt through tmux,
 - extracts only the answer region after the post-submit boundary,
 - assigns a known Claude session id and, when the completion sentinel is visible but the marker/review scrolled out of the 60-row alternate-screen viewport, recovers the complete assistant answer from Claude's persisted session JSONL,
@@ -63,7 +63,7 @@ The launcher owns all Claude Code process mechanics. For required reviews, pass 
 - tears down successful smoke/review tmux servers and kills the exact private tmux server on cancellation signals,
 - preserves transcript and inspect metadata on failure.
 
-Do not choose or document alternate required-review transports or models. Required Claude Code reviews must use the launcher's Opus 4.7 Extra High pin. In particular, do not use `claude -p` [FORBIDDEN-EXAMPLE], `claude --print` [FORBIDDEN-EXAMPLE], prompt piping, input redirection, direct `interactive_shell` Claude launches, direct `process` Claude launches, raw tmux Claude snippets outside the launcher, lower-effort/model substitutions, or model-provider substitutes for a required Claude Code gate.
+Do not choose or document alternate required-review transports or models. Required Claude Code reviews must use the launcher's Sonnet 5 Extra High pin. In particular, do not use `claude -p` [FORBIDDEN-EXAMPLE], `claude --print` [FORBIDDEN-EXAMPLE], prompt piping, input redirection, direct `interactive_shell` Claude launches, direct `process` Claude launches, raw tmux Claude snippets outside the launcher, lower-effort/model substitutions, or model-provider substitutes for a required Claude Code gate.
 
 ## Same-process smoke outside Pi
 

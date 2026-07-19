@@ -80,10 +80,10 @@ class LauncherTestCase(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
             text = output.read_text(encoding="utf-8")
             self.assertTrue(text.startswith("VERDICT: PASS_SCOPED"), text)
-            self.assertIn("model=claude-opus-4-7", text)
+            self.assertIn("model=claude-sonnet-5", text)
             self.assertIn("effort=xhigh", text)
             argv_entries = [json.loads(line) for line in argv_file.read_text(encoding="utf-8").splitlines()]
-            self.assertTrue(any(entry[:4] == ["--model", "claude-opus-4-7", "--effort", "xhigh"] and "--session-id" in entry for entry in argv_entries), argv_entries)
+            self.assertTrue(any(entry[:4] == ["--model", "claude-sonnet-5", "--effort", "xhigh"] and "--session-id" in entry for entry in argv_entries), argv_entries)
             socket_line = next(line for line in text.splitlines() if line.startswith("socket="))
             socket = socket_line.split("=", 1)[1]
             tmux_probe = run_cmd(["tmux", "-L", socket, "list-sessions"], timeout=5)
@@ -252,13 +252,13 @@ class LauncherTestCase(unittest.TestCase):
         sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
         self.assertIsNone(module.suffix_after_baseline("old prompt", "unrelated later text", marker, sentinel))
 
-    def test_launcher_pins_claude_code_to_opus_4_7_extra_high(self) -> None:
+    def test_launcher_pins_claude_code_to_sonnet_5_extra_high(self) -> None:
         spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
         self.assertIsNotNone(spec)
         module = importlib.util.module_from_spec(spec)
         assert spec and spec.loader
         spec.loader.exec_module(module)
-        self.assertEqual(module.CLAUDE_REVIEW_MODEL, "claude-opus-4-7")
+        self.assertEqual(module.CLAUDE_REVIEW_MODEL, "claude-sonnet-5")
         self.assertEqual(module.CLAUDE_REVIEW_EFFORT, "xhigh")
 
     def test_prompt_cleared_answer_extraction_rejects_visible_prompt(self) -> None:
@@ -367,7 +367,7 @@ class LauncherTestCase(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
             text = output.read_text(encoding="utf-8")
             self.assertIn("CLAUDE_REVIEW_SMOKE_READY", text)
-            self.assertIn("model=claude-opus-4-7", text)
+            self.assertIn("model=claude-sonnet-5", text)
             self.assertIn("effort=xhigh", text)
             socket = next(line for line in text.splitlines() if line.startswith("socket=")).split("=", 1)[1]
             self.assertNotEqual(run_cmd(["tmux", "-L", socket, "list-sessions"], timeout=5).returncode, 0)

@@ -100,7 +100,7 @@ Use this only when the wrapper is unnecessary and login-shell normalization is n
 
 ```bash
 codex exec \
-  -m gpt-5.6-sol \
+  -m gpt-5.6-terra \
   -c 'model_reasoning_effort="high"' \
   -s read-only \
   -C /path/to/repo \

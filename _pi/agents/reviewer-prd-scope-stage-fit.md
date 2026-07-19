@@ -2,9 +2,9 @@
 name: reviewer-prd-scope-stage-fit
 description: PRD scope reviewer - keeps the plan small, staged, and implementable
 mode: subagent
-model: openai-codex/gpt-5.6-sol
+model: openai-codex/gpt-5.6-terra
 provider: openai-codex
-reasoningEffort: medium
+reasoningEffort: high
 tools: read, grep, find, ls, bash, write, subagent
 extensions: /home/linuxbrew/.linuxbrew/lib/node_modules/@tintinweb/pi-subagents/index.ts
 ---

@@ -47,6 +47,8 @@ grep -Fx -- 'exec codex "$@"' "$TMP_DIR/login-shell.args" >/dev/null
 grep -Fx -- 'codex' "$TMP_DIR/login-shell.args" >/dev/null
 grep -Fx -- 'exec' "$TMP_DIR/codex.args" >/dev/null
 grep -Fx -- '-m' "$TMP_DIR/codex.args" >/dev/null
+grep -Fx -- 'gpt-5.6-terra' "$TMP_DIR/codex.args" >/dev/null
+grep -Fx -- 'model_reasoning_effort="high"' "$TMP_DIR/codex.args" >/dev/null
 grep -F -- 'You are performing an implementation review.' "$TMP_DIR/codex.stdin" >/dev/null
 grep -F -- 'Review this bounded packet.' "$TMP_DIR/codex.stdin" >/dev/null
 grep -F -- 'VERDICT: PASS_SCOPED' "$TMP_DIR/output.md" >/dev/null

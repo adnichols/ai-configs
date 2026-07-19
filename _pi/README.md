@@ -75,7 +75,7 @@ The doctrine is request-type-first: questions, explanations, inspection, researc
 
 The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route.
 
-`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. Repository-owned agents use Sol medium for normal capable work, Sol high for consequential implementation and review, and Luna medium only for bounded structured feedback.
+`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. Repository-owned agents use Sol medium for normal capable work, Sol high for consequential implementation, and Terra high for Codex-powered review agents.
 
 ## Structure
 
@@ -118,6 +118,14 @@ Planning remains available through prompt templates and shared skills such as `/
 ## Extensions
 
 Pi loads runtime extensions from `~/.pi/agent/extensions/`.
+
+This repo ships `thinking-shortcuts.ts`, which adds Codex-style bidirectional reasoning controls:
+
+- `Alt+.` increases the current model's thinking level,
+- `Alt+,` decreases the current model's thinking level,
+- both shortcuts stop at the model's supported boundaries instead of wrapping.
+
+Run `bun test scripts/thinking-shortcuts.test.ts` for the extension contract tests and `scripts/test-thinking-shortcuts-e2e.sh` for the real Pi TUI keypress test.
 
 This repo also ships `aoe-status`, a lightweight lifecycle reporter for Agent of Empires (AoE) that:
 

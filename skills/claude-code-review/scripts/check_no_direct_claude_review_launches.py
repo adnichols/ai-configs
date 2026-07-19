@@ -21,7 +21,7 @@ EXTENSION_TEST_FRAGMENT = "_pi/extensions/claude-review/tests/"
 ALLOWED_LAUNCHER_FORMS = (
     "zsh -ilc 'command -v claude'",
     "claude auth status",
-    "zsh -ilc 'claude --model claude-opus-4-7 --effort xhigh'",
+    "zsh -ilc 'claude --model claude-sonnet-5 --effort xhigh'",
     "zsh -ilc 'claude --model {CLAUDE_REVIEW_MODEL} --effort {CLAUDE_REVIEW_EFFORT}'",
 )
 IGNORED_DIRS = {".git", "node_modules", "__pycache__", ".venv", "dist", "build"}
