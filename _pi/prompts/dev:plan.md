@@ -15,7 +15,7 @@ If repo guidance does not define the active plan artifact format/path and the us
 
 GPT-5.6 Sol medium is the normal repository-owned Pi route for planning and coding-plan work.
 
-Use `Explore`/`explore` for broad repository discovery before asking implementation agents to reason over files, and route UI design direction to `ui-design-glm` when needed.
+Use `Explore`/`explore` for broad repository discovery before asking implementation agents to reason over files.
 
 ## Inputs
 

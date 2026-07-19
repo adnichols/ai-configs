@@ -67,7 +67,7 @@ Analyze the reviewer comments and determine:
 - **Unique Insights**: important issues only one reviewer identified
 - **Net Recommendation**: whether the plan is ready, risky, or needs major revision
 
-When needed, use `read`, `grep`/`find`, and read-only `bash` commands directly for small checks. For broader evidence-gathering, use the `subagent` tool with the `review-explore` agent. Do not delegate to general-purpose agents or create deeper subagent chains.
+When needed, use `read`, `grep`/`find`, and read-only `bash` commands for bounded evidence checks. If the assigned scope cannot be completed with those tools, return an incomplete-review handoff instead of delegating to another reviewer.
 
 ### 3) Add Synthesis Comments
 

@@ -17,4 +17,4 @@ This wrapper is only the ergonomic `/run-plan` entry point. Do not run a shorten
 
 Keep GPT-5.6 Sol medium as the normal `/run-plan` parent and code-writing route.
 
-Before delegating code, use `Explore`/`explore` for broad discovery and pass `developer-mid` a bounded packet with target files, intended behavior, relevant evidence, and verification commands. Use `developer-high` only for complex or failed scoped implementation work, and use `ui-design-glm` only for UI design direction and design-focused implementation guidance.
+Before delegating code, use `Explore`/`explore` for broad discovery and pass `developer-mid` a bounded packet with target files, intended behavior, relevant evidence, and verification commands. Use `developer-high` only for complex or failed scoped implementation work.

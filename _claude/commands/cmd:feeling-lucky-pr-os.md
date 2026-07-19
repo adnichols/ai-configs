@@ -24,7 +24,7 @@ End-to-end autonomous flow:
 ## Requirements
 
 - The developer-mm agent MUST be used for any code changes and repository management
-- The quality-reviewer-k2.5 agent must be used for any code reviews
+- The quality-reviewer agent must be used for any code reviews
 - the plan-k2.5 agent must be used for any plan creation or editing
 - Always prefer a sub-agent when making changes, the orchestrator should not make code changes
 
@@ -202,7 +202,6 @@ Use the plan-k2.5 subagent to create a plan with slug `plan_slug` and ensure the
 
 ```text
 /review:change-gpt ${plan_slug}
-/review:change-k2.5 ${plan_slug}
 /review:change-integrate ${plan_slug}
 ```
 

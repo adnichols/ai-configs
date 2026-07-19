@@ -54,8 +54,6 @@ Installed layout:
 ├── agents/
 │   ├── developer-mid.md
 │   ├── developer-mm.md
-│   ├── general-glm.md
-│   ├── ui-design-glm.md
 │   ├── quality-reviewer.md
 │   ├── Explore.md        # disables tintinweb's bundled Explore persona
 │   └── ...
@@ -234,8 +232,6 @@ Example installed agents:
 
 - `developer-mid`
 - `developer-mm`
-- `general-glm`
-- `ui-design-glm`
 - `quality-reviewer`
 - `research`
 - `plan-gpt`
@@ -251,8 +247,6 @@ Example installed agents:
 ### Dev / execution
 - `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: durable Pi goal tracking, implementation, scoped reviews, implementation-stage PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
 - `dev:run` — direct GPT-5.6 Sol medium execution with one `quality-reviewer` pass after each phase
-- `general-glm` — retained general-purpose GLM route for explicitly delegated research, coding, debugging, and analysis; it is not a review gate
-- `ui-design-glm` — retained GLM-5.2 high UI design specialist for visual direction, UX tradeoffs, accessibility guidance, and design-focused implementation guidance; it is not a review gate
 - `autoreview` — canonical Codex plus applicable Claude Code pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
 
 ### Git / workflow
@@ -372,4 +366,4 @@ Skills:
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.
 - `_pi/agents/Explore.md` is only an `enabled: false` override for tintinweb's bundled `Explore` persona; it does not define a repository-owned Explore persona. It does not affect the separately installed `@howaboua/pi-explore-subagents` extension or its `explore_subagent` tool, which remains the intended isolated-discovery path.
-- GPT-5.6 Sol medium is the normal repository-owned Pi code-writing route. Use direct targeted reads or `explore_subagent` for discovery before sending scoped code-writing packets to `developer-mid`, reserve `developer-high` for complex or failed scoped implementation work, and use `ui-design-glm` only for design direction and design-focused implementation guidance. `general-glm` remains available for explicitly delegated non-review work.
+- GPT-5.6 Sol medium is the normal repository-owned Pi code-writing route. Use direct targeted reads or `explore_subagent` for discovery before sending scoped code-writing packets to `developer-mid`, and reserve `developer-high` for complex or failed scoped implementation work.

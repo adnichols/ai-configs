@@ -68,7 +68,7 @@ Before leaving extensive feedback, explore the codebase to confirm:
 - Correct file paths, APIs, and data structures referenced by the plan
 - Alignment with any available `PRODUCT_INTENT.md` or equivalent product-intent documents in the repository
 
-Use `read`, `grep`/`find`, and read-only `bash` commands for small checks. For broader evidence-gathering, use the `subagent` tool with the `review-explore` agent. Do not delegate to general-purpose agents or create deeper subagent chains.
+Use `read`, `grep`/`find`, and read-only `bash` commands for bounded evidence checks. If the assigned scope cannot be completed with those tools, return an incomplete-review handoff instead of delegating to another reviewer.
 
 ### 2) Review Specification (Critical Spec Review)
 

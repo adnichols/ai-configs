@@ -724,8 +724,15 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'HERDR_INTEGRATION_ID=pi' || return 1
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'managed by ai-configs' || return 1
   [[ -f "$home/.pi/agent/extensions/todo.ts" ]] || return 1
-  [[ -f "$home/.pi/agent/agents/general-glm.md" ]] || return 1
-  [[ -f "$home/.pi/agent/agents/ui-design-glm.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/general-glm.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/ui-design-glm.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/quality-reviewer-k2.5.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/reviewer.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/reviewer-kimi.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/reviewer-plan-kimi.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/reviewer-prd-bdd-flows.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/reviewer-prd-no-stubs.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/review-explore.md" ]] || return 1
   [[ -f "$home/.pi/agent/agents/Explore.md" ]] || return 1
   [[ "$(cat "$home/.pi/agent/agents/Explore.md")" == $'---\nenabled: false\n---' ]] || return 1
   [[ -z "$(find "$home/.pi/agent/agents" -maxdepth 1 -type f -name 'explore.md' -print -quit)" ]] || return 1
@@ -1207,7 +1214,6 @@ pi_delegated = [
     'cmd:feeling-lucky-pr-os.md',
     'prd:clarify-round.md',
     'review:change-claude-code.md',
-    'review:change-k2.5.md',
     'review:change-opus.md',
     'review:plan.md',
     'review:plan-adversarial.md',
