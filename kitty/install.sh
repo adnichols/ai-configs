@@ -99,7 +99,7 @@ install_herdr_kitty_status() {
   # Keep the external integration immutable and auditable. The plugin is linked
   # from a commit-addressed cache instead of executing files from a mutable
   # upstream branch.
-  local status_ref="${HERDR_KITTY_STATUS_REF:-93663fa485fe6c2aa8460f5cf630cc2470d26b1a}"
+  local status_ref="${HERDR_KITTY_STATUS_REF:-df37e291d45e1e567d78b78b22caabeea6b8c0c5}"
   [[ "$status_ref" =~ ^[0-9a-f]{40}$ ]] || {
     echo "Error: HERDR_KITTY_STATUS_REF must be a full Git commit SHA." >&2
     return 1
