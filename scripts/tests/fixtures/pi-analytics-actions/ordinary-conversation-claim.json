@@ -1,0 +1,23 @@
+{
+  "documentId": "doc-good-morning-current",
+  "workspaceId": "workspace-personal-fixture",
+  "threadId": "thread-conversation-fixture",
+  "claimId": "claim-conversation-fixture",
+  "item": {
+    "documentId": "doc-good-morning-current",
+    "routingMetadata": {"submitAction": "comment"}
+  },
+  "thread": {
+    "documentId": "doc-good-morning-current",
+    "workspaceId": "workspace-personal-fixture",
+    "threadId": "thread-conversation-fixture",
+    "anchor": {"anchorType": "text", "nodeId": "ordinary-report-section"},
+    "routingMetadata": {"submitAction": "comment"},
+    "comments": [{
+      "id": "comment-conversation-fixture",
+      "authorType": "user",
+      "authorUserId": "user-aaron-fixture",
+      "body": "Please explain this section."
+    }]
+  }
+}

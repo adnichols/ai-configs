@@ -1,0 +1,23 @@
+{
+  "documentId": "doc-good-morning-current",
+  "workspaceId": "workspace-personal-fixture",
+  "threadId": "thread-generic-fixture",
+  "claimId": "claim-generic-fixture",
+  "item": {
+    "documentId": "doc-good-morning-current",
+    "routingMetadata": {"submitAction": "agent"}
+  },
+  "thread": {
+    "documentId": "doc-good-morning-current",
+    "workspaceId": "workspace-personal-fixture",
+    "threadId": "thread-generic-fixture",
+    "anchor": {"anchorType": "node", "nodeId": "writing-section"},
+    "routingMetadata": {"submitAction": "agent"},
+    "comments": [{
+      "id": "comment-generic-fixture",
+      "authorType": "user",
+      "authorUserId": "user-aaron-fixture",
+      "body": "Update this report section."
+    }]
+  }
+}

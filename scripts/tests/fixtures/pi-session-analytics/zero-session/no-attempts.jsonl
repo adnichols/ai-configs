@@ -1,0 +1,3 @@
+{"type":"message","timestamp":"2026-07-19T18:00:00Z","message":{"role":"user","content":"PRIVACY_SENTINEL_ZERO_SESSION_USER"}}
+{"type":"message","timestamp":"2026-07-19T19:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":null,"errorMessage":"empty_stream","content":"PRIVACY_SENTINEL_ZERO_SESSION_NONTERMINAL"}}
+{"type":"message","timestamp":"2026-07-20T07:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"empty_stream","content":"PRIVACY_SENTINEL_ZERO_SESSION_OUTSIDE"}}

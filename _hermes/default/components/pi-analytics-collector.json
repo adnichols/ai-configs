@@ -1,0 +1,10 @@
+{
+  "schema": "ai-configs.hermes-component.v1",
+  "name": "pi-analytics-collector",
+  "files": [
+    "scripts/pi_analytics_collector.py"
+  ],
+  "cron_job_ids": [
+    "a91c0d7e4b22"
+  ]
+}

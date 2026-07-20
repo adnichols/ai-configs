@@ -18,6 +18,11 @@ import sys
 import time
 from typing import Any
 
+try:
+    from .pi_analytics_action import is_analytics_anchor, submit_action
+except ImportError:  # Installed Hermes scripts are imported from their own directory.
+    from pi_analytics_action import is_analytics_anchor, submit_action
+
 BASE_URL = "https://doct.nodaste.com"
 STATE_DIR = pathlib.Path.home() / ".hermes" / "state" / "gm-plan-maintainer"
 REGISTRY = STATE_DIR / "active-plans.json"
@@ -185,6 +190,131 @@ def release_claim(document_id: str, workspace_id: str, thread_id: str, claim_id:
         log(document_id, f"release failed thread={thread_id} claim={claim_id} rc={cp.returncode}: {(cp.stderr or cp.stdout).strip()[:500]}")
 
 
+def _safe_id(value: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in value)
+
+
+def _write_claim_file(document_id: str, claim: dict[str, Any], run_id: str) -> pathlib.Path:
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
+    claim_path = RUN_DIR / f"{document_id}_{run_id}.json"
+    temp_path = claim_path.with_suffix(".json.tmp")
+    fd = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(claim, handle, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        temp_path.replace(claim_path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+    return claim_path
+
+
+def _analytics_claim_projection(claim: dict[str, Any]) -> dict[str, Any]:
+    """Keep only fields required by the restricted validator and Doct closure."""
+    def mapping(value: Any) -> dict[str, Any]:
+        return value if isinstance(value, dict) else {}
+
+    def selected(value: Any, names: tuple[str, ...]) -> dict[str, Any]:
+        source = mapping(value)
+        return {name: source[name] for name in names if name in source}
+
+    item = mapping(claim.get("item"))
+    thread = mapping(claim.get("thread"))
+    comments = thread.get("comments") if isinstance(thread.get("comments"), list) else []
+    last_comment = comments[-1] if comments and isinstance(comments[-1], dict) else {}
+    projected_item = selected(item, (
+        "documentId", "workspaceId", "threadId", "documentVersion",
+        "generatedHtmlHash", "sourceHash", "signalKey", "evidenceSnapshotId",
+    ))
+    projected_item["routingMetadata"] = selected(item.get("routingMetadata"), ("submitAction",))
+    projected_item["claim"] = selected(
+        item.get("claim"), ("id", "documentId", "workspaceId", "threadId")
+    )
+    projected_thread = selected(thread, ("documentId", "workspaceId", "threadId"))
+    projected_thread["anchor"] = selected(
+        thread.get("anchor"), ("nodeId", "selector")
+    )
+    projected_thread["routingMetadata"] = selected(
+        thread.get("routingMetadata"), ("submitAction",)
+    )
+    projected_thread["comments"] = [selected(
+        last_comment, ("authorType", "authorUserId", "body")
+    )]
+    projected = selected(
+        claim, ("documentId", "workspaceId", "threadId", "claimId")
+    )
+    projected["claim"] = selected(
+        claim.get("claim"), ("id", "documentId", "workspaceId", "threadId")
+    )
+    projected["item"] = projected_item
+    projected["thread"] = projected_thread
+    projected["source"] = selected(
+        claim.get("source"), ("generatedHtmlHash", "sourceHash")
+    )
+    return projected
+
+
+def start_analytics_worker(document_id: str, workspace_id: str, claim: dict[str, Any]) -> subprocess.Popen[Any] | None:
+    """Start the fixed-argv restricted worker; never grant generic Hermes authority."""
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
+    WORKER_DIR.mkdir(parents=True, exist_ok=True)
+    thread_id, claim_id = claim_parts(claim)
+    existing = active_worker_for_thread(document_id, thread_id)
+    if existing:
+        release_claim(document_id, workspace_id, thread_id, claim_id, f"worker already active pid={existing.get('pid')}")
+        return None
+
+    run_id = f"{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}_{_safe_id(thread_id)}"
+    claim_path = _write_claim_file(document_id, _analytics_claim_projection(claim), run_id)
+    out_path = RUN_DIR / f"{document_id}_{run_id}.pi-analytics.log"
+    out = out_path.open("ab", buffering=0)
+    worker_script = pathlib.Path(__file__).resolve().with_name("pi_analytics_action.py")
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, str(worker_script), "--claim-file", str(claim_path)],
+            cwd=str(OBSIDIAN),
+            stdout=out,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            close_fds=True,
+        )
+    except Exception:
+        out.close()
+        claim_path.unlink(missing_ok=True)
+        raise
+    rec = {
+        "pid": proc.pid,
+        "worker_type": "pi_analytics_action",
+        "document_id": document_id,
+        "workspace_id": workspace_id,
+        "thread_id": thread_id,
+        "claim_id": claim_id,
+        "run_id": run_id,
+        "claim_path": str(claim_path),
+        "log_path": str(out_path),
+        "started_at": now(),
+        "started_monotonic": time.monotonic(),
+    }
+    worker_record_path(document_id, thread_id).write_text(json.dumps(rec, indent=2) + "\n", encoding="utf-8")
+    log(document_id, f"dispatched restricted analytics worker pid={proc.pid} thread={thread_id} claim={claim_id}")
+    out.close()
+    return proc
+
+
+def dispatch_claim(document_id: str, workspace_id: str, claim: dict[str, Any]) -> subprocess.Popen[Any] | None:
+    """Route one claimed item without allowing analytics claims to fall through."""
+    if submit_action(claim) != "agent":
+        thread_id, claim_id = claim_parts(claim)
+        release_claim(document_id, workspace_id, thread_id, claim_id, "ordinary conversation comment is not routed work")
+        log(document_id, f"ignored ordinary conversation claim thread={thread_id}")
+        return None
+    if is_analytics_anchor(claim):
+        return start_analytics_worker(document_id, workspace_id, claim)
+    return start_worker(document_id, workspace_id, claim)
+
+
 def start_worker(document_id: str, workspace_id: str, claim: dict[str, Any]) -> subprocess.Popen[Any] | None:
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     WORKER_DIR.mkdir(parents=True, exist_ok=True)
@@ -195,9 +325,8 @@ def start_worker(document_id: str, workspace_id: str, claim: dict[str, Any]) -> 
         release_claim(document_id, workspace_id, thread_id, claim_id, f"worker already active pid={existing.get('pid')}")
         return None
 
-    run_id = f"{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}_{thread_id}"
-    claim_path = RUN_DIR / f"{document_id}_{run_id}.json"
-    claim_path.write_text(json.dumps(claim, indent=2) + "\n", encoding="utf-8")
+    run_id = f"{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}_{_safe_id(thread_id)}"
+    claim_path = _write_claim_file(document_id, claim, run_id)
     entry = registry_entry(document_id) or {}
     source_path = entry.get("source_path") or ""
     review_url = entry.get("review_url") or f"{BASE_URL}/docs/{document_id}"
@@ -372,7 +501,7 @@ def main() -> int:
                 continue
             thread_id, claim_id = claim_parts(data)
             if thread_id != "unknown-thread" or claim_id:
-                proc = start_worker(document_id, workspace_id, data)
+                proc = dispatch_claim(document_id, workspace_id, data)
                 if proc is not None:
                     rec_path = worker_record_path(document_id, thread_id)
                     try:

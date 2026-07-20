@@ -1,0 +1,1 @@
+{"type":"message","timestamp":"2026-07-19T18:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"stop","errorMessage":null,"content":"PRIVACY_SENTINEL_ZERO_ERROR_CONTENT"}}

@@ -1,0 +1,14 @@
+{"type":"session","timestamp":"2026-07-19T06:00:00Z","source":"PRIVACY_SENTINEL_SOURCE","path":"/PRIVACY_SENTINEL_PATH"}
+{"type":"message","timestamp":"2026-07-19T07:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"stop","errorMessage":null,"content":"PRIVACY_SENTINEL_TRANSCRIPT","prompt":"PRIVACY_SENTINEL_PROMPT","thinking":"PRIVACY_SENTINEL_THINKING","credentials":"PRIVACY_SENTINEL_CREDENTIAL","toolCall":{"arguments":"PRIVACY_SENTINEL_TOOL_ARGS","result":"PRIVACY_SENTINEL_TOOL_RESULT"}}}
+{"type":"message","timestamp":"2026-07-19T08:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"Provider returned EMPTY_STREAM","content":"private error prose"}}
+{"type":"message","timestamp":"2026-07-19T09:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"Request TIMED OUT while waiting"}}
+{"type":"message","timestamp":"2026-07-19T10:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"HTTP/2 GOAWAY received"}}
+{"type":"message","timestamp":"2026-07-19T11:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"HTTP2 stream reset"}}
+{"type":"message","timestamp":"2026-07-19T12:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"Authentication failed: invalid token"}}
+{"type":"message","timestamp":"2026-07-19T13:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"Unsupported-model configuration error"}}
+{"type":"message","timestamp":"2026-07-19T14:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"A novel structured provider failure"}}
+{"type":"message","timestamp":"2026-07-19T15:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","errorMessage":"empty_stream","content":"nonterminal must not count"}}
+{"type":"message","timestamp":"2026-07-19T16:00:00Z","message":{"role":"user","content":"PRIVACY_SENTINEL_USER_MESSAGE"}}
+{"type":"message","timestamp":"2026-07-20T06:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"empty_stream","content":"out of window"}}
+{"type":"message","timestamp":"2026-07-19T17:00:00Z","message":
+not-json PRIVACY_SENTINEL_MALFORMED

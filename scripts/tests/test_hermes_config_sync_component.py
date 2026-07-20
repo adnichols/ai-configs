@@ -1,0 +1,243 @@
+import contextlib
+import io
+import json
+import os
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+from scripts import hermes_config_sync
+
+
+COMPONENT = "pi-analytics-collector"
+JOB_ID = "a91c0d7e4b22"
+
+
+def write_json(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+def source_job() -> dict:
+    return {
+        "id": JOB_ID,
+        "name": "Daily Pi analytics aggregate collector",
+        "prompt": "aggregate only",
+        "script": "pi_analytics_collector.py",
+        "no_agent": True,
+        "schedule": {
+            "kind": "cron", "expr": "0 5 * * *", "display": "0 5 * * *", "timezone": "America/Denver"
+        },
+        "schedule_display": "0 5 * * * America/Denver",
+        "repeat": {"times": None, "completed": 0},
+        "enabled": True,
+        "state": "scheduled",
+        "last_status": None,
+        "deliver": "local",
+    }
+
+
+def make_bundle(root: Path) -> Path:
+    bundle = root / "bundle"
+    script = bundle / "scripts" / "pi_analytics_collector.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/usr/bin/env python3\nprint('collector')\n", encoding="utf-8")
+    script.chmod(0o755)
+    (bundle / "scripts" / "forbidden_action.py").write_text("print('forbidden')\n", encoding="utf-8")
+    write_json(
+        bundle / "cron" / "jobs.json",
+        {
+            "jobs": [
+                {"id": "039f96dcecfc", "name": "Good Morning Doct Todoist Discord"},
+                source_job(),
+            ],
+            "updated_at": "source-runtime",
+        },
+    )
+    write_json(
+        bundle / "components" / f"{COMPONENT}.json",
+        {
+            "schema": "ai-configs.hermes-component.v1",
+            "name": COMPONENT,
+            "files": ["scripts/pi_analytics_collector.py"],
+            "cron_job_ids": [JOB_ID],
+        },
+    )
+    hermes_config_sync.refresh_manifest(bundle)
+    return bundle
+
+
+class HermesComponentSyncTest(unittest.TestCase):
+    def test_checked_in_manifest_shape_names_only_collector_script_and_job(self) -> None:
+        manifest_path = Path("_hermes/default/components/pi-analytics-collector.json")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["schema"], "ai-configs.hermes-component.v1")
+        self.assertEqual(manifest["name"], COMPONENT)
+        self.assertEqual(manifest["files"], ["scripts/pi_analytics_collector.py"])
+        self.assertEqual(manifest["cron_job_ids"], [JOB_ID])
+
+    def test_authoritative_export_preserves_repo_owned_component_manifests(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_home = root / "home"
+            (source_home / "scripts").mkdir(parents=True)
+            (source_home / "scripts" / "collector.py").write_text("print('live')\n", encoding="utf-8")
+            bundle = root / "bundle"
+            component_path = bundle / "components" / f"{COMPONENT}.json"
+            write_json(
+                component_path,
+                {
+                    "schema": "ai-configs.hermes-component.v1",
+                    "name": COMPONENT,
+                    "files": ["scripts/pi_analytics_collector.py"],
+                    "cron_job_ids": [JOB_ID],
+                },
+            )
+            hermes_config_sync.export_all(source_home, bundle)
+            self.assertEqual(
+                json.loads((bundle / "components" / f"{COMPONENT}.json").read_text(encoding="utf-8")),
+                {
+                    "schema": "ai-configs.hermes-component.v1",
+                    "name": COMPONENT,
+                    "files": ["scripts/pi_analytics_collector.py"],
+                    "cron_job_ids": [JOB_ID],
+                },
+            )
+
+    def test_refresh_manifest_uses_bundle_source_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = make_bundle(root)
+            with mock.patch.object(hermes_config_sync, "export_all") as export:
+                hermes_config_sync.refresh_manifest(bundle)
+            export.assert_not_called()
+            manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+            paths = {item["path"] for item in manifest["files"]}
+            self.assertIn("scripts/pi_analytics_collector.py", paths)
+            self.assertIn("cron/jobs.json", paths)
+            self.assertIn("components/pi-analytics-collector.json", paths)
+
+    def test_manifest_ignores_generated_python_cache_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = make_bundle(root)
+            cache = bundle / "scripts" / "__pycache__" / "collector.cpython-314.pyc"
+            cache.parent.mkdir(parents=True)
+            cache.write_bytes(b"generated bytecode")
+            hermes_config_sync.verify(bundle)
+            manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+            self.assertNotIn(
+                "scripts/__pycache__/collector.cpython-314.pyc",
+                {item["path"] for item in manifest["files"]},
+            )
+
+    def test_component_install_is_additive_and_preserves_unrelated_jobs_and_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = make_bundle(root)
+            home = root / "home"
+            unrelated = {
+                "id": "host-only",
+                "name": "unrelated",
+                "nested": {"Doct": ["Todoist", "Discord"]},
+                "enabled": False,
+                "state": "paused",
+            }
+            current_collector = {
+                **source_job(),
+                "prompt": "old source prompt",
+                "enabled": False,
+                "state": "paused",
+                "last_status": "ok",
+                "obsolete_source_field": "must be removed",
+                "repeat": {"times": 3, "completed": 41},
+            }
+            destination_before = {
+                "jobs": [unrelated, current_collector],
+                "updated_at": "runtime-owned",
+                "runtime_extension": {"unchanged": [1, 2, 3]},
+            }
+            write_json(home / "cron" / "jobs.json", destination_before)
+            original_home = hermes_config_sync.DEFAULT_HERMES_HOME
+            hermes_config_sync.DEFAULT_HERMES_HOME = home
+            try:
+                hermes_config_sync.install_component(bundle, home, COMPONENT, dry_run=False)
+            finally:
+                hermes_config_sync.DEFAULT_HERMES_HOME = original_home
+
+            installed = json.loads((home / "cron" / "jobs.json").read_text(encoding="utf-8"))
+            self.assertEqual(installed["updated_at"], destination_before["updated_at"])
+            self.assertEqual(installed["runtime_extension"], destination_before["runtime_extension"])
+            self.assertEqual(installed["jobs"][0], unrelated)
+            self.assertEqual([job["id"] for job in installed["jobs"]], ["host-only", JOB_ID])
+            collector_job = installed["jobs"][1]
+            self.assertEqual(collector_job["prompt"], "aggregate only")
+            self.assertFalse(collector_job["enabled"])
+            self.assertEqual(collector_job["state"], "paused")
+            self.assertEqual(collector_job["last_status"], "ok")
+            self.assertNotIn("obsolete_source_field", collector_job)
+            self.assertEqual(collector_job["repeat"], {"times": None, "completed": 41})
+            self.assertTrue((home / "scripts" / "pi_analytics_collector.py").exists())
+            self.assertFalse((home / "scripts" / "forbidden_action.py").exists())
+
+    def test_component_backups_stay_under_explicit_nondefault_home(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(
+            os.environ, {"HERMES_AI_CONFIGS_INSTALL_STAMP": "fixture-stamp"}
+        ):
+            root = Path(tmp)
+            bundle = make_bundle(root)
+            home = root / "explicit-home"
+            script = home / "scripts" / "pi_analytics_collector.py"
+            script.parent.mkdir(parents=True)
+            script.write_text("old script\n", encoding="utf-8")
+            write_json(home / "cron" / "jobs.json", {"jobs": [source_job()]})
+
+            hermes_config_sync.install_component(bundle, home, COMPONENT, dry_run=False)
+
+            backup_root = home / "backups" / "ai-configs-install-fixture-stamp"
+            self.assertEqual((backup_root / "scripts" / "pi_analytics_collector.py").read_text(), "old script\n")
+            self.assertTrue((backup_root / "cron" / "jobs.json").exists())
+            self.assertFalse((hermes_config_sync.DEFAULT_HERMES_HOME / "backups" / "ai-configs-install-fixture-stamp").exists())
+
+    def test_dry_run_lists_exactly_component_surfaces_and_forbidden_surfaces_are_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = make_bundle(root)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                hermes_config_sync.install_component(bundle, root / "home", COMPONENT, dry_run=True)
+            text = output.getvalue()
+            self.assertIn("FILE scripts/pi_analytics_collector.py", text)
+            self.assertIn(f"JOB  {JOB_ID}", text)
+            for forbidden in ("039f96dcecfc", "Doct", "Todoist", "Discord", "forbidden_action.py"):
+                self.assertNotIn(forbidden, text)
+            self.assertEqual(len([line for line in text.splitlines() if line.startswith("FILE ")]), 1)
+            self.assertEqual(len([line for line in text.splitlines() if line.startswith("JOB  ")]), 1)
+
+    def test_component_operations_reject_stale_full_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = make_bundle(root)
+            (bundle / "scripts" / "pi_analytics_collector.py").write_text("changed\n", encoding="utf-8")
+            with self.assertRaisesRegex(SystemExit, "Stale full bundle manifest"):
+                hermes_config_sync.install_component(bundle, root / "home", COMPONENT, dry_run=True)
+
+    def test_component_verify_ignores_unrelated_drift_but_detects_component_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundle = make_bundle(root)
+            home = root / "home"
+            hermes_config_sync.install_component(bundle, home, COMPONENT, dry_run=False)
+            installed_jobs = json.loads((home / "cron" / "jobs.json").read_text(encoding="utf-8"))
+            installed_jobs["jobs"].insert(0, {"id": "unrelated", "prompt": "arbitrary host drift"})
+            write_json(home / "cron" / "jobs.json", installed_jobs)
+            hermes_config_sync.verify_component(bundle, home, COMPONENT)
+
+            (home / "scripts" / "pi_analytics_collector.py").write_text("drift\n", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                hermes_config_sync.verify_component(bundle, home, COMPONENT)
+
+
+if __name__ == "__main__":
+    unittest.main()

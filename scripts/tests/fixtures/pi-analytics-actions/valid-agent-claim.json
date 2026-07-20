@@ -1,0 +1,64 @@
+{
+  "status": "claimed",
+  "documentId": "doc-good-morning-current",
+  "workspaceId": "workspace-personal-fixture",
+  "threadId": "thread-analytics-fixture",
+  "claimId": "claim-analytics-fixture",
+  "item": {
+    "documentId": "doc-good-morning-current",
+    "workspaceId": "workspace-personal-fixture",
+    "threadId": "thread-analytics-fixture",
+    "documentVersion": 8,
+    "generatedHtmlHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "sourceHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "signalKey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "evidenceSnapshotId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "routingMetadata": {
+      "submitAction": "agent",
+      "agentRoute": {"targetScope": "document"},
+      "mentions": []
+    },
+    "claim": {
+      "id": "claim-analytics-fixture",
+      "documentId": "doc-good-morning-current",
+      "workspaceId": "workspace-personal-fixture",
+      "threadId": "thread-analytics-fixture",
+      "status": "claimed"
+    }
+  },
+  "thread": {
+    "documentId": "doc-good-morning-current",
+    "workspaceId": "workspace-personal-fixture",
+    "threadId": "thread-analytics-fixture",
+    "anchor": {
+      "anchorType": "node",
+      "nodeId": "pi-analytics-card-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "selector": "#pi-analytics-card-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "textQuote": "Synthetic analytics card"
+    },
+    "routingMetadata": {
+      "submitAction": "agent",
+      "agentRoute": {"targetScope": "document"},
+      "mentions": []
+    },
+    "comments": [
+      {
+        "id": "comment-analytics-fixture",
+        "authorType": "user",
+        "authorUserId": "user-aaron-fixture",
+        "body": "pi-action investigate",
+        "createdBy": "Synthetic User"
+      }
+    ]
+  },
+  "source": {
+    "generatedHtmlHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "sourceHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "listenerInstructions": {
+    "replyRoute": "fixture",
+    "ackRoute": "fixture",
+    "releaseRoute": "fixture",
+    "resolveRoute": "fixture"
+  }
+}

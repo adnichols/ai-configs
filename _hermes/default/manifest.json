@@ -1,5 +1,5 @@
 {
-  "file_count": 1698,
+  "file_count": 1701,
   "files": [
     {
       "bytes": 819,
@@ -17,14 +17,19 @@
       "sha256": "38199f2625612e9547f14a62c2fd7964d0998ff37a0ea50c45e6627b7a1bb123"
     },
     {
+      "bytes": 187,
+      "path": "components/pi-analytics-collector.json",
+      "sha256": "a93c32a9b5cde349a0983140281f1054228aa9958894c8c152fba4055bd0182e"
+    },
+    {
       "bytes": 20214,
       "path": "config/config.yaml",
       "sha256": "220c558fe4c4bc9bc207fc2c4fca806ceca345510d6bcc3f3730abbf4f2aaac6"
     },
     {
-      "bytes": 21785,
+      "bytes": 22968,
       "path": "cron/jobs.json",
-      "sha256": "112ee636603ef3b8ea3c0dc89fb4af7dbdc701abd1f83f01f33776a9e2200ba1"
+      "sha256": "afbf9f2bfa6fe227f1674825106ea82b52b9f6f4921581a1668638c0f2265e82"
     },
     {
       "bytes": 508,
@@ -4887,9 +4892,9 @@
       "sha256": "412fd639caf735e2250ac458c2ba4bad3bae29188341dc58613d024af2a70bdc"
     },
     {
-      "bytes": 16259,
+      "bytes": 21823,
       "path": "scripts/gm_plan_comment_listener.py",
-      "sha256": "6271842999178182f4d45219f3e6ec14e5fe65f2b47a3f8a76dc2d035cf439ce"
+      "sha256": "a1b6b627d6ec76331aa253dd50178d728b0c32eb238ac6e6daebf03b595042e6"
     },
     {
       "bytes": 5588,
@@ -4940,6 +4945,16 @@
       "bytes": 5192,
       "path": "scripts/obsidian_signal_watch.py",
       "sha256": "4b770a662a3cb736a4ed2878d03b26ca1d6ecd1544a56641ea11941f9b88f41e"
+    },
+    {
+      "bytes": 22552,
+      "path": "scripts/pi_analytics_action.py",
+      "sha256": "247eaf74aa27eafbbe6cc07a8a12491353e73310b815921bec4453fd4c5f08e1"
+    },
+    {
+      "bytes": 21111,
+      "path": "scripts/pi_analytics_collector.py",
+      "sha256": "104bfded4688b153dac5d7f451ceb00008396415368f1f3bafe8bdb0c5b13684"
     },
     {
       "bytes": 12165,
@@ -8492,8 +8507,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260718T194824Z",
+  "generated_at": "20260720T172934Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/Users/anichols/.hermes"
+  "source_home": "/home/anichols/code/ai-configs/_hermes/default"
 }

@@ -9,9 +9,11 @@ Default export destination:
 
 Usage:
   python scripts/hermes_config_sync.py export
+  python scripts/hermes_config_sync.py refresh-manifest
   python scripts/hermes_config_sync.py verify
   python scripts/hermes_config_sync.py install --dry-run
   python scripts/hermes_config_sync.py install --apply
+  python scripts/hermes_config_sync.py --component pi-analytics-collector install --dry-run
 """
 
 from __future__ import annotations
@@ -130,6 +132,11 @@ CRON_RUNTIME_FIELDS = (
     "enabled", "state", "paused_at", "paused_reason", "next_run_at", "last_run_at",
     "last_status", "last_error", "last_delivery_error", "fire_claim", "run_claim",
 )
+COMPONENTS_DIR = "components"
+COMPONENT_SCHEMA = "ai-configs.hermes-component.v1"
+COMPONENT_CRON_RUNTIME_FIELDS = CRON_RUNTIME_FIELDS + (
+    "created_at", "provider_snapshot", "model_snapshot",
+)
 
 
 def now_stamp() -> str:
@@ -247,6 +254,10 @@ def export_all(src_home: Path, bundle: Path) -> None:
                     continue
                 export_profile(profile_dir, stage / "profiles" / profile_dir.name)
 
+        # Component manifests are repo-owned deployment metadata, not live Hermes
+        # runtime files. Preserve them across authoritative live exports.
+        copy_tree_filtered(bundle / COMPONENTS_DIR, stage / COMPONENTS_DIR)
+
         write_static_docs(stage)
         sanitize_exported_text_files(stage)
         manifest = build_manifest(stage, src_home)
@@ -312,7 +323,7 @@ def write_static_docs(root: Path) -> None:
 
 def iter_files(root: Path):
     for p in sorted(root.rglob("*")):
-        if p.is_file():
+        if p.is_file() and not should_exclude(p.relative_to(root)):
             yield p
 
 
@@ -407,10 +418,14 @@ def install_dir(src: Path, dst: Path, dry_run: bool, backups: list[tuple[Path, P
     shutil.copytree(src, dst)
 
 
-def backup_path(dst: Path) -> Path:
-    home = DEFAULT_HERMES_HOME.expanduser()
+def backup_path(dst: Path, hermes_home: Path | None = None) -> Path:
+    home = (hermes_home or DEFAULT_HERMES_HOME).expanduser().resolve()
+    resolved_dst = dst.expanduser().resolve()
     stamp = os.environ.get("HERMES_AI_CONFIGS_INSTALL_STAMP") or now_stamp()
-    rel = dst.relative_to(home) if str(dst).startswith(str(home)) else Path(dst.name)
+    try:
+        rel = resolved_dst.relative_to(home)
+    except ValueError:
+        rel = Path(resolved_dst.name)
     return home / "backups" / f"ai-configs-install-{stamp}" / rel
 
 
@@ -572,22 +587,60 @@ def install_all(bundle: Path, hermes_home: Path, dry_run: bool) -> None:
             print(f"  {b}")
 
 
-def verify(bundle: Path) -> None:
+def refresh_manifest(bundle: Path) -> None:
+    """Recompute the complete bundle manifest using only checked-in bundle source."""
     if not bundle.exists():
         raise SystemExit(f"Bundle not found: {bundle}")
+    manifest = build_manifest(bundle, bundle)
+    (bundle / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(f"REFRESHED MANIFEST: {manifest['file_count']} source files")
+
+
+def manifest_failures(bundle: Path) -> tuple[dict[str, Any], list[str]]:
     manifest_path = bundle / "manifest.json"
     if not manifest_path.exists():
         raise SystemExit("Missing manifest.json")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    failures = []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Unable to read manifest.json: {exc}") from exc
+    failures: list[str] = []
+    declared: dict[str, dict[str, Any]] = {}
     for item in manifest.get("files", []):
+        if not isinstance(item, dict) or not isinstance(item.get("path"), str):
+            failures.append("invalid manifest file entry")
+            continue
+        declared[item["path"]] = item
         p = bundle / item["path"]
         if not p.exists():
             failures.append(f"missing {item['path']}")
             continue
         h = hashlib.sha256(p.read_bytes()).hexdigest()
-        if h != item["sha256"]:
+        if h != item.get("sha256"):
             failures.append(f"hash mismatch {item['path']}")
+        if p.stat().st_size != item.get("bytes"):
+            failures.append(f"size mismatch {item['path']}")
+    actual = {
+        p.relative_to(bundle).as_posix()
+        for p in iter_files(bundle)
+        if p.name != "manifest.json"
+    }
+    for path in sorted(actual - set(declared)):
+        failures.append(f"unlisted source file {path}")
+    for path in sorted(set(declared) - actual):
+        if f"missing {path}" not in failures:
+            failures.append(f"manifest lists absent source file {path}")
+    if manifest.get("file_count") != len(declared):
+        failures.append("manifest file_count does not match files")
+    return manifest, failures
+
+
+def verify(bundle: Path) -> None:
+    if not bundle.exists():
+        raise SystemExit(f"Bundle not found: {bundle}")
+    manifest, failures = manifest_failures(bundle)
     findings = scan_secrets(bundle)
     if findings:
         failures.extend([f"secret-like token: {f}" for f in findings])
@@ -599,11 +652,172 @@ def verify(bundle: Path) -> None:
     print(f"VERIFY OK: {manifest.get('file_count')} files, no obvious secret patterns")
 
 
+def load_component(bundle: Path, name: str) -> dict[str, Any]:
+    path = bundle / COMPONENTS_DIR / f"{name}.json"
+    try:
+        component = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Unable to read component manifest {path}: {exc}") from exc
+    if not isinstance(component, dict) or component.get("schema") != COMPONENT_SCHEMA:
+        raise SystemExit(f"Invalid component manifest schema: {path}")
+    if component.get("name") != name:
+        raise SystemExit(f"Component manifest name mismatch: {path}")
+    files = component.get("files")
+    job_ids = component.get("cron_job_ids")
+    if not isinstance(files, list) or not files or not all(isinstance(p, str) and p for p in files):
+        raise SystemExit(f"Component files must be a non-empty string list: {path}")
+    if not isinstance(job_ids, list) or not job_ids or not all(isinstance(j, str) and j for j in job_ids):
+        raise SystemExit(f"Component cron_job_ids must be a non-empty string list: {path}")
+    if len(files) != len(set(files)) or len(job_ids) != len(set(job_ids)):
+        raise SystemExit(f"Component manifest entries must be unique: {path}")
+    if any(Path(p).is_absolute() or ".." in Path(p).parts for p in files):
+        raise SystemExit(f"Component paths must remain within the bundle: {path}")
+    return component
+
+
+def validate_component_source(bundle: Path, component: dict[str, Any]) -> list[dict[str, Any]]:
+    manifest, failures = manifest_failures(bundle)
+    if failures:
+        raise SystemExit("Stale full bundle manifest; run refresh-manifest before component operations")
+    manifest_by_path = {item["path"]: item for item in manifest["files"]}
+    for rel in component["files"]:
+        item = manifest_by_path.get(rel)
+        source = bundle / rel
+        if item is None or not source.is_file():
+            raise SystemExit(f"Component path is not validated by the full manifest: {rel}")
+        if hashlib.sha256(source.read_bytes()).hexdigest() != item["sha256"]:
+            raise SystemExit(f"Component path hash does not match the full manifest: {rel}")
+    source_jobs = load_cron_jobs(bundle / "cron" / "jobs.json")["jobs"]
+    by_id = {job["id"]: job for job in source_jobs}
+    jobs = []
+    for job_id in component["cron_job_ids"]:
+        if job_id not in by_id:
+            raise SystemExit(f"Component cron job is absent from source cron/jobs.json: {job_id}")
+        jobs.append(by_id[job_id])
+    return jobs
+
+
+def merge_component_job(existing: dict[str, Any], incoming_job: dict[str, Any]) -> dict[str, Any]:
+    """Add or update one job without changing unrelated jobs or top-level runtime data."""
+    merged = dict(existing)
+    jobs = list(existing["jobs"])
+    replacement = dict(incoming_job)
+    existing_index = next((i for i, job in enumerate(jobs) if job["id"] == incoming_job["id"]), None)
+    if existing_index is not None:
+        current = jobs[existing_index]
+        # Source owns the full job definition; preserve only documented host
+        # runtime fields so removed source fields converge on the next install.
+        replacement = dict(incoming_job)
+        for field in COMPONENT_CRON_RUNTIME_FIELDS:
+            if field in current:
+                replacement[field] = current[field]
+        current_repeat = current.get("repeat")
+        if isinstance(current_repeat, dict) and "completed" in current_repeat:
+            incoming_repeat = replacement.get("repeat")
+            repeat = dict(incoming_repeat) if isinstance(incoming_repeat, dict) else {}
+            repeat["completed"] = current_repeat["completed"]
+            replacement["repeat"] = repeat
+        jobs[existing_index] = replacement
+    else:
+        jobs.append(replacement)
+    merged["jobs"] = jobs
+    return merged
+
+
+def install_component_jobs(
+    source_job: dict[str, Any], dst: Path, dry_run: bool, backups: list[tuple[Path, Path]],
+    hermes_home: Path,
+) -> None:
+    print(f"JOB  {source_job['id']} -> {dst} (additive; unrelated jobs preserved)")
+    if dry_run:
+        return
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = dst.parent / ".jobs.lock"
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        if dst.exists():
+            existing = load_cron_jobs(dst)
+            backup = backup_path(dst, hermes_home)
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(dst, backup)
+            backups.append((dst, backup))
+            mode = stat.S_IMODE(dst.stat().st_mode)
+        else:
+            existing = {"jobs": []}
+            mode = 0o600
+        atomic_write_json(dst, merge_component_job(existing, source_job), mode)
+
+
+def install_component(bundle: Path, hermes_home: Path, name: str, dry_run: bool) -> None:
+    component = load_component(bundle, name)
+    jobs = validate_component_source(bundle, component)
+    backups: list[tuple[Path, Path]] = []
+    for rel in component["files"]:
+        source = bundle / rel
+        destination = hermes_home / rel
+        print(f"FILE {rel} -> {destination}")
+        if not dry_run:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if destination.exists():
+                backup = backup_path(destination, hermes_home)
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(destination, backup)
+                backups.append((destination, backup))
+            shutil.copy2(source, destination)
+    for job in jobs:
+        install_component_jobs(
+            job, hermes_home / "cron" / "jobs.json", dry_run, backups, hermes_home
+        )
+
+
+def _job_source_fields(job: dict[str, Any]) -> dict[str, Any]:
+    fields = {key: value for key, value in job.items() if key not in COMPONENT_CRON_RUNTIME_FIELDS}
+    repeat = fields.get("repeat")
+    if isinstance(repeat, dict):
+        fields["repeat"] = {key: value for key, value in repeat.items() if key != "completed"}
+    return fields
+
+
+def verify_component(bundle: Path, hermes_home: Path, name: str) -> None:
+    component = load_component(bundle, name)
+    source_jobs = validate_component_source(bundle, component)
+    failures = []
+    for rel in component["files"]:
+        source = bundle / rel
+        destination = hermes_home / rel
+        if not destination.is_file():
+            failures.append(f"missing installed component file {rel}")
+        elif source.read_bytes() != destination.read_bytes():
+            failures.append(f"component file drift {rel}")
+    try:
+        destination_jobs = load_cron_jobs(hermes_home / "cron" / "jobs.json")["jobs"]
+    except ValueError as exc:
+        failures.append(str(exc))
+        destination_jobs = []
+    destination_by_id = {job["id"]: job for job in destination_jobs}
+    for source_job in source_jobs:
+        installed = destination_by_id.get(source_job["id"])
+        if installed is None:
+            failures.append(f"missing component cron job {source_job['id']}")
+        elif _job_source_fields(installed) != _job_source_fields(source_job):
+            failures.append(f"component cron job drift {source_job['id']}")
+    if failures:
+        print("COMPONENT VERIFY FAILED", file=sys.stderr)
+        for failure in failures:
+            print(f"  {failure}", file=sys.stderr)
+        raise SystemExit(4)
+    print(
+        f"COMPONENT VERIFY OK: {len(component['files'])} file(s), "
+        f"{len(component['cron_job_ids'])} cron job(s)"
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["export", "verify", "install"])
+    parser.add_argument("command", choices=["export", "refresh-manifest", "verify", "install"])
     parser.add_argument("--hermes-home", default=str(DEFAULT_HERMES_HOME))
     parser.add_argument("--bundle", default=str(DEFAULT_BUNDLE))
+    parser.add_argument("--component", help="Operate on one checked-in component manifest")
     parser.add_argument("--dry-run", action="store_true", help="Preview install actions")
     parser.add_argument("--apply", action="store_true", help="Actually install managed files")
     args = parser.parse_args()
@@ -612,16 +826,28 @@ def main() -> None:
     hermes_home = Path(args.hermes_home).expanduser().resolve()
 
     if args.command == "export":
+        if args.component:
+            raise SystemExit("Component mode does not support export")
         export_all(hermes_home, bundle)
         verify(bundle)
         print(f"Exported managed Hermes config to {bundle}")
+    elif args.command == "refresh-manifest":
+        if args.component:
+            raise SystemExit("refresh-manifest always refreshes the full bundle")
+        refresh_manifest(bundle)
     elif args.command == "verify":
-        verify(bundle)
+        if args.component:
+            verify_component(bundle, hermes_home, args.component)
+        else:
+            verify(bundle)
     elif args.command == "install":
         if args.apply == args.dry_run:
             raise SystemExit("For install, pass exactly one of --dry-run or --apply")
-        verify(bundle)
-        install_all(bundle, hermes_home, dry_run=args.dry_run)
+        if args.component:
+            install_component(bundle, hermes_home, args.component, dry_run=args.dry_run)
+        else:
+            verify(bundle)
+            install_all(bundle, hermes_home, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
