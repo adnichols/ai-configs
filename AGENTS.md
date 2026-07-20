@@ -5,9 +5,7 @@ Current roster of bespoke Claude, Codex, and Pi agents defined in this repositor
 ## Pi Subagents (Implementation)
 Located under `_pi/agents/` and invoked via Pi subagent system:
 
-- `developer-mid` (gpt-5.6-sol; `_pi/agents/developer-mid.md`) — Default GPT-5.6 Sol medium implementation agent for standard scoped code-writing packets.
-- `developer-high` (gpt-5.6-sol; `_pi/agents/developer-high.md`) — High-capability implementation agent for complex scenarios (multi-file refactoring, algorithmic challenges, concurrent systems, complex domain logic).
-- `developer-mm` (MiniMax; `_pi/agents/developer-mm.md`) — Alternative implementation agent using MiniMax model.
+- `developer-mid` (gpt-5.6-sol; `_pi/agents/developer-mid.md`) — The sole repository-owned Pi implementation agent for scoped code-writing packets.
 
 `_pi/agents/Explore.md` is not a custom agent persona. It is a minimal
 `enabled: false` override that disables the `Explore` agent bundled by
@@ -17,9 +15,10 @@ Located under `_pi/agents/` and invoked via Pi subagent system:
 ### Pi Subagent Reasoning-Effort Policy
 
 - Treat each agent definition's `reasoningEffort` or `thinking` frontmatter as authoritative for that profile.
-- When invoking a named agent, do not pass a caller-side `thinking` or reasoning-effort override merely because the task appears difficult. Choose the agent profile whose configured effort matches the task instead (for example, `developer-mid` for medium or `developer-high` for high).
-- Override an agent's configured effort only when the user explicitly requests a different effort or a documented workflow explicitly requires it. Record the reason when doing so.
-- In particular, invoking `developer-high` means using its configured `high` effort, not upgrading it to `xhigh`.
+- `developer-mid` is the only GPT-5.6 Sol implementation subagent and must remain at its configured medium effort, including for difficult implementation work.
+- Do not pass a caller-side `thinking` or reasoning-effort override merely because a task appears difficult.
+- If repeated bounded `developer-mid` attempts fail to converge, stop and return control to the user rather than escalating to an unavailable higher-effort implementation profile.
+- Override an agent's configured effort only when the user explicitly requests a different effort or a documented non-implementation workflow explicitly requires it. Record the reason when doing so.
 
 ## Implementation & Architecture (Claude/Codex)
 - `developer` (sonnet; `_claude/agents/developer.md`) — Implements specs with tests and enforces zero linting violations.

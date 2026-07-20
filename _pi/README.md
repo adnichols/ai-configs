@@ -53,7 +53,6 @@ Installed layout:
 │   └── ...
 ├── agents/
 │   ├── developer-mid.md
-│   ├── developer-mm.md
 │   ├── quality-reviewer.md
 │   ├── Explore.md        # disables tintinweb's bundled Explore persona
 │   └── ...
@@ -73,7 +72,7 @@ The doctrine is request-type-first: questions, explanations, inspection, researc
 
 The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route.
 
-`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. Repository-owned agents use Sol medium for normal capable work, Sol high for consequential implementation, and Terra high for Codex-powered review agents.
+`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. Repository-owned implementation agents use Sol medium exclusively; review agents retain their separately configured reasoning levels.
 
 ## Structure
 
@@ -231,7 +230,6 @@ The maintained agent files use the flat frontmatter expected by `@tintinweb/pi-s
 Example installed agents:
 
 - `developer-mid`
-- `developer-mm`
 - `quality-reviewer`
 - `research`
 - `plan-gpt`
@@ -364,4 +362,4 @@ Skills:
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.
 - `_pi/agents/Explore.md` is only an `enabled: false` override for tintinweb's bundled `Explore` persona; it does not define a repository-owned Explore persona. It does not affect the separately installed `@howaboua/pi-explore-subagents` extension or its `explore_subagent` tool, which remains the intended isolated-discovery path.
-- GPT-5.6 Sol medium is the normal repository-owned Pi code-writing route. Use direct targeted reads or `explore_subagent` for discovery before sending scoped code-writing packets to `developer-mid`, and reserve `developer-high` for complex or failed scoped implementation work.
+- GPT-5.6 Sol medium is the only repository-owned Pi GPT code-writing route. Use direct targeted reads or `explore_subagent` for discovery before sending scoped code-writing packets to `developer-mid`. If repeated bounded attempts fail to converge, stop and return control to the user rather than escalating implementation reasoning effort.

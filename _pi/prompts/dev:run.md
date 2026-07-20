@@ -17,7 +17,7 @@ Execute a single plan document (spec + phases + progress) directly in this sessi
 
 Keep GPT-5.6 Sol medium as the normal direct-execution parent and code-writing route.
 
-Use `Explore`/`explore` before implementation whenever target files or contracts are not already known. Delegation to `developer-mid` must include target files, desired behavior, relevant evidence, and verification commands. Reserve `developer-high` for complex/risky implementations or failed medium attempts.
+Use `Explore`/`explore` before implementation whenever target files or contracts are not already known. Delegation to `developer-mid` must include target files, desired behavior, relevant evidence, and verification commands. Keep all implementation delegation at medium effort. If repeated bounded attempts fail to converge, stop and return control to the user rather than escalating reasoning effort.
 
 ## Inputs
 
