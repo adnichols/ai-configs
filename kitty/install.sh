@@ -86,8 +86,15 @@ PY
 }
 
 install_herdr_kitty_status() {
-  command -v herdr >/dev/null 2>&1 || return 0
   [[ "${KITTY_WORKFLOW_SKIP_STATUS_PLUGIN:-0}" != 1 ]] || return 0
+
+  local has_herdr=0
+  command -v herdr >/dev/null 2>&1 && has_herdr=1
+  local has_local_kitty=0
+  if [[ "${KITTY_WORKFLOW_OS:-$(uname -s)}" == Darwin ]] && command -v kitty >/dev/null 2>&1; then
+    has_local_kitty=1
+  fi
+  (( has_herdr == 1 || has_local_kitty == 1 )) || return 0
 
   # Keep the external integration immutable and auditable. The plugin is linked
   # from a commit-addressed cache instead of executing files from a mutable
@@ -121,8 +128,10 @@ install_herdr_kitty_status() {
   fi
 
   local status=0
-  if [[ "${KITTY_WORKFLOW_OS:-$(uname -s)}" == Darwin ]] && command -v kitty >/dev/null 2>&1; then
+  if (( has_local_kitty == 1 && has_herdr == 1 )); then
     bash "$installer" --local "$cache_dir" || status=$?
+  elif (( has_local_kitty == 1 )); then
+    bash "$installer" --kitty-only || status=$?
   else
     bash "$installer" --plugin-only --local "$cache_dir" || status=$?
   fi

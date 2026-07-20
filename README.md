@@ -99,7 +99,7 @@ Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensio
 ### `kitty/`
 Canonical Kitty remote-development configuration, shell reminder, SSH kitten settings, and its local installer. On macOS, `--tools` and `--all` also deploy this tracked bundle to the `mbp` and `dever` SSH aliases. Remote hosts that are offline produce a warning and are retried the next time the installer runs; set `KITTY_WORKFLOW_STRICT_REMOTE=1` to make an unreachable host fail the install.
 
-The workflow installs `clipssh` and its Kitty helper into `~/.local/bin`, installs `pngpaste` through Homebrew when needed, installs the commit-pinned `herdr-kitty-status` integration, and sets Herdr toast delivery to `terminal`. It deliberately does not run `herdr integration install pi`, which would overwrite the Pi extension managed by this repository. Set `KITTY_WORKFLOW_SKIP_REMOTE=1` to perform only the current-host install, or override the targets with `KITTY_REMOTE_HOSTS="host1 host2"`.
+The workflow installs `clipssh` and its Kitty helper into `~/.local/bin`, installs `pngpaste` through Homebrew when needed, installs the commit-pinned `herdr-kitty-status` integration, and sets Herdr toast delivery to `terminal`. On a Kitty client without Herdr, it still installs the status renderer so titles from remote Herdr hosts retain their aliases, colors, and compact counters. It deliberately does not run `herdr integration install pi`, which would overwrite the Pi extension managed by this repository. Set `KITTY_WORKFLOW_SKIP_REMOTE=1` to perform only the current-host install, or override the targets with `KITTY_REMOTE_HOSTS="host1 host2"`.
 
 ### `scripts/`
 Canonical shared helper scripts used across multiple runtimes.
