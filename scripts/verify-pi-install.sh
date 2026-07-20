@@ -156,6 +156,18 @@ DEFAULT_MODEL = "gpt-5.6-sol"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
 SPARK_MODEL = "gpt-5.3-codex-spark"
+RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
+RETIRED_GROK_MODEL_IDS = {
+    "grok-4.5",
+    "grok-build-0.1",
+    "grok-4.3",
+    "grok-4.20-0309-reasoning",
+    "grok-4.20-0309-non-reasoning",
+    "grok-4.20-multi-agent-0309",
+    "grok-3-mini",
+    "grok-3-mini-fast",
+    "grok-composer-2.5-fast",
+}
 
 if settings_path.exists():
     settings = json.loads(settings_path.read_text())
@@ -180,6 +192,8 @@ for model in models:
         normalized.append(model)
         continue
     if model == SPARK_MODEL or model.endswith(f"/{SPARK_MODEL}"):
+        continue
+    if model.startswith(RETIRED_GROK_MODEL_PREFIXES) or model in RETIRED_GROK_MODEL_IDS:
         continue
     if model.startswith("openai-codex-") and model.endswith(f"/{DEFAULT_MODEL}"):
         model = DEFAULT_MODEL_VALUE
@@ -372,6 +386,12 @@ else:
         errors.append(f"enabledModels missing {glm_scoped_model_value}")
     if any(isinstance(model, str) and "gpt-5.3-codex-spark" in model for model in enabled):
         errors.append("enabledModels still contains gpt-5.3-codex-spark")
+    if any(
+        isinstance(model, str)
+        and (model.startswith("grok/") or model.startswith("grok-"))
+        for model in enabled
+    ):
+        errors.append("enabledModels still contains retired grok models")
 print("ok" if not errors else "; ".join(errors))
 PY
 )"

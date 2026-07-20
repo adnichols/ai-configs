@@ -1679,19 +1679,20 @@ DEFAULT_MODEL = "gpt-5.6-sol"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
 SPARK_MODEL = "gpt-5.3-codex-spark"
-# Grok models exposed via the local CLI Proxy API (xAI OAuth). These are
-# appended to enabledModels if missing so both managed machines surface them.
-GROK_MODEL_VALUES = [
-    "grok/grok-4.5",
-    "grok/grok-build-0.1",
-    "grok/grok-4.3",
-    "grok/grok-4.20-0309-reasoning",
-    "grok/grok-4.20-0309-non-reasoning",
-    "grok/grok-4.20-multi-agent-0309",
-    "grok/grok-3-mini",
-    "grok/grok-3-mini-fast",
-    "grok/grok-composer-2.5-fast",
-]
+# Retired Grok CLI-proxy models. Strip them from enabledModels on install so
+# previously managed machines do not keep offering removed providers.
+RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
+RETIRED_GROK_MODEL_IDS = {
+    "grok-4.5",
+    "grok-build-0.1",
+    "grok-4.3",
+    "grok-4.20-0309-reasoning",
+    "grok-4.20-0309-non-reasoning",
+    "grok-4.20-multi-agent-0309",
+    "grok-3-mini",
+    "grok-3-mini-fast",
+    "grok-composer-2.5-fast",
+}
 
 changed = []
 
@@ -1726,6 +1727,8 @@ for model in models:
         continue
     if model == SPARK_MODEL or model.endswith(f"/{SPARK_MODEL}"):
         continue
+    if model.startswith(RETIRED_GROK_MODEL_PREFIXES) or model in RETIRED_GROK_MODEL_IDS:
+        continue
     if model.startswith("openai-codex-") and model.endswith(f"/{DEFAULT_MODEL}"):
         model = DEFAULT_MODEL_VALUE
     if model not in normalized:
@@ -1734,9 +1737,6 @@ if DEFAULT_MODEL_VALUE not in normalized:
     normalized.insert(0, DEFAULT_MODEL_VALUE)
 if GLM_SCOPED_MODEL_VALUE not in normalized:
     normalized.append(GLM_SCOPED_MODEL_VALUE)
-for grok_model in GROK_MODEL_VALUES:
-    if grok_model not in normalized:
-        normalized.append(grok_model)
 settings["enabledModels"] = normalized
 
 if json.dumps(settings, sort_keys=True) != before_settings:
@@ -1944,6 +1944,11 @@ def prune_retired_managed_models():
                 opencode_zen_provider.pop("modelOverrides")
         if not opencode_zen_provider:
             target_providers.pop("opencode-zen", None)
+
+    # Grok was previously managed via the local CLI Proxy API provider. Remove
+    # the whole provider once it is no longer present in _pi/models.json.
+    if "grok" not in source_providers:
+        target_providers.pop("grok", None)
 
 prune_retired_managed_models()
 

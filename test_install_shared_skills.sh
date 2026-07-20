@@ -719,7 +719,10 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   printf 'custom-gemini-command\n' > "$home/.gemini/commands/custom.toml"
   printf 'custom-gemini\n' > "$home/.gemini/custom/keep.txt"
   cat > "$home/.pi/agent/models.json" <<'EOF'
-{"providers":{"ollama":{"baseUrl":"https://ollama.com/v1","api":"openai-completions","apiKey":"local-test-key","models":[{"id":"gemma4:latest"},{"id":"kimi-k2.5:cloud"}]}}}
+{"providers":{"ollama":{"baseUrl":"https://ollama.com/v1","api":"openai-completions","apiKey":"local-test-key","models":[{"id":"gemma4:latest"},{"id":"kimi-k2.5:cloud"}]},"grok":{"name":"Grok (local CLI Proxy API)","baseUrl":"http://127.0.0.1:8318/v1","api":"openai-completions","apiKey":"local-cliproxyapi","models":[{"id":"grok-4.5","name":"Grok 4.5 (CLI Proxy API)"}]}}}
+EOF
+  cat > "$home/.pi/agent/settings.json" <<'EOF'
+{"defaultProvider":"grok","defaultModel":"grok-composer-2.5-fast","enabledModels":["grok/grok-4.5","grok/grok-composer-2.5-fast","openai-codex/gpt-5.6-sol"]}
 EOF
 
   output_file="$home/pi-install.log"
@@ -748,6 +751,12 @@ EOF
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'reasoningEffort: low' || return 1
   assert_file_contains "$home/.pi/agent/models.json" 'gemma4:latest' || return 1
   assert_file_not_contains "$home/.pi/agent/models.json" 'kimi-k2.5:cloud' || return 1
+  assert_file_not_contains "$home/.pi/agent/models.json" '"grok"' || return 1
+  assert_file_not_contains "$home/.pi/agent/models.json" 'grok-4.5' || return 1
+  assert_file_not_contains "$home/.pi/agent/settings.json" 'grok/' || return 1
+  assert_file_not_contains "$home/.pi/agent/settings.json" 'grok-composer-2.5-fast' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" '"defaultProvider": "openai-codex"' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" '"defaultModel": "gpt-5.6-sol"' || return 1
   [[ -f "$home/.pi/agent/agents/Explore.md" ]] || return 1
   [[ "$(cat "$home/.pi/agent/agents/Explore.md")" == $'---\nenabled: false\n---' ]] || return 1
   [[ -z "$(find "$home/.pi/agent/agents" -maxdepth 1 -type f -name 'explore.md' -print -quit)" ]] || return 1
