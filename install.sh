@@ -72,7 +72,7 @@ print_usage() {
     echo "  --pi        Install Pi prompt templates, subagents, and extensions, then refresh shared skills"
     echo "  --pi-vcc [package-source]  Transactionally install only pi-vcc (repo package by default)"
     echo "  --pi-review-stack  Mutation-bounded Pi config plus six maintained review skills; no packages/global cleanup"
-    echo "  --tools     Install/update CLI tools and managed Herdr plugins"
+    echo "  --tools     Install/update Kitty remote workflow, CLI tools, and managed Herdr plugins"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
     echo "  --update    Update globally installed skills tracked by skills.sh before shared-skill sync"
@@ -88,6 +88,7 @@ print_usage() {
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
     echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, @howaboua/pi-explore-subagents, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - Kitty remote workflow files are installed locally and streamed to mbp/dever whenever --tools or --all runs on macOS"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
     echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OMP, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
@@ -535,9 +536,26 @@ install_tools() {
     echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
     echo ""
 
+    install_kitty_remote_workflow
+    echo ""
     install_herdr_plugins
     echo ""
     install_ltui
+}
+
+install_kitty_remote_workflow() {
+    echo "Installing managed Kitty remote workflow..."
+    bash "$REPO_ROOT/kitty/install.sh"
+
+    # A macOS Kitty client is the distribution point for both remote hosts.
+    # Stream the tracked files instead of relying on either remote repo being
+    # clean or already updated. Offline hosts warn by default rather than
+    # blocking unrelated tool updates.
+    if [ "$(uname -s)" = "Darwin" ]; then
+        bash "$REPO_ROOT/scripts/install-kitty-remote-hosts.sh"
+    fi
+
+    echo -e "${GREEN}✓ Managed Kitty remote workflow processed${NC}"
 }
 
 install_herdr_plugins() {

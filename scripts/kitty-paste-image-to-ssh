@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  printf 'kitty-paste-image-to-ssh: %s\n' "$*" >&2
+  {
+    printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
+    if [ -n "${parent_json:-}" ]; then
+      printf '%s\n' "$parent_json"
+    fi
+  } >> "${TMPDIR:-/tmp}/kitty-paste-image-to-ssh.log" 2>/dev/null || true
+  sleep 8
+  exit 1
+}
+
+command -v kitten >/dev/null 2>&1 || fail "kitten is not on PATH"
+command -v python3 >/dev/null 2>&1 || fail "python3 is not on PATH"
+command -v pbpaste >/dev/null 2>&1 || fail "pbpaste is not on PATH"
+
+# Kitty launches this helper directly rather than through an interactive shell,
+# so ~/.zshrc may not have added ~/.local/bin to PATH. Resolve clipssh next to
+# this script as a reliable fallback.
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if command -v clipssh >/dev/null 2>&1; then
+  clipssh_bin="$(command -v clipssh)"
+elif [ -x "$script_dir/clipssh" ]; then
+  clipssh_bin="$script_dir/clipssh"
+else
+  fail "clipssh was not found on PATH or next to this helper"
+fi
+
+parent_json="$(kitten @ ls --match state:overlay_parent 2>/dev/null)" || fail "could not inspect the parent Kitty pane"
+
+host="${KITTY_PASTE_IMAGE_HOST:-}"
+
+if [ -z "$host" ]; then
+host="$(
+  PARENT_JSON="$parent_json" python3 - <<'PY'
+import json, os, sys
+from pathlib import PurePosixPath
+from urllib.parse import urlparse
+
+data = json.loads(os.environ["PARENT_JSON"])
+windows = []
+for os_window in data:
+    for tab in os_window.get("tabs", []):
+        windows.extend(tab.get("windows", []))
+
+if not windows:
+    sys.exit(1)
+
+options_with_value = {
+    "-b", "-c", "-D", "-E", "-F", "-I", "-i", "-J", "-L", "-l",
+    "-m", "-O", "-o", "-p", "-Q", "-R", "-S", "-W", "-w",
+    "--config", "--cwd", "--env", "--hostname", "--identity-file",
+    "--login-shell", "--option", "--port", "--remote-command", "--user",
+}
+
+def base(token):
+    return PurePosixPath(token).name
+
+def clean_host(target):
+    if not target:
+        return None
+    if target.startswith("[") and "]" in target:
+        return target
+    # Keep user@host intact because ssh/scp accept it, but drop common URI bits.
+    if "://" in target:
+        parsed = urlparse(target)
+        return parsed.netloc or None
+    return target
+
+def parse_ssh_args(args):
+    j = 0
+    while j < len(args):
+        arg = args[j]
+        if arg == "--":
+            return clean_host(args[j + 1]) if j + 1 < len(args) else None
+        if arg in options_with_value:
+            j += 2
+            continue
+        if arg.startswith("-o") and arg != "-o":
+            j += 1
+            continue
+        if arg.startswith("-p") and arg != "-p":
+            j += 1
+            continue
+        if arg.startswith("-l") and arg != "-l":
+            j += 1
+            continue
+        if arg.startswith("-"):
+            j += 1
+            continue
+        return clean_host(arg)
+    return None
+
+def host_from_cmdline(cmdline):
+    names = [base(x) for x in cmdline]
+    for i, name in enumerate(names):
+        if name == "kitten" and i + 1 < len(names) and names[i + 1] == "ssh":
+            host = parse_ssh_args(cmdline[i + 2:])
+            if host:
+                return host
+        if name == "kitty" and i + 2 < len(names) and cmdline[i + 1] in ("+kitten", "@") and names[i + 2] == "ssh":
+            host = parse_ssh_args(cmdline[i + 3:])
+            if host:
+                return host
+        if name == "ssh":
+            host = parse_ssh_args(cmdline[i + 1:])
+            if host:
+                return host
+    return None
+
+def host_from_cwd(cwd):
+    if not cwd or "://" not in cwd:
+        return None
+    parsed = urlparse(cwd)
+    if parsed.scheme in ("ssh", "sftp") and parsed.hostname:
+        return parsed.hostname
+    return None
+
+def host_from_title(title):
+    if not title:
+        return None
+    t = title.lower()
+    if "dever" in t:
+        return "dever"
+    if "aarons-macbook-pro" in t or "aarons-mbp" in t or " mbp" in t or t == "mbp":
+        return "mbp"
+    return None
+
+for window in windows:
+    for candidate in (
+        host_from_cmdline(window.get("cmdline") or []),
+        host_from_cwd(window.get("cwd")),
+        host_from_title(window.get("title")),
+    ):
+        if candidate:
+            print(candidate)
+            sys.exit(0)
+
+sys.exit(1)
+PY
+)" || fail "could not determine SSH host from parent pane"
+fi
+
+[ -n "$host" ] || fail "could not determine SSH host"
+
+CLIPSSH_REMOTE_DIR='~/.cache/clipssh' "$clipssh_bin" "$host" >/dev/null || fail "could not upload the clipboard image to $host"
+remote_path="$(pbpaste)"
+
+case "$remote_path" in
+  '~/.cache/clipssh/'*.png|/Users/*/.cache/clipssh/*.png|/home/*/.cache/clipssh/*.png) ;;
+  *) fail "clipssh returned an unexpected remote path: $remote_path" ;;
+esac
+
+printf "%s" "$remote_path" | kitten @ send-text --match state:overlay_parent --bracketed-paste=disable --stdin
