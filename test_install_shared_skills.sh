@@ -706,6 +706,9 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   printf 'stale-glm-reviewer\n' > "$home/.pi/agent/agents/glm5.2-xhigh.md"
   printf 'stale-glm-agent\n' > "$home/.pi/agent/agents/developer-glm.md"
   printf 'stale-glm-agent\n' > "$home/.pi/agent/agents/orchestrator-glm.md"
+  printf 'stale-kimi-agent\n' > "$home/.pi/agent/agents/context-builder.md"
+  printf 'stale-kimi-agent\n' > "$home/.pi/agent/agents/plan-k2.5.md"
+  printf 'stale-kimi-agent\n' > "$home/.pi/agent/agents/prd-researcher.md"
   printf 'pi-herdr-sentinel\n' > "$home/.pi/agent/extensions/herdr-agent-state.ts"
   printf 'stale-plan-mode\n' > "$home/.pi/agent/extensions/pi-plan-mode/index.ts"
   printf 'stale-aplan\n' > "$home/.omp/agent/extensions/aplan/index.ts"
@@ -715,6 +718,9 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   printf 'stale-gemini\n' > "$home/.gemini/commands/cmd:debug.toml"
   printf 'custom-gemini-command\n' > "$home/.gemini/commands/custom.toml"
   printf 'custom-gemini\n' > "$home/.gemini/custom/keep.txt"
+  cat > "$home/.pi/agent/models.json" <<'EOF'
+{"providers":{"ollama":{"baseUrl":"https://ollama.com/v1","api":"openai-completions","apiKey":"local-test-key","models":[{"id":"gemma4:latest"},{"id":"kimi-k2.5:cloud"}]}}}
+EOF
 
   output_file="$home/pi-install.log"
   run_installer_capture "$home" "$output_file" --pi || {
@@ -733,6 +739,15 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   [[ ! -e "$home/.pi/agent/agents/reviewer-prd-bdd-flows.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/reviewer-prd-no-stubs.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/review-explore.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/context-builder.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/plan-k2.5.md" ]] || return 1
+  [[ ! -e "$home/.pi/agent/agents/prd-researcher.md" ]] || return 1
+  assert_file_contains "$home/.pi/agent/agents/researcher.md" 'model: openai-codex/gpt-5.6-terra' || return 1
+  assert_file_contains "$home/.pi/agent/agents/researcher.md" 'reasoningEffort: medium' || return 1
+  assert_file_contains "$home/.pi/agent/agents/scout.md" 'model: openai-codex/gpt-5.6-terra' || return 1
+  assert_file_contains "$home/.pi/agent/agents/scout.md" 'reasoningEffort: low' || return 1
+  assert_file_contains "$home/.pi/agent/models.json" 'gemma4:latest' || return 1
+  assert_file_not_contains "$home/.pi/agent/models.json" 'kimi-k2.5:cloud' || return 1
   [[ -f "$home/.pi/agent/agents/Explore.md" ]] || return 1
   [[ "$(cat "$home/.pi/agent/agents/Explore.md")" == $'---\nenabled: false\n---' ]] || return 1
   [[ -z "$(find "$home/.pi/agent/agents" -maxdepth 1 -type f -name 'explore.md' -print -quit)" ]] || return 1
@@ -1382,6 +1397,28 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_not_contains "$hermes_run_plan" 'cheap and safe enough to fix immediately' || return 1
 }
 
+test_active_agent_configuration_has_no_kimi() {
+  local active_paths=(
+    _pi/agents
+    _pi/prompts
+    _claude/commands
+    _codex/prompts
+    _pi/README.md
+  )
+
+  if grep -R -n -i -E 'kimi|k2\.5|context-builder|prd-researcher|plan-k2\.5|review-change-kimi' "${active_paths[@]}"; then
+    return 1
+  fi
+
+  [[ ! -e _pi/agents/context-builder.md ]] || return 1
+  [[ ! -e _pi/agents/plan-k2.5.md ]] || return 1
+  [[ ! -e _pi/agents/prd-researcher.md ]] || return 1
+  assert_file_contains _pi/agents/researcher.md 'model: openai-codex/gpt-5.6-terra' || return 1
+  assert_file_contains _pi/agents/researcher.md 'reasoningEffort: medium' || return 1
+  assert_file_contains _pi/agents/scout.md 'model: openai-codex/gpt-5.6-terra' || return 1
+  assert_file_contains _pi/agents/scout.md 'reasoningEffort: low' || return 1
+}
+
 test_hermes_config_sync_preserves_cron_runtime_state() {
   python3 -m unittest scripts/test_hermes_config_sync.py
 }
@@ -1411,6 +1448,7 @@ main() {
   run_test test_codex_pi_skill_and_prompt_parity
   run_test test_phase_four_validation_proves_final_alignment
   run_test test_review_guidance_is_bounded_and_scope_safe
+  run_test test_active_agent_configuration_has_no_kimi
   run_test test_hermes_config_sync_preserves_cron_runtime_state
 
   printf '\nTests run: %s\n' "$TESTS_RUN"

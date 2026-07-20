@@ -2,7 +2,8 @@
 name: researcher
 description: Autonomous web researcher — searches, evaluates, and synthesizes a focused research brief
 tools: read, write, web_search, fetch_content, get_search_content
-model: opencode/kimi-k2.5
+model: openai-codex/gpt-5.6-terra
+reasoningEffort: medium
 output: research.md
 defaultProgress: true
 ---

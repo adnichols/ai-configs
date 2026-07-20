@@ -264,7 +264,6 @@ Example installed agents:
 - `cmd-resume-handoff`
 - `review-plan`
 - `review-plan-adversarial`
-- `review-change-kimi`
 - `review-change-opus`
 - `review-change-claude-code` — Claude Code review-only pass through the deterministic visibly-running `claude_review` subprocess tool; the shared launcher owns private-tmux Claude mechanics
 - `autoreview` — runnable independently or automatically from `run-plan` before PR creation; it is not a terminal replacement for PM review, base freshness, opening the PR, or proving local merge readiness
@@ -286,7 +285,6 @@ Prompt templates:
 /review:plan-adversarial thoughts/plans/my-plan.html
 /review:prd thoughts/plans/prd-my-feature.md
 /review:change thoughts/plans/my-plan.html
-/review:change-kimi thoughts/plans/my-plan.html
 /review:change-opus thoughts/plans/my-plan.html
 /review:change-claude-code thoughts/plans/my-plan.html
 /skill:autoreview thoughts/plans/my-plan.html

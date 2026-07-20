@@ -2,7 +2,8 @@
 name: scout
 description: Fast codebase recon that returns compressed context for handoff
 tools: read, grep, find, ls, bash, write
-model: opencode/kimi-k2.5
+model: openai-codex/gpt-5.6-terra
+reasoningEffort: low
 output: context.md
 defaultProgress: true
 ---

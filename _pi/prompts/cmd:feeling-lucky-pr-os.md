@@ -1,7 +1,7 @@
 ---
 description: End-to-end autopilot from a FeelingLucky Linear issue to a pushed PR
 argument-hint: '[ISSUE_KEY] [BASE_REF]'
-model: fireworks-ai/accounts/fireworks/models/kimi-k2p5
+model: openai-codex/gpt-5.6-sol
 ---
 
 ## Critical Requirement
@@ -256,7 +256,7 @@ fi
 
 ### 3) Create Plan (commands/dev:plan.md)
 
-Use the plan-k2.5 subagent to create a plan with slug `plan_slug` and ensure the plan includes:
+Use the plan-gpt subagent to create a plan with slug `plan_slug` and ensure the plan includes:
 
 - Linear issue key + URL (`ISSUE_KEY`, `ISSUE_URL`)
 - Branch name (`branch_name`)

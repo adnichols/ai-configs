@@ -1907,9 +1907,10 @@ def prune_retired_managed_models():
     if isinstance(ollama_provider, dict):
         models = ollama_provider.get("models")
         if isinstance(models, list):
+            retired_model_ids = {"glm-5.2:cloud", "kimi-k2.5:cloud"}
             ollama_provider["models"] = [
                 model for model in models
-                if not (isinstance(model, dict) and model.get("id") == "glm-5.2:cloud")
+                if not (isinstance(model, dict) and model.get("id") in retired_model_ids)
             ]
             if not ollama_provider["models"]:
                 ollama_provider.pop("models")

@@ -69,9 +69,9 @@ Conditional launch:
 
 ```javascript
 const research = Agent({
-  subagent_type: "prd-researcher",
+  subagent_type: "researcher",
   description: "Research PRD decision gaps",
-  prompt: "Research only the decision-relevant gaps identified for $ARGUMENTS. Follow your prd-researcher instructions exactly and return concise findings, sources, and a recommendation.",
+  prompt: "Research only the decision-relevant gaps identified for $ARGUMENTS. Keep the brief concise and tied to active decisions, with findings, authoritative sources, and a recommendation.",
   run_in_background: true,
 });
 

@@ -50,7 +50,6 @@ Resolution rules:
 Read the full plan and identify the existing inline comments from any present reviewer set, including:
 
 - `[REVIEW:GPT]`
-- `[REVIEW:Kimi K2.5]`
 - `[REVIEW:Opus 4.8]`
 - `[REVIEW:CLAUDE]`
 - `[REVIEW:Adversarial GPT]`
