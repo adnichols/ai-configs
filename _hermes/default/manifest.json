@@ -5047,9 +5047,9 @@
       "sha256": "bdf27c02052f06d3d44ca82efa3249aa408f8ac00ffb9ec6051061965d5fc5f1"
     },
     {
-      "bytes": 10076,
+      "bytes": 10166,
       "path": "skills/autonomous-ai-agents/doct-agent-cli/SKILL.md",
-      "sha256": "d3b72bd9a194853091b9d8753a60637283d2fd9e15b105037ddf83fe74be1b6d"
+      "sha256": "5a114f027884b0f928a5d9fce05050783e9b1c048ed89cafb14c90a93b382537"
     },
     {
       "bytes": 2950,
@@ -7507,9 +7507,9 @@
       "sha256": "0eb6aae48a76ad4c522b2b3100438236837d90584d6f3cc8496f08c372a6ab9a"
     },
     {
-      "bytes": 26750,
+      "bytes": 26580,
       "path": "skills/productivity/doct-document-ops/SKILL.md",
-      "sha256": "7587444f714ecce0a908f72cfd772247a17597e6760c4f5f120175723b08dc97"
+      "sha256": "5622bd66216d2758e63dbd09304e660da178577e7c37fb419449d521a59fbbb7"
     },
     {
       "bytes": 3859,
@@ -8507,8 +8507,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260720T172934Z",
+  "generated_at": "20260720T225344Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/home/anichols/code/ai-configs/_hermes/default"
+  "source_home": "/Users/anichols/code/ai-configs/_hermes/default"
 }

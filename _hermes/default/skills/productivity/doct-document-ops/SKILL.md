@@ -183,19 +183,17 @@ After registration:
 2. Leave the plan in its registration/default board column, normally `backlog`, unless the user explicitly requested a board move. Registration and browser-review handoff do not mean implementation is underway.
 3. Drain pending work with the returned `drainCommand` (`doct-agent plans agent next ... --no-wait --json`) until it returns `status: "empty"`.
 4. In Codex, start the observable one-claim listener with the `exec_command` tool, using the registration's `listenerInstructions.preferredCommand` or `listenerInstructions.listenCommand` when it is a `doct-agent plans agent next ... --wait --json` command. This command is quiet while the queue is empty; when a routed plan-review comment arrives, the subprocess returns a JSON claim payload and the Codex session is woken with the thread id, claim id, selected anchor, comment body, and reply/ack/resolve/release commands.
-5. Use a bounded wait command, not a polling loop. Set the CLI timeout explicitly when useful. Prefer the known-good 300-second one-claim wait; do not use very large timeout values such as 86400 for a single listener command, because Doct may reject oversized claim waits with HTTP 422. For truly durable monitoring, use the dispatcher/scheduled-worker pattern instead of stretching one `agent next --wait` invocation:
+5. Use the durable listener command returned by registration. Current Doct disables long `plans agent next --wait` calls because an upstream proxy can terminate them before a claim arrives. Start `plans listen` as a supervised background process:
 
 ```bash
-doct-agent plans agent next \
-  --base-url https://doct.nodaste.com \
+doct-agent --base-url https://doct.nodaste.com plans listen \
   --workspace-id <workspace-id> \
   --document-id <document-id> \
-  --wait \
-  --timeout 300 \
-  --json
+  --jsonl \
+  --lease-seconds 900
 ```
 
-In Codex, launch that with `exec_command` and a matching `yield_time_ms` window so the tool call stays silent until a claim arrives or the timeout expires. If the tool returns `Process running with session ID ...`, preserve that session id; that subprocess handle is the source of truth for future claim output. See `references/doct-plan-update-versioning-and-listeners.md` for timeout/version pitfalls.
+Preserve the background-process/session handle and verify it remains running. Use `plans agent next --wait --timeout 60` only for short diagnostics, not durable browser-review listening. For monitoring that must survive the current session, register listener ownership with the established dispatcher/supervisor pattern. See `references/doct-plan-update-versioning-and-listeners.md` for listener and version pitfalls.
 6. A routed work item is created by the browser's agent action or by `doct-agent plans comments add --submit-action agent ...`. Ordinary conversation comments use `submitAction: "conversation"`, return `queueState: "none"`, and intentionally do not wake the plan-review listener.
 7. When the listener returns a claim, process exactly that claim in a separate worker step or sub-agent, then reply/ack/resolve/release with the returned commands. Start the next one-claim listener only after the current claim is no longer leased to this agent.
 8. If Codex cannot keep an observable `exec_command`/subprocess handle for the one-claim listener, report `LISTENER_START_BLOCKED` and leave the browser-review handoff incomplete.
