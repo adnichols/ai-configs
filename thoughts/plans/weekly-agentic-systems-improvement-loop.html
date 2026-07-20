@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekly Agentic Systems Improvement Loop</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #182235;
+      --text: #e5e7eb;
+      --muted: #a7b0c0;
+      --accent: #38bdf8;
+      --accent-2: #a78bfa;
+      --border: #334155;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --code: #050816;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.62;
+    }
+    main { width: min(1180px, calc(100% - 44px)); margin: 0 auto; padding: 42px 0 80px; }
+    h1, h2, h3, h4 { line-height: 1.24; }
+    h1 { font-size: clamp(2.15rem, 5vw, 4.25rem); margin: 0 0 14px; }
+    h2 { margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--border); }
+    h3 { margin-top: 30px; color: #dbeafe; }
+    a { color: var(--accent); }
+    .lede { color: var(--muted); font-size: 1.12rem; max-width: 940px; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 28px; }
+    .badge { border: 1px solid var(--border); border-radius: 999px; padding: 5px 11px; background: var(--panel); color: var(--muted); font-size: .9rem; }
+    .card, section.phase { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin: 18px 0; }
+    .callout { border-left: 4px solid var(--accent); background: var(--panel-2); padding: 16px 18px; border-radius: 12px; margin: 16px 0; }
+    .warning { border-left-color: var(--warn); }
+    .success { border-left-color: var(--good); }
+    .danger { border-left-color: var(--bad); }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: #1e293b; text-align: left; }
+    td { background: rgba(15, 23, 42, .5); }
+    code, pre { background: var(--code); color: #e0f2fe; border-radius: 8px; }
+    code { padding: 2px 5px; }
+    pre { padding: 14px; overflow-x: auto; border: 1px solid var(--border); white-space: pre-wrap; }
+    .toc { columns: 2 320px; }
+    .toc li { break-inside: avoid; margin: 6px 0; }
+    .progress li { margin: 8px 0; }
+    .checkbox { color: var(--warn); font-weight: 700; }
+    .small { color: var(--muted); font-size: .94rem; }
+    .diagram { text-align: center; font-weight: 650; letter-spacing: .01em; }
+    @media (max-width: 720px) { main { width: min(100% - 24px, 1180px); } .toc { columns: 1; } }
+  </style>
+</head>
+<body>
+<main>
+  <header id="top">
+    <h1>Weekly Agentic Systems Improvement Loop</h1>
+    <p class="lede">Execution plan for adding a bounded, evidence-driven second-order loop to Aaron's weekly review: capture outcomes from agentic coding and operating workflows, identify one repeated controllable failure, test one narrow process change against benchmark fixtures, and present it in Doct for human approval. The system proposes; it does not silently rewrite, install, merge, or activate its own operating rules.</p>
+    <div class="badge-row" aria-label="Plan status">
+      <span class="badge">Status: draft for review</span>
+      <span class="badge">Repository: ai-configs</span>
+      <span class="badge">Pilot: manual-first, four weeks</span>
+      <span class="badge">Authority: human merge/install</span>
+      <span class="badge">Cadence: weekly</span>
+    </div>
+  </header>
+
+  <section id="toc" class="card">
+    <h2>Table of contents</h2>
+    <ol class="toc">
+      <li><a href="#product-owner-context">Product-owner context</a></li>
+      <li><a href="#decision">Decision and target loop</a></li>
+      <li><a href="#evidence">Evidence and current-system fit</a></li>
+      <li><a href="#scope">Scope and non-goals</a></li>
+      <li><a href="#architecture">Architecture and authority boundaries</a></li>
+      <li><a href="#contracts">Data, evaluation, and proposal contracts</a></li>
+      <li><a href="#weekly-review">Weekly review experience</a></li>
+      <li><a href="#test-matrix">Test coverage matrix</a></li>
+      <li><a href="#progress">Progress</a></li>
+      <li><a href="#phase-p1-contracts">P1 — Define law and contracts</a></li>
+      <li><a href="#phase-p2-capture">P2 — Capture outcomes at source</a></li>
+      <li><a href="#phase-p3-evals">P3 — Build fixture and evaluation gate</a></li>
+      <li><a href="#phase-p4-proposal">P4 — Produce the weekly Doct proposal</a></li>
+      <li><a href="#phase-p5-pilot">P5 — Pilot, integrate, and schedule</a></li>
+      <li><a href="#acceptance-criteria">Acceptance criteria</a></li>
+      <li><a href="#failure-recovery">Failure and recovery behavior</a></li>
+      <li><a href="#verification">Final verification</a></li>
+      <li><a href="#resume-instructions">Resume instructions</a></li>
+    </ol>
+  </section>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <div class="callout success" id="key-conclusion">
+      <p><strong>Key conclusion:</strong> add a second loop around the existing coding and operating workflows, not autonomy inside them. The minimum useful product is one evidence-backed, reversible process experiment per week. It must preserve Aaron's approval at the points where a proposal becomes authoritative configuration, a merged change, an installed workflow, or a new scheduled behavior.</p>
+    </div>
+    <p>Aaron already has substantial first-loop machinery: Hermes supervises work, Pi executes repo-based development, Doct provides durable plans and comments, C-Core is the intended signal surface, and <code>ai-configs</code> is the authoritative source for managed Hermes configuration. What is missing is a consistent way to turn actual outcomes from those workflows into small, testable changes to the workflows themselves.</p>
+    <p>The article that prompted this plan describes an outbound system that logs outcomes, lets an agent propose one scoring or prompt change, evaluates the change, and opens a pull request for human review. The transferable pattern is the separation between the work-producing loop and the loop that edits its rules. For Aaron's system, the proposal surface should initially be Doct plus a concrete candidate diff, because many improvements are judgment-based and the <code>ai-configs</code> repository intentionally works directly on <code>main</code> rather than using routine feature branches.</p>
+    <table id="impact-table">
+      <thead><tr><th>Dimension</th><th>Impact</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>No direct customer-facing behavior in the MVP. Indirect benefit is more reliable delivery and fewer repeated operator interventions. Outcome records must not contain customer secrets or unnecessary personal data.</td></tr>
+        <tr><td>Runtime product behavior</td><td>Adds local outcome capture, deterministic validation/evaluation, and a weekly proposal workflow. It does not alter active agent rules until Aaron explicitly approves and a separate implementation step installs them.</td></tr>
+        <tr><td>Security / permissions</td><td>Fail closed on malformed evidence, missing provenance, ambiguous authority, and attempts to self-install or self-merge. Runtime evidence remains outside the tracked configuration repository and secret scanning applies to generated review artifacts.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Every proposed improvement is classified as machine-proven, evidence-supported, or review-required. Fixture replay and guardrail checks prevent speed or convenience proxies from overriding correctness, safety, and review quality.</td></tr>
+        <tr><td>Deployment / migration</td><td>Manual four-week pilot first. Scheduling is the final phase and occurs only after proposals are consistently narrow, traceable, and useful. Existing workflows continue unchanged if the new loop is disabled.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="decision">
+    <h2>Decision and target loop</h2>
+    <figure id="figure-target-loop" class="card">
+      <div class="diagram">WORK DURING WEEK → RECORD OUTCOME → VALIDATE EVIDENCE → WEEKLY SYNTHESIS → ONE PROPOSAL → FIXTURE/GUARDRAIL EVAL → DOCT REVIEW → APPROVE / REVISE / REJECT → OBSERVE NEXT WEEK</div>
+      <figcaption class="small">The proposal generator can recommend a source change and produce a candidate patch, but activation remains a separate human-authorized action.</figcaption>
+    </figure>
+    <h3 id="first-second-loop">First loop versus second loop</h3>
+    <table>
+      <thead><tr><th>Loop</th><th>Responsibility</th><th>Authority</th></tr></thead>
+      <tbody>
+        <tr><td>First loop</td><td>Research, plan, delegate, code, review, validate, signal, and resolve operational work.</td><td>Existing Hermes/Pi/Doct/C-Core workflows and their current gates.</td></tr>
+        <tr><td>Second loop</td><td>Inspect first-loop outcomes, diagnose repeated friction, propose one narrow process change, evaluate it, and ask for a decision.</td><td>Read-only over evidence; write access only to proposal artifacts and candidate patches. No live config install, merge, external send, or production mutation.</td></tr>
+      </tbody>
+    </table>
+    <h3 id="proof-levels">Proof levels</h3>
+    <ul>
+      <li><strong>proven_by_eval:</strong> deterministic fixture replay shows the candidate fixes the target case without guardrail regression.</li>
+      <li><strong>supported_by_evidence:</strong> repeated outcomes support the diagnosis and fixture replay is directionally positive, but a monitored trial is still required.</li>
+      <li><strong>review_required:</strong> the proposal depends materially on taste, communication quality, model behavior, or sparse evidence and must not claim proof.</li>
+    </ul>
+  </section>
+
+  <section id="evidence">
+    <h2>Evidence and current-system fit</h2>
+    <ul>
+      <li><code>ai-configs/AGENTS.md</code> establishes that this repository works directly on <code>main</code> by default and that active reviewed plans are semantic HTML files under <code>thoughts/plans/</code>.</li>
+      <li>The repository declares <code>_hermes/default</code> as the source copy for managed Hermes config and requires export/verify/install discipline through <code>.claude/scripts/hermes_config_sync.py</code>.</li>
+      <li>The managed Hermes bundle includes skills, scripts, and cron definitions, while runtime state, sessions, logs, databases, checkpoints, and generated output are intentionally excluded.</li>
+      <li>Existing Good Morning automation already demonstrates a useful pattern: deterministic collection, Doct plan publication, and a durable comment listener. The weekly tuner should reuse that shape rather than invent a parallel review surface.</li>
+      <li>The existing <code>dev:reflect</code> command updates a single plan after a phase, but it is phase-local and plan-centric. This plan adds cross-run evidence accumulation and weekly process-level proposals.</li>
+      <li>C-Core is the intended signal system, but known noninteractive auth constraints mean the MVP must not depend on C-Core reads being available. C-Core integration is additive after the local evidence contract works.</li>
+    </ul>
+    <div class="callout warning" id="evidence-caveat">
+      <p><strong>Evidence limitation:</strong> current agent/session logs were not treated as a clean historical dataset for this plan. The MVP therefore starts prospective and manual-first rather than pretending a reliable baseline can be reconstructed from inconsistent past telemetry.</p>
+    </div>
+  </section>
+
+  <section id="scope">
+    <h2>Scope and non-goals</h2>
+    <h3 id="in-scope">In scope</h3>
+    <ul>
+      <li>A compact operational law defining allowed evidence, edits, proof claims, and authority boundaries.</li>
+      <li>A versioned outcome schema and append/validate tooling.</li>
+      <li>A small benchmark fixture set covering normal, failure, stale-evidence, and guardrail cases.</li>
+      <li>Deterministic weekly aggregation and candidate-selection logic.</li>
+      <li>An agent synthesis step that proposes exactly one conceptual change and cites evidence.</li>
+      <li>A Doct HTML proposal artifact with stable anchors, a candidate diff, proof classification, risks, and Aaron's decision surface.</li>
+      <li>A manual four-week pilot, followed by optional weekly scheduling.</li>
+      <li>Optional C-Core links/exports after the local contract is proven.</li>
+    </ul>
+    <h3 id="non-goals">Non-goals</h3>
+    <ul>
+      <li>No agent self-merge, self-install, self-deployment, or automatic editing of live Hermes/Pi behavior.</li>
+      <li>No optimization for raw task count, agent turns, token volume, or speed as a standalone success measure.</li>
+      <li>No automatic mining of every chat, repository, or private note in the MVP.</li>
+      <li>No replacement of Todoist, Obsidian weekly review, Doct plan review, or C-Core signal ownership.</li>
+      <li>No all-at-once modification of planning, model routing, prompting, validation, and signal handling.</li>
+      <li>No scheduling until at least two manual tune-ups have been read end-to-end and the four-week pilot exit criteria are met.</li>
+    </ul>
+  </section>
+
+  <section id="architecture">
+    <h2>Architecture and authority boundaries</h2>
+    <table id="component-table">
+      <thead><tr><th>Component</th><th>Proposed location</th><th>Responsibility</th></tr></thead>
+      <tbody>
+        <tr><td>Source skill</td><td><code>_hermes/default/skills/productivity/weekly-agentic-systems-review/SKILL.md</code></td><td>Defines when and how Hermes captures outcomes and runs the weekly review.</td></tr>
+        <tr><td>Deterministic scripts</td><td><code>_hermes/default/scripts/weekly_agentic_review/</code></td><td>Schema validation, outcome append, aggregation, fixture replay, proposal packet rendering, and secret/provenance checks.</td></tr>
+        <tr><td>Versioned schemas/fixtures</td><td><code>_hermes/default/scripts/weekly_agentic_review/contracts/</code></td><td>JSON Schema or equivalent contracts plus representative evaluation fixtures and guardrails.</td></tr>
+        <tr><td>Runtime evidence</td><td><code>~/.hermes/state/weekly-agentic-review/outcomes.jsonl</code></td><td>Append-only local evidence. Excluded from <code>ai-configs</code> export and commits.</td></tr>
+        <tr><td>Generated packets</td><td><code>~/.hermes/state/weekly-agentic-review/runs/&lt;week&gt;/</code></td><td>Deterministic weekly aggregate, candidate list, eval report, candidate patch, and publication payload.</td></tr>
+        <tr><td>Reviewer artifact</td><td>Registered Doct HTML plan/proposal</td><td>Human-readable diagnosis, evidence, candidate diff, proof level, risks, guardrails, and decision.</td></tr>
+        <tr><td>Weekly summary pointer</td><td>Obsidian weekly review section or Todoist review task</td><td>Links to the Doct proposal and records Aaron's decision; detailed evidence stays in the proposal packet.</td></tr>
+        <tr><td>Schedule</td><td>Managed Hermes cron definition after pilot</td><td>Runs deterministic collection/synthesis weekly and delivers the canonical Doct URL. Never recursively schedules work.</td></tr>
+      </tbody>
+    </table>
+    <h3 id="authority-matrix">Authority matrix</h3>
+    <table>
+      <thead><tr><th>Action</th><th>Automatic?</th><th>Required control</th></tr></thead>
+      <tbody>
+        <tr><td>Append a validated outcome</td><td>Yes, when explicitly invoked by a workflow; otherwise manual.</td><td>Schema validation, provenance, redaction.</td></tr>
+        <tr><td>Read outcomes and aggregate</td><td>Yes.</td><td>Read-only; bounded date range.</td></tr>
+        <tr><td>Generate candidate diff</td><td>Yes, in an isolated packet.</td><td>One concept, allowlisted source paths, no application.</td></tr>
+        <tr><td>Publish/update Doct proposal</td><td>Yes during approved/manual run; scheduled after pilot.</td><td>Canonical Doct registration and durable listener.</td></tr>
+        <tr><td>Edit <code>ai-configs</code> source</td><td>No in the MVP.</td><td>Separate explicit implementation request.</td></tr>
+        <tr><td>Install live Hermes config</td><td>No.</td><td>Explicit implementation plus sync verification.</td></tr>
+        <tr><td>Merge or push</td><td>No.</td><td>Existing repository workflow and human authority.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="contracts">
+    <h2>Data, evaluation, and proposal contracts</h2>
+    <h3 id="outcome-schema">Outcome record</h3>
+    <pre><code>{
+  "schema_version": 1,
+  "recorded_at": "2026-07-20T15:00:00Z",
+  "workflow": "pi-coding-workflow",
+  "work_class": "bugfix",
+  "subject": "repo-or-system-safe-identifier",
+  "result": "completed_with_rework",
+  "phase_reached": "validation",
+  "human_interventions": 2,
+  "rework_cycles": 1,
+  "verification": {
+    "required": true,
+    "passed": true,
+    "evidence_refs": ["doct://...", "session://...", "github://..."]
+  },
+  "failure_class": "unverified_external_dependency",
+  "reason": "Plan assumed noninteractive auth was available.",
+  "tags": ["planning", "auth", "context"],
+  "provenance": {
+    "recorded_by": "human|workflow|agent",
+    "source_type": "doct|session|git|ccore|manual",
+    "source_ref": "stable reference"
+  }
+}</code></pre>
+    <p>Required rules: no empty reason, no future timestamp, no unrecognized enum, no secret-like values, and no success claim without evidence when verification is required. Records are immutable after append; corrections append a superseding record that references the original ID.</p>
+
+    <h3 id="candidate-selection">Candidate selection</h3>
+    <ol>
+      <li>Validate all records in the review window.</li>
+      <li>Group by workflow, phase, failure class, and controllable process surface.</li>
+      <li>Compare the current week with a trailing four-week window when enough data exists.</li>
+      <li>Reject candidates that are one-off, outside operator control, missing evidence, already under active remediation, or primarily a project/product defect.</li>
+      <li>Require two supporting outcomes by default; allow one severe reliability/safety incident with an explicit severity override.</li>
+      <li>Rank candidates by repeated human attention cost, correctness/reliability impact, reversibility, and evaluation quality.</li>
+      <li>Select at most one proposal. An empty week is a valid result.</li>
+    </ol>
+
+    <h3 id="scorecard">Scorecard and guardrails</h3>
+    <table>
+      <thead><tr><th>Target measures</th><th>Guardrails</th></tr></thead>
+      <tbody>
+        <tr><td>Human interventions, rework cycles, plan revisions after execution starts, stalled/lost-state runs, time from approved plan to verified result, signal-to-resolution time.</td><td>Acceptance criteria verified, review escapes, evidence completeness, destructive/permission boundary violations, duplicate execution, stale or unowned signals, customer/security risk.</td></tr>
+      </tbody>
+    </table>
+    <p>No single blended score decides whether a change is good. A target improvement is rejected if a relevant guardrail regresses or the evidence is too sparse.</p>
+
+    <h3 id="proposal-contract">Weekly proposal</h3>
+    <p>Each proposal must contain: observed problem, cited evidence rows, confidence and sample caveat, one hypothesis, one conceptual change, exact source files that would change, candidate diff, baseline eval, candidate eval, guardrail result, proof classification, risks, rollback, monitored trial length, and a human decision of approve/revise/reject/gather-more-evidence.</p>
+  </section>
+
+  <section id="weekly-review">
+    <h2>Weekly review experience</h2>
+    <ol>
+      <li>The deterministic runner validates the current week's records and produces a data-quality report.</li>
+      <li>It computes recurring failure clusters and a short ranked candidate list.</li>
+      <li>The synthesis agent receives only the validated packet, the operational law, current fixtures, and allowlisted candidate source files.</li>
+      <li>The agent chooses zero or one candidate, proposes one change, and creates a candidate patch without applying it.</li>
+      <li>The evaluator replays baseline and candidate behavior against fixtures and guardrails.</li>
+      <li>A Doct artifact is created or updated with stable comment anchors and a canonical URL.</li>
+      <li>A short weekly-review pointer says either “no evidence-backed change this week” or links the one proposal.</li>
+      <li>Aaron approves, revises, rejects, or asks for another week of evidence.</li>
+      <li>If approved, implementation occurs through the normal reviewed-plan/config workflow—not inside the tuner run.</li>
+    </ol>
+    <div class="callout" id="empty-week">
+      <p><strong>Empty-week behavior:</strong> the system must prefer no proposal over a weak proposal. It publishes a compact evidence-quality summary and does not manufacture a process change to satisfy the cadence.</p>
+    </div>
+  </section>
+
+  <section id="test-matrix">
+    <h2>Test coverage matrix</h2>
+    <table>
+      <thead><tr><th>Scenario</th><th>Expected behavior</th><th>Primary phase</th></tr></thead>
+      <tbody>
+        <tr id="bdd-valid-outcome"><td>Valid verified coding outcome</td><td>Appends one normalized record and prints its stable ID.</td><td>P2</td></tr>
+        <tr id="bdd-malformed-outcome"><td>Missing reason, future timestamp, unknown result, or missing provenance</td><td>Rejects without altering the evidence log; returns an actionable error.</td><td>P1/P2</td></tr>
+        <tr id="bdd-secret-outcome"><td>Record appears to contain a token or credential</td><td>Fails closed and identifies the blocked field without echoing the secret.</td><td>P2</td></tr>
+        <tr id="bdd-sparse-evidence"><td>Only one low-severity outcome supports a change</td><td>No proposal; asks for more evidence.</td><td>P3/P4</td></tr>
+        <tr id="bdd-severe-single"><td>One severe safety/reliability incident</td><td>May create a proposal with explicit severity override and review-required status.</td><td>P3/P4</td></tr>
+        <tr id="bdd-one-concept"><td>Candidate patch touches multiple unrelated concepts</td><td>Rejects the candidate before publication.</td><td>P3/P4</td></tr>
+        <tr id="bdd-flat-eval"><td>Candidate tells a plausible story but does not improve the target fixture</td><td>Marks rejected or review-required; does not call it proven.</td><td>P3</td></tr>
+        <tr id="bdd-guardrail-regression"><td>Target metric improves while verification or review guardrail declines</td><td>Rejects the proposal.</td><td>P3</td></tr>
+        <tr id="bdd-subjective-change"><td>Prompt/taste/model-routing change lacks deterministic proof</td><td>Uses supported-by-evidence or review-required plus monitored trial.</td><td>P3/P4</td></tr>
+        <tr id="bdd-no-candidate"><td>No repeated controllable failure exists</td><td>Publishes or reports an empty week without inventing work.</td><td>P4</td></tr>
+        <tr id="bdd-no-ccore-auth"><td>C-Core cannot unlock noninteractively</td><td>Local review still succeeds; C-Core reference is marked unavailable rather than fabricated.</td><td>P2/P5</td></tr>
+        <tr id="bdd-self-activation"><td>Proposal attempts to edit live config, merge, install, or schedule itself</td><td>Fails closed and records an authority-boundary violation.</td><td>P1/P4</td></tr>
+        <tr id="bdd-doct-listener"><td>Doct proposal registers successfully</td><td>Canonical URL, metadata readback, active lifecycle, queue drain, and durable listener ownership are verified.</td><td>P4</td></tr>
+        <tr id="bdd-idempotent-week"><td>Weekly run is repeated for the same week</td><td>Updates/reuses the same run identity and proposal rather than duplicating records or documents.</td><td>P4/P5</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="progress">
+      <li id="progress-p1"><span class="checkbox">[ ]</span> P1 — Define law and contracts</li>
+      <li id="progress-p2"><span class="checkbox">[ ]</span> P2 — Capture outcomes at source</li>
+      <li id="progress-p3"><span class="checkbox">[ ]</span> P3 — Build fixture and evaluation gate</li>
+      <li id="progress-p4"><span class="checkbox">[ ]</span> P4 — Produce the weekly Doct proposal</li>
+      <li id="progress-p5"><span class="checkbox">[ ]</span> P5 — Pilot, integrate, and schedule</li>
+    </ul>
+  </section>
+
+  <section id="phase-p1-contracts" class="phase">
+    <h2>P1 — Define law and contracts</h2>
+    <h3>End State</h3>
+    <p>The system has a compact operational law, versioned schemas, explicit authority boundaries, proof classifications, failure taxonomy, and fixture format. Another agent can determine what the tuner may read, propose, write, and claim without inventing policy.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Write contract tests for valid/invalid outcome records, one-concept candidate patches, allowed proof classifications, and prohibited self-activation actions.</li>
+      <li>Encode failure cases for missing provenance, future timestamps, empty reasons, secret-like data, and unsupported success claims.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <pre><code>_hermes/default/skills/productivity/weekly-agentic-systems-review/SKILL.md
+_hermes/default/scripts/weekly_agentic_review/contracts/outcome.schema.json
+_hermes/default/scripts/weekly_agentic_review/contracts/proposal.schema.json
+_hermes/default/scripts/weekly_agentic_review/contracts/eval-fixtures.yaml
+_hermes/default/scripts/weekly_agentic_review/tests/test_contracts.py</code></pre>
+    <h3>Work</h3>
+    <ol>
+      <li>Define the law: evidence-only diagnosis, one conceptual change, cited provenance, no live writes, no merge/install/schedule authority, and honest proof labels.</li>
+      <li>Define controlled enums for workflows, results, phases, failure classes, proof levels, and decision states while retaining a versioned extension path.</li>
+      <li>Define record correction through append-only supersession rather than mutation.</li>
+      <li>Define allowlisted candidate source surfaces and prohibit runtime evidence from entering tracked config.</li>
+      <li>Define deterministic exit codes and agent-legible errors for every validator.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>cd /Users/anichols/code/ai-configs
+python3 -m unittest discover -s _hermes/default/scripts/weekly_agentic_review/tests -p 'test_contracts.py'
+python3 -m json.tool _hermes/default/scripts/weekly_agentic_review/contracts/outcome.schema.json &gt;/dev/null
+python3 -m json.tool _hermes/default/scripts/weekly_agentic_review/contracts/proposal.schema.json &gt;/dev/null</code></pre>
+  </section>
+
+  <section id="phase-p2-capture" class="phase">
+    <h2>P2 — Capture outcomes at source</h2>
+    <h3>End State</h3>
+    <p>A deterministic CLI can append, validate, inspect, and supersede outcome records in local runtime state. Existing workflows can call it explicitly without making C-Core, Doct, GitHub, or session-database availability a hard prerequisite.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Test atomic append, concurrent append locking, immutable IDs, supersession, date-window reads, redaction failure, and unchanged-log behavior on validation errors.</li>
+      <li>Test that absent C-Core/session/Git evidence is represented as unavailable—not inferred or fabricated.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <pre><code>_hermes/default/scripts/weekly_agentic_review/outcomes.py
+_hermes/default/scripts/weekly_agentic_review/tests/test_outcomes.py
+_hermes/default/skills/productivity/weekly-agentic-systems-review/references/outcome-capture.md</code></pre>
+    <h3>Work</h3>
+    <ol>
+      <li>Implement <code>append</code>, <code>validate</code>, <code>list</code>, and <code>supersede</code> commands with atomic file handling under <code>~/.hermes/state/weekly-agentic-review/</code>.</li>
+      <li>Support manual records first and bounded workflow hooks second. Do not auto-mine all conversations.</li>
+      <li>Add adapter guidance for Pi coding completion, Doct plan resolution, C-Core signal resolution, cron failure, and operator intervention events.</li>
+      <li>Require stable evidence references when verification is claimed; allow unavailable references with an explicit reason.</li>
+      <li>Document a ten-second manual capture path so evidence is recorded when the outcome lands rather than reconstructed on Friday.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>cd /Users/anichols/code/ai-configs
+python3 -m unittest discover -s _hermes/default/scripts/weekly_agentic_review/tests -p 'test_outcomes.py'
+tmpdir="$(mktemp -d)"
+WEEKLY_AGENTIC_REVIEW_STATE="$tmpdir" python3 _hermes/default/scripts/weekly_agentic_review/outcomes.py append --fixture valid-completed-with-rework
+WEEKLY_AGENTIC_REVIEW_STATE="$tmpdir" python3 _hermes/default/scripts/weekly_agentic_review/outcomes.py validate
+WEEKLY_AGENTIC_REVIEW_STATE="$tmpdir" python3 _hermes/default/scripts/weekly_agentic_review/outcomes.py list --json</code></pre>
+  </section>
+
+  <section id="phase-p3-evals" class="phase">
+    <h2>P3 — Build fixture and evaluation gate</h2>
+    <h3>End State</h3>
+    <p>The system can aggregate a review window, identify repeated controllable failure candidates, evaluate baseline versus candidate behavior, enforce guardrails, and produce a deterministic packet that an agent cannot explain away.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Encode the scenarios in the test coverage matrix, including sparse evidence, a severe single incident, plausible-but-flat change, guardrail regression, subjective change, and empty week.</li>
+      <li>Add golden packets whose expected candidate ranking and proof classification are stable.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <pre><code>_hermes/default/scripts/weekly_agentic_review/aggregate.py
+_hermes/default/scripts/weekly_agentic_review/evaluate.py
+_hermes/default/scripts/weekly_agentic_review/candidate_patch.py
+_hermes/default/scripts/weekly_agentic_review/tests/test_aggregate.py
+_hermes/default/scripts/weekly_agentic_review/tests/test_evaluate.py
+_hermes/default/scripts/weekly_agentic_review/tests/fixtures/</code></pre>
+    <h3>Work</h3>
+    <ol>
+      <li>Implement deterministic grouping and ranking with explicit reasons for inclusion/exclusion.</li>
+      <li>Separate target measures from guardrails; prohibit a single blended score from hiding regressions.</li>
+      <li>Create an isolated candidate work area that can render a patch against allowlisted source files without applying it.</li>
+      <li>Run baseline and candidate evaluation and emit machine-readable before/after results.</li>
+      <li>Classify the result as proven, evidence-supported, review-required, rejected, or no-candidate.</li>
+      <li>Make fixture additions part of the proposal when a costly new failure has no existing benchmark case.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>cd /Users/anichols/code/ai-configs
+python3 -m unittest discover -s _hermes/default/scripts/weekly_agentic_review/tests -p 'test_aggregate.py'
+python3 -m unittest discover -s _hermes/default/scripts/weekly_agentic_review/tests -p 'test_evaluate.py'
+python3 _hermes/default/scripts/weekly_agentic_review/evaluate.py --fixtures _hermes/default/scripts/weekly_agentic_review/tests/fixtures/empty-week --expect no-candidate
+python3 _hermes/default/scripts/weekly_agentic_review/evaluate.py --fixtures _hermes/default/scripts/weekly_agentic_review/tests/fixtures/guardrail-regression --expect rejected</code></pre>
+  </section>
+
+  <section id="phase-p4-proposal" class="phase">
+    <h2>P4 — Produce the weekly Doct proposal</h2>
+    <h3>End State</h3>
+    <p>One command produces or updates a reviewer-friendly Doct HTML proposal for a week, verifies the canonical artifact and listener ownership, and emits a compact summary. The proposal is idempotent and contains no unsupported proof claim.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Test proposal rendering for proven, evidence-supported, review-required, rejected, and empty-week outcomes.</li>
+      <li>Test stable HTML IDs, secret scanning, source-path allowlisting, canonical URL extraction, and same-week idempotency.</li>
+      <li>Test that publication cannot proceed if the candidate patch claims live activation or omits cited evidence.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <pre><code>_hermes/default/scripts/weekly_agentic_review/render_proposal.py
+_hermes/default/scripts/weekly_agentic_review/run_weekly_review.py
+_hermes/default/scripts/weekly_agentic_review/templates/weekly-proposal.html
+_hermes/default/scripts/weekly_agentic_review/tests/test_proposal.py
+_hermes/default/skills/productivity/weekly-agentic-systems-review/references/doct-review.md</code></pre>
+    <h3>Work</h3>
+    <ol>
+      <li>Render an HTML proposal with the problem, evidence table, hypothesis, exact candidate diff, eval table, guardrails, risks, rollback, trial, and decision options.</li>
+      <li>Use a stable week key and stored registration metadata so reruns update the same Doct document.</li>
+      <li>Register/update only through <code>doct-agent plans</code> against production Doct.</li>
+      <li>Activate lifecycle, drain the queue, and register ownership with a durable listener supervisor pattern rather than relying on an ephemeral process PID.</li>
+      <li>Produce a concise output suitable for the Obsidian weekly review or Todoist review task.</li>
+      <li>For empty weeks, publish a compact quality summary or return a configured no-proposal result without inventing a change.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>cd /Users/anichols/code/ai-configs
+python3 -m unittest discover -s _hermes/default/scripts/weekly_agentic_review/tests -p 'test_proposal.py'
+WEEKLY_AGENTIC_REVIEW_STATE="$(mktemp -d)" python3 _hermes/default/scripts/weekly_agentic_review/run_weekly_review.py --fixture evidence-supported --dry-run
+# Manual production smoke test after local tests:
+# run the weekly review for a fixture week, register in Doct, then use doct-agent plans show
+# and queue/listener commands returned by registration to verify URL, version, lifecycle, queue drain, and listener ownership.</code></pre>
+  </section>
+
+  <section id="phase-p5-pilot" class="phase">
+    <h2>P5 — Pilot, integrate, and schedule</h2>
+    <h3>End State</h3>
+    <p>The loop has completed four manual weekly cycles, its usefulness and guardrails have been reviewed, the accepted review pointer is integrated into Aaron's weekly review, and only then an optional managed Hermes cron runs it on a predictable cadence.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Define pilot exit metrics before the first run: data completeness, proposal acceptance/revision/rejection, false diagnosis rate, time to review, guardrail escapes, and whether the following week's target outcome improved.</li>
+      <li>Test cron dry-run behavior, repeat-week idempotency, Doct outage handling, missing evidence, and delivery failure.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <pre><code>_hermes/default/scripts/weekly_agentic_review/pilot_report.py
+_hermes/default/scripts/weekly_agentic_review/tests/test_weekly_job.py
+_hermes/default/cron/jobs.json
+# Optional Obsidian weekly-review template change only after Aaron chooses the target note/template.</code></pre>
+    <h3>Work</h3>
+    <ol>
+      <li>Run weeks one and two entirely by hand; read every evidence row, candidate ranking, diff, and proof claim.</li>
+      <li>Run weeks three and four with the deterministic runner but manual publication/approval.</li>
+      <li>Record decisions and next-week observations so the loop learns whether approved changes helped rather than merely whether they were merged.</li>
+      <li>Choose the canonical weekly-review pointer location with Aaron; do not guess an Obsidian template path.</li>
+      <li>If exit criteria pass, add a managed weekly cron with a self-contained prompt/script, bounded toolsets, explicit workdir, canonical Doct delivery, and no recursive scheduling.</li>
+      <li>Install from the source-managed Hermes bundle, export/verify, and commit/push <code>ai-configs</code> under the existing configuration discipline.</li>
+      <li>If exit criteria fail, keep the manual runner, revise contracts/fixtures, or stop the loop without affecting existing workflows.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>cd /Users/anichols/code/ai-configs
+python3 -m unittest discover -s _hermes/default/scripts/weekly_agentic_review/tests -p 'test_weekly_job.py'
+python3 _hermes/default/scripts/weekly_agentic_review/pilot_report.py --state ~/.hermes/state/weekly-agentic-review --weeks 4
+python3 .claude/scripts/hermes_config_sync.py install --dry-run
+python3 .claude/scripts/hermes_config_sync.py install --apply
+python3 .claude/scripts/hermes_config_sync.py export
+python3 .claude/scripts/hermes_config_sync.py verify
+git diff --check
+git status --short</code></pre>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <ol>
+      <li id="ac-1">A versioned append-only outcome log records agentic coding and operating-workflow results with reasons and provenance at the time outcomes are known.</li>
+      <li id="ac-2">Malformed, future-dated, secret-bearing, provenance-free, or unsupported success records fail closed without changing the log.</li>
+      <li id="ac-3">The weekly runner selects zero or one repeated controllable failure and explains why other candidates were rejected.</li>
+      <li id="ac-4">Every proposal changes one conceptual process surface and cites the exact outcome records that support it.</li>
+      <li id="ac-5">Baseline and candidate evaluations are machine-readable, fixture failures are inspectable, and relevant guardrail regressions reject the candidate.</li>
+      <li id="ac-6">Subjective or sparse-evidence changes are labeled supported-by-evidence or review-required rather than machine-proven.</li>
+      <li id="ac-7">The generated candidate patch is isolated and cannot apply itself, edit live Hermes state, merge, install, deploy, or schedule another job.</li>
+      <li id="ac-8">The Doct proposal has a canonical production URL, stable comment anchors, verified metadata, active lifecycle, drained startup queue, and durable listener ownership.</li>
+      <li id="ac-9">A repeated weekly run is idempotent and does not duplicate outcomes, run directories, or Doct proposal documents.</li>
+      <li id="ac-10">The loop remains useful when C-Core, Doct publication, session evidence, or another optional source is temporarily unavailable; it reports the missing source honestly and preserves retryable state.</li>
+      <li id="ac-11">At least four manual weekly cycles are reviewed before scheduling, including at least two end-to-end read-throughs of every diff and evidence row.</li>
+      <li id="ac-12">An accepted change is observed in the following week and may be reverted if its target outcome fails to improve or a guardrail regresses.</li>
+    </ol>
+  </section>
+
+  <section id="failure-recovery">
+    <h2>Failure and recovery behavior</h2>
+    <table>
+      <thead><tr><th>Failure</th><th>Behavior</th><th>Recovery</th></tr></thead>
+      <tbody>
+        <tr><td>Invalid or secret-bearing outcome</td><td>Reject append; do not echo sensitive value.</td><td>Correct input and retry.</td></tr>
+        <tr><td>Partial/corrupt JSONL tail</td><td>Stop aggregation and identify byte/line boundary.</td><td>Use append-only repair tooling that preserves the corrupt source as evidence.</td></tr>
+        <tr><td>Insufficient evidence</td><td>No proposal or review-required proposal.</td><td>Gather another week; do not lower the threshold silently.</td></tr>
+        <tr><td>Candidate evaluation fails</td><td>Discard/reject candidate patch.</td><td>Keep baseline and publish the rejected reasoning only if useful.</td></tr>
+        <tr><td>Doct unavailable</td><td>Keep generated packet locally and report publication pending.</td><td>Idempotent retry updates/registers once.</td></tr>
+        <tr><td>Listener cannot be durably owned</td><td>Mark review handoff incomplete.</td><td>Repair supervisor ownership before asking Aaron to comment.</td></tr>
+        <tr><td>C-Core unavailable</td><td>Skip optional signal evidence and mark unavailable.</td><td>Retry when credentials/runtime allow; local loop continues.</td></tr>
+        <tr><td>Scheduled run fails</td><td>One actionable alert; no repeated empty/noisy delivery.</td><td>Manual rerun using the same week identity.</td></tr>
+        <tr><td>Approved change regresses guardrail</td><td>Flag the experiment as failed.</td><td>Propose revert or revision through the normal review workflow.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="verification">
+    <h2>Final verification</h2>
+    <ol>
+      <li>Run all weekly-review unit and fixture tests.</li>
+      <li>Exercise valid append, invalid append, supersession, aggregation, empty week, evidence-supported proposal, rejected guardrail regression, and idempotent rerun.</li>
+      <li>Confirm runtime outcomes and generated packets remain under <code>~/.hermes/state/</code> and are absent from the managed export and Git diff.</li>
+      <li>Confirm candidate generation changes only allowlisted copied/source representations and never applies the patch.</li>
+      <li>Register one fixture-backed proposal in production Doct and verify canonical URL, document/version readback, active lifecycle, queue drain, and durable listener ownership.</li>
+      <li>Complete four manual weekly cycles and generate a pilot report before creating/enabling a cron.</li>
+      <li>When scheduling is approved, run Hermes install dry-run/apply, export, verify, inspect Git diff, and commit/push the authoritative source changes.</li>
+    </ol>
+  </section>
+
+  <section id="resume-instructions">
+    <h2>Resume Instructions (Agent)</h2>
+    <p>Read this plan fully and begin with the first unchecked phase in <a href="#progress">Progress</a>. Preserve the separation between the first-loop workflows and the second-loop tuner. Keep runtime outcomes out of Git, require evidence and provenance, permit zero proposals, and never apply a candidate patch or activate a process change inside the weekly tuner. After each phase, run its verification commands, update only this plan's matching progress item and decisions log, push the source update to Doct using the current document version, and continue only if the current phase is verified.</p>
+  </section>
+
+  <section id="decisions-deviations-log">
+    <h2>Decisions / Deviations Log</h2>
+    <p class="small">2026-07-20: Chose Doct proposal review plus an isolated candidate diff instead of automatic pull requests for the MVP because <code>ai-configs</code> intentionally operates directly on <code>main</code> and many process changes are not fully machine-evaluable.</p>
+    <p class="small">2026-07-20: Chose prospective manual-first outcome capture rather than reconstructing a baseline from heterogeneous historical session and workflow logs.</p>
+    <p class="small">2026-07-20: Kept C-Core integration optional for the MVP because noninteractive auth can make reads unavailable even when health checks pass.</p>
+    <p class="small">2026-07-20: Required separate target measures and guardrails rather than one blended optimization score.</p>
+  </section>
+
+  <section id="plan-changelog">
+    <h2>Plan Changelog</h2>
+    <p class="small">2026-07-20: Initial plan created from Nicolas Finet's self-improving outbound loop pattern and mapped to Aaron's Hermes/Pi/Doct/C-Core/ai-configs operating environment.</p>
+  </section>
+</main>
+</body>
+</html>
