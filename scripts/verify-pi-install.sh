@@ -41,15 +41,27 @@ if [ "$VERIFY_SCOPE" = "pi-review-stack" ]; then
     done
     shopt -u nullglob
   }
+  check_exact_filename_set() {
+    local source="$1" target="$2" expected actual
+    expected="$(find "$source" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)"
+    actual="$(find "$target" -mindepth 1 -maxdepth 1 -exec basename {} \; 2>/dev/null | sort)"
+    if [ "$expected" != "$actual" ]; then
+      echo "FAIL: installed exact filename set $target" >&2
+      echo "Expected:" >&2; printf '%s\n' "$expected" >&2
+      echo "Actual:" >&2; printf '%s\n' "$actual" >&2
+      failures=$((failures+1))
+    fi
+  }
   check_tree_entries "$REPO_ROOT/_pi/prompts" "$PI_AGENT_DIR/prompts"
+  check_exact_filename_set "$REPO_ROOT/_pi/agents" "$PI_AGENT_DIR/agents"
   check_tree_entries "$REPO_ROOT/_pi/agents" "$PI_AGENT_DIR/agents"
   check_tree_entries "$REPO_ROOT/_pi/extensions" "$PI_AGENT_DIR/extensions"
   for pair in "$REPO_ROOT/_pi/README.md:$PI_AGENT_DIR/README.md"; do
     left="${pair%%:*}"; right="${pair#*:}"; cmp -s "$left" "$right" || { echo "FAIL: installed parity $right" >&2; failures=$((failures+1)); }
   done
-  if ! python3 - "$REPO_ROOT/_pi/models.json" "$PI_AGENT_DIR/models.json" <<'PY'
-import json, sys
-source, installed = (json.load(open(value)) for value in sys.argv[1:])
+  if ! python3 - "$REPO_ROOT/_pi/models.json" "$PI_AGENT_DIR/models.json" "$PI_AGENT_DIR/settings.json" <<'PY'
+import json, re, sys
+source, installed = (json.load(open(value)) for value in sys.argv[1:3])
 source_providers = source.get("providers", {})
 installed_providers = installed.get("providers", {})
 for provider_id, provider in source_providers.items():
@@ -63,6 +75,23 @@ for provider_id, provider in source_providers.items():
             def contains(actual, expected):
                 return all(key in actual and (contains(actual[key], value) if isinstance(value, dict) else actual[key] == value) for key, value in expected.items())
             if not contains(target_models[model["id"]], model): raise SystemExit(1)
+retired = {"gpt-5.4", "gpt-5.4-mini"}
+managed = installed_providers.get("openai-codex", {})
+if any(isinstance(model, dict) and model.get("id") in retired for model in managed.get("models", [])):
+    raise SystemExit(1)
+settings_path = sys.argv[3]
+try:
+    settings = json.load(open(settings_path))
+except FileNotFoundError:
+    settings = {}
+enabled = settings.get("enabledModels", []) if isinstance(settings, dict) else []
+if not isinstance(enabled, list):
+    raise SystemExit(1)
+for value in enabled:
+    if not isinstance(value, str):
+        continue
+    if value in retired or re.fullmatch(r"openai-codex(?:-[^/]*)?/gpt-5\.4(?:-mini)?", value):
+        raise SystemExit(1)
 PY
   then echo "FAIL: installed merged model contract $PI_AGENT_DIR/models.json" >&2; failures=$((failures+1)); fi
   if ! python3 - "$REPO_ROOT" "$REPO_ROOT/APPEND_SYSTEM.md" "$PI_AGENT_DIR/APPEND_SYSTEM.md" <<'PY'
@@ -292,6 +321,8 @@ EOF
 }
 
 EXPECTED_REPO_EXTENSIONS="$(cd "$REPO_ROOT" && list_find_entries "_pi/extensions")"
+EXPECTED_REPO_AGENTS="$(cd "$REPO_ROOT" && list_find_entries "_pi/agents")"
+INSTALLED_REPO_AGENTS="$(list_find_entries "$PI_AGENT_DIR/agents")"
 EXPECTED_LOCAL_PACKAGES="$PI_VCC_STABLE_PACKAGE"
 LOCAL_PI_INTERACTIVE_SHELL="$(cd "$REPO_ROOT/../3p/pi-interactive-shell" 2>/dev/null && pwd || true)"
 if [ -n "$LOCAL_PI_INTERACTIVE_SHELL" ]; then
@@ -331,7 +362,22 @@ print_list "expected: " "$EXPECTED_REPO_EXTENSIONS"
 print_list "installed: " "$INSTALLED_REPO_EXTENSIONS"
 report_expected_vs_actual "  Comparison:" "$EXPECTED_REPO_EXTENSIONS" "$INSTALLED_REPO_EXTENSIONS" true
 
-print_section "2) Package-managed Pi installs (registered via 'pi install'; these DO appear in 'pi list')"
+print_section "2) Repo-managed Pi agents (installed as an exact filename set)"
+print_list "expected: " "$EXPECTED_REPO_AGENTS"
+print_list "installed: " "$INSTALLED_REPO_AGENTS"
+if [ "$EXPECTED_REPO_AGENTS" != "$INSTALLED_REPO_AGENTS" ]; then
+  note_failure "installed Pi agent directory does not exactly match the repository roster"
+fi
+while IFS= read -r agent_entry; do
+  [ -n "$agent_entry" ] || continue
+  if ! diff -qr "$REPO_ROOT/_pi/agents/$agent_entry" "$PI_AGENT_DIR/agents/$agent_entry" >/dev/null 2>&1; then
+    note_failure "installed Pi agent parity failed for $agent_entry"
+  fi
+done <<EOF
+$EXPECTED_REPO_AGENTS
+EOF
+
+print_section "3) Package-managed Pi installs (registered via 'pi install'; these DO appear in 'pi list')"
 EXPECTED_GIT_PACKAGE_LINES=""
 if ((${#EXPECTED_GIT_PACKAGES[@]} > 0)); then
   EXPECTED_GIT_PACKAGE_LINES="$(printf '%s\n' "${EXPECTED_GIT_PACKAGES[@]}")"
@@ -344,7 +390,7 @@ ALL_EXPECTED_PACKAGES="$(printf '%s\n%s\n' "$EXPECTED_GIT_PACKAGE_LINES" "$(prin
 ALL_EXPECTED_PACKAGES="$(printf '%s\n%s\n' "$ALL_EXPECTED_PACKAGES" "$EXPECTED_LOCAL_PACKAGES")"
 report_expected_vs_actual "  Comparison:" "$ALL_EXPECTED_PACKAGES" "$INSTALLED_PI_PACKAGES" true
 
-print_section "3) Quick checks"
+print_section "4) Quick checks"
 echo "  Repo-managed extensions: find ~/.pi/agent/extensions -mindepth 1 -maxdepth 1 -exec basename {} \\; | sort"
 echo "  Package-managed installs: pi list"
 
@@ -360,6 +406,7 @@ if [ -f "$PI_AGENT_DIR/settings.json" ]; then
   PI_MODEL_STATUS="$(PI_DEFAULT_PROVIDER="$PI_DEFAULT_PROVIDER" PI_DEFAULT_MODEL="$PI_DEFAULT_MODEL" PI_DEFAULT_MODEL_VALUE="$PI_DEFAULT_MODEL_VALUE" PI_GLM_SCOPED_MODEL_VALUE="$PI_GLM_SCOPED_MODEL_VALUE" python3 - "$PI_AGENT_DIR/settings.json" <<'PY'
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -392,6 +439,9 @@ else:
         for model in enabled
     ):
         errors.append("enabledModels still contains retired grok models")
+    retired_pi = re.compile(r"^(?:gpt-5\.4(?:-mini)?|openai-codex(?:-[^/]*)?/gpt-5\.4(?:-mini)?)$")
+    if any(isinstance(model, str) and retired_pi.fullmatch(model) for model in enabled):
+        errors.append("enabledModels still contains retired GPT-5.4 Pi routes")
 print("ok" if not errors else "; ".join(errors))
 PY
 )"
@@ -404,6 +454,23 @@ PY
   fi
 else
   note_failure "Pi settings file is missing: $PI_AGENT_DIR/settings.json"
+fi
+
+if [ -f "$PI_AGENT_DIR/models.json" ]; then
+  PI_RETIRED_MODEL_STATUS="$(python3 - "$PI_AGENT_DIR/models.json" <<'PY'
+import json, sys
+models = json.load(open(sys.argv[1])).get("providers", {}).get("openai-codex", {}).get("models", [])
+retired = {"gpt-5.4", "gpt-5.4-mini"}
+print("ok" if not any(isinstance(model, dict) and model.get("id") in retired for model in models) else "retired GPT-5.4 managed model remains")
+PY
+)"
+  if [ "$PI_RETIRED_MODEL_STATUS" = "ok" ]; then
+    echo "  Retired Pi GPT-5.4 managed models: absent"
+  else
+    note_failure "$PI_RETIRED_MODEL_STATUS"
+  fi
+else
+  note_failure "Pi models file is missing: $PI_AGENT_DIR/models.json"
 fi
 
 if [ -f "$PI_WEB_SEARCH_PATH" ]; then

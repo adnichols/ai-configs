@@ -93,6 +93,8 @@ def interactive() -> int:
                 if os.environ.get("FAKE_CLAUDE_SESSION_LIMIT") == "1":
                     print("\n⎿  You've hit your session limit · resets 11:30am (America/Denver)\n❯ ", flush=True)
                     continue
+                if os.environ.get("FAKE_CLAUDE_USAGE_BANNER") == "1":
+                    print("\nYou've used 75% of your weekly limit · resets 3am (America/Denver)", flush=True)
                 time.sleep(float(os.environ.get("FAKE_CLAUDE_ANSWER_DELAY", "1.5")))
                 if os.environ.get("FAKE_CLAUDE_LONG_ALT_SCREEN") == "1":
                     body = "\n".join(f"Detailed review line {index:03d}" for index in range(1, 101))
@@ -101,9 +103,16 @@ def interactive() -> int:
                     print("\x1b[?1049h\x1b[2J\x1b[H", end="")
                     print(f"{answer}\n❯ ", flush=True)
                 else:
-                    answer = f"{marker}\nVERDICT: PASS_SCOPED\nFake Claude review body\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+                    review_body = "Fake Claude review body"
+                    if os.environ.get("FAKE_CLAUDE_QUOTED_HARD_LIMITS") == "1":
+                        review_body = (
+                            "Fake Claude review body quoting provider examples:\n"
+                            "- You've hit your session limit\n"
+                            "- You've hit your weekly rate limit"
+                        )
+                    answer = f"{marker}\nVERDICT: PASS_SCOPED\n{review_body}\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
                     persist_session_answer(session_id, answer)
-                    print(f"\n✻ Cooked for 0s\n{marker}\nVERDICT: PASS_SCOPED\nFake Claude review body\n{sentinel}\n❯ ", flush=True)
+                    print(f"\n✻ Cooked for 0s\n{marker}\nVERDICT: PASS_SCOPED\n{review_body}\n{sentinel}\n❯ ", flush=True)
                 buf = ""
     finally:
         restore_tty(old_tty)

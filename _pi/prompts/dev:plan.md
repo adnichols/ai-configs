@@ -15,7 +15,7 @@ If repo guidance does not define the active plan artifact format/path and the us
 
 GPT-5.6 Sol medium is the normal repository-owned Pi route for planning and coding-plan work.
 
-Use `Explore`/`explore` for broad repository discovery before asking implementation agents to reason over files.
+Use `scout` for bounded, read-only broad repository discovery before asking implementation agents to reason over files.
 
 ## Inputs
 
@@ -82,7 +82,7 @@ Validate key claims from the conversation by directly inspecting the codebase:
 - Identify integration points and risks
 - Verify commands, paths, targets, and package names that later `### Verify` steps will rely on
 
-Use `Glob`, `Grep`, and `Read` for targeted research. Use `Task(subagent_type="explore")` only for broad searches.
+Use `Glob`, `Grep`, and `Read` for targeted research. Use `Task(subagent_type="scout")` only for a bounded broad-search packet that names the discovery question, allowed surfaces, evidence format, and stop condition.
 
 ### 4) Choose the Correct Readiness State
 

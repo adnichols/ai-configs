@@ -66,7 +66,7 @@ For the active phase, loop until PTY is no longer running:
    - Fallback: parse `list` reporter failure lines when sentinel parsing fails.
 5. When a new failure is found, enqueue it unless deduped by key.
 6. Build a failure packet with command, phase, failing scenario, relevant logs, suspected files, and targeted verification.
-7. If suspected files are ambiguous, use `Explore`/`explore` for callsite discovery before spawning a fixer.
+7. If suspected files are ambiguous, use `scout` for callsite discovery before spawning a fixer.
 8. If queue is non-empty and `inFlightFixers < MAX_CONCURRENT_FIXERS`, dispatch scoped fixer subagents.
 
 Notes:
@@ -92,7 +92,7 @@ Fallback parser (if needed):
 
 ### 4) Build Failure Packets and Spawn Fixer Subagents
 
-For each queued failure, first build a failure packet. If the relevant file area is not clear from the test path, stack, and recent changes, run `Explore`/`explore` to identify likely callsites before spawning a fixer.
+For each queued failure, first build a failure packet. If the relevant file area is not clear from the test path, stack, and recent changes, run `scout` to identify likely callsites before spawning a fixer.
 
 Failure packet requirements:
 
@@ -134,7 +134,7 @@ Failure packet:
 - errorMessage: <errorMessage>
 - errorStack: <errorStack>
 - attachmentPaths: <attachmentPaths>
-- suspectedFiles: <Explore or log-derived files>
+- suspectedFiles: <scout or log-derived files>
 - expectedBehavior: <minimal expected behavior>
 - targetedVerification: <command/filter>
 

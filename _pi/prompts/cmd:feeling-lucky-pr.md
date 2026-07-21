@@ -25,8 +25,8 @@ End-to-end autonomous flow:
 ## Requirements
 
 - The developer-mid agent MUST be used for any code changes and repository management
-- The quality-reviewer agent must be used for any code reviews
-- the plan-gpt agent must be used for any plan creation or editing
+- The reviewer agent must be used for any code reviews
+- the planner agent must be used for any plan creation or editing
 - Always prefer a sub-agent when making changes, the orchestrator should not make code changes
 
 ## Inputs
@@ -191,7 +191,7 @@ fi
 
 ### 3) Create Plan (commands/dev:plan.md)
 
-Use the plan-gpt subagent to create a plann with slug `plan_slug` and ensure the plan includes:
+Use the planner subagent to create a plan with slug `plan_slug` and ensure the plan includes:
 
 - Linear issue key + URL (`ISSUE_KEY`, `ISSUE_URL`)
 - Branch name (`branch_name`)

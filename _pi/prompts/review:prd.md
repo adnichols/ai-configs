@@ -98,32 +98,37 @@ const reviewers = [
   {
     name: "PRD Intent",
     file: "thoughts/validation/prd-reviews/<prd-slug>/01-prd-intent.md",
-    subagent_type: "reviewer-prd-intent",
+    subagent_type: "reviewer",
     description: "Review PRD intent alignment",
+    lens: "Intent: stated outcome, user need, internal coherence, and alignment to the selected baseline",
   },
   {
     name: "PRD Product Principles",
     file: "thoughts/validation/prd-reviews/<prd-slug>/02-prd-product-principles.md",
-    subagent_type: "reviewer-prd-product-principles",
+    subagent_type: "reviewer",
     description: "Review PRD product principles",
+    lens: "Product principles: golden path, safe defaults, recovery, actionable errors, and repository alignment",
   },
   {
     name: "PRD Security Privacy Reliability",
     file: "thoughts/validation/prd-reviews/<prd-slug>/03-prd-security-privacy-reliability.md",
-    subagent_type: "reviewer-prd-security-privacy-reliability",
+    subagent_type: "reviewer",
     description: "Review PRD security and reliability",
+    lens: "Security, privacy, and reliability: credible current-path risks, permissions, data handling, failure behavior, and recovery",
   },
   {
     name: "PRD Scope Stage Fit",
     file: "thoughts/validation/prd-reviews/<prd-slug>/04-prd-scope-stage-fit.md",
-    subagent_type: "reviewer-prd-scope-stage-fit",
+    subagent_type: "reviewer",
     description: "Review PRD scope fit",
+    lens: "Scope and stage fit: minimum complete outcome, non-goals, sequencing, and avoidance of unsupported expansion",
   },
   {
     name: "PRD Dependencies",
     file: "thoughts/validation/prd-reviews/<prd-slug>/05-prd-dependencies.md",
-    subagent_type: "reviewer-prd-dependencies",
+    subagent_type: "reviewer",
     description: "Review PRD dependency choices",
+    lens: "Dependencies: build-versus-buy rationale, operational burden, compatibility, ownership, and exit risk",
   },
 ];
 
@@ -131,7 +136,7 @@ const launched = reviewers.map((reviewer) =>
   Agent({
     subagent_type: reviewer.subagent_type,
     description: reviewer.description,
-    prompt: `Review the PRD at ${prd_path}. Follow your agent instructions exactly. Respect selected functional-spec paths and unchanged constraints as hard scope boundaries. For docs-only PRDs, only flag materially misleading, contradictory, or insufficient guidance for the stated operator path. Do not invent broader product changes or implementation-detail requirements unless the PRD changes those behaviors. Write findings only to ${reviewer.file}. Do not edit the PRD. End with one of: no issues / needs changes / blocked.`,
+    prompt: `Review the PRD at ${prd_path}. Use this distinct review lens: ${reviewer.lens}. Follow the shared reviewer authority and materiality rules. Respect selected functional-spec paths and unchanged constraints as hard scope boundaries. For docs-only PRDs, only flag materially misleading, contradictory, or insufficient guidance for the stated operator path. Do not invent broader product changes or implementation-detail requirements unless the PRD changes those behaviors. Write findings only to ${reviewer.file}. Do not edit the PRD. End with one of: no issues / needs changes / blocked.`,
     run_in_background: true,
   }),
 );

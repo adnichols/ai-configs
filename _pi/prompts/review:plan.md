@@ -13,7 +13,7 @@ HTML plans are first-class inputs. If the argument is a slug, resolve it through
 
 ## Execution Mode
 
-- Use the actual Pi subagent tool surface: launch `reviewer-plan-gpt` with `Agent`.
+- Use the actual Pi subagent tool surface: launch `reviewer` with `Agent`.
 - Review against the plan's stated goal, non-goals, original requested scope, and validated repo evidence.
 - Comment only on blockers, materially risky gaps, or missing decisions required to execute that scope.
 - Do not use this command as a broad idea-generation pass or expand the plan into adjacent nice-to-haves.
@@ -26,9 +26,9 @@ HTML plans are first-class inputs. If the argument is a slug, resolve it through
 
 ```javascript
 const review = Agent({
-  subagent_type: "reviewer-plan-gpt",
+  subagent_type: "reviewer",
   description: "Review plan with GPT",
-  prompt: "Review the plan at $ARGUMENTS. Follow your reviewer-plan-gpt instructions exactly. Treat HTML plan files as first-class plan inputs and do not convert them to Markdown. Add [REVIEW:GPT] comments only for blockers, materially risky gaps, or missing decisions required to execute the stated goal within the validated source scope, then provide a readiness summary.",
+  prompt: "Review the plan at $ARGUMENTS. Use the plan-readiness lens and the caller-supplied artifact/output contract. Treat HTML plan files as first-class plan inputs and do not convert them to Markdown. Add [REVIEW:GPT] comments only for blockers, materially risky gaps, or missing decisions required to execute the stated goal within the validated source scope, then provide a readiness summary.",
   run_in_background: true,
 });
 
@@ -47,7 +47,7 @@ The final plan file should remain in its original format and contain any `[REVIE
 ## GPT Plan Review Complete
 
 ### Reviewer:
-- ✅ GPT (`openai-codex/gpt-5.6-terra`, high reasoning)
+- ✅ GPT (`reviewer`, `openai-codex/gpt-5.6-sol`, medium reasoning)
 
 ### Blocking or Material Findings:
 [List blocker-level or materially risky findings]

@@ -506,7 +506,7 @@ export default function prdModeExtension(pi: ExtensionAPI): void {
 		const choices = reason === "handoff"
 			? ["Run /review:prd now", "Keep editing in PRD mode"]
 			: ["Run /review:prd now", "Exit PRD mode anyway", "Keep editing in PRD mode"];
-		const choice = await ctx.ui.select(`${reviewLabel} Run the seven-reviewer gate before you ${actionLabel}?`, choices);
+		const choice = await ctx.ui.select(`${reviewLabel} Run the five-reviewer gate before you ${actionLabel}?`, choices);
 
 		if (choice === "Run /review:prd now") return "review";
 		if (choice === "Exit PRD mode anyway") return "exit";
@@ -601,11 +601,11 @@ export default function prdModeExtension(pi: ExtensionAPI): void {
 				&& status.prdPath === currentPrdPath
 				&& status.reviewDir === expectedReviewDir
 				&& status.status === "approved"
-				&& status.reviewersExpected === 7
-				&& status.reviewersCompleted === 7
+				&& status.reviewersExpected === 5
+				&& status.reviewersCompleted === 5
 				&& typeof status.integratedCount === "number"
 				&& status.integratedCount >= 0
-				&& status.integratedCount <= 7
+				&& status.integratedCount <= 5
 				&& status.pendingCount === 0
 				&& status.reviewerFilesRemoved === true
 				&& statusStats.mtimeMs >= prdStats.mtimeMs;
@@ -815,8 +815,8 @@ Purpose:
 - Keep the PRD delta in ${PRD_PLANS_DIRECTORY}/prd-<slug>.md.
 - Compare each answer round against the current intent and spec baseline.
 - Ask up to 10 targeted clarification questions when needed to clarify product intent and decisions.
-- After a substantive PRD update, run /${PRD_CLARIFY_COMMAND} first so the critical thinker runs before optional research and before the next question is asked.
-- When clarification is still needed, ask the critical thinker's prioritized questions directly in the conversation.
+- After a substantive PRD update, run /${PRD_CLARIFY_COMMAND} first so the clarification-gap reviewer runs before optional scout research and before the next question is asked.
+- When clarification is still needed, ask the clarification-gap reviewer's prioritized questions directly in the conversation.
 - Make each question include a recommended choice and why it is recommended.
 - Do not run /${PRD_REVIEW_COMMAND} automatically after edits; use it only when you and the user have clarified the intent and agree a wider review is valuable.
 - Treat /${PRD_REVIEW_COMMAND} as the explicit review gate before handoff.
@@ -852,7 +852,7 @@ Rules:
 - Do not make implementation changes outside the PRD/spec/review artifact surface.
 - Preserve truthful recovery status after errors or interruptions.
 - Keep clarification questions high-signal and limited to the set that materially improves intent clarity or decision quality (up to 10 at a time).
-- The required clarification order is: critical thinker → optional researcher → direct user questions.
+- The required clarification order is: clarification-gap reviewer → optional scout → direct user questions.
 
 ${prdInstruction}
 ${specInstruction}`,

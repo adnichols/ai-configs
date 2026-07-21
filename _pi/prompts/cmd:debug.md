@@ -5,7 +5,7 @@ argument-hint: "[issue description or ticket]"
 
 # Debug Investigation
 
-Investigate issues without burning main context. Uses parallel Task agents to gather evidence while preserving your working context.
+Investigate issues while preserving working context. The driving agent owns hypothesis formation, diagnosis, synthesis, and the final report. An optional `scout` may gather bounded read-only evidence in parallel; no subagent owns debugging conclusions.
 
 ## Input
 
@@ -23,45 +23,29 @@ Parse the provided context:
 - Recent changes
 - Steps to reproduce (if known)
 
-### 2. Launch Parallel Investigations
+### 2. Form Initial Hypotheses and Gather Evidence
 
-Spawn Task agents with `subagent_type=debugger` to investigate different aspects concurrently:
+The driving agent must first form a small set of falsifiable hypotheses from the reported symptoms and inspect the highest-signal evidence directly.
 
-**Agent 1: Recent Changes**
-```
-Investigate recent git changes that might relate to [issue].
-- Check git log for relevant commits
-- Look for changes to affected files
-- Identify when issue might have been introduced
-Return: Timeline of relevant changes with file:line references
-```
+When parallel evidence gathering would materially reduce context or latency, launch optional `scout` calls. Each call must be read-only and receive a bounded packet containing:
 
-**Agent 2: Code Analysis**
-```
-Analyze the code paths related to [issue].
-- Trace execution flow
-- Identify potential failure points
-- Look for error handling gaps
-Return: Code analysis with specific file:line references
-```
+- one evidence question (for example recent-change timeline, code-path trace, configuration factors, or existing test coverage),
+- allowed directories/files and commands,
+- required file:line or command-output citations,
+- explicit exclusions (no diagnosis, fixes, edits, or scope expansion),
+- an output format and stop condition.
 
-**Agent 3: Configuration/Environment**
-```
-Check configuration and environment factors.
-- Look for relevant config files
-- Check for environment variable usage
-- Identify external dependencies
-Return: Configuration findings relevant to the issue
+Example:
+
+```text
+Task(
+  subagent_type="scout",
+  description="Gather bounded debug evidence",
+  prompt="Read-only evidence packet for [issue]. Question: [single question]. Inspect only [surfaces]. Return concise findings with file:line or command evidence, contradictions, and unknowns. Do not diagnose, recommend fixes, or modify files. Stop after the packet is answered or report a concrete blocker."
+)
 ```
 
-**Agent 4: Test Coverage** (if applicable)
-```
-Check test coverage for affected code.
-- Find existing tests for the component
-- Identify gaps in test coverage
-- Look for failing tests
-Return: Test analysis with file:line references
-```
+Do not delegate the whole investigation. The driving agent remains responsible for weighing evidence, rejecting hypotheses, identifying the root cause, and choosing whether user clarification is needed.
 
 ### 3. Gather Additional Evidence
 
@@ -79,7 +63,7 @@ git log --oneline -10
 
 ### 4. Synthesize Findings
 
-Wait for all agents to complete, then compile:
+After direct inspection and any optional scout packets complete, the driving agent compiles:
 - Root cause hypothesis
 - Evidence supporting hypothesis
 - Related code paths
@@ -225,7 +209,7 @@ Present to user:
 
 ## Guidelines
 
-- Use parallel Task agents to preserve main context
+- Use optional bounded `scout` packets only for parallel read-only evidence gathering; keep hypotheses and diagnosis in the driving agent
 - Focus on gathering evidence, not making changes
 - Return specific file:line references
 - Present hypotheses with confidence levels

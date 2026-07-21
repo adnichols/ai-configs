@@ -60,9 +60,9 @@ Required checks:
   - `prdPath` exactly matching the resolved PRD path in workspace-relative form
   - `reviewDir` exactly matching `review_dir` in workspace-relative form
   - `status: "approved"`
-  - `reviewersExpected: 7`
-  - `reviewersCompleted: 7`
-  - `integratedCount` present as a number from `0` to `7`
+  - `reviewersExpected: 5`
+  - `reviewersCompleted: 5`
+  - `integratedCount` present as a number from `0` to `5`
   - `pendingCount: 0`
   - `reviewerFilesRemoved: true`
 - The review status file is not stale: its modification time must be the same as or newer than the PRD file’s modification time.

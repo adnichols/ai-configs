@@ -18,6 +18,7 @@ import uuid
 from pathlib import Path
 
 READY_RE = re.compile(r"❯")
+COLLAPSED_PASTE_RE = re.compile(r"\[Pasted text #\d+[^\]]*\]")
 ANSWER_MARKER_PREFIX = "CLAUDE_REVIEW_ANSWER_START_"
 CLAUDE_REVIEW_MODEL = "claude-sonnet-5"
 CLAUDE_REVIEW_EFFORT = "xhigh"
@@ -34,6 +35,15 @@ SHELL_AMBIGUOUS = set("`$\\;|&<>(){}[]*!?\"'")
 
 ANSI_RE = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+HARD_LIMIT_RE = re.compile(
+    r"""
+    \b(?:you(?:'ve|\s+have)?\s+)?hit\s+(?:your\s+|the\s+)?(?:session|weekly(?:\s+(?:usage|rate))?|usage|rate)\s+limit\b
+    |\b(?:reached|exceeded)\s+(?:your\s+|the\s+)?(?:session|weekly(?:\s+(?:usage|rate))?|usage|rate)\s+limit\b
+    |\b(?:session|weekly(?:\s+(?:usage|rate))?|usage|rate)\s+limit\s+(?:has\s+been\s+|was\s+|is\s+)?(?:reached|exceeded)\b
+    |\blimit\s+(?:has\s+been\s+|was\s+|is\s+)?reached\b
+    """,
+    re.I | re.X,
+)
 
 
 class LauncherError(RuntimeError):
@@ -138,7 +148,7 @@ def check_tui_unavailable(text: str, *, after_submit: bool = False) -> None:
     if re.search(r"not logged in|please run /login", text, re.I):
         suffix = " after submit" if after_submit else ""
         raise LauncherError("CLAUDE_AUTH_UNAVAILABLE_IN_TUI", f"Claude TUI reported not logged in{suffix}; run /login in Claude Code or unlock the keychain", 21)
-    if re.search(r"\bsession limit\b|\brate limit\b|\blimit reached\b|\bresets\s+\d", text, re.I):
+    if HARD_LIMIT_RE.search(text):
         suffix = " after submit" if after_submit else ""
         raise LauncherError("CLAUDE_SESSION_LIMIT_IN_TUI", f"Claude TUI reported a session/rate limit{suffix}; wait for reset or choose a non-required review path only if the workflow allows it", 25)
 
@@ -340,7 +350,26 @@ def write_review_success(
 def prompt_visible_or_collapsed(candidate: str, marker_count: int, sentinel_count: int, prompt_marker_count: int, prompt_sentinel_count: int) -> bool:
     if marker_count == prompt_marker_count and sentinel_count == prompt_sentinel_count:
         return True
-    return "[Pasted text #" in candidate and marker_count == 0 and sentinel_count == 0
+    return COLLAPSED_PASTE_RE.search(candidate) is not None and marker_count == 0 and sentinel_count == 0
+
+
+def post_submit_generated_output(candidate: str, marker: str, sentinel: str) -> str | None:
+    final_prompt_boundary = f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+    boundary_index = candidate.rfind(final_prompt_boundary)
+    if boundary_index >= 0:
+        return candidate[boundary_index + len(final_prompt_boundary):]
+
+    collapsed_boundaries = list(COLLAPSED_PASTE_RE.finditer(candidate))
+    if collapsed_boundaries:
+        return candidate[collapsed_boundaries[-1].end():]
+
+    if marker in candidate and answer_is_prompt_template(candidate):
+        return None
+    return candidate
+
+
+def availability_check_region(generated_output: str, marker: str) -> str:
+    return generated_output.partition(marker)[0]
 
 
 def run_smoke(args: argparse.Namespace) -> int:
@@ -401,7 +430,6 @@ def run_review(args: argparse.Namespace) -> int:
         paste_deadline = time.time() + PASTE_SETTLE_SECONDS
         while time.time() < paste_deadline:
             candidate = normalize(capture(socket, session, window))
-            check_tui_unavailable(candidate)
             marker_count = count_token(candidate, marker)
             sentinel_count = count_token(candidate, sentinel)
             if prompt_visible_or_collapsed(candidate, marker_count, sentinel_count, prompt_marker_count, prompt_sentinel_count):
@@ -415,7 +443,9 @@ def run_review(args: argparse.Namespace) -> int:
         while time.time() < boundary_deadline:
             raw = capture(socket, session, window)
             candidate = normalize(raw)
-            check_tui_unavailable(candidate, after_submit=True)
+            generated_output = post_submit_generated_output(candidate, marker, sentinel)
+            if generated_output is not None:
+                check_tui_unavailable(availability_check_region(generated_output, marker), after_submit=True)
             recovered = recover_session_answer(cwd, claude_session_id, marker, sentinel) if sentinel in candidate else None
             prompt_cleared_answer = extract_prompt_cleared_answer(candidate, marker, sentinel) if marker in candidate else None
             if recovered or prompt_cleared_answer:
@@ -440,7 +470,9 @@ def run_review(args: argparse.Namespace) -> int:
         while time.time() < deadline:
             last_raw = capture(socket, session, window)
             text = normalize(last_raw)
-            check_tui_unavailable(text, after_submit=True)
+            generated_output = post_submit_generated_output(text, marker, sentinel)
+            if generated_output is not None:
+                check_tui_unavailable(availability_check_region(generated_output, marker), after_submit=True)
             suffix = suffix_after_baseline(baseline, text, marker, sentinel)
             answer = None
             boundary = "baseline-relative marker/sentinel occurrence diff after submit"

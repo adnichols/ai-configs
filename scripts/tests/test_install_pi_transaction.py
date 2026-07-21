@@ -8,6 +8,11 @@ def manifest(root):
         result[rel]=(mode,'L:'+os.readlink(p) if p.is_symlink() else 'D' if p.is_dir() else hashlib.sha256(p.read_bytes()).hexdigest())
     return result
 class InstallTransactionTest(unittest.TestCase):
+    def assert_exact_installed_agents(self, home):
+        source={path.name for path in (ROOT/'_pi/agents').iterdir()}
+        installed={path.name for path in (home/'.pi/agent/agents').iterdir()}
+        self.assertEqual(source,installed)
+        self.assertEqual({'Explore.md','developer-mid.md','planner.md','reviewer.md','scout.md'},installed)
     def metadata(self,path):
         value=path.stat();return (stat.S_IMODE(value.st_mode),value.st_atime_ns,value.st_mtime_ns)
     def symlinked_parents(self, home, kind):
@@ -36,12 +41,47 @@ class InstallTransactionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d); foreign=home/'foreign';foreign.write_text('keep');models=home/'.pi/agent/models.json';models.parent.mkdir(parents=True);models.write_text(json.dumps({'providers':{'caller-owned':{'apiKey':'secret','models':[{'id':'local'}]}}}));env={**os.environ,'HOME':d}
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
-            self.assertEqual(foreign.read_text(),'keep');installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);self.assertTrue((home/'.agents/skills/autoreview/SKILL.md').is_file());self.assertTrue((home/'.agents/skills/claude-code-review/SKILL.md').is_file());scripts=home/'.agents/skills/codex-review-partner/scripts';self.assertEqual(stat.S_IMODE((scripts/'process_identity.py').stat().st_mode)&0o500,0o500);self.assertEqual(stat.S_IMODE((scripts/'review_supervisor.py').stat().st_mode)&0o500,0o500);append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
+            self.assertEqual(foreign.read_text(),'keep');self.assert_exact_installed_agents(home);installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);self.assertTrue((home/'.agents/skills/autoreview/SKILL.md').is_file());self.assertTrue((home/'.agents/skills/claude-code-review/SKILL.md').is_file());scripts=home/'.agents/skills/codex-review-partner/scripts';self.assertEqual(stat.S_IMODE((scripts/'process_identity.py').stat().st_mode)&0o500,0o500);self.assertEqual(stat.S_IMODE((scripts/'review_supervisor.py').stat().st_mode)&0o500,0o500);append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
             subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(before,manifest(home))
             helper=scripts/'process_identity.py';helper.chmod(0o050)
             result=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
             self.assertNotEqual(result.returncode,0);self.assertIn('owner-readable and executable',result.stderr)
+    def test_retired_pi_models_are_pruned_without_claiming_custom_entries(self):
+        with tempfile.TemporaryDirectory() as d:
+            home=Path(d);agent=home/'.pi/agent';agents=agent/'agents';agents.mkdir(parents=True);stale=agents/'stale-installed-agent.md';stale.write_text('P4 will replace this directory exactly')
+            models=agent/'models.json';models.write_text(json.dumps({'providers':{
+                'openai-codex':{'localField':'keep','models':[
+                    {'id':'gpt-5.4','name':'GPT-5.4 (CLI Proxy API)'},
+                    {'id':'gpt-5.4-mini','name':'GPT-5.4 mini (CLI Proxy API)'},
+                    {'id':'caller-custom','name':'Caller Custom (CLI Proxy API)','customField':'keep'},
+                ]},
+                'caller-owned':{'baseUrl':'https://caller.invalid/v1','api':'custom-api','apiKey':'secret','models':[{'id':'gpt-5.4','name':'Unrelated same ID'}]},
+            }}))
+            settings=agent/'settings.json';settings.write_text(json.dumps({'callerSetting':'keep','enabledModels':[
+                'gpt-5.4','gpt-5.4-mini','openai-codex/gpt-5.4','openai-codex/gpt-5.4-mini',
+                'openai-codex-old/gpt-5.4','openai-codex-history/gpt-5.4-mini',
+                'openai-codex-/gpt-5.4','caller-owned/gpt-5.4','openai-codex/caller-custom',42,
+            ]}))
+            env={**os.environ,'HOME':d}
+            subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
+            installed=json.loads(models.read_text());providers=installed['providers'];codex=providers['openai-codex'];ids={model['id'] for model in codex['models']}
+            self.assertNotIn('gpt-5.4',ids);self.assertNotIn('gpt-5.4-mini',ids);self.assertIn('caller-custom',ids);custom=next(model for model in codex['models'] if model['id']=='caller-custom');self.assertEqual(custom['name'],'Caller Custom (CLI Proxy API)');self.assertEqual(custom['customField'],'keep');self.assertEqual(codex['localField'],'keep')
+            self.assertEqual(providers['caller-owned'],{'baseUrl':'https://caller.invalid/v1','api':'custom-api','apiKey':'secret','models':[{'id':'gpt-5.4','name':'Unrelated same ID'}]})
+            configured=json.loads(settings.read_text());self.assertEqual(configured['callerSetting'],'keep');self.assertEqual(configured['enabledModels'],['caller-owned/gpt-5.4','openai-codex/caller-custom',42])
+            self.assertFalse(stale.exists());self.assert_exact_installed_agents(home)
+            configured['enabledModels'].append('openai-codex-/gpt-5.4');settings.write_text(json.dumps(configured))
+            scoped=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            self.assertNotEqual(scoped.returncode,0);self.assertIn('installed merged model contract',scoped.stderr)
+            full=subprocess.run(['bash','scripts/verify-pi-install.sh','--check-only'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            self.assertNotEqual(full.returncode,0);self.assertIn('enabledModels still contains retired GPT-5.4 Pi routes',full.stdout)
+
+    def test_malformed_settings_fail_before_any_bounded_install_mutation(self):
+        with tempfile.TemporaryDirectory() as d:
+            home=Path(d);agent=home/'.pi/agent';(agent/'agents').mkdir(parents=True);(agent/'prompts').mkdir();(agent/'agents/local.md').write_text('keep agent');(agent/'prompts/local.md').write_text('keep prompt');(agent/'README.md').write_text('keep readme');(agent/'models.json').write_text(json.dumps({'providers':{'caller-owned':{'models':[{'id':'local'}]}}}));(agent/'settings.json').write_text('[]');before=manifest(agent);env={**os.environ,'HOME':d}
+            result=subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            self.assertNotEqual(result.returncode,0);self.assertIn('settings.json must be a JSON object',result.stderr);self.assertEqual(before,manifest(agent))
+
     def test_preexisting_agents_parent_metadata_is_not_mutated(self):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d);parents=[home/'.agents',home/'.agents/skills'];parents[1].mkdir(parents=True);os.chmod(parents[0],0o751);os.chmod(parents[1],0o753);before=[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents];env={**os.environ,'HOME':d}

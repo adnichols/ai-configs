@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consolidate the Pi Agent Roster</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #182235;
+      --text: #e5e7eb;
+      --muted: #a7b0c0;
+      --accent: #38bdf8;
+      --accent-2: #a78bfa;
+      --border: #334155;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --code: #050816;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.62; }
+    main { width: min(1180px, calc(100% - 44px)); margin: 0 auto; padding: 42px 0 80px; }
+    h1, h2, h3, h4 { line-height: 1.24; }
+    h1 { font-size: clamp(2.15rem, 5vw, 4.1rem); margin: 0 0 14px; }
+    h2 { margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--border); }
+    h3 { margin-top: 30px; color: #dbeafe; }
+    a { color: var(--accent); }
+    .lede { color: var(--muted); font-size: 1.12rem; max-width: 960px; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 28px; }
+    .badge { border: 1px solid var(--border); border-radius: 999px; padding: 5px 11px; background: var(--panel); color: var(--muted); font-size: .9rem; }
+    .card, section.phase { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin: 18px 0; }
+    .callout { border-left: 4px solid var(--accent); background: var(--panel-2); padding: 16px 18px; border-radius: 12px; margin: 16px 0; }
+    .warning { border-left-color: var(--warn); }
+    .success { border-left-color: var(--good); }
+    .danger { border-left-color: var(--bad); }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: #1e293b; text-align: left; }
+    td { background: rgba(15, 23, 42, .5); }
+    code, pre { background: var(--code); color: #e0f2fe; border-radius: 8px; }
+    code { padding: 2px 5px; }
+    pre { padding: 14px; overflow-x: auto; border: 1px solid var(--border); white-space: pre-wrap; }
+    .toc { columns: 3 260px; }
+    .toc li { break-inside: avoid; margin: 6px 0; }
+    .progress li { margin: 8px 0; }
+    .small { color: var(--muted); font-size: .94rem; }
+    .roster strong { color: #dbeafe; }
+    @media (max-width: 720px) { main { width: min(100% - 24px, 1180px); } .toc { columns: 1; } }
+  </style>
+</head>
+<body>
+<main>
+  <header id="top">
+    <h1>Consolidate the Pi Agent Roster</h1>
+    <p class="lede">Execution plan to replace a 24-agent repository roster with four capability-oriented agents, move all Pi-owned GPT routing onto appropriate GPT-5.6 variants, remove the remaining GPT-5.4 registrations, and migrate callers without creating an alternate implementation escape hatch.</p>
+    <div class="badge-row" aria-label="Plan status">
+      <span class="badge">Status: execution-ready</span>
+      <span class="badge">Repository: ai-configs</span>
+      <span class="badge">Target: 4 active agents</span>
+      <span class="badge">Implementation: Sol medium only</span>
+      <span class="badge">UI impact: text-only</span>
+    </div>
+  </header>
+
+  <section id="toc" class="card">
+    <h2>Table of contents</h2>
+    <ol class="toc">
+      <li><a href="#product-owner-context">Product-owner context</a></li>
+      <li><a href="#goal">Goal</a></li>
+      <li><a href="#decision-attention">Decision attention</a></li>
+      <li><a href="#why-now">Why this plan exists</a></li>
+      <li><a href="#authority">Authority and inputs</a></li>
+      <li><a href="#current-reality">Current implementation reality</a></li>
+      <li><a href="#progress">Progress</a></li>
+      <li><a href="#resume">Resume instructions</a></li>
+      <li><a href="#product-intent">Product intent alignment</a></li>
+      <li><a href="#locked-decisions">Locked decisions</a></li>
+      <li><a href="#acceptance">Acceptance criteria</a></li>
+      <li><a href="#bdd">BDD scenarios</a></li>
+      <li><a href="#phase-p1">P1: Contract tests</a></li>
+      <li><a href="#phase-p2">P2: Agent and model consolidation</a></li>
+      <li><a href="#phase-p3">P3: Workflow migration</a></li>
+      <li><a href="#phase-p4">P4: Install and parity verification</a></li>
+      <li><a href="#verification">Verification strategy</a></li>
+      <li><a href="#delivery">Delivery order</a></li>
+      <li><a href="#non-goals">Non-goals</a></li>
+      <li><a href="#review-record">Review record</a></li>
+      <li><a href="#deviations">Decisions / deviations log</a></li>
+    </ol>
+  </section>
+
+  <section id="product-owner-context" class="card">
+    <h2>Product-owner context</h2>
+    <p>Pi currently advertises many narrowly named agents even though most of them perform one of four jobs: implement, plan, research, or review. The duplicated personas bake invocation details such as “PRD dependency lens” or “adversarial plan pass” into permanent agent prompts. That makes routing harder to reason about, duplicates policy text, and allows broad agents such as <code>worker</code> to act as an accidental second implementation route.</p>
+    <p><strong>Key conclusion:</strong> this is an agent-configuration and workflow-governance cleanup, not a customer runtime defect. The correct target is four capability-oriented agents whose durable prompts define authority boundaries, while the driving workflow supplies the artifact, lens, output format, and stop conditions for each invocation.</p>
+    <table aria-label="Impact summary">
+      <thead><tr><th>Dimension</th><th>Impact</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>No direct product/customer behavior change. This changes Aaron's Pi development and review workflows.</td></tr>
+        <tr><td>Runtime product behavior</td><td>Pi exposes fewer repository-owned subagents. Existing maintained prompt workflows are migrated to the consolidated names and retain their intended review/planning behavior.</td></tr>
+        <tr><td>Security / permissions</td><td>No credential or authorization change. Removing <code>worker</code> narrows delegated mutation authority by keeping <code>developer-mid</code> as the sole implementation agent.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Add an explicit roster/model-routing contract and update review/install tests so stale agent names and retired GPT-5.4 entries cannot silently return.</td></tr>
+        <tr><td>Deployment / migration</td><td><code>install.sh --pi</code> replaces the installed agent directory and already prunes retired managed CLI Proxy model entries. Both mbp and dever require post-merge installation and parity verification.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="goal" class="card">
+    <h2>Goal</h2>
+    <p>Ship a tested Pi configuration with exactly four active repository-owned agents—<code>developer-mid</code>, <code>planner</code>, <code>scout</code>, and <code>reviewer</code>—plus the disabled <code>Explore.md</code> override, with no Pi agent or managed Pi model registration using GPT-5.4.</p>
+  </section>
+
+  <section id="decision-attention" class="card">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="callout success" id="decision-none">
+      <strong>No product decision required.</strong>
+      <p>The user accepted the proposed four-agent capability model. Repo evidence resolves the migration mechanics: agent installation replaces the full managed directory, managed CLI Proxy model removal is already supported, and existing callers can pass their specialized lens in the invocation packet.</p>
+    </div>
+    <p class="small">Reviewers should challenge migration completeness and workflow parity, not reopen the already accepted roster shape unless repository evidence shows a concrete blocker.</p>
+  </section>
+
+  <section id="why-now" class="card">
+    <h2>Why this plan exists</h2>
+    <ul>
+      <li>The current source contains 24 active agent definitions and one disabled override.</li>
+      <li>Most review definitions duplicate the same authority, materiality, output, and verdict instructions with only a lens or model name changed.</li>
+      <li><code>plan-gpt</code> and <code>planner</code>, plus <code>research</code>, <code>researcher</code>, and <code>scout</code>, split output conventions rather than meaningful authority boundaries.</li>
+      <li><code>worker</code> has full capabilities and conflicts with the policy that <code>developer-mid</code> is the sole implementation delegate.</li>
+      <li><code>worktree-creator</code> is the only Pi agent on GPT-5.4-mini; the same older models remain in the managed Pi model registry.</li>
+      <li>Several active prompts still hard-code specialized names, and the Codex review policy test enumerates the duplicated reviewer files.</li>
+    </ul>
+  </section>
+
+  <section id="authority" class="card">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>User request and accepted consolidation proposal in this session.</li>
+      <li><code>AGENTS.md</code> implementation-agent and medium-effort policy.</li>
+      <li>Current definitions under <code>_pi/agents/</code>.</li>
+      <li>Current caller prompts under <code>_pi/prompts/</code> and PRD-mode instructions in <code>_pi/extensions/pi-prd-mode/index.ts</code>.</li>
+      <li>Model merge/pruning behavior in <code>install.sh</code>.</li>
+      <li>Existing tests in <code>_pi/extensions/codex-review/tests/source-policy.test.mjs</code>, <code>scripts/tests/test_install_pi_transaction.py</code>, and <code>scripts/verify-pi-install.sh</code>.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality" class="card">
+    <h2>Current implementation reality</h2>
+    <table class="roster" aria-label="Current to target mapping">
+      <thead><tr><th>Current cluster</th><th>Target</th><th>Migration behavior</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Implementation:</strong> <code>developer-mid</code>, <code>worker</code></td><td><code>developer-mid</code> — GPT-5.6 Sol medium</td><td>Remove <code>worker</code>. Keep one bounded mutation authority; task packets provide scope and verification.</td></tr>
+        <tr><td><strong>Planning:</strong> <code>planner</code>, <code>plan-gpt</code></td><td><code>planner</code> — GPT-5.6 Sol medium</td><td>Prompt defines planning-only authority. Caller supplies plan format, path, and readiness contract.</td></tr>
+        <tr><td><strong>Discovery:</strong> <code>research</code>, <code>researcher</code>, <code>scout</code></td><td><code>scout</code> — GPT-5.6 Terra low</td><td>Combine local inspection and web tools. Caller selects local map, external research, or decision-brief mode.</td></tr>
+        <tr><td><strong>Review:</strong> quality, generic, plan, adversarial, synthesis, PRD critic, and five PRD-lens agents</td><td><code>reviewer</code> — GPT-5.6 Sol medium</td><td>One materiality-focused read-only persona. Callers provide lens, artifact, output, edit authority, and verdict vocabulary.</td></tr>
+        <tr><td><strong>Provider-specific review:</strong> Opus and Gemini reviewer agents</td><td>Canonical <code>claude_review</code>, <code>codex_review</code>, or <code>spawn_council</code> workflows</td><td>Remove duplicated provider personas. Preserve explicit cross-model review through workflow-level transports.</td></tr>
+        <tr><td><strong>Mechanical worktree:</strong> <code>worktree-creator</code> — GPT-5.4-mini</td><td>Driving-agent direct tools</td><td>Keep <code>/cmd:start-linear-issue</code> but make it execute its deterministic Git/Linear workflow directly.</td></tr>
+      </tbody>
+    </table>
+    <p><code>install_pi_agents_from_repo</code> already removes and recreates <code>~/.pi/agent/agents</code>, so deleted source definitions are pruned on install. <code>install_pi_models_from_repo</code> already removes managed CLI Proxy API model entries absent from <code>_pi/models.json</code>, while preserving caller-owned providers and secrets.</p>
+  </section>
+
+  <section id="progress" class="card progress">
+    <h2>Progress</h2>
+    <ul>
+      <li><label><input type="checkbox" checked disabled> <strong>P1</strong> — Lock the four-agent roster and retired-model behavior with tests.</label></li>
+      <li><label><input type="checkbox" checked disabled> <strong>P2</strong> — Consolidate agent definitions and Pi model registrations.</label></li>
+      <li><label><input type="checkbox" checked disabled> <strong>P3</strong> — Migrate prompts, PRD mode, review policy, and documentation.</label></li>
+      <li><label><input type="checkbox" checked disabled> <strong>P4</strong> — Verify installation parity and prepare mbp/dever rollout.</label></li>
+    </ul>
+  </section>
+
+  <section id="resume" class="card">
+    <h2>Resume instructions (agent)</h2>
+    <p>Read this plan fully, then start with the first unchecked progress item. Complete phases in order, update the matching checkbox immediately after its verification and review gates pass, and append material decisions or deviations to the log. Do not recreate a general-purpose implementation agent, introduce a high-effort implementation route, or broaden the Pi-only GPT-5.4 cleanup into Hermes auxiliary-model policy. Stop only for a true product decision, a repeated bounded failure, or a verification/review blocker.</p>
+  </section>
+
+  <section id="product-intent" class="card">
+    <h2>Product intent alignment</h2>
+    <ul>
+      <li><strong>Golden path:</strong> the driving agent chooses one of four capabilities and supplies a concrete task packet.</li>
+      <li><strong>Safe defaults:</strong> implementation, planning, and review use Sol medium; discovery and research use Terra low. No repository-owned Pi subagent uses high effort.</li>
+      <li><strong>Fail closed:</strong> repeated implementation failure returns control to the user instead of escalating effort or routing through <code>worker</code>.</li>
+      <li><strong>Agent-legible errors:</strong> each compact prompt must require a concrete blocker and completed verification evidence rather than silent partial completion.</li>
+      <li><strong>Source of truth:</strong> permanent agent prompts define capability and authority; workflow prompts define task-specific lenses and output contracts.</li>
+    </ul>
+  </section>
+
+  <section id="locked-decisions" class="card">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li>Target exactly four active repository-owned Pi agents: <code>developer-mid</code>, <code>planner</code>, <code>scout</code>, and <code>reviewer</code>.</li>
+      <li>Retain <code>Explore.md</code> only as an <code>enabled: false</code> override for the bundled persona.</li>
+      <li><code>developer-mid</code> remains the sole implementation delegate at GPT-5.6 Sol medium; no fallback implementation persona is retained.</li>
+      <li><code>planner</code> and <code>reviewer</code> use GPT-5.6 Sol medium; <code>scout</code> uses GPT-5.6 Terra low. No active repository-owned agent uses high effort.</li>
+      <li>Specialized review lenses remain workflow behavior supplied in invocation prompts. A workflow may launch independent <code>reviewer</code> calls for multiple lenses without restoring separate definitions.</li>
+      <li>Required independent Codex and Claude Code gates continue to use <code>codex_review</code> and <code>claude_review</code>; provider-specific subagent personas are removed.</li>
+      <li><code>/cmd:start-linear-issue</code> remains available but performs deterministic worktree setup directly rather than delegating to an agent.</li>
+      <li>Remove GPT-5.4 and GPT-5.4-mini from Pi's managed model registry. Hermes auxiliary-model routing is explicitly outside this Pi-focused plan.</li>
+    </ol>
+  </section>
+
+  <section id="acceptance" class="card">
+    <h2>Acceptance criteria</h2>
+    <ol>
+      <li id="ac-1"><strong>AC1 — Exact roster:</strong> source and installed Pi agent directories contain the four active definitions and disabled <code>Explore.md</code>, with no retired files.</li>
+      <li id="ac-2"><strong>AC2 — Authority boundary:</strong> only <code>developer-mid</code> is described or routed as an implementation delegate, and it remains GPT-5.6 Sol medium.</li>
+      <li id="ac-3"><strong>AC3 — Generic prompts:</strong> the four prompts contain durable authority/materiality/verification rules but do not hard-code a particular PRD lens, output filename, plan format, or repository-specific execution recipe.</li>
+      <li id="ac-4"><strong>AC4 — Caller parity:</strong> maintained workflows route every retired agent use to the appropriate consolidated capability while retaining their existing artifact, lens, review, and stop contracts.</li>
+      <li id="ac-5"><strong>AC5 — Review diversity:</strong> canonical Codex/Claude review tools and council workflows remain available; removing provider-specific personas does not remove explicit cross-model review paths.</li>
+      <li id="ac-6"><strong>AC6 — GPT-5.4 retirement:</strong> no Pi agent, Pi prompt model override, managed Pi model entry, or <code>settings.json</code> <code>enabledModels</code> value references the retired <code>gpt-5.4</code> or <code>gpt-5.4-mini</code> IDs after installation. Enabled-model pruning covers unscoped values plus values scoped to <code>openai-codex</code> or historical <code>openai-codex-*</code> aliases, without touching unrelated providers.</li>
+      <li id="ac-7"><strong>AC7 — Local ownership preserved:</strong> Pi model installation removes only the two exact retired <code>openai-codex</code> IDs while preserving caller-owned providers, API keys, and custom <code>openai-codex</code> models—including custom entries whose display name ends in <code>(CLI Proxy API)</code>.</li>
+      <li id="ac-8"><strong>AC8 — Documentation truth:</strong> <code>AGENTS.md</code> and <code>_pi/README.md</code> describe the exact roster, model policy, direct worktree workflow, and failure behavior.</li>
+      <li id="ac-9"><strong>AC9 — Install parity:</strong> mbp and dever can install the resulting configuration and the verifier proves the exact installed agent filename set plus absence of the two retired model IDs from both <code>models.json</code> and <code>settings.json</code>.</li>
+    </ol>
+  </section>
+
+  <section id="bdd" class="card">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-implementation"><h3>BDD1 — Implementation stays medium</h3><p><strong>Given</strong> a bounded code-writing task, <strong>when</strong> the driving agent delegates implementation, <strong>then</strong> it selects <code>developer-mid</code> at GPT-5.6 Sol medium, and repeated bounded failure returns a blocker rather than selecting another implementation agent.</p></article>
+    <article id="bdd-plan"><h3>BDD2 — Plan details come from the caller</h3><p><strong>Given</strong> an HTML or repository-specific planning workflow, <strong>when</strong> it invokes <code>planner</code>, <strong>then</strong> the caller supplies the artifact path and format while the agent enforces planning-only authority.</p></article>
+    <article id="bdd-research"><h3>BDD3 — One scout supports local and web evidence</h3><p><strong>Given</strong> either a local codebase question or an external precedent question, <strong>when</strong> <code>scout</code> receives a bounded packet, <strong>then</strong> it uses only the necessary local/web tools and returns the requested evidence format without mutating the repository.</p></article>
+    <article id="bdd-review"><h3>BDD4 — Review lens is invocation data</h3><p><strong>Given</strong> a code, plan, or PRD artifact, <strong>when</strong> <code>reviewer</code> receives a named lens and verdict contract, <strong>then</strong> it reports only material evidence-backed findings within that lens and does not broaden scope.</p></article>
+    <article id="bdd-prd-parallel"><h3>BDD5 — Multi-lens PRD review preserves coverage</h3><p><strong>Given</strong> <code>/review:prd</code>, <strong>when</strong> the workflow launches its intent, product-principles, security/reliability, scope, and dependency passes, <strong>then</strong> each independent call uses the same <code>reviewer</code> definition with a distinct caller-supplied lens and output path.</p></article>
+    <article id="bdd-worktree"><h3>BDD6 — Worktree creation is deterministic and safe</h3><p><strong>Given</strong> <code>/cmd:start-linear-issue NOD-123</code>, <strong>when</strong> the command runs, <strong>then</strong> the driving agent validates the clean tree and Linear project, uses branch <code>nod-123</code> and sibling path <code>&lt;repo&gt;-nod-123</code>, writes the Linear context note, and reports the established success fields. If that path or branch already exists, it stops with the location and recovery choices instead of force-removing user work.</p></article>
+    <article id="bdd-model-prune"><h3>BDD7 — Managed GPT-5.4 entries are pruned safely</h3><p><strong>Given</strong> installed <code>models.json</code> and <code>settings.json</code> fixtures containing the two retired IDs, an unrelated provider, and a custom <code>openai-codex</code> CLI Proxy model, <strong>when</strong> Pi installation runs, <strong>then</strong> only <code>gpt-5.4</code>/<code>gpt-5.4-mini</code> and their enabled-model forms disappear while all caller-owned data remains unchanged.</p></article>
+    <article id="bdd-stale-name"><h3>BDD8 — Stale and non-roster workflow references fail the contract</h3><p><strong>Given</strong> a maintained Pi prompt or policy test that reintroduces a retired agent name or routes to a non-roster persona such as <code>researcher</code>, <code>research</code>, <code>explore</code>, <code>general</code>, or <code>debugger</code>, <strong>when</strong> the roster tests run, <strong>then</strong> verification fails with the exact stale route identified.</p></article>
+  </section>
+
+  <section id="phase-p1" class="phase">
+    <h2>P1 — Lock the roster and routing contract with tests</h2>
+    <h3>End State</h3>
+    <p>Automated tests define the exact source roster, GPT-5.6 model/effort mapping, absence of retired or non-roster persona routing in maintained workflows, and safe pruning of GPT-5.4 managed models.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Add a focused roster policy test under <code>scripts/tests/</code> or the existing Pi policy suite that initially fails against the 24-agent source tree.</li>
+      <li>Update <code>_pi/extensions/codex-review/tests/source-policy.test.mjs</code> to expect one generic GPT reviewer at Sol/medium rather than enumerating specialized reviewer files.</li>
+      <li>Extend <code>scripts/tests/test_install_pi_transaction.py</code> with installed <code>models.json</code> and <code>settings.json</code> fixtures proving exact-ID GPT-5.4/GPT-5.4-mini pruning, including unscoped, <code>openai-codex/</code>-scoped, and historical <code>openai-codex-*/</code>-scoped enabled-model forms, while preserving an unrelated provider and a custom <code>openai-codex</code> model named with the <code>(CLI Proxy API)</code> suffix.</li>
+      <li>Add source-contract assertions for <code>/cmd:start-linear-issue</code>: exact branch/path derivation, <code>.ltui.json</code> project mismatch stop, Linear context note fields, success output, and non-destructive collision handling.</li>
+      <li>Make the maintained-workflow scan reject <code>multi-reviewer</code> and any active <code>subagent_type</code> route to <code>researcher</code>, <code>research</code>, <code>explore</code>, <code>general</code>, or <code>debugger</code>, in addition to the named retired repository personas. Scope this to maintained prompts/extensions/policy surfaces so historical artifacts and prose do not create false positives.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>scripts/tests/test_pi_agent_roster.py</code> (new, if a dedicated policy test is clearer than extending an existing test)</li>
+      <li><code>scripts/tests/test_install_pi_transaction.py</code></li>
+      <li><code>_pi/extensions/codex-review/tests/source-policy.test.mjs</code></li>
+    </ul>
+    <h3>Work</h3>
+    <p>Encode behavior, not the current filenames accidentally. The test should assert the exact accepted roster and model policy, scan maintained Pi prompts/extensions/docs for named retired personas and active non-roster <code>subagent_type</code> routes, and avoid flagging historical plans or unrelated natural-language uses of words such as “worker” and “researcher.” Keep the new test compact and use only the standard library.</p>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>python3 -m unittest scripts.tests.test_pi_agent_roster
+node --test _pi/extensions/codex-review/tests/source-policy.test.mjs
+python3 -m unittest scripts.tests.test_install_pi_transaction</code></pre>
+  </section>
+
+  <section id="phase-p2" class="phase">
+    <h2>P2 — Consolidate agent definitions and managed Pi models</h2>
+    <h3>End State</h3>
+    <p><code>_pi/agents/</code> contains only the four active capability definitions and disabled Explore override. All four prompts are concise and caller-driven. Pi's managed model file contains no GPT-5.4 entries.</p>
+    <h3>Tests first</h3>
+    <p>Run the P1 roster and model tests and confirm they fail because the retired definitions and model entries still exist. Do not weaken the exact-roster assertions while implementing.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>_pi/agents/developer-mid.md</code></li>
+      <li><code>_pi/agents/planner.md</code></li>
+      <li><code>_pi/agents/scout.md</code></li>
+      <li><code>_pi/agents/reviewer.md</code> (new)</li>
+      <li><code>_pi/agents/Explore.md</code> (retained unchanged unless test metadata requires clarification)</li>
+      <li>Delete every other <code>_pi/agents/*.md</code> definition.</li>
+      <li><code>_pi/models.json</code></li>
+      <li><code>install.sh</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ul>
+      <li>Reduce each active prompt to durable authority, scope, evidence, verification, and stop rules. Remove fixed output filenames, fixed plan schemas, repository-specific CLAUDE-only assumptions, and embedded review lenses that callers can supply.</li>
+      <li>Preserve the anti-scope-creep and convergence rules: no unrelated cleanup, no optional polish, no silent partial completion, and explicit blockers after repeated bounded failure.</li>
+      <li>Give <code>scout</code> local discovery plus web research tools while keeping it read-only and optimized for concise evidence handoffs at low effort.</li>
+      <li>Give <code>reviewer</code> read-only local inspection tools and a generic materiality contract suitable for code, plans, PRDs, and specifications. Permit output-file or annotation writes only when explicitly granted in the task packet.</li>
+      <li>Remove GPT-5.4 and GPT-5.4-mini entries from the <code>openai-codex</code> model list. Change installer pruning from the broad display-name heuristic to the exact retired ID set <code>{gpt-5.4, gpt-5.4-mini}</code>, and remove unscoped forms plus forms scoped to <code>openai-codex</code> or historical <code>openai-codex-*</code> provider aliases from <code>settings.json</code> <code>enabledModels</code>. Preserve all other provider/model entries and local fields. Do not modify Hermes configurations or non-Pi model policy.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>python3 -m unittest scripts.tests.test_pi_agent_roster
+python3 -m json.tool _pi/models.json &gt;/dev/null
+rg -n 'gpt-5\.4|gpt-5\.4-mini' _pi/agents _pi/models.json</code></pre>
+    <p>The final <code>rg</code> command must return no matches.</p>
+  </section>
+
+  <section id="phase-p3" class="phase">
+    <h2>P3 — Migrate workflows, review policy, and documentation</h2>
+    <h3>End State</h3>
+    <p>All maintained Pi workflows use the four capability names or canonical review tools. Specialized behavior lives in caller packets, and user-facing command surfaces continue to work without stale agent routing.</p>
+    <h3>Tests first</h3>
+    <p>Run the stale-reference policy test before migration and confirm it identifies each maintained caller of a retired agent or non-roster persona. Add targeted assertions for commands whose behavior must be preserved, especially PRD multi-lens review, direct worktree setup, research/planning discovery, and debugging orchestration.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>AGENTS.md</code> and <code>_pi/README.md</code></li>
+      <li><code>_pi/prompts/dev:run.md</code> and <code>_pi/prompts/cmd:execute-plan.md</code></li>
+      <li><code>_pi/prompts/review:change-gpt.md</code>, <code>review:plan.md</code>, <code>review:plan-adversarial.md</code>, <code>review:prd.md</code>, and <code>prd:clarify-round.md</code></li>
+      <li><code>_pi/prompts/review:change-opus.md</code> (remove or convert to an explicit compatibility pointer to <code>/review:change-claude-code</code>; do not retain a provider-specific subagent)</li>
+      <li><code>_pi/prompts/cmd:start-linear-issue.md</code> and <code>cmd:start-linear-issue-branch.md</code></li>
+      <li><code>_pi/prompts/cmd:research.md</code>, <code>dev:plan.md</code>, and <code>cmd:debug.md</code></li>
+      <li><code>_pi/prompts/cmd:feeling-lucky-pr.md</code> and <code>cmd:feeling-lucky-pr-os.md</code></li>
+      <li><code>_pi/extensions/pi-prd-mode/index.ts</code></li>
+      <li>Any additional maintained caller found by the exact retired-name and non-roster-route scan.</li>
+    </ul>
+    <h3>Work</h3>
+    <ul>
+      <li>Route phase implementation reviews from <code>quality-reviewer</code> to <code>reviewer</code>, preserving the current phase-specific materiality and verdict packet in the caller.</li>
+      <li>Route plan creation from <code>plan-gpt</code> to <code>planner</code>, with the caller supplying active plan format and destination.</li>
+      <li>Route PRD clarification from <code>prd-critical-thinker</code> to <code>reviewer</code> with a clarification-gap lens, and replace its current <code>researcher</code> route with conditional <code>scout</code> use.</li>
+      <li>Replace the disabled bundled-persona routes in <code>/cmd:research</code> and <code>/dev:plan</code> from <code>explore</code> to <code>scout</code>, preserving their bounded read-only discovery packets.</li>
+      <li>Rewrite <code>/cmd:debug</code> so the driving agent owns hypothesis formation and diagnosis directly, with optional <code>scout</code> calls only for bounded parallel evidence gathering; remove the nonexistent <code>debugger</code> route.</li>
+      <li>Route the planning handoff in <code>/cmd:start-linear-issue-branch</code> from the generic <code>general</code> persona to <code>planner</code>, with the caller retaining the artifact path, Linear context, and planning-only contract.</li>
+      <li>Keep <code>/review:prd</code>'s five independent lenses if useful for coverage, but launch the same generic <code>reviewer</code> five times with distinct lens/output packets instead of five permanent definitions.</li>
+      <li>Make <code>/review:plan</code> and GPT change review use <code>reviewer</code>. Remove the synthesis subagent; the driving agent owns deduplication and integration.</li>
+      <li>Keep required independent review gates on <code>codex_review</code> and <code>claude_review</code>. Do not replace those managed tools with the generic subagent.</li>
+      <li>Rewrite <code>/cmd:start-linear-issue</code> as a direct deterministic workflow that preserves the existing contract: validate the issue key and clean tree; fetch; read title/project/state/description/URL through <code>ltui</code>; stop for confirmation on a <code>.ltui.json</code> project mismatch; derive exact lowercase issue branch and sibling <code>&lt;repo&gt;-&lt;issue-lower&gt;</code> path; default the base to <code>origin/main</code>; create tracking/upstream state; write <code>thoughts/linear/&lt;issue-lower&gt;.md</code>; and report location, branch, Linear URL, and suggested next commands. Deliberately replace the old force-removal behavior with a fail-closed collision path: report any existing branch/worktree and require explicit user-directed recovery rather than deleting it. Do not delegate repository management through <code>developer-mid</code>.</li>
+      <li>Update documentation to explain that agent prompts define authority while invocation packets define lens/output, and that no hidden implementation fallback exists.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>python3 -m unittest scripts.tests.test_pi_agent_roster
+node --test _pi/extensions/codex-review/tests/source-policy.test.mjs
+rg -n 'developer-high|developer-mm|plan-gpt|quality-reviewer|multi-reviewer|prd-critical-thinker|reviewer-plan-|reviewer-prd-|reviewer-gpt|reviewer-opus|reviewer-gemini|worktree-creator|subagent_type.*(worker|researcher|research|explore|general|debugger)' \
+  AGENTS.md _pi skills install.sh --glob '!_pi/agents/**'
+git diff --check</code></pre>
+    <p>The final scan may match historical compatibility explanations only when the test explicitly permits them; it must find no active routing to a retired or non-roster persona.</p>
+  </section>
+
+  <section id="phase-p4" class="phase">
+    <h2>P4 — Verify installation parity and prepare mbp/dever rollout</h2>
+    <h3>End State</h3>
+    <p>The full targeted tests pass, a temporary-home installation proves exact roster/model pruning without local-data loss, and post-merge commands are ready to install and verify the same result on mbp and dever.</p>
+    <h3>Tests first</h3>
+    <p>Use a temporary-home fixture containing stale retired agent files, both retired model IDs in <code>models.json</code>, scoped/unscoped retired values in <code>settings.json</code>, an unrelated provider, and a custom <code>openai-codex</code> CLI Proxy model. Refactor the bounded <code>--pi-review-stack</code> agent copy to call the same exact-directory replacement helper used by production <code>--pi</code>, so the transaction test exercises the canonical roster-pruning path without invoking unrelated package installation.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>scripts/tests/test_install_pi_transaction.py</code></li>
+      <li><code>scripts/verify-pi-install.sh</code></li>
+      <li><code>install.sh</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ul>
+      <li>Run the transaction suite, source-policy suite, JSON validation, shell syntax checks, and diff checks.</li>
+      <li>Make <code>--pi-review-stack</code> replace the managed agent directory through <code>install_pi_agents_from_repo</code> rather than copying source entries over stale files. Keep its prompts/extensions behavior mutation-bounded.</li>
+      <li>Verify an isolated installation contains exactly the target agent filename set, removes both retired IDs from installed models/settings, and preserves caller-owned providers, API fields, and custom same-provider models.</li>
+      <li>Extend both review-stack and full verification to compare the installed agent directory as an exact set, not a source-subset check. Extend full verification to reject the retired IDs in <code>models.json</code> and <code>settings.json</code>.</li>
+      <li>After the change is merged/pushed, install with <code>./install.sh --pi</code> on mbp and dever and run <code>scripts/verify-pi-install.sh</code> on each host.</li>
+      <li>Confirm new Pi sessions advertise the consolidated roster. Existing sessions may retain stale tool-schema names until reload and must not be used as proof of installation failure.</li>
+    </ul>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre><code>python3 -m unittest scripts.tests.test_pi_agent_roster
+python3 -m unittest scripts.tests.test_install_pi_transaction
+node --test _pi/extensions/codex-review/tests/source-policy.test.mjs
+bash -n install.sh scripts/verify-pi-install.sh
+python3 -m json.tool _pi/models.json &gt;/dev/null
+git diff --check
+
+# Post-merge host rollout
+./install.sh --pi
+scripts/verify-pi-install.sh
+ssh dever 'cd ~/code/ai-configs &amp;&amp; git pull --ff-only origin main &amp;&amp; ./install.sh --pi &amp;&amp; scripts/verify-pi-install.sh'</code></pre>
+  </section>
+
+  <section id="verification" class="card">
+    <h2>Verification strategy</h2>
+    <table aria-label="Acceptance to test coverage matrix">
+      <thead><tr><th>Acceptance / scenarios</th><th>Evidence layer</th><th>Primary files or suites</th><th>Commands</th></tr></thead>
+      <tbody>
+        <tr><td>AC1–AC3; BDD1–BDD4</td><td>Source policy</td><td><code>scripts/tests/test_pi_agent_roster.py</code></td><td><code>python3 -m unittest scripts.tests.test_pi_agent_roster</code></td></tr>
+        <tr><td>AC4–AC5; BDD4–BDD5, BDD8</td><td>Workflow/review policy</td><td><code>source-policy.test.mjs</code> plus stale-name assertions</td><td><code>node --test _pi/extensions/codex-review/tests/source-policy.test.mjs</code></td></tr>
+        <tr><td>AC6–AC7; BDD7</td><td>Installer transaction</td><td><code>install.sh</code> plus <code>scripts/tests/test_install_pi_transaction.py</code></td><td><code>python3 -m unittest scripts.tests.test_install_pi_transaction</code></td></tr>
+        <tr><td>AC8</td><td>Semantic review and exact scan</td><td><code>AGENTS.md</code>, <code>_pi/README.md</code>, maintained prompts</td><td>Retired-name scan plus independent reviewer pass</td></tr>
+        <tr><td>AC9; BDD6–BDD8</td><td>Installed-host parity</td><td><code>install.sh</code>, <code>scripts/verify-pi-install.sh</code></td><td>Exact agent-set and retired-model/settings checks through <code>./install.sh --pi &amp;&amp; scripts/verify-pi-install.sh</code> on mbp and dever</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warning"><strong>Semantic completion gate:</strong> passing string scans is insufficient. The final review must confirm that each migrated workflow still supplies its former specialized lens, output authority, and stop/verdict contract to the generic agent.</div>
+  </section>
+
+  <section id="delivery" class="card">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>P1 establishes failing policy and installer tests.</li>
+      <li>P2 changes the roster/model source until the agent/model tests pass.</li>
+      <li>P3 migrates every caller and documentation surface until stale routing tests pass.</li>
+      <li>P4 runs the complete verification set and validates isolated install behavior.</li>
+      <li>After merge/push, pull and install on mbp and dever, verify parity, and start fresh Pi sessions.</li>
+    </ol>
+  </section>
+
+  <section id="non-goals" class="card">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Changing Hermes auxiliary compression, goal-judge, or profile model routing, even where Hermes currently uses GPT-5.4-mini.</li>
+      <li>Removing GPT-5.3 Spark, GPT-5.5, GPT-5.6 Luna, or non-GPT provider models from Pi.</li>
+      <li>Changing the canonical <code>codex_review</code>, <code>claude_review</code>, or council transport implementations.</li>
+      <li>Changing product repositories, application code, or Claude-specific agent catalogs outside references needed to keep Pi documentation truthful.</li>
+      <li>Adding an emergency high-effort implementation escape hatch.</li>
+      <li>Redesigning the entire PRD or plan workflow beyond replacing agent routing and preserving existing review lenses.</li>
+    </ul>
+  </section>
+
+  <section id="review-record" class="card">
+    <h2>Review record</h2>
+    <table aria-label="Plan review record">
+      <thead><tr><th>Date</th><th>Reviewer</th><th>Scope</th><th>Verdict</th><th>Disposition</th></tr></thead>
+      <tbody>
+        <tr><td>2026-07-20</td><td>Plan owner / PM pass</td><td>Product intent, operator outcome, defaults, recovery, scope, and verification</td><td>Ready for independent rereview</td><td>Rechecked after Codex and Claude feedback. Exact-ID model retirement protects caller-owned state; direct Linear orchestration fails closed; exact install parity proves the shipped roster; and all maintained Pi prompts now converge on the locked four-capability roster rather than bundled, nonexistent, or generic escape personas. Scope remains limited to Pi.</td></tr>
+        <tr><td>2026-07-20</td><td>Codex</td><td>Independent execution-readiness review</td><td>Plan needs revision</td><td>Identified three blockers: broad model-pruning could delete caller-owned same-provider models and missed enabled-model values; direct worktree migration omitted material behavior; install verification allowed stale agent/model state. The plan was revised to specify exact-ID pruning, a fail-closed worktree contract, shared exact-directory installation, and exact host parity. A targeted independent rereview is required.</td></tr>
+        <tr><td>2026-07-20</td><td>Codex</td><td>Targeted independent rereview of the three corrected blockers</td><td>Plan execution ready</td><td>No remaining material blockers. The independent pass confirmed exact-ID model retirement with caller-owned preservation, complete fail-closed worktree behavior, and exact installed roster/model verification. <code>VERDICT: PLAN_EXECUTION_READY</code>.</td></tr>
+        <tr><td>2026-07-20</td><td>Claude Code</td><td>Post-readiness routing completeness review</td><td>Plan needs revision</td><td>Confirmed the consolidation approach and Codex-hardened safeguards, then identified four maintained prompts still routing to disabled, nonexistent, or generic non-roster personas; requested broader stale-route guards and correction of the <code>rg</code> exclusion glob. These changes are incorporated in P1/P3 and require a targeted readiness rereview.</td></tr>
+        <tr><td>2026-07-20</td><td>Codex</td><td>Targeted rereview of non-roster routing coverage</td><td>Plan execution ready</td><td>Confirmed all five affected routing migrations are explicit, the regression guard covers <code>multi-reviewer</code> and the named non-roster persona routes, and the corrected <code>!_pi/agents/**</code> exclusion is present. <code>VERDICT: PLAN_EXECUTION_READY</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="deviations" class="card">
+    <h2>Decisions / Deviations log</h2>
+    <table aria-label="Decision log">
+      <thead><tr><th>Date</th><th>Decision</th><th>Evidence / rationale</th></tr></thead>
+      <tbody>
+        <tr><td>2026-07-20</td><td>Adopt four capability-oriented agents.</td><td>User accepted the consolidation proposal after reviewing the existing roster and overlap.</td></tr>
+        <tr><td>2026-07-20</td><td>Keep implementation at Sol medium only.</td><td>Prior session audit and explicit user preference reject high-effort or alternate implementation fallbacks.</td></tr>
+        <tr><td>2026-07-20</td><td>Keep multi-lens behavior in caller packets.</td><td>Specialized permanent personas are unnecessary, but independent lens passes can still provide useful coverage.</td></tr>
+        <tr><td>2026-07-20</td><td>Run the consolidated reviewer on GPT-5.6 Sol medium.</td><td>Browser-review feedback explicitly rejected Terra/high for this capability. Review quality must come from bounded lenses and verification contracts rather than higher reasoning effort.</td></tr>
+        <tr><td>2026-07-20</td><td>Retain the discovery capability as <code>scout</code> on GPT-5.6 Terra low.</td><td>Browser-review feedback selected the existing concise scout identity and lower effort rather than the proposed researcher/Terra-medium target.</td></tr>
+        <tr><td>2026-07-20</td><td>Fail closed on pre-existing Linear worktree or branch collisions.</td><td>The retired agent force-removed same-branch worktrees. Direct orchestration will preserve the rest of its contract but require explicit user-directed recovery instead of risking deletion of local work.</td></tr>
+        <tr><td>2026-07-20</td><td>Limit GPT-5.4 retirement to Pi.</td><td>The request concerns the Pi agent roster; Hermes auxiliary routing has separate operational evidence and policy.</td></tr>
+        <tr><td>2026-07-20</td><td>Complete P4 with isolated transaction verification only; defer host rollout.</td><td>The implementation request explicitly prohibits live <code>./install.sh --pi</code> against the user's home and SSH to dever before merge. The exact-agent-set and retired-model checks are covered by temporary-home transaction tests and both verifier scopes; mbp/dever rollout remains the documented post-merge operational step.</td></tr>
+        <tr><td>2026-07-21</td><td>Repair the required Claude review launcher before resuming the gate.</td><td>The launcher falsely classified a 75% informational weekly-usage banner, hard-limit examples echoed inside its own submitted prompt, and valid final-answer prose quoting those examples as provider exhaustion. The explicitly authorized prerequisite fix now requires hard-exhaustion language, isolates post-submit TUI-generated output from the echoed prompt, limits availability checks to content before the answer marker, and adds unit plus end-to-end regressions for informational banners, genuine limits, prompt boundaries, and quoted answer prose.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

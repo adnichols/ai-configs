@@ -1,5 +1,5 @@
 ---
-description: Run adversarial second-pass plan review using parallel Claude Code and GPT review, then GPT synthesis and integration
+description: Run adversarial second-pass plan review using parallel Claude Code and GPT review, then driving-agent integration
 argument-hint: '<existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
 ---
 
@@ -11,7 +11,7 @@ It uses **two reviewers in parallel**:
 - Claude Code
 - GPT
 
-After both finish, it runs a **GPT synthesis pass** and then integrates the review feedback back into the plan.
+After both finish, the driving agent reads both outputs, deduplicates and reconciles them, then integrates the review feedback back into the plan.
 
 Documents to review: $ARGUMENTS
 
@@ -30,8 +30,9 @@ Use this after the standard `/review:plan` flow when you want an explicit challe
 - Launch the GPT review via the canonical `/review:change-gpt` prompt.
 - Do not use the old adversarial reviewer subagents.
 - Do not run the adversarial review directly in the primary agent.
-- After both reviewers finish, run the GPT synthesis reviewer.
-- Then integrate the feedback into the plan and remove resolved review comments.
+- After both reviewers finish, the driving agent performs synthesis, deduplication, conflict accounting, and integration directly.
+- Do not launch a synthesis subagent.
+- Integrate the feedback into the plan and remove resolved review comments.
 
 ## Reviewer Names and Comment Formats
 
@@ -126,27 +127,17 @@ Both adversarial prompts must explicitly challenge the plan for:
   - `/review:change-gpt` for GPT.
 - Only inspect failure details if a session exits non-zero or clearly fails to review the plan.
 
-## Phase 2: GPT Synthesis
+## Phase 2: Driving-Agent Synthesis and Deduplication
 
-After both interactive reviewers complete, run the GPT synthesis reviewer on GPT-5.6 Sol high reasoning.
-
-```javascript
-Agent({
-  subagent_type: "reviewer-plan-synthesis",
-  description: "Synthesize adversarial review results",
-  prompt: "Synthesize the existing review comments already present in the plan at $ARGUMENTS, including any [REVIEW:CLAUDE] and [REVIEW:GPT] comments. Add [REVIEW:Synthesis] comments and provide a final consolidated summary.",
-})
-```
-
-Wait for the synthesis reviewer to complete before integration.
+After both reviewers complete, the driving agent must read every `[REVIEW:CLAUDE]` and `[REVIEW:GPT]` comment in the supplied plan artifact. Group duplicates, preserve materially different reasoning, identify genuine conflicts, and decide each finding against the plan's stated goal, non-goals, validated evidence, and execution-readiness contract. Do not add a third synthesis-comment namespace and do not delegate this integration authority.
 
 ## Phase 3: Auto-Integration
 
-After synthesis completes, integrate the review feedback into the plan.
+After the driving-agent synthesis is complete, integrate the review feedback into the plan.
 
 ### Integration requirements
 
-- Read the plan and extract `[REVIEW:CLAUDE]`, `[REVIEW:GPT]`, and `[REVIEW:Synthesis]` comments.
+- Read the plan and extract `[REVIEW:CLAUDE]` and `[REVIEW:GPT]` comments.
 - Apply edits directly to the plan based on the feedback.
 - Remove resolved review comments.
 - Update affected sections such as Locked Decisions, Acceptance Criteria, BDD scenarios, phase work, verify steps, resume instructions, and changelog.
@@ -162,8 +153,8 @@ After review and integration, provide:
 
 ### Reviewers:
 - ✅ Claude Code
-- ✅ GPT (gpt-5.6-sol, high reasoning)
-- ✅ GPT Synthesis (gpt-5.6-sol, high reasoning)
+- ✅ GPT (shared `reviewer`, GPT-5.6 Sol medium)
+- ✅ Driving-agent synthesis and integration
 
 ### Highest-risk issues:
 [List the most important issues found]

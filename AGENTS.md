@@ -2,23 +2,26 @@
 
 Current roster of bespoke Claude, Codex, and Pi agents defined in this repository.
 
-## Pi Subagents (Implementation)
-Located under `_pi/agents/` and invoked via Pi subagent system:
+## Pi Subagents (Exact Four-Agent Roster)
+Located under `_pi/agents/` and invoked through Pi's subagent system:
 
-- `developer-mid` (gpt-5.6-sol; `_pi/agents/developer-mid.md`) — The sole repository-owned Pi implementation agent for scoped code-writing packets.
+- `developer-mid` (GPT-5.6 Sol, medium; `_pi/agents/developer-mid.md`) — sole repository-owned Pi implementation authority for bounded code-writing packets.
+- `planner` (GPT-5.6 Sol, medium; `_pi/agents/planner.md`) — planning-only authority; it may write only the caller-named plan artifact.
+- `reviewer` (GPT-5.6 Sol, medium; `_pi/agents/reviewer.md`) — read-only materiality-focused review authority, except for an explicitly named review artifact when the caller authorizes comments or output there.
+- `scout` (GPT-5.6 Terra, low; `_pi/agents/scout.md`) — bounded read-only local/web discovery and evidence gathering.
 
-`_pi/agents/Explore.md` is not a custom agent persona. It is a minimal
-`enabled: false` override that disables the `Explore` agent bundled by
-`@tintinweb/pi-subagents`. Isolated exploration is provided separately by the
-`explore_subagent` tool from `@howaboua/pi-explore-subagents`.
+`_pi/agents/Explore.md` is not an active persona. It is the required `enabled: false` override for the bundled Explore persona. There is no hidden implementation fallback: `developer-mid` is the only Pi implementation subagent, and repeated bounded failure returns control to the user.
+
+Every caller packet must name the artifact or allowed surfaces, task-specific lens, output destination/format, authority boundary, verification evidence, and stop/verdict contract. Permanent agent prompts define capability and authority; callers own workflow-specific meaning.
+
+`/cmd:start-linear-issue` is a direct deterministic driving-agent workflow. It validates Linear/Git state and creates the exact issue branch and sibling worktree without delegating repository management to a Pi subagent.
 
 ### Pi Subagent Reasoning-Effort Policy
 
-- Treat each agent definition's `reasoningEffort` or `thinking` frontmatter as authoritative for that profile.
-- `developer-mid` is the only GPT-5.6 Sol implementation subagent and must remain at its configured medium effort, including for difficult implementation work.
-- Do not pass a caller-side `thinking` or reasoning-effort override merely because a task appears difficult.
-- If repeated bounded `developer-mid` attempts fail to converge, stop and return control to the user rather than escalating to an unavailable higher-effort implementation profile.
-- Override an agent's configured effort only when the user explicitly requests a different effort or a documented non-implementation workflow explicitly requires it. Record the reason when doing so.
+- Agent frontmatter is authoritative: implementation, planning, and review use GPT-5.6 Sol medium; scout uses GPT-5.6 Terra low.
+- Do not pass caller-side reasoning overrides merely because a task appears difficult.
+- If repeated bounded `developer-mid` attempts fail to converge, stop and return control to the user rather than escalating or routing through another persona.
+- GPT-5.4 and GPT-5.4-mini are retired from Pi-owned agents, the managed `openai-codex` model catalog, and Pi settings aliases. This is an exact Pi-only retirement; it does not rewrite unrelated Claude-owned agents or caller-owned providers/models.
 
 ## Implementation & Architecture (Claude/Codex)
 - `developer` (sonnet; `_claude/agents/developer.md`) — Implements specs with tests and enforces zero linting violations.
@@ -43,8 +46,8 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 **Rationale:** MCP tool wrapping introduces unnecessary latency and may produce inconsistent results. Native Codex tools are optimized for the local filesystem and provide superior performance.
 
 ## Review & Fidelity Safeguards
-- `quality-reviewer` (gpt-5.6-terra high; `_pi/agents/quality-reviewer.md`) — Pi production-safety review for real issues (security, data loss, regressions, performance).
-- `quality-reviewer` (inherits workspace default model; `_claude/agents/quality-reviewer.md`) — Production safety review covering security, data loss, regressions, and performance.
+- `reviewer` (GPT-5.6 Sol medium; `_pi/agents/reviewer.md`) — Pi read-only material review using the caller's explicit lens, artifact, output, and verdict contract.
+- `quality-reviewer` (inherits workspace default model; `_claude/agents/quality-reviewer.md`) — Claude-owned production safety review covering security, data loss, regressions, and performance; this Claude catalog entry is unrelated to the consolidated Pi roster.
 - `quality-reviewer-fidelity` (sonnet; `_claude/agents/quality-reviewer-fidelity.md`) — Ensures code matches specification requirements exactly with no scope expansion.
 - `fidelity-reviewer` (opus; `_claude/agents/fidelity-reviewer.md`) — Compares generated task lists against source specifications and researches discrepancies.
 
