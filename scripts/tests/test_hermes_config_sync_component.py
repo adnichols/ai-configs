@@ -26,10 +26,8 @@ def source_job() -> dict:
         "prompt": "aggregate only",
         "script": "pi_analytics_collector.py",
         "no_agent": True,
-        "schedule": {
-            "kind": "cron", "expr": "0 5 * * *", "display": "0 5 * * *", "timezone": "America/Denver"
-        },
-        "schedule_display": "0 5 * * * America/Denver",
+        "schedule": {"kind": "cron", "expr": "0 5 * * *", "display": "0 5 * * *"},
+        "schedule_display": "0 5 * * *",
         "repeat": {"times": None, "completed": 0},
         "enabled": True,
         "state": "scheduled",
@@ -76,6 +74,15 @@ class HermesComponentSyncTest(unittest.TestCase):
         self.assertEqual(manifest["name"], COMPONENT)
         self.assertEqual(manifest["files"], ["scripts/pi_analytics_collector.py"])
         self.assertEqual(manifest["cron_job_ids"], [JOB_ID])
+
+    def test_checked_in_cron_uses_global_denver_timezone(self) -> None:
+        config_text = Path("_hermes/default/config/config.yaml").read_text(encoding="utf-8")
+        self.assertIn("\ntimezone: America/Denver\n", config_text)
+        jobs = json.loads(Path("_hermes/default/cron/jobs.json").read_text(encoding="utf-8"))["jobs"]
+        collector = next(job for job in jobs if job["id"] == JOB_ID)
+        self.assertEqual(collector["schedule"]["expr"], "0 5 * * *")
+        self.assertNotIn("timezone", collector["schedule"])
+        self.assertEqual(collector["schedule_display"], "0 5 * * *")
 
     def test_authoritative_export_preserves_repo_owned_component_manifests(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -199,6 +206,35 @@ class HermesComponentSyncTest(unittest.TestCase):
             self.assertEqual((backup_root / "scripts" / "pi_analytics_collector.py").read_text(), "old script\n")
             self.assertTrue((backup_root / "cron" / "jobs.json").exists())
             self.assertFalse((hermes_config_sync.DEFAULT_HERMES_HOME / "backups" / "ai-configs-install-fixture-stamp").exists())
+
+    def test_multi_job_component_keeps_pristine_cron_backup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(
+            os.environ, {"HERMES_AI_CONFIGS_INSTALL_STAMP": "multi-job"}
+        ):
+            root = Path(tmp)
+            bundle = make_bundle(root)
+            second_job = {**source_job(), "id": "second-job", "name": "Second collector"}
+            jobs_path = bundle / "cron" / "jobs.json"
+            source_jobs = json.loads(jobs_path.read_text(encoding="utf-8"))
+            source_jobs["jobs"].append(second_job)
+            write_json(jobs_path, source_jobs)
+            component_path = bundle / "components" / f"{COMPONENT}.json"
+            component = json.loads(component_path.read_text(encoding="utf-8"))
+            component["cron_job_ids"].append(second_job["id"])
+            write_json(component_path, component)
+            hermes_config_sync.refresh_manifest(bundle)
+
+            home = root / "home"
+            destination_before = {
+                "jobs": [{"id": "host-only", "name": "unrelated"}],
+                "updated_at": "pristine-runtime",
+            }
+            write_json(home / "cron" / "jobs.json", destination_before)
+
+            hermes_config_sync.install_component(bundle, home, COMPONENT, dry_run=False)
+
+            backup = home / "backups" / "ai-configs-install-multi-job" / "cron" / "jobs.json"
+            self.assertEqual(json.loads(backup.read_text(encoding="utf-8")), destination_before)
 
     def test_dry_run_lists_exactly_component_surfaces_and_forbidden_surfaces_are_absent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

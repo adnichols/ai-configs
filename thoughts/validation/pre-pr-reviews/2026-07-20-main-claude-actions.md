@@ -3,7 +3,7 @@
 - `_hermes/default/scripts/pi_analytics_action.py` (new, full read)
 - `scripts/tests/test_gm_pi_analytics_action.py` + `scripts/tests/fixtures/pi-analytics-actions/{config,valid-agent-claim,ordinary-conversation-claim,non-analytics-agent-claim}.json`
 - `_hermes/default/manifest.json` (grep for analytics/listener paths), `_hermes/default/components/pi-analytics-collector.json`, `_hermes/default/cron/jobs.json` diff (both job entries)
-- Remote GM snapshots at `/tmp/hermes-daily-pi-analytics-mbp-review/`: `orchestrator.py`, `pi_analytics_phase.py`, `publish.py`, `render.py` (targeted sections), `test_gm_pi_analytics_publish.py`, plus `range.diff` for change shape
+- Supplied remote GM snapshots: `orchestrator.py`, `pi_analytics_phase.py`, `publish.py`, `render.py` (targeted sections), `test_gm_pi_analytics_publish.py`, plus `range.diff` for change shape
 - Executed locally: full `scripts/tests` discovery (95 tests, OK) and the exact cited 47-test combined subset (`test_pi_session_analytics`, `test_pi_analytics_ccore_publish`, `test_pi_analytics_deploy`, `test_hermes_config_sync_component`, `test_gm_pi_analytics_action`) — 47/47 OK, matching the claimed evidence exactly.
 - Not executed: the remote 20-test `test_gm_pi_analytics_publish.py` suite itself — the shared snapshot directory contains only 5 of the `gm` package's files, not sibling modules (`calendar_phase`, `coding_sessions_phase`, `review_phase`, etc.) it imports transitively via `orchestrator`. Verified by static/code-path cross-reference instead (see below).
 
@@ -43,18 +43,3 @@ No other P1/P2 issues surfaced after reviewing auth/TOCTOU, generic-worker isola
 Restricted-path authorization, TOCTOU handling, generic-worker isolation, ledger idempotency, host-ownership isolation, and privacy handling are all sound and match their test coverage, which is real (47/47 reproduced locally). One non-blocking behavioral deviation from AC-6's literal wording was found (ordinary comments on analytics cards get auto-resolved rather than left untouched) — worth a product confirmation but not a merge blocker given no analytics-state, security, or privacy impact.
 
 VERDICT: CLEAN_FOR_PR
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-e99e0efd70cf-1820088-2654925ce3b7
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/pre-pr-reviews/2026-07-20-main-claude-actions.md.transcript.txt
-claude_session_id=e88ee09b-aa21-4df1-a26e-57096f37bba4
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/e88ee09b-aa21-4df1-a26e-57096f37bba4.jsonl
-readiness_regex=❯
-clear_boundary=persisted Claude session JSONL after visible completion sentinel
-history_limit=50000
-capture_depth=50000

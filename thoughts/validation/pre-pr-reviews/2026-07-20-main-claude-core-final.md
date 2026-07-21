@@ -34,18 +34,3 @@ Scope: backup_path() (scripts/hermes_config_sync.py:421-428) and its component-i
   No P1/P2 blocker found in the inspected area.
 
   VERDICT: CLEAN_FOR_PR
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-9b60bc691494-1959272-44b7e802299e
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/pre-pr-reviews/2026-07-20-main-claude-core-final.md.transcript.txt
-claude_session_id=afe8ea92-dcb7-4ac7-8546-5de1b5df8287
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/afe8ea92-dcb7-4ac7-8546-5de1b5df8287.jsonl
-readiness_regex=❯
-clear_boundary=baseline-relative marker/sentinel occurrence diff after submit
-history_limit=50000
-capture_depth=50000

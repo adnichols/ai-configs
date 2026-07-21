@@ -332,10 +332,9 @@
       "schedule": {
         "kind": "cron",
         "expr": "0 5 * * *",
-        "display": "0 5 * * *",
-        "timezone": "America/Denver"
+        "display": "0 5 * * *"
       },
-      "schedule_display": "0 5 * * * America/Denver",
+      "schedule_display": "0 5 * * *",
       "repeat": {
         "times": null,
         "completed": 0

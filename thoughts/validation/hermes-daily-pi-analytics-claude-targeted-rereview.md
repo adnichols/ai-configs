@@ -44,18 +44,3 @@ Targeted rereview — Hermes Daily Pi Analytics Morning Review
   category of problem (asserting a mechanism that isn't confirmed to exist) as the original F1/F3 blockers, just relocated to a different phase. That's enough to withhold an execution-ready verdict.
 
   VERDICT: PLAN_NEEDS_REVISION
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-ed79544880d5-1134006-072e3a98b8a0
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/hermes-daily-pi-analytics-claude-targeted-rereview.md.transcript.txt
-claude_session_id=06d61b36-f46e-4901-bea3-79dd7e21e935
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/06d61b36-f46e-4901-bea3-79dd7e21e935.jsonl
-readiness_regex=❯
-clear_boundary=baseline-relative marker/sentinel occurrence diff after submit
-history_limit=50000
-capture_depth=50000

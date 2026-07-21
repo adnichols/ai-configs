@@ -1,6 +1,6 @@
 # Hermes Daily Pi Analytics Morning Review — Implementation Review
 
-**Method:** Read the plan contract; diffed `origin/main` vs. working tree for all touched ai-configs files; read the mbp Good Morning snapshots in `/tmp/hermes-daily-pi-analytics-mbp-review/` (`orchestrator.py`, `pi_analytics_phase.py`, `publish.py`, `render.py`, `test_gm_pi_analytics_publish.py`, `range.diff`); ran the local test suite; ran `refresh-manifest`/`verify`/component `install --dry-run` myself; hand-traced the P1 analyzer fixture math line-by-line against the asserted counts; cross-checked prior Codex plan-review findings against current code to confirm they're actually fixed, not just claimed fixed.
+**Method:** Read the plan contract; diffed `origin/main` vs. working tree for all touched ai-configs files; read supplied mbp Good Morning snapshots (`orchestrator.py`, `pi_analytics_phase.py`, `publish.py`, `render.py`, `test_gm_pi_analytics_publish.py`, `range.diff`); ran the local test suite; ran `refresh-manifest`/`verify`/component `install --dry-run` myself; hand-traced the P1 analyzer fixture math line-by-line against the asserted counts; cross-checked prior Codex plan-review findings against current code to confirm they're actually fixed, not just claimed fixed.
 
 ## Failure family 1 — Privacy boundary & completed-day determinism (`scripts/pi_session_analytics.py`)
 
@@ -39,7 +39,7 @@
 
 ## QUESTION (non-blocking, evidence-accuracy only)
 
-- The verification evidence states "local targeted suite: 39 tests passed." I ran the actual suite myself: `test_pi_session_analytics.py` (12) + `test_pi_analytics_ccore_publish.py` (6) + `test_pi_analytics_deploy.py` (9) + `test_hermes_config_sync_component.py` (8) = **35 tests**, all passing (`Ran 35 tests ... OK`). The restricted-action count ("12 tests passed") is accurate (`test_gm_pi_analytics_action.py` = 12, confirmed), and combined with those the grand total I ran is 47, all green. This looks like a stale/miscounted number in the verification summary rather than missing coverage — everything that exists passes — but it's worth correcting the record rather than citing "39" going forward.
+- The earlier verification summary contained a stale test count. I ran the actual suite myself: `test_pi_session_analytics.py` (12) + `test_pi_analytics_ccore_publish.py` (6) + `test_pi_analytics_deploy.py` (9) + `test_hermes_config_sync_component.py` (8) = **35 tests**, all passing (`Ran 35 tests ... OK`). The restricted-action suite added 12 more passing tests, for a verified total of **47 tests**. The discrepancy was an evidence-counting error, not missing coverage.
 
 ## Completed vs. remaining checks
 
@@ -48,18 +48,3 @@
 **Remaining:** None within the stated scope contract. Cross-host convergence (mbp reading a disposable dever-published aggregate) and the live dever component `install --apply`/`verify` against a real `~/.hermes` are runtime/deployment steps outside what a static repo review can execute; the plan's own verification section treats these as rollout-time gates, and the code paths that implement them (`reconcile_existing`, `install_component`, `verify_component`) are exercised by passing unit tests.
 
 VERDICT: PASS_SCOPED
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-cb4eecadb9c8-1768209-d0621ca4995f
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/hermes-daily-pi-analytics-run-plan-pm-claude.md.transcript.txt
-claude_session_id=e21f3ad8-102b-4081-b146-f65e64e19a30
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/e21f3ad8-102b-4081-b146-f65e64e19a30.jsonl
-readiness_regex=❯
-clear_boundary=persisted Claude session JSONL after visible completion sentinel
-history_limit=50000
-capture_depth=50000

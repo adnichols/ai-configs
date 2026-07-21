@@ -448,7 +448,7 @@ curator:
   backup:
     enabled: true
     keep: 5
-timezone: ''
+timezone: America/Denver
 slack:
   require_mention: true
   free_response_channels: ''

@@ -25,18 +25,3 @@ None. The single new blocker (unnecessary `status`/anchor/comment metadata persi
 The restricted analytics claim projection now persists exactly the validator/closure-consumed field set — no `status`, `anchorType`, comment `id`/`createdBy`, `routingMetadata.agentRoute`/`mentions`, or arbitrary passthrough fields survive — verified both by exact-schema test assertions against a fixture that actually contains those fields, and by an independent manual trace of every field the restricted worker reads. Mode (`0600`) and cleanup (unlink-after-read, unlink-on-launch-failure) remain intact. 52/52 tests reproduced locally, matching cited evidence exactly.
 
 VERDICT: CLEAN_FOR_PR
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-0e232a985bcb-1959273-ece99f0118d7
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/pre-pr-reviews/2026-07-20-main-claude-actions-final.md.transcript.txt
-claude_session_id=6fa9d75d-0549-47c5-9bbf-d5f5500212ab
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/6fa9d75d-0549-47c5-9bbf-d5f5500212ab.jsonl
-readiness_regex=❯
-clear_boundary=persisted Claude session JSONL after visible completion sentinel
-history_limit=50000
-capture_depth=50000
