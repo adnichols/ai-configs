@@ -5,7 +5,7 @@ Final bounded rereview — Hermes Daily Pi Analytics Morning Review
   Completed checks
 
   - Author-identity grounding (P4): Searched beyond repo-tracked docs/scripts (which is as far as the prior targeted rereview looked) into local runtime artifacts. Found
-  /home/anichols/.hermes/tmp/doct-plan-comments/claim-3.json and claim-4.json — real captured doct-agent plans agent next/plans listen responses (type: "plan-review.agent.next.v1") from an actual prior plan-review
+  Two captured Doct plan-comment claim fixtures — real `doct-agent plans agent next` / `plans listen` responses (`plan-review.agent.next.v1`) from a prior plan review
   session (2026-07-04, "Plan: Pi Benchmark Harness on Dever," workspace 759bfae3-...). Both files contain, verbatim: routingMetadata.submitAction: "agent" (at both item. and thread. level) and, inside thread.comments[],
   authorType: "user" and authorUserId: "user_37aF7JpbASxjCDYaiXUDADaRHJw" — the exact same user ID cited in this round's evidence packet, appearing identically across two independent comment threads. This is genuine
   live-API evidence, not an invented field name: the schema the prior review couldn't find in committed docs/scripts does exist in the real Doct claim payload returned by the very CLI commands (plans agent next, plans
@@ -44,18 +44,3 @@ Final bounded rereview — Hermes Daily Pi Analytics Morning Review
   bounded pass.
 
   VERDICT: PLAN_EXECUTION_READY
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-0cd5060af5c4-1209258-8d8ed5696cce
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/hermes-daily-pi-analytics-claude-final-rereview.md.transcript.txt
-claude_session_id=9f013f70-c322-4e71-a03a-9a850d7afc4a
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/9f013f70-c322-4e71-a03a-9a850d7afc4a.jsonl
-readiness_regex=❯
-clear_boundary=baseline-relative marker/sentinel occurrence diff after submit
-history_limit=50000
-capture_depth=50000

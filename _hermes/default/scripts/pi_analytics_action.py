@@ -359,7 +359,10 @@ def record_decision(
 
 
 def _run_doct(argv: list[str], *, runner: Runner) -> subprocess.CompletedProcess[str]:
-    proc = runner(argv, capture_output=True, text=True, timeout=30)
+    try:
+        proc = runner(argv, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("Doct claim command timed out") from exc
     if proc.returncode != 0:
         raise RuntimeError("Doct claim command failed")
     return proc

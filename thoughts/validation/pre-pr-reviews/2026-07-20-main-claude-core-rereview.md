@@ -48,18 +48,3 @@ Scope checked
   None. No P1/P2 blockers found in the reviewed files.
 
   VERDICT: CLEAN_FOR_PR
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-732f1baaa5ff-1900063-e7229dd63ef3
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/pre-pr-reviews/2026-07-20-main-claude-core-rereview.md.transcript.txt
-claude_session_id=d6294c37-ae55-4788-8ce5-1e0c8244c7a7
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/d6294c37-ae55-4788-8ce5-1e0c8244c7a7.jsonl
-readiness_regex=❯
-clear_boundary=baseline-relative marker/sentinel occurrence diff after submit
-history_limit=50000
-capture_depth=50000

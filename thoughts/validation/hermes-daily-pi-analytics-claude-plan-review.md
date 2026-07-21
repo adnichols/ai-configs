@@ -36,18 +36,3 @@ None required to reach a verdict. I did not have direct read access to mbp's liv
 Items 1 and 5 from the requested risk areas are in reasonably good shape: the privacy/classification boundary is well-scoped against real session-file structure, and the phase/AC/BDD/verification-command scaffolding is largely internally consistent (job ID, timing math, expected files). But items 2, 3, and 4 each contain at least one concrete, reproducible blocker — a crashing install command with no working substitute, an unaddressed process-supervision requirement, a retention contract with no supported delete path, and an authorization gap in the comment-action pipeline — plus one genuine unresolved product question about snapshot identity. Three of these are independently confirmed by a second reviewer (Codex) already on disk in this repo, not just by this pass.
 
 VERDICT: PLAN_NEEDS_REVISION
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-35e6058cc7e7-984173-bcf39a0529e2
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/hermes-daily-pi-analytics-claude-plan-review.md.transcript.txt
-claude_session_id=c30af06d-cbf3-453b-99ce-2976c05e41fc
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/c30af06d-cbf3-453b-99ce-2976c05e41fc.jsonl
-readiness_regex=❯
-clear_boundary=persisted Claude session JSONL after visible completion sentinel
-history_limit=50000
-capture_depth=50000

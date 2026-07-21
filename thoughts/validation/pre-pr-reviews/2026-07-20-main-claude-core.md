@@ -21,7 +21,7 @@
 - Trigger/path: any operator (or the tool's own generated `README.md` instructions) running the pre-existing, default `python scripts/hermes_config_sync.py install --apply` (no `--component` flag).
 - Impact: `_hermes/default/cron/jobs.json` now contains job `a91c0d7e4b22` unconditionally, and `scripts/` is one of `TOP_LEVEL_DIRS` (`hermes_config_sync.py:64`), so `install_all`/`install_dir`/`install_cron_jobs` (`hermes_config_sync.py:536,407,512`) copy `pi_analytics_collector.py` and merge the cron job into **any** host's `cron/jobs.json`, activated (`enabled:true`, `state:"scheduled"`) with no opt-in. This directly contradicts the stated goal "additive collector-only install preserving unrelated state," and defeats the purpose of building the new `--component` mechanism (whose own tests only assert the *component* path is additive/scoped — they never assert the *full* path is not).
 - Diff relationship: caused by the combination of two new-in-diff facts — the job entry added straight into the shared `cron/jobs.json` (`_hermes/default/cron/jobs.json:319-357`) and the collector script placed under `scripts/`, which the pre-existing full-sync path already walks unmodified.
-- Evidence: reproduced live — `install --apply --hermes-home /tmp/scratch --bundle _hermes/default` (no `--component`) deployed `pi_analytics_collector.py`, `pi_analytics_action.py`, and job id `a91c0d7e4b22` (`enabled:true`) into the scratch home. No existing or new test asserts the opposite.
+- Evidence: reproduced live — `install --apply --hermes-home <scratch-home> --bundle _hermes/default` (no `--component`) deployed `pi_analytics_collector.py`, `pi_analytics_action.py`, and job id `a91c0d7e4b22` (`enabled:true`) into the scratch home. No existing or new test asserts the opposite.
 - Consequence if uncorrected: hosts never intended to run this collector get a daily 5am cron entry; it fails at runtime only if `~/.hermes/config/pi-analytics-collector.json` is absent (clean `CollectorError`, no crash, no privacy leak), but the job is left permanently "scheduled" and failing daily on hosts an operator never opted in.
 - Smallest fix: exclude component-owned cron job ids/files (as declared in `components/*.json`) from the plain `install_cron_jobs`/`install_dir` full-sync paths, so only `--component pi-analytics-collector install` can activate them — or explicitly document/confirm this is intended and adjust the plan's stated goal.
 - Blocking: **Yes** — directly contradicts the change's own stated goal and is unverified by any test.
@@ -50,18 +50,3 @@
 One P1 finding (full-install/component-scope contradiction) is concretely reproduced, untested, and directly undermines the change's own stated non-goal boundary ("additive collector-only install preserving unrelated state"). This should be resolved or explicitly re-scoped before merge.
 
 VERDICT: FINDINGS_TO_RESOLVE
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-2f9823c011e4-1820094-77dc99540c71
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/pre-pr-reviews/2026-07-20-main-claude-core.md.transcript.txt
-claude_session_id=eeacc870-d93d-42f2-9c26-e39bbd397098
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/eeacc870-d93d-42f2-9c26-e39bbd397098.jsonl
-readiness_regex=❯
-clear_boundary=persisted Claude session JSONL after visible completion sentinel
-history_limit=50000
-capture_depth=50000

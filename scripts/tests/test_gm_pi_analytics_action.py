@@ -213,6 +213,33 @@ class PiAnalyticsActionValidationTests(unittest.TestCase):
                 self.assertEqual(plan_actions(calls), expected_actions)
                 self.assertTrue(all("hermes" not in call for call in calls))
 
+    def test_doct_timeout_uses_rejection_cleanup_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            registry_path, ledger_path = self._paths(root)
+            claim = fixture("valid-agent-claim.json")
+            calls: list[list[str]] = []
+
+            def timeout_document_lookup(argv, **kwargs):  # type: ignore[no-untyped-def]
+                calls.append(list(argv))
+                if argv[:3] == ["doct-agent", "documents", "get"]:
+                    raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+                return subprocess.CompletedProcess(argv, 0, "{}\n", "")
+
+            self.assertEqual(
+                action.process_claim(
+                    claim,
+                    registry_path=registry_path,
+                    ledger_path=ledger_path,
+                    aaron_user_id=self.config["aaron_doct_user_id"],
+                    runner=timeout_document_lookup,
+                    now=UTC_NOW,
+                ),
+                2,
+            )
+            self.assertFalse(ledger_path.exists())
+            self.assertEqual(plan_actions(calls), ["reply", "ack", "resolve"])
+
     def test_duplicate_and_crash_retry_record_one_decision_without_extending_window(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

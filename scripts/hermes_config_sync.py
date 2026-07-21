@@ -737,10 +737,11 @@ def install_component_jobs(
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         if dst.exists():
             existing = load_cron_jobs(dst)
-            backup = backup_path(dst, hermes_home)
-            backup.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(dst, backup)
-            backups.append((dst, backup))
+            if not any(original == dst for original, _ in backups):
+                backup = backup_path(dst, hermes_home)
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(dst, backup)
+                backups.append((dst, backup))
             mode = stat.S_IMODE(dst.stat().st_mode)
         else:
             existing = {"jobs": []}

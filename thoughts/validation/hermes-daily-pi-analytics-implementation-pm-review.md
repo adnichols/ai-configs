@@ -19,9 +19,9 @@ The local and remote fixture suites cover BDD-1 through BDD-8, including privacy
 
 ## Evidence
 
-- Local analyzer/collector/deploy/action verification passes.
-- Remote Good Morning analytics suite passes 20 tests.
-- Hermes bundle manifest refresh and verify pass; dever component apply/verify passes; mbp full install/verify/export verification completed.
+- The parent run-plan executor independently ran the local analyzer/collector/deploy/action verification successfully.
+- The parent run-plan executor independently ran the remote Good Morning analytics suite on mbp: 20 tests passed. The sandboxed Claude reviewer inspected supplied snapshots but could not execute that separate-repository suite itself.
+- The parent run-plan executor completed Hermes bundle manifest refresh/verify, dever component apply/verify, and mbp full install/verify/export checks.
 - Codex final scoped rereview: `PASS_SCOPED`.
 - Claude Code scoped implementation review: `PASS_SCOPED`.
 

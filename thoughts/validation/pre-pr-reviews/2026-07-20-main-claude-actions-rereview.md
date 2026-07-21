@@ -28,18 +28,3 @@ None found. Both prior P2-blocking findings (Codex: partial-close duplicate repl
 Restricted-path authorization, TOCTOU, generic-worker isolation, ledger idempotency, closure-progress persistence, and claim-file privacy handling are all sound and match their test coverage (51/51 reproduced locally, matching cited evidence exactly).
 
 VERDICT: CLEAN_FOR_PR
-
----
-CLAUDE_REVIEW_LAUNCHER_METADATA
-socket=claude-review-claude-review-5067872cc077-1900070-17c103294640
-session=review
-window=claude-review
-model=claude-sonnet-5
-effort=xhigh
-transcript=/home/anichols/code/ai-configs/thoughts/validation/pre-pr-reviews/2026-07-20-main-claude-actions-rereview.md.transcript.txt
-claude_session_id=9e2005f4-65fe-4645-9ce4-8148ab0daa22
-session_record=/home/anichols/.claude/projects/-home-anichols-code-ai-configs/9e2005f4-65fe-4645-9ce4-8148ab0daa22.jsonl
-readiness_regex=❯
-clear_boundary=persisted Claude session JSONL after visible completion sentinel
-history_limit=50000
-capture_depth=50000
