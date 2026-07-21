@@ -30,10 +30,12 @@ The driving agent must first form a small set of falsifiable hypotheses from the
 When parallel evidence gathering would materially reduce context or latency, launch optional `scout` calls. Each call must be read-only and receive a bounded packet containing:
 
 - one evidence question (for example recent-change timeline, code-path trace, configuration factors, or existing test coverage),
-- allowed directories/files and commands,
-- required file:line or command-output citations,
-- explicit exclusions (no diagnosis, fixes, edits, or scope expansion),
-- an output format and stop condition.
+- allowed directories/files, commands, and other named sources,
+- required file:line, command-output, or source citations,
+- explicit exclusions (no diagnosis, synthesis, recommendations, fixes, edits, or scope expansion),
+- read-only authority,
+- concise evidence/blocker output returned directly to the driving session with no artifact creation,
+- a stop condition: stop when the question is answered or report the concrete blocker.
 
 Example:
 
@@ -41,7 +43,7 @@ Example:
 Task(
   subagent_type="scout",
   description="Gather bounded debug evidence",
-  prompt="Read-only evidence packet for [issue]. Question: [single question]. Inspect only [surfaces]. Return concise findings with file:line or command evidence, contradictions, and unknowns. Do not diagnose, recommend fixes, or modify files. Stop after the packet is answered or report a concrete blocker."
+  prompt="Read-only evidence packet for [issue]. Question: [single question]. Inspect only [named files/directories, commands, or sources]. Return concise evidence, citations, contradictions, and blockers directly to this driving session; create no artifact. Do not diagnose, synthesize, recommend fixes, modify files, or expand scope. Stop when the question is answered or report the concrete blocker."
 )
 ```
 

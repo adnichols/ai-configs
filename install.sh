@@ -2330,6 +2330,7 @@ PY
     # bounded installs. Reuse the canonical helper so retired/stale personas
     # cannot survive a review-stack transaction.
     install_pi_agents_from_repo "$pi_source" "$agent/agents"
+    chmod 700 "$agent/agents" 2>/dev/null || true
     install_pi_models_from_repo "$pi_source" "$agent" true
     cp "$pi_source/README.md" "$agent/README.md"
     install_pi_append_system_file "$agent"

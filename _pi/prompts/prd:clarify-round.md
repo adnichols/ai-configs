@@ -65,13 +65,15 @@ Examples:
 
 If the clarification-gap reviewer only found local contradictions, missing flows, or missing user intent, skip research.
 
+For each scout call, the driving agent must provide one evidence question, the allowed repo surfaces and/or named authoritative external sources, explicit exclusions, and a stop condition. The scout has read-only authority and returns evidence/blockers only, with file:line or source citations, directly to the driving session; it creates no artifact and must not edit, synthesize the decision, or recommend an option. Stop when the question is answered or report the concrete blocker. The driving agent owns synthesis and recommendations.
+
 Conditional launch:
 
 ```javascript
 const research = Agent({
   subagent_type: "scout",
-  description: "Research PRD decision gaps",
-  prompt: "Research only the decision-relevant gaps identified for $ARGUMENTS. Keep the brief concise and tied to active decisions, with findings, authoritative sources, and a recommendation.",
+  description: "Gather evidence for one PRD decision gap",
+  prompt: "Read-only evidence packet for $ARGUMENTS. Question: [one decision-relevant evidence question]. Inspect only [named repo surfaces and/or authoritative external sources]. Return concise evidence with file:line or source citations and any concrete blocker directly to this driving session; create no artifact. Do not edit, synthesize the decision, recommend an option, or expand scope. Stop when the question is answered or report the concrete blocker.",
   run_in_background: true,
 });
 

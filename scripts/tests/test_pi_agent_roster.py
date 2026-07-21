@@ -75,6 +75,49 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("caller-authorized annotations", bodies["reviewer"])
         self.assertIn("beyond that granted output contract", bodies["reviewer"])
 
+    def test_scout_caller_packets_are_bounded_and_evidence_only(self):
+        prompts = {
+            "cmd:debug": (
+                ROOT / "_pi" / "prompts" / "cmd:debug.md",
+                "When parallel evidence gathering would materially reduce context or latency",
+                "\nDo not delegate the whole investigation.",
+            ),
+            "dev:run": (
+                ROOT / "_pi" / "prompts" / "dev:run.md",
+                "Use `scout` before implementation whenever target files or contracts are not already known.",
+                "\n\nDelegation to `developer-mid`",
+            ),
+            "prd:clarify-round": (
+                ROOT / "_pi" / "prompts" / "prd:clarify-round.md",
+                "For each scout call,",
+                "\n\n## Phase 4: Next-Step Decision",
+            ),
+        }
+        for name, (path, start, end) in prompts.items():
+            source = path.read_text()
+            with self.subTest(prompt=name):
+                self.assertEqual(1, source.count(start), f"ambiguous start anchor: {start}")
+                self.assertEqual(1, source.count(end), f"ambiguous end anchor: {end}")
+                text = source.split(start, 1)[1].split(end, 1)[0].lower()
+                self.assertIn("one evidence question", text)
+                self.assertRegex(text, r"allowed[^\n]*(?:files|directories|surfaces|sources)")
+                self.assertIn("read-only", text)
+                self.assertRegex(text, r"no edits|do not edit|must not edit|modify files")
+                self.assertIn("evidence", text)
+                self.assertIn("citations", text)
+                self.assertRegex(text, r"directly to (?:the|this) driving session")
+                self.assertRegex(text, r"no artifact|create no artifact")
+                self.assertIn("blocker", text)
+                self.assertIn("stop", text)
+                self.assertRegex(
+                    text,
+                    r"no [^\n.]*recommendations|do not [^\n.]*recommend|must not [^\n.]*recommend",
+                )
+                self.assertRegex(
+                    text,
+                    r"no [^\n.]*synthesis|do not [^\n.]*synthesi[sz]e|must not [^\n.]*synthesi[sz]e",
+                )
+
     def test_start_linear_issue_source_contract(self):
         prompt = (ROOT / "_pi" / "prompts" / "cmd:start-linear-issue.md").read_text()
         self.assertIn("Second argument: `BASE_BRANCH` (optional), default `origin/main`.", prompt)
