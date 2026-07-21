@@ -38,7 +38,7 @@ Create a research plan using `todowrite`.
 
 ### 3. Spawn Parallel Research Tasks
 
-Use the Task tool with `subagent_type=explore` to research different aspects concurrently:
+Use the Task tool with `subagent_type=scout` to inspect different bounded evidence questions concurrently:
 
 ```
 Task: Find WHERE components live
@@ -54,7 +54,7 @@ Task: Find PATTERNS
 - Document conventions used
 ```
 
-Each task should return specific file:line references.
+Each `scout` call is read-only. Its caller packet must name one bounded discovery question, allowed directories/files or web sources, excluded work, the required evidence/output format, and a stop condition. Each task should return specific file:line references (or authoritative URLs for external evidence), unknowns, and a concrete blocker if it cannot complete the packet. Scouts must not edit files, create the research artifact, broaden scope, or make the final recommendation; the driving agent owns synthesis and the output document.
 
 ### 4. Synthesize Findings
 
@@ -141,7 +141,7 @@ If user has follow-up questions:
 
 ## Guidelines
 
-- Use parallel Task agents with `subagent_type=explore` for efficiency
+- Use parallel Task agents with `subagent_type=scout` for efficiency
 - Focus on concrete file paths and line numbers
 - Document cross-component connections
 - Research documents should be self-contained

@@ -12,20 +12,6 @@ const workflows=[
   ['skills/reviewed-html-plan/SKILL.md','reviewed-html-plan'],
 ];
 const aliasRouting=/\bcodex_review\b|\bclaude_review\b|run-review\.sh|codex exec review|verdictProfile|reviewType|action\s*:\s*["']start["']/;
-const codexReviewAgents=[
-  'multi-reviewer.md',
-  'prd-critical-thinker.md',
-  'quality-reviewer.md',
-  'reviewer-gpt.md',
-  'reviewer-plan-adversarial-gpt.md',
-  'reviewer-plan-gpt.md',
-  'reviewer-plan-synthesis.md',
-  'reviewer-prd-dependencies.md',
-  'reviewer-prd-intent.md',
-  'reviewer-prd-product-principles.md',
-  'reviewer-prd-scope-stage-fit.md',
-  'reviewer-prd-security-privacy-reliability.md',
-];
 
 test('maintained Pi workflows and review skill select codex_review without Pi-wrapper contradictions',async()=>{
   for(const [file,profile] of workflows){
@@ -43,15 +29,13 @@ test('maintained Pi workflows and review skill select codex_review without Pi-wr
   for(const contradiction of [/running from Pi[^\n]*wrapper/i,/Pi[^\n]*subprocess wrapper/i,/another runtime, such as Pi[^\n]*wrapper/i]) assert.doesNotMatch(partner,contradiction);
 });
 
-test('Codex review launcher and agents use Terra at high effort',async()=>{
+test('canonical launcher keeps its review profile while the generic Pi reviewer uses Sol medium',async()=>{
   const launcher=await readFile(path.join(repo,'skills/codex-review-partner/scripts/run-review.sh'),'utf8');
   assert.match(launcher,/(?:^|\s)-m gpt-5\.6-terra(?:\s|$)/);
   assert.match(launcher,/model_reasoning_effort="high"/);
-  for(const file of codexReviewAgents){
-    const text=await readFile(path.join(repo,'_pi/agents',file),'utf8');
-    assert.match(text,/^model: openai-codex\/gpt-5\.6-terra$/m,file);
-    assert.match(text,/^reasoningEffort: high$/m,file);
-  }
+  const reviewer=await readFile(path.join(repo,'_pi/agents/reviewer.md'),'utf8');
+  assert.match(reviewer,/^model: openai-codex\/gpt-5\.6-sol$/m);
+  assert.match(reviewer,/^reasoningEffort: medium$/m);
 });
 
 test('all blocked signatures include a valid compatible replacement',()=>{

@@ -89,6 +89,45 @@ class LauncherTestCase(unittest.TestCase):
             tmux_probe = run_cmd(["tmux", "-L", socket, "list-sessions"], timeout=5)
             self.assertNotEqual(tmux_probe.returncode, 0, "successful review leaked private tmux server")
 
+    def test_hard_limit_examples_in_submitted_prompt_do_not_block_valid_review(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            prompt = Path(args[args.index("--prompt-file") + 1])
+            prompt.write_text(textwrap.dedent("""
+                Review the launcher behavior for these provider-output examples:
+                - You've hit your session limit
+                - You've hit your weekly rate limit
+                Return VERDICT: PASS_SCOPED and one sentence.
+            """).strip(), encoding="utf-8")
+            proc = run_cmd(args, env=self.make_fake_env(tmp), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("VERDICT: PASS_SCOPED\nFake Claude review body"), text)
+            self.assertIn("CLAUDE_REVIEW_LAUNCHER_METADATA", text)
+            self.assertIn("model=claude-sonnet-5", text)
+            self.assertIn("effort=xhigh", text)
+            self.assertIn("clear_boundary=", text)
+            self.assertIn("claude_session_id=", text)
+            self.assertIn("session_record=", text)
+
+    def test_generated_answer_quoting_hard_limit_examples_completes(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_QUOTED_HARD_LIMITS": "1"}), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("VERDICT: PASS_SCOPED\nFake Claude review body quoting provider examples:"), text)
+            self.assertIn("- You've hit your session limit", text)
+            self.assertIn("- You've hit your weekly rate limit", text)
+            self.assertIn("CLAUDE_REVIEW_LAUNCHER_METADATA", text)
+            self.assertIn("model=claude-sonnet-5", text)
+            self.assertIn("effort=xhigh", text)
+            self.assertIn("clear_boundary=", text)
+            self.assertIn("claude_session_id=", text)
+            self.assertIn("session_record=", text)
+
     def test_omitted_sentinel_generates_nonce_sentinel(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
@@ -194,6 +233,22 @@ class LauncherTestCase(unittest.TestCase):
             self.assertIn("CLAUDE_SESSION_LIMIT_IN_TUI", text)
             self.assertIn("session/rate limit after submit", text)
 
+    def test_usage_banner_after_submit_allows_review_to_complete(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_USAGE_BANNER": "1"}), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("VERDICT: PASS_SCOPED\nFake Claude review body"), text)
+            self.assertIn("CLAUDE_REVIEW_LAUNCHER_METADATA", text)
+            self.assertIn("model=claude-sonnet-5", text)
+            self.assertIn("effort=xhigh", text)
+            self.assertIn("clear_boundary=", text)
+            transcript_path = Path(next(line for line in text.splitlines() if line.startswith("transcript=")).split("=", 1)[1])
+            transcript = transcript_path.read_text(encoding="utf-8")
+            self.assertIn("You've used 75% of your weekly limit · resets 3am (America/Denver)", transcript)
+
     def test_weekly_usage_limit_banner_is_not_session_limit(self) -> None:
         spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
         self.assertIsNotNone(spec)
@@ -201,11 +256,99 @@ class LauncherTestCase(unittest.TestCase):
         assert spec and spec.loader
         spec.loader.exec_module(module)
         banners = [
+            "You've used 75% of your weekly limit · resets 3am (America/Denver)",
+            "You've used 1% of your weekly limit · resets 11pm (America/Denver)",
+            "You've used 50% of your weekly limit · resets 9:30am (America/Denver)",
+            "You've used 99% of your weekly limit · resets 12am (America/Denver)",
             "Extended: Fable 5 is included in your weekly limit. If you hit your limit, you can continue on Fable 5 with usage credits.",
             "We're extending Claude Fable 5 access on all paid plans, as well as keeping Claude Code’s weekly rate limits 50% higher, through July 19.",
         ]
         for banner in banners:
-            module.check_tui_unavailable(banner)
+            with self.subTest(banner=banner):
+                module.check_tui_unavailable(banner)
+
+    def test_explicit_hard_limit_language_is_session_limit(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        messages = [
+            "You've hit your session limit · resets 11:30am (America/Denver)",
+            "You've reached your weekly limit.",
+            "You've hit your weekly rate limit · resets 3am (America/Denver)",
+            "You have exceeded the usage limit.",
+            "Rate limit exceeded.",
+            "Limit reached.",
+        ]
+        for message in messages:
+            with self.subTest(message=message), self.assertRaises(module.LauncherError) as raised:
+                module.check_tui_unavailable(message)
+            self.assertEqual(raised.exception.code, "CLAUDE_SESSION_LIMIT_IN_TUI")
+            self.assertEqual(raised.exception.exit_code, 25)
+
+    def test_post_submit_generated_output_excludes_visible_or_collapsed_prompt(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        marker = "CLAUDE_REVIEW_ANSWER_START_deadbeef"
+        sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
+        visible = (
+            "❯ You've hit your session limit\n"
+            f"Claude review launcher emission protocol\n{marker}\n<review text here>\n{sentinel}\n"
+            f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}\n"
+            "⎿  You've hit your weekly rate limit · resets 3am"
+        )
+        partial_visible = (
+            "❯ You've hit your session limit\n"
+            f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}\n"
+            "⎿  You've hit your weekly rate limit · resets 3am"
+        )
+        collapsed = "❯ [Pasted text #1 +28 lines]\n⎿  You've hit your session limit · resets 11:30am"
+        cleared = "Claude Code\n⎿  You've hit your session limit · resets 11:30am\n❯"
+        generated_answer = f"{marker}\nVERDICT: PASS_SCOPED\nReview\n{sentinel}"
+        self.assertEqual(
+            module.post_submit_generated_output(visible, marker, sentinel).strip(),
+            "⎿  You've hit your weekly rate limit · resets 3am",
+        )
+        self.assertEqual(
+            module.post_submit_generated_output(partial_visible, marker, sentinel).strip(),
+            "⎿  You've hit your weekly rate limit · resets 3am",
+        )
+        self.assertEqual(
+            module.post_submit_generated_output(collapsed, marker, sentinel).strip(),
+            "⎿  You've hit your session limit · resets 11:30am",
+        )
+        self.assertEqual(module.post_submit_generated_output(cleared, marker, sentinel), cleared)
+        self.assertEqual(module.post_submit_generated_output(generated_answer, marker, sentinel), generated_answer)
+        generated_answer_with_boundary = f"{generated_answer}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        self.assertEqual(module.post_submit_generated_output(generated_answer_with_boundary, marker, sentinel), "")
+
+    def test_availability_check_region_retains_pre_marker_and_excludes_answer_body(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        marker = "CLAUDE_REVIEW_ANSWER_START_deadbeef"
+        pre_marker_limit = "⎿  You've hit your session limit · resets 11:30am"
+        answer_body_limits = (
+            "VERDICT: PASS_SCOPED\n"
+            "Review quotes You've hit your session limit and You've hit your weekly rate limit."
+        )
+
+        pre_marker_region = module.availability_check_region(f"{pre_marker_limit}\n{marker}\n{answer_body_limits}", marker)
+        self.assertEqual(pre_marker_region, pre_marker_limit + "\n")
+        with self.assertRaises(module.LauncherError) as raised:
+            module.check_tui_unavailable(pre_marker_region, after_submit=True)
+        self.assertEqual(raised.exception.code, "CLAUDE_SESSION_LIMIT_IN_TUI")
+        self.assertEqual(raised.exception.exit_code, 25)
+
+        answer_only_region = module.availability_check_region(f"{marker}\n{answer_body_limits}", marker)
+        self.assertEqual(answer_only_region, "")
+        module.check_tui_unavailable(answer_only_region, after_submit=True)
 
     def test_collapsed_paste_can_establish_prompt_baseline(self) -> None:
         spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)

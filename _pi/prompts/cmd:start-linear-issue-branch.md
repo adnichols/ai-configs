@@ -128,12 +128,12 @@ Ensure the directory exists:
 mkdir -p thoughts/plans
 ```
 
-Spawn a planning subagent that drafts the initial single-file plan (mimic `dev:plan`).
+Spawn the planning-only `planner` subagent to draft the initial single-file plan (mimic `dev:plan`). The caller retains branch/repository authority; the planner may write only the named plan artifact.
 
 ```text
 Task(
-  subagent_type="general",
-  description="Draft plan for Linear issue",
+  subagent_type="planner",
+  description="Draft planning-only artifact for Linear issue",
   prompt="""Draft a first-pass single-file execution plan for this Linear issue.
 
 Use these inputs (substitute from the Linear metadata you fetched in step 3):
@@ -146,9 +146,11 @@ Use these inputs (substitute from the Linear metadata you fetched in step 3):
 - Branch: ${branch_name}
 - Base: ${base_ref}
 
-Output contract:
+Artifact and authority contract:
+- Linear context is authoritative: issue ${ISSUE_KEY}, title ${ISSUE_TITLE}, URL ${ISSUE_URL}, project ${ISSUE_PROJECT}, state ${ISSUE_STATE}, branch ${branch_name}, base ${base_ref}
 - Write exactly one file: ${plan_path}
-- Do not modify any other files
+- Planning-only: do not implement, change application code, manage Git, or modify any other file
+- Stop after the artifact is written and report verification that only ${plan_path} changed
 
 Guidance:
 - Follow the repository's maintained planning format: specification, phases, progress, and resumability.

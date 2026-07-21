@@ -52,10 +52,11 @@ Installed layout:
 │   ├── dev:plan.md
 │   └── ...
 ├── agents/
-│   ├── developer-mid.md
-│   ├── quality-reviewer.md
-│   ├── Explore.md        # disables tintinweb's bundled Explore persona
-│   └── ...
+│   ├── developer-mid.md  # GPT-5.6 Sol medium; sole implementation authority
+│   ├── planner.md        # GPT-5.6 Sol medium; planning-only
+│   ├── reviewer.md       # GPT-5.6 Sol medium; read-only review
+│   ├── scout.md          # GPT-5.6 Terra low; read-only discovery
+│   └── Explore.md        # disabled bundled persona override
 └── extensions/
     ├── pi-prd-mode/
     │   └── index.ts
@@ -72,7 +73,7 @@ The doctrine is request-type-first: questions, explanations, inspection, researc
 
 The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route.
 
-`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. Repository-owned implementation agents use Sol medium exclusively; review agents retain their separately configured reasoning levels.
+`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. Repository-owned implementation, planning, and review agents use GPT-5.6 Sol medium; the read-only scout uses GPT-5.6 Terra low. GPT-5.4 and GPT-5.4-mini are retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
 
 ## Structure
 
@@ -135,7 +136,7 @@ This repo also ships a maintained `pi-prd-mode` extension that:
 
 - powers `/prd` mode for PRD/spec workflows,
 - keeps PRD-mode writes scoped to `thoughts/plans/prd-*.md`, `thoughts/specs/spec-*.md`, and transient review artifacts under `thoughts/validation/prd-reviews/<prd-slug>/`,
-- asks the model to compare each answer round against the intent/spec baseline and use `/prd:clarify-round` for the critical-thinker-first clarification loop,
+- asks the model to compare each answer round against the intent/spec baseline and use `/prd:clarify-round` for a clarification-gap reviewer pass followed by optional bounded scout research,
 - keeps `/review:prd` as an explicit review gate instead of auto-running it after edits,
 - records PRD review approval in `thoughts/validation/prd-reviews/<prd-slug>/review-status.json`,
 - prompts you to run `/review:prd` before handoff whenever the latest PRD review is missing, stale, or not approved,
@@ -227,15 +228,15 @@ Use `pi list` on a host to verify what is currently registered. To verify both s
 
 The maintained agent files use the flat frontmatter expected by `@tintinweb/pi-subagents`: every agent has a `name`, and `tools` is a comma-separated Pi tool list when specified.
 
-Example installed agents:
+The installed agent directory is an exact replacement with this roster:
 
-- `developer-mid`
-- `quality-reviewer`
-- `research`
-- `plan-gpt`
-- `reviewer-plan-adversarial-gpt`
-- `reviewer-plan-adversarial-opus`
-- `worktree-creator`
+- `developer-mid` — GPT-5.6 Sol medium; sole implementation delegate
+- `planner` — GPT-5.6 Sol medium; planning-only
+- `reviewer` — GPT-5.6 Sol medium; read-only material review
+- `scout` — GPT-5.6 Terra low; bounded read-only discovery
+- `Explore.md` — disabled override, not an active agent
+
+Callers must supply the artifact or allowed surfaces, specialized lens, output destination/format, authority boundary, verification evidence, and stop/verdict vocabulary. No hidden or generic implementation fallback exists. `/cmd:start-linear-issue` performs its deterministic Git/Linear worktree workflow directly and never delegates repository management to an implementation agent.
 
 ## Skills Overview
 
@@ -244,7 +245,7 @@ Example installed agents:
 
 ### Dev / execution
 - `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: durable Pi goal tracking, implementation, scoped reviews, implementation-stage PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
-- `dev:run` — direct GPT-5.6 Sol medium execution with one `quality-reviewer` pass after each phase
+- `dev:run` — direct GPT-5.6 Sol medium execution with one shared `reviewer` pass after each phase
 - `autoreview` — canonical Codex plus applicable Claude Code pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
 
 ### Git / workflow
@@ -262,7 +263,7 @@ Example installed agents:
 - `cmd-resume-handoff`
 - `review-plan`
 - `review-plan-adversarial`
-- `review-change-opus`
+- `review-change-opus` — compatibility pointer to `/review:change-claude-code`; no provider-specific Pi subagent
 - `review-change-claude-code` — Claude Code review-only pass through the deterministic visibly-running `claude_review` subprocess tool; the shared launcher owns private-tmux Claude mechanics
 - `autoreview` — runnable independently or automatically from `run-plan` before PR creation; it is not a terminal replacement for PM review, base freshness, opening the PR, or proving local merge readiness
 - `pre-pr-implementation-review` — indefinite compatibility alias for `autoreview`; it preserves arguments and the `OPEN_PR_READY` handoff without duplicating the canonical policy
@@ -317,7 +318,7 @@ Optional second pass: run `/review:plan-adversarial <plan>` after `/review:chang
 Use `/dev:pm-review <plan> implementation` after execution when you want a corrective PM pass that checks whether the intended user outcome was actually realized and, if not, reshapes the plan with the missing completion work instead of stopping at findings.
 
 - `/cmd:execute-plan` is the canonical wrapper for choosing between `/run-plan <plan>` and `/dev:run <plan>`.
-- `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one `quality-reviewer` pass after each phase.
+- `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one shared `reviewer` pass after each phase.
 - `/skill:autoreview` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean Codex and applicable Claude Code consensus with no unresolved blocking in-scope P1/P2 findings means `OPEN_PR_READY`; plan-required, verification-required, or regression-caused P3 findings remain blocking. The runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for a Codex thumbs-up. `/skill:pre-pr-implementation-review` remains supported indefinitely as a thin argument-preserving compatibility alias.
 - In Pi, `/cmd:execute-plan` starts a fresh session and launches the selected execution flow from clean context.
 - `/review:change-claude-code` remains available as an explicit manual review request; it is not an automatic planning-mode fallback. It writes a bounded prompt, reports that the Claude reviewer subprocess is starting, and calls the repo-owned `claude_review` tool. The tool stays visibly active with job ID and supervisor PID until the reviewer exits, then returns the terminal result directly. Its detached supervisor still preserves accepted work if the visible call is interrupted. Detached completion notification is bound to the originating Pi session, including a reload or restart of that same session; a different new, resumed, or forked session never receives the completion. Otherwise use `claude_review` list/status to recover the validated artifact and interpret the workflow verdict separately from transport success.
@@ -335,8 +336,8 @@ The sequence below is the end-to-end reviewed-PRD path from PRD entry through ha
 - It is the canonical wrapper for turning a reviewed PRD delta into a fresh single-file plan session.
 - In Pi `/prd` mode, the typical sequence is `/prd` → update the PRD with the latest user answers → `/prd:clarify-round` → repeat that clarification loop as needed → `/review:prd` when a wider review is worthwhile → `/dev:plan-from-prd <prd>` after an approved review result.
 - `/review:prd` is the explicit review gate before `/dev:plan-from-prd`.
-- `/review:prd` writes seven per-reviewer files under `thoughts/validation/prd-reviews/<prd-slug>/`, integrates the combined findings back into the PRD, keeps `integration-ledger.md` plus `review-status.json`, and removes the seven reviewer output files after integration.
-- `/dev:plan-from-prd` validates that `thoughts/validation/prd-reviews/<prd-slug>/review-status.json` exists, is approved, and is not older than the PRD.
+- `/review:prd` runs five distinct reviewer lenses and writes five per-reviewer files under `thoughts/validation/prd-reviews/<prd-slug>/`, integrates the combined findings back into the PRD, keeps `integration-ledger.md` plus `review-status.json`, and removes the five reviewer output files after integration. The final status contract records `reviewersExpected: 5`, `reviewersCompleted: 5`, `integratedCount` from `0` through `5`, `pendingCount: 0`, and `reviewerFilesRemoved: true`.
+- `/dev:plan-from-prd` validates that `thoughts/validation/prd-reviews/<prd-slug>/review-status.json` matches that approved five-reviewer contract and is not older than the PRD.
 - If the latest review result for the same PRD is `needs_changes`, resolve the inline `[REVIEW:...]` comments in that PRD and rerun `/review:prd <prd-path>`.
 - If the latest review result for the same PRD is `review_failed`, inspect `thoughts/validation/prd-reviews/<prd-slug>/integration-ledger.md` for the failed reviewer row(s) and notes, resolve the failed review-cycle cause(s), and rerun `/review:prd <prd-path>`.
 - If the latest review result for the same PRD is stale, or the same PRD does not yet have a current approved review result, rerun `/review:prd <prd-path>` before handoff.

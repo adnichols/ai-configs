@@ -1856,14 +1856,72 @@ PY
     fi
 }
 
+validate_pi_model_inputs() {
+    local pi_source_dir="$1"
+    local pi_agent_dir="$2"
+    local source_path="$pi_source_dir/models.json"
+    local target_path="$pi_agent_dir/models.json"
+    local settings_path="$pi_agent_dir/settings.json"
+
+    if [ ! -f "$source_path" ]; then
+        return
+    fi
+
+    PI_MODELS_SOURCE="$source_path" PI_MODELS_TARGET="$target_path" PI_SETTINGS_TARGET="$settings_path" python3 <<'PY'
+import json
+import os
+from pathlib import Path
+
+source_path = Path(os.environ["PI_MODELS_SOURCE"])
+target_path = Path(os.environ["PI_MODELS_TARGET"])
+settings_path = Path(os.environ["PI_SETTINGS_TARGET"])
+source_data = json.loads(source_path.read_text())
+target_data = json.loads(target_path.read_text()) if target_path.exists() else {}
+
+if not isinstance(source_data, dict):
+    raise SystemExit("source models.json must be a JSON object")
+if not isinstance(target_data, dict):
+    raise SystemExit("target models.json must be a JSON object")
+source_providers = source_data.get("providers")
+if not isinstance(source_providers, dict):
+    raise SystemExit("source models.json must contain a providers object")
+if "providers" in target_data and not isinstance(target_data["providers"], dict):
+    raise SystemExit("target models.json providers field is not an object")
+
+for provider_id, provider in source_providers.items():
+    if not isinstance(provider, dict):
+        raise SystemExit(f"provider {provider_id!r} is not an object")
+    models = provider.get("models")
+    if models is not None:
+        if not isinstance(models, list):
+            raise SystemExit(f"provider {provider_id!r} models field is not a list")
+        if any(not isinstance(model, dict) or not isinstance(model.get("id"), str) for model in models):
+            raise SystemExit(f"provider {provider_id!r} contains a model without an id")
+    if "modelOverrides" in provider and not isinstance(provider["modelOverrides"], dict):
+        raise SystemExit(f"provider {provider_id!r} modelOverrides field is not an object")
+
+if settings_path.exists():
+    settings = json.loads(settings_path.read_text())
+    if not isinstance(settings, dict):
+        raise SystemExit("settings.json must be a JSON object")
+    enabled_models = settings.get("enabledModels")
+    if enabled_models is not None and not isinstance(enabled_models, list):
+        raise SystemExit("settings enabledModels must be a list when present")
+PY
+}
+
 install_pi_models_from_repo() {
     local pi_source_dir="$1"
     local pi_agent_dir="$2"
+    local inputs_validated="${3:-false}"
     local source_path="$pi_source_dir/models.json"
     local target_path="$pi_agent_dir/models.json"
 
     if [ ! -f "$source_path" ]; then
         return
+    fi
+    if [ "$inputs_validated" != true ]; then
+        validate_pi_model_inputs "$pi_source_dir" "$pi_agent_dir"
     fi
 
     echo "  - Merging Pi model configuration..."
@@ -1877,6 +1935,7 @@ from pathlib import Path
 
 source_path = Path(os.environ["PI_MODELS_SOURCE"])
 target_path = Path(os.environ["PI_MODELS_TARGET"])
+settings_path = target_path.parent / "settings.json"
 source_data = json.loads(source_path.read_text())
 target_exists = target_path.exists()
 target_data = json.loads(target_path.read_text()) if target_exists else {}
@@ -1896,28 +1955,20 @@ if "providers" in target_data and not isinstance(target_data["providers"], dict)
 updated_data = copy.deepcopy(target_data)
 target_providers = updated_data.setdefault("providers", {})
 
-# Retire model entries that were previously managed by ai-configs but are no
-# longer present in _pi/models.json. The normal merge path intentionally
-# preserves local provider fields/API keys, so removals need explicit pruning.
+# Retire only exact model IDs previously managed by ai-configs. Display names
+# are not an ownership boundary: callers may keep custom CLI Proxy API models.
+RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini"}
+
 def prune_retired_managed_models():
-    openai_codex_source = source_providers.get("openai-codex")
     openai_codex_provider = target_providers.get("openai-codex")
-    if isinstance(openai_codex_source, dict) and isinstance(openai_codex_provider, dict):
-        source_models = openai_codex_source.get("models")
+    if isinstance(openai_codex_provider, dict):
         target_models = openai_codex_provider.get("models")
-        if isinstance(source_models, list) and isinstance(target_models, list):
-            source_ids = {
-                model.get("id")
-                for model in source_models
-                if isinstance(model, dict) and isinstance(model.get("id"), str)
-            }
+        if isinstance(target_models, list):
             openai_codex_provider["models"] = [
                 model for model in target_models
                 if not (
                     isinstance(model, dict)
-                    and model.get("id") not in source_ids
-                    and isinstance(model.get("name"), str)
-                    and model["name"].endswith("(CLI Proxy API)")
+                    and model.get("id") in RETIRED_OPENAI_CODEX_MODEL_IDS
                 )
             ]
 
@@ -2037,10 +2088,43 @@ for provider_id, source_provider in source_providers.items():
         elif provider_id == "openai-codex" or key not in target_provider:
             target_provider[key] = copy.deepcopy(source_value)
 
-if updated_data != target_data:
+models_changed = updated_data != target_data
+settings = None
+settings_changed = False
+if settings_path.exists():
+    settings = json.loads(settings_path.read_text())
+    if not isinstance(settings, dict):
+        raise SystemExit("settings.json must be a JSON object")
+    enabled_models = settings.get("enabledModels")
+    if enabled_models is not None and not isinstance(enabled_models, list):
+        raise SystemExit("settings enabledModels must be a list when present")
+    if isinstance(enabled_models, list):
+        retained = []
+        for value in enabled_models:
+            retired = False
+            if isinstance(value, str):
+                if value in RETIRED_OPENAI_CODEX_MODEL_IDS:
+                    retired = True
+                elif "/" in value:
+                    provider_id, model_id = value.split("/", 1)
+                    retired = (
+                        model_id in RETIRED_OPENAI_CODEX_MODEL_IDS
+                        and (provider_id == "openai-codex" or provider_id.startswith("openai-codex-"))
+                    )
+            if not retired:
+                retained.append(value)
+        if retained != enabled_models:
+            settings["enabledModels"] = retained
+            settings_changed = True
+
+if models_changed:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_text(json.dumps(updated_data, indent=2) + "\n")
-    print("created" if not target_exists else "updated")
+if settings_changed:
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+
+if models_changed or settings_changed:
+    print("created" if models_changed and not target_exists else "updated")
 else:
     print("unchanged")
 PY
@@ -2205,12 +2289,15 @@ install_pi_review_stack() {
         echo "Error: mutation-bounded Pi review-stack installation requires ~/.pi to be a real directory, not a symlink." >&2
         return 1
     fi
-    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
+    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
         if [ -L "$managed_pi_path" ]; then
             echo "Error: mutation-bounded Pi review-stack installation refuses symlinks at managed ~/.pi paths: $managed_pi_path" >&2
             return 1
         fi
     done
+    # Validate every model/settings JSON shape before creating directories or
+    # replacing any bounded review-stack surface.
+    validate_pi_model_inputs "$pi_source" "$agent"
     parent_metadata="$(mktemp)"
     python3 - "$parent_metadata" "$HOME/.agents" "$HOME/.agents/skills" <<'PY'
 import json, os, stat, sys
@@ -2225,7 +2312,9 @@ PY
     mkdir -p "$agent/prompts" "$agent/agents" "$agent/extensions" "$shared"
     chmod 700 "$HOME/.pi" "$agent" "$agent/prompts" "$agent/agents" "$agent/extensions" 2>/dev/null || true
 
-    for target in prompts agents extensions; do
+    # Prompts and extensions remain mutation-bounded: replace only entries owned
+    # by this repository and preserve caller-installed siblings.
+    for target in prompts extensions; do
         if [ -d "$pi_source/$target" ]; then
             shopt -s nullglob
             for entry in "$pi_source/$target"/*; do
@@ -2236,7 +2325,13 @@ PY
             shopt -u nullglob
         fi
     done
-    install_pi_models_from_repo "$pi_source" "$agent"
+
+    # Agent definitions are one exact managed directory in both full and
+    # bounded installs. Reuse the canonical helper so retired/stale personas
+    # cannot survive a review-stack transaction.
+    install_pi_agents_from_repo "$pi_source" "$agent/agents"
+    chmod 700 "$agent/agents" 2>/dev/null || true
+    install_pi_models_from_repo "$pi_source" "$agent" true
     cp "$pi_source/README.md" "$agent/README.md"
     install_pi_append_system_file "$agent"
 

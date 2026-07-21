@@ -10,14 +10,16 @@ Execute a single plan document (spec + phases + progress) directly in this sessi
 - Follow the plan, but keep implementation flexibility.
 - Use high reasoning throughout the run.
 - Track progress by updating `## Progress` in the plan file.
-- Run exactly one `quality-reviewer` pass after each phase before marking it complete.
+- Run exactly one `reviewer` pass after each phase before marking it complete.
 - Allow same-scope dynamic re-chunking when a phase is too large to execute safely in one pass.
 
 ## Model routing
 
 Keep GPT-5.6 Sol medium as the normal direct-execution parent and code-writing route.
 
-Use `Explore`/`explore` before implementation whenever target files or contracts are not already known. Delegation to `developer-mid` must include target files, desired behavior, relevant evidence, and verification commands. Keep all implementation delegation at medium effort. If repeated bounded attempts fail to converge, stop and return control to the user rather than escalating reasoning effort.
+Use `scout` before implementation whenever target files or contracts are not already known. Each scout call must receive one evidence question; named allowed files/directories, commands, or authoritative sources; explicit exclusions; and a stop condition. Its authority is read-only: no edits, diagnosis, synthesis, or recommendations. It must return concise evidence with file:line, command-output, or source citations plus any concrete blocker directly to the driving session, create no artifact, and stop when the question is answered or blocked. The driving agent owns synthesis and implementation decisions.
+
+Delegation to `developer-mid` must include target files, desired behavior, relevant evidence, and verification commands. Keep all implementation delegation at medium effort. If repeated bounded attempts fail to converge, stop and return control to the user rather than escalating reasoning effort.
 
 ## Inputs
 
@@ -115,7 +117,7 @@ For each phase in order (as tracked by `## Progress`):
 
 1. Implement the phase as written.
 2. Run the phase `### Verify` steps.
-3. Delegate exactly one post-implementation review pass to `quality-reviewer`.
+3. Delegate exactly one post-implementation review pass to `reviewer`.
 4. Run any missing `### Verify` steps again after the review pass.
 5. If the review pass clears the phase, immediately flip its checkbox from `- [ ]` to `- [x]` in `## Progress`.
 6. If implementation or review required a decision, revealed a constraint, or identified a true out-of-scope low-risk follow-up, append a structured entry with evidence and tracking destination to `## Decisions / Deviations Log` in the plan file. Do not defer plan-required work, verification gaps, BDD gaps, or regressions.
@@ -123,7 +125,7 @@ For each phase in order (as tracked by `## Progress`):
 
 #### Required post-implementation review pass
 
-After implementing the phase, delegate exactly one read-only `quality-reviewer` pass with this prompt:
+After implementing the phase, delegate exactly one read-only `reviewer` pass with this prompt:
 
 > Read-only review of phase N of this plan: `<plan_path>`. Do not edit files.
 >

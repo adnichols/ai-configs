@@ -1,5 +1,5 @@
 ---
-description: Analyze the current PRD round by running the critical thinker first, then optional research, before asking the next question
+description: Analyze the current PRD round with a clarification-gap reviewer and optional bounded scout evidence before asking the next question
 argument-hint: '<prd path | prd slug>'
 ---
 
@@ -11,7 +11,7 @@ Documents to inspect: $ARGUMENTS
 
 ## Contract
 
-This command is for the iterative clarification loop, not the final seven-reviewer gate.
+This command is for the iterative clarification loop, not the final five-reviewer gate.
 
 Use it after each meaningful batch of new user answers:
 - update the PRD with the new answers first,
@@ -19,12 +19,12 @@ Use it after each meaningful batch of new user answers:
 - then decide whether more clarification is needed or whether `/review:prd` is now worthwhile.
 
 Required order per round:
-1. Run the critical thinker first on the updated PRD.
-2. Only run the researcher if the critical thinker identifies a decision-relevant gap that needs external defaults, prior art, or precedent.
+1. Run the clarification-gap reviewer first on the updated PRD.
+2. Only run the scout if the clarification-gap reviewer identifies a decision-relevant gap that needs external defaults, prior art, or precedent.
 3. After those support passes, ask the prioritized clarification questions directly whenever more clarification is still needed, or explicitly say no further clarification questions are currently needed.
 
 Do not run `/review:prd` from this command.
-Do not launch any of the seven final PRD reviewers from this command.
+Do not launch any of the five final PRD reviewer passes from this command.
 
 ## Phase 0: Resolve Inputs
 
@@ -39,15 +39,15 @@ Read the PRD fully.
 Also read any selected functional spec paths named in the PRD.
 If `thoughts/specs/product_intent.md` exists and is relevant, read it too.
 
-## Phase 2: Critical Thinker Pass (Always)
+## Phase 2: Clarification-Gap Reviewer Pass (Always)
 
-Launch the critical thinker first.
+Launch the clarification-gap reviewer first.
 
 ```javascript
 const critic = Agent({
-  subagent_type: "prd-critical-thinker",
+  subagent_type: "reviewer",
   description: "Analyze PRD clarification gaps",
-  prompt: "Analyze the current PRD round for $ARGUMENTS. Read the PRD and its selected baseline specs. Follow your prd-critical-thinker instructions exactly and return blockers, missing baseline facts, prioritized clarification questions with suggested options, a recommended option plus why for each question, and whether clarification is still needed.",
+  prompt: "Analyze the current PRD round for $ARGUMENTS. Read the PRD and its selected baseline specs. Use the clarification-gap lens. Preserve the caller-supplied PRD/baseline artifact authority and return blockers, missing baseline facts, prioritized clarification questions with suggested options, a recommended option plus why for each question, and whether clarification is still needed.",
   run_in_background: true,
 });
 
@@ -56,22 +56,24 @@ const criticResult = await get_subagent_result({ agent_id: critic.agent_id ?? cr
 
 ## Phase 3: Research Pass (Conditional)
 
-Run the researcher only if the critical thinker shows that research would change a concrete decision.
+Run the scout only if the clarification-gap reviewer shows that research would change a concrete decision.
 Examples:
 - missing precedent or prior art,
 - missing default behavior guidance,
 - uncertainty about a recommended pattern,
 - a decision that cannot be grounded from repo-local evidence alone.
 
-If the critical thinker only found local contradictions, missing flows, or missing user intent, skip research.
+If the clarification-gap reviewer only found local contradictions, missing flows, or missing user intent, skip research.
+
+For each scout call, the driving agent must provide one evidence question, the allowed repo surfaces and/or named authoritative external sources, explicit exclusions, and a stop condition. The scout has read-only authority and returns evidence/blockers only, with file:line or source citations, directly to the driving session; it creates no artifact and must not edit, synthesize the decision, or recommend an option. Stop when the question is answered or report the concrete blocker. The driving agent owns synthesis and recommendations.
 
 Conditional launch:
 
 ```javascript
 const research = Agent({
-  subagent_type: "researcher",
-  description: "Research PRD decision gaps",
-  prompt: "Research only the decision-relevant gaps identified for $ARGUMENTS. Keep the brief concise and tied to active decisions, with findings, authoritative sources, and a recommendation.",
+  subagent_type: "scout",
+  description: "Gather evidence for one PRD decision gap",
+  prompt: "Read-only evidence packet for $ARGUMENTS. Question: [one decision-relevant evidence question]. Inspect only [named repo surfaces and/or authoritative external sources]. Return concise evidence with file:line or source citations and any concrete blocker directly to this driving session; create no artifact. Do not edit, synthesize the decision, recommend an option, or expand scope. Stop when the question is answered or report the concrete blocker.",
   run_in_background: true,
 });
 
@@ -82,7 +84,7 @@ const researchResult = await get_subagent_result({ agent_id: research.agent_id ?
 
 Using the PRD plus the support-agent outputs:
 
-- Treat the critical thinker's `## Clarification questions` section as the default source for the next user questions.
+- Treat the clarification-gap reviewer's `## Clarification questions` section as the default source for the next user questions.
 - If the PRD still has unresolved contradictions, missing required behavior, or unclear intent, ask those questions directly in the conversation.
 - Preserve the critic's priority order. Ask all material questions for the round unless the user's answers make later questions obsolete.
 - For each question, include every viable option supported by current evidence and a thorough explanation of each option's resulting behavior, benefits, costs/risks, implementation and compatibility implications, and reversibility.
@@ -90,7 +92,7 @@ Using the PRD plus the support-agent outputs:
 - If the critic recommends a choice that is not already one of the listed options, revise the option list so the recommended choice is present before asking the user.
 - Keep the question set high-signal; do not pad it just to reach 10.
 - If the PRD is internally coherent and no further clarification is currently needed, say that explicitly.
-- After the user answers, fold those answers into the PRD and start another clarification round from the critical thinker.
+- After the user answers, fold those answers into the PRD and start another clarification round from the clarification-gap reviewer.
 - If wider review is now worthwhile, say that `/review:prd <prd-path>` is available, but do not run it automatically.
 
 ## Output Format
@@ -98,10 +100,10 @@ Using the PRD plus the support-agent outputs:
 ```markdown
 ## Clarification Round Complete
 
-### Critical Thinker
+### Clarification-Gap Reviewer
 - [Key blocker or confirmation]
 
-### Research
+### Scout Evidence
 - [Finding] or `Skipped — not needed for this round`
 
 ### Next Step

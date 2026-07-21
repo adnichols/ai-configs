@@ -1,0 +1,7 @@
+No remaining material execution blockers.
+
+- Model retirement is now exact-ID, preserves custom CLI Proxy entries, and covers scoped/unscoped settings values ([plan:213](/Users/anichols/code/ai-configs/thoughts/plans/consolidate-pi-agent-roster.html:213), [plan:240](/Users/anichols/code/ai-configs/thoughts/plans/consolidate-pi-agent-roster.html:240), [plan:282](/Users/anichols/code/ai-configs/thoughts/plans/consolidate-pi-agent-roster.html:282)). This directly replaces the current unsafe display-name heuristic in [install.sh:1914](/Users/anichols/code/ai-configs/install.sh:1914).
+- The direct worktree migration retains all observable behavior and explicitly fail-closes collisions ([plan:318](/Users/anichols/code/ai-configs/thoughts/plans/consolidate-pi-agent-roster.html:318)), matching the retired agent’s contract while intentionally replacing its destructive removal at [worktree-creator.md:59](/Users/anichols/code/ai-configs/_pi/agents/worktree-creator.md:59).
+- Installation verification now requires the review stack to call the production exact-directory helper and requires exact agent sets plus retired-ID absence checks ([plan:337](/Users/anichols/code/ai-configs/thoughts/plans/consolidate-pi-agent-roster.html:337), [plan:347](/Users/anichols/code/ai-configs/thoughts/plans/consolidate-pi-agent-roster.html:347)). This addresses the current subset-only verifier behavior at [verify-pi-install.sh:34](/Users/anichols/code/ai-configs/scripts/verify-pi-install.sh:34).
+
+VERDICT: PLAN_EXECUTION_READY

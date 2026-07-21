@@ -1,5 +1,5 @@
 ---
-description: Delegate seven-reviewer PRD review to Pi subagent workflow
+description: Delegate five-lens PRD review to Pi subagent workflow
 argument-hint: '<path to prd.md | prd slug | legacy inputs>'
 ---
 
