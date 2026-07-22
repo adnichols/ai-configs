@@ -1,5 +1,5 @@
 {
-  "file_count": 1701,
+  "file_count": 1702,
   "files": [
     {
       "bytes": 819,
@@ -5062,9 +5062,14 @@
       "sha256": "74167240f944d392162d873209251207cab60d50aacab950de7c8d619f01b935"
     },
     {
-      "bytes": 7437,
+      "bytes": 9378,
       "path": "skills/autonomous-ai-agents/herdr/SKILL.md",
-      "sha256": "00a35b02ece7da4381e2d822fa56db525ffd2c1786989d8de3712fdace7e5d9f"
+      "sha256": "cc6da48a37c74ddd2681b62d7506df8d62c00e38c9c254ff0c95287802eea25f"
+    },
+    {
+      "bytes": 11397,
+      "path": "skills/autonomous-ai-agents/herdr/references/cli.md",
+      "sha256": "ffc5a307bc17d41edc2618c21665c706c81140dfd5ecd654a89bc0ec630f72bf"
     },
     {
       "bytes": 29691,
@@ -8507,7 +8512,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260721T034833Z",
+  "generated_at": "20260721T231029Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/home/anichols/code/ai-configs/_hermes/default"
