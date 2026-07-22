@@ -187,7 +187,7 @@ Before finishing, ensure:
 - each acceptance criterion has real verification coverage,
 - no unresolved inline review comments remain,
 - `What's new` is neither missing, late, vague, nor duplicative/restated; do not issue an execution-ready verdict while any such blocker remains, even when the heading alone is present,
-- the plan remains resumable and execution-ready unless a true blocking decision remains.
+- the plan remains resumable and execution-ready only when no true blocking decision and no `What's new` blocker remains.
 
 ## Final Output
 

@@ -9,4 +9,4 @@
 
 Claude found no P1/P2 issue. It raised one P3 `QUESTION` about absent Claude PM/reviewed-plan command counterparts, but repo evidence and the plan show that this is a pre-existing intentional architecture: Claude is the applicable independent review leg, while only existing active Claude authoring/intake commands were in scope. No change required.
 
-The returned marker block contained duplicated boundary lines after the valid verdict. Because the Codex ai-configs slice found blocking in-scope issues and a targeted rereview is required after fixes anyway, the clean targeted Claude rerun will replace this malformed cycle-1 formatting artifact.
+The returned marker block contained duplicated boundary lines after the valid verdict. This cycle-1 record is superseded by the clean targeted rerun in `thoughts/validation/whats-new-plan-contract-run-plan-claude-ai-r2.md`; retain it only as historical coverage evidence.
