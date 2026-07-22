@@ -39,11 +39,11 @@ class InstallTransactionTest(unittest.TestCase):
         return result
     def test_bounded_install_and_scoped_check_only(self):
         with tempfile.TemporaryDirectory() as d:
-            home=Path(d); foreign=home/'foreign';foreign.write_text('keep');models=home/'.pi/agent/models.json';models.parent.mkdir(parents=True);models.write_text(json.dumps({'providers':{'caller-owned':{'apiKey':'secret','models':[{'id':'local'}]}}}));settings=home/'.pi/agent/settings.json';settings.write_text(json.dumps({'extensions':['.pi/agent/extensions/claude-review',{'source':str(home/'.pi/agent/extensions/codex-review')},'npm:caller-owned']}));env={**os.environ,'HOME':d}
+            home=Path(d); foreign=home/'foreign';foreign.write_text('keep');foreign_scripts=home/'.agents/scripts';foreign_scripts.mkdir(parents=True);foreign_script=foreign_scripts/'caller-owned.py';foreign_script.write_text('keep sibling\n');models=home/'.pi/agent/models.json';models.parent.mkdir(parents=True);models.write_text(json.dumps({'providers':{'caller-owned':{'apiKey':'secret','models':[{'id':'local'}]}}}));settings=home/'.pi/agent/settings.json';settings.write_text(json.dumps({'extensions':['.pi/agent/extensions/claude-review',{'source':str(home/'.pi/agent/extensions/codex-review')},'npm:caller-owned']}));env={**os.environ,'HOME':d}
             subprocess.run(['bash','-c','umask 022; exec bash install.sh --pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(json.loads(settings.read_text())['extensions'],['npm:caller-owned'])
             self.assertEqual(stat.S_IMODE((home/'.pi/agent/agents').stat().st_mode),0o700)
-            self.assertEqual(foreign.read_text(),'keep');self.assert_exact_installed_agents(home);installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);self.assertTrue((home/'.agents/skills/autoreview/SKILL.md').is_file());self.assertTrue((home/'.agents/skills/claude-code-review/SKILL.md').is_file());self.assertTrue((home/'.agents/skills/herdr-reviewers/SKILL.md').is_file());self.assertFalse((home/'.pi/agent/extensions/claude-review').exists());self.assertFalse((home/'.pi/agent/extensions/codex-review').exists());scripts=home/'.agents/skills/codex-review-partner/scripts';self.assertEqual(stat.S_IMODE((scripts/'process_identity.py').stat().st_mode)&0o500,0o500);self.assertEqual(stat.S_IMODE((scripts/'review_supervisor.py').stat().st_mode)&0o500,0o500);append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
+            self.assertEqual(foreign.read_text(),'keep');self.assertEqual(foreign_script.read_text(),'keep sibling\n');self.assert_exact_installed_agents(home);installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);self.assertTrue((home/'.agents/skills/autoreview/SKILL.md').is_file());self.assertTrue((home/'.agents/skills/claude-code-review/SKILL.md').is_file());self.assertTrue((home/'.agents/skills/herdr-reviewers/SKILL.md').is_file());self.assertFalse((home/'.pi/agent/extensions/claude-review').exists());self.assertFalse((home/'.pi/agent/extensions/codex-review').exists());runtime=home/'.agents/scripts/review_orchestration.py';self.assertEqual(runtime.read_bytes(),(ROOT/'scripts/review_orchestration.py').read_bytes());self.assertEqual(stat.S_IMODE(runtime.stat().st_mode),0o755);scripts=home/'.agents/skills/codex-review-partner/scripts';self.assertEqual(stat.S_IMODE((scripts/'process_identity.py').stat().st_mode)&0o500,0o500);self.assertEqual(stat.S_IMODE((scripts/'review_supervisor.py').stat().st_mode)&0o500,0o500);append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
             subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(before,manifest(home))
             stale_extension=home/'.pi/agent/extensions/claude-review';stale_extension.mkdir()
@@ -54,6 +54,13 @@ class InstallTransactionTest(unittest.TestCase):
             scoped=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
             self.assertNotEqual(scoped.returncode,0);self.assertIn('disabled Pi extension remains explicitly registered',scoped.stderr)
             settings.write_text(json.dumps({'extensions':['npm:caller-owned']}))
+            runtime.write_text('tampered\n')
+            result=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+            self.assertNotEqual(result.returncode,0);self.assertIn('review runtime parity',result.stderr)
+            runtime.write_bytes((ROOT/'scripts/review_orchestration.py').read_bytes());runtime.chmod(0o700)
+            result=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+            self.assertNotEqual(result.returncode,0);self.assertIn('exact mode 0755',result.stderr)
+            runtime.chmod(0o755)
             helper=scripts/'process_identity.py';helper.chmod(0o050)
             result=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
             self.assertNotEqual(result.returncode,0);self.assertIn('owner-readable and executable',result.stderr)
@@ -94,7 +101,7 @@ class InstallTransactionTest(unittest.TestCase):
 
     def test_preexisting_agents_parent_metadata_is_not_mutated(self):
         with tempfile.TemporaryDirectory() as d:
-            home=Path(d);parents=[home/'.agents',home/'.agents/skills'];parents[1].mkdir(parents=True);os.chmod(parents[0],0o751);os.chmod(parents[1],0o753);before=[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents];env={**os.environ,'HOME':d}
+            home=Path(d);parents=[home/'.agents',home/'.agents/skills',home/'.agents/scripts'];parents[1].mkdir(parents=True);parents[2].mkdir();os.chmod(parents[0],0o751);os.chmod(parents[1],0o753);os.chmod(parents[2],0o750);before=[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents];env={**os.environ,'HOME':d}
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(before,[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents])
     def test_symlinked_agents_or_skills_parents_install_successfully(self):
@@ -112,6 +119,21 @@ class InstallTransactionTest(unittest.TestCase):
                 home=Path(d);(home/'.pi').mkdir();(home/'.pi/foreign').write_text('old');before=manifest(home);env={**os.environ,'HOME':d,'PI_REVIEW_STACK_FAILPOINT':point}
                 r=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                 self.assertNotEqual(r.returncode,0);self.assertEqual(before,manifest(home))
+    def test_bounded_install_replaces_runtime_symlink_without_touching_external_target(self):
+        with tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as external_d:
+            home=Path(d);external=Path(external_d)/'runtime.py';external.write_text('external runtime\n');scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.symlink_to(external);env={**os.environ,'HOME':d}
+            subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
+            self.assertFalse(runtime.is_symlink());self.assertEqual(runtime.read_bytes(),(ROOT/'scripts/review_orchestration.py').read_bytes());self.assertEqual(external.read_text(),'external runtime\n')
+    def test_transaction_rollback_restores_exact_runtime_and_preserves_foreign_sibling(self):
+        with tempfile.TemporaryDirectory() as d:
+            home=Path(d);scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.write_text('preexisting runtime\n');runtime.chmod(0o640);foreign=scripts/'caller-owned.py';foreign.write_text('keep sibling\n');before=manifest(home);before_metadata=self.metadata(scripts);env={**os.environ,'HOME':d,'PI_REVIEW_STACK_FAILPOINT':'after-parity'}
+            result=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            self.assertNotEqual(result.returncode,0);self.assertEqual(before,manifest(home));self.assertEqual(before_metadata,self.metadata(scripts));self.assertEqual(foreign.read_text(),'keep sibling\n')
+    def test_transaction_rollback_restores_runtime_symlink_without_touching_external_target(self):
+        with tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as external_d:
+            home=Path(d);external=Path(external_d)/'runtime.py';external.write_text('external runtime\n');scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.symlink_to(external);env={**os.environ,'HOME':d,'PI_REVIEW_STACK_FAILPOINT':'after-parity'}
+            result=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            self.assertNotEqual(result.returncode,0);self.assertTrue(runtime.is_symlink());self.assertEqual(runtime.resolve(),external.resolve());self.assertEqual(external.read_text(),'external runtime\n')
     def test_installed_preflight_precedes_final_host_failpoint(self):
         text=(ROOT/'scripts/install-pi-transactionally.sh').read_text()
         parity=text.index('failpoint after-parity')

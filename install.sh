@@ -83,6 +83,7 @@ print_usage() {
     echo ""
     echo "Notes:"
     echo "  - Default shared skills are declared in skills/install-matrix.json and synced into ~/.agents/skills"
+    echo "  - Shared review runtime installs at ~/.agents/scripts/review_orchestration.py"
     echo "  - Codex discovers shared default-profile skills directly from ~/.agents/skills"
     echo "  - Claude consumes compatible shared skills via per-skill links into ~/.agents/skills"
     echo "  - When using --pi or --all, Pi prompt templates, subagents, and repo-managed extensions are copied to ~/.pi/agent"
@@ -1419,7 +1420,9 @@ sync_shared_skills() {
     echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
     echo ""
 
-    mkdir -p "$shared_skills_dir"
+    mkdir -p "$shared_skills_dir" "$HOME/.agents/scripts"
+    install -m 0755 "$REPO_ROOT/scripts/review_orchestration.py" "$HOME/.agents/scripts/review_orchestration.py"
+    echo "  - Installed shared review runtime at ~/.agents/scripts/review_orchestration.py"
 
     echo "  - Syncing repo-managed shared skills from skills/ into ~/.agents/skills/..."
     while IFS=$'\t' read -r skill_name source_rel; do
@@ -2301,6 +2304,7 @@ install_pi_review_stack() {
     local pi_source="$REPO_ROOT/_pi"
     local agent="$HOME/.pi/agent"
     local shared="$HOME/.agents/skills"
+    local review_runtime_dir="$HOME/.agents/scripts"
     local skill entry base target parent_metadata managed_pi_path
     if [ -L "$HOME/.pi" ]; then
         echo "Error: mutation-bounded Pi review-stack installation requires ~/.pi to be a real directory, not a symlink." >&2
@@ -2316,7 +2320,7 @@ install_pi_review_stack() {
     # replacing any bounded review-stack surface.
     validate_pi_model_inputs "$pi_source" "$agent"
     parent_metadata="$(mktemp)"
-    python3 - "$parent_metadata" "$HOME/.agents" "$HOME/.agents/skills" <<'PY'
+    python3 - "$parent_metadata" "$HOME/.agents" "$HOME/.agents/skills" "$review_runtime_dir" <<'PY'
 import json, os, stat, sys
 out = {}
 for raw in sys.argv[2:]:
@@ -2326,7 +2330,7 @@ for raw in sys.argv[2:]:
         out[resolved] = {"mode": stat.S_IMODE(value.st_mode), "atime_ns": value.st_atime_ns, "mtime_ns": value.st_mtime_ns}
 json.dump(out, open(sys.argv[1], "w"))
 PY
-    mkdir -p "$agent/prompts" "$agent/agents" "$agent/extensions" "$shared"
+    mkdir -p "$agent/prompts" "$agent/agents" "$agent/extensions" "$shared" "$review_runtime_dir"
     chmod 700 "$HOME/.pi" "$agent" "$agent/prompts" "$agent/agents" "$agent/extensions" 2>/dev/null || true
 
     # Prompts and extensions remain mutation-bounded: replace only entries owned
@@ -2362,6 +2366,8 @@ PY
         rm -rf "$shared/$skill"
         cp -a "$REPO_ROOT/skills/$skill" "$shared/$skill"
     done
+    rm -f "$review_runtime_dir/review_orchestration.py"
+    install -m 0755 "$REPO_ROOT/scripts/review_orchestration.py" "$review_runtime_dir/review_orchestration.py"
     python3 - "$parent_metadata" <<'PY'
 import json, os, sys
 for raw, value in json.load(open(sys.argv[1])).items():

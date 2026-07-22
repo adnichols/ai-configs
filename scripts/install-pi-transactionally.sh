@@ -34,9 +34,9 @@ print(json.dumps(out,sort_keys=True))
 PY
 }
 
-PATHS=(.pi .agents/skills/autoreview .agents/skills/claude-code-review .agents/skills/codex-review-partner .agents/skills/herdr-reviewers .agents/skills/pre-pr-implementation-review .agents/skills/reviewed-html-plan .agents/skills/run-plan)
+PATHS=(.pi .agents/skills/autoreview .agents/skills/claude-code-review .agents/skills/codex-review-partner .agents/skills/herdr-reviewers .agents/skills/pre-pr-implementation-review .agents/skills/reviewed-html-plan .agents/skills/run-plan .agents/scripts/review_orchestration.py)
 PARENT_METADATA="$SNAPSHOT/parent-metadata.json"
-python3 - "$PARENT_METADATA" "$HOME/.agents" "$HOME/.agents/skills" <<'PY'
+python3 - "$PARENT_METADATA" "$HOME/.agents" "$HOME/.agents/skills" "$HOME/.agents/scripts" <<'PY'
 import json,os,stat,sys
 out={}
 for raw in sys.argv[2:]:
@@ -44,9 +44,10 @@ for raw in sys.argv[2:]:
   resolved=os.path.realpath(raw);value=os.stat(resolved);out[resolved]={'mode':stat.S_IMODE(value.st_mode),'atime_ns':value.st_atime_ns,'mtime_ns':value.st_mtime_ns}
 json.dump(out,open(sys.argv[1],'w'))
 PY
-AGENTS_WAS_ABSENT=false; SKILLS_PARENT_WAS_ABSENT=false
+AGENTS_WAS_ABSENT=false; SKILLS_PARENT_WAS_ABSENT=false; SCRIPTS_PARENT_WAS_ABSENT=false
 [ -e "$HOME/.agents" ] || AGENTS_WAS_ABSENT=true
 [ -e "$HOME/.agents/skills" ] || SKILLS_PARENT_WAS_ABSENT=true
+[ -e "$HOME/.agents/scripts" ] || SCRIPTS_PARENT_WAS_ABSENT=true
 BEFORE="$(manifest "${PATHS[@]}")"; printf '%s\n' "$BEFORE" >"$SNAPSHOT/manifest.json"
 for rel in "${PATHS[@]}"; do
   if [ -e "$HOME/$rel" ] || [ -L "$HOME/$rel" ]; then mkdir -p "$SNAPSHOT/$(dirname "$rel")"; cp -a "$HOME/$rel" "$SNAPSHOT/$rel"; else mkdir -p "$SNAPSHOT/absent/$(dirname "$rel")"; : >"$SNAPSHOT/absent/$rel"; fi
@@ -56,6 +57,7 @@ restore() {
   local rel after
   for rel in "${PATHS[@]}"; do rm -rf "$HOME/$rel"; if [ -e "$SNAPSHOT/$rel" ] || [ -L "$SNAPSHOT/$rel" ]; then mkdir -p "$HOME/$(dirname "$rel")"; cp -a "$SNAPSHOT/$rel" "$HOME/$rel"; fi; done
   if [ "$SKILLS_PARENT_WAS_ABSENT" = true ]; then rmdir "$HOME/.agents/skills" 2>/dev/null || true; fi
+  if [ "$SCRIPTS_PARENT_WAS_ABSENT" = true ]; then rmdir "$HOME/.agents/scripts" 2>/dev/null || true; fi
   if [ "$AGENTS_WAS_ABSENT" = true ]; then rmdir "$HOME/.agents" 2>/dev/null || true; fi
   python3 - "$PARENT_METADATA" <<'PY'
 import json,os,sys
@@ -90,6 +92,10 @@ failpoint after-verify
 [ ! -e "$HOME/.pi/agent/extensions/codex-review" ]
 [ ! -e "$HOME/.pi/agent/extensions/claude-review" ]
 for skill in "${SKILLS[@]}"; do diff -qr "$ROOT/skills/$skill" "$HOME/.agents/skills/$skill" >/dev/null; done
+review_runtime="$HOME/.agents/scripts/review_orchestration.py"
+cmp -s "$ROOT/scripts/review_orchestration.py" "$review_runtime"
+[ "$(stat -f '%Lp' "$review_runtime" 2>/dev/null || stat -c '%a' "$review_runtime")" = 755 ]
+"$review_runtime" --help >/dev/null
 failpoint after-parity
 
 review_scripts="$HOME/.agents/skills/codex-review-partner/scripts"

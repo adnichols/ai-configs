@@ -59,7 +59,9 @@ Codify the quality-gated loop:
 - implement one complete promised slice
 - run one scoped review for concrete current-path failures
 - fix in-scope blockers and run one targeted rereview of the findings and resulting edits
-- allow a third review only for a new concrete blocker introduced or exposed by the fix; after three rounds, stop with a convergence blocker
+- allow a third review only for a new blocker introduced or exposed by the fix; after that budget, assign a stable, distinct `REVIEW_ESCAPE` family+scope identifier and use exactly one bounded, read-only, advisory consultation through the configured consult/council surface, whether or not a PR exists; it has no edit, fix, or implementation authority
+- never rename, reword, or reconsult the same family+scope; each materially separate later family+scope may receive its own one consultation before or after PR creation
+- record one disposition: verified reject/reclassify; authorized bounded pass; revert/narrow/defer; or user/product/scope decision; report specifically unresolved evidence or any path current authority cannot complete; do not reset the budget or review until clean
 - do not expand the change for speculative future scale, ideal architecture, unrelated defects, or polish
 - only then move to the next phase
 

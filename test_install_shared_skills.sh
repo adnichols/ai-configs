@@ -956,6 +956,7 @@ test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails() {
   cp "$INSTALLER" "$temp_repo/install.sh"
   mkdir -p "$temp_repo/_pi" "$temp_repo/skills" "$temp_repo/scripts"
   cp "$SCRIPT_DIR/scripts/render_pi_append_system.py" "$temp_repo/scripts/"
+  cp "$SCRIPT_DIR/scripts/review_orchestration.py" "$temp_repo/scripts/"
   cp -R "$SCRIPT_DIR/_pi/prompts" "$temp_repo/_pi/"
   cp -R "$SCRIPT_DIR/_pi/agents" "$temp_repo/_pi/"
   cp -R "$SCRIPT_DIR/_pi/extensions" "$temp_repo/_pi/"
@@ -1467,6 +1468,38 @@ for skill in [
 PY
 }
 
+test_parallel_review_protocol_installs_with_source_parity() {
+  local home
+
+  home="$(new_tmp_dir)"
+  run_installer "$home" --skills || return 1
+
+  cmp "skills/autoreview/SKILL.md" "$home/.agents/skills/autoreview/SKILL.md" || return 1
+  cmp "skills/herdr-reviewers/SKILL.md" "$home/.agents/skills/herdr-reviewers/SKILL.md" || return 1
+  cmp "scripts/review_orchestration.py" "$home/.agents/scripts/review_orchestration.py" || return 1
+  [[ -x "$home/.agents/scripts/review_orchestration.py" ]] || return 1
+  HOME="$home" "$home/.agents/scripts/review_orchestration.py" --help >/dev/null || return 1
+
+  assert_file_contains "skills/autoreview/SKILL.md" 'all applicable initial prompts before beginning the first wait' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'scripts/review_orchestration.py' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" '~/.agents/scripts/review_orchestration.py run --request' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'Serial mode remains benchmark-only' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'required non-empty string `workspace_id`' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'exact tab membership in each recorded workspace for all legs before closing any tab' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'send a recovery key to the sibling leg' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'dispatch every remaining initial prompt before polling any pending transition' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'Any dispatch or confirmation failure aborts the whole batch with zero result waits' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'reviewer startup is explicitly `not_applicable`' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'Any incomplete cleanup fails benchmark admission' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'gpt-5.6-terra' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" '-s read-only' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" '-a never' || return 1
+  assert_file_contains "skills/herdr-reviewers/SKILL.md" '--tools Read,Grep,Glob' || return 1
+  assert_file_contains "$home/.agents/skills/herdr-reviewers/SKILL.md" 'all_prompts_submitted_before_first_wait' || return 1
+  assert_file_contains "$home/.agents/skills/autoreview/SKILL.md" 'exactly one narrower retry only for unusable output' || return 1
+}
+
+
 test_phase_four_validation_proves_final_alignment() {
   local home
   local target
@@ -1532,17 +1565,59 @@ test_review_guidance_is_bounded_and_scope_safe() {
 
   for prompt in _codex/prompts/dev:run.md _pi/prompts/dev:run.md; do
     assert_file_contains "$prompt" 'Read-only review of phase N' || return 1
-    assert_file_contains "$prompt" 'After three total rounds, stop and report a convergence blocker.' || return 1
+    assert_file_contains "$prompt" 'After three total rounds, the ordinary local review budget is exhausted.' || return 1
+    assert_file_contains "$prompt" "whether or not a PR exists" || return 1
+    assert_file_contains "$prompt" "configured consult/council surface" || return 1
+    assert_file_contains "$prompt" "fixed artifact/range/fingerprint" || return 1
+    assert_file_contains "$prompt" 'stable `REVIEW_ESCAPE` identifier' || return 1
+    assert_file_contains "$prompt" 'The consultation is advisory only: it may not edit or apply fixes, become implementation authority, or reroute implementation through another persona.' || return 1
+    assert_file_contains "$prompt" 'never repeat consultation for the same unresolved identifier' || return 1
+    assert_file_contains "$prompt" 'materially separate later failure-family/scope identifier may receive its own one consultation whether discovered pre-PR, during an authorized adversarial pass, or from later PR feedback' || return 1
+    assert_file_not_contains "$prompt" 'materially separate later PR-feedback failure family' || return 1
+    assert_file_contains "$prompt" 'Verified reject/reclassify evidence clears that family and permits the phase to continue without an adversarial pass' || return 1
+    assert_file_contains "$prompt" 'Revert/narrow/defer follows its stated path' || return 1
+    assert_file_contains "$prompt" 'A user/product/scope disposition stops for that decision' || return 1
+    assert_file_contains "$prompt" 'Only `authorize one further bounded adversarial fix/review pass` starts the pass' || return 1
+    assert_file_contains "$prompt" 'If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker' || return 1
+    assert_file_contains "$prompt" 'audit the fixed candidate branch/diff for sibling instances in the named family' || return 1
+    assert_file_contains "$prompt" 'sole implementation authority one bounded fix attempt' || return 1
+    assert_file_contains "$prompt" 'run the same applicable reviewer pass once after fixes' || return 1
+    assert_file_contains "$prompt" 'This route has no PR prerequisite' || return 1
+    assert_file_not_contains "$prompt" "repeat consultation until clean" || return 1
+    assert_file_not_contains "$prompt" "rereview until clean" || return 1
     assert_file_contains "$prompt" 'speculative future scale' || return 1
     assert_file_not_contains "$prompt" 'Fix every non-low-risk issue directly' || return 1
     assert_file_not_contains "$prompt" 'No issues found.' || return 1
   done
+
+  assert_file_contains "_pi/prompts/dev:run.md" 'Use the existing read-only `reviewer` as the primary adversarial leg' || return 1
+  assert_file_contains "_pi/prompts/dev:run.md" 'using the installed `claude-code-review` plus `herdr-reviewers`' || return 1
+  assert_file_contains "_pi/prompts/dev:run.md" 'record the primary-only classification rather than inventing a second leg' || return 1
+  assert_file_contains "_codex/prompts/dev:run.md" 'Use the existing read-only `quality-reviewer` as the primary adversarial leg' || return 1
+  assert_file_contains "_codex/prompts/dev:run.md" 'When the repo/harness high-risk second-reviewer trigger or an explicit override applies, use the installed `claude-code-review` plus `herdr-reviewers` for one visible read-only Claude leg' || return 1
+  assert_file_contains "_codex/prompts/dev:run.md" 'with the same bounded packet, allowed verdicts, pinned model, and read-only tool policy' || return 1
+  assert_file_contains "_codex/prompts/dev:run.md" 'record the primary-only low-risk classification rather than inventing a second leg' || return 1
 
   assert_file_contains "skills/planning-workflow/SKILL.md" 'Plan complete promised slices, not skeletons.' || return 1
   assert_file_contains "skills/run-plan/SKILL.md" 'Complete the promised slice before merge' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'do not fix optional polish merely because it is cheap' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'run one targeted rereview' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'three total review cycles' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'exactly one bounded, read-only, independent external consultation' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'whether or not a PR exists' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" "configured consult/council surface" || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'fixed artifact, comparison range, and complete fingerprint' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'before or after PR creation' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'a PR URL or PR feedback is never required' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'stable consultation identifier' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'never consult again for the same unresolved identifier' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'materially separate later failure-family/scope identifier may receive its own one consultation whether discovered pre-PR, during an authorized adversarial pass, or from later PR feedback' || return 1
+  assert_file_not_contains "skills/autoreview/SKILL.md" 'materially separate failure family first exposed by later PR feedback' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'A verified rejection or reclassification clears that escaped finding/failure family' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'Only an explicit `authorize one further bounded adversarial fix/review pass` disposition starts the adversarial pass' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'A revert, narrow, or defer disposition follows that stated path' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'A user/product/scope-decision disposition stops for that decision' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'If proposed rejection/reclassification evidence cannot be verified, the stated revert/narrow/defer cannot be completed within authority, or a requested decision remains unanswered, report that specific unresolved blocker' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'pre-review scope baseline' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'triggering input' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'reachable path' || return 1
@@ -1563,6 +1638,8 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "skills/autoreview/SKILL.md" 'speculative future scale' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'OUT_OF_SCOPE_FOLLOW_UP' || return 1
   assert_file_not_contains "skills/autoreview/SKILL.md" 'rereview until clean' || return 1
+  assert_file_not_contains "skills/autoreview/SKILL.md" 'repeat consultation until clean' || return 1
+  assert_file_not_contains "skills/autoreview/SKILL.md" 'loop until every reviewer is clean' || return 1
   assert_file_not_contains "skills/autoreview/SKILL.md" 'fix every finding' || return 1
   assert_file_contains "skills/pre-pr-implementation-review/SKILL.md" 'indefinite compatibility alias' || return 1
   assert_file_contains "skills/pre-pr-implementation-review/SKILL.md" '/skill:autoreview <same arguments, unchanged>' || return 1
@@ -1580,6 +1657,40 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "AGENTS.md" '/skill:autoreview thoughts/plans/<plan>.html' || return 1
   assert_file_contains "_pi/README.md" '/skill:autoreview thoughts/plans/my-plan.html' || return 1
   assert_file_contains "skills/run-plan/SKILL.md" 'Run a third total review cycle only when' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'When the ordinary three-cycle budget is exhausted, route the stable `REVIEW_ESCAPE` failure-family/scope identifier through the one-per-family consultation section before reporting convergence.' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'No fourth or renamed pass is allowed except the single explicitly consultation-authorized bounded pass and its existing one pass-after-fixes allowance.' || return 1
+  assert_file_not_contains "skills/run-plan/SKILL.md" 'Run the adversarial escalation loop below only if a review cycle remains' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'Do not report the convergence blocker yet solely because no PR exists.' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'Review Escape Consultation and Adversarial Escalation Loop' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'configured consult/council surface' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'A PR URL or PR feedback is not required' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'one consultation per distinct failure-family/scope identifier' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'Never repeat consultation for the same unresolved family/scope identifier' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'materially separate later failure-family/scope identifier may receive its own one consultation whether discovered pre-PR, during an authorized adversarial pass, or from later PR feedback' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'Verified rejection or reclassification clears that escaped finding/failure family' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'Revert, narrow, or defer follows the stated path under the normal scope rules' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'A user/product/scope-decision disposition stops for that decision' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'Only an explicit authorization starts the bounded adversarial pass' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker' || return 1
+  assert_file_not_contains "skills/run-plan/SKILL.md" 'repeat consultation until clean' || return 1
+  assert_file_not_contains "skills/run-plan/SKILL.md" 'loop until every reviewer is clean' || return 1
+  assert_file_contains "AGENTS.md" 'bounded review policy may still use one read-only, advisory external consultation' || return 1
+  assert_file_contains "AGENTS.md" 'whether or not a PR exists' || return 1
+  for prompt in skills/repo-agents-bootstrap/SKILL.md skills/repo-agents-bootstrap/references/root_agents_template.md; do
+    assert_file_contains "$prompt" 'whether or not a PR exists' || return 1
+    assert_file_contains "$prompt" 'configured consult/council surface' || return 1
+    assert_file_contains "$prompt" 'stable, distinct `REVIEW_ESCAPE` family+scope identifier' || return 1
+    assert_file_contains "$prompt" 'no edit, fix, or implementation authority' || return 1
+    assert_file_contains "$prompt" 'never rename, reword, or reconsult the same family+scope' || return 1
+    assert_file_contains "$prompt" 'each materially separate later family+scope may receive its own one consultation before or after PR creation' || return 1
+    assert_file_contains "$prompt" 'verified reject/reclassify' || return 1
+    assert_file_contains "$prompt" 'authorized bounded pass' || return 1
+    assert_file_contains "$prompt" 'revert/narrow/defer' || return 1
+    assert_file_contains "$prompt" 'user/product/scope decision' || return 1
+  done
+  assert_file_contains "skills/repo-agents-bootstrap/SKILL.md" 'Report specifically any unresolved disposition evidence or path that current authority cannot complete.' || return 1
+  assert_file_contains "skills/repo-agents-bootstrap/references/root_agents_template.md" 'report specifically unresolved evidence or any path current authority cannot complete' || return 1
+  assert_file_contains "_pi/README.md" 'does not require a PR URL or PR feedback' || return 1
   assert_file_not_contains "skills/run-plan/SKILL.md" 'Repeat Review Loop' || return 1
   assert_file_not_contains "AGENTS.md" 'keep the review/fix loop running until' || return 1
   assert_file_not_contains "skills/repo-agents-bootstrap/SKILL.md" 'Phase advancement only when the latest review returns' || return 1
@@ -1593,6 +1704,22 @@ test_review_guidance_is_bounded_and_scope_safe() {
   hermes_run_plan="_hermes/default/skills/software-development/run-plan/SKILL.md"
   assert_file_contains "$hermes_run_plan" 'Complete the promised slice before merge' || return 1
   assert_file_contains "$hermes_run_plan" 'Run a third total review cycle only when' || return 1
+  assert_file_contains "$hermes_run_plan" 'When the ordinary three-cycle budget is exhausted, route the stable `REVIEW_ESCAPE` failure-family/scope identifier through the one-per-family consultation section before reporting convergence' || return 1
+  assert_file_contains "$hermes_run_plan" 'No fourth or renamed pass is allowed except that consultation-authorized bounded exception' || return 1
+  assert_file_not_contains "$hermes_run_plan" 'For each `REVIEW_ESCAPE`, run the adversarial escalation loop below' || return 1
+  assert_file_contains "$hermes_run_plan" 'Do not report the convergence blocker yet solely because no PR exists.' || return 1
+  assert_file_contains "$hermes_run_plan" 'configured consult/council surface' || return 1
+  assert_file_contains "$hermes_run_plan" 'A PR URL or PR feedback is not required' || return 1
+  assert_file_contains "$hermes_run_plan" 'one consultation per distinct failure-family/scope identifier' || return 1
+  assert_file_contains "$hermes_run_plan" 'Never repeat consultation for the same unresolved family/scope identifier' || return 1
+  assert_file_contains "$hermes_run_plan" 'materially separate later failure-family/scope identifier may receive its own one consultation whether discovered pre-PR, during an authorized adversarial pass, or from later PR feedback' || return 1
+  assert_file_contains "$hermes_run_plan" 'Verified rejection or reclassification clears that escaped finding/failure family' || return 1
+  assert_file_contains "$hermes_run_plan" 'Revert, narrow, or defer follows the stated path under the normal scope rules' || return 1
+  assert_file_contains "$hermes_run_plan" 'A user/product/scope-decision disposition stops for that decision' || return 1
+  assert_file_contains "$hermes_run_plan" 'Only an explicit authorization starts the bounded adversarial pass' || return 1
+  assert_file_contains "$hermes_run_plan" 'If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker' || return 1
+  assert_file_not_contains "$hermes_run_plan" 'repeat consultation until clean' || return 1
+  assert_file_not_contains "$hermes_run_plan" 'loop until every reviewer is clean' || return 1
   assert_file_contains "$hermes_run_plan" 'do not add implementation or tests solely to prove a speculative or unsupported scenario is out of scope' || return 1
   assert_file_not_contains "$hermes_run_plan" 'Repeat Review Loop' || return 1
   assert_file_not_contains "$hermes_run_plan" 'cheap and safe enough to fix immediately' || return 1
@@ -1647,6 +1774,7 @@ main() {
   run_test test_phase_three_duplicate_skill_trees_are_removed
   run_test test_plan_authoring_contract_is_product_owner_friendly
   run_test test_codex_pi_skill_and_prompt_parity
+  run_test test_parallel_review_protocol_installs_with_source_parity
   run_test test_phase_four_validation_proves_final_alignment
   run_test test_review_guidance_is_bounded_and_scope_safe
   run_test test_active_agent_configuration_has_no_kimi

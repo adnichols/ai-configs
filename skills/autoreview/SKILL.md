@@ -139,20 +139,22 @@ Both reviews are static, read-only inspection only. Reviewers must never run tes
 
 ### Runtime launch rules
 
-In Pi, follow `herdr-reviewers` for both legs:
+In Pi, follow `herdr-reviewers` for both legs and run the installed shared state machine with `~/.agents/scripts/review_orchestration.py run --request <request.json> --output <receipt.json>`. The command uses the production Herdr CLI adapter; deterministic fakes exercise the same state machine in tests. Do not replace it with an ad hoc shell loop that serializes prompt-and-wait operations.
 
 1. Discover the parent Pi workspace from the exact current worktree.
-2. Create one no-focus adjacent tab per applicable reviewer.
-3. Start Codex and Claude with the skill-defined model/reasoning and read-only arguments.
-4. Submit the bounded packet with a unique nonce and exact pre-PR verdict contract.
-5. Wait for settled state, inspect the visible transcript, validate result boundaries and the unchanged worktree fingerprint, then have the coordinator write the normal artifacts.
-6. Keep the tabs available while findings, follow-up slices, fixes, or targeted rereviews remain pending. After the final clean gate artifact is written, have the coordinating parent close the reviewer tabs it created unless the operator explicitly asked to preserve them. Reviewers never close their own tabs.
+2. Create one no-focus adjacent tab per applicable reviewer and start Codex and Claude with the skill-defined model/reasoning and read-only arguments.
+3. Capture one complete candidate fingerprint after tabs are ready and before any prompt submission. Every applicable leg in the cycle receives that exact fingerprint.
+4. Prepare each bounded prompt with its own unique nonce and exact pre-PR verdict contract.
+5. Submit and confirm acceptance of all applicable initial prompts before beginning the first wait. For dual review, never submit Codex, wait for Codex, and only then submit Claude (or the inverse).
+6. Settle applicable legs independently/concurrently. Validate each leg's state, nonce boundary, exact verdict, non-empty content, and returned fingerprint without allowing one clean leg to hide a failed, incomplete, timed-out, invalid, or stale sibling.
+7. Aggregate only after every applicable leg has reached a terminal outcome. The helper's `all_prompts_submitted_before_first_wait`, per-leg elapsed times, candidate wall time, and phase-local events are required review evidence.
+8. Write the normal durable artifact before cleanup. Only after it is durable may the coordinator run `~/.agents/scripts/review_orchestration.py cleanup --request <request.json> --receipt <receipt.json> --artifact-written`; that explicit gate closes the recorded coordinator-owned tab IDs only. Keep tabs available while findings, follow-up slices, fixes, targeted rereviews, validation failures, or operator takeover remain pending. Reviewers never close their own tabs.
 
 Do not use a Pi GPT subagent, `interactive_shell`, the disabled managed review tools, private tmux, `codex exec`, or Claude print mode. If the parent session is interrupted, rediscover the visible reviewer tab and validate its nonce/fingerprint manually; this initial transport has no automatic detached completion delivery.
 
 The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex, Herdr, or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate or directs opening the PR regardless.
 
-The Herdr transport requires matching nonce boundaries, non-empty review content, the exact locked workflow verdict as the final non-empty line inside the boundary, a settled reviewer state, and an unchanged complete worktree fingerprint. Treat empty output, missing or mismatched boundaries, invalid verdicts, tool-only output, provider errors, transcripts ending in tool use, or stale fingerprints as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate or directs opening the PR regardless.
+The Herdr transport requires matching nonce boundaries, non-empty review content, the exact locked workflow verdict as the final non-empty line inside the boundary, a settled reviewer state, and an unchanged complete worktree fingerprint. Treat empty output, missing or mismatched boundaries, invalid verdicts, tool-only output, provider errors, transcripts ending in tool use, or stale fingerprints as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. The shared orchestration helper permits exactly one narrower retry only for unusable output on the affected leg and only while the complete candidate fingerprint is unchanged. It must not retry provider/auth/permission failures, timeouts, stale results, or a valid `REVIEW_INCOMPLETE_RERUN_NEEDED` verdict as if they were malformed output; it must not reset the sibling leg or the broader review-cycle budget. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed retry is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate or directs opening the PR regardless.
 
 For every quality reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; bound the assigned scope instead.
 
@@ -253,7 +255,7 @@ After applying any in-scope fix—and only because that fix changed verification
 
 Absent an explicit operator instruction to open the PR regardless, do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding and do not open or proceed to a PR with those findings unresolved. An explicit operator override ends this prohibition: open the PR as directed, disclose the non-clean review state, and do not represent it as `CLEAN_FOR_PR` or merge-ready. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and local merge-readiness checking. The pre-PR gate must not require a later Codex PR thumbs-up after its own Codex review leg is clean.
 
-Hard stop the review loop when any of these is true:
+The ordinary local review budget is exhausted when any of these is true:
 
 - two fix attempts do not resolve the same finding or same failure family,
 - a narrow/optional component keeps producing new edge-case findings after two cycles, indicating it should be reverted, deferred, or redesigned instead of patched through review,
@@ -263,7 +265,18 @@ Hard stop the review loop when any of these is true:
 - required reviewer infrastructure is unavailable and the user has not waived it or directed opening the PR regardless,
 - verification cannot run for reasons the agent cannot resolve.
 
-On a hard stop, report the convergence blocker and recommend the smallest path: revert/defer the unstable slice, narrow the PR, or ask the user for an explicit scope decision. Do not launch “final clean gate” review cycles beyond the budget.
+Do not immediately return a convergence blocker merely because no PR exists. When the unresolved condition is review non-convergence, a recurring finding/failure family, or reviewer scope disagreement, mark it as a pre-PR `REVIEW_ESCAPE`. Assign a stable consultation identifier to the distinct failure family and affected scope on the fixed artifact, comparison range, and complete fingerprint, then require exactly one bounded, read-only, independent external consultation through the harness's configured consult/council surface before returning control. Record the identifier, packet, and final disposition. The one-consult budget belongs to that distinct family/scope disagreement: never consult again for the same unresolved identifier, and never use renamed or reworded findings to restart its budget. A materially separate later failure-family/scope identifier may receive its own one consultation whether discovered pre-PR, during an authorized adversarial pass, or from later PR feedback. This route is available for a candidate branch/diff whether or not a PR exists. It is advisory only: it may not edit files, apply fixes, become implementation authority, or route implementation through another persona.
+
+The consultation packet must name its identifier and the unresolved finding/failure family or scope disagreement; the fixed artifact, comparison range, and complete fingerprint; prior fix attempts and the reviewer disagreement; verification evidence; and one narrow arbitration question. Ask the consultation to recommend exactly one disposition:
+
+- reject or reclassify the finding with evidence,
+- authorize one further bounded adversarial fix/review pass within the accepted plan,
+- revert, narrow, or defer the unstable slice,
+- request a user/product/scope decision.
+
+The coordinator must verify the consultation's evidence and consume the recorded disposition exactly once. A verified rejection or reclassification clears that escaped finding/failure family and permits the gate to continue without an adversarial pass; record the evidence and resulting scope/severity classification. A revert, narrow, or defer disposition follows that stated path under the normal scope rules. A user/product/scope-decision disposition stops for that decision. Only an explicit `authorize one further bounded adversarial fix/review pass` disposition starts the adversarial pass. If proposed rejection/reclassification evidence cannot be verified, the stated revert/narrow/defer cannot be completed within authority, or a requested decision remains unanswered, report that specific unresolved blocker rather than treating every non-authorization as convergence failure.
+
+When and only when the consultation authorizes the further pass, the coordinating implementation authority may make one bounded fix attempt and run one adversarial applicable-reviewer-pair pass over the fixed candidate branch/diff and named failure family, before or after PR creation. If that pass finds an in-scope issue and fixes are applied, repeat the same adversarial reviewer-pair pass once after those fixes; do not consult again, restart the ordinary three-cycle budget, or review until clean. If the bounded adversarial pass remains unresolved, report the convergence blocker and the recommended smallest path. This generalized `REVIEW_ESCAPE` route reuses the run-plan adversarial escalation loop; actionable PR feedback remains another trigger, but a PR URL or PR feedback is never required for pre-PR convergence consultation.
 
 ## Behavioral verification is separate
 
@@ -295,6 +308,7 @@ Include:
 - verification commands and results after fixes,
 - remaining out-of-scope follow-ups with evidence and tracking destination,
 - any `REVIEW_INCOMPLETE_RERUN_NEEDED` handoff, the single allowed rerun slice, and whether the gate stopped for review budget,
+- any pre-PR `REVIEW_ESCAPE` consultation packet, consult/council disposition, authorized adversarial pass, and final unresolved or cleared state,
 - final gate result and whether it is `OPEN_PR_READY` for a caller such as `run-plan`, explicitly noting that no Codex PR thumbs-up is required beyond the clean local Codex review artifact.
 
 If the repo has a different validation-artifact convention, use that convention and keep the same information.

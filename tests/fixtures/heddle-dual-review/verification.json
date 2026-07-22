@@ -1,0 +1,40 @@
+{
+  "schema_version": "review-verification-v1",
+  "changed_files_covered": [
+    "src/app/services/session-context.ts",
+    "src-tauri/src/session_bridge.rs",
+    "src/app/services/__tests__/session-context.test.ts"
+  ],
+  "mechanical_evidence": [
+    "npm test -- session-context: PASS",
+    "cargo test session_bridge: PASS"
+  ],
+  "reviewers_must_not_execute_verification": true,
+  "required_failure_families": [
+    "contract parity",
+    "async/resource lifecycle",
+    "verification truthfulness"
+  ],
+  "failure_family_assignments": {
+    "codex": [
+      "contract parity",
+      "async/resource lifecycle",
+      "verification truthfulness"
+    ],
+    "claude": [
+      "contract parity",
+      "async/resource lifecycle",
+      "verification truthfulness"
+    ]
+  },
+  "fingerprint_checks": {
+    "candidate_fingerprint": "sha256:6ed55811d795b74bbcc2b12878ef34a9b6884db94a5f15f7441fa6bda83f21bb",
+    "components": [
+      "head",
+      "porcelain_sha256",
+      "staged_diff_sha256",
+      "unstaged_diff_sha256",
+      "untracked_manifest_sha256"
+    ]
+  }
+}
