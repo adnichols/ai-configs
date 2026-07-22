@@ -87,6 +87,7 @@ Use these questions to drive **edits**, not just observations.
 
 ### 1. Intended outcome
 
+- Does the plan's standalone `What's new` section satisfy the canonical `planning-workflow` contract after Product-owner context and before Goal? Treat missing, late, vague, or duplicative/restated content as a blocker; a mere heading is insufficient.
 - What user/operator/agent job is this work claiming to satisfy?
 - What part of that intended workflow is still missing, hidden, manual, or incorrectly left for later?
 - Did we ship the workflow, or only the mechanism?
@@ -185,7 +186,8 @@ Before finishing, ensure:
 - `## Progress` matches the real completion state,
 - each acceptance criterion has real verification coverage,
 - no unresolved inline review comments remain,
-- the plan remains resumable and execution-ready unless a true blocking decision remains.
+- `What's new` is neither missing, late, vague, nor duplicative/restated; do not issue an execution-ready verdict while any such blocker remains, even when the heading alone is present,
+- the plan remains resumable and execution-ready only when no true blocking decision and no `What's new` blocker remains.
 
 ## Final Output
 

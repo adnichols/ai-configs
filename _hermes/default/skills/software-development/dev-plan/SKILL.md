@@ -90,6 +90,7 @@ Non-negotiable requirements:
 - `### Verify` steps are copy/paste ready and match actual repo reality
 - The plan is resumable by another agent without inventing missing semantics
 - Every implementation plan includes a near-top standalone product-owner context section before implementation history and technical detail. It explains the situation in plain language without assuming issue/Linear context, explains why the work is needed now, and makes the key conclusion unmistakable (especially runtime/customer defect versus stale test or operational evidence). It separately covers `Customers`, `Runtime product behavior`, `Security / permissions`, `Testing / release confidence`, and `Deployment / migration`, saying `No change` or `Not applicable` when a dimension is unaffected. Use a scannable impact table or equivalent structured block for non-trivial plans; lightweight plans must use at least concise labeled prose.
+- Follow the `planning-workflow` `What's new` contract after Product-owner context and before Goal; a heading or surrounding-section restatement is insufficient.
 - If the plan is rendered or delivered as HTML/Markdoc, load `doct-document-ops` and use the standard reviewer layout: a dark-mode visual theme with an explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so the plan body keeps the full content width. Do not use a permanent left sidebar/rail for navigation or let the agent choose light mode or an alternate navigation layout.
 - If the plan is rendered, registered, linked, updated, or monitored as HTML/Markdoc, use `doct-document-ops` as the sole source for current Doct commands: auth/context checks, `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc>`, canonical Doct URLs, `plans update`, plan queue inspection, agent claims, ack/resolve, and final readiness/status updates.
 - Every user-facing HTML plan URL must be the canonical Doct URL from `https://doct.nodaste.com`; do not share local `plan-review`, loopback, or Tailscale service URLs unless the user explicitly requested a legacy local review service.
@@ -102,6 +103,7 @@ Non-negotiable requirements:
 
 Before finishing:
 - The product-owner context stands alone, appears before implementation history/technical detail, explains why now, states the key conclusion, and covers all five impact dimensions at complexity-appropriate depth
+- `What's new` follows Product-owner context and precedes Goal with a distinct audience-visible product delta
 - Every acceptance criterion has at least one phase `### Verify` item
 - Every progress checkbox corresponds to a phase header
 - Phase ordering and naming is consistent

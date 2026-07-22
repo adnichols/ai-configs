@@ -3477,9 +3477,9 @@
       "sha256": "947964336ce83eca1f119e2a041934083cb10b066765d2bfd1a8ee7520dfa52f"
     },
     {
-      "bytes": 3407,
+      "bytes": 3593,
       "path": "profiles/nerd/skills/software-development/plan/SKILL.md",
-      "sha256": "c2fc1401517a1af630af2fca6c554bc3b5a80b6f58385dc4e7ee654140df1fe9"
+      "sha256": "7710aafff71a2fd28b26f4822fbd290035836f259aa00fee3ec432740ba91e8a"
     },
     {
       "bytes": 13172,
@@ -3517,9 +3517,9 @@
       "sha256": "39361054f58ecc8de9cac0f1364aee94e795a446030bb57595f7b7ca0c1ffbbe"
     },
     {
-      "bytes": 8343,
+      "bytes": 8748,
       "path": "profiles/nerd/skills/software-development/writing-plans/SKILL.md",
-      "sha256": "dc761d28d13b688aa4f7b3da8f0140eefccaf848d4e2970621e6556c6fcb7bb6"
+      "sha256": "42d4faacdbb6e1c23bc593dc356a9c03978b2cd11c5639f95ac43ef0fec60f13"
     },
     {
       "bytes": 3795,
@@ -8407,9 +8407,9 @@
       "sha256": "55d5811c0b2d872dc59d87432720a113150dbbce2872524a36b3860a8967095d"
     },
     {
-      "bytes": 10295,
+      "bytes": 10567,
       "path": "skills/software-development/dev-plan/SKILL.md",
-      "sha256": "41d8fce0e98bd182ad616e589e0dc3d9014b522132756b90d0707bc28e080287"
+      "sha256": "bcd447f9a299d66f1773a9071ce425fb09f734b78f4b5f2031c0fb486be57587"
     },
     {
       "bytes": 11410,
@@ -8447,14 +8447,14 @@
       "sha256": "947964336ce83eca1f119e2a041934083cb10b066765d2bfd1a8ee7520dfa52f"
     },
     {
-      "bytes": 10567,
+      "bytes": 10839,
       "path": "skills/software-development/plan/SKILL.md",
-      "sha256": "2ac8df054f2119ae9cc68127158086a507027b7d1584a4320c5f60518751775c"
+      "sha256": "0a94a2f378d5f4ff41798a34a5d96842cde99ba7ed7a30e26f59f358257bc87e"
     },
     {
-      "bytes": 22322,
+      "bytes": 23083,
       "path": "skills/software-development/planning-workflow/SKILL.md",
-      "sha256": "9b1b2e88e1cd254ebeaa38ed780e9ad19ab900253f914cfcdbb5bebf435cf918"
+      "sha256": "14739744f133484400eeee34aecfe5be705523c2ddac7dc742567d98724a7cf2"
     },
     {
       "bytes": 13172,
@@ -8467,9 +8467,9 @@
       "sha256": "1126afb626b38f5b398afac61de1c2c5551913d020f7c745e5468a78f143bcfd"
     },
     {
-      "bytes": 18446,
+      "bytes": 19213,
       "path": "skills/software-development/reviewed-html-plan/SKILL.md",
-      "sha256": "8f1217470e16777808a031b5a15d855fee39afbc6a8cb81fc66ce4de9042eb77"
+      "sha256": "4773af49e2516f01b9bad4df779449bf75b300d991549a7ac84108cd46a8ebd2"
     },
     {
       "bytes": 38644,
@@ -8502,9 +8502,9 @@
       "sha256": "39361054f58ecc8de9cac0f1364aee94e795a446030bb57595f7b7ca0c1ffbbe"
     },
     {
-      "bytes": 22627,
+      "bytes": 23388,
       "path": "skills/software-development/writing-plans/SKILL.md",
-      "sha256": "453402062a3150f63045ca063f1cd0364329b30d4c18d06e0f86b6427ebd9158"
+      "sha256": "eda87eab7158fc39d6cc86ab9e3122204ac846e04bc6e5079a95b4240e5ab09b"
     },
     {
       "bytes": 3795,
@@ -8512,8 +8512,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260721T231029Z",
+  "generated_at": "20260722T190323Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/home/anichols/code/ai-configs/_hermes/default"
+  "source_home": "/home/anichols/.herdr/worktrees/ai-configs/whats-new-contract-fresh/_hermes/default"
 }

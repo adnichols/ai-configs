@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Early “What’s new” Contract for Reviewed Plans</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090f1d;
+      --panel: #111827;
+      --panel-2: #172033;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --accent-2: #c4b5fd;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #fb7185;
+      --code: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.13), transparent 32rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1220px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero { background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(196, 181, 253, 0.12)); border: 1px solid var(--border); border-radius: 20px; padding: 28px; margin-bottom: 18px; }
+    h1, h2, h3, h4 { line-height: 1.2; color: #f8fafc; }
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 5vw, 3.25rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 20px 0 8px; color: var(--accent); }
+    h4 { margin: 16px 0 6px; color: var(--accent-2); }
+    section, article { background: rgba(17, 24, 39, 0.86); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin: 16px 0; }
+    a { color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: var(--code); border: 1px solid var(--border); border-radius: 12px; padding: 16px; white-space: pre-wrap; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); color: #f8fafc; text-align: left; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px; color: var(--muted); background: rgba(15, 23, 42, 0.76); font-size: 0.9rem; }
+    .pill.good { color: var(--good); border-color: rgba(52, 211, 153, 0.55); }
+    .pill.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.55); }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 22px; }
+    .toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 0; }
+    .toc a:hover { color: var(--text); }
+    .callout { border-left: 4px solid var(--accent); background: rgba(125, 211, 252, 0.08); padding: 13px 15px; border-radius: 10px; }
+    .goodbox { border-left: 4px solid var(--good); background: rgba(52, 211, 153, 0.08); padding: 13px 15px; border-radius: 10px; }
+    .warnbox { border-left: 4px solid var(--warn); background: rgba(251, 191, 36, 0.08); padding: 13px 15px; border-radius: 10px; }
+    .phase { border-left: 4px solid var(--accent-2); }
+    .matrix td:first-child, .matrix th:first-child { width: 8rem; }
+    .compact li { margin: 0.25rem 0; }
+    @media (max-width: 760px) { main { width: min(100% - 20px, 1220px); padding-top: 16px; } header.hero, section, article { padding: 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero" id="title">
+    <h1>Early “What’s new” Contract for Reviewed Plans</h1>
+    <p class="muted">Rebuild the planning-guidance change narrowly on current branches so every new non-trivial reviewer-facing execution plan explains the concrete product change before implementation detail, and current review/validation gates catch plans that do not.</p>
+    <div class="pill-row" id="status">
+      <span class="pill good">Status: execution-ready</span>
+      <span class="pill">Plan path: <code>thoughts/plans/whats-new-plan-contract.html</code></span>
+      <span class="pill">UI impact: text-only reviewer and agent workflow</span>
+      <span class="pill">Scope: ai-configs + Doct + Heddle</span>
+      <span class="pill good">Execution readiness: true — PM, Codex, and applicable Claude Code gates passed</span>
+    </div>
+  </header>
+
+  <section id="toc" aria-labelledby="toc-heading">
+    <h2 id="toc-heading">Table of contents</h2>
+    <div class="toc">
+      <div>
+        <strong>Product framing</strong>
+        <a href="#product-owner-context">Product-owner context</a>
+        <a href="#whats-new">What’s new</a>
+        <a href="#goal">Goal</a>
+        <a href="#decision-attention">Decision Attention</a>
+      </div>
+      <div>
+        <strong>Evidence and state</strong>
+        <a href="#why">Why this plan exists</a>
+        <a href="#authority-inputs">Authority and inputs</a>
+        <a href="#current-reality">Current implementation reality</a>
+        <a href="#progress">Progress</a>
+        <a href="#resume">Resume instructions</a>
+      </div>
+      <div>
+        <strong>Contracts</strong>
+        <a href="#product-intent">Product intent alignment</a>
+        <a href="#locked-decisions">Locked decisions</a>
+        <a href="#acceptance-criteria">Acceptance criteria</a>
+        <a href="#bdd">BDD scenarios</a>
+        <a href="#coverage-matrix">Test coverage matrix</a>
+      </div>
+      <div>
+        <strong>Execution</strong>
+        <a href="#phase-p1">P1 ai-configs contract</a>
+        <a href="#phase-p2">P2 Doct adapter</a>
+        <a href="#phase-p3">P3 Heddle adapter</a>
+        <a href="#phase-p4">P4 integration and cleanup</a>
+        <a href="#verification">Verification strategy</a>
+        <a href="#delivery-order">Delivery order</a>
+        <a href="#non-goals">Non-goals</a>
+        <a href="#review-record">Review record</a>
+        <a href="#decisions-log">Decisions / Deviations log</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <p>Execution plans currently begin with useful context and goals, but they do not consistently give reviewers a concise product-style account of the change they are about to approve. As a result, a plan can be technically thorough while forcing a product owner, operator, or reviewing agent to reconstruct the actual before/after behavior from phases, file lists, and acceptance criteria.</p>
+    <p><strong>Why now:</strong> an earlier implementation attempt proved the requirement is valuable but was built in stale worktrees. Since then, <code>ai-configs</code> moved plan review to a Herdr-backed architecture and deleted several legacy reviewer agents. Doct and Heddle also advanced substantially. The product requirement remains absent from current branches, but the old patch is no longer a viable merge unit.</p>
+    <p><strong>Key conclusion:</strong> this is a planning-product and enforcement gap, not a customer runtime defect. The correct delivery is a fresh, narrow implementation against current branches: one canonical shared rule, active authoring/review references, and repository-local validator adapters.</p>
+    <table>
+      <thead><tr><th>Impact dimension</th><th>Conclusion</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>No application-runtime behavior change. Product owners and reviewers receive clearer plans that state the user-visible change before implementation mechanics.</td></tr>
+        <tr><td>Runtime product behavior</td><td>Doct’s plan registration/update policy and Heddle’s HTML-plan validator gain a new required planning-artifact contract. Application features remain unchanged.</td></tr>
+        <tr><td>Security / permissions</td><td>No change. Existing Doct authentication, reviewer permissions, Herdr read-only review controls, and repository authority boundaries remain intact.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Improved. Authoring, installation/synchronization, review, template, ordering, negative-path, and legacy-compatibility tests lock the contract across all three repositories.</td></tr>
+        <tr><td>Deployment / migration</td><td>No data migration. New plans adopt the section by default; historical plans remain readable and use each repository’s established backfill or explicit bypass policy when later edited or resumed.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What’s new — plans will announce the product change before explaining the build</h2>
+    <div class="callout">
+      <p><strong>Product promise:</strong> every non-trivial reviewed execution plan will tell a product owner, operator, or agent what will become different—clearly and early—before asking them to evaluate phases, files, or implementation mechanics.</p>
+    </div>
+    <ul>
+      <li><strong>Before:</strong> reviewers often infer the real behavior change from Goal, rationale, acceptance criteria, and technical phases.</li>
+      <li><strong>After:</strong> a standalone early <em>What’s new</em> section provides a behavior-focused headline, one-sentence promise, concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees.</li>
+      <li><strong>What reviewers notice:</strong> the product delta is scannable near the top, and review gates flag sections that are missing, late, vague, or merely restate surrounding material.</li>
+      <li><strong>What plan authors notice:</strong> active templates and prompts ask for the section directly, so compliance is the default rather than a reviewer repair.</li>
+      <li><strong>Audience-visible result:</strong> reviewers can decide whether the planned outcome is correct before investing in technical-detail review.</li>
+      <li><strong>Preserved guarantees and power:</strong> Product-owner context, Goal, Decision Attention, acceptance criteria, BDD, technical evidence, historical-plan readability, explicit migration escape hatches, and independent review authority all remain in place.</li>
+    </ul>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Deliver one coherent cross-repository contract on top of current branches:</p>
+    <ol>
+      <li><code>ai-configs</code> defines the rule once and routes active authoring and Herdr-backed review paths to it;</li>
+      <li>Doct’s current Markdoc template and config-driven registration/update validators require a compatible early <code>whats-new</code> section;</li>
+      <li>Heddle’s current semantic HTML template and validator require <code>data-section="whats-new"</code> after the product summary with established historical compatibility;</li>
+      <li>focused tests prove generation, ordering, rejection, review coverage, installation/synchronization, and migration behavior;</li>
+      <li>the stale three-repository worktrees are retired only after their relevant intent is preserved and fresh replacements are safely committed or handed off.</li>
+    </ol>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="goodbox">
+      <p><strong>No product decision required.</strong> The desired behavior, repository-specific placements, enforcement surfaces, migration stance, and non-goals are locked below.</p>
+    </div>
+    <ul>
+      <li><strong>Repository freshness:</strong> implementation must not continue in the stale worktrees. Start from <code>origin/main</code> for ai-configs and current <code>origin/develop</code> for Doct and Heddle.</li>
+      <li><strong>Doct legacy behavior:</strong> unchanged historical Markdoc remains readable. A future validated update must add the section or use Doct’s existing explicit, reason-bearing untemplated bypass. Do not invent version-aware template infrastructure in this change.</li>
+      <li><strong>Heddle compatibility:</strong> use a new effective-date boundary following its existing current-contract warning/backfill model; do not invalidate completed historical plans merely because the contract advanced.</li>
+      <li><strong>Transport boundary:</strong> <code>skills/herdr-reviewers/SKILL.md</code> remains generic review transport. Put the substantive section check in the reviewed-plan packet/gate, not in transport infrastructure.</li>
+      <li><strong>Stale-worktree deletion:</strong> removal is allowed only after verifying no unrelated or unique uncommitted state would be lost. Otherwise preserve the worktree and report the blocker.</li>
+    </ul>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>The previous patch touched the right broad product area, but it was based on older repository shapes. On current <code>ai-configs</code> main, eight previously edited specialist plan/reviewer agents no longer exist and reviewed-plan orchestration now uses visible Herdr tabs. Doct’s current template policy is config-driven across TypeScript API and Rust CLI validation, while Heddle’s active HTML contract includes a date-gated migration model. Reusing the old diff would either revive retired architecture or miss current enforcement seams.</p>
+    <p>This plan therefore preserves the product intent while discarding obsolete implementation assumptions. It favors one canonical semantic rule, adapters at real current boundaries, tests that exercise behavior rather than phrase presence alone, and explicit legacy handling.</p>
+  </section>
+
+  <section id="authority-inputs">
+    <h2>Authority and inputs</h2>
+    <ul class="compact">
+      <li>User direction in this conversation: consolidate the viable intent, materialize an updated plan on top of existing main, and execute this explicit plan through <code>/run-plan</code>. That invocation explicitly authorizes fresh replacement worktrees for this plan as a narrow exception to ai-configs' normal direct-on-<code>main</code> default, because the current named worktrees are the stale state being replaced.</li>
+      <li>Linear execution record: <a href="https://linear.app/nodaste/issue/NOD-1415/require-early-whats-new-section-in-reviewed-plans"><code>NOD-1415</code> — Require early What’s new section in reviewed plans</a>.</li>
+      <li><code>ai-configs</code> <code>AGENTS.md</code>: active reviewed plans are semantic HTML under <code>thoughts/plans/</code>; shared planning doctrine is centralized; current reviewed-plan execution uses Doct and Herdr-backed independent reviews.</li>
+      <li><code>ai-configs</code> <code>origin/main</code> at readiness review: <code>88434a96aeb7e3283a48bb044526f93be900e401</code>.</li>
+      <li>Doct <code>origin/develop</code> at readiness review: <code>3a85b75a779396bf176ded9e2f4e0c7f4deca100</code>.</li>
+      <li>Heddle <code>origin/develop</code> at readiness review: <code>d0f33d1f6bf75083a9b40a323a9ea2638335beb5</code>.</li>
+      <li>The earlier Sideshow-inspired pattern: headline, one-sentence product promise, concrete behavior bullets, before/after workflow, audience-visible result, and preserved guarantees.</li>
+      <li>Current shared planning doctrine in <code>skills/planning-workflow/SKILL.md</code>, current reviewed-plan gate in <code>skills/reviewed-html-plan/SKILL.md</code>, and generic review transport in <code>skills/herdr-reviewers/SKILL.md</code>.</li>
+      <li>Doct’s <code>thoughts/plans/plan-review.config.json</code> and default Markdoc template; Heddle’s <code>docs/planning/templates/html-plan-v1.html</code> and <code>scripts/plans/validate-html-plan.mjs</code>.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <h3>ai-configs</h3>
+    <ul>
+      <li>Current main has no standalone <em>What’s new</em> contract. Its canonical order starts <code>Title → Status → Product-owner context → Goal → Decision Attention</code>.</li>
+      <li>The active authoring paths are the shared planning skills, Pi/Codex/Claude plan prompts, Linear-intake prompts, and the surviving generic <code>_pi/agents/planner.md</code>.</li>
+      <li>The active review gate is <code>skills/reviewed-html-plan/SKILL.md</code>, which launches read-only Codex and applicable Claude reviewers via <code>skills/herdr-reviewers/SKILL.md</code>.</li>
+      <li><code>test_install_shared_skills.sh</code> already has a focused cross-surface planning-authoring contract test and is the narrowest regression seam.</li>
+      <li>Hermes configuration is managed under <code>_hermes/default</code> with manifest and synchronization checks; its copies are maintained surfaces but are not necessarily byte-identical to Pi/Codex skills.</li>
+    </ul>
+    <h3>Doct</h3>
+    <ul>
+      <li>The canonical Markdoc order is config-driven. The current early seam is <code>status → goal</code>; inserting <code>whats-new</code> there preserves existing relative constraints and keeps it before technical detail.</li>
+      <li>Both server routes and <code>doct-agent</code> validate Markdoc sources against <code>thoughts/plans/plan-review.config.json</code>. A config entry therefore enforces registration and update behavior across supported clients.</li>
+      <li>Legacy HTML remains outside Markdoc template policy. Existing explicit untemplated/bypass paths carry reasons and should remain unchanged.</li>
+    </ul>
+    <h3>Heddle</h3>
+    <ul>
+      <li>The canonical generated HTML template begins with <code>summary</code>, followed by rationale and authority sections. The new section belongs immediately after <code>summary</code>.</li>
+      <li>The validator currently checks a required section set and only one top-placement rule. It needs an explicit relative-order assertion for <code>summary → whats-new</code>.</li>
+      <li>Heddle already handles newly required sections with an effective-date warning/backfill policy. The new section should use that established model instead of retroactively failing completed history.</li>
+      <li>A stale duplicate under <code>thoughts/plans/_templates/</code> is not consumed by the generator; do not widen this change into template-duplication cleanup.</li>
+    </ul>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul>
+      <li><input type="checkbox" checked disabled /> P1 — Rebuild the canonical ai-configs authoring and review contract on current main.</li>
+      <li><input type="checkbox" checked disabled /> P2 — Add the Doct Markdoc template and config-validator adapter on current develop.</li>
+      <li><input type="checkbox" checked disabled /> P3 — Add the Heddle HTML template, ordering, and compatibility adapter on current develop.</li>
+      <li><input type="checkbox" checked disabled /> P4 — Verify cross-repository coherence, preserve deliverables, and retire stale worktrees safely.</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions (agent)</h2>
+    <p>Read this plan fully and inspect all three repositories before changing files. Confirm remote refs have not moved; if they have, re-run the focused discovery against the new tips and append any material deviation to the log. Do not execute inside the stale <code>worktree-plan-whats-new-guidance</code> worktrees. This plan's explicit <code>/run-plan</code> invocation authorizes clean replacement branches/worktrees from current <code>origin/main</code> or <code>origin/develop</code> for this delivery; treat that as a narrow execution exception, not a change to ai-configs' normal direct-on-<code>main</code> policy. Follow each downstream repository's own worktree/branch mechanics. Start with the first unchecked Progress item, complete one phase at a time, update this plan’s checkbox immediately after verified completion, and preserve one canonical semantic rule rather than copying long prose into every adapter.</p>
+    <p>Do not delete old worktrees until the replacement changes are committed/pushed or otherwise safely preserved and a status/diff audit proves deletion will not lose unrelated state. Ask the user only if a new product-shaping decision appears; ordinary ref drift, test fixture updates, and compatible placement adjustments are implementation work.</p>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <p>The golden path is default compliance: a plan author should not need to remember a hidden review convention, and a reviewer should not need to reconstruct the product delta from technical material. Templates and authoring prompts supply the structure automatically; review and validators catch omission or misplacement; errors identify the missing section and expected position.</p>
+    <ul>
+      <li><strong>Default workflow:</strong> create a normal non-trivial reviewed plan and receive a populated early <em>What’s new</em> section.</li>
+      <li><strong>Inference/defaults:</strong> no new flags or manual configuration are required; each repository’s existing template and review flow owns placement.</li>
+      <li><strong>Self-healing:</strong> template-generated plans are correct by construction. Historical plans being resumed must be backfilled in the normal edit flow rather than requiring a separate migration command.</li>
+      <li><strong>Fail-closed boundary:</strong> new/current-contract plans that omit or misorder the section cannot be marked execution-ready. Explicit legacy bypass remains available only where already supported and must retain its reason/audit trail.</li>
+      <li><strong>Agent-legible errors:</strong> validator/reviewer feedback should say that <em>What’s new</em> is missing or misplaced, identify the expected early anchor, and distinguish structural absence from weak/restated content.</li>
+      <li><strong>UI impact:</strong> text-only. The visible change is reviewer-facing plan structure and validation feedback; there is no application screen or interaction redesign.</li>
+    </ul>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li id="ld-1"><strong>One canonical semantic rule.</strong> <code>skills/planning-workflow/SKILL.md</code> owns the complete definition. Other ai-configs surfaces reference it and carry only the minimum local instruction needed to author or review correctly.</li>
+      <li id="ld-2"><strong>Canonical ai-configs placement.</strong> New-plan order becomes <code>Title → Status → Product-owner context → What’s new → Goal → Decision Attention</code>. This preserves product-owner framing and puts the product announcement before technical or execution detail.</li>
+      <li id="ld-3"><strong>Doct placement.</strong> The Markdoc section ID is <code>whats-new</code>, inserted after <code>status</code> and before <code>goal</code> in the current local template/config order.</li>
+      <li id="ld-4"><strong>Heddle placement.</strong> The semantic HTML contract is <code>data-section="summary"</code> immediately followed by <code>data-section="whats-new"</code>, before rationale, authority, functional-impact, and technical sections.</li>
+      <li id="ld-5"><strong>Content contract.</strong> The standalone section contains a behavior-focused headline, one-sentence promise, concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, why, phases, or acceptance criteria.</li>
+      <li id="ld-6"><strong>Active architecture only.</strong> Do not restore deleted Pi plan/reviewer agents or retired plan-reviewer skills. Do not encode planning semantics in generic Herdr transport.</li>
+      <li id="ld-7"><strong>Enforcement is layered.</strong> Authoring defaults prevent omission; reviewed-plan packets assess content quality and placement; Doct/Heddle validators enforce structural presence/order.</li>
+      <li id="ld-8"><strong>Legacy behavior is preserved, not generalized.</strong> Doct retains its existing explicit untemplated/bypass path; Heddle uses its established effective-date warning/backfill policy. No new cross-repo migration framework is introduced.</li>
+      <li id="ld-9"><strong>Trivial-work exemption is unchanged.</strong> Only work already exempt from a full execution-plan artifact is exempt from this section.</li>
+      <li id="ld-10"><strong>Stale patches are reference evidence only.</strong> Rebuild from current remote branches and remove stale worktrees only after safe preservation and audit.</li>
+    </ol>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <table class="matrix">
+      <thead><tr><th>ID</th><th>Observable criterion</th></tr></thead>
+      <tbody>
+        <tr id="ac-1"><td>AC1</td><td>The shared canonical planning contract defines the standalone section, content requirements, non-restatement rule, trivial-work boundary, and early placement exactly once.</td></tr>
+        <tr id="ac-2"><td>AC2</td><td>All active ai-configs plan-authoring routes either produce the section directly or explicitly delegate to the canonical contract; deleted/retired agents remain deleted.</td></tr>
+        <tr id="ac-3"><td>AC3</td><td>The current Doct/Herdr reviewed-plan readiness packet flags a missing, late, vague, or duplicative section and cannot produce an execution-ready verdict until corrected.</td></tr>
+        <tr id="ac-4"><td>AC4</td><td>Managed Hermes planning surfaces carry equivalent behavior and their manifest/synchronization checks pass without assuming byte-for-byte parity where workflows intentionally differ.</td></tr>
+        <tr id="ac-5"><td>AC5</td><td>Doct’s default Markdoc template contains <code>whats-new</code> after <code>status</code>; config-driven CLI and API validation reject new Markdoc that omits it or places it after <code>goal</code>.</td></tr>
+        <tr id="ac-6"><td>AC6</td><td>Doct’s legacy HTML and explicit reason-bearing untemplated/bypass behavior remain unchanged; no versioned-template subsystem is added.</td></tr>
+        <tr id="ac-7"><td>AC7</td><td>Heddle’s generator emits <code>summary → whats-new</code>; the validator rejects current-contract plans with missing, duplicate, or misplaced <code>whats-new</code>.</td></tr>
+        <tr id="ac-8"><td>AC8</td><td>Heddle plans before the new cutover use warning/backfill compatibility consistent with current doctrine, while plans created on or after the cutover fail closed.</td></tr>
+        <tr id="ac-9"><td>AC9</td><td>Focused tests cover happy path, missing section, wrong order, weak/restatement review semantics, generation, installation/sync, and historical compatibility.</td></tr>
+        <tr id="ac-10"><td>AC10</td><td>A final semantic review confirms all three repositories describe the same product behavior despite repository-specific section IDs, templates, and migration mechanisms.</td></tr>
+        <tr id="ac-11"><td>AC11</td><td>Fresh branches/worktrees contain the delivered changes, while old worktrees are removed only after a no-loss audit or are left with an explicit blocker/handoff.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-default-authoring">
+      <h3>BDD1 — New reviewed plan explains the change by default</h3>
+      <p><strong>Given</strong> an agent creates a non-trivial reviewer-facing plan through an active supported authoring path, <strong>when</strong> the plan is materialized, <strong>then</strong> it contains a standalone early <em>What’s new</em> section with the required product-facing elements before technical detail.</p>
+    </article>
+    <article id="bdd-missing-review">
+      <h3>BDD2 — Review blocks a missing or late section</h3>
+      <p><strong>Given</strong> a non-trivial plan lacks the section or places it after current implementation reality/phases, <strong>when</strong> the reviewed-plan readiness gate runs, <strong>then</strong> it reports the concrete defect and does not return an execution-ready verdict.</p>
+    </article>
+    <article id="bdd-restatement">
+      <h3>BDD3 — A heading alone is not sufficient</h3>
+      <p><strong>Given</strong> the section only paraphrases Goal, rationale, phases, or acceptance criteria, <strong>when</strong> a product/plan reviewer assesses it, <strong>then</strong> the plan is flagged for missing a concrete audience-visible before/after promise and preserved guarantees.</p>
+    </article>
+    <article id="bdd-trivial-exemption">
+      <h3>BDD4 — Existing trivial-work boundary remains intact</h3>
+      <p><strong>Given</strong> existing doctrine allows a task to proceed without a full execution-plan artifact, <strong>when</strong> that task is handled, <strong>then</strong> no new plan or <em>What’s new</em> section is required solely because of this change.</p>
+    </article>
+    <article id="bdd-doct-policy">
+      <h3>BDD5 — Doct enforces the new template order across clients</h3>
+      <p><strong>Given</strong> a current-config Markdoc source omits <code>whats-new</code> or places it after <code>goal</code>, <strong>when</strong> it is validated, registered, or updated through the CLI or API, <strong>then</strong> policy returns the existing missing/order issue shape and persistence does not proceed.</p>
+    </article>
+    <article id="bdd-doct-legacy">
+      <h3>BDD6 — Doct’s explicit legacy escape hatch remains auditable</h3>
+      <p><strong>Given</strong> an intentional older or untemplated plan cannot immediately satisfy the current Markdoc template, <strong>when</strong> the existing bypass is used with its required reason, <strong>then</strong> the operation follows existing audited behavior without silently weakening normal validation.</p>
+    </article>
+    <article id="bdd-heddle-current">
+      <h3>BDD7 — Heddle rejects missing and misordered current plans</h3>
+      <p><strong>Given</strong> a plan on or after the new contract date, <strong>when</strong> <code>whats-new</code> is missing, duplicated, or not immediately after <code>summary</code>, <strong>then</strong> the validator fails with actionable structural guidance.</p>
+    </article>
+    <article id="bdd-heddle-historical">
+      <h3>BDD8 — Historical Heddle plans remain readable</h3>
+      <p><strong>Given</strong> a plan predates the new contract boundary, <strong>when</strong> it is inspected or validated, <strong>then</strong> absence of <code>whats-new</code> follows the established warning/backfill policy rather than invalidating completed history.</p>
+    </article>
+    <article id="bdd-install-sync">
+      <h3>BDD9 — Installed guidance cannot silently drift</h3>
+      <p><strong>Given</strong> canonical and managed Hermes planning guidance is updated, <strong>when</strong> installation/synchronization verification runs, <strong>then</strong> expected managed surfaces contain equivalent requirements and manifest drift is rejected.</p>
+    </article>
+    <article id="bdd-safe-cleanup">
+      <h3>BDD10 — Stale worktree cleanup never loses unique state</h3>
+      <p><strong>Given</strong> fresh replacements have been created, <strong>when</strong> old worktrees are considered for removal, <strong>then</strong> status and diff audits prove their relevant changes are preserved and no unrelated files are discarded; otherwise cleanup stops with an explicit handoff.</p>
+    </article>
+  </section>
+
+  <section id="coverage-matrix">
+    <h2>Test coverage matrix</h2>
+    <table>
+      <thead><tr><th>Acceptance / scenarios</th><th>Layer</th><th>Planned suites or evidence</th></tr></thead>
+      <tbody>
+        <tr><td>AC1–AC4; BDD1–BDD4, BDD9</td><td>ai-configs contract and install/sync</td><td><code>test_install_shared_skills.sh</code>; focused assertions across canonical skills, active prompts, planner packet, reviewed-plan gate, and Hermes managed surfaces; semantic review of canonical-vs-reference wording.</td></tr>
+        <tr><td>AC5–AC6; BDD5–BDD6</td><td>Doct template policy, API, and CLI</td><td><code>tests/lib/plan-review-template-policy.test.ts</code>, register/update route tests, agent workflow guidance test, <code>doct-agent templates validate</code>, and Rust <code>plan_templates</code> tests.</td></tr>
+        <tr><td>AC7–AC8; BDD7–BDD8</td><td>Heddle generator, validator, guidance</td><td><code>validate-html-plan.node.mjs</code>, <code>new-html-plan.node.mjs</code>, planning-guidance tests, focused HTML-plan workflow suites, and all-active-plan compatibility audit.</td></tr>
+        <tr><td>AC10</td><td>Cross-repo semantic coherence</td><td>One bounded implementation review comparing headline/promise/before-after/result/guarantees, section placements, trivial exemption, and legacy behavior across the three diffs.</td></tr>
+        <tr><td>AC11; BDD10</td><td>Repository/worktree safety</td><td><code>git status</code>, <code>git diff --check</code>, remote-base ancestry, fresh branch/worktree inventory, and explicit old-worktree no-loss comparison before removal.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <article class="phase" id="phase-p1">
+    <h2>P1 — Rebuild the canonical ai-configs authoring and review contract</h2>
+    <h3>End State</h3>
+    <p>A fresh branch/worktree from current <code>origin/main</code> defines the semantic rule once, applies concise references across active authoring and reviewed-plan surfaces, updates managed Hermes guidance, and excludes deleted architecture.</p>
+    <h3>Tests first</h3>
+    <p>Extend the existing planning-authoring contract test in <code>test_install_shared_skills.sh</code> so it fails against current main for: missing standalone canonical rule; wrong placement relative to Product-owner context and Goal; missing active authoring references; missing reviewed-plan readiness check; missing managed Hermes coverage; and accidental dependence on deleted agent paths. Where practical, add a negative fixture/string block proving a mere heading or Goal restatement does not satisfy reviewer instructions.</p>
+    <h3>Expected files</h3>
+    <ul class="compact">
+      <li><code>skills/planning-workflow/SKILL.md</code></li>
+      <li><code>skills/dev-plan/SKILL.md</code></li>
+      <li><code>skills/reviewed-html-plan/SKILL.md</code></li>
+      <li><code>skills/product-principles/SKILL.md</code></li>
+      <li><code>skills/repo-agents-bootstrap/SKILL.md</code></li>
+      <li><code>skills/repo-agents-bootstrap/references/plan_agents_template.md</code></li>
+      <li><code>_pi/agents/planner.md</code></li>
+      <li><code>_pi/prompts/dev:plan.md</code>, <code>_pi/prompts/dev:plan-from-prd.md</code>, <code>_pi/prompts/cmd:start-linear-issue-branch.md</code>, and <code>_pi/prompts/dev:pm-review.md</code> where the current prompt owns product/plan readiness assessment</li>
+      <li>Codex/Claude equivalents under <code>_codex/prompts/</code> and <code>_claude/commands/</code> for the same active authoring/intake paths</li>
+      <li>Relevant managed planning surfaces under <code>_hermes/default/skills/software-development/</code> and <code>_hermes/default/profiles/nerd/skills/software-development/</code></li>
+      <li><code>_hermes/default/manifest.json</code></li>
+      <li><code>test_install_shared_skills.sh</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Start from current <code>origin/main</code>; do not rebase the stale patch or recreate deleted specialist agents.</li>
+      <li>Add the full content and ordering contract to <code>planning-workflow</code>, including the non-restatement rule and unchanged trivial-work exemption.</li>
+      <li>Make authoring skills/prompts and the generic planner packet reference the canonical contract and include the local placement requirement without copying the full prose.</li>
+      <li>Update <code>reviewed-html-plan</code> and PM/product review guidance so bounded Herdr reviewer packets assess presence, placement, concrete product content, and non-duplication. Leave <code>herdr-reviewers</code> transport semantics unchanged unless a generic packet field is demonstrably required.</li>
+      <li>Update bootstrap guidance so repositories adopting the shared doctrine know where local templates/validators must enforce the section.</li>
+      <li>Update managed Hermes surfaces according to their own current workflows, refresh the manifest, and verify equivalence without erasing intentional Hermes-specific review mechanics.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. If current main moves during execution, reconcile only active equivalent paths and record path substitutions in the deviations log.</p>
+    <h3>Verify</h3>
+    <pre><code>bash test_install_shared_skills.sh
+python3 -m unittest scripts/test_hermes_config_sync.py
+python3 scripts/hermes_config_sync.py refresh-manifest
+python3 scripts/hermes_config_sync.py verify
+git diff --check</code></pre>
+    <p>If live Hermes configuration is intentionally updated during delivery, also follow the repository-required source/live sequence:</p>
+    <pre><code>python3 scripts/hermes_config_sync.py install --dry-run
+python3 scripts/hermes_config_sync.py install --apply
+python3 scripts/hermes_config_sync.py export
+python3 scripts/hermes_config_sync.py verify</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p2">
+    <h2>P2 — Add the Doct Markdoc template and config-validator adapter</h2>
+    <h3>End State</h3>
+    <p>Fresh current Doct <code>develop</code> generates <code>whats-new</code> after <code>status</code>, and its shared config causes CLI and API registration/update validation to reject missing or out-of-order current Markdoc while preserving existing explicit bypass and legacy HTML behavior.</p>
+    <h3>Tests first</h3>
+    <p>Update valid Markdoc fixtures to include the new section, then add focused negative tests for missing <code>whats-new</code> and placement after <code>goal</code>. Prove failures occur through the shared TypeScript policy and the API register/update routes. Add/extend Rust policy tests only where needed to demonstrate the same config-driven behavior through <code>doct-agent</code>; do not duplicate validator algorithms.</p>
+    <h3>Expected files</h3>
+    <ul class="compact">
+      <li><code>thoughts/plans/templates/default-execution-plan.markdoc</code></li>
+      <li><code>thoughts/plans/plan-review.config.json</code></li>
+      <li><code>thoughts/plans/AGENTS.md</code></li>
+      <li><code>.pi/agents/planner-k2.md</code> only if it remains an active installed authoring path after direct verification; otherwise document it as out of scope</li>
+      <li><code>tests/lib/plan-review-template-policy.test.ts</code></li>
+      <li><code>tests/lib/routes/plan-documents-register-route.test.ts</code></li>
+      <li><code>tests/lib/routes/documents-html-routes.test.ts</code></li>
+      <li><code>tests/lib/agent-workflow-guidance-policy.test.ts</code></li>
+      <li><code>packages/doct-agent-cli/src/plan_templates.rs</code> tests only if current config-driven coverage does not already exercise the new required ID/order</li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Insert a standalone <code>{% section id="whats-new" %}</code> after Status with template prompts for headline, promise, audience-visible changes, before/after, result, and preserved guarantees.</li>
+      <li>Insert <code>whats-new</code> in <code>requiredSectionOrder</code> after <code>status</code> and before <code>goal</code>; reuse existing missing/order issue codes and policy code.</li>
+      <li>Update local plan guidance to reference the shared semantic contract and describe only Doct’s section ID, placement, and migration behavior.</li>
+      <li>Keep legacy HTML behavior unchanged. Existing Markdoc that is later updated must add the section or use the existing explicit reason-bearing untemplated/bypass path; do not build template-version selection.</li>
+      <li>Update duplicated valid fixtures so unrelated route tests continue representing a valid current template.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. The existing config-driven policy is the authority; no validator algorithm change is expected unless tests expose an actual cross-client parity gap.</p>
+    <h3>Verify</h3>
+    <pre><code>doct-agent templates validate \
+  --plan-config thoughts/plans/plan-review.config.json \
+  --source thoughts/plans/templates/default-execution-plan.markdoc \
+  --json
+
+VITEST_SHARDS=1 pnpm test:unit -- \
+  tests/lib/plan-review-template-policy.test.ts \
+  tests/lib/routes/plan-documents-register-route.test.ts \
+  tests/lib/routes/documents-html-routes.test.ts \
+  tests/lib/agent-workflow-guidance-policy.test.ts
+
+cargo test --manifest-path packages/doct-agent-cli/Cargo.toml plan_templates
+pnpm lint
+git diff --check</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p3">
+    <h2>P3 — Add the Heddle HTML template, ordering, and compatibility adapter</h2>
+    <h3>End State</h3>
+    <p>Fresh current Heddle <code>develop</code> generates semantic HTML with <code>summary → whats-new</code>; its validator enforces presence, uniqueness, and relative order for current plans while historical plans follow the established warning/backfill policy.</p>
+    <h3>Tests first</h3>
+    <p>Extend the validator fixture and tests with a new contract date. Add negative cases for missing, duplicate, and misplaced <code>whats-new</code> in current plans, plus a pre-cutover warning case. Extend generator and planning-guidance tests to prove the canonical template and generated plan contain the section in the exact early position.</p>
+    <h3>Expected files</h3>
+    <ul class="compact">
+      <li><code>docs/planning/templates/html-plan-v1.html</code></li>
+      <li><code>docs/planning/html-plan-contract.md</code></li>
+      <li><code>scripts/plans/validate-html-plan.mjs</code></li>
+      <li><code>scripts/plans/__tests__/validate-html-plan.node.mjs</code></li>
+      <li><code>scripts/plans/__tests__/new-html-plan.node.mjs</code></li>
+      <li><code>scripts/plans/__tests__/planning-guidance.node.mjs</code></li>
+      <li><code>AGENTS.md</code></li>
+      <li><code>.agents/skills/planning-workflow/SKILL.md</code></li>
+      <li><code>.agents/skills/dev-plan/SKILL.md</code></li>
+      <li><code>thoughts/plans/PLANNING_OVERRIDES.md</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Add <code>&lt;section data-section="whats-new"&gt;</code> immediately after the summary in the canonical docs template, with concise product-facing placeholders matching the shared contract.</li>
+      <li>Add <code>whats-new</code> to the required-section set with its own implementation-date threshold, independently parameterized from the existing <code>PLAN_CONTRACT_EFFECTIVE_DATE</code>/<code>requiresCurrentPlanContract</code> pair used by <code>functional-impact</code> and <code>ui-impact-triage</code>. Do not reuse the 2026-06-09 boundary for a section that did not yet exist.</li>
+      <li>Add an explicit relative-order check that requires <code>whats-new</code> immediately after <code>summary</code> for current-contract plans and returns actionable guidance.</li>
+      <li>Adjust the existing <code>decision-attention</code> near-top ordinal rule to account for the inserted section while preserving the rule's intent; do not disable or broadly loosen the placement check.</li>
+      <li>Update active local guidance to reference the shared semantics and specify Heddle’s exact DOM contract and backfill policy.</li>
+      <li>Do not update the stale unused <code>thoughts/plans/_templates/html-plan-v1.html</code> unless current code/repo guidance disproves that it is non-authoritative; avoid unrelated duplicate-template cleanup.</li>
+      <li>Run an all-active-plan audit to confirm historical artifacts warn or pass according to the chosen cutover rather than producing accidental hard failures.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. Use the implementation date as the new effective-date boundary and preserve the repository’s existing backfill-before-continuation policy.</p>
+    <h3>Verify</h3>
+    <pre><code>node scripts/plans/validate-html-plan.mjs docs/planning/templates/html-plan-v1.html
+
+node --test \
+  scripts/plans/__tests__/validate-html-plan.node.mjs \
+  scripts/plans/__tests__/new-html-plan.node.mjs \
+  scripts/plans/__tests__/html-plan-writer.node.mjs \
+  scripts/plans/__tests__/serve-html-plans.node.mjs \
+  scripts/plans/__tests__/migrate-md-plan-to-html.node.mjs \
+  scripts/plans/__tests__/planning-guidance.node.mjs
+
+npm run codex:plugin:test
+npm run agentic:workflow:verify
+
+git ls-files 'thoughts/plans/*.html' \
+  | xargs -r node scripts/plans/validate-html-plan.mjs
+
+git diff --check</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p4">
+    <h2>P4 — Verify cross-repository coherence, preserve deliverables, and retire stale worktrees safely</h2>
+    <h3>End State</h3>
+    <p>Repository-specific tests pass or any failure is reproduced against the fetched base and explicitly dispositioned as unrelated to this plan; semantic review confirms the contract means the same thing everywhere; delivery branches/worktrees are safely preserved according to each repository’s instructions; and stale worktrees are removed only when no unique state would be lost.</p>
+    <h3>Tests first</h3>
+    <p>Before cleanup, define a no-loss audit: list each stale worktree’s tracked/untracked changes, compare relevant files to fresh delivered diffs, and fail cleanup when an old file is not represented or explicitly dispositioned. Define a cross-repo checklist that fails semantic review if any adapter omits the headline/promise/before-after/result/guarantees contract, changes the trivial exemption, or weakens legacy auditability.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li>This plan file for immediate Progress and append-only log updates during execution.</li>
+      <li>Repository-specific validation evidence under existing approved validation locations if the execution workflow requires durable artifacts.</li>
+      <li>No additional product files unless a focused review finds a concrete in-scope omission.</li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Run the focused and required repository checks from P1–P3 and inspect failures rather than weakening tests.</li>
+      <li>Run one bounded implementation review over the three diffs, checking semantic parity, current-path integration, migration behavior, and scope discipline. Use one targeted rereview after fixes; allow a third only for a new concrete blocker introduced or exposed by the fix.</li>
+      <li>Confirm each delivery branch is based on the intended current remote tip or has been safely rebased with invalidated checks rerun.</li>
+      <li>Commit and push only where current repository instructions and execution authority allow. Otherwise leave cleanly scoped worktrees and an explicit handoff.</li>
+      <li>Resolve each stale worktree with <code>git -C &lt;repository-root&gt; worktree list --porcelain</code>, then audit the entries named <code>worktree-plan-whats-new-guidance</code> in ai-configs, Doct, and Heddle.</li>
+      <li>Remove an old worktree/branch only after its relevant changes are preserved and no unrelated uncommitted/untracked state remains. If not safe, retain it and report the exact unresolved files.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None unless the no-loss audit discovers unrelated user-owned state. Such state blocks deletion but does not block delivery of the new implementation.</p>
+    <h3>Verify</h3>
+    <pre><code># Run from each fresh delivery worktree
+git status --short --branch
+git diff --check
+git merge-base --is-ancestor &lt;expected-remote-tip&gt; HEAD
+
+# Inventory before any old-worktree removal
+git -C &lt;old-worktree&gt; status --short --branch
+git -C &lt;old-worktree&gt; diff --name-status
+git -C &lt;old-worktree&gt; ls-files --others --exclude-standard
+
+# Confirm the old worktree remains registered or was removed intentionally
+git worktree list
+
+# Heddle final committed-head mechanical gate before PR handoff
+npm run pre-pr:check -- --base develop</code></pre>
+  </article>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ol>
+      <li><strong>RED:</strong> add focused behavior tests at each existing contract seam and prove they fail because the current section is absent or unenforced.</li>
+      <li><strong>GREEN:</strong> make the smallest source/template/config changes needed to pass without weakening existing ordering, review, or migration checks.</li>
+      <li><strong>Repository safety:</strong> run each repository’s focused suites plus the listed broader workflow/lint checks.</li>
+      <li><strong>Cross-surface parity:</strong> compare the actual rendered/templated section and reviewer failure language across ai-configs, Doct, and Heddle.</li>
+      <li><strong>Migration evidence:</strong> prove current plans fail when noncompliant and historical plans remain readable or use the already-supported explicit bypass/backfill path.</li>
+      <li><strong>Delivery safety:</strong> preserve fresh diffs before any destructive cleanup and report exact branch/worktree/validation state.</li>
+    </ol>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li><strong>ai-configs first:</strong> land or preserve the canonical semantic rule and active review contract so downstream repository wording can reference a stable source.</li>
+      <li><strong>Doct second:</strong> land the Markdoc/config adapter and cross-client validation.</li>
+      <li><strong>Heddle third:</strong> land the semantic HTML/current-contract adapter and compatibility boundary.</li>
+      <li><strong>Cross-repo review and cleanup last:</strong> verify parity, publish/hand off all branches, then retire only safe stale worktrees.</li>
+    </ol>
+    <p>Each repository change should remain independently reviewable. If one downstream repository is blocked, preserve completed upstream work and report the blocked adapter rather than merging unrelated repositories into one unreviewable diff.</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Reintroducing deleted Pi plan/reviewer agents or retired plan-reviewer skills.</li>
+      <li>Changing Herdr reviewer transport, model pinning, tab visibility, or read-only safety.</li>
+      <li>Redesigning the full plan section order beyond the single compatible insertion.</li>
+      <li>Building generalized template-version migration infrastructure in Doct.</li>
+      <li>Cleaning Heddle’s unrelated duplicate/stale template architecture.</li>
+      <li>Rewriting or bulk-formatting completed historical plans.</li>
+      <li>Requiring full plans for trivial tasks already exempt under existing doctrine.</li>
+      <li>Changing application runtime features, permissions, authentication, or data models.</li>
+      <li>Using phrase-only tests as the sole evidence that reviewer behavior is enforced.</li>
+    </ul>
+  </section>
+
+  <section id="review-record">
+    <h2>Review record</h2>
+    <table>
+      <thead><tr><th>Gate</th><th>Result</th><th>Evidence</th></tr></thead>
+      <tbody>
+        <tr><td>Browser/Doct state</td><td>No pending routed feedback; durable listener active during review.</td><td>Doct document <code>6fd4cbb2-7dcd-4459-b58f-b142a6852968</code>, workspace <code>759bfae3-44f1-4ce5-9bff-9077d9933a21</code>.</td></tr>
+        <tr><td>PM product-intent review</td><td><code>PM_VERDICT: EXECUTION_READY</code></td><td><code>thoughts/validation/whats-new-plan-contract-pm-review.md</code></td></tr>
+        <tr><td>Independent Codex product/scope review</td><td>Initial worktree-authority blocker fixed; targeted rereview returned <code>VERDICT: PLAN_EXECUTION_READY</code>.</td><td><code>thoughts/validation/whats-new-plan-contract-codex-product-plan-review.md</code>; <code>thoughts/validation/whats-new-plan-contract-codex-product-plan-rereview.md</code></td></tr>
+        <tr><td>Independent Codex architecture/verification review</td><td>Initial and post-edit review found no readiness issue; one malformed verdict prefix received a single format-only correction and returned <code>VERDICT: PLAN_EXECUTION_READY</code>.</td><td><code>thoughts/validation/whats-new-plan-contract-codex-verification-plan-review.md</code>; <code>thoughts/validation/whats-new-plan-contract-codex-verification-plan-rereview.md</code></td></tr>
+        <tr><td>Applicable Claude Code compatibility review</td><td>Two clarity findings integrated; targeted rereview returned <code>VERDICT: PLAN_EXECUTION_READY</code>.</td><td><code>thoughts/validation/whats-new-plan-contract-claude-plan-review.md</code>; <code>thoughts/validation/whats-new-plan-contract-claude-plan-rereview.md</code></td></tr>
+      </tbody>
+    </table>
+    <p><strong>Final consensus:</strong> no unresolved readiness blocker or product question remains. The plan is execution-ready.</p>
+  </section>
+
+  <section id="decisions-log">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li><strong>2026-07-22 — Rebuild, do not rebase:</strong> the requirement remains relevant, but current ai-configs main deleted eight files touched by the old patch and moved review to Herdr. Fresh current-branch implementations replace the stale change sets.</li>
+      <li><strong>2026-07-22 — Repository-specific anchors:</strong> shared plans use Product-owner context → What’s new → Goal; Doct uses Status → What’s new → Goal; Heddle uses Summary → What’s new.</li>
+      <li><strong>2026-07-22 — Generic transport stays generic:</strong> reviewed-plan packets own semantic checks; <code>herdr-reviewers</code> remains transport unless current implementation evidence requires a generic packet capability.</li>
+      <li><strong>2026-07-22 — No broad legacy framework:</strong> preserve Doct’s existing explicit bypass and Heddle’s existing effective-date compatibility model rather than introducing a shared migration system.</li>
+      <li><strong>2026-07-22 — Cleanup is gated:</strong> stale worktrees are not deleted during planning and may be removed during execution only after a no-loss audit.</li>
+      <li><strong>2026-07-22 — Readiness ref refresh:</strong> readiness review rechecked remote tips. Doct remained at the discovery SHA; ai-configs advanced to <code>88434a96</code> without changing the planned authoring/review surfaces; Heddle advanced to <code>d0f33d1f</code> with only an unrelated pre-PR receipt-reuse guidance update in the relevant path set. The expected files and plan architecture remain current. P4 now names Heddle’s required committed-head <code>pre-pr:check</code> gate.</li>
+      <li><strong>2026-07-22 — Readiness review corrections:</strong> made the user-authorized replacement-worktree exception explicit so it does not contradict ai-configs' normal direct-on-<code>main</code> rule. Heddle P3 now requires a separate <code>whats-new</code> cutover threshold and a compatible adjustment to the existing <code>decision-attention</code> near-top ordinal check.</li>
+      <li><strong>2026-07-22 — Independent readiness consensus:</strong> PM review returned execution-ready. Independent Codex product/scope and architecture/verification slices, plus the applicable high-risk Claude Code compatibility slice, returned <code>PLAN_EXECUTION_READY</code> after the targeted corrections. No later non-pass review exists.</li>
+      <li><strong>2026-07-22 — Execution tracking:</strong> created <code>NOD-1415</code> in the <code>ccore/heddle</code> Linear project as the single cross-repository execution record and moved the registered Doct plan to <code>in_progress</code>.</li>
+      <li><strong>2026-07-22 — P1 complete on fresh main:</strong> implemented the canonical ai-configs contract only on fresh branch <code>whats-new-plan-contract</code> from <code>88434a96</code>, updated active authoring/review and managed Hermes surfaces, preserved the plan review artifacts, and left retired specialist agents untouched. Focused contract, Hermes unit/sync, manifest, and diff checks pass; the aggregate install script now reports eight reproducible unrelated baseline failures on current <code>origin/main</code> while its new focused planning contract passes.</li>
+      <li><strong>2026-07-22 — P2 complete on fresh Doct develop:</strong> added <code>status → whats-new → goal</code> to the Markdoc template and config-driven policy, updated active Doct guidance and valid fixtures, and added missing/order plus register/update parity coverage without changing legacy HTML or the reason-bearing bypass. Template validation, 2,158 unit tests, six Rust <code>plan_templates</code> tests, lint, and diff checks pass.</li>
+      <li><strong>2026-07-22 — Remote-tip drift during execution:</strong> ai-configs <code>origin/main</code> advanced to <code>0885182</code> and Doct <code>origin/develop</code> advanced to <code>8fa620ab</code> with planning-policy changes that separate deployment from PR readiness. The product contract and adapter seams remain valid; fresh delivery branches will be rebased before final review, and invalidated checks will rerun.</li>
+      <li><strong>2026-07-22 — P3 complete on fresh Heddle develop:</strong> added canonical <code>summary → whats-new</code> generation, an independent <code>2026-07-22</code> compatibility boundary, missing/duplicate/order enforcement, the narrow decision-attention ordinal adjustment, active guidance, focused tests, and the required <code>NOD-1415</code> changelog fragment. Focused validator/generator/guidance suites, Codex plugin tests, workflow verification, and diff checks pass. The initial all-plan audit exposed six plans treated as current at the new boundary plus unrelated pre-existing contract errors.</li>
+      <li><strong>2026-07-22 — Cycle-1 implementation review fixes:</strong> Codex found three ai-configs Hermes/test parity gaps and the six Heddle current-contract backfills. The Hermes authoring and independent-review packets now carry the full semantic contract, tests bind assertions to the exact contract/reviewer sections, the manifest was refreshed, and all six Heddle current plans now contain plan-specific correctly ordered sections. The post-fix all-plan audit has no remaining current-contract missing-<em>What’s new</em> error.</li>
+      <li><strong>2026-07-22 — Targeted rereview consensus:</strong> Codex returned <code>PASS_SCOPED</code> for both ai-configs and downstream slices; Claude returned <code>PASS_SCOPED</code> for the Heddle high-risk follow-up and found no blocking ai-configs issue. The Claude ai-configs rerun identified this missing decisions-log entry as a non-code P3 documentation gap; this entry closes it without changing implementation behavior. The Doct corpus-wide backfill suggestion was dispositioned as contrary to the locked compatibility decision: older Markdoc remains readable and is backfilled only when later updated, or uses the existing reason-bearing bypass.</li>
+      <li><strong>2026-07-22 — PR feedback disposition:</strong> CodeRabbit’s valid feedback made the Codex PM readiness conjunction explicit, marked the malformed Claude cycle-1 artifact as superseded by cycle 2, and replaced machine-specific stale-worktree paths in this permanent plan with portable worktree discovery. The aggregate count was already corrected to the verified <code>18 passed / 8 failed</code> result. The suggested <code>Herdr → Heddle</code> terminology change was rejected because that sentence intentionally names the generic Herdr reviewer transport, not the downstream Heddle repository.</li>
+      <li><strong>2026-07-22 — P4 complete and locally merge-ready:</strong> all three branches contain the fetched intended remote tip, are pushed, and have open mergeable PRs 47, 275, and 491. Focused and repository-required checks pass except for explicitly reproduced/dispositioned baseline failures: ai-configs remains <code>18 passed / 8 failed</code>, and Heddle’s committed-head mechanical receipt is red only for the unchanged <code>AgentPluginsSection</code> web-suite unhandled error while every other selected gate and all six changed active-plan validations pass. The Heddle Clerk audit matches the base count exactly. The no-loss audit retains all three stale worktrees because each still contains uncommitted state; no destructive cleanup was attempted.</li>
+      <li><strong>2026-07-22 — Final bounded review finding resolved:</strong> the third and final Codex cycle found one contradictory P4 End State sentence that still required every repository-wide test to pass despite the plan’s evidence-backed baseline-failure policy. The End State now requires passing tests or base-reproduced, explicitly unrelated dispositions. This is the exact requested correction; the three-cycle cap prohibits another reviewer loop, so closure is verified directly against the sole cited sentence and recorded in the final review artifact.</li>
+    </ul>
+  </section>
+
+  <section id="plan-changelog">
+    <h2>Plan changelog</h2>
+    <ul>
+      <li><strong>2026-07-22:</strong> created this fresh cross-repository plan from current remote-branch discovery, superseding the implementation assumptions in the stale worktrees while preserving their validated product intent.</li>
+      <li><strong>2026-07-22:</strong> refreshed remote-tip evidence and final Heddle handoff verification during execution-readiness review.</li>
+      <li><strong>2026-07-22:</strong> integrated independent reviewer findings, completed targeted rereviews, and promoted the plan to execution-ready.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

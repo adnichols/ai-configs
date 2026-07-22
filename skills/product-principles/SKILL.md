@@ -183,6 +183,7 @@ When planning product work, explicitly define:
 - and which tests prove the golden path stays intact.
 
 When reviewing plans or implementations, ask:
+- Does the plan satisfy the canonical `planning-workflow` `What's new` contract after Product-owner context and before Goal, with a distinct audience-visible product delta rather than a heading or restatement?
 - Is the correct path obvious?
 - Is the simplest path actually supported?
 - Are blockers, required user input, low-confidence choices, and phase-specific dependencies visible where agents will see them before execution?
@@ -216,6 +217,7 @@ Look for misalignments such as:
 - self-healing behavior that exists in code but is not reflected in status or docs,
 - stale config namespaces, legacy paths, or install methods that confuse real usage,
 - errors that describe what is missing but not the exact next step,
+- plans that omit, delay, or vaguely duplicate the canonical `planning-workflow` `What's new` section instead of stating the audience-visible product delta early,
 - plans that hide blockers, low-confidence decisions, or UI impact below the fold,
 - execution handoffs that self-certify readiness, ignore stale comments, or contradict registered readiness metadata,
 - product intent that prizes correctness but says nothing about obvious workflows and recoverability,

@@ -99,6 +99,7 @@ Write (or update) `plan_path` with:
 - Title
 - Status
 - Product-owner context near the top, before implementation history and technical detail. For non-trivial plans, use a scannable impact table or equivalent structured block that explains the plain-language situation for a reader with no issue/Linear context, why the work is needed now, the unmistakable conclusion (runtime/customer defect versus stale test or operational evidence), and separate impact on Customers, Runtime product behavior, Security / permissions, Testing / release confidence, and Deployment / migration. Lightweight plans must use at least concise labeled prose; say `No change` or `Not applicable` for unaffected dimensions.
+- Apply the canonical `planning-workflow` `What's new` contract after Product-owner context and before Goal; a heading or surrounding-section restatement is insufficient.
 - Goal / Non-goals
 - Current State (Validated)
 - Proposed Approach

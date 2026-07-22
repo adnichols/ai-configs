@@ -21,6 +21,7 @@ Do not restate the full shared planning doctrine here. This file is for repo-loc
 - Additional required headings beyond the shared plan contract.
 - Allowed heading aliases for this repo, if any.
 - Any mandatory plan metadata or delivery-order conventions.
+- How repo-local templates and validators map the canonical semantics of the shared `planning-workflow` `What's new` contract, including its after-Product-owner-context/before-Goal order.
 
 ## Repo-specific TDD / BDD expectations
 

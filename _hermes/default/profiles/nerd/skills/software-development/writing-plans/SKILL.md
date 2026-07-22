@@ -90,6 +90,7 @@ Your job is to:
 Near the top of every implementation plan, before implementation history, current-code detail, tasks, or verification mechanics, include a standalone product-owner context section for a reader with no prior issue, Linear, incident, or repository context. Explain the situation in plain language, explain why the work is needed now, and state the key conclusion unmistakably—especially whether this is a customer/runtime defect, a stale test or evidence problem, an operational/documentation gap, or a combination.
 
 Separately cover `Customers`, `Runtime product behavior`, `Security / permissions`, `Testing / release confidence`, and `Deployment / migration`; say `No change` or `Not applicable` instead of omitting unaffected dimensions. A lightweight plan must use concise labeled prose. A non-trivial plan must use a scannable impact table or equivalent structured block. Preserve any required dark full-width HTML layout, Decision Attention, TDD/BDD, readiness, and Doct listener contracts; this is an authoring requirement, not a renderer change.
+For every full plan, apply the shared `planning-workflow` `What's new` contract after Product-owner context and before Goal. State a distinct audience-visible product delta and preserved guarantees; a heading or surrounding-section restatement is insufficient.
 
 ## Writing Process
 
@@ -148,6 +149,7 @@ For each task, include:
 
 Check:
 - [ ] Product-owner context is standalone, near the top, explains why now and the key conclusion, and covers all five impact dimensions
+- [ ] `What's new` follows Product-owner context and precedes Goal with distinct audience-visible behavior rather than a heading or restatement
 - [ ] Tasks are sequential and logical
 - [ ] Each task is bite-sized (2-5 min)
 - [ ] File paths are exact

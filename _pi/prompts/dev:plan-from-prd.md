@@ -78,6 +78,7 @@ Planning requirements:
 - Write exactly one plan file at `plan_path`.
 - Preserve the single-file plan structure used by `/dev:plan`:
   - Product-owner context near the top, before implementation history and technical detail: standalone plain-language situation with no assumed issue/Linear context, why the work is needed now, an unmistakable conclusion distinguishing a runtime/customer defect from a stale test or evidence problem, and separate Customers, Runtime product behavior, Security / permissions, Testing / release confidence, and Deployment / migration impact. Non-trivial plans use a scannable table or equivalent structured block; lightweight plans must use at least concise labeled prose.
+  - Apply the canonical `planning-workflow` `What's new` contract after Product-owner context and before Goal; a heading or surrounding-section restatement is insufficient.
   - Goal / Non-goals
   - Current State (Validated)
   - Proposed Approach

@@ -93,29 +93,34 @@ Near the top of every implementation plan, before implementation history, curren
 
 Keep this complexity-aware. A lightweight plan must satisfy the contract with concise labeled prose. A non-trivial plan must use a clearly scannable impact table or an equivalent structured block with those five impact dimensions. This is an authoring and review contract, not a Doct renderer requirement; preserve the standard dark full-width layout and fit the section into that layout.
 
+### What's new contract
+
+Immediately after Product-owner context and before Goal, every full implementation plan must include a standalone `What's new` section. Give it a behavior-focused headline and a one-sentence promise, then state the concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, rationale, phases, or acceptance criteria; a heading without a distinct product delta does not satisfy the contract. This adds no new lightweight-plan requirement: only work already exempt from a full execution plan is exempt from `What's new`.
+
 Required sections for new plans unless repo-local overrides say otherwise:
 
 1. Title
 2. Status
 3. Product-owner context (situation, why now, key conclusion, and impact breakdown)
-4. Goal
-5. Decision Attention / Low-confidence Areas
-6. Why this plan exists
-7. Authority and inputs
-8. Current implementation reality
-9. Progress
-10. Resume instructions (agent)
-11. Product intent alignment
-12. Locked decisions
-13. Acceptance criteria
-14. BDD scenarios
-15. Phase-by-phase execution plan
-16. Verification strategy
-17. Delivery order
-18. Non-goals
-19. Decisions / Deviations log
+4. What's new (standalone product change and preserved guarantees)
+5. Goal
+6. Decision Attention / Low-confidence Areas
+7. Why this plan exists
+8. Authority and inputs
+9. Current implementation reality
+10. Progress
+11. Resume instructions (agent)
+12. Product intent alignment
+13. Locked decisions
+14. Acceptance criteria
+15. BDD scenarios
+16. Phase-by-phase execution plan
+17. Verification strategy
+18. Delivery order
+19. Non-goals
+20. Decisions / Deviations log
 
-Decision Attention must appear near the top of every non-trivial plan, immediately after the product-owner context and goal/status framing. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
+Decision Attention must appear near the top of every non-trivial plan, immediately after the Product-owner context, `What's new`, and goal/status framing. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
 
 For an HTML/Markdoc plan under browser review, put every product-shaping question in Decision Attention as a prominent `Decision Required` block instead of moving the question into chat. Give each decision a stable ID and include:
 
@@ -188,6 +193,7 @@ An `execution-ready` plan is ready only when all of the following are true:
 
 - important questions are resolved,
 - the near-top product-owner context is standalone, plain-language, explicit about why now and the key conclusion, and separates all five impact dimensions,
+- the standalone `What's new` section appears immediately after Product-owner context and before Goal, and is not missing, late, vague, or duplicative of Goal, rationale, phases, or acceptance criteria,
 - Decision Attention is near the top and truthfully reports blockers, user-input needs, and low-confidence areas,
 - required plan work stays faithful to the validated source scope, with optional adjacent improvements excluded or called out as non-goals rather than required phases,
 - the PR boundary is explicit, and deployment/promotion/post-merge observation is separated into non-blocking delivery guidance rather than a PR-readiness phase or progress gate,

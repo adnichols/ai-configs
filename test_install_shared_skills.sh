@@ -1209,9 +1209,201 @@ if reviewed.index('standalone `Product-owner context`') > reviewed.index('a near
 for phrase in ['dark-mode theme', 'full-width single-column', 'listenerInstructions', 'BDD scenarios']:
     if phrase not in reviewed:
         raise SystemExit(f'reviewed-html-plan lost preserved contract: {phrase}')
+
+# Extended What's new contract coverage.
+from pathlib import Path
+
+planning_path = Path('skills/planning-workflow/SKILL.md')
+planning = planning_path.read_text()
+planning_lower = planning.lower()
+
+# The complete semantic contract is canonical in planning-workflow and structurally
+# ordered after Product-owner context and before Goal.
+contract_heading = "### What's new contract"
+if planning.count(contract_heading) != 1:
+    raise SystemExit('planning-workflow must define exactly one standalone What\'s new contract')
+required_details = [
+    'behavior-focused headline',
+    'one-sentence promise',
+    'concrete audience-visible changes',
+    'before/after workflow',
+    'observable result',
+    'preserved guarantees',
+]
+contract_start = planning.index(contract_heading)
+contract_end = planning.index('\nRequired sections for new plans', contract_start + len(contract_heading))
+contract = planning[contract_start:contract_end].lower()
+for phrase in required_details:
+    if phrase not in contract:
+        raise SystemExit(f'canonical What\'s new contract missing semantic requirement: {phrase}')
+for forbidden in ['must not restate goal', 'rationale', 'phases', 'acceptance criteria']:
+    if forbidden not in contract:
+        raise SystemExit(f'canonical What\'s new contract missing non-restatement guard: {forbidden}')
+if 'only work already exempt from a full execution plan' not in contract:
+    raise SystemExit('canonical What\'s new contract must preserve the existing trivial-work exemption boundary')
+
+required_section_lines = [
+    '3. Product-owner context (situation, why now, key conclusion, and impact breakdown)',
+    "4. What's new (standalone product change and preserved guarantees)",
+    '5. Goal',
+]
+positions = []
+for line in required_section_lines:
+    if line not in planning:
+        raise SystemExit(f'planning-workflow required-section list missing: {line}')
+    positions.append(planning.index(line))
+if positions != sorted(positions):
+    raise SystemExit("planning-workflow must order Product-owner context -> What's new -> Goal")
+if contract_start < planning.index('### Product-owner context contract'):
+    raise SystemExit("canonical What's new contract must follow Product-owner context contract")
+if "missing, late, vague, or duplicative" not in planning_lower:
+    raise SystemExit("planning-workflow ready bar must reject missing, late, vague, or duplicative What's new content")
+
+# Active authoring routes must delegate to the canonical contract rather than
+# silently relying on a heading or copying the full semantic definition.
+authoring_surfaces = [
+    Path('skills/dev-plan/SKILL.md'),
+    Path('_pi/agents/planner.md'),
+    Path('_pi/prompts/dev:plan.md'),
+    Path('_pi/prompts/dev:plan-from-prd.md'),
+    Path('_pi/prompts/cmd:start-linear-issue-branch.md'),
+    Path('_codex/prompts/dev:plan.md'),
+    Path('_codex/prompts/dev:plan-from-prd.md'),
+    Path('_codex/prompts/cmd:start-linear-issue-branch.md'),
+    Path('_claude/commands/dev:plan.md'),
+    Path('_claude/commands/cmd:start-linear-issue-branch.md'),
+]
+for path in authoring_surfaces:
+    lowered = path.read_text().lower()
+    if "what's new" not in lowered or 'planning-workflow' not in lowered:
+        raise SystemExit(f'{path} must delegate active authoring to the canonical What\'s new contract')
+    if 'after product-owner context and before goal' not in lowered:
+        raise SystemExit(f'{path} must preserve the canonical early section order')
+    if all(phrase in lowered for phrase in required_details):
+        raise SystemExit(f'{path} duplicates the full canonical semantic contract instead of referencing it')
+
+# Reviewed-plan and PM packets must assess semantic sufficiency and refuse an
+# execution-ready verdict for structural or content failures.
+review_surfaces = [
+    Path('skills/reviewed-html-plan/SKILL.md'),
+    Path('_pi/prompts/dev:pm-review.md'),
+    Path('_codex/prompts/dev:pm-review.md'),
+]
+for path in review_surfaces:
+    lowered = path.read_text().lower()
+    for phrase in ["what's new", 'missing', 'late', 'vague', 'duplicative', 'execution-ready']:
+        if phrase not in lowered:
+            raise SystemExit(f'{path} missing reviewed-plan blocker instruction: {phrase}')
+    if 'do not' not in lowered or 'verdict' not in lowered:
+        raise SystemExit(f'{path} must explicitly withhold an execution-ready verdict')
+    if 'heading alone' not in lowered and 'mere heading' not in lowered:
+        raise SystemExit(f'{path} must reject heading-only compliance')
+
+# Product doctrine and bootstrap surfaces point to the canonical rule; adopting
+# repos are told to enforce its semantics in their own templates/validators.
+for path in [
+    Path('skills/product-principles/SKILL.md'),
+    Path('skills/repo-agents-bootstrap/SKILL.md'),
+    Path('skills/repo-agents-bootstrap/references/plan_agents_template.md'),
+]:
+    lowered = path.read_text().lower()
+    if "what's new" not in lowered or 'planning-workflow' not in lowered:
+        raise SystemExit(f'{path} must reference the canonical planning-workflow What\'s new contract')
+for path in [
+    Path('skills/repo-agents-bootstrap/SKILL.md'),
+    Path('skills/repo-agents-bootstrap/references/plan_agents_template.md'),
+]:
+    lowered = path.read_text().lower()
+    if 'template' not in lowered or 'validator' not in lowered or 'canonical semantics' not in lowered:
+        raise SystemExit(f'{path} must tell adopting repos to map canonical semantics into local templates/validators')
+
+# Managed Hermes guidance is intentionally workflow-specific. Its two full
+# authoring contracts must carry the canonical semantics inside the What's new
+# section itself; placing these words elsewhere in the file must not satisfy this check.
+hermes_contract_surfaces = [
+    Path('_hermes/default/skills/software-development/planning-workflow/SKILL.md'),
+    Path('_hermes/default/skills/software-development/writing-plans/SKILL.md'),
+]
+hermes_required_details = [
+    'behavior-focused headline',
+    'one-sentence product promise',
+    'concrete audience-visible changes',
+    'before/after workflow',
+    'observable result',
+    'preserved guarantees',
+]
+hermes_non_restatements = ['goal', 'rationale', 'phases', 'acceptance criteria']
+for path in hermes_contract_surfaces:
+    text = path.read_text()
+    heading = "### What's new contract"
+    if text.count(heading) != 1:
+        raise SystemExit(f'{path} must define exactly one managed Hermes What\'s new contract')
+    start = text.index(heading)
+    end = text.index('\nRequired sections for new plans', start + len(heading))
+    contract = text[start:end].lower()
+    if 'after product-owner context and before goal' not in contract:
+        raise SystemExit(f'{path} missing managed Hermes What\'s new ordering equivalence in its contract section')
+    for phrase in hermes_required_details:
+        if phrase not in contract:
+            raise SystemExit(f'{path} managed Hermes What\'s new contract missing semantic requirement: {phrase}')
+    if 'must not restate' not in contract:
+        raise SystemExit(f'{path} managed Hermes What\'s new contract must explicitly prohibit restatement')
+    for phrase in hermes_non_restatements:
+        if phrase not in contract:
+            raise SystemExit(f'{path} managed Hermes What\'s new contract missing non-restatement target: {phrase}')
+
+# Other managed Hermes routes keep their workflow-specific delegation wording.
+hermes_delegating_surfaces = [
+    Path('_hermes/default/skills/software-development/dev-plan/SKILL.md'),
+    Path('_hermes/default/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md'),
+    Path('_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md'),
+]
+for path in hermes_delegating_surfaces:
+    lowered = path.read_text().lower()
+    if "what's new" not in lowered or 'after product-owner context and before goal' not in lowered:
+        raise SystemExit(f'{path} missing managed Hermes What\'s new ordering equivalence')
+
+# The independent GPT reviewer's required concern list must carry this gate.
+# PM-only wording or wording elsewhere in reviewed-html-plan must not pass.
+hermes_reviewed_path = Path('_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md')
+hermes_reviewed = hermes_reviewed_path.read_text()
+gpt_section_start = hermes_reviewed.index('### 6. Read-only GPT Pi subagent plan review')
+gpt_section_end = hermes_reviewed.index('### 7. Integrate and iterate to execution-ready', gpt_section_start)
+gpt_section = hermes_reviewed[gpt_section_start:gpt_section_end]
+concerns_start = gpt_section.index('Keep the review limited to readiness concerns, including at least:')
+concerns_end = gpt_section.index('\nUse bounded scope rather than bounded tool calls.', concerns_start)
+gpt_concerns = gpt_section[concerns_start:concerns_end].lower()
+for phrase in [
+    "what's new",
+    'present immediately after product-owner context and before goal',
+    'behavior-focused headline',
+    'one-sentence product promise',
+    'concrete audience-visible changes',
+    'before/after workflow',
+    'observable result',
+    'preserved guarantees',
+    'does not restate goal, rationale, phases, or acceptance criteria',
+]:
+    if phrase not in gpt_concerns:
+        raise SystemExit(f'managed Hermes independent GPT concern list missing What\'s new requirement: {phrase}')
+
+# The current architecture must not regain dependencies on retired specialist
+# planner/reviewer agents.
+retired = sorted(Path('_pi/agents').glob('plan-*.md')) + sorted(Path('_pi/agents').glob('reviewer-plan-*.md'))
+if retired:
+    raise SystemExit(f'retired specialist plan agents must remain absent: {retired}')
+for path in authoring_surfaces + review_surfaces:
+    lowered = path.read_text().lower()
+    if 'reviewer-plan-' in lowered or '_pi/agents/plan-' in lowered:
+        raise SystemExit(f'{path} depends on retired specialist plan-agent paths')
+
+reviewed = Path('skills/reviewed-html-plan/SKILL.md').read_text()
+for phrase in ['dark-mode theme', 'full-width single-column', 'listenerInstructions', 'BDD scenarios']:
+    if phrase not in reviewed:
+        raise SystemExit(f'reviewed-html-plan lost preserved contract: {phrase}')
 PY
 }
-
 
 test_codex_pi_skill_and_prompt_parity() {
   python3 - <<'PY'
