@@ -24,7 +24,7 @@ Accept any of:
 /skill:autoreview <plan path> --base <branch-or-range>
 ```
 
-If invoked from `run-plan`, use that plan path, target branch/base branch, scope contract, changed files, latest verification results, PM review status, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement.
+If invoked from `run-plan`, use that plan path, target branch/base branch, scope contract, changed files, latest verification results, PM review status, caller-reported base freshness status or pending status, any known rebase-triggered rerun requirement, and the unified implementation-review cycle ledger (completed cycles, triggering diffs/fixes, verdicts, and remaining budget). Do not start a fresh autoreview budget at invocation.
 
 If invoked independently, resolve the comparison in this order:
 
@@ -111,7 +111,14 @@ Before launching reviewers, record a pre-review scope baseline containing:
 - existing owner boundaries and product surfaces in scope;
 - the initial changed files, including committed, staged, and unstaged changes.
 
-Use this scope baseline for every slice, triage decision, fix, and rereview. A later finding may expose a concrete reachable path within the baseline, but it may not silently widen the accepted behavior or ownership boundary.
+Also import or reconstruct the unified review-cycle ledger before launching any reviewer:
+
+- When called by `run-plan`, require the caller's ledger and preserve its cycle numbers.
+- When invoked independently, inspect current run notes and durable review artifacts for usable implementation-review passes over this scoped change. Equivalent runtime-native/pre-PR evidence over the same unchanged diff counts once; each later materially new reviewer pass counts as another cycle.
+- Record completed cycles, the diff/fix that triggered each one, verdicts, and remaining budget in the autoreview artifact. If prior review evidence exists but the consumed budget cannot be determined safely, stop for clarification rather than assuming zero.
+- If no cycle remains, do not launch reviewers. Return the convergence/review-budget outcome and smallest next decision exactly as required by the global policy, regardless of whether a PR exists.
+
+Use this scope baseline and ledger for every slice, triage decision, fix, and rereview. A later finding may expose a concrete reachable path within the baseline, but it may not silently widen the accepted behavior or ownership boundary.
 
 ### 2. Classify Claude Code need, then run reviewers
 
@@ -242,7 +249,7 @@ After applying any in-scope fix—and only because that fix changed verification
 1. Run the smallest meaningful targeted tests for the touched code.
 2. Rerun only plan-required verification invalidated by the fix. Reuse and record still-valid passing results instead of rerunning unchanged checks merely because a review cycle completed.
 3. Rerun Codex and any applicable Claude Code reviewer once against only the changed files, prior blocking findings, and resulting edits, not as a fresh whole-diff hunt for unrelated new issues.
-4. Allow a third total review cycle only when that targeted rereview identifies a new concrete blocker introduced or exposed by the fix. Otherwise stop after the targeted rereview with either `CLEAN_FOR_PR` or a convergence/scope blocker.
+4. Allow a third total review cycle only when that targeted rereview identifies a new concrete blocker introduced or exposed by the fix. Otherwise stop after the targeted rereview with either `CLEAN_FOR_PR` or a convergence/scope blocker. Count this budget across the scoped change, not from the moment this skill was invoked: creating a PR does not reset, extend, reduce, or otherwise alter the limit, and a post-PR `REVIEW_ESCAPE` consumes an otherwise permitted remaining cycle rather than creating a new one.
 
 Absent an explicit operator instruction to open the PR regardless, do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding and do not open or proceed to a PR with those findings unresolved. An explicit operator override ends this prohibition: open the PR as directed, disclose the non-clean review state, and do not represent it as `CLEAN_FOR_PR` or merge-ready. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and local merge-readiness checking. The pre-PR gate must not require a later Codex PR thumbs-up after its own Codex review leg is clean.
 
@@ -250,7 +257,7 @@ Hard stop the review loop when any of these is true:
 
 - two fix attempts do not resolve the same finding or same failure family,
 - a narrow/optional component keeps producing new edge-case findings after two cycles, indicating it should be reverted, deferred, or redesigned instead of patched through review,
-- three total review cycles have run since the initial pre-PR packet; the third cycle is permitted only for a new concrete blocker introduced or exposed by the prior fix,
+- three total review cycles have run for the scoped change across pre-PR and post-PR review; the third cycle is permitted only for a new concrete blocker introduced or exposed by the prior fix, and PR existence never resets or changes this budget,
 - a P1/P2 fix requires a product or scope decision,
 - reviewers disagree on whether a finding is in scope and the plan does not resolve it,
 - required reviewer infrastructure is unavailable and the user has not waived it or directed opening the PR regardless,

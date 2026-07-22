@@ -74,6 +74,9 @@ Write plans as execution artifacts, not brainstorming notes. A ready plan must b
 - Do not promote adjacent cleanup, optional follow-ups, broader parity not required by the source intent, or extra explicitness that does not materially change go/no-go confidence into required plan work unless source requirements or validated repo evidence show they are necessary for success.
 - Plan complete promised slices, not skeletons. Every claimed functional outcome must be connected, usable, and verifiable within its stated scope, without required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
 - If the requested outcome cannot be completed safely in one change, resize it before implementation to a smaller independently useful complete slice. Independent future enhancements, scale work, optional hardening, and polish may remain out of scope; work required for the current slice to function as claimed may not.
+- Define the complete promised slice at the **PR boundary**: code, tests, docs, migration definitions, release configuration, and buildable artifacts that can truthfully be reviewed before merge. An environment deployment, promotion, merge, production observation window, or post-merge smoke check is delivery/operations work, not missing implementation in the PR slice.
+- Deployment must never be a prerequisite for creating or publishing a PR. Do not make preview/staging/production deployment evidence, post-merge rollout, or production validation a phase completion criterion, progress checkbox, acceptance gate, or `### Verify` command that must finish before PR creation. Put such work in a clearly labeled non-blocking `Post-merge delivery / operations` section with owner, trigger, evidence, rollback/observation guidance, and any separate workflow that will execute it.
+- If source requirements genuinely require deployment or production observation, preserve that requirement as a post-merge delivery obligation without representing it as PR readiness or implementation completeness. A plan may require deployable configuration and truthful pre-merge verification; it may not require the deployment event itself before the PR exists.
 - When a plan is rendered or delivered as HTML/Markdoc, load `doct-document-ops` and use the standard reviewer layout by default: a dark-mode visual theme with explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, plus a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so reviewers can scan links without sacrificing plan body width. Do not use a permanent left sidebar/rail for navigation. Do not leave color mode or navigation layout to browser, OS, or agent-selected defaults.
 - When a plan is rendered, delivered, registered, or reviewed as HTML/Markdoc, delegate service details to `doct-document-ops`: register through `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc>`, preserve `listenerInstructions`, start the returned durable listener before asking for browser feedback, update through `doct-agent plans update`, share the canonical Doct URL, and process comments/actions through Doct listener/queue/agent/ack/resolve commands.
 - Every user-facing HTML plan URL must be the canonical Doct URL from `https://doct.nodaste.com`; do not share local `plan-review`, loopback, or Tailscale service URLs unless the user explicitly requested a legacy local review service.
@@ -168,7 +171,8 @@ Phase guidance:
 - keep phases coarse and outcome-oriented,
 - do not hide task lists inside phases,
 - make multi-surface parity inventory explicit in `### Expected files` or `### Work`,
-- lock canonical contracts, schemas, fixtures, payloads, or evidence sources before downstream phases depend on them.
+- lock canonical contracts, schemas, fixtures, payloads, or evidence sources before downstream phases depend on them,
+- include only PR-bound implementation and verification work in executable phases and `Progress`; place deployment, promotion, merge-dependent validation, and production observation outside the phase/progress mapping as non-blocking post-merge delivery work.
 
 ## Resumability rules
 
@@ -186,6 +190,7 @@ An `execution-ready` plan is ready only when all of the following are true:
 - the near-top product-owner context is standalone, plain-language, explicit about why now and the key conclusion, and separates all five impact dimensions,
 - Decision Attention is near the top and truthfully reports blockers, user-input needs, and low-confidence areas,
 - required plan work stays faithful to the validated source scope, with optional adjacent improvements excluded or called out as non-goals rather than required phases,
+- the PR boundary is explicit, and deployment/promotion/post-merge observation is separated into non-blocking delivery guidance rather than a PR-readiness phase or progress gate,
 - acceptance criteria and BDD scenarios are concrete,
 - every progress checkbox has exactly one matching phase and every phase has exactly one matching progress checkbox,
 - every phase includes explicit `Open questions / decision dependencies`, with `None` only when true,
@@ -245,7 +250,8 @@ For `UI impact: yes`, include high-fidelity existing and target mocks or screens
 
 ## Verification ownership
 
-- Phase `### Verify` checks are agent-run execution gates: they must be runnable during implementation, grounded in repo reality, and expanded with compensating checks when strict TDD is not practical.
+- Phase `### Verify` checks are agent-run pre-PR execution gates: they must be runnable during implementation, grounded in repo reality, and expanded with compensating checks when strict TDD is not practical. They may validate deployability, packaging, configuration, or dry-run behavior, but must not require an environment deployment, promotion, merge, or production observation before PR creation.
+- Post-merge deployment and operational checks have separate ownership and evidence. Their pending state does not make the implementation plan unready, the PR slice incomplete, or PR creation blocked.
 - Final completion still requires a semantic coherence review across the shared files touched by the work so reviewers confirm the doctrine means the same thing everywhere, not just that strings appear.
 
 ## Handoff to execution

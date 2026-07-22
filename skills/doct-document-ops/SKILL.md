@@ -103,6 +103,15 @@ If the user asks to **create, send, publish, copy, save, register, review, or mo
 
 For Aaron-facing development plans, default to a browser-reviewable HTML or Markdoc plan registered in Doct even when the prompt only says "create a plan" or "publish a plan." Use Markdown/text only when he explicitly asks for that non-reviewable format or repo guidance requires it.
 
+### PR and deployment boundary in plans
+
+Doct registration, lifecycle, board columns, readiness metadata, and progress rendering must preserve the canonical planning boundary:
+
+- Executable phases and `Progress` cover the PR-reviewable slice: implementation, tests, docs, migration/release definitions, buildable artifacts, and truthful pre-merge verification.
+- Environment deployment, promotion, merge-dependent smoke checks, production observation, and rollback execution are non-blocking post-merge delivery/operations work. Put them in a separate labeled section, not in the phase/progress one-to-one mapping and not in readiness criteria for PR creation.
+- A pending deployment or missing deployment evidence must never prevent plan registration, execution-ready status, board movement to `in_progress`, source progress synchronization, or PR creation. Doct state describes plan/review workflow state; it does not turn an operational deployment checkpoint into an implementation gate.
+- If an existing registered plan mixes post-merge deployment checkpoints into executable phases, preserve the operational obligation but correct the boundary during the next plan update: identify the PR-ready end state, move deployment/observation guidance to the non-blocking post-merge section, and do not claim the deployment occurred.
+
 ## Plan source formats
 
 Resolve the plan source format from repo guidance, the user's explicit request, or the existing plan path:
@@ -127,7 +136,7 @@ When writing or updating a handcrafted HTML plan:
 
 Reviewer-friendly structure:
 
-- `Progress` contains the phase checkboxes.
+- `Progress` contains checkboxes only for PR-bound executable phases; post-merge deployment/operations items are shown separately without blocking progress or readiness.
 - The top table of contents links to every major plan section and each phase.
 - Each phase has a stable wrapper ID, for example `id="phase-p1-contracts"`.
 - Acceptance criteria and BDD scenarios have stable IDs, for example `id="ac-1"` and `id="bdd-retry-timeout"`.
@@ -381,7 +390,7 @@ doct-agent plans lifecycle \
   --json
 ```
 
-Registration should leave the board assignment at the service default, normally `backlog`. Do not move a newly registered plan to `in_progress` as part of browser-review setup. Execution workflows such as `run-plan` own the transition to `in_progress` when implementation actually starts.
+Registration should leave the board assignment at the service default, normally `backlog`. Do not move a newly registered plan to `in_progress` as part of browser-review setup. Execution workflows such as `run-plan` own the transition to `in_progress` when implementation actually starts. Do not delay that transition, readiness metadata, or later PR creation for deployment, promotion, merge-dependent validation, or production observation; those are separate post-merge operational states.
 
 ## Legacy local plan-review service
 
