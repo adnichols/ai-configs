@@ -14,7 +14,7 @@ done
 SNAPSHOT="$(mktemp -d)"; chmod 700 "$SNAPSHOT"
 mkdir -p "$SNAPSHOT/runtime-cache/python" "$SNAPSHOT/runtime-cache/xdg"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX="$SNAPSHOT/runtime-cache/python" XDG_CACHE_HOME="$SNAPSHOT/runtime-cache/xdg"
-SKILLS=(autoreview claude-code-review codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan)
+SKILLS=(autoreview claude-code-review codex-review-partner herdr-reviewers pre-pr-implementation-review reviewed-html-plan run-plan)
 
 manifest() {
   python3 - "$HOME" "$@" <<'PY'
@@ -34,7 +34,7 @@ print(json.dumps(out,sort_keys=True))
 PY
 }
 
-PATHS=(.pi .agents/skills/autoreview .agents/skills/claude-code-review .agents/skills/codex-review-partner .agents/skills/pre-pr-implementation-review .agents/skills/reviewed-html-plan .agents/skills/run-plan)
+PATHS=(.pi .agents/skills/autoreview .agents/skills/claude-code-review .agents/skills/codex-review-partner .agents/skills/herdr-reviewers .agents/skills/pre-pr-implementation-review .agents/skills/reviewed-html-plan .agents/skills/run-plan)
 PARENT_METADATA="$SNAPSHOT/parent-metadata.json"
 python3 - "$PARENT_METADATA" "$HOME/.agents" "$HOME/.agents/skills" <<'PY'
 import json,os,stat,sys
@@ -87,7 +87,8 @@ fi
 failpoint after-install
 bash "$ROOT/scripts/verify-pi-install.sh" --scope pi-review-stack --check-only
 failpoint after-verify
-diff -qr "$ROOT/_pi/extensions/codex-review" "$HOME/.pi/agent/extensions/codex-review" >/dev/null
+[ ! -e "$HOME/.pi/agent/extensions/codex-review" ]
+[ ! -e "$HOME/.pi/agent/extensions/claude-review" ]
 for skill in "${SKILLS[@]}"; do diff -qr "$ROOT/skills/$skill" "$HOME/.agents/skills/$skill" >/dev/null; done
 failpoint after-parity
 
@@ -104,9 +105,6 @@ python3 "$helper" snapshot --pid $$ >/dev/null
 python3 "$supervisor" --preflight >/dev/null
 failpoint after-preflight
 
-launcher="$review_scripts/run-review.sh"; cp "$launcher" "$SNAPSHOT/real-launcher"; cp "$ROOT/_pi/extensions/codex-review/tests/fixtures/fake_launcher.py" "$launcher"; chmod 755 "$launcher"
-PI_REVIEW_STACK_TEST_HOME="$HOME" node --test "$ROOT/_pi/extensions/codex-review/tests/installed-host-notification.test.mjs"
-cp "$SNAPSHOT/real-launcher" "$launcher"; chmod 755 "$launcher"
 failpoint after-host
 bash "$ROOT/scripts/verify-pi-install.sh" --scope pi-review-stack --check-only
 trap - ERR INT TERM

@@ -32,7 +32,7 @@ Persistence language such as "finish," "do not stop," or "keep going" increases 
 
 - Lead with the answer or outcome, then give the key evidence and implication or next step.
 - Keep responses direct and decision-relevant. Do not repeat conclusions or narrate routine tool use.
-- For required Codex plan or implementation reviews in Pi, use the repo-owned `codex_review` tool. Do not launch `run-review.sh` review modes or `codex exec review` through shell, process, or interactive-shell tools. Non-gating pair/delegation work remains allowed.
+- For required Codex or Claude reviews in Pi, use the `herdr-reviewers` skill: run each reviewer as a visible interactive agent in an adjacent Herdr tab in the same workspace and worktree. The legacy `codex_review` and `claude_review` extensions are disabled. Do not use Pi subagents, `interactive_shell`, private tmux launchers, `codex exec`, or Claude print mode to satisfy required review gates.
 - Explain decisions, evidence, and tradeoffs when asked why.
 - Treat short instructions such as "continue," "proceed," or "yes" as steering within the established scope.
 - If you realize you are wrong, say so plainly, correct course, and continue within the authorized scope.

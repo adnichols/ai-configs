@@ -56,6 +56,27 @@ if [ "$VERIFY_SCOPE" = "pi-review-stack" ]; then
   check_exact_filename_set "$REPO_ROOT/_pi/agents" "$PI_AGENT_DIR/agents"
   check_tree_entries "$REPO_ROOT/_pi/agents" "$PI_AGENT_DIR/agents"
   check_tree_entries "$REPO_ROOT/_pi/extensions" "$PI_AGENT_DIR/extensions"
+  for disabled_extension in claude-review codex-review; do
+    if [ -e "$PI_AGENT_DIR/extensions/$disabled_extension" ]; then echo "FAIL: disabled Pi extension is still installed: $disabled_extension" >&2; failures=$((failures+1)); fi
+  done
+  if ! python3 - "$PI_AGENT_DIR/settings.json" "$PI_AGENT_DIR/extensions" <<'PY'
+import json, os, sys
+from pathlib import Path
+settings, live = Path(sys.argv[1]), os.path.realpath(sys.argv[2])
+if not settings.exists(): raise SystemExit(0)
+try: data = json.loads(settings.read_text())
+except Exception: raise SystemExit(0)
+disabled = {"claude-review", "codex-review"}
+for item in data.get("extensions", []) if isinstance(data, dict) else []:
+    source = item if isinstance(item, str) else item.get("source") if isinstance(item, dict) else None
+    if not isinstance(source, str): continue
+    expanded = os.path.expanduser(source)
+    normalized = os.path.normpath(expanded).replace(os.sep, "/")
+    if os.path.basename(normalized) not in disabled: continue
+    if normalized == f".pi/agent/extensions/{os.path.basename(normalized)}" or (os.path.isabs(expanded) and os.path.dirname(os.path.realpath(expanded)) == live):
+        raise SystemExit(1)
+PY
+  then echo "FAIL: disabled Pi extension remains explicitly registered in settings.json" >&2; failures=$((failures+1)); fi
   for pair in "$REPO_ROOT/_pi/README.md:$PI_AGENT_DIR/README.md"; do
     left="${pair%%:*}"; right="${pair#*:}"; cmp -s "$left" "$right" || { echo "FAIL: installed parity $right" >&2; failures=$((failures+1)); }
   done
@@ -118,7 +139,7 @@ PY
   then
     echo "FAIL: installed rendered APPEND_SYSTEM.md" >&2; failures=$((failures+1))
   fi
-  for skill in autoreview claude-code-review codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
+  for skill in autoreview claude-code-review codex-review-partner herdr-reviewers pre-pr-implementation-review reviewed-html-plan run-plan; do
     if ! diff -qr "$REPO_ROOT/skills/$skill" "$HOME/.agents/skills/$skill" >/dev/null 2>&1; then echo "FAIL: installed skill parity $skill" >&2; failures=$((failures+1)); fi
   done
   for helper in process_identity.py review_supervisor.py; do
@@ -361,6 +382,27 @@ print_section "1) Repo-managed Pi extensions (copied into ~/.pi/agent/extensions
 print_list "expected: " "$EXPECTED_REPO_EXTENSIONS"
 print_list "installed: " "$INSTALLED_REPO_EXTENSIONS"
 report_expected_vs_actual "  Comparison:" "$EXPECTED_REPO_EXTENSIONS" "$INSTALLED_REPO_EXTENSIONS" true
+for disabled_extension in claude-review codex-review; do
+  if [ -e "$PI_EXT_DIR/$disabled_extension" ]; then note_failure "disabled Pi extension is still installed: $disabled_extension"; fi
+done
+if ! python3 - "$PI_AGENT_DIR/settings.json" "$PI_EXT_DIR" <<'PY'
+import json, os, sys
+from pathlib import Path
+settings, live = Path(sys.argv[1]), os.path.realpath(sys.argv[2])
+if not settings.exists(): raise SystemExit(0)
+try: data = json.loads(settings.read_text())
+except Exception: raise SystemExit(0)
+disabled = {"claude-review", "codex-review"}
+for item in data.get("extensions", []) if isinstance(data, dict) else []:
+    source = item if isinstance(item, str) else item.get("source") if isinstance(item, dict) else None
+    if not isinstance(source, str): continue
+    expanded = os.path.expanduser(source)
+    normalized = os.path.normpath(expanded).replace(os.sep, "/")
+    if os.path.basename(normalized) not in disabled: continue
+    if normalized == f".pi/agent/extensions/{os.path.basename(normalized)}" or (os.path.isabs(expanded) and os.path.dirname(os.path.realpath(expanded)) == live):
+        raise SystemExit(1)
+PY
+then note_failure "disabled Pi extension remains explicitly registered in settings.json"; fi
 
 print_section "2) Repo-managed Pi agents (installed as an exact filename set)"
 print_list "expected: " "$EXPECTED_REPO_AGENTS"

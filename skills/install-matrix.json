@@ -296,6 +296,15 @@
       "notes": "Repo-owned override of the upstream Herdr control skill. Allows Codex and Claude to control a reachable Herdr session from outside a managed pane instead of treating `HERDR_ENV=1` as a hard prerequisite.",
       "sourceType": "repo"
     },
+    "herdr-reviewers": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [
+        "pi"
+      ],
+      "canonicalSource": "skills/herdr-reviewers",
+      "notes": "Pi: required Codex and Claude reviews run as visible interactive agents in adjacent Herdr tabs while the legacy managed review extensions are disabled.",
+      "sourceType": "repo"
+    },
     "internal-comms": {
       "class": "universal-installable",
       "allowedConsumers": [

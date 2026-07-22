@@ -121,47 +121,31 @@ Before launching Claude Code, classify the review scope using the high-risk seco
 - **Skip Claude Code by default** for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason.
 - Use a compact Claude Code packet with named files, the exact risk question, relevant diff excerpts, verification already run, and outcome limits. Do not send broad context when a packet is sufficient.
 
-Launch applicable reviewers in the same turn when possible:
+Launch applicable reviewers in adjacent Herdr tabs in the same workspace and exact worktree:
 
-- **Codex** is the primary review leg. In Codex, run it as a Codex subagent/native review task when that facility is available; otherwise use `codex-review-partner` in `implementation-review` mode. In Pi, call the managed `codex_review` tool with `reviewType:"implementation-review"` and `verdictProfile:"pre-pr-implementation"`.
-- **Claude Code** is the high-risk second-reviewer leg when the high-risk trigger or an explicit override applies. Use `claude-code-review`; the canonical launcher owns model, effort, and private-tmux mechanics.
+- **Codex** is the primary review leg. In Pi, follow `herdr-reviewers` and `codex-review-partner`; use a visible interactive Codex tab with the workflow's bounded implementation-review packet.
+- **Claude Code** is the high-risk second-reviewer leg when the high-risk trigger or an explicit override applies. In Pi, follow `herdr-reviewers` and `claude-code-review`; use a visible interactive Claude tab with the compact risk packet.
 
-Do not use alternate model-subagent reviewers to satisfy the Codex/Claude Code gate described in this section.
+Do not use alternate model-subagent reviewers, the disabled `codex_review`/`claude_review` tools, private tmux launchers, or non-interactive CLI modes to satisfy this gate.
 
 Both reviews are static, read-only inspection only. Reviewers must never run tests, test suites, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable checks intended to validate behavior. They may inspect test code and consume the verification results supplied in the review packet. The calling/coordinating agent exclusively owns all test and verification execution. If Codex or a required Claude Code review is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate or directs opening the PR regardless; do not silently substitute another model.
 
 ### Runtime launch rules
 
-When this skill is invoked from Codex, run the Codex leg as a subagent/native review task when available, then run the applicable Claude Code leg through the canonical launcher. If a subprocess Codex leg is needed, use the same worktree and pass the resolved plan/scope and base/range:
+In Pi, follow `herdr-reviewers` for both legs:
 
-```bash
-~/.agents/skills/codex-review-partner/scripts/run-review.sh --mode implementation-review --verdict-profile generic-implementation --input /tmp/pre-pr-codex-review.md --cwd /path/to/repo --output thoughts/validation/pre-pr-reviews/<date-branch>-codex.md # codex-review-policy-exempt: non-Pi Codex runtime only
-```
+1. Discover the parent Pi workspace from the exact current worktree.
+2. Create one no-focus adjacent tab per applicable reviewer.
+3. Start Codex and Claude with the skill-defined model/reasoning and read-only arguments.
+4. Submit the bounded packet with a unique nonce and exact pre-PR verdict contract.
+5. Wait for settled state, inspect the visible transcript, validate result boundaries and the unchanged worktree fingerprint, then have the coordinator write the normal artifacts.
+6. Keep the tabs available while findings, follow-up slices, fixes, or targeted rereviews remain pending. After the final clean gate artifact is written, have the coordinating parent close the reviewer tabs it created unless the operator explicitly asked to preserve them. Reviewers never close their own tabs.
 
-When this skill is invoked from Pi, write the bounded Codex prompt and call:
+Do not use a Pi GPT subagent, `interactive_shell`, the disabled managed review tools, private tmux, `codex exec`, or Claude print mode. If the parent session is interrupted, rediscover the visible reviewer tab and validate its nonce/fingerprint manually; this initial transport has no automatic detached completion delivery.
 
-```text
-codex_review({ action:"start", reviewType:"implementation-review", verdictProfile:"pre-pr-implementation", promptFile:"/tmp/pre-pr-codex-review.md", output:"thoughts/validation/pre-pr-reviews/<date-branch>-codex.md", cwd:"/path/to/repo" })
-```
+The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex, Herdr, or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate or directs opening the PR regardless.
 
-Do not use a Pi GPT subagent or launch the wrapper through `bash`, `process`, or `interactive_shell` for the Codex leg.
-
-Run Claude Code only when applicable. In Pi, write the bounded prompt file and call:
-
-```text
-claude_review({
-  action: "start",
-  cwd: "/path/to/repo",
-  promptFile: "/tmp/pre-pr-claude-review.md",
-  output: "thoughts/validation/pre-pr-reviews/<date-branch>-claude.md"
-})
-```
-
-Do not poll either managed review while the originating Pi session remains active. Consume each completion notification and read its artifact; after reload/restart, recover persisted jobs with the matching `codex_review` or `claude_review` list/status action. In non-Pi runtimes, follow `claude-code-review` and call the canonical Python launcher directly.
-
-The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate or directs opening the PR regardless.
-
-Launcher transport validity does not universally require a `VERDICT:` line, but this pre-PR workflow does require one of its locked final verdicts. A non-empty artifact with launcher metadata may therefore be valid transport yet still be unusable for this gate if its workflow verdict is missing. Treat empty output, missing launcher metadata, tool-only output, provider errors, or a transcript ending in tool use as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate or directs opening the PR regardless.
+The Herdr transport requires matching nonce boundaries, non-empty review content, the exact locked workflow verdict as the final non-empty line inside the boundary, a settled reviewer state, and an unchanged complete worktree fingerprint. Treat empty output, missing or mismatched boundaries, invalid verdicts, tool-only output, provider errors, transcripts ending in tool use, or stale fingerprints as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. Rerun once with a narrower scoped prompt. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate or directs opening the PR regardless.
 
 For every quality reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; bound the assigned scope instead.
 
@@ -318,5 +302,6 @@ The final summary must include:
 - base freshness context from the caller and any rebase-triggered rerun requirement,
 - verification rerun after the last fix,
 - artifact path,
+- reviewer-tab cleanup result, including any preserved or unsuccessfully closed tab IDs,
 - any remaining non-blocking out-of-scope follow-ups with evidence and tracking destination,
 - `Next step: OPEN_PR_READY` when invoked from `run-plan`, so the caller continues to final verification, commit, push, PR creation, and local merge-readiness checking instead of concluding or waiting for a Codex thumbs-up.

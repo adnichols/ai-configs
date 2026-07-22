@@ -44,6 +44,7 @@ DEPRECATED_SHARED_SKILLS=(
     review-change-integrate
 )
 RETIRED_PI_EXTENSIONS=(questionnaire.ts)
+DISABLED_PI_EXTENSIONS=(claude-review codex-review)
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
 # Homebrew's node/npm/npx can be installed but absent from PATH.
@@ -1547,7 +1548,10 @@ remove_repo_managed_pi_extension_registrations() {
     [ -f "$settings_path" ] || return 0
     [ -d "$pi_source_extensions_dir" ] || return 0
 
-    python3 - "$settings_path" "$pi_source_extensions_dir" "$pi_live_extensions_dir" <<'PY'
+    local disabled_names
+    disabled_names="$(IFS=,; echo "${DISABLED_PI_EXTENSIONS[*]}")"
+
+    python3 - "$settings_path" "$pi_source_extensions_dir" "$pi_live_extensions_dir" "$disabled_names" <<'PY'
 import json
 import os
 import sys
@@ -1556,7 +1560,8 @@ from pathlib import Path
 settings_path = Path(sys.argv[1])
 source_dir = Path(sys.argv[2])
 live_dir = Path(sys.argv[3])
-managed_names = {entry.name for entry in source_dir.iterdir()}
+disabled_names = {name for name in sys.argv[4].split(",") if name}
+managed_names = {entry.name for entry in source_dir.iterdir()} | disabled_names
 
 try:
     data = json.loads(settings_path.read_text())
@@ -2196,6 +2201,9 @@ install_pi() {
     for retired_extension in "${RETIRED_PI_EXTENSIONS[@]}"; do
         rm -rf "$pi_extensions_dir/$retired_extension"
     done
+    for disabled_extension in "${DISABLED_PI_EXTENSIONS[@]}"; do
+        rm -rf "$pi_extensions_dir/$disabled_extension"
+    done
     if [ -d "$pi_source_dir/extensions" ]; then
         # Detect external clobbering of ai-configs-managed extensions before
         # restoring them, so the drift is visible in the install log. The main
@@ -2326,6 +2334,12 @@ PY
         fi
     done
 
+    for disabled_extension in "${DISABLED_PI_EXTENSIONS[@]}"; do
+        rm -rf "$agent/extensions/$disabled_extension"
+    done
+    remove_repo_managed_pi_extension_registrations \
+        "$agent" "$pi_source/extensions" "$agent/extensions"
+
     # Agent definitions are one exact managed directory in both full and
     # bounded installs. Reuse the canonical helper so retired/stale personas
     # cannot survive a review-stack transaction.
@@ -2335,7 +2349,7 @@ PY
     cp "$pi_source/README.md" "$agent/README.md"
     install_pi_append_system_file "$agent"
 
-    for skill in autoreview claude-code-review codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
+    for skill in autoreview claude-code-review codex-review-partner herdr-reviewers pre-pr-implementation-review reviewed-html-plan run-plan; do
         rm -rf "$shared/$skill"
         cp -a "$REPO_ROOT/skills/$skill" "$shared/$skill"
     done

@@ -1,126 +1,19 @@
 ---
-description: Run a review-only change review using the visibly-running deterministic Claude Code subprocess tool
-argument-hint: '[--claude-smoke] <existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
+description: Run a visible read-only Claude Code review in an adjacent Herdr tab
+argument-hint: "<plan path, diff/range, or review scope>"
 ---
 
-# Change Review via Claude Code
+Run a read-only Claude Code review using the `herdr-reviewers` and `claude-code-review` skills.
 
-Run a read-only Claude Code review through the `claude_review` tool. Do not launch Claude Code or the canonical Python launcher through `bash`, `process`, `interactive_shell`, raw tmux, prompt piping, or another model provider.
+Requirements:
 
-Documents to review: $ARGUMENTS
+1. Identify the current Pi pane's Herdr workspace and exact worktree. Parse returned IDs; do not guess.
+2. Create a no-focus adjacent tab labelled for this review.
+3. Start Claude interactively with `claude-sonnet-5`, `xhigh` effort, `dontAsk` permission mode, and only `Read,Grep,Glob`; do not expose Bash or write-capable tools.
+4. Build a bounded prompt for `$ARGUMENTS` that prohibits edits, state-changing shell commands, tests, builds, linters, typechecks, benchmarks, and verification commands.
+5. Generate a cryptographically random nonce immediately before submission and include exact `BEGIN_REVIEW_RESULT <nonce>` and `END_REVIEW_RESULT <nonce>` markers plus the workflow's required verdict vocabulary.
+6. Inspect the reviewer before prompting, submit through `herdr agent prompt --wait`, then read both visible and recent-unwrapped output.
+7. Validate the matching boundaries, exact verdict, non-empty review, and unchanged worktree fingerprint. The coordinating Pi agent writes the artifact; Claude does not.
+8. On startup modal, auth/usage/permission block, timeout, prompt stall, unknown state, missing boundaries, invalid verdict, or stale fingerprint, inspect with `herdr agent get`, `herdr agent read`, and `herdr agent explain --verbose`. Keep the tab open for operator inspection.
 
-## Smoke mode
-
-If `$ARGUMENTS` is exactly `--claude-smoke`, call:
-
-```text
-claude_review({
-  action: "smoke",
-  cwd: "$PWD",
-  output: "/tmp/pi-claude-review-smoke.txt"
-})
-```
-
-Tell the user the Claude smoke subprocess is starting and that you will wait for it. The tool remains visibly running until the smoke process exits and then returns its terminal result directly. If the visible call is interrupted, use its completion notification while this session remains available; after reload/restart, recover the persisted job with `claude_review` list/status. Then read `/tmp/pi-claude-review-smoke.txt` and require `CLAUDE_REVIEW_SMOKE_READY`, `socket=`, and `session=`. A classified failure is a prerequisite/auth/readiness blocker from the real Pi caller context. Do not retry with a different transport.
-
-## Review mode
-
-This command is review-only. The canonical launcher owns Claude model, effort, interactive TUI, tmux, prompt extraction, and timeout behavior.
-
-Your reviewer name is `CLAUDE`.
-
-Use this inline-comment-compatible format for material plan findings in Claude's returned review text:
-
-```text
-[REVIEW:CLAUDE] Your critical feedback here [/REVIEW]
-```
-
-To respond to other reviewers in returned review text:
-
-```text
-[REVIEW:CLAUDE] RE: [OtherReviewer] - Your response [/REVIEW]
-```
-
-Claude must not edit the plan. If inline plan comments are needed, it returns copyable comments in `/tmp/pi-claude-review-output.md`.
-
-## Scope
-
-Review the provided plan as a cohesive unit. Decide whether it is ready to execute within its stated goal and non-goals. Flag only blockers, material risks, or missing decisions that would change execution readiness.
-
-- This command is review-only.
-- Do not integrate or rewrite the plan.
-- For HTML plans, keep the HTML artifact authoritative and do not convert it to Markdown.
-- Only return copyable inline `[REVIEW:CLAUDE] ... [/REVIEW]` comments when blocker-level feedback is needed.
-- Do not remove or resolve review comments.
-- Do not run follow-up integration commands.
-- Do not comment on nice-to-haves, opportunistic cleanup, adjacent surfaces, or extra detail that would not change execution readiness.
-- Do not delegate the Claude review to a subagent.
-
-## Resolve inputs
-
-- If `$ARGUMENTS` starts with `@`, strip the leading `@` and treat the rest as workspace-relative.
-- If a single argument is an existing plan file, treat it as `plan_path`.
-- If a single argument is a slug, resolve it using repo-local active plan guidance. Do not infer a Markdown path.
-- Accept legacy `<spec_path> <tasks_path>` or a directory containing `spec.md` and `tasks.md` only when repo-local guidance explicitly allows migration.
-- If multiple candidates match or a required file is missing, ask for an explicit plan file path.
-
-## Launch
-
-1. Resolve the plan path.
-2. Write the bounded read-only Claude prompt to `/tmp/pi-claude-review-prompt.txt`.
-3. Tell the user the Claude reviewer subprocess is starting and that you will wait for it.
-4. Call:
-
-```text
-claude_review({
-  action: "start",
-  cwd: "$PWD",
-  promptFile: "/tmp/pi-claude-review-prompt.txt",
-  output: "/tmp/pi-claude-review-output.md"
-})
-```
-
-5. Keep the visible tool call active and do not poll; it returns when the reviewer exits.
-6. Read `/tmp/pi-claude-review-output.md` from the terminal tool result. If the visible call was interrupted, consume its automatic completion notification; if this session was reloaded, replaced, or restarted first, recover the persisted job with `claude_review` list/status and then read the artifact.
-7. Treat launcher artifact validity and this workflow's readiness decision as separate checks: a review can be valid transport without using a literal `VERDICT:` line.
-
-The prompt should instruct Claude Code to:
-
-- inspect the target plan,
-- look only for blockers, material risks, missing decisions, incorrect references, scope drift, or execution-readiness defects,
-- check that unchecked phases are bounded execution slices with `End State`, `Tests first`, `Work`, `Expected files`, and `Verify`,
-- flag unresolved `Open Questions` / `Decision Points` in execution-ready plans,
-- flag phases that are too large for same-scope execution,
-- return copyable inline review comments only where readiness changes materially,
-- preserve plan structure and progress state by not editing files,
-- not rewrite, integrate, or resolve comments,
-- stop after the review summary.
-
-## Validate result
-
-After completion:
-
-- read `/tmp/pi-claude-review-output.md`,
-- first validate transport: successful launcher completion, non-empty normalized review text, launcher metadata (`CLAUDE_REVIEW_LAUNCHER_METADATA`, `socket=`, and `session=`), and no classified launcher/provider failure,
-- do not require a literal `VERDICT:` line for transport validity; interpret Claude's blocker findings under this command's summary format,
-- if the job or artifact reports a classified launcher failure, report that blocker and the inspect/transcript/log paths,
-- otherwise inspect the plan and confirm structure remains intact,
-- confirm returned Claude comment suggestions use `[REVIEW:CLAUDE]`,
-- report only material findings.
-
-A missing or malformed artifact is review infrastructure failure even when the child process exited zero.
-
-## Summary format
-
-```text
-## Review Complete
-
-### Claude Material Findings:
-- [List blocker-level or readiness-changing Claude findings, or say none]
-
-### Plan Status:
-[Ready as scoped / Needs rework]
-
-### Recommendation:
-[Proceed as scoped / Major revision needed]
-```
+Do not use `claude_review`, the old private-tmux Python launcher, `interactive_shell`, Claude print mode, or a Pi subagent. The legacy Pi review extension is disabled.

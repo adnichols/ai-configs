@@ -163,11 +163,7 @@ If a changed file has no plan-bound reason, revert only your own edits to that f
 
 ### 5. First scoped quality review
 
-Run the Codex review leg. In Codex, use a Codex subagent/native review task when available; non-Pi subprocess consumers use `codex-review-partner`. In Pi, call `codex_review` with `reviewType:"implementation-review"` and `verdictProfile:"run-plan-pm"`. Use a bounded prompt that names the plan path, comparison range, changed files, scope contract, and verdict format. Do not let any reviewer edit files.
-
-```text
-codex_review({ action:"start", reviewType:"implementation-review", verdictProfile:"run-plan-pm", promptFile:"/tmp/run-plan-pm-review.md", output:"thoughts/validation/<slug>-run-plan-pm-codex.md", cwd:"/path/to/repo" })
-```
+Run the Codex review leg through `herdr-reviewers` in a visible adjacent tab in the same Herdr workspace and exact worktree. Use a bounded prompt that names the plan path, comparison range, changed files, scope contract, nonce-delimited result boundaries, and verdict format. Start Codex with the skill-defined model/reasoning and read-only controls. The coordinating agent captures the validated result into `thoughts/validation/<slug>-run-plan-pm-codex.md`. Do not let any reviewer edit files or use the disabled managed review tools.
 
 The review prompt must include:
 
@@ -194,7 +190,7 @@ Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUME
 
 Before launching Claude Code, classify the review scope using the high-risk second-reviewer policy. Use Claude Code when the diff touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface. Skip Claude Code by default for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason; record the skip in the review ledger.
 
-When the Claude Code leg applies, use `claude-code-review`; the canonical launcher owns model, effort, and private-tmux mechanics. Do not use alternate model-subagent reviewers for this review. If a required Claude Code review is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
+When the Claude Code leg applies, use `claude-code-review` plus `herdr-reviewers` to run a visible interactive reviewer in an adjacent tab; the startup arguments own model, effort, and read-only controls. Do not use alternate model-subagent reviewers or the disabled `claude_review` tool. If a required Claude Code review or Herdr transport is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
 
 The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
@@ -277,8 +273,8 @@ Do not run redundant full reviewer gates over an unchanged diff. If the latest r
 
 When the standalone pre-PR gate is required, it must use:
 
-- Codex for the primary review leg. In Codex, use a Codex subagent/native review task when available; in Pi, use `codex_review` with the `pre-pr-implementation` profile for this pre-PR gate.
-- Claude Code via `claude-code-review` when the high-risk second-reviewer trigger or an explicit override applies; the canonical launcher owns model and effort selection.
+- Codex for the primary review leg. In Pi, use `herdr-reviewers` to run a visible read-only Codex session in an adjacent tab with the pre-PR implementation verdict contract.
+- Claude Code via `claude-code-review` and `herdr-reviewers` when the high-risk second-reviewer trigger or an explicit override applies; run it visibly in its own adjacent tab with the pinned model/effort and read-only controls.
 
 In Codex, satisfy this gate directly rather than delegating back to Pi. Run the Codex leg as a subagent/native review task when available and run the applicable Claude Code leg through the canonical launcher. If a subprocess Codex leg is needed, use:
 
@@ -286,18 +282,9 @@ In Codex, satisfy this gate directly rather than delegating back to Pi. Run the 
 ~/.agents/skills/codex-review-partner/scripts/run-review.sh --mode implementation-review --verdict-profile generic-implementation --input /tmp/pre-pr-codex-review.md --cwd /path/to/repo --output thoughts/validation/pre-pr-reviews/<date-branch>-codex.md # codex-review-policy-exempt: non-Pi Codex runtime only
 ```
 
-When running from Pi, call `codex_review({ action:"start", reviewType:"implementation-review", verdictProfile:"pre-pr-implementation", promptFile:"/tmp/pre-pr-codex-review.md", output:"thoughts/validation/pre-pr-reviews/<date-branch>-codex.md", cwd:"/path/to/repo" })`; do not use a Pi GPT subagent. Run Claude Code only when applicable by writing the bounded prompt file and calling:
+When running from Pi, follow `herdr-reviewers` for both applicable legs. Create no-focus adjacent tabs in the parent workspace, start each pinned read-only reviewer, submit nonce-delimited bounded prompts, wait for settled state, inspect the visible transcripts, validate the unchanged worktree fingerprint and exact verdict, then have the coordinating agent write the normal Codex and Claude artifacts under `thoughts/validation/pre-pr-reviews/`. Keep tabs available while fixes or rereviews remain pending; after the clean gate artifacts are durable, the coordinating parent closes the reviewer tabs it created unless the operator requested preservation. Reviewers never close their own tabs. Do not use a Pi GPT subagent, `interactive_shell`, the disabled managed tools, private tmux, `codex exec`, or Claude print mode.
 
-```text
-claude_review({
-  action: "start",
-  cwd: "/path/to/repo",
-  promptFile: "/tmp/pre-pr-claude-review.md",
-  output: "thoughts/validation/pre-pr-reviews/<date-branch>-claude.md"
-})
-```
-
-Do not poll while the originating Pi session remains active. Consume the completion notification and read the artifact; after reload/restart, recover the persisted job with `claude_review` list/status. Launcher transport validity and this workflow's required verdict are separate checks. Non-Pi runtimes follow `claude-code-review` and call the canonical Python launcher directly.
+If the originating Pi session is interrupted, rediscover the reviewer tabs and validate their nonce/fingerprint manually; there is no automatic detached completion notification in this initial transport.
 
 The coordinating agent must consume the Codex and Claude Code review artifacts/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same applicable reviewer set after material fixes. If Codex or a required Claude Code reviewer is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the Codex/Claude gate or directs opening the PR regardless.
 
@@ -403,7 +390,7 @@ A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for t
 
 1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
 2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with Codex and, when the high-risk second-reviewer trigger or explicit override applies, Claude Code. In Codex, run the Codex leg as a subagent/native review task when available; in Pi, call `codex_review` with `reviewType:"adversarial-implementation-review"` and `verdictProfile:"pre-pr-implementation"`. Run Claude Code through `claude-code-review` when applicable; the canonical launcher owns model and effort selection. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why Claude Code remains skipped or provide the explicit override reason. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+3. Run read-only adversarial implementation reviews with Codex and, when the high-risk second-reviewer trigger or explicit override applies, Claude Code. In Pi, run each applicable leg through `herdr-reviewers` in its own visible adjacent tab with the adversarial pre-PR verdict contract. Run Claude Code through `claude-code-review` plus the same Herdr transport when applicable; the startup arguments own model, effort, and read-only controls. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why Claude Code remains skipped or provide the explicit override reason. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
 5. Repeat the adversarial reviewer-pair pass once after fixes if it finds any in-scope issue. Return to the normal monitoring loop only after both adversarial passes report no additional in-scope findings or only documented out-of-scope follow-ups.
 
