@@ -113,7 +113,7 @@ Keep this complexity-aware. A lightweight plan must satisfy the contract with co
 
 ### What's new contract
 
-For every full implementation plan, put a standalone `What's new` section after Product-owner context and before Goal. It must state a distinct audience-visible behavior change and preserved guarantees rather than only provide a heading or repeat surrounding plan sections. Work already exempt from a full plan remains exempt.
+For every full implementation plan, put a standalone `What's new` section after Product-owner context and before Goal. Give it a behavior-focused headline and a one-sentence product promise, then state the concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, rationale, phases, or acceptance criteria; a heading without a distinct product delta does not satisfy the contract. Work already exempt from a full plan remains exempt.
 
 Required sections for new plans unless repo-local overrides say otherwise:
 

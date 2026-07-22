@@ -1317,24 +1317,76 @@ for path in [
     if 'template' not in lowered or 'validator' not in lowered or 'canonical semantics' not in lowered:
         raise SystemExit(f'{path} must tell adopting repos to map canonical semantics into local templates/validators')
 
-# Managed Hermes guidance is intentionally workflow-specific, but it must carry
-# equivalent section ordering plus authoring/review enforcement.
-hermes_authoring_surfaces = [
+# Managed Hermes guidance is intentionally workflow-specific. Its two full
+# authoring contracts must carry the canonical semantics inside the What's new
+# section itself; placing these words elsewhere in the file must not satisfy this check.
+hermes_contract_surfaces = [
     Path('_hermes/default/skills/software-development/planning-workflow/SKILL.md'),
+    Path('_hermes/default/skills/software-development/writing-plans/SKILL.md'),
+]
+hermes_required_details = [
+    'behavior-focused headline',
+    'one-sentence product promise',
+    'concrete audience-visible changes',
+    'before/after workflow',
+    'observable result',
+    'preserved guarantees',
+]
+hermes_non_restatements = ['goal', 'rationale', 'phases', 'acceptance criteria']
+for path in hermes_contract_surfaces:
+    text = path.read_text()
+    heading = "### What's new contract"
+    if text.count(heading) != 1:
+        raise SystemExit(f'{path} must define exactly one managed Hermes What\'s new contract')
+    start = text.index(heading)
+    end = text.index('\nRequired sections for new plans', start + len(heading))
+    contract = text[start:end].lower()
+    if 'after product-owner context and before goal' not in contract:
+        raise SystemExit(f'{path} missing managed Hermes What\'s new ordering equivalence in its contract section')
+    for phrase in hermes_required_details:
+        if phrase not in contract:
+            raise SystemExit(f'{path} managed Hermes What\'s new contract missing semantic requirement: {phrase}')
+    if 'must not restate' not in contract:
+        raise SystemExit(f'{path} managed Hermes What\'s new contract must explicitly prohibit restatement')
+    for phrase in hermes_non_restatements:
+        if phrase not in contract:
+            raise SystemExit(f'{path} managed Hermes What\'s new contract missing non-restatement target: {phrase}')
+
+# Other managed Hermes routes keep their workflow-specific delegation wording.
+hermes_delegating_surfaces = [
     Path('_hermes/default/skills/software-development/dev-plan/SKILL.md'),
     Path('_hermes/default/skills/software-development/plan/SKILL.md'),
-    Path('_hermes/default/skills/software-development/writing-plans/SKILL.md'),
     Path('_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md'),
     Path('_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md'),
 ]
-for path in hermes_authoring_surfaces:
+for path in hermes_delegating_surfaces:
     lowered = path.read_text().lower()
     if "what's new" not in lowered or 'after product-owner context and before goal' not in lowered:
         raise SystemExit(f'{path} missing managed Hermes What\'s new ordering equivalence')
-hermes_reviewed = Path('_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md').read_text().lower()
-for phrase in ["what's new", 'missing', 'late', 'vague', 'duplicative', 'execution-ready verdict']:
-    if phrase not in hermes_reviewed:
-        raise SystemExit(f'managed Hermes reviewed-plan gate missing blocker instruction: {phrase}')
+
+# The independent GPT reviewer's required concern list must carry this gate.
+# PM-only wording or wording elsewhere in reviewed-html-plan must not pass.
+hermes_reviewed_path = Path('_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md')
+hermes_reviewed = hermes_reviewed_path.read_text()
+gpt_section_start = hermes_reviewed.index('### 6. Read-only GPT Pi subagent plan review')
+gpt_section_end = hermes_reviewed.index('### 7. Integrate and iterate to execution-ready', gpt_section_start)
+gpt_section = hermes_reviewed[gpt_section_start:gpt_section_end]
+concerns_start = gpt_section.index('Keep the review limited to readiness concerns, including at least:')
+concerns_end = gpt_section.index('\nUse bounded scope rather than bounded tool calls.', concerns_start)
+gpt_concerns = gpt_section[concerns_start:concerns_end].lower()
+for phrase in [
+    "what's new",
+    'present immediately after product-owner context and before goal',
+    'behavior-focused headline',
+    'one-sentence product promise',
+    'concrete audience-visible changes',
+    'before/after workflow',
+    'observable result',
+    'preserved guarantees',
+    'does not restate goal, rationale, phases, or acceptance criteria',
+]:
+    if phrase not in gpt_concerns:
+        raise SystemExit(f'managed Hermes independent GPT concern list missing What\'s new requirement: {phrase}')
 
 # The current architecture must not regain dependencies on retired specialist
 # planner/reviewer agents.

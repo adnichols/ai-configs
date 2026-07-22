@@ -140,6 +140,7 @@ Keep the review limited to readiness concerns, including at least:
 
 - whether the plan has executable phases,
 - whether acceptance criteria and verification are testable,
+- whether `What's new` is present immediately after Product-owner context and before Goal, includes a behavior-focused headline, one-sentence product promise, concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees, and does not restate Goal, rationale, phases, or acceptance criteria,
 - whether scope and non-goals prevent expansion,
 - whether unresolved product questions remain,
 - whether the plan has enough file/surface specificity for implementation,
