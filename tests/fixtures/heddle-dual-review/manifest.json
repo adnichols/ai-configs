@@ -1,0 +1,25 @@
+{
+  "fixture_version": "heddle-dual-review-v1",
+  "candidate_fingerprint": "sha256:6ed55811d795b74bbcc2b12878ef34a9b6884db94a5f15f7441fa6bda83f21bb",
+  "packet_version": "review-packet-v1",
+  "risk": "high-risk-mixed-surface",
+  "changed_files": [
+    "src/app/services/session-context.ts",
+    "src-tauri/src/session_bridge.rs",
+    "src/app/services/__tests__/session-context.test.ts"
+  ],
+  "reviewers": [
+    {
+      "name": "codex",
+      "profile": "gpt-5.6-terra/high/read-only/no-approval",
+      "delay_seconds": 0.08,
+      "verdict": "CLEAN_FOR_PR"
+    },
+    {
+      "name": "claude",
+      "profile": "claude-sonnet-5/xhigh/Read,Grep,Glob",
+      "delay_seconds": 0.10,
+      "verdict": "CLEAN_FOR_PR"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+diff --git a/src/app/services/session-context.ts b/src/app/services/session-context.ts
+index 1111111..2222222 100644
+--- a/src/app/services/session-context.ts
++++ b/src/app/services/session-context.ts
+@@ -10,6 +10,7 @@ export type SessionContext = {
+   workspaceId: string;
++  revision: number;
+ };
+diff --git a/src-tauri/src/session_bridge.rs b/src-tauri/src/session_bridge.rs
+index 3333333..4444444 100644
+--- a/src-tauri/src/session_bridge.rs
++++ b/src-tauri/src/session_bridge.rs
+@@ -20,6 +20,7 @@ struct SessionContext {
+     workspace_id: String,
++    revision: u64,
+ }
+diff --git a/src/app/services/__tests__/session-context.test.ts b/src/app/services/__tests__/session-context.test.ts
+index 5555555..6666666 100644
+--- a/src/app/services/__tests__/session-context.test.ts
++++ b/src/app/services/__tests__/session-context.test.ts
+@@ -12,4 +12,5 @@ it('round trips context', () => {
+   expect(context.workspaceId).toBe('workspace-1');
++  expect(context.revision).toBe(1);
+ });

@@ -142,6 +142,27 @@ PY
   for skill in autoreview claude-code-review codex-review-partner herdr-reviewers pre-pr-implementation-review reviewed-html-plan run-plan; do
     if ! diff -qr "$REPO_ROOT/skills/$skill" "$HOME/.agents/skills/$skill" >/dev/null 2>&1; then echo "FAIL: installed skill parity $skill" >&2; failures=$((failures+1)); fi
   done
+  review_runtime="$HOME/.agents/scripts/review_orchestration.py"
+  if ! cmp -s "$REPO_ROOT/scripts/review_orchestration.py" "$review_runtime"; then
+    echo "FAIL: installed review runtime parity $review_runtime" >&2
+    failures=$((failures+1))
+  fi
+  if ! python3 - "$review_runtime" <<'PY'
+import stat, sys
+try:
+    mode = stat.S_IMODE(__import__("os").stat(sys.argv[1]).st_mode)
+except OSError:
+    raise SystemExit(1)
+raise SystemExit(0 if mode == 0o755 else 1)
+PY
+  then echo "FAIL: installed review runtime must have exact mode 0755: $review_runtime" >&2; failures=$((failures+1)); fi
+  if [ -x "$review_runtime" ] && ! "$review_runtime" --help >/dev/null 2>&1; then
+    echo "FAIL: installed review runtime --help failed: $review_runtime" >&2
+    failures=$((failures+1))
+  elif [ ! -x "$review_runtime" ]; then
+    echo "FAIL: installed review runtime is not executable: $review_runtime" >&2
+    failures=$((failures+1))
+  fi
   for helper in process_identity.py review_supervisor.py; do
     installed="$HOME/.agents/skills/codex-review-partner/scripts/$helper"
     if ! python3 - "$installed" <<'PY'

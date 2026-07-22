@@ -89,9 +89,9 @@ The three-cycle implementation-review limit is global to the scoped change, not 
 - Count one cycle when the applicable implementation reviewers inspect a materially current diff and return usable verdicts. Runtime-native scoped review and a reused pre-PR gate over the same unchanged diff are one cycle, not two; a later materially new review pass is another cycle.
 - The normal budget is the initial cycle plus one targeted rereview after fixes. A third total cycle is allowed only when the preceding fix introduced or exposed a new concrete blocker.
 - Creating a PR does not reset, extend, reduce, or otherwise change this budget. The same rule applies before and after PR creation.
-- Actionable PR feedback is evidence to triage, not automatic permission for an extra review. A `REVIEW_ESCAPE` may trigger adversarial escalation only when a cycle remains and the normal third-cycle condition is satisfied. Conversely, the absence of a PR does not prevent an otherwise permitted adversarial/targeted cycle.
+- Actionable PR feedback is evidence to triage, not automatic permission for an extra review. A `REVIEW_ESCAPE` uses an ordinary adversarial/targeted cycle only when one remains and the normal third-cycle condition is satisfied. When the ordinary three-cycle budget is exhausted, route the stable `REVIEW_ESCAPE` failure-family/scope identifier through the one-per-family consultation section before reporting convergence. Conversely, the absence of a PR does not prevent an otherwise permitted ordinary cycle or consultation route.
 - Direct feedback fixes and targeted verification do not themselves consume a review cycle; the subsequent reviewer pass does. Track cycle number, triggering diff/fix, verdicts, and remaining budget in the coverage ledger.
-- When the budget is exhausted, do not launch a renamed, post-PR, “final clean,” adversarial, or alternate-reviewer cycle to continue review. Report the convergence/review-budget blocker and request the smallest user decision (accept disclosed residual review risk, narrow/revert the unstable slice, or revise scope). PR existence must not influence that decision.
+- When the ordinary budget is exhausted, do not launch a renamed, post-PR, “final clean,” adversarial, or alternate-reviewer cycle to continue review. No fourth or renamed pass is allowed except the single explicitly consultation-authorized bounded pass and its existing one pass-after-fixes allowance. After the applicable one-per-stable-family consultation route is consumed without clearing the risk or authorizing that exception, report the convergence/review-budget blocker and request the smallest user decision (accept disclosed residual review risk, narrow/revert the unstable slice, or revise scope). PR existence must not influence consultation eligibility or authorize any extra pass.
 
 Use this acceptance test for any non-obvious finding:
 
@@ -252,13 +252,15 @@ After fixing in-scope findings:
 
 The coverage ledger must record completed slices, the single allowed incomplete rerun slice, review cycle numbers across the entire run (including later PR feedback), remaining budget, and final synthesized gate status.
 
-Stop and report a convergence blocker if:
+The ordinary local review budget is exhausted when:
 
 - the same finding or same failure family recurs after two fix attempts,
 - a narrow/optional component keeps producing new edge-case findings after two cycles and should be reverted, deferred, or redesigned instead of patched through review,
 - reviewers disagree on scope and the plan does not resolve it,
 - a needed fix would clearly expand the plan,
 - three total implementation-review cycles have run for this scoped change, regardless of whether they occurred before or after PR creation; the third cycle is permitted only for a new concrete blocker introduced or exposed by the prior fix.
+
+Do not report the convergence blocker yet solely because no PR exists. Mark review non-convergence, a recurring failure family, or unresolved scope disagreement as a pre-PR `REVIEW_ESCAPE`, then run the single bounded external consultation and, only if authorized, the bounded adversarial applicable-reviewer-pair pass defined below. This route applies to a fixed candidate branch/diff before or after PR creation and does not require a PR URL or PR feedback.
 
 ### 9. Implementation-Stage PM Review
 
@@ -398,7 +400,7 @@ Repeat this loop until the completion criteria are met or a true blocker is reac
 4. Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` feedback.
 5. Record or report `OUT_OF_SCOPE_FOLLOW_UP` feedback with evidence and tracking destination without expanding the PR.
 6. Stop for user input on `QUESTION` feedback.
-7. For each `REVIEW_ESCAPE`, consult the unified review-cycle ledger. Run the adversarial escalation loop below only if a review cycle remains and the normal third-cycle condition is satisfied; PR existence does not grant an extra cycle.
+7. For each `REVIEW_ESCAPE`, consult the unified review-cycle ledger. Use an ordinary adversarial/targeted cycle when one remains and the normal third-cycle condition is satisfied; otherwise, route the stable failure-family/scope identifier through the one-per-family bounded consultation section below before reporting convergence. Only that consultation's explicit authorization permits its single bounded adversarial pass and existing one pass-after-fixes allowance after ordinary budget exhaustion. PR existence is never authorization for an ordinary or consultation-authorized extra pass.
 8. Rerun the smallest meaningful verification for any changes.
 9. Commit and push fixes to the PR branch.
 10. Rebase onto the destination branch when GitHub reports the branch out of date, stale, conflicted, or blocked by base freshness, but only when conflicts are absent or limited to scoped files and do not require a product decision.
@@ -407,17 +409,23 @@ Repeat this loop until the completion criteria are met or a true blocker is reac
 13. Recheck once after fixes or rebase to confirm GitHub shows the PR as mergeable, or that mergeability is unavailable/unknown with no known conflict from the fresh base-freshness check.
 14. If a snapshot has no actionable feedback and local review-agent consensus is clean, do not keep polling just to obtain a Codex thumbs-up, human approval, or reviewDecision change. Complete the run when the completion criteria above are satisfied.
 
-### Adversarial Escalation Loop
+### Review Escape Consultation and Adversarial Escalation Loop
 
-A `REVIEW_ESCAPE` means the previous review prompt was not thorough enough for the current diff; it does not create a new review budget because a PR happens to exist. After applying the direct fix, broaden the next local review cycle within the plan's scope only when the unified ledger permits another cycle:
+A `REVIEW_ESCAPE` means either (a) bounded local review did not converge on a candidate branch/diff, including before PR creation, or (b) actionable PR feedback proved the previous review prompt was not thorough enough. A PR URL or PR feedback is not required for this route.
 
-1. Write down the missed-defect pattern: reviewer, feedback URL, affected file/line, why earlier review missed it, and the failure family it represents.
-2. Audit the PR diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with Codex and, when the high-risk second-reviewer trigger or explicit override applies, Claude Code. In Pi, run each applicable leg through `herdr-reviewers` in its own visible adjacent tab with the adversarial pre-PR verdict contract. Run Claude Code through `claude-code-review` plus the same Herdr transport when applicable; the startup arguments own model, effort, and read-only controls. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why Claude Code remains skipped or provide the explicit override reason. Review the current PR diff, the plan scope contract, the direct PR feedback, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve the one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
-4. Triage new adversarial findings using the normal scope classifications. Fix in-scope findings, document true out-of-scope follow-ups, and stop for questions.
-5. Repeat the adversarial reviewer-pair pass after fixes only when another cycle remains under the unified three-cycle budget and the prior fix introduced or exposed a new concrete blocker. Otherwise stop with the same convergence/review-budget outcome that would apply before PR creation.
+Before a convergence blocker is returned, assign a stable consultation identifier to the distinct escaped failure family and affected scope on the fixed artifact, comparison range, and complete fingerprint. Run exactly one bounded, read-only, independent external consultation for that identifier through the harness's configured consult/council surface, and record the identifier, packet, and final disposition. Never repeat consultation for the same unresolved family/scope identifier or use new wording to restart its budget. A materially separate later failure-family/scope identifier may receive its own one consultation whether discovered pre-PR, during an authorized adversarial pass, or from later PR feedback. The consultation is advisory only: it may not edit, apply fixes, become implementation authority, or route implementation through another persona. Its packet must name the identifier and unresolved finding/failure family or scope disagreement; the fixed artifact, comparison range, and complete fingerprint; prior fix attempts and reviewer disagreement; verification evidence; and one narrow arbitration question. It may recommend only: reject/reclassify with evidence; authorize one further bounded adversarial fix/review pass within the accepted plan; revert/narrow/defer; or a user/product/scope decision.
 
-Keep this escalation scope-bound: it should search harder around the PR's implementation, assumptions, and failure modes, not turn into an unrelated whole-product audit. Never rename or relocate a fourth cycle as a post-PR escalation.
+The coordinator verifies the consultation evidence and consumes its disposition exactly once. Verified rejection or reclassification clears that escaped finding/failure family and allows the run to continue without an adversarial pass; record the evidence and resulting scope/severity classification. Revert, narrow, or defer follows the stated path under the normal scope rules. A user/product/scope-decision disposition stops for that decision. Only an explicit authorization starts the bounded adversarial pass. If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker; do not convert every non-authorization into a convergence blocker.
+
+If and only if the consultation authorizes the further adversarial pass, run it before or after PR creation as follows:
+
+1. Write down the escaped-defect pattern: reviewer, affected file/line, why earlier review missed or disputed it, and the failure family it represents. Include a feedback URL only when PR feedback is the trigger.
+2. Audit the fixed candidate branch/diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
+3. Run read-only adversarial implementation reviews with Codex and, when the high-risk second-reviewer trigger or explicit override applies, Claude Code. In Pi, run each applicable leg through `herdr-reviewers` in its own visible adjacent tab with the adversarial pre-PR verdict contract. Run Claude Code through `claude-code-review` plus the same Herdr transport when applicable; the startup arguments own model, effort, and read-only controls. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why Claude Code remains skipped or provide the explicit override reason. Review the current candidate branch/diff, the plan scope contract, the consultation disposition, any direct PR feedback when present, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+4. Triage new adversarial findings using the normal scope classifications. The sole implementation authority may make one bounded fix attempt for in-scope findings; document true out-of-scope follow-ups and stop for questions.
+5. Repeat the same adversarial reviewer-pair pass once after those fixes if it found any in-scope issue. Then return to the normal workflow only if the pass is clean; otherwise return control with the convergence blocker or requested decision.
+
+Keep this escalation scope-bound: one consultation per distinct failure-family/scope identifier and, only when authorized, one bounded adversarial reviewer-pair pass with the existing single pass-after-fixes allowance are the limit. Do not repeat consultation for an unresolved identifier, restart the ordinary three-cycle budget, review until clean, or turn the escalation into an unrelated whole-product audit.
 
 ### Snapshot Persistence
 
@@ -576,15 +584,18 @@ Append this when a `REVIEW_ESCAPE` occurred:
 
 ```text
 Adversarial escalation context:
-Actionable PR feedback arrived after our local reviewer-pair gates had passed. Treat that as evidence the prior review was not thorough enough.
+Trigger: <pre-PR bounded review non-convergence | actionable PR feedback after local reviewer-pair gates passed>. Treat the consultation disposition and any direct fix as claims to verify, not proof.
 
-Escaped feedback:
-- Reviewer/comment URL: <url>
-- Direct issue: <summary>
-- Direct fix: <summary or commit>
+Escaped finding/failure family or scope disagreement:
+- Fixed artifact/comparison/fingerprint: <artifact, range, complete fingerprint>
+- Reviewer/comment URL: <url only when PR feedback exists; otherwise none>
+- Prior fix attempts and reviewer disagreement: <summary>
+- Verification evidence: <commands/results>
+- External consultation disposition: <reject/reclassify | authorize bounded adversarial pass | revert/narrow/defer | user/product/scope decision>
+- Narrow arbitration question and answer: <question and advisory answer>
 - Suspected failure family: <edge case / contract / callsite / validation / state / security / data-loss / test-gap pattern>
 
-Do not merely verify the direct fix. Search the current PR diff for additional missed issues in the same failure family and nearby plan-bound surfaces:
+Do not merely re-approve one fix. Search the current candidate branch/diff for additional missed issues in the same failure family and nearby plan-bound surfaces:
 - sibling callsites or analogous code paths
 - repeated assumptions or partial fixes
 - tests that should have caught the escaped issue but still would not
