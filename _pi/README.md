@@ -125,6 +125,8 @@ This repo ships `thinking-shortcuts.ts`, which adds Codex-style bidirectional re
 
 Run `bun test scripts/thinking-shortcuts.test.ts` for the extension contract tests and `scripts/test-thinking-shortcuts-e2e.sh` for the real Pi TUI keypress test.
 
+The managed `herdr-agent-state.ts` integration reports Pi lifecycle state directly to Herdr. It treats `agent_settled` as the foreground-idle boundary, preserves same-session Herdr authority across Pi `/reload`, and, by default, keeps the pane working while any tracked `process` job remains live except known passive listeners, monitors, dev servers, and watchers. Configure the policy with `HERDR_PI_BACKGROUND_PROCESS_MODE=none|finite|all`; extend the passive ignore list with comma- or newline-separated literal name/command fragments in `HERDR_PI_BACKGROUND_PROCESS_IGNORE`. Doct `plans listen` and blocking `plans agent next --wait` commands are ignored explicitly. Run `node tests/test_herdr_agent_state.mjs` for the lifecycle, reload, and process-policy contract test.
+
 This repo also ships `aoe-status`, a lightweight lifecycle reporter for Agent of Empires (AoE) that:
 
 - writes content-free Pi lifecycle metadata to `/tmp/aoe-pi-status/<uid>/<pid>.json`,

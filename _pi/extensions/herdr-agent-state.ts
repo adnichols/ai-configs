@@ -4,7 +4,11 @@
 // herdr asset; re-run `install.sh --pi` to restore this improved version.
 // add custom hooks/plugins beside this file instead of editing it.
 // HERDR_INTEGRATION_ID=pi
-// HERDR_INTEGRATION_VERSION=6
+// HERDR_INTEGRATION_VERSION=7
+// Background processes count as working by default. Set
+// HERDR_PI_BACKGROUND_PROCESS_MODE=none|finite|all to override, and use
+// HERDR_PI_BACKGROUND_PROCESS_IGNORE for comma/newline-separated literal
+// name or command fragments that should remain idle.
 // @ts-nocheck
 
 import { createConnection } from "node:net";
@@ -85,8 +89,9 @@ const backgroundProcessMode = (() => {
   if (process.env.HERDR_PI_COUNT_BACKGROUND_PROCESSES === "1") {
     return "all";
   }
-  return "finite";
+  return "all";
 })();
+const backgroundProcessIgnoreTerms = parseListEnv("HERDR_PI_BACKGROUND_PROCESS_IGNORE");
 const retryableErrorPattern =
   /overloaded|provider.?returned.?error|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|connection.?lost|websocket.?closed|websocket.?error|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|ended without|http2 request did not get a response|timed? out|timeout|terminated|retry delay/i;
 let reportSeq = Date.now() * 1000;
@@ -108,6 +113,13 @@ function parseDurationEnv(name: string, fallback: number): number {
     return fallback;
   }
   return parsed;
+}
+
+function parseListEnv(name: string): string[] {
+  return String(process.env[name] ?? "")
+    .split(/[\n,]/)
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length > 0);
 }
 
 function updateSessionRef(ctx: any): void {
@@ -339,14 +351,35 @@ function isPassivePlanServer(processInfo: TrackedProcess): boolean {
     || /scripts\/plans\/serve-html-plans\.mjs\b/.test(command);
 }
 
+function isPassiveDoctListener(processInfo: TrackedProcess): boolean {
+  const command = normalizedCommand(processInfo.command).toLowerCase();
+  return /(^|\s)doct-agent\s+plans\s+listen\b/.test(command)
+    || (/(^|\s)doct-agent\s+plans\s+agent\s+next\b/.test(command)
+      && hasCommandFlag(command, "--wait")
+      && !hasCommandFlag(command, "--no-wait"));
+}
+
+function isConfiguredIgnoredProcess(processInfo: TrackedProcess): boolean {
+  if (backgroundProcessIgnoreTerms.length === 0) {
+    return false;
+  }
+  const name = String(processInfo.name ?? "").toLowerCase();
+  const command = normalizedCommand(processInfo.command).toLowerCase();
+  const searchable = `${name}\n${command}`;
+  return backgroundProcessIgnoreTerms.some((term) => searchable.includes(term));
+}
+
 function isPassiveListenerProcess(processInfo: TrackedProcess): boolean {
-  return isPassivePlanListener(processInfo) || isPassivePrListener(processInfo);
+  return isPassivePlanListener(processInfo)
+    || isPassivePrListener(processInfo)
+    || isPassiveDoctListener(processInfo);
 }
 
 function isLongLivedServiceProcess(processInfo: TrackedProcess): boolean {
   const name = String(processInfo.name ?? "").toLowerCase();
   const command = normalizedCommand(processInfo.command).toLowerCase();
-  return isPassiveListenerProcess(processInfo)
+  return isConfiguredIgnoredProcess(processInfo)
+    || isPassiveListenerProcess(processInfo)
     || isPassivePlanServer(processInfo)
     || name.includes("listener")
     || name.includes("dev-server")
@@ -650,10 +683,10 @@ export default function (pi) {
     }
   }
 
-  // Safety net for missed/dropped lifecycle edges (agent_end lost, overflow
-  // compaction aborting a turn without a clean end, subagent completion events
-  // missed, socket report dropped). Recompute the authoritative state instead
-  // of only forcing stale working -> idle.
+  // Safety net for missed/dropped lifecycle edges (agent_settled lost,
+  // compaction aborting a turn without a clean settlement, subagent completion
+  // events missed, socket report dropped). Recompute the authoritative state
+  // instead of only forcing stale working -> idle.
   function reconcile() {
     if (!rootSession) {
       return;
@@ -662,7 +695,6 @@ export default function (pi) {
     const hasSubagents = subagentWorkActive();
     if (agentActive && !retryHoldActive && !hasSubagents && piParentLooksIdle()) {
       agentActive = false;
-      clearFailureState();
       clearIdleTimer();
     }
 
@@ -771,17 +803,30 @@ export default function (pi) {
       wrapBlockingUi(ctx);
     }
     if (!agentActive) {
-      // Pi can emit duplicate/late end events while auto-retry is already
-      // holding the pane in Working. Do not let an unqualified duplicate end
-      // cancel the retry hold and publish a false Idle.
+      // Ignore duplicate or late low-level end events after the full run has
+      // already settled. agent_end is not itself an idle boundary.
       return;
     }
-
-    agentActive = false;
 
     const retryableMessage = retryableErrorMessage(event);
     if (retryableMessage) {
       holdForRetry(retryableMessage);
+    }
+  });
+
+  pi.on("agent_settled", (_event, ctx) => {
+    if (!rootSession) {
+      return;
+    }
+    if (ctx) {
+      currentCtx = ctx;
+      wrapBlockingUi(ctx);
+    }
+
+    agentActive = false;
+    if (retryHoldActive || failureBlocked) {
+      clearIdleTimer();
+      publishState();
       return;
     }
 
@@ -862,11 +907,12 @@ export default function (pi) {
     publishState();
   });
 
-  pi.on("session_shutdown", async () => {
+  pi.on("session_shutdown", async (event) => {
     if (!rootSession) {
       return;
     }
     const shutdownGeneration = stateReportGeneration;
+    const shouldReleaseAgent = event?.reason !== "reload";
     stopReconcile();
     stopHeartbeat();
     clearPendingTimers();
@@ -878,7 +924,11 @@ export default function (pi) {
     rootSession = false;
     currentCtx = undefined;
     await waitForStateQueueIdle();
-    if (shutdownGeneration === stateReportGeneration && !rootSession) {
+    // Pi reloads extensions in-place and keeps the same session reference.
+    // Releasing here makes Herdr suppress subsequent full-lifecycle reports
+    // for that same session, so preserve authority until the new extension
+    // instance republishes state from reload-time session_start.
+    if (shouldReleaseAgent && shutdownGeneration === stateReportGeneration && !rootSession) {
       await releaseAgent();
     }
   });
