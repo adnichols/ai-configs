@@ -89,7 +89,7 @@ Many of the Codex prompts in this repo assume that application repositories defi
 - This is an intentional repo-specific exception to the usual branch-first guidance used in many other repos. Do not "correct" this back to a branch workflow unless the user explicitly asks to change the protocol.
 - Run the repository’s primary test command(s) before committing any change that touches behavior, plus any additional checks (lint, build, etc.) defined in the project’s AGENTS.md or TESTING.md.
 - For BDD/TDD phase plans, review the implemented slice for concrete in-scope failures: unmet acceptance criteria, incomplete wiring, regressions, credible current-path security/data-loss/correctness risks, or misleading verification. Do not expand scope for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, or unsupported hypothetical paths.
-- Default to one implementation review plus one targeted rereview after fixes. A third review is allowed only when the prior fix introduced or exposed a new concrete blocker; after three total rounds, stop and report a convergence blocker.
+- Default to one implementation review plus one targeted rereview after fixes. A third review is allowed only when the prior fix introduced or exposed a new concrete blocker; after three total rounds, stop and report why review could not converge: the specific finding that stayed unresolved, what each fix attempt changed, and what disagreement remains.
 - Complete the promised slice before claiming success: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or tests that avoid the real implementation. If the promised outcome cannot be completed safely, resize it before implementation to a smaller independently useful complete slice.
 - Validate planned verification commands against real repo/package/target names before execution; correct obvious drift in the plan immediately instead of carrying stale commands forward.
 - When a phase spans multiple required surfaces (HTTP/CLI/MCP/UI/etc.), make parity expectations explicit and treat missing registry/dispatcher/wrapper wiring as implementation work, not optional cleanup.
@@ -135,7 +135,7 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
     - Keep any “Relevant Files” / “Changed Files” sections accurate as files are created or modified.
   - For BDD/TDD execution plans:
     - Review for concrete in-scope failures and do not widen the change for speculative risks, unrelated architecture work, or polish.
-    - Use one implementation review plus one targeted rereview after fixes by default. Allow a third round only for a new concrete blocker introduced or exposed by the fix, then stop with a convergence blocker.
+    - Use one implementation review plus one targeted rereview after fixes by default. Allow a third round only for a new concrete blocker introduced or exposed by the fix, then stop and report the specific finding that stayed unresolved and why.
     - Require a complete promised slice: no required stubs, TODO behavior, dead-end surfaces, missing wiring, fake success, or verification that bypasses the real implementation. Resize incomplete outcomes before implementation rather than shipping a partial skeleton.
     - Validate `### Verify` commands against actual repo/package/target names before execution.
     - Make multi-surface parity expectations explicit when behavior must match across HTTP/CLI/MCP/UI or similar interfaces.
