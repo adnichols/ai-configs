@@ -249,6 +249,20 @@ class LauncherTestCase(unittest.TestCase):
             transcript = transcript_path.read_text(encoding="utf-8")
             self.assertIn("You've used 75% of your weekly limit · resets 3am (America/Denver)", transcript)
 
+    def test_composed_prompt_forbids_reviewer_verification_execution(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as td:
+            prompt = Path(td) / "prompt.md"
+            prompt.write_text("Review the current diff.", encoding="utf-8")
+            composed = module.compose_prompt(prompt, "ANSWER_MARKER", "FINAL_SENTINEL")
+        self.assertIn("Do not run or invoke tests, test suites, builds, linters, typechecks", composed)
+        self.assertIn("the calling/coordinating agent exclusively owns test and verification execution", composed)
+        self.assertIn("Read-only inspection commands such as git diff, rg, and file reads are allowed", composed)
+
     def test_weekly_usage_limit_banner_is_not_session_limit(self) -> None:
         spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
         self.assertIsNotNone(spec)

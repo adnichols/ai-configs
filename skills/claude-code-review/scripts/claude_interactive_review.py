@@ -209,7 +209,7 @@ def compose_prompt(prompt_file: Path, marker: str, sentinel: str) -> str:
 
 ---
 Claude review launcher emission protocol:
-Return the review text only. Do not edit files. Emit the following answer-start marker on its own line, then the review, then the final sentinel on its own line. Do not repeat the final sentinel anywhere except the final line.
+Return the review text only. Do not edit files. Do not run or invoke tests, test suites, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or any other executable checks intended to validate behavior. You may inspect test code and caller-supplied verification results, but you must not execute them; the calling/coordinating agent exclusively owns test and verification execution. Read-only inspection commands such as git diff, rg, and file reads are allowed. Emit the following answer-start marker on its own line, then the review, then the final sentinel on its own line. Do not repeat the final sentinel anywhere except the final line.
 {marker}
 <review text here>
 {sentinel}

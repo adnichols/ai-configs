@@ -84,6 +84,7 @@ Required reviews must not use direct Claude print mode, prompt piping, input red
 Keep prompts read-only and scope-bounded:
 
 - explicitly say **read-only** and **do not edit files**,
+- explicitly prohibit running tests, test suites, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks; reviewers may inspect test code and caller-supplied verification results, while the calling agent owns execution,
 - name the plan path or diff/range under review,
 - name any workflow-specific verdict format (this is separate from launcher transport validity),
 - ask for findings with file/path evidence,

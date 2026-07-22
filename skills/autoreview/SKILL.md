@@ -128,7 +128,7 @@ Launch applicable reviewers in the same turn when possible:
 
 Do not use alternate model-subagent reviewers to satisfy the Codex/Claude Code gate described in this section.
 
-Both reviews are read-only. If Codex or a required Claude Code review is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate or directs opening the PR regardless; do not silently substitute another model.
+Both reviews are static, read-only inspection only. Reviewers must never run tests, test suites, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable checks intended to validate behavior. They may inspect test code and consume the verification results supplied in the review packet. The calling/coordinating agent exclusively owns all test and verification execution. If Codex or a required Claude Code review is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate or directs opening the PR regardless; do not silently substitute another model.
 
 ### Runtime launch rules
 
@@ -175,6 +175,7 @@ Use this prompt shape for each reviewer:
 
 ```text
 Read-only pre-PR implementation review. Do not edit files.
+Do not run or invoke tests, test suites, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or any other executable checks intended to validate behavior. Inspect test code and the caller-supplied verification results only; the calling/coordinating agent exclusively owns test and verification execution. Read-only inspection commands such as git diff, rg, and file reads are allowed.
 
 Reviewer: <Codex | Claude Code>
 Plan/scope: <plan path or standalone scope summary>
@@ -252,10 +253,10 @@ For each finding:
 
 ### 4. Fix, verify, and run one targeted rereview
 
-After applying any in-scope fix:
+After applying any in-scope fix—and only because that fix changed verification-relevant state:
 
 1. Run the smallest meaningful targeted tests for the touched code.
-2. Rerun any plan-required verification invalidated by the fix.
+2. Rerun only plan-required verification invalidated by the fix. Reuse and record still-valid passing results instead of rerunning unchanged checks merely because a review cycle completed.
 3. Rerun Codex and any applicable Claude Code reviewer once against only the changed files, prior blocking findings, and resulting edits, not as a fresh whole-diff hunt for unrelated new issues.
 4. Allow a third total review cycle only when that targeted rereview identifies a new concrete blocker introduced or exposed by the fix. Otherwise stop after the targeted rereview with either `CLEAN_FOR_PR` or a convergence/scope blocker.
 

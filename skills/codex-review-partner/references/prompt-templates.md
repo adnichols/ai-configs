@@ -7,6 +7,8 @@ Use these as starting points for the input file passed to `run-review.sh`.
 ```md
 Review this implementation.
 
+Static inspection only: do not run tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. Inspect test code and caller-supplied results only; the calling agent owns execution.
+
 Repo: /absolute/path/to/repo
 Goal: <what the change is supposed to accomplish>
 Files:
@@ -41,6 +43,8 @@ Use this after actionable PR feedback proves a prior local review missed issues.
 
 ```md
 Adversarially review this implementation after a review escape.
+
+Static inspection only: do not run tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. Inspect test code and caller-supplied results only; the calling agent owns execution.
 
 Repo: /absolute/path/to/repo
 Goal: <what the change is supposed to accomplish>
@@ -81,6 +85,8 @@ End with exactly one final line from the generic implementation vocabulary above
 
 ```md
 Review this implementation plan.
+
+Static inspection only: do not run tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. Inspect test code and caller-supplied results only; the calling agent owns execution.
 
 Repo: /absolute/path/to/repo
 Goal: <what the plan is trying to accomplish>

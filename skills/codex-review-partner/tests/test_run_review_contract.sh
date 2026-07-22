@@ -80,6 +80,11 @@ for mode_profile in \
   FAKE_FINAL="$final" FAKE_PROMPT_CAPTURE="$ROOT/prompt-capture" run "${args[@]}" >/dev/null
   grep -F 'workflow is already active for this request' "$ROOT/prompt-capture" >/dev/null
   grep -F 'do not invoke codex-review-partner, run-review.sh, codex_review, or launch any nested Codex review' "$ROOT/prompt-capture" >/dev/null
+  if [[ "$mode" != pair ]]; then
+    grep -F 'Do not run or invoke tests, test suites, builds, linters, typechecks, benchmarks, verification scripts, validation commands' "$ROOT/prompt-capture" >/dev/null
+    grep -F 'the calling/coordinating agent exclusively owns test and verification execution' "$ROOT/prompt-capture" >/dev/null
+    grep -F 'Read-only inspection commands such as git diff, rg, and file reads are allowed' "$ROOT/prompt-capture" >/dev/null
+  fi
 done
 
 # Final-message capture is separate from JSONL progress, with strict grammar.
