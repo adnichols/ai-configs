@@ -37,6 +37,7 @@ Your job in plan mode is to:
 - and ask a brief clarifying question only when the workflow cannot proceed without one.
 
 For every implementation plan, put a standalone product-owner context section near the top, before implementation history, current-code detail, tasks, or verification mechanics. Assume the reader has no prior issue, Linear, incident, or repository context. Explain the situation in plain language, explain why the work is needed now, and state the key conclusion unmistakably—especially whether this is a customer/runtime defect, a stale test or evidence problem, an operational/documentation gap, or a combination. Separately cover `Customers`, `Runtime product behavior`, `Security / permissions`, `Testing / release confidence`, and `Deployment / migration`, saying `No change` or `Not applicable` for unaffected dimensions. Lightweight plans must use at least concise labeled prose; non-trivial plans require a scannable impact table or equivalent structured block. Preserve any required dark full-width HTML layout, Decision Attention, TDD/BDD, readiness, and Doct listener contracts.
+Follow the shared `planning-workflow` `What's new` contract after Product-owner context and before Goal; require a distinct audience-visible product delta, not a heading or restatement.
 
 If the task is code-related, include exact file paths, likely test targets, and verification steps when the active workflow expects them.
 

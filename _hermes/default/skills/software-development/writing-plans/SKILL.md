@@ -111,29 +111,34 @@ Near the top of every implementation plan, before implementation history, curren
 
 Keep this complexity-aware. A lightweight plan must satisfy the contract with concise labeled prose. A non-trivial plan must use a clearly scannable impact table or an equivalent structured block with those five impact dimensions. This is an authoring and review contract, not a Doct renderer requirement; preserve the standard dark full-width layout and fit the section into that layout.
 
+### What's new contract
+
+For every full implementation plan, put a standalone `What's new` section after Product-owner context and before Goal. It must state a distinct audience-visible behavior change and preserved guarantees rather than only provide a heading or repeat surrounding plan sections. Work already exempt from a full plan remains exempt.
+
 Required sections for new plans unless repo-local overrides say otherwise:
 
 1. Title
 2. Status
 3. Product-owner context (situation, why now, key conclusion, and impact breakdown)
-4. Goal
-5. Decision Attention / Low-confidence Areas
-6. Why this plan exists
-7. Authority and inputs
-8. Current implementation reality
-9. Progress
-10. Resume instructions (agent)
-11. Product intent alignment
-12. Locked decisions
-13. Acceptance criteria
-14. BDD scenarios
-15. Phase-by-phase execution plan
-16. Verification strategy
-17. Delivery order
-18. Non-goals
-19. Decisions / Deviations log
+4. What's new (standalone product change and preserved guarantees)
+5. Goal
+6. Decision Attention / Low-confidence Areas
+7. Why this plan exists
+8. Authority and inputs
+9. Current implementation reality
+10. Progress
+11. Resume instructions (agent)
+12. Product intent alignment
+13. Locked decisions
+14. Acceptance criteria
+15. BDD scenarios
+16. Phase-by-phase execution plan
+17. Verification strategy
+18. Delivery order
+19. Non-goals
+20. Decisions / Deviations log
 
-Decision Attention must appear near the top of every non-trivial plan, immediately after the product-owner context and goal/status framing. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
+Decision Attention must appear near the top of every non-trivial plan, immediately after Product-owner context, `What's new`, and goal/status framing. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
 
 Legacy heading aliases may be preserved in historical plans, but new plans should use canonical headings unless the repo explicitly says otherwise.
 
@@ -195,6 +200,7 @@ An `execution-ready` plan is ready only when all of the following are true:
 
 - important questions are resolved,
 - the near-top product-owner context is standalone, plain-language, explicit about why now and the key conclusion, and separates all five impact dimensions,
+- `What's new` appears after Product-owner context and before Goal and states a distinct audience-visible change rather than a heading or restatement,
 - Decision Attention is near the top and truthfully reports blockers, user-input needs, and low-confidence areas,
 - required plan work stays faithful to the validated source scope, with optional adjacent improvements excluded or called out as non-goals rather than required phases,
 - acceptance criteria and BDD scenarios are concrete,

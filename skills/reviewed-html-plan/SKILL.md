@@ -61,9 +61,10 @@ The plan should follow the `planning-workflow` execution artifact contract while
 - standard reviewer layout: dark-mode theme with explicit dark background, light foreground, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a full-width single-column page; place a concise table of contents near the top of the document immediately after the title/status summary, and format it as a horizontal section with responsive columns so the rest of the plan keeps full width; do not use a permanent left sidebar/rail,
 - stable `id` attributes on major sections, phase wrappers, acceptance criteria, BDD scenarios, diagrams, figures, and likely comment targets,
 - a near-top standalone `Product-owner context` section, before implementation history and technical detail, that explains the situation in plain language for a reader with no issue/Linear context, explains why the work is needed now, and states the key conclusion unmistakably (for example, runtime/customer defect versus stale test or operational evidence); for non-trivial plans use a scannable impact table or equivalent structured block with separate `Customers`, `Runtime product behavior`, `Security / permissions`, `Testing / release confidence`, and `Deployment / migration` entries, using `No change` or `Not applicable` where appropriate; lightweight plans must use at least concise labeled prose,
-- a near-top `Decision Attention / Low-confidence Areas` section after that context for blockers, required user input, unresolved decisions, and weak evidence; each unresolved product decision is a visually prominent `Decision Required` block with a stable ID, the exact question, every viable option, a thorough explanation of each option's behavior/benefits/costs/risks/implementation and compatibility implications/reversibility, and the agent's recommended option with rationale, confidence, and supporting evidence,
+- a standalone `What's new` section after Product-owner context and before Goal that satisfies the canonical `planning-workflow` contract; a mere heading or a restatement of Goal, rationale, phases, or acceptance criteria is not sufficient,
+- a near-top `Decision Attention / Low-confidence Areas` section after Product-owner context, `What's new`, and Goal for blockers, required user input, unresolved decisions, and weak evidence; each unresolved product decision is a visually prominent `Decision Required` block with a stable ID, the exact question, every viable option, a thorough explanation of each option's behavior/benefits/costs/risks/implementation and compatibility implications/reversibility, and the agent's recommended option with rationale, confidence, and supporting evidence,
 - a `Progress` section containing the only checkboxes,
-- canonical content: status, product-owner context, goal, Decision Attention / Low-confidence Areas, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
+- canonical content: status, product-owner context, What's new, goal, Decision Attention / Low-confidence Areas, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
 - one-to-one mapping between progress checkboxes and detailed phases,
 - each phase includes `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, and `Verify`,
 - explicit UI-impact triage with repo-appropriate design evidence for real UI-impacting work,
@@ -110,6 +111,7 @@ The PM pass evaluates whether the plan will satisfy the intended user/operator o
 
 - the real user impact and intended job-to-be-done,
 - whether the near-top product-owner context stands alone without issue history, explains why now, separates the five impact dimensions, and makes the runtime-defect-versus-evidence-problem conclusion impossible to miss,
+- whether `What's new` is missing, late, vague, or duplicative of surrounding sections; treat any such defect as blocking and do not issue an execution-ready verdict until the section satisfies the canonical `planning-workflow` contract (a heading alone is not compliance),
 - golden-path usability,
 - safe defaults and inferred inputs,
 - routine self-healing versus fail-closed boundaries,
@@ -158,6 +160,7 @@ Use Claude Code only when the plan has the high-risk second-reviewer trigger or 
 
 For both plan review legs, stay limited to readiness concerns, including at least:
 
+- whether `What's new` is missing, late, vague, or duplicative/restated; instruct the reviewer not to return an execution-ready verdict until the canonical section is distinct and correctly placed,
 - whether the plan has executable phases,
 - whether acceptance criteria and verification are testable,
 - whether scope and non-goals prevent expansion,

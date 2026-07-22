@@ -161,6 +161,7 @@ Required outcomes:
   - reviewed-plan handoff stays explicit and does not rely on hidden fallback reviewers
   - the repo's canonical execution workflow executes the plan
 - Instruction to use the shared `planning-workflow` skill for plan creation.
+- Instruction to map the canonical semantics of the `What's new` contract and after-Product-owner-context/before-Goal order into any repo-local plan template and validator so local tooling enforces behavior, not only a heading.
 - The shared fail-closed ready bar: only `execution-ready` plans hand off to implementation, while unresolved `low-confidence` decisions stay in discovery or move into a single `research-ready` artifact.
 - The shared expectation that non-trivial ready plans include a `test coverage matrix`.
 - The shared execution feedback loop: substantive review misses reassess the `original test scope` and original plan, and repeated or cross-surface misses widen coverage before phase advance.
@@ -178,6 +179,7 @@ Required outcomes:
 - Keep repo-local overrides additive to the shared `execution-ready` / `research-ready` readiness model, `low-confidence` decision closure, `test coverage matrix` default, and execution-feedback reassessment loop.
 - Point back to the shared `planning-workflow` skill as the default authority.
 - Record required local docs, section additions, plan locations, or quality-gate deviations if they exist.
+- When the repo owns plan templates or validators, map the canonical semantics from `planning-workflow` into those surfaces without restating the full shared contract here.
 - Keep product-intent linkage and any repo-specific plan requirements explicit.
 
 Migration rule for legacy repos:
