@@ -1,0 +1,73 @@
+# Managed by ai-configs/herdr/install.sh.
+# Keep host-independent preferences here so the same config can be installed on macOS and Linux.
+onboarding = false
+
+[keys]
+# tmux: unbind C-b; set -g prefix C-a
+prefix = "ctrl+a"
+
+# tmux windows -> Herdr tabs
+new_tab = "prefix+c"
+previous_tab = ["prefix+p", "alt+["]
+next_tab = ["prefix+n", "alt+]"]
+switch_tab = "prefix+1..9"
+previous_workspace = "alt+up"
+next_workspace = "alt+down"
+
+# tmux pane navigation
+focus_pane_left = ["prefix+h", "alt+h"]
+focus_pane_down = ["prefix+j", "alt+j"]
+focus_pane_up = ["prefix+k", "alt+k"]
+focus_pane_right = ["prefix+l", "alt+l"]
+
+# Herdr default splits
+split_horizontal = "prefix+minus"
+split_vertical = "prefix+v"
+
+# Similar tmux-style pane operations
+swap_pane_left = "prefix+shift+h"
+swap_pane_down = "prefix+shift+j"
+swap_pane_up = "prefix+shift+k"
+swap_pane_right = "prefix+shift+l"
+cycle_pane_next = "prefix+tab"
+cycle_pane_previous = "prefix+shift+tab"
+zoom = "prefix+z"
+resize_mode = "prefix+r"
+close_pane = "prefix+x"
+copy_mode = "prefix+["
+
+# Keep common Herdr actions reachable under the new leader.
+help = "prefix+?"
+detach = "prefix+q"
+workspace_picker = "prefix+w"
+goto = "prefix+g"
+new_workspace = "prefix+shift+n"
+rename_workspace = "prefix+shift+w"
+close_workspace = "prefix+shift+d"
+toggle_sidebar = "prefix+b"
+reload_config = "prefix+shift+r"
+edit_scrollback = "prefix+e"
+rename_tab = "prefix+shift+t"
+close_tab = "prefix+shift+x"
+
+[ui.sound]
+enabled = false
+
+[ui]
+show_agent_labels_on_pane_borders = true
+agent_panel_sort = "priority"
+
+[ui.toast]
+delivery = "terminal"
+
+[[keys.command]]
+key = "prefix+shift+f"
+type = "plugin_action"
+command = "persiyanov.reviewr.toggle"
+
+[update]
+channel = "preview"
+
+[theme]
+name = "catppuccin"
+auto_switch = false

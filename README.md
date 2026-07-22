@@ -15,6 +15,7 @@ ai-configs/
 ├── _claude/      # Claude source config
 ├── _codex/       # Codex source config
 ├── _pi/          # Pi source config
+├── herdr/        # Canonical cross-host Herdr configuration and installer
 ├── kitty/        # Managed Kitty/Herdr remote-workflow configuration
 ├── scripts/      # Shared helper scripts fanned out by install.sh
 ├── skills/       # Repo-owned shared skills + install matrix for package-backed skills
@@ -75,7 +76,7 @@ bash ~/ai-configs/install.sh --all ~
 - mirrors shared helper scripts into the runtime locations that need them
 - installs Pi to `~/.pi/agent/`
 - copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`)
-- with `--tools` or `--all`, installs the managed Kitty screenshot/Herdr workflow locally and streams the tracked configuration to `mbp` and `dever` without modifying either remote ai-configs checkout
+- with `--tools` or `--all`, installs the canonical Herdr configuration and managed Kitty screenshot/Herdr workflow locally, then streams the tracked configuration to `mbp` and `dever` without modifying either remote ai-configs checkout
 - removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`
 - with `--update`, first runs `npx skills update -g -y` for globally installed skills tracked by skills.sh, then runs the normal ai-configs sync
@@ -96,8 +97,17 @@ Codex prompt files plus config templates. Global Codex prompt discovery is handl
 ### `_pi/`
 Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.
 
+### `herdr/`
+Canonical host-independent Herdr configuration plus its installer. `install.sh --tools` and `install.sh --all` install it to `~/.config/herdr/config.toml`, preserving the first differing local file as `config.toml.before-ai-configs`. The same configuration validates on the current Herdr versions on `mbp`, `dever`, `mbp14`, and `mba`; it intentionally standardizes theme and UI preferences across hosts.
+
+Run `bash herdr/install.sh` for a Herdr-only local install. From macOS, the normal tools workflow also streams it to the configured Kitty remote hosts. Override those targets when needed, for example:
+
+```bash
+KITTY_REMOTE_HOSTS="mbp14 mba" bash ./install.sh --tools
+```
+
 ### `kitty/`
-Canonical Kitty remote-development configuration, shell reminder, SSH kitten settings, and its local installer. On macOS, `--tools` and `--all` also deploy this tracked bundle to the `mbp` and `dever` SSH aliases. Remote hosts that are offline produce a warning and are retried the next time the installer runs; set `KITTY_WORKFLOW_STRICT_REMOTE=1` to make an unreachable host fail the install.
+Canonical Kitty remote-development configuration, shell reminder, SSH kitten settings, and its local installer. On macOS, `--tools` and `--all` also deploy this tracked bundle and the canonical Herdr config to the `mbp` and `dever` SSH aliases. Remote hosts that are offline produce a warning and are retried the next time the installer runs; set `KITTY_WORKFLOW_STRICT_REMOTE=1` to make an unreachable host fail the install.
 
 The workflow installs `clipssh` and its Kitty helper into `~/.local/bin`, installs `pngpaste` through Homebrew when needed, installs the commit-pinned `herdr-kitty-status` integration, and sets Herdr toast delivery to `terminal`. On a Kitty client without Herdr, it still installs the status renderer so titles from remote Herdr hosts retain their aliases, colors, and compact counters. It deliberately does not run `herdr integration install pi`, which would overwrite the Pi extension managed by this repository. Set `KITTY_WORKFLOW_SKIP_REMOTE=1` to perform only the current-host install, or override the targets with `KITTY_REMOTE_HOSTS="host1 host2"`.
 
@@ -166,7 +176,7 @@ Claude compatibility links are created where needed, but `~/.agents/skills` is t
 bash ./install.sh --skills --update
 ```
 
-`--tools` installs or updates the managed Kitty remote workflow, `ltui` from the standalone `Nodaste-Lab/ltui` repository, and the managed Herdr plugin set:
+`--tools` installs or updates the canonical Herdr configuration, managed Kitty remote workflow, `ltui` from the standalone `Nodaste-Lab/ltui` repository, and the managed Herdr plugin set:
 
 - `persiyanov/herdr-reviewr`
 

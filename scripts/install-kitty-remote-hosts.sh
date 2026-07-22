@@ -13,11 +13,12 @@ failures=()
 for host in $REMOTE_HOSTS; do
   echo "Installing Kitty/Herdr remote workflow on $host..."
   if COPYFILE_DISABLE=1 tar --no-xattrs -C "$REPO_ROOT" -cf - \
+      herdr \
       kitty \
       scripts/clipssh \
       scripts/kitty-paste-image-to-ssh | \
     ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" \
-      'tmp=$(mktemp -d); trap '\''rm -rf "$tmp"'\'' EXIT; tar -xf - -C "$tmp"; bash "$tmp/kitty/install.sh"'; then
+      'tmp=$(mktemp -d); trap '\''rm -rf "$tmp"'\'' EXIT; tar -xf - -C "$tmp"; bash "$tmp/herdr/install.sh" && bash "$tmp/kitty/install.sh"'; then
     echo "  $host is current."
   else
     failures+=("$host")

@@ -73,7 +73,7 @@ print_usage() {
     echo "  --pi        Install Pi prompt templates, subagents, and extensions, then refresh shared skills"
     echo "  --pi-vcc [package-source]  Transactionally install only pi-vcc (repo package by default)"
     echo "  --pi-review-stack  Mutation-bounded Pi config plus six maintained review skills; no packages/global cleanup"
-    echo "  --tools     Install/update Kitty remote workflow, CLI tools, and managed Herdr plugins"
+    echo "  --tools     Install/update managed Herdr config/plugins, Kitty remote workflow, and CLI tools"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
     echo "  --update    Update globally installed skills tracked by skills.sh before shared-skill sync"
@@ -89,7 +89,8 @@ print_usage() {
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
     echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, @howaboua/pi-explore-subagents, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
-    echo "  - Kitty remote workflow files are installed locally and streamed to mbp/dever whenever --tools or --all runs on macOS"
+    echo "  - The tracked Herdr config is installed locally whenever --tools or --all runs"
+    echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
     echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OMP, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
@@ -102,7 +103,7 @@ print_usage() {
     echo "  $0 --pi                          # Install Pi prompt templates, subagents, extensions, and refresh shared skills"
     echo "  $0 --pi-vcc                     # Transactionally install only the vendored pi-vcc package"
     echo "  $0 --pi-vcc /path/to/pi-vcc     # Install or roll back from an explicit preserved package"
-    echo "  $0 --tools                       # Install/update CLI tools and managed Herdr plugins"
+    echo "  $0 --tools                       # Install/update managed Herdr config/plugins, Kitty workflow, and CLI tools"
     echo "  $0 --skills                      # Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  $0 --skills --update             # Update skills.sh-managed global skills, then sync shared skills"
     echo "  $0 --all                         # Install all maintained surfaces and tools"
@@ -537,11 +538,19 @@ install_tools() {
     echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
     echo ""
 
+    install_herdr_config
+    echo ""
     install_kitty_remote_workflow
     echo ""
     install_herdr_plugins
     echo ""
     install_ltui
+}
+
+install_herdr_config() {
+    echo "Installing managed Herdr configuration..."
+    bash "$REPO_ROOT/herdr/install.sh"
+    echo -e "${GREEN}✓ Managed Herdr configuration installed${NC}"
 }
 
 install_kitty_remote_workflow() {
