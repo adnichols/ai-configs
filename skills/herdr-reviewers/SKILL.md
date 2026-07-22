@@ -125,6 +125,18 @@ The untracked manifest must sort paths bytewise and include each relative path, 
 
 If any fingerprint component changed while the review was running, mark the result stale and rerun against the new state.
 
+## Acknowledge consumed results
+
+Herdr currently has no non-focusing acknowledge command. After the parent has validated a reviewer's complete nonce-delimited result, accepted its fingerprint, and written its durable artifact, immediately use the skill helper to mark that reviewer seen:
+
+```bash
+python3 "$HOME/.agents/skills/herdr-reviewers/scripts/acknowledge_reviewer.py" <reviewer-name-or-pane-id>
+```
+
+Run this per reviewer as soon as its result is durably consumed, including while another parallel reviewer is still working. The helper requires `done` (or treats an already `idle` reviewer as a no-op), snapshots the currently focused tab, focuses the reviewer so Herdr marks it seen, restores the exact prior tab, and verifies the reviewer becomes `idle`. This prevents an already-consumed reviewer completion from overriding active work in the workspace aggregate.
+
+Do not acknowledge raw completion before the result boundary, verdict, fingerprint, and artifact are accepted. Do not acknowledge `working`, `blocked`, or `unknown` reviewers, invalid/stale results, infrastructure failures, or a tab awaiting operator takeover. An acknowledgment failure leaves the reviewer available for attention; report it and do not loop focus operations. Acknowledgment records consumption only—it does not authorize closing a tab or change the review verdict.
+
 ## Failure diagnosis
 
 On timeout, prompt stall, missing markers, invalid verdict, `unknown`, or unexpected settlement:
@@ -176,6 +188,8 @@ herdr tab list --workspace <workspace-id>
 Preserve reviewer tabs when the verdict is `FINDINGS_TO_RESOLVE`, `BLOCKED_BY_QUESTION`, or `REVIEW_INCOMPLETE_RERUN_NEEDED`; when result validation or infrastructure fails; while a fix/rereview cycle remains pending; or when the operator explicitly asks to keep the tabs open. Preserve any tab whose creation ownership is unknown, because coordinators must not close tabs they did not create.
 
 A cleanup-command failure does not change an otherwise valid review verdict. Report the failed tab ID and leave it available for operator cleanup instead of retrying destructively or claiming it closed.
+
+Report each reviewer's acknowledgment result alongside final tab cleanup. A successfully acknowledged tab may remain open as `idle` when preservation rules apply; a clean final gate should still close owned reviewer tabs normally.
 
 ## Current limitations
 
