@@ -25,13 +25,11 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 
 - Do not implement if the request is plan-only, review-only, or investigation-only.
 - Do not run destructive git commands unless the user explicitly requested them.
-- Do not fix adjacent issues just because a reviewer found them.
 - Do not let reviewer subagents edit files during review. Reviews are read-only.
 - Do not ask reviewers to review the whole product for open-ended problems.
 - Do not proceed past a blocked plan decision by silently choosing a larger scope.
 - Complete the promised slice before merge: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
 - If the promised outcome cannot be completed safely, stop and resize it to a smaller independently useful complete slice rather than shipping a partial skeleton.
-- Do not expand the change for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, or unsupported hypothetical paths.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
 - Do not create a PR until the GPT plus applicable Claude Code pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the Claude Code leg is truthfully skipped under the low-risk policy, or the user explicitly waives that gate.
 - Do not stop after the GPT/Claude Code pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
@@ -61,30 +59,19 @@ Stop before implementation if:
 
 ## Scope Classification
 
-Every requested change and every reviewer finding must be classified before implementation:
+Scope follows the canonical Scope section in `planning-workflow`: understanding and protecting existing behavior around your change is the cost of the change, while making something new happen needs its own plan and, when product-changing, owner approval. The disposition rule decides each finding:
+
+> **A regression this change causes is in scope wherever it appears. When this change routes new valid inputs into a shared primitive or expands its reachable domain, correctness across that newly reachable domain is part of this change even where defects predate it. A defect this change merely discovers — and does not cause or newly expose — is a finding: capture it and keep going.**
+
+Classify every requested change and every reviewer finding:
 
 - `IN_PLAN`: directly required by the plan's acceptance criteria, phase work, or verification.
 - `PLAN_PREREQUISITE`: not named in the plan, but the plan cannot work or verify without it.
-- `REGRESSION_FROM_THIS_DIFF`: caused by the current implementation and must be fixed before PR.
-- `OUT_OF_SCOPE_FOLLOW_UP`: real issue, but not required for this plan, not required to make verification truthful, and not introduced by this branch.
+- `REGRESSION_FROM_THIS_DIFF`: caused or newly exposed by the current implementation, including correctness across a domain this change newly makes reachable; fix it before PR.
+- `OUT_OF_SCOPE_FOLLOW_UP`: a defect this change merely discovers and does not cause or newly expose; capture it as a finding with its tracking destination and keep going.
 - `QUESTION`: requires user/product decision before implementation.
 
-Only implement `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`. Treat BDD gaps, verification gaps, implicit-only coverage, misleading evidence, or any finding tied to a plan acceptance criterion as in-scope until proven otherwise.
-
-Use this acceptance test for any non-obvious finding:
-
-1. Which exact plan line, acceptance criterion, or verification command requires this?
-2. Would the planned feature be incorrect or unverifiable if this remained unchanged?
-3. Was the issue introduced by this branch?
-
-If the answer to all three is no, it may be left out of this PR only after it is documented as an `OUT_OF_SCOPE_FOLLOW_UP` with evidence, owner/destination, and a durable record in the PR body plus the plan deviation log or repo discovery ledger. If any answer is yes, fix it now; do not label it deferred.
-
-Two refinements override a naive "not introduced by this branch" reading of question 3:
-
-- If this diff creates, extends, or routes new inputs to a shared primitive (collector, rewriter, mapper, scanner, serializer, validator), that primitive's correctness across every input this diff can now feed it is in scope even if the primitive predates the branch.
-- A fail-closed/bail/reject path reachable by valid, schema-conformant input is in scope when this diff can route valid input to it; "it fails closed" is not a reason to defer. Deferral on fail-closed grounds is valid only when the closed path is reachable solely by invalid input.
-
-A finding may be recorded as `OUT_OF_SCOPE_FOLLOW_UP` when evidence shows it is not required for the accepted current behavior, truthful verification, or a regression caused by this diff. Evidence may come from the plan/product contract, supported-path definition, code reachability, or existing tests; do not add implementation or tests solely to prove a speculative or unsupported scenario is out of scope.
+Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`. Treat BDD gaps, verification gaps, implicit-only coverage, misleading evidence, or any finding tied to a plan acceptance criterion as in-scope until proven otherwise. Apply the disposition rule to each finding: a regression this change causes or newly exposes, including newly reachable-domain correctness, is in scope; a defect this change merely discovers is captured as a finding and does not block. You are not required to add implementation or tests solely to prove a scenario is out of scope.
 
 ## Workflow
 
@@ -168,18 +155,18 @@ The review prompt must include:
 - the changed files,
 - the scope contract,
 - instructions to classify every finding using `IN_PLAN`, `PLAN_PREREQUISITE`, `REGRESSION_FROM_THIS_DIFF`, `OUT_OF_SCOPE_FOLLOW_UP`, or `QUESTION`,
-- instructions not to propose unrelated improvements.
+- instructions to apply the disposition rule and capture adjacent problems as findings rather than expanding the change.
 
 Required verdict format:
 
 ```text
-VERDICT: PASS_SCOPED
-VERDICT: PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS
-VERDICT: FIX_IN_SCOPE_FINDINGS
-VERDICT: BLOCKED_BY_SCOPE_QUESTION
+VERDICT: PASS
+VERDICT: FINDINGS_TO_RESOLVE
+VERDICT: BLOCKED_BY_QUESTION
+VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 ```
 
-Reject malformed reviews and rerun once with a tighter prompt. `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS` is valid only when every remaining finding is classified `OUT_OF_SCOPE_FOLLOW_UP` and includes evidence plus a tracking destination; otherwise treat the review as `FIX_IN_SCOPE_FINDINGS` or `BLOCKED_BY_SCOPE_QUESTION` by substance.
+A `PASS` verdict must carry a `Not examined:` line disclosing what the review did not exercise (`Not examined: none` when the full surface was covered). Reject malformed reviews and rerun once with a tighter prompt. Legacy green verdicts (`PASS_SCOPED`, `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS`) are still accepted as green when read; treat a review as `FINDINGS_TO_RESOLVE` or `BLOCKED_BY_QUESTION` by substance when unresolved in-scope findings or a product question remain.
 
 ### 6. Applicable Claude Code scoped review
 
@@ -204,7 +191,7 @@ Finding | Source | Classification | Decision | Evidence
 For each scoped reviewer finding:
 
 - Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`.
-- Record `OUT_OF_SCOPE_FOLLOW_UP` without fixing it after documenting why it is outside this plan and where it will be tracked. Do not create code or tests solely to dispose of speculative future risks, unsupported paths, unrelated architecture work, or polish.
+- Record `OUT_OF_SCOPE_FOLLOW_UP` as a captured finding with why it is outside this plan and where it will be tracked; you are not required to add code or tests to dispose of it.
 - Stop and ask the user for `QUESTION`.
 
 Do not implement fixes directly from reviewer prose. Convert them through this triage step first.
@@ -217,7 +204,7 @@ After fixing in-scope findings:
 2. Rerun the first scoped quality review with the previous findings and current diff.
 3. Rerun the applicable Claude Code scoped review with the same bounded scope, or preserve the recorded low-risk skip when it still applies.
 4. If any reviewer returns `REVIEW_INCOMPLETE_RERUN_NEEDED`, run at most one narrowed follow-up slice for that cycle and append the result to a coverage ledger. If that follow-up is still incomplete or unusable, stop with a review-budget blocker or ask the user to waive/narrow the gate.
-5. Stop after this targeted rereview when GPT and any applicable Claude Code reviewer return `PASS_SCOPED` or `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS`, or report the remaining convergence/scope blocker. Run a third total review cycle only when the targeted rereview identifies a new concrete blocker introduced or exposed by the fix.
+5. Stop after this targeted rereview when GPT and any applicable Claude Code reviewer return `PASS` (or a legacy green verdict), or report the remaining convergence/scope blocker. Run a third total review cycle only when the targeted rereview identifies a new concrete blocker introduced or exposed by the fix.
 
 The coverage ledger must record completed slices, the single allowed incomplete rerun slice, and final synthesized gate status.
 
@@ -468,15 +455,14 @@ Classify every finding as exactly one of:
 - OUT_OF_SCOPE_FOLLOW_UP
 - QUESTION
 
-Do not recommend unrelated cleanup, hardening, new features, or broad product audits.
-For an adjacent problem, first decide its severity and whether it is required for the accepted current behavior. A problem this diff can trigger on a supported current path — including through a primitive it extends or a fail-closed path reachable by valid input — is in scope even if the affected code predates the branch. Speculative future scale, unsupported paths, unrelated architecture work, and polish go under `OUT_OF_SCOPE_FOLLOW_UP` with the reason and tracking destination; do not expand the change merely to prove they are harmless.
+Stay within the assigned bounded scope rather than auditing the whole product; investigating and reporting adjacent problems you find is never out of bounds.
+Apply the disposition rule: a regression this diff causes or newly exposes — including through a primitive it extends, a domain it newly makes reachable, or a fail-closed path reachable by valid input — is in scope even if the affected code predates the branch. A defect this diff merely discovers goes under `OUT_OF_SCOPE_FOLLOW_UP` with the reason and tracking destination.
 Do not put IN_PLAN, PLAN_PREREQUISITE, REGRESSION_FROM_THIS_DIFF, QUESTION, BDD gaps, verification gaps, implicit-only coverage, or plan-required work in a deferred/out-of-scope section.
 
 Return one verdict:
-- VERDICT: PASS_SCOPED
-- VERDICT: PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS
-- VERDICT: FIX_IN_SCOPE_FINDINGS
-- VERDICT: BLOCKED_BY_SCOPE_QUESTION
+- VERDICT: PASS (with a `Not examined:` line)
+- VERDICT: FINDINGS_TO_RESOLVE
+- VERDICT: BLOCKED_BY_QUESTION
 
 This additional verdict is allowed when the assigned scope cannot be completed:
 - VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED

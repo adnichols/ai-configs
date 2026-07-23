@@ -7,7 +7,7 @@ description: Run a bounded pre-PR implementation review with a Codex review leg 
 
 Use this skill to catch implementation issues that would otherwise appear during pull request review. It is a code-review-and-fix loop, not a plan review, not a general cleanup pass, and not the end of `run-plan`.
 
-The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. This is local review-agent consensus, not a requirement to wait for a Codex PR bot comment, PR-hosted thumbs-up, `reviewDecision: APPROVED`, or any other external approval. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings are non-blocking unless they are plan-required, verification-required, or regressions caused by this change; do not fix optional polish merely because it is cheap.
+The gate passes when Codex and any applicable Claude Code reviewer agree by substance that the current implementation has no unresolved in-scope P1/P2 findings. This is local review-agent consensus, not a requirement to wait for a Codex PR bot comment, PR-hosted thumbs-up, `reviewDecision: APPROVED`, or any other external approval. If Claude Code is skipped under the low-risk policy, the gate must record that skip instead of requiring a Claude Code verdict. P3 findings are non-blocking unless they are plan-required, verification-required, or regressions caused by this change; you are not required to fix optional polish merely because it is cheap.
 
 **Explicit operator override:** PR creation and a clean review verdict are separate decisions. If the operator explicitly instructs the agent to open, create, or publish the PR regardless of review status or coverage, obey immediately and do not delay PR creation for another review attempt, missing reviewer coverage, an unusable review artifact, or unresolved review findings. Preserve the requested draft/ready state. Record the override and disclose the actual review status, incomplete coverage, infrastructure failures, and known unresolved findings in the PR body; never relabel the gate as clean or claim merge readiness.
 
@@ -51,7 +51,7 @@ Also classify every finding with the run-plan labels when a plan is present:
 - `OUT_OF_SCOPE_FOLLOW_UP`
 - `QUESTION`
 
-When no plan is present, treat issues introduced by the current diff as in scope. Do not fix unrelated pre-existing issues unless the user explicitly expands scope.
+When no plan is present, treat issues introduced by the current diff as in scope. You are not required to fix unrelated pre-existing issues; capture them as findings unless the user explicitly expands scope.
 
 ### What "out of scope" may not hide
 
@@ -60,7 +60,7 @@ A finding is in scope — regardless of whether the affected code predates this 
 - This diff creates, extends, or routes new inputs to a shared primitive (collector, rewriter, mapper, scanner, serializer, validator). That primitive's correctness across every input this diff can now feed it is in scope. "Not introduced by this branch" does not apply to a primitive whose reachable input domain this branch changed.
 - The issue is a fail-closed/bail/reject path reachable by valid, schema-conformant input. Failing closed on valid input is an in-scope correctness/reliability regression, not a deferrable follow-up. "Fail-closed" justifies deferral only when the closed path is reachable solely by invalid input.
 
-A finding may be classified `OUT_OF_SCOPE_FOLLOW_UP` when evidence shows it is not required for the accepted current behavior, truthful verification, or a regression caused by this diff. Evidence may come from the product contract, supported-path definition, code reachability, or existing tests; do not add implementation or tests solely to prove speculative future scale or another unsupported scenario is out of scope.
+A finding may be classified `OUT_OF_SCOPE_FOLLOW_UP` when evidence shows it is not required for the accepted current behavior, truthful verification, or a regression caused by this diff. Evidence may come from the product contract, supported-path definition, code reachability, or existing tests; you are not required to add implementation or tests solely to prove a scenario is out of scope.
 
 ### Evidence threshold for blocking findings
 
@@ -154,7 +154,7 @@ Do not use a Pi GPT subagent, `interactive_shell`, the disabled managed review t
 
 The coordinating agent consumes the Codex and Claude artifacts/verdicts, triages findings, applies in-scope fixes in the active worktree, and reruns the same applicable reviewer set after material fixes. If Codex, Herdr, or the required Claude Code reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate or directs opening the PR regardless.
 
-The Herdr transport requires matching nonce boundaries, non-empty review content, the exact locked workflow verdict as the final non-empty line inside the boundary, a settled reviewer state, and an unchanged complete worktree fingerprint. Treat empty output, missing or mismatched boundaries, invalid verdicts, tool-only output, provider errors, transcripts ending in tool use, or stale fingerprints as `REVIEW_INFRASTRUCTURE_FAILURE`, not `CLEAN_FOR_PR`. The shared orchestration helper permits exactly one narrower retry only for unusable output on the affected leg and only while the complete candidate fingerprint is unchanged. It must not retry provider/auth/permission failures, timeouts, stale results, or a valid `REVIEW_INCOMPLETE_RERUN_NEEDED` verdict as if they were malformed output; it must not reset the sibling leg or the broader review-cycle budget. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed retry is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate or directs opening the PR regardless.
+The Herdr transport requires matching nonce boundaries, non-empty review content, the exact locked workflow verdict as the final non-empty line inside the boundary, a settled reviewer state, and an unchanged complete worktree fingerprint. Treat empty output, missing or mismatched boundaries, invalid verdicts, tool-only output, provider errors, transcripts ending in tool use, or stale fingerprints as `REVIEW_INFRASTRUCTURE_FAILURE`, not a green `PASS`. The shared orchestration helper permits exactly one narrower retry only for unusable output on the affected leg and only while the complete candidate fingerprint is unchanged. It must not retry provider/auth/permission failures, timeouts, stale results, or a valid `REVIEW_INCOMPLETE_RERUN_NEEDED` verdict as if they were malformed output; it must not reset the sibling leg or the broader review-cycle budget. Do not fix empty reviewer output by adding or lowering parent-side turn limits; hard turn caps can truncate the final verdict and produce another unusable result. If the narrowed retry is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate or directs opening the PR regardless.
 
 For every quality reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; bound the assigned scope instead.
 
@@ -198,7 +198,7 @@ Every in-scope P1/P2 finding blocks a clean ready-for-PR verdict until it is fix
 
 For a blocking P1/P2 finding, evidence must include the triggering input or state, reachable path, observable impact, and relationship to this diff. For a claim that depends on framework, library, CLI, protocol, or platform behavior, cite authoritative documentation, types, schemas, or source for the relevant version.
 
-Recommend the smallest correct fix at the existing ownership boundary. Stop before recommending a new protocol, config, storage format, migration, public API or contract, release process, ownership move, or unrelated refactor unless the user has explicitly expanded scope.
+Recommend the smallest correct fix at the existing ownership boundary. When the correct fix would require a new protocol, config, storage format, migration, public API or contract, release process, ownership move, or unrelated refactor, report that and flag the decision it needs rather than silently assuming that expansion.
 
 Check especially:
 - security, auth, data loss, and privacy risks
@@ -214,9 +214,11 @@ Check especially:
 
 Return exactly one verdict:
 - VERDICT: FINDINGS_TO_RESOLVE
-- VERDICT: CLEAN_FOR_PR
+- VERDICT: PASS
 - VERDICT: BLOCKED_BY_QUESTION
 - VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
+
+A `PASS` verdict must include a `Not examined:` line disclosing what the review did not exercise (`Not examined: none` when the full surface was covered). Legacy green verdicts (`CLEAN_FOR_PR`, `CLEAN`) are still accepted as green when read.
 
 Return format:
 1. Scope checked
@@ -240,7 +242,7 @@ For each finding:
 
 - Fix `P1`/`P2` findings classified `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`. Fix P3 only when plan-required, verification-required, or regression-caused; otherwise document it as a non-blocking follow-up.
 - Stop for user input on `QUESTION` findings that affect whether a finding should be fixed, deferred, or excluded from this PR.
-- Document `OUT_OF_SCOPE_FOLLOW_UP` findings with evidence and a tracking destination. Do not create code or tests solely to dispose of speculative future risks, unsupported paths, unrelated architecture work, or polish.
+- Document `OUT_OF_SCOPE_FOLLOW_UP` findings with evidence and a tracking destination; you are not required to add code or tests to dispose of a merely-discovered finding.
 - Verify reviewer claims against the code before changing anything; false positives should be recorded as rejected with evidence.
 - Apply the fix-shape governor before editing: keep the fix at the same ownership boundary, or stop before protocol, config, storage, migration, public API, release process, ownership, or unrelated-refactor expansion and request the smallest necessary decision.
 
@@ -251,9 +253,9 @@ After applying any in-scope fix—and only because that fix changed verification
 1. Run the smallest meaningful targeted tests for the touched code.
 2. Rerun only plan-required verification invalidated by the fix. Reuse and record still-valid passing results instead of rerunning unchanged checks merely because a review cycle completed.
 3. Rerun Codex and any applicable Claude Code reviewer once against only the changed files, prior blocking findings, and resulting edits, not as a fresh whole-diff hunt for unrelated new issues.
-4. Allow a third total review cycle only when that targeted rereview identifies a new concrete blocker introduced or exposed by the fix. Otherwise stop after the targeted rereview with either `CLEAN_FOR_PR` or a convergence/scope blocker. Count this budget across the scoped change, not from the moment this skill was invoked: creating a PR does not reset, extend, reduce, or otherwise alter the limit, and a post-PR `REVIEW_ESCAPE` consumes an otherwise permitted remaining cycle rather than creating a new one.
+4. Allow a third total review cycle only when that targeted rereview identifies a new concrete blocker introduced or exposed by the fix. Otherwise stop after the targeted rereview with either `PASS` or a convergence/scope blocker. Count this budget across the scoped change, not from the moment this skill was invoked: creating a PR does not reset, extend, reduce, or otherwise alter the limit, and a post-PR `REVIEW_ESCAPE` consumes an otherwise permitted remaining cycle rather than creating a new one.
 
-Absent an explicit operator instruction to open the PR regardless, do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding and do not open or proceed to a PR with those findings unresolved. An explicit operator override ends this prohibition: open the PR as directed, disclose the non-clean review state, and do not represent it as `CLEAN_FOR_PR` or merge-ready. If invoked from `run-plan`, do not end the workflow at `CLEAN_FOR_PR`; hand control back for final verification, commit, push, PR creation, and local merge-readiness checking. The pre-PR gate must not require a later Codex PR thumbs-up after its own Codex review leg is clean.
+Absent an explicit operator instruction to open the PR regardless, do not stop while any applicable reviewer has an unresolved blocking in-scope P1/P2 finding and do not open or proceed to a PR with those findings unresolved. An explicit operator override ends this prohibition: open the PR as directed, disclose the non-clean review state, and do not represent it as `PASS` or merge-ready. If invoked from `run-plan`, do not end the workflow at `PASS`; hand control back for final verification, commit, push, PR creation, and local merge-readiness checking. The pre-PR gate must not require a later Codex PR thumbs-up after its own Codex review leg is clean.
 
 The ordinary local review budget is exhausted when any of these is true:
 
@@ -318,8 +320,8 @@ If the repo has a different validation-artifact convention, use that convention 
 The final summary must include:
 
 - selected review surface: `Codex/Claude Code`,
-- `Codex verdict: CLEAN_FOR_PR` or equivalent no-unresolved-blocking-in-scope-P1/P2 result,
-- `Claude Code verdict: CLEAN_FOR_PR` or equivalent no-unresolved-blocking-in-scope-P1/P2 result when Claude Code applied, or `Claude Code skipped: <low-risk classification and override decision>` when Claude Code was truthfully skipped,
+- `Codex verdict: PASS` (with its `Not examined:` disclosure) or equivalent no-unresolved-blocking-in-scope-P1/P2 result,
+- `Claude Code verdict: PASS` or equivalent no-unresolved-blocking-in-scope-P1/P2 result when Claude Code applied, or `Claude Code skipped: <low-risk classification and override decision>` when Claude Code was truthfully skipped,
 - base freshness context from the caller and any rebase-triggered rerun requirement,
 - verification rerun after the last fix,
 - artifact path,

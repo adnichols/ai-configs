@@ -1580,7 +1580,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
     assert_file_contains "$prompt" 'Only `authorize one further bounded adversarial fix/review pass` starts the pass' || return 1
     assert_file_contains "$prompt" 'If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker' || return 1
     assert_file_contains "$prompt" 'audit the fixed candidate branch/diff for sibling instances in the named family' || return 1
-    assert_file_contains "$prompt" 'sole implementation authority one bounded fix attempt' || return 1
+    assert_file_contains "$prompt" 'one bounded fix attempt for in-scope findings' || return 1
     assert_file_contains "$prompt" 'run the same applicable reviewer pass once after fixes' || return 1
     assert_file_contains "$prompt" 'This route has no PR prerequisite' || return 1
     assert_file_not_contains "$prompt" "repeat consultation until clean" || return 1
@@ -1599,8 +1599,8 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "_codex/prompts/dev:run.md" 'record the primary-only low-risk classification rather than inventing a second leg' || return 1
 
   assert_file_contains "skills/planning-workflow/SKILL.md" 'Plan complete promised slices, not skeletons.' || return 1
-  assert_file_contains "skills/run-plan/SKILL.md" 'Complete the promised slice before merge' || return 1
-  assert_file_contains "skills/autoreview/SKILL.md" 'do not fix optional polish merely because it is cheap' || return 1
+  assert_file_contains "skills/run-plan/SKILL.md" 'Complete the PR-reviewable promised slice before claiming local merge readiness' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'you are not required to fix optional polish merely because it is cheap' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'run one targeted rereview' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'three total review cycles' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'exactly one bounded, read-only, independent external consultation' || return 1
@@ -1635,7 +1635,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "skills/autoreview/SKILL.md" 'beta/stable promotion, hotfix, backport, signing, packaging, deployment, or release-infrastructure work' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'valid, schema-conformant input' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'shared primitive' || return 1
-  assert_file_contains "skills/autoreview/SKILL.md" 'speculative future scale' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'you are not required to add implementation or tests solely to prove a scenario is out of scope' || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'OUT_OF_SCOPE_FOLLOW_UP' || return 1
   assert_file_not_contains "skills/autoreview/SKILL.md" 'rereview until clean' || return 1
   assert_file_not_contains "skills/autoreview/SKILL.md" 'repeat consultation until clean' || return 1
@@ -1674,7 +1674,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "skills/run-plan/SKILL.md" 'If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker' || return 1
   assert_file_not_contains "skills/run-plan/SKILL.md" 'repeat consultation until clean' || return 1
   assert_file_not_contains "skills/run-plan/SKILL.md" 'loop until every reviewer is clean' || return 1
-  assert_file_contains "AGENTS.md" 'bounded review policy may still use one read-only, advisory external consultation' || return 1
+  assert_file_contains "AGENTS.md" 'exactly one bounded, read-only, advisory external consultation' || return 1
   assert_file_contains "AGENTS.md" 'whether or not a PR exists' || return 1
   for prompt in skills/repo-agents-bootstrap/SKILL.md skills/repo-agents-bootstrap/references/root_agents_template.md; do
     assert_file_contains "$prompt" 'whether or not a PR exists' || return 1
@@ -1720,7 +1720,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "$hermes_run_plan" 'If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker' || return 1
   assert_file_not_contains "$hermes_run_plan" 'repeat consultation until clean' || return 1
   assert_file_not_contains "$hermes_run_plan" 'loop until every reviewer is clean' || return 1
-  assert_file_contains "$hermes_run_plan" 'do not add implementation or tests solely to prove a speculative or unsupported scenario is out of scope' || return 1
+  assert_file_contains "$hermes_run_plan" 'You are not required to add implementation or tests solely to prove a scenario is out of scope' || return 1
   assert_file_not_contains "$hermes_run_plan" 'Repeat Review Loop' || return 1
   assert_file_not_contains "$hermes_run_plan" 'cheap and safe enough to fix immediately' || return 1
 }

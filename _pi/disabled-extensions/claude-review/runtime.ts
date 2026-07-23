@@ -701,7 +701,10 @@ export class ClaudeReviewJobManager {
   }
 }
 
-const REVIEW_INTENT_RE = /\b(?:read-only\s+)?(?:pre-?pr|implementation|code|plan|change|diff)?\s*review\b|\b(?:audit|find\s+bugs?|security\s+findings?)\b|\bCLEAN_FOR_PR\b|\bFINDINGS_TO_RESOLVE\b/i;
+// `VERDICT: PASS` is the green verdict emitted going forward; `CLEAN_FOR_PR`
+// stays as a legacy review-intent signal. `PASS` is matched only with the
+// `VERDICT:` prefix so the common word "pass" cannot false-trigger review intent.
+const REVIEW_INTENT_RE = /\b(?:read-only\s+)?(?:pre-?pr|implementation|code|plan|change|diff)?\s*review\b|\b(?:audit|find\s+bugs?|security\s+findings?)\b|\bVERDICT:\s*PASS\b|\bCLEAN_FOR_PR\b|\bFINDINGS_TO_RESOLVE\b/i;
 const DIRECT_CLAUDE_RE = /\bclaude(?:\s|$)/i;
 const LAUNCHER_REFERENCE_RE = /claude_interactive_review\.py\b/i;
 const BENIGN_LAUNCHER_REFERENCE_RE = /^\s*(?:rg|grep|find|ls|stat|readlink|cat|sed|cmp|diff|head|tail|wc|sha256sum|shasum|git\s+(?:grep|diff|show|log))\b/i;

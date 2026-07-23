@@ -136,6 +136,9 @@ class FakeAdapter:
         if result == "pass-scoped":
             output = bounded(nonce, "PASS_SCOPED")
             return RawReviewResult("settled", output, fingerprint)
+        if result == "pass":
+            output = bounded(nonce, "PASS")
+            return RawReviewResult("settled", output, fingerprint, first_action_observed=True)
         if result == "incomplete":
             output = bounded(nonce, "REVIEW_INCOMPLETE_RERUN_NEEDED")
             return RawReviewResult("settled", output, fingerprint)
@@ -557,6 +560,29 @@ class ReviewOrchestrationTests(unittest.TestCase):
 
         self.assertEqual("PASS_SCOPED", result.status)
         self.assertTrue(result.clean)
+
+    def test_pass_is_the_forward_clean_aggregate(self):
+        adapter = FakeAdapter({
+            "codex": {"results": ["pass"]},
+            "claude": {"results": ["pass"]},
+        })
+        forward_verdicts = (
+            "PASS",
+            "FINDINGS_TO_RESOLVE",
+            "BLOCKED_BY_QUESTION",
+            "REVIEW_INCOMPLETE_RERUN_NEEDED",
+        )
+
+        result = orchestrate_reviews(
+            adapter,
+            [request("codex", forward_verdicts), request("claude", forward_verdicts)],
+        )
+
+        self.assertEqual("PASS", result.status)
+        self.assertTrue(result.clean)
+        self.assertEqual(
+            {"pass"}, {outcome.verdict_class for outcome in result.legs.values()}
+        )
 
     def test_direct_call_rejects_shared_verdict_reclassification_before_transport(self):
         adapter = FakeAdapter({"codex": {"results": ["findings"]}})

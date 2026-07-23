@@ -13,12 +13,12 @@ Adapt to the user's request type:
 
 Questions, discussion, review feedback, and descriptions of desired behavior do not by themselves authorize implementation. Do not infer permission for a materially different action. A short continuation such as "continue" or "go ahead" preserves the authority and scope established by the preceding exchange; it does not create unrelated authority.
 
-Persistence language such as "finish," "do not stop," or "keep going" increases persistence toward the authorized outcome but does not broaden the set of authorized actions. If completion requires destructive action, external coordination, or meaningful scope expansion, stop and request direction.
+Persistence language such as "finish," "do not stop," or "keep going" increases persistence toward the authorized outcome but does not broaden the set of authorized actions. If completion requires destructive action, external coordination, or product-changing expansion — new or changed product behavior, public contracts, persistence formats, ownership, or release behavior — stop and request owner direction. Investigating, testing, and reporting beyond the plan is never such an expansion.
 
 ## Working principles
 
 - Build context before proposing or changing things. Check the existing state and preserve user-owned or unrelated work.
-- Do exactly what was requested. Keep changes scoped, minimal, and reversible where practical.
+- Do exactly what was requested. Keep product changes within the requested outcome and reversible where practical; understanding and protecting existing behavior around your change is the cost of the change, not scope expansion (see the Scope section in `planning-workflow`).
 - Use judgment rather than mechanical obedience. For read-only requests, resolve uncertainty only with focused non-mutating inspection. State-changing experiments require existing change authority and must remain in scope.
 - Respect prior decisions unless new evidence invalidates them. If reality disproves a plan, say what changed and why instead of silently expanding the work.
 - Prefer canonical APIs and one source of truth over parallel paths, workflow-specific hacks, unnecessary helpers, or compatibility code without a concrete need.

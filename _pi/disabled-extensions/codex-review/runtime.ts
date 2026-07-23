@@ -19,9 +19,9 @@ export type JobStatus = "starting" | "running" | "succeeded" | "failed" | "timed
 export type DeliveryState = "pending" | "delivering" | "delivered" | "ineligible";
 
 const PROFILE_TOKENS: Record<VerdictProfile, Set<string>> = {
-  "pre-pr-implementation": new Set(["FINDINGS_TO_RESOLVE", "CLEAN_FOR_PR", "BLOCKED_BY_QUESTION", "REVIEW_INCOMPLETE_RERUN_NEEDED"]),
-  "generic-implementation": new Set(["FINDINGS_TO_RESOLVE", "CLEAN_FOR_PR", "BLOCKED_BY_QUESTION", "REVIEW_INCOMPLETE_RERUN_NEEDED"]),
-  "run-plan-pm": new Set(["PASS_SCOPED", "PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS", "FIX_IN_SCOPE_FINDINGS", "BLOCKED_BY_SCOPE_QUESTION", "REVIEW_INCOMPLETE_RERUN_NEEDED"]),
+  "pre-pr-implementation": new Set(["FINDINGS_TO_RESOLVE", "PASS", "CLEAN_FOR_PR", "BLOCKED_BY_QUESTION", "REVIEW_INCOMPLETE_RERUN_NEEDED"]),
+  "generic-implementation": new Set(["FINDINGS_TO_RESOLVE", "PASS", "CLEAN_FOR_PR", "BLOCKED_BY_QUESTION", "REVIEW_INCOMPLETE_RERUN_NEEDED"]),
+  "run-plan-pm": new Set(["PASS", "PASS_SCOPED", "PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS", "FINDINGS_TO_RESOLVE", "FIX_IN_SCOPE_FINDINGS", "BLOCKED_BY_QUESTION", "BLOCKED_BY_SCOPE_QUESTION", "REVIEW_INCOMPLETE_RERUN_NEEDED"]),
   "reviewed-html-plan": new Set(["PLAN_EXECUTION_READY", "PLAN_NEEDS_REVISION", "BLOCKED_BY_PRODUCT_QUESTION", "REVIEW_INCOMPLETE_RERUN_NEEDED"]),
   "generic-plan": new Set(["PLAN_EXECUTION_READY", "PLAN_NEEDS_REVISION", "BLOCKED_BY_QUESTION", "REVIEW_INCOMPLETE_RERUN_NEEDED"]),
 };
@@ -80,7 +80,7 @@ export function redactSummary(text: string): string {
   return clean.length <= MAX_SUMMARY ? clean : `${clean.slice(0, MAX_SUMMARY)}\n[summary truncated; inspect evidence paths]`;
 }
 
-const CLEAN_VERDICTS = new Set(["CLEAN_FOR_PR", "PASS_SCOPED", "PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS", "PLAN_EXECUTION_READY"]);
+const CLEAN_VERDICTS = new Set(["PASS", "CLEAN_FOR_PR", "CLEAN", "PASS_SCOPED", "PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS", "PLAN_EXECUTION_READY"]);
 const FINDING_VERDICTS = new Set(["FINDINGS_TO_RESOLVE", "FIX_IN_SCOPE_FINDINGS", "PLAN_NEEDS_REVISION"]);
 const BLOCKED_VERDICTS = new Set(["BLOCKED_BY_QUESTION", "BLOCKED_BY_SCOPE_QUESTION", "BLOCKED_BY_PRODUCT_QUESTION"]);
 function unusableBudget(profile?: VerdictProfile): string {

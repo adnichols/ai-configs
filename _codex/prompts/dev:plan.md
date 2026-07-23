@@ -137,7 +137,7 @@ Write (or update) `plan_path` with:
 
 Keep the plan faithful to the validated source scope and repo evidence. Include only work that is critical to achieving the stated goal and verifying it.
 If the requested scope is vague, narrow it by sharpening Goal / Non-goals or other scoped language instead of widening the phase list.
-Do not add adjacent cleanup, optional follow-ups, broader parity not required by the source intent, or extra explicitness that does not materially change go/no-go confidence unless validated repo evidence shows they are necessary for success.
+You are not required to add adjacent cleanup, optional follow-ups, broader parity not required by the source intent, or extra explicitness that does not materially change go/no-go confidence; add them only when validated repo evidence shows they are necessary for success. Understanding and protecting existing behavior around the change is never scope creep — only unrequested product change is (see the `planning-workflow` Scope section).
 If the plan is rendered or delivered as HTML, use the standard reviewer layout: a dark-mode visual theme with an explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so the rest of the plan keeps full width. Do not use a permanent left sidebar/rail for navigation or let color mode/layout depend on agent preference, browser defaults, or OS defaults.
 
 `Open Questions / Decision Points` guidance:

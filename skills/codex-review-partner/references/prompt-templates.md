@@ -34,7 +34,7 @@ Review for:
 
 If you find issues, rank them by severity and cite files/lines when possible.
 
-End with exactly one final line: `VERDICT: FINDINGS_TO_RESOLVE`, `VERDICT: CLEAN_FOR_PR`, `VERDICT: BLOCKED_BY_QUESTION`, or `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED`.
+End with exactly one final line: `VERDICT: FINDINGS_TO_RESOLVE`, `VERDICT: PASS`, `VERDICT: BLOCKED_BY_QUESTION`, or `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED`. A `PASS` verdict must be preceded by a `Not examined:` line disclosing what the review did not exercise (`Not examined: none` when the full surface was covered). Legacy green verdicts (`CLEAN_FOR_PR`) are still read as green.
 ```
 
 ## adversarial-implementation-review

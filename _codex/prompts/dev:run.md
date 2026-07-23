@@ -47,6 +47,28 @@ Unresolvable decision examples:
 - A security/billing/production-risk choice that materially changes behavior and is not specified.
 - Multiple viable interpretations that change external behavior and cannot be resolved by existing code patterns.
 
+### 0.5) Attach Supervisor
+
+Before implementation, attach a trajectory-guarding supervisor per `skills/supervise/SKILL.md`. It is a second reactive Pi session in an adjacent Herdr pane that owns trajectory and budget, never technical judgment, and never fences investigation or testing.
+
+```bash
+herdr pane split <worker-pane> --direction right --no-focus
+# read result.pane.pane_id from the JSON response, then:
+herdr agent start supervisor-<worker-name> --kind pi --pane <new-pane-id> --timeout 45000 -- \
+  --provider openai-codex --model gpt-5.6-sol --thinking high \
+  --append-system-prompt ~/.agents/skills/supervise/supervisor-prompt.md \
+  --tools read,bash
+herdr agent prompt supervisor-<worker-name> \
+  "Worker agent: <worker-name>. Plan: <plan-path>. Begin supervision." \
+  --wait --timeout 60000
+```
+
+Record the supervisor's agent name and pane ID in the plan's expansion-log header. If no supervisor can be started, record `SUPERVISOR: none — <reason>` there instead.
+
+Two checkpoints block, using a correlated-id handshake: **plan-ready** before the first code change, and **pre-PR** before any push/PR handoff. For each, the worker generates a fresh unique request id and runs `herdr agent prompt supervisor-<worker-name> "CHECKPOINT REQUEST[<id>]: <plan-ready|pre-pr> — plan <path>" --wait --timeout 600000`, then reads the transcript (`herdr agent read supervisor-<worker-name> --source recent-unwrapped`) and accepts **only** a receipt bearing the same id: `CHECKPOINT[<id>]: PROCEED` or `CHECKPOINT[<id>]: REVISE — <items>`. A receipt with any other id is stale — ignore it. If the wait returns without a matching receipt, loop `herdr agent wait supervisor-<worker-name> --until idle --until done --timeout 60000` → reread → check for `CHECKPOINT[<id>]` until it appears or 10 minutes elapse from the original request. On `PROCEED`, continue; on `REVISE`, address the items or record a reasoned disagreement in the expansion log and resubmit with a new id; on deadline expiry, proceed and record `SUPERVISOR: timeout at <checkpoint>[<id>]`.
+
+At each phase boundary, send a fire-and-forget ping — `herdr agent prompt supervisor-<worker-name> "PHASE COMPLETE: <n> — plan <path>"` with **no `--wait`** — and acknowledge any returned `SUPERVISOR NUDGE:` in the next expansion-log entry. Nudges are advisory and never block. As the final wrap-up step, the caller that created the pane closes it.
+
 ### 1) Resolve Plan Path
 
 Resolve to:
@@ -129,7 +151,7 @@ After implementing the phase, delegate exactly one read-only `quality-reviewer` 
 >
 > Read the plan file fully. Find phase N and its `### Tests first`, `### Work`, `### End State`, and `### Verify` sections. Report only concrete blockers within the promised slice: unmet acceptance criteria, incomplete wiring, regressions, credible current-path security/data-loss/correctness risks, or misleading verification.
 >
-> Do NOT flag or propose fixes for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, unsupported hypothetical paths, or test coverage beyond what the plan specifies or clearly implies.
+> You are not required to fix or expand the change for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, unsupported hypothetical paths, or test coverage beyond what the plan specifies or clearly implies; note any you find as non-blocking follow-ups rather than withholding them.
 >
 > Confirm that the promised slice is complete: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
 >

@@ -77,7 +77,7 @@ Many of the Codex prompts in this repo assume that application repositories defi
 
 - Treat the source document (user requirements, PRD, specification, or task file) as the single source of truth.
 - Do not add requirements, tests, or security work beyond what is explicitly specified.
-- Do not broaden scope; when something is ambiguous or missing, ask for clarification instead of guessing.
+- When something is ambiguous or missing, ask for clarification instead of guessing; understanding and protecting existing behavior around the change is never a scope violation — only unrequested product change is (see the `planning-workflow` Scope section).
 - Preserve stated constraints and limitations unless the project’s AGENTS.md explicitly allows widening them.
 
 ### Execution
@@ -85,7 +85,7 @@ Many of the Codex prompts in this repo assume that application repositories defi
 - In this repo, operate directly on `main`; do not create feature branches or worktrees unless the user explicitly asks for them.
 - This is an intentional repo-specific exception to the usual branch-first guidance used in many other repos. Do not "correct" this back to a branch workflow unless the user explicitly asks to change the protocol.
 - Run the repository’s primary test command(s) before committing any change that touches behavior, plus any additional checks (lint, build, etc.) defined in the project’s AGENTS.md or TESTING.md.
-- For BDD/TDD phase plans, review the implemented slice for concrete in-scope failures: unmet acceptance criteria, incomplete wiring, regressions, credible current-path security/data-loss/correctness risks, or misleading verification. Do not expand scope for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, or unsupported hypothetical paths.
+- For BDD/TDD phase plans, review the implemented slice for concrete in-scope failures: unmet acceptance criteria, incomplete wiring, regressions, credible current-path security/data-loss/correctness risks, or misleading verification. You are not required to expand the change for speculative future scale, ideal architecture, unrelated pre-existing defects, optional polish, or unsupported hypothetical paths; capture those as findings.
 - Default to one implementation review plus one targeted rereview after fixes. A third review is allowed only when the prior fix introduced or exposed a new concrete blocker. After three total rounds, require exactly one bounded, read-only, advisory external consultation through the harness's configured consult/council surface before reporting review non-convergence; this applies to a fixed candidate branch/diff with or without a PR. Only when that consultation authorizes it, allow one scope-bound `REVIEW_ESCAPE` adversarial reviewer-pair pass plus the existing single pass-after-fixes allowance. Do not consult repeatedly or review until clean.
 - Complete the promised PR-reviewable slice before claiming success: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or tests that avoid the real implementation. If the promised outcome cannot be completed safely, resize it before implementation to a smaller independently useful complete slice.
 - Deployment, promotion, merge-dependent smoke checks, production observation, and rollback-window closure are post-merge delivery/operations work. They must never block PR creation or be used as pre-PR phase/progress/acceptance/verification gates; preserve them as explicit non-blocking handoff obligations with truthful evidence status.
@@ -107,7 +107,7 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
 
 - Treat the source document (user requirements, PRD, specification, or task file) as the single source of truth.
 - Do not add requirements, tests, or security work beyond what is explicitly specified, unless this project section explicitly allows it.
-- Do not broaden scope; when something is ambiguous or missing, ask for clarification instead of guessing.
+- When something is ambiguous or missing, ask for clarification instead of guessing; understanding and protecting existing behavior around the change is never a scope violation — only unrequested product change is (see the `planning-workflow` Scope section).
 - Preserve stated constraints and limitations unless this file explicitly authorizes changing them.
 
 ### Execution
@@ -132,7 +132,7 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
     - Verify that the change is present in the file (avoid batching updates at the end).
     - Keep any “Relevant Files” / “Changed Files” sections accurate as files are created or modified.
   - For BDD/TDD execution plans:
-    - Review for concrete in-scope failures and do not widen the change for speculative risks, unrelated architecture work, or polish.
+    - Review for concrete in-scope failures; you are not required to widen the change for speculative risks, unrelated architecture work, or polish.
     - Use one implementation review plus one targeted rereview after fixes by default. Allow a third round only for a new concrete blocker introduced or exposed by the fix. Before reporting review non-convergence, require exactly one bounded, read-only, advisory external consultation through the harness's configured consult/council surface for the fixed candidate branch/diff whether or not a PR exists; only if authorized, run one scope-bound `REVIEW_ESCAPE` adversarial reviewer-pair pass plus the existing single pass-after-fixes allowance. Do not consult repeatedly or review until clean.
     - Require a complete promised PR-reviewable slice: no required stubs, TODO behavior, dead-end surfaces, missing wiring, fake success, or verification that bypasses the real implementation. Resize incomplete outcomes before implementation rather than shipping a partial skeleton.
     - Keep deployment, promotion, merge-dependent smoke checks, production observation, and rollback-window closure outside pre-PR phase/progress/acceptance/verification gates. They are non-blocking post-merge delivery obligations and never prevent PR creation.

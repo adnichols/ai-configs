@@ -7,6 +7,18 @@ description: Shared planning doctrine for creating or updating executable softwa
 
 Use this skill as the canonical source of truth for plan-writing methodology across repos. This skill has no default plan file format. Repo-local planning guidance must define the active plan artifact and serving workflow; when it says active plans are HTML or must use a checked-in plan service, follow that local contract exactly.
 
+## Scope
+
+> **Scope creep is changing what the product does beyond the promised outcome.** Building unrequested features, redesigning working systems, polishing things nobody asked about — that needs its own plan and, when product-changing, owner approval.
+>
+> **Understanding and protecting existing behavior around your change is never scope creep — it is the cost of the change.** When you change a contract, its consumers are part of your change whether or not the plan names them. When you fix one instance of a pattern, its siblings are part of the question you were asked. Reading, tracing, and reporting **within authorized surfaces — code, tests, documentation, and supported diagnostics; never secrets, production data, or private persistence** — is always free.
+>
+> The test, when unsure: is this work making something *new* happen, or keeping something *existing* working while I make my change? The first needs an expansion-log entry — and owner approval if it changes product behavior, public contracts, persistence, ownership, or release behavior. The second is yours.
+
+The disposition rule:
+
+> **A regression this change causes is in scope wherever it appears. When this change routes new valid inputs into a shared primitive or expands its reachable domain, correctness across that newly reachable domain is part of this change even where defects predate it. A defect this change merely discovers — and does not cause or newly expose — is a finding: capture it and keep going.**
+
 ## Boundaries
 
 - `plan mode` is for discovery only: inspect the codebase, validate assumptions, gather evidence, and identify ambiguities.
@@ -69,9 +81,7 @@ Use targeted `Glob`, `Grep`, and `Read` first. Delegate broad codebase discovery
 
 Write plans as execution artifacts, not brainstorming notes. A ready plan must be executable by another agent without inventing missing semantics.
 
-- Preserve the validated source scope. A ready plan should include only work that is critical to achieving the stated goal and verifying it.
-- When the requested scope is vague, tighten it by sharpening the Goal / Non-goals or other scoped language instead of widening the phase list to absorb adjacent surfaces.
-- Do not promote adjacent cleanup, optional follow-ups, broader parity not required by the source intent, or extra explicitness that does not materially change go/no-go confidence into required plan work unless source requirements or validated repo evidence show they are necessary for success.
+- Keep required plan work faithful to the validated source scope as defined in the Scope section above.
 - Plan complete promised slices, not skeletons. Every claimed functional outcome must be connected, usable, and verifiable within its stated scope, without required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
 - If the requested outcome cannot be completed safely in one change, resize it before implementation to a smaller independently useful complete slice. Independent future enhancements, scale work, optional hardening, and polish may remain out of scope; work required for the current slice to function as claimed may not.
 - Define the complete promised slice at the **PR boundary**: code, tests, docs, migration definitions, release configuration, and buildable artifacts that can truthfully be reviewed before merge. An environment deployment, promotion, merge, production observation window, or post-merge smoke check is delivery/operations work, not missing implementation in the PR slice.
@@ -96,6 +106,19 @@ Keep this complexity-aware. A lightweight plan must satisfy the contract with co
 ### What's new contract
 
 Immediately after Product-owner context and before Goal, every full implementation plan must include a standalone `What's new` section. Give it a behavior-focused headline and a one-sentence promise, then state the concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, rationale, phases, or acceptance criteria; a heading without a distinct product delta does not satisfy the contract. This adds no new lightweight-plan requirement: only work already exempt from a full execution plan is exempt from `What's new`.
+
+### Socratic plan questions
+
+Every full implementation plan must answer these eight questions in prose. Validators check that each is present and non-empty, not the wording of the answer; `Not applicable because <evidence>` is a legitimate answer.
+
+1. **First hour** — what a customer on the previous shipped version experiences in the first hour after the update.
+2. **Consumers** — which contracts this change alters, who consumes each today, and how you will know each still works.
+3. **Siblings** — the other instances of the pattern you are fixing.
+4. **Moving ground** — what merged since the plan was scoped and any in-flight work on the same contracts; re-answer this per rebase.
+5. **Falsification** — what would make this change wrong, and which test catches it.
+6. **Proof** — the test that proves the customer-visible outcome from customer behavior, not from implementation pathways.
+7. **Untested** — what this environment cannot verify and the residual risk, which feeds the review "Not examined:" list.
+8. **Expansion log** — a living record of where you went beyond the ask and why it protects the outcome.
 
 Required sections for new plans unless repo-local overrides say otherwise:
 
@@ -195,7 +218,7 @@ An `execution-ready` plan is ready only when all of the following are true:
 - the near-top product-owner context is standalone, plain-language, explicit about why now and the key conclusion, and separates all five impact dimensions,
 - the standalone `What's new` section appears immediately after Product-owner context and before Goal, and is not missing, late, vague, or duplicative of Goal, rationale, phases, or acceptance criteria,
 - Decision Attention is near the top and truthfully reports blockers, user-input needs, and low-confidence areas,
-- required plan work stays faithful to the validated source scope, with optional adjacent improvements excluded or called out as non-goals rather than required phases,
+- required plan work stays faithful to the validated source scope as defined in the Scope section,
 - the PR boundary is explicit, and deployment/promotion/post-merge observation is separated into non-blocking delivery guidance rather than a PR-readiness phase or progress gate,
 - acceptance criteria and BDD scenarios are concrete,
 - every progress checkbox has exactly one matching phase and every phase has exactly one matching progress checkbox,

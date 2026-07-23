@@ -26,7 +26,10 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple
 
 
-CLEAN = "CLEAN_FOR_PR"
+# `PASS` is the only green verdict emitted going forward. The legacy green
+# tokens below are permanently read as green so historical records and
+# in-flight reviewers stay valid.
+CLEAN = "PASS"
 INFRASTRUCTURE_FAILURE = "REVIEW_INFRASTRUCTURE_FAILURE"
 PROFILE_MISMATCH = "REVIEW_ORCHESTRATOR_PROFILE_MISMATCH"
 PASS_CLASS = "pass"
@@ -34,7 +37,9 @@ FINDINGS_CLASS = "findings"
 BLOCKED_CLASS = "blocked"
 INCOMPLETE_CLASS = "incomplete"
 _VERDICT_CLASSES = {
+    "PASS": PASS_CLASS,
     "CLEAN_FOR_PR": PASS_CLASS,
+    "CLEAN": PASS_CLASS,
     "PASS_SCOPED": PASS_CLASS,
     "PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS": PASS_CLASS,
     "PLAN_EXECUTION_READY": PASS_CLASS,

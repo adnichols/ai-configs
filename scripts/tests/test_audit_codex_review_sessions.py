@@ -14,7 +14,7 @@ class AuditTest(unittest.TestCase):
     def test_truthful_passing_terminal_cases(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);jobs=root/'jobs';jobs.mkdir();sessions=root/'sessions';codex=root/'codex-sessions'
-            for name,token,profile in [('clean','CLEAN_FOR_PR','generic-implementation'),('pm','PASS_SCOPED','run-plan-pm'),('plan','PLAN_EXECUTION_READY','reviewed-html-plan')]:
+            for name,token,profile in [('clean','CLEAN_FOR_PR','generic-implementation'),('pass','PASS','generic-implementation'),('pm','PASS_SCOPED','run-plan-pm'),('pmpass','PASS','run-plan-pm'),('plan','PLAN_EXECUTION_READY','reviewed-html-plan')]:
                 (jobs/f'{name}.md').write_text(f'body\nVERDICT: {token}\n');self.state(jobs,name,status='succeeded',classification='CODEX_REVIEW_SUCCEEDED',verdict=token,verdictProfile=profile);self.delivery(sessions,f'delivery-{name}');self.codex_thread(jobs,codex,name)
             self.state(jobs,'shutdown',status='cancelled',classification='CODEX_REVIEW_CANCELLED',cancellationReason='session_shutdown',deliveryState='ineligible')
             self.assertEqual(audit(root,True,sessions,codex)[1],[])
