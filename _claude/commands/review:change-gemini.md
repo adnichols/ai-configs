@@ -1,8 +1,6 @@
 ---
 description: Run a change review using Gemini 3 Pro
 argument-hint: '<existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
-agent: build
-subtask: true
 model: google/antigravity-gemini-3-pro
 ---
 
@@ -65,7 +63,7 @@ Before leaving extensive feedback, explore the codebase to confirm:
 - Feasibility and integration constraints
 - Correct file paths, APIs, and data structures referenced by the plan
 
-Use the Task tool with `subagent_type=Explore` to efficiently gather context.
+Use native Glob, Grep, Read, and read-only shell commands to gather the required context directly.
 
 ### 2) Review Specification (Critical Spec Review)
 

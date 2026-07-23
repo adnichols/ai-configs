@@ -61,7 +61,7 @@ herdr agent start supervisor-<worker-name> --kind pi --pane <new-pane-id> --time
   --append-system-prompt ~/.agents/skills/supervise/supervisor-prompt.md \
   --tools read,bash
 herdr agent prompt supervisor-<worker-name> \
-  "Worker agent: <worker-name>. Plan: <plan-path>. Begin supervision." \
+  "Worker name: <worker-name>. Plan: <plan-path>. Begin supervision." \
   --wait --timeout 60000
 ```
 

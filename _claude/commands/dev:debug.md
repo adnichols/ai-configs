@@ -73,42 +73,23 @@ After the user describes the issue:
 
 ### Step 2: Investigate the Issue
 
-Spawn parallel Task agents for efficient investigation:
+Investigate directly in the driving session. Run independent read-only checks in parallel when useful, but do not invoke Claude subagents.
 
-```
-Task 1 - Check Recent Logs:
-Find and analyze the most recent logs for errors:
-1. Find latest daemon log: ls -t ~/.local/logs/daemon-*.log | head -1
-2. Find latest WUI log: ls -t ~/.local/logs/wui-*.log | head -1
-3. Search for errors, warnings, or issues around the problem timeframe
-4. Note the working directory (first line of log)
-5. Look for stack traces or repeated errors
-Return: Key errors/warnings with timestamps
-```
+1. **Recent logs**
+   - Find the latest daemon log: `ls -t ~/.local/logs/daemon-*.log | head -1`
+   - Find the latest WUI log: `ls -t ~/.local/logs/wui-*.log | head -1`
+   - Search for errors, warnings, stack traces, and repeated failures around the problem timeframe.
+   - Record timestamps and the working directory from each relevant log.
 
-```
-Task 2 - Database State:
-Check the current database state:
-1. Connect to database: sqlite3 ~/.local/data/app.db
-2. Check schema: .tables and .schema for relevant tables
-3. Query recent data:
-   - SELECT * FROM sessions ORDER BY created_at DESC LIMIT 5;
-   - SELECT * FROM conversation_events WHERE created_at > datetime('now', '-1 hour');
-   - Other queries based on the issue
-4. Look for stuck states or anomalies
-Return: Relevant database findings
-```
+2. **Database state**
+   - Inspect the relevant SQLite schema and recent rows directly.
+   - Start with sessions and recent conversation events, then narrow queries based on the reported issue.
+   - Look for stuck states, missing transitions, and anomalous values.
 
-```
-Task 3 - Git and File State:
-Understand what changed recently:
-1. Check git status and current branch
-2. Look at recent commits: git log --oneline -10
-3. Check uncommitted changes: git diff
-4. Verify expected files exist
-5. Look for any file permission issues
-Return: Git state and any file issues
-```
+3. **Git and file state**
+   - Check the current branch, `git status`, recent commits, and the current diff.
+   - Verify expected files and permissions.
+   - Correlate repository changes with the first observed failure.
 
 ### Step 3: Present Findings
 

@@ -24,9 +24,9 @@ End-to-end autonomous flow:
 ## Requirements
 
 - The driving agent MUST perform code changes and repository management directly
-- The quality-reviewer agent may be used only for read-only code review
+- Perform ordinary code review directly in the driving session; use the canonical visible Herdr reviewer workflow only when an independent review is required
 - Run the planning command directly
-- Do not delegate implementation, fixes, tests, verification, or repository operations to subagents
+- Do not delegate discovery, planning, implementation, fixes, tests, verification, documentation, or repository operations to Claude subagents
 
 ## Inputs
 
@@ -64,12 +64,9 @@ git rev-parse --verify "${base_ref}^{commit}"
 **YOU ARE THE DRIVING AGENT. OWN IMPLEMENTATION DIRECTLY.**
 Your responsibilities:
 - Use native repository tools for investigation, code changes, tests, verification, and repository operations
-- Keep implementation context in this session instead of delegating it
-- Use planning or review agents only for their bounded non-implementation roles
+- Keep discovery, planning, implementation, review, and verification context in this session instead of delegating it
+- Use the canonical visible Herdr reviewer workflow only when policy requires an independent review leg
 - Coordinate the flow continuously between phases
-**When a read-only helper returns empty or incomplete:**
-- Continue the investigation directly with repository tools
-- Retry the helper only when its bounded evidence or review role is still useful
 - Ask the user only for a genuinely unresolved decision
 
 ### 1) Select ISSUE_KEY (FeelingLucky)

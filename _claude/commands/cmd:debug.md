@@ -5,7 +5,7 @@ argument-hint: "[issue description or ticket]"
 
 # Debug Investigation
 
-Investigate issues directly in the driving session so evidence, hypotheses, and conclusions stay connected. Read-only helpers are optional, not the default.
+Investigate issues entirely in the driving session so evidence, hypotheses, and conclusions stay connected. Do not invoke Claude helpers or subagents.
 
 ## Input
 
@@ -32,7 +32,7 @@ Use direct repository tools to gather evidence in this order:
 3. Check configuration, environment, and external dependency assumptions.
 4. Locate existing tests and reproduce the failure when safe.
 
-Keep one evidence ledger with exact file:line and command-output references. Use a read-only helper only for one bounded evidence question when direct targeted search is insufficient; never delegate diagnosis or fixes.
+Keep one evidence ledger with exact file:line and command-output references. Perform the full investigation directly in the driving Claude session; never delegate evidence gathering, diagnosis, or fixes.
 
 ### 3. Gather Additional Evidence
 
@@ -50,7 +50,7 @@ git log --oneline -10
 
 ### 4. Synthesize Findings
 
-Wait for all agents to complete, then compile:
+After gathering the evidence directly, compile:
 - Root cause hypothesis
 - Evidence supporting hypothesis
 - Related code paths
@@ -196,7 +196,7 @@ Present to user:
 
 ## Guidelines
 
-- Keep the investigation in the driving session; use bounded read-only helpers only when direct search is insufficient
+- Keep the entire investigation in the driving session and use native tools directly
 - Focus on gathering evidence, not making changes
 - Return specific file:line references
 - Present hypotheses with confidence levels

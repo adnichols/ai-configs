@@ -7,7 +7,7 @@ argument-hint: "[@feature-files]"
 
 ## Goal
 
-To update existing core documentation files (README.md, TESTING.md, CLAUDE.md) and any pre-existing documentation for completed features using the technical-writer agent. Think harder. 
+Update existing core documentation files (README.md, TESTING.md, CLAUDE.md) and any pre-existing documentation for completed features directly in the driving Claude session.
 
 ## Usage
 
@@ -35,7 +35,7 @@ Primary focus on existing core documentation:
 1. **Identify Changes**: Determine what features/changes need documentation updates
 2. **Review Implementation**: Analyze the actual code changes and functionality
 3. **Find Existing Docs**: Locate README.md, TESTING.md, CLAUDE.md and any other existing documentation
-4. **Update Documentation**: Use technical-writer agent to update existing files only
+4. **Update Documentation**: Edit the existing files directly; do not invoke a Claude subagent
 5. **Validate Updates**: Ensure documentation accurately reflects current implementation
 
 ## Implementation
@@ -60,28 +60,11 @@ The AI should:
    find . -maxdepth 2 -name "*.md" | grep -v node_modules
    ```
 
-3. **Launch technical-writer agent** with focused context:
-
-   **Agent Prompt Structure:**
-   ```
-   Task: Update existing core documentation files for recent feature changes.
-   
-   CHANGES TO DOCUMENT:
-   [Analysis of recent code changes and their impact]
-   
-   EXISTING DOCUMENTATION:
-   [Current state of README.md, TESTING.md, CLAUDE.md and other existing docs]
-   
-   UPDATE REQUIREMENTS:
-   Please update ONLY the following existing files:
-   1. README.md - Update feature descriptions, installation, usage as needed
-   2. TESTING.md - Update test procedures if testing changed
-   3. CLAUDE.md - Update project instructions if workflow changed
-   4. [Other existing docs] - Update only if they exist and are relevant
-   
-   Do NOT create new documentation files. Focus on keeping existing docs current.
-   Ensure updates accurately reflect the actual implementation.
-   ```
+3. **Prepare the update directly**:
+   - Summarize the implementation changes that affect documentation.
+   - Compare those changes with the current README.md, TESTING.md, CLAUDE.md, and other relevant existing docs.
+   - Edit only the existing files that need updates.
+   - Do not create new documentation files.
 
 4. **Documentation Updates**:
    - Update existing README.md sections as needed
@@ -125,7 +108,7 @@ The command updates existing documentation and provides a summary:
 - Works with any codebase and programming language
 - Updates existing documentation only - does not create new files
 - Respects existing documentation structure and style
-- Integrates with technical-writer agent for consistent updates
+- Keeps documentation analysis and edits in the driving Claude session
 - Focuses on core documentation: README, TESTING, CLAUDE files
 
 ## Quality Standards

@@ -21,7 +21,7 @@ DISCOVER → EXTRACT → LOCATE → VERIFY → REPORT → UPDATE → CLEANUP →
 
 ## Phase 1: Discover Artifacts
 
-Use `@thoughts-locator` to find all artifacts related to the feature:
+Use native filesystem search and direct reads to find all artifacts related to the feature:
 
 ```
 thoughts/specs/spec-[feature].md       - Technical specification
@@ -44,7 +44,7 @@ Read all **verifiable** artifacts completely. Note **removable** artifacts for c
 
 ## Phase 2: Extract Spec Claims
 
-Use `@thoughts-analyzer` to extract verifiable claims from specs and research documents.
+Read the relevant specs and research documents directly and extract their verifiable claims.
 
 ### From Specifications, Extract:
 
@@ -79,7 +79,7 @@ Output a list of **verifiable claims** with source references:
 
 ## Phase 3: Locate Codebase Files
 
-Use `@codebase-locator` to find implementation files relevant to the extracted claims.
+Use native Glob/Grep and direct reads to find implementation files relevant to the extracted claims.
 
 ### Search Using:
 
@@ -116,7 +116,7 @@ Output a categorized list of implementation files:
 
 ## Phase 4: Verify Implementation
 
-Use `@codebase-analyzer` to examine each relevant file and verify spec claims against actual implementation.
+Examine each relevant file directly and verify spec claims against the actual implementation.
 
 ### For Each Claim, Determine:
 

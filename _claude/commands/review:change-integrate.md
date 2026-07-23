@@ -58,7 +58,7 @@ If no inline review comments exist, inform the user and abort (nothing to integr
 
 For any feedback that depends on feasibility or existing patterns, explore the codebase to resolve it.
 
-Use the Task tool with `subagent_type=Explore`.
+Use native Glob, Grep, Read, and read-only shell commands directly.
 
 ### 4) Integrate Updates
 

@@ -472,12 +472,10 @@ install_claude() {
         mkdir -p "$target"
     fi
 
-    # Update agents (remove first to ensure clean state)
-    echo "  - Installing agents..."
-    if [ -d "$target/agents" ]; then
-        rm -rf "$target/agents"
-    fi
-    cp -r "$REPO_ROOT/_claude/agents" "$target/"
+    # Claude work stays in the driving session. Remove any legacy subagent
+    # definitions instead of installing a repository-owned agent roster.
+    echo "  - Removing legacy Claude subagents..."
+    rm -rf "$target/agents"
 
     # Update commands (remove first to ensure clean state)
     if [ -d "$target/commands" ]; then

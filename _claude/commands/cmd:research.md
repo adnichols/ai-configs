@@ -23,8 +23,8 @@ Your job is to document the codebase **as it exists today**:
 ### 1. Read Mentioned Files First
 
 If the user mentions specific files:
-- Read them FULLY (no limit/offset) before spawning sub-tasks
-- This ensures full context before decomposing research
+- Read them fully before broader research
+- This ensures full context before decomposing the question
 
 ### 2. Analyze and Decompose
 
@@ -36,29 +36,19 @@ Break down the research question into:
 
 Create a research plan using `todowrite`.
 
-### 3. Spawn Parallel Research Tasks
+### 3. Research Directly
 
-Use the Task tool with `subagent_type=explore` to research different aspects concurrently:
+Use native Glob, Grep, Read, and read-only shell commands in the driving session. Organize the investigation into focused passes:
 
-```
-Task: Find WHERE components live
-- Search for file patterns
-- Locate key modules and entry points
+- Find where components live and identify key entry points.
+- Read implementations and trace data flow.
+- Find comparable patterns and document conventions.
 
-Task: Understand HOW code works
-- Read specific implementations
-- Trace data flow
-
-Task: Find PATTERNS
-- Look for similar implementations
-- Document conventions used
-```
-
-Each task should return specific file:line references.
+Capture specific file and line references as evidence. Parallelize independent native tool calls when useful, but do not invoke Claude subagents.
 
 ### 4. Synthesize Findings
 
-Wait for ALL sub-agents to complete, then:
+After the focused passes:
 - Compile all findings
 - Connect findings across components
 - Include specific file paths and line numbers
@@ -137,15 +127,15 @@ If user has follow-up questions:
 - Append to same document
 - Update `last_updated` in frontmatter
 - Add new section: `## Follow-up Research [timestamp]`
-- Spawn new sub-agents as needed
+- Perform any additional focused research directly
 
 ## Guidelines
 
-- Use parallel Task agents with `subagent_type=explore` for efficiency
+- Use native tools directly; Claude has no subagent research path
 - Focus on concrete file paths and line numbers
 - Document cross-component connections
 - Research documents should be self-contained
-- Keep main agent focused on synthesis
+- Keep the driving session responsible for both evidence and synthesis
 - Document patterns and usage as they exist
 
 ## Output Location

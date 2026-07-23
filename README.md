@@ -89,7 +89,7 @@ To update an existing install from this repo, run the same `install.sh` command 
 ## Key directories
 
 ### `_claude/`
-Claude-specific agents, commands, and default settings.
+Claude commands and default settings. Claude has no repository-owned subagents; the installer removes legacy `.claude/agents/` directories.
 
 ### `_codex/`
 Codex prompt files plus config templates. Global Codex prompt discovery is handled by the installer.

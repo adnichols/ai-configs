@@ -1,8 +1,6 @@
 ---
 description: Iterative Opus code review loop — review the diff, apply quick fixes, stop when no straightforward fixes remain
 argument-hint: "[BASE_REF]"
-agent: build
-subtask: true
 model: google/antigravity-claude-opus-4-8-thinking
 reasoningEffort: xhigh
 ---

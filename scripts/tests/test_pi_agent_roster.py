@@ -137,6 +137,36 @@ class PiAgentRosterTest(unittest.TestCase):
                     violations.append(f"{path.relative_to(ROOT)}:{line}: {match.group(0)}")
         self.assertEqual([], violations)
 
+    def test_claude_has_no_repository_owned_subagents(self):
+        self.assertFalse((ROOT / "_claude" / "agents").exists())
+
+        commands = ROOT / "_claude" / "commands"
+        violations = []
+        forbidden = re.compile(
+            r"^agent:\s*|^subtask:\s*true\s*$|subagent_type\s*[:=]|"
+            r"\btask\s*\((?!s\))|"
+            r"\b(?:spawn|launch)\b[^\n]*(?:agents|tasks)\b|"
+            r"\bwait for\b[^\n]*(?:agents|tasks)\b",
+            re.I | re.M,
+        )
+        for example in (
+            'Spawn two helper agents and wait for their results.',
+            'Wait for all helper tasks to finish.',
+            'Task (subagent_type="explore", ...)',
+            'launch helper agents',
+        ):
+            self.assertRegex(example, forbidden)
+        self.assertIsNone(forbidden.search("Task(s) and their statuses"))
+        for path in sorted(commands.glob("*.md")):
+            for match in forbidden.finditer(path.read_text(errors="replace")):
+                line = path.read_text(errors="replace").count("\n", 0, match.start()) + 1
+                violations.append(f"{path.relative_to(ROOT)}:{line}: {match.group(0)}")
+        self.assertEqual([], violations)
+
+        installer = (ROOT / "install.sh").read_text()
+        self.assertIn('rm -rf "$target/agents"', installer)
+        self.assertNotIn('cp -r "$REPO_ROOT/_claude/agents"', installer)
+
     def test_scout_caller_packets_are_bounded_and_evidence_only(self):
         prompts = {
             "cmd:debug": (

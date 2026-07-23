@@ -78,7 +78,7 @@ Validate key claims from the conversation by directly inspecting the codebase:
 - Audit `AGENTS.md`, product-intent docs, onboarding/install docs, config/status surfaces, and tests for dissonance with that default-path contract
 - Verify commands, paths, targets, and package names that later `### Verify` steps will rely on
 
-Use `Glob`, `Grep`, and `Read` for targeted research. Keep discovery in the driving session by default; use a read-only exploration helper only when a broad search materially benefits from isolated context.
+Use `Glob`, `Grep`, and `Read` for targeted research. Keep all discovery and synthesis in the driving Claude session; do not invoke a Claude exploration helper or subagent.
 
 ### 4) Choose the Correct Readiness State
 

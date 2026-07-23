@@ -1,8 +1,6 @@
 ---
 description: Run a change review using Claude Opus 4.8 Extra High
 argument-hint: '<existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
-agent: build
-subtask: true
 model: google/antigravity-claude-opus-4-8-thinking
 reasoningEffort: xhigh
 ---
@@ -66,7 +64,7 @@ Before leaving extensive feedback, explore the codebase to confirm:
 - Feasibility and integration constraints
 - Correct file paths, APIs, and data structures referenced by the plan
 
-Use the Task tool with `subagent_type=Explore` to efficiently gather context.
+Use native Glob, Grep, Read, and read-only shell commands to gather the required context directly.
 
 ### 2) Review Specification (Critical Spec Review)
 

@@ -59,23 +59,13 @@ Then wait for the user's input.
      - Action items and next steps
      - Other notes
 
-2. **Spawn focused research tasks**:
-   Based on the handoff content, spawn parallel research tasks to verify current state:
+2. **Gather artifact context directly**:
+   - Read all feature documents listed in "Artifacts".
+   - Read referenced implementation plans and research documents.
+   - Extract the key requirements, decisions, and unresolved state in this driving session.
+   - Parallelize independent native reads when useful, but do not invoke Claude subagents.
 
-   ```
-   Task 1 - Gather artifact context:
-   Read all artifacts mentioned in the handoff.
-   1. Read feature documents listed in "Artifacts"
-   2. Read implementation plans referenced
-   3. Read any research documents mentioned
-   4. Extract key requirements and decisions
-   Use tools: Read
-   Return: Summary of artifact contents and key decisions
-   ```
-
-3. **Wait for ALL sub-tasks to complete** before proceeding
-
-4. **Read critical files identified**:
+3. **Read critical files identified**:
    - Read files from "Learnings" section completely
    - Read files from "Recent changes" to understand modifications
    - Read any new related files discovered during research
@@ -205,9 +195,7 @@ User: /resume_handoff specification/feature/handoffs/handoff-0.md
 Assistant: Let me read and analyze that handoff document...
 
 [Reads handoff completely]
-[Spawns research tasks]
-[Waits for completion]
-[Reads identified files]
+[Reads referenced artifacts and identified files directly]
 
 I've analyzed the handoff from [date]. Here's the current situation...
 

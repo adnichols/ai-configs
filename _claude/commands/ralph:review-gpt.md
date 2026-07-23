@@ -1,8 +1,6 @@
 ---
 description: Iterative GPT code review loop — review the diff, apply quick fixes, stop when no straightforward fixes remain
 argument-hint: "[BASE_REF]"
-agent: build
-subtask: true
 model: openai/gpt-5.6-sol
 ---
 

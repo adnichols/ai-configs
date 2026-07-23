@@ -155,9 +155,6 @@ class DocsFetcher:
         # Site patterns for common documentation sites
         self.site_patterns = self._load_site_patterns()
         
-        # Technical Writer agent integration
-        self.enable_agent_integration = True
-        
         # Content quality validation
         self.quality_validator = ContentQualityValidator()
         
@@ -686,69 +683,6 @@ class DocsFetcher:
         
         return library_name, options
     
-    def _call_technical_writer_agent(self, content: str, library_name: str, content_type: str) -> str:
-        """Call the Technical Writer agent to organize and structure content."""
-        if not self.enable_agent_integration:
-            return content
-            
-        try:
-            logger.info(f"Calling Technical Writer agent for {content_type} content organization")
-            
-            # Create a temporary file with the content
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as temp_file:
-                temp_file.write(content)
-                temp_path = temp_file.name
-            
-            # Prepare the prompt for the Technical Writer agent
-            prompt = f"""Please review and organize this {content_type} documentation for the {library_name} library. 
-
-Structure the content to be AI-friendly with:
-1. Clear hierarchical headings
-2. Consistent formatting
-3. Proper code block formatting
-4. Logical flow and organization
-5. Remove any redundant navigation or promotional content
-6. Focus on technical content that helps developers
-
-The content should be optimized for Claude Code to understand and reference when helping developers.
-
-Original content is in: {temp_path}
-
-Please create well-structured, AI-optimized documentation."""
-
-            # Call Claude Code with the technical-writer agent
-            result = subprocess.run([
-                'claude', 'task', 
-                '--subagent-type', 'technical-writer',
-                '--description', f'Organize {library_name} {content_type}',
-                '--prompt', prompt
-            ], capture_output=True, text=True, cwd='/workspace', timeout=300)
-            
-            if result.returncode == 0:
-                logger.info("Technical Writer agent completed content organization")
-                # Read the organized content back
-                try:
-                    with open(temp_path, 'r', encoding='utf-8') as f:
-                        organized_content = f.read()
-                    return organized_content
-                except FileNotFoundError:
-                    logger.warning("Agent output file not found, using original content")
-                    return content
-            else:
-                logger.warning(f"Technical Writer agent failed: {result.stderr}")
-                return content
-                
-        except Exception as e:
-            logger.error(f"Error calling Technical Writer agent: {str(e)}")
-            return content
-        finally:
-            # Clean up temporary file
-            try:
-                if 'temp_path' in locals():
-                    os.unlink(temp_path)
-            except:
-                pass
-    
     def _process_content_with_markdown_converter(self, html_content: str, base_url: str) -> str:
         """Process HTML content using the markdown converter."""
         try:
@@ -877,12 +811,10 @@ Please create well-structured, AI-optimized documentation."""
                 # Convert HTML to Markdown
                 markdown_content = self._process_content_with_markdown_converter(html_content, url)
                 
-                # Organize content with Technical Writer agent
+                # Keep content processing deterministic and local; Claude has no
+                # repository-owned subagent post-processing path.
                 if markdown_content:
-                    organized_content = self._call_technical_writer_agent(
-                        markdown_content, library_name, f"documentation from {url}"
-                    )
-                    processed_content[url] = organized_content
+                    processed_content[url] = markdown_content
             
             # Check if we actually got any useful content
             if not processed_content:
@@ -968,7 +900,7 @@ The following official documentation sources were processed:
 - ✅ Source URLs identified  
 - ✅ Content fetched ({len(processed_content)}/{len(urls)} sources)
 - ✅ Content processed and AI-optimized
-- ✅ Technical Writer agent organization
+- ✅ Deterministic local Markdown processing
 
 **Completeness: {completeness}%**
 

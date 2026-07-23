@@ -116,7 +116,6 @@ test_repository_structure() {
     
     local missing_dirs=()
     
-    [[ ! -d "$SCRIPT_DIR/_claude/agents" ]] && missing_dirs+=("_claude/agents")
     [[ ! -d "$SCRIPT_DIR/_claude/commands" ]] && missing_dirs+=("_claude/commands")
     
     if [[ ${#missing_dirs[@]} -gt 0 ]]; then
@@ -124,20 +123,29 @@ test_repository_structure() {
         return
     fi
     
-    # Check for content in directories
-    local agents_count=$(find "$SCRIPT_DIR/_claude/agents" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-    local commands_count=$(find "$SCRIPT_DIR/_claude/commands" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-    
-    if [[ "$agents_count" -eq 0 ]]; then
-        test_fail "No .md files in agents directory"
+    # Claude intentionally has no repository-owned subagents.
+    if [[ -d "$SCRIPT_DIR/_claude/agents" ]]; then
+        test_fail "_claude/agents must be absent"
         return
     fi
-    
+
+    local commands_count=$(find "$SCRIPT_DIR/_claude/commands" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+
     if [[ "$commands_count" -eq 0 ]]; then
         test_fail "No .md files in commands directory"
         return
     fi
-    
+
+    if grep -R -E -i '^(agent:|subtask:[[:space:]]*true)|subagent_type[[:space:]]*[:=]|task[[:space:]]+\(|task\($|task\([^s]|(spawn|launch).*(agents|tasks)|wait for.*(agents|tasks)' "$SCRIPT_DIR/_claude/commands" >/dev/null 2>&1; then
+        test_fail "Claude commands must not invoke subagents"
+        return
+    fi
+
+    if grep -Fq 'cp -r "$REPO_ROOT/_claude/agents"' "$SCRIPT_DIR/install.sh"; then
+        test_fail "Installer must not copy Claude subagents"
+        return
+    fi
+
     test_pass
 }
 

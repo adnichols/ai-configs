@@ -1,6 +1,6 @@
 # Agent Catalog
 
-Current roster of bespoke Claude, Codex, and Pi agents defined in this repository.
+Current Pi subagent roster and Claude/Codex execution boundaries defined in this repository.
 
 ## Pi Subagents (Exact Three-Agent Roster)
 Located under `_pi/agents/` and invoked through Pi's subagent system:
@@ -20,11 +20,14 @@ Every caller packet must name the artifact or allowed surfaces, task-specific le
 - Agent frontmatter is authoritative: planning and review use GPT-5.6 Sol medium; scout uses GPT-5.6 Terra low.
 - Do not pass caller-side reasoning overrides merely because a task appears difficult.
 - Development stays in the driving session. Do not route code-writing, tests, fixes, or repository operations through any Pi persona; use subagents only for bounded planning, read-only discovery, or read-only review.
-- GPT-5.4 and GPT-5.4-mini are retired from Pi-owned agents, the managed `openai-codex` model catalog, and Pi settings aliases. This is an exact Pi-only retirement; it does not rewrite unrelated Claude-owned agents or caller-owned providers/models.
+- GPT-5.4 and GPT-5.4-mini are retired from Pi-owned agents, the managed `openai-codex` model catalog, and Pi settings aliases. This is an exact Pi-only retirement and does not rewrite caller-owned providers or models.
 
-## Direct Implementation & Architecture (Claude/Codex)
-- Claude and Codex driving agents implement authorized changes directly with their native repository tools; no repository-owned developer subagent is installed.
-- `simplify-planner` (opus; `_claude/agents/simplify-planner.md`) — Refactor planning specialist who produces cleanup plans that preserve existing behaviour.
+## Claude and Codex Execution Model
+
+- Claude has no repository-owned subagents. The driving Claude session performs discovery, planning, implementation, testing, documentation, and repository management directly with native tools.
+- Do not add or install `_claude/agents/` definitions. Commands under `_claude/commands/` must not invoke Claude's Task/subagent surface.
+- Required independent Claude reviews run as separate visible, read-only Claude sessions in adjacent Herdr tabs through `herdr-reviewers`; they are not Claude subagents.
+- Codex driving agents likewise implement authorized changes directly with their native repository tools.
 
 ## Tool Selection Priority (Codex Environment)
 
@@ -44,30 +47,10 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 **Rationale:** MCP tool wrapping introduces unnecessary latency and may produce inconsistent results. Native Codex tools are optimized for the local filesystem and provide superior performance.
 
 ## Review Safeguards
-- `reviewer` (GPT-5.6 Sol medium; `_pi/agents/reviewer.md`) — Pi read-only material review using the caller's explicit lens, artifact, output, and verdict contract.
-- `quality-reviewer` (inherits workspace default model; `_claude/agents/quality-reviewer.md`) — Claude-owned production safety review covering security, data loss, regressions, and performance; this Claude catalog entry is unrelated to the consolidated Pi roster.
 
-## Debugging Support
-- `debugger` (sonnet; `_claude/agents/debugger.md`) — Evidence-driven debugger who gathers logs, forms hypotheses, and recommends fixes without modifying production code.
-
-## Documentation
-- `technical-writer` (sonnet; `_claude/agents/technical-writer.md`) — Produces concise post-implementation documentation with tight token limits.
-
-## Utility Agents
-These agents are typically invoked by other agents or for specific tool-use tasks:
-
-- `codebase-analyzer` (`_claude/agents/codebase-analyzer.md`) — Explains how code works, traces execution paths and data flows.
-- `codebase-locator` (`_claude/agents/codebase-locator.md`) — Finds where things are in the codebase.
-- `codebase-pattern-finder` (`_claude/agents/codebase-pattern-finder.md`) — Identifies architectural patterns and conventions.
-- `thoughts-analyzer` (`_claude/agents/thoughts-analyzer.md`) — Synthesizes context from plans, specs, and research in `thoughts/`.
-- `thoughts-locator` (`_claude/agents/thoughts-locator.md`) — Finds relevant documentation within `thoughts/`.
-- `web-search-researcher` (`_claude/agents/web-search-researcher.md`) — Finds external information using web search.
-
-Repository and worktree management are performed directly by the driving agent; no state-changing repository-management subagent is installed.
-
----
-
-When adding new read-only, planning, documentation, or utility agents, create the brief in `_claude/agents/` and update this catalog so downstream installations discover the new capability. Do not add implementation/developer agents; development belongs to the driving session.
+- `reviewer` (GPT-5.6 Sol medium; `_pi/agents/reviewer.md`) is the repository-owned read-only material review persona.
+- Claude performs ordinary review directly in the driving session. When workflow policy requires an independent Claude review leg, use a visible read-only Herdr session through `herdr-reviewers` and `claude-code-review`.
+- Repository and worktree management remain in the driving session; no Claude subagent may own state-changing work.
 
 ## Fidelity & Execution House Rules (Template for Project Repos)
 

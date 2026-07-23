@@ -36,7 +36,7 @@ This directory contains a comprehensive set of commands that support a complete 
 /simplify:1:create-plan → [Review/Approval] → /simplify:2:process-plan → /cmd:commit-push
 ```
 - Analyze codebase for simplification opportunities
-- Get approval for changes from quality-reviewer or stakeholders
+- Review the plan directly and obtain stakeholder approval
 - Execute the approved simplification plan
 - Commit changes
 
@@ -71,7 +71,7 @@ All commands use consistent:
 - Post-implementation documentation
 - Update README, TESTING, CLAUDE.md
 - Generated after feature completion
-- Uses technical-writer agent
+- Updates documentation directly in the driving session
 
 **`/simplify:1:create-plan`** & `/simplify:2:process-plan`**:
 - Code complexity reduction
@@ -94,6 +94,12 @@ All commands use consistent:
 - Creates dedicated branch and worktree for isolated development
 - Copies local config and MCP servers
 - Uses Linear CLI for issue metadata
+
+## Claude Execution Model
+
+Claude has no repository-owned subagents. The driving session performs discovery, planning, implementation, testing, documentation, and ordinary review directly.
+
+When policy requires an independent Claude review, use the canonical visible read-only Herdr reviewer workflow rather than Claude's Task/subagent surface.
 
 ## Best Practices
 

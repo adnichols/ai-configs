@@ -128,15 +128,9 @@ Ensure the directory exists:
 mkdir -p thoughts/plans
 ```
 
-Spawn a planning subagent that drafts the initial single-file plan (mimic `dev:plan`).
+Draft the initial single-file plan directly in the driving Claude session, following the `dev:plan` contract.
 
-```text
-Task(
-  subagent_type="general",
-  description="Draft plan for Linear issue",
-  prompt="""Draft a first-pass single-file execution plan for this Linear issue.
-
-Use these inputs (substitute from the Linear metadata you fetched in step 3):
+Use these inputs from the Linear metadata fetched in step 3:
 
 - Issue key: ${ISSUE_KEY}
 - Title: ${ISSUE_TITLE}
@@ -166,11 +160,9 @@ Plan content requirements (from dev:plan):
 - Include: Resume Instructions (Agent)
 - Include: Decisions / Deviations Log (append-only), Open Questions / Decision Points, Plan Changelog (append-only)
 
-Stop after writing the plan."""
-)
-```
+Stop after writing the plan.
 
-After the subagent completes, respond with:
+After the plan is complete, respond with:
 
 - Current branch name
 - Linear issue URL

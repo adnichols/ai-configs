@@ -22,7 +22,7 @@ This command is review-only.
 
 ## Your Identity
 
-If you selected a reviewer subagent, use its friendly name for comment attribution (e.g., `[REVIEW:SecurityBot]`). If no subagent is selected, use CLAUDE.
+Use `CLAUDE` for inline comment attribution. This command runs entirely in the driving session.
 
 ## Process
 
@@ -54,7 +54,7 @@ Before leaving extensive feedback, explore the codebase to confirm:
 - Feasibility and integration constraints
 - Correct file paths, APIs, and data structures referenced by the plan
 
-Use the Task tool with `subagent_type=Explore` to efficiently gather context.
+Use native Glob, Grep, Read, and read-only shell commands to gather the required context directly.
 
 ### 2) Review Specification (Critical Spec Review)
 
