@@ -21,16 +21,34 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple
 
 
 CLEAN = "CLEAN_FOR_PR"
-FINDINGS = "FINDINGS_TO_RESOLVE"
-BLOCKED = "BLOCKED_BY_QUESTION"
-INCOMPLETE = "REVIEW_INCOMPLETE_RERUN_NEEDED"
 INFRASTRUCTURE_FAILURE = "REVIEW_INFRASTRUCTURE_FAILURE"
+PROFILE_MISMATCH = "REVIEW_ORCHESTRATOR_PROFILE_MISMATCH"
+PASS_CLASS = "pass"
+FINDINGS_CLASS = "findings"
+BLOCKED_CLASS = "blocked"
+INCOMPLETE_CLASS = "incomplete"
+_VERDICT_CLASSES = {
+    "CLEAN_FOR_PR": PASS_CLASS,
+    "PASS_SCOPED": PASS_CLASS,
+    "PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS": PASS_CLASS,
+    "PLAN_EXECUTION_READY": PASS_CLASS,
+    "FINDINGS_TO_RESOLVE": FINDINGS_CLASS,
+    "FIX_IN_SCOPE_FINDINGS": FINDINGS_CLASS,
+    "PLAN_NEEDS_REVISION": FINDINGS_CLASS,
+    "BLOCKED_BY_QUESTION": BLOCKED_CLASS,
+    "BLOCKED_BY_SCOPE_QUESTION": BLOCKED_CLASS,
+    "BLOCKED_BY_PRODUCT_QUESTION": BLOCKED_CLASS,
+    "REVIEW_INCOMPLETE_RERUN_NEEDED": INCOMPLETE_CLASS,
+}
+_ALLOWED_VERDICT_CLASSES = frozenset(
+    {PASS_CLASS, FINDINGS_CLASS, BLOCKED_CLASS, INCOMPLETE_CLASS}
+)
 _TRANSCRIPT_PRESENTATION_PREFIXES = ("• ", "⏺ ")
 
 
@@ -41,6 +59,7 @@ class LegRequest:
     narrowed_retry_prompt: str
     allowed_verdicts: Sequence[str]
     timeout_seconds: float
+    verdict_classes: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -108,6 +127,7 @@ class LegOutcome:
     name: str
     handle: object
     verdict: Optional[str] = None
+    verdict_class: Optional[str] = None
     validation_complete: bool = False
     failure_kind: Optional[str] = None
     detail: str = ""
@@ -167,6 +187,35 @@ def _current_fingerprint(adapter: ReviewAdapter) -> str:
     # Compatibility for a minimal adapter; production adapters should expose the
     # non-recording current_fingerprint operation explicitly.
     return adapter.capture_fingerprint()
+
+
+def _classify_verdict(request: LegRequest, verdict: Optional[str]) -> Optional[str]:
+    if verdict is None:
+        return None
+    if verdict in _VERDICT_CLASSES:
+        return _VERDICT_CLASSES[verdict]
+    return request.verdict_classes.get(verdict)
+
+
+def _validate_verdict_profile(request: LegRequest) -> None:
+    if not request.allowed_verdicts or request.timeout_seconds <= 0:
+        raise ValueError("reviewer verdicts and timeout must be non-empty/positive")
+    if any(value not in _ALLOWED_VERDICT_CLASSES for value in request.verdict_classes.values()):
+        raise ValueError("verdict class values must be pass/findings/blocked/incomplete")
+    if any(
+        token in _VERDICT_CLASSES and _VERDICT_CLASSES[token] != verdict_class
+        for token, verdict_class in request.verdict_classes.items()
+    ):
+        raise ValueError("shared workflow verdicts cannot be reclassified")
+    unclassified = [
+        verdict for verdict in request.allowed_verdicts
+        if _classify_verdict(request, verdict) not in _ALLOWED_VERDICT_CLASSES
+    ]
+    if unclassified:
+        raise ValueError(
+            "allowed verdicts require outcome classes before launch: "
+            + ", ".join(unclassified)
+        )
 
 
 @dataclass(frozen=True)
@@ -413,6 +462,7 @@ def _wait_and_validate(
         recorder.add("validation_complete", request.name, "rejected:unusable_output")
         return outcome
     outcome.verdict = verdict
+    outcome.verdict_class = _classify_verdict(request, verdict)
     outcome.validation_complete = True
     outcome.result_nonce = accepted_nonce
     outcome.result_digest = _digest(
@@ -423,19 +473,23 @@ def _wait_and_validate(
     return outcome
 
 
-def _aggregate(legs: Dict[str, LegOutcome]) -> str:
+def _aggregate(legs: Dict[str, LegOutcome]) -> Tuple[str, bool]:
     if any(not leg.validation_complete for leg in legs.values()):
-        return INFRASTRUCTURE_FAILURE
-    verdicts = {leg.verdict for leg in legs.values()}
-    if INCOMPLETE in verdicts:
-        return INCOMPLETE
-    if BLOCKED in verdicts:
-        return BLOCKED
-    if FINDINGS in verdicts:
-        return FINDINGS
-    if verdicts == {CLEAN}:
-        return CLEAN
-    return INFRASTRUCTURE_FAILURE
+        return INFRASTRUCTURE_FAILURE, False
+    if any(leg.verdict_class not in _ALLOWED_VERDICT_CLASSES for leg in legs.values()):
+        return PROFILE_MISMATCH, False
+
+    for verdict_class in (INCOMPLETE_CLASS, BLOCKED_CLASS, FINDINGS_CLASS):
+        matching = [
+            leg for _, leg in sorted(legs.items()) if leg.verdict_class == verdict_class
+        ]
+        if matching:
+            return matching[0].verdict or PROFILE_MISMATCH, False
+
+    passing = [leg for _, leg in sorted(legs.items()) if leg.verdict_class == PASS_CLASS]
+    if len(passing) == len(legs):
+        return passing[0].verdict or PROFILE_MISMATCH, True
+    return PROFILE_MISMATCH, False
 
 
 def orchestrate_reviews(
@@ -458,6 +512,8 @@ def orchestrate_reviews(
     names = [request.name for request in requests]
     if len(names) != len(set(names)):
         raise ValueError("reviewer names must be unique")
+    for request in requests:
+        _validate_verdict_profile(request)
 
     recorder = _EventRecorder(clock)
     fingerprint = adapter.capture_fingerprint()
@@ -605,6 +661,7 @@ def orchestrate_reviews(
     if current_fingerprint != fingerprint:
         for outcome in outcomes.values():
             outcome.verdict = None
+            outcome.verdict_class = None
             outcome.validation_complete = False
             outcome.failure_kind = "stale_fingerprint"
             outcome.detail = "candidate fingerprint changed while reviews were running"
@@ -613,7 +670,7 @@ def orchestrate_reviews(
     completed_at = clock()
     wall_start = completed_at if first_submission_at is None else first_submission_at
     wall_time = max(0.0, completed_at - wall_start)
-    status = _aggregate(outcomes)
+    status, clean = _aggregate(outcomes)
     recorder.add("aggregate_complete", detail=status)
     return OrchestrationResult(
         status=status,
@@ -627,7 +684,7 @@ def orchestrate_reviews(
             and all(outcome.prompt_accepted_at is not None for outcome in outcomes.values())
         ),
         mode=mode,
-        clean=status == CLEAN,
+        clean=clean,
     )
 
 
@@ -637,6 +694,7 @@ def cleanup_review_tabs(
     artifact_written: bool,
     preserve: bool = False,
     clock: Callable[[], float] = time.monotonic,
+    requests: Optional[Mapping[str, LegRequest]] = None,
 ) -> bool:
     """Close only coordinator-owned tabs after a clean artifact is durable.
 
@@ -644,13 +702,27 @@ def cleanup_review_tabs(
     inspection. A cleanup failure never changes the accepted review verdict.
     """
 
+    def outcome_is_pass(outcome: LegOutcome) -> bool:
+        request = requests.get(outcome.name) if requests is not None else None
+        if request is not None:
+            try:
+                _validate_verdict_profile(request)
+            except ValueError:
+                return False
+            if outcome.verdict not in request.allowed_verdicts:
+                return False
+            verdict_class = _classify_verdict(request, outcome.verdict)
+        else:
+            verdict_class = _VERDICT_CLASSES.get(outcome.verdict or "")
+        return outcome.verdict_class == PASS_CLASS and verdict_class == PASS_CLASS
+
     if (
         preserve
         or not result.clean
         or not artifact_written
         or not result.legs
         or any(
-            not outcome.validation_complete or outcome.verdict != CLEAN
+            not outcome.validation_complete or not outcome_is_pass(outcome)
             for outcome in result.legs.values()
         )
     ):
@@ -1396,6 +1468,18 @@ def _load_run_request(
     reviewers = payload.get("reviewers")
     if not isinstance(reviewers, list) or not reviewers:
         raise ValueError("request.reviewers must contain at least one reviewer")
+    raw_verdict_classes = payload.get("verdict_classes", {})
+    if not isinstance(raw_verdict_classes, dict):
+        raise ValueError("request.verdict_classes must be an object when provided")
+    verdict_classes = {str(key): str(value) for key, value in raw_verdict_classes.items()}
+    if any(value not in _ALLOWED_VERDICT_CLASSES for value in verdict_classes.values()):
+        raise ValueError("request.verdict_classes values must be pass/findings/blocked/incomplete")
+    if any(
+        token in _VERDICT_CLASSES and _VERDICT_CLASSES[token] != verdict_class
+        for token, verdict_class in verdict_classes.items()
+    ):
+        raise ValueError("request.verdict_classes cannot redefine shared workflow verdicts")
+
     requests: List[LegRequest] = []
     legs: Dict[str, HerdrLeg] = {}
     for item in reviewers:
@@ -1410,9 +1494,9 @@ def _load_run_request(
             narrowed_retry_prompt=retry_path.read_text() if read_prompts else "",
             allowed_verdicts=tuple(str(value) for value in item["allowed_verdicts"]),
             timeout_seconds=float(item["timeout_seconds"]),
+            verdict_classes=verdict_classes,
         )
-        if not request.allowed_verdicts or request.timeout_seconds <= 0:
-            raise ValueError("reviewer verdicts and timeout must be non-empty/positive")
+        _validate_verdict_profile(request)
         workspace_id = item.get("workspace_id")
         if not isinstance(workspace_id, str) or not workspace_id.strip():
             raise ValueError("each reviewer.workspace_id must be a non-empty string")
@@ -1461,6 +1545,11 @@ def _request_identity(
         "worktree": str(adapter.worktree),
         "legs": legs,
     }
+    if "verdict_classes" in payload:
+        binding["verdict_classes"] = {
+            str(key): str(value)
+            for key, value in sorted(payload["verdict_classes"].items())
+        }
     canonical = json.dumps(binding, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return {**binding, "sha256": _digest(canonical)}
 
@@ -1484,6 +1573,7 @@ def result_record(
         "legs": {
             name: {
                 "verdict": outcome.verdict,
+                "verdict_class": outcome.verdict_class,
                 "validation_complete": outcome.validation_complete,
                 "failure_kind": outcome.failure_kind,
                 "detail": outcome.detail,
@@ -1530,7 +1620,6 @@ def cleanup_request_file(
         raise ValueError("cleanup requires explicit --artifact-written confirmation")
     if (
         receipt.get("schema_version") != "review-orchestration-result-v3"
-        or receipt.get("status") != CLEAN
         or receipt.get("clean") is not True
     ):
         raise ValueError("cleanup receipt is not a clean validated review result")
@@ -1542,30 +1631,42 @@ def cleanup_request_file(
         raise ValueError("cleanup receipt is missing its validated fingerprint")
     receipt_legs = receipt.get("legs")
     requested_names = {request.name for request in requests}
-    if not isinstance(receipt_legs, dict) or set(receipt_legs) != requested_names or any(
-        not isinstance(receipt_legs.get(request.name), dict)
-        or receipt_legs[request.name].get("validation_complete") is not True
-        or receipt_legs[request.name].get("verdict") != CLEAN
-        or not isinstance(receipt_legs[request.name].get("result_nonce"), str)
-        or not receipt_legs[request.name]["result_nonce"]
-        or not isinstance(receipt_legs[request.name].get("result_digest"), str)
-        or not receipt_legs[request.name]["result_digest"]
-        for request in requests
-    ):
-        raise ValueError("cleanup receipt does not contain a clean verdict for every requested reviewer")
+    if not isinstance(receipt_legs, dict) or set(receipt_legs) != requested_names:
+        raise ValueError("cleanup receipt does not contain every requested reviewer")
+    for request in requests:
+        leg = receipt_legs.get(request.name)
+        verdict = leg.get("verdict") if isinstance(leg, dict) else None
+        if (
+            not isinstance(leg, dict)
+            or leg.get("validation_complete") is not True
+            or verdict not in request.allowed_verdicts
+            or _classify_verdict(request, verdict) != PASS_CLASS
+            or leg.get("verdict_class", PASS_CLASS) != PASS_CLASS
+            or not isinstance(leg.get("result_nonce"), str)
+            or not leg["result_nonce"]
+            or not isinstance(leg.get("result_digest"), str)
+            or not leg["result_digest"]
+        ):
+            raise ValueError(
+                "cleanup receipt does not contain a clean verdict for every requested reviewer (pass-class required)"
+            )
     outcomes = {
         request.name: LegOutcome(
             request.name,
             adapter.legs[request.name],
-            verdict=CLEAN,
+            verdict=receipt_legs[request.name]["verdict"],
+            verdict_class=PASS_CLASS,
             validation_complete=True,
             result_nonce=receipt_legs[request.name]["result_nonce"],
             result_digest=receipt_legs[request.name]["result_digest"],
         )
         for request in requests
     }
+    expected_status, expected_clean = _aggregate(outcomes)
+    if not expected_clean or receipt.get("status") != expected_status:
+        raise ValueError("cleanup receipt aggregate status does not match its pass-class verdicts")
     result = OrchestrationResult(
-        status=CLEAN,
+        status=expected_status,
         fingerprint=fingerprint,
         legs=outcomes,
         events=[],
@@ -1574,7 +1675,12 @@ def cleanup_request_file(
         mode="parallel",
         clean=True,
     )
-    complete = cleanup_review_tabs(adapter, result, artifact_written=True)
+    complete = cleanup_review_tabs(
+        adapter,
+        result,
+        artifact_written=True,
+        requests={request.name: request for request in requests},
+    )
     return {
         "schema_version": "review-orchestration-cleanup-v1",
         "status": "CLEANUP_COMPLETE" if complete else "CLEANUP_INCOMPLETE",

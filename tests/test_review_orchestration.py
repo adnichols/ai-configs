@@ -19,6 +19,7 @@ from scripts.review_orchestration import (
     CommandResult,
     HerdrLeg,
     HerdrReviewAdapter,
+    LegOutcome,
     LegRequest,
     OrchestrationResult,
     PromptSubmission,
@@ -41,6 +42,12 @@ VERDICTS = (
     "FINDINGS_TO_RESOLVE",
     "CLEAN_FOR_PR",
     "BLOCKED_BY_QUESTION",
+    "REVIEW_INCOMPLETE_RERUN_NEEDED",
+)
+PLAN_VERDICTS = (
+    "PLAN_EXECUTION_READY",
+    "PLAN_NEEDS_REVISION",
+    "BLOCKED_BY_PRODUCT_QUESTION",
     "REVIEW_INCOMPLETE_RERUN_NEEDED",
 )
 
@@ -120,6 +127,15 @@ class FakeAdapter:
         if result == "findings":
             output = bounded(nonce, "FINDINGS_TO_RESOLVE")
             return RawReviewResult("settled", output, fingerprint)
+        if result == "plan-ready":
+            output = bounded(nonce, "PLAN_EXECUTION_READY")
+            return RawReviewResult("settled", output, fingerprint)
+        if result == "plan-revision":
+            output = bounded(nonce, "PLAN_NEEDS_REVISION")
+            return RawReviewResult("settled", output, fingerprint)
+        if result == "pass-scoped":
+            output = bounded(nonce, "PASS_SCOPED")
+            return RawReviewResult("settled", output, fingerprint)
         if result == "incomplete":
             output = bounded(nonce, "REVIEW_INCOMPLETE_RERUN_NEEDED")
             return RawReviewResult("settled", output, fingerprint)
@@ -154,13 +170,14 @@ def bounded(nonce, verdict):
     )
 
 
-def request(name):
+def request(name, verdicts=VERDICTS, verdict_classes=None):
     return LegRequest(
         name=name,
         prompt=f"review {name}",
         narrowed_retry_prompt=f"narrow review {name}",
-        allowed_verdicts=VERDICTS,
+        allowed_verdicts=verdicts,
         timeout_seconds=1.0,
+        verdict_classes=verdict_classes or {},
     )
 
 
@@ -485,6 +502,105 @@ class ReviewOrchestrationTests(unittest.TestCase):
         self.assertEqual("FINDINGS_TO_RESOLVE", result.status)
         self.assertFalse(result.clean)
 
+    def test_plan_ready_verdicts_are_a_clean_aggregate(self):
+        adapter = FakeAdapter({
+            "codex": {"results": ["plan-ready"]},
+            "claude": {"results": ["plan-ready"]},
+        })
+        requests = [
+            request("codex", PLAN_VERDICTS),
+            request("claude", PLAN_VERDICTS),
+        ]
+
+        result = orchestrate_reviews(adapter, requests)
+
+        self.assertEqual("PLAN_EXECUTION_READY", result.status)
+        self.assertTrue(result.clean)
+        self.assertEqual(
+            {"pass"}, {outcome.verdict_class for outcome in result.legs.values()}
+        )
+        self.assertEqual(
+            "pass", result_record(result)["legs"]["claude"]["verdict_class"]
+        )
+
+    def test_plan_revision_dominates_ready_sibling_without_infrastructure_failure(self):
+        adapter = FakeAdapter({
+            "codex": {"results": ["plan-ready"]},
+            "claude": {"results": ["plan-revision"]},
+        })
+        requests = [
+            request("codex", PLAN_VERDICTS),
+            request("claude", PLAN_VERDICTS),
+        ]
+
+        result = orchestrate_reviews(adapter, requests)
+
+        self.assertEqual("PLAN_NEEDS_REVISION", result.status)
+        self.assertFalse(result.clean)
+
+    def test_scoped_pass_verdicts_are_a_clean_aggregate(self):
+        adapter = FakeAdapter({
+            "codex": {"results": ["pass-scoped"]},
+            "claude": {"results": ["pass-scoped"]},
+        })
+        scoped_verdicts = (
+            "PASS_SCOPED",
+            "FIX_IN_SCOPE_FINDINGS",
+            "BLOCKED_BY_SCOPE_QUESTION",
+            "REVIEW_INCOMPLETE_RERUN_NEEDED",
+        )
+
+        result = orchestrate_reviews(
+            adapter,
+            [request("codex", scoped_verdicts), request("claude", scoped_verdicts)],
+        )
+
+        self.assertEqual("PASS_SCOPED", result.status)
+        self.assertTrue(result.clean)
+
+    def test_direct_call_rejects_shared_verdict_reclassification_before_transport(self):
+        adapter = FakeAdapter({"codex": {"results": ["findings"]}})
+        bad_request = request(
+            "codex",
+            ("FINDINGS_TO_RESOLVE",),
+            {"FINDINGS_TO_RESOLVE": "pass"},
+        )
+
+        with self.assertRaisesRegex(ValueError, "shared workflow verdicts cannot be reclassified"):
+            orchestrate_reviews(adapter, [bad_request])
+
+        self.assertEqual([], adapter.operations)
+
+    def test_direct_call_rejects_unclassified_verdict_before_transport(self):
+        adapter = FakeAdapter({"codex": {}})
+
+        with self.assertRaisesRegex(ValueError, "require outcome classes before launch"):
+            orchestrate_reviews(adapter, [request("codex", ("CUSTOM_READY",))])
+
+        self.assertEqual([], adapter.operations)
+
+    def test_custom_verdict_class_supports_new_workflow_tokens(self):
+        custom = ("CUSTOM_READY", "CUSTOM_FINDINGS")
+        classes = {"CUSTOM_READY": "pass", "CUSTOM_FINDINGS": "findings"}
+
+        class CustomAdapter(FakeAdapter):
+            def wait_for_result(self, handle, timeout_seconds):
+                with self._lock:
+                    attempt = self._wait_counts.get(handle, 0)
+                    self._wait_counts[handle] = attempt + 1
+                    submission = self._submissions[handle][attempt]
+                return RawReviewResult(
+                    "settled", bounded(submission[1], "CUSTOM_READY"), submission[2]
+                )
+
+        result = orchestrate_reviews(
+            CustomAdapter({"codex": {}}),
+            [request("codex", custom, classes)],
+        )
+
+        self.assertEqual("CUSTOM_READY", result.status)
+        self.assertTrue(result.clean)
+
     def test_raw_result_preserves_legacy_fake_adapter_positional_detail(self):
         raw = RawReviewResult("provider_error", "", "candidate-v1", False, "legacy detail")
         self.assertEqual("legacy detail", raw.detail)
@@ -525,12 +641,70 @@ class ReviewOrchestrationTests(unittest.TestCase):
         self.assertFalse(cleanup_review_tabs(adapter, result, artifact_written=False))
         self.assertEqual([], adapter.cleaned)
         result.legs["codex"].verdict = "FINDINGS_TO_RESOLVE"
+        result.legs["codex"].verdict_class = "findings"
+        self.assertFalse(cleanup_review_tabs(adapter, result, artifact_written=True))
+        self.assertEqual([], adapter.cleaned)
+        result.legs["codex"].verdict_class = "pass"
+        self.assertFalse(cleanup_review_tabs(adapter, result, artifact_written=True))
+        self.assertEqual([], adapter.cleaned)
+        result.legs["codex"].verdict = "CUSTOM_UNKNOWN"
         self.assertFalse(cleanup_review_tabs(adapter, result, artifact_written=True))
         self.assertEqual([], adapter.cleaned)
         result.legs["codex"].verdict = "CLEAN_FOR_PR"
+        result.legs["codex"].verdict_class = "pass"
         self.assertTrue(cleanup_review_tabs(adapter, result, artifact_written=True))
         self.assertEqual(["codex"], adapter.cleaned)
         self.assertIn("cleanup_complete", [event.kind for event in result.events])
+
+    def test_direct_cleanup_supports_custom_pass_only_with_validated_request_profile(self):
+        adapter = FakeAdapter({"codex": {}})
+        custom_request = request(
+            "codex",
+            ("CUSTOM_READY", "CUSTOM_FINDINGS"),
+            {"CUSTOM_READY": "pass", "CUSTOM_FINDINGS": "findings"},
+        )
+        outcome = LegOutcome(
+            "codex",
+            "codex",
+            verdict="CUSTOM_READY",
+            verdict_class="pass",
+            validation_complete=True,
+            result_nonce="nonce",
+            result_digest="digest",
+        )
+        result = OrchestrationResult(
+            status="CUSTOM_READY",
+            fingerprint="candidate-v1",
+            legs={"codex": outcome},
+            events=[],
+            candidate_wall_time=0.0,
+            all_prompts_submitted_before_first_wait=True,
+            mode="parallel",
+            clean=True,
+        )
+
+        self.assertFalse(cleanup_review_tabs(adapter, result, artifact_written=True))
+        disallowed_request = request(
+            "codex",
+            ("CUSTOM_FINDINGS",),
+            {"CUSTOM_READY": "pass", "CUSTOM_FINDINGS": "findings"},
+        )
+        self.assertFalse(
+            cleanup_review_tabs(
+                adapter,
+                result,
+                artifact_written=True,
+                requests={"codex": disallowed_request},
+            )
+        )
+        self.assertTrue(
+            cleanup_review_tabs(
+                adapter,
+                result,
+                artifact_written=True,
+                requests={"codex": custom_request},
+            )
+        )
 
 
 class TemporaryGitRepository:
@@ -562,6 +736,10 @@ class FakeHerdrRunner:
         self.success_stall_target = None
         self.wait_intervals = {}
         self.transcript_overrides = {}
+        self.verdicts = {
+            "codex-target": "CLEAN_FOR_PR",
+            "claude-target": "CLEAN_FOR_PR",
+        }
         self.listed_tabs_override = None
         self.listed_tabs_payload = None
         self.wait_barrier = None
@@ -627,7 +805,9 @@ class FakeHerdrRunner:
             source = command[5]
             if source == "visible":
                 return CommandResult(0, self.prompts[target])
-            transcript = self.prompts[target] + "\n" + bounded(self.nonces[target], "CLEAN_FOR_PR")
+            transcript = self.prompts[target] + "\n" + bounded(
+                self.nonces[target], self.verdicts[target]
+            )
             return CommandResult(0, self.transcript_overrides.get(target, transcript))
         if command[:3] == ("herdr", "tab", "close"):
             self.closed_tabs.add(command[3])
@@ -727,7 +907,13 @@ def sequence_adapter(repo, runner, clock):
     return adapter, leg
 
 
-def write_run_request(root, worktree, names=("codex", "claude")):
+def write_run_request(
+    root,
+    worktree,
+    names=("codex", "claude"),
+    verdicts=VERDICTS,
+    verdict_classes=None,
+):
     reviewers = []
     for name in names:
         prompt = root / f"{name}.txt"
@@ -741,14 +927,17 @@ def write_run_request(root, worktree, names=("codex", "claude")):
             "workspace_id": "workspace-1",
             "prompt_file": str(prompt),
             "narrowed_retry_prompt_file": str(retry),
-            "allowed_verdicts": list(VERDICTS),
+            "allowed_verdicts": list(verdicts),
             "timeout_seconds": 1,
         })
     request_path = root / "request.json"
-    request_path.write_text(json.dumps({
+    payload = {
         "worktree": str(worktree),
         "reviewers": reviewers,
-    }))
+    }
+    if verdict_classes is not None:
+        payload["verdict_classes"] = verdict_classes
+    request_path.write_text(json.dumps(payload))
     return request_path
 
 
@@ -761,6 +950,42 @@ class ProductionAdapterTests(unittest.TestCase):
         ])
         self.assertEqual(0, result.returncode)
         self.assertEqual("one\r\ntwo\n", result.stdout)
+
+    def test_request_load_rejects_unclassified_verdict_before_launch(self):
+        with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
+            request_path = write_run_request(
+                Path(temp), repo, names=("codex",), verdicts=("CUSTOM_READY",)
+            )
+
+            with self.assertRaisesRegex(ValueError, "require outcome classes before launch"):
+                _load_run_request(request_path)
+
+    def test_request_load_accepts_explicit_custom_verdict_classes(self):
+        with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
+            request_path = write_run_request(
+                Path(temp),
+                repo,
+                names=("codex",),
+                verdicts=("CUSTOM_READY",),
+                verdict_classes={"CUSTOM_READY": "pass"},
+            )
+
+            _, requests, _ = _load_run_request(request_path)
+
+            self.assertEqual("pass", requests[0].verdict_classes["CUSTOM_READY"])
+
+    def test_request_load_rejects_reclassification_of_shared_verdict(self):
+        with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
+            request_path = write_run_request(
+                Path(temp),
+                repo,
+                names=("codex",),
+                verdicts=("PLAN_EXECUTION_READY",),
+                verdict_classes={"PLAN_EXECUTION_READY": "findings"},
+            )
+
+            with self.assertRaisesRegex(ValueError, "cannot redefine shared workflow verdicts"):
+                _load_run_request(request_path)
 
     def test_request_load_rejects_missing_empty_or_non_string_workspace_id(self):
         with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
@@ -1457,6 +1682,30 @@ class ProductionAdapterTests(unittest.TestCase):
             self.assertNotIn(("herdr", "agent", "send-keys", "claude-target", "Enter"), runner.operations)
             self.assertIn("prompt_stall_proven", [event["kind"] for event in record["events"]])
             json.dumps(record)
+
+    def test_plan_review_aggregates_and_cleans_up_with_plan_verdicts(self):
+        with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            runner = FakeHerdrRunner()
+            runner.verdicts = {
+                "codex-target": "PLAN_EXECUTION_READY",
+                "claude-target": "PLAN_EXECUTION_READY",
+            }
+            request_path = write_run_request(root, repo, verdicts=PLAN_VERDICTS)
+
+            result, record = run_request_file(request_path, runner=runner)
+
+            self.assertEqual("PLAN_EXECUTION_READY", result.status)
+            self.assertTrue(result.clean)
+            self.assertEqual(
+                {"pass"},
+                {leg["verdict_class"] for leg in record["legs"].values()},
+            )
+            receipt = root / "receipt.json"
+            receipt.write_text(json.dumps(record))
+            cleanup = cleanup_request_file(request_path, receipt, True, runner=runner)
+            self.assertTrue(cleanup["cleanup_complete"])
+            self.assertEqual({"tab-codex", "tab-claude"}, runner.closed_tabs)
 
     def test_cleanup_requires_explicit_artifact_confirmation_and_clean_receipt(self):
         with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
