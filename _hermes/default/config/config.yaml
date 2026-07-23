@@ -242,6 +242,9 @@ auxiliary:
     base_url: ''
     api_key: ''
     timeout: 60
+  goal_judge:
+    provider: openai-codex
+    model: gpt-5.4-mini
   curator:
     provider: openai-codex
     model: gpt-5.4-mini
@@ -269,9 +272,6 @@ auxiliary:
     api_key: ''
     timeout: 30
     extra_body: {}
-  goal_judge:
-    provider: openai-codex
-    model: gpt-5.4-mini
 display:
   compact: false
   personality: kawaii

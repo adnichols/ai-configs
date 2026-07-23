@@ -24,12 +24,12 @@
     {
       "bytes": 20226,
       "path": "config/config.yaml",
-      "sha256": "9996de62c674dd3605a62d4adf8a228eb3b46df34879580e53687a05bd5b7ff3"
+      "sha256": "a9455950cb2444c32c0b7ec8cb4897b91d968be77d5279e79f7af77a81a81948"
     },
     {
-      "bytes": 22915,
+      "bytes": 23023,
       "path": "cron/jobs.json",
-      "sha256": "97ee9a1575b03ccdd8cf77b66ef3887144d727e81018e7618cba44b4bed4ad29"
+      "sha256": "ab47fe00a76ac60af3a0fc31e9f2df3afa5f7569bfb8e97a079214dc21c4cb75"
     },
     {
       "bytes": 508,
@@ -124,7 +124,7 @@
     {
       "bytes": 1385,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "e8fad905ba9667b9d55a0999c1240121b63bc56cc5e432341646f4d7d42d4deb"
+      "sha256": "2281692dbcd4ecffbf3d83857e1236408dca4584ac0df751fd21fe56ddcde684"
     },
     {
       "bytes": 2280,
@@ -8502,8 +8502,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260723T034750Z",
+  "generated_at": "20260723T173304Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/Users/anichols/code/ai-configs/_hermes/default"
+  "source_home": "/Users/anichols/.hermes"
 }
