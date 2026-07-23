@@ -1,20 +1,20 @@
 ---
-description: Run Playwright in PTY, watch failures live, and spawn fixer subagents
+description: Run Playwright in PTY, watch failures live, and apply direct scoped fixes
 argument-hint: "[optional playwright args/filter]"
 ---
 
-# Test Run Playwright (Live Fix Mode B)
+# Test Run Playwright (Direct Live Fix Mode)
 
-Run Playwright in a background PTY session, monitor output incrementally, and spawn `developer-mid` subagents to investigate and apply fixes while the suite is still running.
+Run Playwright in a background PTY session, monitor output incrementally, and have the driving agent investigate and apply scoped fixes directly while the suite is still running. Do not delegate code changes to subagents.
 
 Target arguments: `$ARGUMENTS`
 
 ## Defaults
 
 - Base command: `pnpm run test:e2e -- --workers=4 --reporter=list,./tests/opencode-live-events-reporter.ts`
-- Mode: **B** (keep suite running; investigate/fix as failures arrive)
-- Apply mode: **live-apply** (subagents apply code changes immediately)
-- Max fixer concurrency: `3` (balanced parallel fixes)
+- Mode: **direct live-fix** (keep suite running; investigate/fix as failures arrive)
+- Apply mode: **live-apply** (the driving agent applies code changes directly)
+- Max fixer concurrency: `1`
 - Failure dedupe key: `project + file + line + title`
 
 ## Process
@@ -44,8 +44,6 @@ Target arguments: `$ARGUMENTS`
    - `offset = 0`
    - `seenFailureKeys = Set()`
    - `queue = []`
-   - `inFlightFixers = 0`
-   - `MAX_CONCURRENT_FIXERS = 3`
    - `fixRecords = []`
 
 ### 2) Watch Loop (PTY Polling)
@@ -59,10 +57,10 @@ Loop until PTY is no longer running:
    - Preferred: sentinel events from reporter lines matching `@@OC_PW_EVENT@@{json}`.
    - Fallback: parse `list` reporter failure lines when sentinel parsing fails.
 5. When a new failure is found, enqueue it unless deduped by key.
-6. If queue is non-empty and `inFlightFixers < MAX_CONCURRENT_FIXERS`, dispatch one fixer subagent.
+6. If the queue is non-empty, investigate and fix one bounded failure family directly, append the result to `fixRecords`, then resume monitoring.
 
 Notes:
-- It is acceptable that output accumulates while a subagent runs; catch up from `offset` after it returns.
+- It is acceptable that output accumulates while the driving agent fixes a failure; catch up from `offset` afterward.
 - Always do a final drain read when run exits so no late events are missed.
 
 ### 3) Failure Event Parsing
@@ -82,48 +80,17 @@ Build dedupe key:
 Fallback parser (if needed):
 - Parse list reporter lines beginning with `x` and extract `[project] file:line:col > title`.
 
-### 4) Spawn Fixer Subagents (Live Apply)
+### 4) Investigate and Fix Directly
 
-For each queued failure, spawn a `Task` with `subagent_type="developer-mid"`.
+For each queued failure, the driving agent:
 
-Subagent requirements:
-
-1. Investigate root cause for the specific failing test.
-2. Apply a minimal code fix directly (live-apply).
-3. Do **not** run full Playwright suite while the main run is active.
-4. If safe and cheap, run only narrowly scoped non-e2e checks related to changed code.
-5. Return:
-   - root cause
-   - files changed
-   - patch summary
-   - residual risk
-
-Use this prompt template (fill placeholders):
-
-```text
-Investigate and fix this live Playwright failure.
-
-Failure context:
-- project: <project>
-- test: <title>
-- location: <file>:<line>:<column>
-- status: <status>
-- retry: <retry>/<retriesAllowed>
-- errorMessage: <errorMessage>
-- errorStack: <errorStack>
-- attachmentPaths: <attachmentPaths>
-
-Constraints:
-- Apply a minimal fix now (live-apply mode).
-- Avoid broad refactors.
-- Do not run the full Playwright suite while the parent live run is in progress.
-- Return concise notes with exact file paths changed.
-```
-
-After subagent completion:
-- decrement `inFlightFixers`
-- append result to `fixRecords`
-- continue watch loop immediately
+1. Builds a bounded failure packet from the test location, error, stack, attachments, and recent changes.
+2. Uses direct targeted repository search to identify the root cause.
+3. Applies a minimal fix when the cause is product or test code.
+4. Does **not** start another full Playwright suite while the main run is active.
+5. Runs only cheap targeted non-e2e checks when safe.
+6. Records root cause, files changed, patch summary, verification, and residual risk in `fixRecords`.
+7. Continues the watch loop immediately.
 
 ### 5) Completion + Verification Pass
 
@@ -142,7 +109,7 @@ When PTY exits:
 
 ## Guardrails
 
-- Allow up to three concurrent fixers, but keep shared-file failures sequential.
+- Process failure families sequentially in the driving session.
 - If two queued failures target the same file area, process sequentially.
 - If a failure appears flaky or env-related, mark it and avoid speculative app changes.
 - Keep all outputs concise; include explicit file paths for any code edits.

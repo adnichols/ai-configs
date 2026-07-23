@@ -5,7 +5,7 @@ argument-hint: "ISSUE_KEY [BASE_BRANCH]"
 
 # Start Linear Issue (Direct Worktree Workflow)
 
-Execute this workflow directly with Git, filesystem, JSON-reading, and `ltui` tools. Do not delegate repository management or worktree creation to any subagent, including `developer-mid`.
+Execute this workflow directly with Git, filesystem, JSON-reading, and `ltui` tools. Do not delegate repository management or worktree creation to any subagent.
 
 **Arguments**: `$ARGUMENTS`
 

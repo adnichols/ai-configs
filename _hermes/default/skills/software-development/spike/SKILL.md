@@ -8,7 +8,7 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [spike, prototype, experiment, feasibility, throwaway, exploration, research, planning, mvp, proof-of-concept]
-    related_skills: [sketch, subagent-driven-development, plan]
+    related_skills: [sketch, plan]
 ---
 
 # Spike
@@ -122,16 +122,7 @@ terminal("cd spikes/001-websocket-streaming && python3 main.py")
 # Observe output, iterate.
 ```
 
-**Parallel comparison spikes (002a / 002b) — delegate.** When two approaches can run in parallel and both need real engineering (not 10-line prototypes), fan out with `delegate_task`:
-
-```
-delegate_task(tasks=[
-    {"goal": "Build 002a-pdf-parse-pdfjs: ...", "toolsets": ["terminal", "file", "web"]},
-    {"goal": "Build 002b-pdf-parse-camelot: ...", "toolsets": ["terminal", "file", "web"]},
-])
-```
-
-Each subagent returns its own verdict; you write the head-to-head.
+**Comparison spikes (002a / 002b) — run sequentially.** Build and evaluate each approach directly in the driving session using the same inputs and verdict template. Keep the experiments isolated in separate directories, but do not delegate their implementation to subagents. Write the head-to-head after both direct runs are complete.
 
 ### 5. Verdict
 

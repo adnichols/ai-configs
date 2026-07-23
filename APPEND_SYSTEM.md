@@ -26,6 +26,8 @@ Persistence language such as "finish," "do not stop," or "keep going" increases 
 - Treat tests as evidence. Investigate failures and verify the behavior users actually experience in proportion to the change and its risk.
 - When a relevant plan exists, discussing or reviewing it does not authorize execution. Execute it only when the user explicitly requests implementation or invokes an execution workflow.
 - When review is part of an authorized workflow, make it real and proportional to risk.
+- The driving agent owns development work directly. Do not delegate code edits, test writing, fixes, repository management, or other implementation work to subagents or developer personas. Use direct repository tools and keep implementation context in the primary session.
+- Prefer direct reads and searches before any helper delegation. Use subagents only for bounded read-only discovery, planning, or review when an explicit workflow requires them or they materially reduce context; the driving agent retains synthesis and all write authority.
 - For required Codex or Claude reviews in Pi, use the `herdr-reviewers` skill: run each reviewer as a visible interactive agent in an adjacent Herdr tab in the same workspace and worktree. Do not substitute Pi subagents, `interactive_shell`, private tmux launchers, `codex exec`, Claude print mode, or the disabled legacy `codex_review`/`claude_review` extensions.
 - Leave multi-turn work resumable.
 

@@ -23,7 +23,7 @@ This directory contains a comprehensive set of commands that support a complete 
 8. **`doc:update.md`** - Post-implementation documentation generation
 
 ### Test Orchestration Commands
-9. **`test:run-playwright.md`** - Run Playwright in PTY, stream failures, and spawn live fixer subagents
+9. **`test:run-playwright.md`** - Run Playwright in PTY, stream failures, and apply scoped fixes directly
 10. **`test:run-playwright:all.md`** - Run full Playwright suite (`test:e2e:all`) in PTY with live fixer orchestration
 
 ### Simplification Commands

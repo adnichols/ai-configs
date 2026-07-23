@@ -23,10 +23,10 @@ End-to-end autonomous flow:
 
 ## Requirements
 
-- The developer-mm agent MUST be used for any code changes and repository management
-- The quality-reviewer agent must be used for any code reviews
-- the plan-gpt agent must be used for any plan creation or editing
-- Always prefer a sub-agent when making changes, the orchestrator should not make code changes
+- The driving agent MUST perform code changes and repository management directly
+- The quality-reviewer agent may be used only for read-only code review
+- Run the planning command directly
+- Do not delegate implementation, fixes, tests, verification, or repository operations to subagents
 
 ## Inputs
 
@@ -60,18 +60,17 @@ Resolve base:
 git rev-parse --verify "${base_ref}^{commit}"
 ```
 
- Critical: Orchestrator Role Boundaries
-**YOU ARE THE ORCHESTRATOR. YOU MUST NOT MAKE CODE CHANGES.**
+ Critical: Driving Agent Boundaries
+**YOU ARE THE DRIVING AGENT. OWN IMPLEMENTATION DIRECTLY.**
 Your responsibilities:
-- Run read-only commands to gather information (git status, ltui queries, file reads)
-- Delegate ALL implementation to subagents via the `task` tool
-- Review subagent results and decide next steps
-- Coordinate the flow between phases
-**When a subagent task returns empty or appears incomplete:**
-- DO NOT take over and start making edits yourself
-- Re-delegate to the same or a different subagent with more specific instructions
-- Ask the user if you're unsure how to proceed
-**NEVER use `edit`, `write`, or `bash` commands that modify files** (except for read-only operations like `git status`, `git log`, etc.)
+- Use native repository tools for investigation, code changes, tests, verification, and repository operations
+- Keep implementation context in this session instead of delegating it
+- Use planning or review agents only for their bounded non-implementation roles
+- Coordinate the flow continuously between phases
+**When a read-only helper returns empty or incomplete:**
+- Continue the investigation directly with repository tools
+- Retry the helper only when its bounded evidence or review role is still useful
+- Ask the user only for a genuinely unresolved decision
 
 ### 1) Select ISSUE_KEY (FeelingLucky)
 
@@ -189,7 +188,7 @@ fi
 
 ### 3) Create Plan (commands/dev:plan.md)
 
-Use the plan-gpt subagent to create a plan with slug `plan_slug` and ensure the plan includes:
+Run the planning command directly with slug `plan_slug` and ensure the plan includes:
 
 - Linear issue key + URL (`ISSUE_KEY`, `ISSUE_URL`)
 - Branch name (`branch_name`)

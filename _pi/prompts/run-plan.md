@@ -17,4 +17,4 @@ This wrapper is only the ergonomic `/run-plan` entry point. Do not run a shorten
 
 Keep GPT-5.6 Sol medium as the normal `/run-plan` parent and code-writing route.
 
-Before delegating code, use `scout` for broad discovery and pass `developer-mid` a bounded packet with target files, intended behavior, relevant evidence, and verification commands. Keep all implementation delegation at medium effort. If repeated bounded attempts fail to converge, stop and return control to the user rather than escalating reasoning effort.
+Perform implementation directly in the driving session with native repository tools. Prefer direct targeted inspection before editing; use `scout` only for bounded read-only discovery when broad isolated evidence gathering materially helps. Do not delegate code edits, test changes, fixes, verification, or repository management to a subagent or developer persona.

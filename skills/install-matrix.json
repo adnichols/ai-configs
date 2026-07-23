@@ -233,7 +233,7 @@
       "legacySources": [
         "_pi/skills/dev-plan"
       ],
-      "notes": "Pi/Codex: materializes execution plans with shared planning workflow guidance; Codex uses the shared skill and delegates Pi-only subagent slices when needed.",
+      "notes": "Pi/Codex: materializes execution plans with shared planning workflow guidance; targeted repository inspection is direct, with optional bounded read-only discovery only when needed.",
       "sourceType": "repo"
     },
     "doc-coauthoring": {

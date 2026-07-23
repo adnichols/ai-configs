@@ -7,7 +7,7 @@ license: MIT
 metadata:
   hermes:
     tags: [planning, design, implementation, workflow, documentation]
-    related_skills: [subagent-driven-development, test-driven-development, requesting-code-review]
+    related_skills: [test-driven-development, requesting-code-review]
 ---
 
 # Writing Implementation Plans
@@ -25,7 +25,7 @@ Assume the implementer is a skilled developer but knows almost nothing about the
 **Always use before:**
 - Implementing multi-step features
 - Breaking down complex requirements
-- Delegating to subagents via subagent-driven-development
+- Executing the plan directly in the driving session
 
 **Don't skip when:**
 - Feature seems simple (assumptions cause bugs)
@@ -239,13 +239,9 @@ git commit -m "type: description"
 
 After saving the plan, offer the execution approach:
 
-**"Plan complete and saved. Ready to execute using subagent-driven-development — I'll dispatch a fresh subagent per task with two-stage review (spec compliance then code quality). Shall I proceed?"**
+**"Plan complete and saved. Ready for direct execution in the driving session with the repository's normal verification and review gates. Shall I proceed?"**
 
-When executing, use the `subagent-driven-development` skill:
-- Fresh `delegate_task` per task with full context
-- Spec compliance review after each task
-- Code quality review after spec passes
-- Proceed only when both reviews approve
+When execution is authorized, keep implementation, tests, fixes, and repository operations in the driving session. Use helper agents only for bounded read-only discovery or review when explicitly useful.
 
 ## Remember
 

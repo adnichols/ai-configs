@@ -7,7 +7,7 @@ license: MIT
 metadata:
   hermes:
     tags: [pi, workflow, orchestration, planning, review, execution]
-    related_skills: [plan, writing-plans, subagent-driven-development, systematic-debugging]
+    related_skills: [plan, writing-plans, systematic-debugging]
 ---
 
 # Pi Workflow Orchestration

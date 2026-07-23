@@ -5,7 +5,7 @@ argument-hint: "[issue description or ticket]"
 
 # Debug Investigation
 
-Investigate issues without burning main context. Uses parallel Task agents to gather evidence while preserving your working context.
+Investigate issues directly in the driving session so evidence, hypotheses, and conclusions stay connected. Read-only helpers are optional, not the default.
 
 ## Input
 
@@ -23,45 +23,16 @@ Parse the provided context:
 - Recent changes
 - Steps to reproduce (if known)
 
-### 2. Launch Parallel Investigations
+### 2. Investigate Directly
 
-Spawn Task agents with `subagent_type=debugger` to investigate different aspects concurrently:
+Use direct repository tools to gather evidence in this order:
 
-**Agent 1: Recent Changes**
-```
-Investigate recent git changes that might relate to [issue].
-- Check git log for relevant commits
-- Look for changes to affected files
-- Identify when issue might have been introduced
-Return: Timeline of relevant changes with file:line references
-```
+1. Inspect recent changes and relevant history.
+2. Trace the affected code path and failure boundary.
+3. Check configuration, environment, and external dependency assumptions.
+4. Locate existing tests and reproduce the failure when safe.
 
-**Agent 2: Code Analysis**
-```
-Analyze the code paths related to [issue].
-- Trace execution flow
-- Identify potential failure points
-- Look for error handling gaps
-Return: Code analysis with specific file:line references
-```
-
-**Agent 3: Configuration/Environment**
-```
-Check configuration and environment factors.
-- Look for relevant config files
-- Check for environment variable usage
-- Identify external dependencies
-Return: Configuration findings relevant to the issue
-```
-
-**Agent 4: Test Coverage** (if applicable)
-```
-Check test coverage for affected code.
-- Find existing tests for the component
-- Identify gaps in test coverage
-- Look for failing tests
-Return: Test analysis with file:line references
-```
+Keep one evidence ledger with exact file:line and command-output references. Use a read-only helper only for one bounded evidence question when direct targeted search is insufficient; never delegate diagnosis or fixes.
 
 ### 3. Gather Additional Evidence
 
@@ -96,7 +67,7 @@ Header: "Root cause"
 Options:
 - Hypothesis A: [description] - likely if [condition]
 - Hypothesis B: [description] - likely if [condition]
-- Investigate both in parallel
+- Investigate both directly before choosing
 - Let me share more evidence first
 ```
 
@@ -225,7 +196,7 @@ Present to user:
 
 ## Guidelines
 
-- Use parallel Task agents to preserve main context
+- Keep the investigation in the driving session; use bounded read-only helpers only when direct search is insufficient
 - Focus on gathering evidence, not making changes
 - Return specific file:line references
 - Present hypotheses with confidence levels

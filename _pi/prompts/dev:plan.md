@@ -82,7 +82,7 @@ Validate key claims from the conversation by directly inspecting the codebase:
 - Identify integration points and risks
 - Verify commands, paths, targets, and package names that later `### Verify` steps will rely on
 
-Use `Glob`, `Grep`, and `Read` for targeted research. Use `Task(subagent_type="scout")` only for a bounded broad-search packet that names the discovery question, allowed surfaces, evidence format, and stop condition.
+Use `Glob`, `Grep`, and `Read` for targeted research. Keep discovery in the driving session by default; use `Task(subagent_type="scout")` only for a bounded read-only broad-search packet that materially benefits from isolated context and names the discovery question, allowed surfaces, evidence format, and stop condition.
 
 ### 4) Choose the Correct Readiness State
 

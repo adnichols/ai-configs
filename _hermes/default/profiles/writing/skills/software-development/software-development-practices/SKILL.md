@@ -1,19 +1,19 @@
 ---
 name: software-development-practices
-description: "Proven software engineering practices: TDD, systematic debugging, spike experiments, plan-driven development, code review, and subagent-driven delivery."
+description: "Proven software engineering practices: TDD, systematic debugging, spike experiments, plan-driven development, direct implementation, and code review."
 version: 1.0.0
 author: Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
-    tags: [tdd, debugging, spike, planning, code-review, subagent, workflow]
+    tags: [tdd, debugging, spike, planning, code-review, direct-development, workflow]
     related_skills: [github, kanban-operations]
 ---
 
 # Software Development Practices
 
-This umbrella covers structured development workflows: planning, experimenting, testing, debugging, reviewing, and multi-agent delivery.
+This umbrella covers structured development workflows: planning, experimenting, testing, debugging, direct implementation, and reviewing.
 
 ## Test-Driven Development (TDD)
 
@@ -117,17 +117,17 @@ grep -rE 'TODO|FIXME' --include='*.py' . && exit 1
 pytest -q
 ```
 
-## Subagent-Driven Development
+## Direct Development
 
-Execute plans via `delegate_task` subagents with two-stage review.
+Execute plans in the driving session with one implementation context and explicit verification.
 
 ### Pattern
-1. **Plan stage:** Hermes writes a plan (bite-sized tasks, paths, code stubs)
-2. **Delegate stage:** Spawn subagents to implement tasks in parallel
-3. **Review stage:** Hermes reviews every diff before it reaches the user
+1. **Plan stage:** Write or read the scoped plan and identify the next complete slice.
+2. **Implement stage:** Use direct repository tools to write tests, change code, and manage files.
+3. **Verify stage:** Run the relevant tests, lint, typecheck, or build commands directly.
+4. **Review stage:** Inspect the resulting diff and use an independent read-only review only when the workflow requires it.
 
 ### Constraints
-- Subagents have no access to `clarify` or `memory` — pass all needed context
-- Subagents cannot spawn further subagents (leaf-only)
-- Hermes must verify file writes, test runs, and commits independently
-- Never trust a subagent's claim of "tests pass" without running them yourself
+- Do not delegate implementation, test writing, fixes, or repository management to subagents.
+- Keep the evidence trail in the driving session so hypotheses and edits remain connected.
+- Verify file writes and test results directly before reporting completion.

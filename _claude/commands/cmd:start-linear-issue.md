@@ -1,39 +1,159 @@
 ---
-description: Bootstrap a dedicated worktree and branch for a Linear issue
+description: Deterministically bootstrap a dedicated worktree and exact issue branch for a Linear issue
 argument-hint: "ISSUE_KEY [BASE_BRANCH]"
 ---
 
-Create a worktree for a Linear issue. Uses the @worktree-creator agent (haiku model) for fast, cost-effective execution.
+# Start Linear Issue (Direct Worktree Workflow)
 
-**Arguments**: $ARGUMENTS
+Execute this workflow directly with Git, filesystem, JSON-reading, and `ltui` tools. Do not delegate repository management or worktree creation to any subagent.
 
-## Instructions
+**Arguments**: `$ARGUMENTS`
 
-1. Parse the arguments:
-   - First argument: `ISSUE_KEY` (required) - e.g., `NOD-123`
-   - Second argument: `BASE_BRANCH` (optional) - defaults to `origin/main`
+## 1. Parse and Validate Arguments
 
-2. If no arguments provided, respond with usage:
-   ```
-   Usage: /cmd:start-linear-issue ISSUE_KEY [BASE_BRANCH]
+- First argument: `ISSUE_KEY` (required), matching `^[A-Za-z][A-Za-z0-9]*-[0-9]+$` (for example `NOD-123`).
+- Second argument: `BASE_BRANCH` (optional), default `origin/main`.
+- Reject extra arguments.
 
-   Examples:
-     /cmd:start-linear-issue NOD-123
-     /cmd:start-linear-issue NOD-123 origin/develop
-   ```
+If the issue key is missing or invalid, stop with:
 
-3. Spawn the worktree-creator agent with the issue key and optional base branch:
-
-```
-Task(
-  subagent_type="worktree-creator",
-  description="Create git worktree for Linear issue",
-  prompt=f"""Create a git worktree for Linear issue {ISSUE_KEY}.
-
-Base branch: {BASE_BRANCH:-origin/main}
-
-Follow the worktree-creator agent instructions precisely."""
-)
+```text
+Usage: /cmd:start-linear-issue ISSUE_KEY [BASE_BRANCH]
+Examples:
+  /cmd:start-linear-issue NOD-123
+  /cmd:start-linear-issue NOD-123 origin/develop
 ```
 
-4. After the agent completes, switch to the new worktree directory.
+Normalize `ISSUE_KEY` to uppercase for the Linear lookup. Derive `ISSUE_LOWER` by lowercasing that exact key. The branch name must be exactly `ISSUE_LOWER`; never append the title.
+
+## 2. Validate the Current Repository and Clean Tree
+
+Resolve `REPO_ROOT` with `git rev-parse --show-toplevel`. Stop if not in a Git worktree.
+
+Run:
+
+```bash
+git status --porcelain=v1
+```
+
+If output is non-empty, stop and report that the current tree must be committed or stashed. Do not mutate anything.
+
+Then fetch:
+
+```bash
+git fetch --prune --tags
+```
+
+Validate `BASE_REF` (the supplied base or `origin/main`) with:
+
+```bash
+git rev-parse --verify "${BASE_REF}^{commit}"
+```
+
+Stop with the failing ref and ask for a valid base if it cannot be resolved.
+
+## 3. Read Linear Metadata
+
+Run exactly:
+
+```bash
+ltui issues view "${ISSUE_KEY}" --format detail
+```
+
+Parse and retain these issue fields from the structured detail output:
+
+- Title
+- Project
+- State
+- Description between `DESCRIPTION_START` and `DESCRIPTION_END`
+- URL
+
+Stop if the command fails or any of Title, Project, State, or URL is unavailable. Preserve an empty description as empty rather than inventing one.
+
+If `.ltui.json` exists at `REPO_ROOT`, parse it as JSON. If it contains a non-empty `project` and that value does not exactly match the issue Project, stop before creating a branch or worktree and ask the user to confirm whether to proceed despite the mismatch. Report both project values. Continue only after explicit confirmation; do not treat silence as approval.
+
+## 4. Derive Exact Branch and Sibling Path
+
+Compute without title slugging:
+
+```bash
+REPO_NAME=$(basename "$REPO_ROOT")
+REPO_PARENT=$(dirname "$REPO_ROOT")
+ISSUE_LOWER=$(printf '%s' "$ISSUE_KEY" | tr '[:upper:]' '[:lower:]')
+BRANCH_NAME="$ISSUE_LOWER"
+WORKTREE_PATH="$REPO_PARENT/${REPO_NAME}-${ISSUE_LOWER}"
+BASE_REF="${BASE_BRANCH:-origin/main}"
+```
+
+Before mutation, fail closed if any of these are true:
+
+- local branch `refs/heads/${BRANCH_NAME}` exists,
+- remote-tracking branch `refs/remotes/origin/${BRANCH_NAME}` exists,
+- `WORKTREE_PATH` exists as any filesystem entry,
+- `git worktree list --porcelain` already records that path or branch.
+
+Report the exact conflicting branch/path/worktree. Offer explicit recovery choices such as: use the existing worktree, choose a different issue, manually rename/remove the conflicting branch, or manually remove a stale worktree after inspecting it. Never force-remove, overwrite, reset, or delete user work.
+
+## 5. Create Tracking Worktree
+
+Create the branch and worktree from the validated base:
+
+```bash
+git worktree add --track -b "$BRANCH_NAME" "$WORKTREE_PATH" "$BASE_REF"
+```
+
+Then, from `WORKTREE_PATH`, set its upstream to the remote branch represented by `BASE_REF` when `BASE_REF` is a remote-tracking ref (default `origin/main`):
+
+```bash
+git -C "$WORKTREE_PATH" branch --set-upstream-to="$BASE_REF" "$BRANCH_NAME"
+git -C "$WORKTREE_PATH" status --short --branch
+```
+
+If the supplied base cannot be used as an upstream (for example a local commit/ref without a remote-tracking branch), keep the created worktree, report that upstream setup failed, and give explicit commands to inspect and set the intended upstream. Do not guess or delete the worktree.
+
+## 6. Write the Linear Context Note
+
+Create `WORKTREE_PATH/thoughts/linear/${ISSUE_LOWER}.md` and its parent directory. Write exactly one context note containing the fetched values and derived state:
+
+```markdown
+# <ISSUE_KEY>: <Title>
+
+**URL**: <Linear URL>
+**Project**: <Project>
+**State**: <State>
+**Branch**: <issue-lower>
+**Worktree**: <absolute worktree path>
+**Base**: <base ref>
+**Created**: <ISO-8601 timestamp>
+
+## Description
+
+<description from Linear>
+```
+
+Do not change application code or any other repository file.
+
+## 7. Report
+
+Report:
+
+```text
+Worktree created successfully!
+
+Location: <absolute worktree path>
+Branch: <exact issue-lower branch>
+Linear: <issue URL>
+Context note: <absolute or worktree-relative note path>
+Base/upstream: <base ref and upstream status>
+
+Suggested commands:
+- cd <worktree path>
+- git status
+- <repo-specific install/test command only if directly evidenced by repo files>
+```
+
+Do not switch the caller's current process directory implicitly. Suggestions must be evidence-based; omit install/test commands when uncertain.
+
+## Failure Contract
+
+Fail closed at the first unsafe or ambiguous condition. Report the completed steps, exact failure, current branch/worktree state, and explicit non-destructive recovery choices. Never force-remove a branch or worktree, overwrite an existing path, clean/reset user files, or delegate repository management.

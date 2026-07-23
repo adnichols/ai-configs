@@ -78,7 +78,7 @@ Validate key claims from the conversation by directly inspecting the codebase:
 - Audit `AGENTS.md`, product-intent docs, onboarding/install docs, config/status surfaces, and tests for dissonance with that default-path contract
 - Verify commands, paths, targets, and package names that later `### Verify` steps will rely on
 
-Use `Glob`, `Grep`, and `Read` for targeted research. Use `Task(subagent_type="explore")` only for broad searches.
+Use `Glob`, `Grep`, and `Read` for targeted research. Keep discovery in the driving session by default; use a read-only exploration helper only when a broad search materially benefits from isolated context.
 
 ### 4) Choose the Correct Readiness State
 

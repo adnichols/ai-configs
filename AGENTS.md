@@ -2,15 +2,14 @@
 
 Current roster of bespoke Claude, Codex, and Pi agents defined in this repository.
 
-## Pi Subagents (Exact Four-Agent Roster)
+## Pi Subagents (Exact Three-Agent Roster)
 Located under `_pi/agents/` and invoked through Pi's subagent system:
 
-- `developer-mid` (GPT-5.6 Sol, medium; `_pi/agents/developer-mid.md`) — sole repository-owned Pi implementation authority for bounded code-writing packets.
 - `planner` (GPT-5.6 Sol, medium; `_pi/agents/planner.md`) — planning-only authority; it may write only the caller-named plan artifact.
 - `reviewer` (GPT-5.6 Sol, medium; `_pi/agents/reviewer.md`) — read-only materiality-focused review authority, except for an explicitly named review artifact when the caller authorizes comments or output there.
 - `scout` (GPT-5.6 Terra, low; `_pi/agents/scout.md`) — bounded read-only local/web discovery and evidence gathering.
 
-`_pi/agents/Explore.md` is not an active persona. It is the required `enabled: false` override for the bundled Explore persona. There is no hidden implementation fallback: `developer-mid` is the only Pi implementation subagent, and repeated bounded failure returns control to the user.
+`_pi/agents/Explore.md` is not an active persona. It is the required `enabled: false` override for the bundled Explore persona. Pi has no repository-owned implementation subagent: the driving agent performs code changes, test changes, fixes, and repository management directly.
 
 Every caller packet must name the artifact or allowed surfaces, task-specific lens, output destination/format, authority boundary, verification evidence, and stop/verdict contract. Permanent agent prompts define capability and authority; callers own workflow-specific meaning.
 
@@ -18,14 +17,13 @@ Every caller packet must name the artifact or allowed surfaces, task-specific le
 
 ### Pi Subagent Reasoning-Effort Policy
 
-- Agent frontmatter is authoritative: implementation, planning, and review use GPT-5.6 Sol medium; scout uses GPT-5.6 Terra low.
+- Agent frontmatter is authoritative: planning and review use GPT-5.6 Sol medium; scout uses GPT-5.6 Terra low.
 - Do not pass caller-side reasoning overrides merely because a task appears difficult.
-- If repeated bounded `developer-mid` implementation attempts fail to converge, do not escalate implementation effort or route code-writing through another persona. The bounded review policy may still use one read-only, advisory external consultation through the harness's configured consult/council surface; that consultation may not edit or become implementation authority.
+- Development stays in the driving session. Do not route code-writing, tests, fixes, or repository operations through any Pi persona; use subagents only for bounded planning, read-only discovery, or read-only review.
 - GPT-5.4 and GPT-5.4-mini are retired from Pi-owned agents, the managed `openai-codex` model catalog, and Pi settings aliases. This is an exact Pi-only retirement; it does not rewrite unrelated Claude-owned agents or caller-owned providers/models.
 
-## Implementation & Architecture (Claude/Codex)
-- `developer` (sonnet; `_claude/agents/developer.md`) — Implements specs with tests and enforces zero linting violations.
-- `developer-fidelity` (sonnet; `_claude/agents/developer-fidelity.md`) — Implements specifications with absolute fidelity—no extra tests, features, or safeguards.
+## Direct Implementation & Architecture (Claude/Codex)
+- Claude and Codex driving agents implement authorized changes directly with their native repository tools; no repository-owned developer subagent is installed.
 - `simplify-planner` (opus; `_claude/agents/simplify-planner.md`) — Refactor planning specialist who produces cleanup plans that preserve existing behaviour.
 
 ## Tool Selection Priority (Codex Environment)
@@ -66,11 +64,12 @@ These agents are typically invoked by other agents or for specific tool-use task
 - `thoughts-analyzer` (`_claude/agents/thoughts-analyzer.md`) — Synthesizes context from plans, specs, and research in `thoughts/`.
 - `thoughts-locator` (`_claude/agents/thoughts-locator.md`) — Finds relevant documentation within `thoughts/`.
 - `web-search-researcher` (`_claude/agents/web-search-researcher.md`) — Finds external information using web search.
-- `worktree-creator` (`_claude/agents/worktree-creator.md`) — Manages git worktrees for parallel execution.
+
+Repository and worktree management are performed directly by the driving agent; no state-changing repository-management subagent is installed.
 
 ---
 
-When adding new agents, create the brief in `_claude/agents/` and update this catalog so downstream installations discover the new capability.
+When adding new read-only, planning, documentation, or utility agents, create the brief in `_claude/agents/` and update this catalog so downstream installations discover the new capability. Do not add implementation/developer agents; development belongs to the driving session.
 
 ## Fidelity & Execution House Rules (Template for Project Repos)
 

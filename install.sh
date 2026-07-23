@@ -70,7 +70,7 @@ print_usage() {
     echo "Options:"
     echo "  --claude    Install Claude Code configuration and refresh shared skills for Claude"
     echo "  --codex     Sync global Codex prompts/scripts and refresh shared skills for Codex"
-    echo "  --pi        Install Pi prompt templates, subagents, and extensions, then refresh shared skills"
+    echo "  --pi        Install Pi prompt templates, read-only/planning subagents, and extensions, then refresh shared skills"
     echo "  --pi-vcc [package-source]  Transactionally install only pi-vcc (repo package by default)"
     echo "  --pi-review-stack  Mutation-bounded Pi config plus six maintained review skills; no packages/global cleanup"
     echo "  --tools     Install/update managed Herdr config/plugins, Kitty remote workflow, and CLI tools"
@@ -86,7 +86,7 @@ print_usage() {
     echo "  - Shared review runtime installs at ~/.agents/scripts/review_orchestration.py"
     echo "  - Codex discovers shared default-profile skills directly from ~/.agents/skills"
     echo "  - Claude consumes compatible shared skills via per-skill links into ~/.agents/skills"
-    echo "  - When using --pi or --all, Pi prompt templates, subagents, and repo-managed extensions are copied to ~/.pi/agent"
+    echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
     echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, @howaboua/pi-explore-subagents, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
@@ -101,7 +101,7 @@ print_usage() {
     echo "  $0                               # Default: install Claude + Codex + Pi + shared skills"
     echo "  $0 --claude                      # Install Claude to current directory"
     echo "  $0 --codex                       # Sync global Codex resources"
-    echo "  $0 --pi                          # Install Pi prompt templates, subagents, extensions, and refresh shared skills"
+    echo "  $0 --pi                          # Install Pi prompt templates, read-only/planning subagents, extensions, and refresh shared skills"
     echo "  $0 --pi-vcc                     # Transactionally install only the vendored pi-vcc package"
     echo "  $0 --pi-vcc /path/to/pi-vcc     # Install or roll back from an explicit preserved package"
     echo "  $0 --tools                       # Install/update managed Herdr config/plugins, Kitty workflow, and CLI tools"
@@ -2203,8 +2203,8 @@ install_pi() {
     # Shared installable skills are discovered via ~/.agents/skills.
     echo "  - Shared installable skills are discovered via ~/.agents/skills; ~/.pi/agent/skills is reserved for Pi-local-only entries."
 
-    # Install subagent definitions for @tintinweb/pi-subagents.
-    echo "  - Installing Pi subagents..."
+    # Install planning and read-only subagent definitions for @tintinweb/pi-subagents.
+    echo "  - Installing Pi planning/read-only subagents..."
     install_pi_agents_from_repo "$pi_source_dir" "$pi_agents_dir"
 
     # Install extensions.
@@ -2272,7 +2272,7 @@ install_pi() {
         echo -e "${GREEN}✓ Pi installation complete${NC}"
     fi
     echo ""
-    echo "Note: Pi prompt templates, subagents, extensions, and managed model entries are installed to $HOME/.pi/agent"
+    echo "Note: Pi prompt templates, planning/read-only subagents, extensions, and managed model entries are installed to $HOME/.pi/agent"
     echo "      Prompt templates load from ~/.pi/agent/prompts, shared installable skills load from ~/.agents/skills, subagents load from ~/.pi/agent/agents, extensions load from ~/.pi/agent/extensions, and custom models load from ~/.pi/agent/models.json"
 
     # Remove retired goal tooling and deprecated Pi git packages before installing supported ones.
@@ -2289,9 +2289,9 @@ install_pi() {
     # Install vendored pi-vcc through Pi so compaction behavior is pinned to this repo.
     install_vendored_pi_vcc_package
 
-    # Reinstall repo-managed subagent overrides after package installs so they win
-    # over plugin defaults and stay under version control.
-    echo "  - Re-installing Pi subagent overrides after Pi package installs..."
+    # Reinstall repo-managed planning/read-only subagent overrides after package
+    # installs so they win over plugin defaults and stay under version control.
+    echo "  - Re-installing Pi planning/read-only subagent overrides after Pi package installs..."
     install_pi_agents_from_repo "$pi_source_dir" "$pi_agents_dir"
 
     # Package installs/extensions can touch settings; finish by restoring the

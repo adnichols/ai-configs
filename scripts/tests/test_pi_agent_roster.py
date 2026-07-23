@@ -5,15 +5,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / "_pi" / "agents"
-EXPECTED_FILES = {"Explore.md", "developer-mid.md", "planner.md", "reviewer.md", "scout.md"}
+EXPECTED_FILES = {"Explore.md", "planner.md", "reviewer.md", "scout.md"}
 EXPECTED_ROUTES = {
-    "developer-mid": ("openai-codex/gpt-5.6-sol", "medium"),
     "planner": ("openai-codex/gpt-5.6-sol", "medium"),
     "reviewer": ("openai-codex/gpt-5.6-sol", "medium"),
     "scout": ("openai-codex/gpt-5.6-terra", "low"),
 }
 RETIRED_PERSONAS = {
-    "developer-high", "developer-mm", "multi-reviewer", "plan-gpt",
+    "developer-high", "developer-mid", "developer-mm", "multi-reviewer", "plan-gpt",
     "prd-critical-thinker", "quality-reviewer", "research", "researcher",
     "reviewer-gemini", "reviewer-gpt", "reviewer-opus",
     "reviewer-plan-adversarial-gpt", "reviewer-plan-adversarial-opus",
@@ -63,8 +62,7 @@ class PiAgentRosterTest(unittest.TestCase):
             self.assertRegex(body, r"verif(?:y|ied|ication)", name)
             self.assertRegex(body, r"stop|blocker", name)
             self.assertNotRegex(body, r"thoughts/|claude\.md|prd-|plan\.md|context\.md", name)
-        self.assertRegex(bodies["developer-mid"], r"sole|only.*implement")
-        self.assertIn("do not broaden", bodies["developer-mid"])
+        self.assertFalse((AGENTS / "developer-mid.md").exists())
         self.assertIn("planning-only", bodies["planner"])
         self.assertIn("do not modify", bodies["planner"])
         self.assertIn("read-only", bodies["scout"])
@@ -74,6 +72,70 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertRegex(bodies["reviewer"], r"explicit.*review artifact")
         self.assertIn("caller-authorized annotations", bodies["reviewer"])
         self.assertIn("beyond that granted output contract", bodies["reviewer"])
+
+    def test_development_stays_in_driving_session(self):
+        retired_claude_agents = {
+            ROOT / "_claude" / "agents" / "developer.md",
+            ROOT / "_claude" / "agents" / "developer-fidelity.md",
+            ROOT / "_claude" / "agents" / "worktree-creator.md",
+        }
+        self.assertTrue(all(not path.exists() for path in retired_claude_agents))
+
+        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text().lower()
+        self.assertIn("driving agent owns development work directly", doctrine)
+        self.assertIn("do not delegate code edits", doctrine)
+
+        surfaces = [
+            ROOT / "_pi" / "prompts",
+            ROOT / "_codex" / "prompts",
+            ROOT / "_claude" / "commands",
+            ROOT / "skills",
+        ]
+        forbidden = re.compile(
+            r"developer-mid|developer-fidelity|developer-mm|"
+            r"subagent_type\s*[:=]\s*[\"']?developer(?:-[a-z0-9-]+)?|"
+            r"delegate all implementation|always prefer a sub-agent when making changes",
+            re.I,
+        )
+        violations = []
+        for surface in surfaces:
+            for path in sorted(p for p in surface.rglob("*") if p.suffix in {".md", ".json"}):
+                for match in forbidden.finditer(path.read_text(errors="replace")):
+                    line = path.read_text(errors="replace").count("\n", 0, match.start()) + 1
+                    violations.append(f"{path.relative_to(ROOT)}:{line}: {match.group(0)}")
+        self.assertEqual([], violations)
+
+    def test_development_stays_in_driving_session(self):
+        retired_claude_agents = {
+            ROOT / "_claude" / "agents" / "developer.md",
+            ROOT / "_claude" / "agents" / "developer-fidelity.md",
+            ROOT / "_claude" / "agents" / "worktree-creator.md",
+        }
+        self.assertTrue(all(not path.exists() for path in retired_claude_agents))
+
+        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text().lower()
+        self.assertIn("driving agent owns development work directly", doctrine)
+        self.assertIn("do not delegate code edits", doctrine)
+
+        surfaces = [
+            ROOT / "_pi" / "prompts",
+            ROOT / "_codex" / "prompts",
+            ROOT / "_claude" / "commands",
+            ROOT / "skills",
+        ]
+        forbidden = re.compile(
+            r"developer-mid|developer-fidelity|developer-mm|"
+            r"subagent_type\s*[:=]\s*[\"']?developer(?:-[a-z0-9-]+)?|"
+            r"delegate all implementation|always prefer a sub-agent when making changes",
+            re.I,
+        )
+        violations = []
+        for surface in surfaces:
+            for path in sorted(p for p in surface.rglob("*") if p.suffix in {".md", ".json"}):
+                for match in forbidden.finditer(path.read_text(errors="replace")):
+                    line = path.read_text(errors="replace").count("\n", 0, match.start()) + 1
+                    violations.append(f"{path.relative_to(ROOT)}:{line}: {match.group(0)}")
+        self.assertEqual([], violations)
 
     def test_scout_caller_packets_are_bounded_and_evidence_only(self):
         prompts = {
@@ -85,7 +147,7 @@ class PiAgentRosterTest(unittest.TestCase):
             "dev:run": (
                 ROOT / "_pi" / "prompts" / "dev:run.md",
                 "Use `scout` before implementation whenever target files or contracts are not already known.",
-                "\n\nDelegation to `developer-mid`",
+                "\n\nThe driving agent performs all implementation directly",
             ),
             "prd:clarify-round": (
                 ROOT / "_pi" / "prompts" / "prd:clarify-round.md",

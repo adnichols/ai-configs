@@ -23,7 +23,7 @@ Plan review and execution use the maintained `reviewed-html-plan` and `run-plan`
 `pi list` only shows the package-managed set; it does not list repo-managed files like `todo.ts`, `simple-multi-status.ts`, or `pi-prd-mode`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
 
 ```bash
-./install.sh --pi      # Install Pi prompt templates + subagents + extensions and sync shared skills
+./install.sh --pi      # Install Pi prompt templates + read-only/planning subagents + extensions and sync shared skills
 ./install.sh --all     # Install everything, including Pi
 ./install.sh --pi --update  # Update skills.sh-managed global skills first, then install Pi resources
 ```
@@ -52,7 +52,6 @@ Installed layout:
 │   ├── dev:plan.md
 │   └── ...
 ├── agents/
-│   ├── developer-mid.md  # GPT-5.6 Sol medium; sole implementation authority
 │   ├── planner.md        # GPT-5.6 Sol medium; planning-only
 │   ├── reviewer.md       # GPT-5.6 Sol medium; read-only review
 │   ├── scout.md          # GPT-5.6 Terra low; read-only discovery
@@ -73,7 +72,7 @@ The doctrine is request-type-first: questions, explanations, inspection, researc
 
 The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route.
 
-`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. Repository-owned implementation, planning, and review agents use GPT-5.6 Sol medium; the read-only scout uses GPT-5.6 Terra low. GPT-5.4 and GPT-5.4-mini are retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
+`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. The driving Pi session is the only code-writing route. Repository-owned planning and review agents use GPT-5.6 Sol medium; the read-only scout uses GPT-5.6 Terra low. GPT-5.4 and GPT-5.4-mini are retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
 
 ## Structure
 
@@ -220,13 +219,12 @@ The maintained agent files use the flat frontmatter expected by `@tintinweb/pi-s
 
 The installed agent directory is an exact replacement with this roster:
 
-- `developer-mid` — GPT-5.6 Sol medium; sole implementation delegate
 - `planner` — GPT-5.6 Sol medium; planning-only
 - `reviewer` — GPT-5.6 Sol medium; read-only material review
 - `scout` — GPT-5.6 Terra low; bounded read-only discovery
 - `Explore.md` — disabled override, not an active agent
 
-Callers must supply the artifact or allowed surfaces, specialized lens, output destination/format, authority boundary, verification evidence, and stop/verdict vocabulary. No hidden or generic implementation fallback exists. `/cmd:start-linear-issue` performs its deterministic Git/Linear worktree workflow directly and never delegates repository management to an implementation agent.
+Callers must supply the artifact or allowed surfaces, specialized lens, output destination/format, authority boundary, verification evidence, and stop/verdict vocabulary. There is no implementation subagent: the driving session performs code edits, test changes, fixes, verification, and repository management directly. `/cmd:start-linear-issue` likewise performs its deterministic Git/Linear worktree workflow directly.
 
 ## Skills Overview
 
@@ -353,4 +351,4 @@ Skills:
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.
 - `_pi/agents/Explore.md` is only an `enabled: false` override for tintinweb's bundled `Explore` persona; it does not define a repository-owned Explore persona. It does not affect the separately installed `@howaboua/pi-explore-subagents` extension or its `explore_subagent` tool, which remains the intended isolated-discovery path.
-- GPT-5.6 Sol medium is the only repository-owned Pi GPT code-writing route. Use direct targeted reads or `explore_subagent` for discovery before sending scoped code-writing packets to `developer-mid`. If repeated bounded implementation attempts fail to converge, do not escalate implementation reasoning effort or route code-writing through another persona. The bounded review policy may still use one read-only, advisory external consultation through the harness's configured consult/council surface; it may not edit or become implementation authority.
+- GPT-5.6 Sol medium in the driving session is the only repository-owned Pi GPT code-writing route. Perform implementation, test changes, fixes, and repository management directly with native tools. Prefer direct targeted reads for discovery; use `explore_subagent` only as a bounded read-only exception when broad discovery materially benefits from isolated context. Never route code-writing through a subagent or persona.

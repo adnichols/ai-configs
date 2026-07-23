@@ -1,20 +1,20 @@
 ---
-description: Run Playwright with process/log supervision, narrow failure packets, and scoped fixer delegation
+description: Run Playwright with process/log supervision and direct scoped fixes
 argument-hint: "[optional playwright args/filter]"
 ---
 
-# Test Run Playwright (Split Supervision/Fix Mode)
+# Test Run Playwright (Direct Supervision/Fix Mode)
 
-Run Playwright in a background process/PTY session, monitor output incrementally, perform cheap failure investigation first, then delegate narrow fix packets to `developer-mid`. Keep long-running E2E supervision separate from code-writing fixes.
+Run Playwright in a background process/PTY session, monitor output incrementally, perform cheap failure investigation first, then have the driving agent apply narrow fixes directly. Do not delegate code changes to subagents.
 
 Target arguments: `$ARGUMENTS`
 
 ## Defaults
 
 - Base command: `pnpm run test:e2e -- --workers=4 --reporter=list,./tests/opencode-live-events-reporter.ts`
-- Mode: **split supervision/fix** (keep suite running; collect logs and narrow failure families before fix delegation)
-- Apply mode: **narrow-fix** (subagents receive bounded failure packets; no whole-suite supervision)
-- Max fixer concurrency: `2` (only for independent files/failure families)
+- Mode: **direct supervision/fix** (keep suite running; collect logs and narrow failure families before direct fixes)
+- Apply mode: **narrow-fix** (the driving agent handles one bounded failure family at a time)
+- Max fixer concurrency: `1`
 - Failure dedupe key: `project + file + line + title`
 
 ## Process
@@ -44,8 +44,6 @@ Target arguments: `$ARGUMENTS`
    - `offset = 0`
    - `seenFailureKeys = Set()`
    - `queue = []`
-   - `inFlightFixers = 0`
-   - `MAX_CONCURRENT_FIXERS = 2`
    - `fixRecords = []`
 
 ### 2) Watch Loop (PTY Polling)
@@ -60,11 +58,11 @@ Loop until PTY is no longer running:
    - Fallback: parse `list` reporter failure lines when sentinel parsing fails.
 5. When a new failure is found, enqueue it unless deduped by key.
 6. Build a failure packet with command, failing scenario, relevant logs, suspected files, and targeted verification.
-7. If suspected files are ambiguous, use `scout` for callsite discovery before spawning a fixer.
-8. If queue is non-empty and `inFlightFixers < MAX_CONCURRENT_FIXERS`, dispatch one scoped fixer subagent.
+7. If suspected files are ambiguous, prefer direct targeted search; use `scout` only for bounded read-only callsite discovery when that search is insufficient.
+8. If the queue is non-empty, the driving agent investigates and fixes one scoped failure family directly, records the result, then resumes monitoring.
 
 Notes:
-- It is acceptable that output accumulates while a subagent runs; catch up from `offset` after it returns.
+- It is acceptable that output accumulates while the driving agent fixes a failure; catch up from `offset` afterward.
 - Always do a final drain read when run exits so no late events are missed.
 
 ### 3) Failure Event Parsing
@@ -84,9 +82,9 @@ Build dedupe key:
 Fallback parser (if needed):
 - Parse list reporter lines beginning with `x` and extract `[project] file:line:col > title`.
 
-### 4) Build Failure Packets and Spawn Fixer Subagents
+### 4) Build Failure Packets and Fix Directly
 
-For each queued failure, first build a failure packet. If the relevant file area is not clear from the test path, stack, and recent changes, run `scout` to identify likely callsites before spawning a fixer.
+For each queued failure, first build a failure packet. If the relevant file area is not clear from the test path, stack, and recent changes, search directly and use `scout` only as an optional bounded read-only callsite lookup.
 
 Failure packet requirements:
 
@@ -95,53 +93,16 @@ Failure packet requirements:
 - Relevant error message, stack, and attachment paths
 - Suspected files or callsites, with evidence
 - Minimal expected behavior
-- Targeted verification command for the fixer or parent to run
+- Targeted verification command for the driving agent to run
 
-Spawn a `Task` with `subagent_type="developer-mid"` only after the packet is narrow enough that the fixer does not need to rediscover the repo or supervise the whole E2E loop.
+Direct-fix requirements:
 
-Subagent requirements:
-
-1. Investigate root cause for the specific failing test using the provided packet.
+1. Investigate root cause for the specific failing test using the packet.
 2. Apply a minimal code fix directly when the cause is product code.
-3. Do **not** run the full Playwright suite or supervise the parent live run.
+3. Do **not** start another full Playwright suite while the parent live run is active.
 4. If safe and cheap, run only narrowly scoped non-e2e checks related to changed code.
-5. Return:
-   - root cause
-   - files changed
-   - patch summary
-   - targeted verification run or recommended
-   - residual risk
-
-Use this prompt template (fill placeholders):
-
-```text
-Investigate and fix this live Playwright failure.
-
-Failure packet:
-- command: <command>
-- project: <project>
-- test: <title>
-- location: <file>:<line>:<column>
-- status: <status>
-- retry: <retry>/<retriesAllowed>
-- errorMessage: <errorMessage>
-- errorStack: <errorStack>
-- attachmentPaths: <attachmentPaths>
-- suspectedFiles: <scout or log-derived files>
-- expectedBehavior: <minimal expected behavior>
-- targetedVerification: <command/filter>
-
-Constraints:
-- Apply a minimal fix only for this packet.
-- Avoid broad refactors.
-- Do not run the full Playwright suite or supervise the parent live run.
-- Return concise notes with exact file paths changed and targeted verification performed/recommended.
-```
-
-After subagent completion:
-- decrement `inFlightFixers`
-- append result to `fixRecords`
-- continue watch loop immediately
+5. Record root cause, files changed, patch summary, targeted verification, and residual risk in `fixRecords`.
+6. Continue the watch loop immediately after the bounded fix.
 
 ### 5) Completion + Verification Pass
 
@@ -160,8 +121,8 @@ When PTY exits:
 
 ## Guardrails
 
-- Allow up to two concurrent fixers only for independent failure families; keep shared-file failures sequential.
-- If two queued failures target the same file area, process sequentially.
+- Process failure families sequentially in the driving session.
+- If two queued failures target the same file area, deduplicate or process them together only when one root cause clearly explains both.
 - If a failure appears flaky or env-related, mark it and avoid speculative app changes.
-- Prevent GPT-5.6 Sol agents from supervising whole E2E loops unless the operator explicitly escalates.
+- Keep the driving agent responsible for both supervision and fixes; use the background process/PTY so no developer subagent is needed.
 - Keep all outputs concise; include explicit file paths for any code edits.

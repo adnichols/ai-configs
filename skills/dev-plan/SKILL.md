@@ -73,7 +73,7 @@ Validate key claims by directly inspecting the codebase:
 - Identify any routine manual remediation or status-check steps that should instead be absorbed into the normal product flow
 - Audit `AGENTS.md`, product-intent docs, onboarding/install docs, config/status surfaces, and tests for dissonance with that golden path
 
-Use `bash` with `find`, `rg`, and `read` for targeted research. Use `subagent` with exploration agents only for broad searches.
+Use `bash` with `find`, `rg`, and `read` for targeted research. Keep discovery in the driving session by default; use a read-only exploration subagent only when a broad search materially benefits from isolated context.
 
 Do not run side-effecting commands while doing this validation.
 
