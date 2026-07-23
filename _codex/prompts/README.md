@@ -4,41 +4,28 @@
 
 This directory contains a comprehensive set of commands that support a complete development workflow from requirements to implementation and quality assurance. All commands are at the root level with colon-delimited namespacing.
 
-### Core Workflow Commands
-
-**PRD Workflow:**
-1. **`prd:1:create-prd.md`** - Create Product Requirements Documents with strict scope preservation
-2. **`prd:2:gen-tasks.md`** - Convert PRDs to task lists using fidelity-preserving approach
-
-**Specification Workflow:**
-3. **`spec:1:create-spec.md`** - Research ideas and produce specification documents
-4. **`spec:2:gen-tasks.md`** - Convert specifications directly to tasks with 100% fidelity
-
-**Task Processing (Unified):**
-5. **`3:process-tasks.md`** - Process task lists autonomously with fidelity agents (works for both PRD and spec workflows)
-
 ### Documentation Commands
-6. **`doc:fetch.md`** - Fetch documentation for a single library/framework
-7. **`doc:fetch-batch.md`** - Batch fetch documentation from markdown lists
-8. **`doc:update.md`** - Post-implementation documentation generation
+1. **`doc:fetch.md`** - Fetch documentation for a single library/framework
+2. **`doc:fetch-batch.md`** - Batch fetch documentation from markdown lists
+3. **`doc:update.md`** - Post-implementation documentation generation
 
 ### Test Orchestration Commands
-9. **`test:run-playwright.md`** - Run Playwright in PTY, stream failures, and apply scoped fixes directly
-10. **`test:run-playwright:all.md`** - Run full Playwright suite (`test:e2e:all`) in PTY with live fixer orchestration
+4. **`test:run-playwright.md`** - Run Playwright in PTY, stream failures, and apply scoped fixes directly
+5. **`test:run-playwright:all.md`** - Run full Playwright suite (`test:e2e:all`) in PTY with live fixer orchestration
 
 ### Simplification Commands
-11. **`simplify:1:create-plan.md`** - Generate code simplification plans
-12. **`simplify:2:process-plan.md`** - Execute approved simplification plans
+6. **`simplify:1:create-plan.md`** - Generate code simplification plans
+7. **`simplify:2:process-plan.md`** - Execute approved simplification plans
 
 ### Git Utility Commands
-13. **`cmd:commit-push.md`** - Commit all changes and push to GitHub
-14. **`cmd:create-pr.md`** - Create a pull request
-15. **`cmd:start-linear-issue.md`** - Start work on a Linear issue with branch/worktree management
-16. **`cmd:start-linear-issue-branch.md`** - Start a Linear issue on a new branch (no worktree) and draft a first-pass plan
-17. **`cmd:review-pr-comments.md`** - Review and address GitHub PR comments since last commit
+8. **`cmd:commit-push.md`** - Commit all changes and push to GitHub
+9. **`cmd:create-pr.md`** - Create a pull request
+10. **`cmd:start-linear-issue.md`** - Start work on a Linear issue with branch/worktree management
+11. **`cmd:start-linear-issue-branch.md`** - Start a Linear issue on a new branch (no worktree) and draft a first-pass plan
+12. **`cmd:review-pr-comments.md`** - Review and address GitHub PR comments since last commit
 
 ### Workflow Skills
-18. **`run-plan`** - Full lifecycle reviewed-plan execution through PR creation and monitoring
+13. **`run-plan`** - Full lifecycle reviewed-plan execution through PR creation and monitoring
 
 ### Codex Compatibility Notes
 - Codex prompts are kept at parity with Pi prompt availability where practical.
@@ -47,25 +34,7 @@ This directory contains a comprehensive set of commands that support a complete 
 
 ## Command Workflows
 
-### Workflow 1: PRD-Based Development (Fidelity-Preserving)
-```
-/prd:1:create-prd → /prd:2:gen-tasks → /3:process-tasks → /cmd:commit-push → /cmd:create-pr
-```
-- Create a PRD for a feature with exact scope preservation
-- Generate task list using fidelity-preserving approach
-- Process tasks using unified task processor with fidelity agents
-- Commit changes and create pull request
-
-### Workflow 2: Specification-Driven Development (Full Fidelity)
-```
-/spec:1:create-spec → /spec:2:gen-tasks → /3:process-tasks → /cmd:commit-push → /cmd:create-pr
-```
-- Research and create detailed specification
-- Convert specification directly to executable tasks (preserves 100% fidelity)
-- Process tasks using unified task processor with fidelity-preserving agents
-- Commit and create pull request
-
-### Workflow 3: Code Simplification
+### Workflow 1: Code Simplification
 ```
 /simplify:1:create-plan → [Review/Approval] → /simplify:2:process-plan → /cmd:commit-push
 ```
@@ -74,7 +43,7 @@ This directory contains a comprehensive set of commands that support a complete 
 - Execute the approved simplification plan
 - Commit changes
 
-### Workflow 4: Documentation Management
+### Workflow 2: Documentation Management
 ```
 /doc:fetch [library] → [Development] → /doc:update
 ```
@@ -83,22 +52,6 @@ This directory contains a comprehensive set of commands that support a complete 
 - Update project documentation after implementation
 
 ## Key Features
-
-### Unified Task Processing
-The **`/3:process-tasks`** command works for both PRD and spec workflows:
-- **Auto-detects** source type (PRD vs specification) from YAML front-matter
-- Uses fidelity-preserving agents (developer, quality-reviewer)
-- Supports complexity levels (simple/standard/comprehensive) for specs
-- Supports both "Relevant Files" (PRD) and "Implementation Files" (spec) sections
-- Validates based on source document requirements
-
-### Fidelity-Preserving Approach
-All workflow commands follow strict fidelity preservation:
-- **Exact Scope Implementation**: Build only what's specified in source documents
-- **No Scope Creep**: Zero additions beyond explicit requirements
-- **Fidelity Agents**: Always use developer and quality-reviewer
-- **Question Ambiguity**: Ask for clarification rather than making assumptions
-- **Source Reference**: Constantly reference source document to prevent drift
 
 ### Standardized Format
 All commands use consistent:
@@ -110,38 +63,6 @@ All commands use consistent:
 ## Usage Guidelines
 
 ### When to Use Each Command
-
-**`/prd:1:create-prd`**:
-- New feature development from scratch
-- Clear, scoped requirements needed
-- Business stakeholder collaboration
-- Need to ask clarifying questions about requirements
-
-**`/prd:2:gen-tasks`**:
-- Converting PRDs to actionable development tasks
-- Creating task lists that implement only specified requirements
-- Using fidelity-preserving approach
-- No scope expansion beyond PRD content
-
-**`/spec:1:create-spec`**:
-- Research-driven development
-- Complex technical implementations
-- Architecture-heavy projects
-- Collaborative specification creation
-
-**`/spec:2:gen-tasks`**:
-- Converting specifications to executable tasks
-- Direct conversion with 100% fidelity preservation
-- Supports complexity levels (simple/standard/comprehensive)
-- Preserves all technical context and rationale
-
-**`/3:process-tasks`**:
-- Process any task list (PRD or spec-based)
-- Automatically detects source type
-- Uses fidelity-preserving agents
-- Requires git branch (not main)
-- Supports `NOSUBCONF` flag for autonomous processing
-- Implements only what's specified in source documents
 
 **`/doc:fetch` & `/doc:fetch-batch`**:
 - Fetch library/framework documentation
@@ -192,41 +113,20 @@ All commands use consistent:
 - Continue a reviewed plan through full lifecycle execution, PR creation, and post-PR monitoring
 - Use this as the default execution handoff after review integration
 
-## Fidelity-Preserving Agents
-
-### developer
-- Implements EXACTLY what's specified in source documents
-- Adds NO tests, security, or features beyond specification requirements
-- Questions ambiguity rather than making assumptions
-- Used by all task processing workflows
-
-### quality-reviewer
-- Reviews implementation against specification requirements ONLY
-- Does NOT require additional security, testing, or compliance beyond specification
-- Validates fidelity preservation and prevents scope creep
-- Used by all task processing workflows
-
 ## Best Practices
 
 1. **Always work on feature branches** (not main)
-2. **One sub-task at a time** unless `NOSUBCONF` specified
-3. **Validate before commit** - commands enforce validation based on source requirements
-4. **Context preservation** - task lists maintain full context from source documents
-5. **Progress tracking** - regular task list updates required (mandatory checkpoint system)
-6. **Fidelity first** - constantly reference source documents during implementation
+2. **Validate before commit** - commands enforce validation based on source requirements
+3. **Context preservation** - task lists maintain full context from source documents
+4. **Progress tracking** - regular task list updates required (mandatory checkpoint system)
 
 ## File Structure
 
 All commands are flat at the root level:
 ```
 commands/
-├── 3:process-tasks.md (unified processor)
 ├── test:run-playwright:all.md
 ├── test:run-playwright.md
-├── prd:1:create-prd.md
-├── prd:2:gen-tasks.md
-├── spec:1:create-spec.md
-├── spec:2:gen-tasks.md
 ├── doc:fetch.md
 ├── doc:fetch-batch.md
 ├── doc:update.md
@@ -273,13 +173,11 @@ All commands integrate with:
 ## Command Naming Convention
 
 Commands use colon-delimited namespacing:
-- `prd:[phase]:` - PRD workflow commands (e.g., `prd:1:create-prd`)
-- `spec:[phase]:` - Specification workflow commands (e.g., `spec:1:create-spec`)
+- `prd:` - PRD commands (e.g., `prd:clarify-round`)
 - `doc:` - Documentation commands
 - `test:` - Test orchestration commands
 - `simplify:[phase]:` - Code simplification commands (e.g., `simplify:1:create-plan`)
 - `cmd:` - Git and utility commands (e.g., `cmd:commit-push`, `cmd:start-linear-issue`)
 - `skill:` - Repo-owned workflow skills such as `run-plan`
-- `[number]:` - Cross-workflow phase commands (e.g., `3:process-tasks`)
 
 This flat structure ensures compatibility with all AI coding agents that don't traverse subdirectories.

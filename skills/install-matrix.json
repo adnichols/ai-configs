@@ -703,6 +703,17 @@
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
+    },
+    "supervise": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi"
+      ],
+      "canonicalSource": "skills/supervise",
+      "notes": "Trajectory-guarding supervisor for worker agents: adjacent Herdr pane, reactive checkpoint protocol (plan-ready and pre-PR blocking, advisory phase nudges), expansion-log oversight. Counterweight to the loosened scope doctrine.",
+      "sourceType": "repo"
     }
   },
   "skillProfiles": {

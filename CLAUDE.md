@@ -56,10 +56,7 @@ The install script auto-detects existing installations and:
 
 Key specialized agents available:
 
-- `developer`: Implements specs with tests - enforces zero linting violations
-- `developer-fidelity`: Implements ONLY what's specified - no scope additions
 - `quality-reviewer`: Reviews code for production failures (security, data loss, performance)
-- `quality-reviewer-fidelity`: Reviews against specification requirements ONLY - prevents scope creep
 - `simplify-planner`: Code cleanup specialist for complexity reduction
 - `debugger`: Systematic bug analysis through evidence gathering
 - `technical-writer`: Creates documentation after feature completion
@@ -67,13 +64,6 @@ Key specialized agents available:
 ## Custom Commands
 
 Important slash commands:
-
-### Workflow Commands
-- `/prd:1:create-prd`: Create Product Requirements Documents with strict scope preservation
-- `/prd:2:gen-tasks`: Convert PRDs to task lists using fidelity-preserving approach
-- `/spec:1:create-spec`: Research ideas and produce specification documents
-- `/spec:2:gen-tasks`: Convert specifications directly to tasks with 100% fidelity
-- `/3:process-tasks`: Process task lists autonomously - executes entire phases with fidelity agents (unified for both PRD and spec workflows)
 
 ### Documentation Commands
 - `/doc:fetch`: Fetch documentation for a single library/framework
@@ -178,30 +168,10 @@ Fetched documentation available for enhanced Claude Code assistance:
 
 ## Important Workflow Patterns
 
-### Task Processing Requirements
-
-When using `/3:process-tasks`:
+### Branch Policy
 
 - In `ai-configs`, stay on `main`; the branch-other-than-`main` rule applies to downstream project repos, not this configuration repo
 - This is an intentional repo-specific exception and may contradict shared guidance used elsewhere. Do not treat that contradiction as a mistake to fix.
-- Uses fidelity-preserving agents (developer-fidelity, quality-reviewer-fidelity)
-- **Processes entire phases autonomously** - no confirmation required between subtasks (use NOSUBCONF flag)
-- Updates task list markdown after each subtask completion
-- Test suite must pass before committing (only if tests were specified in source)
-- Follow conventional commit format with descriptive messages
-- Implement ONLY what's explicitly specified in source documents
-- Auto-detects whether source is PRD or specification
-- Stops only when: phase complete, clarification needed, or validation fails 3+ times
-
-### Fidelity-Preserving Workflow
-
-All commands now follow the fidelity-preserving approach:
-
-- **Exact Implementation**: Build only features explicitly specified in source documents
-- **No Scope Expansion**: Zero additions beyond explicit requirements
-- **Question Ambiguities**: Ask for clarification rather than making assumptions
-- **Preserve Constraints**: Maintain all limitations from source specifications
-- **Fidelity Agents**: Always use developer-fidelity and quality-reviewer-fidelity for implementation
 
 ### Code Simplification Workflow
 

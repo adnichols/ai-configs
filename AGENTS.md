@@ -43,11 +43,9 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 
 **Rationale:** MCP tool wrapping introduces unnecessary latency and may produce inconsistent results. Native Codex tools are optimized for the local filesystem and provide superior performance.
 
-## Review & Fidelity Safeguards
+## Review Safeguards
 - `reviewer` (GPT-5.6 Sol medium; `_pi/agents/reviewer.md`) — Pi read-only material review using the caller's explicit lens, artifact, output, and verdict contract.
 - `quality-reviewer` (inherits workspace default model; `_claude/agents/quality-reviewer.md`) — Claude-owned production safety review covering security, data loss, regressions, and performance; this Claude catalog entry is unrelated to the consolidated Pi roster.
-- `quality-reviewer-fidelity` (sonnet; `_claude/agents/quality-reviewer-fidelity.md`) — Ensures code matches specification requirements exactly with no scope expansion.
-- `fidelity-reviewer` (opus; `_claude/agents/fidelity-reviewer.md`) — Compares generated task lists against source specifications and researches discrepancies.
 
 ## Debugging Support
 - `debugger` (sonnet; `_claude/agents/debugger.md`) — Evidence-driven debugger who gathers logs, forms hypotheses, and recommends fixes without modifying production code.
@@ -328,3 +326,7 @@ For local development in this repo, add the repo-owned shared skill tree to your
 - For any change to live Hermes configuration (`~/.hermes` skills, config, hooks, plugins, scripts, cron jobs, memories, or profile-local equivalents), also run `python3 scripts/hermes_config_sync.py export` from this repo, then `python3 scripts/hermes_config_sync.py verify`.
 - Prefer source-first edits in `_hermes/default`; preview install with `python3 scripts/hermes_config_sync.py install --dry-run`, then apply with `python3 scripts/hermes_config_sync.py install --apply` when live Hermes should be updated.
 - After synchronization and verification, commit and push the `ai-configs` changes so the repo copy stays authoritative. Do not commit secrets or runtime state; the sync tool excludes those surfaces.
+
+## Supervisor workflow
+
+Plan execution (run-plan / dev:run) attaches a trajectory-guarding supervisor in an adjacent Herdr pane: a top-level Pi session (`openai-codex/gpt-5.6-sol`, thinking high) launched with `--append-system-prompt ~/.agents/skills/supervise/supervisor-prompt.md --tools read,bash`. The worker owns technical judgment; the supervisor owns trajectory (outcome aim, expansion reasoning, disclosure honesty). Two checkpoints block — plan-ready and pre-PR — via correlated `CHECKPOINT REQUEST[<id>]` / `CHECKPOINT[<id>]: PROCEED|REVISE` receipts; phase-boundary pings yield advisory nudges. Product-changing expansions escalate to the human; the supervisor never approves them. Full protocol: `skills/supervise/SKILL.md`.

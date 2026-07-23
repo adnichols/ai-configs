@@ -352,3 +352,7 @@ Skills:
 - `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.
 - `_pi/agents/Explore.md` is only an `enabled: false` override for tintinweb's bundled `Explore` persona; it does not define a repository-owned Explore persona. It does not affect the separately installed `@howaboua/pi-explore-subagents` extension or its `explore_subagent` tool, which remains the intended isolated-discovery path.
 - GPT-5.6 Sol medium in the driving session is the only repository-owned Pi GPT code-writing route. Perform implementation, test changes, fixes, and repository management directly with native tools. Prefer direct targeted reads for discovery; use `explore_subagent` only as a bounded read-only exception when broad discovery materially benefits from isolated context. Never route code-writing through a subagent or persona.
+
+## Supervisor (skills/supervise)
+
+The supervisor is deliberately **not** a `_pi/agents/` persona — it runs as a top-level Pi process in its own Herdr pane so it can watch a worker session from outside. Launch, checkpoint, and shutdown protocol live in `skills/supervise/SKILL.md` (deployed to `~/.agents/skills/supervise/`). The Pi subagent roster (`test_pi_agent_roster.py`) is unaffected.
