@@ -89,7 +89,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, @howaboua/pi-explore-subagents, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, @howaboua/pi-explore-subagents, pi-service-tier, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
     echo "  - The tracked Herdr config is installed locally whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
@@ -3043,6 +3043,7 @@ install_pi_npm_packages() {
         "@pi-kaush/pi-inline-skill-identifier"
         "@howaboua/pi-vent"
         "@howaboua/pi-explore-subagents"
+        "pi-service-tier"
     )
     local deprecated_npm_packages=(
         "@howaboua/pi-codex-conversion"
@@ -3113,6 +3114,14 @@ install_pi_npm_packages() {
     done
 
     echo -e "${GREEN}  ✓ npm-based extensions processed${NC}"
+
+    # CLIProxyAPI exposes Codex GPT models through Pi's standard
+    # openai-responses adapter, while pi-service-tier's upstream provider check
+    # only recognizes openai-codex-responses. Keep the installed package
+    # compatible with the repo-managed local CLIProxyAPI provider.
+    if ! python3 "$REPO_ROOT/scripts/patch_pi_service_tier.py"; then
+        echo -e "${YELLOW}⚠ Failed to apply pi-service-tier CLIProxyAPI compatibility patch${NC}"
+    fi
 }
 
 # Argument parsing. The scoped pi-vcc mode intentionally accepts no other

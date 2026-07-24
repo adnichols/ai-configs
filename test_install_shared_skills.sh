@@ -881,6 +881,7 @@ packages = [
     "npm:@howaboua/pi-vent",
     "npm:@howaboua/pi-codex-conversion",
     "npm:@howaboua/pi-explore-subagents",
+    "npm:pi-service-tier",
     "npm:pi-codex-goal",
     pi_vcc,
 ]

@@ -204,6 +204,7 @@ npm-managed packages:
 - `@pi-kaush/pi-inline-skill-identifier`
 - `@howaboua/pi-vent`
 - `@howaboua/pi-explore-subagents`
+- `pi-service-tier` — service-tier controls, patched during installation for CLIProxyAPI's `openai-responses` Codex route
 
 local path packages:
 - `~/.pi/agent/local-packages/ai-configs/pi-vcc` (a stable mirror synced from `./_pi/packages/pi-vcc`; install tests and worktrees must not register their transient checkout path)

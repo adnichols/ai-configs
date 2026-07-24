@@ -198,6 +198,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@pi-kaush/pi-inline-skill-identifier"
   "npm:@howaboua/pi-vent"
   "npm:@howaboua/pi-explore-subagents"
+  "npm:pi-service-tier"
 )
 
 FAILURES=0
@@ -452,6 +453,11 @@ print_list "registered: " "$INSTALLED_PI_PACKAGES"
 ALL_EXPECTED_PACKAGES="$(printf '%s\n%s\n' "$EXPECTED_GIT_PACKAGE_LINES" "$(printf '%s\n' "${EXPECTED_NPM_PACKAGES[@]}")")"
 ALL_EXPECTED_PACKAGES="$(printf '%s\n%s\n' "$ALL_EXPECTED_PACKAGES" "$EXPECTED_LOCAL_PACKAGES")"
 report_expected_vs_actual "  Comparison:" "$ALL_EXPECTED_PACKAGES" "$INSTALLED_PI_PACKAGES" true
+
+PI_SERVICE_TIER_SHARED="$PI_AGENT_DIR/npm/node_modules/pi-service-tier/shared.ts"
+if [ -f "$PI_SERVICE_TIER_SHARED" ] && ! grep -Fq 'const usesCLIProxyAPIResponses =' "$PI_SERVICE_TIER_SHARED"; then
+  note_failure "pi-service-tier is installed without the CLIProxyAPI openai-responses compatibility patch"
+fi
 
 print_section "4) Quick checks"
 echo "  Repo-managed extensions: find ~/.pi/agent/extensions -mindepth 1 -maxdepth 1 -exec basename {} \\; | sort"
