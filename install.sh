@@ -89,7 +89,8 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, @howaboua/pi-explore-subagents, pi-service-tier, vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror, and pi-interactive-shell from ../3p/pi-interactive-shell when that fork exists (otherwise git:github.com/adnichols/pi-interactive-shell)"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, @howaboua/pi-explore-subagents, pi-service-tier, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr config is installed locally whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
@@ -2273,16 +2274,13 @@ install_pi() {
     echo "Note: Pi prompt templates, planning/read-only subagents, extensions, and managed model entries are installed to $HOME/.pi/agent"
     echo "      Prompt templates load from ~/.pi/agent/prompts, shared installable skills load from ~/.agents/skills, subagents load from ~/.pi/agent/agents, extensions load from ~/.pi/agent/extensions, and custom models load from ~/.pi/agent/models.json"
 
-    # Remove retired goal tooling and deprecated Pi git packages before installing supported ones.
+    # Remove retired Pi tooling before installing supported packages.
     remove_retired_pi_goal_plugin "$pi_agent_dir"
+    remove_retired_pi_interactive_shell_package "$pi_agent_dir"
     remove_deprecated_pi_git_packages
 
     # Install npm-based pi extensions
     install_pi_npm_packages
-
-    # Install pi-interactive-shell, preferring the sibling local fork when present,
-    # otherwise install from the GitHub fork.
-    install_pi_interactive_shell_package
 
     # Install vendored pi-vcc through Pi so compaction behavior is pinned to this repo.
     install_vendored_pi_vcc_package
@@ -2492,135 +2490,41 @@ report_pi_vcc_upstream_status() {
     return 0
 }
 
-normalize_pi_package_source() {
+resolve_pi_package_source() {
     local source="$1"
+    local settings_path="$2"
 
     case "$source" in
-        npm:*|git:*)
-            printf '%s\n' "$source"
-            ;;
-        *)
-            python3 - "$source" <<'PY'
-import os
-import sys
-print(os.path.realpath(sys.argv[1]))
-PY
-            ;;
-    esac
-}
-
-purge_stale_pi_interactive_shell_registrations() {
-    local settings_path="$1"
-    local normalized_desired_source="$2"
-
-    python3 - "$settings_path" "$normalized_desired_source" <<'PY'
-import json
+        npm:*|git:*) printf '%s\n' "$source" ;;
+        *) python3 - "$source" "$settings_path" <<'PY'
 import os
 import sys
 from pathlib import Path
-
-settings_path = Path(sys.argv[1])
-desired = sys.argv[2]
-settings_dir = settings_path.parent
-
-try:
-    data = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-except json.JSONDecodeError:
-    data = {}
-if not isinstance(data, dict):
-    data = {}
-
-packages = data.get("packages")
-if not isinstance(packages, list):
-    packages = []
-
-def source_for(item):
-    if isinstance(item, str):
-        return item
-    if isinstance(item, dict) and isinstance(item.get("source"), str):
-        return item["source"]
-    return None
-
-def normalize(source):
-    if source.startswith(("npm:", "git:")):
-        return source
-    path = Path(source)
-    if not path.is_absolute():
-        path = settings_dir / path
-    return str(path.resolve())
-
-next_packages = []
-removed = []
-has_desired = False
-for item in packages:
-    source = source_for(item)
-    if not (isinstance(source, str) and "pi-interactive-shell" in source):
-        next_packages.append(item)
-        continue
-
-    normalized = normalize(source)
-    if normalized == desired:
-        if has_desired:
-            removed.append(source)
-            continue
-        has_desired = True
-        next_packages.append(item)
-        continue
-
-    removed.append(source)
-
-if removed:
-    data["packages"] = next_packages
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
-    settings_path.write_text(json.dumps(data, indent=2) + "\n")
-    for source in removed:
-        print(source)
+source, settings_path = sys.argv[1:]
+path = Path(source)
+if not path.is_absolute():
+    path = Path(settings_path).parent / path
+print(os.path.realpath(path))
 PY
+        ;;
+    esac
 }
 
-install_pi_interactive_shell_package() {
-    local source_rel="../3p/pi-interactive-shell"
-    local source_abs="$REPO_ROOT/../3p/pi-interactive-shell"
-    local desired_source="git:github.com/adnichols/pi-interactive-shell"
-    local desired_label="git:github.com/adnichols/pi-interactive-shell"
-    local normalized_desired_source="git:github.com/adnichols/pi-interactive-shell"
-    local pi_agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+remove_retired_pi_interactive_shell_package() {
+    local pi_agent_dir="$1"
     local settings_path="$pi_agent_dir/settings.json"
+    local source removal_source
 
-    echo ""
-    echo -e "${GREEN}  Installing pi-interactive-shell via pi package manager...${NC}"
-
-    if [ -f "$source_abs/package.json" ]; then
-        desired_source="$source_rel"
-        desired_label="$source_rel"
-        normalized_desired_source="$(cd "$source_abs" && pwd)"
-        echo "  - Using local pi-interactive-shell fork at $source_rel"
-    else
-        echo "  - Local pi-interactive-shell fork not found; falling back to GitHub fork"
-    fi
-
-    local removed_source
-    while IFS= read -r removed_source; do
-        [ -n "$removed_source" ] || continue
-        echo "  - Purged stale pi-interactive-shell package registration $removed_source from $settings_path"
-    done < <(purge_stale_pi_interactive_shell_registrations "$settings_path" "$normalized_desired_source")
-
-    local existing_source normalized_existing_source has_desired=false
-    while IFS= read -r existing_source; do
-        [ -n "$existing_source" ] || continue
-        normalized_existing_source="$(normalize_pi_package_source "$existing_source")"
-        if [ "$normalized_existing_source" = "$normalized_desired_source" ]; then
-            has_desired=true
-            continue
-        fi
-
-        echo "  - Removing legacy pi-interactive-shell package $existing_source..."
-        if pi remove "$existing_source" 2>/dev/null; then
-            echo -e "    ${GREEN}✓ removed $existing_source${NC}"
+    while IFS= read -r source; do
+        [ -n "$source" ] || continue
+        removal_source="$(resolve_pi_package_source "$source" "$settings_path")"
+        echo "  - Removing retired pi-interactive-shell package $source..."
+        if pi remove "$removal_source" 2>/dev/null; then
+            echo -e "    ${GREEN}✓ $source removed${NC}"
         else
-            echo -e "    ${YELLOW}⚠ Failed to remove legacy pi-interactive-shell package $existing_source${NC}"
+            echo -e "    ${YELLOW}⚠ Failed to remove retired pi-interactive-shell package $source${NC}"
             echo "      To remove manually, run:"
-            echo "        pi remove $existing_source"
+            echo "        pi remove $removal_source"
         fi
     done < <(
         {
@@ -2643,20 +2547,31 @@ PY
         } | sort -u
     )
 
-    if [ "$has_desired" = true ]; then
-        echo "  - pi-interactive-shell already registered with Pi, updating..."
-        pi update "$desired_source" 2>/dev/null || echo -e "    ${YELLOW}⚠ Update check skipped (pi update may require manual run)${NC}"
-    else
-        echo "  - Installing pi-interactive-shell from $desired_label..."
-        if (cd "$REPO_ROOT" && pi install "$desired_source" 2>/dev/null); then
-            echo -e "    ${GREEN}✓ pi-interactive-shell installed${NC}"
-        else
-            echo -e "    ${YELLOW}⚠ Failed to install pi-interactive-shell via pi package manager${NC}"
-            echo "      To install manually, run from the repo root:"
-            echo "        pi install $desired_source"
-            return 1
-        fi
-    fi
+    python3 - "$settings_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+if not settings_path.exists():
+    raise SystemExit(0)
+try:
+    data = json.loads(settings_path.read_text())
+except json.JSONDecodeError:
+    raise SystemExit(0)
+if not isinstance(data, dict):
+    raise SystemExit(0)
+packages = data.get("packages")
+if not isinstance(packages, list):
+    raise SystemExit(0)
+data["packages"] = [
+    item for item in packages
+    if "pi-interactive-shell" not in (
+        item.get("source", "") if isinstance(item, dict) else item if isinstance(item, str) else ""
+    )
+]
+settings_path.write_text(json.dumps(data, indent=2) + "\n")
+PY
 }
 
 install_vendored_pi_vcc_package() {

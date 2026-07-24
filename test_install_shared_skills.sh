@@ -844,26 +844,22 @@ JSON
 }
 
 test_verify_pi_install_reports_stale_goal_package() {
-  local home fake_bin output_file settings_path local_fork
+  local home fake_bin output_file settings_path
   home="$(new_tmp_dir)"
   fake_bin="$(create_fake_tool_bin "$home")"
   output_file="$home/verify.log"
   settings_path="$home/.pi/agent/settings.json"
-  local_fork="$(cd "$SCRIPT_DIR/../3p/pi-interactive-shell" 2>/dev/null && pwd || true)"
-
   mkdir -p "$home/.pi/agent/extensions" "$(dirname "$settings_path")" "$home/.pi/agent/local-packages/ai-configs/pi-vcc"
   cp -R "$SCRIPT_DIR/_pi/extensions/." "$home/.pi/agent/extensions/"
   printf '{"name":"@adnichols/pi-vcc"}\n' > "$home/.pi/agent/local-packages/ai-configs/pi-vcc/package.json"
 
-  python3 - "$settings_path" "$home/.pi/agent/local-packages/ai-configs/pi-vcc" "$local_fork" <<'PY'
+  python3 - "$settings_path" "$home/.pi/agent/local-packages/ai-configs/pi-vcc" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 settings_path = Path(sys.argv[1])
 pi_vcc = sys.argv[2]
-local_fork = sys.argv[3]
-
 packages = [
     "npm:@tintinweb/pi-subagents",
     "npm:@aliou/pi-processes",
@@ -885,7 +881,7 @@ packages = [
     "npm:pi-codex-goal",
     pi_vcc,
 ]
-packages.append(local_fork if local_fork else "git:github.com/adnichols/pi-interactive-shell")
+packages.append("git:github.com/adnichols/pi-interactive-shell")
 settings_path.write_text(json.dumps({"packages": packages}, indent=2) + "\n")
 PY
 
@@ -896,25 +892,26 @@ PY
   if ! grep -Fq 'retired pi-codex-goal package is still registered' "$output_file" ||
     ! grep -Fq 'retired @howaboua/pi-codex-conversion package is still registered' "$output_file" ||
     ! grep -Fq 'retired @ff-labs/pi-fff package is still registered' "$output_file" ||
-    ! grep -Fq 'retired pi-side-agents package is still registered' "$output_file"; then
+    ! grep -Fq 'retired pi-side-agents package is still registered' "$output_file" ||
+    ! grep -Fq 'retired pi-interactive-shell package is still registered' "$output_file"; then
     cat "$output_file" >&2
     return 1
   fi
 }
 
-test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails() {
-  local home output_file local_fork settings_path
+test_pi_install_removes_retired_interactive_shell_when_pi_list_fails() {
+  local home output_file settings_path stale_local
   home="$(new_tmp_dir)"
   output_file="$home/pi-install.log"
-  local_fork="$(cd "$SCRIPT_DIR/../3p/pi-interactive-shell" 2>/dev/null && pwd || true)"
   settings_path="$home/.pi/agent/settings.json"
+  stale_local="$(new_tmp_dir)/pi-interactive-shell"
 
-  [[ -n "$local_fork" ]] || return 0
-  mkdir -p "$(dirname "$settings_path")"
-  cat > "$settings_path" <<'JSON'
+  mkdir -p "$stale_local" "$(dirname "$settings_path")"
+  cat > "$settings_path" <<JSON
 {
   "packages": [
-    "git:github.com/adnichols/pi-interactive-shell"
+    "git:github.com/adnichols/pi-interactive-shell",
+    { "source": "$stale_local" }
   ]
 }
 JSON
@@ -924,75 +921,9 @@ JSON
     return 1
   }
 
-  assert_file_contains "$output_file" 'Purged stale pi-interactive-shell package registration git:github.com/adnichols/pi-interactive-shell' || return 1
-  assert_file_not_contains "$settings_path" 'git:github.com/adnichols/pi-interactive-shell' || return 1
-  python3 - "$settings_path" "$local_fork" <<'PY'
-import json
-import sys
-from pathlib import Path
-settings_path = Path(sys.argv[1])
-expected = Path(sys.argv[2]).resolve()
-data = json.loads(settings_path.read_text())
-for item in data.get("packages", []):
-    source = item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
-    if isinstance(source, str) and "pi-interactive-shell" in source:
-        path = Path(source)
-        if not path.is_absolute():
-            path = settings_path.parent / path
-        if path.resolve() == expected:
-            raise SystemExit(0)
-raise SystemExit(1)
-PY
-}
-
-test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails() {
-  local home output_file temp_repo settings_path stale_local
-  home="$(new_tmp_dir)"
-  temp_repo="$(new_tmp_dir)/repo"
-  output_file="$home/pi-install.log"
-  settings_path="$home/.pi/agent/settings.json"
-  stale_local="$(new_tmp_dir)/pi-interactive-shell"
-
-  mkdir -p "$temp_repo" "$stale_local" "$(dirname "$settings_path")"
-  cp "$INSTALLER" "$temp_repo/install.sh"
-  mkdir -p "$temp_repo/_pi" "$temp_repo/skills" "$temp_repo/scripts"
-  cp "$SCRIPT_DIR/scripts/render_pi_append_system.py" "$temp_repo/scripts/"
-  cp "$SCRIPT_DIR/scripts/review_orchestration.py" "$temp_repo/scripts/"
-  cp -R "$SCRIPT_DIR/_pi/prompts" "$temp_repo/_pi/"
-  cp -R "$SCRIPT_DIR/_pi/agents" "$temp_repo/_pi/"
-  cp -R "$SCRIPT_DIR/_pi/extensions" "$temp_repo/_pi/"
-  cp -R "$SCRIPT_DIR/_pi/packages" "$temp_repo/_pi/"
-  cp "$SCRIPT_DIR/_pi/models.json" "$temp_repo/_pi/models.json"
-  printf '{}\n' > "$temp_repo/skills/install-matrix.json"
-  printf 'Doctrine-Version: {{AI_CONFIGS_VERSION}}\n\nsystem\n' > "$temp_repo/APPEND_SYSTEM.md"
-  printf 'readme\n' > "$temp_repo/_pi/README.md"
-  git -C "$temp_repo" init -q
-  git -C "$temp_repo" config user.name 'ai-configs test'
-  git -C "$temp_repo" config user.email 'ai-configs-test@example.invalid'
-  git -C "$temp_repo" add APPEND_SYSTEM.md
-  git -C "$temp_repo" commit -q -m 'test doctrine source'
-  printf '{}\n' > "$settings_path"
-  cat > "$settings_path" <<JSON
-{
-  "packages": [
-    "$stale_local"
-  ]
-}
-JSON
-
-  local fake_bin
-  fake_bin="$(create_fake_tool_bin "$home")"
-  (
-    cd "$temp_repo" &&
-      HOME="$home" PATH="$fake_bin:$PATH" AI_CONFIGS_FAKE_PI_LIST_FAILS=1 bash "$temp_repo/install.sh" --pi >"$output_file" 2>&1
-  ) || {
-    cat "$output_file" >&2
-    return 1
-  }
-
-  assert_file_contains "$output_file" "Purged stale pi-interactive-shell package registration $stale_local" || return 1
-  assert_file_not_contains "$settings_path" "$stale_local" || return 1
-  assert_file_contains "$settings_path" 'git:github.com/adnichols/pi-interactive-shell' || return 1
+  assert_file_contains "$output_file" 'Removing retired pi-interactive-shell package git:github.com/adnichols/pi-interactive-shell' || return 1
+  assert_file_contains "$output_file" "Removing retired pi-interactive-shell package $stale_local" || return 1
+  assert_file_not_contains "$settings_path" 'pi-interactive-shell' || return 1
 }
 
 test_pi_doctrine_renderer_tracks_exact_git_state() {
@@ -1767,8 +1698,7 @@ main() {
   run_test test_pi_install_removes_retired_goal_packages
   run_test test_pi_install_replaces_gpt_config_packages
   run_test test_verify_pi_install_reports_stale_goal_package
-  run_test test_pi_interactive_shell_local_install_purges_stale_git_when_pi_list_fails
-  run_test test_pi_interactive_shell_git_fallback_purges_stale_local_when_pi_list_fails
+  run_test test_pi_install_removes_retired_interactive_shell_when_pi_list_fails
   run_test test_pi_doctrine_renderer_tracks_exact_git_state
   run_test test_pi_interaction_doctrine_is_versioned_and_read_only_by_default
   run_test test_phase_three_docs_use_canonical_shared_skill_paths

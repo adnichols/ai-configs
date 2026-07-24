@@ -367,13 +367,6 @@ EXPECTED_REPO_EXTENSIONS="$(cd "$REPO_ROOT" && list_find_entries "_pi/extensions
 EXPECTED_REPO_AGENTS="$(cd "$REPO_ROOT" && list_find_entries "_pi/agents")"
 INSTALLED_REPO_AGENTS="$(list_find_entries "$PI_AGENT_DIR/agents")"
 EXPECTED_LOCAL_PACKAGES="$PI_VCC_STABLE_PACKAGE"
-LOCAL_PI_INTERACTIVE_SHELL="$(cd "$REPO_ROOT/../3p/pi-interactive-shell" 2>/dev/null && pwd || true)"
-if [ -n "$LOCAL_PI_INTERACTIVE_SHELL" ]; then
-  EXPECTED_LOCAL_PACKAGES="$EXPECTED_LOCAL_PACKAGES
-$LOCAL_PI_INTERACTIVE_SHELL"
-else
-  EXPECTED_NPM_PACKAGES+=("git:github.com/adnichols/pi-interactive-shell")
-fi
 INSTALLED_REPO_EXTENSIONS="$(list_find_entries "$PI_EXT_DIR")"
 INSTALLED_PI_PACKAGES=""
 
@@ -607,6 +600,12 @@ if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'npm:pi-side-agents'; then
   note_failure "retired pi-side-agents package is still registered"
 else
   echo "  pi-side-agents registration: absent"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-interactive-shell'; then
+  note_failure "retired pi-interactive-shell package is still registered"
+else
+  echo "  pi-interactive-shell registration: absent"
 fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"

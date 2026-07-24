@@ -208,7 +208,8 @@ npm-managed packages:
 
 local path packages:
 - `~/.pi/agent/local-packages/ai-configs/pi-vcc` (a stable mirror synced from `./_pi/packages/pi-vcc`; install tests and worktrees must not register their transient checkout path)
-- `../3p/pi-interactive-shell` (preferred when present; otherwise `git:github.com/adnichols/pi-interactive-shell`)
+
+Use Herdr to launch and manage visible interactive agent sessions.
 
 `@howaboua/pi-codex-conversion` is retired from the managed install; the installer removes stale npm and git registrations.
 
