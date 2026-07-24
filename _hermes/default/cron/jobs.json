@@ -276,7 +276,7 @@
       ],
       "skill": "github-functional-merge-review",
       "model": "gpt-5.6-terra",
-      "provider": "custom:local-(localhost:8317)",
+      "provider": "custom:local-(localhost:8318)",
       "provider_snapshot": null,
       "model_snapshot": null,
       "base_url": null,

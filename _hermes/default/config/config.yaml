@@ -1,7 +1,7 @@
 model:
   default: gpt-5.6-sol
-  provider: custom:local-(localhost:8317)
-  base_url: http://localhost:8317/v1
+  provider: custom:local-(localhost:8318)
+  base_url: http://localhost:8318/v1
   api_key: ''
 fallback_providers: []
 toolsets:
@@ -177,7 +177,7 @@ bedrock:
     trace: disabled
 auxiliary:
   vision:
-    provider: custom:local-(localhost:8317)
+    provider: custom:local-(localhost:8318)
     model: gpt-5.6-terra
     timeout: 30
     download_timeout: 30
@@ -214,7 +214,7 @@ auxiliary:
   title_generation:
     provider: custom
     model: gpt-5.4-mini
-    base_url: http://localhost:8317/v1
+    base_url: http://localhost:8318/v1
     api_key: ''
     timeout: 30
     language: ''
@@ -717,8 +717,8 @@ custom_providers:
   base_url: http://localhost:11434/v1/
   api_key: '[REDACTED: managed outside ai-configs]'
   model: kimi-k2.5:cloud
-- name: Local (localhost:8317)
-  base_url: http://localhost:8317/v1
+- name: Local (localhost:8318)
+  base_url: http://localhost:8318/v1
   model: gpt-5.6-sol
 platforms:
   webhook:

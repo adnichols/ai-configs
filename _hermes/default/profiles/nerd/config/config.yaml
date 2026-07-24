@@ -1,7 +1,7 @@
 model:
   default: gpt-5.6-sol
   provider: custom
-  base_url: http://localhost:8317/v1
+  base_url: http://localhost:8318/v1
 providers: {}
 fallback_providers: []
 credential_pool_strategies: {}
