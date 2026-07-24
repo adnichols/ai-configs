@@ -8467,9 +8467,9 @@
       "sha256": "4773af49e2516f01b9bad4df779449bf75b300d991549a7ac84108cd46a8ebd2"
     },
     {
-      "bytes": 45495,
+      "bytes": 44379,
       "path": "skills/software-development/run-plan/SKILL.md",
-      "sha256": "581e6c56d6726b63a5f1fe993fb1bfbcbae066bd1580a8132d7ff1deaca64330"
+      "sha256": "0ae48a5214fe25119850ab93214bc64c354834aaa620f5ab9a8ef99053b06fb4"
     },
     {
       "bytes": 10841,
@@ -8502,7 +8502,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260724T132841Z",
+  "generated_at": "20260724T161216Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/code/ai-configs/_hermes/default"
