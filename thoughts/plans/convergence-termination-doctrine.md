@@ -1,6 +1,6 @@
 # Convergence and Termination Doctrine (P5)
 
-**Status:** proposed — not yet reviewed or executed
+**Status:** executed 2026-07-24 (ai-configs `9ebc16c`; heddle PR #500; Linear NOD-1430, NOD-1431). Codex plan review consensus: `thoughts/validation/2026-07-24-convergence-termination-doctrine-plan-codex.md`.
 **Source:** 2026-07-24 retro of the NOD-1422 (PR #497) and NOD-1424 (PR #499) overnight runs against the 2026-07-23 guidance-loosening expectations.
 
 ## Product-owner context
@@ -188,12 +188,17 @@ Mechanism: heddle follows its normal branch policy — create a branch in `/User
 
 ## Progress
 
-- [ ] Phase 1 — Verification Convergence Budget in run-plan
-- [ ] Phase 2 — Content-identified review evidence
-- [ ] Phase 3 — Supervisor futility/operator-supremacy/single-flight
-- [ ] Phase 4 — Evidence placement
-- [ ] Phase 5 — Parity copies + pinned tests green
-- [ ] Phase 6 — Heddle overlay sync + Linear issues filed
+- [x] Phase 1 — Verification Convergence Budget in run-plan
+- [x] Phase 2 — Content-identified review evidence
+- [x] Phase 3 — Supervisor futility/operator-supremacy/single-flight
+- [x] Phase 4 — Evidence placement
+- [x] Phase 5 — Parity copies + pinned tests (run-plan wrappers: thin, no edits needed; dev:run ×3: convergence clause at Completion, no rebase language present so no content-identity pointer; `skills/run-plan/agents/openai.yaml`: 4 lines, nothing pinned; Hermes variant edited + `install --apply` + manifest refresh, verify OK; runtime `~/.agents`/`~/.claude` skills synced via `install.sh --skills`; pytest 211 passed, test_install 10/10, shared-skills 18/26 with the identical 8 failures at HEAD, stash-verified)
+- [x] Phase 6 — Heddle uptake (AGENTS.md Quality-gates note via PR #500; drift check clean; Linear NOD-1430 strict-harness contention, NOD-1431 visual tolerance)
+
+### Execution findings (discovered, not caused — follow-ups)
+
+- The Hermes run-plan variant (`_hermes/default/skills/software-development/run-plan/SKILL.md`) still carries pre-Jul-23 doctrine: the "Do not fix adjacent issues" ban and the full scope taxonomy/three-question test. Yesterday's `4b100dc` sync was partial. Deserves its own modernization pass.
+- `scripts/tests/test_install_pi_vcc.py::test_environment` references a `root` fixture defined nowhere — fails under plain pytest at HEAD; pre-existing.
 
 ## Acceptance criteria
 
