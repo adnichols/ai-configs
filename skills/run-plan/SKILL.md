@@ -38,6 +38,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not treat deployment, promotion, merge-dependent smoke checks, production observation, or rollback execution as part of the PR-reviewable promised slice. Pending post-merge delivery work must be disclosed and handed off, never used to block PR creation.
 - If the PR-reviewable outcome cannot be completed safely, stop and resize it to a smaller independently useful complete slice rather than shipping a partial skeleton.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported, unless the operator explicitly instructs the agent to open the PR regardless of testing status. That explicit instruction is controlling: stop retrying or waiting on verification, open the PR, and disclose skipped, incomplete, unavailable, or failing checks without calling them passing.
+- Verification convergence is budgeted. When the Verification Convergence Budget is exhausted and every residual failure classifies as inherited or infra/cosmetic with targeted verification green, opening the draft PR with disclosure and stopping on the ship/keep-fixing question is the required next action, not a policy violation.
 - Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
 - Do not create a PR until the Codex plus applicable Claude Code pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the Claude Code leg is truthfully recorded as skipped for a low-risk/docs-only scope, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
 - Do not stop after the Codex/Claude pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
@@ -84,6 +85,10 @@ Classify every requested change and every reviewer finding:
 
 Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`. Treat BDD gaps, verification gaps, implicit-only coverage, misleading evidence, or any finding tied to a plan acceptance criterion as in-scope until proven otherwise. Actual environment deployment and post-merge observation are not implementation findings; preserve them as delivery obligations without making them PR gates.
 
+## Evidence Placement
+
+Evidence lives in the coverage ledger (working notes), the plan file's progress and deviation sections, and ultimately the PR body. Do not create repository commits whose sole content is recording verification, certification, review, or deferral status; fold plan-progress updates into at most one bookkeeping commit per completed phase. Never commit a "debt" record for a failure the disposition rule makes in scope — fix it or report the blocker. A run's commit history should read as the change, not as a diary of the process that produced it.
+
 ## Unified Review-Cycle Budget
 
 The three-cycle implementation-review limit is global to the scoped change, not to a workflow stage or PR state.
@@ -96,6 +101,28 @@ The three-cycle implementation-review limit is global to the scoped change, not 
 - When the ordinary budget is exhausted, do not launch a renamed, post-PR, “final clean,” adversarial, or alternate-reviewer cycle to continue review. No fourth or renamed pass is allowed except the single explicitly consultation-authorized bounded pass and its existing one pass-after-fixes allowance. After the applicable one-per-stable-family consultation route is consumed without clearing the risk or authorizing that exception, report the convergence/review-budget blocker and request the smallest user decision (accept disclosed residual review risk, narrow/revert the unstable slice, or revise scope). PR existence must not influence consultation eligibility or authorize any extra pass.
 
 Apply the disposition rule in the Scope Classification section to each finding: a regression this change causes or newly exposes, including newly reachable-domain correctness, is in scope; a defect this change merely discovers is captured as a finding and does not block.
+
+## Verification Convergence Budget
+
+Full-suite verification and certification gates get a convergence budget, exactly as reviews do. Track attempts per delivery head in the coverage ledger: gate name, attempt number, failure signature, and whether the root cause is new or a repeat.
+
+- A repeated full-gate attempt is justified only by a new distinct root cause — a failure this attempt will address that previous attempts did not. Rerunning to "get a clean one" is not a root cause.
+- Three full attempts at the same gate without a new distinct root cause exhaust the budget, or 90 minutes of attributable gate time on one delivery head — whichever comes first. Record the gate's normal green-run duration in the ledger so a legitimately slow, still-progressing gate is not misread as a loop; repo-local guidance may override these thresholds. When the budget is exhausted, the loop is over: classify every residual failure and dispose of it as below. Do not launch another attempt, a renamed certification, or a "final clean" serial lap to avoid the classification.
+
+Classify each residual failure on two axes, with evidence:
+
+- **Introduced** (caused or newly exposed by this branch) vs. **inherited** (reproducible at the merge-base or on the target branch). Inherited requires reproduction evidence at the merge-base or on the target branch, not inference from the failure's age — and the disposition rule still governs: a failure in a domain this change newly makes reachable is introduced regardless of where the defect predates the branch.
+- **Functional** (customer-visible behavior wrong) vs. **infra/cosmetic** (harness contention, environment flake, rendering deltas within an approved tolerance). Where no approved tolerance exists, the delta is not classifiable as cosmetic — it is a `QUESTION`.
+
+**Flake disposition:** a full-run failure is infrastructure-flake evidence, not a delivery blocker, when the failing tests pass in isolation or serial rerun and the failure point moves between attempts. Certify on the serial/isolated evidence and disclose the parallel-run state in the PR body. You are never required to keep spending budget chasing a clean parallel run.
+
+Disposition when the budget is exhausted:
+
+- Every residual is inherited or infra/cosmetic (with the evidence above), and targeted verification of the changed surfaces is green → **open the PR as a draft** with the two-axis classification and evidence in the PR body, then mark the run state blocked-on-operator with the ship/keep-fixing question. This is the terminal state for unattended runs: the finished branch is preserved and disclosed, and converting the draft to ready is an operator decision. Open it ready-for-review instead only when the operator has explicitly authorized that for this run or repo guidance documents an exception path.
+- Any residual is introduced or functional → it is in scope: fix it, or stop with a blocker naming it.
+- The classification itself needs a product judgment (for example, a rendering delta with no approved tolerance) → that is a `QUESTION` for the operator, presented with the two-axis classification. Never resolve it by choosing maximal strictness on the operator's behalf.
+
+An operator ship or stop directive ends this budget immediately wherever it stands: discard queued and in-flight gate attempts, open the PR in the state the operator named (ready by default when they said "ship"), and disclose the truthful gate state.
 
 ## Workflow
 
@@ -352,7 +379,7 @@ Record the Codex verdict, Claude Code verdict or skip record, artifact path, wai
 
 Establish passing final-verification evidence after the latest verification-relevant change and before PR creation. This is pre-merge verification only: it may prove buildability, deployability, migration definitions, configuration, dry-run behavior, and artifact integrity, but must not require an actual environment deployment, promotion, merge-dependent smoke check, or production observation. Reuse the latest passing results when the same commands already ran against the current code, tests, dependencies, configuration, generated artifacts, and base context, and no intervening action invalidated them. A read-only Codex/Claude review does not invalidate passing verification and is never, by itself, a reason to rerun it. Record reused commands, outcomes, and the unchanged-state basis in the run notes and PR body.
 
-Rerun only checks invalidated by an implementation or review fix, dependency/configuration/generated-artifact change, rebase or conflict resolution, relevant environment change, prior failure, or an explicit plan requirement that demands a fresh run at this point. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect. If the operator explicitly directs opening the PR regardless of testing status, do not delay PR creation for further verification; record exactly which checks passed, failed, were skipped, or could not run.
+Rerun only checks invalidated by an implementation or review fix, dependency/configuration/generated-artifact change, rebase or conflict resolution that changed the content identity, relevant environment change, prior failure, or an explicit plan requirement that demands a fresh run at this point. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect. Full-gate reruns are governed by the Verification Convergence Budget; a failure with an already-classified root cause never by itself requires another full run. An exhausted convergence budget with all residuals classified inherited or infra/cosmetic and targeted verification green satisfies this section's evidence requirement for the draft-PR disposition — record the classification as the final-verification result rather than calling the gate passing. If the operator explicitly directs opening the PR regardless of testing status, do not delay PR creation for further verification; record exactly which checks passed, failed, were skipped, or could not run.
 
 Do not hide failures. Fix failures when they are in scope, required for truthful verification, or caused by this branch. Otherwise, report them as pre-existing or documented out-of-scope follow-ups with evidence and tracking destination.
 
@@ -360,14 +387,16 @@ Do not hide failures. Fix failures when they are in scope, required for truthful
 
 Before push and PR creation, verify the branch is fresh enough against the target branch that the PR will not immediately open stale or obviously unmergeable. Run the first freshness check before committing when possible, but do not rebase a dirty worktree by default.
 
+The **content identity** of a candidate is the combined hash of: the committed diff against the merge-base with the target branch (`git diff "$(git merge-base origin/<target> HEAD)"..HEAD`), the staged diff, the unstaged diff, and the deterministic untracked-path manifest as defined by `herdr-reviewers` (sorted paths with type/mode and content hash). This is the reviewer fingerprint with the HEAD commit component replaced by the merge-base diff hash: it identifies the change content — committed or not — while ignoring commit SHAs. Two candidates with equal content identity carry the same change; a rebase that alters only SHAs leaves it unchanged.
+
 1. Resolve the target branch from the plan, existing PR metadata, or repo default integration branch.
 2. Fetch the target branch.
 3. Check whether the current branch is behind, diverged, or likely conflicted with the fetched target branch.
 4. If the branch is behind or diverged while scoped edits are still uncommitted, commit the scoped changes after final verification, then rebase the committed branch onto the fetched target branch before pushing. Use autostash only when repo policy explicitly permits it, and record exactly what was stashed, reapplied, and reverified.
 5. If the branch is behind or diverged after commit, rebase onto the fetched target branch when conflicts are absent or limited to scoped files and can be resolved without a product decision.
 6. If conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations, stop with a base freshness blocker.
-7. After any rebase, autostash replay, or conflict resolution, rerun the verification invalidated by the changed diff context.
-8. Rerun scoped quality reviews, PM review, or the Codex/Claude pre-PR gate when the rebase materially changes the PR diff, touched files, acceptance evidence, or reviewer assumptions.
+7. After any rebase, autostash replay, or conflict resolution, compare the content identity before and after. If it is unchanged, prior verification and review evidence remains current — record the rebase and the unchanged hash. If it changed, rerun only the verification the changed hunks invalidate, and record why the remainder stays current.
+8. Review evidence follows the same content identity: rerun full scoped quality reviews, PM review, or the Codex/Claude pre-PR gate only when the rebase materially changed the content diff, touched files, acceptance evidence, or reviewer assumptions. An unchanged content identity never by itself stales accepted review evidence.
 
 Record the target branch, fetch result, rebase/skip decision, rerun verification, and any stale-review reruns in the PR body. A clean `OPEN_PR_READY` review verdict is not enough by itself if the branch became stale before PR creation.
 
@@ -409,7 +438,7 @@ After the PR is open, keep the active runtime task state active only until the l
 
 The run state can be marked complete only when all of these are true:
 
-- Final verification for the touched surfaces has passed after the latest code change.
+- Final verification for the touched surfaces has passed after the latest code change, or the Verification Convergence Budget disposition applies: targeted verification is green, every residual failure is classified inherited or infra/cosmetic with evidence, and the classification is disclosed in the PR body. In the draft-PR disposition the run state does not complete — it is blocked-on-operator with the ship/keep-fixing question until the operator answers.
 - Runtime-native scoped quality review, implementation-stage PM review, and the Codex plus applicable Claude Code pre-PR gate all agree by substance that the current diff has no unresolved blocking in-scope findings; skipped/waived legs are recorded truthfully.
 - All actionable PR feedback already present in the latest snapshot has been addressed.
 - If PR feedback required code changes, the applicable review agents have rerun over the current PR diff and cleared any in-scope findings.
@@ -423,6 +452,8 @@ Do not require `reviewDecision: APPROVED`, a Codex PR comment saying LGTM, or an
 ### Monitoring Loop
 
 Repeat this loop until the completion criteria are met or a true blocker is reached. Slow or absent reviewer feedback is not a blocker and does not require continued polling after local merge-readiness consensus is clean. Pending or failing required checks should be handled only when they affect the stated merge-readiness criteria.
+
+A run in the convergence-budget draft-PR disposition does not loop: it reports the ship/keep-fixing question with the classification and waits on the operator. Failing required checks that reproduce the already-classified inherited/infra residuals are part of that disclosure, not new work.
 
 1. Inspect PR reviews, review threads, comments, status checks, review decision, and mergeability for the current snapshot.
 2. Classify every new feedback item using the same scope categories.
@@ -534,8 +565,8 @@ When rebase is needed:
 2. Rebase the PR branch onto the destination branch.
 3. Resolve only conflicts in scoped files, and only when no product decision is needed.
 4. Stop with a scope question when conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations.
-5. Rerun verification affected by the rebase.
-6. Rerun scoped reviews when the PR diff changed materially.
+5. Rerun verification affected by the rebase only when the content identity changed; rerun only what the changed hunks invalidate.
+6. Rerun scoped reviews when the content diff changed materially; a rebase that leaves the content identity unchanged does not invalidate accepted review evidence.
 7. Push with lease.
 
 Do not use destructive git commands to force mergeability. If conflicts require decisions outside the plan, stop with a scope question.

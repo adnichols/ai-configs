@@ -115,3 +115,7 @@ When all items in `## Progress` are complete:
 
 - Ensure the plan file reflects completion accurately.
 - Run any verification commands listed in the plan's `Verification Strategy` and/or phase `### Verify` sections.
+
+#### Verification Convergence Budget
+
+Full-suite gates follow the `run-plan` skill's Verification Convergence Budget: three attempts at the same gate without a new distinct root cause, or 90 minutes of attributable gate time, whichever comes first (repo-local guidance may override; record the gate's normal green-run duration). At exhaustion, classify each residual failure — introduced vs. inherited (inherited requires reproduction at the merge-base/target, and a domain this change newly makes reachable is introduced) and functional vs. infra/cosmetic (no approved tolerance means `QUESTION`, not cosmetic). Failing tests that pass in isolation/serial while the failure point moves between runs are flake evidence: certify on the serial evidence and disclose. All residuals inherited or infra/cosmetic with targeted verification green → stop with the classification and the ship/keep-fixing question (draft-PR disposition when a PR boundary applies); any introduced or functional residual is in scope — fix it or report it as the blocker.

@@ -86,6 +86,18 @@ Two refinements override a naive "not introduced by this branch" reading of ques
 
 A finding may be recorded as `OUT_OF_SCOPE_FOLLOW_UP` when evidence shows it is not required for the accepted current behavior, truthful verification, or a regression caused by this diff. Evidence may come from the plan/product contract, supported-path definition, code reachability, or existing tests; do not add implementation or tests solely to prove a speculative or unsupported scenario is out of scope.
 
+## Evidence Placement
+
+Evidence lives in the coverage ledger (working notes), the plan file's progress and deviation sections, and ultimately the PR body. Do not create repository commits whose sole content is recording verification, certification, review, or deferral status; fold plan-progress updates into at most one bookkeeping commit per completed phase. Never commit a "debt" record for an in-scope failure — fix it or report the blocker. A run's commit history should read as the change, not as a diary of the process that produced it.
+
+## Verification Convergence Budget
+
+Full-suite verification and certification gates get a convergence budget. Track attempts per delivery head: gate name, attempt number, failure signature, and whether the root cause is new or a repeat. A repeated full-gate attempt is justified only by a new distinct root cause; rerunning to "get a clean one" is not one. Three attempts at the same gate without a new distinct root cause, or 90 minutes of attributable gate time, whichever comes first, exhausts the budget (repo-local guidance may override; record the gate's normal green-run duration).
+
+At exhaustion, classify each residual failure with evidence: **introduced** (caused or newly exposed by this branch — a domain this change newly makes reachable counts as introduced) vs. **inherited** (reproduced at the merge-base or target branch, not inferred from age), and **functional** vs. **infra/cosmetic** (an unexplained delta with no approved tolerance is a `QUESTION`, not cosmetic). A full-run failure whose failing tests pass in isolation/serial while the failure point moves between attempts is infrastructure-flake evidence: certify on the serial evidence and disclose the parallel-run state.
+
+Disposition: all residuals inherited or infra/cosmetic with targeted verification green → open the PR as a draft with the classification disclosed and stop on the ship/keep-fixing question (the unattended terminal state); any introduced or functional residual is in scope — fix it or stop with a blocker naming it. An operator ship or stop directive ends this budget immediately: discard queued and in-flight gate attempts, open the PR in the state the operator named, and disclose the truthful gate state.
+
 ## Workflow
 
 ### 1. Establish Run State
@@ -254,7 +266,7 @@ Record the GPT verdict, Claude Code verdict or low-risk skip, artifact path, wai
 
 ## Final Verification
 
-Run the plan's final verification commands after the GPT/Claude Code pre-PR review gate is clean for all blocking in-scope P1/P2 findings, or after the Claude Code leg is truthfully skipped under the low-risk policy. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect.
+Run the plan's final verification commands after the GPT/Claude Code pre-PR review gate is clean for all blocking in-scope P1/P2 findings, or after the Claude Code leg is truthfully skipped under the low-risk policy. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect. Full-gate reruns are governed by the Verification Convergence Budget; a failure with an already-classified root cause never by itself requires another full run.
 
 Do not hide failures. Fix failures when they are in scope, required for truthful verification, or caused by this branch. Otherwise, report them as pre-existing or documented out-of-scope follow-ups with evidence and tracking destination.
 
@@ -420,7 +432,7 @@ When rebase is needed:
 1. Fetch the destination branch.
 2. Rebase the PR branch onto the destination branch.
 3. Resolve only conflicts in scoped files or conflicts required to preserve this plan's implementation.
-4. Rerun verification affected by the rebase.
+4. Rerun verification affected by the rebase only when the rebase changed the content of the diff against the merge-base (committed, staged, unstaged, or untracked content); a rebase that changes only commit SHAs invalidates neither verification nor accepted review evidence.
 5. Push with lease.
 
 Do not use destructive git commands to force mergeability. If conflicts require decisions outside the plan, stop with a scope question.

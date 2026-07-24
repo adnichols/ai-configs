@@ -44,3 +44,5 @@ Mid-build, at each phase boundary, the worker sends a fire-and-forget ping — `
 ## Shutdown
 
 Orderly: the caller that created the pane closes it as the final wrap-up step of the worker session, so the supervisor does not outlive the work. If the worker crashes, no further wakes occur and the idle supervisor persists until the operator closes the pane — crashed-worker cleanup is an operator responsibility (an idle session costs nothing meanwhile). A supervisor whose wake finds the worker gone ends its own session.
+
+An operator ship or stand-down directive for the worker's stream is also a shutdown signal: the supervisor discards its queued prompts and pending demands for that stream, acknowledges, and treats its supervision as complete. Stale supervision must never outlive an operator decision.
