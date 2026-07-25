@@ -743,6 +743,42 @@ describe("active compaction continuation", () => {
     expect(sentMessages).toHaveLength(0);
   });
 
+  it("resumes an active compact_context boundary after the compacting turn has stopped", async () => {
+    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
+    const result = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: compactableEntries(),
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"subtask_complete","resumePolicy":"active","attemptId":"compact-context-1","requestId":"compact-context-request"}',
+      reason: "manual",
+    });
+
+    expect(result.compaction.details.interruptedInFlightTurn).toBe(false);
+    expect(result.compaction.details.compactionIntent).toMatchObject({
+      source: "compact_context",
+      resumePolicy: "active",
+    });
+
+    handlers.session_compact[0]({
+      type: "session_compact",
+      compactionEntry: { id: "compact-context-entry", details: result.compaction.details },
+      fromExtension: true,
+      reason: "manual",
+      willRetry: false,
+    }, ctx);
+    await delay();
+
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
+    expect(sentMessages[0].message.details).toMatchObject({
+      initiator: "compact_context",
+      attemptId: "compact-context-1",
+      compactionId: "compact-context-entry",
+      requestId: "compact-context-request",
+      resumePolicy: "active",
+    });
+    expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
+  });
+
   it("does not send a continuation when core will retry the interrupted turn", async () => {
     const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
 

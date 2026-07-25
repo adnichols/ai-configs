@@ -317,9 +317,14 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
       retainedNonMessageEntries: details.retainedNonMessageEntries,
     });
     const commandOrigin = details.compactionIntent?.source === "package-pi-vcc" || details.compactionIntent?.source === "package-compact-now";
-    if (!commandOrigin && !details.interruptedInFlightTurn) return;
-    if (event.willRetry === true || (!commandOrigin && details.requiresContinuation === false)) return;
-    if (details.compactionIntent?.source === "compact_context") return;
+    // compact_context runs at a completed semantic boundary, so it is normally
+    // not an interrupted turn. An explicit active policy is still a durable
+    // request to resume the task after the context replacement.
+    const activeCompactContext =
+      details.compactionIntent?.source === "compact_context" &&
+      details.continuationResumePolicy === "active";
+    if (!commandOrigin && !activeCompactContext && !details.interruptedInFlightTurn) return;
+    if (event.willRetry === true || (!commandOrigin && !activeCompactContext && details.requiresContinuation === false)) return;
     coordinator.request({
       initiator: details.compactionIntent?.source === "package-compact-now" ? "package-compact-now"
         : details.compactionIntent?.source === "compact_context" ? "compact_context"

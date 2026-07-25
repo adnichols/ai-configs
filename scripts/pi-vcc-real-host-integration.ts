@@ -272,6 +272,7 @@ const REQUIRED_REAL_HOST_CASES = [
   "status-neutral-model-driving-supersession",
   "abort-backoff-persisted-acceptance",
   "v1-reload-adaptation",
+  "active-compact-context-plan-builder-resume",
 ] as const;
 type RealHostCaseName = (typeof REQUIRED_REAL_HOST_CASES)[number];
 const caseRegistry = new Map<RealHostCaseName, () => Promise<void>>();
@@ -673,6 +674,71 @@ try {
       throw new Error(`abort retry did not preserve ordinal-scoped 1s backoff: sends=${sentAt.length} durable=${messages.length} gap=${sentAt[1] - sentAt[0]}`);
     }
     host.session.sendCustomMessage = originalSendCustomMessage;
+    host.dispose();
+  });
+
+  registerCase("active-compact-context-plan-builder-resume", async () => {
+    const host = await createHost();
+    host.core.setResponses([
+      faux.fauxAssistantMessage("Resumed the active hub activity observability plan from its next concrete phase."),
+    ]);
+    const packageExtension = host.session._extensionRunner.extensions.find((extension: any) =>
+      extension.path.includes("pi-vcc"));
+    const beforeCompact = packageExtension?.handlers.get("session_before_compact")?.[0];
+    const sessionCompact = packageExtension?.handlers.get("session_compact")?.[0];
+    if (!beforeCompact || !sessionCompact) {
+      throw new Error("real host did not register pi-vcc compaction lifecycle handlers");
+    }
+
+    const result = await beforeCompact({
+      type: "session_before_compact",
+      reason: "manual",
+      willRetry: false,
+      preparation: {
+        previousSummary: undefined,
+        tokensBefore: 5_000,
+        fileOps: { read: [], written: [], edited: [] },
+      },
+      branchEntries: [
+        { id: "plan-user", type: "message", message: { role: "user", content: "Execute thoughts/plans/hub-activity-observability.html from P0 through P3." } },
+        { id: "plan-progress", type: "message", message: { role: "assistant", content: "P0 is complete; the next concrete phase is P1.", stopReason: "stop" } },
+        { id: "plan-user-followup", type: "message", message: { role: "user", content: "Continue the implementation without stopping." } },
+        { id: "plan-boundary", type: "message", message: { role: "assistant", content: "The P0 test loop is interpreted; compact before P1.", stopReason: "stop" } },
+      ],
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"after_test_loop","reason":"P0 verified; continue plan P1","resumePolicy":"active","attemptId":"plan-builder-attempt","requestId":"plan-builder-request"}',
+    }, host.ctx);
+    if (result?.compaction?.details?.compactionIntent?.resumePolicy !== "active" || result.compaction.details.interruptedInFlightTurn !== false) {
+      throw new Error(`plan-builder fixture did not reproduce a completed active compact_context boundary: ${JSON.stringify(result?.compaction?.details)}`);
+    }
+
+    await sessionCompact({
+      type: "session_compact",
+      compactionEntry: { id: "plan-builder-compaction", details: result.compaction.details },
+      reason: "manual",
+      willRetry: false,
+    }, host.ctx);
+    await waitFor("active compact_context plan-builder request", () =>
+      host.sessionManager.getBranch().some((entry: any) =>
+        entry.type === "custom" &&
+        entry.customType === protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE &&
+        entry.data?.snapshot?.attemptId === "plan-builder-attempt"));
+    const request = host.sessionManager.getBranch().find((entry: any) =>
+      entry.type === "custom" &&
+      entry.customType === protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE &&
+      entry.data?.snapshot?.attemptId === "plan-builder-attempt")?.data?.snapshot;
+    const transactionId = request?.transactionId;
+    if (typeof transactionId !== "string") throw new Error("plan-builder continuation request omitted a transaction ID");
+    if (request.resumePolicy !== "active" || request.compactionId !== "plan-builder-compaction") {
+      throw new Error(`plan-builder continuation request lost active policy or compaction identity: ${JSON.stringify(request)}`);
+    }
+    await waitFor("active compact_context plan-builder continuation", () => outcomes(host, transactionId).length === 1);
+    const delivered = durableMessages(host, transactionId);
+    if (delivered.length !== 1) {
+      throw new Error(`active compact_context did not deliver exactly one plan continuation: ${JSON.stringify(delivered)}`);
+    }
+    if (outcomes(host, transactionId)[0]?.data?.terminalState !== "settled") {
+      throw new Error(`plan-builder continuation did not settle after delivery: ${JSON.stringify(outcomes(host, transactionId)[0]?.data)}`);
+    }
     host.dispose();
   });
 
