@@ -33,23 +33,9 @@ Unresolvable decision examples:
 - A security/billing/production-risk choice that materially changes behavior and is not specified.
 - Multiple viable interpretations that change external behavior and cannot be resolved by existing code patterns.
 
-### 0.5) Attach Supervisor
+### 0.5) Optional Supervision
 
-Before implementation, attach a trajectory-guarding supervisor per `skills/supervise/SKILL.md`: a second reactive session in an adjacent Herdr pane that owns trajectory and budget, never technical judgment, and never fences investigation or testing.
-
-```bash
-herdr pane split <worker-pane> --direction right --no-focus
-# read result.pane.pane_id from the JSON response, then:
-herdr agent start supervisor-<worker-name> --kind pi --pane <new-pane-id> --timeout 45000 -- \
-  --provider openai-codex --model gpt-5.6-sol --thinking high \
-  --append-system-prompt ~/.agents/skills/supervise/supervisor-prompt.md \
-  --tools read,bash
-herdr agent prompt supervisor-<worker-name> \
-  "Worker agent: <worker-name>. Plan: <plan-path>. Begin supervision." \
-  --wait --timeout 60000
-```
-
-Record the supervisor's agent name and pane ID in the plan's expansion-log header, or record `SUPERVISOR: none — <reason>` there if none can be started. Two checkpoints block, using a correlated-id handshake: **plan-ready** before the first code change and **pre-PR** before any push/PR handoff. The worker generates a fresh unique request id and runs `herdr agent prompt supervisor-<worker-name> "CHECKPOINT REQUEST[<id>]: <plan-ready|pre-pr> — plan <path>" --wait --timeout 600000`, then reads the transcript and accepts **only** a receipt with the same id: `CHECKPOINT[<id>]: PROCEED` or `CHECKPOINT[<id>]: REVISE — <items>`. If the wait returns without a matching receipt, loop `herdr agent wait supervisor-<worker-name> --until idle --until done --timeout 60000` → reread until it appears or 10 minutes elapse from the original request; on deadline expiry, proceed and record `SUPERVISOR: timeout at <checkpoint>[<id>]`. At each phase boundary, send a fire-and-forget `herdr agent prompt supervisor-<worker-name> "PHASE COMPLETE: <n> — plan <path>"` (no `--wait`) and acknowledge any returned nudge in the next expansion-log entry. As the final wrap-up step, the caller that created the pane closes it.
+Do **not** launch a supervisor for `/dev:run`. Supervision is opt-in: only when the operator explicitly asks to supervise this run, follow `skills/supervise/SKILL.md`.
 
 ### 1) Resolve Plan Path
 

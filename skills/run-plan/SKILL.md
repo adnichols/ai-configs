@@ -126,42 +126,9 @@ An operator ship or stop directive ends this budget immediately wherever it stan
 
 ## Workflow
 
-### 0. Attach Supervisor
+### 0. Optional Supervision
 
-Before establishing run state, attach a trajectory-guarding supervisor per `skills/supervise/SKILL.md`. The supervisor is a second reactive Pi session in an adjacent Herdr pane that owns trajectory and budget, never technical judgment, and never fences investigation or testing.
-
-Launch it with the documented Herdr commands:
-
-```bash
-herdr pane split <worker-pane> --direction right --no-focus
-# read result.pane.pane_id from the JSON response, then:
-herdr agent start supervisor-<worker-name> --kind pi --pane <new-pane-id> --timeout 45000 -- \
-  --provider openai-codex --model gpt-5.6-sol --thinking high \
-  --append-system-prompt ~/.agents/skills/supervise/supervisor-prompt.md \
-  --tools read,bash
-herdr agent prompt supervisor-<worker-name> \
-  "Worker agent: <worker-name>. Plan: <plan-path>. Begin supervision." \
-  --wait --timeout 60000
-```
-
-Record the supervisor's agent name and pane ID in the plan's session metadata (expansion-log header). If no supervisor can be started, record `SUPERVISOR: none — <reason>` there instead; the pre-PR review surfaces that absence to the human.
-
-Two checkpoints block, using a correlated-id handshake:
-
-- **plan-ready** — before implementation starts (before step 3).
-- **pre-PR** — before push and PR creation (before the Commit, Push, and PR section).
-
-For each blocking checkpoint the worker:
-
-1. Generates a fresh unique request id (any short unique string).
-2. Runs `herdr agent prompt supervisor-<worker-name> "CHECKPOINT REQUEST[<id>]: <plan-ready|pre-pr> — plan <path>" --wait --timeout 600000`.
-3. Reads the supervisor transcript (`herdr agent read supervisor-<worker-name> --source recent-unwrapped`) and accepts **only** a receipt bearing the same id: `CHECKPOINT[<id>]: PROCEED` or `CHECKPOINT[<id>]: REVISE — <items>`. A receipt with any other id is stale — ignore it.
-4. If the wait returned without a matching receipt (Herdr's prompt wait is state-based, and an in-flight phase ping can end the wait early), loop: `herdr agent wait supervisor-<worker-name> --until idle --until done --timeout 60000` → reread → check for `CHECKPOINT[<id>]` — until the matching receipt appears or 10 minutes have elapsed since the original request.
-5. On `PROCEED`: continue. On `REVISE`: address the items or record a reasoned disagreement in the expansion log, then submit a fresh request with a **new id**. On deadline expiry with no matching receipt: proceed, recording `SUPERVISOR: timeout at <checkpoint>[<id>]` in the expansion log.
-
-At each phase boundary, send a fire-and-forget ping — `herdr agent prompt supervisor-<worker-name> "PHASE COMPLETE: <n> — plan <path>"` with **no `--wait`** — and acknowledge any resulting `SUPERVISOR NUDGE:` in the next expansion-log entry. Nudges are advisory and never block.
-
-Shutdown is orderly: as the worker's final wrap-up step, the caller that created the pane closes it so the supervisor does not outlive the work.
+Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: only when the operator explicitly asks to supervise this run, follow `skills/supervise/SKILL.md`. Otherwise, continue without supervisor checkpoints, phase pings, or expansion-log entries.
 
 ### 1. Establish Run State
 
@@ -208,8 +175,6 @@ If the worktree is dirty, preserve unrelated changes. Do not clean them up for c
 
 ### 3. Implement Phase by Phase
 
-Clear the **plan-ready** supervisor checkpoint (see step 0) before the first code change. On `PROCEED`, begin; on `REVISE`, address the items or record a reasoned disagreement in the expansion log and resubmit with a new id.
-
 For each unfinished **PR-reviewable** phase:
 
 1. Write or update only the tests required by the phase.
@@ -218,7 +183,6 @@ For each unfinished **PR-reviewable** phase:
 4. Update the source plan progress only when that phase is actually complete.
 5. Verify Doct reflects that source progress through `doct-agent plans update`, an active `doct-agent plans watch`, or `doct-agent plans show`/board evidence before advancing.
 6. Record only documented out-of-scope discoveries in the plan's deviation log or the repo's discovery ledger. In-scope findings are not discoveries to defer; fix them before advancing.
-7. At the phase boundary, send the fire-and-forget `PHASE COMPLETE: <n> — plan <path>` ping to the supervisor (no `--wait`) and acknowledge any returned nudge in the next expansion-log entry.
 
 If an existing plan phase requires deployment, promotion, merge-dependent validation, production observation, or rollback execution, split the boundary rather than executing or waiting on that operation: complete and check off only the PR-reviewable implementation portion when truthful, move/preserve the operational portion as a non-blocking post-merge obligation, sync that clarification to Doct, and continue toward PR creation.
 
@@ -403,8 +367,6 @@ Record the target branch, fetch result, rebase/skip decision, rerun verification
 ## Commit, Push, and PR
 
 When implementation, scoped reviews, implementation-stage PM review, the applicable Codex/Claude pre-PR review gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run. An explicit operator instruction to open the PR regardless of testing or review status bypasses only those testing/review gates and requires truthful disclosure; it does not turn skipped or failing evidence into a passing or merge-ready result.
-
-Clear the **pre-PR** supervisor checkpoint (see step 0) before pushing. On `PROCEED`, continue; on `REVISE`, address the items or record a reasoned disagreement in the expansion log and resubmit with a new id.
 
 1. Review `git diff --stat` and `git diff --name-only`.
 2. Commit only the scoped changes.

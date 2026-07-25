@@ -712,7 +712,7 @@
         "pi"
       ],
       "canonicalSource": "skills/supervise",
-      "notes": "Trajectory-guarding supervisor for worker agents: adjacent Herdr pane, reactive checkpoint protocol (plan-ready and pre-PR blocking, advisory phase nudges), expansion-log oversight. Counterweight to the loosened scope doctrine.",
+      "notes": "Opt-in trajectory-guarding supervisor for worker agents: adjacent Herdr pane, reactive checkpoint protocol (plan-ready and pre-PR blocking, advisory phase nudges), and expansion-log oversight. Never auto-launched by plan execution.",
       "sourceType": "repo"
     }
   },

@@ -1,11 +1,11 @@
 ---
 name: supervise
-description: Attach a trajectory-guarding supervisor to a worker coding agent in an adjacent Herdr pane. Use when starting plan execution (run-plan / dev:run) or when the user asks to supervise a working agent. The supervisor guards outcome aim and expansion reasoning; it never fences investigation.
+description: Attach a trajectory-guarding supervisor to a worker coding agent in an adjacent Herdr pane when the operator explicitly asks for supervision. It is never started automatically by plan execution (run-plan / dev:run). The supervisor guards outcome aim and expansion reasoning; it never fences investigation.
 ---
 
 # Supervise
 
-A supervisor is a second Pi session in an adjacent Herdr pane that watches a worker agent execute a plan. The worker owns technical judgment; the supervisor owns trajectory: is the work still aimed at the promised outcome, is expansion reasoned and logged, are the plan's Socratic answers and disclosures real. Its charter lives in `supervisor-prompt.md` beside this file.
+A supervisor is an optional second Pi session in an adjacent Herdr pane that watches a worker agent execute a plan. Launch it only when the operator explicitly requests supervision; plan-execution workflows must not start it by default. The worker owns technical judgment; the supervisor owns trajectory: is the work still aimed at the promised outcome, is expansion reasoned and logged, are the plan's Socratic answers and disclosures real. Its charter lives in `supervisor-prompt.md` beside this file.
 
 ## Launch
 

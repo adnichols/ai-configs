@@ -357,4 +357,4 @@ Skills:
 
 ## Supervisor (skills/supervise)
 
-The supervisor is deliberately **not** a `_pi/agents/` persona — it runs as a top-level Pi process in its own Herdr pane so it can watch a worker session from outside. Launch, checkpoint, and shutdown protocol live in `skills/supervise/SKILL.md` (deployed to `~/.agents/skills/supervise/`). The Pi subagent roster (`test_pi_agent_roster.py`) is unaffected.
+The supervisor is deliberately **not** a `_pi/agents/` persona — it runs as an opt-in top-level Pi process in its own Herdr pane so it can watch a worker session from outside. `run-plan`, `dev:run`, and other execution workflows never launch it automatically; use it only when the operator explicitly requests supervision. Its launch, checkpoint, and shutdown protocol live in `skills/supervise/SKILL.md` (deployed to `~/.agents/skills/supervise/`). The Pi subagent roster (`test_pi_agent_roster.py`) is unaffected.
