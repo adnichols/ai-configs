@@ -1009,6 +1009,242 @@ test_pi_interaction_doctrine_is_versioned_and_read_only_by_default() {
   assert_file_contains "_pi/README.md" 'request-type-first' || return 1
 }
 
+test_integration_integrity_is_common_and_portable() {
+  local home output_file installed_doctrine
+  home="$(new_tmp_dir)"
+  output_file="$home/pi-install.log"
+  installed_doctrine="$home/.pi/agent/APPEND_SYSTEM.md"
+
+  run_installer_capture "$home" "$output_file" --pi || {
+    cat "$output_file" >&2
+    return 1
+  }
+
+  for path in \
+    "APPEND_SYSTEM.md" \
+    "$installed_doctrine" \
+    "skills/repo-agents-bootstrap/SKILL.md" \
+    "skills/repo-agents-bootstrap/references/root_agents_template.md"; do
+    assert_file_contains "$path" 'Integration integrity' || return 1
+    assert_file_contains "$path" 'source of truth' || return 1
+    assert_file_contains "$path" 'dependent' || return 1
+    assert_file_contains "$path" 'cross-boundary' || return 1
+    assert_file_contains "$path" 'production-path' || return 1
+  done
+
+  assert_file_contains "APPEND_SYSTEM.md" 'If neither trigger applies' || return 1
+  assert_file_contains "APPEND_SYSTEM.md" 'After changing a shared contract' || return 1
+  assert_file_contains "APPEND_SYSTEM.md" 'after compaction, handoff, or resume' || return 1
+  assert_file_contains "APPEND_SYSTEM.md" 'event-existence test' || return 1
+  assert_file_contains "skills/repo-agents-bootstrap/references/root_agents_template.md" 'not only plan execution' || return 1
+  assert_file_contains "skills/repo-agents-bootstrap/references/root_agents_template.md" 'arbitrary external repositories that have not adopted the template' || return 1
+}
+
+test_integration_integrity_materializes_across_workflows() {
+  python3 - <<'PY'
+from pathlib import Path
+
+
+def section(path, start, end):
+    text = Path(path).read_text()
+    try:
+        return text[text.index(start):text.index(end, text.index(start) + len(start))]
+    except ValueError as exc:
+        raise SystemExit(f'{path} missing required section boundary: {exc}')
+
+planning = section(
+    'skills/planning-workflow/SKILL.md',
+    '## Integration-integrity planning contract',
+    '## Canonical plan contract',
+).lower()
+for phrase in [
+    'exact contract',
+    'distributed',
+    'contract and distributed-integration inventory',
+    'source of truth',
+    'producer',
+    'consumer',
+    'cross-boundary',
+    'exhaustive-by-site',
+    'exhaustive-by-family',
+    'justified representative',
+    'helper, middleware, wrapper, or event-existence assertion',
+    'actual parser',
+    'none identified, based on <source search>',
+]:
+    if phrase not in planning:
+        raise SystemExit(f'planning integration contract missing: {phrase}')
+
+execution = section(
+    'skills/run-plan/SKILL.md',
+    '## Integration-integrity record',
+    '## Scope Classification',
+).lower()
+for phrase in [
+    'base execution doctrine governs direct work',
+    'coverage ledger',
+    'source of truth',
+    'producers and consumers',
+    'dependent documentation/examples',
+    'after compaction, handoff, resume, rebase',
+    'readers, writers, importers, string references',
+    'named remediation work',
+    'actual parser',
+]:
+    if phrase not in execution:
+        raise SystemExit(f'run-plan integration record missing: {phrase}')
+
+for path in [
+    'skills/run-plan/SKILL.md',
+    '_hermes/default/skills/software-development/run-plan/SKILL.md',
+]:
+    text = Path(path).read_text().lower()
+    for phrase in [
+        'integration-integrity evidence (when triggered)',
+        'source of truth; producer/consumer or source-derived inventory',
+        'coverage declaration',
+        'reconciliation state',
+        'real boundary or production-dispatch proof',
+        'stale-reference search result',
+        'actual-parser proof',
+        'helper-only, wrapper-only, middleware-only, or event-existence-only evidence',
+        'prior runtime-native review may satisfy this gate only',
+    ]:
+        if phrase not in text:
+            raise SystemExit(f'{path} reviewer packet misses integration evidence: {phrase}')
+
+review = Path('skills/autoreview/SKILL.md').read_text().lower()
+for phrase in [
+    "executor's **integration-integrity record**",
+    'source-search-backed operation inventory',
+    'reviewer validates the supplied evidence',
+    'exact-contract evidence',
+    'distributed-behavior evidence',
+    'event-existence tests are not completion proof',
+]:
+    if phrase not in review:
+        raise SystemExit(f'autoreview packet contract missing: {phrase}')
+
+reviewed_plan = Path('skills/reviewed-html-plan/SKILL.md').read_text().lower()
+for phrase in [
+    'contract and distributed-integration inventory',
+    'none identified, based on <source search>',
+    'justified-representative coverage declaration',
+    'actual parser',
+    'reject helper-only, wrapper-only, middleware-only, or event-existence-only completion claims',
+]:
+    if phrase not in reviewed_plan:
+        raise SystemExit(f'reviewed-plan contract missing: {phrase}')
+
+for path in ['skills/dev-plan/SKILL.md', '_pi/prompts/dev:plan.md']:
+    text = Path(path).read_text().lower()
+    if 'canonical `planning-workflow` integration-integrity planning contract' not in text:
+        raise SystemExit(f'{path} does not delegate to the canonical integration contract')
+    if 'none identified, based on <source search>' not in text:
+        raise SystemExit(f'{path} does not preserve the no-trigger record')
+
+reviewer = Path('_pi/agents/reviewer.md').read_text().lower()
+for forbidden in ['integration-integrity record', 'contract and distributed-integration inventory']:
+    if forbidden in reviewer:
+        raise SystemExit(f'generic reviewer must not own workflow-specific integration rule: {forbidden}')
+PY
+}
+
+test_tdd_test_writer_is_direct_and_distributed() {
+  local home
+  home="$(new_tmp_dir)"
+  mkdir -p "$home/.claude/skills"
+
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+skill = Path('skills/tdd-test-writer/SKILL.md')
+if not skill.is_file():
+    raise SystemExit('missing repo-owned tdd-test-writer source')
+text = skill.read_text().lower()
+for phrase in [
+    'name: tdd-test-writer',
+    'driving agent writes and runs the red tests directly',
+    'do not delegate test authoring',
+    'do not modify production code during red',
+    'expected behavioral reason',
+    'cross-boundary',
+    'production-dispatch',
+    'actual parser',
+    'do not weaken, delete, or bypass the red test',
+]:
+    if phrase not in text:
+        raise SystemExit(f'tdd-test-writer missing direct-authoring contract: {phrase}')
+for forbidden in ['tdd_test_writer', 'spawn a subagent', 'delegate test authoring to']:
+    if forbidden in text:
+        raise SystemExit(f'tdd-test-writer retains forbidden delegation: {forbidden}')
+
+entry = json.loads(Path('skills/install-matrix.json').read_text())['installableSkills'].get('tdd-test-writer')
+if entry is None:
+    raise SystemExit('install matrix is missing tdd-test-writer')
+expected = {
+    'class': 'universal-installable',
+    'canonicalSource': 'skills/tdd-test-writer',
+    'sourceType': 'repo',
+    'allowedConsumers': ['codex', 'claude', 'pi'],
+}
+for key, value in expected.items():
+    if entry.get(key) != value:
+        raise SystemExit(f'tdd-test-writer matrix {key}={entry.get(key)!r}, expected {value!r}')
+PY
+
+  run_installer "$home" --skills || return 1
+  cmp "skills/tdd-test-writer/SKILL.md" "$home/.agents/skills/tdd-test-writer/SKILL.md" || return 1
+  assert_file_contains "$home/.agents/skills/tdd-test-writer/.ai-configs-managed.json" '"source": "skills/tdd-test-writer"' || return 1
+  assert_symlink_target "$home/.claude/skills/tdd-test-writer" "$home/.agents/skills/tdd-test-writer" || return 1
+}
+
+test_hermes_integration_integrity_mirrors_are_reconciled() {
+  python3 - <<'PY'
+from pathlib import Path
+
+required = {
+    '_hermes/default/skills/software-development/planning-workflow/SKILL.md': [
+        'Integration-integrity planning contract', 'source of truth', 'actual parser',
+    ],
+    '_hermes/default/skills/software-development/writing-plans/SKILL.md': [
+        'Integration-integrity planning contract', 'source of truth', 'actual parser',
+    ],
+    '_hermes/default/skills/software-development/plan/SKILL.md': [
+        'integration-integrity planning contract', 'None identified, based on <source search>',
+    ],
+    '_hermes/default/skills/software-development/dev-plan/SKILL.md': [
+        'integration-integrity planning contract', 'None identified, based on <source search>',
+    ],
+    '_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md': [
+        'integration-integrity planning contract', 'None identified, based on <source search>',
+    ],
+    '_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md': [
+        'integration-integrity planning contract', 'None identified, based on <source search>',
+    ],
+    '_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md': [
+        'Contract and distributed-integration inventory', 'actual parser', 'event-existence-only',
+    ],
+    '_hermes/default/skills/software-development/run-plan/SKILL.md': [
+        'Integration-integrity record', 'after compaction, handoff, resume, rebase', 'named remediation task',
+    ],
+    '_hermes/default/skills/software-development/test-driven-development/SKILL.md': [
+        'Contract and distributed-behavior RED tests', 'driving agent', 'production-dispatch', 'actual parser',
+    ],
+    '_hermes/default/profiles/nerd/skills/software-development/test-driven-development/SKILL.md': [
+        'Contract and distributed-behavior RED tests', 'driving agent', 'production-dispatch', 'actual parser',
+    ],
+}
+for raw_path, phrases in required.items():
+    path = Path(raw_path)
+    text = path.read_text()
+    missing = [phrase for phrase in phrases if phrase not in text]
+    if missing:
+        raise SystemExit(f'{path} missing reconciled integration guidance: {missing}')
+PY
+}
+
 test_phase_three_docs_use_canonical_shared_skill_paths() {
   assert_file_contains "AGENTS.md" '"skills": ["skills"]' || return 1
   assert_file_not_contains "AGENTS.md" '"skills": [".agents/skills", "opencode/skills"]' || return 1
@@ -1696,6 +1932,10 @@ main() {
   run_test test_pi_install_removes_retired_interactive_shell_when_pi_list_fails
   run_test test_pi_doctrine_renderer_tracks_exact_git_state
   run_test test_pi_interaction_doctrine_is_versioned_and_read_only_by_default
+  run_test test_integration_integrity_is_common_and_portable
+  run_test test_integration_integrity_materializes_across_workflows
+  run_test test_tdd_test_writer_is_direct_and_distributed
+  run_test test_hermes_integration_integrity_mirrors_are_reconciled
   run_test test_phase_three_docs_use_canonical_shared_skill_paths
   run_test test_phase_three_duplicate_skill_trees_are_removed
   run_test test_plan_authoring_contract_is_product_owner_friendly

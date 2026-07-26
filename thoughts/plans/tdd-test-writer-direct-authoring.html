@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portable Integration Integrity and Direct TDD Authorship</title>
+  <style>
+    :root { color-scheme: dark; --bg:#09101d; --panel:#121b2b; --panel-2:#19263a; --text:#e7edf7; --muted:#aab7cc; --border:#30425e; --accent:#7dd3fc; --accent-2:#c4b5fd; --good:#34d399; --warn:#fbbf24; --bad:#fb7185; --code:#0d1625; }
+    * { box-sizing:border-box; } html { scroll-behavior:smooth; }
+    body { margin:0; background:radial-gradient(circle at top left,rgba(125,211,252,.13),transparent 34rem),var(--bg); color:var(--text); font:16px/1.58 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1200px,calc(100% - 32px)); margin:auto; padding:32px 0 72px; }
+    header,section,article { background:rgba(18,27,43,.9); border:1px solid var(--border); border-radius:18px; padding:22px; margin:16px 0; }
+    header { background:linear-gradient(135deg,rgba(125,211,252,.14),rgba(196,181,253,.11)); }
+    h1,h2,h3 { line-height:1.2; color:#f8fafc; } h1 { margin:0 0 10px; font-size:clamp(2rem,5vw,3.15rem); } h2 { margin-top:0; } h3 { color:var(--accent); margin:20px 0 8px; }
+    a { color:var(--accent); } code,pre { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; } code { background:var(--code); border:1px solid var(--border); border-radius:6px; padding:.06rem .28rem; } pre { overflow:auto; white-space:pre-wrap; background:var(--code); border:1px solid var(--border); border-radius:12px; padding:15px; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; } th,td { border:1px solid var(--border); padding:10px 12px; vertical-align:top; text-align:left; } th { background:rgba(125,211,252,.11); }
+    .muted { color:var(--muted); } .pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; } .pill { border:1px solid var(--border); border-radius:999px; padding:5px 10px; color:var(--muted); background:rgba(13,22,37,.8); font-size:.9rem; } .pill.warn { color:var(--warn); } .pill.good { color:var(--good); }
+    .toc { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px 24px; } .toc a { display:block; text-decoration:none; padding:3px 0; color:var(--muted); } .toc a:hover { color:var(--text); }
+    .callout { border-left:4px solid var(--accent); background:rgba(125,211,252,.08); padding:12px 15px; border-radius:10px; } .warning { border-left:4px solid var(--warn); background:rgba(251,191,36,.08); padding:12px 15px; border-radius:10px; } .danger { border-left:4px solid var(--bad); background:rgba(251,113,133,.08); padding:12px 15px; border-radius:10px; }
+    .phase { border-left:4px solid var(--accent-2); } .check { list-style:none; padding-left:0; } .check li { margin:.45rem 0; }
+    @media (max-width:760px) { main { width:min(100% - 20px,1200px); padding-top:16px; } header,section,article { padding:16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header id="title">
+    <h1>Portable Integration Integrity and Direct TDD Authorship</h1>
+    <p class="muted">Make exact untyped contracts and distributed production behavior a common execution discipline—not a property of <code>run-plan</code>—while replacing machine-local TDD guidance with a repository-owned direct-authorship skill.</p>
+    <div class="pills" id="status">
+      <span class="pill good">Status: execution ready</span>
+      <span class="pill">Doct: <a href="https://doct.nodaste.com/d/workspace_759bfae3-44f1-4ce5-9bff-9077d9933a21/docs/1db5efc7-a1ac-40e6-baaf-ff9286f7f344">registered review plan</a></span>
+      <span class="pill">Plan: <code>thoughts/plans/tdd-test-writer-direct-authoring.html</code></span>
+      <span class="pill">UI impact: text-only agent workflow</span>
+      <span class="pill">Scope: shared guidance, installers, and managed Hermes mirrors</span>
+    </div>
+  </header>
+
+  <section id="toc">
+    <h2>Table of contents</h2>
+    <div class="toc">
+      <div><strong>Context</strong><a href="#product-owner-context">Product-owner context</a><a href="#whats-new">What’s new</a><a href="#goal">Goal</a><a href="#decision-attention">Decision Attention</a><a href="#doct-readiness">Doct readiness gate</a><a href="#why">Why this plan exists</a></div>
+      <div><strong>Contract</strong><a href="#current-reality">Current implementation reality</a><a href="#integration-inventory">Integration inventory</a><a href="#locked-decisions">Locked decisions</a><a href="#acceptance-criteria">Acceptance criteria</a><a href="#bdd">BDD scenarios</a><a href="#coverage">Test coverage matrix</a></div>
+      <div><strong>Execution</strong><a href="#progress">Progress</a><a href="#resume">Resume instructions</a><a href="#phase-p1">P1 — Establish common invariant</a><a href="#phase-p2">P2 — Materialize plan and review rules</a><a href="#phase-p3">P3 — Refactor and distribute TDD skill</a><a href="#phase-p4">P4 — Reconcile Hermes and verify</a><a href="#verification">Verification</a><a href="#non-goals">Non-goals</a><a href="#decisions-log">Decisions / Deviations log</a></div>
+    </div>
+  </section>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <p>Recent evaluation evidence showed two complementary failures. One implementation split producer and consumer work until positional and configuration contracts drifted. Another had a single integration owner and a real dispatch test, yet stopped at a helper and top-level request event instead of populating all required production call sites with meaningful dimensions. Current guidance notices pieces of those risks, but it puts most durable execution mechanics in <code>run-plan</code>. Ordinary fixes, direct execution, and unplanned work can therefore miss the same checks.</p>
+    <p><strong>Why now:</strong> the workflow needs one portable, trigger-based execution rule that applies whenever an agent is authorized to implement. Plans, <code>run-plan</code>, RED tests, and reviews should store or validate the same evidence at different levels of detail. The current externally installed <code>tdd-test-writer</code> also delegates test authorship to a subagent and has no repo-owned source or installer entry, contradicting the primary-agent ownership rule.</p>
+    <p><strong>Key conclusion:</strong> this is an agent-workflow and release-confidence correction, not an application-runtime defect. The change adds a small common integration-integrity invariant, makes plan/review/test layers enforce their separate responsibilities, and ships a versioned direct-authorship TDD skill.</p>
+    <table>
+      <thead><tr><th>Impact dimension</th><th>Conclusion</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>No application-runtime behavior changes.</td></tr>
+        <tr><td>Runtime product behavior</td><td>No product API, persistence, or deployment change. Coding agents will consistently inspect and prove relevant contracts and distributed behavior.</td></tr>
+        <tr><td>Security / permissions</td><td>No new permission or secret access. The rule explicitly remains inside authorized code, test, documentation, and supported-diagnostic surfaces.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Improved: producer-to-consumer, real-dispatch, and executable-documentation proof are required when their triggers apply; helper-only proof cannot close the work.</td></tr>
+        <tr><td>Deployment / migration</td><td>No application deployment or data migration. Shared-skill installation and managed Hermes source verification are configuration distribution checks, not PR gates for runtime deployment.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What’s new — integration proof follows every implementation path</h2>
+    <div class="callout"><strong>Promise:</strong> whether work starts from a reviewed plan, <code>run-plan</code>, or an ordinary implementation request, an agent will identify relevant exact contracts and distributed behavior, re-read definitions before dependent edits, and prove the real boundary or dispatch path.</div>
+    <ul>
+      <li><strong>Before:</strong> plans mention consumers and parity, reviewers can spot round-trip or sibling gaps, and <code>run-plan</code> has a coverage ledger; no-plan work has no common required integration record.</li>
+      <li><strong>After:</strong> a concise base execution rule triggers a compact integration record only when the change crosses an untyped exact contract or distributes behavior across production sites.</li>
+      <li><strong>Observable result:</strong> a completion report can identify the source definition, producer/consumer or call-site inventory, production-path proof, and reconciliation result instead of citing helper existence.</li>
+      <li><strong>Preserved guarantees:</strong> simple local typed refactors stay lightweight; reviews remain read-only detection gates; plans remain optional; and a contract or inventory discovered to require a new product outcome still stops for owner direction.</li>
+    </ul>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Establish portable, trigger-based integration-integrity behavior across direct execution, planning, TDD, and review; make <code>tdd-test-writer</code> repository-owned and directly authored; and preserve semantic alignment in the managed Hermes copies of the affected planning/execution guidance.</p>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="warning"><strong>No product decision required.</strong> This plan deliberately treats the stated guidance as process behavior, not a new product contract. The browser-review queue was empty, the final active-harness plan rereview validated the remediation, and Doct readiness metadata has been promoted. The execution workflow must still move the registered Doct plan to <code>in_progress</code> before it edits code.</div>
+    <ul>
+      <li><strong>Portability boundary:</strong> <code>APPEND_SYSTEM.md</code> is installed into Pi, not automatically into arbitrary Claude/Codex sessions. The portable path is the repo-bootstrap root <code>AGENTS.md</code> template plus shared skills. The plan must not claim that an arbitrary existing repo with no updated <code>AGENTS.md</code> receives a new global system rule.</li>
+      <li><strong>Lightweight rule:</strong> the integration record is required only when discovery finds an exact untyped boundary or distributed production behavior. Otherwise the executor records that neither trigger applies and proceeds normally.</li>
+      <li><strong>Hermes:</strong> managed Hermes planning/execution skill mirrors are in scope because they presently carry the same concepts. Live <code>~/.hermes</code> installation is not authorized by this plan; source verification is required, while <code>install --apply</code> requires a later explicit request.</li>
+      <li><strong>Review ownership:</strong> the generic <code>_pi/agents/reviewer.md</code> remains generic. Contract/inventory checks belong in the plan and implementation reviewer packets that supply the task-specific lens.</li>
+    </ul>
+  </section>
+
+  <section id="doct-readiness">
+    <h2>Doct readiness gate</h2>
+    <ul>
+      <li><strong>Canonical artifact:</strong> <a href="https://doct.nodaste.com/d/workspace_759bfae3-44f1-4ce5-9bff-9077d9933a21/docs/1db5efc7-a1ac-40e6-baaf-ff9286f7f344">Doct plan 1db5efc7-a1ac-40e6-baaf-ff9286f7f344</a> in workspace <code>759bfae3-44f1-4ce5-9bff-9077d9933a21</code>.</li>
+      <li><strong>Review state:</strong> lifecycle <code>active</code>, browser queue empty after startup drain, and <code>executionReady: true</code> in Doct metadata.</li>
+      <li><strong>Pre-execution listener:</strong> the registration owner supervises the returned <code>doct-agent plans listen … --jsonl</code> command until an execution workflow visibly moves this exact document to <code>in_progress</code>, lifecycle ends, or the owner cancels review. A listener exit before that boundary is a recovery event, not proof that review is complete.</li>
+      <li><strong>Start condition:</strong> an explicit execution workflow must first read this registered source and Doct state, process any routed review item, then make the visible <code>in_progress</code> transition before its first implementation edit. A bare execution command does not bypass this gate.</li>
+    </ul>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p><code>skills/planning-workflow/SKILL.md</code> already requires consumer and sibling analysis, complete slices, parity, and strong RED contracts. <code>skills/run-plan/SKILL.md</code> already has working notes, review triage, and a coverage ledger. <code>skills/autoreview/SKILL.md</code> already asks reviewers to inspect producer/consumer parity and sibling call sites. None requires a common pre-edit record, source-of-truth table, exact-match reread, post-change dependent search, or distributed completion gate outside <code>run-plan</code>.</p>
+    <p>The installed <code>~/.agents/skills/tdd-test-writer/SKILL.md</code> is external, untracked by <code>skills/install-matrix.json</code>, and delegates RED test changes to a named subagent. The repository explicitly assigns code and test changes to the driving agent. The generic installer already supports default repo-owned universal skills, so registering a canonical source needs no new installer algorithm.</p>
+  </section>
+
+  <section id="authority-inputs">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>User direction in this conversation: promote contract recall and distributed coverage to behavior that works with or without a plan or <code>run-plan</code>, and include the TDD skill refactor.</li>
+      <li><code>APPEND_SYSTEM.md</code>: common Pi execution doctrine and primary-agent implementation ownership.</li>
+      <li><code>skills/planning-workflow/SKILL.md</code>, <code>skills/run-plan/SKILL.md</code>, <code>skills/autoreview/SKILL.md</code>, and <code>skills/reviewed-html-plan/SKILL.md</code>: current planning, execution, and caller-packet seams.</li>
+      <li><code>skills/repo-agents-bootstrap/SKILL.md</code> and <code>references/root_agents_template.md</code>: portable root-<code>AGENTS.md</code> adoption path.</li>
+      <li><code>~/.agents/skills/tdd-test-writer/SKILL.md</code>: reference input only; it is not edited as source.</li>
+      <li><code>skills/install-matrix.json</code>, <code>install.sh</code>, and <code>test_install_shared_skills.sh</code>: shared-skill distribution seam.</li>
+      <li><code>_hermes/default/skills/software-development/</code> and <code>scripts/hermes_config_sync.py</code>: managed Hermes mirror and verification boundary.</li>
+    </ul>
+  </section>
+
+  <section id="product-intent-alignment">
+    <h2>Product intent alignment</h2>
+    <p>This repository’s product is reliable agent configuration. The golden path is that an authorized implementation agent completes the promised behavior with truthful evidence, without asking an operator to discover hidden repair steps or relying on a special execution command. The proposed rule is complexity-aware: it adds no inventory to local typed work, but it makes exact contracts and distributed requirements explicit when they are the source of realistic delivery failure.</p>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>APPEND_SYSTEM.md</code> contains autonomy, scope, source-of-truth, testing, and direct-ownership rules, but no triggered integration-integrity record or exact-match reread rule.</li>
+      <li><code>planning-workflow</code> asks the plan author about consumers and siblings and requests multi-surface inventories, but it does not require an untyped-boundary table or state that helper/wrapper completion is insufficient for distributed behavior.</li>
+      <li><code>run-plan</code> contains the strongest working-note and review-remediation mechanisms, making the desired behavior uneven for direct execution.</li>
+      <li><code>autoreview</code> names producer/consumer round trips and sibling call sites, but it cannot create the executor’s missing inventory; it needs that inventory in its caller packet.</li>
+      <li><code>_pi/agents/reviewer.md</code> intentionally accepts a caller-supplied lens and must remain free of permanent workflow-specific checklists.</li>
+      <li><code>skills/</code> has no <code>tdd-test-writer</code> source and the install matrix has no entry. The current local external skill delegates test authoring despite the repository’s direct-ownership rule.</li>
+      <li>Managed Hermes has copies of planning/execution skills that reference the same TDD and contract concepts, so source-only changes would leave that supported runtime inconsistent.</li>
+    </ul>
+  </section>
+
+  <section id="integration-inventory">
+    <h2>Integration inventory for this change</h2>
+    <h3>Exact/untyped boundary contracts</h3>
+    <table>
+      <thead><tr><th>Boundary</th><th>Source of truth</th><th>Producer</th><th>Consumer</th><th>Cross-boundary proof</th></tr></thead>
+      <tbody>
+        <tr><td>Common integration-integrity rule</td><td><code>APPEND_SYSTEM.md</code> for Pi; bootstrap root-<code>AGENTS.md</code> template for portable repo adoption</td><td>Pi installation / repo bootstrap</td><td>Direct implementation agents in configured repos</td><td>Focused source assertions and rendered Pi doctrine installation test; template/skill coherence assertions</td></tr>
+        <tr><td>Planning inventory format</td><td><code>skills/planning-workflow/SKILL.md</code></td><td><code>dev-plan</code> and reviewed-plan authoring flows</td><td>Plan authors, plan reviewers, and executors</td><td>Plan-source contract assertions plus reviewer-packet requirements that reject absent triggered inventories</td></tr>
+        <tr><td>Direct TDD guidance</td><td><code>skills/tdd-test-writer/SKILL.md</code></td><td>Shared-skill installer</td><td>Pi, Codex, and Claude skill discovery</td><td>Temporary-home installer copies the exact source with its managed provenance marker</td></tr>
+        <tr><td>Managed Hermes guidance</td><td>Repo-owned shared skills, reconciled into named top-level and active profile <code>_hermes/default</code> mirrors</td><td>Hermes source bundle</td><td>Top-level plan/run workflows plus <code>profiles/nerd</code> plan, writing-plan, and TDD workflows</td><td>Source-derived profile mirror inventory plus <code>scripts/hermes_config_sync.py verify</code> after source mirror updates; no live installation in this slice</td></tr>
+      </tbody>
+    </table>
+    <h3>Distributed behavior inventory</h3>
+    <table>
+      <thead><tr><th>Operation family</th><th>Production surfaces</th><th>Required behavior</th><th>Coverage / reconciliation</th></tr></thead>
+      <tbody>
+        <tr><td>Direct implementation</td><td>Pi common doctrine; downstream root <code>AGENTS.md</code> generated from bootstrap guidance</td><td>When a trigger applies, make an integration record, reread exact definitions, search dependents after a contract change, and require boundary/dispatch proof before completion</td><td>Exhaustive by configured surface. State the truthful portability limit for existing repos that have not adopted the template.</td></tr>
+        <tr><td>Planning and plan review</td><td><code>planning-workflow</code>, <code>dev-plan</code>, <code>reviewed-html-plan</code>, Hermes planning mirrors</td><td>Materialize contract and distributed inventories in plans and reject vague helper-only acceptance evidence</td><td>Exhaustive by authoring/review workflow family; source tests require the shared terms and packet checks.</td></tr>
+        <tr><td>Execution and implementation review</td><td><code>run-plan</code>, <code>autoreview</code>, Hermes <code>run-plan</code> mirror</td><td>Persist/reconcile active records and make review findings named work before fixes</td><td>Exhaustive by supported execution/review workflow family; focused source assertions and a semantic coherence review inspect all touched surfaces.</td></tr>
+        <tr><td>RED-phase test design</td><td>New universal <code>tdd-test-writer</code>; Hermes native TDD equivalent where it is the active skill</td><td>Require direct authorship and trigger-appropriate producer/consumer, real-dispatch, or executable-CLI test shape</td><td>Exhaustive for TDD guidance consumers; installer and Hermes bundle verification prove distribution.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li><strong>One common invariant:</strong> use the term <em>integration integrity</em> for a triggered executor rule, not a second planning-only doctrine.</li>
+      <li><strong>Trigger:</strong> it applies only to (a) exact information the type system cannot fully verify and (b) behavior required across multiple production call sites, handlers, resources, operations, or environments.</li>
+      <li><strong>Minimum record:</strong> record source of truth, producers/consumers or inventory basis, dependent docs/examples, verification, and reconciliation status. A local typed refactor records that neither trigger applies rather than fabricating a table.</li>
+      <li><strong>Reread and search:</strong> before changing a dependent side, reopen the current definition. After changing a contract, search readers, writers, importers, string references, and documented examples; update in-scope results, run the boundary check, then repeat the stale-reference search.</li>
+      <li><strong>Completion:</strong> helpers, middleware, wrappers, and event-existence assertions are infrastructure only. Completion requires inventory reconciliation and production-path or cross-boundary evidence for the intended outcome.</li>
+      <li><strong>Review boundary:</strong> review detects and validates integration evidence. The driving agent owns inventory updates, remediation tasks, tests, and fixes.</li>
+      <li><strong>TDD ownership:</strong> create <code>skills/tdd-test-writer/SKILL.md</code> as a default universal repo-owned skill. It directs the driving agent to author and execute RED tests directly and does not invoke a test-writing subagent.</li>
+      <li><strong>Portable adoption:</strong> add the compact invariant to the repo-bootstrap skill and root <code>AGENTS.md</code> template. Do not duplicate the full theory in downstream repo-local guidance; those files supply domain-specific contracts, inventories, and commands.</li>
+      <li><strong>Hermes boundary:</strong> update applicable managed source mirrors and their manifest through the documented source workflow. Do not install live Hermes configuration without an explicit later request.</li>
+    </ol>
+  </section>
+
+  <section id="socratic-questions">
+    <h2>Socratic plan questions</h2>
+    <ol>
+      <li><strong>First hour:</strong> A user of the previous configuration sees no application-runtime change. After installing the updated configuration, Pi direct work and newly bootstrapped repos prompt an executor to make the same integration checks that reviewed-plan work receives today.</li>
+      <li><strong>Consumers:</strong> Pi consumes <code>APPEND_SYSTEM.md</code>; new repositories consume the bootstrap root-template rule; plans consume <code>planning-workflow</code>; execution/review skills consume inventories; Pi/Codex/Claude consume the TDD source through shared-skill installation; Hermes consumes its reconciled source mirrors.</li>
+      <li><strong>Siblings:</strong> Exact contract drift includes schemas, positional layouts, serialized fields, environment names, flags, paths, headers, payloads, migrations, and documentation examples. Distributed behavior includes routes, operations, handlers, authorization decisions, resources, and environments. The source-search-backed inventory, rather than a remembered list, defines the relevant sibling set per change.</li>
+      <li><strong>Moving ground:</strong> Before implementation, re-read each named source and inspect the current install matrix, mirrors, and installer tests. Re-answer this after any rebase because prompts, mirrors, or installer semantics may change.</li>
+      <li><strong>Falsification:</strong> The design is wrong if it makes every small refactor produce an inventory, if a helper-only test can satisfy a distributed acceptance criterion, if an external test-writing agent remains required, or if the configured Pi/portable/bootstrap/Hermes surfaces disagree. Focused source and installer/bundle checks catch these cases.</li>
+      <li><strong>Proof:</strong> An executor can show the actual producer representation consumed by the actual consumer, or the real production dispatch path for every required inventory row, and explain why any stated representative sample is sufficient. The workflow configuration itself proves this by requiring the record before completion rather than only checking for prose.</li>
+      <li><strong>Untested:</strong> This repository can test guidance text, installer distribution, and managed Hermes bundle integrity. It cannot prove every third-party agent runtime obeys an instruction, nor retroactively modify arbitrary existing repos that have not adopted the bootstrap template. Those limits are disclosed rather than labeled as global enforcement.</li>
+      <li><strong>Expansion log:</strong> Adding direct-execution and managed-Hermes surfaces goes beyond the prior narrow TDD-only draft because those consumers otherwise preserve the exact inconsistency the requested outcome addresses. It does not add runtime product behavior, deployment, new agent personas, or a universal external-service validator.</li>
+    </ol>
+  </section>
+
+  <section id="acceptance-criteria">
+    <h2>Acceptance criteria</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Observable criterion</th></tr></thead>
+      <tbody>
+        <tr id="ac-1"><td>AC1</td><td>Pi’s common execution doctrine requires a compact integration record only when an exact untyped contract or distributed production behavior is present; it requires exact-definition rereads, dependent searches after contract changes, and truthful completion evidence.</td></tr>
+        <tr id="ac-2"><td>AC2</td><td>The repository-bootstrap skill and root <code>AGENTS.md</code> template carry the same concise invariant for downstream repositories without duplicating plan/run-plan lifecycle policy or claiming retroactive global enforcement.</td></tr>
+        <tr id="ac-3"><td>AC3</td><td>Planning guidance requires triggered contract and distributed-behavior inventories, source-of-truth identification, an exhaustive/family/representative coverage declaration, and acceptance criteria that cannot be satisfied by a helper or outer wrapper alone.</td></tr>
+        <tr id="ac-4"><td>AC4</td><td><code>run-plan</code> persists the record across phases, compaction/handoff/resume, contract changes, and review remediation; direct execution remains governed by the common rule rather than depending on <code>run-plan</code>.</td></tr>
+        <tr id="ac-5"><td>AC5</td><td>Plan and implementation reviewer packets validate the supplied inventories against the cited source searches, cross-boundary evidence, real production usage, and incomplete helper-only coverage while preserving the generic reviewer persona.</td></tr>
+        <tr id="ac-6"><td>AC6</td><td>A repo-owned universal <code>skills/tdd-test-writer/SKILL.md</code> assigns RED test authoring and execution to the driving agent, prohibits test-authoring delegation, and defines conditional producer/consumer, production-dispatch, and executable-CLI test shapes.</td></tr>
+        <tr id="ac-7"><td>AC7</td><td>The install matrix and isolated installer tests distribute the new TDD skill to Claude, Codex, and Pi with managed provenance; the live local shared-skill copy is synchronized only after isolated tests pass.</td></tr>
+        <tr id="ac-8"><td>AC8</td><td>Every active managed Hermes planning/execution consumer—named top-level mirrors and the source-derived <code>profiles/nerd</code> plan, writing-plan, and TDD mirrors—expresses the same relevant requirements; the source bundle verifies cleanly; and no live Hermes install occurs without separate authorization.</td></tr>
+        <tr id="ac-9"><td>AC9</td><td>Focused regression checks and final semantic coherence review prove that the base, planning, execution, TDD, reviewer-packet, bootstrap, installer, and Hermes guidance agree in meaning instead of merely sharing keywords.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-local"><h3>BDD1 — Local typed work stays lightweight</h3><p><strong>Given</strong> a local refactor with no exact untyped contract and no distributed behavior, <strong>when</strong> the executor begins, <strong>then</strong> it records that neither trigger applies and does not create a fictitious inventory.</p></article>
+    <article id="bdd-boundary"><h3>BDD2 — Producer output reaches the real consumer</h3><p><strong>Given</strong> a change crosses a serialized, positional, configuration, migration, or CLI/documentation contract, <strong>when</strong> the executor tests it, <strong>then</strong> the producer representation reaches the real consumer or nearest deterministic service-boundary equivalent; disconnected hand-written producer and consumer fixtures do not suffice.</p></article>
+    <article id="bdd-contract-change"><h3>BDD3 — Contract changes force dependent recall</h3><p><strong>Given</strong> a shared contract changes, <strong>when</strong> the executor updates dependents or resumes after a compaction/handoff, <strong>then</strong> it rereads the source definition, searches all readers/writers/importers/string references/documented examples, updates the in-scope results, and reruns the boundary test.</p></article>
+    <article id="bdd-distributed"><h3>BDD4 — Distributed work is not completed by infrastructure</h3><p><strong>Given</strong> required behavior spans multiple operation families, <strong>when</strong> a helper, wrapper, or middleware is added, <strong>then</strong> the work remains incomplete until the source-derived inventory is reconciled and production-path tests cover the declared scope.</p></article>
+    <article id="bdd-review"><h3>BDD5 — Review findings become owned work</h3><p><strong>Given</strong> a reviewer identifies an in-scope contract, call-site, or verification gap, <strong>when</strong> the driving agent acts, <strong>then</strong> it first maps the finding to an acceptance criterion/phase and an inventory row, creates named remediation work, strengthens proof where practical, and requests focused rereview.</p></article>
+    <article id="bdd-tdd"><h3>BDD6 — RED tests remain directly authored</h3><p><strong>Given</strong> an agent uses <code>tdd-test-writer</code>, <strong>when</strong> it enters RED, <strong>then</strong> the driving agent writes and runs the test itself and records the expected failure without delegating test changes to another persona.</p></article>
+    <article id="bdd-cli"><h3>BDD7 — Documented commands are parser contracts</h3><p><strong>Given</strong> a documented command form is part of the requested contract, <strong>when</strong> tests are designed, <strong>then</strong> representative documented invocations execute through the actual parser rather than being proven only by documentation-string assertions.</p></article>
+    <article id="bdd-distribution"><h3>BDD8 — Shared guidance is distributed truthfully</h3><p><strong>Given</strong> the repo-owned TDD source and managed Hermes mirrors are updated, <strong>when</strong> isolated installer and source-bundle checks run, <strong>then</strong> they prove the declared consumers received the intended text while the final report states that non-adopting external repos remain outside immediate enforcement.</p></article>
+  </section>
+
+  <section id="coverage">
+    <h2>Test coverage matrix</h2>
+    <table>
+      <thead><tr><th>Acceptance / BDD</th><th>Layer</th><th>Planned evidence</th></tr></thead>
+      <tbody>
+        <tr><td>AC1–AC2; BDD1–BDD3</td><td>Base and bootstrap source contract</td><td>Focused assertions in <code>test_install_shared_skills.sh</code> inspect the Pi doctrine, bootstrap skill, and root template for the trigger, record, reread/search, lightweight no-trigger, and portability-limit requirements. Existing rendered Pi doctrine test proves installation.</td></tr>
+        <tr><td>AC3; BDD2, BDD4, BDD7</td><td>Planning source contract</td><td>Focused source assertions cover the contract table, distributed inventory, exact/family/representative declaration, cross-boundary proof, executable CLI examples, and helper/wrapper non-completion rule in shared planning and its authoring/review consumers.</td></tr>
+        <tr><td>AC4–AC5; BDD3–BDD5</td><td>Execution and reviewer packets</td><td>Focused source assertions cover working-record persistence, compaction/handoff reread, post-contract-change search, named remediation work, and reviewer reconciliation of inventory/search/evidence without changing the generic reviewer agent.</td></tr>
+        <tr><td>AC6–AC7; BDD6–BDD8</td><td>TDD source and installer parity</td><td>Temporary-home <code>./install.sh --skills</code> test compares the installed TDD skill to <code>skills/tdd-test-writer</code>, checks its managed provenance, and rejects delegation or omission of triggered boundary/dispatch/parser proof.</td></tr>
+        <tr><td>AC8–AC9</td><td>Hermes and whole-change coherence</td><td>Derive and read every active top-level and profile Hermes consumer after edits, run <code>python3 scripts/hermes_config_sync.py verify</code>, and use a bounded reviewer packet to compare every changed guidance surface against the inventory and non-goals.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="check">
+      <li>☑ P1 — Establish the common integration-integrity invariant and portable adoption boundary.</li>
+      <li>☑ P2 — Materialize inventories in planning, execution, and reviewer-packet workflows.</li>
+      <li>☑ P3 — Create and distribute the direct-authorship TDD skill.</li>
+      <li>☑ P4 — Reconcile managed Hermes mirrors and complete coherence verification.</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions (agent)</h2>
+    <p>Read this full plan, the root <code>AGENTS.md</code>, and the current registered Doct state before implementation. Start only through an explicit execution command or new implementation instruction <strong>after</strong> the execution workflow has processed any routed review item and visibly moved Doct plan <code>1db5efc7-a1ac-40e6-baaf-ff9286f7f344</code> to <code>in_progress</code>. Preserve unrelated work and implement directly in the driving session. Before each phase, reopen the source-of-truth files named in the integration inventory and inspect current consumers; do not trust this plan for exact prose. Update the matching Progress checkbox immediately after its phase’s verification passes, then update the registered HTML plan in Doct with the returned expected version.</p>
+    <p>Keep one integration owner. Do not add an implementation/test-writing subagent, a new global service, a committed process diary, or a product/runtime contract. Do not install live Hermes configuration. Treat a requirement to alter a public product contract as a stop-for-owner-direction condition; treating an in-scope inventory omission as named remediation work is not an expansion.</p>
+  </section>
+
+  <article class="phase" id="phase-p1">
+    <h2>P1 — Establish the common integration-integrity invariant and portable adoption boundary</h2>
+    <h3>End State</h3>
+    <p>Pi direct implementation has a compact, triggered integration-integrity rule, and newly bootstrapped repositories receive equivalent concise root guidance. Both state the same honest portability boundary: existing repos must adopt/update their root <code>AGENTS.md</code>; this repository does not silently alter arbitrary host system prompts.</p>
+    <h3>Tests first</h3>
+    <p>Add focused source-contract assertions that fail until the common rule contains: trigger detection, a no-trigger lightweight path, the minimum integration record, source-of-truth reread before dependent edits, dependent search after contract changes, and completion that rejects helper/wrapper/event-existence evidence. Assert the bootstrap source/template carry the portable form and do not overstate global enforcement.</p>
+    <h3>Expected files</h3>
+    <ul><li><code>APPEND_SYSTEM.md</code></li><li><code>skills/repo-agents-bootstrap/SKILL.md</code></li><li><code>skills/repo-agents-bootstrap/references/root_agents_template.md</code></li><li><code>test_install_shared_skills.sh</code></li><li>Potentially the generated/install verification assertion only if the current one cannot prove the rendered doctrine contains the new invariant.</li></ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Add a short <em>Integration integrity</em> execution section to <code>APPEND_SYSTEM.md</code>, placed with working principles rather than planning or review policy.</li>
+      <li>Define the two triggers: exact non-compiler-checked contracts and behavior distributed across production sites.</li>
+      <li>Define the minimum session/working-state record without requiring a repository file for simple direct work.</li>
+      <li>Require exact re-read before dependent edits; after contract changes, search/update/retest/search for stale consumers and documented examples; include compaction, handoff, and resume as reread triggers.</li>
+      <li>Update bootstrap guidance and its root template to encode the same compact rule for downstream repository adoption, while reserving domain-specific inventories and commands for local <code>AGENTS.md</code>.</li>
+      <li>Add focused assertions that test semantic requirements rather than paragraph order.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. Do not try to manufacture system-prompt parity for arbitrary existing Claude/Codex installations; record the bootstrap/adoption boundary plainly.</p>
+    <h3>Verify</h3>
+    <pre><code>python3 -m json.tool skills/install-matrix.json
+bash test_install_shared_skills.sh
+python3 scripts/render_pi_append_system.py --repo . --source APPEND_SYSTEM.md --target /tmp/ai-configs-append-system.md
+rg -n "Integration integrity|untyped|distributed|re-read|source of truth" APPEND_SYSTEM.md skills/repo-agents-bootstrap test_install_shared_skills.sh</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p2">
+    <h2>P2 — Materialize inventories in planning, execution, and reviewer-packet workflows</h2>
+    <h3>End State</h3>
+    <p>Plans, direct long-running execution, and reviews use the same concepts without making <code>run-plan</code> the source of behavior. A plan has explicit contract/distributed inventories when triggered; <code>run-plan</code> persists and remediates them; reviewer packets validate them; the generic reviewer persona remains unchanged.</p>
+    <h3>Tests first</h3>
+    <p>Add focused source assertions that fail until planning requires both inventories and testable acceptance criteria; <code>run-plan</code> records/re-reads/searches/remediates them; and reviewed-plan/autoreview packets compare claimed inventories to cited source searches and real production-path proof. Include a negative assertion that <code>_pi/agents/reviewer.md</code> is not made a permanent owner of this workflow lens.</p>
+    <h3>Expected files</h3>
+    <ul><li><code>skills/planning-workflow/SKILL.md</code></li><li><code>skills/dev-plan/SKILL.md</code> and/or its direct plan prompt only where needed to preserve the canonical plan contract</li><li><code>skills/reviewed-html-plan/SKILL.md</code></li><li><code>skills/run-plan/SKILL.md</code></li><li><code>skills/autoreview/SKILL.md</code></li><li><code>_pi/prompts/dev:plan.md</code> and <code>_pi/prompts/run-plan.md</code> only if they otherwise bypass the updated shared-skill contract</li><li><code>test_install_shared_skills.sh</code></li><li><strong>Not changed:</strong> <code>_pi/agents/reviewer.md</code></li></ul>
+    <h3>Work</h3>
+    <ol>
+      <li>In <code>planning-workflow</code>, add a triggered <code>Contract and distributed-integration inventory</code> plan section. Require <code>None identified, based on &lt;source search&gt;</code> when neither trigger applies.</li>
+      <li>For exact contracts, require boundary/source-of-truth/producer/consumer/cross-boundary-test rows and prefer shared executable definitions or a single contract artifact over duplicated fixtures.</li>
+      <li>For distributed behavior, require search basis, exact-site/family inventory, required behavior, verification, status, and explicit exhaustive-by-site, exhaustive-by-family, or justified-representative scope.</li>
+      <li>Strengthen acceptance/BDD/ready-bar language so a helper, outer wrapper, or event-existence test cannot close a distributed outcome. Require documented CLI forms to execute through the actual parser when they are part of the contract.</li>
+      <li>In <code>run-plan</code>, add an integration-record/coverage-ledger schema, exact-match reread checkpoints, post-contract-change search sequence, compaction/handoff recovery rule, and named review-remediation task mapping. Preserve direct execution as the common-rule path rather than asserting that this skill is universally loaded.</li>
+      <li>In <code>reviewed-html-plan</code>, <code>autoreview</code>, and any needed wrapper prompt, add caller-packet checks for one source of truth, real boundary evidence, source-derived call-site reconciliation, meaningful required dimensions, and helper-only false completion.</li>
+      <li>Keep review read-only and retain the caller-owned lens model in the generic reviewer definition.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. If a current wrapper has a separate authoritative workflow that cannot delegate to the updated shared skill, record it in the integration inventory and update it only where needed for parity.</p>
+    <h3>Verify</h3>
+    <pre><code>bash test_install_shared_skills.sh
+rg -n "Contract and distributed|integration integrity|source of truth|exhaustive|representative|helper|re-read|remediation" \
+  skills/planning-workflow/SKILL.md skills/run-plan/SKILL.md skills/autoreview/SKILL.md skills/reviewed-html-plan/SKILL.md skills/dev-plan/SKILL.md
+rg -n "permanent review lens|integration integrity" _pi/agents/reviewer.md</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p3">
+    <h2>P3 — Create and distribute the direct-authorship TDD skill</h2>
+    <h3>End State</h3>
+    <p><code>skills/tdd-test-writer/SKILL.md</code> is the canonical universal source. It keeps RED authoring and RED verification with the driving agent and gives conditional test-design requirements for integration-integrity triggers. The shared-skill installer distributes the exact source to Claude, Codex, and Pi.</p>
+    <h3>Tests first</h3>
+    <p>Add assertions that fail until the new skill has valid metadata, assigns authoring/execution to the driving agent, forbids test-writing delegation, preserves no-production-code RED discipline, and requires production-entrypoint/cross-boundary/production-dispatch/executable-parser proof only when the relevant trigger applies. Extend temporary-home installer coverage to prove matrix registration, installed source parity, and the managed provenance marker.</p>
+    <h3>Expected files</h3>
+    <ul><li><code>skills/tdd-test-writer/SKILL.md</code> (new)</li><li><code>skills/install-matrix.json</code></li><li><code>test_install_shared_skills.sh</code></li></ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Use the local external skill as reference input only. Do not edit it directly or preserve its <code>tdd_test_writer</code> delegation requirement.</li>
+      <li>Write a concise repository-owned TDD skill that defines behavior, creates RED tests directly, verifies the expected failure, and provides a no-test-weakening handoff.</li>
+      <li>Add conditional test-shape rules for exact contracts, external deterministic captures, distributed operation inventories, and documented CLI parser examples. Keep planning/execution ledger ownership in their dedicated layers.</li>
+      <li>Register <code>tdd-test-writer</code> as a default <code>universal-installable</code> repo source for Claude, Codex, and Pi.</li>
+      <li>Use the generic installer iteration; do not add bespoke install logic or put the skill into the intentionally fixed Pi review-stack-only list.</li>
+      <li>After isolated verification passes, run <code>./install.sh --skills</code> and compare the local installed source and managed marker with the repository source.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. If the matrix’s existing consumer policy cannot represent this universal skill, stop with that concrete installer-model contradiction rather than adding a parallel distribution path.</p>
+    <h3>Verify</h3>
+    <pre><code>python3 -m json.tool skills/install-matrix.json
+bash test_install_shared_skills.sh
+./install.sh --skills
+cmp skills/tdd-test-writer/SKILL.md ~/.agents/skills/tdd-test-writer/SKILL.md
+python3 - &lt;&lt;'PY'
+import json
+from pathlib import Path
+marker = json.loads(Path.home().joinpath('.agents/skills/tdd-test-writer/.ai-configs-managed.json').read_text())
+assert marker['source'] == 'skills/tdd-test-writer'
+PY</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p4">
+    <h2>P4 — Reconcile managed Hermes mirrors and complete coherence verification</h2>
+    <h3>End State</h3>
+    <p>Hermes’s managed planning/execution skill copies express the relevant integration-integrity and TDD behavior without inventing a second doctrine. The source bundle manifest is refreshed and verifies cleanly. The resulting diff has one meaning across base, bootstrap, planning, execution, review, TDD, installer, and Hermes surfaces.</p>
+    <h3>Tests first</h3>
+    <p>Extend focused coherence assertions to name each expected Hermes mirror and require its corresponding concept. Add no behavior test that assumes a live Hermes installation, because live installation is not part of this authorized slice.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>_hermes/default/skills/software-development/planning-workflow/SKILL.md</code></li>
+      <li><code>_hermes/default/skills/software-development/writing-plans/SKILL.md</code></li>
+      <li><code>_hermes/default/skills/software-development/plan/SKILL.md</code></li>
+      <li><code>_hermes/default/skills/software-development/dev-plan/SKILL.md</code></li>
+      <li><code>_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md</code></li>
+      <li><code>_hermes/default/skills/software-development/run-plan/SKILL.md</code></li>
+      <li><code>_hermes/default/skills/software-development/test-driven-development/SKILL.md</code> if it is the active Hermes analogue for direct RED work</li>
+      <li><code>_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md</code></li>
+      <li><code>_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md</code></li>
+      <li><code>_hermes/default/profiles/nerd/skills/software-development/test-driven-development/SKILL.md</code></li>
+      <li><code>_hermes/default/manifest.json</code></li>
+      <li><code>test_install_shared_skills.sh</code> if focused coherence coverage belongs there</li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Run <code>find _hermes/default/profiles -path '*/skills/software-development/*/SKILL.md'</code> before editing. Map every active plan, writing-plan, run-plan, reviewed-plan, or TDD consumer to its shared source or Hermes-native equivalent; the current required profile inventory is the three <code>profiles/nerd</code> paths listed above.</li>
+      <li>Update top-level and active profile planning, plan-authoring, reviewed-plan, and run-plan mirrors to preserve the same trigger/inventory/reread/review-remediation meanings at their respective layer. A profile-specific divergence is permitted only when its reason and verification are recorded in the final evidence.</li>
+      <li>Update top-level and active profile native Hermes TDD guidance only as needed to keep direct-authorship and conditional integration-test requirements consistent; do not add a duplicated Hermes copy of the universal shared skill unless current Hermes discovery proves that is required.</li>
+      <li>Refresh the managed source manifest and run source-bundle verification. Do not run <code>install --apply</code>; do not export from a live configuration that has not received the source change.</li>
+      <li>Run one bounded active-harness implementation review with the integration inventory, changed-file list, source/mirror mapping, and non-goals. Triage any in-scope gaps into named work and perform the allowed focused rereview after fixes.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. If a Hermes mirror intentionally diverges for a documented runtime limitation, preserve the divergence only with explicit evidence and a truthful limitation in the final report; otherwise reconcile it.</p>
+    <h3>Verify</h3>
+    <pre><code>python3 scripts/hermes_config_sync.py refresh-manifest
+python3 scripts/hermes_config_sync.py verify
+python3 scripts/test_hermes_config_sync.py
+find _hermes/default/profiles -path '*/skills/software-development/*/SKILL.md' -print | sort
+bash test_install_shared_skills.sh
+git diff --check
+git diff --stat
+git diff --name-only</code></pre>
+  </article>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ol>
+      <li>Run focused source-contract assertions before implementation wording is accepted, then run the full shared-skill installer test suite because it owns temp-home installation behavior and cross-surface consistency assertions.</li>
+      <li>Validate the install matrix as JSON before invoking installer behavior.</li>
+      <li>Use <code>scripts/render_pi_append_system.py</code> and the existing temporary-home Pi install tests to prove the common rule survives rendering and installation.</li>
+      <li>Use the standard installer only after isolated tests pass; compare the resulting local TDD skill and provenance marker.</li>
+      <li>For Hermes source mirrors, refresh the source manifest and verify the bundle. Do not treat live deployment/install as pre-PR evidence.</li>
+      <li>Before review, audit every changed file against this plan’s integration inventory. The reviewer receives the cited search results and proof claims, not just the prose plan.</li>
+      <li>After any review fix, rerun only invalidated focused checks plus the required targeted rereview. Final evidence must distinguish source-review consensus from behavioral/distribution verification.</li>
+    </ol>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>Define and test the smallest common invariant and portable bootstrap representation.</li>
+      <li>Make planning, execution, and review carry/validate the invariant at their proper layers.</li>
+      <li>Replace external TDD guidance with the repository-owned direct-authorship skill and prove normal distribution.</li>
+      <li>Reconcile Hermes source mirrors, regenerate the source manifest, and verify the bundle.</li>
+      <li>Run bounded review, complete only in-scope remediation, then follow the selected execution workflow’s normal commit/PR steps.</li>
+      <li><strong>Post-merge delivery / operations:</strong> if the owner later wants live Hermes updated, run the documented <code>install --dry-run</code>, request/perform <code>install --apply</code>, then export and verify. This is explicitly non-blocking for the implementation PR.</li>
+    </ol>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Changing application/product behavior, public APIs, persistence formats, deployment behavior, or release policy.</li>
+      <li>Requiring full plans or a repository artifact for every small implementation task.</li>
+      <li>Claiming to enforce the rule in arbitrary already-existing Claude/Codex repositories that do not load the updated shared skills or adopt the root <code>AGENTS.md</code> template.</li>
+      <li>Adding an implementation or test-writing subagent, a new review persona, a parallel exploration ceremony, or a new test framework.</li>
+      <li>Moving task-specific contract checks into <code>_pi/agents/reviewer.md</code> or making reviewers implementation owners.</li>
+      <li>Adding bespoke installer algorithms, changing the fixed Pi review-stack payload, or making local skill synchronization a planning-time action.</li>
+      <li>Installing or exporting live Hermes configuration as part of this implementation slice.</li>
+      <li>Building a static validator that attempts to infer all application-specific contracts or call sites without repository evidence.</li>
+    </ul>
+  </section>
+
+  <section id="decisions-log">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li><strong>2026-07-25 — Initial narrow draft.</strong> The plan covered only a repo-owned direct-authorship TDD skill and shared-skill installation proof.</li>
+      <li><strong>2026-07-26 — Adapted for browser review.</strong> Expanded the plan to make integration integrity a common triggered execution invariant, with plan/run-plan/review/TDD layer responsibilities, truthful cross-harness adoption limits, and managed Hermes mirror reconciliation. This expansion is required to avoid leaving direct/unplanned work with weaker safeguards than <code>run-plan</code>.</li>
+      <li><strong>2026-07-26 — Execution-readiness remediation.</strong> Added the registered Doct identity and visible pre-execution lifecycle gate, and expanded the Hermes inventory to cover all active <code>profiles/nerd</code> development-skill mirrors found by source search. These changes address the reviewer’s concrete readiness blockers without widening the product scope.</li>
+      <li><strong>2026-07-26 — Implementation review remediation.</strong> The first implementation review found that a prior runtime-native review could satisfy <code>run-plan</code>'s gate without receiving the integration record. The shared and Hermes <code>run-plan</code> reviewer packets now require and validate the triggered evidence, and focused tests protect those packet fields. The targeted rereview passed. Final evidence: <code>bash test_install_shared_skills.sh</code> passed 30/30; <code>./install.sh --skills</code> installed the repo-owned TDD skill and its installed copy matched the source; <code>python3 scripts/hermes_config_sync.py verify</code> passed. No live Hermes install/export was performed.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

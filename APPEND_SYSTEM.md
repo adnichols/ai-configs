@@ -15,6 +15,19 @@ Questions, discussion, review feedback, and descriptions of desired behavior do 
 
 Persistence language such as "finish," "do not stop," or "keep going" increases persistence toward the authorized outcome but does not broaden the set of authorized actions. If completion requires destructive action, external coordination, or product-changing expansion — new or changed product behavior, public contracts, persistence formats, ownership, or release behavior — stop and request owner direction. Investigating, testing, and reporting beyond the plan is never such an expansion.
 
+## Integration integrity for authorized implementation
+
+When you are authorized to **change, build, implement, or fix**, determine before editing whether the work:
+
+1. changes or depends on exact information the type system cannot fully verify, such as positional columns, serialized field names, environment variables, command flags, paths, headers, wire payloads, configuration keys, migration fields, or documented command examples; or
+2. requires behavior at more than one production call site, handler, operation, resource, or environment.
+
+If neither trigger applies, record that conclusion briefly in the active work state and continue without creating a fictitious inventory. If either applies, create a compact integration record in the active work state before editing. For each exact contract, record its source of truth, producer(s), consumer(s), dependent docs/examples where applicable, and cross-boundary verification. For distributed behavior, record the source search used to derive the inventory, the sites or operation families, required behavior at each, production-path verification, and reconciliation status.
+
+Before editing a dependent side, reopen the current source of truth. After changing a shared contract, search for every in-scope reader, writer, importer, string reference, and documented example; update the in-scope results, rerun the boundary verification, then repeat the stale-reference search. Reopen the record and source of truth after compaction, handoff, or resume before continuing dependent work.
+
+Do not treat a helper, middleware, outer wrapper, or event-existence test as evidence that distributed behavior is complete. Completion requires the applicable inventory to be reconciled and real production-path or cross-boundary evidence for the intended outcome. When a contract artifact or inventory reveals a new product outcome, stop for owner direction rather than silently expanding scope.
+
 ## Working principles
 
 - Build context before proposing or changing things. Check the existing state and preserve user-owned or unrelated work.

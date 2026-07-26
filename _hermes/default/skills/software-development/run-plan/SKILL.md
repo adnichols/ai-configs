@@ -69,6 +69,14 @@ Stop before implementation if:
 - the current branch contains unrelated dirty changes that make isolation unsafe,
 - a required runtime-native review gate is unavailable and the user has not waived it or explicitly directed opening the PR regardless. This means the active-harness reviewer-subagent infrastructure and the `autoreview` skill.
 
+## Integration-integrity record
+
+The base execution doctrine also governs direct work without this skill. For this plan run, whenever discovery finds an exact untyped contract or distributed production behavior, preserve in the coverage ledger the source of truth; producer/consumer or source-search-backed operation inventory; dependent docs/examples; coverage declaration; cross-boundary or production-path proof; and reconciliation status. Record `None identified, based on <source search>` when neither trigger applies.
+
+Reread the exact source definition before a dependent edit. After a contract change, search readers, writers, importers, string references, and documented examples; update in-scope results; run the boundary test; then repeat the stale-reference search. Repeat that recovery step after compaction, handoff, resume, rebase, or a material review finding.
+
+Helpers, middleware, wrappers, and event-existence tests are infrastructure evidence, not distributed completion. Reconcile the declared inventory and prove the real production path; contractual documented CLI forms must execute through the actual parser. Map each review gap to a plan criterion, integration-record row, and named remediation task before editing.
+
 ## Scope Classification
 
 Scope follows the canonical Scope section in `planning-workflow`: understanding and protecting existing behavior around your change is the cost of the change, while making something new happen needs its own plan and, when product-changing, owner approval. The disposition rule decides each finding:
@@ -227,7 +235,9 @@ A `PASS` verdict must carry a `Not examined:` line disclosing what the review di
 
 ### 6. Reviewer scope
 
-Use the same single reviewer for every risk level. High-risk changes receive a more specific bounded packet, not a second external reviewer. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
+Use the same single reviewer for every risk level. High-risk changes receive a more specific bounded packet, not a second external reviewer. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. When the integration-integrity rule is triggered, it must also include the integration record: source of truth; producer/consumer or source-derived operation inventory; coverage declaration; reconciliation state; boundary or production-dispatch proof; stale-reference search result; and actual-parser proof for a contractual documented CLI form. It must not edit files. It must return findings in chat, classified with the same scope categories.
+
+A prior runtime-native review may satisfy this gate only when its packet included the triggered integration-integrity evidence and explicitly checked it. Otherwise, run the reviewer with that evidence before treating the pre-PR review gate as satisfied.
 
 For every reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Bound the assigned scope instead.
 
@@ -539,6 +549,9 @@ Assigned failure families:
 Scope contract:
 <goal, acceptance criteria, in-scope, out-of-scope, verification>
 
+Integration-integrity evidence (when triggered):
+<source of truth; producer/consumer or source-derived inventory; coverage declaration; reconciliation state; real boundary or production-dispatch proof; stale-reference search result; and actual-parser proof for each contractual documented CLI form>
+
 Review only whether this diff correctly implements the plan.
 Treat the plan/scope, any author summary, and prior verification results as product intent and claims to verify — not proof of implementation correctness. Re-derive the key invariant from the code, schema, and types.
 
@@ -546,6 +559,7 @@ On this first pass (not only after an escape), also check:
 - generic key-name matching/remapping/rewriting where the key name may not uniquely determine the value's type or target — construct non-target counterexamples (numbers, booleans, objects, unrelated strings) and confirm each is handled
 - fail-closed/bail paths reachable by valid, schema-conformant input
 - producer/consumer and round-trip parity (import vs export, encode vs decode, rewrite vs collect)
+- when integration-integrity evidence is supplied, validate its source of truth, declared inventory/coverage/reconciliation, real boundary or production-dispatch proof, stale-reference result, and actual-parser CLI proof; do not accept helper-only, wrapper-only, middleware-only, or event-existence-only evidence as completion proof
 When you find one instance, enumerate its siblings (other call sites, other shapes, the inverse direction of the boundary) and report the family.
 
 Classify every finding as exactly one of:

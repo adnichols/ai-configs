@@ -3477,9 +3477,9 @@
       "sha256": "bba00c8c4a447d98405878d2419018bacf089be9d1f88820bac4160aadbfd890"
     },
     {
-      "bytes": 3564,
+      "bytes": 3894,
       "path": "profiles/nerd/skills/software-development/plan/SKILL.md",
-      "sha256": "346fffc9b3909dbb2d799d6c40e6c7babeb0e30304ca8519cac0be2d4ecd625e"
+      "sha256": "0256a75486160c61a95965270a8674a7f7f3b7594c5e5face18112152220c6d5"
     },
     {
       "bytes": 13172,
@@ -3507,14 +3507,14 @@
       "sha256": "2ff7dcdfdac6931f894346b0a71249f52f611b79ed88fa4f60bcfb42c34aa9ff"
     },
     {
-      "bytes": 10004,
+      "bytes": 10660,
       "path": "profiles/nerd/skills/software-development/test-driven-development/SKILL.md",
-      "sha256": "3b66780f1cd21fff5820238fbda39750d4c055d0d3070d44267f7741ea8705f5"
+      "sha256": "4c01d41a0dffbe08eeab3c55250d66be0c9b2b418b4a176e492479407e1d6c7d"
     },
     {
-      "bytes": 8640,
+      "bytes": 8970,
       "path": "profiles/nerd/skills/software-development/writing-plans/SKILL.md",
-      "sha256": "9c4ae31fa5e4340b4909722150bf7f399604b0f7f753d2db6d82ec09818d2aa1"
+      "sha256": "236e64e5ddc1089cf279016d6f2da60ce1c645bd323b4d5ef56bac7f649c922c"
     },
     {
       "bytes": 3795,
@@ -8402,9 +8402,9 @@
       "sha256": "55d5811c0b2d872dc59d87432720a113150dbbce2872524a36b3860a8967095d"
     },
     {
-      "bytes": 10658,
+      "bytes": 10977,
       "path": "skills/software-development/dev-plan/SKILL.md",
-      "sha256": "9fe24672d018003cafa76b76be3f1f425e2269cb4280a7b3374c42c4ed48d3da"
+      "sha256": "fa465cc3fb3f322efcbe4cb93fb97dbcac907d7261fc795d2ee8e701bb0c9549"
     },
     {
       "bytes": 11410,
@@ -8442,14 +8442,14 @@
       "sha256": "bba00c8c4a447d98405878d2419018bacf089be9d1f88820bac4160aadbfd890"
     },
     {
-      "bytes": 10930,
+      "bytes": 11249,
       "path": "skills/software-development/plan/SKILL.md",
-      "sha256": "5800c8d6a0d2f2ea61da33f9f8a3b041cf60d44fe4d7aa67dc8bd26e1dc32305"
+      "sha256": "3e8d280d5f01ecff8be1f37037cf6f370dda6622c5a50f004011edc63e592b66"
     },
     {
-      "bytes": 23083,
+      "bytes": 24034,
       "path": "skills/software-development/planning-workflow/SKILL.md",
-      "sha256": "14739744f133484400eeee34aecfe5be705523c2ddac7dc742567d98724a7cf2"
+      "sha256": "381ed40ea98c745697082fbe1608b60230aef242eca71dbdb8d1d334f22bbe03"
     },
     {
       "bytes": 13172,
@@ -8462,14 +8462,14 @@
       "sha256": "7e6d34d9927d68375b26946df45f95b11ee4e69e69ec9d2d71fe8e304487ec70"
     },
     {
-      "bytes": 23983,
+      "bytes": 24840,
       "path": "skills/software-development/reviewed-html-plan/SKILL.md",
-      "sha256": "6ee6f9b55ff7d4a99cf72234f39b056310cb4f8f93dab7d484020b29f04f5d83"
+      "sha256": "e3d74bddbd6e6edb32f84a8a961a11c883457a1258fb043638206fde06ea6c59"
     },
     {
-      "bytes": 65689,
+      "bytes": 68166,
       "path": "skills/software-development/run-plan/SKILL.md",
-      "sha256": "4161478d65610495ee629d5729ccd9e34fce7862b2b878a2b44ffb7999320cde"
+      "sha256": "f19f496eeefe31cf7438070bde5372cb9f84c1526e33dda3ba8d8ba0b808474d"
     },
     {
       "bytes": 10841,
@@ -8487,14 +8487,14 @@
       "sha256": "2ff7dcdfdac6931f894346b0a71249f52f611b79ed88fa4f60bcfb42c34aa9ff"
     },
     {
-      "bytes": 10004,
+      "bytes": 10660,
       "path": "skills/software-development/test-driven-development/SKILL.md",
-      "sha256": "3b66780f1cd21fff5820238fbda39750d4c055d0d3070d44267f7741ea8705f5"
+      "sha256": "4c01d41a0dffbe08eeab3c55250d66be0c9b2b418b4a176e492479407e1d6c7d"
     },
     {
-      "bytes": 23388,
+      "bytes": 24339,
       "path": "skills/software-development/writing-plans/SKILL.md",
-      "sha256": "eda87eab7158fc39d6cc86ab9e3122204ac846e04bc6e5079a95b4240e5ab09b"
+      "sha256": "92e51f5c1b2cf224ba4b44707c71792266b0de586e051e328d146c1d6ce4ebd1"
     },
     {
       "bytes": 3795,
@@ -8502,7 +8502,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260726T013620Z",
+  "generated_at": "20260726T030451Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/code/ai-configs/_hermes/default"

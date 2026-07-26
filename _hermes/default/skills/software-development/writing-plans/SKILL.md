@@ -86,6 +86,12 @@ Validate important claims directly against repo reality before writing the plan:
 
 Use targeted `Glob`, `Grep`, and `Read` first. Delegate broad codebase discovery only when targeted search is not enough.
 
+## Integration-integrity planning contract
+
+When discovery identifies an exact contract that types cannot fully verify or behavior distributed across production sites, add a **Contract and distributed-integration inventory**. Record the source of truth, producer/consumer or source-search-backed operation rows, dependent docs/examples, cross-boundary or production-path proof, reconciliation status, and coverage as `exhaustive-by-site`, `exhaustive-by-family`, or `justified representative`.
+
+Before planning dependent edits, reread the current source definition. Prefer one shared executable definition or contract artifact over duplicated fixtures. A helper, middleware, wrapper, or event-existence test is not completion evidence for a distributed outcome; contractual documented CLI forms must execute through the actual parser. If neither trigger applies, record `None identified, based on <source search>` rather than inventing an inventory.
+
 ## Canonical plan contract
 
 Write plans as execution artifacts, not brainstorming notes. A ready plan must be executable by another agent without inventing missing semantics.

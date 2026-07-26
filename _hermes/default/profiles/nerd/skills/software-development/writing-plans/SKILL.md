@@ -91,6 +91,7 @@ Near the top of every implementation plan, before implementation history, curren
 
 Separately cover `Customers`, `Runtime product behavior`, `Security / permissions`, `Testing / release confidence`, and `Deployment / migration`; say `No change` or `Not applicable` instead of omitting unaffected dimensions. A lightweight plan must use concise labeled prose. A non-trivial plan must use a scannable impact table or equivalent structured block. Preserve any required dark full-width HTML layout, Decision Attention, TDD/BDD, readiness, and Doct listener contracts; this is an authoring requirement, not a renderer change.
 For every full plan, apply the shared `planning-workflow` `What's new` contract after Product-owner context and before Goal. State a distinct audience-visible product delta and preserved guarantees; a heading or surrounding-section restatement is insufficient.
+When discovery finds an exact untyped contract or distributed production behavior, follow the shared `planning-workflow` integration-integrity planning contract: add the Contract and distributed-integration inventory with source-search evidence, or record `None identified, based on <source search>` when neither trigger applies.
 
 ## Writing Process
 
