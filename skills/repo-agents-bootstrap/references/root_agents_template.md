@@ -73,6 +73,14 @@ Codify the execution feedback loop: substantive review misses must reassess the 
 
 Require phase-level progress updates and resumable handoff notes.
 
+Codify a concise **Integration integrity** rule for every authorized change, build, implementation, or fix—not only plan execution:
+
+- Before editing, determine whether the work crosses an exact contract the type system cannot fully verify (for example serialized fields, flags, configuration keys, paths, headers, migrations, or documented command examples) or requires behavior at multiple production sites.
+- When neither trigger applies, record that brief conclusion in the active work state. When either applies, record the source of truth; producers/consumers or the source-derived site/family inventory; dependent docs/examples; required cross-boundary or production-path verification; and reconciliation status.
+- Reopen the source of truth before editing a dependent side. After changing a shared contract, search/update/retest/search readers, writers, importers, string references, and documented examples. Reopen the record after a handoff or resume.
+- Do not accept a helper, wrapper, middleware, or event-existence test as proof that distributed behavior is complete. Completion requires reconciled inventory rows and the applicable real boundary or production-path evidence.
+- Keep this behavior rule concise and distinct from the shared planning/review lifecycle. Repo-local guidance supplies domain-specific contracts, source searches, and commands; it must not claim to update arbitrary external repositories that have not adopted the template.
+
 Require a product-intent source-of-truth file at `thoughts/specs/product_intent.md`.
 
 - If missing, create it before plan execution.

@@ -561,6 +561,17 @@
       "defaultInstall": false,
       "profile": "macos"
     },
+    "tdd-test-writer": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi"
+      ],
+      "canonicalSource": "skills/tdd-test-writer",
+      "notes": "Repo-owned direct TDD RED-phase authorship guidance; the driving agent writes and runs tests without test-authoring delegation.",
+      "sourceType": "repo"
+    },
     "telemetry": {
       "class": "universal-installable",
       "allowedConsumers": [

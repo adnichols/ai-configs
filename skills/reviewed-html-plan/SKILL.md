@@ -68,6 +68,7 @@ The plan should follow the `planning-workflow` execution artifact contract while
 - each phase includes `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, and `Verify`,
 - explicit UI-impact triage with repo-appropriate design evidence for real UI-impacting work,
 - exact verification commands grounded in repo reality,
+- when discovery finds an exact contract that types cannot fully verify or behavior distributed across production sites, a `Contract and distributed-integration inventory` with the source of truth; producer/consumer or source-search-backed operation rows; dependent docs/examples; cross-boundary or production-path proof; reconciliation status; and an exhaustive-by-site, exhaustive-by-family, or justified-representative coverage declaration. The plan must say `None identified, based on <source search>` when neither trigger applies. Helpers, wrappers, middleware, and event-existence tests do not close a distributed outcome; contractual documented CLI forms execute through the actual parser,
 - no unresolved open questions when the status is `execution-ready`; plans awaiting a reviewer choice remain non-ready and explicitly instruct the reviewer to select an option or leave a Doct comment with a custom decision.
 
 If a prior reviewed plan exists, preserve truthful completed progress, stable IDs where possible, and append-only decisions/deviations history.
@@ -155,6 +156,7 @@ For the single plan-review pass, stay limited to readiness concerns, including a
 - whether unresolved product questions remain,
 - whether the plan has enough file/surface specificity for implementation,
 - whether architecture/dependency risks are resolved enough to execute,
+- whether any triggered Contract and distributed-integration inventory names an actual source of truth, source-search-backed producer/consumer or production-site set, meaningful dimensions, cross-boundary or real-dispatch proof, and an honest coverage declaration; reject helper-only, wrapper-only, middleware-only, or event-existence-only completion claims,
 - whether recovery/operator/error behavior is specified when relevant.
 
 For every reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.

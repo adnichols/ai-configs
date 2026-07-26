@@ -320,6 +320,10 @@ terminal("pytest tests/ -q")
 
 Keep the RED-GREEN-REFACTOR loop in the driving session. Write the failing test, run it, make the minimal production change, rerun the targeted test, and refactor only after it is green. Do not delegate implementation or test writing to subagents.
 
+### Contract and distributed-behavior RED tests
+
+Keep RED authoring and execution with the driving agent. For an exact untyped contract, exercise the actual producer-to-consumer or deterministic service boundary and reuse the source-of-truth contract artifact where available. For distributed behavior, use the source-derived operation inventory and prove the declared production-dispatch coverage; a helper, wrapper, middleware, or event-existence test is not enough. When a documented CLI form is contractual, execute it through the actual parser. If none of those triggers applies, keep the test lightweight rather than inventing integration coverage.
+
 ### With systematic-debugging
 
 Bug found? Write failing test reproducing it. Follow TDD cycle. The test proves the fix and prevents regression.

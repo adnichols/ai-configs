@@ -111,6 +111,8 @@ Before launching reviewers, record a pre-review scope baseline containing:
 - existing owner boundaries and product surfaces in scope;
 - the initial changed files, including committed, staged, and unstaged changes.
 
+When the scope crosses an exact contract the type system cannot fully verify or behavior distributed across production sites, add the executor's **integration-integrity record** to the packet: source of truth; producer/consumer or source-search-backed operation inventory; dependent docs/examples; declared exhaustive-by-site, exhaustive-by-family, or justified-representative scope; required cross-boundary/production-path proof; and reconciliation status. Do not invent an inventory when neither trigger applies; record the source-search basis for that conclusion instead. The reviewer validates the supplied evidence and cited searches read-only; it never becomes the inventory owner.
+
 Also import or reconstruct the unified review-cycle ledger before launching any reviewer:
 
 - When called by `run-plan`, require the caller's ledger and preserve its cycle numbers.
@@ -186,6 +188,9 @@ Check especially:
 - generic key-name matching/remapping/rewriting where the key name may not uniquely determine the value's type or target (construct non-target counterexamples: numbers, booleans, objects, unrelated strings)
 - fail-closed/bail paths reachable by valid, schema-conformant input
 - producer/consumer and round-trip parity (import vs export, encode vs decode, rewrite vs collect)
+- exact-contract evidence: the cited source of truth, actual producer-to-consumer boundary, dependent docs/examples, and post-change stale-reference reconciliation
+- distributed-behavior evidence: whether the source-search-backed call-site inventory is reconciled at the declared scope and whether every required path has meaningful dimensions; helpers, middleware, wrappers, and event-existence tests are not completion proof by themselves
+- contractual documented CLI forms executed through the actual parser rather than only asserted in help text or documentation
 - sibling instances of any discovered failure pattern, in this diff and the inverse direction of any boundary it touches — enumerate the family, not just the first instance
 
 Return exactly one verdict:

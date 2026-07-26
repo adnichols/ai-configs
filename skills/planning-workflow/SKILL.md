@@ -77,6 +77,16 @@ Validate important claims directly against repo reality before writing the plan:
 
 Use targeted `Glob`, `Grep`, and `Read` first. Delegate broad codebase discovery only when targeted search is not enough.
 
+## Integration-integrity planning contract
+
+When discovery identifies either an exact contract that the type system cannot fully verify (for example, serialized fields, positional layouts, configuration keys, flags, paths, headers, payloads, migrations, or documented command forms) or behavior required across multiple production sites, make that evidence explicit in the plan. This is a planning representation of the common execution rule, not a reason to require a plan for otherwise lightweight work.
+
+Add a **Contract and distributed-integration inventory** section when either trigger applies. For every exact contract, record the source of truth, producer, consumer, dependent documentation/examples, and the real cross-boundary test. Prefer one shared executable definition, typed schema, or single contract artifact over duplicated fixtures or copied prose. Before planning dependent edits, reread the current source definition.
+
+For distributed behavior, record the source-search basis, each site or operation family, the required behavior and meaningful dimensions, its production-path verification, and reconciliation status. Declare coverage as **exhaustive-by-site**, **exhaustive-by-family**, or **justified representative**; a representative claim must explain why its evidence covers the omitted sites. A helper, middleware, wrapper, or event-existence assertion demonstrates infrastructure only. It cannot close a distributed acceptance criterion without reconciliation and proof through the required production path.
+
+When neither trigger applies, write `None identified, based on <source search>` rather than manufacturing an inventory. When a documented CLI invocation is part of the requested contract, its evidence must execute the actual parser; help-text or documentation-string assertions alone are not sufficient.
+
 ## Canonical plan contract
 
 Write plans as execution artifacts, not brainstorming notes. A ready plan must be executable by another agent without inventing missing semantics.
