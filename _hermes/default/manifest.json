@@ -2677,9 +2677,9 @@
       "sha256": "f1ebbe3e333153382235f120f6e23231c23df04651d2434201d4d29d2c723783"
     },
     {
-      "bytes": 16228,
+      "bytes": 17028,
       "path": "profiles/nerd/skills/productivity/linear/SKILL.md",
-      "sha256": "447bdc923671d4907b6661e5402a4019f29afd172d270a174f2e9c6bf8bdb25d"
+      "sha256": "f0df98056b406f7c3a85f461089f045c77fa2dea139f992025a5d2d4a1c23a7a"
     },
     {
       "bytes": 15603,
@@ -7612,9 +7612,9 @@
       "sha256": "f1ebbe3e333153382235f120f6e23231c23df04651d2434201d4d29d2c723783"
     },
     {
-      "bytes": 21241,
+      "bytes": 22041,
       "path": "skills/productivity/linear/SKILL.md",
-      "sha256": "0c1aa5dbe2d56e0751db71683910381747c1dbb6cf6f9c8e4d64f09155c607b6"
+      "sha256": "e5ff8c7df1a38cc20c898f28198a40c655c14e23690aa351ce218f6fb8bb2b03"
     },
     {
       "bytes": 3819,
@@ -8502,8 +8502,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260726T030451Z",
+  "generated_at": "20260726T153238Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/Users/anichols/code/ai-configs/_hermes/default"
+  "source_home": "/Users/anichols/code/ai-configs-ltui-attach-download/_hermes/default"
 }
