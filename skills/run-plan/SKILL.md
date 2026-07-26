@@ -1,11 +1,11 @@
 ---
 name: run-plan
-description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, the Codex plus applicable Claude Code pre-PR implementation review, fixes or dispositions for blocking findings, verification, commit, push, PR creation, and local merge-readiness consensus without expanding beyond the plan's stated scope.
+description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, the active-harness reviewer-subagent pre-PR implementation review, fixes or dispositions for blocking findings, verification, commit, push, PR creation, and local merge-readiness consensus without expanding beyond the plan's stated scope.
 ---
 
 # Run Plan
 
-Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates and the Codex plus applicable Claude Code pre-PR review gate, while preventing reviewer-driven scope creep.
+Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates and active-harness reviewer-subagent pre-PR review gate, while preventing reviewer-driven scope creep.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
@@ -15,7 +15,7 @@ PR creation is not hostage to deployment. Never wait for preview, staging, canar
 
 PR creation is not hostage to testing or review coverage. If the operator explicitly says to open, create, or publish the PR regardless of verification or review status, open it without further testing or review delay. Preserve the requested draft/ready state and disclose the real verification and gate status, skipped or failing checks, missing coverage, infrastructure failures, and unresolved findings in the PR body. Do not claim passing verification, clean review consensus, or local merge readiness when it has not been established.
 
-The Codex/Claude pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
+The active-harness reviewer pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
 
 This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the implementation has local merge-readiness consensus: final verification is passing, all applicable review agents agree by substance that there are no unresolved blocking in-scope findings, the branch is current enough to merge, the PR exists, and the latest PR snapshot has no actionable feedback already present. Do not wait for a PR-hosted Codex approval, thumbs-up, or any other explicit external approval after local review-agent consensus is clean. In Pi, back this with the goal extension as the durable run state, plus the todo tool and explicit working notes for phase progress. In Codex, back this with Codex goal/task state and the installed Codex prompts so the readiness obligation survives normal turn-to-turn execution.
 
@@ -40,8 +40,8 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported, unless the operator explicitly instructs the agent to open the PR regardless of testing status. That explicit instruction is controlling: stop retrying or waiting on verification, open the PR, and disclose skipped, incomplete, unavailable, or failing checks without calling them passing.
 - Verification convergence is budgeted. When the Verification Convergence Budget is exhausted and every residual failure classifies as inherited or infra/cosmetic with targeted verification green, opening the draft PR with disclosure and stopping on the ship/keep-fixing question is the required next action, not a policy violation.
 - Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
-- Do not create a PR until the Codex plus applicable Claude Code pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the Claude Code leg is truthfully recorded as skipped for a low-risk/docs-only scope, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
-- Do not stop after the Codex/Claude pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
+- Do not create a PR until the active-harness reviewer-subagent pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
+- Do not stop after the reviewer-subagent pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
 - Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
 - Never delay PR creation for deployment or post-merge operational evidence, even when an older plan places that evidence in a phase or completion checklist. Reclassify it as a non-blocking delivery obligation and preserve it in the PR body/plan deviation log.
 - Do not mark the active run state complete just because the implementation PR exists.
@@ -67,7 +67,7 @@ Stop before implementation if:
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
-- a required runtime-native review gate is unavailable and the user has not waived it or explicitly directed opening the PR regardless. This means Codex review infrastructure, `claude-code-review` when the high-risk second-reviewer trigger or explicit override applies, and the `autoreview` skill.
+- a required runtime-native review gate is unavailable and the user has not waived it or explicitly directed opening the PR regardless. This means the active-harness reviewer-subagent infrastructure and the `autoreview` skill.
 
 ## Scope Classification
 
@@ -135,7 +135,7 @@ Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: onl
 1. Check whether a compatible run-plan state is already active in the available runtime tracking surface.
 2. If no compatible run state is active, create an explicit lifecycle todo/task set before implementation. In Pi, use the `todo` tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR readiness item that cannot be marked done until all completion criteria are satisfied.
 3. The objective must require both:
-   - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the Codex plus applicable Claude Code pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver/skip, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
+   - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
    - checking the PR after creation for existing actionable feedback and mergeability evidence, without waiting for a Codex thumbs-up or other external approval after local review-agent consensus is clean.
 4. If an active run state already exists and it is compatible with this scoped plan run, continue under it and state the compatibility in working notes.
 5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before replacing its task set.
@@ -143,7 +143,7 @@ Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: onl
 Use this objective shape:
 
 ```text
-Execute <plan path> through the full scoped run-plan lifecycle without expanding beyond the plan contract: establish scope, align any registered Doct plan state, implement every unfinished PR-reviewable in-scope phase, preserve deployment/promotion/post-merge validation as non-blocking delivery obligations, run required targeted and final pre-merge verification, complete implementation-stage PM review, complete runtime-native scoped quality review, complete the Codex plus applicable Claude Code pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver/skip, check base freshness, commit only scoped changes, push, open a PR against <target branch or the plan's/repository's normal integration branch>, inspect the PR for existing actionable feedback and mergeability evidence, and finish only when local merge-readiness consensus is satisfied. Do not stop at implementation complete, review clean, `OPEN_PR_READY`, or PR created. Do not mark complete until fresh evidence proves all actionable PR feedback already present has been addressed, any feedback-triggered code changes have rerun required verification and review gates, the branch is current or safely rebased as needed, and applicable review agents agree by substance that the current change is ready to merge locally. Do not wait for slow or absent external feedback, a Codex PR thumbs-up, `APPROVED` reviewDecision, or another explicit approval after local review-agent consensus is clean.
+Execute <plan path> through the full scoped run-plan lifecycle without expanding beyond the plan contract: establish scope, align any registered Doct plan state, implement every unfinished PR-reviewable in-scope phase, preserve deployment/promotion/post-merge validation as non-blocking delivery obligations, run required targeted and final pre-merge verification, complete implementation-stage PM review, complete runtime-native scoped quality review, complete the active-harness reviewer-subagent pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, check base freshness, commit only scoped changes, push, open a PR against <target branch or the plan's/repository's normal integration branch>, inspect the PR for existing actionable feedback and mergeability evidence, and finish only when local merge-readiness consensus is satisfied. Do not stop at implementation complete, review clean, `OPEN_PR_READY`, or PR created. Do not mark complete until fresh evidence proves all actionable PR feedback already present has been addressed, any feedback-triggered code changes have rerun required verification and review gates, the branch is current or safely rebased as needed, and applicable review agents agree by substance that the current change is ready to merge locally. Do not wait for slow or absent external feedback, a Codex PR thumbs-up, `APPROVED` reviewDecision, or another explicit approval after local review-agent consensus is clean.
 ```
 
 Runtime state expectation: keep the task state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi, this state lives in todo/working notes; in Codex, it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
@@ -203,7 +203,7 @@ If a changed file has no plan-bound reason, revert only your own edits to that f
 
 ### 5. First scoped quality review
 
-Run the Codex review leg through `herdr-reviewers` in a visible adjacent tab in the same Herdr workspace and exact worktree. Use a bounded prompt that names the plan path, comparison range, changed files, scope contract, nonce-delimited result boundaries, and verdict format. Start Codex with the skill-defined model/reasoning and read-only controls. The coordinating agent captures the validated result into `thoughts/validation/<slug>-run-plan-pm-codex.md`. Do not let any reviewer edit files or use the disabled managed review tools.
+Run the active-harness `reviewer` subagent with a bounded prompt that names the plan path, comparison range, changed files, scope contract, verification results, and verdict format. Do not let the reviewer edit files or execute verification. Capture the result into `thoughts/validation/<slug>-run-plan-review.md`.
 
 The review prompt must include:
 
@@ -225,13 +225,9 @@ VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 
 A `PASS` verdict must carry a `Not examined:` line disclosing what the review did not exercise (`Not examined: none` when the full surface was covered). Reject malformed reviews and rerun once with a tighter prompt. Legacy green verdicts (`PASS_SCOPED`, `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS`) are still accepted as green when read; treat a review as `FINDINGS_TO_RESOLVE` or `BLOCKED_BY_QUESTION` by substance when unresolved in-scope findings or a product question remain.
 
-### 6. Applicable Claude Code scoped review
+### 6. Reviewer scope
 
-Before launching Claude Code, classify the review scope using the high-risk second-reviewer policy. Use Claude Code when the diff touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface. Skip Claude Code by default for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason; record the skip in the review ledger.
-
-When the Claude Code leg applies, use `claude-code-review` plus `herdr-reviewers` to run a visible interactive reviewer in an adjacent tab; the startup arguments own model, effort, and read-only controls. Do not use alternate model-subagent reviewers or the disabled `claude_review` tool. If a required Claude Code review or Herdr transport is unavailable, stop with a clear blocker instead of claiming the scoped run is reviewed.
-
-The second reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
+Use the same single reviewer for every risk level. High-risk changes receive a more specific bounded packet, not a second external reviewer. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
 For every reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Bound the assigned scope instead.
 
@@ -265,9 +261,9 @@ After fixing in-scope findings:
 
 1. Rerun targeted tests for touched code.
 2. Rerun the first scoped quality review with the previous findings and current diff.
-3. Rerun the second scoped quality review with the same bounded scope.
+3. Rerun the same reviewer with the same bounded scope.
 4. If any reviewer returns `REVIEW_INCOMPLETE_RERUN_NEEDED`, run at most one narrowed follow-up slice for that cycle and append the result to a coverage ledger. If that follow-up is still incomplete or unusable, stop with a review-budget blocker or ask the user to waive/narrow the gate.
-5. Stop after this targeted rereview when Codex and any applicable Claude Code reviewer return `PASS` (or a legacy green verdict), or report the remaining convergence/scope blocker. Run a third total review cycle only when the targeted rereview identifies a new concrete blocker introduced or exposed by the fix and the unified review-cycle ledger shows that the third cycle remains available.
+5. Stop after this targeted rereview when the active-harness reviewer returns `PASS` (or a legacy green verdict), or report the remaining convergence/scope blocker. Run a third total review cycle only when the targeted rereview identifies a new concrete blocker introduced or exposed by the fix and the unified review-cycle ledger shows that the third cycle remains available.
 
 The coverage ledger must record completed slices, the single allowed incomplete rerun slice, review cycle numbers across the entire run (including later PR feedback), remaining budget, and final synthesized gate status.
 
@@ -279,7 +275,7 @@ The ordinary local review budget is exhausted when:
 - a needed fix would clearly expand the plan,
 - three total implementation-review cycles have run for this scoped change, regardless of whether they occurred before or after PR creation; the third cycle is permitted only for a new concrete blocker introduced or exposed by the prior fix.
 
-Do not report the convergence blocker yet solely because no PR exists. Mark review non-convergence, a recurring failure family, or unresolved scope disagreement as a pre-PR `REVIEW_ESCAPE`, then run the single bounded external consultation and, only if authorized, the bounded adversarial applicable-reviewer-pair pass defined below. This route applies to a fixed candidate branch/diff before or after PR creation and does not require a PR URL or PR feedback.
+Do not report the convergence blocker yet solely because no PR exists. Mark review non-convergence, a recurring failure family, or unresolved scope disagreement as a pre-PR `REVIEW_ESCAPE`, then run the single bounded external consultation and, only if authorized, the bounded adversarial active-harness reviewer pass defined below. This route applies to a fixed candidate branch/diff before or after PR creation and does not require a PR URL or PR feedback.
 
 ### 9. Implementation-Stage PM Review
 
@@ -306,42 +302,25 @@ For PM review results:
 
 The PM gate is clean only when the implemented outcome satisfies the plan by substance, all in-scope PM findings have been fixed or blocked by a real decision, and any plan/Doct progress updates are synchronized. Record the PM verdict, artifact or notes location, plan-update status, and any rerun requirements for the PR body.
 
-### 10. Codex/Claude Pre-PR Review Gate
+### 10. Active-Harness Pre-PR Review Gate
 
-After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the Codex and applicable Claude Code pre-PR gate before final PR preparation.
+After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the active-harness reviewer-subagent pre-PR gate before final PR preparation.
 
-Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native scoped Codex and applicable Claude Code reviews already ran after the last code change, used the current base/comparison range, covered the current changed files, and have no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. If Claude Code is skipped because the current PR is docs-only, low-risk UI copy, low-risk tests, or a narrow follow-up, record the low-risk classification and any override decision. Run `$autoreview <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff. Follow the canonical autoreview policy, including its pre-review scope baseline, concrete blocker evidence, smallest-fix ownership boundary, behavioral-verification separation, dependency evidence, known-blocker overflow, and release freeze discipline; do not duplicate or weaken those rules here.
+Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native reviewer pass already ran after the last code change, used the current base/comparison range, covered the current changed files, and has no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. Run `$autoreview <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff. Follow the canonical autoreview policy, including its pre-review scope baseline, concrete blocker evidence, smallest-fix ownership boundary, behavioral-verification separation, dependency evidence, known-blocker overflow, and release freeze discipline; do not duplicate or weaken those rules here.
 
-When the standalone pre-PR gate is required, it must use:
-
-- Codex for the primary review leg. In Pi, use `herdr-reviewers` to run a visible read-only Codex session in an adjacent tab with the pre-PR implementation verdict contract.
-- Claude Code via `claude-code-review` and `herdr-reviewers` when the high-risk second-reviewer trigger or an explicit override applies; run it visibly in its own adjacent tab with the pinned model/effort and read-only controls.
-
-In Codex, satisfy this gate directly rather than delegating back to Pi. Run the Codex leg as a subagent/native review task when available and run the applicable Claude Code leg through the canonical launcher. If a subprocess Codex leg is needed, use:
-
-```bash
-~/.agents/skills/codex-review-partner/scripts/run-review.sh --mode implementation-review --verdict-profile generic-implementation --input /tmp/pre-pr-codex-review.md --cwd /path/to/repo --output thoughts/validation/pre-pr-reviews/<date-branch>-codex.md # codex-review-policy-exempt: non-Pi Codex runtime only
-```
-
-When running from Pi, follow `herdr-reviewers` for both applicable legs. Create no-focus adjacent tabs in the parent workspace, start each pinned read-only reviewer, submit nonce-delimited bounded prompts, wait for settled state, inspect the visible transcripts, validate the unchanged worktree fingerprint and exact verdict, then have the coordinating agent write the normal Codex and Claude artifacts under `thoughts/validation/pre-pr-reviews/`. Keep tabs available while fixes or rereviews remain pending; after the clean gate artifacts are durable, the coordinating parent closes the reviewer tabs it created unless the operator requested preservation. Reviewers never close their own tabs. Do not use a Pi GPT subagent, `interactive_shell`, the disabled managed tools, private tmux, `codex exec`, or Claude print mode.
-
-If the originating Pi session is interrupted, rediscover the reviewer tabs and validate their nonce/fingerprint manually; there is no automatic detached completion notification in this initial transport.
-
-The coordinating agent must consume the Codex and Claude Code review artifacts/verdicts, triage findings under this run-plan scope contract, apply only in-scope fixes itself or through the active implementation flow, and rerun the same applicable reviewer set after material fixes. If Codex or a required Claude Code reviewer is unavailable, stop with a review-infrastructure blocker unless the user explicitly waives the Codex/Claude gate or directs opening the PR regardless.
-
-Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories. Reviewer legs are static inspection only: they must never execute tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. The coordinating agent exclusively owns that execution.
+Run exactly one bounded, static inspection with the active harness's configured `reviewer` subagent. In Pi it is GPT-5.6 Terra at medium reasoning effort; in Claude Code it is Sonnet 5 at high effort; in OpenCode it is GPT-5.6 Terra at medium reasoning effort. Do not create separate Codex or Claude Code review legs and do not require Herdr transport. Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewer must classify findings by P1/P2/P3 severity and by the normal scope categories. It must not execute tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. The coordinating agent exclusively owns that execution.
 
 Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and run one targeted rereview limited to the findings and resulting edits. Apply the unified review-cycle ledger: reuse equivalent current evidence instead of double-counting a gate, and allow a third total review cycle only for a new concrete blocker introduced or exposed by the fix. PR creation never resets or changes this budget; otherwise return clean consensus or a convergence/scope blocker. P3 findings block only when they are plan-required, verification-required, or regression-caused; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
-If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If Codex review infrastructure or a required Claude Code review is unavailable, stop unless the user explicitly waives this pre-PR gate or explicitly directs opening the PR regardless; in the latter case, open it and disclose the infrastructure failure and missing coverage.
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If the active-harness reviewer is unavailable, stop unless the user explicitly waives this pre-PR gate or explicitly directs opening the PR regardless; in the latter case, open it and disclose the infrastructure failure and missing coverage.
 
 When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
-Record the Codex verdict, Claude Code verdict or skip record, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
+Record the reviewer model/effort, verdict, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
 
 ## Final Verification
 
-Establish passing final-verification evidence after the latest verification-relevant change and before PR creation. This is pre-merge verification only: it may prove buildability, deployability, migration definitions, configuration, dry-run behavior, and artifact integrity, but must not require an actual environment deployment, promotion, merge-dependent smoke check, or production observation. Reuse the latest passing results when the same commands already ran against the current code, tests, dependencies, configuration, generated artifacts, and base context, and no intervening action invalidated them. A read-only Codex/Claude review does not invalidate passing verification and is never, by itself, a reason to rerun it. Record reused commands, outcomes, and the unchanged-state basis in the run notes and PR body.
+Establish passing final-verification evidence after the latest verification-relevant change and before PR creation. This is pre-merge verification only: it may prove buildability, deployability, migration definitions, configuration, dry-run behavior, and artifact integrity, but must not require an actual environment deployment, promotion, merge-dependent smoke check, or production observation. Reuse the latest passing results when the same commands already ran against the current code, tests, dependencies, configuration, generated artifacts, and base context, and no intervening action invalidated them. A read-only reviewer-subagent review does not invalidate passing verification and is never, by itself, a reason to rerun it. Record reused commands, outcomes, and the unchanged-state basis in the run notes and PR body.
 
 Rerun only checks invalidated by an implementation or review fix, dependency/configuration/generated-artifact change, rebase or conflict resolution that changed the content identity, relevant environment change, prior failure, or an explicit plan requirement that demands a fresh run at this point. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect. Full-gate reruns are governed by the Verification Convergence Budget; a failure with an already-classified root cause never by itself requires another full run. An exhausted convergence budget with all residuals classified inherited or infra/cosmetic and targeted verification green satisfies this section's evidence requirement for the draft-PR disposition — record the classification as the final-verification result rather than calling the gate passing. If the operator explicitly directs opening the PR regardless of testing status, do not delay PR creation for further verification; record exactly which checks passed, failed, were skipped, or could not run.
 
@@ -351,7 +330,7 @@ Do not hide failures. Fix failures when they are in scope, required for truthful
 
 Before push and PR creation, verify the branch is fresh enough against the target branch that the PR will not immediately open stale or obviously unmergeable. Run the first freshness check before committing when possible, but do not rebase a dirty worktree by default.
 
-The **content identity** of a candidate is the combined hash of: the committed diff against the merge-base with the target branch (`git diff "$(git merge-base origin/<target> HEAD)"..HEAD`), the staged diff, the unstaged diff, and the deterministic untracked-path manifest as defined by `herdr-reviewers` (sorted paths with type/mode and content hash). This is the reviewer fingerprint with the HEAD commit component replaced by the merge-base diff hash: it identifies the change content — committed or not — while ignoring commit SHAs. Two candidates with equal content identity carry the same change; a rebase that alters only SHAs leaves it unchanged.
+The **content identity** of a candidate is the combined hash of: the committed diff against the merge-base with the target branch (`git diff "$(git merge-base origin/<target> HEAD)"..HEAD`), the staged diff, the unstaged diff, and a deterministic untracked-path manifest (sorted paths with type/mode and content hash). This reviewer fingerprint uses the merge-base diff hash rather than a HEAD commit component: it identifies the change content — committed or not — while ignoring commit SHAs. Two candidates with equal content identity carry the same change; a rebase that alters only SHAs leaves it unchanged.
 
 1. Resolve the target branch from the plan, existing PR metadata, or repo default integration branch.
 2. Fetch the target branch.
@@ -360,13 +339,13 @@ The **content identity** of a candidate is the combined hash of: the committed d
 5. If the branch is behind or diverged after commit, rebase onto the fetched target branch when conflicts are absent or limited to scoped files and can be resolved without a product decision.
 6. If conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations, stop with a base freshness blocker.
 7. After any rebase, autostash replay, or conflict resolution, compare the content identity before and after. If it is unchanged, prior verification and review evidence remains current — record the rebase and the unchanged hash. If it changed, rerun only the verification the changed hunks invalidate, and record why the remainder stays current.
-8. Review evidence follows the same content identity: rerun full scoped quality reviews, PM review, or the Codex/Claude pre-PR gate only when the rebase materially changed the content diff, touched files, acceptance evidence, or reviewer assumptions. An unchanged content identity never by itself stales accepted review evidence.
+8. Review evidence follows the same content identity: rerun full scoped quality reviews, PM review, or the reviewer-subagent pre-PR gate only when the rebase materially changed the content diff, touched files, acceptance evidence, or reviewer assumptions. An unchanged content identity never by itself stales accepted review evidence.
 
 Record the target branch, fetch result, rebase/skip decision, rerun verification, and any stale-review reruns in the PR body. A clean `OPEN_PR_READY` review verdict is not enough by itself if the branch became stale before PR creation.
 
 ## Commit, Push, and PR
 
-When implementation, scoped reviews, implementation-stage PM review, the applicable Codex/Claude pre-PR review gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run. An explicit operator instruction to open the PR regardless of testing or review status bypasses only those testing/review gates and requires truthful disclosure; it does not turn skipped or failing evidence into a passing or merge-ready result.
+When implementation, scoped reviews, implementation-stage PM review, the applicable reviewer-subagent pre-PR gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run. An explicit operator instruction to open the PR regardless of testing or review status bypasses only those testing/review gates and requires truthful disclosure; it does not turn skipped or failing evidence into a passing or merge-ready result.
 
 1. Review `git diff --stat` and `git diff --name-only`.
 2. Commit only the scoped changes.
@@ -384,7 +363,7 @@ The PR body must include:
 - first scoped quality-review verdict,
 - second scoped quality-review verdict,
 - implementation-stage PM review verdict, artifact/notes location, any plan/Doct updates, and any PM-triggered rerun requirements,
-- Codex/Claude pre-PR review verdicts and artifact path, or explicit waived/not-run status,
+- reviewer-subagent pre-PR review verdict and artifact path, or explicit waived/not-run status,
 - base freshness and mergeability/rebase status before PR creation,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - known residual risks,
@@ -401,7 +380,7 @@ After the PR is open, keep the active runtime task state active only until the l
 The run state can be marked complete only when all of these are true:
 
 - Final verification for the touched surfaces has passed after the latest code change, or the Verification Convergence Budget disposition applies: targeted verification is green, every residual failure is classified inherited or infra/cosmetic with evidence, and the classification is disclosed in the PR body. In the draft-PR disposition the run state does not complete — it is blocked-on-operator with the ship/keep-fixing question until the operator answers.
-- Runtime-native scoped quality review, implementation-stage PM review, and the Codex plus applicable Claude Code pre-PR gate all agree by substance that the current diff has no unresolved blocking in-scope findings; skipped/waived legs are recorded truthfully.
+- Runtime-native scoped quality review, implementation-stage PM review, and the reviewer-subagent pre-PR gate all agree by substance that the current diff has no unresolved blocking in-scope findings; skipped/waived gates are recorded truthfully.
 - All actionable PR feedback already present in the latest snapshot has been addressed.
 - If PR feedback required code changes, the applicable review agents have rerun over the current PR diff and cleared any in-scope findings.
 - The branch has been rebased or otherwise updated against the destination branch as needed, with affected verification rerun after the update.
@@ -444,11 +423,11 @@ If and only if the consultation authorizes the further adversarial pass, run it 
 
 1. Write down the escaped-defect pattern: reviewer, affected file/line, why earlier review missed or disputed it, and the failure family it represents. Include a feedback URL only when PR feedback is the trigger.
 2. Audit the fixed candidate branch/diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with Codex and, when the high-risk second-reviewer trigger or explicit override applies, Claude Code. In Pi, run each applicable leg through `herdr-reviewers` in its own visible adjacent tab with the adversarial pre-PR verdict contract. Run Claude Code through `claude-code-review` plus the same Herdr transport when applicable; the startup arguments own model, effort, and read-only controls. If the escaped issue is a low-risk docs/UI/test-only follow-up, record why Claude Code remains skipped or provide the explicit override reason. Review the current candidate branch/diff, the plan scope contract, the consultation disposition, any direct PR feedback when present, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve one fix. For every reviewer, use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+3. Run one read-only adversarial implementation review with the active-harness `reviewer` subagent. Review the current candidate branch/diff, the plan scope contract, the consultation disposition, any direct PR feedback when present, and the sibling-audit notes. Ask the reviewer to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve one fix. Use one bounded adversarial slice focused on the escaped failure family; use a second slice only when it spans clearly separate surfaces. The reviewer must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. The driving agent may make one bounded fix attempt for in-scope findings; document true out-of-scope follow-ups and stop for questions.
-5. Repeat the same adversarial reviewer-pair pass once after those fixes if it found any in-scope issue. Then return to the normal workflow only if the pass is clean; otherwise return control with the convergence blocker or requested decision.
+5. Repeat the same adversarial reviewer pass once after those fixes if it found any in-scope issue. Then return to the normal workflow only if the pass is clean; otherwise return control with the convergence blocker or requested decision.
 
-Keep this escalation scope-bound: one consultation per distinct failure-family/scope identifier and, only when authorized, one bounded adversarial reviewer-pair pass with the existing single pass-after-fixes allowance are the limit. Do not repeat consultation for an unresolved identifier, restart the ordinary three-cycle budget, review until clean, or turn the escalation into an unrelated whole-product audit.
+Keep this escalation scope-bound: one consultation per distinct failure-family/scope identifier and, only when authorized, one bounded adversarial reviewer pass with the existing single pass-after-fixes allowance are the limit. Do not repeat consultation for an unresolved identifier, restart the ordinary three-cycle budget, review until clean, or turn the escalation into an unrelated whole-product audit.
 
 ### Snapshot Persistence
 
@@ -539,7 +518,7 @@ Only after the completion criteria are all satisfied, mark the runtime readiness
 
 ## Reviewer Prompt Template
 
-Use this shape for Codex and any applicable Claude Code reviewer. When the reviewer is Claude Code, include the exact risk question and bounded high-risk packet that caused the high-risk second-reviewer trigger to apply; do not rely on the generic prompt alone.
+Use this shape for the active-harness reviewer. Include the exact risk question and bounded high-risk packet when the diff touches a high-risk surface; do not rely on the generic prompt alone.
 
 ```text
 Read-only implementation review. Do not edit files.
@@ -639,7 +618,7 @@ Report:
 - verification run,
 - runtime-native scoped quality-review verdicts,
 - implementation-stage PM review verdict,
-- Codex/Claude pre-PR review verdicts or waived/not-run status,
+- reviewer-subagent pre-PR review verdict or waived/not-run status,
 - base freshness and rebase status,
 - PR feedback snapshot result,
 - PR mergeability or base-freshness result,

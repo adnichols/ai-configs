@@ -138,7 +138,7 @@ Process recent PR comments, verify them, track as a todo list, and implement fix
    - Prefer newer comments from the same reviewer when assessments conflict.
 3. **Draft tasks**: Identify distinct actionable fixes.
 4. **Detect review escapes**:
-   - If actionable feedback comes from Codex after this branch already had local review passes, treat it as a `REVIEW_ESCAPE`.
+   - If actionable feedback arrives after this branch already had local reviewer-subagent passes, treat it as a `REVIEW_ESCAPE`.
    - A `REVIEW_ESCAPE` means the prior review was not thorough enough. Do not only fix the exact commented line.
    - Add a high-priority task to run an adversarial, scope-bound review cycle after the direct fixes.
 5. **Create todos**:
@@ -162,8 +162,8 @@ If the triage found a `REVIEW_ESCAPE`, run this before reporting the PR feedback
 
 1. Record the missed-defect pattern: feedback URL, affected file/line, why the prior review should have caught it, and the failure family it represents.
 2. Inspect the full PR diff for sibling instances: analogous callsites, repeated assumptions, partial fixes, missing tests, related edge cases, and adjacent plan-bound surfaces.
-3. Run a read-only adversarial implementation review over the current PR diff, the original PR feedback, and the sibling-inspection notes.
-   - In Pi, call `codex_review` with `action:"start"`, `reviewType:"adversarial-implementation-review"`, `verdictProfile:"pre-pr-implementation"`, and explicit `promptFile`, `output`, and `cwd` paths.
+3. Run one bounded, read-only adversarial implementation review over the current PR diff, the original PR feedback, and the sibling-inspection notes.
+   - In Pi, invoke the configured `reviewer` subagent (`openai-codex/gpt-5.6-terra`, medium reasoning). Do not start a Codex or Claude Code review process, or use Herdr, for this gate.
    - Ask the reviewer to find additional missed issues in the same failure family, not just to validate the direct fix.
 4. Triage new findings normally. Fix in-scope issues, document true out-of-scope follow-ups, and ask the user about scope questions.
 5. If the adversarial pass finds in-scope issues, rerun it once after fixes before returning to normal PR monitoring.

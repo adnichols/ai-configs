@@ -110,7 +110,7 @@
         "pi"
       ],
       "canonicalSource": "skills/claude-code-review",
-      "notes": "Pi/Codex: required Claude Code reviews use the canonical private-tmux interactive launcher; Codex must use the shared launcher or Pi-delegated wrapper instead of direct Claude transports.",
+      "notes": "Legacy compatibility guidance only. Standard plan and implementation reviews use the active harness's native reviewer subagent, not an external Claude Code transport.",
       "sourceType": "repo"
     },
     "claude-review-partner": {
@@ -296,15 +296,6 @@
       "notes": "Repo-owned override of the upstream Herdr control skill. Allows Codex and Claude to control a reachable Herdr session from outside a managed pane instead of treating `HERDR_ENV=1` as a hard prerequisite.",
       "sourceType": "repo"
     },
-    "herdr-reviewers": {
-      "class": "consumer-specific-installable",
-      "allowedConsumers": [
-        "pi"
-      ],
-      "canonicalSource": "skills/herdr-reviewers",
-      "notes": "Pi: required Codex and Claude reviews run as visible interactive agents in adjacent Herdr tabs while the legacy managed review extensions are disabled.",
-      "sourceType": "repo"
-    },
     "internal-comms": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -435,7 +426,7 @@
         "pi"
       ],
       "canonicalSource": "skills/autoreview",
-      "notes": "Canonical Pi/Codex bounded pre-PR implementation review policy: Codex plus applicable canonical Claude Code review, concrete behavioral evidence, constrained fixes, release freeze discipline, and OPEN_PR_READY handoff.",
+      "notes": "Canonical bounded pre-PR implementation review policy using the active-harness reviewer subagent, concrete behavioral evidence, constrained fixes, release freeze discipline, and OPEN_PR_READY handoff.",
       "sourceType": "repo"
     },
     "pre-pr-implementation-review": {
@@ -466,7 +457,7 @@
         "pi"
       ],
       "canonicalSource": "skills/reviewed-html-plan",
-      "notes": "Pi/Codex: creates and gates HTML plans through Doct browser feedback, PM review, Codex plan review, and applicable canonical Claude Code plan review; Pi invokes Codex as a subprocess.",
+      "notes": "Creates and gates HTML plans through Doct browser feedback, PM review, and the active-harness reviewer-subagent plan review.",
       "sourceType": "repo"
     },
     "rust-engineer": {
@@ -504,7 +495,7 @@
         "pi"
       ],
       "canonicalSource": "skills/run-plan",
-      "notes": "Codex/Claude/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews with one targeted rereview after fixes, Codex plus applicable canonical Claude Code pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
+      "notes": "Codex/Claude/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews with one targeted rereview after fixes, active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
       "sourceType": "repo"
     },
     "signing-entitlements": {

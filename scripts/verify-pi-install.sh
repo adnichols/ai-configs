@@ -139,7 +139,7 @@ PY
   then
     echo "FAIL: installed rendered APPEND_SYSTEM.md" >&2; failures=$((failures+1))
   fi
-  for skill in autoreview claude-code-review codex-review-partner herdr-reviewers pre-pr-implementation-review reviewed-html-plan run-plan; do
+  for skill in autoreview claude-code-review codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
     if ! diff -qr "$REPO_ROOT/skills/$skill" "$HOME/.agents/skills/$skill" >/dev/null 2>&1; then echo "FAIL: installed skill parity $skill" >&2; failures=$((failures+1)); fi
   done
   review_runtime="$HOME/.agents/scripts/review_orchestration.py"
@@ -186,6 +186,7 @@ EXPECTED_GIT_PACKAGES=()
 
 EXPECTED_NPM_PACKAGES=(
   "npm:@tintinweb/pi-subagents"
+  "npm:@tintinweb/pi-tasks"
   "npm:@aliou/pi-processes"
   "npm:@narumitw/pi-goal"
   "npm:pi-web-access"

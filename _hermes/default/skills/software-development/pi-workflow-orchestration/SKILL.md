@@ -69,7 +69,7 @@ When standing in for Pi, emulate the same workflow with Hermes tools:
 
 ### Execution
 - Respect the Pi execution mode distinction:
-  - `dev:run` = direct execution with one quality-reviewer pass after each phase
+  - `dev:run` = direct execution with one active-harness `reviewer` subagent pass after each phase
   - `ralph:run` = quality-gated repeated review/fix loops after each phase
 - Continue autonomously unless truly blocked.
 

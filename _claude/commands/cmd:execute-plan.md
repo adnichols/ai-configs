@@ -82,7 +82,7 @@ Determine `TARGET_COMMAND`:
 - If `TARGET_OVERRIDE` is set, honor it without asking a follow-up question.
 - Otherwise ask exactly one targeted question with only these two options:
   1. `/run-plan <PLAN_DISPATCH_ARGUMENT>` — full implementation-through-PR lifecycle for this reviewed plan.
-  2. `/dev:run <PLAN_DISPATCH_ARGUMENT>` — direct execution-only path with one scoped driving-session review after each phase.
+  2. `/dev:run <PLAN_DISPATCH_ARGUMENT>` — direct execution-only path with one read-only `reviewer` subagent pass after each phase.
 
 Do not offer a planning pass here. Do not offer a third option.
 

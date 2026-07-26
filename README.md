@@ -75,7 +75,7 @@ bash ~/ai-configs/install.sh --all ~
 - refreshes Codex-discoverable shared skills in `~/.agents/skills`
 - mirrors shared helper scripts into the runtime locations that need them
 - installs Pi to `~/.pi/agent/`
-- copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`)
+- copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@tintinweb/pi-tasks`
 - with `--tools` or `--all`, installs the canonical Herdr configuration and managed Kitty screenshot/Herdr workflow locally, then streams the tracked configuration to `mbp` and `dever` without modifying either remote ai-configs checkout
 - removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`

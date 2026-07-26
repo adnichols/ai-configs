@@ -6,7 +6,7 @@ Current Pi subagent roster and Claude/Codex execution boundaries defined in this
 Located under `_pi/agents/` and invoked through Pi's subagent system:
 
 - `planner` (GPT-5.6 Sol, medium; `_pi/agents/planner.md`) — planning-only authority; it may write only the caller-named plan artifact.
-- `reviewer` (GPT-5.6 Sol, medium; `_pi/agents/reviewer.md`) — read-only materiality-focused review authority, except for an explicitly named review artifact when the caller authorizes comments or output there.
+- `reviewer` (GPT-5.6 Terra, medium; `_pi/agents/reviewer.md`) — read-only materiality-focused review authority, except for an explicitly named review artifact when the caller authorizes comments or output there.
 - `scout` (GPT-5.6 Terra, low; `_pi/agents/scout.md`) — bounded read-only local/web discovery and evidence gathering.
 
 `_pi/agents/Explore.md` is not an active persona. It is the required `enabled: false` override for the bundled Explore persona. Pi has no repository-owned implementation subagent: the driving agent performs code changes, test changes, fixes, and repository management directly.
@@ -17,16 +17,16 @@ Every caller packet must name the artifact or allowed surfaces, task-specific le
 
 ### Pi Subagent Reasoning-Effort Policy
 
-- Agent frontmatter is authoritative: planning and review use GPT-5.6 Sol medium; scout uses GPT-5.6 Terra low.
+- Agent frontmatter is authoritative: planning uses GPT-5.6 Sol medium; review uses GPT-5.6 Terra medium; scout uses GPT-5.6 Terra low.
 - Do not pass caller-side reasoning overrides merely because a task appears difficult.
 - Development stays in the driving session. Do not route code-writing, tests, fixes, or repository operations through any Pi persona; use subagents only for bounded planning, read-only discovery, or read-only review.
 - GPT-5.4 and GPT-5.4-mini are retired from Pi-owned agents, the managed `openai-codex` model catalog, and Pi settings aliases. This is an exact Pi-only retirement and does not rewrite caller-owned providers or models.
 
 ## Claude and Codex Execution Model
 
-- Claude has no repository-owned subagents. The driving Claude session performs discovery, planning, implementation, testing, documentation, and repository management directly with native tools.
-- Do not add or install `_claude/agents/` definitions. Commands under `_claude/commands/` must not invoke Claude's Task/subagent surface.
-- Required independent Claude reviews run as separate visible, read-only Claude sessions in adjacent Herdr tabs through `herdr-reviewers`; they are not Claude subagents.
+- Claude's driving session performs discovery, planning, implementation, testing, documentation, and repository management directly with native tools.
+- The sole repository-owned Claude subagent is `_claude/agents/reviewer.md`: a read-only `claude-sonnet-5` reviewer at `high` effort. Commands may invoke it only for bounded plan or code review; they must not delegate implementation, testing, fixes, or repository management.
+- Required independent reviews run through the active harness's configured `reviewer` subagent. Do not make Codex, Claude Code, or Herdr tabs a required review transport.
 - Codex driving agents likewise implement authorized changes directly with their native repository tools.
 
 ## Tool Selection Priority (Codex Environment)
@@ -48,9 +48,9 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 
 ## Review Safeguards
 
-- `reviewer` (GPT-5.6 Sol medium; `_pi/agents/reviewer.md`) is the repository-owned read-only material review persona.
-- Claude performs ordinary review directly in the driving session. When workflow policy requires an independent Claude review leg, use a visible read-only Herdr session through `herdr-reviewers` and `claude-code-review`.
-- Repository and worktree management remain in the driving session; no Claude subagent may own state-changing work.
+- `reviewer` (GPT-5.6 Terra medium; `_pi/agents/reviewer.md`) is the repository-owned read-only Pi material-review persona.
+- Claude uses its repository-owned `reviewer` subagent (`claude-sonnet-5`, high effort) for independent plan and code reviews.
+- Repository and worktree management remain in the driving session; no reviewer subagent may own state-changing work.
 
 ## Fidelity & Execution House Rules (Template for Project Repos)
 
@@ -206,7 +206,7 @@ Pi now supports both:
 /skill:cmd-create-pr
 
 # Development
-# Codex plus applicable Claude Code review
+# Active-harness reviewer subagent review
 /skill:autoreview thoughts/plans/<plan>.html
 
 # Context
@@ -223,13 +223,13 @@ unless it already satisfies that format.
 
 Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
-- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan: implementation, implementation-stage PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus without waiting for a Codex thumbs-up or external approval.
-- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM, Codex, and applicable Claude Code plan review; it must register through `doct-agent plans register`, follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
+- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan: implementation, implementation-stage PM review, the active-harness reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus without waiting for external approval.
+- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM and active-harness reviewer-subagent plan review; it must register through `doct-agent plans register`, follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
 - `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown plan publishing guidance, listener startup, readiness metadata, canonical URL rules, and comment mechanics; other planning skills should reference it instead of duplicating command recipes.
 - `/skill:dev-plan <task>` remains available for planning-only work.
 - `/dev:run <plan>` remains available when you already have an execution-ready reviewed plan and want direct execution only.
 
-`/review:change-claude-code` remains an explicit opt-in review command, not a hidden fallback inside plan mode or execution.
+Legacy external review commands remain explicit opt-in tools. They are not hidden fallbacks inside plan mode or execution.
 
 ## Linear Integration (ltui)
 
@@ -288,8 +288,8 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:cmd-resume-handoff` — Resume from handoff
 
 **Reviews:**
-- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus Codex and applicable Claude Code plan reviews, and stop at execution-ready handoff
-- `/skill:autoreview` — Canonical bounded Codex plus applicable Claude Code pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to mandatory PR creation instead of concluding or waiting for a Codex thumbs-up.
+- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus the active-harness reviewer-subagent plan review, and stop at execution-ready handoff
+- `/skill:autoreview` — Canonical bounded active-harness reviewer-subagent pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to mandatory PR creation instead of concluding or waiting for external approval.
 - `/skill:pre-pr-implementation-review` — Indefinite compatibility alias for `/skill:autoreview`; it preserves arguments and the same `OPEN_PR_READY` handoff semantics.
 - `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
 

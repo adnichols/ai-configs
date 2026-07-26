@@ -47,7 +47,7 @@ The final plan file should remain in its original format and contain any `[REVIE
 ## GPT Plan Review Complete
 
 ### Reviewer:
-- ✅ GPT (`reviewer`, `openai-codex/gpt-5.6-sol`, medium reasoning)
+- ✅ GPT (`reviewer`, `openai-codex/gpt-5.6-terra`, medium reasoning)
 
 ### Blocking or Material Findings:
 [List blocker-level or materially risky findings]

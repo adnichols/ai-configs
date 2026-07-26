@@ -1,4 +1,4 @@
 interface:
   display_name: "Run Plan"
   short_description: "Execute plans without scope creep"
-  default_prompt: "Use $run-plan to execute an explicit plan path through durable goal-backed implementation, scoped reviews, one targeted rereview after fixes, Codex plus applicable Claude Code pre-PR review with no unresolved blocking in-scope P1/P2 findings, mandatory PR creation, and post-PR monitoring until the completion criteria are met."
+  default_prompt: "Use $run-plan to execute an explicit plan path through durable goal-backed implementation, scoped reviews, one targeted rereview after fixes, active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings, mandatory PR creation, and post-PR monitoring until the completion criteria are met."

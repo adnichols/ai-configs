@@ -8,7 +8,7 @@ AGENTS = ROOT / "_pi" / "agents"
 EXPECTED_FILES = {"Explore.md", "planner.md", "reviewer.md", "scout.md"}
 EXPECTED_ROUTES = {
     "planner": ("openai-codex/gpt-5.6-sol", "medium"),
-    "reviewer": ("openai-codex/gpt-5.6-sol", "medium"),
+    "reviewer": ("openai-codex/gpt-5.6-terra", "medium"),
     "scout": ("openai-codex/gpt-5.6-terra", "low"),
 }
 RETIRED_PERSONAS = {
@@ -137,35 +137,21 @@ class PiAgentRosterTest(unittest.TestCase):
                     violations.append(f"{path.relative_to(ROOT)}:{line}: {match.group(0)}")
         self.assertEqual([], violations)
 
-    def test_claude_has_no_repository_owned_subagents(self):
-        self.assertFalse((ROOT / "_claude" / "agents").exists())
-
-        commands = ROOT / "_claude" / "commands"
-        violations = []
-        forbidden = re.compile(
-            r"^agent:\s*|^subtask:\s*true\s*$|subagent_type\s*[:=]|"
-            r"\btask\s*\((?!s\))|"
-            r"\b(?:spawn|launch)\b[^\n]*(?:agents|tasks)\b|"
-            r"\bwait for\b[^\n]*(?:agents|tasks)\b",
-            re.I | re.M,
-        )
-        for example in (
-            'Spawn two helper agents and wait for their results.',
-            'Wait for all helper tasks to finish.',
-            'Task (subagent_type="explore", ...)',
-            'launch helper agents',
-        ):
-            self.assertRegex(example, forbidden)
-        self.assertIsNone(forbidden.search("Task(s) and their statuses"))
-        for path in sorted(commands.glob("*.md")):
-            for match in forbidden.finditer(path.read_text(errors="replace")):
-                line = path.read_text(errors="replace").count("\n", 0, match.start()) + 1
-                violations.append(f"{path.relative_to(ROOT)}:{line}: {match.group(0)}")
-        self.assertEqual([], violations)
+    def test_claude_has_only_the_read_only_reviewer_subagent(self):
+        agents = ROOT / "_claude" / "agents"
+        self.assertEqual({"reviewer.md"}, {path.name for path in agents.glob("*.md")})
+        metadata, body = frontmatter(agents / "reviewer.md")
+        self.assertEqual("reviewer", metadata.get("name"))
+        self.assertEqual("claude-sonnet-5", metadata.get("model"))
+        self.assertEqual("high", metadata.get("effort"))
+        self.assertEqual("Read, Grep, Glob", metadata.get("tools"))
+        self.assertIn("read-only", body.lower())
+        self.assertIn("do not edit files", body.lower())
+        self.assertIn("do not run tests", body.lower())
 
         installer = (ROOT / "install.sh").read_text()
         self.assertIn('rm -rf "$target/agents"', installer)
-        self.assertNotIn('cp -r "$REPO_ROOT/_claude/agents"', installer)
+        self.assertIn('cp -r "$REPO_ROOT/_claude/agents" "$target/"', installer)
 
     def test_scout_caller_packets_are_bounded_and_evidence_only(self):
         prompts = {

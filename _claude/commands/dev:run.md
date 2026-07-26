@@ -1,5 +1,5 @@
 ---
-description: Execute a single-file plan with resumable progress tracking
+description: Execute a single-file plan with resumable progress tracking and one reviewer-subagent pass per phase
 argument-hint: '<slug | existing-plan-path>'
 ---
 
@@ -9,6 +9,7 @@ Execute a single plan document (spec + phases + progress) in a straightforward, 
 
 - Follow the plan, but keep implementation flexibility.
 - Track progress by updating `## Progress` in the plan file.
+- Run exactly one read-only `reviewer` subagent pass after each phase before marking it complete.
 
 ## Inputs
 
@@ -68,8 +69,10 @@ For each phase in order (as tracked by `## Progress`):
 
 1. Implement the phase as written.
 2. Run the phase `### Verify` steps.
-3. After the phase is complete (including verification), immediately flip its checkbox from `- [ ]` to `- [x]` in `## Progress`.
-4. If implementation required a decision or revealed a constraint, append a structured entry to `## Decisions / Deviations Log` in the plan file.
+3. Launch the repository-owned, read-only `reviewer` subagent (`claude-sonnet-5`, high effort) with the plan path, phase scope, changed files, relevant diff, and verification results. It must review the promised slice only and must not edit files or execute verification.
+4. If the reviewer clears the phase, immediately flip its checkbox from `- [ ]` to `- [x]` in `## Progress`.
+5. If the reviewer reports an in-scope blocker, fix it, run targeted verification, and launch one targeted rereview limited to the finding and resulting edits. A third review is permitted only when the preceding fix introduced or exposed a new concrete blocker; otherwise report the convergence or scope blocker.
+6. If implementation or review required a decision or revealed a constraint, append a structured entry to `## Decisions / Deviations Log` in the plan file.
 
 #### Autonomy / Do Not Pause
 

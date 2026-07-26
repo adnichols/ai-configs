@@ -53,7 +53,7 @@ Installed layout:
 │   └── ...
 ├── agents/
 │   ├── planner.md        # GPT-5.6 Sol medium; planning-only
-│   ├── reviewer.md       # GPT-5.6 Sol medium; read-only review
+│   ├── reviewer.md       # GPT-5.6 Terra medium; read-only review
 │   ├── scout.md          # GPT-5.6 Terra low; read-only discovery
 │   └── Explore.md        # disabled bundled persona override
 └── extensions/
@@ -72,7 +72,7 @@ The doctrine is request-type-first: questions, explanations, inspection, researc
 
 The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route.
 
-`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. The driving Pi session is the only code-writing route. Repository-owned planning and review agents use GPT-5.6 Sol medium; the read-only scout uses GPT-5.6 Terra low. GPT-5.4 and GPT-5.4-mini are retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
+`install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. The driving Pi session is the only code-writing route. The planning agent uses GPT-5.6 Sol medium, the review agent uses GPT-5.6 Terra medium, and the read-only scout uses GPT-5.6 Terra low. GPT-5.4 and GPT-5.4-mini are retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
 
 ## Structure
 
@@ -146,9 +146,7 @@ This repo also ships a maintained `pi-prd-mode` extension that:
 
 The repo-owned `claude-review` and `codex-review` Pi extensions are temporarily disabled and retained under `_pi/disabled-extensions/` for comparison and possible rollback. `install.sh --pi` removes any stale installed copies from `~/.pi/agent/extensions/`, so the `claude_review` and `codex_review` tools are unavailable after a fresh Pi session starts.
 
-Required Pi reviews now use the `herdr-reviewers` skill. The coordinating Pi session creates one visible adjacent Herdr tab per applicable reviewer in the same workspace and exact worktree, starts the interactive CLI with explicit model/reasoning and read-only controls, submits a nonce-delimited bounded prompt, waits on Herdr agent state, and captures the validated transcript into the normal review artifact. Failed or blocked tabs remain visible for inspection.
-
-This experimental transport intentionally favors observability and interactive diagnosis. It does not yet reproduce the disabled plugins' detached-job survival, exact-once completion delivery, automatic Pi continuation, persisted job ledger, or final-message/session-JSONL extraction. Review prompts therefore require unique boundaries and exact verdicts, and the coordinator must validate an unchanged worktree fingerprint before accepting a result.
+Required Pi plan and code reviews use the repository-owned `reviewer` Pi subagent (`openai-codex/gpt-5.6-terra`, medium reasoning). The coordinating Pi session gives it a bounded, read-only review packet and captures its result in the normal review artifact. Separate Codex or Claude Code sessions and Herdr tabs are not required review transports.
 
 This repo also ships `simple-multi-status.ts`, a lightweight multi-line status widget that auto-loads on install and shows:
 
@@ -192,6 +190,7 @@ In addition to the repo-managed files under `~/.pi/agent/extensions/`, `install.
 
 npm-managed packages:
 - `@tintinweb/pi-subagents`
+- `@tintinweb/pi-tasks` — Claude Code-style task tracking and coordination for Pi
 - `@aliou/pi-processes`
 - `@narumitw/pi-goal`
 - `pi-web-access`
@@ -222,7 +221,7 @@ The maintained agent files use the flat frontmatter expected by `@tintinweb/pi-s
 The installed agent directory is an exact replacement with this roster:
 
 - `planner` — GPT-5.6 Sol medium; planning-only
-- `reviewer` — GPT-5.6 Sol medium; read-only material review
+- `reviewer` — GPT-5.6 Terra medium; read-only material review
 - `scout` — GPT-5.6 Terra low; bounded read-only discovery
 - `Explore.md` — disabled override, not an active agent
 
@@ -231,12 +230,12 @@ Callers must supply the artifact or allowed surfaces, specialized lens, output d
 ## Skills Overview
 
 ### Canonical workflow
-- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in Doct, follows returned `listenerInstructions`, starts the durable queue-backed listener, processes browser feedback, runs PM plus Codex and applicable Claude Code plan reviews, and stops at execution-ready handoff
+- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in Doct, follows returned `listenerInstructions`, starts the durable queue-backed listener, processes browser feedback, runs PM plus the reviewer subagent plan review, and stops at execution-ready handoff
 
 ### Dev / execution
-- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: durable Pi goal tracking, implementation, scoped reviews, implementation-stage PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
+- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: durable Pi goal tracking, implementation, scoped reviews, implementation-stage PM review, reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
 - `dev:run` — direct GPT-5.6 Sol medium execution with one shared `reviewer` pass after each phase
-- `autoreview` — canonical Codex plus applicable Claude Code pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. After the bounded three-cycle local budget, unresolved review non-convergence uses exactly one read-only advisory external consultation and, only if authorized, one scope-bound `REVIEW_ESCAPE` adversarial reviewer-pair pass plus the existing single pass-after-fixes allowance. This route applies before or after PR creation and does not require a PR URL or PR feedback. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
+- `autoreview` — canonical reviewer-subagent pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. After the bounded three-cycle local budget, unresolved review non-convergence uses exactly one read-only advisory external consultation and, only if authorized, one scope-bound `REVIEW_ESCAPE` adversarial reviewer-pair pass plus the existing single pass-after-fixes allowance. This route applies before or after PR creation and does not require a PR URL or PR feedback. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
 
 ### Git / workflow
 - `cmd-create-pr`
@@ -254,7 +253,7 @@ Callers must supply the artifact or allowed surfaces, specialized lens, output d
 - `review-plan`
 - `review-plan-adversarial`
 - `review-change-opus` — compatibility pointer to `/review:change-claude-code`; no provider-specific Pi subagent
-- `review-change-claude-code` — Claude Code review-only pass in a visible adjacent Herdr tab through `herdr-reviewers`; the coordinating Pi agent captures the validated transcript artifact
+- `review-change-claude-code` — compatibility alias that runs the repository-owned Pi `reviewer` subagent; it does not open a Claude Code or Herdr review session
 - `autoreview` — runnable independently or automatically from `run-plan` before PR creation; it is not a terminal replacement for PM review, base freshness, opening the PR, or proving local merge readiness
 - `pre-pr-implementation-review` — indefinite compatibility alias for `autoreview`; it preserves arguments and the `OPEN_PR_READY` handoff without duplicating the canonical policy
 
@@ -284,13 +283,13 @@ Prompt templates:
 
 ## Reviewed-plan handoff
 
-Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-ready-PR execution: durable Pi goal tracking, implementation, implementation-stage PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html` or the repo-selected Markdoc source, and `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown publishing guidance, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics.
+Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-ready-PR execution: durable Pi goal tracking, implementation, implementation-stage PM review, reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html` or the repo-selected Markdoc source, and `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown publishing guidance, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics.
 
 Canonical browser-reviewed HTML plan flow:
 
 ```text
 /dev:plan <plan>
-/dev:reviewed-html-plan <plan>    # register, monitor browser comments, PM-review, and run Codex/Claude Code plan reviews
+/dev:reviewed-html-plan <plan>    # register, monitor browser comments, PM-review, and run the reviewer-subagent plan review
 /cmd:execute-plan <plan>
 ```
 
@@ -308,10 +307,10 @@ Optional second pass: run `/review:plan-adversarial <plan>` after `/review:chang
 Use `/dev:pm-review <plan> implementation` after execution when you want a corrective PM pass that checks whether the intended user outcome was actually realized and, if not, reshapes the plan with the missing completion work instead of stopping at findings.
 
 - `/cmd:execute-plan` is the canonical wrapper for choosing between `/run-plan <plan>` and `/dev:run <plan>`.
-- `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, Codex plus applicable Claude Code pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one shared `reviewer` pass after each phase.
-- `/skill:autoreview` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, clean Codex and applicable Claude Code consensus with no unresolved blocking in-scope P1/P2 findings means `OPEN_PR_READY`; plan-required, verification-required, or regression-caused P3 findings remain blocking. The runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for a Codex thumbs-up. `/skill:pre-pr-implementation-review` remains supported indefinitely as a thin argument-preserving compatibility alias.
+- `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one shared `reviewer` pass after each phase.
+- `/skill:autoreview` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, a clean reviewer-subagent verdict with no unresolved blocking in-scope P1/P2 findings means `OPEN_PR_READY`; plan-required, verification-required, or regression-caused P3 findings remain blocking. The runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for external approval. `/skill:pre-pr-implementation-review` remains supported indefinitely as a thin argument-preserving compatibility alias.
 - In Pi, `/cmd:execute-plan` starts a fresh session and launches the selected execution flow from clean context.
-- `/review:change-claude-code` remains available as an explicit manual review request; it is not an automatic planning-mode fallback. It creates a visible adjacent Herdr tab in the same workspace/worktree, starts the pinned interactive Claude reviewer with read-only controls, submits a bounded nonce-delimited prompt, and has the coordinating Pi agent capture the validated transcript artifact. Failed or blocked tabs remain open for inspection. Parent-session interruption requires manual tab rediscovery because the disabled plugin no longer supplies detached completion delivery.
+- `/review:change-claude-code` remains available as a compatibility alias; it is not an automatic planning-mode fallback. It runs the repository-owned Pi `reviewer` subagent with the same bounded, read-only packet and never creates a Herdr tab or starts an external Claude Code reviewer.
 
 Use `/dev:plan-from-prd <prd>` after a reviewed PRD delta is ready to become an execution plan.
 

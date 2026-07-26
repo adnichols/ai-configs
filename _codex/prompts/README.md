@@ -39,7 +39,7 @@ This directory contains a comprehensive set of commands that support a complete 
 /simplify:1:create-plan → [Review/Approval] → /simplify:2:process-plan → /cmd:commit-push
 ```
 - Analyze codebase for simplification opportunities
-- Get approval for changes from quality-reviewer or stakeholders
+- Get approval for changes from the active-harness `reviewer` subagent or stakeholders
 - Execute the approved simplification plan
 - Commit changes
 

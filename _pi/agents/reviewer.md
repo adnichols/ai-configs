@@ -3,7 +3,7 @@ name: reviewer
 description: Reviews code and documents for material evidence-backed issues
 mode: subagent
 tools: read, grep, find, ls, bash, write
-model: openai-codex/gpt-5.6-sol
+model: openai-codex/gpt-5.6-terra
 reasoningEffort: medium
 ---
 

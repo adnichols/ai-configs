@@ -1,6 +1,6 @@
 ---
 name: reviewed-html-plan
-description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, and read-only Codex plus applicable Claude Code plan reviews. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
+description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, and a read-only active-harness reviewer-subagent plan review. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
 ---
 
 # Reviewed HTML Plan Workflow
@@ -16,8 +16,7 @@ Load and follow these skills when this workflow reaches their surface:
 - `planning-workflow` for the plan-writing contract and execution-readiness bar.
 - `doct-document-ops` for HTML/Markdoc plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, Markdown/text fallback publishing, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
-- `codex-review-partner` plus `herdr-reviewers` for the read-only Codex plan-review leg in a visible adjacent Herdr tab with the reviewed-HTML-plan verdict contract.
-- `claude-code-review` for the read-only Claude Code plan-review leg when the high-risk second-reviewer trigger or an explicit override applies; the canonical launcher owns model and effort selection.
+- The active harness's `reviewer` subagent for the single read-only plan-review leg. In Pi use `reviewer` (GPT-5.6 Terra, medium); in Claude Code use `reviewer` (Sonnet 5, high); in OpenCode use `reviewer` (GPT-5.6 Terra, medium).
 - Domain skills required by the target repository guidance, stack, or plan surface.
 
 If a required review tool is unavailable, follow the relevant skill's remediation first. Stop only when the dependency cannot be restored safely or the next step requires a real product decision.
@@ -123,27 +122,20 @@ Default behavior is corrective: reshape the HTML plan directly when the right di
 
 After material PM edits, ensure the review URL still points at the latest plan and the plan remains browser-reviewable.
 
-### 6. Read-only Codex and applicable Claude Code plan reviews
+### 6. Active-harness plan review
 
-Run the Codex reviewer before execution, and keep all reviewers read-only. Before launching Claude Code, classify the plan scope using the high-risk second-reviewer policy:
+Run exactly one active-harness `reviewer` subagent before execution and keep it read-only. The same reviewer is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
 
-- **Use Claude Code** when the plan touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another explicit P1/P2 risk surface.
-- **Skip Claude Code by default** for docs-only plans, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator or Doct reviewer provides an explicit override reason.
-- When Claude Code applies, give it a compact readiness packet with named files/surfaces, the exact risk question, relevant plan excerpts, verification expectations, and outcome limits.
+- For data loss, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another P1/P2 risk surface, give the reviewer a compact readiness packet with named files/surfaces, the exact risk question, relevant plan excerpts, verification expectations, and outcome limits.
+- For lower-risk plans, retain the same bounded readiness packet without broadening into a second opinion.
 
-In Pi, run the Codex leg through `herdr-reviewers` in a visible adjacent tab in the same workspace and worktree. Start the pinned read-only Codex reviewer, submit the bounded plan-readiness packet with nonce-delimited output and the reviewed-HTML-plan verdict contract, wait for settlement, inspect the transcript, validate the unchanged worktree fingerprint, and have the coordinating agent write `thoughts/validation/<slug>-codex-plan-review.md`.
+Invoke the current harness's native `reviewer` subagent and capture its result in `thoughts/validation/<slug>-plan-review.md`. Do not launch separate Codex or Claude Code sessions and do not require Herdr transport. The reviewer must return a concrete readiness verdict; invalid, empty, tool-only, provider-error, or incomplete output is a review-infrastructure failure and receives at most one narrower rerun.
 
-Do not use a Pi GPT subagent, the disabled `codex_review` tool, `codex exec`, or `interactive_shell`. Clean/needs-revision/product-question/incomplete remain workflow verdicts; missing boundaries, invalid verdicts, startup blockers, or stale fingerprints are transport failures and get only the documented narrower unusable-output rerun.
+The coordinating agent may integrate plan edits, but after material edits it must rerun the active-harness reviewer before marking the plan execution-ready. If the configured reviewer is unavailable, leave the plan blocked on review infrastructure.
 
-Run Claude Code only when the high-risk second-reviewer trigger or an explicit override applies. In Pi, follow `herdr-reviewers` and `claude-code-review`: start a visible adjacent Claude tab with the pinned model/effort and read-only controls, submit the compact readiness packet, then capture the nonce-delimited result into `thoughts/validation/<slug>-claude-plan-review.md`.
+#### Reviewer packet
 
-If the parent Pi session is interrupted, rediscover and inspect the visible reviewer tab manually. The disabled managed plugins no longer provide detached completion delivery or persisted job recovery.
-
-Codex or Pi may integrate plan edits, but after material edits the coordinating agent must rerun Codex and any required Claude Code review before marking the plan execution-ready. If Codex or a required Claude Code reviewer is unavailable, leave the plan blocked on review infrastructure.
-
-#### Codex
-
-Use Codex for the primary review leg. The review input should include:
+The reviewer input should include:
 
 - plan path and review URL,
 - source request or issue summary,
@@ -154,13 +146,9 @@ Use Codex for the primary review leg. The review input should include:
 - instruction to avoid adjacent implementation expansion,
 - instruction not to edit files.
 
-#### Claude Code
+For the single plan-review pass, stay limited to readiness concerns, including at least:
 
-Use Claude Code only when the plan has the high-risk second-reviewer trigger or an explicit override. In Pi, use `claude-code-review` plus `herdr-reviewers` to run a visible interactive Claude tab; the reviewer startup arguments own model, effort, and read-only controls. Give Claude Code a bounded readiness prompt, not open-ended repo exploration. Do not ask Claude Code to edit files.
-
-For both plan review legs, stay limited to readiness concerns, including at least:
-
-- whether `What's new` is missing, late, vague, or duplicative/restated; instruct the reviewer not to return an execution-ready verdict until the canonical section is distinct and correctly placed,
+- whether `What's new` is missing, late, vague, or duplicative/restated; it must be present immediately after product-owner context and before goal, with a behavior-focused headline, one-sentence product promise, concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees; it does not restate goal, rationale, phases, or acceptance criteria; instruct the reviewer not to return an execution-ready verdict until the canonical section is distinct and correctly placed,
 - whether the plan has executable phases,
 - whether acceptance criteria and verification are testable,
 - whether scope and non-goals prevent expansion,
@@ -171,7 +159,7 @@ For both plan review legs, stay limited to readiness concerns, including at leas
 
 For every reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
 
-The Herdr transport requires matching nonce boundaries, non-empty review content, an allowed readiness verdict as the final non-empty substantive line inside the boundary, a settled reviewer state, and an unchanged complete worktree fingerprint. Empty output, missing or mismatched boundaries, unclassifiable verdicts, tool-only output, provider errors, transcripts ending in tool use, stale fingerprints, contradictory verdict/body content, or incomplete coverage do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt only when the review output itself is unusable; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
+Non-empty review content, an allowed readiness verdict, and complete assigned coverage are required. Empty output, unclassifiable verdicts, tool-only output, provider errors, contradictory verdict/body content, or incomplete coverage do not count as independent readiness review. Rerun once with a narrower bounded readiness prompt only when the review output itself is unusable; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a tooling blocker and leave the plan not execution-ready.
 
 Do not confuse an accepted plan-review verdict with an implementation-specific aggregate token. When each required leg is nonce-valid, fingerprint-valid, complete, and returns `PLAN_EXECUTION_READY`, the plan-review gate passes by substance even if a generic helper mistakenly reports infrastructure failure because it only recognizes an implementation green token such as `PASS` (or legacy `CLEAN_FOR_PR`). Record that condition as an orchestrator profile mismatch, preserve the accepted per-leg evidence, and do not rerun completed reviewers solely to satisfy the helper. Non-blocking `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, or `DISAGREE_REPO_EVIDENCE` observations may coexist with `PLAN_EXECUTION_READY`; readiness requires no blocking gap and complete assigned coverage, not an observation-free response.
 
@@ -190,7 +178,7 @@ Normalize fuzzy reviewer output by substance, but never normalize empty, tool-on
 
 ### 7. Integrate and iterate to execution-ready
 
-For every Codex/Claude Code finding, triage before editing:
+For every reviewer finding, triage before editing:
 
 ```text
 Finding | Source | Classification | Decision | Evidence
@@ -204,7 +192,7 @@ Use these classifications:
 - `OUT_OF_SCOPE_FOLLOW_UP`: do not add to this plan only when it is outside the plan, not required for truthful verification, and not an acceptance-criteria/BDD gap; record it with evidence and a tracking destination if useful.
 - `DISAGREE_REPO_EVIDENCE`: do not change the plan; record the evidence if the disagreement matters.
 
-After fixing readiness blockers, rerun Codex and the applicable Claude Code plan review when Claude Code applies. If any reviewer returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until all required slices are complete or explicitly blocked. Repeat until all applicable reviewers agree by substance that the plan is execution-ready. When they do, update the same Doct-registered HTML plan and status/board metadata using the current `doct-document-ops` Doct flow. After the accepted reviewer results are durable and no further review iteration is pending, the coordinating parent closes the reviewer tabs it created according to `herdr-reviewers`; preserve them on blocked/non-ready outcomes or explicit operator request.
+After fixing readiness blockers, rerun the active-harness reviewer. If it returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until the required coverage is complete or explicitly blocked. When the reviewer agrees by substance that the plan is execution-ready, update the same Doct-registered HTML plan and status/board metadata using the current `doct-document-ops` Doct flow.
 
 #### Independent sign-off gate (do not self-certify)
 
@@ -213,9 +201,9 @@ The closing ready verdict that marks a plan `execution-ready` must come from an 
 - A `plan-author` / `plan-owner` / `pi` / `self` review verdict does not clear the gate, even if it is the latest review.
 - If any independent review returns `BLOCKED`, `PLAN_NEEDS_REVISION`, or raises in-scope findings, run a **fresh independent review after integrating** the fixes. The integration edit itself does not clear the gate; only a new independent ready verdict does.
 - The independent ready verdict must not be followed by any later non-pass review, and should post-date the last material plan edit. If you edit the plan after the independent pass, re-review.
-- Record reviews truthfully in the `review-record` section with the real reviewer identity. Do not relabel a self-review as `codex`/`claude-code` to satisfy the gate — actually run the independent tool.
+- Record reviews truthfully in the `review-record` section with the real reviewer identity. Do not relabel a self-review as a subagent review to satisfy the gate — actually run the independent configured reviewer.
 
-This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/Codex/Claude gates and Doct review state are the enforcement surface.
+This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/reviewer gates and Doct review state are the enforcement surface.
 
 Stop and report a convergence blocker if:
 
@@ -231,7 +219,7 @@ If AI reviews materially reshape product intent, run one final PM check before d
 Before final output, inspect the HTML plan for obvious handoff blockers:
 
 - unresolved browser-review comments remain in the queue, or the required listener was never started after registration,
-- the Doct registered plan has not been updated after successful Codex and applicable Claude Code plan reviews, or its lifecycle/board/readiness state is stale,
+- the Doct registered plan has not been updated after a successful active-harness reviewer plan review, or its lifecycle/board/readiness state is stale,
 - unresolved inline review markers or unresolved question sections remain,
 - status is not `execution-ready`,
 - the near-top product-owner context is missing, assumes prior issue knowledge, buries why-now or the key conclusion, or fails to separate customer, runtime, security/permissions, testing/release, and deployment/migration impact,
@@ -241,7 +229,7 @@ Before final output, inspect the HTML plan for obvious handoff blockers:
 - an active phase is missing `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, or `Verify`,
 - UI impact is missing, `unknown`, or lacks required design evidence for real UI-impacting work,
 - verification commands are stale or not copy/paste ready,
-- Codex or applicable Claude Code did not agree by substance that the plan is ready,
+- the active-harness reviewer did not agree by substance that the plan is ready,
 - PM review left unresolved product-intent or user-impact gaps.
 
 Do not start implementation as part of this skill.
@@ -259,8 +247,7 @@ Review URL: <canonical Doct URL>
 ### Gates completed
 - Browser feedback: <processed / skipped by request / blocked>
 - PM review: <ready / reshaped plan / blocked>
-- Codex review: <verdict>
-- Claude Code review: <verdict or skipped with low-risk classification>
+- Active-harness reviewer: <model/effort and verdict>
 
 ### Changes made during review
 - ...

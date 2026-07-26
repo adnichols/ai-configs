@@ -28,7 +28,7 @@ Persistence language such as "finish," "do not stop," or "keep going" increases 
 - When review is part of an authorized workflow, make it real and proportional to risk.
 - The driving agent owns development work directly. Do not delegate code edits, test writing, fixes, repository management, or other implementation work to subagents or developer personas. Use direct repository tools and keep implementation context in the primary session.
 - Prefer direct reads and searches before any helper delegation. Use subagents only for bounded read-only discovery, planning, or review when an explicit workflow requires them or they materially reduce context; the driving agent retains synthesis and all write authority.
-- For required Codex or Claude reviews in Pi, use the `herdr-reviewers` skill: run each reviewer as a visible interactive agent in an adjacent Herdr tab in the same workspace and worktree. Do not substitute Pi subagents, `interactive_shell`, private tmux launchers, `codex exec`, Claude print mode, or the disabled legacy `codex_review`/`claude_review` extensions.
+- For required plan or code review, use exactly one active-harness read-only `reviewer` subagent. In Pi it is GPT-5.6 Terra at medium reasoning effort; in Claude Code it is Sonnet 5 at high effort; in OpenCode it is GPT-5.6 Terra at medium reasoning effort. Do not require a separate Codex or Claude Code session, Herdr transport, `interactive_shell`, private tmux, `codex exec`, Claude print mode, or the disabled legacy `codex_review`/`claude_review` extensions.
 - Leave multi-turn work resumable.
 
 ## Communication

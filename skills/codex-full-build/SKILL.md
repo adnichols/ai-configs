@@ -1,11 +1,11 @@
 ---
 name: codex-full-build
-description: Run the full Codex development lifecycle from a Linear issue, existing plan, or plan description through clarification, execution-ready plan creation, Codex and Claude Code plan review, scoped implementation, bounded implementation review, verification, push, and ready-for-review PR creation. Use this whenever the user wants an autonomous end-to-end build from issue or plan input without babysitting.
+description: Run the full Codex development lifecycle from a Linear issue, existing plan, or plan description through clarification, execution-ready plan creation, active-harness reviewer-subagent plan review, scoped implementation, bounded implementation review, verification, push, and ready-for-review PR creation. Use this whenever the user wants an autonomous end-to-end build from issue or plan input without babysitting.
 ---
 
 # Codex Full Build
 
-Use this skill when the user wants an end-to-end software change driven from a Linear issue, an existing plan, or a natural-language plan description. This skill is the lifecycle controller. It prepares and validates the plan, gets independent plan review from Codex and Claude Code, then delegates implementation, scoped review, verification, commit, push, and PR creation to `$run-plan`.
+Use this skill when the user wants an end-to-end software change driven from a Linear issue, an existing plan, or a natural-language plan description. This skill is the lifecycle controller. It prepares and validates the plan, gets independent plan review from the active harness's configured reviewer subagent, then delegates implementation, scoped review, verification, commit, push, and PR creation to `$run-plan`.
 
 The goal is autonomous execution with explicit gates. Ask the user only when product intent or scope is genuinely unclear enough that a correct execution-ready plan cannot be written.
 
@@ -26,8 +26,7 @@ Load and follow these skills as needed:
 - `linear` for Linear issue fetching with `ltui`.
 - `planning-workflow` for plan creation and readiness.
 - Repo-recommended planning skills from `AGENTS.md`, usually `product-principles` and `tdd-test-writer` for this repo.
-- `codex-review-partner` for Codex plan review.
-- `claude-code-review` for Claude Code plan review.
+- `reviewed-html-plan` or the active-harness `reviewer` subagent for the single plan review.
 - `run-plan` for execution, implementation review, verification, commit, push, and PR.
 
 If a required reviewer or `ltui` is unavailable, try the documented remediation in the relevant skill first. Stop only when the required dependency cannot be restored safely.
@@ -36,9 +35,9 @@ If a required reviewer or `ltui` is unavailable, try the documented remediation 
 
 - Stay within repo guidance. In this repo, `AGENTS.md` is authoritative.
 - Use `ltui` for Linear issue retrieval. If a Linear issue cannot be fetched after auth/profile/identifier remediation, stop and report the fetch blocker.
-- Do not start implementation until the plan is execution-ready and both Codex and Claude Code agree by substance.
+- Do not start implementation until the plan is execution-ready and the configured reviewer subagent returns a passing readiness verdict.
 - Do not create a draft PR unless the user explicitly asked for a draft.
-- Do not let reviewers edit files. All Codex and Claude reviews are read-only.
+- Do not let reviewers edit files. The reviewer subagent is read-only.
 - Do not silently choose product behavior when the input is too vague and repo evidence does not resolve it.
 - Do not expand scope because a reviewer found adjacent work.
 - Delegate implementation to `$run-plan`; do not duplicate its phase execution and PR workflow in this skill.
@@ -71,7 +70,7 @@ For `EXISTING_PLAN`:
 
 1. Resolve slugs using repo-local active plan guidance; do not infer a markdown path.
 2. Read the plan fully.
-3. If it is already execution-ready, still run the dual plan review gate unless the plan records passing equivalent reviews.
+3. If it is already execution-ready, still run the reviewer-subagent plan-review gate unless the plan records a passing equivalent review.
 4. If it is not execution-ready, update it under the repo planning rules before review.
 
 For `PLAN_DESCRIPTION`:
@@ -122,25 +121,19 @@ Use `planning-workflow` and the repo's `AGENTS.md` required structure. For this 
 
 If the issue or description is too broad, make the plan scope precise instead of absorbing adjacent cleanup. If important decisions remain unresolved, keep the plan in `research-ready` or `discovery` and ask/perform the next research action rather than starting review.
 
-### 4. Dual Plan Review
+### 4. Plan Review
 
-Run both reviews read-only.
-
-#### Codex Plan Review
-
-Use `codex-review-partner` in `plan-review` mode. Provide a bounded prompt with:
+Run one read-only review through the current harness's configured `reviewer` subagent. It is GPT-5.6 Terra at medium reasoning in Pi and OpenCode, and Sonnet 5 at high effort in Claude Code. Provide a bounded packet containing:
 
 - plan path,
 - source input summary,
 - repo guidance paths,
 - product intent path when present,
 - known non-goals,
-- readiness rubric,
-- instruction not to propose execution or adjacent implementation work.
+- readiness rubric, and
+- an instruction not to propose execution or adjacent implementation work.
 
-#### Claude Code Plan Review
-
-Use `claude-code-review` through its canonical private-tmux interactive launcher. Prompt Claude Code to review the plan read-only and return structured output. Do not ask Claude to edit files, and do not use alternate Claude transports.
+Do not launch separate Codex or Claude Code reviewer processes or use Herdr as a required transport.
 
 #### Plan Review Verdicts
 
@@ -157,7 +150,7 @@ Reviewer output is sometimes fuzzy. Normalize by substance:
 - Treat as `PLAN_EXECUTION_READY` only when the reviewer clearly says the plan is actionable/executable and has no blocking readiness issues.
 - Treat as `PLAN_NEEDS_REVISION` when the reviewer identifies missing acceptance criteria, vague scope, missing verification, missing parity expectations, unresolved decisions, or material plan defects.
 - Treat as `BLOCKED_BY_PRODUCT_QUESTION` when the reviewer identifies a decision that cannot be resolved from repo evidence or source input.
-- If the output is ambiguous, rerun that reviewer once with a tighter prompt asking for only verdict plus blocking findings.
+- If the output is ambiguous, rerun the reviewer subagent once with a tighter prompt asking for only verdict plus blocking findings.
 
 ### 5. Integrate Plan Feedback
 
@@ -177,33 +170,32 @@ Use these classifications:
 
 Fix `READINESS_BLOCKER` findings in the plan. Ask the user for `PRODUCT_QUESTION`. Record `OUT_OF_SCOPE_FOLLOW_UP` only with evidence and a tracking destination; do not use it for plan-required work, BDD gaps, verification gaps, or acceptance-criteria gaps.
 
-Repeat Codex and Claude plan review until both agree by substance that the plan is execution-ready.
+After plan edits, rerun the reviewer subagent under the normal bounded review-cycle policy until it returns an execution-ready verdict or the workflow reaches a documented stop condition.
 
 Stop and report a plan convergence blocker if:
 
 - the same readiness finding recurs after two revision attempts,
 - reviewers disagree and repo evidence does not resolve it,
 - the plan would require a product decision the user has not answered,
-- three full plan review cycles do not converge.
+- the bounded plan-review cycle budget does not converge.
 
 ### 6. Execute with Run Plan
 
-Once both plan reviewers agree by substance that the plan is execution-ready, invoke `$run-plan` with the finalized plan path.
+Once the reviewer subagent returns an execution-ready verdict, invoke `$run-plan` with the finalized plan path.
 
 The handoff must state:
 
 - plan path,
 - source input or Linear issue,
-- Codex plan review verdict,
-- Claude plan review verdict,
+- reviewer-subagent plan-review verdict,
 - any documented out-of-scope plan review notes with evidence and tracking destination,
-- instruction to proceed through scoped implementation, bounded Codex and Claude implementation reviews, verification, commit, push, and ready-for-review PR.
+- instruction to proceed through scoped implementation, bounded reviewer-subagent implementation review, verification, commit, push, and ready-for-review PR.
 
 Do not reimplement the scoped runner's workflow here. `$run-plan` owns:
 
 - scope extraction,
 - phase-by-phase implementation,
-- implementation review with Codex and Claude,
+- implementation review with the configured reviewer subagent,
 - in-scope fix loops,
 - final verification,
 - commit,
@@ -224,8 +216,8 @@ Return a concise handoff with:
 - PR URL.
 - Plan path.
 - Source input or Linear issue.
-- Codex and Claude plan review verdicts.
-- Codex and Claude implementation review verdicts from `$run-plan`.
+- Reviewer-subagent plan-review verdict.
+- Reviewer-subagent implementation-review verdict from `$run-plan`.
 - Verification commands and results.
 - Changed files at a high level.
 - Documented out-of-scope follow-ups with evidence and tracking destination.
@@ -235,7 +227,7 @@ If no PR was created, say exactly which gate stopped the lifecycle and what is n
 
 ## Plan Review Prompt Template
 
-Use this shape for both Codex and Claude plan reviews:
+Use this shape for the active-harness reviewer-subagent plan review:
 
 ```text
 Read-only plan review. Do not edit files.
@@ -279,15 +271,14 @@ Use $run-plan to execute <plan path>.
 
 Source input: <Linear issue key/path/description summary>
 Plan review status:
-- Codex: <normalized verdict and brief evidence>
-- Claude Code: <normalized verdict and brief evidence>
+- Reviewer subagent: <normalized verdict and brief evidence>
 
-Both reviewers agree by substance that the plan is execution-ready.
+The reviewer subagent found the plan execution-ready.
 
 Proceed through the run-plan workflow:
 - preserve the plan as the scope contract
 - implement phase by phase
-- run bounded Codex and Claude implementation reviews
+- run bounded reviewer-subagent implementation reviews
 - fix only in-scope findings
 - run final verification
 - commit, push, and open a ready-for-review PR

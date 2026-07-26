@@ -1,17 +1,23 @@
 ---
 name: run-plan
-description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, the GPT plus applicable Claude Code pre-PR implementation review, fixes or dispositions for blocking findings, verification, commit, push, PR creation, and PR monitoring until feedback is addressed and the PR is mergeable without expanding beyond the plan's stated scope.
+description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, the active-harness reviewer-subagent pre-PR implementation review, fixes or dispositions for blocking findings, verification, commit, push, PR creation, and local merge-readiness consensus without expanding beyond the plan's stated scope.
 ---
 
 # Run Plan
 
-Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates and the GPT plus applicable Claude Code pre-PR review gate, while preventing reviewer-driven scope creep.
+Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates and active-harness reviewer-subagent pre-PR review gate, while preventing reviewer-driven scope creep.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
-The GPT/Claude Code pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
+The executable contract ends at the PR-reviewable slice. Deployment, promotion, merge-dependent smoke checks, production observation, and rollback execution are post-merge delivery/operations work. They may remain documented obligations, but they never block committing, pushing, or creating the PR and they do not keep the run-plan lifecycle open after local merge readiness is established.
 
-This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the PR satisfies the post-PR completion criteria. In Pi, back this with the todo tool plus explicit working notes/handoff state. In Codex, back this with Codex goal/task state and the installed Codex prompts so the monitoring obligation survives normal turn-to-turn execution.
+PR creation is not hostage to deployment. Never wait for preview, staging, canary, or production deployment evidence before opening the PR. Validate deployability pre-merge where practical through configuration checks, builds, dry runs, artifact inspection, or other non-deployment evidence, then disclose any pending post-merge delivery checks in the PR body.
+
+PR creation is not hostage to testing or review coverage. If the operator explicitly says to open, create, or publish the PR regardless of verification or review status, open it without further testing or review delay. Preserve the requested draft/ready state and disclose the real verification and gate status, skipped or failing checks, missing coverage, infrastructure failures, and unresolved findings in the PR body. Do not claim passing verification, clean review consensus, or local merge readiness when it has not been established.
+
+The active-harness reviewer pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
+
+This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the implementation has local merge-readiness consensus: final verification is passing, all applicable review agents agree by substance that there are no unresolved blocking in-scope findings, the branch is current enough to merge, the PR exists, and the latest PR snapshot has no actionable feedback already present. Do not wait for a PR-hosted Codex approval, thumbs-up, or any other explicit external approval after local review-agent consensus is clean. In Pi, back this with the goal extension as the durable run state, plus the todo tool and explicit working notes for phase progress. In Codex, back this with Codex goal/task state and the installed Codex prompts so the readiness obligation survives normal turn-to-turn execution.
 
 ## Invocation
 
@@ -28,15 +34,20 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not let reviewer subagents edit files during review. Reviews are read-only.
 - Do not ask reviewers to review the whole product for open-ended problems.
 - Do not proceed past a blocked plan decision by silently choosing a larger scope.
-- Complete the promised slice before merge: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
-- If the promised outcome cannot be completed safely, stop and resize it to a smaller independently useful complete slice rather than shipping a partial skeleton.
-- Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported.
-- Do not create a PR until the GPT plus applicable Claude Code pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, the Claude Code leg is truthfully skipped under the low-risk policy, or the user explicitly waives that gate.
-- Do not stop after the GPT/Claude Code pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
+- Complete the PR-reviewable promised slice before claiming local merge readiness: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
+- Do not treat deployment, promotion, merge-dependent smoke checks, production observation, or rollback execution as part of the PR-reviewable promised slice. Pending post-merge delivery work must be disclosed and handed off, never used to block PR creation.
+- If the PR-reviewable outcome cannot be completed safely, stop and resize it to a smaller independently useful complete slice rather than shipping a partial skeleton.
+- Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported, unless the operator explicitly instructs the agent to open the PR regardless of testing status. That explicit instruction is controlling: stop retrying or waiting on verification, open the PR, and disclose skipped, incomplete, unavailable, or failing checks without calling them passing.
+- Verification convergence is budgeted. When the Verification Convergence Budget is exhausted and every residual failure classifies as inherited or infra/cosmetic with targeted verification green, opening the draft PR with disclosure and stopping on the ship/keep-fixing question is the required next action, not a policy violation.
+- Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
+- Do not create a PR until the active-harness reviewer-subagent pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
+- Do not stop after the reviewer-subagent pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
+- Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
+- Never delay PR creation for deployment or post-merge operational evidence, even when an older plan places that evidence in a phase or completion checklist. Reclassify it as a non-blocking delivery obligation and preserve it in the PR body/plan deviation log.
 - Do not mark the active run state complete just because the implementation PR exists.
-- Do not mark the active run state complete until PR feedback has been monitored and addressed and the PR is mergeable with the destination branch.
-- Treat actionable PR feedback after local reviews as a review escape: the earlier review cycle missed something, so the next local review cycle must become scope-bound adversarial review instead of only patching the commented issue.
-- Do not mark the active run state blocked or stop monitoring merely because PR feedback is slow to arrive. Treat slow review response as a wait state that requires continued polling, not as a blocker.
+- Do not mark the active run state complete until local merge-readiness consensus is established: final verification passed, applicable review agents agree by substance that there are no unresolved blocking in-scope findings, scoped PR feedback already present has been addressed, and the PR is mergeable with the destination branch or has no known merge conflict when GitHub cannot provide a final mergeability value.
+- Treat actionable PR feedback that is already present after local reviews as a review escape: the earlier review cycle missed something, so the next local review cycle must become scope-bound adversarial review instead of only patching the commented issue.
+- Do not wait for slow or absent PR feedback, a Codex PR thumbs-up, `APPROVED` reviewDecision, or any other explicit external approval once local review-agent consensus and merge-readiness evidence are clean.
 
 ## Scope Contract
 
@@ -44,6 +55,7 @@ Before editing, read the full plan and extract:
 
 - Goal and user-visible outcome
 - Explicit in-scope files, surfaces, phases, and acceptance criteria
+- The PR-reviewable implementation phases versus any deployment, promotion, merge-dependent validation, production observation, or rollback steps that must be reclassified as non-blocking post-merge delivery/operations work
 - Explicit out-of-scope items
 - Required tests and verification commands
 - Base branch and PR target, if stated
@@ -55,11 +67,11 @@ Stop before implementation if:
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
-- a required runtime-native review gate is unavailable and the user has not waived it. This means `quality-reviewer`, `claude-code-review` when the high-risk second-reviewer policy applies, and the `autoreview` skill.
+- a required runtime-native review gate is unavailable and the user has not waived it or explicitly directed opening the PR regardless. This means the active-harness reviewer-subagent infrastructure and the `autoreview` skill.
 
 ## Scope Classification
 
-Scope follows the canonical Scope doctrine: understanding and protecting existing behavior around your change is the cost of the change, while making something new happen needs its own plan and, when product-changing, owner approval. The disposition rule decides each finding:
+Scope follows the canonical Scope section in `planning-workflow`: understanding and protecting existing behavior around your change is the cost of the change, while making something new happen needs its own plan and, when product-changing, owner approval. The disposition rule decides each finding:
 
 > **A regression this change causes is in scope wherever it appears. When this change routes new valid inputs into a shared primitive or expands its reachable domain, correctness across that newly reachable domain is part of this change even where defects predate it. A defect this change merely discovers — and does not cause or newly expose — is a finding: capture it and keep going.**
 
@@ -71,43 +83,74 @@ Classify every requested change and every reviewer finding:
 - `OUT_OF_SCOPE_FOLLOW_UP`: a defect this change merely discovers and does not cause or newly expose; capture it as a finding with its tracking destination and keep going.
 - `QUESTION`: requires user/product decision before implementation.
 
-Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`. Treat BDD gaps, verification gaps, implicit-only coverage, misleading evidence, or any finding tied to a plan acceptance criterion as in-scope until proven otherwise.
+Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`. Treat BDD gaps, verification gaps, implicit-only coverage, misleading evidence, or any finding tied to a plan acceptance criterion as in-scope until proven otherwise. Actual environment deployment and post-merge observation are not implementation findings; preserve them as delivery obligations without making them PR gates.
 
 ## Evidence Placement
 
-Evidence lives in the coverage ledger (working notes), the plan file's progress and deviation sections, and ultimately the PR body. Do not create repository commits whose sole content is recording verification, certification, review, or deferral status; fold plan-progress updates into at most one bookkeeping commit per completed phase. Never commit a "debt" record for an in-scope failure — fix it or report the blocker. A run's commit history should read as the change, not as a diary of the process that produced it.
+Evidence lives in the coverage ledger (working notes), the plan file's progress and deviation sections, and ultimately the PR body. Do not create repository commits whose sole content is recording verification, certification, review, or deferral status; fold plan-progress updates into at most one bookkeeping commit per completed phase. Never commit a "debt" record for a failure the disposition rule makes in scope — fix it or report the blocker. A run's commit history should read as the change, not as a diary of the process that produced it.
+
+## Unified Review-Cycle Budget
+
+The three-cycle implementation-review limit is global to the scoped change, not to a workflow stage or PR state.
+
+- Count one cycle when the applicable implementation reviewers inspect a materially current diff and return usable verdicts. Runtime-native scoped review and a reused pre-PR gate over the same unchanged diff are one cycle, not two; a later materially new review pass is another cycle.
+- The normal budget is the initial cycle plus one targeted rereview after fixes. A third total cycle is allowed only when the preceding fix introduced or exposed a new concrete blocker.
+- Creating a PR does not reset, extend, reduce, or otherwise change this budget. The same rule applies before and after PR creation.
+- Actionable PR feedback is evidence to triage, not automatic permission for an extra review. A `REVIEW_ESCAPE` uses an ordinary adversarial/targeted cycle only when one remains and the normal third-cycle condition is satisfied. When the ordinary three-cycle budget is exhausted, route the stable `REVIEW_ESCAPE` failure-family/scope identifier through the one-per-family consultation section before reporting convergence. Conversely, the absence of a PR does not prevent an otherwise permitted ordinary cycle or consultation route.
+- Direct feedback fixes and targeted verification do not themselves consume a review cycle; the subsequent reviewer pass does. Track cycle number, triggering diff/fix, verdicts, and remaining budget in the coverage ledger.
+- When the ordinary budget is exhausted, do not launch a renamed, post-PR, “final clean,” adversarial, or alternate-reviewer cycle to continue review. No fourth or renamed pass is allowed except the single explicitly consultation-authorized bounded pass and its existing one pass-after-fixes allowance. After the applicable one-per-stable-family consultation route is consumed without clearing the risk or authorizing that exception, report the convergence/review-budget blocker and request the smallest user decision (accept disclosed residual review risk, narrow/revert the unstable slice, or revise scope). PR existence must not influence consultation eligibility or authorize any extra pass.
+
+Apply the disposition rule in the Scope Classification section to each finding: a regression this change causes or newly exposes, including newly reachable-domain correctness, is in scope; a defect this change merely discovers is captured as a finding and does not block.
 
 ## Verification Convergence Budget
 
-Full-suite verification and certification gates get a convergence budget. Track attempts per delivery head: gate name, attempt number, failure signature, and whether the root cause is new or a repeat. A repeated full-gate attempt is justified only by a new distinct root cause; rerunning to "get a clean one" is not one. Three attempts at the same gate without a new distinct root cause, or 90 minutes of attributable gate time, whichever comes first, exhausts the budget (repo-local guidance may override; record the gate's normal green-run duration).
+Full-suite verification and certification gates get a convergence budget, exactly as reviews do. Track attempts per delivery head in the coverage ledger: gate name, attempt number, failure signature, and whether the root cause is new or a repeat.
 
-At exhaustion, classify each residual failure with evidence: **introduced** (caused or newly exposed by this branch — a domain this change newly makes reachable counts as introduced) vs. **inherited** (reproduced at the merge-base or target branch, not inferred from age), and **functional** vs. **infra/cosmetic** (an unexplained delta with no approved tolerance is a `QUESTION`, not cosmetic). A full-run failure whose failing tests pass in isolation/serial while the failure point moves between attempts is infrastructure-flake evidence: certify on the serial evidence and disclose the parallel-run state.
+- A repeated full-gate attempt is justified only by a new distinct root cause — a failure this attempt will address that previous attempts did not. Rerunning to "get a clean one" is not a root cause.
+- Three full attempts at the same gate without a new distinct root cause exhaust the budget, or 90 minutes of attributable gate time on one delivery head — whichever comes first. Record the gate's normal green-run duration in the ledger so a legitimately slow, still-progressing gate is not misread as a loop; repo-local guidance may override these thresholds. When the budget is exhausted, the loop is over: classify every residual failure and dispose of it as below. Do not launch another attempt, a renamed certification, or a "final clean" serial lap to avoid the classification.
 
-Disposition: all residuals inherited or infra/cosmetic with targeted verification green → open the PR as a draft with the classification disclosed and stop on the ship/keep-fixing question (the unattended terminal state); any introduced or functional residual is in scope — fix it or stop with a blocker naming it. An operator ship or stop directive ends this budget immediately: discard queued and in-flight gate attempts, open the PR in the state the operator named, and disclose the truthful gate state.
+Classify each residual failure on two axes, with evidence:
+
+- **Introduced** (caused or newly exposed by this branch) vs. **inherited** (reproducible at the merge-base or on the target branch). Inherited requires reproduction evidence at the merge-base or on the target branch, not inference from the failure's age — and the disposition rule still governs: a failure in a domain this change newly makes reachable is introduced regardless of where the defect predates the branch.
+- **Functional** (customer-visible behavior wrong) vs. **infra/cosmetic** (harness contention, environment flake, rendering deltas within an approved tolerance). Where no approved tolerance exists, the delta is not classifiable as cosmetic — it is a `QUESTION`.
+
+**Flake disposition:** a full-run failure is infrastructure-flake evidence, not a delivery blocker, when the failing tests pass in isolation or serial rerun and the failure point moves between attempts. Certify on the serial/isolated evidence and disclose the parallel-run state in the PR body. You are never required to keep spending budget chasing a clean parallel run.
+
+Disposition when the budget is exhausted:
+
+- Every residual is inherited or infra/cosmetic (with the evidence above), and targeted verification of the changed surfaces is green → **open the PR as a draft** with the two-axis classification and evidence in the PR body, then mark the run state blocked-on-operator with the ship/keep-fixing question. This is the terminal state for unattended runs: the finished branch is preserved and disclosed, and converting the draft to ready is an operator decision. Open it ready-for-review instead only when the operator has explicitly authorized that for this run or repo guidance documents an exception path.
+- Any residual is introduced or functional → it is in scope: fix it, or stop with a blocker naming it.
+- The classification itself needs a product judgment (for example, a rendering delta with no approved tolerance) → that is a `QUESTION` for the operator, presented with the two-axis classification. Never resolve it by choosing maximal strictness on the operator's behalf.
+
+An operator ship or stop directive ends this budget immediately wherever it stands: discard queued and in-flight gate attempts, open the PR in the state the operator named (ready by default when they said "ship"), and disclose the truthful gate state.
 
 ## Workflow
 
+### 0. Optional Supervision
+
+Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: only when the operator explicitly asks to supervise this run, follow `skills/supervise/SKILL.md`. Otherwise, continue without supervisor checkpoints, phase pings, or expansion-log entries.
+
 ### 1. Establish Run State
 
-1. Check whether a run-plan task/goal state is already active.
-2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use the todo tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR monitoring item that cannot be marked done until all completion criteria are satisfied.
+1. Check whether a compatible run-plan state is already active in the available runtime tracking surface.
+2. If no compatible run state is active, create an explicit lifecycle todo/task set before implementation. In Pi, use the `todo` tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR readiness item that cannot be marked done until all completion criteria are satisfied.
 3. The objective must require both:
-   - executing the specified plan through implementation, verification, runtime-native scoped review, the GPT plus applicable Claude Code pre-PR review with no unresolved blocking in-scope P1/P2 findings, commit, push, and PR creation;
-   - monitoring the PR after creation until the post-PR completion criteria are satisfied.
+   - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
+   - checking the PR after creation for existing actionable feedback and mergeability evidence, without waiting for a Codex thumbs-up or other external approval after local review-agent consensus is clean.
 4. If an active run state already exists and it is compatible with this scoped plan run, continue under it and state the compatibility in working notes.
-5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before creating a new one.
+5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before replacing its task set.
 
 Use this objective shape:
 
 ```text
-Execute <plan path> through scoped implementation, verification, runtime-native scoped quality reviews, the GPT plus applicable Claude Code pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings, commit, push, PR creation, and persistent post-PR monitoring. Do not stop at `OPEN_PR_READY`; open the PR unless a concrete blocker prevents it. Do not mark complete until all PR feedback has been addressed and repeatedly rechecked and the PR is mergeable with <target branch>. Do not stop or mark blocked merely because review feedback takes a long time to arrive.
+Execute <plan path> through the full scoped run-plan lifecycle without expanding beyond the plan contract: establish scope, align any registered Doct plan state, implement every unfinished PR-reviewable in-scope phase, preserve deployment/promotion/post-merge validation as non-blocking delivery obligations, run required targeted and final pre-merge verification, complete implementation-stage PM review, complete runtime-native scoped quality review, complete the active-harness reviewer-subagent pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, check base freshness, commit only scoped changes, push, open a PR against <target branch or the plan's/repository's normal integration branch>, inspect the PR for existing actionable feedback and mergeability evidence, and finish only when local merge-readiness consensus is satisfied. Do not stop at implementation complete, review clean, `OPEN_PR_READY`, or PR created. Do not mark complete until fresh evidence proves all actionable PR feedback already present has been addressed, any feedback-triggered code changes have rerun required verification and review gates, the branch is current or safely rebased as needed, and applicable review agents agree by substance that the current change is ready to merge locally. Do not wait for slow or absent external feedback, a Codex PR thumbs-up, `APPROVED` reviewDecision, or another explicit approval after local review-agent consensus is clean.
 ```
 
-Runtime state expectation: keep the task/goal state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest applicable-reviewer state, feedback state, and mergeability. In Pi this state lives in todo/working notes; in Codex it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
+Runtime state expectation: keep the task state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi, this state lives in todo/working notes; in Codex, it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
 
 #### Registered Doct plan status alignment
 
-For a reviewed HTML/Markdoc plan, align Doct plan state before code edits. Resolve the Doct document/plan ID, workspace ID, canonical Doct URL, and current version from registration output, the explicit Doct review URL, or `doct-agent plans show --id <document-id> --json`; if the plan is not registered and repo guidance expects reviewed HTML/Markdoc plans, register it through `doct-document-ops` with `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc>` before proceeding.
+For a reviewed HTML/Markdoc plan, align Doct plan state before code edits. Resolve the Doct document/plan ID, workspace ID, canonical Doct URL, and current version from registration output, the explicit Doct review URL, or `doct-agent plans show --id <document-id> --json`; if the plan is not registered and repo guidance expects reviewed plans, register it through `doct-document-ops` with `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc>` before proceeding.
 
 Before implementation starts:
 
@@ -132,7 +175,7 @@ If the worktree is dirty, preserve unrelated changes. Do not clean them up for c
 
 ### 3. Implement Phase by Phase
 
-For each unfinished phase:
+For each unfinished **PR-reviewable** phase:
 
 1. Write or update only the tests required by the phase.
 2. Implement the smallest product change that satisfies the phase.
@@ -140,6 +183,8 @@ For each unfinished phase:
 4. Update the source plan progress only when that phase is actually complete.
 5. Verify Doct reflects that source progress through `doct-agent plans update`, an active `doct-agent plans watch`, or `doct-agent plans show`/board evidence before advancing.
 6. Record only documented out-of-scope discoveries in the plan's deviation log or the repo's discovery ledger. In-scope findings are not discoveries to defer; fix them before advancing.
+
+If an existing plan phase requires deployment, promotion, merge-dependent validation, production observation, or rollback execution, split the boundary rather than executing or waiting on that operation: complete and check off only the PR-reviewable implementation portion when truthful, move/preserve the operational portion as a non-blocking post-merge obligation, sync that clarification to Doct, and continue toward PR creation.
 
 If a phase exposes a broader product problem, classify it. Fix it only if it is a plan prerequisite or a regression from this diff.
 
@@ -158,7 +203,7 @@ If a changed file has no plan-bound reason, revert only your own edits to that f
 
 ### 5. First scoped quality review
 
-In Pi, use the Pi subagent `quality-reviewer` for a read-only GPT-5.6 Sol high implementation review. In Codex, use the installed Codex-native `quality-reviewer`/implementation-review mechanism for the first read-only scoped review. Do not let any reviewer edit files.
+Run the active-harness `reviewer` subagent with a bounded prompt that names the plan path, comparison range, changed files, scope contract, verification results, and verdict format. Do not let the reviewer edit files or execute verification. Capture the result into `thoughts/validation/<slug>-run-plan-review.md`.
 
 The review prompt must include:
 
@@ -180,15 +225,17 @@ VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 
 A `PASS` verdict must carry a `Not examined:` line disclosing what the review did not exercise (`Not examined: none` when the full surface was covered). Reject malformed reviews and rerun once with a tighter prompt. Legacy green verdicts (`PASS_SCOPED`, `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS`) are still accepted as green when read; treat a review as `FINDINGS_TO_RESOLVE` or `BLOCKED_BY_QUESTION` by substance when unresolved in-scope findings or a product question remain.
 
-### 6. Applicable Claude Code scoped review
+### 6. Reviewer scope
 
-Use Claude Code when the diff touches data loss risk, auth/security, concurrency/locking, migrations/persistence, release-risk, release-blocking CI behavior, or another explicit P1/P2 risk surface. Skip Claude Code by default for docs-only, low-risk UI copy, low-risk tests, and narrow follow-ups unless the operator provides an explicit override reason; record the skip in the review ledger.
+Use the same single reviewer for every risk level. High-risk changes receive a more specific bounded packet, not a second external reviewer. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
 
-When Claude Code applies, use `claude-code-review`; the canonical launcher owns model, effort, and private-tmux mechanics. The reviewer must receive a bounded review packet, not an open-ended whole-product prompt. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. It must not edit files. It must return findings in chat, classified with the same scope categories.
+For every reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Bound the assigned scope instead.
 
-Use bounded scope and bounded exploration. If the reviewer cannot complete the assigned scope, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice. Split review only when a diff has more than 20 changed files, more than 2000 diff lines, or clearly independent product surfaces that one bounded slice cannot review. Use at most two slices in the initial cycle.
+If any reviewer cannot complete the assigned scope, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
 
-Empty output, tool-only output, provider errors, or transcripts ending in tool use are review infrastructure failures, not passes. Rerun once with a narrower bounded prompt; if the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate.
+Split a normal review only when a diff has more than 20 changed files, more than 2000 diff lines, or clearly independent product surfaces that one bounded slice cannot review. Use at most two slices per reviewer in the initial cycle. Do not split a small or medium diff merely to get more opinions, and do not create generic failure-family slices unless the diff actually touches those failure families.
+
+Empty output, tool-only output, provider errors, or transcripts ending in tool use are review infrastructure failures, not passes. Rerun once with a narrower bounded prompt; do not fix empty reviewer output by adding or lowering parent-side turn limits. If the narrowed rerun is still unusable, stop with a review-infrastructure blocker unless the user explicitly waives the gate or directs opening the PR regardless.
 
 If either reviewer reports broad adjacent risks, keep them out of the PR only when they satisfy the `OUT_OF_SCOPE_FOLLOW_UP` definition and are documented. If the risk maps to the plan, verification, or this diff, treat it as in-scope and fix it.
 
@@ -203,7 +250,7 @@ Finding | Source | Classification | Decision | Evidence
 For each scoped reviewer finding:
 
 - Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`.
-- Record `OUT_OF_SCOPE_FOLLOW_UP` without fixing it after documenting why it is outside this plan and where it will be tracked. Do not create code or tests solely to dispose of speculative future risks, unsupported paths, unrelated architecture work, or polish.
+- Record `OUT_OF_SCOPE_FOLLOW_UP` as a captured finding with why it is outside this plan and where it will be tracked; you are not required to add code or tests to dispose of it.
 - Stop and ask the user for `QUESTION`.
 
 Do not implement fixes directly from reviewer prose. Convert them through this triage step first.
@@ -214,11 +261,11 @@ After fixing in-scope findings:
 
 1. Rerun targeted tests for touched code.
 2. Rerun the first scoped quality review with the previous findings and current diff.
-3. Rerun the applicable Claude Code scoped review with the same bounded scope, or preserve the recorded low-risk skip when it still applies.
+3. Rerun the same reviewer with the same bounded scope.
 4. If any reviewer returns `REVIEW_INCOMPLETE_RERUN_NEEDED`, run at most one narrowed follow-up slice for that cycle and append the result to a coverage ledger. If that follow-up is still incomplete or unusable, stop with a review-budget blocker or ask the user to waive/narrow the gate.
-5. Stop after this targeted rereview when GPT and any applicable Claude Code reviewer return `PASS` (or a legacy green verdict), or report the remaining convergence/scope blocker. Run a third total review cycle only when the targeted rereview identifies a new concrete blocker introduced or exposed by the fix.
+5. Stop after this targeted rereview when the active-harness reviewer returns `PASS` (or a legacy green verdict), or report the remaining convergence/scope blocker. Run a third total review cycle only when the targeted rereview identifies a new concrete blocker introduced or exposed by the fix and the unified review-cycle ledger shows that the third cycle remains available.
 
-The coverage ledger must record completed slices, the single allowed incomplete rerun slice, and final synthesized gate status.
+The coverage ledger must record completed slices, the single allowed incomplete rerun slice, review cycle numbers across the entire run (including later PR feedback), remaining budget, and final synthesized gate status.
 
 The ordinary local review budget is exhausted when:
 
@@ -226,45 +273,85 @@ The ordinary local review budget is exhausted when:
 - a narrow/optional component keeps producing new edge-case findings after two cycles and should be reverted, deferred, or redesigned instead of patched through review,
 - reviewers disagree on scope and the plan does not resolve it,
 - a needed fix would clearly expand the plan,
-- three total review cycles have run since the first scoped review; the third cycle is permitted only for a new concrete blocker introduced or exposed by the prior fix.
+- three total implementation-review cycles have run for this scoped change, regardless of whether they occurred before or after PR creation; the third cycle is permitted only for a new concrete blocker introduced or exposed by the prior fix.
 
-Do not report the convergence blocker yet solely because no PR exists. Mark review non-convergence, a recurring failure family, or unresolved scope disagreement as a pre-PR `REVIEW_ESCAPE`, then run the single bounded external consultation and, only if authorized, the bounded adversarial applicable-reviewer-pair pass defined below. This route applies to a fixed candidate branch/diff before or after PR creation and does not require a PR URL or PR feedback.
+Do not report the convergence blocker yet solely because no PR exists. Mark review non-convergence, a recurring failure family, or unresolved scope disagreement as a pre-PR `REVIEW_ESCAPE`, then run the single bounded external consultation and, only if authorized, the bounded adversarial active-harness reviewer pass defined below. This route applies to a fixed candidate branch/diff before or after PR creation and does not require a PR URL or PR feedback.
 
-### 9. GPT/Claude Code Pre-PR Review Gate
+### 9. Implementation-Stage PM Review
 
-After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the GPT plus applicable Claude Code pre-PR gate before final PR preparation.
+After phase implementation and the runtime-native scoped quality-review loop have no unresolved blocking in-scope findings, run an implementation-stage PM review before the pre-PR implementation gate and before PR creation.
 
-Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native scoped GPT and applicable Claude Code reviews already ran after the last code change, used the current base/comparison range, covered the current changed files, and have no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. If Claude Code was skipped under the low-risk policy, record the classification and any override decision. Run `$autoreview <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff. Follow the canonical autoreview policy, including its pre-review scope baseline, concrete blocker evidence, smallest-fix ownership boundary, behavioral-verification separation, dependency evidence, known-blocker overflow, and release freeze discipline; do not duplicate or weaken those rules here.
+Use the local PM review surface when available:
 
-When the standalone pre-PR gate is required, it must use:
+```text
+/dev:pm-review <plan path> implementation
+```
 
-- GPT-5.6 Sol high via Pi's `quality-reviewer` subagent or the runtime's equivalent primary review mechanism,
-- Claude Code via `claude-code-review` when the high-risk second-reviewer trigger or an explicit override applies.
+If the exact prompt template is unavailable in the current runtime, perform the equivalent PM check yourself and record that substitution in the review ledger. The PM review must be product-outcome focused, not a general code review:
 
-Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewers must classify findings by P1/P2/P3 severity and by the normal scope categories.
+- compare the implemented behavior, docs, tests, and verification evidence against the plan goal, acceptance criteria, BDD scenarios, locked decisions, and non-goals;
+- identify plan-required outcome gaps, misleading completion evidence, missing phase work, or required plan corrections;
+- classify every issue with the normal run-plan scope labels before acting.
 
-Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and run one targeted rereview limited to the findings and resulting edits. A third total review cycle is allowed only for a new concrete blocker introduced or exposed by the fix; otherwise return clean consensus or a convergence/scope blocker. P3 findings block only when they are plan-required, verification-required, or regression-caused; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
+For PM review results:
 
-If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If GPT review infrastructure or a required Claude Code review is unavailable, stop unless the user explicitly waives this pre-PR gate.
+1. Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` PM findings before continuing.
+2. If the PM review reshapes the plan, update the source plan with the correction, push the update to Doct for reviewed HTML/Markdoc plans, execute the added plan-required work, and rerun verification or scoped reviews invalidated by the change.
+3. Stop for user input on `QUESTION` findings that require a product or scope decision.
+4. Record true `OUT_OF_SCOPE_FOLLOW_UP` findings only with evidence and a tracking destination; do not let PM review broaden the PR beyond the plan contract.
+
+The PM gate is clean only when the implemented outcome satisfies the plan by substance, all in-scope PM findings have been fixed or blocked by a real decision, and any plan/Doct progress updates are synchronized. Record the PM verdict, artifact or notes location, plan-update status, and any rerun requirements for the PR body.
+
+### 10. Active-Harness Pre-PR Review Gate
+
+After phase implementation and the runtime-native scoped quality-review loop has no unresolved blocking in-scope findings, satisfy the active-harness reviewer-subagent pre-PR gate before final PR preparation.
+
+Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native reviewer pass already ran after the last code change, used the current base/comparison range, covered the current changed files, and has no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. Run `$autoreview <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff. Follow the canonical autoreview policy, including its pre-review scope baseline, concrete blocker evidence, smallest-fix ownership boundary, behavioral-verification separation, dependency evidence, known-blocker overflow, and release freeze discipline; do not duplicate or weaken those rules here.
+
+Run exactly one bounded, static inspection with the active harness's configured `reviewer` subagent. In Pi it is GPT-5.6 Terra at medium reasoning effort; in Claude Code it is Sonnet 5 at high effort; in OpenCode it is GPT-5.6 Terra at medium reasoning effort. Do not create separate Codex or Claude Code review legs and do not require Herdr transport. Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewer must classify findings by P1/P2/P3 severity and by the normal scope categories. It must not execute tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. The coordinating agent exclusively owns that execution.
+
+Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and run one targeted rereview limited to the findings and resulting edits. Apply the unified review-cycle ledger: reuse equivalent current evidence instead of double-counting a gate, and allow a third total review cycle only for a new concrete blocker introduced or exposed by the fix. PR creation never resets or changes this budget; otherwise return clean consensus or a convergence/scope blocker. P3 findings block only when they are plan-required, verification-required, or regression-caused; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
+
+If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If the active-harness reviewer is unavailable, stop unless the user explicitly waives this pre-PR gate or explicitly directs opening the PR regardless; in the latter case, open it and disclose the infrastructure failure and missing coverage.
 
 When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue immediately to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
-Record the GPT verdict, Claude Code verdict or low-risk skip, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
+Record the reviewer model/effort, verdict, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
 
 ## Final Verification
 
-Run the plan's final verification commands after the GPT/Claude Code pre-PR review gate is clean for all blocking in-scope P1/P2 findings, or after the Claude Code leg is truthfully skipped under the low-risk policy. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect. Full-gate reruns are governed by the Verification Convergence Budget; a failure with an already-classified root cause never by itself requires another full run.
+Establish passing final-verification evidence after the latest verification-relevant change and before PR creation. This is pre-merge verification only: it may prove buildability, deployability, migration definitions, configuration, dry-run behavior, and artifact integrity, but must not require an actual environment deployment, promotion, merge-dependent smoke check, or production observation. Reuse the latest passing results when the same commands already ran against the current code, tests, dependencies, configuration, generated artifacts, and base context, and no intervening action invalidated them. A read-only reviewer-subagent review does not invalidate passing verification and is never, by itself, a reason to rerun it. Record reused commands, outcomes, and the unchanged-state basis in the run notes and PR body.
+
+Rerun only checks invalidated by an implementation or review fix, dependency/configuration/generated-artifact change, rebase or conflict resolution that changed the content identity, relevant environment change, prior failure, or an explicit plan requirement that demands a fresh run at this point. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect. Full-gate reruns are governed by the Verification Convergence Budget; a failure with an already-classified root cause never by itself requires another full run. An exhausted convergence budget with all residuals classified inherited or infra/cosmetic and targeted verification green satisfies this section's evidence requirement for the draft-PR disposition — record the classification as the final-verification result rather than calling the gate passing. If the operator explicitly directs opening the PR regardless of testing status, do not delay PR creation for further verification; record exactly which checks passed, failed, were skipped, or could not run.
 
 Do not hide failures. Fix failures when they are in scope, required for truthful verification, or caused by this branch. Otherwise, report them as pre-existing or documented out-of-scope follow-ups with evidence and tracking destination.
 
+## Base Freshness and Mergeability Gate
+
+Before push and PR creation, verify the branch is fresh enough against the target branch that the PR will not immediately open stale or obviously unmergeable. Run the first freshness check before committing when possible, but do not rebase a dirty worktree by default.
+
+The **content identity** of a candidate is the combined hash of: the committed diff against the merge-base with the target branch (`git diff "$(git merge-base origin/<target> HEAD)"..HEAD`), the staged diff, the unstaged diff, and a deterministic untracked-path manifest (sorted paths with type/mode and content hash). This reviewer fingerprint uses the merge-base diff hash rather than a HEAD commit component: it identifies the change content — committed or not — while ignoring commit SHAs. Two candidates with equal content identity carry the same change; a rebase that alters only SHAs leaves it unchanged.
+
+1. Resolve the target branch from the plan, existing PR metadata, or repo default integration branch.
+2. Fetch the target branch.
+3. Check whether the current branch is behind, diverged, or likely conflicted with the fetched target branch.
+4. If the branch is behind or diverged while scoped edits are still uncommitted, commit the scoped changes after final verification, then rebase the committed branch onto the fetched target branch before pushing. Use autostash only when repo policy explicitly permits it, and record exactly what was stashed, reapplied, and reverified.
+5. If the branch is behind or diverged after commit, rebase onto the fetched target branch when conflicts are absent or limited to scoped files and can be resolved without a product decision.
+6. If conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations, stop with a base freshness blocker.
+7. After any rebase, autostash replay, or conflict resolution, compare the content identity before and after. If it is unchanged, prior verification and review evidence remains current — record the rebase and the unchanged hash. If it changed, rerun only the verification the changed hunks invalidate, and record why the remainder stays current.
+8. Review evidence follows the same content identity: rerun full scoped quality reviews, PM review, or the reviewer-subagent pre-PR gate only when the rebase materially changed the content diff, touched files, acceptance evidence, or reviewer assumptions. An unchanged content identity never by itself stales accepted review evidence.
+
+Record the target branch, fetch result, rebase/skip decision, rerun verification, and any stale-review reruns in the PR body. A clean `OPEN_PR_READY` review verdict is not enough by itself if the branch became stale before PR creation.
+
 ## Commit, Push, and PR
 
-When implementation, scoped reviews, the applicable GPT/Claude Code pre-PR review gate status, and final verification pass, PR creation is mandatory in the same run:
+When implementation, scoped reviews, implementation-stage PM review, the applicable reviewer-subagent pre-PR gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run. An explicit operator instruction to open the PR regardless of testing or review status bypasses only those testing/review gates and requires truthful disclosure; it does not turn skipped or failing evidence into a passing or merge-ready result.
 
 1. Review `git diff --stat` and `git diff --name-only`.
 2. Commit only the scoped changes.
-3. Push the branch.
-4. Open a PR to the plan's target branch, or the repo's normal integration branch.
+3. If the freshness check found the target branch stale before commit, rebase the committed branch now, rerun invalidated verification/reviews, and stop on unsafe conflicts.
+4. Push the branch.
+5. Open a PR to the plan's target branch, or the repo's normal integration branch.
 
 Do not end with "ready to open a PR." If `gh` authentication, branch protection, missing remote, or another concrete issue prevents PR creation, report that exact blocker and leave the run state active; otherwise produce a PR URL.
 
@@ -274,43 +361,55 @@ The PR body must include:
 - in-scope summary,
 - verification commands and results,
 - first scoped quality-review verdict,
-- applicable Claude Code scoped-review verdict or recorded low-risk skip,
-- GPT/Claude Code pre-PR review verdicts and artifact path, or explicit waived/not-run status,
+- second scoped quality-review verdict,
+- implementation-stage PM review verdict, artifact/notes location, any plan/Doct updates, and any PM-triggered rerun requirements,
+- reviewer-subagent pre-PR review verdict and artifact path, or explicit waived/not-run status,
+- base freshness and mergeability/rebase status before PR creation,
 - documented out-of-scope follow-ups with evidence and tracking destination,
-- known residual risks.
+- known residual risks,
+- pending non-blocking post-merge deployment, promotion, observation, or rollback obligations, including owner/trigger/evidence when the plan specifies them.
 
 Do not include memory citations in PR messages.
 
-## Post-PR Completion Loop
+## Post-PR Local Merge-Readiness Check
 
-After the PR is open, keep the active runtime task/goal state active and monitor the PR until all completion criteria are satisfied. In Pi this is the active todo/run state; in Codex this is the active Codex goal/task state.
+After the PR is open, keep the active runtime task state active only until the local merge-readiness criteria are satisfied. In Pi this is the active readiness todo/run state; in Codex this is the active Codex goal/task state. This phase checks real PR state, but it does not wait for a Codex thumbs-up, a human approval, or slow/absent external feedback once the local review agents have reached consensus.
 
 ### Completion Criteria
 
 The run state can be marked complete only when all of these are true:
 
-- All actionable PR feedback has been addressed.
-- PR feedback has been checked repeatedly after fixes, not just once immediately after PR creation.
-- If PR feedback required code changes, both runtime-native scoped quality reviews have rerun over the current PR diff and cleared any in-scope findings.
-- The branch has been rebased or otherwise updated against the destination branch as needed.
-- GitHub reports the PR as mergeable with the destination branch.
+- Final verification for the touched surfaces has passed after the latest code change, or the Verification Convergence Budget disposition applies: targeted verification is green, every residual failure is classified inherited or infra/cosmetic with evidence, and the classification is disclosed in the PR body. In the draft-PR disposition the run state does not complete — it is blocked-on-operator with the ship/keep-fixing question until the operator answers.
+- Runtime-native scoped quality review, implementation-stage PM review, and the reviewer-subagent pre-PR gate all agree by substance that the current diff has no unresolved blocking in-scope findings; skipped/waived gates are recorded truthfully.
+- All actionable PR feedback already present in the latest snapshot has been addressed.
+- If PR feedback required code changes, the applicable review agents have rerun over the current PR diff and cleared any in-scope findings.
+- The branch has been rebased or otherwise updated against the destination branch as needed, with affected verification rerun after the update.
+- GitHub reports the PR as mergeable with the destination branch, or GitHub mergeability is unavailable/unknown but a fresh base-freshness check shows no known merge conflict.
+
+Deployment, promotion, merge-dependent smoke checks, production observation, and rollback-window closure are not completion criteria for run-plan. Record them as the next delivery handoff when applicable; do not hold the PR or run state open for them.
+
+Do not require `reviewDecision: APPROVED`, a Codex PR comment saying LGTM, or any other external thumbs-up to complete the run.
 
 ### Monitoring Loop
 
-Repeat this loop until the completion criteria are met or a true blocker is reached. Slow or absent reviewer feedback and pending checks are not true blockers by themselves; they require continued polling.
+Repeat this loop until the completion criteria are met or a true blocker is reached. Slow or absent reviewer feedback is not a blocker and does not require continued polling after local merge-readiness consensus is clean. Pending or failing required checks should be handled only when they affect the stated merge-readiness criteria.
 
-1. Inspect PR reviews, review threads, comments, status checks, and mergeability.
+A run in the convergence-budget draft-PR disposition does not loop: it reports the ship/keep-fixing question with the classification and waits on the operator. Failing required checks that reproduce the already-classified inherited/infra residuals are part of that disclosure, not new work.
+
+1. Inspect PR reviews, review threads, comments, status checks, review decision, and mergeability for the current snapshot.
 2. Classify every new feedback item using the same scope categories.
 3. If any actionable feedback arrives after the local scoped review gates already passed, mark the cycle as a `REVIEW_ESCAPE` in working notes. Fixing only the mentioned line is insufficient.
 4. Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` feedback.
 5. Record or report `OUT_OF_SCOPE_FOLLOW_UP` feedback with evidence and tracking destination without expanding the PR.
 6. Stop for user input on `QUESTION` feedback.
-7. For each `REVIEW_ESCAPE`, use an ordinary adversarial/targeted cycle when one remains and the normal third-cycle condition is satisfied. When the ordinary three-cycle budget is exhausted, route the stable `REVIEW_ESCAPE` failure-family/scope identifier through the one-per-family consultation section before reporting convergence; only that consultation's explicit authorization permits its single bounded adversarial pass and existing one pass-after-fixes allowance. No fourth or renamed pass is allowed except that consultation-authorized bounded exception, and PR existence is never authorization for an extra pass.
+7. For each `REVIEW_ESCAPE`, consult the unified review-cycle ledger. Use an ordinary adversarial/targeted cycle when one remains and the normal third-cycle condition is satisfied; otherwise, route the stable failure-family/scope identifier through the one-per-family bounded consultation section below before reporting convergence. Only that consultation's explicit authorization permits its single bounded adversarial pass and existing one pass-after-fixes allowance after ordinary budget exhaustion. PR existence is never authorization for an ordinary or consultation-authorized extra pass.
 8. Rerun the smallest meaningful verification for any changes.
 9. Commit and push fixes to the PR branch.
-10. Rebase onto the destination branch when GitHub reports the branch out of date, conflicted, or not mergeable.
-11. Recheck until GitHub shows the PR as mergeable and no new actionable feedback remains.
-12. If a poll finds no new feedback but checks or mergeability are still pending, report the latest PR state briefly, keep the run state active, wait, and poll again. Do not end the scoped-plan run or mark the run state blocked for review latency alone.
+10. Rebase onto the destination branch when GitHub reports the branch out of date, stale, conflicted, or blocked by base freshness, but only when conflicts are absent or limited to scoped files and do not require a product decision.
+11. After any post-PR rebase or conflict resolution, rerun affected verification, rerun scoped reviews when the PR diff changed materially, and push with lease.
+12. Stop with a scope question when rebase conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations.
+13. Recheck once after fixes or rebase to confirm GitHub shows the PR as mergeable, or that mergeability is unavailable/unknown with no known conflict from the fresh base-freshness check.
+14. If a snapshot has no actionable feedback and local review-agent consensus is clean, do not keep polling just to obtain a Codex thumbs-up, human approval, or reviewDecision change. Complete the run when the completion criteria above are satisfied.
 
 ### Review Escape Consultation and Adversarial Escalation Loop
 
@@ -324,23 +423,22 @@ If and only if the consultation authorizes the further adversarial pass, run it 
 
 1. Write down the escaped-defect pattern: reviewer, affected file/line, why earlier review missed or disputed it, and the failure family it represents. Include a feedback URL only when PR feedback is the trigger.
 2. Audit the fixed candidate branch/diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
-3. Run read-only adversarial implementation reviews with GPT and, when the high-risk second-reviewer trigger or an explicit override applies, Claude Code. Review the current candidate branch/diff, the plan scope contract, the consultation disposition, any direct PR feedback when present, and the sibling-audit notes. Ask reviewers to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve one fix. Use one bounded adversarial slice focused on the escaped failure family; use a second slice only when the escaped issue spans clearly separate surfaces. Each reviewer slice must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+3. Run one read-only adversarial implementation review with the active-harness `reviewer` subagent. Review the current candidate branch/diff, the plan scope contract, the consultation disposition, any direct PR feedback when present, and the sibling-audit notes. Ask the reviewer to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve one fix. Use one bounded adversarial slice focused on the escaped failure family; use a second slice only when it spans clearly separate surfaces. The reviewer must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
 4. Triage new adversarial findings using the normal scope classifications. The driving agent may make one bounded fix attempt for in-scope findings; document true out-of-scope follow-ups and stop for questions.
-5. Repeat the same adversarial applicable-reviewer pass once after those fixes if it found any in-scope issue. Then return to the normal workflow only if the pass is clean; otherwise return control with the convergence blocker or requested decision.
+5. Repeat the same adversarial reviewer pass once after those fixes if it found any in-scope issue. Then return to the normal workflow only if the pass is clean; otherwise return control with the convergence blocker or requested decision.
 
-Keep this escalation scope-bound: one consultation per distinct failure-family/scope identifier and, only when authorized, one bounded adversarial applicable-reviewer pass with the existing single pass-after-fixes allowance are the limit. Do not repeat consultation for an unresolved identifier, restart the ordinary three-cycle budget, review until clean, or turn the escalation into an unrelated whole-product audit.
+Keep this escalation scope-bound: one consultation per distinct failure-family/scope identifier and, only when authorized, one bounded adversarial reviewer pass with the existing single pass-after-fixes allowance are the limit. Do not repeat consultation for an unresolved identifier, restart the ordinary three-cycle budget, review until clean, or turn the escalation into an unrelated whole-product audit.
 
-### Polling Persistence
+### Snapshot Persistence
 
-When the run has reached post-PR monitoring, the agent must persist across session turns:
+When the run has reached post-PR readiness checking, the agent must persist only until the completion criteria are satisfied:
 
-- Keep polling the PR until actionable feedback is resolved, required checks have settled, and the PR is mergeable.
-- Poll every 60 seconds while waiting for PR feedback, checks, or mergeability unless the user explicitly asks to reduce polling frequency.
-- Continue monitoring even after current feedback is addressed, because late feedback can still arrive before mergeability/checks settle.
-- Do not treat "no new feedback", "review still pending", or "checks still running" as completion, failure, or a blocker.
-- In Pi, leave the monitoring todo active and summarize the latest PR URL, mergeability, feedback state, and applicable-reviewer state in any handoff or final-in-turn status.
-- A true blocker must be something the agent cannot resolve by continued polling or scoped fixes, such as lost GitHub authentication, a closed/deleted PR, a force-push/base-branch conflict requiring a product decision, or `QUESTION` feedback that needs the user.
-- If a true blocker is reached, report the exact blocker and the latest PR state. Otherwise, keep the active run state open and continue polling.
+- Check the PR snapshot after creation and after every pushed fix/rebase for actionable feedback, required check failures that affect merge readiness, and mergeability.
+- Do not poll indefinitely for absent feedback, a pending review, `reviewDecision: APPROVED`, or a Codex PR thumbs-up after local review-agent consensus is clean.
+- If checks or mergeability are temporarily unavailable, perform the freshest practical local/base-freshness check and record the uncertainty instead of waiting solely for an external approval signal.
+- In Pi, complete the readiness todo and goal once the evidence-backed local merge-readiness criteria are satisfied; summarize the latest PR URL, mergeability/base-freshness state, feedback snapshot, and reviewer-pair consensus in the final status.
+- A true blocker must be something the agent cannot resolve by scoped fixes or a fresh local/base-freshness check, such as lost GitHub authentication, a closed/deleted PR, a force-push/base-branch conflict requiring a product decision, failing required checks caused by this branch, `QUESTION` feedback that needs the user, or an exhausted unified review-cycle budget with unresolved blocking review risk. Pending deployment or post-merge observation is not a run-plan blocker.
+- If a true blocker is reached, report the exact blocker and the latest PR state. Otherwise, complete the active run state when local merge-readiness consensus is proven.
 
 Use GitHub product surfaces for this check:
 
@@ -349,7 +447,7 @@ Use GitHub product surfaces for this check:
 - Inline review comments via `GET /repos/<owner>/<repo>/pulls/<pr>/comments`.
 - Status/mergeability via `gh pr view ... --json mergeable,mergeStateStatus,statusCheckRollup,reviewDecision`.
 
-Reference implementation for Pi: write this to `/tmp/monitor-pr-<pr>.sh`, start it with the `process` tool, and set `logWatches` for `FEEDBACK_CHANGED`. It polls every 60 seconds, stores snapshots, and reports comment/review/status changes.
+Reference implementation for Pi: write this to `/tmp/snapshot-pr-<pr>.sh` and run it once with `bash` to capture the current PR feedback/mergeability snapshot. Use a background `process` monitor only when mergeability or required checks are temporarily unavailable and you need a bounded wait for those merge-readiness signals; do not run it just to wait for a Codex thumbs-up or human approval.
 
 ```bash
 #!/usr/bin/env bash
@@ -382,35 +480,23 @@ snapshot_feedback() {
   }' "$state_dir/pr.json" "$state_dir/issue-comments.json" "$state_dir/review-comments.json" > "$state_dir/feedback.current.json"
 }
 
-while true; do
-  ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  if ! fetch_state; then
-    echo "$ts MONITOR_ERROR failed to fetch PR state; retrying in ${interval_seconds}s"
-    sleep "$interval_seconds"
-    continue
-  fi
-  snapshot_feedback
-
-  if [ -f "$state_dir/feedback.previous.json" ] && ! cmp -s "$state_dir/feedback.previous.json" "$state_dir/feedback.current.json"; then
-    echo "$ts FEEDBACK_CHANGED snapshot=$state_dir/feedback.current.json"
-  fi
-
-  merge=$(jq -r '(.mergeable // "UNKNOWN") + "/" + (.mergeStateStatus // "UNKNOWN")' "$state_dir/pr.json")
-  comments=$(jq 'length' "$state_dir/issue-comments.json")
-  review_comments=$(jq 'length' "$state_dir/review-comments.json")
-  reviews=$(jq '.reviews | length' "$state_dir/pr.json")
-  echo "$ts PR_MONITOR merge=$merge issue_comments=$comments review_comments=$review_comments reviews=$reviews"
-
-  cp "$state_dir/feedback.current.json" "$state_dir/feedback.previous.json"
-  sleep "$interval_seconds"
-done
+ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+fetch_state
+snapshot_feedback
+merge=$(jq -r '(.mergeable // "UNKNOWN") + "/" + (.mergeStateStatus // "UNKNOWN")' "$state_dir/pr.json")
+comments=$(jq 'length' "$state_dir/issue-comments.json")
+review_comments=$(jq 'length' "$state_dir/review-comments.json")
+reviews=$(jq '.reviews | length' "$state_dir/pr.json")
+echo "$ts PR_SNAPSHOT merge=$merge issue_comments=$comments review_comments=$review_comments reviews=$reviews snapshot=$state_dir/feedback.current.json"
 ```
 
-Start it like this from Pi, leaving it running in the background:
+Run the snapshot like this from Pi:
 
 ```text
-process.start name="pr-<number>-monitor" command="bash /tmp/monitor-pr-<number>.sh <owner>/<repo> <number>" logWatches=[FEEDBACK_CHANGED]
+bash /tmp/snapshot-pr-<number>.sh <owner>/<repo> <number>
 ```
+
+If a required check or GitHub mergeability is temporarily unavailable and a bounded wait is needed, start a short-lived `process` monitor for that signal only; stop it once merge-readiness can be determined.
 
 ### Rebase Guidance
 
@@ -418,19 +504,21 @@ When rebase is needed:
 
 1. Fetch the destination branch.
 2. Rebase the PR branch onto the destination branch.
-3. Resolve only conflicts in scoped files or conflicts required to preserve this plan's implementation.
-4. Rerun verification affected by the rebase only when the rebase changed the content of the diff against the merge-base (committed, staged, unstaged, or untracked content); a rebase that changes only commit SHAs invalidates neither verification nor accepted review evidence.
-5. Push with lease.
+3. Resolve only conflicts in scoped files, and only when no product decision is needed.
+4. Stop with a scope question when conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations.
+5. Rerun verification affected by the rebase only when the content identity changed; rerun only what the changed hunks invalidate.
+6. Rerun scoped reviews when the content diff changed materially; a rebase that leaves the content identity unchanged does not invalidate accepted review evidence.
+7. Push with lease.
 
 Do not use destructive git commands to force mergeability. If conflicts require decisions outside the plan, stop with a scope question.
 
 ### Run State Closure
 
-Only after the completion criteria are all satisfied, mark the runtime monitoring task/goal complete. In Pi, complete the monitoring todo; in Codex, complete the Codex goal/task state. Do not mark the run state blocked for a slow reviewer, no new feedback, pending review, or pending checks; those are polling wait states. Mark the run state blocked only for a real actionable blocker that prevents meaningful polling or scoped fixes, and report the exact blocker with the latest PR state.
+Only after the completion criteria are all satisfied, mark the runtime readiness task complete. In Pi, complete the readiness todo only after a fresh evidence-backed completion audit. In Codex, complete the Codex goal/task state after the same audit. Do not keep the run state open for a slow reviewer, no new feedback, pending review, or missing Codex thumbs-up once local review-agent consensus is clean. Mark the run state blocked only for a real actionable blocker that prevents scoped fixes or a truthful local merge-readiness conclusion, and report the exact blocker with the latest PR state.
 
 ## Reviewer Prompt Template
 
-Use this shape for GPT and any applicable Claude Code reviewer. When the reviewer is Claude Code, include the exact risk question and bounded high-risk packet that caused the second-reviewer trigger to apply.
+Use this shape for the active-harness reviewer. Include the exact risk question and bounded high-risk packet when the diff touches a high-risk surface; do not rely on the generic prompt alone.
 
 ```text
 Read-only implementation review. Do not edit files.
@@ -476,10 +564,10 @@ Return one verdict:
 - VERDICT: FINDINGS_TO_RESOLVE
 - VERDICT: BLOCKED_BY_QUESTION
 
-This additional verdict is allowed when the assigned scope cannot be completed:
+This additional verdict is allowed for every reviewer when the assigned scope cannot be completed:
 - VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
 
-Use bounded scope and bounded exploration. Reserve enough time and context for a final response, and do not broaden into unrelated whole-product review. If incomplete, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
+For every reviewer slice, use bounded scope and bounded exploration. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Reserve enough time/context for a final response, and do not broaden into unrelated whole-product review. If incomplete, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 
 Return format for reviewer slices:
 1. Scope checked
@@ -497,7 +585,7 @@ Append this when a `REVIEW_ESCAPE` occurred:
 
 ```text
 Adversarial escalation context:
-Trigger: <pre-PR bounded review non-convergence | actionable PR feedback after local applicable-reviewer gates passed>. Treat the consultation disposition and any direct fix as claims to verify, not proof.
+Trigger: <pre-PR bounded review non-convergence | actionable PR feedback after local reviewer-pair gates passed>. Treat the consultation disposition and any direct fix as claims to verify, not proof.
 
 Escaped finding/failure family or scope disagreement:
 - Fixed artifact/comparison/fingerprint: <artifact, range, complete fingerprint>
@@ -525,13 +613,15 @@ Only give the run-plan final response after a PR exists or a concrete PR-creatio
 Report:
 
 - PR URL,
-- run-state status (Pi todo or Codex goal/task),
+- run-state status (Pi goal plus todo, or Codex goal/task),
 - changed files at a high level,
 - verification run,
 - runtime-native scoped quality-review verdicts,
-- GPT/Claude Code pre-PR review verdicts or waived/not-run status,
-- PR feedback monitoring result,
-- PR mergeability result,
+- implementation-stage PM review verdict,
+- reviewer-subagent pre-PR review verdict or waived/not-run status,
+- base freshness and rebase status,
+- PR feedback snapshot result,
+- PR mergeability or base-freshness result,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - any residual risk.
 

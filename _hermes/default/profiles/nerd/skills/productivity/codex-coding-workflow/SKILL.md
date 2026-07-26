@@ -23,7 +23,7 @@ For repositories under `~/code/`, Hermes must not directly edit repo files with 
 ## Preconditions
 
 - Load the `codex` skill too, and use its current CLI guidance.
-- Load the `claude-code` skill too. In this workflow, Codex is the primary implementer. Plans must receive both Codex and Claude Code read-only reviews before implementation, and both must agree the plan is execution-ready. Code changes must also receive both Codex and Claude Code reviews before PR.
+- In this workflow, Codex is the primary implementer. Plans and code changes must receive exactly one read-only review from the active harness's configured `reviewer` subagent before advancing. For OpenCode this is `cliproxyapi/gpt-5.6-terra` at medium reasoning effort; do not add a separate Codex or Claude Code review leg.
 - Run from a git repository under `~/code/` unless Aaron gives another path.
 - Read repo instructions first: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, planning docs, `TESTING.md`, product-intent docs, PR/commit guidance.
 - Prefer repo conventions over this generic workflow when they conflict.
@@ -34,7 +34,7 @@ For repositories under `~/code/`, Hermes must not directly edit repo files with 
 - Preserve stage separation: planning, review, integration, plan commit, implementation, validation, PM review, code review, PR, post-PR follow-up.
 - Do not let planning mutate production code. Plan-only runs may write/update the canonical plan file, but should not change app/library/source files.
 - Use `codex exec` for non-interactive work. For repo-local autonomous edits prefer `-s workspace-write`; avoid `danger-full-access` or `--dangerously-bypass-approvals-and-sandbox` unless Aaron explicitly accepts the risk.
-- Use Codex and Claude Code as fresh, independent read-only plan reviewers. Before implementation, both must explicitly agree the latest plan is execution-ready. Use the installed `claude-code-review` private-tmux launcher for Claude review gates; do not let review passes edit files.
+- Use exactly one fresh, read-only active-harness `reviewer` subagent for every plan or code-review gate. Do not let review passes edit files, run verification, or start a separate Codex or Claude Code review process.
 - Hermes remains responsible for verifying filesystem/git/PR state. Do not trust Codex's or Claude's claims without checking files, git status, test output, and PR/check state.
 - Run verification as small, focused commands with one clear purpose each. Do not bundle unrelated validation, git inspection, release checks, and quoting-heavy shell snippets into a giant combined command; if a command hits quoting trouble or times out, split it into simpler probes.
 - Before PR, the repo's full validation bar must pass; targeted tests alone are not enough.
@@ -73,44 +73,24 @@ Include repo-specific validation steps, product-intent linkage, assumptions, ris
 
 Verify the plan exists and review `git diff` to ensure only plan files changed.
 
-### 3. Review the plan with both Codex and Claude Code in fresh contexts
+### 3. Review the plan with the active-harness reviewer subagent
 
-Run both review passes read-only. This is a hard gate: **both Codex and Claude Code must explicitly return `EXECUTION_READY` before implementation**. If either returns `NOT_READY`, integrate feedback and rerun both reviews on the updated plan.
+Run exactly one configured active-harness `reviewer` subagent pass. This is a hard gate: the reviewer must explicitly return `EXECUTION_READY` before implementation. For OpenCode, invoke the configured `reviewer` subagent (`cliproxyapi/gpt-5.6-terra`, medium effort) with a read-only plan-review packet and write its result to `/tmp/plan-review.md`. Do not start a separate Codex or Claude Code review process.
 
-Codex plan review:
+The packet must ask the reviewer to inspect `<plan path>` against the task, repository guidance, product intent, acceptance criteria, edge cases, sequencing, validation requirements, evidence requirements, and PR/rebase requirements. It must prohibit edits and executable verification. The reviewer returns exactly `EXECUTION_READY` or `NOT_READY`; `NOT_READY` includes concrete blockers, gaps, ambiguities, missing validation/evidence, and required plan changes.
 
-```bash
-codex exec -C <repo> -s read-only --output-last-message /tmp/codex-plan-review.md '
-Review <plan path> against the task, repo guidance, product intent, acceptance criteria, edge cases, sequencing, validation requirements, evidence requirements, and PR/rebase requirements.
-Do not edit files.
-Return one of two verdicts exactly: EXECUTION_READY or NOT_READY.
-Use EXECUTION_READY only if the plan is specific, scoped, testable, sequenced correctly, and safe to implement without unresolved product/technical ambiguity.
-If NOT_READY, list blockers, gaps, ambiguities, missing validation/evidence, and concrete plan changes required.
-'
-```
-
-Claude Code plan review:
-
-```bash
-python3 ~/.agents/skills/claude-code-review/scripts/claude_interactive_review.py \
-  --cwd <repo> \
-  --prompt-file <claude-plan-review-input-file> \
-  --output /tmp/claude-plan-review.md \
-  --review-name claude-plan-review \
-  --timeout-seconds 3600
-```
-Hermes must inspect both artifacts and verify both reviewers agree before proceeding.
+Hermes must inspect the one returned artifact before proceeding. If the reviewer returns `NOT_READY`, integrate the feedback and rerun the same reviewer only on the updated plan.
 
 ### 4. Integrate plan feedback
 
 ```bash
 codex exec -C <repo> -s workspace-write '
-Integrate the Codex and Claude Code plan review feedback from /tmp/codex-plan-review.md and /tmp/claude-plan-review.md into <plan path>.
+Integrate the active-harness reviewer feedback from /tmp/plan-review.md into <plan path>.
 Do not make implementation changes. Keep the plan execution-ready and aligned with repo conventions.
 '
 ```
 
-Verify the plan diff again. If either reviewer returned `NOT_READY` or material blockers, rerun both plan reviews after integration and do not proceed until both return `EXECUTION_READY`.
+Verify the plan diff again. If the reviewer returned `NOT_READY` or material blockers, rerun the same plan-review pass after integration and do not proceed until it returns `EXECUTION_READY`.
 
 ### 5. Commit the reviewed plan
 
@@ -134,11 +114,11 @@ Perform a plan-stage PM review of <plan path>. Judge functional outcome, product
 '
 ```
 
-If it finds material gaps, integrate and commit the updated plan, then rerun both Codex and Claude Code plan reviews if the PM feedback changed scope, sequencing, validation, acceptance criteria, or evidence requirements. Do not implement until both reviewers still agree the latest plan is `EXECUTION_READY`.
+If it finds material gaps, integrate and commit the updated plan, then rerun the active-harness plan review if the PM feedback changed scope, sequencing, validation, acceptance criteria, or evidence requirements. Do not implement until the reviewer still finds the latest plan `EXECUTION_READY`.
 
 ### 7. Execute the plan with Codex
 
-For short tasks, run foreground only after Codex and Claude Code plan reviews both returned `EXECUTION_READY` and the plan-stage PM review is acceptable. For longer tasks, run background with `notify_on_complete=true` and monitor with `process`.
+For short tasks, run foreground only after the active-harness plan reviewer returned `EXECUTION_READY` and the plan-stage PM review is acceptable. For longer tasks, run background with `notify_on_complete=true` and monitor with `process`.
 
 ```bash
 codex exec -C <repo> -s workspace-write '
@@ -167,45 +147,20 @@ If this review requires changes, run a Codex implementation follow-up, then reru
 
 ### 10. Full code reviews before PR
 
-Always run both Claude Code and Codex code reviews for changes before PR. Keep both review passes read-only and capture their findings separately so disagreements or complementary findings are visible.
+Run exactly one active-harness `reviewer` subagent code review before PR. Keep it read-only and capture its findings. Do not add a separate Codex or Claude Code review leg.
 
-Claude Code review:
+Invoke the configured active-harness `reviewer` subagent with a read-only packet covering the current branch diff against `<base-branch>`, the plan, the scope contract, and verification evidence. For OpenCode, use `cliproxyapi/gpt-5.6-terra` at medium effort. Ask it to report prioritized findings with file/line references where possible, and prohibit edits and executable verification. Save the result as `/tmp/code-review.md`.
 
-```bash
-python3 ~/.agents/skills/claude-code-review/scripts/claude_interactive_review.py \
-  --cwd <repo> \
-  --prompt-file <claude-code-review-input-file> \
-  --output /tmp/claude-code-review.md \
-  --review-name claude-code-review \
-  --timeout-seconds 3600
-```
-Codex review:
-
-```bash
-codex review --base <base-branch> > /tmp/codex-code-review.md
-```
-
-If `codex review` is insufficient for repo-specific context, use a read-only `codex exec` review prompt instead:
-
-```bash
-codex exec -C <repo> -s read-only --output-last-message /tmp/codex-code-review.md '
-Review the current branch diff against <base-branch> for correctness, security, data-loss risk, concurrency/race issues, missing tests, maintainability, and repo-convention violations.
-Return prioritized findings with file/line references where possible. Do not edit files.
-'
-```
-
-For GitHub PR-number review, Claude can also be used with `--from-pr <number>` when appropriate.
-
-Treat findings from both reviewers as real work. Fix issues, then rerun impacted validation. If one reviewer is unavailable, note the blocker explicitly and do not silently substitute a single-review workflow.
+Treat findings from the reviewer as real work. Fix in-scope issues, rerun impacted validation, and run one targeted rereview limited to those findings and resulting edits. If the reviewer is unavailable, note the blocking infrastructure failure; do not silently substitute an external Codex or Claude Code review.
 
 ### 11. Open ready-for-review PR
 
 Only after:
 - the plan is complete
-- Codex and Claude Code both returned `EXECUTION_READY` for the latest material plan version
+- the active-harness reviewer subagent returned `EXECUTION_READY` for the latest material plan version
 - full validation and smoke tests pass
 - PM/product review is acceptable
-- full Claude Code and Codex code review findings are addressed
+- active-harness reviewer-subagent code-review findings are addressed
 - visual/user-flow evidence is captured if relevant
 - the branch has been rebased onto the latest intended target branch and conflicts are resolved
 - the tree is clean except intentional committed changes

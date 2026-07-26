@@ -1,24 +1,11 @@
 ---
-description: Run a change review using GPT
+description: Legacy alias for the active Claude reviewer-subagent change review
 argument-hint: '<existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
-model: openai/gpt-5.6-sol
 ---
 
-Use GPT-5.6 Sol high reasoning for this consequential change review.
+This compatibility command must not launch a GPT review. Follow `/review:change $ARGUMENTS`, which invokes the repository-owned read-only `reviewer` subagent (`claude-sonnet-5`, high effort), then stop.
 
-Your reviewer name is GPT
-
-Use this comment format:
-```
-[REVIEW:GPT] Your critical feedback here [/REVIEW]
-```
-
-To respond to other reviewers:
-```
-[REVIEW:GPT] RE: [OtherReviewer] - Your response [/REVIEW]
-```
-
-# Change Review (Single Plan File)
+# Retired GPT Change Review Instructions
 
 Review the provided change plan as a cohesive unit. Your goal is to ensure the plan is solid and executable without scope creep or error.
 

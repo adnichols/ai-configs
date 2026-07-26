@@ -13,16 +13,16 @@ Documents to review: $ARGUMENTS
 
 This command is review-only.
 
-- Only modify the plan by inserting inline `[REVIEW:...] ... [/REVIEW]` comments.
-- Do not change any other plan content (do not fix, rewrite, or reorganize anything).
-- Do not remove or resolve review comments.
-- Do not run follow-up commands (including `/review:change-integrate`).
-- After adding comments and providing the summary, stop.
+- Launch the repository-owned `reviewer` subagent to perform the substantive review. It is pinned to `claude-sonnet-5` at high effort and must remain read-only.
+- Give it the resolved plan path, this command's review criteria, and the requirement to return only concrete findings with file/line evidence.
+- The driving session may transcribe validated findings as inline `[REVIEW:CLAUDE] ... [/REVIEW]` comments, but must not add findings of its own.
+- Do not change any other plan content (do not fix, rewrite, or reorganize anything), remove or resolve review comments, or run follow-up commands (including `/review:change-integrate`).
+- After recording the reviewer findings and providing the summary, stop.
 
 
-## Your Identity
+## Reviewer Identity
 
-Use `CLAUDE` for inline comment attribution. This command runs entirely in the driving session.
+Use `CLAUDE` for inline comment attribution, while recording that the independent reviewer was the `reviewer` subagent (`claude-sonnet-5`, high effort).
 
 ## Process
 

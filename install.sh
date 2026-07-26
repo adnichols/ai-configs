@@ -42,6 +42,7 @@ DEPRECATED_SHARED_SKILLS=(
     plan-reviewer-execution-ready
     review-change
     review-change-integrate
+    herdr-reviewers
 )
 RETIRED_PI_EXTENSIONS=(questionnaire.ts)
 DISABLED_PI_EXTENSIONS=(claude-review codex-review)
@@ -89,7 +90,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, @howaboua/pi-explore-subagents, pi-service-tier, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @tintinweb/pi-tasks, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-vent, @howaboua/pi-explore-subagents, pi-service-tier, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr config is installed locally whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
@@ -473,10 +474,11 @@ install_claude() {
         mkdir -p "$target"
     fi
 
-    # Claude work stays in the driving session. Remove any legacy subagent
-    # definitions instead of installing a repository-owned agent roster.
-    echo "  - Removing legacy Claude subagents..."
+    # Preserve one read-only review subagent while removing any retired Claude
+    # personas. The driving session remains the only implementation authority.
+    echo "  - Installing managed Claude reviewer..."
     rm -rf "$target/agents"
+    cp -r "$REPO_ROOT/_claude/agents" "$target/"
 
     # Update commands (remove first to ensure clean state)
     if [ -d "$target/commands" ]; then
@@ -2358,7 +2360,7 @@ PY
     cp "$pi_source/README.md" "$agent/README.md"
     install_pi_append_system_file "$agent"
 
-    for skill in autoreview claude-code-review codex-review-partner herdr-reviewers pre-pr-implementation-review reviewed-html-plan run-plan; do
+    for skill in autoreview claude-code-review codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
         rm -rf "$shared/$skill"
         cp -a "$REPO_ROOT/skills/$skill" "$shared/$skill"
     done
@@ -2946,6 +2948,7 @@ install_pi_npm_packages() {
     # Core extensions for the user's workflow
     local npm_packages=(
         "@tintinweb/pi-subagents"
+        "@tintinweb/pi-tasks"
         "@aliou/pi-processes"
         "@narumitw/pi-goal"
         "pi-web-access"

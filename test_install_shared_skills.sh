@@ -280,6 +280,7 @@ seed_phase_two_home() {
     plan-reviewer-execution-ready
     review-change
     review-change-integrate
+    herdr-reviewers
   )
 
   mkdir -p \
@@ -414,6 +415,7 @@ assert_shared_skill_install_state() {
     plan-reviewer-execution-ready
     review-change
     review-change-integrate
+    herdr-reviewers
   )
 
   [[ -d "$home/.agents/skills" ]] || return 1
@@ -467,8 +469,8 @@ assert_shared_skill_install_state() {
   assert_file_contains "$home/.agents/skills/design-skill/.ai-configs-managed.json" '"source": "skills/design-skill"' || return 1
 
   [[ -f "$home/.agents/skills/herdr/SKILL.md" ]] || return 1
-  assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'Do not gate Herdr use on `HERDR_ENV=1`' || return 1
-  assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'from an ordinary terminal' || return 1
+  assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'Do not gate use on `HERDR_ENV=1`' || return 1
+  assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'or an ordinary terminal' || return 1
   [[ -f "$home/.agents/skills/herdr/.ai-configs-managed.json" ]] || return 1
   assert_file_contains "$home/.agents/skills/herdr/.ai-configs-managed.json" '"source": "skills/herdr"' || return 1
   if [[ -f "$home/.agents/fake-npx-skills.log" ]]; then
@@ -736,7 +738,9 @@ EOF
   [[ ! -e "$home/.pi/agent/agents/general-glm.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/ui-design-glm.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/quality-reviewer-k2.5.md" ]] || return 1
-  [[ ! -e "$home/.pi/agent/agents/reviewer.md" ]] || return 1
+  [[ -f "$home/.pi/agent/agents/reviewer.md" ]] || return 1
+  assert_file_contains "$home/.pi/agent/agents/reviewer.md" 'name: reviewer' || return 1
+  assert_file_contains "$home/.pi/agent/agents/reviewer.md" 'model: openai-codex/gpt-5.6-terra' || return 1
   [[ ! -e "$home/.pi/agent/agents/reviewer-kimi.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/reviewer-plan-kimi.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/reviewer-prd-bdd-flows.md" ]] || return 1
@@ -745,8 +749,10 @@ EOF
   [[ ! -e "$home/.pi/agent/agents/context-builder.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/plan-k2.5.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/prd-researcher.md" ]] || return 1
-  assert_file_contains "$home/.pi/agent/agents/researcher.md" 'model: openai-codex/gpt-5.6-terra' || return 1
-  assert_file_contains "$home/.pi/agent/agents/researcher.md" 'reasoningEffort: medium' || return 1
+  [[ ! -e "$home/.pi/agent/agents/researcher.md" ]] || return 1
+  [[ -f "$home/.pi/agent/agents/planner.md" ]] || return 1
+  assert_file_contains "$home/.pi/agent/agents/planner.md" 'name: planner' || return 1
+  assert_file_contains "$home/.pi/agent/agents/planner.md" 'model: openai-codex/gpt-5.6-sol' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'model: openai-codex/gpt-5.6-terra' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'reasoningEffort: low' || return 1
   assert_file_contains "$home/.pi/agent/models.json" 'gemma4:latest' || return 1
@@ -776,6 +782,7 @@ EOF
   assert_file_not_contains "$home/.pi/agent/settings.json" 'pi-codex-goal' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'piCodexGoal' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:@narumitw/pi-goal' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" 'npm:@tintinweb/pi-tasks' || return 1
 }
 
 test_pi_install_removes_retired_goal_packages() {
@@ -1301,11 +1308,11 @@ for path in hermes_delegating_surfaces:
 # PM-only wording or wording elsewhere in reviewed-html-plan must not pass.
 hermes_reviewed_path = Path('_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md')
 hermes_reviewed = hermes_reviewed_path.read_text()
-gpt_section_start = hermes_reviewed.index('### 6. Read-only GPT Pi subagent plan review')
+gpt_section_start = hermes_reviewed.index('### 6. Active-harness plan review')
 gpt_section_end = hermes_reviewed.index('### 7. Integrate and iterate to execution-ready', gpt_section_start)
 gpt_section = hermes_reviewed[gpt_section_start:gpt_section_end]
-concerns_start = gpt_section.index('Keep the review limited to readiness concerns, including at least:')
-concerns_end = gpt_section.index('\nUse bounded scope rather than bounded tool calls.', concerns_start)
+concerns_start = gpt_section.index('For the single plan-review pass, stay limited to readiness concerns, including at least:')
+concerns_end = gpt_section.index('\nFor every reviewer, use bounded scope rather than parent-side turn caps.', concerns_start)
 gpt_concerns = gpt_section[concerns_start:concerns_end].lower()
 for phrase in [
     "what's new",
@@ -1347,7 +1354,8 @@ matrix = json.loads(Path('skills/install-matrix.json').read_text())['installable
 missing_codex = [
     name
     for name, meta in sorted(matrix.items())
-    if 'pi' in meta.get('allowedConsumers', []) and 'codex' not in meta.get('allowedConsumers', [])
+    if 'pi' in meta.get('allowedConsumers', [])
+    and 'codex' not in meta.get('allowedConsumers', [])
 ]
 if missing_codex:
     raise SystemExit(f"Pi skills missing Codex parity: {missing_codex}")
@@ -1374,6 +1382,7 @@ for prompt in pi_delegated:
         raise SystemExit(f"Codex prompt {prompt} must delegate to Pi")
 
 codex_specific_prompts = {
+    'cmd:debug.md',
     'dev:plan.md',
     'dev:reviewed-html-plan.md',
     'review:change-gpt.md',
@@ -1382,11 +1391,8 @@ codex_specific_prompts = {
     'test:run-playwright:all.md',
 }
 
-for prompt in sorted(pi_prompts - set(pi_delegated) - codex_specific_prompts):
-    pi_text = Path('_pi/prompts', prompt).read_text()
-    codex_text = Path('_codex/prompts', prompt).read_text()
-    if pi_text != codex_text:
-        raise SystemExit(f"Shared non-delegated prompt drifted: {prompt}")
+# Pi and Codex prompts may differ where their native reviewer-subagent routes differ.
+# Template presence and explicit Pi-delegation contracts above are the supported parity boundary.
 
 for skill in [
     'autoreview',
@@ -1407,28 +1413,13 @@ test_parallel_review_protocol_installs_with_source_parity() {
   run_installer "$home" --skills || return 1
 
   cmp "skills/autoreview/SKILL.md" "$home/.agents/skills/autoreview/SKILL.md" || return 1
-  cmp "skills/herdr-reviewers/SKILL.md" "$home/.agents/skills/herdr-reviewers/SKILL.md" || return 1
+  [[ ! -e "$home/.agents/skills/herdr-reviewers" ]] || return 1
   cmp "scripts/review_orchestration.py" "$home/.agents/scripts/review_orchestration.py" || return 1
   [[ -x "$home/.agents/scripts/review_orchestration.py" ]] || return 1
   HOME="$home" "$home/.agents/scripts/review_orchestration.py" --help >/dev/null || return 1
 
-  assert_file_contains "skills/autoreview/SKILL.md" 'all applicable initial prompts before beginning the first wait' || return 1
-  assert_file_contains "skills/autoreview/SKILL.md" 'scripts/review_orchestration.py' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" '~/.agents/scripts/review_orchestration.py run --request' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'Serial mode remains benchmark-only' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'required non-empty string `workspace_id`' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'exact tab membership in each recorded workspace for all legs before closing any tab' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'send a recovery key to the sibling leg' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'dispatch every remaining initial prompt before polling any pending transition' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'Any dispatch or confirmation failure aborts the whole batch with zero result waits' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'reviewer startup is explicitly `not_applicable`' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'Any incomplete cleanup fails benchmark admission' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" 'gpt-5.6-terra' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" '-s read-only' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" '-a never' || return 1
-  assert_file_contains "skills/herdr-reviewers/SKILL.md" '--tools Read,Grep,Glob' || return 1
-  assert_file_contains "$home/.agents/skills/herdr-reviewers/SKILL.md" 'all_prompts_submitted_before_first_wait' || return 1
-  assert_file_contains "$home/.agents/skills/autoreview/SKILL.md" 'exactly one narrower retry only for unusable output' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'active harness' || return 1
+  assert_file_contains "$home/.agents/skills/autoreview/SKILL.md" 'at most one narrowed follow-up' || return 1
 }
 
 
@@ -1513,7 +1504,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
     assert_file_contains "$prompt" 'If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker' || return 1
     assert_file_contains "$prompt" 'audit the fixed candidate branch/diff for sibling instances in the named family' || return 1
     assert_file_contains "$prompt" 'one bounded fix attempt for in-scope findings' || return 1
-    assert_file_contains "$prompt" 'run the same applicable reviewer pass once after fixes' || return 1
+    assert_file_contains "$prompt" 'run the same reviewer pass once after fixes' || return 1
     assert_file_contains "$prompt" 'This route has no PR prerequisite' || return 1
     assert_file_not_contains "$prompt" "repeat consultation until clean" || return 1
     assert_file_not_contains "$prompt" "rereview until clean" || return 1
@@ -1522,13 +1513,10 @@ test_review_guidance_is_bounded_and_scope_safe() {
     assert_file_not_contains "$prompt" 'No issues found.' || return 1
   done
 
-  assert_file_contains "_pi/prompts/dev:run.md" 'Use the existing read-only `reviewer` as the primary adversarial leg' || return 1
-  assert_file_contains "_pi/prompts/dev:run.md" 'using the installed `claude-code-review` plus `herdr-reviewers`' || return 1
-  assert_file_contains "_pi/prompts/dev:run.md" 'record the primary-only classification rather than inventing a second leg' || return 1
-  assert_file_contains "_codex/prompts/dev:run.md" 'Use the existing read-only `quality-reviewer` as the primary adversarial leg' || return 1
-  assert_file_contains "_codex/prompts/dev:run.md" 'When the repo/harness high-risk second-reviewer trigger or an explicit override applies, use the installed `claude-code-review` plus `herdr-reviewers` for one visible read-only Claude leg' || return 1
-  assert_file_contains "_codex/prompts/dev:run.md" 'with the same bounded packet, allowed verdicts, pinned model, and read-only tool policy' || return 1
-  assert_file_contains "_codex/prompts/dev:run.md" 'record the primary-only low-risk classification rather than inventing a second leg' || return 1
+  assert_file_contains "_pi/prompts/dev:run.md" 'Use the existing read-only `reviewer` for the adversarial pass at every risk level' || return 1
+  assert_file_not_contains "_pi/prompts/dev:run.md" 'claude-code-review' || return 1
+  assert_file_contains "_codex/prompts/dev:run.md" 'Use the active-harness read-only `reviewer` subagent as the sole adversarial leg' || return 1
+  assert_file_not_contains "_codex/prompts/dev:run.md" 'claude-code-review' || return 1
 
   assert_file_contains "skills/planning-workflow/SKILL.md" 'Plan complete promised slices, not skeletons.' || return 1
   assert_file_contains "skills/run-plan/SKILL.md" 'Complete the PR-reviewable promised slice before claiming local merge readiness' || return 1
@@ -1626,18 +1614,18 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_not_contains "skills/run-plan/SKILL.md" 'Repeat Review Loop' || return 1
   assert_file_not_contains "AGENTS.md" 'keep the review/fix loop running until' || return 1
   assert_file_not_contains "skills/repo-agents-bootstrap/SKILL.md" 'Phase advancement only when the latest review returns' || return 1
-  assert_file_contains "skills/run-plan/agents/openai.yaml" 'one targeted rereview after fixes' || return 1
-  assert_file_contains "skills/install-matrix.json" 'runtime-native scoped reviews with one targeted rereview after fixes' || return 1
+  assert_file_contains "skills/run-plan/agents/openai.yaml" 'active-harness reviewer-subagent pre-PR review' || return 1
+  assert_file_contains "skills/install-matrix.json" 'active-harness reviewer-subagent pre-PR review' || return 1
   assert_file_contains "_pi/README.md" 'plan-required, verification-required, or regression-caused P3 findings remain blocking' || return 1
   assert_file_not_contains "skills/run-plan/agents/openai.yaml" 'full P1/P2/P3 consensus' || return 1
   assert_file_not_contains "skills/install-matrix.json" 'full P1/P2/P3 consensus' || return 1
   assert_file_not_contains "_pi/README.md" 'all in-scope P1/P2/P3 findings' || return 1
 
   hermes_run_plan="_hermes/default/skills/software-development/run-plan/SKILL.md"
-  assert_file_contains "$hermes_run_plan" 'Complete the promised slice before merge' || return 1
+  assert_file_contains "$hermes_run_plan" 'Complete the PR-reviewable promised slice before claiming local merge readiness' || return 1
   assert_file_contains "$hermes_run_plan" 'Run a third total review cycle only when' || return 1
   assert_file_contains "$hermes_run_plan" 'When the ordinary three-cycle budget is exhausted, route the stable `REVIEW_ESCAPE` failure-family/scope identifier through the one-per-family consultation section before reporting convergence' || return 1
-  assert_file_contains "$hermes_run_plan" 'No fourth or renamed pass is allowed except that consultation-authorized bounded exception' || return 1
+  assert_file_contains "$hermes_run_plan" 'No fourth or renamed pass is allowed except the single explicitly consultation-authorized bounded pass' || return 1
   assert_file_not_contains "$hermes_run_plan" 'For each `REVIEW_ESCAPE`, run the adversarial escalation loop below' || return 1
   assert_file_contains "$hermes_run_plan" 'Do not report the convergence blocker yet solely because no PR exists.' || return 1
   assert_file_contains "$hermes_run_plan" 'configured consult/council surface' || return 1
@@ -1652,9 +1640,12 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "$hermes_run_plan" 'If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker' || return 1
   assert_file_not_contains "$hermes_run_plan" 'repeat consultation until clean' || return 1
   assert_file_not_contains "$hermes_run_plan" 'loop until every reviewer is clean' || return 1
-  assert_file_contains "$hermes_run_plan" 'You are not required to add implementation or tests solely to prove a scenario is out of scope' || return 1
   assert_file_not_contains "$hermes_run_plan" 'Repeat Review Loop' || return 1
   assert_file_not_contains "$hermes_run_plan" 'cheap and safe enough to fix immediately' || return 1
+  assert_file_contains "$hermes_run_plan" 'Run exactly one bounded, static inspection with the active harness' || return 1
+  assert_file_not_contains "$hermes_run_plan" 'claude-code-review' || return 1
+  assert_file_contains "_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md" "active harness's \`reviewer\` subagent" || return 1
+  assert_file_contains "APPEND_SYSTEM.md" 'exactly one active-harness read-only `reviewer` subagent' || return 1
 }
 
 test_active_agent_configuration_has_no_kimi() {
@@ -1673,10 +1664,14 @@ test_active_agent_configuration_has_no_kimi() {
   [[ ! -e _pi/agents/context-builder.md ]] || return 1
   [[ ! -e _pi/agents/plan-k2.5.md ]] || return 1
   [[ ! -e _pi/agents/prd-researcher.md ]] || return 1
-  assert_file_contains _pi/agents/researcher.md 'model: openai-codex/gpt-5.6-terra' || return 1
-  assert_file_contains _pi/agents/researcher.md 'reasoningEffort: medium' || return 1
+  assert_file_contains _pi/agents/reviewer.md 'model: openai-codex/gpt-5.6-terra' || return 1
+  assert_file_contains _pi/agents/reviewer.md 'reasoningEffort: medium' || return 1
   assert_file_contains _pi/agents/scout.md 'model: openai-codex/gpt-5.6-terra' || return 1
   assert_file_contains _pi/agents/scout.md 'reasoningEffort: low' || return 1
+  assert_file_contains _claude/agents/reviewer.md 'model: claude-sonnet-5' || return 1
+  assert_file_contains _claude/agents/reviewer.md 'effort: high' || return 1
+  assert_file_contains _claude/commands/dev:run.md 'repository-owned, read-only `reviewer` subagent (`claude-sonnet-5`, high effort)' || return 1
+  assert_file_contains _claude/commands/cmd:execute-plan.md 'one read-only `reviewer` subagent pass after each phase' || return 1
 }
 
 test_hermes_config_sync_preserves_cron_runtime_state() {

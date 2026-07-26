@@ -1,5 +1,5 @@
 ---
-description: Execute a single-file plan directly with high reasoning plus one post-phase quality review
+description: Execute a single-file plan directly with high reasoning plus one post-phase reviewer-subagent pass
 argument-hint: '<slug | existing-plan-path>'
 ---
 
@@ -10,7 +10,7 @@ Execute a single plan document (spec + phases + progress) directly in this sessi
 - Follow the plan, but keep implementation flexibility.
 - Use high reasoning throughout the run.
 - Track progress by updating `## Progress` in the plan file.
-- Run exactly one `quality-reviewer` pass after each phase before marking it complete.
+- Run exactly one active-harness read-only `reviewer` subagent pass after each phase before marking it complete.
 - Allow same-scope dynamic re-chunking when a phase is too large to execute safely in one pass.
 
 ## Model routing
@@ -119,7 +119,7 @@ For each phase in order (as tracked by `## Progress`):
 
 1. Implement the phase as written.
 2. Run the phase `### Verify` steps.
-3. Delegate exactly one post-implementation review pass to `quality-reviewer`.
+3. Delegate exactly one post-implementation review pass to the active-harness `reviewer` subagent.
 4. Run any missing `### Verify` steps again after the review pass.
 5. If the review pass clears the phase, immediately flip its checkbox from `- [ ]` to `- [x]` in `## Progress`.
 6. If implementation or review required a decision, revealed a constraint, or identified a true out-of-scope low-risk follow-up, append a structured entry with evidence and tracking destination to `## Decisions / Deviations Log` in the plan file. Do not defer plan-required work, verification gaps, BDD gaps, or regressions.
@@ -127,7 +127,7 @@ For each phase in order (as tracked by `## Progress`):
 
 #### Required post-implementation review pass
 
-After implementing the phase, delegate exactly one read-only `quality-reviewer` pass with this prompt:
+After implementing the phase, delegate exactly one read-only active-harness `reviewer` subagent pass with this prompt:
 
 > Read-only review of phase N of this plan: `<plan_path>`. Do not edit files.
 >
@@ -154,7 +154,7 @@ After implementing the phase, delegate exactly one read-only `quality-reviewer` 
 - A third review round is allowed only when the previous fix introduced or exposed a new concrete blocker. After three total rounds, the ordinary local review budget is exhausted.
 - Before reporting a convergence blocker for review non-convergence, a recurring finding/failure family, or reviewer scope disagreement, record a stable `REVIEW_ESCAPE` identifier, the distinct family and affected scope, and the fixed artifact/range/fingerprint. Use exactly one bounded, read-only consultation through the configured consult/council surface for that identifier, whether or not a PR exists. The consultation is advisory only: it may not edit or apply fixes, become implementation authority, or reroute implementation through another persona. Record its disposition; never repeat consultation for the same unresolved identifier or rename the family to restart the budget. A materially separate later failure-family/scope identifier may receive its own one consultation whether discovered pre-PR, during an authorized adversarial pass, or from later PR feedback.
 - Verify and consume the disposition exactly once. Verified reject/reclassify evidence clears that family and permits the phase to continue without an adversarial pass. Revert/narrow/defer follows its stated path. A user/product/scope disposition stops for that decision. Only `authorize one further bounded adversarial fix/review pass` starts the pass. If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker.
-- When authorized, audit the fixed candidate branch/diff for sibling instances in the named family: the same assumption, edge case, API contract, missing validation, lifecycle/state transition, analogous callsites, and tests that should have failed but did not. Use the existing read-only `quality-reviewer` as the primary adversarial leg. When the repo/harness high-risk second-reviewer trigger or an explicit override applies, use the installed `claude-code-review` plus `herdr-reviewers` for one visible read-only Claude leg with the same bounded packet, allowed verdicts, pinned model, and read-only tool policy; otherwise record the primary-only low-risk classification rather than inventing a second leg. Run one bounded adversarial pass over the named family, allow the driving agent one bounded fix attempt for in-scope findings, and run the same applicable reviewer pass once after fixes. This route has no PR prerequisite. Do not restart the ordinary three-round budget or review until clean.
+- When authorized, audit the fixed candidate branch/diff for sibling instances in the named family: the same assumption, edge case, API contract, missing validation, lifecycle/state transition, analogous callsites, and tests that should have failed but did not. Use the active-harness read-only `reviewer` subagent as the sole adversarial leg. Do not add a Codex or Claude Code review process at higher risk. Run one bounded adversarial pass over the named family, allow the driving agent one bounded fix attempt for in-scope findings, and run the same reviewer pass once after fixes. This route has no PR prerequisite. Do not restart the ordinary three-round budget or review until clean.
 - Independent future enhancements, architecture improvements, polish, and unrelated defects do not block phase advancement and must not expand the change.
 
 #### Hard rule: never mark a failed phase complete
