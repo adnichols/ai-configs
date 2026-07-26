@@ -89,7 +89,7 @@ To update an existing install from this repo, run the same `install.sh` command 
 ## Key directories
 
 ### `_claude/`
-Claude commands and default settings. Claude has no repository-owned subagents; the installer removes legacy `.claude/agents/` directories.
+Claude commands, default settings, and the read-only `reviewer` subagent. The installer installs `_claude/agents/reviewer.md`, which uses `claude-sonnet-5` at high effort for bounded plan and code review only.
 
 ### `_codex/`
 Codex prompt files plus config templates. Global Codex prompt discovery is handled by the installer.
