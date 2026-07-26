@@ -27,7 +27,7 @@
 | Implementation PM review | Complete | Driving-agent review confirmed the change is limited to attachment discovery, output cues, credential boundary, docs, and managed Hermes sources. |
 | Pre-PR reviewer gate | Complete | Satisfied by the bounded review plus targeted rereview. |
 | Final verification | Passed | `npm ci && npm test`: 59 tests passed; parser/docs stale-flag checks and Hermes source verification passed. |
-| Base freshness / PR feedback | Pending | Fetch/reconcile target before each PR; inspect immediate GitHub feedback after PR creation. |
+| Base freshness / PR feedback | Complete | Both branches were fetched and based on current `origin/main` before commit. Opened [Nodaste-Lab/ltui#2](https://github.com/Nodaste-Lab/ltui/pull/2) and [adnichols/ai-configs#50](https://github.com/adnichols/ai-configs/pull/50); initial snapshots had no comments or reviews. |
 
 ## Non-blocking post-merge obligations
 
