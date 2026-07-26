@@ -84,19 +84,25 @@ Options:
   --overwrite               Overwrite existing files
   --no-linear-attachments   Exclude Linear attachments (issue.attachments)
   --no-upload-urls          Exclude uploads.linear.app URLs extracted from markdown
-  --no-scan-comments        Do not scan comments for uploads.linear.app URLs
+  --scan-comments           Scan issue comments for uploads.linear.app URLs
+  --max-comments <n>        Maximum comments scanned with --scan-comments (default: 50)
 ```
 
 **Examples:**
 ```bash
-# Fetch image-like entries as JSON
-ltui --format json issues attachments ENG-42 --only-images
+# Fetch all discoverable files, including private uploads in comments
+ltui --format json issues attachments ENG-42 --scan-comments
 
-# Download images
-ltui issues attachments ENG-42 --only-images --download-dir ./.ltui-attachments/ENG-42
+# Download screenshots and ZIPs.  Omit --only-images for non-image evidence.
+ltui issues attachments ENG-42 --scan-comments --download-dir ./.ltui-attachments/ENG-42
 ```
 
-Downloaded files are untrusted input. Validate them before using them in downstream tooling or automation.
+Every row includes `downloadAccess`, `downloadCommand`, `downloadPath`, `downloadStatus`, and `downloadError`.
+
+- `downloadAccess: ltui_authenticated` identifies a private `https://uploads.linear.app` file. Run its `downloadCommand`; `ltui` sends the configured Linear credential only to that exact origin and rejects authenticated redirects.
+- `downloadAccess: direct_url` means no Linear credential is sent.
+
+Do not use a generic downloader for `ltui_authenticated` URLs: it can fail with HTTP 401. Downloaded files are untrusted input. Validate them before using them in downstream tooling or automation.
 
 ### `ltui issues view`
 

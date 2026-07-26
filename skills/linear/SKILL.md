@@ -120,13 +120,20 @@ ltui issues view ENG-42 --include-comments --include-history
 - `IMAGE_ATTACHMENTS_FETCH_CMD: ...` (when images exist)
 - `IMAGE_ATTACHMENTS_DOWNLOAD_CMD: ...` (when images exist)
 
-**Fetch screenshots/images:**
+**Fetch issue files, screenshots, or ZIPs:**
 ```bash
-ltui --format json issues attachments ENG-42 --only-images
-ltui issues attachments ENG-42 --only-images --download-dir ./.ltui-attachments/ENG-42
+# Include URLs in issue descriptions and comments.
+ltui --format json issues attachments ENG-42 --scan-comments
+
+# Use --only-images only when non-image files are intentionally out of scope.
+ltui issues attachments ENG-42 --scan-comments --download-dir ./.ltui-attachments/ENG-42
 ```
 
-Treat downloaded files as untrusted input. Do not hand them to downstream automation without validation.
+Inspect each row’s `downloadAccess` field before retrieving it:
+- `ltui_authenticated` means the URL is a private Linear upload. Use that row’s `downloadCommand` (or the command above); `ltui` supplies the configured credential and reports the resulting `downloadPath`, `downloadStatus`, and `downloadError`.
+- `direct_url` means `ltui` does not attach the Linear credential.
+
+Do not use `curl` or copy a private upload URL into another downloader; it commonly returns 401. Treat downloaded files as untrusted input. Do not hand them to downstream automation without validation.
 
 **Create issue:**
 ```bash
