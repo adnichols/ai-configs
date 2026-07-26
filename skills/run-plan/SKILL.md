@@ -17,7 +17,7 @@ PR creation is not hostage to testing or review coverage. If the operator explic
 
 The active-harness reviewer pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
 
-This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the implementation has local merge-readiness consensus: final verification is passing, all applicable review agents agree by substance that there are no unresolved blocking in-scope findings, the branch is current enough to merge, the PR exists, and the latest PR snapshot has no actionable feedback already present. Do not wait for a PR-hosted Codex approval, thumbs-up, or any other explicit external approval after local review-agent consensus is clean. In Pi, back this with the goal extension as the durable run state, plus the todo tool and explicit working notes for phase progress. In Codex, back this with Codex goal/task state and the installed Codex prompts so the readiness obligation survives normal turn-to-turn execution.
+This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the implementation has local merge-readiness consensus: final verification is passing, all applicable review agents agree by substance that there are no unresolved blocking in-scope findings, the branch is current enough to merge, the PR exists, and the latest PR snapshot has no actionable feedback already present. Do not wait for a PR-hosted Codex approval, thumbs-up, or any other explicit external approval after local review-agent consensus is clean. In Pi, back this with the goal extension as the durable run state, plus `TaskCreate`/`TaskUpdate` and explicit working notes for phase progress. In Codex, back this with Codex goal/task state and the installed Codex prompts so the readiness obligation survives normal turn-to-turn execution.
 
 ## Invocation
 
@@ -145,7 +145,7 @@ Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: onl
 ### 1. Establish Run State
 
 1. Check whether a compatible run-plan state is already active in the available runtime tracking surface.
-2. If no compatible run state is active, create an explicit lifecycle todo/task set before implementation. In Pi, use the `todo` tool and keep exactly one active item at a time. In Codex, use Codex goal/task state. Include a final post-PR readiness item that cannot be marked done until all completion criteria are satisfied.
+2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use `TaskCreate` and `TaskUpdate`, keeping exactly one task `in_progress` at a time. In Codex, use Codex goal/task state. Include a final post-PR readiness task that cannot be marked complete until all completion criteria are satisfied.
 3. The objective must require both:
    - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
    - checking the PR after creation for existing actionable feedback and mergeability evidence, without waiting for a Codex thumbs-up or other external approval after local review-agent consensus is clean.
@@ -158,7 +158,7 @@ Use this objective shape:
 Execute <plan path> through the full scoped run-plan lifecycle without expanding beyond the plan contract: establish scope, align any registered Doct plan state, implement every unfinished PR-reviewable in-scope phase, preserve deployment/promotion/post-merge validation as non-blocking delivery obligations, run required targeted and final pre-merge verification, complete implementation-stage PM review, complete runtime-native scoped quality review, complete the active-harness reviewer-subagent pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, check base freshness, commit only scoped changes, push, open a PR against <target branch or the plan's/repository's normal integration branch>, inspect the PR for existing actionable feedback and mergeability evidence, and finish only when local merge-readiness consensus is satisfied. Do not stop at implementation complete, review clean, `OPEN_PR_READY`, or PR created. Do not mark complete until fresh evidence proves all actionable PR feedback already present has been addressed, any feedback-triggered code changes have rerun required verification and review gates, the branch is current or safely rebased as needed, and applicable review agents agree by substance that the current change is ready to merge locally. Do not wait for slow or absent external feedback, a Codex PR thumbs-up, `APPROVED` reviewDecision, or another explicit approval after local review-agent consensus is clean.
 ```
 
-Runtime state expectation: keep the task state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi, this state lives in todo/working notes; in Codex, it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
+Runtime state expectation: keep the task state and working notes current with the plan path, PR URL once known, target branch, latest verification status, latest reviewer-pair state, feedback state, and mergeability. In Pi, this state lives in the task extension and working notes; in Codex, it lives in Codex goal/task state. Do not clear or complete the run state until the same completion criteria are satisfied.
 
 #### Registered Doct plan status alignment
 
@@ -387,7 +387,7 @@ Do not include memory citations in PR messages.
 
 ## Post-PR Local Merge-Readiness Check
 
-After the PR is open, keep the active runtime task state active only until the local merge-readiness criteria are satisfied. In Pi this is the active readiness todo/run state; in Codex this is the active Codex goal/task state. This phase checks real PR state, but it does not wait for a Codex thumbs-up, a human approval, or slow/absent external feedback once the local review agents have reached consensus.
+After the PR is open, keep the active runtime task state active only until the local merge-readiness criteria are satisfied. In Pi this is the active readiness task/run state; in Codex this is the active Codex goal/task state. This phase checks real PR state, but it does not wait for a Codex thumbs-up, a human approval, or slow/absent external feedback once the local review agents have reached consensus.
 
 ### Completion Criteria
 
@@ -450,7 +450,7 @@ When the run has reached post-PR readiness checking, the agent must persist only
 - Check the PR snapshot after creation and after every pushed fix/rebase for actionable feedback, required check failures that affect merge readiness, and mergeability.
 - Do not poll indefinitely for absent feedback, a pending review, `reviewDecision: APPROVED`, or a Codex PR thumbs-up after local review-agent consensus is clean.
 - If checks or mergeability are temporarily unavailable, perform the freshest practical local/base-freshness check and record the uncertainty instead of waiting solely for an external approval signal.
-- In Pi, complete the readiness todo and goal once the evidence-backed local merge-readiness criteria are satisfied; summarize the latest PR URL, mergeability/base-freshness state, feedback snapshot, and reviewer-pair consensus in the final status.
+- In Pi, complete the readiness task with `TaskUpdate` and the goal once the evidence-backed local merge-readiness criteria are satisfied; summarize the latest PR URL, mergeability/base-freshness state, feedback snapshot, and reviewer-pair consensus in the final status.
 - A true blocker must be something the agent cannot resolve by scoped fixes or a fresh local/base-freshness check, such as lost GitHub authentication, a closed/deleted PR, a force-push/base-branch conflict requiring a product decision, failing required checks caused by this branch, `QUESTION` feedback that needs the user, or an exhausted unified review-cycle budget with unresolved blocking review risk. Pending deployment or post-merge observation is not a run-plan blocker.
 - If a true blocker is reached, report the exact blocker and the latest PR state. Otherwise, complete the active run state when local merge-readiness consensus is proven.
 
@@ -528,7 +528,7 @@ Do not use destructive git commands to force mergeability. If conflicts require 
 
 ### Run State Closure
 
-Only after the completion criteria are all satisfied, mark the runtime readiness task complete. In Pi, complete the readiness todo only after a fresh evidence-backed completion audit. In Codex, complete the Codex goal/task state after the same audit. Do not keep the run state open for a slow reviewer, no new feedback, pending review, or missing Codex thumbs-up once local review-agent consensus is clean. Mark the run state blocked only for a real actionable blocker that prevents scoped fixes or a truthful local merge-readiness conclusion, and report the exact blocker with the latest PR state.
+Only after the completion criteria are all satisfied, mark the runtime readiness task complete. In Pi, use `TaskUpdate` to complete the readiness task only after a fresh evidence-backed completion audit. In Codex, complete the Codex goal/task state after the same audit. Do not keep the run state open for a slow reviewer, no new feedback, pending review, or missing Codex thumbs-up once local review-agent consensus is clean. Mark the run state blocked only for a real actionable blocker that prevents scoped fixes or a truthful local merge-readiness conclusion, and report the exact blocker with the latest PR state.
 
 ## Reviewer Prompt Template
 
@@ -631,7 +631,7 @@ Only give the run-plan final response after a PR exists or a concrete PR-creatio
 Report:
 
 - PR URL,
-- run-state status (Pi goal plus todo, or Codex goal/task),
+- run-state status (Pi goal plus task extension, or Codex goal/task),
 - changed files at a high level,
 - verification run,
 - runtime-native scoped quality-review verdicts,

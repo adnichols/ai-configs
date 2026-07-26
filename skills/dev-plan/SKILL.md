@@ -114,7 +114,7 @@ Before finishing:
 
 ## Forbidden Actions
 
-- Do not create a new execution todo list after the plan is complete
+- Do not create a new execution task list after the plan is complete
 - Do not switch into build, run, or implementation mode
 - Do not edit any file except `plan_path` unless scope is explicitly broadened
 - Do not run lint, tests, build, e2e, migrations, or other execution-oriented verification

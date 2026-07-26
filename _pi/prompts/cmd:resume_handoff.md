@@ -119,8 +119,8 @@ Then wait for the user's input.
 
 ### Step 3: Create Action Plan
 
-1. **Use TodoWrite to create task list**:
-   - Convert action items from handoff into todos
+1. **Use TaskCreate and TaskUpdate to create a task list**:
+   - Convert action items from the handoff into tasks
    - Add any new tasks discovered during analysis
    - Prioritize based on dependencies and handoff guidance
 
@@ -128,7 +128,7 @@ Then wait for the user's input.
    ```
    I've created a task list based on the handoff and current analysis:
 
-   [Show todo list]
+   [Show task list]
 
    Ready to begin with the first task: [task description]?
    ```
@@ -161,7 +161,7 @@ Then wait for the user's input.
    - Build on discovered solutions
 
 4. **Track Continuity**:
-   - Use TodoWrite to maintain task continuity
+   - Use TaskCreate and TaskUpdate to maintain task continuity
    - Reference the handoff document in commits
    - Document any deviations from original plan
    - Consider creating a new handoff when done
@@ -216,5 +216,5 @@ I've analyzed the handoff from [date]. Here's the current situation...
 Shall I proceed with implementing the webhook validation fix, or would you like to adjust the approach?
 
 User: Yes, proceed with the webhook validation
-Assistant: [Creates todo list and begins implementation]
+Assistant: [Creates a task list and begins implementation]
 ```

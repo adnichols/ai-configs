@@ -6,6 +6,7 @@ This directory contains Pi-specific resources:
 - `agents/` — @tintinweb/pi-subagents-compatible agent definitions
 - `extensions/` — Pi runtime extensions, including the maintained `/prd` workflow and utility integrations
 - `models.json` — managed custom model entries merged into Pi's global `models.json`
+- `tasks-config.json` — managed global defaults for the package-managed `@tintinweb/pi-tasks` extension
 
 Repo-owned default Pi/Codex shared skills live in the repo-level `skills/` tree, and `skills/install-matrix.json` also inventories package-backed and optional-profile shared skills fetched via `npx skills`. The installed default shared runtime location remains `~/.agents/skills`.
 
@@ -16,11 +17,12 @@ These resources are installed by `install.sh` to Pi's global agent directory. Th
 
 - repo-managed extensions: copied from this repo into `~/.pi/agent/extensions/`
 - repo-managed model entries: merged from `_pi/models.json` into `~/.pi/agent/models.json` without replacing local API keys
+- repo-managed task defaults: copied from `_pi/tasks-config.json` to `~/.pi/agent/tasks-config.json`
 - package-managed Pi installs: registered via `pi install` / `pi update` and visible in `pi list`
 
 Plan review and execution use the maintained `reviewed-html-plan` and `run-plan` workflows directly. Rarely used browser/CDP helper skills such as `brave-cdp` and `chrome-cdp` remain inventoried in `skills/install-matrix.json` under the optional `ops-browser` profile and are not loaded into Pi/Codex default context.
 
-`pi list` only shows the package-managed set; it does not list repo-managed files like `todo.ts`, `simple-multi-status.ts`, or `pi-prd-mode`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
+`pi list` only shows the package-managed set; it does not list repo-managed files like `simple-multi-status.ts` or `pi-prd-mode`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
 
 ```bash
 ./install.sh --pi      # Install Pi prompt templates + read-only/planning subagents + extensions and sync shared skills
@@ -47,6 +49,7 @@ Installed layout:
 ├── APPEND_SYSTEM.md
 ├── README.md
 ├── models.json
+├── tasks-config.json
 ├── prompts/
 │   ├── cmd:debug.md
 │   ├── dev:plan.md
@@ -62,15 +65,14 @@ Installed layout:
     ├── aoe-status/
     │   └── index.ts
     ├── simple-multi-status.ts
-    ├── percentage-compaction.ts
-    └── todo.ts
+    └── percentage-compaction.ts
 ```
 
 The installer renders the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md` through `scripts/render_pi_append_system.py`. It replaces `{{AI_CONFIGS_VERSION}}` with `YYYY-MM-DD+<git-sha>` and appends `-dirty` only when the doctrine file differs from that commit, so behavior reports can be tied back to repository history. Installation fails outside a Git checkout, when the doctrine is untracked, or if the template token is missing, duplicated, or remains unresolved.
 
 The doctrine is request-type-first: questions, explanations, inspection, research, diagnosis, review, planning discussion, and status requests remain read-only unless the user separately authorizes a change. Persistence instructions increase effort only within the already-authorized scope.
 
-The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route.
+The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route. It also copies `_pi/tasks-config.json` into `~/.pi/agent/tasks-config.json`; the tracked default uses `taskScope: "memory"`.
 
 `install.sh --pi` now enforces `openai-codex/gpt-5.6-sol` as the Pi default, keeps that Sol route and `opencode/glm-5.2` enabled, and updates the web-search summary route to Sol. The driving Pi session is the only code-writing route. The planning agent uses GPT-5.6 Sol medium, the review agent uses GPT-5.6 Terra medium, and the read-only scout uses GPT-5.6 Terra low. GPT-5.4 and GPT-5.4-mini are retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
 
@@ -80,6 +82,7 @@ The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upse
 _pi/
 ├── README.md
 ├── models.json         # Managed custom model entries merged into ~/.pi/agent/models.json
+├── tasks-config.json   # Global pi-tasks defaults copied into ~/.pi/agent/tasks-config.json
 ├── prompts/            # Pi prompt templates / slash commands
 │   └── *.md
 ├── agents/             # Pi subagent definitions for @tintinweb/pi-subagents
@@ -172,13 +175,9 @@ To use with pi-vcc, run `./install.sh --pi`; `pi list` should show the stable mi
 
 **Note:** With the vendored pi-vcc installed, no additional compaction configuration is needed. The extension proactively starts pi-vcc compaction at the configured hard-backstop percentage, and pi-vcc handles the actual algorithmic compaction when triggered. This repo now ships the `/pi-vcc` manual-bypass marker and the agent-only-tail fallback directly in the vendored package, so rerunning `./install.sh --pi` refreshes both behaviors without patching global npm files.
 
-This repo also vendors Pi's `todo.ts` extension, which auto-loads on install and provides:
+Task tracking is provided exclusively by the package-managed `@tintinweb/pi-tasks` extension. Use `TaskCreate`, `TaskList`, `TaskGet`, and `TaskUpdate` for structured work tracking; `/tasks` is its interactive UI.
 
-- a `todo` tool for branch-aware task tracking during explicitly requested tracking or authorized multi-step execution,
-- no automatic todo creation for ordinary questions, explanations, research, diagnosis, review, planning discussion, or status requests,
-- a `/todos` command for inspecting the current branch todo list,
-- session-detail persistence so todo state follows Pi branching correctly,
-- scoped guidance to keep authorized execution steps specific, measurable, and current without turning recommendations into implementation tasks.
+This configuration sets pi-tasks to `taskScope: "memory"` globally. Tasks stay available during normal turns and context compactions, but `/new` and a Pi restart clear them; no task files are written in project repositories. To keep persistent task state outside repositories instead, launch Pi with `PI_TASKS` set to a named list (for example, `PI_TASKS=work`) or to an absolute path. Named lists are stored at `~/.pi/tasks/<name>.json`; absolute paths are used verbatim. A named global list is shared by every Pi session that uses it, so it is not automatically isolated by project. `PI_TASKS=off` disables task persistence entirely.
 
 ## Subagents
 
@@ -190,7 +189,7 @@ In addition to the repo-managed files under `~/.pi/agent/extensions/`, `install.
 
 npm-managed packages:
 - `@tintinweb/pi-subagents`
-- `@tintinweb/pi-tasks` — Claude Code-style task tracking and coordination for Pi
+- `@tintinweb/pi-tasks` — the sole structured task-tracking extension for Pi; the managed default is in-memory, while `PI_TASKS` can select a named list or absolute path for external persistence
 - `@aliou/pi-processes`
 - `@narumitw/pi-goal`
 - `pi-web-access`

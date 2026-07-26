@@ -44,7 +44,9 @@ DEPRECATED_SHARED_SKILLS=(
     review-change-integrate
     herdr-reviewers
 )
-RETIRED_PI_EXTENSIONS=(questionnaire.ts)
+# Retire the legacy, session-detail-backed todo extension in favor of the
+# package-managed @tintinweb/pi-tasks extension.
+RETIRED_PI_EXTENSIONS=(questionnaire.ts todo.ts)
 DISABLED_PI_EXTENSIONS=(claude-review codex-review)
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
@@ -2259,6 +2261,13 @@ install_pi() {
     configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
     cleanup_pi_multi_codex_config "$pi_agent_dir"
 
+    # Install globally managed pi-tasks defaults so every Pi session uses the
+    # repo-owned scope unless an explicit PI_TASKS override is supplied.
+    if [ -f "$pi_source_dir/tasks-config.json" ]; then
+        echo "  - Installing Pi task configuration..."
+        cp "$pi_source_dir/tasks-config.json" "$pi_agent_dir/tasks-config.json"
+    fi
+
     # Install documentation.
     if [ -f "$pi_source_dir/README.md" ]; then
         echo "  - Installing Pi documentation..."
@@ -2274,7 +2283,7 @@ install_pi() {
     fi
     echo ""
     echo "Note: Pi prompt templates, planning/read-only subagents, extensions, and managed model entries are installed to $HOME/.pi/agent"
-    echo "      Prompt templates load from ~/.pi/agent/prompts, shared installable skills load from ~/.agents/skills, subagents load from ~/.pi/agent/agents, extensions load from ~/.pi/agent/extensions, and custom models load from ~/.pi/agent/models.json"
+    echo "      Prompt templates load from ~/.pi/agent/prompts, shared installable skills load from ~/.agents/skills, subagents load from ~/.pi/agent/agents, extensions load from ~/.pi/agent/extensions, custom models load from ~/.pi/agent/models.json, and managed task defaults load from ~/.pi/agent/tasks-config.json"
 
     # Remove retired Pi tooling before installing supported packages.
     remove_retired_pi_goal_plugin "$pi_agent_dir"
@@ -2308,7 +2317,7 @@ install_pi_review_stack() {
         echo "Error: mutation-bounded Pi review-stack installation requires ~/.pi to be a real directory, not a symlink." >&2
         return 1
     fi
-    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
+    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/tasks-config.json" "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
         if [ -L "$managed_pi_path" ]; then
             echo "Error: mutation-bounded Pi review-stack installation refuses symlinks at managed ~/.pi paths: $managed_pi_path" >&2
             return 1

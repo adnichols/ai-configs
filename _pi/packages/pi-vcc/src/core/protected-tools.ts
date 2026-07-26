@@ -1,5 +1,4 @@
 const PROTECTED_TOOL_NAMES = new Set([
-  "todo",
   "Agent",
   "get_subagent_result",
   "spawn_council",
@@ -8,4 +7,4 @@ const PROTECTED_TOOL_NAMES = new Set([
 ]);
 
 export const isProtectedToolName = (name: string): boolean =>
-  PROTECTED_TOOL_NAMES.has(name) || /review|subagent/i.test(name);
+  PROTECTED_TOOL_NAMES.has(name) || /review|subagent|^Task/.test(name);

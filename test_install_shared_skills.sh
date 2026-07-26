@@ -712,6 +712,7 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   printf 'stale-kimi-agent\n' > "$home/.pi/agent/agents/plan-k2.5.md"
   printf 'stale-kimi-agent\n' > "$home/.pi/agent/agents/prd-researcher.md"
   printf 'pi-herdr-sentinel\n' > "$home/.pi/agent/extensions/herdr-agent-state.ts"
+  printf 'legacy-todo-extension\n' > "$home/.pi/agent/extensions/todo.ts"
   printf 'stale-plan-mode\n' > "$home/.pi/agent/extensions/pi-plan-mode/index.ts"
   printf 'stale-aplan\n' > "$home/.omp/agent/extensions/aplan/index.ts"
   printf 'foreign-omp\n' > "$home/.omp/agent/extensions/foreign/index.ts"
@@ -726,6 +727,7 @@ EOF
   cat > "$home/.pi/agent/settings.json" <<'EOF'
 {"defaultProvider":"grok","defaultModel":"grok-composer-2.5-fast","enabledModels":["grok/grok-4.5","grok/grok-composer-2.5-fast","openai-codex/gpt-5.6-sol"]}
 EOF
+  printf '{"taskScope":"session"}\n' > "$home/.pi/agent/tasks-config.json"
 
   output_file="$home/pi-install.log"
   run_installer_capture "$home" "$output_file" --pi || {
@@ -734,7 +736,7 @@ EOF
   }
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'HERDR_INTEGRATION_ID=pi' || return 1
   assert_file_contains "$home/.pi/agent/extensions/herdr-agent-state.ts" 'managed by ai-configs' || return 1
-  [[ -f "$home/.pi/agent/extensions/todo.ts" ]] || return 1
+  [[ ! -e "$home/.pi/agent/extensions/todo.ts" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/general-glm.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/ui-design-glm.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/quality-reviewer-k2.5.md" ]] || return 1
@@ -763,6 +765,7 @@ EOF
   assert_file_not_contains "$home/.pi/agent/settings.json" 'grok-composer-2.5-fast' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" '"defaultProvider": "openai-codex"' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" '"defaultModel": "gpt-5.6-sol"' || return 1
+  assert_file_contains "$home/.pi/agent/tasks-config.json" '"taskScope": "memory"' || return 1
   [[ -f "$home/.pi/agent/agents/Explore.md" ]] || return 1
   [[ "$(cat "$home/.pi/agent/agents/Explore.md")" == $'---\nenabled: false\n---' ]] || return 1
   [[ -z "$(find "$home/.pi/agent/agents" -maxdepth 1 -type f -name 'explore.md' -print -quit)" ]] || return 1
@@ -1002,8 +1005,8 @@ test_pi_interaction_doctrine_is_versioned_and_read_only_by_default() {
 
   assert_file_contains "APPEND_SYSTEM.md" 'Doctrine-Version: {{AI_CONFIGS_VERSION}}' || return 1
   assert_file_not_contains "APPEND_SYSTEM.md" 'assume they want you to act' || return 1
-  assert_file_contains "_pi/extensions/todo.ts" 'Do not create a todo list for questions' || return 1
-  assert_file_not_contains "_pi/extensions/todo.ts" 'BEFORE doing substantive work on the upcoming user request' || return 1
+  [[ ! -e "_pi/extensions/todo.ts" ]] || return 1
+  assert_file_contains "_pi/README.md" 'Task tracking is provided exclusively' || return 1
   assert_file_contains "AGENTS.md" 'Interaction authority boundary' || return 1
   assert_file_contains "README.md" 'request-type-first' || return 1
   assert_file_contains "_pi/README.md" 'request-type-first' || return 1

@@ -5,7 +5,7 @@ argument-hint: ""
 
 # Review PR Comments
 
-Process recent PR comments, verify them, track as a todo list, and implement fixes.
+Process recent PR comments, verify them, track them as structured tasks, and implement fixes.
 
 ## Process
 
@@ -141,19 +141,19 @@ Process recent PR comments, verify them, track as a todo list, and implement fix
    - If actionable feedback arrives after this branch already had local reviewer-subagent passes, treat it as a `REVIEW_ESCAPE`.
    - A `REVIEW_ESCAPE` means the prior review was not thorough enough. Do not only fix the exact commented line.
    - Add a high-priority task to run an adversarial, scope-bound review cycle after the direct fixes.
-5. **Create todos**:
-   - Use the `TodoWrite` tool for all actionable items.
-   - `content`: concise fix description.
-   - `priority`: `high` for blocker/critical/major and any `REVIEW_ESCAPE` escalation, `medium` for substantive improvements, `low` for nits.
-   - `status`: `pending`.
+5. **Create tasks**:
+   - Use `TaskCreate` for every actionable item.
+   - Set `subject` to a concise imperative fix description and put the review evidence in `description`.
+   - Record `priority` in `metadata`: `high` for blocker/critical/major and any `REVIEW_ESCAPE` escalation, `medium` for substantive improvements, and `low` for nits.
+   - Tasks start as `pending`.
 
 ### 4. Resolution Loop
-For each item in the todo list:
-1. **Claim**: set item status to `in_progress`.
+For each item in the task list:
+1. **Claim**: use `TaskUpdate` to set its status to `in_progress`.
 2. **Plan**: analyze target file/behavior.
 3. **Implement**: make the code change.
 4. **Verify**: run relevant tests/linters.
-5. **Complete**: set item status to `completed`.
+5. **Complete**: use `TaskUpdate` to set its status to `completed`.
 6. **Next**: continue with next pending item.
 
 ### 5. Review Escape Escalation
@@ -171,5 +171,5 @@ If the triage found a `REVIEW_ESCAPE`, run this before reporting the PR feedback
 Keep the escalation scope-bound: it should be more aggressive around this PR's assumptions and failure modes, not an unrelated whole-product audit.
 
 ## Output
-- Use `TodoWrite` to keep progress current.
+- Use `TaskCreate` and `TaskUpdate` to keep progress current.
 - Include a short coverage-check note listing how many comments were found from each source, how many were actionable, and whether a `REVIEW_ESCAPE` adversarial cycle was required.
