@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+# git-with-index-lock — run git with automatic .git/index.lock recovery.
+#
+# Agents and automation MUST use this for index-mutating git operations
+# (add, commit, restore --staged, rm, mv, merge, rebase --continue, cherry-pick,
+# stash, apply, and other commands that take the index lock) instead of raw `git`.
+#
+# Behavior when git fails because index.lock exists:
+#   1. Brief backoff retries (covers transient races).
+#   2. If a live process holds the lock (lsof) → wait up to max wait, never delete.
+#   3. If the lock is unheld → treat as stale (dead/timed-out owner), remove once, retry.
+#   4. Never delete a lock that is still open in another process.
+#
+# Usage:
+#   git-with-index-lock <git-args...>
+#   git-with-index-lock add path/to/file
+#   git-with-index-lock commit -m "msg"
+#
+# Env:
+#   GIT_INDEX_LOCK_MAX_WAIT_MS       total wait budget (default 30000)
+#   GIT_INDEX_LOCK_POLL_MS           poll interval while waiting (default 100)
+#   GIT_INDEX_LOCK_STALE_CLEAR       1 to clear unheld locks (default 1)
+#   GIT_INDEX_LOCK_QUIET              1 to suppress recovery diagnostics on stderr
+#   GIT_BIN                           git binary (default: git from PATH)
+
+set -u
+
+GIT_BIN="${GIT_BIN:-git}"
+MAX_WAIT_MS="${GIT_INDEX_LOCK_MAX_WAIT_MS:-30000}"
+POLL_MS="${GIT_INDEX_LOCK_POLL_MS:-100}"
+STALE_CLEAR="${GIT_INDEX_LOCK_STALE_CLEAR:-1}"
+QUIET="${GIT_INDEX_LOCK_QUIET:-0}"
+META_ARGS=()
+CAPTURE_OUT=""
+CAPTURE_RC=0
+
+usage() {
+  cat <<'EOF'
+Usage: git-with-index-lock <git-args...>
+
+Run git with automatic recovery from stale or briefly-contended .git/index.lock.
+
+Examples:
+  git-with-index-lock add -A
+  git-with-index-lock commit -m "msg"
+  git-with-index-lock rebase --continue
+EOF
+}
+
+log() {
+  if [[ "$QUIET" != "1" ]]; then
+    printf 'git-with-index-lock: %s\n' "$*" >&2
+  fi
+}
+
+is_int() {
+  [[ "${1:-}" =~ ^[0-9]+$ ]]
+}
+
+emit_out() {
+  local out="$1"
+  if [[ -n "$out" ]]; then
+    printf '%s\n' "$out"
+  fi
+}
+
+if ! is_int "$MAX_WAIT_MS" || ! is_int "$POLL_MS"; then
+  echo "git-with-index-lock: MAX_WAIT_MS and POLL_MS must be non-negative integers" >&2
+  exit 2
+fi
+if [[ "$POLL_MS" -le 0 ]]; then
+  POLL_MS=100
+fi
+
+if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  if [[ $# -eq 0 ]]; then
+    exit 2
+  fi
+  exit 0
+fi
+
+# Collect git global options (-C, --git-dir, --work-tree, -c) so meta lookups
+# target the same repo as the user command.
+build_meta_args() {
+  META_ARGS=()
+  local args=("$@")
+  local i=0 n=${#args[@]}
+  while [[ $i -lt $n ]]; do
+    case "${args[$i]}" in
+      -C|--git-dir|--work-tree|--namespace|--config-env)
+        META_ARGS+=("${args[$i]}")
+        i=$((i + 1))
+        if [[ $i -lt $n ]]; then
+          META_ARGS+=("${args[$i]}")
+          i=$((i + 1))
+        fi
+        ;;
+      -c)
+        META_ARGS+=("${args[$i]}")
+        i=$((i + 1))
+        if [[ $i -lt $n ]]; then
+          META_ARGS+=("${args[$i]}")
+          i=$((i + 1))
+        fi
+        ;;
+      --git-dir=*|--work-tree=*|--namespace=*|--config-env=*)
+        META_ARGS+=("${args[$i]}")
+        i=$((i + 1))
+        ;;
+      --)
+        break
+        ;;
+      -*)
+        # Unknown global flag; stop rather than swallowing command args.
+        break
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+}
+
+git_meta() {
+  # Run a git meta-command with the same global options as the user command.
+  if [[ ${#META_ARGS[@]} -gt 0 ]]; then
+    "$GIT_BIN" "${META_ARGS[@]}" "$@"
+  else
+    "$GIT_BIN" "$@"
+  fi
+}
+
+resolve_lock_path() {
+  build_meta_args "$@"
+  local path=""
+  # Prefer absolute paths so lock checks work when the caller used `git -C`.
+  path="$(git_meta rev-parse --path-format=absolute --git-path index.lock 2>/dev/null || true)"
+  if [[ -z "$path" ]]; then
+    path="$(git_meta rev-parse --git-path index.lock 2>/dev/null || true)"
+  fi
+  if [[ -z "$path" ]]; then
+    return 1
+  fi
+  if [[ "$path" != /* ]]; then
+    local top common
+    top="$(git_meta rev-parse --show-toplevel 2>/dev/null || true)"
+    common="$(git_meta rev-parse --git-common-dir 2>/dev/null || true)"
+    if [[ "$path" == .git/* && -n "$top" ]]; then
+      path="$top/$path"
+    elif [[ -n "$common" ]]; then
+      # Relative git-path under the git dir / common dir.
+      if [[ "$common" != /* && -n "$top" ]]; then
+        common="$top/$common"
+      fi
+      path="$common/${path#./}"
+      # If path already included git dir prefix like .git/index.lock handled above.
+    elif [[ -n "$top" ]]; then
+      path="$top/$path"
+    fi
+  fi
+  printf '%s
+' "$path"
+}
+
+lock_is_held() {
+  local lock="$1"
+  if [[ ! -e "$lock" ]]; then
+    return 1
+  fi
+  if command -v lsof >/dev/null 2>&1; then
+    lsof "$lock" >/dev/null 2>&1
+    return $?
+  fi
+  # A lock pathname alone cannot identify a dead owner. Without a reliable
+  # per-file holder inspector, fail closed: wait/retry but never unlink it.
+  log "lsof unavailable; treating existing index.lock as held"
+  return 0
+}
+
+holder_summary() {
+  local lock="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof "$lock" 2>/dev/null | head -10 || true
+  fi
+}
+
+is_index_lock_error() {
+  local text="$1"
+  printf '%s' "$text" | grep -qiE "index\.lock|Unable to create '.*index\.lock'|Another git process seems to be running"
+}
+
+sleep_ms() {
+  local ms="$1"
+  awk -v ms="$ms" 'BEGIN {
+    sec = ms / 1000.0
+    if (sec < 0) sec = 0
+    system(sprintf("sleep %.3f", sec))
+  }'
+}
+
+now_ms() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import time; print(int(time.time() * 1000))' 2>/dev/null && return 0
+  fi
+  # Fallback whole seconds.
+  echo $(( $(date +%s) * 1000 ))
+}
+
+elapsed_ms() {
+  local start="$1"
+  local now
+  now="$(now_ms)"
+  echo $((now - start))
+}
+
+clear_stale_lock() {
+  local lock="$1"
+  if [[ "$STALE_CLEAR" != "1" ]]; then
+    log "stale clear disabled; leaving $lock"
+    return 1
+  fi
+  if [[ ! -e "$lock" ]]; then
+    return 0
+  fi
+  if lock_is_held "$lock"; then
+    log "refusing to clear held lock: $lock"
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && log "holder: $line"
+    done < <(holder_summary "$lock")
+    return 1
+  fi
+  rm -f "$lock"
+  if [[ -e "$lock" ]]; then
+    log "failed to remove stale lock: $lock"
+    return 1
+  fi
+  log "removed unheld stale index.lock: $lock"
+  return 0
+}
+
+wait_for_lock_release() {
+  local lock="$1"
+  local budget_ms="${2:-$MAX_WAIT_MS}"
+  local start waited
+  start="$(now_ms)"
+  while [[ -e "$lock" ]]; do
+    waited="$(elapsed_ms "$start")"
+    if [[ "$waited" -ge "$budget_ms" ]]; then
+      return 1
+    fi
+    if ! lock_is_held "$lock"; then
+      clear_stale_lock "$lock" || return 1
+      return 0
+    fi
+    sleep_ms "$POLL_MS"
+  done
+  return 0
+}
+
+capture_git() {
+  # Sets globals: CAPTURE_OUT, CAPTURE_RC
+  local tmp
+  tmp="$(mktemp -t git-with-index-lock.XXXXXX)"
+  set +e
+  "$GIT_BIN" "$@" >"$tmp" 2>&1
+  CAPTURE_RC=$?
+  set -e
+  CAPTURE_OUT="$(cat "$tmp" 2>/dev/null || true)"
+  # Strip a single trailing newline for cleaner re-emit via emit_out.
+  CAPTURE_OUT="${CAPTURE_OUT%$'\n'}"
+  rm -f "$tmp"
+}
+
+main() {
+  local start attempt=0 lock="" waited
+  start="$(now_ms)"
+  CAPTURE_OUT=""
+  CAPTURE_RC=0
+
+  while true; do
+    attempt=$((attempt + 1))
+    capture_git "$@"
+
+    if [[ "$CAPTURE_RC" -eq 0 ]]; then
+      emit_out "$CAPTURE_OUT"
+      return 0
+    fi
+
+    if ! is_index_lock_error "$CAPTURE_OUT"; then
+      emit_out "$CAPTURE_OUT"
+      return "$CAPTURE_RC"
+    fi
+
+    lock="$(resolve_lock_path "$@" || true)"
+    waited="$(elapsed_ms "$start")"
+    log "index.lock contention (attempt=$attempt waited_ms=$waited lock=${lock:-unknown})"
+
+    if [[ "$waited" -ge "$MAX_WAIT_MS" ]]; then
+      emit_out "$CAPTURE_OUT"
+      if [[ -n "$lock" && -e "$lock" ]]; then
+        log "giving up after ${MAX_WAIT_MS}ms; lock still present"
+        if lock_is_held "$lock"; then
+          log "lock is held by a live process — not removing"
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && log "holder: $line"
+          done < <(holder_summary "$lock")
+        else
+          log "lock appears unheld but wait budget exhausted"
+        fi
+      fi
+      return "$CAPTURE_RC"
+    fi
+
+    if [[ -n "$lock" && -e "$lock" ]]; then
+      if lock_is_held "$lock"; then
+        local remaining=$((MAX_WAIT_MS - waited))
+        if [[ "$remaining" -lt 0 ]]; then
+          remaining=0
+        fi
+        log "waiting for live lock holder to release $lock (budget_ms=$remaining)"
+        if ! wait_for_lock_release "$lock" "$remaining"; then
+          emit_out "$CAPTURE_OUT"
+          log "timed out waiting for live holder of $lock"
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && log "holder: $line"
+          done < <(holder_summary "$lock")
+          return "$CAPTURE_RC"
+        fi
+      else
+        if ! clear_stale_lock "$lock"; then
+          emit_out "$CAPTURE_OUT"
+          return "$CAPTURE_RC"
+        fi
+      fi
+    else
+      # Transient: error mentioned lock but file is already gone.
+      sleep_ms "$POLL_MS"
+    fi
+  done
+}
+
+main "$@"
+exit $?

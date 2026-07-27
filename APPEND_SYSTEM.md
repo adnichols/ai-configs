@@ -28,6 +28,59 @@ Before editing a dependent side, reopen the current source of truth. After chang
 
 Do not treat a helper, middleware, outer wrapper, or event-existence test as evidence that distributed behavior is complete. Completion requires the applicable inventory to be reconciled and real production-path or cross-boundary evidence for the intended outcome. When a contract artifact or inventory reveals a new product outcome, stop for owner direction rather than silently expanding scope.
 
+## Git index lock recovery
+
+Concurrent git, IDE pushes, and timed-out shell commands commonly leave or hit `.git/index.lock` (worktree path: `$(git rev-parse --git-path index.lock)`). Blind `git add`/`git commit` retries thrash forever; deleting a live lock corrupts concurrent work.
+
+For any index-mutating git operation (`add`, `commit`, `rm`, `mv`, `restore --staged`, `merge`, `rebase --continue`/`--abort`, `cherry-pick`, `stash`, `apply`, and similar), agents MUST use `git-with-index-lock` instead of raw `git`.
+
+### Bootstrap (required when the command is missing)
+
+Do not assume `~/.local/bin` already has the wrapper. Resolve it once per session before the first index-mutating command:
+
+```bash
+# 1) Prefer ensure helper from PATH, this repo, or AI_CONFIGS_ROOT
+ENSURE="$(command -v ensure-git-with-index-lock 2>/dev/null || true)"
+if [[ -z "$ENSURE" && -n "${AI_CONFIGS_ROOT:-}" && -x "${AI_CONFIGS_ROOT}/scripts/ensure-git-with-index-lock" ]]; then
+  ENSURE="${AI_CONFIGS_ROOT}/scripts/ensure-git-with-index-lock"
+fi
+if [[ -z "$ENSURE" ]]; then
+  TOP="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$TOP" && -x "$TOP/scripts/ensure-git-with-index-lock" ]]; then
+    ENSURE="$TOP/scripts/ensure-git-with-index-lock"
+  fi
+fi
+
+# 2) Ensure installs ~/.agents/scripts + ~/.local/bin and prints the absolute path
+if [[ -n "$ENSURE" ]]; then
+  GIT_WL="$("$ENSURE")" || exit 1
+else
+  # 3) Last-resort direct paths (no install)
+  for c in \
+    "$HOME/.local/bin/git-with-index-lock" \
+    "$HOME/.agents/scripts/git-with-index-lock" \
+    "${AI_CONFIGS_ROOT:+$AI_CONFIGS_ROOT/scripts/git-with-index-lock}" \
+    "${TOP:+$TOP/scripts/git-with-index-lock}" \
+    "$HOME/code/ai-configs/scripts/git-with-index-lock"
+  do
+    [[ -n "$c" && -x "$c" ]] && GIT_WL="$c" && break
+  done
+fi
+
+if [[ -z "${GIT_WL:-}" ]]; then
+  echo "git-with-index-lock unavailable: run ai-configs install.sh or set AI_CONFIGS_ROOT" >&2
+  exit 1
+fi
+
+# 4) Use the resolved absolute path (safe even if ~/.local/bin is not on PATH)
+"$GIT_WL" add -A
+"$GIT_WL" commit -m "msg"
+```
+
+After bootstrap, keep using `"$GIT_WL"` (or a bare `git-with-index-lock` if `command -v` succeeds). Re-run ensure only when the command disappears from PATH/install locations.
+
+The wrapper retries transient races, waits for a live lock holder, and removes the lock only when it is unheld (dead/timed-out owner). Do not manually `rm` index.lock unless the wrapper is unavailable and you have confirmed via `lsof` that no process holds it. Never silently fall back to raw `git` for index-mutating work when bootstrap fails — stop and report the missing helper.
+
 ## Working principles
 
 - Build context before proposing or changing things. Check the existing state and preserve user-owned or unrelated work.

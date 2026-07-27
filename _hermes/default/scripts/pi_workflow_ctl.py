@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -94,10 +95,64 @@ def git_status(repo: str) -> str:
     return result.stdout.strip()
 
 
+def resolve_git_with_index_lock(repo: str) -> str:
+    """Return absolute path to git-with-index-lock, bootstrapping install when needed."""
+    which = shutil.which('git-with-index-lock')
+    if which:
+        return which
+
+    candidates: list[Path] = []
+    ensure_candidates: list[Path] = []
+
+    for base in (
+        Path.home() / '.local' / 'bin',
+        Path.home() / '.agents' / 'scripts',
+    ):
+        candidates.append(base / 'git-with-index-lock')
+        ensure_candidates.append(base / 'ensure-git-with-index-lock')
+
+    env_root = os.environ.get('AI_CONFIGS_ROOT')
+    if env_root:
+        root = Path(env_root)
+        candidates.append(root / 'scripts' / 'git-with-index-lock')
+        ensure_candidates.append(root / 'scripts' / 'ensure-git-with-index-lock')
+
+    repo_path = Path(repo)
+    candidates.append(repo_path / 'scripts' / 'git-with-index-lock')
+    ensure_candidates.append(repo_path / 'scripts' / 'ensure-git-with-index-lock')
+
+    # Source tree: ai-configs/_hermes/default/scripts/pi_workflow_ctl.py
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        maybe = parent / 'scripts' / 'git-with-index-lock'
+        ensure_maybe = parent / 'scripts' / 'ensure-git-with-index-lock'
+        if maybe.is_file():
+            candidates.append(maybe)
+        if ensure_maybe.is_file():
+            ensure_candidates.append(ensure_maybe)
+
+    for ensure in ensure_candidates:
+        if ensure.is_file() and os.access(ensure, os.X_OK):
+            proc = subprocess.run([str(ensure)], text=True, capture_output=True)
+            lines = (proc.stdout or '').strip().splitlines()
+            if proc.returncode == 0 and lines and Path(lines[-1]).is_file():
+                return lines[-1]
+
+    for candidate in candidates:
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+
+    raise SystemExit(
+        'git-with-index-lock unavailable: run ai-configs install.sh, '
+        'set AI_CONFIGS_ROOT, or place scripts/git-with-index-lock on this host'
+    )
+
+
 def git_commit_plan(repo: str, plan: str, issue: str | None) -> str:
     title = f'plan: approve execution plan for {issue}' if issue else 'plan: approve execution plan'
     body = f'''{title}\n\nWhy now:\n- The reviewed plan must be committed before implementation starts.\n\nDecision:\n- Commit {plan} as the approved execution plan for this branch.\n\nAlternatives considered:\n- Continue with an uncommitted plan, which weakens resumability and stage control.\n\nRisk / rollback:\n- Risk is limited to the planning artifact. Revert this commit if the plan changes materially.\n\nRefs:\n- {issue or plan}\n- {plan}\n'''
-    cmd = f'cd {shlex.quote(repo)} && git add {shlex.quote(plan)} && git commit -F -'
+    git_cmd = shlex.quote(resolve_git_with_index_lock(repo))
+    cmd = f'cd {shlex.quote(repo)} && {git_cmd} add {shlex.quote(plan)} && {git_cmd} commit -F -'
     proc = subprocess.run(['zsh', '-l', '-c', cmd], input=body, text=True, capture_output=True)
     if proc.returncode != 0:
         raise SystemExit(proc.stderr.strip() or proc.stdout.strip() or 'git commit failed')
