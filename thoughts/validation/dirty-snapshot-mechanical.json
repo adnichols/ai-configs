@@ -1,0 +1,40 @@
+{
+  "evidence_status": "Coordinator-recorded and redacted observations. The temporary fixture and raw command output were not retained, so these historical counts are not independently auditable from this file alone.",
+  "recorded_mechanical_isolation_repro": [
+    {
+      "run": 1,
+      "head": "1aa56fd3e8f3",
+      "worktree": "<tmpdir>/pi-agent-repro-*",
+      "live": "MARKER_STATE=DIRTY_FIXED_NEW",
+      "isolated": "MARKER_STATE=COMMITTED_OLD",
+      "mismatch": true,
+      "live_has_fix": true,
+      "isolated_has_old": true,
+      "recorded_repro_hit": true
+    },
+    {
+      "run": 2,
+      "head": "1aa56fd3e8f3",
+      "worktree": "<tmpdir>/pi-agent-repro-*",
+      "live": "MARKER_STATE=DIRTY_FIXED_NEW",
+      "isolated": "MARKER_STATE=COMMITTED_OLD",
+      "mismatch": true,
+      "live_has_fix": true,
+      "isolated_has_old": true,
+      "recorded_repro_hit": true
+    },
+    {
+      "run": 3,
+      "head": "1aa56fd3e8f3",
+      "worktree": "<tmpdir>/pi-agent-repro-*",
+      "live": "MARKER_STATE=DIRTY_FIXED_NEW",
+      "isolated": "MARKER_STATE=COMMITTED_OLD",
+      "mismatch": true,
+      "live_has_fix": true,
+      "isolated_has_old": true,
+      "recorded_repro_hit": true
+    }
+  ],
+  "recorded_all_hit": true,
+  "recorded_hits": 3
+}

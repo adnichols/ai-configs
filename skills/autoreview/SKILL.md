@@ -109,7 +109,7 @@ Before launching reviewers, record a pre-review scope baseline containing:
 - the task or plan and intended behavior;
 - supported paths and explicit non-goals;
 - existing owner boundaries and product surfaces in scope;
-- the initial changed files, including committed, staged, and unstaged changes.
+- the initial changed files, including committed, staged, unstaged, and untracked changes.
 
 When the scope crosses an exact contract the type system cannot fully verify or behavior distributed across production sites, add the executor's **integration-integrity record** to the packet: source of truth; producer/consumer or source-search-backed operation inventory; dependent docs/examples; declared exhaustive-by-site, exhaustive-by-family, or justified-representative scope; required cross-boundary/production-path proof; and reconciliation status. Do not invent an inventory when neither trigger applies; record the source-search basis for that conclusion instead. The reviewer validates the supplied evidence and cited searches read-only; it never becomes the inventory owner.
 
@@ -131,6 +131,29 @@ Use the native subagent mechanism for the current harness:
 - **Pi:** invoke the repository-owned `reviewer` via `Agent`; it is `openai-codex/gpt-5.6-terra` at medium reasoning effort.
 - **Claude Code:** invoke the repository-owned `reviewer` subagent; it is `claude-sonnet-5` at high effort.
 - **OpenCode:** invoke the configured `reviewer` subagent; it is `cliproxyapi/gpt-5.6-terra` at medium reasoning effort.
+
+#### Live worktree launch contract (mandatory)
+
+Required read-only reviewers must inspect the **current live worktree**, including committed, staged, unstaged, and untracked changes. Pi `isolation: "worktree"` creates a clean detached `HEAD` checkout and **drops dirty state**, so a rereview after uncommitted fixes will re-report already-fixed lines. That is a false review, not a valid gate.
+
+Hard rules for every initial review, targeted rereview, and adversarial pass:
+
+- **Never** pass `isolation: "worktree"` (or any equivalent clean-worktree sandbox) when launching the reviewer.
+- **Never** launch the reviewer from a non-repo cwd and try to “fix” that with isolation. The driving session must already be in the target checkout (Herdr/Orca worktree or repo root).
+- In Pi, launch exactly like this shape (isolation omitted on purpose):
+
+```javascript
+const review = Agent({
+  subagent_type: "reviewer",
+  description: "Pre-PR implementation review",
+  prompt: "<bounded review packet>",
+  // Do NOT set isolation: "worktree"
+});
+```
+
+- Before accepting a verdict, the parent must confirm the reviewer inspected the live candidate: same repo checkout (not a `/tmp/pi-agent-*` clean worktree), and when the parent packet listed dirty files (modified, staged, or untracked), the reviewer provenance must show non-empty `git status --short` covering those paths or otherwise prove they were read from the live tree.
+- If a reviewer result came from an isolated clean worktree while the candidate still had staged, unstaged, or untracked changes in scope, discard it as `REVIEW_INFRASTRUCTURE_FAILURE` and relaunch **without** isolation. Do not treat that result as PASS, FINDINGS_TO_RESOLVE, or cycle progress.
+- Require the reviewer to return a short provenance block: `cwd`, `HEAD`, `git status --short` (or `EMPTY`), and whether staged/unstaged/untracked changes were in the inspected tree.
 
 Do not launch Codex or Claude Code as a separate review leg, and do not use Herdr as a required review transport. The reviewer is static inspection only: it must not edit files or run tests, builds, linters, typechecks, benchmarks, verification scripts, or other executable checks. The coordinating agent exclusively owns verification and fixes. If the configured reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user waives the gate or directs opening the PR regardless.
 
@@ -162,7 +185,14 @@ Touched surfaces:
 Assigned failure families:
 <security/auth/privacy, data loss/persistence, contract parity, async/resource lifecycle, verification truthfulness, or other scoped slice>
 
-Review committed, staged, and unstaged changes in this worktree. Focus on issues a pull-request reviewer would reasonably ask to fix, justify, or track before merge.
+Review committed, staged, unstaged, and untracked changes in this live worktree. Focus on issues a pull-request reviewer would reasonably ask to fix, justify, or track before merge.
+
+Provenance (required at the top of your reply for every successful or incomplete review):
+- CWD: <absolute cwd>
+- HEAD: <short sha>
+- STATUS_SHORT: <git status --short one line, semicolon-separated, or EMPTY>
+- INSPECTED_TREE: <live-worktree | isolated-clean>
+Treat any non-empty `git status --short` output as dirty, including untracked `??` paths. If your cwd is a temporary isolated git worktree (for example under /tmp/pi-agent-*) or STATUS_SHORT is EMPTY while the packet listed dirty staged/unstaged/untracked paths, set `INSPECTED_TREE: isolated-clean`, stop with VERDICT: REVIEW_INFRASTRUCTURE_FAILURE, and explain that you are not inspecting the live dirty candidate. Do not report findings against a clean HEAD snapshot when dirty changes were in scope.
 
 Completion contract for every reviewer: stay within the assigned scope and review budget. Use at most the tool budget in the review instructions; do not broaden into unrelated whole-product review. Return a final verdict even when coverage is incomplete. If the assigned scope is incomplete, return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 
@@ -198,6 +228,7 @@ Return exactly one verdict:
 - VERDICT: PASS
 - VERDICT: BLOCKED_BY_QUESTION
 - VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
+- VERDICT: REVIEW_INFRASTRUCTURE_FAILURE
 
 A `PASS` verdict must include a `Not examined:` line disclosing what the review did not exercise (`Not examined: none` when the full surface was covered). Legacy green verdicts (`CLEAN_FOR_PR`, `CLEAN`) are still accepted as green when read.
 

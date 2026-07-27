@@ -243,7 +243,7 @@ Use the same single reviewer for every risk level. High-risk changes receive a m
 
 A prior runtime-native review may satisfy this gate only when its packet included the triggered integration-integrity evidence and explicitly checked it. Otherwise, run the reviewer with that evidence before treating the pre-PR review gate as satisfied.
 
-For every reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Bound the assigned scope instead.
+For every reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, and the specific failure families to check. Launch in the live worktree only: omit Pi `isolation: "worktree"` so staged/unstaged/untracked changes remain visible. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Bound the assigned scope instead.
 
 If any reviewer cannot complete the assigned scope, it must return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the recommended follow-up slice.
 
@@ -323,6 +323,8 @@ After phase implementation and the runtime-native scoped quality-review loop has
 Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native reviewer pass already ran after the last code change, used the current base/comparison range, covered the current changed files, and has no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. Run `$autoreview <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff. Follow the canonical autoreview policy, including its pre-review scope baseline, concrete blocker evidence, smallest-fix ownership boundary, behavioral-verification separation, dependency evidence, known-blocker overflow, and release freeze discipline; do not duplicate or weaken those rules here.
 
 Run exactly one bounded, static inspection with the active harness's configured `reviewer` subagent. In Pi it is GPT-5.6 Terra at medium reasoning effort; in Claude Code it is Sonnet 5 at high effort; in OpenCode it is GPT-5.6 Terra at medium reasoning effort. Do not create separate Codex or Claude Code review legs and do not require Herdr transport. Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewer must classify findings by P1/P2/P3 severity and by the normal scope categories. It must not execute tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. The coordinating agent exclusively owns that execution.
+
+**Live worktree only:** follow the autoreview live-worktree launch contract for every run-plan reviewer launch (scoped quality review, pre-PR gate, targeted rereview, and adversarial pass). Never pass Pi `isolation: "worktree"` for these read-only reviewers. Isolation checkouts are clean `HEAD` snapshots and miss staged/unstaged/untracked fixes, which falsifies the gate against the content-identity candidate. If a reviewer result came from a temp clean worktree while dirty changes were in scope, treat it as review-infrastructure failure and relaunch without isolation.
 
 Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. Triage findings before editing, fix only `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` blocking P1/P2 issues, rerun targeted verification, and run one targeted rereview limited to the findings and resulting edits. Apply the unified review-cycle ledger: reuse equivalent current evidence instead of double-counting a gate, and allow a third total review cycle only for a new concrete blocker introduced or exposed by the fix. PR creation never resets or changes this budget; otherwise return clean consensus or a convergence/scope blocker. P3 findings block only when they are plan-required, verification-required, or regression-caused; otherwise document them as non-blocking follow-ups with evidence and a tracking destination.
 
@@ -536,6 +538,14 @@ Use this shape for the active-harness reviewer. Include the exact risk question 
 
 ```text
 Read-only implementation review. Do not edit files.
+Do not run or invoke tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. Inspect source and caller-supplied verification evidence only; the coordinator owns execution.
+
+Provenance (required at the top of every successful or incomplete review):
+- CWD: <absolute cwd>
+- HEAD: <short sha>
+- STATUS_SHORT: <git status --short one line, semicolon-separated, or EMPTY>
+- INSPECTED_TREE: <live-worktree | isolated-clean>
+If your cwd is a temporary isolated git worktree (for example under /tmp/pi-agent-*) or STATUS_SHORT is EMPTY while this packet lists dirty staged/unstaged/untracked paths, return `VERDICT: REVIEW_INFRASTRUCTURE_FAILURE`. Do not report source findings against a clean HEAD snapshot; the coordinator must discard that result and relaunch without isolation.
 
 Plan: <plan path>
 Base/comparison: <base branch or range>
@@ -581,9 +591,8 @@ Return one verdict:
 - VERDICT: PASS (with a `Not examined:` line)
 - VERDICT: FINDINGS_TO_RESOLVE
 - VERDICT: BLOCKED_BY_QUESTION
-
-This additional verdict is allowed for every reviewer when the assigned scope cannot be completed:
 - VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
+- VERDICT: REVIEW_INFRASTRUCTURE_FAILURE
 
 For every reviewer slice, use bounded scope and bounded exploration. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Reserve enough time/context for a final response, and do not broaden into unrelated whole-product review. If incomplete, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 

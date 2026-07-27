@@ -49,6 +49,7 @@ const critic = Agent({
   description: "Analyze PRD clarification gaps",
   prompt: "Analyze the current PRD round for $ARGUMENTS. Read the PRD and its selected baseline specs. Use the clarification-gap lens. Preserve the caller-supplied PRD/baseline artifact authority and return blockers, missing baseline facts, prioritized clarification questions with suggested options, a recommended option plus why for each question, and whether clarification is still needed.",
   run_in_background: true,
+  // Do NOT set isolation: "worktree" — review the live worktree only.
 });
 
 const criticResult = await get_subagent_result({ agent_id: critic.agent_id ?? critic.id, wait: true });
