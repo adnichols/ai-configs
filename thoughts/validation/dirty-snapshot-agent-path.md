@@ -25,3 +25,5 @@ Parent committed marker: `COMMITTED_OLD` / `still-broken-on-purpose`
 - `repro_confirmed`: true
 
 `isolation: "worktree"` reviewer agents see committed HEAD only, not uncommitted dirty fixes. Live reviewers in the parent worktree see the dirty working-tree content.
+
+Machine-local absolute paths are redacted in the companion JSON (`cwd` is `<repo-root>` or `<tmpdir>/pi-agent-*`).

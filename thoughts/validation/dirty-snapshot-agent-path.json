@@ -1,0 +1,59 @@
+{
+  "rounds": [
+    {
+      "round": 1,
+      "isolated": {
+        "run": "1-isolated",
+        "cwd": "<tmpdir>/pi-agent-*",
+        "cwd_kind": "isolated-temp-worktree",
+        "head": "1aa56fd",
+        "marker_state": "COMMITTED_OLD",
+        "bug_line": "still-broken-on-purpose",
+        "status_short": "EMPTY",
+        "inspected_tree": "isolated-clean"
+      },
+      "live": {
+        "run": "1-live",
+        "cwd": "<repo-root>",
+        "cwd_kind": "live-worktree",
+        "head": "1aa56fd",
+        "marker_state": "DIRTY_FIXED_NEW",
+        "bug_line": "fixed-in-working-tree-only",
+        "status_short": "M thoughts/repro/dirty-snapshot-marker.txt; ?? thoughts/repro/dirty-snapshot-mechanical.json; ?? thoughts/repro/isolation-from-home.json",
+        "dirty_paths_asserted": [
+          "M thoughts/repro/dirty-snapshot-marker.txt"
+        ],
+        "inspected_tree": "live-worktree"
+      }
+    },
+    {
+      "round": 2,
+      "isolated": {
+        "run": "2-isolated",
+        "cwd": "<tmpdir>/pi-agent-*",
+        "cwd_kind": "isolated-temp-worktree",
+        "head": "1aa56fd",
+        "marker_state": "COMMITTED_OLD",
+        "bug_line": "still-broken-on-purpose",
+        "status_short": "EMPTY",
+        "inspected_tree": "isolated-clean"
+      },
+      "live": {
+        "run": "2-live",
+        "cwd": "<repo-root>",
+        "cwd_kind": "live-worktree",
+        "head": "1aa56fd",
+        "marker_state": "DIRTY_FIXED_NEW",
+        "bug_line": "fixed-in-working-tree-only",
+        "status_short": "M thoughts/repro/dirty-snapshot-marker.txt; ?? thoughts/repro/dirty-snapshot-mechanical.json; ?? thoughts/repro/isolation-from-home.json",
+        "dirty_paths_asserted": [
+          "M thoughts/repro/dirty-snapshot-marker.txt"
+        ],
+        "inspected_tree": "live-worktree"
+      }
+    }
+  ],
+  "isolated_all_old": true,
+  "live_all_new": true,
+  "repro_confirmed": true
+}
