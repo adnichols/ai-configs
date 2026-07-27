@@ -33,7 +33,7 @@ process.env.HERDR_SOCKET_PATH = socketPath;
 process.env.HERDR_PANE_ID = "test-pane";
 process.env.HERDR_PI_IDLE_DEBOUNCE_MS = "10";
 process.env.HERDR_PI_RETRY_GRACE_MS = "20";
-process.env.HERDR_PI_RECONCILE_MS = "0";
+process.env.HERDR_PI_RECONCILE_MS = "10";
 process.env.HERDR_PI_HEARTBEAT_MS = "0";
 process.env.HERDR_PI_SEND_RETRY_DELAY_MS = "1";
 process.env.HERDR_PI_BACKGROUND_PROCESS_IGNORE = "custom-idle";
@@ -60,13 +60,16 @@ class MockPi {
 }
 
 let pi = new MockPi();
+let parentIdle = false;
+const sessionEntries = [];
 const ctx = {
   hasUI: true,
   hasPendingMessages: () => false,
-  isIdle: () => false,
+  isIdle: () => parentIdle,
   sessionManager: {
     getSessionFile: () => "/tmp/test-session.jsonl",
     getSessionId: () => "test-session",
+    getBranch: () => sessionEntries,
   },
   ui: {},
 };
@@ -114,6 +117,24 @@ async function startProcess({ id, name, command }) {
   }, ctx);
 }
 
+function vccEntry(customType, state, transactionId = "vcc-test") {
+  return {
+    type: "custom",
+    customType,
+    data: {
+      protocol: "pi-vcc-continuation",
+      version: 2,
+      kind: customType === "pi-vcc-continuation-outcome" ? "outcome" : "snapshot",
+      snapshot: {
+        protocol: "pi-vcc-continuation",
+        version: 2,
+        transactionId,
+        state,
+      },
+    },
+  };
+}
+
 try {
   await pi.emit("session_start", { reason: "startup" }, ctx);
   await waitForState("idle");
@@ -157,6 +178,18 @@ try {
   await pi.emit("agent_end", { messages: [] }, ctx);
   await delay(30);
   assert.equal(lastState(), "working", "agent_end must not publish idle");
+  await pi.emit("agent_settled", {}, ctx);
+  await waitForState("idle");
+
+  // Pi can report an idle parent context while a foreground tool loop still
+  // owns work. The hook must retain agent ownership until agent_settled.
+  await pi.emit("agent_start", {}, ctx);
+  await waitForState("working");
+  parentIdle = true;
+  await pi.emit("tool_call", { toolName: "bash" }, ctx);
+  await delay(40);
+  assert.equal(lastState(), "working", "tool-loop activity must not be cleared by reconciliation");
+  parentIdle = false;
   await pi.emit("agent_settled", {}, ctx);
   await waitForState("idle");
 
@@ -217,6 +250,23 @@ try {
   await delay(30);
   assert.equal(lastState(), "working", "new run must still wait for agent_settled");
   await pi.emit("agent_settled", {}, ctx);
+  await waitForState("idle");
+
+  // Pi-vcc persists its work ownership before it queues the continuation turn.
+  // A replacement hook must recover that durable ownership, and release it
+  // only when the matching VCC transaction reaches a terminal state.
+  sessionEntries.push(vccEntry("pi-vcc-continuation-request", "created"));
+  await pi.emit("session_shutdown", { reason: "reload" }, ctx);
+  const vccReloadedExtensionUrl = new URL(extensionUrl.href);
+  vccReloadedExtensionUrl.searchParams.set("vcc-reload", String(Date.now()));
+  const { default: installVccReloadedExtension } = await import(vccReloadedExtensionUrl.href);
+  pi = new MockPi();
+  installVccReloadedExtension(pi);
+  await pi.emit("session_start", { reason: "reload" }, ctx);
+  await waitForState("working");
+  const terminalVccEntry = vccEntry("pi-vcc-continuation-outcome", "settled");
+  sessionEntries.push(terminalVccEntry);
+  await pi.emit("entry_appended", { entry: terminalVccEntry }, ctx);
   await waitForState("idle");
 
   await pi.emit("session_shutdown", { reason: "quit" }, ctx);
