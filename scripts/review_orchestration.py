@@ -17,6 +17,7 @@ import re
 import secrets
 import stat
 import subprocess
+import tempfile
 import sys
 import threading
 import time
@@ -55,6 +56,9 @@ _ALLOWED_VERDICT_CLASSES = frozenset(
     {PASS_CLASS, FINDINGS_CLASS, BLOCKED_CLASS, INCOMPLETE_CLASS}
 )
 _TRANSCRIPT_PRESENTATION_PREFIXES = ("• ", "⏺ ")
+_HERDR_AGENT_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
+_BEGIN_RESULT_PREFIX = "BEGIN_REVIEW_RESULT "
+_END_RESULT_PREFIX = "END_REVIEW_RESULT "
 
 
 @dataclass(frozen=True)
@@ -82,6 +86,7 @@ class RawReviewResult:
     first_action_observed: bool = False
     detail: str = ""
     first_action_observed_at: Optional[float] = None
+    structured_result_path: Optional[str] = None
 
 
 class ReviewAdapter(Protocol):
@@ -111,7 +116,13 @@ class ReviewAdapter(Protocol):
         ...
 
     def cleanup_leg_is_current(
-        self, handle, result_nonce: str, result_digest: str
+        self,
+        handle,
+        result_nonce: str,
+        result_digest: str,
+        result_evidence_source: str,
+        result_evidence_path: Optional[str],
+        allowed_verdicts: Sequence[str],
     ) -> bool:
         ...
 
@@ -143,6 +154,8 @@ class LegOutcome:
     result_accepted_at: Optional[float] = None
     result_nonce: Optional[str] = None
     result_digest: Optional[str] = None
+    result_evidence_source: str = "transcript"
+    result_evidence_path: Optional[str] = None
 
 
 @dataclass
@@ -308,33 +321,137 @@ def _normalize_transcript_line(line: str) -> str:
     return normalized
 
 
+def is_valid_herdr_agent_name(name: str) -> bool:
+    """Herdr accepts 1-32 char names: lowercase letter start, [a-z0-9_-] only."""
+
+    return bool(isinstance(name, str) and _HERDR_AGENT_NAME_RE.fullmatch(name))
+
+
+def validate_herdr_agent_name(name: str, *, label: str = "agent name") -> str:
+    if not is_valid_herdr_agent_name(name):
+        raise ValueError(
+            "{} must match Herdr's 1-32 char rule "
+            "(lowercase letter start, then [a-z0-9_-]): {!r}".format(label, name)
+        )
+    return name
+
+
+def short_herdr_agent_name(kind: str, salt: Optional[str] = None) -> str:
+    """Build a short, Herdr-safe reviewer target name."""
+
+    kind_token = re.sub(r"[^a-z0-9]+", "", (kind or "rvw").lower()) or "rvw"
+    kind_token = kind_token[:8]
+    token = (salt or secrets.token_hex(3)).lower()
+    token = re.sub(r"[^a-z0-9]+", "", token) or secrets.token_hex(3)
+    name = "rvw-{}-{}".format(kind_token, token[:12])
+    return validate_herdr_agent_name(name[:32])
+
+
 @dataclass(frozen=True)
 class ExtractedReviewBlock:
-    """A normalized result block paired with its exact transcript bytes."""
+    """A normalized result block paired with its exact accepted bytes."""
 
     normalized_lines: Tuple[str, ...]
     raw_span: str
+    evidence_source: str = "transcript"
+    evidence_path: Optional[str] = None
+
+
+def _marker_targets(nonce: str) -> Tuple[str, str]:
+    return (
+        "{}{}".format(_BEGIN_RESULT_PREFIX, nonce),
+        "{}{}".format(_END_RESULT_PREFIX, nonce),
+    )
+
+
+def _coalesce_wrapped_marker_lines(
+    normalized_lines: Sequence[str],
+    raw_lines: Sequence[str],
+    nonce: str,
+) -> Tuple[List[str], List[str]]:
+    """Rejoin hard/soft-broken BEGIN/END fence lines for a known nonce.
+
+    Terminal soft-wraps are usually repaired by Herdr ``recent-unwrapped``.
+    Models and TUIs still emit real newlines mid-fence; those survive unwrap
+    and must be joined here before exact marker matching.
+    """
+
+    begin, end = _marker_targets(nonce)
+    markers = (begin, end)
+    out_norm: List[str] = []
+    out_raw: List[str] = []
+    index = 0
+    total = len(normalized_lines)
+    while index < total:
+        norm = normalized_lines[index]
+        raw = raw_lines[index]
+        if norm and any(marker.startswith(norm) and marker != norm for marker in markers):
+            cursor = index + 1
+            while cursor < total:
+                nxt = normalized_lines[cursor]
+                if nxt == "":
+                    break
+                candidate = norm + nxt
+                if any(
+                    marker == candidate or marker.startswith(candidate)
+                    for marker in markers
+                ):
+                    norm = candidate
+                    raw = raw + raw_lines[cursor]
+                    cursor += 1
+                    if norm in markers:
+                        break
+                    continue
+                break
+            out_norm.append(norm)
+            out_raw.append(raw)
+            index = cursor
+            continue
+        out_norm.append(norm)
+        out_raw.append(raw)
+        index += 1
+    return out_norm, out_raw
 
 
 def _extract_result_block(
     output: str, nonce: str
 ) -> Tuple[Optional[ExtractedReviewBlock], Optional[str], str]:
-    """Find one ordered nonce block while preserving its accepted raw span."""
+    """Find a nonce block, wrap-safe, last complete block wins.
 
-    begin = "BEGIN_REVIEW_RESULT {}".format(nonce)
-    end = "END_REVIEW_RESULT {}".format(nonce)
+    Preserves the accepted raw transcript span (including any hard wraps) so
+    cleanup digests remain exact byte matches against the live pane.
+    """
+
+    if not nonce or any(ch.isspace() for ch in nonce):
+        return None, "unusable_output", "invalid review nonce"
+
+    begin, end = _marker_targets(nonce)
     raw_lines = output.splitlines(keepends=True)
     normalized_lines = [
         _normalize_transcript_line(line.rstrip("\r\n")) for line in raw_lines
     ]
-    begin_indices = [index for index, line in enumerate(normalized_lines) if line == begin]
-    end_indices = [index for index, line in enumerate(normalized_lines) if line == end]
-    if len(begin_indices) != 1 or len(end_indices) != 1:
+    normalized_lines, raw_lines = _coalesce_wrapped_marker_lines(
+        normalized_lines, raw_lines, nonce
+    )
+    # A valid duplicate is a sequence of fully closed blocks. Nested, unmatched,
+    # or extra boundaries stay fail-closed: only then is choosing the last block
+    # safe from accepting a partially overwritten/stale transcript.
+    completed: List[Tuple[int, int]] = []
+    open_begin: Optional[int] = None
+    for index, line in enumerate(normalized_lines):
+        if line == begin:
+            if open_begin is not None:
+                return None, "unusable_output", "nested or unmatched nonce boundary"
+            open_begin = index
+        elif line == end:
+            if open_begin is None or index <= open_begin + 1:
+                return None, "unusable_output", "nested or unmatched nonce boundary"
+            completed.append((open_begin, index))
+            open_begin = None
+    if open_begin is not None or not completed:
         return None, "unusable_output", "missing or duplicate nonce boundary"
-    begin_index = begin_indices[0]
-    end_index = end_indices[0]
-    if end_index <= begin_index + 1:
-        return None, "unusable_output", "empty or reversed nonce boundary"
+
+    begin_index, end_index = completed[-1]
     return (
         ExtractedReviewBlock(
             normalized_lines=tuple(normalized_lines[begin_index : end_index + 1]),
@@ -343,6 +460,79 @@ def _extract_result_block(
         None,
         "",
     )
+
+
+def _structured_result_block(
+    payload: Mapping[str, Any], nonce: str, allowed_verdicts: Sequence[str]
+) -> Tuple[Optional[ExtractedReviewBlock], Optional[str], str]:
+    """Build a canonical block from a reviewer/coordinator result file."""
+
+    if str(payload.get("nonce", "")) != nonce:
+        return None, "unusable_output", "structured result nonce mismatch"
+    verdict = payload.get("verdict")
+    if not isinstance(verdict, str) or verdict not in allowed_verdicts:
+        return None, "unusable_output", "structured result has invalid workflow verdict"
+    body = payload.get("body", payload.get("review", ""))
+    if isinstance(body, list):
+        body_text = "\n".join(str(part) for part in body).strip()
+    else:
+        body_text = str(body or "").strip()
+    if not body_text:
+        return None, "unusable_output", "structured result body is empty"
+    canonical = (
+        "{}{}\n".format(_BEGIN_RESULT_PREFIX, nonce)
+        + body_text
+        + "\n"
+        + "VERDICT: {}\n".format(verdict)
+        + "{}{}\n".format(_END_RESULT_PREFIX, nonce)
+    )
+    block, failure_kind, detail = _extract_result_block(canonical, nonce)
+    if block is None:
+        return None, failure_kind, detail or "structured result could not be normalized"
+    return block, None, ""
+
+
+def load_structured_result_file(
+    path: Path, nonce: str, allowed_verdicts: Sequence[str]
+) -> Tuple[Optional[ExtractedReviewBlock], Optional[str], str]:
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        return None, "unusable_output", "structured result unreadable: {}".format(error)
+    if not isinstance(payload, dict):
+        return None, "unusable_output", "structured result must be a JSON object"
+    block, failure_kind, detail = _structured_result_block(payload, nonce, allowed_verdicts)
+    if block is None:
+        return None, failure_kind, detail
+    return (
+        ExtractedReviewBlock(
+            normalized_lines=block.normalized_lines,
+            raw_span=block.raw_span,
+            evidence_source="structured",
+            evidence_path=str(path.resolve()),
+        ),
+        None,
+        "",
+    )
+
+
+def _verdict_from_block(
+    block: ExtractedReviewBlock, allowed_verdicts: Sequence[str]
+) -> Tuple[Optional[str], Optional[str], str]:
+    body = [line for line in block.normalized_lines[1:-1] if line]
+    if len(body) < 2:
+        return None, "unusable_output", "empty review result"
+    verdict_line = body[-1]
+    if not verdict_line.startswith("VERDICT: "):
+        return (
+            None,
+            "unusable_output",
+            "verdict is not the final non-empty result line",
+        )
+    verdict = verdict_line[len("VERDICT: ") :]
+    if verdict not in allowed_verdicts:
+        return None, "unusable_output", "invalid workflow verdict"
+    return verdict, None, ""
 
 
 def _validate_result(
@@ -360,23 +550,25 @@ def _validate_result(
             None,
         )
 
+    if raw.structured_result_path:
+        structured_path = Path(raw.structured_result_path)
+        if structured_path.is_file():
+            block, failure_kind, detail = load_structured_result_file(
+                structured_path, nonce, allowed_verdicts
+            )
+            if block is not None:
+                verdict, failure_kind, detail = _verdict_from_block(block, allowed_verdicts)
+                if failure_kind is None:
+                    return verdict, None, "", block
+            # Fall through to transcript when the side-channel file is unusable so
+            # wrap-safe pane capture can still accept a valid fence.
+
     block, failure_kind, detail = _extract_result_block(raw.output, nonce)
     if block is None:
         return None, failure_kind, detail, None
-    body = [line for line in block.normalized_lines[1:-1] if line]
-    if len(body) < 2:
-        return None, "unusable_output", "empty review result", None
-    verdict_line = body[-1]
-    if not verdict_line.startswith("VERDICT: "):
-        return (
-            None,
-            "unusable_output",
-            "verdict is not the final non-empty result line",
-            None,
-        )
-    verdict = verdict_line[len("VERDICT: ") :]
-    if verdict not in allowed_verdicts:
-        return None, "unusable_output", "invalid workflow verdict", None
+    verdict, failure_kind, detail = _verdict_from_block(block, allowed_verdicts)
+    if failure_kind is not None:
+        return None, failure_kind, detail, None
     return verdict, None, "", block
 
 
@@ -473,6 +665,8 @@ def _wait_and_validate(
     outcome.result_digest = _digest(
         accepted_block.raw_span.encode("utf-8", "surrogateescape")
     )
+    outcome.result_evidence_source = accepted_block.evidence_source
+    outcome.result_evidence_path = accepted_block.evidence_path
     outcome.result_accepted_at = recorder.add("result_accepted", request.name, verdict or "")
     recorder.add("validation_complete", request.name, "accepted")
     return outcome
@@ -736,13 +930,27 @@ def cleanup_review_tabs(
     preflight_results = []
     if current_check is not None:
         for outcome in result.legs.values():
-            preflight_results.append(
-                bool(outcome.result_nonce)
-                and bool(outcome.result_digest)
-                and current_check(
-                    outcome.handle, outcome.result_nonce, outcome.result_digest
+            if not outcome.result_nonce or not outcome.result_digest:
+                preflight_results.append(False)
+                continue
+            # The extended evidence contract belongs to the production Herdr
+            # adapter. Existing benchmark/test adapters remain transcript-only.
+            if isinstance(adapter, HerdrReviewAdapter):
+                request = requests.get(outcome.name) if requests is not None else None
+                preflight_results.append(
+                    current_check(
+                        outcome.handle,
+                        outcome.result_nonce,
+                        outcome.result_digest,
+                        outcome.result_evidence_source,
+                        outcome.result_evidence_path,
+                        request.allowed_verdicts if request is not None else (outcome.verdict or "",),
+                    )
                 )
-            )
+            else:
+                preflight_results.append(
+                    current_check(outcome.handle, outcome.result_nonce, outcome.result_digest)
+                )
     if current_check is None or not all(preflight_results):
         result.events.append(
             ReviewEvent(
@@ -1031,7 +1239,29 @@ class HerdrReviewAdapter:
         self._pre_submit_sequences: Dict[str, int] = {}
         self._first_action_observed_at: Dict[str, float] = {}
         self._enter_recovery_attempted: Dict[str, bool] = {}
+        self._result_files: Dict[str, Path] = {}
         self._fingerprint_lock = threading.Lock()
+
+    def _result_dir(self) -> Path:
+        # Result files must never live in the candidate checkout: the complete
+        # fingerprint intentionally includes every untracked path there.
+        path = Path(tempfile.gettempdir()) / "ai-configs-review-transport"
+        path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            path.chmod(0o700)
+        except OSError:
+            pass
+        return path.resolve()
+
+    def _is_result_path(self, path: Path) -> bool:
+        try:
+            return path.resolve().parent == self._result_dir()
+        except OSError:
+            return False
+
+    def _result_path_for(self, leg_name: str, nonce: str) -> Path:
+        safe_leg = re.sub(r"[^a-z0-9_-]+", "-", leg_name.lower()).strip("-") or "leg"
+        return self._result_dir() / "{}-{}.json".format(safe_leg[:24], nonce)
 
     def _command(self, argv: Sequence[str], timeout: Optional[float] = None) -> CommandResult:
         return self.runner(argv, self.worktree, timeout)
@@ -1175,7 +1405,14 @@ class HerdrReviewAdapter:
             raise RuntimeError("reviewer target is already working: {}".format(leg.target))
         return leg
 
-    def _render_prompt(self, leg: HerdrLeg, prompt: str, nonce: str, fingerprint: str) -> str:
+    def _render_prompt(
+        self,
+        leg: HerdrLeg,
+        prompt: str,
+        nonce: str,
+        fingerprint: str,
+        result_path: Path,
+    ) -> str:
         allowed = ", ".join(leg.request.allowed_verdicts)
         return (
             prompt.rstrip()
@@ -1183,10 +1420,16 @@ class HerdrReviewAdapter:
             + "Candidate fingerprint: {}\n".format(fingerprint)
             + "Transaction nonce: {}\n".format(nonce)
             + "Allowed verdicts: {}\n".format(allowed)
+            + "Structured result file (preferred when you can write files): {}\n".format(
+                result_path
+            )
+            + "Write one JSON object to that path with keys nonce, verdict, and body "
+              "(body = non-empty review text). Also print a nonce-delimited transcript block.\n"
             + "Return a nonce-delimited block with non-empty review content. Start with the token "
-              "BEGIN_REVIEW_RESULT, one space, and the transaction nonce. End with the token "
-              "END_REVIEW_RESULT, one space, and the same nonce. Make VERDICT: <allowed-token> "
-              "the final non-empty line inside that block.\n"
+              "BEGIN_REVIEW_RESULT, one space, and the transaction nonce on one logical line "
+              "(do not insert newlines inside the marker or nonce). End with the token "
+              "END_REVIEW_RESULT, one space, and the same nonce on one logical line. "
+              "Make VERDICT: <allowed-token> the final non-empty line inside that block.\n"
         )
 
     def submit_prompt(
@@ -1194,7 +1437,14 @@ class HerdrReviewAdapter:
     ) -> PromptSubmission:
         self._first_action_observed_at.pop(handle.request.name, None)
         self._enter_recovery_attempted[handle.request.name] = False
-        rendered = self._render_prompt(handle, prompt, nonce, fingerprint)
+        result_path = self._result_path_for(handle.request.name, nonce)
+        if result_path.exists():
+            try:
+                result_path.unlink()
+            except OSError:
+                pass
+        self._result_files[handle.request.name] = result_path
+        rendered = self._render_prompt(handle, prompt, nonce, fingerprint, result_path)
         state = self._command(["herdr", "agent", "get", handle.target])
         snapshot = self._agent_snapshot(state)
         if snapshot is None:
@@ -1418,6 +1668,8 @@ class HerdrReviewAdapter:
         transcript = self._command(
             ["herdr", "agent", "read", handle.target, "--source", "recent-unwrapped", "--lines", "400", "--format", "text"]
         )
+        structured = self._result_files.get(handle.request.name)
+        structured_path = str(structured) if structured is not None else None
         if transcript.returncode != 0:
             return RawReviewResult(
                 "provider_error",
@@ -1426,6 +1678,7 @@ class HerdrReviewAdapter:
                 first_action_observed=True,
                 first_action_observed_at=first_action_observed_at,
                 detail=(transcript.stderr or transcript.stdout).strip(),
+                structured_result_path=structured_path,
             )
         return RawReviewResult(
             "settled",
@@ -1433,10 +1686,17 @@ class HerdrReviewAdapter:
             self.current_fingerprint(),
             first_action_observed=True,
             first_action_observed_at=first_action_observed_at,
+            structured_result_path=structured_path,
         )
 
     def cleanup_leg_is_current(
-        self, handle: HerdrLeg, result_nonce: str, result_digest: str
+        self,
+        handle: HerdrLeg,
+        result_nonce: str,
+        result_digest: str,
+        result_evidence_source: str,
+        result_evidence_path: Optional[str],
+        allowed_verdicts: Sequence[str],
     ) -> bool:
         state_result = self._command(["herdr", "agent", "get", handle.target])
         if state_result.returncode != 0 or self._state(state_result) not in ("idle", "done", "blocked"):
@@ -1445,12 +1705,26 @@ class HerdrReviewAdapter:
             return False
         if self._workspace_contains_tab(handle.workspace_id, handle.tab_id) is not True:
             return False
-        transcript = self._command(
-            ["herdr", "agent", "read", handle.target, "--source", "recent-unwrapped", "--lines", "400", "--format", "text"]
-        )
-        if transcript.returncode != 0 or not result_nonce or not result_digest:
+        if not result_nonce or not result_digest:
             return False
-        block, failure_kind, _ = _extract_result_block(transcript.stdout, result_nonce)
+        if result_evidence_source == "structured":
+            if not result_evidence_path:
+                return False
+            path = Path(result_evidence_path)
+            if not self._is_result_path(path):
+                return False
+            block, failure_kind, _ = load_structured_result_file(
+                path, result_nonce, allowed_verdicts
+            )
+        elif result_evidence_source == "transcript":
+            transcript = self._command(
+                ["herdr", "agent", "read", handle.target, "--source", "recent-unwrapped", "--lines", "400", "--format", "text"]
+            )
+            if transcript.returncode != 0:
+                return False
+            block, failure_kind, _ = _extract_result_block(transcript.stdout, result_nonce)
+        else:
+            return False
         if failure_kind is not None or block is None:
             return False
         current_digest = _digest(block.raw_span.encode("utf-8", "surrogateescape"))
@@ -1505,9 +1779,15 @@ def _load_run_request(
         workspace_id = item.get("workspace_id")
         if not isinstance(workspace_id, str) or not workspace_id.strip():
             raise ValueError("each reviewer.workspace_id must be a non-empty string")
+        # A target may be either a short agent name or an opaque Herdr pane ID.
+        # Name generation/validation is provided for launchers; this adapter
+        # controls reviewers that are already running and must preserve pane IDs.
+        target = str(item["target"])
+        if not target.strip():
+            raise ValueError("each reviewer.target must be a non-empty string")
         leg = HerdrLeg(
             request=request,
-            target=str(item["target"]),
+            target=target,
             tab_id=str(item["tab_id"]),
             workspace_id=workspace_id.strip(),
         )
@@ -1585,6 +1865,8 @@ def result_record(
                 "retried_unusable_output": outcome.retried_unusable_output,
                 "result_nonce": outcome.result_nonce,
                 "result_digest": outcome.result_digest,
+                "result_evidence_source": outcome.result_evidence_source,
+                "result_evidence_path": outcome.result_evidence_path,
             }
             for name, outcome in result.legs.items()
         },
@@ -1651,6 +1933,11 @@ def cleanup_request_file(
             or not leg["result_nonce"]
             or not isinstance(leg.get("result_digest"), str)
             or not leg["result_digest"]
+            or leg.get("result_evidence_source", "transcript") not in ("transcript", "structured")
+            or (
+                leg.get("result_evidence_source", "transcript") == "structured"
+                and (not isinstance(leg.get("result_evidence_path"), str) or not leg["result_evidence_path"])
+            )
         ):
             raise ValueError(
                 "cleanup receipt does not contain a clean verdict for every requested reviewer (pass-class required)"
@@ -1664,6 +1951,8 @@ def cleanup_request_file(
             validation_complete=True,
             result_nonce=receipt_legs[request.name]["result_nonce"],
             result_digest=receipt_legs[request.name]["result_digest"],
+            result_evidence_source=receipt_legs[request.name].get("result_evidence_source", "transcript"),
+            result_evidence_path=receipt_legs[request.name].get("result_evidence_path"),
         )
         for request in requests
     }
