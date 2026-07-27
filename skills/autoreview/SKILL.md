@@ -153,7 +153,7 @@ const review = Agent({
 
 - Before accepting a verdict, the parent must confirm the reviewer inspected the live candidate: same repo checkout (not a `/tmp/pi-agent-*` clean worktree), and when the parent packet listed dirty files (modified, staged, or untracked), the reviewer provenance must show non-empty `git status --short` covering those paths or otherwise prove they were read from the live tree.
 - If a reviewer result came from an isolated clean worktree while the candidate still had staged, unstaged, or untracked changes in scope, discard it as `REVIEW_INFRASTRUCTURE_FAILURE` and relaunch **without** isolation. Do not treat that result as PASS, FINDINGS_TO_RESOLVE, or cycle progress.
-- Require the reviewer to return a short provenance block: `cwd`, `HEAD`, `git status --short` (or `EMPTY`), and whether staged/unstaged changes were in the inspected tree.
+- Require the reviewer to return a short provenance block: `cwd`, `HEAD`, `git status --short` (or `EMPTY`), and whether staged/unstaged/untracked changes were in the inspected tree.
 
 Do not launch Codex or Claude Code as a separate review leg, and do not use Herdr as a required review transport. The reviewer is static inspection only: it must not edit files or run tests, builds, linters, typechecks, benchmarks, verification scripts, or other executable checks. The coordinating agent exclusively owns verification and fixes. If the configured reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user waives the gate or directs opening the PR regardless.
 
