@@ -30,6 +30,7 @@ const review = Agent({
   description: "Review plan with GPT",
   prompt: "Review the plan at $ARGUMENTS. Use the plan-readiness lens and the caller-supplied artifact/output contract. Treat HTML plan files as first-class plan inputs and do not convert them to Markdown. Add [REVIEW:GPT] comments only for blockers, materially risky gaps, or missing decisions required to execute the stated goal within the validated source scope, then provide a readiness summary.",
   run_in_background: true,
+  // Do NOT set isolation: "worktree" — clean HEAD snapshots miss live dirty plan edits.
 });
 
 get_subagent_result({ agent_id: review.agent_id ?? review.id, wait: true });

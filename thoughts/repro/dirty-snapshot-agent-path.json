@@ -1,0 +1,45 @@
+{
+  "rounds": [
+    {
+      "round": 1,
+      "isolated": {
+        "run": "1-isolated",
+        "cwd": "/private/var/folders/02/bf0y1x1n0m977x4wwqvy3sfr0000gn/T/pi-agent-e19ca0ed-2019-457-48623a10",
+        "head": "1aa56fd",
+        "marker_state": "COMMITTED_OLD",
+        "bug_line": "still-broken-on-purpose",
+        "status_short": "EMPTY"
+      },
+      "live": {
+        "run": "1-live",
+        "cwd": "/Users/anichols/.herdr/worktrees/ai-configs/fix-the-shit-reviewer-dirty-snapshot",
+        "head": "1aa56fd",
+        "marker_state": "DIRTY_FIXED_NEW",
+        "bug_line": "fixed-in-working-tree-only",
+        "status_short": "M thoughts/repro/dirty-snapshot-marker.txt; ?? thoughts/repro/dirty-snapshot-mechanical.json; ?? thoughts/repro/isolation-from-home.json"
+      }
+    },
+    {
+      "round": 2,
+      "isolated": {
+        "run": "2-isolated",
+        "cwd": "/private/var/folders/02/bf0y1x1n0m977x4wwqvy3sfr0000gn/T/pi-agent-64954ef8-cb76-45f-35298294",
+        "head": "1aa56fd",
+        "marker_state": "COMMITTED_OLD",
+        "bug_line": "still-broken-on-purpose",
+        "status_short": "EMPTY"
+      },
+      "live": {
+        "run": "2-live",
+        "cwd": "/Users/anichols/.herdr/worktrees/ai-configs/fix-the-shit-reviewer-dirty-snapshot",
+        "head": "1aa56fd",
+        "marker_state": "DIRTY_FIXED_NEW",
+        "bug_line": "fixed-in-working-tree-only",
+        "status_short": "M thoughts/repro/dirty-snapshot-marker.txt; ?? thoughts/repro/dirty-snapshot-mechanical.json; ?? thoughts/repro/isolation-from-home.json"
+      }
+    }
+  ],
+  "isolated_all_old": true,
+  "live_all_new": true,
+  "repro_confirmed": true
+}

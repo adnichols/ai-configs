@@ -1,0 +1,103 @@
+{
+  "fix": "reviewer-dirty-snapshot live-worktree launch contract",
+  "pre_fix_baseline": {
+    "mechanical_isolation_hits": "3/3 COMMITTED_OLD",
+    "agent_isolation_hits": "2/2 COMMITTED_OLD",
+    "agent_live_hits": "2/2 DIRTY_FIXED_NEW",
+    "artifacts": [
+      "thoughts/repro/dirty-snapshot-mechanical.json",
+      "thoughts/repro/dirty-snapshot-agent-path.json"
+    ]
+  },
+  "fix_verify_live_runs": [
+    {
+      "run": 1,
+      "cwd": "/Users/anichols/.herdr/worktrees/ai-configs/fix-the-shit-reviewer-dirty-snapshot",
+      "head": "1aa56fd",
+      "marker_state": "DIRTY_FIXED_NEW",
+      "bug_line": "fixed-in-working-tree-only",
+      "inspected_tree": "live-worktree",
+      "verdict": "PASS_LIVE_DIRTY"
+    },
+    {
+      "run": 2,
+      "cwd": "/Users/anichols/.herdr/worktrees/ai-configs/fix-the-shit-reviewer-dirty-snapshot",
+      "head": "1aa56fd",
+      "marker_state": "DIRTY_FIXED_NEW",
+      "bug_line": "fixed-in-working-tree-only",
+      "inspected_tree": "live-worktree",
+      "verdict": "PASS_LIVE_DIRTY"
+    },
+    {
+      "run": 3,
+      "cwd": "/Users/anichols/.herdr/worktrees/ai-configs/fix-the-shit-reviewer-dirty-snapshot",
+      "head": "1aa56fd",
+      "marker_state": "DIRTY_FIXED_NEW",
+      "bug_line": "fixed-in-working-tree-only",
+      "inspected_tree": "live-worktree",
+      "verdict": "PASS_LIVE_DIRTY"
+    },
+    {
+      "run": 4,
+      "cwd": "/Users/anichols/.herdr/worktrees/ai-configs/fix-the-shit-reviewer-dirty-snapshot",
+      "head": "1aa56fd",
+      "marker_state": "DIRTY_FIXED_NEW",
+      "bug_line": "fixed-in-working-tree-only",
+      "inspected_tree": "live-worktree",
+      "verdict": "PASS_LIVE_DIRTY"
+    },
+    {
+      "run": 5,
+      "cwd": "/Users/anichols/.herdr/worktrees/ai-configs/fix-the-shit-reviewer-dirty-snapshot",
+      "head": "1aa56fd",
+      "marker_state": "DIRTY_FIXED_NEW",
+      "bug_line": "fixed-in-working-tree-only",
+      "inspected_tree": "live-worktree",
+      "verdict": "PASS_LIVE_DIRTY"
+    }
+  ],
+  "isolation_control_still_broken_if_used": {
+    "run": "fix-verify-isolation-control",
+    "marker_state": "COMMITTED_OLD",
+    "bug_line": "still-broken-on-purpose",
+    "status_short": "EMPTY",
+    "inspected_tree": "isolated-clean",
+    "verdict": "REVIEW_INFRASTRUCTURE_FAILURE",
+    "note": "Confirms why the launch contract bans isolation; parent must discard such results."
+  },
+  "live_pass_count": 5,
+  "live_required": 5,
+  "live_all_passed": true,
+  "skill_contract_files": {
+    "skills/autoreview/SKILL.md": {
+      "bans_isolation": true
+    },
+    "skills/run-plan/SKILL.md": {
+      "bans_isolation": true
+    },
+    "skills/reviewed-html-plan/SKILL.md": {
+      "bans_isolation": true
+    },
+    "_pi/agents/reviewer.md": {
+      "bans_isolation": true
+    },
+    "_pi/prompts/review:plan.md": {
+      "bans_isolation": true
+    },
+    "_pi/prompts/review:plan-adversarial.md": {
+      "bans_isolation": true
+    },
+    "_pi/prompts/review:prd.md": {
+      "bans_isolation": true
+    },
+    "_pi/prompts/prd:clarify-round.md": {
+      "bans_isolation": true
+    }
+  },
+  "all_contract_files_updated": true,
+  "installed_sync": {
+    "autoreview_skill": true,
+    "reviewer_agent": true
+  },
+  "fix_confirmed": true
+}

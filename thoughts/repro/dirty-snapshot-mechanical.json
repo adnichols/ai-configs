@@ -1,0 +1,39 @@
+{
+  "mechanical_isolation_repro": [
+    {
+      "run": 1,
+      "head": "1aa56fd3e8f3",
+      "worktree": "/var/folders/02/bf0y1x1n0m977x4wwqvy3sfr0000gn/T/pi-agent-repro-12dfe57f",
+      "live": "MARKER_STATE=DIRTY_FIXED_NEW",
+      "isolated": "MARKER_STATE=COMMITTED_OLD",
+      "mismatch": true,
+      "live_has_fix": true,
+      "isolated_has_old": true,
+      "repro_hit": true
+    },
+    {
+      "run": 2,
+      "head": "1aa56fd3e8f3",
+      "worktree": "/var/folders/02/bf0y1x1n0m977x4wwqvy3sfr0000gn/T/pi-agent-repro-95d3b5ff",
+      "live": "MARKER_STATE=DIRTY_FIXED_NEW",
+      "isolated": "MARKER_STATE=COMMITTED_OLD",
+      "mismatch": true,
+      "live_has_fix": true,
+      "isolated_has_old": true,
+      "repro_hit": true
+    },
+    {
+      "run": 3,
+      "head": "1aa56fd3e8f3",
+      "worktree": "/var/folders/02/bf0y1x1n0m977x4wwqvy3sfr0000gn/T/pi-agent-repro-4884ddf0",
+      "live": "MARKER_STATE=DIRTY_FIXED_NEW",
+      "isolated": "MARKER_STATE=COMMITTED_OLD",
+      "mismatch": true,
+      "live_has_fix": true,
+      "isolated_has_old": true,
+      "repro_hit": true
+    }
+  ],
+  "all_hit": true,
+  "hits": 3
+}

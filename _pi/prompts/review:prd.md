@@ -138,6 +138,7 @@ const launched = reviewers.map((reviewer) =>
     description: reviewer.description,
     prompt: `Review the PRD at ${prd_path}. Use this distinct review lens: ${reviewer.lens}. Follow the shared reviewer authority and materiality rules. Respect selected functional-spec paths and unchanged constraints as hard scope boundaries. For docs-only PRDs, only flag materially misleading, contradictory, or insufficient guidance for the stated operator path. Do not invent broader product changes or implementation-detail requirements unless the PRD changes those behaviors. Write findings only to ${reviewer.file}. Do not edit the PRD. End with one of: no issues / needs changes / blocked.`,
     run_in_background: true,
+    // Do NOT set isolation: "worktree" — review the live worktree only.
   }),
 );
 

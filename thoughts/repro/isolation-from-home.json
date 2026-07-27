@@ -1,0 +1,5 @@
+{
+  "cwd": "/Users/anichols",
+  "isolation_from_home": "failed_as_expected",
+  "detail": "fatal: not a git repository (or any of the parent directories): .git\n"
+}
