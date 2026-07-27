@@ -197,7 +197,6 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@tmustier/pi-files-widget"
   "npm:@tmustier/pi-raw-paste"
   "npm:@pi-kaush/pi-inline-skill-identifier"
-  "npm:@howaboua/pi-vent"
   "npm:@howaboua/pi-explore-subagents"
   "npm:pi-service-tier"
 )

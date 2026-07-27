@@ -15,7 +15,7 @@ Repo-owned default Pi/Codex shared skills live in the repo-level `skills/` tree,
 
 These resources are installed by `install.sh` to Pi's global agent directory. There are three distinct Pi installation surfaces:
 
-- repo-managed extensions: copied from this repo into `~/.pi/agent/extensions/`
+- repo-managed extensions: copied from this repo into `~/.pi/agent/extensions/`, including `vent.ts`, which writes the shared feedback log to `~/.pi/VENT.md`
 - repo-managed model entries: merged from `_pi/models.json` into `~/.pi/agent/models.json` without replacing local API keys
 - repo-managed task defaults: copied from `_pi/tasks-config.json` to `~/.pi/agent/tasks-config.json`
 - package-managed Pi installs: registered via `pi install` / `pi update` and visible in `pi list`
@@ -200,7 +200,6 @@ npm-managed packages:
 - `@tmustier/pi-files-widget`
 - `@tmustier/pi-raw-paste`
 - `@pi-kaush/pi-inline-skill-identifier`
-- `@howaboua/pi-vent`
 - `@howaboua/pi-explore-subagents`
 - `pi-service-tier` — service-tier controls, patched during installation for CLIProxyAPI's `openai-responses` Codex route
 
