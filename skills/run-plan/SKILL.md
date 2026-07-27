@@ -538,6 +538,14 @@ Use this shape for the active-harness reviewer. Include the exact risk question 
 
 ```text
 Read-only implementation review. Do not edit files.
+Do not run or invoke tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. Inspect source and caller-supplied verification evidence only; the coordinator owns execution.
+
+Provenance (required at the top of every successful or incomplete review):
+- CWD: <absolute cwd>
+- HEAD: <short sha>
+- STATUS_SHORT: <git status --short one line, semicolon-separated, or EMPTY>
+- INSPECTED_TREE: <live-worktree | isolated-clean>
+If your cwd is a temporary isolated git worktree (for example under /tmp/pi-agent-*) or STATUS_SHORT is EMPTY while this packet lists dirty staged/unstaged/untracked paths, return `VERDICT: REVIEW_INFRASTRUCTURE_FAILURE`. Do not report source findings against a clean HEAD snapshot; the coordinator must discard that result and relaunch without isolation.
 
 Plan: <plan path>
 Base/comparison: <base branch or range>
@@ -583,9 +591,8 @@ Return one verdict:
 - VERDICT: PASS (with a `Not examined:` line)
 - VERDICT: FINDINGS_TO_RESOLVE
 - VERDICT: BLOCKED_BY_QUESTION
-
-This additional verdict is allowed for every reviewer when the assigned scope cannot be completed:
 - VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
+- VERDICT: REVIEW_INFRASTRUCTURE_FAILURE
 
 For every reviewer slice, use bounded scope and bounded exploration. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Reserve enough time/context for a final response, and do not broaden into unrelated whole-product review. If incomplete, return `REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 

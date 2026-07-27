@@ -1,7 +1,9 @@
 # Dirty Snapshot Agent Path Repro
 
-Parent HEAD: `1aa56fd`  
-Parent working tree marker: `DIRTY_FIXED_NEW` / `fixed-in-working-tree-only`  
+> Historical, redacted coordinator record. The temporary marker fixture and raw subagent transcripts were not retained, so the two recorded rounds below are not independently auditable from this file alone.
+
+Parent HEAD: `1aa56fd`
+Parent working tree marker: `DIRTY_FIXED_NEW` / `fixed-in-working-tree-only`
 Parent committed marker: `COMMITTED_OLD` / `still-broken-on-purpose`
 
 ## Round 1
@@ -18,12 +20,11 @@ Parent committed marker: `COMMITTED_OLD` / `still-broken-on-purpose`
 | isolated (`isolation: "worktree"`) | COMMITTED_OLD | still-broken-on-purpose | EMPTY |
 | live (no isolation) | DIRTY_FIXED_NEW | fixed-in-working-tree-only | dirty present |
 
-## Result
+## Recorded result
 
-- `isolated_all_old`: true (2/2)
-- `live_all_new`: true (2/2)
-- `repro_confirmed`: true
+- isolated outcomes recorded `COMMITTED_OLD` (2/2)
+- live outcomes recorded `DIRTY_FIXED_NEW` (2/2)
 
-`isolation: "worktree"` reviewer agents see committed HEAD only, not uncommitted dirty fixes. Live reviewers in the parent worktree see the dirty working-tree content.
+The recorded observation is that `isolation: "worktree"` reviewer agents saw committed HEAD only, while live reviewers in the parent worktree saw the dirty working-tree content.
 
 Machine-local absolute paths are redacted in the companion JSON (`cwd` is `<repo-root>` or `<tmpdir>/pi-agent-*`).

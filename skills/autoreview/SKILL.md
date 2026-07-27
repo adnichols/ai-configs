@@ -191,8 +191,8 @@ Provenance (required at the top of your reply for every successful or incomplete
 - CWD: <absolute cwd>
 - HEAD: <short sha>
 - STATUS_SHORT: <git status --short one line, semicolon-separated, or EMPTY>
-- INSPECTED_TREE: live-worktree
-Treat any non-empty `git status --short` output as dirty, including untracked `??` paths. If your cwd is a temporary isolated git worktree (for example under /tmp/pi-agent-*) or STATUS_SHORT is EMPTY while the packet listed dirty staged/unstaged/untracked paths, stop with VERDICT: REVIEW_INFRASTRUCTURE_FAILURE and explain that you are not inspecting the live dirty candidate. Do not report findings against a clean HEAD snapshot when dirty changes were in scope.
+- INSPECTED_TREE: <live-worktree | isolated-clean>
+Treat any non-empty `git status --short` output as dirty, including untracked `??` paths. If your cwd is a temporary isolated git worktree (for example under /tmp/pi-agent-*) or STATUS_SHORT is EMPTY while the packet listed dirty staged/unstaged/untracked paths, set `INSPECTED_TREE: isolated-clean`, stop with VERDICT: REVIEW_INFRASTRUCTURE_FAILURE, and explain that you are not inspecting the live dirty candidate. Do not report findings against a clean HEAD snapshot when dirty changes were in scope.
 
 Completion contract for every reviewer: stay within the assigned scope and review budget. Use at most the tool budget in the review instructions; do not broaden into unrelated whole-product review. Return a final verdict even when coverage is incomplete. If the assigned scope is incomplete, return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 

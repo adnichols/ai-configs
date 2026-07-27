@@ -1,15 +1,16 @@
 {
   "fix": "reviewer-dirty-snapshot live-worktree launch contract",
-  "pre_fix_baseline": {
-    "mechanical_isolation_hits": "3/3 COMMITTED_OLD",
-    "agent_isolation_hits": "2/2 COMMITTED_OLD",
-    "agent_live_hits": "2/2 DIRTY_FIXED_NEW",
+  "evidence_status": "Coordinator-recorded and redacted observations. Raw subagent transcripts and the temporary marker fixture were not retained in this repository, so the historical counts below are not independently auditable from this file alone.",
+  "pre_fix_recorded_observations": {
+    "mechanical_isolation_hits": "3/3 recorded COMMITTED_OLD",
+    "agent_isolation_hits": "2/2 recorded COMMITTED_OLD",
+    "agent_live_hits": "2/2 recorded DIRTY_FIXED_NEW",
     "artifacts": [
       "thoughts/validation/dirty-snapshot-mechanical.json",
       "thoughts/validation/dirty-snapshot-agent-path.json"
     ]
   },
-  "fix_verify_live_runs": [
+  "recorded_live_review_observations": [
     {
       "run": 1,
       "cwd": "<repo-root>",
@@ -86,7 +87,7 @@
       "verdict": "PASS_LIVE_DIRTY"
     }
   ],
-  "isolation_control_still_broken_if_used": {
+  "isolation_control_recorded_observation": {
     "run": "fix-verify-isolation-control",
     "cwd": "<tmpdir>/pi-agent-*",
     "cwd_kind": "isolated-temp-worktree",
@@ -95,11 +96,11 @@
     "status_short": "EMPTY",
     "inspected_tree": "isolated-clean",
     "verdict": "REVIEW_INFRASTRUCTURE_FAILURE",
-    "note": "Confirms why the launch contract bans isolation; parent must discard such results."
+    "note": "Recorded observation supporting the launch-contract rationale; the parent must discard such results."
   },
-  "live_pass_count": 5,
-  "live_required": 5,
-  "live_all_passed": true,
+  "recorded_live_pass_count": 5,
+  "recorded_live_required": 5,
+  "recorded_live_all_passed": true,
   "skill_contract_files": {
     "skills/autoreview/SKILL.md": {
       "bans_isolation": true
@@ -131,5 +132,5 @@
     "autoreview_skill": true,
     "reviewer_agent": true
   },
-  "fix_confirmed": true
+  "policy_fix_confirmed_by_current_source_inspection": true
 }

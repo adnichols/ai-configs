@@ -1,5 +1,6 @@
 {
-  "rounds": [
+  "evidence_status": "Coordinator-recorded and redacted observations. The temporary marker fixture and raw subagent transcripts were not retained, so these historical outcomes are not independently auditable from this file alone.",
+  "recorded_rounds": [
     {
       "round": 1,
       "isolated": {
@@ -53,7 +54,6 @@
       }
     }
   ],
-  "isolated_all_old": true,
-  "live_all_new": true,
-  "repro_confirmed": true
+  "recorded_isolated_all_old": true,
+  "recorded_live_all_new": true
 }

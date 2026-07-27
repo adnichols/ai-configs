@@ -1,5 +1,6 @@
 {
-  "mechanical_isolation_repro": [
+  "evidence_status": "Coordinator-recorded and redacted observations. The temporary fixture and raw command output were not retained, so these historical counts are not independently auditable from this file alone.",
+  "recorded_mechanical_isolation_repro": [
     {
       "run": 1,
       "head": "1aa56fd3e8f3",
@@ -9,7 +10,7 @@
       "mismatch": true,
       "live_has_fix": true,
       "isolated_has_old": true,
-      "repro_hit": true
+      "recorded_repro_hit": true
     },
     {
       "run": 2,
@@ -20,7 +21,7 @@
       "mismatch": true,
       "live_has_fix": true,
       "isolated_has_old": true,
-      "repro_hit": true
+      "recorded_repro_hit": true
     },
     {
       "run": 3,
@@ -31,9 +32,9 @@
       "mismatch": true,
       "live_has_fix": true,
       "isolated_has_old": true,
-      "repro_hit": true
+      "recorded_repro_hit": true
     }
   ],
-  "all_hit": true,
-  "hits": 3
+  "recorded_all_hit": true,
+  "recorded_hits": 3
 }
