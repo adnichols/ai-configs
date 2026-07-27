@@ -66,7 +66,11 @@ VERDICT: <workflow-token>
 END_REVIEW_RESULT <nonce>
 ```
 
-Herdr state waits are not turn-ID waits, and terminal reads are snapshots rather than a dedicated final-message API. The nonce and boundaries prevent a stale prior result or startup text from being accepted as the current review. The untracked manifest is required because porcelain status does not detect content changes to an already-untracked file. If prompt submission stalls and the complete prompt is visibly present but awaiting Enter, send one Enter and switch to `herdr agent wait`; otherwise diagnose rather than sending blind input.
+Herdr state waits are not turn-ID waits, and terminal reads are snapshots rather than a dedicated final-message API. The nonce and boundaries prevent a stale prior result or startup text from being accepted as the current review.
+
+Transport parsing is wrap-safe and last-complete-block-wins: hard or soft line breaks inside a known `BEGIN_REVIEW_RESULT <nonce>` / `END_REVIEW_RESULT <nonce>` fence are rejoined before matching, and if the reviewer emits more than one sequential well-formed block the latest block is accepted. Nested, unmatched, or extra same-nonce boundaries remain invalid. When the reviewer can write files, an OS-temporary structured JSON side channel (`nonce`, `verdict`, `body`) is preferred and falls back to the transcript fence if absent. It is deliberately outside the candidate checkout so its transport-owned writes cannot alter the full candidate fingerprint; cleanup revalidates and digests the same accepted sidecar. Herdr agent targets can be opaque pane IDs; launchers that use names must satisfy Herdr's 1-32 character name rule (`^[a-z][a-z0-9_-]{0,31}$`) and should use short generated names rather than long descriptive labels.
+
+The untracked manifest is required because porcelain status does not detect content changes to an already-untracked file. If prompt submission stalls and the complete prompt is visibly present but awaiting Enter, send one Enter and switch to `herdr agent wait`; otherwise diagnose rather than sending blind input.
 
 ## Failure diagnosis
 

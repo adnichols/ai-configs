@@ -27,14 +27,19 @@ from scripts.review_orchestration import (
     candidate_fingerprint,
     cleanup_request_file,
     cleanup_review_tabs,
+    is_valid_herdr_agent_name,
+    load_structured_result_file,
     main,
     orchestrate_reviews,
     result_record,
     run_request_file,
+    short_herdr_agent_name,
     subprocess_command_runner,
+    validate_herdr_agent_name,
     _extract_result_block,
     _load_run_request,
     _parse_result,
+    _validate_result,
 )
 
 
@@ -150,10 +155,26 @@ class FakeAdapter:
             return RawReviewResult("timeout", "", fingerprint)
         raise AssertionError(result)
 
-    def cleanup_leg_is_current(self, handle, result_nonce, result_digest):
+    def cleanup_leg_is_current(
+        self,
+        handle,
+        result_nonce,
+        result_digest,
+        result_evidence_source="transcript",
+        result_evidence_path=None,
+        allowed_verdicts=(),
+    ):
         with self._lock:
             self.operations.append(
-                ("cleanup_check", handle, result_nonce, result_digest)
+                (
+                    "cleanup_check",
+                    handle,
+                    result_nonce,
+                    result_digest,
+                    result_evidence_source,
+                    result_evidence_path,
+                    tuple(allowed_verdicts),
+                )
             )
         return bool(result_nonce and result_digest)
 
@@ -266,9 +287,9 @@ class ReviewOrchestrationTests(unittest.TestCase):
         invalid = (
             "? BEGIN_REVIEW_RESULT nonce-1414\nreview\nVERDICT: CLEAN_FOR_PR\n? END_REVIEW_RESULT nonce-1414\n",
             "prefix prose BEGIN_REVIEW_RESULT nonce-1414\nreview\nVERDICT: CLEAN_FOR_PR\nEND_REVIEW_RESULT nonce-1414\n",
-            "BEGIN_REVIEW_RESULT nonce-1414\nBEGIN_REVIEW_RESULT nonce-1414\nreview\nVERDICT: CLEAN_FOR_PR\nEND_REVIEW_RESULT nonce-1414\n",
             "BEGIN_REVIEW_RESULT nonce-1414\nVERDICT: CLEAN_FOR_PR\nsubstantive text after verdict\nEND_REVIEW_RESULT nonce-1414\n",
             "BEGIN_REVIEW_RESULT nonce-1414\nVERDICT: CLEAN_FOR_PR\nEND_REVIEW_RESULT nonce-1414\n",
+            "BEGIN_REVIEW_RESULT other-nonce\nreview\nVERDICT: CLEAN_FOR_PR\nEND_REVIEW_RESULT other-nonce\n",
         )
         for transcript in invalid:
             with self.subTest(transcript=transcript):
@@ -279,6 +300,139 @@ class ReviewOrchestrationTests(unittest.TestCase):
                 )
                 self.assertIsNone(verdict)
                 self.assertEqual("unusable_output", failure)
+
+    def test_wrap_broken_production_nonce_fences_parse(self):
+        nonce = "2f29f0886990c29978747133f94ce4f5"
+        hard_wrap = (
+            f"• BEGIN_REVIEW_RESULT {nonce[:8]}\n"
+            f"{nonce[8:]}\n"
+            "• Scope checked hard wrap\n"
+            "• No findings\n"
+            "• VERDICT: CLEAN_FOR_PR\n"
+            f"• END_REVIEW_RESULT {nonce[:8]}\n"
+            f"{nonce[8:]}\n"
+        )
+        soft_like = (
+            f"• BEGIN_REVIEW_RESULT {nonce[:20]}\n"
+            f"{nonce[20:]}\n"
+            "• Scope checked\n"
+            "• VERDICT: CLEAN_FOR_PR\n"
+            f"• END_REVIEW_RESULT {nonce[:18]}\n"
+            f"{nonce[18:]}\n"
+        )
+        for transcript in (hard_wrap, soft_like):
+            with self.subTest(transcript=transcript[:40]):
+                verdict, failure, detail = _parse_result(
+                    RawReviewResult("settled", transcript, "candidate-v1"),
+                    nonce,
+                    VERDICTS,
+                )
+                self.assertEqual("CLEAN_FOR_PR", verdict)
+                self.assertIsNone(failure)
+                self.assertEqual("", detail)
+
+    def test_duplicate_nonce_blocks_accept_last_complete_block(self):
+        nonce = "a8e85687c0ba93a378f4e893e4160823"
+        first = (
+            f"BEGIN_REVIEW_RESULT {nonce}\n"
+            "first body should be ignored\n"
+            "VERDICT: FINDINGS_TO_RESOLVE\n"
+            f"END_REVIEW_RESULT {nonce}\n"
+        )
+        second = (
+            f"• BEGIN_REVIEW_RESULT {nonce}\n"
+            "• last body wins\n"
+            "• VERDICT: CLEAN_FOR_PR\n"
+            f"• END_REVIEW_RESULT {nonce}\n"
+        )
+        verdict, failure, detail = _parse_result(
+            RawReviewResult("settled", first + second, "candidate-v1"),
+            nonce,
+            VERDICTS,
+        )
+        self.assertEqual("CLEAN_FOR_PR", verdict)
+        self.assertIsNone(failure)
+        self.assertEqual("", detail)
+        block, block_failure, _ = _extract_result_block(first + second, nonce)
+        self.assertIsNone(block_failure)
+        self.assertIsNotNone(block)
+        self.assertIn("last body wins", "\n".join(block.normalized_lines))
+        self.assertNotIn("first body should be ignored", "\n".join(block.normalized_lines))
+
+    def test_nested_and_unmatched_same_nonce_fences_remain_fail_closed(self):
+        nonce = "a8e85687c0ba93a378f4e893e4160823"
+        nested = (
+            f"BEGIN_REVIEW_RESULT {nonce}\n"
+            f"BEGIN_REVIEW_RESULT {nonce}\n"
+            "body\n"
+            "VERDICT: CLEAN_FOR_PR\n"
+            f"END_REVIEW_RESULT {nonce}\n"
+        )
+        extra_end = (
+            f"END_REVIEW_RESULT {nonce}\n"
+            f"BEGIN_REVIEW_RESULT {nonce}\n"
+            "body\n"
+            "VERDICT: CLEAN_FOR_PR\n"
+            f"END_REVIEW_RESULT {nonce}\n"
+        )
+        for transcript in (nested, extra_end):
+            with self.subTest(transcript=transcript[:40]):
+                verdict, failure, _ = _parse_result(
+                    RawReviewResult("settled", transcript, "candidate-v1"),
+                    nonce,
+                    VERDICTS,
+                )
+                self.assertIsNone(verdict)
+                self.assertEqual("unusable_output", failure)
+
+    def test_structured_result_file_preferred_over_broken_transcript(self):
+        nonce = "f" * 32
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "result.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "nonce": nonce,
+                        "verdict": "CLEAN_FOR_PR",
+                        "body": "structured body evidence",
+                    }
+                )
+            )
+            broken_transcript = "no usable fence here\n"
+            verdict, failure, detail, block = _validate_result(
+                RawReviewResult(
+                    "settled",
+                    broken_transcript,
+                    "candidate-v1",
+                    structured_result_path=str(path),
+                ),
+                nonce,
+                VERDICTS,
+            )
+            self.assertEqual("CLEAN_FOR_PR", verdict)
+            self.assertIsNone(failure)
+            self.assertEqual("", detail)
+            self.assertIsNotNone(block)
+            self.assertIn("structured body evidence", "\n".join(block.normalized_lines))
+
+            loaded, load_failure, _ = load_structured_result_file(path, nonce, VERDICTS)
+            self.assertIsNone(load_failure)
+            self.assertIsNotNone(loaded)
+
+    def test_herdr_agent_name_rules_and_short_generator(self):
+        self.assertTrue(is_valid_herdr_agent_name("rvw-cdx-abc123"))
+        self.assertTrue(is_valid_herdr_agent_name("a" + ("x" * 31)))
+        self.assertFalse(is_valid_herdr_agent_name("a" + ("x" * 32)))
+        self.assertFalse(is_valid_herdr_agent_name("ReviewClaude"))
+        self.assertFalse(is_valid_herdr_agent_name("1bad"))
+        with self.assertRaises(ValueError):
+            validate_herdr_agent_name("a" + ("x" * 32))
+        with self.assertRaises(ValueError):
+            validate_herdr_agent_name("ReviewClaude")
+        generated = short_herdr_agent_name("codex", salt="deadbeef")
+        self.assertTrue(is_valid_herdr_agent_name(generated))
+        self.assertLessEqual(len(generated), 32)
+        self.assertTrue(generated.startswith("rvw-codex-"))
 
     def test_result_digest_is_bound_to_exact_raw_result_block_bytes(self):
         raw_block = (
@@ -762,6 +916,8 @@ class FakeHerdrRunner:
         self.success_stall_target = None
         self.wait_intervals = {}
         self.transcript_overrides = {}
+        self.structured_results = {}
+        self.worktree_mutation_path = None
         self.verdicts = {
             "codex-target": "CLEAN_FOR_PR",
             "claude-target": "CLEAN_FOR_PR",
@@ -803,6 +959,19 @@ class FakeHerdrRunner:
             self.prompts[target] = prompt
             match = re.search(r"Transaction nonce: ([0-9a-f]+)", prompt)
             self.nonces[target] = match.group(1)
+            structured_match = re.search(
+                r"Structured result file \(preferred when you can write files\): (.+)", prompt
+            )
+            if target in self.structured_results:
+                Path(structured_match.group(1)).write_text(
+                    json.dumps({
+                        "nonce": self.nonces[target],
+                        "verdict": self.structured_results[target]["verdict"],
+                        "body": self.structured_results[target]["body"],
+                    })
+                )
+            if self.worktree_mutation_path is not None:
+                self.worktree_mutation_path.write_text("candidate changed\n")
             if target == self.stall_target:
                 return CommandResult(1, "", "agent_prompt_stalled")
             if target != self.success_stall_target:
@@ -1733,6 +1902,74 @@ class ProductionAdapterTests(unittest.TestCase):
             self.assertTrue(cleanup["cleanup_complete"])
             self.assertEqual({"tab-codex", "tab-claude"}, runner.closed_tabs)
 
+    def test_structured_result_outside_worktree_preserves_fingerprint_and_cleanup(self):
+        with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            runner = FakeHerdrRunner()
+            runner.structured_results = {
+                "codex-target": {"verdict": "CLEAN_FOR_PR", "body": "codex sidecar"},
+                "claude-target": {"verdict": "CLEAN_FOR_PR", "body": "claude sidecar"},
+            }
+            runner.transcript_overrides = {
+                "codex-target": "broken transcript\n",
+                "claude-target": "broken transcript\n",
+            }
+            request_path = write_run_request(root, repo)
+            result, record = run_request_file(request_path, runner=runner)
+
+            self.assertTrue(result.clean)
+            self.assertEqual("CLEAN_FOR_PR", result.status)
+            for leg in record["legs"].values():
+                self.assertEqual("structured", leg["result_evidence_source"])
+                self.assertTrue(leg["result_evidence_path"])
+                self.assertNotIn(str(repo), leg["result_evidence_path"])
+
+            receipt = root / "receipt.json"
+            receipt.write_text(json.dumps(record))
+            cleanup = cleanup_request_file(request_path, receipt, True, runner=runner)
+            self.assertTrue(cleanup["cleanup_complete"])
+            self.assertEqual({"tab-codex", "tab-claude"}, runner.closed_tabs)
+
+    def test_structured_cleanup_rejects_tampered_sidecar(self):
+        with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            runner = FakeHerdrRunner()
+            runner.structured_results = {
+                "codex-target": {"verdict": "CLEAN_FOR_PR", "body": "codex sidecar"},
+                "claude-target": {"verdict": "CLEAN_FOR_PR", "body": "claude sidecar"},
+            }
+            runner.transcript_overrides = {
+                "codex-target": "broken transcript\n",
+                "claude-target": "broken transcript\n",
+            }
+            request_path = write_run_request(root, repo)
+            _, record = run_request_file(request_path, runner=runner)
+            Path(record["legs"]["codex"]["result_evidence_path"]).write_text(
+                json.dumps({
+                    "nonce": record["legs"]["codex"]["result_nonce"],
+                    "verdict": "CLEAN_FOR_PR",
+                    "body": "tampered body",
+                })
+            )
+            receipt = root / "receipt.json"
+            receipt.write_text(json.dumps(record))
+            cleanup = cleanup_request_file(request_path, receipt, True, runner=runner)
+            self.assertFalse(cleanup["cleanup_complete"])
+            self.assertEqual(set(), runner.closed_tabs)
+
+    def test_non_transport_untracked_mutation_remains_stale(self):
+        with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            runner = FakeHerdrRunner()
+            runner.worktree_mutation_path = repo / "candidate-change.txt"
+            request_path = write_run_request(root, repo)
+            result, _ = run_request_file(request_path, runner=runner)
+            self.assertFalse(result.clean)
+            self.assertEqual(
+                {"stale_fingerprint"},
+                {leg.failure_kind for leg in result.legs.values()},
+            )
+
     def test_cleanup_requires_explicit_artifact_confirmation_and_clean_receipt(self):
         with TemporaryGitRepository() as repo, tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -1793,8 +2030,12 @@ class ProductionAdapterTests(unittest.TestCase):
                 "• " + line for line in bounded(nonce, "CLEAN_FOR_PR").splitlines(keepends=True)
             ),
             "line-ending": lambda nonce: bounded(nonce, "CLEAN_FOR_PR").replace("\n", "\r\n"),
-            "duplicate": lambda nonce: bounded(nonce, "CLEAN_FOR_PR") * 2,
             "missing": lambda nonce: "no result block\n",
+            "truncated-fence": lambda nonce: (
+                f"BEGIN_REVIEW_RESULT {nonce[:8]}\n"
+                # Intentionally drop the remainder and end marker.
+                "Scope checked\nVERDICT: CLEAN_FOR_PR\n"
+            ),
             "wrong-nonce": lambda nonce: bounded("other-nonce", "CLEAN_FOR_PR"),
             "reversed": lambda nonce: (
                 f"END_REVIEW_RESULT {nonce}\n"
