@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# ensure-git-with-index-lock — locate or install git-with-index-lock, print its path.
+#
+# Agents should run this once before index-mutating git work on a host/session
+# where the wrapper may be missing from PATH:
+#
+#   GIT_WL="$(ensure-git-with-index-lock)" || exit 1
+#   "$GIT_WL" add -A
+#   "$GIT_WL" commit -m "msg"
+#
+# Resolution order:
+#   1. git-with-index-lock already on PATH
+#   2. ~/.local/bin/git-with-index-lock
+#   3. ~/.agents/scripts/git-with-index-lock
+#   4. Repo checkout: $AI_CONFIGS_ROOT/scripts/... or git toplevel/scripts/...
+#   5. Common local checkouts under ~/code/ai-configs and ~/.herdr/worktrees/ai-configs/*
+#
+# When a source script is found but not installed, copies it to
+# ~/.agents/scripts/git-with-index-lock and symlinks ~/.local/bin/git-with-index-lock.
+#
+# Env:
+#   AI_CONFIGS_ROOT   optional explicit ai-configs checkout
+#   ENSURE_GIT_WL_INSTALL=0  locate only; do not install (default 1)
+#   ENSURE_GIT_WL_QUIET=1    suppress stderr diagnostics
+
+set -u
+
+QUIET="${ENSURE_GIT_WL_QUIET:-0}"
+DO_INSTALL="${ENSURE_GIT_WL_INSTALL:-1}"
+DEST_DIR="${HOME}/.agents/scripts"
+DEST="${DEST_DIR}/git-with-index-lock"
+LINK_DIR="${HOME}/.local/bin"
+LINK="${LINK_DIR}/git-with-index-lock"
+NAME="git-with-index-lock"
+
+log() {
+  if [[ "$QUIET" != "1" ]]; then
+    printf 'ensure-git-with-index-lock: %s\n' "$*" >&2
+  fi
+}
+
+is_usable() {
+  local p="${1:-}"
+  [[ -n "$p" && -f "$p" && -x "$p" ]]
+}
+
+print_path() {
+  printf '%s\n' "$1"
+}
+
+install_from() {
+  local src="$1"
+  mkdir -p "$DEST_DIR" "$LINK_DIR"
+  install -m 0755 "$src" "$DEST"
+  ln -sfn "$DEST" "$LINK"
+  log "installed $DEST and linked $LINK"
+}
+
+# --- already available ---
+if command -v "$NAME" >/dev/null 2>&1; then
+  print_path "$(command -v "$NAME")"
+  exit 0
+fi
+
+for candidate in "$LINK" "$DEST"; do
+  if is_usable "$candidate"; then
+    # Prefer PATH visibility for the rest of the session when possible.
+    if [[ "$DO_INSTALL" == "1" && "$candidate" == "$DEST" && ! -e "$LINK" ]]; then
+      mkdir -p "$LINK_DIR"
+      ln -sfn "$DEST" "$LINK"
+      log "linked existing $DEST -> $LINK"
+    fi
+    if is_usable "$LINK"; then
+      print_path "$LINK"
+    else
+      print_path "$candidate"
+    fi
+    exit 0
+  fi
+done
+
+# --- find source script ---
+SOURCE=""
+
+consider() {
+  local p="${1:-}"
+  if is_usable "$p"; then
+    SOURCE="$p"
+    return 0
+  fi
+  return 1
+}
+
+if [[ -n "${AI_CONFIGS_ROOT:-}" ]]; then
+  consider "${AI_CONFIGS_ROOT%/}/scripts/${NAME}" || true
+fi
+
+if [[ -z "$SOURCE" ]]; then
+  # This script's own repo (when invoked as .../scripts/ensure-git-with-index-lock)
+  SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  consider "${SELF_DIR}/${NAME}" || true
+fi
+
+if [[ -z "$SOURCE" ]]; then
+  TOP="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$TOP" ]]; then
+    consider "${TOP}/scripts/${NAME}" || true
+  fi
+fi
+
+if [[ -z "$SOURCE" ]]; then
+  consider "${HOME}/code/ai-configs/scripts/${NAME}" || true
+fi
+
+if [[ -z "$SOURCE" && -d "${HOME}/.herdr/worktrees/ai-configs" ]]; then
+  # Newest worktree copy wins.
+  while IFS= read -r cand; do
+    if consider "$cand"; then
+      break
+    fi
+  done < <(ls -1t "${HOME}/.herdr/worktrees/ai-configs"/*/scripts/"${NAME}" 2>/dev/null || true)
+fi
+
+if [[ -z "$SOURCE" ]]; then
+  log "ERROR: could not find ${NAME}."
+  log "Clone/install ai-configs and re-run, or set AI_CONFIGS_ROOT to a checkout that contains scripts/${NAME}."
+  log "Manual install: install -m 0755 /path/to/ai-configs/scripts/${NAME} ${DEST} && ln -sfn ${DEST} ${LINK}"
+  exit 1
+fi
+
+log "found source $SOURCE"
+
+if [[ "$DO_INSTALL" == "1" ]]; then
+  install_from "$SOURCE"
+  if is_usable "$LINK"; then
+    print_path "$LINK"
+    exit 0
+  fi
+  if is_usable "$DEST"; then
+    print_path "$DEST"
+    exit 0
+  fi
+  log "ERROR: install completed but ${NAME} is not executable at ${DEST}"
+  exit 1
+fi
+
+print_path "$SOURCE"
+exit 0

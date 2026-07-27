@@ -451,11 +451,22 @@ Rules:
 
 ## Phase 8: Commit Changes
 
+Resolve the lock-safe Git wrapper once. On a new host, `AI_CONFIGS_ROOT` must point to an ai-configs checkout when this repository lacks the helper.
+
+```bash
+ENSURE="$(command -v ensure-git-with-index-lock 2>/dev/null || true)"
+if [[ -z "$ENSURE" && -n "${AI_CONFIGS_ROOT:-}" && -x "${AI_CONFIGS_ROOT}/scripts/ensure-git-with-index-lock" ]]; then ENSURE="${AI_CONFIGS_ROOT}/scripts/ensure-git-with-index-lock"; fi
+TOP="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$ENSURE" && -n "$TOP" && -x "$TOP/scripts/ensure-git-with-index-lock" ]]; then ENSURE="$TOP/scripts/ensure-git-with-index-lock"; fi
+[[ -n "$ENSURE" ]] || { echo "git-with-index-lock bootstrap unavailable" >&2; exit 1; }
+GIT_WL="$("$ENSURE")" || exit 1
+```
+
 ### Commit 1: Permanent Documentation Update
 
 ```bash
-git add spec/architecture/[feature-slug].md spec/architecture/README.md spec/adr-log.md CHANGELOG.md
-git commit -m "docs: graduate [feature-name] with verified implementation
+"$GIT_WL" add spec/architecture/[feature-slug].md spec/architecture/README.md spec/adr-log.md CHANGELOG.md
+"$GIT_WL" commit -m "docs: graduate [feature-name] with verified implementation
 
 Verification summary:
 - Behaviors: [X] verified, [Y] divergences (documented actual)
@@ -474,8 +485,8 @@ Implementation files checked:
 ### Commit 2: Artifact Cleanup
 
 ```bash
-git add -A
-git commit -m "chore: clean up [feature-name] working artifacts
+"$GIT_WL" add -A
+"$GIT_WL" commit -m "chore: clean up [feature-name] working artifacts
 
 Artifacts graduated to permanent documentation.
 Original files preserved in git history.

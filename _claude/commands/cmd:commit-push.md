@@ -39,10 +39,29 @@ If `git status` includes files matching `.env*`, `*.pem`, `*.key`, `credentials*
 
 ### 1) Stage Everything
 
+Use `git-with-index-lock` for index-mutating commands so stale/contended `.git/index.lock` is recovered automatically (retry, wait for live holders, clear only unheld locks).
+
+Bootstrap if the command is missing (new host / empty PATH):
+
 ```bash
-git add -A
+ENSURE="$(command -v ensure-git-with-index-lock 2>/dev/null || true)"
+if [[ -z "$ENSURE" && -n "${AI_CONFIGS_ROOT:-}" && -x "${AI_CONFIGS_ROOT}/scripts/ensure-git-with-index-lock" ]]; then
+  ENSURE="${AI_CONFIGS_ROOT}/scripts/ensure-git-with-index-lock"
+fi
+TOP="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$ENSURE" && -n "$TOP" && -x "$TOP/scripts/ensure-git-with-index-lock" ]]; then
+  ENSURE="$TOP/scripts/ensure-git-with-index-lock"
+fi
+if [[ -z "$ENSURE" ]]; then
+  echo "git-with-index-lock bootstrap unavailable: set AI_CONFIGS_ROOT or run ai-configs install.sh" >&2
+  exit 1
+fi
+GIT_WL="$("$ENSURE")" || exit 1
+"$GIT_WL" add -A
 git diff --cached --stat
 ```
+
+Do not fall back to raw index-mutating `git`.
 
 ### 2) Build Commit Subject
 
@@ -64,7 +83,7 @@ fi
 ### 3) Commit
 
 ```bash
-git commit -m "$COMMIT_SUBJECT"
+"$GIT_WL" commit -m "$COMMIT_SUBJECT"
 ```
 
 If commit fails due to hooks, fix issues and create a NEW commit (do not amend unless explicitly requested).

@@ -1424,9 +1424,14 @@ sync_shared_skills() {
     echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
     echo ""
 
-    mkdir -p "$shared_skills_dir" "$HOME/.agents/scripts"
+    mkdir -p "$shared_skills_dir" "$HOME/.agents/scripts" "$HOME/.local/bin"
     install -m 0755 "$REPO_ROOT/scripts/review_orchestration.py" "$HOME/.agents/scripts/review_orchestration.py"
     echo "  - Installed shared review runtime at ~/.agents/scripts/review_orchestration.py"
+    install -m 0755 "$REPO_ROOT/scripts/git-with-index-lock" "$HOME/.agents/scripts/git-with-index-lock"
+    install -m 0755 "$REPO_ROOT/scripts/ensure-git-with-index-lock" "$HOME/.agents/scripts/ensure-git-with-index-lock"
+    ln -sfn "$HOME/.agents/scripts/git-with-index-lock" "$HOME/.local/bin/git-with-index-lock"
+    ln -sfn "$HOME/.agents/scripts/ensure-git-with-index-lock" "$HOME/.local/bin/ensure-git-with-index-lock"
+    echo "  - Installed git-with-index-lock + ensure-git-with-index-lock at ~/.agents/scripts and ~/.local/bin"
 
     echo "  - Syncing repo-managed shared skills from skills/ into ~/.agents/skills/..."
     while IFS=$'\t' read -r skill_name source_rel; do
@@ -2374,8 +2379,13 @@ PY
         rm -rf "$shared/$skill"
         cp -a "$REPO_ROOT/skills/$skill" "$shared/$skill"
     done
-    rm -f "$review_runtime_dir/review_orchestration.py"
+    rm -f "$review_runtime_dir/review_orchestration.py" "$review_runtime_dir/git-with-index-lock" "$review_runtime_dir/ensure-git-with-index-lock"
     install -m 0755 "$REPO_ROOT/scripts/review_orchestration.py" "$review_runtime_dir/review_orchestration.py"
+    install -m 0755 "$REPO_ROOT/scripts/git-with-index-lock" "$review_runtime_dir/git-with-index-lock"
+    install -m 0755 "$REPO_ROOT/scripts/ensure-git-with-index-lock" "$review_runtime_dir/ensure-git-with-index-lock"
+    mkdir -p "$HOME/.local/bin"
+    ln -sfn "$review_runtime_dir/git-with-index-lock" "$HOME/.local/bin/git-with-index-lock"
+    ln -sfn "$review_runtime_dir/ensure-git-with-index-lock" "$HOME/.local/bin/ensure-git-with-index-lock"
     python3 - "$parent_metadata" <<'PY'
 import json, os, sys
 for raw, value in json.load(open(sys.argv[1])).items():

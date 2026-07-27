@@ -143,6 +143,7 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
 - **Commit style:** TODO (e.g., Conventional Commits)
 - **Review expectations:** TODO (e.g., when to request a human review, which files are high-risk)
 - **CI / CD:** TODO (what pipelines run on PRs, what must be green before merge)
+- **Index lock recovery:** For `add`/`commit`/other index-mutating git ops, use `git-with-index-lock`. On a new host/session, bootstrap first with `scripts/ensure-git-with-index-lock` (installs to `~/.agents/scripts` + `~/.local/bin` and prints the absolute path). Set `AI_CONFIGS_ROOT` if this checkout is not ai-configs. Do not thrash on raw `git` when `.git/index.lock` exists, do not delete a live lock, and do not silently skip the wrapper when bootstrap fails.
 
 ## Documentation & Task Files  <!-- PROJECT-SPECIFIC -->
 
