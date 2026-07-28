@@ -283,9 +283,41 @@ function buildOwnCut(
   };
 }
 
+const POST_COMPACTION_SETTLEMENT_FALLBACK_MS = 100;
+
 export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: ContinuationCoordinator) => {
   let agentTurnActive = false;
   let activeAgentFinishedResponse = false;
+  const postCompactionRequests: Array<{
+    input: Parameters<ContinuationCoordinator["request"]>[0];
+    ctx: Parameters<ContinuationCoordinator["request"]>[1];
+    timer: ReturnType<typeof setTimeout>;
+  }> = [];
+
+  const releasePostCompactionRequests = () => {
+    for (const pending of postCompactionRequests.splice(0)) {
+      clearTimeout(pending.timer);
+      coordinator.request(pending.input, pending.ctx);
+    }
+  };
+
+  const discardPostCompactionRequests = () => {
+    for (const pending of postCompactionRequests.splice(0)) clearTimeout(pending.timer);
+  };
+
+  const queuePostCompactionRequest = (
+    input: Parameters<ContinuationCoordinator["request"]>[0],
+    ctx: Parameters<ContinuationCoordinator["request"]>[1],
+  ) => {
+    const pending = { input, ctx, timer: undefined as unknown as ReturnType<typeof setTimeout> };
+    pending.timer = setTimeout(() => {
+      const index = postCompactionRequests.indexOf(pending);
+      if (index < 0) return;
+      postCompactionRequests.splice(index, 1);
+      coordinator.request(input, ctx);
+    }, POST_COMPACTION_SETTLEMENT_FALLBACK_MS);
+    postCompactionRequests.push(pending);
+  };
 
   pi.on("agent_start", () => {
     agentTurnActive = true;
@@ -302,6 +334,19 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
   pi.on("agent_end", () => {
     agentTurnActive = false;
     activeAgentFinishedResponse = false;
+  });
+
+  // ctx.isIdle() can flip before Pi's underlying Agent clears its active run
+  // during compaction. Release on the next full agent settlement, rather than
+  // delivering a continuation from inside the compaction lifecycle callback.
+  pi.on("agent_settled", () => {
+    releasePostCompactionRequests();
+  });
+
+  // A queued request owns the old ExtensionContext. Never allow its settlement
+  // fallback to submit after Pi has replaced or shut down that session.
+  pi.on("session_shutdown", () => {
+    discardPostCompactionRequests();
   });
 
   pi.on("session_compact", (event, ctx) => {
@@ -325,20 +370,25 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
       details.continuationResumePolicy === "active";
     if (!commandOrigin && !activeCompactContext && !details.interruptedInFlightTurn) return;
     if (event.willRetry === true || (!commandOrigin && !activeCompactContext && details.requiresContinuation === false)) return;
-    coordinator.request({
+    const request = {
       initiator: details.compactionIntent?.source === "package-compact-now" ? "package-compact-now"
         : details.compactionIntent?.source === "compact_context" ? "compact_context"
         : details.reason === "threshold" ? "host-threshold"
           : details.reason === "overflow" ? "host-overflow"
             : "package-pi-vcc",
-      outcome: "compacted",
+      outcome: "compacted" as const,
       attemptId: details.continuationAttemptId ?? details.compactionIntent?.attemptId ?? event.compactionEntry.id,
       compactionId: event.compactionEntry.id,
       requestId: details.continuationRequestId ?? details.compactionIntent?.requestId,
       originatingRequestId: details.continuationRequestId ?? details.compactionIntent?.requestId,
       resumePolicy: details.continuationResumePolicy ?? details.compactionIntent?.resumePolicy ?? "active",
       transactionId: details.continuationTransactionId ?? details.compactionIntent?.transactionId,
-    }, ctx);
+    };
+    if (activeCompactContext) {
+      queuePostCompactionRequest(request, ctx);
+      return;
+    }
+    coordinator.request(request, ctx);
   });
 
   pi.on("session_before_compact", (event) => {

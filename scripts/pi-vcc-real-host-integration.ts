@@ -58,6 +58,9 @@ const faux = await import(pathToFileURL(join(dependencyRoot, "@earendil-works/pi
 const typebox = await import(pathToFileURL(join(dependencyRoot, "typebox/build/index.mjs")).href);
 const protocol = await import(pathToFileURL(join(candidate, "src/core/continuation-protocol.ts")).href);
 const { PI_VCC_LOAD_MARKER } = await import(pathToFileURL(join(candidate, "index.ts")).href);
+const actualCompactContextTrigger = resolve(
+  "scripts/fixtures/pi-vcc-actual-compact-context-trigger.ts",
+);
 if (typeof runtime.createAgentSession !== "function" || typeof runtime.SessionManager?.create !== "function" || typeof runtime.ModelRuntime?.create !== "function") {
   throw new Error("Pi runtime does not expose createAgentSession, SessionManager, and ModelRuntime");
 }
@@ -103,7 +106,11 @@ interface Host {
 let hostOrdinal = 0;
 const createHost = async (
   toolExecute?: (...args: any[]) => Promise<any>,
-  options: { suppressContinuationMessageStartForExtensions?: boolean; packagePaths?: string[] } = {},
+  options: {
+    suppressContinuationMessageStartForExtensions?: boolean;
+    packagePaths?: string[];
+    extensionPaths?: string[];
+  } = {},
 ): Promise<Host> => {
   hostOrdinal += 1;
   const hostRoot = join(root, "hosts", `host-${hostOrdinal}`);
@@ -111,7 +118,13 @@ const createHost = async (
   const agentDir = join(root, "agents", `host-${hostOrdinal}`);
   mkdirSync(sessionDir, { recursive: true });
   mkdirSync(agentDir, { recursive: true });
-  writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ packages: options.packagePaths ?? [candidate], extensions: [] }));
+  writeFileSync(
+    join(agentDir, "settings.json"),
+    JSON.stringify({
+      packages: options.packagePaths ?? [candidate],
+      extensions: options.extensionPaths ?? [],
+    }),
+  );
 
   const core = faux.createFauxCore({
     api: `pi-vcc-faux-api-${hostOrdinal}`,
@@ -273,6 +286,7 @@ const REQUIRED_REAL_HOST_CASES = [
   "abort-backoff-persisted-acceptance",
   "v1-reload-adaptation",
   "active-compact-context-plan-builder-resume",
+  "actual-compact-context-turn-end-resume",
 ] as const;
 type RealHostCaseName = (typeof REQUIRED_REAL_HOST_CASES)[number];
 const caseRegistry = new Map<RealHostCaseName, () => Promise<void>>();
@@ -738,6 +752,67 @@ try {
     }
     if (outcomes(host, transactionId)[0]?.data?.terminalState !== "settled") {
       throw new Error(`plan-builder continuation did not settle after delivery: ${JSON.stringify(outcomes(host, transactionId)[0]?.data)}`);
+    }
+    host.dispose();
+  });
+
+  registerCase("actual-compact-context-turn-end-resume", async () => {
+    const host = await createHost(undefined, {
+      extensionPaths: [actualCompactContextTrigger],
+    });
+    const runtimeErrors: Array<{ error?: string; extensionPath?: string }> = [];
+    const removeErrorListener = host.session._extensionRunner.onError((error: any) => {
+      runtimeErrors.push(error);
+    });
+    host.core.setResponses([
+      faux.fauxAssistantMessage("Semantic boundary reached."),
+      faux.fauxAssistantMessage("Continuation completed after actual compaction."),
+    ]);
+    const seed = (role: "user" | "assistant", text: string) =>
+      host.sessionManager.appendMessage(
+        role === "user"
+          ? { role, content: [{ type: "text", text }], timestamp: Date.now() }
+          : faux.fauxAssistantMessage(text),
+      );
+    seed("user", "Complete the previous phase.");
+    seed("assistant", "The previous phase is complete.");
+    seed("user", "Proceed to the next phase.");
+    seed("assistant", "Preparing the next phase.");
+
+    await host.session.prompt("Reach the next semantic boundary.");
+    await waitFor("actual compact_context compaction", () =>
+      host.sessionManager.getBranch().some((entry: any) => entry.type === "compaction"),
+    );
+    await waitFor("actual compact_context continuation", () =>
+      host.sessionManager.getBranch().some(
+        (entry: any) =>
+          entry.type === "custom" &&
+          entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+          entry.data?.origin === "compact_context" &&
+          entry.data?.terminalState === "settled",
+      ),
+    );
+    const continuationMessages = host.sessionManager.getBranch().filter(
+      (entry: any) =>
+        entry.type === "custom_message" &&
+        entry.customType === CONTINUATION_MESSAGE_CUSTOM_TYPE &&
+        entry.details?.attemptId === "actual-compact-context-attempt",
+    );
+    const failures = host.sessionManager.getBranch().filter(
+      (entry: any) =>
+        entry.type === "custom" &&
+        entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+        entry.data?.attemptId === "actual-compact-context-attempt" &&
+        entry.data?.terminalState === "failed_loudly",
+    );
+    const activeRunErrors = runtimeErrors.filter((error) =>
+      /Agent is already processing a prompt/.test(error.error ?? ""),
+    );
+    removeErrorListener();
+    if (continuationMessages.length !== 1 || failures.length !== 0 || activeRunErrors.length !== 0) {
+      throw new Error(
+        `actual compact_context continuation did not complete cleanly: messages=${continuationMessages.length}, failures=${JSON.stringify(failures.map((entry: any) => entry.data))}, activeRunErrors=${JSON.stringify(activeRunErrors)}`,
+      );
     }
     host.dispose();
   });

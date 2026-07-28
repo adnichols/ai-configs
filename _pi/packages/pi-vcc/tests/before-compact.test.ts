@@ -767,6 +767,12 @@ describe("active compaction continuation", () => {
     }, ctx);
     await delay();
 
+    // Compaction may leave Agent.activeRun populated after ctx.isIdle() flips.
+    // Do not submit until the following full settlement has passed.
+    expect(sentMessages).toHaveLength(0);
+    handlers.agent_settled[0]({ type: "agent_settled" }, ctx);
+    await delay();
+
     expect(sentMessages).toHaveLength(1);
     expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
     expect(sentMessages[0].message.details).toMatchObject({
@@ -777,6 +783,27 @@ describe("active compaction continuation", () => {
       resumePolicy: "active",
     });
     expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
+  });
+
+  it("discards a deferred active compact_context request when the session shuts down", async () => {
+    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
+    const result = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: compactableEntries(),
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"subtask_complete","resumePolicy":"active","attemptId":"shutdown-compact-context","requestId":"shutdown-compact-context-request"}',
+      reason: "manual",
+    });
+
+    handlers.session_compact[0]({
+      type: "session_compact",
+      compactionEntry: { id: "shutdown-compact-context-entry", details: result.compaction.details },
+      reason: "manual",
+      willRetry: false,
+    }, ctx);
+    handlers.session_shutdown[0]({ type: "session_shutdown", reason: "new" }, ctx);
+    await delay(125);
+
+    expect(sentMessages).toHaveLength(0);
   });
 
   it("does not send a continuation when core will retry the interrupted turn", async () => {

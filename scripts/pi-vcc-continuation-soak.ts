@@ -328,10 +328,53 @@ if (
   throw new Error("coordinator did not own standalone terminal outcome");
 }
 
+// A completed compact_context boundary is deliberately held until the next
+// agent_settled event. Pi's public idle flag can flip before Agent.activeRun
+// clears during compaction, so direct submission here would re-enter the agent.
+const activeCompactContext = await packageBeforeCompact(
+  {
+    customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"after_test_loop","reason":"soak active continuation","resumePolicy":"active","attemptId":"soak-active-compact-context","requestId":"soak-active-compact-context-request"}',
+    preparation: {
+      previousSummary: undefined,
+      tokensBefore: 100,
+      fileOps: { read: [], written: [], edited: [] },
+    },
+    branchEntries: [
+      { id: "active-u1", type: "message", message: { role: "user", content: "complete the phase" } },
+      { id: "active-a1", type: "message", message: { role: "assistant", content: "phase complete", stopReason: "stop" } },
+      { id: "active-u2", type: "message", message: { role: "user", content: "continue" } },
+      { id: "active-a2", type: "message", message: { role: "assistant", content: "ready to compact", stopReason: "stop" } },
+    ],
+    reason: "manual",
+  },
+  ctx,
+);
+await packageSessionCompact(
+  {
+    compactionEntry: { id: "soak-active-compact-context-entry", details: activeCompactContext.compaction.details },
+    reason: "manual",
+  },
+  ctx,
+);
+const activeCompactContextRequest = () => entries.find(
+  (entry) =>
+    entry.customType === protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE &&
+    entry.data.snapshot.attemptId === "soak-active-compact-context",
+);
+if (activeCompactContextRequest()) {
+  throw new Error("active compact_context submitted before post-compaction agent settlement");
+}
+emit("agent_settled");
+if (!activeCompactContextRequest() || active()?.transactionId !== activeCompactContextRequest().data.snapshot.transactionId) {
+  throw new Error("active compact_context did not submit after post-compaction agent settlement");
+}
+consumeProgressSettle();
+
 // Actual coordinator fault matrix.
+const sentBeforeFaultMatrix = sent.length;
 request(0, { pendingToolCount: 2 });
 emit("tool_execution_end", { toolCallId: "unrelated", toolName: "read" });
-if (sent.length !== 0 || active()?.pendingToolCount !== 2)
+if (sent.length !== sentBeforeFaultMatrix || active()?.pendingToolCount !== 2)
   throw new Error("unrelated tool completion released continuation");
 appendSessionEntry(
   protocol.CONTINUATION_SAFETY_READY_ENTRY_CUSTOM_TYPE,
