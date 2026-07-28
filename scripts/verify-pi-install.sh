@@ -199,6 +199,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@pi-kaush/pi-inline-skill-identifier"
   "npm:@howaboua/pi-explore-subagents"
   "npm:pi-service-tier"
+  "npm:pi-cursor-sdk"
 )
 
 FAILURES=0

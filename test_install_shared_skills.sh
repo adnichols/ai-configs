@@ -788,6 +788,7 @@ EOF
   assert_file_not_contains "$home/.pi/agent/settings.json" 'piCodexGoal' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:@narumitw/pi-goal' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:@tintinweb/pi-tasks' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" 'npm:pi-cursor-sdk' || return 1
 }
 
 test_pi_install_removes_retired_packages() {
