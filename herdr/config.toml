@@ -47,7 +47,8 @@ close_workspace = "prefix+shift+d"
 toggle_sidebar = "prefix+b"
 reload_config = "prefix+shift+r"
 edit_scrollback = "prefix+e"
-rename_tab = "prefix+shift+t"
+# `prefix+shift+t` is reserved for the Sesh plugin picker below.
+rename_tab = "prefix+shift+,"
 close_tab = "prefix+shift+x"
 
 [ui.sound]
@@ -64,10 +65,6 @@ delivery = "terminal"
 key = "prefix+shift+f"
 type = "plugin_action"
 command = "persiyanov.reviewr.toggle"
-
-[keys]
-# If using "prefix+shift+t" to open the herdr-sesh plugin picker, the rename_tab keybind needs to be changed.
-rename_tab = "prefix+shift+,"
 
 [[keys.command]]
 key = "prefix+shift+t"
