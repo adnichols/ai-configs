@@ -1254,9 +1254,7 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 			if (isActiveGrokModel(ctx)) {
-				const tokens =
-					usage.tokens ??
-					Math.round((usage.percent / 100) * usage.contextWindow);
+				const tokens = resolveGrokUsageTokens(usage);
 				ctx.ui.notify(
 					`Context: ${tokens.toLocaleString()} / ${GROK_ADVERTISED_CONTEXT_WINDOW.toLocaleString()} tokens (${Math.floor(usage.percent)}%). ` +
 						`${formatGrokThresholdStatus()}; last compaction: ${lastCompactionReason}`,

@@ -49,6 +49,8 @@ const typebox = await import(
 
 async function runGrokContextCeilingScenario(): Promise<void> {
 	const root = mkdtempSync(join(tmpdir(), "grok-context-ceiling-real-host-"));
+	let session: any;
+	try {
 	const sessionDir = join(root, "sessions");
 	const agentDir = join(root, "agent");
 	mkdirSync(sessionDir, { recursive: true });
@@ -98,7 +100,8 @@ async function runGrokContextCeilingScenario(): Promise<void> {
 	}
 	sessionManager.appendMessage({ role: "user", content: [{ type: "text", text: "Large Grok history" }], timestamp: now + 4 });
 	sessionManager.appendMessage({ ...faux.fauxAssistantMessage("Large Grok history complete."), api: core.api, provider: core.provider, model: core.getModel().id, usage, timestamp: now + 5 });
-	const { session } = await runtime.createAgentSession({ cwd: root, agentDir, model: core.getModel(), modelRuntime, sessionManager, noTools: "all" });
+	const createdSession = await runtime.createAgentSession({ cwd: root, agentDir, model: core.getModel(), modelRuntime, sessionManager, noTools: "all" });
+	session = createdSession.session;
 	const providerSamples: number[] = [];
 	const policyModulePath = join(root, "grok-context-ceiling-policy.ts");
 	const policyDependencyPath = join(root, "node_modules", "@earendil-works");
@@ -139,7 +142,6 @@ async function runGrokContextCeilingScenario(): Promise<void> {
 		},
 	]);
 
-	try {
 		await session.prompt(triggerText);
 		if (!sessionManager.getBranch().some((entry: any) => entry.type === "compaction")) {
 			throw new Error("Grok request did not produce a context-ceiling compaction");
@@ -158,7 +160,7 @@ async function runGrokContextCeilingScenario(): Promise<void> {
 		}
 		console.log(JSON.stringify({ root, triggerEstimate, providerSamples, failClosed: true }, null, 2));
 	} finally {
-		session.dispose();
+		session?.dispose();
 		if (process.env.KEEP_PERCENTAGE_COMPACTION_REPRO !== "1") rmSync(root, { recursive: true, force: true });
 	}
 }

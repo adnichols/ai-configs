@@ -46,7 +46,9 @@ const estimateContextTokens = (messages: any[]) => {
 	};
 };
 
-mock.module("@earendil-works/pi-agent-core", () => ({
-	estimateContextTokens,
-	estimateTokens,
-}));
+export const registerPiAgentCoreMock = (): void => {
+	mock.module("@earendil-works/pi-agent-core", () => ({
+		estimateContextTokens,
+		estimateTokens,
+	}));
+};

@@ -95,11 +95,19 @@ class InstallTransactionTest(unittest.TestCase):
 
     def test_opencode_grok_4_5_survives_retired_grok_normalization(self):
         with tempfile.TemporaryDirectory() as d:
-            home=Path(d);agent=home/'.pi/agent';(agent/'agents').mkdir(parents=True)
-            bin_dir=home/'bin';bin_dir.mkdir();pi=bin_dir/'pi';pi.write_text('#!/bin/sh\nexit 0\n');pi.chmod(0o755)
-            models=agent/'models.json';models.write_text(json.dumps({'providers':{'caller-owned':{'models':[{'id':'local'}]}}}))
-            settings=agent/'settings.json';settings.write_text(json.dumps({'enabledModels':[
-                'grok/grok-4.5','grok/grok-composer-2.5-fast','grok-4.5','opencode/grok-4.5','openai-codex/gpt-5.6-sol',
+            home = Path(d)
+            agent = home / '.pi/agent'
+            (agent / 'agents').mkdir(parents=True)
+            bin_dir = home / 'bin'
+            bin_dir.mkdir()
+            pi = bin_dir / 'pi'
+            pi.write_text('#!/bin/sh\nexit 0\n')
+            pi.chmod(0o755)
+            models = agent / 'models.json'
+            models.write_text(json.dumps({'providers': {'caller-owned': {'models': [{'id': 'local'}]}}}))
+            settings = agent / 'settings.json'
+            settings.write_text(json.dumps({'enabledModels': [
+                'grok/grok-4.5', 'grok/grok-composer-2.5-fast', 'grok-4.5', 'opencode/grok-4.5', 'openai-codex/gpt-5.6-sol',
             ]}))
             env={**os.environ,'HOME':d,'PATH':f'{bin_dir}:{os.environ["PATH"]}'}
             subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)

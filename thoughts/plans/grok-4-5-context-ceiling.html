@@ -22,7 +22,7 @@
 <body>
 <main>
   <header id="title">
-    <span class="badge">Status: review-integrated</span>
+    <span class="badge">Status: active — upstream Pi delivery pending</span>
     <span class="badge">Scope: Pi + pi-vcc Grok ceiling</span>
     <span class="badge">UI impact: text-only</span>
     <h1>Grok 4.5 pi-vcc Context Ceiling</h1>
@@ -131,18 +131,18 @@
   <section id="progress">
     <h2>Progress</h2>
     <div class="progress-list">
-      <label><input type="checkbox" checked disabled /> P0 — Pi-core pre-dispatch context ceiling gate</label>
+      <label><input type="checkbox" disabled /> P0 — Pi-core pre-dispatch gate (implemented on fork; upstream acceptance and installed-build validation pending)</label>
       <label><input type="checkbox" checked disabled /> P1 — Shared Grok policy module + extension integration</label>
       <label><input type="checkbox" checked disabled /> P2 — Model metadata and installer alignment</label>
       <label><input type="checkbox" checked disabled /> P3 — Unit tests and policy boundaries</label>
-      <label><input type="checkbox" checked disabled /> P4 — Real-host faux-provider proof</label>
+      <label><input type="checkbox" disabled /> P4 — Real-host faux-provider proof (local P0 build passed; approved installed Pi build validation pending)</label>
       <label><input type="checkbox" checked disabled /> P5 — Operator documentation and status output</label>
     </div>
   </section>
 
   <section id="resume">
     <h2>Resume instructions (agent)</h2>
-    <p>Read this plan fully. Start at the first unchecked progress item. Work on <code>main</code> unless the user explicitly requests another branch workflow. After each phase, run its <code>Verify</code> commands, check the progress box immediately, and append any deviations to the Decisions log. Do not edit installed Pi <code>node_modules</code>. P0 may proceed in the Pi source repo in parallel with P1–P5 here; do not mark the overall feature complete until the real-host Grok scenario passes on an installed Pi build containing P0.</p>
+    <p>Read this plan fully. Start at the first unchecked progress item. Work on <code>main</code> unless the user explicitly requests another branch workflow. After each phase, run its <code>Verify</code> commands, check the progress box immediately, and append any deviations to the Decisions log. Do not edit installed Pi <code>node_modules</code>. P0 is implemented on the fork but the upstream PR was auto-closed by contributor-approval policy; do not reimplement it. Resume by obtaining upstream maintainer approval, then publish/install that Pi build and rerun P4 before marking P0 and P4 complete.</p>
   </section>
 
   <section id="product-intent">

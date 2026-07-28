@@ -1865,7 +1865,6 @@ describe("Grok context ceiling integration", () => {
 			true,
 			{
 				model: grokModel,
-				tokens,
 				contextWindow: GROK_ADVERTISED_CONTEXT_WINDOW,
 			},
 		);
