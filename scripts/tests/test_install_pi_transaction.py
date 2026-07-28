@@ -109,6 +109,11 @@ class InstallTransactionTest(unittest.TestCase):
             settings.write_text(json.dumps({'enabledModels': [
                 'grok/grok-4.5', 'grok/grok-composer-2.5-fast', 'grok-4.5', 'opencode/grok-4.5', 'openai-codex/gpt-5.6-sol',
             ]}))
+            # Reproduce the deployed PR #54 layout: a non-factory helper left in
+            # extensions/ must be removed before Pi's next auto-discovered launch.
+            legacy_policy = agent / 'extensions/grok-context-ceiling-policy.ts'
+            legacy_policy.parent.mkdir(parents=True)
+            legacy_policy.write_text('export const stale = true;\n')
             env={**os.environ,'HOME':d,'PATH':f'{bin_dir}:{os.environ["PATH"]}'}
             subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             configured=json.loads(settings.read_text())['enabledModels']
@@ -118,6 +123,11 @@ class InstallTransactionTest(unittest.TestCase):
             grok_override=json.loads(models.read_text())['providers']['opencode']['modelOverrides']['grok-4.5']
             self.assertEqual(grok_override['contextWindow'],200000)
             self.assertEqual(grok_override['maxTokens'],8192)
+            policy_source = ROOT / '_pi/lib/grok-context-ceiling-policy.ts'
+            installed_policy = agent / 'lib/grok-context-ceiling-policy.ts'
+            self.assertEqual(installed_policy.read_bytes(), policy_source.read_bytes())
+            self.assertFalse((agent / 'extensions/grok-context-ceiling-policy.ts').exists())
+            self.assertIn('../lib/grok-context-ceiling-policy', (agent / 'extensions/percentage-compaction.ts').read_text())
 
     def test_malformed_settings_fail_before_any_bounded_install_mutation(self):
         with tempfile.TemporaryDirectory() as d:

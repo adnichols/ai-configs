@@ -15,7 +15,7 @@ import {
 	GROK_CONTEXT_CEILING_TOKENS,
 	grokCompactionTriggerReached,
 	isGrokContextCeilingModel,
-} from "./grok-context-ceiling-policy";
+} from "../lib/grok-context-ceiling-policy";
 export const COMPACTION_NUDGE_PERCENT = 60;
 export const COMPACTION_STRONG_NUDGE_PERCENT = 75;
 export const HARD_AUTO_COMPACTION_PERCENT = 80;

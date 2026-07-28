@@ -11,6 +11,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PI_AGENT_DIR="${PI_AGENT_DIR:-${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}}"
 PI_ROOT_DIR="${PI_ROOT_DIR:-$(dirname "$PI_AGENT_DIR")}"
 PI_EXT_DIR="$PI_AGENT_DIR/extensions"
+PI_LIB_DIR="$PI_AGENT_DIR/lib"
 PI_WEB_SEARCH_PATH="$PI_ROOT_DIR/web-search.json"
 PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
 PI_DEFAULT_PROVIDER="openai-codex"
@@ -56,6 +57,8 @@ if [ "$VERIFY_SCOPE" = "pi-review-stack" ]; then
   check_exact_filename_set "$REPO_ROOT/_pi/agents" "$PI_AGENT_DIR/agents"
   check_tree_entries "$REPO_ROOT/_pi/agents" "$PI_AGENT_DIR/agents"
   check_tree_entries "$REPO_ROOT/_pi/extensions" "$PI_AGENT_DIR/extensions"
+  check_tree_entries "$REPO_ROOT/_pi/lib" "$PI_AGENT_DIR/lib"
+  [ ! -e "$PI_AGENT_DIR/extensions/grok-context-ceiling-policy.ts" ] || { echo "FAIL: Grok policy helper must not be auto-loaded from extensions" >&2; failures=$((failures+1)); }
   for disabled_extension in claude-review codex-review; do
     if [ -e "$PI_AGENT_DIR/extensions/$disabled_extension" ]; then echo "FAIL: disabled Pi extension is still installed: $disabled_extension" >&2; failures=$((failures+1)); fi
   done
@@ -366,10 +369,12 @@ EOF
 }
 
 EXPECTED_REPO_EXTENSIONS="$(cd "$REPO_ROOT" && list_find_entries "_pi/extensions")"
+EXPECTED_REPO_LIBRARIES="$(cd "$REPO_ROOT" && list_find_entries "_pi/lib")"
 EXPECTED_REPO_AGENTS="$(cd "$REPO_ROOT" && list_find_entries "_pi/agents")"
 INSTALLED_REPO_AGENTS="$(list_find_entries "$PI_AGENT_DIR/agents")"
 EXPECTED_LOCAL_PACKAGES="$PI_VCC_STABLE_PACKAGE"
 INSTALLED_REPO_EXTENSIONS="$(list_find_entries "$PI_EXT_DIR")"
+INSTALLED_REPO_LIBRARIES="$(list_find_entries "$PI_LIB_DIR")"
 INSTALLED_PI_PACKAGES=""
 
 if command -v pi >/dev/null 2>&1; then
@@ -402,6 +407,21 @@ report_expected_vs_actual "  Comparison:" "$EXPECTED_REPO_EXTENSIONS" "$INSTALLE
 for disabled_extension in claude-review codex-review; do
   if [ -e "$PI_EXT_DIR/$disabled_extension" ]; then note_failure "disabled Pi extension is still installed: $disabled_extension"; fi
 done
+if [ -e "$PI_EXT_DIR/grok-context-ceiling-policy.ts" ]; then note_failure "Grok policy helper must not be auto-loaded from extensions"; fi
+
+print_section "1b) Repo-managed Pi libraries (copied outside extensions so Pi does not auto-load helpers)"
+print_list "expected: " "$EXPECTED_REPO_LIBRARIES"
+print_list "installed: " "$INSTALLED_REPO_LIBRARIES"
+report_expected_vs_actual "  Comparison:" "$EXPECTED_REPO_LIBRARIES" "$INSTALLED_REPO_LIBRARIES" true
+while IFS= read -r library_entry; do
+  [ -n "$library_entry" ] || continue
+  if ! diff -qr "$REPO_ROOT/_pi/lib/$library_entry" "$PI_LIB_DIR/$library_entry" >/dev/null 2>&1; then
+    note_failure "installed Pi library parity failed for $library_entry"
+  fi
+done <<EOF
+$EXPECTED_REPO_LIBRARIES
+EOF
+
 if ! python3 - "$PI_AGENT_DIR/settings.json" "$PI_EXT_DIR" <<'PY'
 import json, os, sys
 from pathlib import Path
