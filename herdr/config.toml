@@ -48,7 +48,8 @@ toggle_sidebar = "prefix+b"
 reload_config = "prefix+shift+r"
 edit_scrollback = "prefix+e"
 # `prefix+shift+t` is reserved for the Sesh plugin picker below.
-rename_tab = "prefix+shift+,"
+# Terminals commonly report Shift+comma as the literal `<` character.
+rename_tab = "prefix+<"
 close_tab = "prefix+shift+x"
 
 [ui.sound]
