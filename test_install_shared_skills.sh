@@ -762,7 +762,8 @@ EOF
   assert_file_contains "$home/.pi/agent/models.json" 'gemma4:latest' || return 1
   assert_file_not_contains "$home/.pi/agent/models.json" 'kimi-k2.5:cloud' || return 1
   assert_file_not_contains "$home/.pi/agent/models.json" '"grok"' || return 1
-  assert_file_not_contains "$home/.pi/agent/models.json" 'grok-4.5' || return 1
+  assert_file_contains "$home/.pi/agent/models.json" '"grok-4.5"' || return 1
+  assert_file_contains "$home/.pi/agent/models.json" '"contextWindow": 200000' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'grok/' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'grok-composer-2.5-fast' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" '"defaultProvider": "openai-codex"' || return 1

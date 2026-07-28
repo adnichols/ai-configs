@@ -175,6 +175,19 @@ To use with pi-vcc, run `./install.sh --pi`; `pi list` should show the stable mi
 
 **Note:** With the vendored pi-vcc installed, no additional compaction configuration is needed. The extension proactively starts pi-vcc compaction at the configured hard-backstop percentage, and pi-vcc handles the actual algorithmic compaction when triggered. This repo now ships the `/pi-vcc` manual-bypass marker and the agent-only-tail fallback directly in the vendored package, so rerunning `./install.sh --pi` refreshes both behaviors without patching global npm files.
 
+### Grok 4.5 context ceiling
+
+The exact `opencode/grok-4.5` model uses an absolute policy rather than the shared percentage backstop. The extension requests pi-vcc compaction at **180,000 tokens** and advertises a **200,000-token** context window. Other providers and Grok model IDs retain the normal 60%/75%/80% percentage policy.
+
+The 200K guarantee applies to the estimated **outbound provider request**: transformed messages, tool definitions, system prompt, and output reservation. It does not promise that the persisted session transcript can never briefly exceed 200K before Pi reaches its next dispatch boundary. A Pi runtime containing the matching pre-dispatch `context_ceiling` gate must compact and rebuild the request, or fail closed without calling Grok, whenever that estimate would be 200,000 tokens or more.
+
+Run `/compact-status` while `opencode/grok-4.5` is selected to see the current token count, 180K trigger, 200K provider-request ceiling, and last compaction reason. If the runtime reports that it cannot make a safe cut at the ceiling, do not retry an oversized request: use `/compact-now` if a safe boundary is available or start a new session. After installing, verify the model override with:
+
+```bash
+./install.sh --pi
+pi --list-models grok
+```
+
 Task tracking is provided exclusively by the package-managed `@tintinweb/pi-tasks` extension. Use `TaskCreate`, `TaskList`, `TaskGet`, and `TaskUpdate` for structured work tracking; `/tasks` is its interactive UI.
 
 This configuration sets pi-tasks to `taskScope: "memory"` globally. Tasks stay available during normal turns and context compactions, but `/new` and a Pi restart clear them; no task files are written in project repositories. To keep persistent task state outside repositories instead, launch Pi with `PI_TASKS` set to a named list (for example, `PI_TASKS=work`) or to an absolute path. Named lists are stored at `~/.pi/tasks/<name>.json`; absolute paths are used verbatim. A named global list is shared by every Pi session that uses it, so it is not automatically isolated by project. `PI_TASKS=off` disables task persistence entirely.
