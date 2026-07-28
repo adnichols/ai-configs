@@ -1,9 +1,11 @@
 import {
+	copyFileSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	realpathSync,
 	rmSync,
+	symlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,14 +21,20 @@ const percentageExtension = resolve(
 	"_pi/extensions/percentage-compaction.ts",
 );
 const piExecutable = Bun.which("pi");
-const runtimeRoot = piExecutable
-	? dirname(dirname(realpathSync(piExecutable)))
-	: undefined;
+const runtimeRoot = process.env.PI_VCC_REPRO_PI_RUNTIME
+	? realpathSync(resolve(process.env.PI_VCC_REPRO_PI_RUNTIME))
+	: piExecutable
+		? dirname(dirname(realpathSync(piExecutable)))
+		: undefined;
 if (!runtimeRoot || !existsSync(join(runtimeRoot, "dist/index.js"))) {
 	throw new Error("Unable to resolve the installed Pi runtime package");
 }
 
-const dependencyRoot = join(runtimeRoot, "node_modules");
+const dependencyRoot = existsSync(
+	join(runtimeRoot, "node_modules", "@earendil-works/pi-ai/dist/providers/faux.js"),
+)
+	? join(runtimeRoot, "node_modules")
+	: resolve(runtimeRoot, "../..", "node_modules");
 const runtime = await import(
 	pathToFileURL(join(runtimeRoot, "dist/index.js")).href
 );
@@ -38,6 +46,132 @@ const faux = await import(
 const typebox = await import(
 	pathToFileURL(join(dependencyRoot, "typebox/build/index.mjs")).href
 );
+
+async function runGrokContextCeilingScenario(): Promise<void> {
+	const root = mkdtempSync(join(tmpdir(), "grok-context-ceiling-real-host-"));
+	let session: any;
+	try {
+	const sessionDir = join(root, "sessions");
+	const agentDir = join(root, "agent");
+	mkdirSync(sessionDir, { recursive: true });
+	mkdirSync(agentDir, { recursive: true });
+	writeFileSync(
+		join(agentDir, "settings.json"),
+		JSON.stringify({
+			packages: [candidate],
+			extensions: [percentageExtension],
+			compaction: { enabled: true, keepRecentTokens: 1 },
+		}),
+	);
+	process.env.PI_VCC_STANDALONE_CONTINUATION_AUTHORITY = "coordinator";
+	process.env.PI_VCC_LOG_PATH = join(root, "pi-vcc.jsonl");
+
+	const core = faux.createFauxCore({
+		api: "opencode",
+		provider: "opencode",
+		models: [
+			{
+				id: "grok-4.5",
+				name: "Grok 4.5 real-host repro",
+				reasoning: false,
+				input: ["text"],
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+				contextWindow: 500_000,
+				maxTokens: 8_192,
+			},
+		],
+		tokensPerSecond: 1_000_000,
+	});
+	const modelRuntime = await runtime.ModelRuntime.create({ modelsPath: null, allowModelNetwork: false });
+	void modelRuntime.setRuntimeApiKey(core.provider, "deterministic-no-network-key", { allowNetwork: false });
+	modelRuntime.registerProvider(core.provider, {
+		api: core.api,
+		baseUrl: "http://127.0.0.1:0",
+		apiKey: "deterministic-no-network-key",
+		streamSimple: core.streamSimple,
+		models: core.models,
+	});
+	const sessionManager = runtime.SessionManager.create(root, sessionDir);
+	const now = Date.now();
+	const usage = { input: 180_000, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 180_000, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
+	for (let index = 0; index < 2; index += 1) {
+		sessionManager.appendMessage({ role: "user", content: [{ type: "text", text: `Earlier Grok history ${index}` }], timestamp: now + index * 2 - 1 });
+		sessionManager.appendMessage({ ...faux.fauxAssistantMessage(`Earlier Grok history ${index} complete.`), api: core.api, provider: core.provider, model: core.getModel().id, timestamp: now + index * 2 });
+	}
+	sessionManager.appendMessage({ role: "user", content: [{ type: "text", text: "Large Grok history" }], timestamp: now + 4 });
+	sessionManager.appendMessage({ ...faux.fauxAssistantMessage("Large Grok history complete."), api: core.api, provider: core.provider, model: core.getModel().id, usage, timestamp: now + 5 });
+	const createdSession = await runtime.createAgentSession({ cwd: root, agentDir, model: core.getModel(), modelRuntime, sessionManager, noTools: "all" });
+	session = createdSession.session;
+	const providerSamples: number[] = [];
+	const policyModulePath = join(root, "grok-context-ceiling-policy.ts");
+	const policyDependencyPath = join(root, "node_modules", "@earendil-works");
+	mkdirSync(policyDependencyPath, { recursive: true });
+	symlinkSync(
+		join(dependencyRoot, "@earendil-works", "pi-agent-core"),
+		join(policyDependencyPath, "pi-agent-core"),
+	);
+	copyFileSync(
+		join(repoRoot, "_pi", "extensions", "grok-context-ceiling-policy.ts"),
+		policyModulePath,
+	);
+	const policy = await import(pathToFileURL(policyModulePath).href);
+	const triggerText = "Continue with the Grok request.";
+	const triggerMessage = {
+		role: "user" as const,
+		content: [{ type: "text" as const, text: triggerText }],
+		timestamp: Date.now(),
+	};
+	const estimateTriggerRequest = () =>
+		policy.estimateGrokProviderRequestTokens({
+			messages: [...session.agent.state.messages, triggerMessage],
+			systemPrompt: session.systemPrompt,
+			tools: session.agent.state.tools,
+		});
+	usage.totalTokens += 180_000 - estimateTriggerRequest();
+	usage.input = usage.totalTokens;
+	const triggerEstimate = estimateTriggerRequest();
+	if (triggerEstimate !== 180_000) {
+		throw new Error(`Could not seed the exact Grok trigger: ${triggerEstimate}`);
+	}
+	core.setResponses([
+		(context: any) => {
+			const tokens = policy.estimateGrokProviderRequestTokens(context);
+			providerSamples.push(tokens);
+			if (tokens >= 200_000) throw new Error(`Provider ceiling exceeded: ${tokens}`);
+			return faux.fauxAssistantMessage("Grok ceiling compaction succeeded.");
+		},
+	]);
+
+		await session.prompt(triggerText);
+		if (!sessionManager.getBranch().some((entry: any) => entry.type === "compaction")) {
+			throw new Error("Grok request did not produce a context-ceiling compaction");
+		}
+		if (providerSamples.length !== 1 || providerSamples.some((tokens) => tokens >= 200_000)) {
+			throw new Error(`Grok request reached the provider ceiling: ${JSON.stringify(providerSamples)}`);
+		}
+
+		const callsBeforeFailClosedCase = providerSamples.length;
+		await session.prompt("s".repeat(800_000));
+		if (providerSamples.length !== callsBeforeFailClosedCase) {
+			throw new Error("Grok ceiling fallback dispatched an uncompactable provider request");
+		}
+		if (!session.agent.state.errorMessage?.includes("Grok 4.5 context ceiling")) {
+			throw new Error(`Missing actionable Grok ceiling error: ${session.agent.state.errorMessage}`);
+		}
+		console.log(JSON.stringify({ root, triggerEstimate, providerSamples, failClosed: true }, null, 2));
+	} finally {
+		session?.dispose();
+		if (process.env.KEEP_PERCENTAGE_COMPACTION_REPRO !== "1") rmSync(root, { recursive: true, force: true });
+	}
+}
+
+const grokContextCeilingScenario =
+	process.argv.includes("--scenario=grok-4-5-ceiling") ||
+	process.argv[process.argv.indexOf("--scenario") + 1] === "grok-4-5-ceiling";
+if (grokContextCeilingScenario) {
+	await runGrokContextCeilingScenario();
+	process.exit(0);
+}
 
 const root = mkdtempSync(join(tmpdir(), "percentage-compaction-real-host-"));
 const sessionDir = join(root, "sessions");

@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grok 4.5 pi-vcc Context Ceiling Plan</title>
+  <style>
+    :root { color-scheme: dark; --bg:#08111f; --panel:#101c2e; --panel2:#14243a; --text:#e8f0fb; --muted:#a9bbd2; --accent:#76d9ff; --ok:#6ee7a5; --warn:#ffd166; --bad:#ff8793; --border:#29425f; }
+    * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text); font:16px/1.58 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1180px,calc(100vw - 40px)); margin:auto; padding:36px 0 70px; } header,section,article { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:24px; margin:18px 0; }
+    h1,h2,h3 { line-height:1.2; } h1 { font-size:clamp(2rem,5vw,3.4rem); margin:0 0 10px; } h2 { margin-top:0; } h3 { color:#d8ebff; } p,li { max-width:100ch; } .muted { color:var(--muted); }
+    .badge { display:inline-block; border:1px solid var(--border); border-radius:999px; padding:4px 10px; margin:0 8px 8px 0; color:var(--accent); }
+    .badge.ready { color:var(--ok); background:rgba(110,231,165,.08); }
+    .warning { border-left:5px solid var(--warn); } .danger { border-left:5px solid var(--bad); } .success { border-left:5px solid var(--ok); }
+    code,pre { background:#060d18; border-radius:8px; } code { padding:.1em .32em; } pre { overflow:auto; padding:14px; border:1px solid var(--border); }
+    table { width:100%; border-collapse:collapse; } th,td { border:1px solid var(--border); padding:10px; vertical-align:top; text-align:left; } th { background:var(--panel2); }
+    a { color:var(--accent); } .toc { columns:2 16rem; } .toc a { display:block; margin:.35rem 0; }
+    .progress-list label { display:block; padding:6px 0; }
+    .callout { background:rgba(20,36,58,.72); border:1px solid var(--border); border-radius:12px; padding:14px; }
+  </style>
+</head>
+<body>
+<main>
+  <header id="title">
+    <span class="badge">Status: active — upstream Pi delivery pending</span>
+    <span class="badge">Scope: Pi + pi-vcc Grok ceiling</span>
+    <span class="badge">UI impact: text-only</span>
+    <h1>Grok 4.5 pi-vcc Context Ceiling</h1>
+    <p class="muted">Force pi-vcc compaction at 180,000 estimated tokens and block outbound <code>opencode/grok-4.5</code> provider requests at or above 200,000 tokens.</p>
+  </header>
+
+  <section id="toc">
+    <h2>Table of contents</h2>
+    <nav class="toc">
+      <a href="#owner-context">Product-owner context</a>
+      <a href="#whats-new">What's new</a>
+      <a href="#goal">Goal</a>
+      <a href="#decision-attention">Decision attention</a>
+      <a href="#why">Why this plan exists</a>
+      <a href="#authority">Authority and inputs</a>
+      <a href="#reality">Current implementation reality</a>
+      <a href="#progress">Progress</a>
+      <a href="#resume">Resume instructions</a>
+      <a href="#product-intent">Product intent alignment</a>
+      <a href="#locked-decisions">Locked decisions</a>
+      <a href="#socratic">Socratic plan questions</a>
+      <a href="#inventory">Contract inventory</a>
+      <a href="#acceptance">Acceptance criteria and BDD</a>
+      <a href="#phases">Execution phases</a>
+      <a href="#verify">Verification</a>
+      <a href="#review-record">Review record</a>
+      <a href="#non-goals">Non-goals and operations</a>
+      <a href="#decisions-log">Decisions / deviations log</a>
+    </nav>
+  </section>
+
+  <section id="owner-context">
+    <h2>Product-owner context</h2>
+    <p><strong>Situation.</strong> Pi advertises <code>opencode/grok-4.5</code> as a 500K-context model. Repo-managed <code>percentage-compaction.ts</code> uses one 80% hard backstop for every model, so Grok 4.5 auto-compaction starts around 400K. That is far above the requested 180K operating limit.</p>
+    <p><strong>Why now.</strong> Grok 4.5 is enabled in operator settings and the current percentage-only policy cannot express an absolute 180K trigger or a hard 200K outbound-request stop. Pi 0.82.1 exposes <code>before_provider_request</code> (payload rewrite only) and <code>context</code> (message transform only), but not a documented synchronous cancel-and-compact result at dispatch time.</p>
+    <p><strong>Key conclusion.</strong> This is an operator/runtime configuration defect, not a customer-application bug. The fix requires a shared Grok policy in ai-configs plus a minimal Pi-core pre-dispatch gate so “never above 200K” applies to outbound provider requests, not merely to stored transcript size.</p>
+    <table>
+      <tr><th>Impact</th><th>Observed fact / proposed work</th></tr>
+      <tr><td>Customers</td><td>No change. No customer-facing application behavior changes.</td></tr>
+      <tr><td>Runtime product behavior</td><td>Grok 4.5 compacts at 180K. At the 200K ceiling Pi fails closed instead of sending an oversized Grok request.</td></tr>
+      <tr><td>Security / permissions</td><td>No change. Existing pi-vcc redaction and recall behavior remain.</td></tr>
+      <tr><td>Testing / release confidence</td><td>Add deterministic unit tests and a real-host faux-provider recorder that fails if any Grok request reaches 200K.</td></tr>
+      <tr><td>Deployment / migration</td><td>Post-merge: install updated ai-configs, publish/install Pi build with the pre-dispatch gate, restart Pi, verify <code>/compact-status</code> and <code>pi --list-models grok</code>. Non-blocking for PR creation.</td></tr>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What's new</h2>
+    <h3>Grok 4.5 gets an absolute context ceiling instead of a shared 80% backstop</h3>
+    <p><strong>Promise:</strong> Operators using <code>opencode/grok-4.5</code> get deterministic pi-vcc compaction at 180K and a hard stop before any Grok provider request reaches 200K.</p>
+    <ul>
+      <li><strong>Before:</strong> Grok 4.5 inherits the universal 80% policy (~400K trigger on a 500K window) and may dispatch oversized requests after large tool results because extension hard compaction is deferred through <code>setTimeout(..., 0)</code>.</li>
+      <li><strong>After:</strong> Exactly <code>opencode/grok-4.5</code> uses absolute 180K/200K policy values, advertises a 200K model window, triggers pi-vcc at turn boundaries without the zero-delay deferral, and Pi core refuses or compacts synchronously before dispatch when the rebuilt request would still be ≥200K.</li>
+      <li><strong>Observable result:</strong> <code>/compact-status</code> and status notifications show Grok-specific thresholds; real-host validation records every outbound Grok request as strictly below 200K.</li>
+      <li><strong>Preserved:</strong> Non-Grok models keep 60%/75% nudges and the 80% pi-vcc backstop; pi-vcc summary, recall, redaction, and continuation semantics stay unchanged.</li>
+    </ul>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>For sessions whose active model is exactly provider <code>opencode</code> and model ID <code>grok-4.5</code>:</p>
+    <ol>
+      <li>Pi requests pi-vcc compaction when estimated request context reaches <strong>180,000</strong> tokens.</li>
+      <li>Pi must not dispatch a Grok 4.5 provider request whose estimated context is <strong>200,000</strong> tokens or more.</li>
+    </ol>
+    <p class="callout"><strong>Scope boundary:</strong> The guarantee applies to the <em>outbound provider request</em>. Persisted raw JSONL entries may briefly exceed 200K before the next dispatch boundary; those bytes are not sent to Grok once the gate compacts or fails closed. Arbitrary input/tool-output truncation to cap stored transcript size is out of scope.</p>
+  </section>
+
+  <section id="decision-attention" class="warning">
+    <h2>Decision attention / low-confidence areas</h2>
+    <article id="decision-d1" class="callout">
+      <h3>D1 — Locked: two-track delivery (2026-07-27)</h3>
+      <p><strong>Decision:</strong> Ship ai-configs policy/tests in this repo and a minimal upstream Pi-core pre-dispatch gate in parallel. Do not claim production hard-ceiling compliance until both land and the real-host Grok scenario passes on an installed Pi build.</p>
+      <p><strong>Why:</strong> Extension-only changes cannot prove fail-closed dispatch because Pi 0.82.1’s <code>before_provider_request</code> only replaces payloads and hard pi-vcc scheduling currently uses <code>setTimeout(..., 0)</code>. Pi already runs <code>_checkCompaction</code> after assistant responses and before user prompts, but not synchronously before every in-turn LLM call after large tool results.</p>
+      <p><strong>Distribution path for Pi core:</strong> Minimal PR to <code>@earendil-works/pi-coding-agent</code> (agent-session request path). Do not hand-edit global <code>node_modules</code>.</p>
+    </article>
+    <p><strong>Low confidence resolved:</strong> Installer retirement removes bare <code>grok-4.5</code> and <code>grok/*</code> entries but preserves provider-qualified <code>opencode/grok-4.5</code>; add a regression test to keep that true.</p>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>Operator request: use pi-vcc so Grok 4.5 never sends provider requests above 200K and compacts reliably at 180K. Current repo policy and Pi 0.82.1 dispatch semantics cannot meet that invariant without the changes below.</p>
+  </section>
+
+  <section id="authority">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>User requirement: 180K compaction trigger, 200K hard ceiling for Grok models in use.</li>
+      <li>Repo sources: <code>_pi/extensions/percentage-compaction.ts</code>, <code>_pi/packages/pi-vcc/</code>, <code>_pi/models.json</code>, <code>install.sh</code>, <code>scripts/percentage-compaction.test.ts</code>, <code>scripts/percentage-compaction-real-host-repro.ts</code>.</li>
+      <li>Pi runtime evidence: installed <code>@earendil-works/pi-coding-agent@0.82.1</code>, <code>docs/extensions.md#before_provider_request</code>, <code>agent-session._checkCompaction</code>, <code>estimateContextTokens</code>.</li>
+    </ul>
+  </section>
+
+  <section id="reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>HARD_AUTO_COMPACTION_PERCENT = 80</code> in <code>percentage-compaction.ts</code>; Grok hard trigger ≈400K today.</li>
+      <li>Hard pi-vcc path uses <code>schedulePiVccCompaction</code> → <code>setTimeout(..., 0)</code>.</li>
+      <li><code>ctx.getContextUsage()</code> is null immediately after compaction until a post-compaction assistant response.</li>
+      <li>Pi native threshold uses <code>contextTokens &gt; contextWindow - reserveTokens</code> (default reserve 16,384).</li>
+      <li><code>session_before_compact</code> in pi-vcc already supplies deterministic summaries; reuse that path.</li>
+      <li><code>install.sh</code> strips retired bare <code>grok/*</code> models but not <code>opencode/grok-4.5</code>.</li>
+    </ul>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <div class="progress-list">
+      <label><input type="checkbox" disabled /> P0 — Pi-core pre-dispatch gate (implemented on fork; upstream acceptance and installed-build validation pending)</label>
+      <label><input type="checkbox" checked disabled /> P1 — Shared Grok policy module + extension integration</label>
+      <label><input type="checkbox" checked disabled /> P2 — Model metadata and installer alignment</label>
+      <label><input type="checkbox" checked disabled /> P3 — Unit tests and policy boundaries</label>
+      <label><input type="checkbox" disabled /> P4 — Real-host faux-provider proof (local P0 build passed; approved installed Pi build validation pending)</label>
+      <label><input type="checkbox" checked disabled /> P5 — Operator documentation and status output</label>
+    </div>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions (agent)</h2>
+    <p>Read this plan fully. Start at the first unchecked progress item. Work on <code>main</code> unless the user explicitly requests another branch workflow. After each phase, run its <code>Verify</code> commands, check the progress box immediately, and append any deviations to the Decisions log. Do not edit installed Pi <code>node_modules</code>. P0 is implemented on the fork but the upstream PR was auto-closed by contributor-approval policy; do not reimplement it. Resume by obtaining upstream maintainer approval, then publish/install that Pi build and rerun P4 before marking P0 and P4 complete.</p>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <ul>
+      <li><strong>Golden path:</strong> Grok operators should not manually watch token counts; compaction and fail-closed recovery happen automatically.</li>
+      <li><strong>Safe defaults:</strong> Policy applies only to the exact <code>opencode/grok-4.5</code> pair; other models unchanged.</li>
+      <li><strong>Fail-closed:</strong> At the ceiling with no safe cut or compaction failure, Pi reports why it stopped and the safe recovery action (new session / manual recovery).</li>
+      <li><strong>Actionable errors:</strong> Status, notifications, and docs must distinguish provider-request ceiling from stored-transcript size.</li>
+    </ul>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li><strong>D1:</strong> Two-track delivery — ai-configs policy/tests plus upstream Pi pre-dispatch gate (see <a href="#decision-d1">#decision-d1</a>).</li>
+      <li><strong>Policy identity:</strong> Exact provider/model pair <code>opencode</code> / <code>grok-4.5</code> only.</li>
+      <li><strong>Thresholds:</strong> Trigger 180,000; ceiling 200,000; single typed source in shared policy module.</li>
+      <li><strong>Model window:</strong> Override advertised <code>contextWindow</code> to 200,000 for Grok 4.5; cap <code>maxTokens</code> to leave headroom (default 8,192 unless P0 reserve contract requires otherwise).</li>
+      <li><strong>Grok hard trigger scheduling:</strong> For Grok at/above 180K, call <code>triggerCompaction</code> directly; do not use <code>schedulePiVccCompaction</code> / zero-delay timer.</li>
+      <li><strong>P0 compaction handshake:</strong> Pi P0 uses compaction <code>reason: "context_ceiling"</code> with <code>willRetry: true</code> when interrupting an in-flight turn; extension <code>session_before_compact</code> must treat <code>context_ceiling</code> like overflow (never cancel for sub-80% percent) and must not cancel while the gate owns the attempt.</li>
+      <li><strong>Canonical request estimate:</strong> One exported function in the policy module estimates post-<code>transformContext</code> provider input as trailing-aware message tokens plus configured output reservation; P0 gate and P4 recorder both call it.</li>
+      <li><strong>Legacy Grok routes:</strong> Bare <code>grok/*</code> and unqualified retired IDs stay removed; explicitly configured <code>opencode/grok-4.5</code> is supported.</li>
+    </ol>
+  </section>
+
+  <section id="socratic">
+    <h2>Socratic plan questions</h2>
+    <ol>
+      <li><strong>First hour:</strong> After update, selecting Grok 4.5 shows a 200K window, compaction begins near 180K during long sessions, and hitting the ceiling stops with an explicit recovery message instead of a provider overflow error.</li>
+      <li><strong>Consumers:</strong> Policy module → extension triggers/status, Pi dispatch gate, model registry, installer, real-host recorder. Verified by unit tests plus faux-provider integration.</li>
+      <li><strong>Siblings:</strong> Other Grok IDs and providers are intentionally untouched; regression tests prove percentage policy unchanged for a non-Grok model at the same absolute token count.</li>
+      <li><strong>Moving ground:</strong> Rebase against <code>main</code>; re-run installer and real-host scenarios if <code>percentage-compaction.ts</code>, Pi extension API, or model registry behavior changed upstream.</li>
+      <li><strong>Falsification:</strong> Wrong if any recorded Grok provider request ≥200K or if compaction does not initiate by 180K; caught by <code>grok-4-5-ceiling</code> real-host scenario.</li>
+      <li><strong>Proof:</strong> Real-host run with provider call recorder on a faux 500K Grok model proves customer-visible outcome: requests stay below 200K under growth, tool-result jump, continuation, no-safe-cut, and compaction-error cases.</li>
+      <li><strong>Untested:</strong> Production OpenCode Grok latency/cost and post-merge operator restart; residual risk until installed Pi with P0 is validated on target hosts.</li>
+      <li><strong>Expansion log:</strong> None beyond protecting existing non-Grok compaction behavior and documenting the provider-request vs stored-transcript distinction.</li>
+    </ol>
+  </section>
+
+  <section id="inventory">
+    <h2>Contract and distributed-integration inventory</h2>
+    <p><strong>Coverage:</strong> exhaustive by production site for active Grok 4.5 policy.</p>
+    <table>
+      <tr><th>Contract</th><th>Source of truth</th><th>Consumers / verification</th></tr>
+      <tr><td>Grok policy identity + thresholds</td><td>New <code>_pi/extensions/grok-context-ceiling-policy.ts</code></td><td>Extension triggers, status text, Pi gate (duplicated constants until Pi reads shared settings), unit tests</td></tr>
+      <tr><td>Provider-request token estimate</td><td><code>estimateGrokProviderRequestTokens()</code> in the policy module (messages after transform + output reservation + tool defs as Pi dispatch uses)</td><td>P0 pre-dispatch gate, P4 recorder, boundary tests at 179999/180000/199999/200000</td></tr>
+      <tr><td>P0 compaction handshake</td><td>Pi emits <code>reason: "context_ceiling"</code>; extension recognizes it before the 80% cancel branch</td><td>Paired unit tests in <code>percentage-compaction.test.ts</code> and Pi agent-session tests; must not return <code>{ cancel: true }</code> for Grok gate-owned compactions</td></tr>
+      <tr><td>Pre-dispatch action</td><td>Pi <code>agent-session</code> request path (P0)</td><td>Compact-and-rebuild via normal compaction + <code>session_before_compact</code>; fail-closed; faux-provider recorder</td></tr>
+      <tr><td>Turn-boundary trigger</td><td><code>percentage-compaction.ts</code> Grok branch</td><td><code>turn_end</code>, no-cut retry, continuation; unit tests</td></tr>
+      <tr><td>Model metadata</td><td><code>_pi/models.json</code> via <code>install.sh --pi</code></td><td>Pi registry, native threshold math, <code>pi --list-models grok</code></td></tr>
+      <tr><td>Installer preservation</td><td><code>install.sh</code> Grok normalization</td><td>Python/shell installer tests; existing <code>opencode/grok-4.5</code> survives</td></tr>
+    </table>
+  </section>
+
+  <section id="acceptance" class="success">
+    <h2>Acceptance criteria and BDD</h2>
+    <ol>
+      <li>At 179,999 estimated Grok tokens, the special hard trigger does not run. At 180,000 it requests pi-vcc compaction exactly once per dedupe rules.</li>
+      <li>Every observed Grok 4.5 provider request is strictly below 200,000 estimated tokens, including a tool-output jump from below 180K to above 200K.</li>
+      <li>Successful compaction rebuilds context and resumes through the existing continuation protocol.</li>
+      <li>No-safe-cut or compaction failure at the ceiling produces no Grok provider call and an actionable operator message.</li>
+      <li>Non-Grok models retain 60%/75%/80% behavior unchanged.</li>
+      <li>Model switch resets Grok-specific dedupe/latch state.</li>
+    </ol>
+    <h3>BDD</h3>
+    <ul>
+      <li id="bdd-g1"><strong>G1:</strong> Grok at 180K with valid cut → next request compacts first; provider input &lt;200K.</li>
+      <li id="bdd-g2"><strong>G2:</strong> Below 180K then large tool result → pre-dispatch gate compacts; recorded input &lt;200K.</li>
+      <li id="bdd-g3"><strong>G3:</strong> Ceiling with no legal cut → no provider call; operator told to start new session.</li>
+      <li id="bdd-g4"><strong>G4:</strong> pi-vcc failure at guard → fail-closed; no retry loop.</li>
+      <li id="bdd-g5"><strong>G5:</strong> Non-Grok at same absolute count → percentage policy only.</li>
+    </ul>
+  </section>
+
+  <section id="phases">
+    <h2>Execution phases</h2>
+
+    <article id="phase-0" class="warning">
+      <h3>P0 — Pi-core pre-dispatch context ceiling gate</h3>
+      <p><strong>End state:</strong> Before each LLM stream for Grok 4.5, Pi synchronously compacts/rebuilds or refuses dispatch when <code>estimateGrokProviderRequestTokens()</code> ≥ ceiling.</p>
+      <p><strong>Tests first:</strong> In <code>@earendil-works/pi-coding-agent</code> source (currently installed 0.82.1), add agent-session tests: no <code>streamFunction</code> after fail-closed; compact-and-rebuild ordering; <code>context_ceiling</code> reason emitted; non-Grok models skip gate.</p>
+      <p><strong>Work:</strong> At post-<code>transformContext</code> dispatch boundary, call the same estimate contract as ai-configs (duplicate constants/helpers until Pi can import shared settings). At ≥180K trigger normal compaction with <code>reason: "context_ceiling"</code> and <code>willRetry: true</code> when retrying the interrupted turn. Rebuild and re-estimate. If still ≥200K, emit actionable error and do not dispatch. Extend Pi compaction reason union to include <code>context_ceiling</code>.</p>
+      <p><strong>Expected files:</strong> Pi upstream <code>agent-session</code>, compaction reason/types, agent-session tests. Outside this repo until merged.</p>
+      <p><strong>Verify:</strong></p>
+      <pre><code># in pi-coding-agent source checkout
+npm test -- agent-session
+npm test -- compaction
+
+# local proof against ai-configs policy constants (manual until shared import exists)
+# install patched Pi globally, then run ai-configs P4 scenario</code></pre>
+      <p><strong>Open questions:</strong> None — D1 locked.</p>
+    </article>
+
+    <article id="phase-1">
+      <h3>P1 — Shared Grok policy module + extension integration</h3>
+      <p><strong>End state:</strong> One resolver exports Grok identity, 180K trigger, 200K ceiling, labels, and dedupe keys; extension uses it everywhere.</p>
+      <p><strong>Tests first:</strong> Policy module unit tests: exact pair match, sibling non-match, boundary constants exported once.</p>
+      <p><strong>Work:</strong> Add <code>_pi/extensions/grok-context-ceiling-policy.ts</code> exporting identity helpers, thresholds, and <code>estimateGrokProviderRequestTokens()</code>. Update <code>percentage-compaction.ts</code>: Grok branch at <code>turn_end</code> uses absolute tokens; call <code>triggerCompaction</code> directly for Grok hard path; update <code>/compact-status</code>, nudges, and model-switch latch reset. Update <code>session_before_compact</code> to (a) allow <code>reason === "context_ceiling"</code> before the 80% cancel branch, (b) evaluate Grok absolute thresholds when percent-based usage is below 80% but absolute tokens ≥180K, and (c) avoid canceling gate-owned compactions while <code>compactionInFlight</code> is set for Grok ceiling work.</p>
+      <p><strong>Expected files:</strong> <code>_pi/extensions/grok-context-ceiling-policy.ts</code>, <code>_pi/extensions/percentage-compaction.ts</code>, <code>scripts/grok-context-ceiling-policy.test.ts</code> (or extend <code>percentage-compaction.test.ts</code>).</p>
+      <p><strong>Verify:</strong> <code>bun test scripts/grok-context-ceiling-policy.test.ts scripts/percentage-compaction.test.ts</code></p>
+    </article>
+
+    <article id="phase-2">
+      <h3>P2 — Model metadata and installer alignment</h3>
+      <p><strong>End state:</strong> Installed Grok 4.5 advertises 200K window; installer preserves <code>opencode/grok-4.5</code> opt-in.</p>
+      <p><strong>Tests first:</strong> Installer regression: existing <code>opencode/grok-4.5</code> in <code>enabledModels</code> survives; effective override values match policy.</p>
+      <p><strong>Work:</strong> Add <code>opencode.modelOverrides.grok-4.5</code> with <code>contextWindow: 200000</code> and safe <code>maxTokens</code>. Clarify comments in <code>install.sh</code> that retirement targets bare <code>grok/*</code>, not OpenCode-qualified Grok. Update <code>scripts/verify-pi-install.sh</code> only if it incorrectly rejects supported OpenCode Grok.</p>
+      <p><strong>Expected files:</strong> <code>_pi/models.json</code>, <code>install.sh</code>, installer test files if needed.</p>
+      <p><strong>Verify:</strong> <code>bash ./install.sh --pi</code>; <code>pi --list-models grok</code>; installer Python/shell tests touching Grok normalization.</p>
+    </article>
+
+    <article id="phase-3">
+      <h3>P3 — Unit tests and policy boundaries</h3>
+      <p><strong>End state:</strong> Deterministic tests cover 179,999/180,000 boundaries, model switch, null usage, large-tool jump setup, no-safe-cut/failure messaging hooks, and non-Grok regression.</p>
+      <p><strong>Tests first:</strong> RED cases in <code>scripts/percentage-compaction.test.ts</code> before implementation edits land.</p>
+      <p><strong>Work:</strong> Extend existing percentage-compaction tests; assert Grok hard path does not call deferred scheduler; assert status strings reference absolute thresholds; add paired tests that <code>session_before_compact</code> with <code>reason: "context_ceiling"</code> does not cancel at sub-80% percent for Grok; add estimator boundary tests for 179999/180000/199999/200000 including output reservation.</p>
+      <p><strong>Expected files:</strong> <code>scripts/percentage-compaction.test.ts</code>.</p>
+      <p><strong>Verify:</strong> <code>bun test scripts/percentage-compaction.test.ts</code></p>
+    </article>
+
+    <article id="phase-4">
+      <h3>P4 — Real-host faux-provider proof</h3>
+      <p><strong>End state:</strong> Named scenario fails CI if any Grok request ≥200K; proves compaction initiation ≥180K.</p>
+      <p><strong>Tests first:</strong> Add <code>--scenario grok-4-5-ceiling</code> skeleton that fails until recorder wired.</p>
+      <p><strong>Work:</strong> Extend <code>scripts/percentage-compaction-real-host-repro.ts</code> with <code>--scenario grok-4-5-ceiling</code>, faux 500K Grok model, provider call recorder, provider throw at 200K. Replace the ad hoc JSON-length/4 estimator with imported <code>estimateGrokProviderRequestTokens()</code> so recorded samples match the P0 gate definition (messages + tools + reservation). Cover G1–G5, source and installed candidates, continuation/resume, no-safe-cut, compaction error. Requires P0 on the Pi build used for this scenario.</p>
+      <p><strong>Expected files:</strong> <code>scripts/percentage-compaction-real-host-repro.ts</code>, optional narrow helper.</p>
+      <p><strong>Verify:</strong> <code>bun scripts/percentage-compaction-real-host-repro.ts --scenario grok-4-5-ceiling</code></p>
+    </article>
+
+    <article id="phase-5">
+      <h3>P5 — Operator documentation and status output</h3>
+      <p><strong>End state:</strong> Operators know Grok compacts at 180K, what fail-closed means, and how to verify installation.</p>
+      <p><strong>Tests first:</strong> Update status-output assertions before doc edits if commands change.</p>
+      <p><strong>Work:</strong> Update <code>_pi/README.md</code> with model-specific contract, provider-request definition, recovery steps. Do not promise stored transcript never exceeds 200K.</p>
+      <p><strong>Expected files:</strong> <code>_pi/README.md</code>.</p>
+      <p><strong>Verify:</strong> Doc review plus any status text tests.</p>
+    </article>
+  </section>
+
+  <section id="verify">
+    <h2>Verification strategy</h2>
+    <pre><code># ai-configs unit and package contracts
+bun test scripts/grok-context-ceiling-policy.test.ts
+bun test scripts/percentage-compaction.test.ts
+(cd _pi/packages/pi-vcc &amp;&amp; bun test tests/before-compact.test.ts)
+
+# Real provider-boundary proof (requires Pi build with P0)
+bun scripts/percentage-compaction-real-host-repro.ts --scenario grok-4-5-ceiling
+
+# Installation parity
+bash ./install.sh --pi
+bash scripts/verify-pi-vcc-install.sh
+pi --list-models grok
+
+# Pi upstream (P0)
+# Run Pi agent-session lifecycle tests in pi-coding-agent source after adding pre-dispatch gate</code></pre>
+  </section>
+
+  <section id="review-record">
+    <h2>Review record</h2>
+    <table>
+      <tr><th>Leg</th><th>Result</th><th>Notes</th></tr>
+      <tr><td>PM / product-intent</td><td>Integrated in this revision</td><td>Added What's new, fail-closed recovery, golden-path alignment, locked D1</td></tr>
+      <tr><td>Active-harness reviewer (pass 1)</td><td>PLAN_NEEDS_REVISION</td><td>P0/extension handshake + canonical estimator gaps — integrated 2026-07-28</td></tr>
+      <tr><td>Active-harness reviewer (pass 2)</td><td>Blocked (pi bridge disconnect)</td><td>Pass 1 blockers integrated; rerun reviewer before execution if strict gate required</td></tr>
+      <tr><td>Browser / Doct</td><td>Registered</td><td><a href="https://doct.nodaste.com/d/workspace_759bfae3-44f1-4ce5-9bff-9077d9933a21/docs/ee7bd546-b49b-4beb-adb2-e85538e16161">Doct plan</a></td></tr>
+    </table>
+  </section>
+
+  <section id="non-goals" class="danger">
+    <h2>Non-goals, residual risk, and post-merge operations</h2>
+    <ul>
+      <li>Do not apply 180K/200K to every Grok-family model without a separate decision.</li>
+      <li>Do not truncate arbitrary user prompts or raw tool results to claim a stored-transcript cap.</li>
+      <li>Do not patch installed Pi distribution files in place.</li>
+      <li>Do not change pi-vcc summary/recall/redaction beyond wiring the ceiling policy.</li>
+    </ul>
+    <p><strong>Post-merge operations:</strong> Publish/install Pi build with P0, run <code>./install.sh --pi</code>, restart Pi, select <code>opencode/grok-4.5</code>, run real-host scenario on target host, capture <code>/compact-status</code> and model listing. Roll back Grok route if validation finds an oversized outbound request.</p>
+  </section>
+
+  <section id="decisions-log">
+    <h2>Decisions / deviations log</h2>
+    <table>
+      <tr><th>Date</th><th>Decision</th><th>Rationale</th></tr>
+      <tr><td>2026-07-27</td><td>Locked D1 two-track delivery</td><td>Extension-only cannot prove fail-closed outbound dispatch; Pi pre-dispatch gate required for “never ≥200K request” invariant</td></tr>
+      <tr><td>2026-07-27</td><td>Grok hard trigger uses direct <code>triggerCompaction</code></td><td>Removes zero-delay scheduling gap for turn-boundary path</td></tr>
+      <tr><td>2026-07-27</td><td>Provider-request scope boundary documented</td><td>Stored transcript may briefly exceed ceiling; guarantee is on outbound requests</td></tr>
+      <tr><td>2026-07-28</td><td>Added <code>context_ceiling</code> compaction reason handshake</td><td>Reviewer: P0 compactions were cancellable by sub-80% <code>session_before_compact</code> logic</td></tr>
+      <tr><td>2026-07-28</td><td>Canonical <code>estimateGrokProviderRequestTokens()</code></td><td>Reviewer: P4 JSON-length/4 estimator did not match gate semantics</td></tr>
+    </table>
+  </section>
+</main>
+</body>
+</html>

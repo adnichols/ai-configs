@@ -4,9 +4,18 @@ import { dirname, join } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
+	ModelSelectEvent,
 	SessionBeforeCompactEvent,
 	TurnEndEvent,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
+import {
+	formatGrokThresholdStatus,
+	GROK_ADVERTISED_CONTEXT_WINDOW,
+	GROK_COMPACTION_TRIGGER_TOKENS,
+	GROK_CONTEXT_CEILING_TOKENS,
+	grokCompactionTriggerReached,
+	isGrokContextCeilingModel,
+} from "./grok-context-ceiling-policy";
 export const COMPACTION_NUDGE_PERCENT = 60;
 export const COMPACTION_STRONG_NUDGE_PERCENT = 75;
 export const HARD_AUTO_COMPACTION_PERCENT = 80;
@@ -543,6 +552,54 @@ export default function (pi: ExtensionAPI) {
 	let currentCompactionAttemptId: number | undefined;
 	let pendingCompactionContinuation: PendingCompactionContinuation | undefined;
 	let deliveredCompactionContinuationAttemptId: number | undefined;
+	let activeModelProvider: string | undefined;
+	let activeModelId: string | undefined;
+	let lastGrokAutoCompactionTokens: number | undefined;
+
+	const activeGrokIdentity = () => ({
+		provider: activeModelProvider ?? undefined,
+		modelId: activeModelId ?? undefined,
+	});
+
+	const isActiveGrokModel = (ctx: ExtensionContext) =>
+		isGrokContextCeilingModel(activeGrokIdentity()) ||
+		isGrokContextCeilingModel({
+			provider: (ctx.model as { provider?: string } | undefined)?.provider,
+			modelId: ctx.model?.id,
+		});
+
+	const resolveGrokUsageTokens = (usage: {
+		percent: number;
+		contextWindow: number;
+		tokens?: number;
+	}) =>
+		usage.tokens ?? Math.round((usage.percent / 100) * usage.contextWindow);
+
+	const isStaleGrokAutoCompactionTokens = (
+		tokens: number,
+		lastTokens: number | undefined,
+	) => lastTokens !== undefined && tokens === lastTokens;
+
+	const resetGrokLatchState = () => {
+		lastGrokAutoCompactionTokens = undefined;
+		lastAutoCompactionPercent = undefined;
+		lastNudgePercentBand = undefined;
+		noCutRetryState = undefined;
+	};
+
+	const syncActiveModel = (model: { provider?: string; id?: string } | undefined) => {
+		const nextProvider = model?.provider;
+		const nextModelId = model?.id;
+		if (
+			nextProvider === activeModelProvider &&
+			nextModelId === activeModelId
+		) {
+			return;
+		}
+		activeModelProvider = nextProvider;
+		activeModelId = nextModelId;
+		resetGrokLatchState();
+	};
 
 	const clearPendingNoCutContinuation = () => {
 		if (pendingNoCutContinuation?.timer)
@@ -1196,6 +1253,15 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify("Context usage: unknown", "warning");
 				return;
 			}
+			if (isActiveGrokModel(ctx)) {
+				const tokens = resolveGrokUsageTokens(usage);
+				ctx.ui.notify(
+					`Context: ${tokens.toLocaleString()} / ${GROK_ADVERTISED_CONTEXT_WINDOW.toLocaleString()} tokens (${Math.floor(usage.percent)}%). ` +
+						`${formatGrokThresholdStatus()}; last compaction: ${lastCompactionReason}`,
+					"info",
+				);
+				return;
+			}
 			ctx.ui.notify(
 				`Context: ${Math.floor(usage.percent)}% of ${usage.contextWindow.toLocaleString()} tokens ` +
 					`(nudge: ${COMPACTION_NUDGE_PERCENT}%, strong: ${COMPACTION_STRONG_NUDGE_PERCENT}%, hard auto: ${HARD_AUTO_COMPACTION_PERCENT}%, ` +
@@ -1203,6 +1269,10 @@ export default function (pi: ExtensionAPI) {
 				"info",
 			);
 		},
+	});
+
+	pi.on("model_select", async (event: ModelSelectEvent) => {
+		syncActiveModel(event.model);
 	});
 
 	const observeAssistantToolBatch = (message: any) => {
@@ -1319,6 +1389,67 @@ export default function (pi: ExtensionAPI) {
 		if (usagePercent === undefined || usagePercent === null) return;
 
 		const currentPercent = Math.floor(usagePercent);
+
+		if (isActiveGrokModel(ctx)) {
+			const grokUsage = usage;
+			if (!grokUsage) return;
+			const tokens = resolveGrokUsageTokens(grokUsage);
+			const grokResetTokens = Math.floor(
+				(COMPACTION_NUDGE_PERCENT / 100) * GROK_ADVERTISED_CONTEXT_WINDOW,
+			);
+
+			if (tokens < grokResetTokens) {
+				lastGrokAutoCompactionTokens = undefined;
+				lastAutoCompactionPercent = undefined;
+				lastNudgePercentBand = undefined;
+				awaitingPostCompactionAssistantResponse = false;
+				noCutRetryState = undefined;
+				return;
+			}
+
+			if (grokCompactionTriggerReached(tokens)) {
+				if (
+					isStaleGrokAutoCompactionTokens(
+						tokens,
+						lastGrokAutoCompactionTokens,
+					) &&
+					(!noCutRetryState ||
+						userMessageCount === noCutRetryState.userMessageCount)
+				)
+					return;
+				if (
+					noCutRetryState &&
+					currentPercent <= noCutRetryState.flooredPercent &&
+					userMessageCount === noCutRetryState.userMessageCount
+				) {
+					return;
+				}
+				const started = triggerCompaction(ctx, {
+					initiator: "hard-backstop",
+					resumePolicy: "active",
+					startMessage: completedResponse
+						? `✓ Auto-compacting Grok context at ${tokens.toLocaleString()} tokens (trigger: ${GROK_COMPACTION_TRIGGER_TOKENS.toLocaleString()})`
+						: `↻ Grok context at ${tokens.toLocaleString()} tokens (trigger: ${GROK_COMPACTION_TRIGGER_TOKENS.toLocaleString()}). Interrupting agent for pi-vcc compaction...`,
+					completionMessage: "Compacted with pi-vcc",
+					ratchetPercent: usagePercent,
+					reason: "grok_context_ceiling",
+					interruptedTurn: snapshotInterruptedCompactionTurn(
+						event,
+						"hard_backstop",
+					),
+					noCutRecovery: {
+						interruptedActiveTurn: isInterruptedAgentWork(event.message),
+						pendingToolCallIds: () =>
+							completedResponse ? [] : [...outstandingAssistantToolCallIds],
+						usagePercent,
+					},
+				});
+				if (started) lastGrokAutoCompactionTokens = tokens;
+				return;
+			}
+
+			return;
+		}
 
 		if (usagePercent < COMPACTION_NUDGE_PERCENT) {
 			lastAutoCompactionPercent = undefined;
@@ -1456,13 +1587,43 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			if (
-				(rawEvent.reason === "overflow" || rawEvent.willRetry === true) &&
+				(rawEvent.reason === "overflow" ||
+					rawEvent.reason === "context_ceiling" ||
+					rawEvent.willRetry === true) &&
 				!manualPiVccBypass
 			) {
 				return;
 			}
 
+			if (compactionInFlight) {
+				lastAutoCompactionPercent = usage.percent;
+				awaitingPostCompactionAssistantResponse = true;
+				lastCompactionReason = isActiveGrokModel(ctx)
+					? "grok_context_ceiling"
+					: "core_hard_backstop";
+				if (isActiveGrokModel(ctx)) {
+					const tokens = resolveGrokUsageTokens(usage);
+					ctx.ui.notify(
+						`✓ Auto-compacting Grok context at ${tokens.toLocaleString()} tokens (trigger: ${GROK_COMPACTION_TRIGGER_TOKENS.toLocaleString()})`,
+						"info",
+					);
+				} else {
+					ctx.ui.notify(
+						`✓ Auto-compacting at ${Math.floor(usage.percent)}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`,
+						"info",
+					);
+				}
+				return;
+			}
+
 			if (usage.percent < HARD_AUTO_COMPACTION_PERCENT) {
+				if (isActiveGrokModel(ctx)) {
+					const tokens = resolveGrokUsageTokens(usage);
+					if (grokCompactionTriggerReached(tokens)) {
+						lastAutoCompactionPercent = usage.percent;
+						return;
+					}
+				}
 				lastAutoCompactionPercent = undefined;
 				ctx.ui.notify(
 					`⏸️ Delayed auto-compaction: ${Math.floor(usage.percent)}% < ${HARD_AUTO_COMPACTION_PERCENT}% hard backstop`,
@@ -1478,17 +1639,6 @@ export default function (pi: ExtensionAPI) {
 					"info",
 				);
 				return { cancel: true };
-			}
-
-			if (compactionInFlight) {
-				lastAutoCompactionPercent = usage.percent;
-				awaitingPostCompactionAssistantResponse = true;
-				lastCompactionReason = "core_hard_backstop";
-				ctx.ui.notify(
-					`✓ Auto-compacting at ${Math.floor(usage.percent)}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`,
-					"info",
-				);
-				return;
 			}
 
 			if (

@@ -9,6 +9,10 @@ import percentageCompaction, {
 	PI_VCC_LOAD_MARKER,
 	PI_VCC_MANUAL_BYPASS_MARKER,
 } from "../_pi/extensions/percentage-compaction";
+import {
+	GROK_ADVERTISED_CONTEXT_WINDOW,
+	GROK_COMPACTION_TRIGGER_TOKENS,
+} from "../_pi/extensions/grok-context-ceiling-policy";
 import { reconcileContinuationEntries } from "../_pi/packages/pi-vcc/src/core/continuation-protocol";
 
 type HandlerMap = Record<string, (event: any, ctx: any) => any>;
@@ -39,6 +43,9 @@ const setup = (
 	options: {
 		sendMessageThrows?: boolean;
 		authority?: "legacy" | "coordinator";
+		model?: { provider?: string; id?: string };
+		tokens?: number;
+		contextWindow?: number;
 	} = {},
 ) => {
 	(globalThis as any)[PI_VCC_LOAD_MARKER] = piVccLoaded;
@@ -72,10 +79,17 @@ const setup = (
 		getContextUsage: () => {
 			const currentPercent =
 				typeof percent === "function" ? percent() : percent;
-			return currentPercent === null
-				? null
-				: { percent: currentPercent, contextWindow: 272000 };
+			if (currentPercent === null) return null;
+			const contextWindow = options.contextWindow ?? 272000;
+			return {
+				percent: currentPercent,
+				contextWindow,
+				tokens:
+					options.tokens ??
+					Math.round((currentPercent / 100) * contextWindow),
+			};
 		},
+		model: options.model,
 	};
 
 	percentageCompaction({
@@ -107,6 +121,10 @@ const setup = (
 			sentMessages.push({ message, options: messageOptions });
 		},
 	} as any);
+
+	if (options.model) {
+		handlers.model_select?.({ model: options.model }, ctx);
+	}
 
 	return {
 		handlers,
@@ -1753,5 +1771,228 @@ describe("percentage-compaction extension", () => {
 		await handlers.turn_end?.(assistantStop, ctx);
 		await delay(0);
 		expect(compactCalls).toHaveLength(2);
+	});
+});
+
+describe("Grok context ceiling integration", () => {
+	const grokModel = {
+		provider: "opencode",
+		id: "grok-4.5",
+	} as const;
+
+	const grokSetup = (
+		tokens: number,
+		percent = (tokens / GROK_ADVERTISED_CONTEXT_WINDOW) * 100,
+	) =>
+		setup(percent, true, {
+			model: grokModel,
+			tokens,
+			contextWindow: GROK_ADVERTISED_CONTEXT_WINDOW,
+		});
+
+	test("does not auto-compact Grok below 180K tokens", async () => {
+		const { handlers, compactCalls, sentMessages, ctx } = grokSetup(179_999);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+
+		expect(compactCalls).toHaveLength(0);
+		expect(sentMessages).toHaveLength(0);
+	});
+
+	test("Grok hard trigger compacts directly at 180K without deferred scheduling", async () => {
+		const { handlers, compactCalls, notifications, ctx } = grokSetup(180_000);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		expect(compactCalls).toHaveLength(1);
+		await delay(0);
+		expect(compactCalls).toHaveLength(1);
+		expect(
+			notifications.some((entry) =>
+				entry.message.includes("Auto-compacting Grok context at 180,000"),
+			),
+		).toBe(true);
+	});
+
+	test("Grok session_before_compact allows context_ceiling below 80% percent", async () => {
+		const { handlers, ctx } = grokSetup(180_000);
+
+		const result = await handlers.session_before_compact?.(
+			{ customInstructions: undefined, reason: "context_ceiling" },
+			ctx,
+		);
+
+		expect(result).toBeUndefined();
+	});
+
+	test("Grok session_before_compact allows extension-owned compaction below 80% percent", async () => {
+		const { handlers, compactCalls, notifications, ctx } = grokSetup(180_000);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		expect(compactCalls).toHaveLength(1);
+
+		const result = await handlers.session_before_compact?.(
+			{ customInstructions: undefined },
+			ctx,
+		);
+
+		expect(result).toBeUndefined();
+		expect(
+			notifications.some((entry) =>
+				entry.message.includes("Auto-compacting Grok context at 180,000"),
+			),
+		).toBe(true);
+	});
+
+	test("non-Grok model keeps percentage policy at the same absolute token count", async () => {
+		const tokens = 180_000;
+		const percent = (tokens / 272_000) * 100;
+		const { handlers, compactCalls, sentMessages, ctx } = setup(percent, true, {
+			tokens,
+			contextWindow: 272_000,
+		});
+
+		await handlers.turn_end?.(assistantStop, ctx);
+
+		expect(compactCalls).toHaveLength(0);
+		expect(sentMessages).toHaveLength(1);
+		expect(sentMessages[0].message.customType).toBe("compaction-nudge");
+	});
+
+	test("model switch resets Grok auto-compaction dedupe latch", async () => {
+		let tokens = 180_000;
+		const { handlers, compactCalls, ctx } = setup(
+			() => (tokens / GROK_ADVERTISED_CONTEXT_WINDOW) * 100,
+			true,
+			{
+				model: grokModel,
+				contextWindow: GROK_ADVERTISED_CONTEXT_WINDOW,
+			},
+		);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		expect(compactCalls).toHaveLength(1);
+		compactCalls[0].onComplete();
+		await handlers.turn_end?.(assistantStop, ctx);
+		expect(compactCalls).toHaveLength(1);
+
+		await handlers.model_select?.(
+			{ model: { provider: "openai-codex", id: "gpt-5.6-terra" } },
+			ctx,
+		);
+		await handlers.model_select?.({ model: grokModel }, ctx);
+
+		tokens = 180_001;
+		await handlers.turn_end?.(assistantStop, ctx);
+		expect(compactCalls).toHaveLength(2);
+	});
+
+	test("compact-status reports Grok absolute thresholds", async () => {
+		const { commands, notifications, ctx } = grokSetup(150_000);
+
+		await commands["compact-status"].handler("", ctx);
+
+		expect(notifications.at(-1)?.message).toContain("150,000");
+		expect(notifications.at(-1)?.message).toContain("180,000");
+		expect(notifications.at(-1)?.message).toContain("200,000");
+	});
+
+	test("Grok does not auto-compact when context usage is unknown", async () => {
+		const { handlers, compactCalls, ctx } = setup(null, true, {
+			model: grokModel,
+		});
+
+		await handlers.turn_end?.(assistantStop, ctx);
+
+		expect(compactCalls).toHaveLength(0);
+	});
+
+	test("Grok dedupe suppresses repeat compaction at unchanged token count", async () => {
+		const { handlers, compactCalls, ctx } = grokSetup(180_000);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		expect(compactCalls).toHaveLength(1);
+		compactCalls[0].onComplete();
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		expect(compactCalls).toHaveLength(1);
+	});
+
+	test("Grok large token jump across 180K triggers compaction once", async () => {
+		let tokens = 179_999;
+		const { handlers, compactCalls, ctx } = setup(
+			() => (tokens / GROK_ADVERTISED_CONTEXT_WINDOW) * 100,
+			true,
+			{
+				model: grokModel,
+				contextWindow: GROK_ADVERTISED_CONTEXT_WINDOW,
+			},
+		);
+
+		await handlers.turn_end?.(assistantStop, ctx);
+		expect(compactCalls).toHaveLength(0);
+
+		tokens = 185_000;
+		await handlers.turn_end?.(
+			assistantToolUse(1, [toolResult("tc_1", "read", "x".repeat(5000))]),
+			ctx,
+		);
+		expect(compactCalls).toHaveLength(1);
+	});
+
+	test("Grok no-safe-cut at hard trigger sends continuation for interrupted turn", async () => {
+		const { handlers, compactCalls, sentMessages, notifications, ctx } =
+			grokSetup(180_000);
+
+		await handlers.turn_end?.(
+			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
+			ctx,
+		);
+		expect(compactCalls).toHaveLength(1);
+		compactCalls[0].onError(
+			new Error("Nothing to compact (session too small)"),
+		);
+		await delay();
+
+		expect(sentMessages).toHaveLength(1);
+		expect(sentMessages[0].message.customType).toBe(
+			"pi-vcc-no-cut-continuation",
+		);
+		expect(
+			notifications.some((entry) =>
+				entry.message.includes("No safe compaction cut available"),
+			),
+		).toBe(true);
+	});
+
+	test("Grok compaction failure at hard trigger sends continuation", async () => {
+		const { handlers, compactCalls, sentMessages, ctx } = grokSetup(180_000);
+
+		await handlers.turn_end?.(
+			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
+			ctx,
+		);
+		expect(compactCalls).toHaveLength(1);
+		compactCalls[0].onError(new Error("provider failed"));
+		await delay();
+
+		expect(sentMessages).toHaveLength(1);
+		expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
+		expect(sentMessages[0].message.details.reason).toBe("failed");
+	});
+
+	test("Grok session_before_compact cancels core compaction below 180K trigger", async () => {
+		const { handlers, notifications, ctx } = grokSetup(150_000);
+
+		const result = await handlers.session_before_compact?.(
+			{ customInstructions: undefined },
+			ctx,
+		);
+
+		expect(result).toEqual({ cancel: true });
+		expect(
+			notifications.some((entry) =>
+				entry.message.includes("75% < 80% hard backstop"),
+			),
+		).toBe(true);
 	});
 });

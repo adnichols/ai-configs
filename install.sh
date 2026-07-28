@@ -1723,11 +1723,11 @@ DEFAULT_MODEL = "gpt-5.6-sol"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
 SPARK_MODEL = "gpt-5.3-codex-spark"
-# Retired Grok CLI-proxy models. Strip them from enabledModels on install so
-# previously managed machines do not keep offering removed providers.
+# Retired bare Grok CLI-proxy routes (grok/* prefix and unqualified IDs below).
+# OpenCode-qualified opencode/grok-4.5 is supported and must survive normalization.
 RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
 RETIRED_GROK_MODEL_IDS = {
-    "grok-4.5",
+    "grok-4.5",  # bare legacy ID only; opencode/grok-4.5 is not retired
     "grok-build-0.1",
     "grok-4.3",
     "grok-4.20-0309-reasoning",

@@ -126,6 +126,10 @@
     },
     "opencode": {
       "modelOverrides": {
+        "grok-4.5": {
+          "contextWindow": 200000,
+          "maxTokens": 8192
+        },
         "glm-5.2": {
           "reasoning": true,
           "thinkingLevelMap": {

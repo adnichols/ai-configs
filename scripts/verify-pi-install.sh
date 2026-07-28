@@ -230,6 +230,7 @@ DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
 SPARK_MODEL = "gpt-5.3-codex-spark"
 RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
+# Bare legacy IDs only; opencode/grok-4.5 is supported and not retired.
 RETIRED_GROK_MODEL_IDS = {
     "grok-4.5",
     "grok-build-0.1",

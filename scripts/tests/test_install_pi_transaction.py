@@ -93,6 +93,32 @@ class InstallTransactionTest(unittest.TestCase):
             full=subprocess.run(['bash','scripts/verify-pi-install.sh','--check-only'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
             self.assertNotEqual(full.returncode,0);self.assertIn('enabledModels still contains retired GPT-5.4 Pi routes',full.stdout)
 
+    def test_opencode_grok_4_5_survives_retired_grok_normalization(self):
+        with tempfile.TemporaryDirectory() as d:
+            home = Path(d)
+            agent = home / '.pi/agent'
+            (agent / 'agents').mkdir(parents=True)
+            bin_dir = home / 'bin'
+            bin_dir.mkdir()
+            pi = bin_dir / 'pi'
+            pi.write_text('#!/bin/sh\nexit 0\n')
+            pi.chmod(0o755)
+            models = agent / 'models.json'
+            models.write_text(json.dumps({'providers': {'caller-owned': {'models': [{'id': 'local'}]}}}))
+            settings = agent / 'settings.json'
+            settings.write_text(json.dumps({'enabledModels': [
+                'grok/grok-4.5', 'grok/grok-composer-2.5-fast', 'grok-4.5', 'opencode/grok-4.5', 'openai-codex/gpt-5.6-sol',
+            ]}))
+            env={**os.environ,'HOME':d,'PATH':f'{bin_dir}:{os.environ["PATH"]}'}
+            subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
+            configured=json.loads(settings.read_text())['enabledModels']
+            self.assertIn('opencode/grok-4.5',configured)
+            self.assertNotIn('grok/grok-4.5',configured)
+            self.assertNotIn('grok-4.5',configured)
+            grok_override=json.loads(models.read_text())['providers']['opencode']['modelOverrides']['grok-4.5']
+            self.assertEqual(grok_override['contextWindow'],200000)
+            self.assertEqual(grok_override['maxTokens'],8192)
+
     def test_malformed_settings_fail_before_any_bounded_install_mutation(self):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d);agent=home/'.pi/agent';(agent/'agents').mkdir(parents=True);(agent/'prompts').mkdir();(agent/'agents/local.md').write_text('keep agent');(agent/'prompts/local.md').write_text('keep prompt');(agent/'README.md').write_text('keep readme');(agent/'models.json').write_text(json.dumps({'providers':{'caller-owned':{'models':[{'id':'local'}]}}}));(agent/'settings.json').write_text('[]');before=manifest(agent);env={**os.environ,'HOME':d}
