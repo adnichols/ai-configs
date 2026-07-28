@@ -3082,8 +3082,15 @@ install_pi_npm_packages() {
     # openai-responses adapter, while pi-service-tier's upstream provider check
     # only recognizes openai-codex-responses. Keep the installed package
     # compatible with the repo-managed local CLIProxyAPI provider.
-    if ! python3 "$REPO_ROOT/scripts/patch_pi_service_tier.py"; then
+    if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_service_tier.py"; then
         echo -e "${YELLOW}⚠ Failed to apply pi-service-tier CLIProxyAPI compatibility patch${NC}"
+    fi
+
+    # @howaboua/pi-explore-subagents launches no-session RPC children by
+    # copying process.env. Remove the parent's Herdr identity before launch so
+    # a child cannot report or release its interactive pane lifecycle.
+    if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_explore_subagents.py"; then
+        echo -e "${YELLOW}⚠ Failed to apply pi-explore-subagents Herdr identity isolation patch${NC}"
     fi
 }
 

@@ -474,6 +474,10 @@ if [ -f "$PI_SERVICE_TIER_SHARED" ] && ! grep -Fq 'const usesCLIProxyAPIResponse
   note_failure "pi-service-tier is installed without the CLIProxyAPI openai-responses compatibility patch"
 fi
 
+if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_explore_subagents.py" --check >/dev/null; then
+  note_failure "pi-explore-subagents is installed without complete Herdr child-environment isolation"
+fi
+
 print_section "4) Quick checks"
 echo "  Repo-managed extensions: find ~/.pi/agent/extensions -mindepth 1 -maxdepth 1 -exec basename {} \\; | sort"
 echo "  Package-managed installs: pi list"

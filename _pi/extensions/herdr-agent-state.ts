@@ -20,8 +20,21 @@ const socketPath = process.env.HERDR_SOCKET_PATH;
 const paneId = process.env.HERDR_PANE_ID;
 const source = "herdr:pi";
 
+// Pi RPC runs (including explore_subagent) inherit the parent process
+// environment by default. They have an extension UI context but do not own the
+// terminal pane, so they must never report or release that pane's lifecycle.
+function isHeadlessChildRuntime(): boolean {
+  if (process.env.PI_EXPLORE_SUBAGENT_CHILD === "1") {
+    return true;
+  }
+
+  return process.argv.some(
+    (arg, index, argv) => arg === "--mode=rpc" || (arg === "--mode" && argv[index + 1] === "rpc"),
+  );
+}
+
 function enabled() {
-  return HERDR_ENV === "1" && !!socketPath && !!paneId;
+  return HERDR_ENV === "1" && !!socketPath && !!paneId && !isHeadlessChildRuntime();
 }
 
 // sendRequest resolves with true on a successful round-trip and false on any

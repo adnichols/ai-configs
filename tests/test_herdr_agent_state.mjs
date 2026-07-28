@@ -269,6 +269,35 @@ try {
   await pi.emit("entry_appended", { entry: terminalVccEntry }, ctx);
   await waitForState("idle");
 
+  // explore_subagent launches Pi as an RPC child and historically copied this
+  // terminal's HERDR_* identity. Its extension context hasUI flag is true in
+  // RPC mode, but it must not install lifecycle hooks or release the parent.
+  const childReportsBefore = reports.length;
+  process.env.PI_EXPLORE_SUBAGENT_CHILD = "1";
+  const childExtensionUrl = new URL(extensionUrl.href);
+  childExtensionUrl.searchParams.set("explore-child", String(Date.now()));
+  const { default: installChildExtension } = await import(childExtensionUrl.href);
+  const childPi = new MockPi();
+  installChildExtension(childPi);
+  assert.equal(childPi.handlers.size, 0, "explore RPC child must not register Herdr lifecycle hooks");
+  await childPi.emit("session_start", { reason: "startup" }, ctx);
+  await childPi.emit("session_shutdown", { reason: "quit" }, ctx);
+  await delay(20);
+  assert.equal(reports.length, childReportsBefore, "explore RPC child must not report or release the parent pane");
+  delete process.env.PI_EXPLORE_SUBAGENT_CHILD;
+
+  // The RPC command-line mode is an independent guard for any future child
+  // launcher that does not provide explore_subagent's explicit marker.
+  const argvBeforeRpcGuard = [...process.argv];
+  process.argv.push("--mode", "rpc");
+  const rpcExtensionUrl = new URL(extensionUrl.href);
+  rpcExtensionUrl.searchParams.set("rpc-child", String(Date.now()));
+  const { default: installRpcExtension } = await import(rpcExtensionUrl.href);
+  const rpcPi = new MockPi();
+  installRpcExtension(rpcPi);
+  assert.equal(rpcPi.handlers.size, 0, "generic RPC child must not register Herdr lifecycle hooks");
+  process.argv.splice(0, process.argv.length, ...argvBeforeRpcGuard);
+
   await pi.emit("session_shutdown", { reason: "quit" }, ctx);
   await delay(20);
   assert.ok(reports.some((report) => report.method === "pane.release_agent"));
