@@ -5,6 +5,7 @@ This directory contains Pi-specific resources:
 - `prompts/` — prompt templates exposed as slash commands
 - `agents/` — @tintinweb/pi-subagents-compatible agent definitions
 - `extensions/` — Pi runtime extensions, including the maintained `/prd` workflow and utility integrations
+- `lib/` — shared import-only TypeScript modules used by extensions; never auto-loaded as extensions
 - `models.json` — managed custom model entries merged into Pi's global `models.json`
 - `tasks-config.json` — managed global defaults for the package-managed `@tintinweb/pi-tasks` extension
 
@@ -16,6 +17,7 @@ Repo-owned default Pi/Codex shared skills live in the repo-level `skills/` tree,
 These resources are installed by `install.sh` to Pi's global agent directory. There are three distinct Pi installation surfaces:
 
 - repo-managed extensions: copied from this repo into `~/.pi/agent/extensions/`, including `vent.ts`, which writes the shared feedback log to `~/.pi/VENT.md`
+- repo-managed Pi libraries: copied from `_pi/lib/` into `~/.pi/agent/lib/`; this keeps import-only helpers out of Pi's auto-loaded `extensions/` directory
 - repo-managed model entries: merged from `_pi/models.json` into `~/.pi/agent/models.json` without replacing local API keys
 - repo-managed task defaults: copied from `_pi/tasks-config.json` to `~/.pi/agent/tasks-config.json`
 - package-managed Pi installs: registered via `pi install` / `pi update` and visible in `pi list`
@@ -36,6 +38,7 @@ To verify the Pi install surfaces this repo manages, run:
 
 ```bash
 bash scripts/verify-pi-install.sh
+bash scripts/test-pi-extension-autoload-e2e.sh  # real fresh Pi TUI startup
 ```
 
 Installed layout:
@@ -59,13 +62,15 @@ Installed layout:
 │   ├── reviewer.md       # GPT-5.6 Terra medium; read-only review
 │   ├── scout.md          # GPT-5.6 Terra low; read-only discovery
 │   └── Explore.md        # disabled bundled persona override
-└── extensions/
-    ├── pi-prd-mode/
-    │   └── index.ts
-    ├── aoe-status/
-    │   └── index.ts
-    ├── simple-multi-status.ts
-    └── percentage-compaction.ts
+├── extensions/
+│   ├── pi-prd-mode/
+│   │   └── index.ts
+│   ├── aoe-status/
+│   │   └── index.ts
+│   ├── simple-multi-status.ts
+│   └── percentage-compaction.ts
+└── lib/
+    └── grok-context-ceiling-policy.ts
 ```
 
 The installer renders the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md` through `scripts/render_pi_append_system.py`. It replaces `{{AI_CONFIGS_VERSION}}` with `YYYY-MM-DD+<git-sha>` and appends `-dirty` only when the doctrine file differs from that commit, so behavior reports can be tied back to repository history. Installation fails outside a Git checkout, when the doctrine is untracked, or if the template token is missing, duplicated, or remains unresolved.
@@ -87,8 +92,10 @@ _pi/
 │   └── *.md
 ├── agents/             # Pi subagent definitions for @tintinweb/pi-subagents
 │   └── *.md
-└── extensions/         # Pi runtime extensions
-    ├── */index.ts
+├── extensions/         # Pi runtime extensions; every .ts here must export a factory
+│   ├── */index.ts
+│   └── *.ts
+└── lib/                # Import-only shared modules, copied to ~/.pi/agent/lib
     └── *.ts
 
 skills/
@@ -117,7 +124,7 @@ Planning remains available through prompt templates and shared skills such as `/
 
 ## Extensions
 
-Pi loads runtime extensions from `~/.pi/agent/extensions/`.
+Pi loads runtime extensions from `~/.pi/agent/extensions/`. Every TypeScript file in that directory is auto-loaded and must export an extension factory. Import-only helpers, including the Grok context-ceiling policy used by `percentage-compaction.ts`, live in `~/.pi/agent/lib/` instead.
 
 This repo ships `thinking-shortcuts.ts`, which adds Codex-style bidirectional reasoning controls:
 

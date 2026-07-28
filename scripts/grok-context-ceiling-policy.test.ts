@@ -10,7 +10,7 @@ import {
 	grokCompactionTriggerReached,
 	grokProviderCeilingReached,
 	isGrokContextCeilingModel,
-} from "../_pi/extensions/grok-context-ceiling-policy";
+} from "../_pi/lib/grok-context-ceiling-policy";
 
 const userMessage = (text: string) => ({
 	role: "user" as const,

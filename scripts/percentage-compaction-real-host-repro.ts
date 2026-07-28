@@ -111,7 +111,7 @@ async function runGrokContextCeilingScenario(): Promise<void> {
 		join(policyDependencyPath, "pi-agent-core"),
 	);
 	copyFileSync(
-		join(repoRoot, "_pi", "extensions", "grok-context-ceiling-policy.ts"),
+		join(repoRoot, "_pi", "lib", "grok-context-ceiling-policy.ts"),
 		policyModulePath,
 	);
 	const policy = await import(pathToFileURL(policyModulePath).href);

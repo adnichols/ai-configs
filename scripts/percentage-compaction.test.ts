@@ -12,7 +12,7 @@ import percentageCompaction, {
 import {
 	GROK_ADVERTISED_CONTEXT_WINDOW,
 	GROK_COMPACTION_TRIGGER_TOKENS,
-} from "../_pi/extensions/grok-context-ceiling-policy";
+} from "../_pi/lib/grok-context-ceiling-policy";
 import { reconcileContinuationEntries } from "../_pi/packages/pi-vcc/src/core/continuation-protocol";
 
 type HandlerMap = Record<string, (event: any, ctx: any) => any>;

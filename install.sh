@@ -46,7 +46,9 @@ DEPRECATED_SHARED_SKILLS=(
 )
 # Retire the legacy, session-detail-backed todo extension in favor of the
 # package-managed @tintinweb/pi-tasks extension.
-RETIRED_PI_EXTENSIONS=(questionnaire.ts todo.ts)
+# Pi auto-loads every TypeScript file in extensions/, so helpers must never remain
+# there after they move to a managed non-extension library path.
+RETIRED_PI_EXTENSIONS=(questionnaire.ts todo.ts grok-context-ceiling-policy.ts)
 DISABLED_PI_EXTENSIONS=(claude-review codex-review)
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
@@ -2176,6 +2178,7 @@ install_pi() {
     local pi_prompts_dir="$pi_agent_dir/prompts"
     local pi_agents_dir="$pi_agent_dir/agents"
     local pi_extensions_dir="$pi_agent_dir/extensions"
+    local pi_lib_dir="$pi_agent_dir/lib"
     local pi_source_dir="$REPO_ROOT/_pi"
 
     # This is a home-directory install only, similar to shared skills.
@@ -2225,6 +2228,16 @@ install_pi() {
     for disabled_extension in "${DISABLED_PI_EXTENSIONS[@]}"; do
         rm -rf "$pi_extensions_dir/$disabled_extension"
     done
+    if [ -d "$pi_source_dir/lib" ]; then
+        echo "  - Installing Pi shared libraries..."
+        mkdir -p "$pi_lib_dir"
+        shopt -s nullglob
+        for entry in "$pi_source_dir/lib"/*; do
+            cp -a "$entry" "$pi_lib_dir/$(basename "$entry")"
+        done
+        shopt -u nullglob
+    fi
+
     if [ -d "$pi_source_dir/extensions" ]; then
         # Detect external clobbering of ai-configs-managed extensions before
         # restoring them, so the drift is visible in the install log. The main
@@ -2323,7 +2336,7 @@ install_pi_review_stack() {
         echo "Error: mutation-bounded Pi review-stack installation requires ~/.pi to be a real directory, not a symlink." >&2
         return 1
     fi
-    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/tasks-config.json" "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
+    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/lib" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/tasks-config.json" "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
         if [ -L "$managed_pi_path" ]; then
             echo "Error: mutation-bounded Pi review-stack installation refuses symlinks at managed ~/.pi paths: $managed_pi_path" >&2
             return 1
@@ -2360,9 +2373,20 @@ PY
         fi
     done
 
+    for retired_extension in "${RETIRED_PI_EXTENSIONS[@]}"; do
+        rm -rf "$agent/extensions/$retired_extension"
+    done
     for disabled_extension in "${DISABLED_PI_EXTENSIONS[@]}"; do
         rm -rf "$agent/extensions/$disabled_extension"
     done
+    if [ -d "$pi_source/lib" ]; then
+        mkdir -p "$agent/lib"
+        shopt -s nullglob
+        for entry in "$pi_source/lib"/*; do
+            cp -a "$entry" "$agent/lib/$(basename "$entry")"
+        done
+        shopt -u nullglob
+    fi
     remove_repo_managed_pi_extension_registrations \
         "$agent" "$pi_source/extensions" "$agent/extensions"
 
