@@ -286,8 +286,8 @@ for model in models:
         model = DEFAULT_MODEL_VALUE
     if model not in normalized:
         normalized.append(model)
-if DEFAULT_MODEL_VALUE not in normalized:
-    normalized.insert(0, DEFAULT_MODEL_VALUE)
+normalized = [model for model in normalized if model != DEFAULT_MODEL_VALUE]
+normalized.insert(0, DEFAULT_MODEL_VALUE)
 settings["enabledModels"] = normalized
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(settings, indent=2) + "\n")
