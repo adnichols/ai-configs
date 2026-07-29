@@ -94,7 +94,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @tintinweb/pi-tasks, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-service-tier, pi-cursor-sdk, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @tintinweb/pi-tasks, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-service-tier, pi-cursor-sdk (with its question bridge disabled by default), and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr config is installed locally whenever --tools or --all runs"
@@ -3113,6 +3113,13 @@ install_pi_npm_packages() {
     # a child cannot report or release its interactive pane lifecycle.
     if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_explore_subagents.py"; then
         echo -e "${YELLOW}⚠ Failed to apply pi-explore-subagents Herdr identity isolation patch${NC}"
+    fi
+
+    # Cursor's interactive question bridge is intentionally opt-in across
+    # ai-configs hosts. Reapply this after every npm package update.
+    if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_cursor_sdk.py"; then
+        echo -e "${RED}✗ Failed to disable pi-cursor-sdk interactive question bridge${NC}" >&2
+        return 1
     fi
 }
 

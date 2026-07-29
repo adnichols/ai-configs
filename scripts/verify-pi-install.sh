@@ -486,6 +486,10 @@ if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_ex
   note_failure "pi-explore-subagents is installed without complete Herdr child-environment isolation"
 fi
 
+if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_cursor_sdk.py" --check >/dev/null; then
+  note_failure "pi-cursor-sdk is installed with its interactive question bridge enabled by default"
+fi
+
 print_section "4) Quick checks"
 echo "  Repo-managed extensions: find ~/.pi/agent/extensions -mindepth 1 -maxdepth 1 -exec basename {} \\; | sort"
 echo "  Package-managed installs: pi list"
