@@ -759,7 +759,7 @@ EOF
   [[ ! -e "$home/.pi/agent/agents/researcher.md" ]] || return 1
   [[ -f "$home/.pi/agent/agents/planner.md" ]] || return 1
   assert_file_contains "$home/.pi/agent/agents/planner.md" 'name: planner' || return 1
-  assert_file_contains "$home/.pi/agent/agents/planner.md" 'model: openai-codex/gpt-5.6-sol' || return 1
+  assert_file_contains "$home/.pi/agent/agents/planner.md" 'model: openai-codex/gpt-5.6-terra' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'model: openai-codex/gpt-5.6-terra' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'reasoningEffort: low' || return 1
   assert_file_contains "$home/.pi/agent/models.json" 'gemma4:latest' || return 1
@@ -772,7 +772,7 @@ EOF
   assert_file_not_contains "$home/.pi/agent/settings.json" 'pi-prd-mode' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:caller-owned' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" '"defaultProvider": "openai-codex"' || return 1
-  assert_file_contains "$home/.pi/agent/settings.json" '"defaultModel": "gpt-5.6-sol"' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" '"defaultModel": "gpt-5.6-terra"' || return 1
   assert_file_contains "$home/.pi/agent/tasks-config.json" '"taskScope": "memory"' || return 1
   [[ -f "$home/.pi/agent/agents/Explore.md" ]] || return 1
   [[ "$(cat "$home/.pi/agent/agents/Explore.md")" == $'---\nenabled: false\n---' ]] || return 1
