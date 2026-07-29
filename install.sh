@@ -1724,9 +1724,9 @@ settings_path = Path(os.environ["PI_SETTINGS_PATH"])
 web_search_path = Path(os.environ["PI_WEB_SEARCH_PATH"])
 
 DEFAULT_PROVIDER = "openai-codex"
-DEFAULT_MODEL = "gpt-5.6-sol"
+DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
-GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
+RETIRED_PI_MODEL_IDS = {"gpt-5.6-sol", "glm-5.2"}
 SPARK_MODEL = "gpt-5.3-codex-spark"
 # Retired bare Grok CLI-proxy routes (grok/* prefix and unqualified IDs below).
 # OpenCode-qualified opencode/grok-4.5 is supported and must survive normalization.
@@ -1776,6 +1776,12 @@ for model in models:
         continue
     if model == SPARK_MODEL or model.endswith(f"/{SPARK_MODEL}"):
         continue
+    if model in RETIRED_PI_MODEL_IDS or model == "opencode/glm-5.2":
+        continue
+    if "/" in model:
+        provider_id, model_id = model.split("/", 1)
+        if model_id in RETIRED_PI_MODEL_IDS and (provider_id == "openai-codex" or provider_id.startswith("openai-codex-")):
+            continue
     if model.startswith(RETIRED_GROK_MODEL_PREFIXES) or model in RETIRED_GROK_MODEL_IDS:
         continue
     if model.startswith("openai-codex-") and model.endswith(f"/{DEFAULT_MODEL}"):
@@ -1784,8 +1790,6 @@ for model in models:
         normalized.append(model)
 if DEFAULT_MODEL_VALUE not in normalized:
     normalized.insert(0, DEFAULT_MODEL_VALUE)
-if GLM_SCOPED_MODEL_VALUE not in normalized:
-    normalized.append(GLM_SCOPED_MODEL_VALUE)
 settings["enabledModels"] = normalized
 
 if json.dumps(settings, sort_keys=True) != before_settings:
@@ -1988,7 +1992,7 @@ target_providers = updated_data.setdefault("providers", {})
 
 # Retire only exact model IDs previously managed by ai-configs. Display names
 # are not an ownership boundary: callers may keep custom CLI Proxy API models.
-RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini"}
+RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.6-sol"}
 
 def prune_retired_managed_models():
     openai_codex_provider = target_providers.get("openai-codex")
@@ -2033,6 +2037,16 @@ def prune_retired_managed_models():
                 opencode_provider.pop("modelOverrides")
         if not opencode_provider:
             target_providers.pop("opencode", None)
+
+    opencode_go_provider = target_providers.get("opencode-go")
+    if isinstance(opencode_go_provider, dict):
+        overrides = opencode_go_provider.get("modelOverrides")
+        if isinstance(overrides, dict):
+            overrides.pop("glm-5.2", None)
+            if not overrides:
+                opencode_go_provider.pop("modelOverrides")
+        if not opencode_go_provider:
+            target_providers.pop("opencode-go", None)
 
     opencode_zen_provider = target_providers.get("opencode-zen")
     if isinstance(opencode_zen_provider, dict):
@@ -2134,13 +2148,18 @@ if settings_path.exists():
         for value in enabled_models:
             retired = False
             if isinstance(value, str):
-                if value in RETIRED_OPENAI_CODEX_MODEL_IDS:
+                if value in RETIRED_OPENAI_CODEX_MODEL_IDS or value == "glm-5.2":
+                    retired = True
+                elif value == "opencode/glm-5.2":
                     retired = True
                 elif "/" in value:
                     provider_id, model_id = value.split("/", 1)
                     retired = (
-                        model_id in RETIRED_OPENAI_CODEX_MODEL_IDS
-                        and (provider_id == "openai-codex" or provider_id.startswith("openai-codex-"))
+                        (
+                            model_id in RETIRED_OPENAI_CODEX_MODEL_IDS
+                            and (provider_id == "openai-codex" or provider_id.startswith("openai-codex-"))
+                        )
+                        or (provider_id == "opencode" and model_id == "glm-5.2")
                     )
             if not retired:
                 retained.append(value)

@@ -71,20 +71,25 @@ class InstallTransactionTest(unittest.TestCase):
                 'openai-codex':{'localField':'keep','models':[
                     {'id':'gpt-5.4','name':'GPT-5.4 (CLI Proxy API)'},
                     {'id':'gpt-5.4-mini','name':'GPT-5.4 mini (CLI Proxy API)'},
+                    {'id':'gpt-5.6-sol','name':'GPT-5.6 Sol (CLI Proxy API)'},
                     {'id':'caller-custom','name':'Caller Custom (CLI Proxy API)','customField':'keep'},
                 ]},
                 'caller-owned':{'baseUrl':'https://caller.invalid/v1','api':'custom-api','apiKey':'secret','models':[{'id':'gpt-5.4','name':'Unrelated same ID'}]},
+                'opencode':{'modelOverrides':{'glm-5.2':{'reasoning':True}}},
+                'opencode-go':{'modelOverrides':{'glm-5.2':{'reasoning':True}}},
             }}))
             settings=agent/'settings.json';settings.write_text(json.dumps({'callerSetting':'keep','enabledModels':[
-                'gpt-5.4','gpt-5.4-mini','openai-codex/gpt-5.4','openai-codex/gpt-5.4-mini',
+                'gpt-5.4','gpt-5.4-mini','gpt-5.6-sol','openai-codex/gpt-5.4','openai-codex/gpt-5.4-mini',
+                'openai-codex/gpt-5.6-sol','openai-codex-old/gpt-5.6-sol','opencode/glm-5.2','glm-5.2',
                 'openai-codex-old/gpt-5.4','openai-codex-history/gpt-5.4-mini',
                 'openai-codex-/gpt-5.4','caller-owned/gpt-5.4','openai-codex/caller-custom',42,
             ]}))
             env={**os.environ,'HOME':d}
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             installed=json.loads(models.read_text());providers=installed['providers'];codex=providers['openai-codex'];ids={model['id'] for model in codex['models']}
-            self.assertNotIn('gpt-5.4',ids);self.assertNotIn('gpt-5.4-mini',ids);self.assertIn('caller-custom',ids);custom=next(model for model in codex['models'] if model['id']=='caller-custom');self.assertEqual(custom['name'],'Caller Custom (CLI Proxy API)');self.assertEqual(custom['customField'],'keep');self.assertEqual(codex['localField'],'keep')
+            self.assertNotIn('gpt-5.4',ids);self.assertNotIn('gpt-5.4-mini',ids);self.assertNotIn('gpt-5.6-sol',ids);self.assertIn('caller-custom',ids);custom=next(model for model in codex['models'] if model['id']=='caller-custom');self.assertEqual(custom['name'],'Caller Custom (CLI Proxy API)');self.assertEqual(custom['customField'],'keep');self.assertEqual(codex['localField'],'keep')
             self.assertEqual(providers['caller-owned'],{'baseUrl':'https://caller.invalid/v1','api':'custom-api','apiKey':'secret','models':[{'id':'gpt-5.4','name':'Unrelated same ID'}]})
+            self.assertNotIn('glm-5.2',providers.get('opencode',{}).get('modelOverrides',{}));self.assertNotIn('opencode-go',providers)
             configured=json.loads(settings.read_text());self.assertEqual(configured['callerSetting'],'keep');self.assertEqual(configured['enabledModels'],['caller-owned/gpt-5.4','openai-codex/caller-custom',42])
             self.assertFalse(stale.exists());self.assert_exact_installed_agents(home)
             configured['enabledModels'].append('openai-codex-/gpt-5.4');settings.write_text(json.dumps(configured))
@@ -116,7 +121,13 @@ class InstallTransactionTest(unittest.TestCase):
             legacy_policy.write_text('export const stale = true;\n')
             env={**os.environ,'HOME':d,'PATH':f'{bin_dir}:{os.environ["PATH"]}'}
             subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
-            configured=json.loads(settings.read_text())['enabledModels']
+            configured_data=json.loads(settings.read_text())
+            configured=configured_data['enabledModels']
+            self.assertEqual(configured_data['defaultProvider'],'openai-codex')
+            self.assertEqual(configured_data['defaultModel'],'gpt-5.6-terra')
+            self.assertEqual(configured[0],'openai-codex/gpt-5.6-terra')
+            self.assertNotIn('openai-codex/gpt-5.6-sol',configured)
+            self.assertNotIn('opencode/glm-5.2',configured)
             self.assertIn('opencode/grok-4.5',configured)
             self.assertNotIn('grok/grok-4.5',configured)
             self.assertNotIn('grok-4.5',configured)

@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / "_pi" / "agents"
 EXPECTED_FILES = {"Explore.md", "planner.md", "reviewer.md", "scout.md"}
 EXPECTED_ROUTES = {
-    "planner": ("openai-codex/gpt-5.6-sol", "medium"),
+    "planner": ("openai-codex/gpt-5.6-terra", "medium"),
     "reviewer": ("openai-codex/gpt-5.6-terra", "medium"),
     "scout": ("openai-codex/gpt-5.6-terra", "low"),
 }
@@ -53,6 +53,23 @@ class PiAgentRosterTest(unittest.TestCase):
             self.assertNotIn("thinking", metadata)
             self.assertNotIn("output", metadata)
             self.assertNotIn("defaultReads", metadata)
+
+    def test_pi_model_scope_and_default_route(self):
+        allowlist = (ROOT / "_pi" / "extensions" / "model-allowlist.ts").read_text()
+        for model in (
+            "openai-codex/gpt-5.6-luna",
+            "openai-codex/gpt-5.6-terra",
+            "cursor/grok-4.5",
+            "cursor/composer-2.5",
+        ):
+            self.assertIn(f'"{model}"', allowlist)
+        for retired in ("openai-codex/gpt-5.6-sol", "opencode/glm-5.2"):
+            self.assertNotIn(f'"{retired}"', allowlist)
+        models = json.loads((ROOT / "_pi" / "models.json").read_text())
+        managed_ids = {item["id"] for item in models["providers"]["openai-codex"]["models"]}
+        self.assertNotIn("gpt-5.6-sol", managed_ids)
+        self.assertIn("gpt-5.6-terra", managed_ids)
+        self.assertNotIn("opencode-go", models["providers"])
 
     def test_prompts_keep_generic_authority_and_stop_rules(self):
         bodies = {name: frontmatter(AGENTS / f"{name}.md")[1].lower() for name in EXPECTED_ROUTES}

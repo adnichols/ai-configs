@@ -3,7 +3,7 @@ description: Run a change review using GPT
 argument-hint: '<existing-plan-path | plan slug | legacy: <spec> <tasks> | legacy: <directory containing spec.md and tasks.md>'
 agent: reviewer
 subtask: true
-model: openai-codex/gpt-5.6-sol
+model: openai-codex/gpt-5.6-terra
 reasoningEffort: medium
 ---
 

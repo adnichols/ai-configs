@@ -15,9 +15,8 @@ PI_LIB_DIR="$PI_AGENT_DIR/lib"
 PI_WEB_SEARCH_PATH="$PI_ROOT_DIR/web-search.json"
 PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
 PI_DEFAULT_PROVIDER="openai-codex"
-PI_DEFAULT_MODEL="gpt-5.6-sol"
+PI_DEFAULT_MODEL="gpt-5.6-terra"
 PI_DEFAULT_MODEL_VALUE="${PI_DEFAULT_PROVIDER}/${PI_DEFAULT_MODEL}"
-PI_GLM_SCOPED_MODEL_VALUE="opencode/glm-5.2"
 VERIFY_SCOPE="full"
 CHECK_ONLY=false
 
@@ -99,10 +98,15 @@ for provider_id, provider in source_providers.items():
             def contains(actual, expected):
                 return all(key in actual and (contains(actual[key], value) if isinstance(value, dict) else actual[key] == value) for key, value in expected.items())
             if not contains(target_models[model["id"]], model): raise SystemExit(1)
-retired = {"gpt-5.4", "gpt-5.4-mini"}
+retired = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.6-sol"}
 managed = installed_providers.get("openai-codex", {})
 if any(isinstance(model, dict) and model.get("id") in retired for model in managed.get("models", [])):
     raise SystemExit(1)
+for provider_id in ("opencode", "opencode-go", "opencode-zen"):
+    provider = installed_providers.get(provider_id, {})
+    overrides = provider.get("modelOverrides", {}) if isinstance(provider, dict) else {}
+    if isinstance(overrides, dict) and "glm-5.2" in overrides:
+        raise SystemExit(1)
 settings_path = sys.argv[3]
 try:
     settings = json.load(open(settings_path))
@@ -228,9 +232,9 @@ settings_path = Path(sys.argv[1])
 web_search_path = Path(sys.argv[2])
 
 DEFAULT_PROVIDER = "openai-codex"
-DEFAULT_MODEL = "gpt-5.6-sol"
+DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
-GLM_SCOPED_MODEL_VALUE = "opencode/glm-5.2"
+RETIRED_PI_MODEL_IDS = {"gpt-5.6-sol", "glm-5.2"}
 SPARK_MODEL = "gpt-5.3-codex-spark"
 RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
 # Bare legacy IDs only; opencode/grok-4.5 is supported and not retired.
@@ -270,6 +274,12 @@ for model in models:
         continue
     if model == SPARK_MODEL or model.endswith(f"/{SPARK_MODEL}"):
         continue
+    if model in RETIRED_PI_MODEL_IDS or model == "opencode/glm-5.2":
+        continue
+    if "/" in model:
+        provider_id, model_id = model.split("/", 1)
+        if model_id in RETIRED_PI_MODEL_IDS and (provider_id == "openai-codex" or provider_id.startswith("openai-codex-")):
+            continue
     if model.startswith(RETIRED_GROK_MODEL_PREFIXES) or model in RETIRED_GROK_MODEL_IDS:
         continue
     if model.startswith("openai-codex-") and model.endswith(f"/{DEFAULT_MODEL}"):
@@ -278,8 +288,6 @@ for model in models:
         normalized.append(model)
 if DEFAULT_MODEL_VALUE not in normalized:
     normalized.insert(0, DEFAULT_MODEL_VALUE)
-if GLM_SCOPED_MODEL_VALUE not in normalized:
-    normalized.append(GLM_SCOPED_MODEL_VALUE)
 settings["enabledModels"] = normalized
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(settings, indent=2) + "\n")
@@ -491,7 +499,7 @@ else
 fi
 
 if [ -f "$PI_AGENT_DIR/settings.json" ]; then
-  PI_MODEL_STATUS="$(PI_DEFAULT_PROVIDER="$PI_DEFAULT_PROVIDER" PI_DEFAULT_MODEL="$PI_DEFAULT_MODEL" PI_DEFAULT_MODEL_VALUE="$PI_DEFAULT_MODEL_VALUE" PI_GLM_SCOPED_MODEL_VALUE="$PI_GLM_SCOPED_MODEL_VALUE" python3 - "$PI_AGENT_DIR/settings.json" <<'PY'
+  PI_MODEL_STATUS="$(PI_DEFAULT_PROVIDER="$PI_DEFAULT_PROVIDER" PI_DEFAULT_MODEL="$PI_DEFAULT_MODEL" PI_DEFAULT_MODEL_VALUE="$PI_DEFAULT_MODEL_VALUE" python3 - "$PI_AGENT_DIR/settings.json" <<'PY'
 import json
 import os
 import re
@@ -503,7 +511,6 @@ data = json.loads(path.read_text())
 default_provider = os.environ["PI_DEFAULT_PROVIDER"]
 default_model = os.environ["PI_DEFAULT_MODEL"]
 default_model_value = os.environ["PI_DEFAULT_MODEL_VALUE"]
-glm_scoped_model_value = os.environ["PI_GLM_SCOPED_MODEL_VALUE"]
 errors = []
 if data.get("defaultProvider") != default_provider:
     errors.append(f"defaultProvider={data.get('defaultProvider')!r}")
@@ -517,8 +524,9 @@ if not isinstance(enabled, list):
 else:
     if default_model_value not in enabled:
         errors.append(f"enabledModels missing {default_model_value}")
-    if glm_scoped_model_value not in enabled:
-        errors.append(f"enabledModels missing {glm_scoped_model_value}")
+    retired_scoped = re.compile(r"^(?:gpt-5\.6-sol|glm-5\.2|opencode/glm-5\.2|openai-codex(?:-[^/]*)?/gpt-5\.6-sol)$")
+    if any(isinstance(model, str) and retired_scoped.fullmatch(model) for model in enabled):
+        errors.append("enabledModels still contains retired GPT-5.6 Sol or GLM-5.2 Pi routes")
     if any(isinstance(model, str) and "gpt-5.3-codex-spark" in model for model in enabled):
         errors.append("enabledModels still contains gpt-5.3-codex-spark")
     if any(
@@ -535,10 +543,10 @@ PY
 )"
   if [ "$PI_MODEL_STATUS" = "ok" ]; then
     echo "  Pi default model: $PI_DEFAULT_MODEL_VALUE"
-    echo "  Pi scoped model: $PI_GLM_SCOPED_MODEL_VALUE enabled"
+    echo "  Pi scoped Sol and GLM routes: absent"
     echo "  Pi Codex goal token budgets: disabled"
   else
-    note_failure "Pi default model settings are not GPT-5.6 Sol: $PI_MODEL_STATUS"
+    note_failure "Pi default model settings are not GPT-5.6 Terra: $PI_MODEL_STATUS"
   fi
 else
   note_failure "Pi settings file is missing: $PI_AGENT_DIR/settings.json"
@@ -549,11 +557,11 @@ if [ -f "$PI_AGENT_DIR/models.json" ]; then
 import json, sys
 models = json.load(open(sys.argv[1])).get("providers", {}).get("openai-codex", {}).get("models", [])
 retired = {"gpt-5.4", "gpt-5.4-mini"}
-print("ok" if not any(isinstance(model, dict) and model.get("id") in retired for model in models) else "retired GPT-5.4 managed model remains")
+print("ok" if not any(isinstance(model, dict) and model.get("id") in retired for model in models) else "retired GPT-5.4 or GPT-5.6 Sol managed model remains")
 PY
 )"
   if [ "$PI_RETIRED_MODEL_STATUS" = "ok" ]; then
-    echo "  Retired Pi GPT-5.4 managed models: absent"
+    echo "  Retired Pi GPT-5.4 and GPT-5.6 Sol managed models: absent"
   else
     note_failure "$PI_RETIRED_MODEL_STATUS"
   fi
@@ -578,24 +586,19 @@ PY
   if [ "$PI_WEB_SEARCH_STATUS" = "ok" ]; then
     echo "  Pi web-search summary model: $PI_DEFAULT_MODEL_VALUE"
   else
-    note_failure "Pi web-search summaryModel is not local Codex GPT-5.6 Sol: $PI_WEB_SEARCH_STATUS"
+    note_failure "Pi web-search summaryModel is not local Codex GPT-5.6 Terra: $PI_WEB_SEARCH_STATUS"
   fi
 else
   note_failure "Pi web-search config is missing: $PI_WEB_SEARCH_PATH"
 fi
 
 if command -v pi >/dev/null 2>&1; then
-  if pi --list-models "$PI_DEFAULT_MODEL_VALUE" 2>/dev/null | grep -Eq '^[[:space:]]*openai-codex[[:space:]]+gpt-5\.6-sol([[:space:]]|$)'; then
+  if pi --list-models "$PI_DEFAULT_MODEL_VALUE" 2>/dev/null | grep -Eq '^[[:space:]]*openai-codex[[:space:]]+gpt-5\.6-terra([[:space:]]|$)'; then
     echo "  Pi reviewer GPT model route: $PI_DEFAULT_MODEL_VALUE"
   else
     note_failure "Pi cannot resolve reviewer GPT model route $PI_DEFAULT_MODEL_VALUE"
   fi
 
-  if pi --list-models "$PI_GLM_SCOPED_MODEL_VALUE" 2>/dev/null | grep -Eq '^[[:space:]]*opencode[[:space:]]+glm-5\.2([[:space:]]|$)'; then
-    echo "  Pi retained GLM scoped model route: $PI_GLM_SCOPED_MODEL_VALUE"
-  else
-    note_failure "Pi cannot resolve retained GLM scoped model route $PI_GLM_SCOPED_MODEL_VALUE"
-  fi
 fi
 
 if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-multi-pass'; then

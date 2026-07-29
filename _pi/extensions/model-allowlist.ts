@@ -1,12 +1,10 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const ALLOWED_MODELS = new Set([
-	"openai-codex/gpt-5.6-sol",
 	"openai-codex/gpt-5.6-luna",
 	"openai-codex/gpt-5.6-terra",
 	"cursor/grok-4.5",
 	"cursor/composer-2.5",
-	"opencode/glm-5.2",
 ]);
 
 type ModelLike = { provider: string; id: string };

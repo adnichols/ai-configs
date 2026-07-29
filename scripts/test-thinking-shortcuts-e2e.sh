@@ -33,9 +33,9 @@ set extension_path [lindex $argv 1]
 set transcript_path [lindex $argv 2]
 log_user 0
 log_file -noappend $transcript_path
-spawn env TERM=xterm-256color $pi_bin --offline --no-session --no-extensions --extension $extension_path --model openai-codex/gpt-5.6-sol --thinking medium
+spawn env TERM=xterm-256color $pi_bin --offline --no-session --no-extensions --extension $extension_path --model openai-codex/gpt-5.6-terra --thinking medium
 expect {
-  -re {gpt-5\.6-sol} {}
+  -re {gpt-5\.6-terra} {}
   timeout { puts stderr "FAIL: Pi startup timed out"; exit 1 }
 }
 after 500

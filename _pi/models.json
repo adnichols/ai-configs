@@ -79,28 +79,6 @@
           "maxTokens": 128000
         },
         {
-          "id": "gpt-5.6-sol",
-          "name": "GPT-5.6 Sol (CLI Proxy API)",
-          "reasoning": true,
-          "thinkingLevelMap": {
-            "minimal": "low",
-            "xhigh": "xhigh",
-            "max": "max"
-          },
-          "input": [
-            "text",
-            "image"
-          ],
-          "cost": {
-            "input": 5,
-            "output": 30,
-            "cacheRead": 0.5,
-            "cacheWrite": 6.25
-          },
-          "contextWindow": 272000,
-          "maxTokens": 128000
-        },
-        {
           "id": "gpt-5.6-terra",
           "name": "GPT-5.6 Terra (CLI Proxy API)",
           "reasoning": true,
@@ -129,38 +107,6 @@
         "grok-4.5": {
           "contextWindow": 200000,
           "maxTokens": 8192
-        },
-        "glm-5.2": {
-          "reasoning": true,
-          "thinkingLevelMap": {
-            "off": null,
-            "minimal": null,
-            "low": null,
-            "medium": null,
-            "high": "high",
-            "xhigh": "max"
-          },
-          "compat": {
-            "supportsReasoningEffort": true
-          }
-        }
-      }
-    },
-    "opencode-go": {
-      "modelOverrides": {
-        "glm-5.2": {
-          "reasoning": true,
-          "thinkingLevelMap": {
-            "off": null,
-            "minimal": null,
-            "low": null,
-            "medium": null,
-            "high": "high",
-            "xhigh": "max"
-          },
-          "compat": {
-            "supportsReasoningEffort": true
-          }
         }
       }
     }
