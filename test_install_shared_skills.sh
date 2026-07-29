@@ -697,6 +697,7 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   mkdir -p \
     "$home/.pi/agent/agents" \
     "$home/.pi/agent/extensions/pi-plan-mode" \
+    "$home/.pi/agent/extensions/pi-prd-mode" \
     "$home/.omp/agent/extensions/aplan" \
     "$home/.omp/agent/extensions/foreign" \
     "$home/.config/opencode/commands" \
@@ -714,6 +715,7 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
   printf 'pi-herdr-sentinel\n' > "$home/.pi/agent/extensions/herdr-agent-state.ts"
   printf 'legacy-todo-extension\n' > "$home/.pi/agent/extensions/todo.ts"
   printf 'stale-plan-mode\n' > "$home/.pi/agent/extensions/pi-plan-mode/index.ts"
+  printf 'stale-prd-mode\n' > "$home/.pi/agent/extensions/pi-prd-mode/index.ts"
   printf 'stale-aplan\n' > "$home/.omp/agent/extensions/aplan/index.ts"
   printf 'foreign-omp\n' > "$home/.omp/agent/extensions/foreign/index.ts"
   printf 'stale-opencode\n' > "$home/.config/opencode/commands/stale.md"
@@ -725,7 +727,7 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
 {"providers":{"ollama":{"baseUrl":"https://ollama.com/v1","api":"openai-completions","apiKey":"local-test-key","models":[{"id":"gemma4:latest"},{"id":"kimi-k2.5:cloud"}]},"grok":{"name":"Grok (local CLI Proxy API)","baseUrl":"http://127.0.0.1:8318/v1","api":"openai-completions","apiKey":"local-cliproxyapi","models":[{"id":"grok-4.5","name":"Grok 4.5 (CLI Proxy API)"}]}}}
 EOF
   cat > "$home/.pi/agent/settings.json" <<'EOF'
-{"defaultProvider":"grok","defaultModel":"grok-composer-2.5-fast","enabledModels":["grok/grok-4.5","grok/grok-composer-2.5-fast","openai-codex/gpt-5.6-sol"]}
+{"defaultProvider":"grok","defaultModel":"grok-composer-2.5-fast","enabledModels":["grok/grok-4.5","grok/grok-composer-2.5-fast","openai-codex/gpt-5.6-sol"],"extensions":[".pi/agent/extensions/pi-prd-mode","npm:caller-owned"]}
 EOF
   printf '{"taskScope":"session"}\n' > "$home/.pi/agent/tasks-config.json"
 
@@ -739,6 +741,7 @@ EOF
   assert_file_contains "$home/.pi/agent/extensions/vent.ts" 'join(homedir(), ".pi")' || return 1
   assert_file_contains "$home/.pi/agent/extensions/vent.ts" '~/.pi/VENT.md' || return 1
   [[ ! -e "$home/.pi/agent/extensions/todo.ts" ]] || return 1
+  [[ ! -e "$home/.pi/agent/extensions/pi-prd-mode" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/general-glm.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/ui-design-glm.md" ]] || return 1
   [[ ! -e "$home/.pi/agent/agents/quality-reviewer-k2.5.md" ]] || return 1
@@ -766,6 +769,8 @@ EOF
   assert_file_contains "$home/.pi/agent/models.json" '"contextWindow": 200000' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'grok/' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'grok-composer-2.5-fast' || return 1
+  assert_file_not_contains "$home/.pi/agent/settings.json" 'pi-prd-mode' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" 'npm:caller-owned' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" '"defaultProvider": "openai-codex"' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" '"defaultModel": "gpt-5.6-sol"' || return 1
   assert_file_contains "$home/.pi/agent/tasks-config.json" '"taskScope": "memory"' || return 1

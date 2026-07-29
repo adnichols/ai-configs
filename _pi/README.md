@@ -4,7 +4,7 @@ This directory contains Pi-specific resources:
 
 - `prompts/` — prompt templates exposed as slash commands
 - `agents/` — @tintinweb/pi-subagents-compatible agent definitions
-- `extensions/` — Pi runtime extensions, including the maintained `/prd` workflow and utility integrations
+- `extensions/` — Pi runtime extensions and utility integrations
 - `lib/` — shared import-only TypeScript modules used by extensions; never auto-loaded as extensions
 - `models.json` — managed custom model entries merged into Pi's global `models.json`
 - `tasks-config.json` — managed global defaults for the package-managed `@tintinweb/pi-tasks` extension
@@ -24,7 +24,7 @@ These resources are installed by `install.sh` to Pi's global agent directory. Th
 
 Plan review and execution use the maintained `reviewed-html-plan` and `run-plan` workflows directly. Rarely used browser/CDP helper skills such as `brave-cdp` and `chrome-cdp` remain inventoried in `skills/install-matrix.json` under the optional `ops-browser` profile and are not loaded into Pi/Codex default context.
 
-`pi list` only shows the package-managed set; it does not list repo-managed files like `simple-multi-status.ts` or `pi-prd-mode`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
+`pi list` only shows the package-managed set; it does not list repo-managed files like `simple-multi-status.ts`. See [Package-managed Pi extensions](#package-managed-pi-extensions) below for the exact git and npm package set.
 
 ```bash
 ./install.sh --pi      # Install Pi prompt templates + read-only/planning subagents + extensions and sync shared skills
@@ -63,10 +63,6 @@ Installed layout:
 │   ├── scout.md          # GPT-5.6 Terra low; read-only discovery
 │   └── Explore.md        # disabled bundled persona override
 ├── extensions/
-│   ├── pi-prd-mode/
-│   │   └── index.ts
-│   ├── aoe-status/
-│   │   └── index.ts
 │   ├── simple-multi-status.ts
 │   └── percentage-compaction.ts
 └── lib/
@@ -120,7 +116,7 @@ Each Markdown file becomes a slash command using the filename:
 
 Prompt templates in this repo are kept as top-level files in `_pi/prompts/`, so no extra nested prompt-directory discovery is required.
 
-Planning remains available through prompt templates and shared skills such as `/dev:plan`, `/dev:reviewed-html-plan`, and `/skill:reviewed-html-plan`. The `/prd` command is provided by the `pi-prd-mode` extension.
+Planning remains available through prompt templates and shared skills such as `/dev:plan`, `/dev:reviewed-html-plan`, and `/skill:reviewed-html-plan`.
 
 ## Extensions
 
@@ -137,24 +133,6 @@ Run `bun test scripts/thinking-shortcuts.test.ts` for the extension contract tes
 `model-allowlist.ts` limits Pi's model picker and runtime lookup to these exact IDs: `openai-codex/gpt-5.6-sol`, `openai-codex/gpt-5.6-luna`, `openai-codex/gpt-5.6-terra`, `cursor/grok-4.5`, `cursor/composer-2.5`, and `opencode/glm-5.2`. It filters the live model catalog again after Pi refreshes it. The extension uses Pi's current internal model collection because Pi does not expose a public global model-registry allowlist; verify it after a Pi upgrade.
 
 The managed `herdr-agent-state.ts` integration reports Pi lifecycle state directly to Herdr. It treats `agent_settled` as the foreground-idle boundary, preserves same-session Herdr authority across Pi `/reload`, and, by default, keeps the pane working while any tracked `process` job remains live except known passive listeners, monitors, dev servers, and watchers. Configure the policy with `HERDR_PI_BACKGROUND_PROCESS_MODE=none|finite|all`; extend the passive ignore list with comma- or newline-separated literal name/command fragments in `HERDR_PI_BACKGROUND_PROCESS_IGNORE`. Doct `plans listen` and blocking `plans agent next --wait` commands are ignored explicitly. Run `node tests/test_herdr_agent_state.mjs` for the lifecycle, reload, and process-policy contract test.
-
-This repo also ships `aoe-status`, a lightweight lifecycle reporter for Agent of Empires (AoE) that:
-
-- writes content-free Pi lifecycle metadata to `/tmp/aoe-pi-status/<uid>/<pid>.json`,
-- reports `idle` on load/session start, `running` on agent/turn start, `idle` on agent end, and `stopped` on shutdown,
-- refreshes the latest status every 30 seconds so AoE does not fall back to stale pane parsing after the registry TTL,
-- stores only status, pid, cwd, session file path, and timestamps, never prompts, messages, tool arguments, or model output.
-
-This repo also ships a maintained `pi-prd-mode` extension that:
-
-- powers `/prd` mode for PRD/spec workflows,
-- keeps PRD-mode writes scoped to `thoughts/plans/prd-*.md`, `thoughts/specs/spec-*.md`, and transient review artifacts under `thoughts/validation/prd-reviews/<prd-slug>/`,
-- asks the model to compare each answer round against the intent/spec baseline and use `/prd:clarify-round` for a clarification-gap reviewer pass followed by optional bounded scout research,
-- keeps `/review:prd` as an explicit review gate instead of auto-running it after edits,
-- records PRD review approval in `thoughts/validation/prd-reviews/<prd-slug>/review-status.json`,
-- prompts you to run `/review:prd` before handoff whenever the latest PRD review is missing, stale, or not approved,
-- offers `/dev:plan-from-prd <prd>` as the reviewed-PRD handoff path,
-- disables `/prd` before dispatching into the fresh planning session so PRD mode restrictions do not leak into execution planning.
 
 The repo-owned `claude-review` and `codex-review` Pi extensions are temporarily disabled and retained under `_pi/disabled-extensions/` for comparison and possible rollback. `install.sh --pi` removes any stale installed copies from `~/.pi/agent/extensions/`, so the `claude_review` and `codex_review` tools are unavailable after a fresh Pi session starts.
 
@@ -288,7 +266,6 @@ Prompt templates:
 /dev:reviewed-html-plan feature-name
 /dev:pm-review thoughts/plans/my-plan.html
 /dev:pm-review thoughts/plans/my-plan.html implementation
-/prd
 /prd:clarify-round thoughts/plans/prd-my-feature.md
 /review:plan thoughts/plans/my-plan.html
 /review:plan-adversarial thoughts/plans/my-plan.html
@@ -335,24 +312,23 @@ Use `/dev:pm-review <plan> implementation` after execution when you want a corre
 
 Use `/dev:plan-from-prd <prd>` after a reviewed PRD delta is ready to become an execution plan.
 
-The sequence below is the end-to-end reviewed-PRD path from PRD entry through handoff. Clarification continues in `/prd` and `/prd:clarify-round` until complete before the operator runs `/review:prd`.
+The sequence below is the end-to-end reviewed-PRD path from a PRD delta through handoff. Use `/prd:clarify-round` until clarification is complete before running `/review:prd`.
 
 ```text
-/prd
+/prd:clarify-round thoughts/plans/prd-my-feature.md
 /review:prd thoughts/plans/prd-my-feature.md
 /dev:plan-from-prd thoughts/plans/prd-my-feature.md
 ```
 
-- It is the canonical wrapper for turning a reviewed PRD delta into a fresh single-file plan session.
-- In Pi `/prd` mode, the typical sequence is `/prd` → update the PRD with the latest user answers → `/prd:clarify-round` → repeat that clarification loop as needed → `/review:prd` when a wider review is worthwhile → `/dev:plan-from-prd <prd>` after an approved review result.
+- `/dev:plan-from-prd` is the canonical wrapper for turning a reviewed PRD delta into a fresh single-file plan session.
+- The typical sequence is update the PRD with the latest user answers → `/prd:clarify-round` → repeat that clarification loop as needed → `/review:prd` when a wider review is worthwhile → `/dev:plan-from-prd <prd>` after an approved review result.
 - `/review:prd` is the explicit review gate before `/dev:plan-from-prd`.
 - `/review:prd` runs five distinct reviewer lenses and writes five per-reviewer files under `thoughts/validation/prd-reviews/<prd-slug>/`, integrates the combined findings back into the PRD, keeps `integration-ledger.md` plus `review-status.json`, and removes the five reviewer output files after integration. The final status contract records `reviewersExpected: 5`, `reviewersCompleted: 5`, `integratedCount` from `0` through `5`, `pendingCount: 0`, and `reviewerFilesRemoved: true`.
 - `/dev:plan-from-prd` validates that `thoughts/validation/prd-reviews/<prd-slug>/review-status.json` matches that approved five-reviewer contract and is not older than the PRD.
 - If the latest review result for the same PRD is `needs_changes`, resolve the inline `[REVIEW:...]` comments in that PRD and rerun `/review:prd <prd-path>`.
 - If the latest review result for the same PRD is `review_failed`, inspect `thoughts/validation/prd-reviews/<prd-slug>/integration-ledger.md` for the failed reviewer row(s) and notes, resolve the failed review-cycle cause(s), and rerun `/review:prd <prd-path>`.
 - If the latest review result for the same PRD is stale, or the same PRD does not yet have a current approved review result, rerun `/review:prd <prd-path>` before handoff.
-- The extension does not auto-run `/review:prd`; that gate is explicit and should happen only once the intent is clarified.
-- When the handoff path is used, `/prd` mode is disabled before planning so PRD-only tool restrictions do not leak into execution planning.
+- `/review:prd` is explicit and should happen only once the intent is clarified.
 - In Pi, the handoff command starts a fresh session and then continues the planning work from that clean context.
 
 Skills:

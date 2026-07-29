@@ -48,7 +48,7 @@ DEPRECATED_SHARED_SKILLS=(
 # package-managed @tintinweb/pi-tasks extension.
 # Pi auto-loads every TypeScript file in extensions/, so helpers must never remain
 # there after they move to a managed non-extension library path.
-RETIRED_PI_EXTENSIONS=(questionnaire.ts todo.ts grok-context-ceiling-policy.ts)
+RETIRED_PI_EXTENSIONS=(aoe-status pi-prd-mode questionnaire.ts todo.ts grok-context-ceiling-policy.ts)
 DISABLED_PI_EXTENSIONS=(claude-review codex-review)
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
@@ -1572,9 +1572,11 @@ remove_repo_managed_pi_extension_registrations() {
     [ -d "$pi_source_extensions_dir" ] || return 0
 
     local disabled_names
+    local retired_names
     disabled_names="$(IFS=,; echo "${DISABLED_PI_EXTENSIONS[*]}")"
+    retired_names="$(IFS=,; echo "${RETIRED_PI_EXTENSIONS[*]}")"
 
-    python3 - "$settings_path" "$pi_source_extensions_dir" "$pi_live_extensions_dir" "$disabled_names" <<'PY'
+    python3 - "$settings_path" "$pi_source_extensions_dir" "$pi_live_extensions_dir" "$disabled_names" "$retired_names" <<'PY'
 import json
 import os
 import sys
@@ -1584,7 +1586,8 @@ settings_path = Path(sys.argv[1])
 source_dir = Path(sys.argv[2])
 live_dir = Path(sys.argv[3])
 disabled_names = {name for name in sys.argv[4].split(",") if name}
-managed_names = {entry.name for entry in source_dir.iterdir()} | disabled_names
+retired_names = {name for name in sys.argv[5].split(",") if name}
+managed_names = {entry.name for entry in source_dir.iterdir()} | disabled_names | retired_names
 
 try:
     data = json.loads(settings_path.read_text())
