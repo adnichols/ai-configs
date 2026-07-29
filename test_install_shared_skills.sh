@@ -173,7 +173,12 @@ EOF
 #!/bin/bash
 set -eu
 
-echo "stub npm $*" >/dev/null
+# The vendored pi-cursor-sdk installer uses `npm ci --omit=dev`; emulate the
+# production dependency sentinel without reaching the network.
+if [[ "${1:-}" == "ci" ]]; then
+  mkdir -p node_modules/@cursor/sdk
+  printf '{"name":"@cursor/sdk"}\n' > node_modules/@cursor/sdk/package.json
+fi
 exit 0
 EOF
   chmod +x "$bin_dir/npm"
@@ -794,7 +799,11 @@ EOF
   assert_file_not_contains "$home/.pi/agent/settings.json" 'piCodexGoal' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:@narumitw/pi-goal' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:@tintinweb/pi-tasks' || return 1
-  assert_file_contains "$home/.pi/agent/settings.json" 'npm:pi-cursor-sdk' || return 1
+  assert_file_not_contains "$home/.pi/agent/settings.json" 'npm:pi-cursor-sdk' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" 'local-packages/ai-configs/pi-cursor-sdk' || return 1
+  assert_file_contains "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk/src/index.ts" 'runtimeIsCurrent = false' || return 1
+  assert_file_contains "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk/src/cursor-question-tool.ts" 'parseEnvBoolean(env[CURSOR_ASK_QUESTION_ENV], false)' || return 1
+  [[ -f "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk/node_modules/@cursor/sdk/package.json" ]] || return 1
 }
 
 test_pi_install_removes_retired_packages() {
@@ -871,17 +880,21 @@ test_verify_pi_install_reports_stale_goal_package() {
   fake_bin="$(create_fake_tool_bin "$home")"
   output_file="$home/verify.log"
   settings_path="$home/.pi/agent/settings.json"
-  mkdir -p "$home/.pi/agent/extensions" "$(dirname "$settings_path")" "$home/.pi/agent/local-packages/ai-configs/pi-vcc"
+  mkdir -p "$home/.pi/agent/extensions" "$(dirname "$settings_path")" "$home/.pi/agent/local-packages/ai-configs/pi-vcc" "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk/src" "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk/node_modules/@cursor/sdk"
   cp -R "$SCRIPT_DIR/_pi/extensions/." "$home/.pi/agent/extensions/"
   printf '{"name":"@adnichols/pi-vcc"}\n' > "$home/.pi/agent/local-packages/ai-configs/pi-vcc/package.json"
+  printf '{"name":"pi-cursor-sdk"}\n' > "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk/package.json"
+  printf '{"name":"@cursor/sdk"}\n' > "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk/node_modules/@cursor/sdk/package.json"
+  printf 'return parseEnvBoolean(env[CURSOR_ASK_QUESTION_ENV], false);\n' > "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk/src/cursor-question-tool.ts"
 
-  python3 - "$settings_path" "$home/.pi/agent/local-packages/ai-configs/pi-vcc" <<'PY'
+  python3 - "$settings_path" "$home/.pi/agent/local-packages/ai-configs/pi-vcc" "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 settings_path = Path(sys.argv[1])
 pi_vcc = sys.argv[2]
+pi_cursor_sdk = sys.argv[3]
 packages = [
     "npm:@tintinweb/pi-subagents",
     "npm:@aliou/pi-processes",
@@ -902,6 +915,7 @@ packages = [
     "npm:pi-service-tier",
     "npm:pi-codex-goal",
     pi_vcc,
+    pi_cursor_sdk,
 ]
 packages.append("git:github.com/adnichols/pi-interactive-shell")
 settings_path.write_text(json.dumps({"packages": packages}, indent=2) + "\n")

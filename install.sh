@@ -94,7 +94,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @tintinweb/pi-tasks, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-service-tier, pi-cursor-sdk (with its question bridge disabled by default), and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @tintinweb/pi-tasks, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-service-tier, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr config is installed locally whenever --tools or --all runs"
@@ -3006,6 +3006,92 @@ PY
     echo "pi-vcc scoped install: PASS source=$source_abs stable=$stable_source hash=$source_hash"
 )
 
+# Mirror and register the pinned Cursor extension from this repository rather
+# than accepting mutable npm package contents at installation time. Pi records
+# local paths relative to its agent directory, so the mirror is stable across
+# worktrees and source-checkout moves.
+install_vendored_pi_cursor_sdk() {
+    local source="$REPO_ROOT/_pi/packages/pi-cursor-sdk"
+    local pi_agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+    local stable_parent="$pi_agent_dir/local-packages/ai-configs"
+    local stable_source="$stable_parent/pi-cursor-sdk"
+    local stage_path backup_path=""
+
+    [ -d "$source" ] || { echo "Error: vendored pi-cursor-sdk source is missing: $source" >&2; return 1; }
+    [ -f "$source/package.json" ] || { echo "Error: vendored pi-cursor-sdk source is missing package.json" >&2; return 1; }
+    [ -f "$source/package-lock.json" ] || { echo "Error: vendored pi-cursor-sdk source is missing package-lock.json" >&2; return 1; }
+    [ -f "$source/src/index.ts" ] || { echo "Error: vendored pi-cursor-sdk source is missing src/index.ts" >&2; return 1; }
+    [ -f "$source/src/cursor-question-tool.ts" ] || { echo "Error: vendored pi-cursor-sdk source is missing cursor-question-tool.ts" >&2; return 1; }
+    [ ! -L "$source" ] || { echo "Error: vendored pi-cursor-sdk source must not be a symlink" >&2; return 1; }
+    [ ! -e "$source/node_modules" ] || { echo "Error: vendored pi-cursor-sdk must not contain node_modules" >&2; return 1; }
+    grep -Fq 'return parseEnvBoolean(env[CURSOR_ASK_QUESTION_ENV], false);' "$source/src/cursor-question-tool.ts" || {
+        echo "Error: vendored pi-cursor-sdk must disable cursor_ask_question by default" >&2
+        return 1
+    }
+
+    mkdir -p "$stable_parent"
+    stage_path="$(mktemp -d "$stable_parent/.pi-cursor-sdk-stage.XXXXXX")"
+    if ! cp -R "$source/." "$stage_path/" || ! (cd "$stage_path" && npm ci --omit=dev --ignore-scripts); then
+        rm -rf "$stage_path"
+        echo "Error: unable to prepare vendored pi-cursor-sdk dependencies" >&2
+        return 1
+    fi
+
+    if [ -e "$stable_source" ]; then
+        backup_path="$(mktemp -d "$stable_parent/.pi-cursor-sdk-backup.XXXXXX")"
+        rmdir "$backup_path"
+        mv "$stable_source" "$backup_path"
+    fi
+    if ! mv "$stage_path" "$stable_source"; then
+        [ -z "$backup_path" ] || mv "$backup_path" "$stable_source"
+        return 1
+    fi
+
+    if ! pi install "$stable_source" 2>/dev/null; then
+        rm -rf "$stable_source"
+        [ -z "$backup_path" ] || mv "$backup_path" "$stable_source"
+        echo "Error: Pi could not register vendored pi-cursor-sdk" >&2
+        return 1
+    fi
+
+    if ! python3 - "$pi_agent_dir/settings.json" "$stable_source" <<'PY'
+import json, os, sys, tempfile
+from pathlib import Path
+
+settings, stable = map(Path, sys.argv[1:])
+stable = stable.resolve()
+registered_source = os.path.relpath(stable, settings.parent.resolve())
+try:
+    data = json.loads(settings.read_text()) if settings.exists() else {}
+except json.JSONDecodeError as exc:
+    raise SystemExit(f"settings.json is not valid JSON: {exc}")
+if not isinstance(data, dict):
+    raise SystemExit("settings.json must contain a JSON object")
+packages = data.get("packages", [])
+if not isinstance(packages, list):
+    packages = []
+def source_of(item):
+    return item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
+# The prior public npm package and any previous local fork are deliberately
+# replaced so only the reviewed stable mirror can be loaded by Pi.
+data["packages"] = [item for item in packages if not (isinstance(source_of(item), str) and "pi-cursor-sdk" in source_of(item))]
+data["packages"].append(registered_source)
+settings.parent.mkdir(parents=True, exist_ok=True)
+with tempfile.NamedTemporaryFile("w", dir=settings.parent, delete=False, encoding="utf-8") as handle:
+    json.dump(data, handle, indent=2)
+    handle.write("\n")
+    temporary = handle.name
+os.replace(temporary, settings)
+PY
+    then
+        echo "Error: unable to pin vendored pi-cursor-sdk in Pi settings" >&2
+        return 1
+    fi
+
+    [ -z "$backup_path" ] || rm -rf "$backup_path"
+    echo -e "    ${GREEN}✓ vendored pi-cursor-sdk installed from $stable_source${NC}"
+}
+
 # Install npm-based pi extensions
 install_pi_npm_packages() {
     echo ""
@@ -3027,7 +3113,6 @@ install_pi_npm_packages() {
         "@pi-kaush/pi-inline-skill-identifier"
         "@howaboua/pi-explore-subagents"
         "pi-service-tier"
-        "pi-cursor-sdk"
     )
     local deprecated_npm_packages=(
         "@howaboua/pi-codex-conversion"
@@ -3035,6 +3120,7 @@ install_pi_npm_packages() {
         "pi-subagents"
         "pi-mcp-adapter"
         "@sting8k/pi-vcc"
+        "pi-cursor-sdk"
         "lsp-pi"
         "pi-multi-pass"
         "pi-side-agents"
@@ -3098,6 +3184,10 @@ install_pi_npm_packages() {
         fi
     done
 
+    if ! install_vendored_pi_cursor_sdk; then
+        return 1
+    fi
+
     echo -e "${GREEN}  ✓ npm-based extensions processed${NC}"
 
     # CLIProxyAPI exposes Codex GPT models through Pi's standard
@@ -3115,12 +3205,6 @@ install_pi_npm_packages() {
         echo -e "${YELLOW}⚠ Failed to apply pi-explore-subagents Herdr identity isolation patch${NC}"
     fi
 
-    # Cursor's interactive question bridge is intentionally opt-in across
-    # ai-configs hosts. Reapply this after every npm package update.
-    if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_cursor_sdk.py"; then
-        echo -e "${RED}✗ Failed to disable pi-cursor-sdk interactive question bridge${NC}" >&2
-        return 1
-    fi
 }
 
 # Argument parsing. The scoped pi-vcc mode intentionally accepts no other

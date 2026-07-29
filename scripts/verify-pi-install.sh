@@ -14,6 +14,7 @@ PI_EXT_DIR="$PI_AGENT_DIR/extensions"
 PI_LIB_DIR="$PI_AGENT_DIR/lib"
 PI_WEB_SEARCH_PATH="$PI_ROOT_DIR/web-search.json"
 PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
+PI_CURSOR_SDK_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-cursor-sdk"
 PI_DEFAULT_PROVIDER="openai-codex"
 PI_DEFAULT_MODEL="gpt-5.6-terra"
 PI_DEFAULT_MODEL_VALUE="${PI_DEFAULT_PROVIDER}/${PI_DEFAULT_MODEL}"
@@ -206,7 +207,6 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@pi-kaush/pi-inline-skill-identifier"
   "npm:@howaboua/pi-explore-subagents"
   "npm:pi-service-tier"
-  "npm:pi-cursor-sdk"
 )
 
 FAILURES=0
@@ -380,7 +380,7 @@ EXPECTED_REPO_EXTENSIONS="$(cd "$REPO_ROOT" && list_find_entries "_pi/extensions
 EXPECTED_REPO_LIBRARIES="$(cd "$REPO_ROOT" && list_find_entries "_pi/lib")"
 EXPECTED_REPO_AGENTS="$(cd "$REPO_ROOT" && list_find_entries "_pi/agents")"
 INSTALLED_REPO_AGENTS="$(list_find_entries "$PI_AGENT_DIR/agents")"
-EXPECTED_LOCAL_PACKAGES="$PI_VCC_STABLE_PACKAGE"
+EXPECTED_LOCAL_PACKAGES="$(printf '%s\n%s' "$PI_VCC_STABLE_PACKAGE" "$PI_CURSOR_SDK_STABLE_PACKAGE")"
 INSTALLED_REPO_EXTENSIONS="$(list_find_entries "$PI_EXT_DIR")"
 INSTALLED_REPO_LIBRARIES="$(list_find_entries "$PI_LIB_DIR")"
 INSTALLED_PI_PACKAGES=""
@@ -486,8 +486,24 @@ if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_ex
   note_failure "pi-explore-subagents is installed without complete Herdr child-environment isolation"
 fi
 
-if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_cursor_sdk.py" --check >/dev/null; then
-  note_failure "pi-cursor-sdk is installed with its interactive question bridge enabled by default"
+if [ ! -f "$PI_CURSOR_SDK_STABLE_PACKAGE/package.json" ]; then
+  note_failure "vendored pi-cursor-sdk mirror is missing package.json: $PI_CURSOR_SDK_STABLE_PACKAGE"
+elif [ "$(python3 - "$PI_CURSOR_SDK_STABLE_PACKAGE/package.json" <<'PY'
+import json, sys
+from pathlib import Path
+try:
+    print(json.loads(Path(sys.argv[1]).read_text()).get("name", ""))
+except Exception:
+    print("")
+PY
+)" != "pi-cursor-sdk" ]; then
+  note_failure "vendored pi-cursor-sdk mirror has an unexpected package name"
+fi
+if [ ! -f "$PI_CURSOR_SDK_STABLE_PACKAGE/node_modules/@cursor/sdk/package.json" ]; then
+  note_failure "vendored pi-cursor-sdk mirror is missing production dependencies"
+fi
+if ! grep -Fq 'return parseEnvBoolean(env[CURSOR_ASK_QUESTION_ENV], false);' "$PI_CURSOR_SDK_STABLE_PACKAGE/src/cursor-question-tool.ts" 2>/dev/null; then
+  note_failure "vendored pi-cursor-sdk has its interactive question bridge enabled by default"
 fi
 
 print_section "4) Quick checks"
