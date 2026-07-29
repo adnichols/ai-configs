@@ -81,4 +81,6 @@ export interface CursorPiToolBridge {
 export interface CursorPiToolBridgeRunOptions {
 	onToolRequest?: (request: CursorPiBridgeToolRequest) => void;
 	debugRecorder?: CursorSdkEventDebugRecorder;
+	/** Cursor SDK model id for the parent agent (e.g. grok-4.5, composer-2.5). */
+	parentModelId?: string;
 }

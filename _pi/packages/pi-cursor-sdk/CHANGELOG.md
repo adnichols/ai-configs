@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.62-adnichols.2 - 2026-07-29
+
+### Fixed
+
+- On Cursor Grok and Composer parent models, force bridged `Agent` calls to `run_in_background: true` so a cancelled MCP CallTool AbortSignal cannot mark the child stopped ("STOPPED BY THE USER") or abort the parent turn mid-review. Bootstrap prompts for those models also require an explicit `get_subagent_result` join for required reviews.
+
 ## 0.1.62-adnichols.1 - 2026-07-29
 
 ### Fixed

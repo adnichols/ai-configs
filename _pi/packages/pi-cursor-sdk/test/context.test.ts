@@ -508,6 +508,22 @@ describe("buildCursorPrompt", () => {
 		expect(result.text.indexOf(manifest)).toBeLessThan(result.text.indexOf("System instructions from pi:"));
 	});
 
+	it("includes Grok/Composer Agent background policy in the tool boundary", () => {
+		const result = buildCursorPrompt(
+			{ messages: [{ role: "user", content: "test", timestamp: 1 }] },
+			{ parentModelId: "grok-4.5" },
+		);
+		expect(result.text).toContain("Cursor Grok/Composer Agent policy:");
+		expect(result.text).toContain("run_in_background: true");
+		expect(result.text).toContain("get_subagent_result");
+
+		const other = buildCursorPrompt(
+			{ messages: [{ role: "user", content: "test", timestamp: 1 }] },
+			{ parentModelId: "gpt-5.5" },
+		);
+		expect(other.text).not.toContain("Cursor Grok/Composer Agent policy:");
+	});
+
 	it("omits tool manifest by default", () => {
 		const result = buildCursorPrompt({ messages: [{ role: "user", content: "test", timestamp: 1 }] });
 		expect(result.text).not.toContain("Callable tool surfaces this run:");

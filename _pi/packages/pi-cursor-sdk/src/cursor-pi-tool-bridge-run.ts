@@ -33,6 +33,7 @@ import {
 	snapshotToolToMcpTool,
 	waitForProtocolFlush,
 } from "./cursor-pi-tool-bridge-mcp.js";
+import { applyForcedAgentBackgroundArgs } from "./cursor-agent-background-policy.js";
 import { asRecord, getFirstStringByKeys } from "./cursor-record-utils.js";
 
 export interface CursorPiToolBridgeRunHost {
@@ -62,6 +63,7 @@ export class CursorPiToolBridgeRunImpl implements CursorPiToolBridgeRun {
 	private readonly env: Record<string, string | undefined>;
 	private readonly endpointPath: string;
 	private readonly callTimeoutMs: number;
+	private readonly parentModelId?: string;
 	private readonly knownMcpToolNames: ReadonlySet<string>;
 	private readonly knownCursorMcpCallIds = new Set<string>();
 	private readonly queuedRequests: CursorPiBridgeToolRequest[] = [];
@@ -87,6 +89,7 @@ export class CursorPiToolBridgeRunImpl implements CursorPiToolBridgeRun {
 		this.env = env;
 		this.snapshot = snapshot;
 		this.enabled = enabled;
+		this.parentModelId = options.parentModelId;
 		this.onToolRequest = options.onToolRequest;
 		this.debugRecorder = options.debugRecorder;
 		this.id = `cursor-pi-bridge-run-${randomUUID()}`;
@@ -276,6 +279,7 @@ export class CursorPiToolBridgeRunImpl implements CursorPiToolBridgeRun {
 
 		this.toolCallCounter += 1;
 		const bridgeCallId = `${this.id}-bridge-${this.toolCallCounter}`;
+		const { args } = applyForcedAgentBackgroundArgs(piToolName, normalizeMcpArgs(argsValue), this.parentModelId);
 		const request: CursorPiBridgeToolRequest = {
 			runId: this.id,
 			bridgeCallId,
@@ -283,7 +287,7 @@ export class CursorPiToolBridgeRunImpl implements CursorPiToolBridgeRun {
 			piToolCallId: `${this.id}-tool-${this.toolCallCounter}`,
 			piToolName,
 			mcpToolName,
-			args: normalizeMcpArgs(argsValue),
+			args,
 		};
 
 		return new Promise<CallToolResult>((resolve, reject) => {

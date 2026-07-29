@@ -2,6 +2,10 @@ import { createHash } from "node:crypto";
 import type { Context, Message, ToolCall } from "@earendil-works/pi-ai/compat";
 import { convertToLlm } from "@earendil-works/pi-coding-agent";
 import type { AgentModeOption, SDKImage } from "@cursor/sdk";
+import {
+	getCursorGrokComposerAgentBackgroundGuidanceText,
+	shouldForcePiAgentBackground,
+} from "./cursor-agent-background-policy.js";
 import { CURSOR_PI_BRIDGE_PREFERENCE_TEXT } from "./cursor-bridge-contract.js";
 import { getCursorReplayPromptLabel } from "./cursor-tool-presentation-registry.js";
 
@@ -19,6 +23,8 @@ export interface CursorPromptOptions {
 	toolManifest?: string;
 	includePiBridgeGuidance?: boolean;
 	includePiAskQuestionGuidance?: boolean;
+	/** Cursor SDK model id used to attach Grok/Composer Agent background policy text. */
+	parentModelId?: string;
 }
 
 export const CURSOR_APPROX_CHARS_PER_TOKEN = 4;
@@ -54,7 +60,10 @@ export function getCursorToolTailGuardText(
 }
 
 function getCursorToolBoundaryText(
-	options: Pick<CursorPromptOptions, "agentMode" | "includePiAskQuestionGuidance"> & { hasToolManifest?: boolean; includePiBridgeGuidance?: boolean } = {},
+	options: Pick<CursorPromptOptions, "agentMode" | "includePiAskQuestionGuidance" | "parentModelId"> & {
+		hasToolManifest?: boolean;
+		includePiBridgeGuidance?: boolean;
+	} = {},
 ): string {
 	const includePiBridgeGuidance = options.includePiBridgeGuidance !== false;
 	const includePiAskQuestionGuidance = includePiBridgeGuidance && options.includePiAskQuestionGuidance !== false;
@@ -71,6 +80,9 @@ function getCursorToolBoundaryText(
 	].filter((line): line is string => line !== undefined);
 	if (options.hasToolManifest) {
 		lines.push("See callable surfaces below.");
+	}
+	if (includePiBridgeGuidance && shouldForcePiAgentBackground(options.parentModelId)) {
+		lines.push(getCursorGrokComposerAgentBackgroundGuidanceText());
 	}
 	return lines.join("\n");
 }
@@ -407,6 +419,7 @@ export function buildCursorPrompt(context: Context, options: CursorPromptOptions
 		hasToolManifest: Boolean(options.toolManifest),
 		includePiBridgeGuidance: options.includePiBridgeGuidance,
 		includePiAskQuestionGuidance: options.includePiAskQuestionGuidance,
+		parentModelId: options.parentModelId,
 	})];
 	if (options.toolManifest) {
 		sectionsBeforeMessages.push(options.toolManifest);

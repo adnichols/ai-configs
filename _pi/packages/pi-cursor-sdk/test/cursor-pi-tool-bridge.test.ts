@@ -243,6 +243,68 @@ describe("cursor pi tool bridge loopback MCP lifecycle", () => {
 		await __testUtils.resetRegisteredBridgeForTests();
 	});
 
+	it("forces Agent run_in_background for Grok/Composer parent models", async () => {
+		const agentParameters = Type.Object({
+			prompt: Type.String(),
+			run_in_background: Type.Optional(Type.Boolean()),
+		});
+		const registry = __testUtils.createRegistry(
+			createBridgePiHarness({
+				active: ["Agent"],
+				tools: [createToolInfo("Agent", "Launch a subagent", agentParameters)],
+			}),
+		);
+		const run = await registry.createRun({ parentModelId: "grok-4.5" });
+		const { client, transport } = await connectClient(getCursorPiBridgeMcpUrl(run));
+		try {
+			const callPromise = client.callTool({
+				name: "pi__Agent",
+				arguments: { prompt: "review this", subagent_type: "reviewer" },
+			});
+			const [request] = await waitForQueuedRequests(run);
+			expect(request.piToolName).toBe("Agent");
+			expect(request.args.run_in_background).toBe(true);
+			expect(request.args.prompt).toBe("review this");
+			run.cancel("test done");
+			await expect(callPromise).rejects.toThrow(/test done|abort|cancel|disposed|bridge|MCP error/i);
+		} finally {
+			await transport.close().catch(() => undefined);
+			await client.close().catch(() => undefined);
+			await run.dispose();
+			await registry.disposeAll();
+		}
+	});
+
+	it("does not force Agent background for non-Grok/Composer parent models", async () => {
+		const agentParameters = Type.Object({
+			prompt: Type.String(),
+			run_in_background: Type.Optional(Type.Boolean()),
+		});
+		const registry = __testUtils.createRegistry(
+			createBridgePiHarness({
+				active: ["Agent"],
+				tools: [createToolInfo("Agent", "Launch a subagent", agentParameters)],
+			}),
+		);
+		const run = await registry.createRun({ parentModelId: "gpt-5.5" });
+		const { client, transport } = await connectClient(getCursorPiBridgeMcpUrl(run));
+		try {
+			const callPromise = client.callTool({
+				name: "pi__Agent",
+				arguments: { prompt: "review this" },
+			});
+			const [request] = await waitForQueuedRequests(run);
+			expect(request.args.run_in_background).toBeUndefined();
+			run.cancel("test done");
+			await expect(callPromise).rejects.toThrow(/test done|abort|cancel|disposed|bridge|MCP error/i);
+		} finally {
+			await transport.close().catch(() => undefined);
+			await client.close().catch(() => undefined);
+			await run.dispose();
+			await registry.disposeAll();
+		}
+	});
+
 	it("uses endpoint-independent request IDs so historical tool results cannot resolve a new run", async () => {
 		const registry = __testUtils.createRegistry(
 			createBridgePiHarness({ active: ["read"], tools: [createToolInfo("read", "Read files", Type.Object({ path: Type.String() }))] }),

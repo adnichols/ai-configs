@@ -148,8 +148,16 @@ const review = Agent({
   description: "Pre-PR implementation review",
   prompt: "<bounded review packet>",
   // Do NOT set isolation: "worktree"
+  // Cursor Grok/Composer: always background + join (bridge also forces background).
+  run_in_background: true,
+});
+const verdict = get_subagent_result({
+  agent_id: review.agent_id ?? review.id,
+  wait: true,
 });
 ```
+
+On non-Cursor parents, foreground `Agent` without `run_in_background` remains acceptable. On Cursor Grok or Composer, background + join is required: foreground bridged `Agent` shares the parent MCP CallTool abort signal and can be marked stopped with a false "STOPPED BY THE USER" label while the parent turn dies with empty `Operation aborted`.
 
 - Before accepting a verdict, the parent must confirm the reviewer inspected the live candidate: same repo checkout (not a `/tmp/pi-agent-*` clean worktree), and when the parent packet listed dirty files (modified, staged, or untracked), the reviewer provenance must show non-empty `git status --short` covering those paths or otherwise prove they were read from the live tree.
 - If a reviewer result came from an isolated clean worktree while the candidate still had staged, unstaged, or untracked changes in scope, discard it as `REVIEW_INFRASTRUCTURE_FAILURE` and relaunch **without** isolation. Do not treat that result as PASS, FINDINGS_TO_RESOLVE, or cycle progress.

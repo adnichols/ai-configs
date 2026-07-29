@@ -149,6 +149,7 @@ async function prepareCursorCloudProviderTurn(
 			agentMode,
 			includePiBridgeGuidance: false,
 			includePiAskQuestionGuidance: false,
+			parentModelId: selection.id,
 		};
 		const prompt = buildCursorPrompt(
 			buildCursorCloudPromptContext(context, resolvedConfig.cloud.contextHandoff.value),
@@ -298,6 +299,7 @@ async function prepareCursorLocalProviderTurn(
 				agentMode,
 				includePiBridgeGuidance,
 				includePiAskQuestionGuidance: bridgeToolNames.has("pi__cursor_ask_question"),
+				parentModelId: selection.id,
 			};
 			if (plan.mode !== "bootstrap" || !resolveCursorToolManifestEnabled()) {
 				return promptOptions;

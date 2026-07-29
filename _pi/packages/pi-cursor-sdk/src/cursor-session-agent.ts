@@ -450,6 +450,7 @@ async function createSessionAgentEntry(
 			bridgeRun = await registeredBridge.createRun({
 				onToolRequest: params.onBridgeToolRequest,
 				debugRecorder: params.debugRecorder,
+				parentModelId: params.modelSelection.id,
 			});
 			if (!bridgeRun.enabled || !bridgeRun.mcpServers) {
 				await bridgeRun.dispose();

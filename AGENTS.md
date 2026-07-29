@@ -27,6 +27,7 @@ Every caller packet must name the artifact or allowed surfaces, task-specific le
 - Claude's driving session performs discovery, planning, implementation, testing, documentation, and repository management directly with native tools.
 - The sole repository-owned Claude subagent is `_claude/agents/reviewer.md`: a read-only `claude-sonnet-5` reviewer at `high` effort. Commands may invoke it only for bounded plan or code review; they must not delegate implementation, testing, fixes, or repository management.
 - Required independent reviews run through the active harness's configured `reviewer` subagent. Do not make Codex, Claude Code, or Herdr tabs a required review transport.
+- On Cursor Grok or Composer parents, launch required reviewers with `run_in_background: true` and join via `get_subagent_result` (`wait: true`). The vendored `pi-cursor-sdk` bridge also forces background for `Agent` on those models.
 - Codex driving agents likewise implement authorized changes directly with their native repository tools.
 
 ## Tool Selection Priority (Codex Environment)

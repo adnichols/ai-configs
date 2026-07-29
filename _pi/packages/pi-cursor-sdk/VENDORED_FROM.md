@@ -1,6 +1,6 @@
 # Vendored source provenance
 
-This directory is a source vendor of [`adnichols/pi-cursor-sdk`](https://github.com/adnichols/pi-cursor-sdk) at commit [`c97e64283dff1b99a8f46d1f5aaea0a5b37a39b0`](https://github.com/adnichols/pi-cursor-sdk/commit/c97e64283dff1b99a8f46d1f5aaea0a5b37a39b0).
+This directory is a source vendor of [`adnichols/pi-cursor-sdk`](https://github.com/adnichols/pi-cursor-sdk) at commit [`a7d56a07b0356b090254d4ccf23b76af73c3f47d`](https://github.com/adnichols/pi-cursor-sdk/commit/a7d56a07b0356b090254d4ccf23b76af73c3f47d).
 
 The installer mirrors this tree to `~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk`, runs `npm ci --omit=dev`, and registers that stable local path with Pi. Do not commit `node_modules/` to this vendor tree.
 
