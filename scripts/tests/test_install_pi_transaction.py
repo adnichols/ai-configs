@@ -152,6 +152,7 @@ class InstallTransactionTest(unittest.TestCase):
             self.assertNotIn('opencode/glm-5.2',configured)
             self.assertIn('xai/grok-4.5',configured)
             self.assertIn('xai/grok-4.3',configured)
+            self.assertIn('xai/grok-build-0.1',configured)
             self.assertNotIn('xai/grok-composer-2.5-fast',configured)
             self.assertNotIn('grok/grok-4.5',configured)
             self.assertNotIn('grok-4.5',configured)

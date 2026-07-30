@@ -237,6 +237,9 @@ DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 RETIRED_PI_MODEL_IDS = {"gpt-5.6-sol", "glm-5.2"}
 SPARK_MODEL = "gpt-5.3-codex-spark"
 NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.5", "grok-4.3", "grok-build-0.1"}
+NATIVE_XAI_ENABLED_MODELS = [
+    "xai/grok-4.5", "xai/grok-4.3", "xai/grok-build-0.1",
+]
 MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
     "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
     "grok-4.20-multi-agent-0309", "grok-3-mini", "grok-3-mini-fast",
@@ -295,6 +298,9 @@ for model in models:
         normalized.append(model)
 normalized = [model for model in normalized if model != DEFAULT_MODEL_VALUE]
 normalized.insert(0, DEFAULT_MODEL_VALUE)
+for model in NATIVE_XAI_ENABLED_MODELS:
+    if model not in normalized:
+        normalized.append(model)
 settings["enabledModels"] = normalized
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(settings, indent=2) + "\n")
@@ -549,8 +555,15 @@ enabled = data.get("enabledModels", [])
 if not isinstance(enabled, list):
     errors.append("enabledModels is not a list")
 else:
-    if default_model_value not in enabled:
-        errors.append(f"enabledModels missing {default_model_value}")
+    required_models = {
+        default_model_value,
+        "xai/grok-4.5",
+        "xai/grok-4.3",
+        "xai/grok-build-0.1",
+    }
+    missing_models = required_models - set(model for model in enabled if isinstance(model, str))
+    if missing_models:
+        errors.append(f"enabledModels missing required routes: {sorted(missing_models)}")
     retired_scoped = re.compile(r"^(?:gpt-5\.6-sol|glm-5\.2|opencode/glm-5\.2|openai-codex(?:-[^/]*)?/gpt-5\.6-sol)$")
     if any(isinstance(model, str) and retired_scoped.fullmatch(model) for model in enabled):
         errors.append("enabledModels still contains retired GPT-5.6 Sol or GLM-5.2 Pi routes")

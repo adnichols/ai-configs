@@ -1731,6 +1731,9 @@ SPARK_MODEL = "gpt-5.3-codex-spark"
 # Pi's built-in xAI provider is authenticated by the user's local xAI login.
 # Migrate only routes that ai-configs previously managed to its native catalog.
 NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.5", "grok-4.3", "grok-build-0.1"}
+NATIVE_XAI_ENABLED_MODELS = [
+    "xai/grok-4.5", "xai/grok-4.3", "xai/grok-build-0.1",
+]
 MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
     "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
     "grok-4.20-multi-agent-0309", "grok-3-mini", "grok-3-mini-fast",
@@ -1798,6 +1801,9 @@ for model in models:
         normalized.append(model)
 normalized = [model for model in normalized if model != DEFAULT_MODEL_VALUE]
 normalized.insert(0, DEFAULT_MODEL_VALUE)
+for model in NATIVE_XAI_ENABLED_MODELS:
+    if model not in normalized:
+        normalized.append(model)
 settings["enabledModels"] = normalized
 
 if json.dumps(settings, sort_keys=True) != before_settings:
