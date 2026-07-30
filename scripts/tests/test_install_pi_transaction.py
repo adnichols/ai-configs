@@ -147,18 +147,12 @@ class InstallTransactionTest(unittest.TestCase):
             configured=configured_data['enabledModels']
             self.assertEqual(configured_data['defaultProvider'],'openai-codex')
             self.assertEqual(configured_data['defaultModel'],'gpt-5.6-terra')
-            self.assertEqual(configured[0],'openai-codex/gpt-5.6-terra')
-            self.assertNotIn('openai-codex/gpt-5.6-sol',configured)
-            self.assertNotIn('opencode/glm-5.2',configured)
-            self.assertIn('xai/grok-4.5',configured)
-            self.assertIn('xai/grok-4.3',configured)
-            self.assertIn('xai/grok-build-0.1',configured)
-            self.assertNotIn('xai/grok-composer-2.5-fast',configured)
-            self.assertNotIn('grok/grok-4.5',configured)
-            self.assertNotIn('grok-4.5',configured)
-            self.assertNotIn('openai-codex/grok-4.5',configured)
-            self.assertIn('opencode/grok-4.5',configured)
-            self.assertIn('cursor/grok-4.5',configured)
+            self.assertEqual(configured,[
+                'openai-codex/gpt-5.6-terra',
+                'openai-codex/gpt-5.6-luna',
+                'xai/grok-4.5',
+                'cursor/composer-2.5',
+            ])
             installed_models=json.loads(models.read_text())['providers']
             self.assertNotIn('xai',installed_models)
             self.assertEqual(installed_models['opencode']['modelOverrides']['grok-4.5']['contextWindow'],200000)

@@ -57,17 +57,20 @@ class PiAgentRosterTest(unittest.TestCase):
     def test_pi_model_scope_and_default_route(self):
         allowlist = (ROOT / "_pi" / "extensions" / "model-allowlist.ts").read_text()
         for model in (
-            "openai-codex/gpt-5.6-luna",
             "openai-codex/gpt-5.6-terra",
+            "openai-codex/gpt-5.6-luna",
             "xai/grok-4.5",
-            "xai/grok-4.3",
-            "xai/grok-build-0.1",
-            "cursor/grok-4.5",
             "cursor/composer-2.5",
         ):
             self.assertIn(f'"{model}"', allowlist)
-        for retired in ("openai-codex/gpt-5.6-sol", "opencode/glm-5.2"):
-            self.assertNotIn(f'"{retired}"', allowlist)
+        for excluded in (
+            "openai-codex/gpt-5.6-sol",
+            "opencode/glm-5.2",
+            "xai/grok-4.3",
+            "xai/grok-build-0.1",
+            "cursor/grok-4.5",
+        ):
+            self.assertNotIn(f'"{excluded}"', allowlist)
         models = json.loads((ROOT / "_pi" / "models.json").read_text())
         managed_ids = {item["id"] for item in models["providers"]["openai-codex"]["models"]}
         self.assertNotIn("gpt-5.6-sol", managed_ids)

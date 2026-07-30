@@ -45,9 +45,9 @@ set transcript_path [lindex $argv 4]
 log_user 0
 log_file -noappend $transcript_path
 cd $work_dir
-spawn env HOME=$home PI_CODING_AGENT_DIR=$agent_dir TERM=xterm-256color PI_OFFLINE=1 $pi_bin --offline --no-session --no-skills --no-prompt-templates --no-context-files --model opencode/grok-4.5
+spawn env HOME=$home PI_CODING_AGENT_DIR=$agent_dir TERM=xterm-256color PI_OFFLINE=1 $pi_bin --offline --no-session --no-skills --no-prompt-templates --no-context-files --model openai-codex/gpt-5.6-terra
 expect {
-  -re {grok-4\.5} {}
+  -re {gpt-5\.6-terra} {}
   -re {(factory export|default export).*grok-context-ceiling-policy} {
     puts stderr "FAIL: Pi auto-loader rejected the Grok policy helper"
     exit 1

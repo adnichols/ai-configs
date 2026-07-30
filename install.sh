@@ -1726,28 +1726,12 @@ web_search_path = Path(os.environ["PI_WEB_SEARCH_PATH"])
 DEFAULT_PROVIDER = "openai-codex"
 DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
-RETIRED_PI_MODEL_IDS = {"gpt-5.6-sol", "glm-5.2"}
-SPARK_MODEL = "gpt-5.3-codex-spark"
-# Pi's built-in xAI provider is authenticated by the user's local xAI login.
-# Migrate only routes that ai-configs previously managed to its native catalog.
-NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.5", "grok-4.3", "grok-build-0.1"}
-NATIVE_XAI_ENABLED_MODELS = [
-    "xai/grok-4.5", "xai/grok-4.3", "xai/grok-build-0.1",
+PICKER_ENABLED_MODELS = [
+    DEFAULT_MODEL_VALUE,
+    "openai-codex/gpt-5.6-luna",
+    "xai/grok-4.5",
+    "cursor/composer-2.5",
 ]
-MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
-    "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
-    "grok-4.20-multi-agent-0309", "grok-3-mini", "grok-3-mini-fast",
-    "grok-composer-2.5-fast", "grok-imagine-image",
-    "grok-imagine-image-quality", "grok-imagine-video",
-    "grok-imagine-video-1.5-preview",
-}
-LEGACY_GROK_ROUTE_MIGRATIONS = {
-    **{model_id: f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
-    **{f"grok/{model_id}": f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
-    "openai-codex/grok-4.5": "xai/grok-4.5",
-}
-RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
-RETIRED_GROK_MODEL_IDS = MANAGED_XAI_PROXY_ONLY_MODEL_IDS
 
 changed = []
 
@@ -1770,41 +1754,9 @@ settings["gptConfig"] = {
 settings.pop("piCodexGoal", None)
 
 models = settings.get("enabledModels")
-if models is None:
-    models = []
-elif not isinstance(models, list):
+if models is not None and not isinstance(models, list):
     raise SystemExit("settings enabledModels must be a list when present")
-
-normalized = []
-for model in models:
-    if not isinstance(model, str):
-        normalized.append(model)
-        continue
-    if model == SPARK_MODEL or model.endswith(f"/{SPARK_MODEL}"):
-        continue
-    if model in RETIRED_PI_MODEL_IDS or model == "opencode/glm-5.2":
-        continue
-    if "/" in model:
-        provider_id, model_id = model.split("/", 1)
-        if model_id in RETIRED_PI_MODEL_IDS and (provider_id == "openai-codex" or provider_id.startswith("openai-codex-")):
-            continue
-    if model in LEGACY_GROK_ROUTE_MIGRATIONS:
-        model = LEGACY_GROK_ROUTE_MIGRATIONS[model]
-    elif (
-        model.startswith("xai/")
-        and model.split("/", 1)[1] in MANAGED_XAI_PROXY_ONLY_MODEL_IDS
-    ) or model.startswith(RETIRED_GROK_MODEL_PREFIXES) or model in RETIRED_GROK_MODEL_IDS:
-        continue
-    if model.startswith("openai-codex-") and model.endswith(f"/{DEFAULT_MODEL}"):
-        model = DEFAULT_MODEL_VALUE
-    if model not in normalized:
-        normalized.append(model)
-normalized = [model for model in normalized if model != DEFAULT_MODEL_VALUE]
-normalized.insert(0, DEFAULT_MODEL_VALUE)
-for model in NATIVE_XAI_ENABLED_MODELS:
-    if model not in normalized:
-        normalized.append(model)
-settings["enabledModels"] = normalized
+settings["enabledModels"] = PICKER_ENABLED_MODELS
 
 if json.dumps(settings, sort_keys=True) != before_settings:
     settings_path.parent.mkdir(parents=True, exist_ok=True)

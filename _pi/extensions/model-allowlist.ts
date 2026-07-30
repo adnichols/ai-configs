@@ -1,12 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const ALLOWED_MODELS = new Set([
-	"openai-codex/gpt-5.6-luna",
 	"openai-codex/gpt-5.6-terra",
+	"openai-codex/gpt-5.6-luna",
 	"xai/grok-4.5",
-	"xai/grok-4.3",
-	"xai/grok-build-0.1",
-	"cursor/grok-4.5",
 	"cursor/composer-2.5",
 ]);
 
