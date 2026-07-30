@@ -70,6 +70,8 @@ export interface PrepareCursorProviderTurnParams {
 	throwIfAborted: () => void;
 	/** Snapshot resolved once by the runner before draining; reused unchanged through prepare. */
 	resolvedConfig: CursorResolvedSdkConfig;
+	/** Skip persisted-agent resume after a pre-run failure from a stale pooled local agent. */
+	forceLocalAgentCreate?: boolean;
 }
 
 interface PrepareCursorProviderTurnContext extends PrepareCursorProviderTurnParams {
@@ -240,7 +242,18 @@ async function prepareCursorCloudProviderTurn(
 async function prepareCursorLocalProviderTurn(
 	prepareParams: PrepareCursorProviderTurnContext,
 ): Promise<LocalCursorProviderTurnPrepareResult> {
-	const { params, cwd, resolvedApiKey, sdkEventDebug, throwIfAborted, resolvedConfig, agentMode, selection, fastEnabled } = prepareParams;
+	const {
+		params,
+		cwd,
+		resolvedApiKey,
+		sdkEventDebug,
+		throwIfAborted,
+		resolvedConfig,
+		agentMode,
+		selection,
+		fastEnabled,
+		forceLocalAgentCreate,
+	} = prepareParams;
 	const { model, context, options } = params;
 
 	let restoreCursorSdkOutputFilter: (() => void) | undefined;
@@ -277,6 +290,7 @@ async function prepareCursorLocalProviderTurn(
 			localResume: resolvedConfig.local.resume.value,
 			useHttp1ForAgent,
 			debugRecorder: sdkEventDebug,
+			forceCreate: forceLocalAgentCreate,
 			onBridgeToolRequest: (request: CursorPiBridgeToolRequest) => {
 				if (liveRunForBridgeQueue && !liveRunForBridgeQueue.disposed) {
 					cursorLiveRuns.queueEvent(liveRunForBridgeQueue, { type: "bridge-tool", request });

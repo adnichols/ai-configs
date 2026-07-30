@@ -5,8 +5,10 @@ import {
 	resetCursorProviderTestState,
 	mockedCreate,
 	mockedMessagesList,
+	mockedResume,
 	makeModel,
 	makeContext,
+	makeAssistantMessage,
 	collectEvents,
 	getErrorEvent,
 	getEventsOfType,
@@ -20,6 +22,9 @@ import {
 import { CursorPiToolBridgeRunImpl } from "../src/cursor-pi-tool-bridge-run.js";
 import { __testUtils as cursorSdkProcessGuardTestUtils } from "../src/cursor-sdk-process-error-guard.js";
 import { streamCursor } from "../src/cursor-provider.js";
+import { __testUtils as cursorSessionScopeTestUtils } from "../src/cursor-session-scope.js";
+import { __testUtils as cursorSessionAgentTestUtils } from "../src/cursor-session-agent.js";
+import { __testUtils as cursorSessionResumeTestUtils } from "../src/cursor-session-agent-resume.js";
 import { writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -193,6 +198,93 @@ describe("streamCursor auth and abort", () => {
 		expect(message).not.toContain("super-secret-key-12345");
 	});
 
+	it("recreates a pooled local agent when its first post-idle send is unauthenticated", async () => {
+		const staleDispose = vi.fn().mockResolvedValue(undefined);
+		const staleSend = vi
+			.fn()
+			.mockResolvedValueOnce(
+				asMockCursorRun({
+					id: "run-before-idle",
+					agentId: "agent-before-idle",
+					status: "finished",
+					wait: vi.fn().mockResolvedValue({ id: "run-before-idle", status: "finished" }),
+				}),
+			)
+			.mockRejectedValueOnce(makeUnauthenticatedConnectError());
+		const replacementSend = vi.fn().mockResolvedValue(
+			asMockCursorRun({
+				id: "run-after-idle-recovery",
+				agentId: "agent-after-idle-recovery",
+				status: "finished",
+				wait: vi.fn().mockResolvedValue({ id: "run-after-idle-recovery", status: "finished" }),
+			}),
+		);
+		const staleAgent = asMockSdkAgent({
+			agentId: "agent-before-idle",
+			send: staleSend,
+			[Symbol.asyncDispose]: staleDispose,
+		});
+		const replacementAgent = asMockSdkAgent({
+			agentId: "agent-after-idle-recovery",
+			send: replacementSend,
+		});
+		let createdAgentCount = 0;
+		mockedCreate.mockImplementation(async () => {
+			createdAgentCount += 1;
+			return createdAgentCount === 1 ? staleAgent : replacementAgent;
+		});
+
+		process.env.PI_CURSOR_LOCAL_RESUME = "1";
+		const scopeKey = "/tmp/idle-auth-recovery.jsonl";
+		cursorSessionScopeTestUtils.set(process.cwd(), scopeKey);
+		const model = makeModel();
+		const firstContext = makeContext([{ role: "user", content: "before idle", timestamp: 1 }]);
+		const firstEvents = await collectEvents(streamCursor(model, firstContext, { apiKey: "test-key" }));
+		expect(getEventsOfType(firstEvents, "error")).toHaveLength(0);
+
+		const pooledState = cursorSessionAgentTestUtils.getSessionCursorAgentPoolState(scopeKey);
+		if (pooledState.status === "empty") throw new Error("Expected the first turn to pool its Cursor agent");
+		cursorSessionResumeTestUtils.set({
+			scopeKey,
+			sessionFile: scopeKey,
+			cwd: process.cwd(),
+			repoRoot: undefined,
+			branchPathHash: cursorSessionResumeTestUtils.EMPTY_BRANCH_HASH,
+			compactionGeneration: 0,
+			activeHandle: {
+				version: 1,
+				runtime: "local",
+				agentId: "agent-persisted-before-idle",
+				scopeKey,
+				sessionFile: scopeKey,
+				cwd: process.cwd(),
+				poolKey: pooledState.poolKey,
+				branchPathHash: cursorSessionResumeTestUtils.EMPTY_BRANCH_HASH,
+				compactionGeneration: 0,
+				sendState: { bootstrapped: true, contextFingerprint: "stale", incrementalSendCount: 1 },
+				createdAt: "2026-07-29T00:00:00.000Z",
+			},
+		});
+
+		const secondContext = makeContext([
+			{ role: "user", content: "before idle", timestamp: 1 },
+			makeAssistantMessage("baseline response", 2),
+			{ role: "user", content: "after idle", timestamp: 3 },
+		]);
+		const secondEvents = await collectEvents(streamCursor(model, secondContext, { apiKey: "test-key" }));
+
+		expect(getEventsOfType(secondEvents, "error")).toHaveLength(0);
+		expect(mockedCreate).toHaveBeenCalledTimes(2);
+		expect(mockedResume).not.toHaveBeenCalled();
+		expect(staleDispose).toHaveBeenCalledTimes(1);
+		expect(staleSend).toHaveBeenCalledTimes(2);
+		expect(replacementSend).toHaveBeenCalledTimes(1);
+		const replacementPayload = replacementSend.mock.calls[0]?.[0] as { text?: string };
+		expect(replacementPayload.text).toContain("User: before idle");
+		expect(replacementPayload.text).toContain("Assistant: baseline response");
+		expect(replacementPayload.text).toContain("User: after idle");
+	});
+
 	it("labels unauthenticated ConnectError from run.wait as an auth failure", async () => {
 		const mockSend = vi.fn().mockResolvedValue(
 			asMockCursorRun({
@@ -212,6 +304,7 @@ describe("streamCursor auth and abort", () => {
 		expect(error.error.errorMessage).toContain("invalid or unauthorized");
 		expect(error.error.errorMessage).toContain("/login");
 		expect(error.error.errorMessage).toContain("CURSOR_API_KEY");
+		expect(mockedCreate).toHaveBeenCalledTimes(1);
 	});
 
 	it("suppresses duplicate process-level unauthenticated ConnectError during an active provider turn", async () => {

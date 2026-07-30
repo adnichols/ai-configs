@@ -1,6 +1,7 @@
 import { CursorLiveRunAbortError } from "./cursor-live-run-coordinator.js";
-import { drainExistingCursorLiveRunBeforeSend } from "./cursor-provider-live-run-drain.js";
+import { cursorLiveRuns, drainExistingCursorLiveRunBeforeSend } from "./cursor-provider-live-run-drain.js";
 import { invalidateSessionAgent } from "./cursor-session-agent.js";
+import { isUnauthenticatedConnectError } from "./cursor-provider-errors.js";
 import { getCursorSessionCwd, getCursorSessionScopeKey } from "./cursor-session-scope.js";
 import { installCursorSdkProcessErrorGuard } from "./cursor-sdk-process-error-guard.js";
 import type { CursorRuntime } from "./cursor-config.js";
@@ -34,6 +35,16 @@ function requireLocalLivePreparedTurn(prepared: CursorProviderTurnPrepareResult)
 		throw new Error("Cursor live run requires a local live prepared turn");
 	}
 	return prepared as LocalLivePreparedTurn;
+}
+
+async function abandonFailedUnauthenticatedLocalSend(prepared: LocalCursorProviderTurnPrepareResult): Promise<void> {
+	const liveRun = prepared.runtime.liveRun;
+	if (liveRun && !liveRun.disposed) {
+		await cursorLiveRuns.release(liveRun);
+	} else {
+		await prepared.lifecycle.abandon();
+	}
+	prepared.restoreCursorSdkOutputFilter();
 }
 
 export class CursorProviderTurnRunner {
@@ -106,14 +117,46 @@ export class CursorProviderTurnRunner {
 				resolvedConfig,
 			});
 
-			sendResult = await sendCursorProviderTurn({
-				params: this.params,
-				prepared,
-				sdkEventDebug: this.sdkEventDebug,
-				sdkProcessErrorGuard,
-				throwIfAborted: () => this.throwIfAborted(),
-				resolvedApiKey: this.resolvedApiKey,
-			});
+			try {
+				sendResult = await sendCursorProviderTurn({
+					params: this.params,
+					prepared,
+					sdkEventDebug: this.sdkEventDebug,
+					sdkProcessErrorGuard,
+					throwIfAborted: () => this.throwIfAborted(),
+					resolvedApiKey: this.resolvedApiKey,
+				});
+			} catch (error) {
+				if (
+					prepared.runtimeTarget !== "local" ||
+					prepared.sessionAgentLease.created ||
+					!isUnauthenticatedConnectError(error)
+				) {
+					throw error;
+				}
+
+				// A pooled local Cursor agent may lose its backend session while idle. No
+				// Cursor run exists when send rejects, so discard that stale agent and retry
+				// the untouched Pi turn once with a fresh transcript bootstrap.
+				await abandonFailedUnauthenticatedLocalSend(prepared);
+				prepared = await prepareCursorProviderTurn({
+					params: this.params,
+					cwd,
+					resolvedApiKey: this.resolvedApiKey,
+					sdkEventDebug: this.sdkEventDebug,
+					throwIfAborted: () => this.throwIfAborted(),
+					resolvedConfig,
+					forceLocalAgentCreate: true,
+				});
+				sendResult = await sendCursorProviderTurn({
+					params: this.params,
+					prepared,
+					sdkEventDebug: this.sdkEventDebug,
+					sdkProcessErrorGuard,
+					throwIfAborted: () => this.throwIfAborted(),
+					resolvedApiKey: this.resolvedApiKey,
+				});
+			}
 			const { send } = sendResult;
 
 			if (prepared.runtime.kind === "live") {
