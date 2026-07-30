@@ -37,7 +37,7 @@ Repo-local planning guidance may refine the source path or choose Markdoc over h
 - In Pi-style reviewed-plan workflows, keep the handoff explicit and prefer the repo's canonical workflow skill from repo-local guidance. For HTML plans, prefer Doct registration through `doct-agent plans` on `https://doct.nodaste.com`; do not assume a hidden fallback to Claude Code, a local `plan-review` service, or any other alternate review surface.
 - During plan writing, edit only the target plan artifact unless the repo's `AGENTS.md` explicitly allows another planning-side file.
 - Do not change product code, tests, app config, docs, generated files, or environment files while planning.
-- Avoid side effects: no installs, codegen, migrations, formatting runs, commits, rebases, resets, or destructive commands.
+- Avoid unrelated side effects: no installs, codegen, migrations, formatting runs, rebases, resets, or destructive commands. Commit the plan artifact when the repository workflow requires it.
 
 ## Planning inputs
 

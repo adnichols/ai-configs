@@ -4952,9 +4952,9 @@
       "sha256": "104bfded4688b153dac5d7f451ceb00008396415368f1f3bafe8bdb0c5b13684"
     },
     {
-      "bytes": 12165,
+      "bytes": 14304,
       "path": "scripts/pi_workflow_ctl.py",
-      "sha256": "0f3978551114282825d4f728951755fec8dd424bf50f819c164cf0a15a9a0656"
+      "sha256": "0308e5f1c56cda3ec6d50f7870f290280b0932153d601c729fb9c15506dda0ee"
     },
     {
       "bytes": 4881,
@@ -8447,9 +8447,9 @@
       "sha256": "3e8d280d5f01ecff8be1f37037cf6f370dda6622c5a50f004011edc63e592b66"
     },
     {
-      "bytes": 24034,
+      "bytes": 24102,
       "path": "skills/software-development/planning-workflow/SKILL.md",
-      "sha256": "381ed40ea98c745697082fbe1608b60230aef242eca71dbdb8d1d334f22bbe03"
+      "sha256": "11716c8fdcbfe8feb5b72d79eb5ef4ee1efca369c29bd603693db5ac4b9b981e"
     },
     {
       "bytes": 13172,
@@ -8492,9 +8492,9 @@
       "sha256": "4c01d41a0dffbe08eeab3c55250d66be0c9b2b418b4a176e492479407e1d6c7d"
     },
     {
-      "bytes": 24339,
+      "bytes": 24407,
       "path": "skills/software-development/writing-plans/SKILL.md",
-      "sha256": "92e51f5c1b2cf224ba4b44707c71792266b0de586e051e328d146c1d6ce4ebd1"
+      "sha256": "a7a095db3124d89850a2d2ab8234bb11afd17317345cc3180ca487f990701198"
     },
     {
       "bytes": 3795,
@@ -8502,8 +8502,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260726T153238Z",
+  "generated_at": "20260730T031942Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/Users/anichols/code/ai-configs-ltui-attach-download/_hermes/default"
+  "source_home": "/Users/anichols/code/ai-configs/_hermes/default"
 }
