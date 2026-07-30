@@ -236,19 +236,21 @@ DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 RETIRED_PI_MODEL_IDS = {"gpt-5.6-sol", "glm-5.2"}
 SPARK_MODEL = "gpt-5.3-codex-spark"
-RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
-# Bare legacy IDs only; opencode/grok-4.5 is supported and not retired.
-RETIRED_GROK_MODEL_IDS = {
-    "grok-4.5",
-    "grok-build-0.1",
-    "grok-4.3",
-    "grok-4.20-0309-reasoning",
-    "grok-4.20-0309-non-reasoning",
-    "grok-4.20-multi-agent-0309",
-    "grok-3-mini",
-    "grok-3-mini-fast",
-    "grok-composer-2.5-fast",
+NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.5", "grok-4.3", "grok-build-0.1"}
+MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
+    "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
+    "grok-4.20-multi-agent-0309", "grok-3-mini", "grok-3-mini-fast",
+    "grok-composer-2.5-fast", "grok-imagine-image",
+    "grok-imagine-image-quality", "grok-imagine-video",
+    "grok-imagine-video-1.5-preview",
 }
+LEGACY_GROK_ROUTE_MIGRATIONS = {
+    **{model_id: f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
+    **{f"grok/{model_id}": f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
+    "openai-codex/grok-4.5": "xai/grok-4.5",
+}
+RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
+RETIRED_GROK_MODEL_IDS = MANAGED_XAI_PROXY_ONLY_MODEL_IDS
 
 if settings_path.exists():
     settings = json.loads(settings_path.read_text())
@@ -280,7 +282,12 @@ for model in models:
         provider_id, model_id = model.split("/", 1)
         if model_id in RETIRED_PI_MODEL_IDS and (provider_id == "openai-codex" or provider_id.startswith("openai-codex-")):
             continue
-    if model.startswith(RETIRED_GROK_MODEL_PREFIXES) or model in RETIRED_GROK_MODEL_IDS:
+    if model in LEGACY_GROK_ROUTE_MIGRATIONS:
+        model = LEGACY_GROK_ROUTE_MIGRATIONS[model]
+    elif (
+        model.startswith("xai/")
+        and model.split("/", 1)[1] in MANAGED_XAI_PROXY_ONLY_MODEL_IDS
+    ) or model.startswith(RETIRED_GROK_MODEL_PREFIXES) or model in RETIRED_GROK_MODEL_IDS:
         continue
     if model.startswith("openai-codex-") and model.endswith(f"/{DEFAULT_MODEL}"):
         model = DEFAULT_MODEL_VALUE
@@ -549,12 +556,13 @@ else:
         errors.append("enabledModels still contains retired GPT-5.6 Sol or GLM-5.2 Pi routes")
     if any(isinstance(model, str) and "gpt-5.3-codex-spark" in model for model in enabled):
         errors.append("enabledModels still contains gpt-5.3-codex-spark")
+    stale_grok_routes = {"openai-codex/grok-4.5", "grok/grok-4.5", "grok-4.5"}
     if any(
         isinstance(model, str)
-        and (model.startswith("grok/") or model.startswith("grok-"))
+        and (model in stale_grok_routes or model.startswith("grok/") or model.startswith("grok-"))
         for model in enabled
     ):
-        errors.append("enabledModels still contains retired grok models")
+        errors.append("enabledModels still contains retired Grok routes")
     retired_pi = re.compile(r"^(?:gpt-5\.4(?:-mini)?|openai-codex(?:-[^/]*)?/gpt-5\.4(?:-mini)?)$")
     if any(isinstance(model, str) and retired_pi.fullmatch(model) for model in enabled):
         errors.append("enabledModels still contains retired GPT-5.4 Pi routes")
@@ -587,6 +595,46 @@ PY
   fi
 else
   note_failure "Pi models file is missing: $PI_AGENT_DIR/models.json"
+fi
+
+if [ -f "$PI_AGENT_DIR/models.json" ]; then
+  PI_GROK_PROXY_STATUS="$(python3 - "$PI_AGENT_DIR/models.json" <<'PY'
+import json
+import sys
+
+providers = json.load(open(sys.argv[1])).get("providers", {})
+xai = providers.get("xai")
+expected_ids = {
+    "grok-4.5", "grok-4.3", "grok-build-0.1",
+    "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
+    "grok-4.20-multi-agent-0309", "grok-3-mini", "grok-3-mini-fast",
+    "grok-composer-2.5-fast", "grok-imagine-image",
+    "grok-imagine-image-quality", "grok-imagine-video",
+    "grok-imagine-video-1.5-preview",
+}
+expected_headers = {
+    "User-Agent": "codex-tui/0.142.5 (Linux; x86_64)",
+    "Originator": "codex-tui",
+}
+models = xai.get("models", []) if isinstance(xai, dict) else []
+model_ids = {model.get("id") for model in models if isinstance(model, dict)}
+if isinstance(xai, dict) and (
+    xai.get("baseUrl") == "http://127.0.0.1:8318/v1"
+    and xai.get("api") == "openai-responses"
+    and xai.get("apiKey") == "local-cliproxyapi"
+    and xai.get("headers") == expected_headers
+    and model_ids == expected_ids
+):
+    print("managed CLIProxyAPI xAI provider remains")
+else:
+    print("ok")
+PY
+)"
+  if [ "$PI_GROK_PROXY_STATUS" = "ok" ]; then
+    echo "  Managed CLIProxyAPI xAI provider: absent"
+  else
+    note_failure "Pi retains a managed CLIProxyAPI xAI provider: $PI_GROK_PROXY_STATUS"
+  fi
 fi
 
 if [ -f "$PI_WEB_SEARCH_PATH" ]; then

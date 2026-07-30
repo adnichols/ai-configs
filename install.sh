@@ -1728,20 +1728,23 @@ DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 RETIRED_PI_MODEL_IDS = {"gpt-5.6-sol", "glm-5.2"}
 SPARK_MODEL = "gpt-5.3-codex-spark"
-# Retired bare Grok CLI-proxy routes (grok/* prefix and unqualified IDs below).
-# OpenCode-qualified opencode/grok-4.5 is supported and must survive normalization.
-RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
-RETIRED_GROK_MODEL_IDS = {
-    "grok-4.5",  # bare legacy ID only; opencode/grok-4.5 is not retired
-    "grok-build-0.1",
-    "grok-4.3",
-    "grok-4.20-0309-reasoning",
-    "grok-4.20-0309-non-reasoning",
-    "grok-4.20-multi-agent-0309",
-    "grok-3-mini",
-    "grok-3-mini-fast",
-    "grok-composer-2.5-fast",
+# Pi's built-in xAI provider is authenticated by the user's local xAI login.
+# Migrate only routes that ai-configs previously managed to its native catalog.
+NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.5", "grok-4.3", "grok-build-0.1"}
+MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
+    "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
+    "grok-4.20-multi-agent-0309", "grok-3-mini", "grok-3-mini-fast",
+    "grok-composer-2.5-fast", "grok-imagine-image",
+    "grok-imagine-image-quality", "grok-imagine-video",
+    "grok-imagine-video-1.5-preview",
 }
+LEGACY_GROK_ROUTE_MIGRATIONS = {
+    **{model_id: f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
+    **{f"grok/{model_id}": f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
+    "openai-codex/grok-4.5": "xai/grok-4.5",
+}
+RETIRED_GROK_MODEL_PREFIXES = ("grok/",)
+RETIRED_GROK_MODEL_IDS = MANAGED_XAI_PROXY_ONLY_MODEL_IDS
 
 changed = []
 
@@ -1782,7 +1785,12 @@ for model in models:
         provider_id, model_id = model.split("/", 1)
         if model_id in RETIRED_PI_MODEL_IDS and (provider_id == "openai-codex" or provider_id.startswith("openai-codex-")):
             continue
-    if model.startswith(RETIRED_GROK_MODEL_PREFIXES) or model in RETIRED_GROK_MODEL_IDS:
+    if model in LEGACY_GROK_ROUTE_MIGRATIONS:
+        model = LEGACY_GROK_ROUTE_MIGRATIONS[model]
+    elif (
+        model.startswith("xai/")
+        and model.split("/", 1)[1] in MANAGED_XAI_PROXY_ONLY_MODEL_IDS
+    ) or model.startswith(RETIRED_GROK_MODEL_PREFIXES) or model in RETIRED_GROK_MODEL_IDS:
         continue
     if model.startswith("openai-codex-") and model.endswith(f"/{DEFAULT_MODEL}"):
         model = DEFAULT_MODEL_VALUE
@@ -1992,9 +2000,47 @@ target_providers = updated_data.setdefault("providers", {})
 
 # Retire only exact model IDs previously managed by ai-configs. Display names
 # are not an ownership boundary: callers may keep custom CLI Proxy API models.
-RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.6-sol"}
+RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.6-sol", "grok-4.5"}
+NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.5", "grok-4.3", "grok-build-0.1"}
+MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
+    "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
+    "grok-4.20-multi-agent-0309", "grok-3-mini", "grok-3-mini-fast",
+    "grok-composer-2.5-fast", "grok-imagine-image",
+    "grok-imagine-image-quality", "grok-imagine-video",
+    "grok-imagine-video-1.5-preview",
+}
+MANAGED_XAI_PROXY_MODEL_IDS = NATIVE_XAI_GROK_MODEL_IDS | MANAGED_XAI_PROXY_ONLY_MODEL_IDS
+MANAGED_XAI_PROXY_HEADERS = {
+    "User-Agent": "codex-tui/0.142.5 (Linux; x86_64)",
+    "Originator": "codex-tui",
+}
+LEGACY_GROK_ROUTE_MIGRATIONS = {
+    **{model_id: f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
+    **{f"grok/{model_id}": f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
+    "openai-codex/grok-4.5": "xai/grok-4.5",
+}
+
+def is_managed_xai_proxy(provider):
+    if not isinstance(provider, dict):
+        return False
+    models = provider.get("models")
+    model_ids = {
+        model.get("id") for model in models
+        if isinstance(model, dict) and isinstance(model.get("id"), str)
+    } if isinstance(models, list) else set()
+    return (
+        provider.get("baseUrl") == "http://127.0.0.1:8318/v1"
+        and provider.get("api") == "openai-responses"
+        and provider.get("apiKey") == "local-cliproxyapi"
+        and provider.get("headers") == MANAGED_XAI_PROXY_HEADERS
+        and model_ids == MANAGED_XAI_PROXY_MODEL_IDS
+    )
 
 def prune_retired_managed_models():
+    xai_provider = target_providers.get("xai")
+    if is_managed_xai_proxy(xai_provider):
+        target_providers.pop("xai", None)
+
     openai_codex_provider = target_providers.get("openai-codex")
     if isinstance(openai_codex_provider, dict):
         target_models = openai_codex_provider.get("models")
@@ -2148,6 +2194,8 @@ if settings_path.exists():
         for value in enabled_models:
             retired = False
             if isinstance(value, str):
+                if value in LEGACY_GROK_ROUTE_MIGRATIONS:
+                    value = LEGACY_GROK_ROUTE_MIGRATIONS[value]
                 if value in RETIRED_OPENAI_CODEX_MODEL_IDS or value == "glm-5.2":
                     retired = True
                 elif value == "opencode/glm-5.2":
@@ -2160,6 +2208,10 @@ if settings_path.exists():
                             and (provider_id == "openai-codex" or provider_id.startswith("openai-codex-"))
                         )
                         or (provider_id == "opencode" and model_id == "glm-5.2")
+                        or (
+                            provider_id == "xai"
+                            and model_id in MANAGED_XAI_PROXY_ONLY_MODEL_IDS
+                        )
                     )
             if not retired:
                 retained.append(value)

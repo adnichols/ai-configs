@@ -59,6 +59,9 @@ class PiAgentRosterTest(unittest.TestCase):
         for model in (
             "openai-codex/gpt-5.6-luna",
             "openai-codex/gpt-5.6-terra",
+            "xai/grok-4.5",
+            "xai/grok-4.3",
+            "xai/grok-build-0.1",
             "cursor/grok-4.5",
             "cursor/composer-2.5",
         ):
@@ -69,6 +72,8 @@ class PiAgentRosterTest(unittest.TestCase):
         managed_ids = {item["id"] for item in models["providers"]["openai-codex"]["models"]}
         self.assertNotIn("gpt-5.6-sol", managed_ids)
         self.assertIn("gpt-5.6-terra", managed_ids)
+        self.assertNotIn("grok-4.5", managed_ids)
+        self.assertNotIn("xai", models["providers"])
         self.assertNotIn("opencode-go", models["providers"])
 
     def test_prompts_keep_generic_authority_and_stop_rules(self):

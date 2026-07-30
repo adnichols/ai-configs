@@ -98,7 +98,7 @@ class InstallTransactionTest(unittest.TestCase):
             full=subprocess.run(['bash','scripts/verify-pi-install.sh','--check-only'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
             self.assertNotEqual(full.returncode,0);self.assertIn('enabledModels still contains retired GPT-5.4 Pi routes',full.stdout)
 
-    def test_opencode_grok_4_5_survives_retired_grok_normalization(self):
+    def test_managed_grok_proxy_routes_migrate_to_native_xai(self):
         with tempfile.TemporaryDirectory() as d:
             home = Path(d)
             agent = home / '.pi/agent'
@@ -109,10 +109,32 @@ class InstallTransactionTest(unittest.TestCase):
             pi.write_text('#!/bin/sh\nexit 0\n')
             pi.chmod(0o755)
             models = agent / 'models.json'
-            models.write_text(json.dumps({'providers': {'caller-owned': {'models': [{'id': 'local'}]}}}))
+            managed_xai_ids = [
+                'grok-4.5', 'grok-4.3', 'grok-build-0.1',
+                'grok-4.20-0309-reasoning', 'grok-4.20-0309-non-reasoning',
+                'grok-4.20-multi-agent-0309', 'grok-3-mini', 'grok-3-mini-fast',
+                'grok-composer-2.5-fast', 'grok-imagine-image',
+                'grok-imagine-image-quality', 'grok-imagine-video',
+                'grok-imagine-video-1.5-preview',
+            ]
+            models.write_text(json.dumps({'providers': {
+                'caller-owned': {'models': [{'id': 'local'}]},
+                'xai': {
+                    'baseUrl': 'http://127.0.0.1:8318/v1',
+                    'api': 'openai-responses',
+                    'apiKey': 'local-cliproxyapi',
+                    'headers': {
+                        'User-Agent': 'codex-tui/0.142.5 (Linux; x86_64)',
+                        'Originator': 'codex-tui',
+                    },
+                    'models': [{'id': model_id} for model_id in managed_xai_ids],
+                },
+                'opencode': {'modelOverrides': {'grok-4.5': {'contextWindow': 500000}}},
+                'cursor': {'modelOverrides': {'grok-4.5': {'contextWindow': 256000}}},
+            }}))
             settings = agent / 'settings.json'
             settings.write_text(json.dumps({'enabledModels': [
-                'grok/grok-4.5', 'grok/grok-composer-2.5-fast', 'grok-4.5', 'opencode/grok-4.5', 'openai-codex/gpt-5.6-sol',
+                'grok/grok-4.5', 'grok/grok-composer-2.5-fast', 'grok-4.3', 'openai-codex/grok-4.5', 'opencode/grok-4.5', 'cursor/grok-4.5', 'openai-codex/gpt-5.6-sol',
             ]}))
             # Reproduce the deployed PR #54 layout: a non-factory helper left in
             # extensions/ must be removed before Pi's next auto-discovered launch.
@@ -128,12 +150,29 @@ class InstallTransactionTest(unittest.TestCase):
             self.assertEqual(configured[0],'openai-codex/gpt-5.6-terra')
             self.assertNotIn('openai-codex/gpt-5.6-sol',configured)
             self.assertNotIn('opencode/glm-5.2',configured)
-            self.assertIn('opencode/grok-4.5',configured)
+            self.assertIn('xai/grok-4.5',configured)
+            self.assertIn('xai/grok-4.3',configured)
+            self.assertNotIn('xai/grok-composer-2.5-fast',configured)
             self.assertNotIn('grok/grok-4.5',configured)
             self.assertNotIn('grok-4.5',configured)
-            grok_override=json.loads(models.read_text())['providers']['opencode']['modelOverrides']['grok-4.5']
-            self.assertEqual(grok_override['contextWindow'],200000)
-            self.assertEqual(grok_override['maxTokens'],8192)
+            self.assertNotIn('openai-codex/grok-4.5',configured)
+            self.assertIn('opencode/grok-4.5',configured)
+            self.assertIn('cursor/grok-4.5',configured)
+            installed_models=json.loads(models.read_text())['providers']
+            self.assertNotIn('xai',installed_models)
+            self.assertEqual(installed_models['opencode']['modelOverrides']['grok-4.5']['contextWindow'],200000)
+            self.assertEqual(installed_models['cursor']['modelOverrides']['grok-4.5']['contextWindow'],256000)
+            self.assertNotIn('grok-4.5',{model['id'] for model in installed_models['openai-codex']['models']})
+            native_xai = {
+                'baseUrl': 'https://api.x.ai/v1',
+                'api': 'xai-responses',
+                'apiKey': 'caller-owned-native-xai-key',
+                'models': [{'id': 'caller-owned-native-model'}],
+            }
+            installed_models['xai'] = native_xai
+            models.write_text(json.dumps({'providers': installed_models}))
+            subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
+            self.assertEqual(json.loads(models.read_text())['providers']['xai'],native_xai)
             policy_source = ROOT / '_pi/lib/grok-context-ceiling-policy.ts'
             installed_policy = agent / 'lib/grok-context-ceiling-policy.ts'
             self.assertEqual(installed_policy.read_bytes(), policy_source.read_bytes())

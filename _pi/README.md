@@ -73,7 +73,7 @@ The installer renders the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_
 
 The doctrine is request-type-first: questions, explanations, inspection, research, diagnosis, review, planning discussion, and status requests remain read-only unless the user separately authorizes a change. Persistence instructions increase effort only within the already-authorized scope.
 
-The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is intentionally pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. This routes requests to `/v1/responses`, retaining encrypted reasoning items across tool turns instead of using Chat Completions or ChatGPT's separate `/codex/responses` route. It also copies `_pi/tasks-config.json` into `~/.pi/agent/tasks-config.json`; the tracked default uses `taskScope: "memory"`.
+The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. xAI models use Pi's built-in `xai` provider and the local xAI login; ai-configs does not configure an xAI endpoint, headers, key, or model catalog. Cursor and OpenCode remain separate providers, so removing either removes only that provider's models. It also copies `_pi/tasks-config.json` into `~/.pi/agent/tasks-config.json`; the tracked default uses `taskScope: "memory"`.
 
 `install.sh --pi` now enforces `openai-codex/gpt-5.6-terra` as the Pi default and updates the web-search summary route to Terra. The driving Pi session is the only code-writing route. The planning and review agents use GPT-5.6 Terra medium, and the read-only scout uses GPT-5.6 Terra low. GPT-5.6 Sol and GLM-5.2 are removed from Pi-scoped model routes; GPT-5.4 and GPT-5.4-mini are also retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
 
@@ -130,7 +130,7 @@ This repo ships `thinking-shortcuts.ts`, which adds Codex-style bidirectional re
 
 Run `bun test scripts/thinking-shortcuts.test.ts` for the extension contract tests and `scripts/test-thinking-shortcuts-e2e.sh` for the real Pi TUI keypress test.
 
-`model-allowlist.ts` limits Pi's model picker and runtime lookup to these exact IDs: `openai-codex/gpt-5.6-luna`, `openai-codex/gpt-5.6-terra`, `cursor/grok-4.5`, and `cursor/composer-2.5`. It filters the live model catalog again after Pi refreshes it. The extension uses Pi's current internal model collection because Pi does not expose a public global model-registry allowlist; verify it after a Pi upgrade.
+`model-allowlist.ts` limits Pi's model picker and runtime lookup to `openai-codex/gpt-5.6-luna`, `openai-codex/gpt-5.6-terra`, Pi's built-in xAI catalog (`xai/grok-4.5`, `xai/grok-4.3`, and `xai/grok-build-0.1`), `cursor/grok-4.5`, and `cursor/composer-2.5`. It filters the live model catalog again after Pi refreshes it. The extension uses Pi's current internal model collection because Pi does not expose a public global model-registry allowlist; verify it after a Pi upgrade.
 
 The managed `herdr-agent-state.ts` integration reports Pi lifecycle state directly to Herdr. It treats `agent_settled` as the foreground-idle boundary, preserves same-session Herdr authority across Pi `/reload`, and, by default, keeps the pane working while any tracked `process` job remains live except known passive listeners, monitors, dev servers, and watchers. Configure the policy with `HERDR_PI_BACKGROUND_PROCESS_MODE=none|finite|all`; extend the passive ignore list with comma- or newline-separated literal name/command fragments in `HERDR_PI_BACKGROUND_PROCESS_IGNORE`. Doct `plans listen` and blocking `plans agent next --wait` commands are ignored explicitly. Run `node tests/test_herdr_agent_state.mjs` for the lifecycle, reload, and process-policy contract test.
 
@@ -164,15 +164,15 @@ To use with pi-vcc, run `./install.sh --pi`; `pi list` should show the stable mi
 
 ### Grok 4.5 context ceiling
 
-The exact `opencode/grok-4.5` model uses an absolute policy rather than the shared percentage backstop. The extension requests pi-vcc compaction at **180,000 tokens** and advertises a **200,000-token** context window. Other providers and Grok model IDs retain the normal 60%/75%/80% percentage policy.
+The exact `opencode/grok-4.5` model uses an absolute policy rather than the shared percentage backstop. The extension requests pi-vcc compaction at **180,000 tokens** and advertises a **200,000-token** context window. Other providers and Grok model IDs, including Pi's built-in `xai/grok-4.5`, retain the normal 60%/75%/80% percentage policy.
 
 The 200K guarantee applies to the estimated **outbound provider request**: transformed messages, tool definitions, system prompt, and output reservation. It does not promise that the persisted session transcript can never briefly exceed 200K before Pi reaches its next dispatch boundary. A Pi runtime containing the matching pre-dispatch `context_ceiling` gate must compact and rebuild the request, or fail closed without calling Grok, whenever that estimate would be 200,000 tokens or more.
 
-Run `/compact-status` while `opencode/grok-4.5` is selected to see the current token count, 180K trigger, 200K provider-request ceiling, and last compaction reason. If the runtime reports that it cannot make a safe cut at the ceiling, do not retry an oversized request: use `/compact-now` if a safe boundary is available or start a new session. After installing, verify the model override with:
+Run `/compact-status` while `opencode/grok-4.5` is selected to see the current token count, 180K trigger, 200K provider-request ceiling, and last compaction reason. If the runtime reports that it cannot make a safe cut at the ceiling, do not retry an oversized request: use `/compact-now` if a safe boundary is available or start a new session. After installing, verify the native xAI catalog with:
 
 ```bash
 ./install.sh --pi
-pi --list-models grok
+pi --list-models xai
 ```
 
 Task tracking is provided exclusively by the package-managed `@tintinweb/pi-tasks` extension. Use `TaskCreate`, `TaskList`, `TaskGet`, and `TaskUpdate` for structured work tracking; `/tasks` is its interactive UI.
