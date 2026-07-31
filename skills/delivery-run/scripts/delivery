@@ -81,6 +81,31 @@ WORKER_SKILLS = {
     "qa": "/qa:run when customer-visible; else record adversarialQa --status na",
 }
 
+# Short Herdr workspace/tab phase codes. Format: "PL: nod-1234 short title"
+STAGE_PHASE_CODE = {
+    "INTAKE": "PL",
+    "PLAN_DRAFT": "PL",
+    "PLAN_BROWSER_REVIEW": "PL",
+    "PLAN_PM_REVIEW": "PL",
+    "PLAN_TECH_REVIEW": "PL",
+    "EXECUTION_READY": "PL",
+    "IMPLEMENTING": "I",
+    "SCOPED_REVIEW": "R",
+    "IMPL_PM_OUTCOME": "R",
+    "AUTOREVIEW": "R",
+    "VERIFY_FRESHNESS": "R",
+    "ADVERSARIAL_QA": "R",
+    "PR_OPEN": "PR",
+    "MERGE_READY": "PR",
+    "REFLECT": "RF",
+    "DONE": "D",
+    "BLOCKED": "B",
+}
+
+PHASE_CODE_RE = re.compile(
+    r"^(PL|I|R|PR|RF|QA|D|B)\s*:\s*", re.IGNORECASE
+)
+
 STAGE_NEXT_SKILL = {
     "INTAKE": "Start from description/plan even without Linear; attach issue later with delivery set --issue KEY. Then stage PLAN_DRAFT and use reviewed-html-plan or dev-plan",
     "PLAN_DRAFT": "Use /skill:dev-plan or /skill:reviewed-html-plan to materialize the HTML plan",
@@ -264,28 +289,129 @@ def refresh_git_fields(ledger: dict[str, Any], root: Path) -> None:
     ledger["worktree"] = str(root)
 
 
+def phase_code(stage: str | None) -> str:
+    return STAGE_PHASE_CODE.get(str(stage or "INTAKE"), "PL")
+
+
+def strip_phase_prefix(text: str | None) -> str:
+    return PHASE_CODE_RE.sub("", (text or "").strip()).strip()
+
+
+def ensure_base_title(ledger: dict[str, Any]) -> str:
+    """Stable human title without phase code, used after 'PL:' etc."""
+    labels = ledger.setdefault("labels", {})
+    stored = labels.get("baseTitle")
+    if isinstance(stored, str) and stored.strip():
+        base = strip_phase_prefix(stored)
+        labels["baseTitle"] = base
+        return base
+
+    spawn = ledger.get("spawn") if isinstance(ledger.get("spawn"), dict) else {}
+    candidates = [
+        spawn.get("label") if isinstance(spawn, dict) else None,
+        labels.get("herdr"),
+        (
+            f"{ledger.get('issue')} {ledger.get('slug')}".strip()
+            if ledger.get("issue") or ledger.get("slug")
+            else None
+        ),
+        ledger.get("issue"),
+        ledger.get("slug"),
+        ledger.get("goal"),
+        ledger.get("id"),
+    ]
+    base = "delivery"
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            base = strip_phase_prefix(candidate)
+            if base:
+                break
+    # Prefer compact issue-leading titles when possible.
+    issue = ledger.get("issue")
+    if issue and issue.lower() not in base.lower():
+        base = f"{issue} {base}".strip()
+    base = short_label(base, max_len=42)
+    labels["baseTitle"] = base
+    return base
+
+
+def herdr_display_label(ledger: dict[str, Any]) -> str:
+    code = phase_code(str(ledger.get("stage") or "INTAKE"))
+    base = ensure_base_title(ledger)
+    return f"{code}: {base}"
+
+
+def resolve_herdr_targets(ledger: dict[str, Any]) -> dict[str, str | None]:
+    labels = ledger.get("labels") if isinstance(ledger.get("labels"), dict) else {}
+    spawn = ledger.get("spawn") if isinstance(ledger.get("spawn"), dict) else {}
+    workspace_id = (
+        os.environ.get("HERDR_WORKSPACE_ID")
+        or labels.get("herdrWorkspaceId")
+        or spawn.get("workspaceId")
+    )
+    tab_id = (
+        os.environ.get("HERDR_TAB_ID")
+        or labels.get("herdrTabId")
+        or spawn.get("tabId")
+    )
+    pane_id = (
+        os.environ.get("HERDR_PANE_ID")
+        or labels.get("herdrPaneId")
+        or spawn.get("paneId")
+    )
+    return {
+        "workspaceId": str(workspace_id) if workspace_id else None,
+        "tabId": str(tab_id) if tab_id else None,
+        "paneId": str(pane_id) if pane_id else None,
+    }
+
+
 def maybe_herdr_label(ledger: dict[str, Any]) -> None:
-    """Best-effort Herdr tab/workspace label sync. Never fails the command."""
+    """Best-effort Herdr workspace + tab label sync with phase prefix.
+
+    Never fails the command. Format: "PL: nod-1234 short title".
+    """
     if os.environ.get("DELIVERY_SKIP_HERDR", "").strip() in {"1", "true", "yes"}:
         return
-    pane = os.environ.get("HERDR_PANE_ID") or os.environ.get("HERDR_TAB_ID")
-    if not pane:
+    if shutil.which("herdr") is None:
         return
-    label = f"{ledger.get('issue') or ledger.get('id')} · {ledger.get('stage')}"
-    import subprocess
+
+    label = herdr_display_label(ledger)
+    targets = resolve_herdr_targets(ledger)
+    labels = ledger.setdefault("labels", {})
+    labels["herdr"] = label
+    labels["phaseCode"] = phase_code(str(ledger.get("stage") or "INTAKE"))
 
     try:
-        # Prefer tab label when HERDR_TAB_ID is present.
-        tab = os.environ.get("HERDR_TAB_ID")
-        if tab:
-            subprocess.run(
-                ["herdr", "tab", "rename", tab, label],
+        workspace_id = targets.get("workspaceId")
+        tab_id = targets.get("tabId")
+
+        # Workspace/space name is the primary glance surface.
+        if workspace_id:
+            proc = subprocess.run(
+                ["herdr", "workspace", "rename", str(workspace_id), label],
                 check=False,
                 capture_output=True,
                 text=True,
                 timeout=5,
             )
-        ledger.setdefault("labels", {})["herdr"] = label
+            if proc.returncode == 0:
+                labels["herdrWorkspaceId"] = str(workspace_id)
+
+        # Keep the tab aligned when we know it.
+        if tab_id:
+            proc = subprocess.run(
+                ["herdr", "tab", "rename", str(tab_id), label],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if proc.returncode == 0:
+                labels["herdrTabId"] = str(tab_id)
+        elif targets.get("paneId") and not workspace_id:
+            # Last resort: older path only had pane/tab env.
+            pass
     except Exception:
         # Guidance only — ignore herdr failures.
         return
@@ -834,8 +960,10 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_stages(_: argparse.Namespace) -> int:
+    print(f"{'STAGE':<22} {'CODE':<5} NEXT")
     for stage in STAGES:
-        print(f"{stage:<22} {STAGE_NEXT_SKILL.get(stage, '')}")
+        code = phase_code(stage)
+        print(f"{stage:<22} {code:<5} {STAGE_NEXT_SKILL.get(stage, '')}")
     return 0
 
 
@@ -1037,6 +1165,15 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             die(f"base ref {base!r} still not found after fetch")
 
     if args.dry_run:
+        preview_stage = args.stage or "INTAKE"
+        preview_ledger = {
+            "issue": issue,
+            "slug": slug,
+            "goal": goal,
+            "stage": preview_stage,
+            "labels": {"baseTitle": strip_phase_prefix(label)},
+            "spawn": {"label": label},
+        }
         payload = {
             "dryRun": True,
             "repo": str(repo),
@@ -1046,7 +1183,9 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             "issueInferred": bool(inferred_issue) and not bool(args.issue),
             "slug": slug,
             "branch": branch,
-            "label": label,
+            "label": herdr_display_label(preview_ledger),
+            "baseTitle": strip_phase_prefix(label),
+            "phaseCode": phase_code(preview_stage),
             "base": base,
             "focus": focus,
             "agent": None if args.no_agent else (args.agent or "pi"),
@@ -1092,10 +1231,6 @@ def cmd_spawn(args: argparse.Namespace) -> int:
         or root_pane.get("workspace_id")
         or worktree.get("open_workspace_id")
     )
-
-    # Best-effort rename tab to the human label (workspace already labeled via --label).
-    if tab_id:
-        run_cmd(["herdr", "tab", "rename", str(tab_id), label])
 
     # Bootstrap delivery navigator inside the new worktree (in-process).
     boot_ns = argparse.Namespace(
@@ -1208,7 +1343,8 @@ def cmd_spawn(args: argparse.Namespace) -> int:
         "next": "Open the Herdr workspace and let the agent follow .delivery/AGENT_BRIEF.md",
     }
 
-    # Record spawn on the new ledger if present.
+    # Record spawn + apply phase-prefixed Herdr space/tab labels.
+    display_label = label
     ledger_path = Path(worktree_path) / LEDGER_REL
     if ledger_path.exists():
         ledger = load_json(ledger_path)
@@ -1217,18 +1353,50 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             "branch": branch,
             "label": label,
             "workspaceId": workspace_id,
+            "tabId": tab_id,
             "paneId": pane_id,
             "fromRepo": str(repo),
         }
+        labels = ledger.setdefault("labels", {})
+        labels["baseTitle"] = strip_phase_prefix(label)
+        if workspace_id:
+            labels["herdrWorkspaceId"] = str(workspace_id)
+        if tab_id:
+            labels["herdrTabId"] = str(tab_id)
+        if pane_id:
+            labels["herdrPaneId"] = str(pane_id)
         append_history(ledger, "spawn", f"herdr worktree {branch}")
+        # Temporarily allow herdr renames even if parent had SKIP set for tests.
+        prev_skip = os.environ.get("DELIVERY_SKIP_HERDR")
+        if args.dry_run:
+            pass
+        else:
+            # Spawn always attempts label sync for the new workspace.
+            os.environ.pop("DELIVERY_SKIP_HERDR", None)
+            try:
+                maybe_herdr_label(ledger)
+            finally:
+                if prev_skip is not None:
+                    os.environ["DELIVERY_SKIP_HERDR"] = prev_skip
+        display_label = str((ledger.get("labels") or {}).get("herdr") or herdr_display_label(ledger))
         write_json(ledger_path, ledger)
+    else:
+        # Fallback rename without ledger.
+        display_label = f"{phase_code(args.stage or 'INTAKE')}: {strip_phase_prefix(label)}"
+        if workspace_id:
+            run_cmd(["herdr", "workspace", "rename", str(workspace_id), display_label])
+        if tab_id:
+            run_cmd(["herdr", "tab", "rename", str(tab_id), display_label])
+
+    summary["label"] = display_label
+    summary["phaseCode"] = phase_code(args.stage or "INTAKE")
 
     if args.json:
         print(json.dumps(summary, indent=2))
     else:
         print("delivery spawn ready")
         print(f"goal:      {goal}")
-        print(f"label:     {label}")
+        print(f"label:     {display_label}")
         print(f"branch:    {branch}")
         print(f"worktree:  {worktree_path}")
         print(f"workspace: {workspace_id}")

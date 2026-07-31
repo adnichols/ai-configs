@@ -37,6 +37,25 @@ Or: `/delivery:spawn NOD-1457 one login path`
 - Linear issue from any `TEAM-123` token in the text
 - slug/branch/label from the remaining intent words
 - Herdr worktree + delivery bootstrap + child Pi prompt
+- phase-prefixed Herdr **space** (workspace) + tab labels that update on `delivery stage`
+
+### Herdr space phase codes
+
+Workspace/tab title format: `CODE: base title`
+
+| Code | Stages |
+|---|---|
+| `PL` | intake + planning through execution-ready |
+| `I` | implementing |
+| `R` | scoped review, PM outcome, autoreview, verify, adversarial QA |
+| `PR` | PR open / merge-ready |
+| `RF` | reflect |
+| `D` | done |
+| `B` | blocked |
+
+Examples: `PL: NOD-1234 one login path`, `I: NOD-1234 one login path`, `D: honest auto-sync status`.
+
+`delivery stage …` refreshes the Herdr workspace name best-effort (never hard-fails).
 
 This parent session runs spawn and reports paths; the child worktree agent does the delivery cycle.
 

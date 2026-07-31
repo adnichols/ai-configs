@@ -165,6 +165,38 @@ assert d.get("issue") is None
 PY
 }
 
+test_phase_herdr_label_format() {
+  python3 - "$DELIVERY" <<'PY'
+import importlib.util, sys
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+path = Path(sys.argv[1]).resolve()
+loader = SourceFileLoader("delivery_cli", str(path))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+assert spec is not None and spec.loader is not None
+mod = importlib.util.module_from_spec(spec)
+loader.exec_module(mod)
+assert mod.phase_code("PLAN_DRAFT") == "PL"
+assert mod.phase_code("IMPLEMENTING") == "I"
+assert mod.phase_code("AUTOREVIEW") == "R"
+assert mod.phase_code("PR_OPEN") == "PR"
+assert mod.phase_code("DONE") == "D"
+assert mod.phase_code("BLOCKED") == "B"
+ledger = {
+    "stage": "IMPLEMENTING",
+    "issue": "NOD-99",
+    "slug": "one-login-path",
+    "labels": {"baseTitle": "NOD-99 one login path"},
+}
+label = mod.herdr_display_label(ledger)
+assert label.startswith("I: "), label
+assert "NOD-99" in label and "login" in label.lower(), label
+ledger["stage"] = "DONE"
+assert mod.herdr_display_label(ledger).startswith("D: ")
+assert mod.strip_phase_prefix("PL: nod-1 hello") == "nod-1 hello"
+PY
+}
+
 test_spawn_dry_run_names_from_goal() {
   local repo="$TMP_ROOT/spawn-repo"
   make_repo "$repo"
@@ -179,7 +211,9 @@ d=json.loads(sys.argv[1])
 assert d["dryRun"] is True
 assert d["slug"]=="make-auto-sync-status-honest" or "auto-sync" in d["slug"]
 assert d["branch"].startswith("delivery/")
+assert d["label"].startswith("PL: "), d
 assert "auto-sync" in d["label"].lower() or "honest" in d["label"].lower()
+assert d.get("phaseCode")=="PL"
 assert d["agent"]=="pi"
 ' "$json"
   json2="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" spawn --dry-run --base main --issue NOD-99 -- \
@@ -188,7 +222,8 @@ assert d["agent"]=="pi"
 d=json.loads(sys.argv[1])
 assert d["issue"]=="NOD-99"
 assert d["branch"] in ("nod-99", "NOD-99") or "nod-99" in d["branch"].lower()
-assert d["label"].startswith("NOD-99")
+assert d["label"].startswith("PL: "), d
+assert "NOD-99" in d["label"]
 ' "$json2"
   # Freeform: issue embedded in the request, no --issue flag
   json3="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" spawn --dry-run --base main -- \
@@ -200,7 +235,8 @@ assert d.get("issueInferred") is True, d
 assert "login" in d["slug"], d
 assert "nod-1457" not in d["slug"], d
 assert d["branch"].lower()=="nod-1457" or d["branch"].lower().startswith("nod-1457-"), d
-assert d["label"].startswith("NOD-1457"), d
+assert d["label"].startswith("PL: "), d
+assert "NOD-1457" in d["label"], d
 assert "login" in d["label"].lower(), d
 ' "$json3"
 }
@@ -282,6 +318,7 @@ run_test test_stages_lists_guidance
 run_test test_set_issue_after_start
 run_test test_bootstrap_writes_agent_brief
 run_test test_reflect_logs_outside_worktree
+run_test test_phase_herdr_label_format
 run_test test_spawn_dry_run_names_from_goal
 run_test test_skill_doctrine_wording
 
