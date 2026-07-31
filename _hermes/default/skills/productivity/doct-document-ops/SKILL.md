@@ -194,7 +194,7 @@ doct-agent --base-url https://doct.nodaste.com plans listen \
 ```
 
 Preserve the background-process/session handle and verify it remains running. Use `plans agent next --wait --timeout 60` only for short diagnostics, not durable browser-review listening. For monitoring that must survive the current session, register listener ownership with the established dispatcher/supervisor pattern. See `references/doct-plan-update-versioning-and-listeners.md` for listener and version pitfalls.
-6. A routed work item is created by the browser's agent action or by `doct-agent plans comments add --submit-action agent ...`. Ordinary conversation comments use `submitAction: "conversation"`, return `queueState: "none"`, and intentionally do not wake the plan-review listener.
+6. A routed work item is created by the browser's agent action or by `doct-agent plans comments add --submit-action agent ...`. A generic routed item commonly has `submitAction: "agent"` with `agentRoute.targetScope: "plan-review"` and no requested skill; it is plan feedback, not an execution-ready request. Doct's **Request execution-ready review** action currently adds `agentRoute.requestedSkill: "plan-reviewer-execution-ready"`; an explicit `submitAction: "execution-ready"` is equivalent when returned by the service. Ordinary conversation comments use `submitAction: "conversation"`, return `queueState: "none"`, and intentionally do not wake the plan-review listener.
 7. When the listener returns a claim, process exactly that claim in a separate worker step or sub-agent, then reply/ack/resolve/release with the returned commands. Start the next one-claim listener only after the current claim is no longer leased to this agent.
 8. If Codex cannot keep an observable `exec_command`/subprocess handle for the one-claim listener, report `LISTENER_START_BLOCKED` and leave the browser-review handoff incomplete.
 
@@ -322,6 +322,8 @@ A listener-delivered or manually claimed item should provide a thread id, claim 
 1. Read the full local plan file and, if needed, `doct-agent plans show --id <document-id> --json`.
 2. Use the selected node ID, selector, heading path, quoted text, and reviewer body.
 3. Classify the item as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, `DISAGREE_REPO_EVIDENCE`, `EXECUTION_READY_REQUEST`, or `BUILD_REQUEST`.
+
+   Treat an item as `EXECUTION_READY_REQUEST` only when its routing metadata has `agentRoute.requestedSkill: "plan-reviewer-execution-ready"` or an explicit `submitAction: "execution-ready"`. A generic `submitAction: "agent"` claim without that requested skill is feedback only: apply or disposition it, then keep the plan in browser review. Never start PM or active-harness readiness review merely because the first feedback comment arrived or the listener is quiet.
 4. Make the smallest plan change that addresses in-scope feedback without widening scope.
 5. Update Doct with `doct-agent plans update` after edits.
 6. Add a visible reply when useful:

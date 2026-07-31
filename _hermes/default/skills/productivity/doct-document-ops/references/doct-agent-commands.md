@@ -231,6 +231,13 @@ doct-agent plans comments add \
 
 In Codex, run the one-claim listener with the `exec_command` tool and a matching `yield_time_ms` window. It is quiet while waiting. When a routed browser action or `--submit-action agent` comment arrives, it returns one JSON claim payload and wakes the active session with the returned reply/ack/resolve/release commands. Process that claim, then start the next one-claim listener.
 
+### Browser feedback versus readiness request
+
+- `submitAction: "conversation"` is visible discussion only and is not routed.
+- A generic routed `submitAction: "agent"` claim with `agentRoute.targetScope: "plan-review"` but no requested skill is browser feedback. Update or disposition the plan, then keep listening; it must not start PM or active-harness readiness review.
+- Doct's **Request execution-ready review** control currently routes an agent claim with `agentRoute.requestedSkill: "plan-reviewer-execution-ready"`. Treat that, or an explicit `submitAction: "execution-ready"` when the service returns it, as the only browser action that begins the readiness cycle.
+- Never infer readiness from a comment's prose, from the first feedback dispatch, or from an empty/quiet queue.
+
 Ordinary conversation comments are not routed work: they return `queueState: "none"` and do not wake the listener. Use them only for visible discussion, not for listener wake tests.
 
 `doct-agent plans listen --jsonl` is retained for advanced compatibility supervisors that can dispatch JSONL events to workers. The Codex path is the one-claim `plans agent next --wait --json` command because it is directly observable by the active session.
@@ -251,7 +258,7 @@ doct-agent plans comments add \
   --node-id <stable-html-id> \
   [--selector '#stable-html-id'] \
   --body '<comment body>' \
-  [--submit-action conversation|execution-ready|build] \
+  [--submit-action conversation|agent|execution-ready|build] \
   --json
 ```
 

@@ -253,6 +253,13 @@ doct-agent plans comments add \
 
 The listener itself claims/dequeues routed work and emits a JSONL `plan_comment_dispatch`; it does not edit, ack, resolve, or release the claim. A startup `agent next --no-wait` response also contains a live claim. Never discard either JSON payload or blindly loop over claims without processing them.
 
+### Browser feedback versus readiness request
+
+- `submitAction: "conversation"` is visible discussion only and is not routed.
+- A generic routed `submitAction: "agent"` claim with `agentRoute.targetScope: "plan-review"` but no requested skill is browser feedback. Update or disposition the plan, then keep listening; it must not start PM or active-harness readiness review.
+- Doct's **Request execution-ready review** control currently routes an agent claim with `agentRoute.requestedSkill: "plan-reviewer-execution-ready"`. Treat that, or an explicit `submitAction: "execution-ready"` when the service returns it, as the only browser action that begins the readiness cycle.
+- Never infer readiness from a comment's prose, from the first feedback dispatch, or from an empty/quiet queue.
+
 Choose supervision by host capability:
 
 - **Codex desktop/app:** start `plans listen` in a persistent `exec_command`/terminal session, retain its session id, and keep the plan-review task active. Poll it with `write_stdin`, process each dispatch immediately, and periodically inspect `plans board list` for the exact document. Restart the listener automatically if it exits while the plan remains active and pre-execution. Stop only after the document enters `in_progress`, the lifecycle ends, or the user cancels. A surviving exec process is not proof that Codex will create a new turn after final handoff; use a verified native automation/thread-wake capability if the interactive task must return earlier.

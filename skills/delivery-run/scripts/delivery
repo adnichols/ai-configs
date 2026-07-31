@@ -2,8 +2,9 @@
 """Delivery stage ledger CLI.
 
 Guidance, not gates: recommended checks produce advisories and never block
-continuation. Explicit readiness review and entering implementation are the
-exceptions: each requires the corresponding operator authorization record.
+continuation. Explicit readiness review, entering implementation, and a
+validated visible completeness review before local merge readiness are the
+exceptions.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -36,6 +38,7 @@ STAGES = [
     "SCOPED_REVIEW",
     "IMPL_PM_OUTCOME",
     "AUTOREVIEW",
+    "COMPLETENESS_REVIEW",
     "VERIFY_FRESHNESS",
     "PR_OPEN",
     "MERGE_READY",
@@ -72,7 +75,8 @@ RECOMMENDED_EVIDENCE = {
     "implementation": ["IMPLEMENTING", "SCOPED_REVIEW", "IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN"],
     "scopedReview": ["SCOPED_REVIEW", "AUTOREVIEW", "PR_OPEN"],
     "implPm": ["IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
-    "completionEval": ["IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
+    "completenessReview": ["COMPLETENESS_REVIEW", "VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
+    "completionEval": ["COMPLETENESS_REVIEW", "VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
     "customerImpact": ["PLAN_PM_REVIEW", "IMPL_PM_OUTCOME", "PR_OPEN", "MERGE_READY"],
     "autoreview": ["AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
     "verify": ["VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
@@ -103,6 +107,7 @@ STAGE_PHASE_CODE = {
     "SCOPED_REVIEW": "R",
     "IMPL_PM_OUTCOME": "R",
     "AUTOREVIEW": "R",
+    "COMPLETENESS_REVIEW": "R",
     "VERIFY_FRESHNESS": "R",
     "ADVERSARIAL_QA": "R",
     "PR_OPEN": "PR",
@@ -149,6 +154,7 @@ STAGE_NEXT_SKILL = {
     "SCOPED_REVIEW": "Run scoped quality review (run-plan section) with live-worktree reviewer",
     "IMPL_PM_OUTCOME": "Run /dev:pm-review <plan> implementation + fill customerImpact/completionEval",
     "AUTOREVIEW": "Use /skill:autoreview <plan>; record verdict artifact",
+    "COMPLETENESS_REVIEW": "Launch the adjacent visible Pi reviewer with `delivery completion-review`, address its plan-completeness findings, request a rereview, then run `delivery completion-review --accept` only after it returns COMPLETE",
     "VERIFY_FRESHNESS": "Final verification + base freshness; record verify evidence",
     "PR_OPEN": "Open/update PR via cmd-create-pr / run-plan PR section; record prUrl",
     "MERGE_READY": "Confirm local merge-readiness; optional adversarial QA if customer-visible",
@@ -720,6 +726,15 @@ def cmd_stage(args: argparse.Namespace) -> int:
                 "operator approval, then run `delivery approve-implementation --source chat|doct "
                 "--summary \"...\"`."
             )
+    if stage == "MERGE_READY":
+        completeness_problem = completeness_review_problem(ledger, root)
+        if completeness_problem:
+            die(
+                "cannot enter MERGE_READY: "
+                f"{completeness_problem}. Run `delivery completion-review`, fix in-plan findings, "
+                "then run `delivery completion-review --accept` after `VERDICT: COMPLETE`; only a "
+                "direct operator waiver may use `delivery completion-review --waive --summary \"...\"`."
+            )
     prev = ledger.get("stage")
     ledger["stage"] = stage
     refresh_git_fields(ledger, root)
@@ -983,6 +998,220 @@ def cmd_record(args: argparse.Namespace) -> int:
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
     print(f"recorded {key}={status}")
+    return 0
+
+
+COMPLETENESS_REVIEW_MODEL = "xai/grok-4.5:high"
+
+
+def completeness_reviewer_name(ledger: dict[str, Any]) -> str:
+    identity = str(ledger.get("issue") or ledger.get("slug") or ledger.get("id") or "delivery")
+    return f"completeness-{slugify(identity, max_len=36, keep_issue_keys=True)}"
+
+
+def completeness_review_prompt(ledger: dict[str, Any], root: Path, *, rerun: bool, request_id: str) -> str:
+    plan = str(ledger.get("plan") or "(no plan path recorded)")
+    round_text = "This is a rereview after the driving agent addressed prior findings." if rerun else "This is the initial completeness review."
+    return f"""You are the visible, read-only plan-completeness reviewer for this delivery run.
+
+{round_text}
+Worktree: {root}
+Plan: {plan}
+Delivery stage: {ledger.get('stage')}
+Completeness-review request ID: {request_id}
+
+Inspect the current live worktree, including committed, staged, unstaged, and untracked changes. Read the plan, diff, plan-progress/validation artifacts, and the driving agent's stated verification evidence. Do not edit files. Do not run tests, builds, linters, or other executable verification.
+
+Check whether the implementation is complete according to the plan: every acceptance criterion and BDD scenario, required producer/consumer or cross-surface wiring, real post-mutation UI states, stated non-goals, and truthful verification. Do not accept a green helper/unit test as proof that the user-visible completion state works.
+
+Start your response with `COMPLETENESS_REVIEW_RESPONSE_ID: {request_id}`, immediately followed by your verdict. Return exactly one verdict:
+- VERDICT: FINDINGS_TO_RESOLVE — for an in-plan gap, with criterion/BDD reference, concrete evidence, user impact, and smallest correction.
+- VERDICT: COMPLETE — only when the plan is complete by substance. Include an AC/BDD coverage table and a `Not examined:` line.
+- VERDICT: BLOCKED_BY_QUESTION — only for a real plan or product decision.
+
+The driving agent will read your visible response, make in-scope corrections, and ask you to rereview until the implementation and this review agree it is complete."""
+
+
+def _fingerprint_paths(root: Path, paths: list[str], digest: Any) -> None:
+    for raw in sorted(paths):
+        # Delivery's own ledger is process metadata, not candidate implementation content.
+        if raw == ".delivery" or raw.startswith(".delivery/"):
+            continue
+        candidate = root / raw
+        digest.update(raw.encode("utf-8") + b"\0")
+        if candidate.is_file():
+            digest.update(candidate.read_bytes())
+        else:
+            # Keep deletions and broken paths distinct from an empty file.
+            digest.update(b"<missing>")
+
+
+def working_tree_fingerprint(root: Path) -> str:
+    """Fingerprint worktree content independently of whether it has been committed."""
+    digest = hashlib.sha256()
+    tracked = run_cmd(["git", "ls-files", "-z"], cwd=root)
+    if tracked.returncode != 0:
+        die("cannot list tracked files for completeness review")
+    untracked = run_cmd(["git", "ls-files", "--others", "--exclude-standard", "-z"], cwd=root)
+    if untracked.returncode != 0:
+        die("cannot list untracked files for completeness review")
+    _fingerprint_paths(
+        root,
+        [part for part in tracked.stdout.split("\0") if part]
+        + [part for part in untracked.stdout.split("\0") if part],
+        digest,
+    )
+    return digest.hexdigest()
+
+
+def completeness_review_problem(ledger: dict[str, Any], root: Path) -> str | None:
+    review = ledger.get("completenessReview") or {}
+    if review.get("status") == "waived" and review.get("summary"):
+        return None
+    if review.get("status") != "complete":
+        return "visible completeness review has not been accepted"
+    if review.get("verdict") != "COMPLETE":
+        return "visible completeness review did not return VERDICT: COMPLETE"
+    plan_fingerprint = plan_sha256(ledger, root)
+    if not plan_fingerprint or review.get("planSha256") != plan_fingerprint:
+        return "visible completeness review is stale for the current plan"
+    if review.get("worktreeFingerprint") != working_tree_fingerprint(root):
+        return "visible completeness review is stale for the current worktree"
+    artifact = review.get("artifact")
+    if not isinstance(artifact, str) or not (root / artifact).is_file():
+        return "visible completeness review artifact is missing"
+    return None
+
+
+def completion_artifact_path(root: Path, ledger: dict[str, Any], requested: str | None) -> tuple[Path, str]:
+    slug = slugify(str(ledger.get("slug") or ledger.get("issue") or "delivery"))
+    raw = Path(requested or f"thoughts/validation/{slug}-completeness.md")
+    candidate = raw if raw.is_absolute() else root / raw
+    try:
+        resolved = candidate.resolve()
+        relative = resolved.relative_to(root.resolve())
+    except ValueError:
+        die("completeness review artifact must be inside the worktree")
+    return resolved, relative.as_posix()
+
+
+def cmd_completion_review(args: argparse.Namespace) -> int:
+    """Launch, rerequest, or accept the visible adjacent Pi plan-completeness review."""
+    path, ledger, root = load_ledger_for(args)
+    labels = ledger.get("labels") or {}
+    review = ledger.get("completenessReview") or {}
+    source_pane = args.pane or os.environ.get("HERDR_PANE_ID") or labels.get("herdrPaneId")
+    reviewer_name = args.agent_name or review.get("agentName") or completeness_reviewer_name(ledger)
+
+    if args.waive:
+        if not args.summary:
+            die("completion-review --waive requires --summary describing the direct operator waiver")
+        ledger["completenessReview"] = {"status": "waived", "summary": args.summary, "waivedAt": utc_now()}
+        append_history(ledger, "completeness_review", "operator waived visible completeness review")
+        refresh_git_fields(ledger, root)
+        write_json(path, ledger)
+        print("visible completeness review waived")
+        return 0
+
+    if args.accept:
+        reviewer_pane = review.get("paneId")
+        if not reviewer_pane:
+            die("no visible completeness reviewer is recorded; run `delivery completion-review` first")
+        plan_fingerprint = plan_sha256(ledger, root)
+        if not plan_fingerprint:
+            die("cannot accept completeness review: recorded plan is missing, outside this worktree, or unreadable")
+        transcript = run_cmd(["herdr", "agent", "read", reviewer_name, "--source", "recent-unwrapped", "--lines", "500"], cwd=root)
+        if transcript.returncode != 0:
+            die(f"could not read visible completeness reviewer: {(transcript.stderr or transcript.stdout).strip()}")
+        request_id = review.get("requestId")
+        if not isinstance(request_id, str) or not request_id:
+            die("recorded completeness review has no request ID; run `delivery completion-review --rerun`")
+        response_pattern = re.compile(
+            rf"COMPLETENESS_REVIEW_RESPONSE_ID:\s*{re.escape(request_id)}\s*\nVERDICT:\s*(FINDINGS_TO_RESOLVE|COMPLETE|BLOCKED_BY_QUESTION)"
+        )
+        verdicts = response_pattern.findall(transcript.stdout)
+        verdict = verdicts[-1] if verdicts else None
+        if verdict != "COMPLETE":
+            die("visible reviewer has not returned a matching latest `VERDICT: COMPLETE`; address findings and run `delivery completion-review --rerun`")
+        artifact_path, artifact_rel = completion_artifact_path(root, ledger, args.artifact)
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_path.write_text(
+            f"# Visible completeness review\n\n- Reviewer: {reviewer_name}\n- Model: {COMPLETENESS_REVIEW_MODEL}\n- Accepted: {utc_now()}\n\n## Transcript\n\n{transcript.stdout}",
+            encoding="utf-8",
+        )
+        ledger["completenessReview"] = {
+            **review,
+            "status": "complete",
+            "verdict": verdict,
+            "artifact": artifact_rel,
+            "planSha256": plan_fingerprint,
+            "worktreeFingerprint": working_tree_fingerprint(root),
+            "acceptedAt": utc_now(),
+        }
+        ev = ledger.setdefault("evidence", {}).setdefault("completenessReview", {})
+        ev.update({"status": "pass", "artifact": artifact_rel, "summary": "Visible Grok 4.5 reviewer returned COMPLETE", "updatedAt": utc_now()})
+        append_history(ledger, "completeness_review", "visible Grok 4.5 review accepted", agent=reviewer_name, paneId=str(reviewer_pane), artifact=artifact_rel)
+        refresh_git_fields(ledger, root)
+        write_json(path, ledger)
+        print(f"visible completeness review accepted -> {artifact_rel}")
+        return 0
+
+    if not source_pane:
+        die("completion-review needs --pane, HERDR_PANE_ID, or a delivery spawn pane")
+    request_id = uuid.uuid4().hex
+    prompt = completeness_review_prompt(ledger, root, rerun=bool(args.rerun), request_id=request_id)
+    start_command = [
+        "herdr", "agent", "start", reviewer_name, "--kind", "pi", "--pane", "<reviewer-pane>",
+        "--timeout", str(args.timeout_ms), "--", "--model", COMPLETENESS_REVIEW_MODEL,
+    ]
+
+    if args.dry_run:
+        print(json.dumps({
+            "sourcePane": source_pane,
+            "reviewerName": reviewer_name,
+            "model": COMPLETENESS_REVIEW_MODEL,
+            "rerun": bool(args.rerun),
+            "splitCommand": ["herdr", "pane", "split", str(source_pane), "--direction", "right", "--cwd", str(root), "--no-focus"],
+            "startCommand": start_command,
+            "prompt": prompt,
+        }, indent=2))
+        return 0
+
+    if args.rerun:
+        reviewer_pane = review.get("paneId")
+        if not reviewer_pane:
+            die("no visible completeness reviewer is recorded; run `delivery completion-review` first")
+    else:
+        split = herdr_json(["pane", "split", str(source_pane), "--direction", "right", "--cwd", str(root), "--no-focus"], cwd=root)
+        split_result = split.get("result") if isinstance(split.get("result"), dict) else split
+        pane = split_result.get("pane") if isinstance(split_result.get("pane"), dict) else split_result
+        reviewer_pane = pane.get("pane_id")
+        if not reviewer_pane:
+            die(f"herdr pane split returned no pane id: {split}")
+        start_command[7] = str(reviewer_pane)
+        started = run_cmd(start_command, cwd=root)
+        if started.returncode != 0:
+            die(f"could not start visible completeness reviewer: {(started.stderr or started.stdout).strip()}")
+
+    requested = run_cmd(["herdr", "agent", "prompt", reviewer_name, prompt], cwd=root)
+    if requested.returncode != 0:
+        die(f"could not prompt visible completeness reviewer: {(requested.stderr or requested.stdout).strip()}")
+
+    ledger["completenessReview"] = {
+        "status": "pending",
+        "agentName": reviewer_name,
+        "paneId": str(reviewer_pane),
+        "model": COMPLETENESS_REVIEW_MODEL,
+        "requestId": request_id,
+        "lastRequestedAt": utc_now(),
+        "round": int(review.get("round") or 0) + 1,
+    }
+    ledger.setdefault("evidence", {}).setdefault("completenessReview", {}).update({"status": "pending", "updatedAt": utc_now()})
+    append_history(ledger, "completeness_review", "visible Grok 4.5 review requested", agent=reviewer_name, paneId=str(reviewer_pane), rerun=bool(args.rerun))
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
+    print(f"visible completeness reviewer: {reviewer_name} in {reviewer_pane}")
+    print("next: read the reviewer response, fix any in-plan findings, then run `delivery completion-review --rerun`; after COMPLETE run `delivery completion-review --accept`")
     return 0
 
 
@@ -2351,6 +2580,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_rec.add_argument("--pr-url", help="Update PR URL")
     p_rec.add_argument("--doct-url", help="Update Doct URL")
     p_rec.set_defaults(func=cmd_record)
+
+    p_completion = sub.add_parser(
+        "completion-review",
+        help="Launch or rerequest the adjacent visible Grok 4.5 plan-completeness reviewer",
+    )
+    add_json_flag(p_completion)
+    p_completion.add_argument("--pane", help="Driving agent's Herdr pane id (defaults to HERDR_PANE_ID or delivery spawn pane)")
+    p_completion.add_argument("--agent-name", help="Override the generated completeness reviewer name")
+    p_completion.add_argument("--rerun", action="store_true", help="Prompt the existing reviewer after the driving agent addresses findings")
+    p_completion.add_argument("--accept", action="store_true", help="Capture the latest visible COMPLETE verdict and record it")
+    p_completion.add_argument("--waive", action="store_true", help="Record a direct operator waiver instead of a clean completeness verdict")
+    p_completion.add_argument("--summary", help="Required with --waive; records the direct operator waiver")
+    p_completion.add_argument("--artifact", help="Artifact path for --accept (default thoughts/validation/<slug>-completeness.md)")
+    p_completion.add_argument("--dry-run", action="store_true", help="Print the split/start/prompt contract without changing Herdr")
+    p_completion.add_argument("--timeout-ms", type=int, default=60000, help="Reviewer Pi startup timeout (default 60000)")
+    p_completion.set_defaults(func=cmd_completion_review)
 
     p_block = sub.add_parser("blocker", help="Add or clear blocker notes")
     p_block.add_argument("text", nargs=argparse.REMAINDER)

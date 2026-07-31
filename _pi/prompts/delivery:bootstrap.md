@@ -53,6 +53,7 @@ Rules:
 - Linear issue is optional at start; attach later with `delivery set --issue KEY --retarget-id`.
 - In `PLAN_BROWSER_REVIEW`, integrate generic feedback and keep listening. Do not enter PM or technical plan review until the operator explicitly requests it through Doct's **Request execution-ready review** action (`agentRoute.requestedSkill: "plan-reviewer-execution-ready"`) or gives an equivalent direct instruction. Record `planReadinessRequest=pass` before advancing.
 - `EXECUTION_READY` is eligibility only, not an automatic implementation handoff. If material plan feedback arrives before code work, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, return to browser review, and require a fresh readiness request.
+- At `COMPLETENESS_REVIEW`, run `delivery completion-review`. Read the adjacent visible Pi/Grok 4.5 review, fix every in-plan finding, and issue `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`; run `delivery completion-review --accept` to capture its response artifact before local merge readiness.
 - After each meaningful step: update stage/record, then `delivery bootstrap --refresh` or at least `delivery check -v`.
 - Do not reimplement worker skills ad hoc.
 

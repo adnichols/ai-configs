@@ -57,6 +57,7 @@ assert d["issue"]=="NOD-1"
 assert d["stage"]=="INTAKE"
 assert d["doctrine"]=="guidance-not-gates"
 assert "planPm" in d["evidence"]
+assert "completenessReview" in d["evidence"]
 assert d["plan"]=="thoughts/plans/x.html"
 PY
 }
@@ -101,6 +102,8 @@ test_record_and_show() {
     --artifact thoughts/validation/x.md --summary "clean" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record completionEval --status gap \
     --gap "BDD missing" --summary "thin" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record completenessReview --status pass \
+    --artifact thoughts/validation/x-completeness.md --summary "visible reviewer agrees AC1-AC4 are complete" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record customerImpact --status pass \
     --summary "operators unblocked" --promised "honest status" --observed "status axes" >/dev/null
   python3 - "$repo/.delivery/ledger.json" <<'PY'
@@ -109,12 +112,120 @@ d=json.load(open(sys.argv[1]))
 assert d["evidence"]["autoreview"]["status"]=="pass"
 assert d["completionEval"]["status"]=="gap"
 assert "BDD missing" in d["completionEval"]["gaps"]
+assert d["evidence"]["completenessReview"]["status"]=="pass"
 assert d["customerImpact"]["summary"]=="operators unblocked"
 assert "honest status" in d["customerImpact"]["promised"]
 PY
   out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" show)"
   printf '%s' "$out" | rg -q "NOD-4" || return 1
   printf '%s' "$out" | rg -q "autoreview: pass" || return 1
+}
+
+test_completion_review_dry_run_uses_visible_grok_agent() {
+  local repo="$TMP_ROOT/completion-review-repo"
+  make_repo "$repo"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-5 --plan thoughts/plans/x.html >/dev/null
+  json="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --dry-run --pane w1:p1)"
+  python3 -c 'import json,sys
+from pathlib import Path
+p=json.loads(sys.argv[1])
+assert p["model"]=="xai/grok-4.5:high", p
+assert p["sourcePane"]=="w1:p1", p
+assert p["reviewerName"].startswith("completeness-"), p
+assert p["startCommand"][-2:]==["--model", "xai/grok-4.5:high"], p
+assert p["splitCommand"][-3:]==["--cwd", str(Path(sys.argv[2]).resolve()), "--no-focus"], p
+assert "VERDICT: COMPLETE" in p["prompt"], p
+assert "acceptance criterion" in p["prompt"].lower(), p
+' "$json" "$repo"
+}
+
+test_merge_ready_requires_validated_completeness_review() {
+  local repo="$TMP_ROOT/completeness-gate-repo"
+  make_repo "$repo"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-6 --plan thoughts/plans/x.html >/dev/null
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "visible completeness review has not been accepted" || return 1
+  # A generic evidence record cannot forge the validated visible verdict.
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record completenessReview --status pass --summary "forged" >/dev/null
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "visible completeness review has not been accepted" || return 1
+}
+
+test_accepted_completeness_review_allows_merge_ready_only_while_fresh() {
+  local repo="$TMP_ROOT/completeness-accept-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans" "$fake_bin"
+  printf '<html>plan</html>\n' >"$repo/thoughts/plans/x.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-7 --plan thoughts/plans/x.html >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1]
+d=json.load(open(path))
+d["completenessReview"]={"status":"pending","agentName":"completeness-nod-7","paneId":"w1:p2","requestId":"first-round"}
+json.dump(d,open(path,"w"),indent=2)
+PY
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+if [[ "$1" == "agent" && "$2" == "read" ]]; then
+  printf 'COMPLETENESS_REVIEW_RESPONSE_ID: first-round\nVERDICT: COMPLETE\nAll criteria are evidenced.\n'
+  exit 0
+fi
+exit 64
+SH
+  chmod +x "$fake_bin/herdr"
+  PATH="$fake_bin:$PATH" DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept >/dev/null
+  # The content fingerprint survives a commit of the exact reviewed files.
+  git -C "$repo" add -A
+  git -C "$repo" commit -qm "reviewed implementation"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY >/dev/null
+  [[ -f "$repo/thoughts/validation/delivery-completeness.md" ]] || return 1
+  printf '\nchanged after review\n' >>"$repo/thoughts/plans/x.html"
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "stale for the current plan" || return 1
+}
+
+test_completion_review_rejects_prior_round_verdict() {
+  local repo="$TMP_ROOT/completeness-old-verdict-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-old-verdict"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans" "$fake_bin"
+  printf '<html>plan</html>\n' >"$repo/thoughts/plans/x.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-8 --plan thoughts/plans/x.html >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1]
+d=json.load(open(path))
+d["completenessReview"]={"status":"pending","agentName":"completeness-nod-8","paneId":"w1:p2","requestId":"latest-round"}
+json.dump(d,open(path,"w"),indent=2)
+PY
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+if [[ "$1" == "agent" && "$2" == "read" ]]; then
+  printf 'COMPLETENESS_REVIEW_RESPONSE_ID: earlier-round\nVERDICT: COMPLETE\nAn older response.\n'
+  exit 0
+fi
+exit 64
+SH
+  chmod +x "$fake_bin/herdr"
+  set +e
+  out="$(PATH="$fake_bin:$PATH" DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "matching latest" || return 1
 }
 
 test_board_lists_multiple() {
@@ -438,6 +549,9 @@ test_skill_doctrine_wording() {
   rg -q "plan-reviewer-execution-ready" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "Execution-ready operator approval pause" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "implementation approval" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "COMPLETENESS_REVIEW" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "xai/grok-4.5:high" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "completion-review" "$ROOT/_pi/prompts/delivery:run.md" || return 1
   rg -q "operator-approval summary" "$ROOT/_pi/prompts/dev:reviewed-html-plan.md" || return 1
   rg -q 'in `EXECUTION_READY`, pause before product-code work' "$ROOT/_pi/prompts/delivery:run.md" || return 1
   rg -q 'except at `EXECUTION_READY`' "$ROOT/_pi/prompts/delivery:bootstrap.md" || return 1
@@ -447,6 +561,10 @@ run_test test_init_creates_ledger
 run_test test_unprotected_stage_moves_without_gates
 run_test test_check_exit_zero_with_gaps
 run_test test_record_and_show
+run_test test_completion_review_dry_run_uses_visible_grok_agent
+run_test test_merge_ready_requires_validated_completeness_review
+run_test test_accepted_completeness_review_allows_merge_ready_only_while_fresh
+run_test test_completion_review_rejects_prior_round_verdict
 run_test test_board_lists_multiple
 run_test test_stages_lists_guidance
 run_test test_set_issue_after_start

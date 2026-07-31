@@ -1,6 +1,6 @@
 ---
 name: delivery-run
-description: Spawn a Herdr worktree from a goal and run plan ↔ review → run-plan → autoreview → PR with a durable stage ledger, AGENT_BRIEF.md navigator, board visibility, end-of-run reflections, and soft advisories. Use when the operator wants a new worktree started for them, delivery spawn/bootstrap/status/board/reflect, resuming delivery, or attaching a Linear issue later. Guidance not gates — missing checks never hard-block continuation.
+description: Spawn a Herdr worktree from a goal and run plan ↔ review → run-plan → autoreview → visible completeness review → PR with a durable stage ledger, adjacent Grok 4.5 reviewer pane, board visibility, and end-of-run reflections. Use when the operator wants a new worktree started for them, delivery spawn/bootstrap/status/board/reflect, resuming delivery, or attaching a Linear issue later.
 ---
 
 # Delivery Run
@@ -8,10 +8,10 @@ description: Spawn a Herdr worktree from a goal and run plan ↔ review → run-
 Use this skill to keep each delivery worktree visible in the existing development cycle:
 
 ```text
-plan ↔ review → run-plan → autoreview → PR
+plan ↔ review → run-plan → autoreview → visible completeness review → PR
 ```
 
-with optional completion evaluation, PM/customer-impact notes, and adversarial QA prompts.
+with a visible plan-completeness reviewer, PM/customer-impact notes, and adversarial QA prompts.
 
 This skill is an **orchestrator and scoreboard**, not a replacement for the worker skills.
 
@@ -47,7 +47,7 @@ Workspace/tab title format: `CODE: base title`
 |---|---|
 | `PL` | intake + planning through execution-ready |
 | `I` | implementing |
-| `R` | scoped review, PM outcome, autoreview, verify, adversarial QA |
+| `R` | scoped review, PM outcome, autoreview, visible completeness review, verify, adversarial QA |
 | `PR` | PR open / merge-ready |
 | `RF` | reflect |
 | `D` | done |
@@ -104,7 +104,8 @@ Goal: <paste goal>
 - `delivery check` always exits 0, even when evidence is missing.
 - A broken optional integration (Doct, Herdr labels, a reviewer flake) must never force the operator to disable the whole workflow.
 - Existing skills (`reviewed-html-plan`, `run-plan`, `autoreview`, PM review, `qa:run`) remain authoritative for their work.
-- Firmness can be added later by consent; v0 optimizes for visibility, resumability, and honest status.
+- The adjacent **visible completeness review** is the exception to advisory quality evidence for a Herdr delivery run: `delivery stage MERGE_READY` rejects a missing, stale, or unaccepted Grok 4.5 `COMPLETE` verdict unless the operator explicitly waives that review. `delivery check` and all other stage changes remain non-blocking so work can be inspected, corrected, or handed off.
+- Firmness is limited to explicit authorization and completion evidence; the rest of the ledger optimizes for visibility, resumability, and honest status.
 
 If guidance and checks/balances are right, agents should usually do the right thing without hard boundaries. Record when they do not, and keep going unless the operator stops the work.
 
@@ -140,6 +141,12 @@ delivery stages          # stage → recommended next skill
 delivery stage IMPLEMENTING --note "starting run-plan"
 delivery note "waiting on product decision about empty states"
 delivery record planPm --status pass --artifact thoughts/validation/foo-pm.md --summary "stage-fit ok"
+# Opens a visible adjacent Herdr pane running Pi on xai/grok-4.5:high.
+delivery completion-review
+# After the driving agent fixes its findings, ask that same reviewer again.
+delivery completion-review --rerun
+# Captures the adjacent pane's latest COMPLETE verdict, writes its artifact, and validates freshness.
+delivery completion-review --accept
 delivery record completionEval --status gap --gap "BDD3 not evidenced" --summary "one scenario missing"
 delivery record customerImpact --status pass --summary "Operators see honest sync status" \
   --promised "honest auto-sync status" --observed "status axes + receipts shipped"
@@ -165,6 +172,7 @@ IMPLEMENTING
 SCOPED_REVIEW
 IMPL_PM_OUTCOME
 AUTOREVIEW
+COMPLETENESS_REVIEW
 VERIFY_FRESHNESS
 PR_OPEN
 MERGE_READY
@@ -279,6 +287,7 @@ metadata, and an old approval never authorize implementation.
 | `SCOPED_REVIEW` | run-plan scoped quality review |
 | `IMPL_PM_OUTCOME` | `/dev:pm-review <plan> implementation` |
 | `AUTOREVIEW` | `$autoreview` |
+| `COMPLETENESS_REVIEW` | visible adjacent Pi/Grok 4.5 reviewer; resolve feedback and rereview until `COMPLETE` |
 | `VERIFY_FRESHNESS` | final verify + base freshness inside run-plan |
 | `PR_OPEN` | run-plan / `$cmd-create-pr` |
 | `MERGE_READY` | run-plan local merge-readiness |
@@ -287,18 +296,23 @@ metadata, and an old approval never authorize implementation.
 
 These are **recommended evidence**, not blockers.
 
-**Completion evaluation** near `IMPL_PM_OUTCOME` / pre-PR:
-
-- plan Progress checkboxes vs diff
-- acceptance criteria / BDD evidenced
-- integration-inventory rows reconciled when present
-- no required stubs / fake success / unwired surfaces
+**Visible completeness review** before final verification / local merge readiness:
 
 ```bash
+delivery stage COMPLETENESS_REVIEW
+# Splits the driving pane right without stealing focus, starts Pi with
+# --model xai/grok-4.5:high, and submits the visible read-only review packet.
+delivery completion-review
+
+# Read the adjacent review. Fix every in-plan finding, then ask the same agent
+# to inspect the updated live worktree. Repeat until it returns VERDICT: COMPLETE.
+delivery completion-review --rerun
+# Captures the current COMPLETE verdict and artifact; only this validates merge-readiness evidence.
+delivery completion-review --accept
 delivery record completionEval --status pass --summary "AC1-AC4 evidenced; BDD green"
-# or
-delivery record completionEval --status gap --gap "AC3 no verify log" --summary "one AC thin"
 ```
+
+The reviewer is read-only. It evaluates the plan against the actual current worktree, including post-mutation UI states, required wiring, and verification evidence. The driving agent owns fixes and tests. Each request has a unique ID, and `--accept` accepts only a matching current `COMPLETE` response, so an earlier pane response cannot certify a rereview. A `FINDINGS_TO_RESOLVE` verdict requires an in-scope fix and rereview. A missing reviewer or a `BLOCKED_BY_QUESTION` verdict blocks a local merge-readiness claim unless the operator explicitly waives the review.
 
 **Customer impact** at plan PM and implementation PM:
 
@@ -356,12 +370,13 @@ Prefer process-shaped notes (friction, retries, unclear guidance, handoff gaps),
 2. When invoking a worker skill, set the matching stage first when practical.
 3. After a worker skill finishes, `delivery record` what happened and `delivery check -v`.
 4. Treat check advisories as a to-do list, not a red light.
-5. Do not stop the operator solely because recommended evidence is `pending` or `gap`.
-6. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
-7. Treat execution-ready as eligibility only: present the approval summary and wait for explicit operator permission before implementation. Invalidate that permission if material feedback changes the plan.
-8. Do not reimplement run-plan/autoreview/reviewed-html-plan here.
-9. If something is truly stuck on a human decision, `delivery blocker "..." --mark-blocked` and say what is needed — still leave the workflow usable.
-10. Before finishing (`DONE` / hand-off), run `delivery reflect` (or Pi `delivery_reflect`) so friction/rework/improvements land in `~/.pi` outside the worktree.
+5. Do not stop the operator solely because recommended evidence is `pending` or `gap`, except that a Herdr delivery run cannot claim local merge readiness without a validated visible `completion-review --accept` result or an explicit operator waiver.
+6. At `COMPLETENESS_REVIEW`, run `delivery completion-review`; read the adjacent Grok 4.5 pane, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture and validate its artifact before final readiness.
+7. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
+8. Treat execution-ready as eligibility only: present the approval summary and wait for explicit operator permission before implementation. Invalidate that permission if material feedback changes the plan.
+9. Do not reimplement run-plan/autoreview/reviewed-html-plan here.
+10. If something is truly stuck on a human decision, `delivery blocker "..." --mark-blocked` and say what is needed — still leave the workflow usable.
+11. Before finishing (`DONE` / hand-off), run `delivery reflect` (or Pi `delivery_reflect`) so friction/rework/improvements land in `~/.pi` outside the worktree.
 
 ## Invocation
 
@@ -378,12 +393,13 @@ When used as the primary controller for a change:
 2. Follow `delivery check` next-step guidance
 3. Call the named existing skill
 4. Record evidence and advance stage
-5. Repeat until ready to finish
-6. `delivery reflect ... --mark-done` (logs to `~/.pi`, not the git tree)
+5. At `COMPLETENESS_REVIEW`, run the visible adjacent Grok reviewer to `COMPLETE`, then run `delivery completion-review --accept`
+6. Repeat until ready to finish
+7. `delivery reflect ... --mark-done` (logs to `~/.pi`, not the git tree)
 
 ## Non-goals
 
-- Hard gates or tool locks
+- Generic hard gates or tool locks; the explicit implementation authorization and visible completeness-review readiness rule are the narrow exceptions
 - Replacing worker skills
 - Multi-ticket fan-out scheduler
 - Web dashboard
