@@ -7,7 +7,6 @@ This directory contains Pi-specific resources:
 - `extensions/` — Pi runtime extensions and utility integrations
 - `lib/` — shared import-only TypeScript modules used by extensions; never auto-loaded as extensions
 - `models.json` — managed custom model entries merged into Pi's global `models.json`
-- `tasks-config.json` — managed global defaults for the package-managed `@tintinweb/pi-tasks` extension
 
 Repo-owned default Pi/Codex shared skills live in the repo-level `skills/` tree, and `skills/install-matrix.json` also inventories package-backed and optional-profile shared skills fetched via `npx skills`. The installed default shared runtime location remains `~/.agents/skills`.
 
@@ -19,7 +18,6 @@ These resources are installed by `install.sh` to Pi's global agent directory. Th
 - repo-managed extensions: copied from this repo into `~/.pi/agent/extensions/`, including `vent.ts` (shared feedback log at `~/.pi/VENT.md`) and `delivery-reflect.ts` (end-of-run delivery reflections at `~/.pi/DELIVERY_REFLECTIONS.md` + `~/.pi/delivery-reflections.jsonl`)
 - repo-managed Pi libraries: copied from `_pi/lib/` into `~/.pi/agent/lib/`; this keeps import-only helpers out of Pi's auto-loaded `extensions/` directory
 - repo-managed model entries: merged from `_pi/models.json` into `~/.pi/agent/models.json` without replacing local API keys
-- repo-managed task defaults: copied from `_pi/tasks-config.json` to `~/.pi/agent/tasks-config.json`
 - package-managed Pi installs: registered via `pi install` / `pi update` and visible in `pi list`
 
 Plan review and execution use the maintained `reviewed-html-plan` and `run-plan` workflows directly. Rarely used browser/CDP helper skills such as `brave-cdp` and `chrome-cdp` remain inventoried in `skills/install-matrix.json` under the optional `ops-browser` profile and are not loaded into Pi/Codex default context.
@@ -52,7 +50,6 @@ Installed layout:
 ├── APPEND_SYSTEM.md
 ├── README.md
 ├── models.json
-├── tasks-config.json
 ├── prompts/
 │   ├── cmd:debug.md
 │   ├── dev:plan.md
@@ -73,7 +70,7 @@ The installer renders the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_
 
 The doctrine is request-type-first: questions, explanations, inspection, research, diagnosis, review, planning discussion, and status requests remain read-only unless the user separately authorizes a change. Persistence instructions increase effort only within the already-authorized scope.
 
-The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. xAI models use Pi's built-in `xai` provider and the local xAI login; ai-configs does not configure an xAI endpoint, headers, key, or model catalog. Cursor and OpenCode remain separate providers, so removing either removes only that provider's models. It also copies `_pi/tasks-config.json` into `~/.pi/agent/tasks-config.json`; the tracked default uses `taskScope: "memory"`.
+The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. xAI models use Pi's built-in `xai` provider and the local xAI login; ai-configs does not configure an xAI endpoint, headers, key, or model catalog. Cursor and OpenCode remain separate providers, so removing either removes only that provider's models.
 
 `install.sh --pi` now enforces `openai-codex/gpt-5.6-terra` as the Pi default and updates the web-search summary route to Terra. The driving Pi session is the only code-writing route. The planning and review agents use GPT-5.6 Terra medium, and the read-only scout uses GPT-5.6 Terra low. GPT-5.6 Sol and GLM-5.2 are removed from Pi-scoped model routes; GPT-5.4 and GPT-5.4-mini are also retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
 
@@ -83,7 +80,6 @@ The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upse
 _pi/
 ├── README.md
 ├── models.json         # Managed custom model entries merged into ~/.pi/agent/models.json
-├── tasks-config.json   # Global pi-tasks defaults copied into ~/.pi/agent/tasks-config.json
 ├── prompts/            # Pi prompt templates / slash commands
 │   └── *.md
 ├── agents/             # Pi subagent definitions for @tintinweb/pi-subagents
@@ -175,9 +171,7 @@ Run `/compact-status` while `opencode/grok-4.5` is selected to see the current t
 pi --list-models xai
 ```
 
-Task tracking is provided exclusively by the package-managed `@tintinweb/pi-tasks` extension. Use `TaskCreate`, `TaskList`, `TaskGet`, and `TaskUpdate` for structured work tracking; `/tasks` is its interactive UI.
-
-This configuration sets pi-tasks to `taskScope: "memory"` globally. Tasks stay available during normal turns and context compactions, but `/new` and a Pi restart clear them; no task files are written in project repositories. To keep persistent task state outside repositories instead, launch Pi with `PI_TASKS` set to a named list (for example, `PI_TASKS=work`) or to an absolute path. Named lists are stored at `~/.pi/tasks/<name>.json`; absolute paths are used verbatim. A named global list is shared by every Pi session that uses it, so it is not automatically isolated by project. `PI_TASKS=off` disables task persistence entirely.
+Task tracking is provided exclusively by the package-managed `@juicesharp/rpiv-todo` extension. Use its `todo` tool for structured work tracking and `/todos` to inspect the current list. The extension renders a live overlay and replays task state from the conversation across `/reload` and compaction; ai-configs does not manage a task-state file. Optional display and guidance settings live in `~/.config/rpiv-todo/config.json` and are owned by the package user.
 
 ## Subagents
 
@@ -189,7 +183,7 @@ In addition to the repo-managed files under `~/.pi/agent/extensions/`, `install.
 
 npm-managed packages:
 - `@tintinweb/pi-subagents`
-- `@tintinweb/pi-tasks` — the sole structured task-tracking extension for Pi; the managed default is in-memory, while `PI_TASKS` can select a named list or absolute path for external persistence
+- `@juicesharp/rpiv-todo` — the structured task-tracking extension for Pi; it provides the `todo` tool, `/todos`, and a live overlay that survives `/reload` and compaction
 - `@aliou/pi-processes`
 - `@narumitw/pi-goal`
 - `pi-web-access`

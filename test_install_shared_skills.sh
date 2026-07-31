@@ -732,7 +732,7 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
 {"providers":{"ollama":{"baseUrl":"https://ollama.com/v1","api":"openai-completions","apiKey":"local-test-key","models":[{"id":"gemma4:latest"},{"id":"kimi-k2.5:cloud"}]},"grok":{"name":"Grok (local CLI Proxy API)","baseUrl":"http://127.0.0.1:8318/v1","api":"openai-completions","apiKey":"local-cliproxyapi","models":[{"id":"grok-4.5","name":"Grok 4.5 (CLI Proxy API)"}]}}}
 EOF
   cat > "$home/.pi/agent/settings.json" <<'EOF'
-{"defaultProvider":"grok","defaultModel":"grok-composer-2.5-fast","enabledModels":["grok/grok-4.5","grok/grok-composer-2.5-fast","openai-codex/gpt-5.6-sol"],"extensions":[".pi/agent/extensions/pi-prd-mode","npm:caller-owned"]}
+{"defaultProvider":"grok","defaultModel":"grok-composer-2.5-fast","enabledModels":["grok/grok-4.5","grok/grok-composer-2.5-fast","openai-codex/gpt-5.6-sol"],"extensions":[".pi/agent/extensions/pi-prd-mode","npm:caller-owned"],"packages":["npm:@tintinweb/pi-tasks"]}
 EOF
   printf '{"taskScope":"session"}\n' > "$home/.pi/agent/tasks-config.json"
 
@@ -778,7 +778,7 @@ EOF
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:caller-owned' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" '"defaultProvider": "openai-codex"' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" '"defaultModel": "gpt-5.6-terra"' || return 1
-  assert_file_contains "$home/.pi/agent/tasks-config.json" '"taskScope": "memory"' || return 1
+  [[ ! -e "$home/.pi/agent/tasks-config.json" ]] || return 1
   [[ -f "$home/.pi/agent/agents/Explore.md" ]] || return 1
   [[ "$(cat "$home/.pi/agent/agents/Explore.md")" == $'---\nenabled: false\n---' ]] || return 1
   [[ -z "$(find "$home/.pi/agent/agents" -maxdepth 1 -type f -name 'explore.md' -print -quit)" ]] || return 1
@@ -798,7 +798,8 @@ EOF
   assert_file_not_contains "$home/.pi/agent/settings.json" 'pi-codex-goal' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'piCodexGoal' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:@narumitw/pi-goal' || return 1
-  assert_file_contains "$home/.pi/agent/settings.json" 'npm:@tintinweb/pi-tasks' || return 1
+  assert_file_not_contains "$home/.pi/agent/settings.json" 'npm:@tintinweb/pi-tasks' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" 'npm:@juicesharp/rpiv-todo' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'npm:pi-cursor-sdk' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'local-packages/ai-configs/pi-cursor-sdk' || return 1
   assert_file_contains "$home/.pi/agent/local-packages/ai-configs/pi-cursor-sdk/src/index.ts" 'runtimeIsCurrent = false' || return 1

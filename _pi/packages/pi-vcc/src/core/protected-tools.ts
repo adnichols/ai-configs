@@ -4,6 +4,7 @@ const PROTECTED_TOOL_NAMES = new Set([
   "spawn_council",
   "read_council_stream",
   "plan-review",
+  "todo",
 ]);
 
 export const isProtectedToolName = (name: string): boolean =>

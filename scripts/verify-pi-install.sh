@@ -194,7 +194,7 @@ EXPECTED_GIT_PACKAGES=()
 
 EXPECTED_NPM_PACKAGES=(
   "npm:@tintinweb/pi-subagents"
-  "npm:@tintinweb/pi-tasks"
+  "npm:@juicesharp/rpiv-todo"
   "npm:@aliou/pi-processes"
   "npm:@narumitw/pi-goal"
   "npm:pi-web-access"
@@ -207,6 +207,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@pi-kaush/pi-inline-skill-identifier"
   "npm:@howaboua/pi-explore-subagents"
   "npm:pi-service-tier"
+  "npm:pi-extensible-workflows"
 )
 
 FAILURES=0

@@ -119,7 +119,7 @@ Then wait for the user's input.
 
 ### Step 3: Create Action Plan
 
-1. **Use TaskCreate and TaskUpdate to create a task list**:
+1. **Use the `todo` tool to create a task list** (with `create` and `update` actions):
    - Convert action items from the handoff into tasks
    - Add any new tasks discovered during analysis
    - Prioritize based on dependencies and handoff guidance
@@ -161,7 +161,7 @@ Then wait for the user's input.
    - Build on discovered solutions
 
 4. **Track Continuity**:
-   - Use TaskCreate and TaskUpdate to maintain task continuity
+   - Use the `todo` tool's `create` and `update` actions to maintain task continuity
    - Reference the handoff document in commits
    - Document any deviations from original plan
    - Consider creating a new handoff when done

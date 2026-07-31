@@ -8,9 +8,6 @@ describe("protected task tools", () => {
     expect(isProtectedToolName("TaskGet")).toBe(true);
     expect(isProtectedToolName("TaskUpdate")).toBe(true);
     expect(isProtectedToolName("TaskExecute")).toBe(true);
-  });
-
-  it("does not protect the removed legacy todo tool", () => {
-    expect(isProtectedToolName("todo")).toBe(false);
+    expect(isProtectedToolName("todo")).toBe(true);
   });
 });

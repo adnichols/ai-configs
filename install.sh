@@ -45,7 +45,7 @@ DEPRECATED_SHARED_SKILLS=(
     herdr-reviewers
 )
 # Retire the legacy, session-detail-backed todo extension in favor of the
-# package-managed @tintinweb/pi-tasks extension.
+# package-managed @juicesharp/rpiv-todo extension.
 # Pi auto-loads every TypeScript file in extensions/, so helpers must never remain
 # there after they move to a managed non-extension library path.
 RETIRED_PI_EXTENSIONS=(aoe-status pi-prd-mode questionnaire.ts todo.ts grok-context-ceiling-policy.ts)
@@ -94,7 +94,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @tintinweb/pi-tasks, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-service-tier, pi-extensible-workflows, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-service-tier, pi-extensible-workflows, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr config is installed locally whenever --tools or --all runs"
@@ -2319,11 +2319,11 @@ install_pi() {
     configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
     cleanup_pi_multi_codex_config "$pi_agent_dir"
 
-    # Install globally managed pi-tasks defaults so every Pi session uses the
-    # repo-owned scope unless an explicit PI_TASKS override is supplied.
-    if [ -f "$pi_source_dir/tasks-config.json" ]; then
-        echo "  - Installing Pi task configuration..."
-        cp "$pi_source_dir/tasks-config.json" "$pi_agent_dir/tasks-config.json"
+    # Remove the configuration managed by the retired @tintinweb/pi-tasks
+    # package. @juicesharp/rpiv-todo has no ai-configs-managed settings file.
+    if [ -f "$pi_agent_dir/tasks-config.json" ] || [ -L "$pi_agent_dir/tasks-config.json" ]; then
+        echo "  - Removing retired Pi task configuration..."
+        rm -f "$pi_agent_dir/tasks-config.json"
     fi
 
     # Install documentation.
@@ -2341,7 +2341,7 @@ install_pi() {
     fi
     echo ""
     echo "Note: Pi prompt templates, planning/read-only subagents, extensions, and managed model entries are installed to $HOME/.pi/agent"
-    echo "      Prompt templates load from ~/.pi/agent/prompts, shared installable skills load from ~/.agents/skills, subagents load from ~/.pi/agent/agents, extensions load from ~/.pi/agent/extensions, custom models load from ~/.pi/agent/models.json, and managed task defaults load from ~/.pi/agent/tasks-config.json"
+    echo "      Prompt templates load from ~/.pi/agent/prompts, shared installable skills load from ~/.agents/skills, subagents load from ~/.pi/agent/agents, extensions load from ~/.pi/agent/extensions, and custom models load from ~/.pi/agent/models.json"
 
     # Remove retired Pi tooling before installing supported packages.
     remove_retired_pi_goal_plugin "$pi_agent_dir"
@@ -2375,7 +2375,7 @@ install_pi_review_stack() {
         echo "Error: mutation-bounded Pi review-stack installation requires ~/.pi to be a real directory, not a symlink." >&2
         return 1
     fi
-    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/lib" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/tasks-config.json" "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
+    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/lib" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
         if [ -L "$managed_pi_path" ]; then
             echo "Error: mutation-bounded Pi review-stack installation refuses symlinks at managed ~/.pi paths: $managed_pi_path" >&2
             return 1
@@ -3123,7 +3123,7 @@ install_pi_npm_packages() {
     # Core extensions for the user's workflow
     local npm_packages=(
         "@tintinweb/pi-subagents"
-        "@tintinweb/pi-tasks"
+        "@juicesharp/rpiv-todo"
         "@aliou/pi-processes"
         "@narumitw/pi-goal"
         "pi-web-access"
@@ -3139,6 +3139,7 @@ install_pi_npm_packages() {
         "pi-extensible-workflows"
     )
     local deprecated_npm_packages=(
+        "@tintinweb/pi-tasks"
         "@howaboua/pi-codex-conversion"
         "@howaboua/pi-vent"
         "pi-subagents"
