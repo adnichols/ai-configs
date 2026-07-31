@@ -191,9 +191,35 @@ ledger = {
 label = mod.herdr_display_label(ledger)
 assert label.startswith("I: "), label
 assert "NOD-99" in label and "login" in label.lower(), label
+assert "IMPLEMENTING" not in label, label
 ledger["stage"] = "DONE"
 assert mod.herdr_display_label(ledger).startswith("D: ")
 assert mod.strip_phase_prefix("PL: nod-1 hello") == "nod-1 hello"
+assert mod.strip_stage_suffix("NOD-1475 · IMPLEMENTING") == "NOD-1475"
+assert mod.sanitize_base_title("R: NOD-1475 · IMPLEMENTING") == "NOD-1475"
+# Legacy contaminated herdr label must rebuild from slug, not keep STAGE.
+legacy = {
+    "stage": "SCOPED_REVIEW",
+    "issue": "NOD-1475",
+    "slug": "session-snapshot-stream",
+    "goal": "NOD-1475 session snapshot stream",
+    "labels": {
+        "baseTitle": "NOD-1475 · IMPLEMENTING",
+        "herdr": "I: NOD-1475 · IMPLEMENTING",
+    },
+}
+fixed = mod.herdr_display_label(legacy)
+assert fixed.startswith("R: "), fixed
+assert "NOD-1475" in fixed, fixed
+assert "snapshot" in fixed.lower() or "session" in fixed.lower(), fixed
+assert "IMPLEMENTING" not in fixed, fixed
+assert "SCOPED_REVIEW" not in fixed, fixed
+# Stage moves only change the code prefix; base title stays the work name.
+legacy["stage"] = "IMPLEMENTING"
+moved = mod.herdr_display_label(legacy)
+assert moved.startswith("I: "), moved
+assert "IMPLEMENTING" not in moved, moved
+assert "snapshot" in moved.lower() or "session" in moved.lower(), moved
 PY
 }
 

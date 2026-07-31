@@ -54,6 +54,7 @@ Workspace/tab title format: `CODE: base title`
 | `B` | blocked |
 
 Examples: `PL: NOD-1234 one login path`, `I: NOD-1234 one login path`, `D: honest auto-sync status`.
+The descriptive half is always the work title/slug — never the long stage name (`IMPLEMENTING`, `AUTOREVIEW`, …).
 
 `delivery stage …` refreshes the Herdr workspace name best-effort (never hard-fails).
 

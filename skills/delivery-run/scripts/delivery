@@ -105,6 +105,14 @@ STAGE_PHASE_CODE = {
 PHASE_CODE_RE = re.compile(
     r"^(PL|I|R|PR|RF|QA|D|B)\s*:\s*", re.IGNORECASE
 )
+# Old format was "{issue|id} · {STAGE}". Never keep stage names in the title.
+STAGE_TOKEN_RE = re.compile(
+    r"(?:\s*[·\-|:/]\s*|\s+)("
+    + "|".join(re.escape(s) for s in STAGES)
+    + r")\s*$",
+    re.IGNORECASE,
+)
+STAGE_NAME_SET = {s.upper() for s in STAGES}
 
 STAGE_NEXT_SKILL = {
     "INTAKE": "Start from description/plan even without Linear; attach issue later with delivery set --issue KEY. Then stage PLAN_DRAFT and use reviewed-html-plan or dev-plan",
@@ -297,39 +305,105 @@ def strip_phase_prefix(text: str | None) -> str:
     return PHASE_CODE_RE.sub("", (text or "").strip()).strip()
 
 
-def ensure_base_title(ledger: dict[str, Any]) -> str:
-    """Stable human title without phase code, used after 'PL:' etc."""
-    labels = ledger.setdefault("labels", {})
-    stored = labels.get("baseTitle")
-    if isinstance(stored, str) and stored.strip():
-        base = strip_phase_prefix(stored)
-        labels["baseTitle"] = base
-        return base
+def strip_stage_suffix(text: str | None) -> str:
+    """Remove trailing delivery stage tokens from titles.
 
+    Handles legacy Herdr labels like "NOD-1475 · IMPLEMENTING" and bare
+    stage-only titles so the descriptive half stays the work slug/title.
+    """
+    value = (text or "").strip()
+    if not value:
+        return ""
+    prev = None
+    while value and value != prev:
+        prev = value
+        if value.upper() in STAGE_NAME_SET:
+            return ""
+        value = STAGE_TOKEN_RE.sub("", value).strip(" ·-:/\t")
+    return value
+
+
+def sanitize_base_title(text: str | None) -> str:
+    """Title only: no phase code prefix, no stage-name suffix."""
+    value = strip_stage_suffix(strip_phase_prefix(text))
+    value = re.sub(r"\s+", " ", value).strip(" ·-:/\t")
+    # Collapse "NOD-1 · slug" separators to a single readable form later.
+    return value
+
+
+def title_is_weak(text: str | None, *, issue: str | None = None) -> bool:
+    """True when a candidate is empty, stage-like, or issue-only."""
+    value = sanitize_base_title(text)
+    if not value:
+        return True
+    if value.upper() in STAGE_NAME_SET:
+        return True
+    if issue and value.upper() == str(issue).upper():
+        return True
+    # Repo/id leftovers like "heddle/NOD-1475" with no human title.
+    if "/" in value and not re.search(r"[a-zA-Z]{3,}", strip_issue_keys(value) or ""):
+        return True
+    return False
+
+
+def ensure_base_title(ledger: dict[str, Any]) -> str:
+    """Stable human title without phase code or stage name.
+
+    Desired Herdr form: "R: NOD-1475 one-login-path" — never
+    "R: NOD-1475 · IMPLEMENTING".
+    """
+    labels = ledger.setdefault("labels", {})
+    issue = ledger.get("issue") if isinstance(ledger.get("issue"), str) else None
     spawn = ledger.get("spawn") if isinstance(ledger.get("spawn"), dict) else {}
+
+    stored = labels.get("baseTitle")
+    if isinstance(stored, str) and stored.strip() and not title_is_weak(stored, issue=issue):
+        base = sanitize_base_title(stored)
+        labels["baseTitle"] = base
+        return short_label(base, max_len=42)
+
+    # Prefer durable work identity over any previously written herdr label
+    # (legacy values were "{issue|id} · {STAGE}").
+    slug = ledger.get("slug") if isinstance(ledger.get("slug"), str) else None
+    goal = ledger.get("goal") if isinstance(ledger.get("goal"), str) else None
+    intent_from_goal = strip_issue_keys(goal) if goal else ""
     candidates = [
         spawn.get("label") if isinstance(spawn, dict) else None,
-        labels.get("herdr"),
         (
-            f"{ledger.get('issue')} {ledger.get('slug')}".strip()
-            if ledger.get("issue") or ledger.get("slug")
+            f"{issue} · {slug.replace('-', ' ')}"
+            if issue and slug
             else None
         ),
-        ledger.get("issue"),
-        ledger.get("slug"),
-        ledger.get("goal"),
+        f"{issue} · {intent_from_goal}" if issue and intent_from_goal else None,
+        intent_from_goal or None,
+        slug.replace("-", " ") if slug else None,
+        goal,
+        issue,
         ledger.get("id"),
+        labels.get("herdr"),  # last resort; may be legacy contaminated
     ]
-    base = "delivery"
+
+    base = ""
     for candidate in candidates:
-        if isinstance(candidate, str) and candidate.strip():
-            base = strip_phase_prefix(candidate)
-            if base:
-                break
+        if not isinstance(candidate, str) or not candidate.strip():
+            continue
+        cleaned = sanitize_base_title(candidate)
+        if not cleaned or title_is_weak(cleaned, issue=issue):
+            # Keep issue-only as a weak fallback but keep looking for a slug/title.
+            if cleaned and not base:
+                base = cleaned
+            continue
+        base = cleaned
+        break
+    if not base:
+        base = sanitize_base_title(issue or slug or goal or ledger.get("id") or "delivery") or "delivery"
+
     # Prefer compact issue-leading titles when possible.
-    issue = ledger.get("issue")
     if issue and issue.lower() not in base.lower():
-        base = f"{issue} {base}".strip()
+        base = f"{issue} · {base}".strip()
+    # Normalize separators after salvage.
+    base = re.sub(r"\s*[·]\s*", " · ", base)
+    base = re.sub(r"\s+", " ", base).strip(" ·")
     base = short_label(base, max_len=42)
     labels["baseTitle"] = base
     return base
@@ -338,6 +412,14 @@ def ensure_base_title(ledger: dict[str, Any]) -> str:
 def herdr_display_label(ledger: dict[str, Any]) -> str:
     code = phase_code(str(ledger.get("stage") or "INTAKE"))
     base = ensure_base_title(ledger)
+    # Guard: never allow a stage token back into the visible title.
+    base = sanitize_base_title(base) or base
+    if title_is_weak(base) and ledger.get("slug"):
+        slug = str(ledger.get("slug")).replace("-", " ")
+        issue = ledger.get("issue")
+        base = f"{issue} · {slug}" if issue else slug
+        base = short_label(sanitize_base_title(base), max_len=42)
+        ledger.setdefault("labels", {})["baseTitle"] = base
     return f"{code}: {base}"
 
 
@@ -1171,7 +1253,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             "slug": slug,
             "goal": goal,
             "stage": preview_stage,
-            "labels": {"baseTitle": strip_phase_prefix(label)},
+            "labels": {"baseTitle": sanitize_base_title(label)},
             "spawn": {"label": label},
         }
         payload = {
@@ -1184,7 +1266,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             "slug": slug,
             "branch": branch,
             "label": herdr_display_label(preview_ledger),
-            "baseTitle": strip_phase_prefix(label),
+            "baseTitle": sanitize_base_title(label),
             "phaseCode": phase_code(preview_stage),
             "base": base,
             "focus": focus,
@@ -1358,7 +1440,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             "fromRepo": str(repo),
         }
         labels = ledger.setdefault("labels", {})
-        labels["baseTitle"] = strip_phase_prefix(label)
+        labels["baseTitle"] = sanitize_base_title(label)
         if workspace_id:
             labels["herdrWorkspaceId"] = str(workspace_id)
         if tab_id:
@@ -1382,7 +1464,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
         write_json(ledger_path, ledger)
     else:
         # Fallback rename without ledger.
-        display_label = f"{phase_code(args.stage or 'INTAKE')}: {strip_phase_prefix(label)}"
+        display_label = f"{phase_code(args.stage or 'INTAKE')}: {sanitize_base_title(label)}"
         if workspace_id:
             run_cmd(["herdr", "workspace", "rename", str(workspace_id), display_label])
         if tab_id:
