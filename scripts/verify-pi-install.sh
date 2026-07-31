@@ -99,7 +99,7 @@ for provider_id, provider in source_providers.items():
             def contains(actual, expected):
                 return all(key in actual and (contains(actual[key], value) if isinstance(value, dict) else actual[key] == value) for key, value in expected.items())
             if not contains(target_models[model["id"]], model): raise SystemExit(1)
-retired = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.6-sol"}
+retired = {"gpt-5.4", "gpt-5.4-mini"}
 managed = installed_providers.get("openai-codex", {})
 if any(isinstance(model, dict) and model.get("id") in retired for model in managed.get("models", [])):
     raise SystemExit(1)
@@ -238,8 +238,8 @@ DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 PICKER_ENABLED_MODELS = [
     DEFAULT_MODEL_VALUE,
     "openai-codex/gpt-5.6-luna",
+    "openai-codex/gpt-5.6-sol",
     "xai/grok-4.5",
-    "cursor/composer-2.5",
 ]
 
 if settings_path.exists():
@@ -513,14 +513,14 @@ else:
     expected_models = [
         default_model_value,
         "openai-codex/gpt-5.6-luna",
+        "openai-codex/gpt-5.6-sol",
         "xai/grok-4.5",
-        "cursor/composer-2.5",
     ]
     if enabled != expected_models:
         errors.append(f"enabledModels={enabled!r}; expected exactly {expected_models!r}")
-    retired_scoped = re.compile(r"^(?:gpt-5\.6-sol|glm-5\.2|opencode/glm-5\.2|openai-codex(?:-[^/]*)?/gpt-5\.6-sol)$")
+    retired_scoped = re.compile(r"^(?:glm-5\.2|opencode/glm-5\.2)$")
     if any(isinstance(model, str) and retired_scoped.fullmatch(model) for model in enabled):
-        errors.append("enabledModels still contains retired GPT-5.6 Sol or GLM-5.2 Pi routes")
+        errors.append("enabledModels still contains retired GLM-5.2 Pi routes")
     if any(isinstance(model, str) and "gpt-5.3-codex-spark" in model for model in enabled):
         errors.append("enabledModels still contains gpt-5.3-codex-spark")
     stale_grok_routes = {"openai-codex/grok-4.5", "grok/grok-4.5", "grok-4.5"}
@@ -538,7 +538,7 @@ PY
 )"
   if [ "$PI_MODEL_STATUS" = "ok" ]; then
     echo "  Pi default model: $PI_DEFAULT_MODEL_VALUE"
-    echo "  Pi scoped Sol and GLM routes: absent"
+    echo "  Pi scoped Sol route: present; GLM routes: absent"
     echo "  Pi Codex goal token budgets: disabled"
   else
     note_failure "Pi default model settings are not GPT-5.6 Terra: $PI_MODEL_STATUS"
@@ -552,11 +552,11 @@ if [ -f "$PI_AGENT_DIR/models.json" ]; then
 import json, sys
 models = json.load(open(sys.argv[1])).get("providers", {}).get("openai-codex", {}).get("models", [])
 retired = {"gpt-5.4", "gpt-5.4-mini"}
-print("ok" if not any(isinstance(model, dict) and model.get("id") in retired for model in models) else "retired GPT-5.4 or GPT-5.6 Sol managed model remains")
+print("ok" if not any(isinstance(model, dict) and model.get("id") in retired for model in models) else "retired GPT-5.4 managed model remains")
 PY
 )"
   if [ "$PI_RETIRED_MODEL_STATUS" = "ok" ]; then
-    echo "  Retired Pi GPT-5.4 and GPT-5.6 Sol managed models: absent"
+    echo "  Retired Pi GPT-5.4 managed models: absent"
   else
     note_failure "$PI_RETIRED_MODEL_STATUS"
   fi

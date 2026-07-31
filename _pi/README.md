@@ -55,7 +55,7 @@ Installed layout:
 │   ├── dev:plan.md
 │   └── ...
 ├── agents/
-│   ├── planner.md        # GPT-5.6 Sol medium; planning-only
+│   ├── planner.md        # GPT-5.6 Terra medium; planning-only
 │   ├── reviewer.md       # GPT-5.6 Terra medium; read-only review
 │   ├── scout.md          # GPT-5.6 Terra low; read-only discovery
 │   └── Explore.md        # disabled bundled persona override
@@ -72,7 +72,7 @@ The doctrine is request-type-first: questions, explanations, inspection, researc
 
 The installer also merges `_pi/models.json` into `~/.pi/agent/models.json`, upserting managed model metadata while preserving local provider fields such as API keys except for the repo-owned `openai-codex` provider. `openai-codex` is pinned to the local CLI Proxy API at `http://127.0.0.1:8318/v1` using Pi's `openai-responses` adapter, with Codex model IDs and thinking-level mappings preserved. xAI models use Pi's built-in `xai` provider and the local xAI login; ai-configs does not configure an xAI endpoint, headers, key, or model catalog. Cursor and OpenCode remain separate providers, so removing either removes only that provider's models.
 
-`install.sh --pi` now enforces `openai-codex/gpt-5.6-terra` as the Pi default and updates the web-search summary route to Terra. The driving Pi session is the only code-writing route. The planning and review agents use GPT-5.6 Terra medium, and the read-only scout uses GPT-5.6 Terra low. GPT-5.6 Sol and GLM-5.2 are removed from Pi-scoped model routes; GPT-5.4 and GPT-5.4-mini are also retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
+`install.sh --pi` now enforces `openai-codex/gpt-5.6-terra` as the Pi default and updates the web-search summary route to Terra. The driving Pi session is the only code-writing route. The planning and review agents use GPT-5.6 Terra medium, and the read-only scout uses GPT-5.6 Terra low. GPT-5.6 Sol remains available in Pi-scoped model routes for execution workflows, while GLM-5.2 is removed; GPT-5.4 and GPT-5.4-mini are also retired exactly from Pi-owned agents, managed `openai-codex` model entries, and Pi settings aliases while caller-owned providers/models remain untouched.
 
 ## Structure
 
@@ -126,7 +126,7 @@ This repo ships `thinking-shortcuts.ts`, which adds Codex-style bidirectional re
 
 Run `bun test scripts/thinking-shortcuts.test.ts` for the extension contract tests and `scripts/test-thinking-shortcuts-e2e.sh` for the real Pi TUI keypress test.
 
-`model-allowlist.ts` and the Pi model cycle expose exactly four routes: `openai-codex/gpt-5.6-terra`, `openai-codex/gpt-5.6-luna`, `xai/grok-4.5`, and `cursor/composer-2.5`. It filters the live model catalog again after Pi refreshes it. The extension uses Pi's current internal model collection because Pi does not expose a public global model-registry allowlist; verify it after a Pi upgrade.
+`model-allowlist.ts` and the Pi model cycle expose exactly four routes: `openai-codex/gpt-5.6-terra`, `openai-codex/gpt-5.6-luna`, `openai-codex/gpt-5.6-sol`, and `xai/grok-4.5`. It filters the live model catalog again after Pi refreshes it. The extension uses Pi's current internal model collection because Pi does not expose a public global model-registry allowlist; verify it after a Pi upgrade.
 
 The managed `herdr-agent-state.ts` integration reports Pi lifecycle state directly to Herdr. It treats `agent_settled` as the foreground-idle boundary, preserves same-session Herdr authority across Pi `/reload`, and, by default, keeps the pane working while any tracked `process` job remains live except known passive listeners, monitors, dev servers, and watchers. Configure the policy with `HERDR_PI_BACKGROUND_PROCESS_MODE=none|finite|all`; extend the passive ignore list with comma- or newline-separated literal name/command fragments in `HERDR_PI_BACKGROUND_PROCESS_IGNORE`. Doct `plans listen` and blocking `plans agent next --wait` commands are ignored explicitly. Run `node tests/test_herdr_agent_state.mjs` for the lifecycle, reload, and process-policy contract test.
 
@@ -215,7 +215,7 @@ The maintained agent files use the flat frontmatter expected by `@tintinweb/pi-s
 
 The installed agent directory is an exact replacement with this roster:
 
-- `planner` — GPT-5.6 Sol medium; planning-only
+- `planner` — GPT-5.6 Terra medium; planning-only
 - `reviewer` — GPT-5.6 Terra medium; read-only material review
 - `scout` — GPT-5.6 Terra low; bounded read-only discovery
 - `Explore.md` — disabled override, not an active agent

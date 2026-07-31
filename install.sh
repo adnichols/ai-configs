@@ -1737,7 +1737,6 @@ PICKER_ENABLED_MODELS = [
     "openai-codex/gpt-5.6-luna",
     "openai-codex/gpt-5.6-sol",
     "xai/grok-4.5",
-    "cursor/composer-2.5",
 ]
 
 changed = []
