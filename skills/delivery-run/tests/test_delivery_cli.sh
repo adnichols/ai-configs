@@ -61,7 +61,7 @@ assert d["plan"]=="thoughts/plans/x.html"
 PY
 }
 
-test_stage_moves_freely_without_gates() {
+test_unprotected_stage_moves_without_gates() {
   local repo="$TMP_ROOT/stage-repo"
   make_repo "$repo"
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-2 >/dev/null
@@ -123,7 +123,7 @@ test_board_lists_multiple() {
   make_repo "$b"
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$a" init --issue NOD-A --id demo/a >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$b" init --issue NOD-B --id demo/b >/dev/null
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$b" stage IMPLEMENTING >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$b" stage PR_OPEN >/dev/null
   json="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" board --json --root "$a" --root "$b")"
   python3 -c 'import json,sys
 d=json.loads(sys.argv[1])
@@ -136,7 +136,8 @@ assert d["count"]>=2
 test_stages_lists_guidance() {
   out="$("$DELIVERY" stages)"
   printf '%s' "$out" | rg -q "EXECUTION_READY" || return 1
-  printf '%s' "$out" | rg -q "run-plan" || return 1
+  printf '%s' "$out" | rg -q "Pause: present the operator approval summary" || return 1
+  ! printf '%s' "$out" | rg -q "EXECUTION_READY.*Use /skill:run-plan" || return 1
 }
 
 test_set_issue_after_start() {
@@ -328,15 +329,122 @@ assert d.get("agentBrief")
 PY
 }
 
+test_browser_review_waits_for_explicit_readiness_request() {
+  local repo="$TMP_ROOT/readiness-request-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<article data-plan>browser-review</article>\n' >"$repo/thoughts/plans/x.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --slug readiness-demo --plan thoughts/plans/x.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_BROWSER_REVIEW >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --refresh >/dev/null
+  local brief="$repo/.delivery/AGENT_BRIEF.md"
+  rg -q "Request execution-ready review" "$brief" || return 1
+  rg -q "plan-reviewer-execution-ready" "$brief" || return 1
+  rg -q "planReadinessRequest" "$brief" || return 1
+  local out
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" check -v)"
+  printf '%s' "$out" | rg -q "MISSING_planReadinessRequest" || return 1
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass \
+    --summary "Doct execution-ready review request" >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["evidence"]["planReadinessRequest"]["status"] == "pass"
+assert d["evidence"]["planReadinessRequest"]["planSha256"]
+PY
+}
+
+test_readiness_review_requires_explicit_request() {
+  local repo="$TMP_ROOT/readiness-authorization-repo"
+  make_repo "$repo"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-READINESS --plan README.md >/dev/null
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_PM_REVIEW 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no explicit execution-ready review request" || return 1
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass \
+    --summary "Doct execution-ready review request" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_PM_REVIEW >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_TECH_REVIEW >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+}
+
+test_execution_ready_requires_current_operator_approval() {
+  local repo="$TMP_ROOT/implementation-approval-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<article data-plan>revision-one</article>\n' >"$repo/thoughts/plans/x.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass \
+    --summary "Doct execution-ready review request" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --refresh >/dev/null
+  rg -q "Execution-ready approval pause" "$repo/.delivery/AGENT_BRIEF.md" || return 1
+  rg -qi 'do \*\*not\*\* invoke `run-plan`' "$repo/.delivery/AGENT_BRIEF.md" || return 1
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "explicit operator implementation approval" || return 1
+  PI_MODEL=test-model PI_REASONING_LEVEL=high DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" \
+    approve-implementation --source chat --summary "Operator received status, changes, model, and steps" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+approval=json.load(open(sys.argv[1]))["implementationApproval"]
+assert approval["status"] == "approved"
+assert approval["source"] == "chat"
+assert approval["model"] == "test-model"
+assert approval["reasoningLevel"] == "high"
+assert approval["planSha256"]
+PY
+  printf '<article data-plan>revision-two</article>\n' >"$repo/thoughts/plans/x.html"
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "plan changed after the recorded execution-ready review request" || return 1
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass \
+    --summary "Fresh Doct execution-ready review request" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "plan changed after" || return 1
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" \
+    revoke-implementation-approval --reason "material plan feedback" >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+approval=json.load(open(sys.argv[1]))["implementationApproval"]
+assert approval["status"] == "pending"
+assert approval["reason"] == "material plan feedback"
+PY
+}
+
 test_skill_doctrine_wording() {
   rg -q "guidance, not gates|Guidance, not gates|never hard-block|always exits 0" \
     "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q "guidance-not-gates|hardBlock|always succeed" \
+  rg -q "plan-reviewer-execution-ready" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "approve-implementation" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "planReadinessRequest|plan-reviewer-execution-ready" \
     "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q "approve-implementation" "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q "plan-reviewer-execution-ready" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q "Execution-ready operator approval pause" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q "implementation approval" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "operator-approval summary" "$ROOT/_pi/prompts/dev:reviewed-html-plan.md" || return 1
+  rg -q 'in `EXECUTION_READY`, pause before product-code work' "$ROOT/_pi/prompts/delivery:run.md" || return 1
+  rg -q 'except at `EXECUTION_READY`' "$ROOT/_pi/prompts/delivery:bootstrap.md" || return 1
 }
 
 run_test test_init_creates_ledger
-run_test test_stage_moves_freely_without_gates
+run_test test_unprotected_stage_moves_without_gates
 run_test test_check_exit_zero_with_gaps
 run_test test_record_and_show
 run_test test_board_lists_multiple
@@ -346,6 +454,9 @@ run_test test_bootstrap_writes_agent_brief
 run_test test_reflect_logs_outside_worktree
 run_test test_phase_herdr_label_format
 run_test test_spawn_dry_run_names_from_goal
+run_test test_browser_review_waits_for_explicit_readiness_request
+run_test test_readiness_review_requires_explicit_request
+run_test test_execution_ready_requires_current_operator_approval
 run_test test_skill_doctrine_wording
 
 printf '\n%d/%d passed\n' "$TESTS_PASSED" "$TESTS_RUN"

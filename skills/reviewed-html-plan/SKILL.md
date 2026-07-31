@@ -1,6 +1,6 @@
 ---
 name: reviewed-html-plan
-description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, and a read-only active-harness reviewer-subagent plan review. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
+description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`. For browser-reviewed plans, integrate comments but wait for an explicit execution-ready review request before PM and active-harness readiness review. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
 ---
 
 # Reviewed HTML Plan Workflow
@@ -84,28 +84,39 @@ Use `doct-document-ops` as the sole source for current Doct registration command
 5. Share the canonical Doct review URL only after the listener is running, or report a concrete listener-start blocker. Never show a loopback, local `plan-review`, Tailscale local-service URL, or relative path to the user unless they explicitly requested a legacy local reviewer.
 6. Use listener-delivered events for browser comments/actions. Use `doct-agent plans queue list` and `doct-agent plans agent next --no-wait` for startup drain, recovery, or manual processing only.
 
-If browser feedback has not yet been provided, share the Doct URL and enter the monitoring state defined by `doct-document-ops`. In Codex, keep the task active and process routed feedback as it arrives without requiring the user to say “feedback is ready”; retain listener ownership until an execution workflow moves the plan to `in_progress`, the lifecycle ends, or the user cancels. Do not proceed to Codex/Claude or PM gates merely because the listener is quiet; proceed only when the workflow's browser-feedback/readiness condition is actually satisfied or the user explicitly skips it.
+If browser feedback has not yet been provided, share the Doct URL and enter the monitoring state defined by `doct-document-ops`. In Codex, keep the task active and process routed feedback as it arrives without requiring the user to say “feedback is ready”; retain listener ownership until an execution workflow moves the plan to `in_progress`, the lifecycle ends, or the user cancels.
+
+For a browser-reviewed plan, **generic feedback is not an execution-ready review request**. Process and resolve each ordinary routed comment, then return to the browser-review loop. Do not start PM or active-harness readiness review because the first comment was handled, the listener is quiet, or the plan has no queued work. Start the readiness cycle only after either:
+
+- the operator directly instructs the agent to begin execution-readiness review, or
+- Doct dispatches its explicit **Request execution-ready review** action. The current toolbar action carries `routingMetadata.agentRoute.requestedSkill: "plan-reviewer-execution-ready"`; accept an explicit `routingMetadata.submitAction: "execution-ready"` when returned by the service.
+
+A generic `routingMetadata.submitAction: "agent"` with only `targetScope: "plan-review"` is not sufficient. When this workflow runs under delivery, record `planReadinessRequest=pass` before advancing from `PLAN_BROWSER_REVIEW`; `delivery` binds the record to the current plan content and rejects PM/technical review and `EXECUTION_READY` stages without a current authorization record.
 
 ### 4. Process browser feedback
 
-When feedback is ready, process reviewer comments/actions through the Doct plan queue.
+Process reviewer comments/actions through the Doct plan queue. Keep the plan in browser review unless the current item is an explicit execution-ready request as defined in the preceding section.
 
 For each listener-delivered or pending comment:
 
 1. Use the thread id, claim id, workspace id, document id, selected context, and returned ack/resolve/release commands from the listener payload or `doct-agent plans agent next`. If no claim is available during manual recovery, inspect `doct-agent plans queue list` until it reports no pending work.
 2. Read the full plan before editing.
 3. Use the annotation context, heading path, quoted text, and reviewer note.
-4. Classify the comment as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, or `DISAGREE_REPO_EVIDENCE`.
+4. Classify the comment as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, `DISAGREE_REPO_EVIDENCE`, `EXECUTION_READY_REQUEST`, or `BUILD_REQUEST`.
 5. Edit the plan for readiness blockers and useful clarity that preserves scope.
 6. For product questions that cannot be resolved from repo evidence, add or update the plan's prominent `Decision Required` block with all viable options, thorough option explanations, and an agent recommendation; obtain the choice through Doct feedback rather than a separate chat question.
 7. Ack and resolve only after the plan actually addresses the comment; after the user chooses, move the result into `Locked decisions` and append the rationale to `Decisions / Deviations log`.
 8. Keep or restart the durable listener after each dispatch if more browser feedback is expected; do not leave review handoff dependent on a one-time queue check.
 
+For `EXECUTION_READY_REQUEST`, reply/ack that the readiness cycle is beginning, record delivery evidence when a ledger exists, then continue to the PM and active-harness readiness legs below. For every other classification, complete the plan update/ack/resolve and return to the browser-review loop. Do **not** infer a readiness request from generic routed `submitAction: "agent"` feedback or a quiet listener.
+
+If a material comment arrives after the plan was marked execution-ready but before implementation starts, reply and update the plan, clear its execution-ready metadata, and return the delivery ledger to `PLAN_BROWSER_REVIEW`. When a delivery ledger exists, run `delivery revoke-implementation-approval --reason "material plan feedback"`. The correction requires a fresh explicit execution-ready request and a fresh readiness review; a prior ready verdict does not survive a material plan edit.
+
 Keep the local HTML plan authoritative for implementation and Doct authoritative for review state. After editing the local file, push updates with `doct-agent plans update` or keep `doct-agent plans watch` running during active review. `plans watch` is source sync only; it does not replace the comment listener.
 
 ### 5. PM product-intent review
 
-Run an adversarial PM review before independent AI plan review.
+Run an adversarial PM review only after the explicit execution-ready request opened the readiness cycle. Do not run it merely because browser feedback was processed.
 
 The PM pass evaluates whether the plan will satisfy the intended user/operator outcome, not merely whether the phases are internally coherent. Use `product-principles` and repo product intent to check:
 
@@ -125,7 +136,7 @@ After material PM edits, ensure the review URL still points at the latest plan a
 
 ### 6. Active-harness plan review
 
-Run exactly one active-harness `reviewer` subagent before execution and keep it read-only. The same reviewer is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
+After the explicit execution-ready request and PM pass, run exactly one active-harness `reviewer` subagent before execution and keep it read-only. The same reviewer is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
 
 - For data loss, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another P1/P2 risk surface, give the reviewer a compact readiness packet with named files/surfaces, the exact risk question, relevant plan excerpts, verification expectations, and outcome limits.
 - For lower-risk plans, retain the same bounded readiness packet without broadening into a second opinion.
@@ -232,9 +243,29 @@ Before final output, inspect the HTML plan for obvious handoff blockers:
 - UI impact is missing, `unknown`, or lacks required design evidence for real UI-impacting work,
 - verification commands are stale or not copy/paste ready,
 - the active-harness reviewer did not agree by substance that the plan is ready,
-- PM review left unresolved product-intent or user-impact gaps.
+- PM review left unresolved product-intent or user-impact gaps,
+- PM and active-harness readiness review began without an explicit execution-ready request (unless the operator directly requested that review).
 
 Do not start implementation as part of this skill.
+
+### 8b. Execution-ready operator approval pause
+
+`execution-ready` means the reviewed plan is eligible for implementation; it is **not** authorization to start product-code work. Keep the Doct listener active while the plan remains pre-execution. Before invoking `run-plan`, stop and ask the operator whether to proceed. The approval message must state:
+
+1. the current plan and review status, including any residual non-blocking observations;
+2. a concise summary of the customer-visible and technical changes implementation will make;
+3. the exact implementation model and reasoning level selected for this run (read from the active harness, such as `PI_MODEL` and `PI_REASONING_LEVEL` in Pi); and
+4. the remaining implementation phases, tests, reviews, verification, and PR steps.
+
+A direct operator approval in the current conversation or a deliberate Doct implementation-approval action is required. For a delivery-managed run, record that approval against the current plan content before entering `IMPLEMENTING`:
+
+```bash
+delivery approve-implementation --source chat|doct \
+  --summary "Operator received the execution-ready status, changes, model/reasoning, and remaining steps"
+delivery stage IMPLEMENTING
+```
+
+Do not approve on the operator's behalf. A generic “execution-ready” action, a quiet listener, an old approval, or the original request to prepare a plan is not implementation approval. If the plan changes after approval, invalidate it and repeat this pause.
 
 ## Final output
 
@@ -248,6 +279,7 @@ Review URL: <canonical Doct URL>
 
 ### Gates completed
 - Browser feedback: <processed / skipped by request / blocked>
+- Execution-ready request: <Doct action / direct operator instruction>
 - PM review: <ready / reshaped plan / blocked>
 - Active-harness reviewer: <model/effort and verdict>
 
@@ -257,8 +289,8 @@ Review URL: <canonical Doct URL>
 ### Final status
 <execution-ready / blocked>
 
-### Execution handoff
-<Only when execution-ready: name the repo's preferred execution command for this explicit HTML plan path from repo-local guidance.>
+### Operator approval required
+<Only when execution-ready: give the four-part status/change/model-and-reasoning/remaining-steps summary, ask whether to proceed, and state that implementation will not start until explicit approval. For a delivery-managed run, name `delivery approve-implementation --source chat|doct ...` rather than invoking `run-plan`.>
 ```
 
 If the plan is blocked, replace the execution handoff with a pointer to the unresolved `Decision Required` block(s) in the canonical Doct plan and ask the user to select an option or comment there. Do not restate an abbreviated option list in chat, and do not suggest a Markdown-only execution command unless the repo explicitly supports converting the reviewed HTML plan back to Markdown.

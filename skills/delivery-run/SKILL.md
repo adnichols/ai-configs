@@ -198,10 +198,36 @@ delivery check -v
 | Stage | Recommended skill |
 |---|---|
 | `PLAN_DRAFT` | `$dev-plan` / `$reviewed-html-plan` |
-| `PLAN_BROWSER_REVIEW` | `doct-document-ops` listener + feedback |
-| `PLAN_PM_REVIEW` | `/dev:pm-review <plan> plan` |
-| `PLAN_TECH_REVIEW` | active-harness `reviewer` via reviewed-html-plan |
-| `EXECUTION_READY` | hand off to run-plan |
+| `PLAN_BROWSER_REVIEW` | `doct-document-ops` listener; integrate feedback and wait for the explicit execution-ready review request |
+| `PLAN_PM_REVIEW` | after that request, `/dev:pm-review <plan> plan` |
+| `PLAN_TECH_REVIEW` | after that request, active-harness `reviewer` via reviewed-html-plan |
+| `EXECUTION_READY` | pause, summarize the reviewed plan and implementation profile, then obtain explicit operator approval |
+
+#### Browser-feedback escalation rule
+
+A browser comment is not automatically a readiness-review request. While the ledger
+is at `PLAN_BROWSER_REVIEW`:
+
+- A routed generic comment (`routingMetadata.submitAction: "agent"` without
+  `routingMetadata.agentRoute.requestedSkill`) is feedback to integrate and
+  acknowledge. Keep listening in `PLAN_BROWSER_REVIEW` after updating the plan.
+- Do **not** advance to PM or technical review because the first comment was
+  handled, the listener became quiet, or `planBrowserReview` is marked `pass`.
+- Start the PM/technical readiness cycle only when the operator explicitly asks
+  for it or clicks Doct's **Request execution-ready review** control. The current
+  control emits
+  `routingMetadata.agentRoute.requestedSkill: "plan-reviewer-execution-ready"`.
+  Treat a Doct `submitAction: "execution-ready"` as the same explicit request
+  when that form is returned by the service.
+- Before advancing, record the signal:
+
+```bash
+delivery record planReadinessRequest --status pass \
+  --summary "Doct execution-ready review request"
+delivery stage PLAN_PM_REVIEW
+```
+
+This is an authorization boundary: `delivery stage PLAN_PM_REVIEW`, `PLAN_TECH_REVIEW`, and `EXECUTION_READY` reject a missing or stale `planReadinessRequest=pass` record. The record is tied to the current plan content, so a changed plan requires a fresh explicit readiness request before the review cycle can begin. Other delivery evidence remains advisory.
 
 After each meaningful step:
 
@@ -209,6 +235,41 @@ After each meaningful step:
 delivery stage <STAGE>
 delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
 ```
+
+### 2a. Execution-ready approval pause
+
+`EXECUTION_READY` is a pause, not an automatic handoff to `$run-plan`. At that stage,
+keep the Doct listener active and give the operator a concise summary of:
+
+1. the current plan/review status and residual non-blocking observations;
+2. the customer-visible and technical changes implementation will make;
+3. the exact implementation model and reasoning level selected for the run; and
+4. the remaining implementation, test, review, verification, and PR steps.
+
+Ask whether to proceed. Do not change product code, invoke `$run-plan`, or move to
+`IMPLEMENTING` until the operator directly approves in chat or uses a deliberate Doct
+implementation-approval action. Record the approval against the current plan content,
+then start execution:
+
+```bash
+delivery approve-implementation --source chat|doct \
+  --summary "Operator received plan status, changes, model/reasoning, and remaining steps"
+delivery stage IMPLEMENTING
+# only now: /skill:run-plan <plan>
+```
+
+The CLI rejects readiness-review stages without a current explicit readiness-request fingerprint and rejects `delivery stage IMPLEMENTING` without a current approval fingerprint. These are authorization boundaries, not quality-evidence advisories.
+If the plan changes or material browser feedback arrives before implementation, reply and
+update the plan, then invalidate the approval and return to browser review:
+
+```bash
+delivery revoke-implementation-approval --reason "material plan feedback"
+delivery stage PLAN_BROWSER_REVIEW
+```
+
+A fresh explicit **Request execution-ready review** action and fresh readiness review are
+required before a new operator approval. Generic feedback, a quiet listener, readiness
+metadata, and an old approval never authorize implementation.
 
 ### 3. Implement through PR
 
@@ -296,9 +357,11 @@ Prefer process-shaped notes (friction, retries, unclear guidance, handoff gaps),
 3. After a worker skill finishes, `delivery record` what happened and `delivery check -v`.
 4. Treat check advisories as a to-do list, not a red light.
 5. Do not stop the operator solely because recommended evidence is `pending` or `gap`.
-6. Do not reimplement run-plan/autoreview/reviewed-html-plan here.
-7. If something is truly stuck on a human decision, `delivery blocker "..." --mark-blocked` and say what is needed — still leave the workflow usable.
-8. Before finishing (`DONE` / hand-off), run `delivery reflect` (or Pi `delivery_reflect`) so friction/rework/improvements land in `~/.pi` outside the worktree.
+6. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
+7. Treat execution-ready as eligibility only: present the approval summary and wait for explicit operator permission before implementation. Invalidate that permission if material feedback changes the plan.
+8. Do not reimplement run-plan/autoreview/reviewed-html-plan here.
+9. If something is truly stuck on a human decision, `delivery blocker "..." --mark-blocked` and say what is needed — still leave the workflow usable.
+10. Before finishing (`DONE` / hand-off), run `delivery reflect` (or Pi `delivery_reflect`) so friction/rework/improvements land in `~/.pi` outside the worktree.
 
 ## Invocation
 

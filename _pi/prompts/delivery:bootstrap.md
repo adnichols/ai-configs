@@ -45,12 +45,14 @@ delivery check -v
 
 ## 3. Continue from recommended next step
 
-Follow the brief's **Recommended next step** by invoking the named existing skill (`reviewed-html-plan`, `run-plan`, `autoreview`, PM review, etc.).
+Follow the brief's **Recommended next step** by invoking the named existing skill (`reviewed-html-plan`, `run-plan`, `autoreview`, PM review, etc.), except at `EXECUTION_READY`. At that stage, do not invoke `run-plan` or edit product code. Give the operator the approval summary specified in the brief — plan/review status, expected implementation changes, model and reasoning level, and remaining steps — and ask whether to proceed. Record direct approval with `delivery approve-implementation --source chat --summary "..."` before moving to `IMPLEMENTING`.
 
 Rules:
 
 - Doctrine is **guidance, not gates** — never hard-stop only because delivery evidence is missing.
 - Linear issue is optional at start; attach later with `delivery set --issue KEY --retarget-id`.
+- In `PLAN_BROWSER_REVIEW`, integrate generic feedback and keep listening. Do not enter PM or technical plan review until the operator explicitly requests it through Doct's **Request execution-ready review** action (`agentRoute.requestedSkill: "plan-reviewer-execution-ready"`) or gives an equivalent direct instruction. Record `planReadinessRequest=pass` before advancing.
+- `EXECUTION_READY` is eligibility only, not an automatic implementation handoff. If material plan feedback arrives before code work, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, return to browser review, and require a fresh readiness request.
 - After each meaningful step: update stage/record, then `delivery bootstrap --refresh` or at least `delivery check -v`.
 - Do not reimplement worker skills ad hoc.
 
@@ -61,4 +63,4 @@ Tell the operator:
 1. worktree + ledger id + stage
 2. whether issue is attached or still pending
 3. recommended next step you are taking now
-4. then take that step
+4. then take that step — except when `EXECUTION_READY`, where the next action is to present the required approval summary and wait for the operator.

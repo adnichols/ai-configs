@@ -2,12 +2,14 @@
 """Delivery stage ledger CLI.
 
 Guidance, not gates: recommended checks produce advisories and never block
-continuation. Stage transitions always succeed.
+continuation. Explicit readiness review and entering implementation are the
+exceptions: each requires the corresponding operator authorization record.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -57,6 +59,14 @@ REFLECTIONS_HEADING = (
 RECOMMENDED_EVIDENCE = {
     "plan": ["PLAN_DRAFT", "PLAN_BROWSER_REVIEW", "PLAN_PM_REVIEW", "PLAN_TECH_REVIEW", "EXECUTION_READY"],
     "planBrowserReview": ["PLAN_BROWSER_REVIEW", "EXECUTION_READY", "IMPLEMENTING"],
+    # The browser's explicit readiness action is distinct from ordinary routed feedback.
+    "planReadinessRequest": [
+        "PLAN_BROWSER_REVIEW",
+        "PLAN_PM_REVIEW",
+        "PLAN_TECH_REVIEW",
+        "EXECUTION_READY",
+        "IMPLEMENTING",
+    ],
     "planPm": ["PLAN_PM_REVIEW", "EXECUTION_READY", "IMPLEMENTING"],
     "planTech": ["PLAN_TECH_REVIEW", "EXECUTION_READY", "IMPLEMENTING"],
     "implementation": ["IMPLEMENTING", "SCOPED_REVIEW", "IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN"],
@@ -117,10 +127,24 @@ STAGE_NAME_SET = {s.upper() for s in STAGES}
 STAGE_NEXT_SKILL = {
     "INTAKE": "Start from description/plan even without Linear; attach issue later with delivery set --issue KEY. Then stage PLAN_DRAFT and use reviewed-html-plan or dev-plan",
     "PLAN_DRAFT": "Use /skill:dev-plan or /skill:reviewed-html-plan to materialize the HTML plan",
-    "PLAN_BROWSER_REVIEW": "Register/listen via doct-document-ops; process Doct feedback",
-    "PLAN_PM_REVIEW": "Run /dev:pm-review <plan> plan (product outcome + stage fit)",
-    "PLAN_TECH_REVIEW": "Run active-harness reviewer plan review via reviewed-html-plan",
-    "EXECUTION_READY": "Use /skill:run-plan <plan> to implement through PR",
+    "PLAN_BROWSER_REVIEW": (
+        "Register/listen via doct-document-ops; process browser feedback, then wait for Doct's "
+        "explicit `Request execution-ready review` action "
+        "(`agentRoute.requestedSkill=plan-reviewer-execution-ready`) before PM or technical plan review"
+    ),
+    "PLAN_PM_REVIEW": (
+        "After planReadinessRequest is recorded from an explicit execution-ready request, "
+        "run /dev:pm-review <plan> plan (product outcome + stage fit)"
+    ),
+    "PLAN_TECH_REVIEW": (
+        "After planReadinessRequest is recorded, run active-harness reviewer plan review "
+        "via reviewed-html-plan"
+    ),
+    "EXECUTION_READY": (
+        "Pause: present the operator approval summary (plan status, expected changes, "
+        "implementation model/reasoning, and remaining steps), then wait for explicit "
+        "approval. Do not invoke run-plan yet."
+    ),
     "IMPLEMENTING": "Continue /skill:run-plan phase work; keep ledger notes current",
     "SCOPED_REVIEW": "Run scoped quality review (run-plan section) with live-worktree reviewer",
     "IMPL_PM_OUTCOME": "Run /dev:pm-review <plan> implementation + fill customerImpact/completionEval",
@@ -246,6 +270,17 @@ def new_ledger(
             }
         ],
         "evidence": empty_evidence(),
+        "implementationApproval": {
+            "status": "pending",
+            "source": None,
+            "planSha256": None,
+            "model": None,
+            "reasoningLevel": None,
+            "summary": None,
+            "approvedAt": None,
+            "invalidatedAt": None,
+            "reason": None,
+        },
         "customerImpact": {
             "promised": [],
             "observed": [],
@@ -295,6 +330,80 @@ def refresh_git_fields(ledger: dict[str, Any], root: Path) -> None:
     if head:
         ledger["head"] = head
     ledger["worktree"] = str(root)
+
+
+def plan_sha256(ledger: dict[str, Any], root: Path) -> str | None:
+    """Return the recorded plan's current content hash, or None when unavailable."""
+    raw_plan = ledger.get("plan")
+    if not isinstance(raw_plan, str) or not raw_plan.strip():
+        return None
+    candidate = Path(raw_plan).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        candidate = candidate.resolve()
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return None
+    if not candidate.is_file():
+        return None
+    return hashlib.sha256(candidate.read_bytes()).hexdigest()
+
+
+def plan_readiness_request_problem(ledger: dict[str, Any], root: Path) -> str | None:
+    """Explain why readiness review cannot begin for the current plan revision."""
+    evidence = ledger.get("evidence") or {}
+    request = evidence.get("planReadinessRequest") or {}
+    if request.get("status") != "pass":
+        return (
+            "no explicit execution-ready review request is recorded "
+            "(record planReadinessRequest=pass only after the operator asks or uses Doct's action)"
+        )
+    current_hash = plan_sha256(ledger, root)
+    if current_hash is None:
+        return "the recorded plan is missing, outside this worktree, or unreadable"
+    if request.get("planSha256") != current_hash:
+        return "the plan changed after the recorded execution-ready review request"
+    return None
+
+
+def reset_plan_readiness_request(ledger: dict[str, Any], reason: str) -> None:
+    request = ledger.setdefault("evidence", {}).setdefault(
+        "planReadinessRequest",
+        {"status": "pending", "artifact": None, "summary": None, "updatedAt": None},
+    )
+    request.update({"status": "pending", "planSha256": None, "updatedAt": utc_now()})
+    request["summary"] = reason
+
+
+def implementation_approval_problem(ledger: dict[str, Any], root: Path) -> str | None:
+    """Explain why implementation cannot begin for this ledger, if applicable."""
+    approval = ledger.get("implementationApproval") or {}
+    if approval.get("status") != "approved":
+        return "no explicit operator implementation approval is recorded"
+    current_hash = plan_sha256(ledger, root)
+    if current_hash is None:
+        return "the recorded plan is missing, outside this worktree, or unreadable"
+    if approval.get("planSha256") != current_hash:
+        return "the plan changed after the recorded implementation approval"
+    return None
+
+
+def reset_implementation_approval(ledger: dict[str, Any], reason: str) -> None:
+    approval = ledger.setdefault("implementationApproval", {})
+    approval.update(
+        {
+            "status": "pending",
+            "source": None,
+            "planSha256": None,
+            "model": None,
+            "reasoningLevel": None,
+            "summary": None,
+            "approvedAt": None,
+            "invalidatedAt": utc_now(),
+            "reason": reason,
+        }
+    )
 
 
 def phase_code(stage: str | None) -> str:
@@ -562,6 +671,12 @@ def cmd_show(args: argparse.Namespace) -> int:
     print(f"worktree:  {ledger.get('worktree')}")
     print(f"pr:        {ledger.get('prUrl')}")
     print(f"doct:      {ledger.get('doctUrl')}")
+    approval = ledger.get("implementationApproval") or {}
+    approval_problem = implementation_approval_problem(ledger, root)
+    approval_status = approval.get("status", "pending")
+    if approval_problem:
+        approval_status = f"{approval_status} ({approval_problem})"
+    print(f"implementation approval: {approval_status}")
     print(f"updated:   {ledger.get('updatedAt')}")
     print(f"next:      {STAGE_NEXT_SKILL.get(str(ledger.get('stage')), 'n/a')}")
     print("evidence:")
@@ -589,6 +704,22 @@ def cmd_stage(args: argparse.Namespace) -> int:
     if stage not in STAGES:
         die(f"unknown stage {stage!r}; choose from: {', '.join(STAGES)}")
     path, ledger, root = load_ledger_for(args)
+    if stage in {"PLAN_PM_REVIEW", "PLAN_TECH_REVIEW", "EXECUTION_READY"}:
+        readiness_problem = plan_readiness_request_problem(ledger, root)
+        if readiness_problem:
+            die(
+                f"cannot enter {stage}: {readiness_problem}. "
+                "Continue processing ordinary feedback in PLAN_BROWSER_REVIEW."
+            )
+    if stage == "IMPLEMENTING":
+        approval_problem = implementation_approval_problem(ledger, root)
+        if approval_problem:
+            die(
+                "cannot enter IMPLEMENTING: "
+                f"{approval_problem}. Present the execution-ready summary, obtain a direct "
+                "operator approval, then run `delivery approve-implementation --source chat|doct "
+                "--summary \"...\"`."
+            )
     prev = ledger.get("stage")
     ledger["stage"] = stage
     refresh_git_fields(ledger, root)
@@ -599,6 +730,56 @@ def cmd_stage(args: argparse.Namespace) -> int:
     write_json(path, ledger)
     print(f"{prev} -> {stage}")
     print(f"next: {STAGE_NEXT_SKILL.get(stage, 'n/a')}")
+    return 0
+
+
+def cmd_approve_implementation(args: argparse.Namespace) -> int:
+    path, ledger, root = load_ledger_for(args)
+    if ledger.get("stage") != "EXECUTION_READY":
+        die("implementation approval is allowed only at EXECUTION_READY")
+    fingerprint = plan_sha256(ledger, root)
+    if fingerprint is None:
+        die("cannot approve implementation: recorded plan is missing, outside this worktree, or unreadable")
+    model = (args.model or os.environ.get("PI_MODEL") or "").strip()
+    reasoning = (args.reasoning_level or os.environ.get("PI_REASONING_LEVEL") or "").strip()
+    if not model or not reasoning:
+        die("implementation approval requires --model and --reasoning-level (or PI_MODEL and PI_REASONING_LEVEL)")
+    approval = ledger.setdefault("implementationApproval", {})
+    approval.update(
+        {
+            "status": "approved",
+            "source": args.source,
+            "planSha256": fingerprint,
+            "model": model,
+            "reasoningLevel": reasoning,
+            "summary": args.summary,
+            "approvedAt": utc_now(),
+            "invalidatedAt": None,
+            "reason": None,
+        }
+    )
+    append_history(
+        ledger,
+        "implementation_approval",
+        "operator approved implementation",
+        source=args.source,
+        planSha256=fingerprint,
+        model=model,
+        reasoningLevel=reasoning,
+    )
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
+    print("implementation approval recorded")
+    return 0
+
+
+def cmd_revoke_implementation_approval(args: argparse.Namespace) -> int:
+    path, ledger, root = load_ledger_for(args)
+    reset_implementation_approval(ledger, args.reason)
+    append_history(ledger, "implementation_approval_revoked", args.reason)
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
+    print("implementation approval revoked")
     return 0
 
 
@@ -638,6 +819,8 @@ def cmd_set(args: argparse.Namespace) -> int:
         prev = ledger.get("plan")
         if prev != plan:
             changes.append(f"plan: {prev!r} -> {plan!r}")
+            reset_plan_readiness_request(ledger, "recorded plan path changed")
+            reset_implementation_approval(ledger, "recorded plan path changed")
         ledger["plan"] = plan
 
     if args.doct_url is not None:
@@ -781,12 +964,19 @@ def cmd_record(args: argparse.Namespace) -> int:
         if args.summary is not None:
             ev["summary"] = args.summary
         ev["updatedAt"] = now
+        if key == "planReadinessRequest":
+            ev["planSha256"] = plan_sha256(ledger, root) if status == "pass" else None
+            if status == "pass" and ev["planSha256"] is None:
+                die("cannot record planReadinessRequest=pass: recorded plan is missing, outside this worktree, or unreadable")
 
     if args.pr_url:
         ledger["prUrl"] = args.pr_url
     if args.doct_url:
         ledger["doctUrl"] = args.doct_url
     if args.plan:
+        if ledger.get("plan") != args.plan:
+            reset_plan_readiness_request(ledger, "recorded plan path changed")
+            reset_implementation_approval(ledger, "recorded plan path changed")
         ledger["plan"] = args.plan
 
     append_history(ledger, "record", f"{key}={status}", key=key, status=status)
@@ -827,6 +1017,16 @@ def build_advisories(ledger: dict[str, Any]) -> list[dict[str, str]]:
         advisories.append({"code": code, "severity": severity, "message": message})
 
     add("NEXT", STAGE_NEXT_SKILL.get(stage, "No mapped next skill"), "info")
+
+    if stage == "EXECUTION_READY":
+        approval_problem = implementation_approval_problem(ledger, Path(ledger.get("worktree") or Path.cwd()))
+        if approval_problem:
+            add(
+                "IMPLEMENTATION_APPROVAL",
+                "Implementation is paused: "
+                f"{approval_problem}. Present the operator summary and wait for approval.",
+                "warn",
+            )
 
     for key, stages in RECOMMENDED_EVIDENCE.items():
         if stage not in stages:
@@ -1192,6 +1392,8 @@ def agent_start_prompt(goal: str, *, issue: str | None, worktree: str) -> str:
         "2. Run `delivery show` and `delivery check -v`.\n"
         "3. Continue from the brief's **Recommended next step** using existing worker skills\n"
         "   (reviewed-html-plan / dev-plan → plan review loop → run-plan → autoreview → PR).\n"
+        "   During `PLAN_BROWSER_REVIEW`, integrate ordinary feedback but wait for Doct's explicit\n"
+        "   `Request execution-ready review` action before PM or technical readiness review.\n"
         "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
         "5. Before finishing: `delivery reflect --trigger end-of-run --friction '...' "
         "--improvement '...' --mark-done`.\n\n"
@@ -1749,6 +1951,11 @@ def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
     slug = ledger.get("slug") or "(none)"
     pr = ledger.get("prUrl") or "(none)"
     doct = ledger.get("doctUrl") or "(none)"
+    approval = ledger.get("implementationApproval") or {}
+    approval_status = approval.get("status") or "pending"
+    approval_profile = " / ".join(
+        part for part in (approval.get("model"), approval.get("reasoningLevel")) if part
+    ) or "(selected at approval)"
 
     stage_rows = "\n".join(
         f"| `{s}` | {STAGE_NEXT_SKILL.get(s, '')} |" for s in STAGES
@@ -1773,6 +1980,7 @@ Doctrine: **guidance, not gates** — advisories never hard-block continuation.
 | worktree | {ledger.get('worktree')} |
 | branch | {ledger.get('branch')} |
 | ledger | {path} |
+| implementation approval | {approval_status} ({approval_profile}) |
 
 ## Your job
 
@@ -1794,6 +2002,45 @@ The `delivery` CLI is the scoreboard + navigator, not the implementer.
 5. If a Linear issue appears later: `delivery set --issue KEY --retarget-id`.
 6. Never stop solely because recommended evidence is pending/gap.
 
+## Browser-review readiness trigger
+
+While the stage is `PLAN_BROWSER_REVIEW`:
+
+- An ordinary routed Doct comment (`submitAction: "agent"` with no
+  `agentRoute.requestedSkill`) is browser feedback. Integrate and acknowledge it,
+  then remain in `PLAN_BROWSER_REVIEW`.
+- Do **not** start PM or technical readiness review because the first feedback was
+  processed, the listener is quiet, or `planBrowserReview` is marked pass.
+- Start the readiness cycle only after a direct operator instruction or Doct's
+  explicit **Request execution-ready review** action. The current toolbar action
+  emits `agentRoute.requestedSkill: "plan-reviewer-execution-ready"`.
+- Record that signal before advancing: `delivery record planReadinessRequest
+  --status pass --summary "Doct execution-ready review request"`, then move to
+  `PLAN_PM_REVIEW`. `delivery stage PLAN_PM_REVIEW`, `PLAN_TECH_REVIEW`, and
+  `EXECUTION_READY` reject a missing request record. This is an authorization
+  boundary, not ordinary advisory evidence.
+
+## Execution-ready approval pause
+
+When the stage is `EXECUTION_READY`, do **not** invoke `run-plan`, change product code,
+or move to `IMPLEMENTING`. Keep the Doct listener alive and give the operator a concise
+summary of: (1) the current plan/review status, (2) the customer-visible and technical
+changes implementation will make, (3) the implementation model and reasoning level, and
+(4) the remaining phase/review/verification/PR steps. Ask whether to proceed.
+
+Only after a direct operator approval in chat or a deliberate Doct implementation-approval
+action may you record it:
+
+```bash
+delivery approve-implementation --source chat|doct \\
+  --summary "Operator saw status, changes, model/reasoning, and remaining steps"
+```
+
+`delivery stage IMPLEMENTING` rejects missing or stale approval. If a material Doct comment
+arrives before implementation, update the plan, run
+`delivery revoke-implementation-approval --reason "material plan feedback"`, and return to
+`PLAN_BROWSER_REVIEW`; a fresh explicit execution-ready request is then required.
+
 ## Recommended next step
 
 **{next_step}**
@@ -1809,6 +2056,8 @@ delivery show
 delivery check -v
 delivery stages
 delivery stage <STAGE> [--note "..."]
+delivery approve-implementation --source chat|doct --summary "..."
+delivery revoke-implementation-approval --reason "material plan feedback"
 delivery set --issue KEY --retarget-id          # Linear optional at start
 delivery set --plan path/to/plan.html
 delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
@@ -1838,6 +2087,7 @@ delivery bootstrap --refresh                    # rewrite this brief
 
 ## Soft quality inserts (recommended, never required)
 
+- `delivery record planReadinessRequest --status pass --summary "Doct execution-ready review request"`
 - `delivery record completionEval --status pass|gap --summary "..."`
 - `delivery record customerImpact --status pass --summary "..." --promised "..." --observed "..."`
 - `delivery record adversarialQa --status pass|na --summary "..."`
@@ -1864,6 +2114,9 @@ Skip only if there is truly nothing process-shaped to capture; prefer a short ho
 - Do **not** reimplement run-plan / reviewed-html-plan / autoreview inside ad-hoc prose.
 - Do **not** hard-block the operator on missing delivery evidence.
 - Do **not** require a Linear issue to start; attach it when it exists.
+- Treat generic browser feedback as plan iteration, not an implied execution-ready review request.
+- `execution-ready` is a reviewed-plan status, not authorization to implement. Pause for explicit operator approval.
+- If material feedback arrives after readiness but before implementation, invalidate approval and return to browser review.
 - Prefer keeping the ledger honest over perfect process compliance.
 - If truly stuck on a human decision: `delivery blocker "..." --mark-blocked` and report the decision needed.
 - End every delivery run with `delivery reflect` when possible.
@@ -2023,10 +2276,34 @@ def build_parser() -> argparse.ArgumentParser:
     add_json_flag(p_show)
     p_show.set_defaults(func=cmd_show)
 
-    p_stage = sub.add_parser("stage", help="Set stage (always allowed)")
+    p_stage = sub.add_parser("stage", help="Set stage (IMPLEMENTING requires current operator approval)")
     p_stage.add_argument("stage", help="Target stage")
     p_stage.add_argument("--note", help="Optional note with the transition")
     p_stage.set_defaults(func=cmd_stage)
+
+    p_approve = sub.add_parser(
+        "approve-implementation",
+        help="Record explicit operator approval for the current execution-ready plan revision",
+    )
+    p_approve.add_argument("--source", required=True, choices=("chat", "doct"))
+    p_approve.add_argument(
+        "--summary",
+        required=True,
+        help="Record that the operator received status, change, model, and remaining-step summary",
+    )
+    p_approve.add_argument("--model", help="Implementation model (defaults to PI_MODEL)")
+    p_approve.add_argument(
+        "--reasoning-level",
+        help="Implementation reasoning level (defaults to PI_REASONING_LEVEL)",
+    )
+    p_approve.set_defaults(func=cmd_approve_implementation)
+
+    p_revoke_approve = sub.add_parser(
+        "revoke-implementation-approval",
+        help="Invalidate a pending approval after material plan feedback",
+    )
+    p_revoke_approve.add_argument("--reason", required=True)
+    p_revoke_approve.set_defaults(func=cmd_revoke_implementation_approval)
 
     p_note = sub.add_parser("note", help="Append a freeform note")
     p_note.add_argument("text", nargs=argparse.REMAINDER)

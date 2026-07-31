@@ -64,6 +64,7 @@ Before editing, read the full plan and extract:
 Stop before implementation if:
 
 - the plan is not execution-ready,
+- a delivery ledger exists and is not `EXECUTION_READY` with a recorded explicit readiness request, or it lacks a current explicit operator approval for the exact reviewed plan content (`delivery approve-implementation`); never treat readiness metadata, a generic Doct comment/action, a quiet listener, or an old approval as implementation authorization,
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
@@ -142,19 +143,23 @@ An operator ship or stop directive ends this budget immediately wherever it stan
 
 Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: only when the operator explicitly asks to supervise this run, follow `skills/supervise/SKILL.md`. Otherwise, continue without supervisor checkpoints, phase pings, or expansion-log entries.
 
-### 0b. Optional delivery ledger (guidance, not a gate)
+### 0b. Optional delivery ledger (guidance, except implementation approval)
 
-When the `delivery` CLI or `delivery-run` skill is available, keep the per-worktree ledger current as soft progress tracking:
+When the `delivery` CLI or `delivery-run` skill is available, keep the per-worktree ledger current as soft progress tracking. The one exception is implementation authorization: when a delivery ledger exists, `run-plan` must not start until the operator has approved the current execution-ready plan revision and the approval is recorded.
 
 ```bash
 delivery init --plan <plan-path>                 # issue optional at start
 delivery set --issue <KEY> --retarget-id         # attach Linear later when it exists
-delivery stage IMPLEMENTING|SCOPED_REVIEW|IMPL_PM_OUTCOME|AUTOREVIEW|PR_OPEN|MERGE_READY|DONE
+# At EXECUTION_READY: give the operator status, changes, model/reasoning, and remaining steps;
+# then, after direct approval:
+delivery approve-implementation --source chat|doct --summary "Operator received the execution-ready summary"
+delivery stage IMPLEMENTING
+delivery stage SCOPED_REVIEW|IMPL_PM_OUTCOME|AUTOREVIEW|PR_OPEN|MERGE_READY|DONE
 delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
 delivery check -v   # advisories only; always exit 0
 ```
 
-Missing ledger evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps.
+Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. A missing, stale, or revoked implementation approval is different: it stops pre-code execution until the operator approves the current plan revision. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
 
 When the scoped run reaches local merge-readiness or a durable stop (DONE/blocked handoff), best-effort log a process reflection outside the worktree:
 
