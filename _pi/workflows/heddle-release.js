@@ -8,9 +8,9 @@
  *
  * Stages (auto-resume the newest in-flight train only):
  *   cut → gate (interactive TTY) → build (single flocked shell) → publish
- * When the newest recorded train is complete, the default is a new train from
- * origin/develop. If there are no commits since that completed train, a
- * checkpoint asks whether to rebuild it or start the new train.
+ * When the newest recorded train is complete, the default asks the operator
+ * whether to start a new train from origin/develop. Declining leaves the
+ * completed release untouched.
  *
  * args:
  *   parentRepo, developRepo, worktreePath, githubRepo, bump,
@@ -119,7 +119,10 @@ const resumeFrom = resumeFromRaw
 if (resumeFromRaw && !resumeFrom) {
   throw new Error('args.resumeFrom must be auto|after-cut|after-gate|build|publish');
 }
+// `auto` is the default mode, not an instruction to reopen a completed
+// release checkout. Only a named stage is an explicit recovery request.
 const resumeRequested = resumeFrom !== null;
+const explicitRecoveryRequested = resumeFrom !== null && resumeFrom !== "auto";
 
 function herdrArgs(parts) {
   return herdrSession ? ["herdr", "--session", herdrSession, ...parts] : ["herdr", ...parts];
@@ -492,14 +495,21 @@ async function countCommitsSince(baseSha) {
 let worktreePath = worktreePathArg;
 let releaseVersion = explicitReleaseVersion ? explicitReleaseVersion.split("+")[0] : null;
 let bundle = null;
-let rebuildCurrent = false;
+let startingNewRelease = false;
 
-if (worktreePath) {
+// A carried-over worktree path must not turn the default/auto path into a
+// completed-release resume. It is a selector only with an explicit version or
+// named recovery stage; otherwise the state scan decides whether to resume or
+// offers the operator a new train.
+if (worktreePath && (explicitReleaseVersion || explicitRecoveryRequested)) {
   bundle = await loadStateBundle(worktreePath, releaseVersion);
   releaseVersion = releaseVersion || bundle.version;
+} else if (worktreePath) {
+  log(`Ignoring carried-over worktreePath for default release selection: ${worktreePath}`);
+  worktreePath = null;
 }
-if (!releaseVersion && resumeRequested) {
-  // try cwd
+if (!releaseVersion && explicitRecoveryRequested) {
+  // A named recovery stage may use the current release checkout.
   const cwdBundle = await loadStateBundle(launchCwd, null);
   if (cwdBundle && looksLikeReleaseWorktree(cwdBundle)) {
     bundle = cwdBundle;
@@ -508,7 +518,7 @@ if (!releaseVersion && resumeRequested) {
     log(`Detected release worktree from cwd: ${worktreePath} (v${releaseVersion || "?"}).`);
   }
 }
-if (!releaseVersion && !resumeRequested) {
+if (!releaseVersion && !explicitRecoveryRequested) {
   // Only the newest recorded train participates in automatic continuation. Older
   // incomplete trains are historical work and must not hijack a new release.
   const stateScan = await runOk(
@@ -536,9 +546,18 @@ if root.is_dir():
         publish = load("publish.json")
         has_state = any((d / name).exists() for name in ("progress.json", "cut.json", "gate.json", "build.json", "publish.json"))
         if not has_state: continue
+        # progress.json can be stale after an interrupted host delivery. Derive
+        # completion from the durable stage artifacts before considering it in-flight.
+        done = (
+            cut.get("status") == "ready"
+            and gate.get("status") == "open"
+            and build.get("status") == "built"
+            and bool(build.get("pkgPath"))
+            and publish.get("status") in ("completed", "built_not_published")
+        )
         states.append({
             "version": match.group(1),
-            "done": progress.get("next") == "done",
+            "done": done,
             "releaseHeadSha": cut.get("releaseHeadSha"),
             "developHeadSha": cut.get("developHeadSha"),
         })
@@ -568,39 +587,41 @@ PY`,
             ? " and its commit baseline could not be verified."
             : ` with ${commitsSinceLastSuccess} commit(s) since that release.`),
       );
-      if (commitsSinceLastSuccess === 0) {
-        const startNew = await checkpoint({
-          name: "heddle-release-no-product-commits",
-          prompt: [
-            `Latest completed release is v${latestRecorded.version}, and origin/develop has no commits since its recorded baseline.`,
-            `Approve to start a new release train for v${developVersion}.`,
-            `Reject to rebuild the current completed release v${latestRecorded.version}.`,
-          ].join(" "),
-          context: {
-            latestCompletedVersion: latestRecorded.version,
-            nextDevelopVersion: developVersion,
-            baselineSha: latestRecorded.developHeadSha,
-            commitsSinceLastSuccess,
-          },
-        });
-        if (startNew) {
-          releaseVersion = developVersion;
-          log(`Operator selected a new release train v${releaseVersion}.`);
-        } else {
-          releaseVersion = latestRecorded.version;
-          rebuildCurrent = true;
-          log(`Operator selected a rebuild of completed release v${releaseVersion}.`);
-        }
-      } else {
-        releaseVersion = developVersion;
+      const startNew = await checkpoint({
+        name: "heddle-release-start-next",
+        prompt: [
+          `Latest completed release is v${latestRecorded.version}; origin/develop is v${developVersion}.`,
+          `Start a new release train for v${developVersion}?`,
+          "Reject to leave the completed release untouched.",
+        ].join(" "),
+        context: {
+          latestCompletedVersion: latestRecorded.version,
+          nextDevelopVersion: developVersion,
+          baselineSha: latestRecorded.developHeadSha,
+          commitsSinceLastSuccess,
+        },
+      });
+      if (!startNew) {
+        return {
+          ok: true,
+          startedNewRelease: false,
+          completedReleaseVersion: latestRecorded.version,
+          nextDevelopVersion: developVersion,
+          message: `Release v${latestRecorded.version} remains complete; no new release was started.`,
+        };
       }
+      releaseVersion = developVersion;
+      // The launch pane may still be in the completed release checkout. A new
+      // train must resolve/create its own worktree rather than reuse that checkout.
+      startingNewRelease = true;
+      log(`Operator selected a new release train v${releaseVersion}.`);
     } else {
       releaseVersion = developVersion;
     }
   }
 }
 // cwd detection ONLY when launched inside a real release checkout (path/branch proof).
-if (!worktreePath) {
+if (!worktreePath && !startingNewRelease) {
   const cwdMeta = await loadPkgAndBranch(launchCwd);
   if (looksLikeReleaseWorktree({ branch: cwdMeta.branch, root: launchCwd })) {
     const cwdBundle = await loadStateBundle(launchCwd, releaseVersion);
@@ -613,7 +634,7 @@ if (!worktreePath) {
 if (!releaseVersion && explicitReleaseVersion) releaseVersion = explicitReleaseVersion.split("+")[0];
 if (!/^[0-9]+\.[0-9]+\.[0-9]+/.test(releaseVersion || "")) {
   throw new Error(
-    resumeRequested
+    explicitRecoveryRequested
       ? "Resume could not detect release version. Run from the release worktree or pass releaseVersion=0.x.y."
       : `Could not resolve release version (got ${JSON.stringify(releaseVersion)})`,
   );
@@ -675,13 +696,7 @@ function computeNext() {
 let progressStage = computeNext();
 
 let effectiveResume = resumeFrom;
-if (rebuildCurrent) {
-  if (!cutReady) throw new Error(`Rebuild of v${releaseVersion} needs ready cut.json in ${stateDir}`);
-  // Reuse the cut and gate, but force a fresh signed build instead of returning
-  // early on the completed progress.json/build.json state.
-  effectiveResume = "after-gate";
-  progressStage = "build";
-} else if (!effectiveResume && cutReady) effectiveResume = "auto";
+if (!effectiveResume && cutReady) effectiveResume = "auto";
 if (resumeRequested && !effectiveResume) effectiveResume = "auto";
 
 let skipCut = false;
@@ -783,7 +798,7 @@ if (dryRun) {
   };
 }
 
-if (progressStage === "done" && !rebuildCurrent) {
+if (progressStage === "done") {
   return {
     ok: true,
     alreadyComplete: true,
