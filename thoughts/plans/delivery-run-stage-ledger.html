@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Delivery Run Stage Ledger (v0)</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --good: #34d399;
+      --warn: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero, section {
+      background: rgba(17, 24, 39, 0.84);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      margin: 16px 0;
+    }
+    header.hero {
+      background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12));
+    }
+    h1, h2, h3 { color: #f8fafc; line-height: 1.2; }
+    h1 { margin: 0 0 10px; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 18px 0 8px; color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: #0f172a; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); text-align: left; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .pill {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--muted);
+      background: rgba(15, 23, 42, 0.76);
+      font-size: 0.9rem;
+    }
+    .pill.good { color: var(--good); border-color: rgba(52, 211, 153, 0.55); }
+    .pill.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.55); }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    .toc a { color: var(--muted); text-decoration: none; }
+    .toc a:hover { color: var(--text); }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: rgba(125, 211, 252, 0.08);
+      padding: 12px 14px;
+      border-radius: 0 12px 12px 0;
+      margin: 12px 0;
+    }
+    ul.progress { list-style: none; padding: 0; }
+    ul.progress li { padding: 6px 0; border-bottom: 1px solid rgba(44, 54, 79, 0.6); }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero" id="top">
+    <h1>Delivery Run Stage Ledger (v0)</h1>
+    <p class="muted">Make the existing plan ↔ review → run-plan → autoreview → PR cycle visible and resumable per worktree, using guidance and soft checks rather than hard gates.</p>
+    <div class="pill-row">
+      <span class="pill good">Status: v0 shipped</span>
+      <span class="pill warn">Doctrine: guidance, not gates</span>
+      <span class="pill">Repo: ai-configs</span>
+    </div>
+  </header>
+
+  <section id="toc">
+    <h2>Contents</h2>
+    <div class="toc">
+      <a href="#product-owner">Product-owner context</a>
+      <a href="#whats-new">What's new</a>
+      <a href="#goal">Goal</a>
+      <a href="#decisions">Locked decisions</a>
+      <a href="#progress">Progress</a>
+      <a href="#stages">Stage model</a>
+      <a href="#acceptance">Acceptance criteria</a>
+      <a href="#phases">Phases</a>
+      <a href="#verify">Verification</a>
+      <a href="#non-goals">Non-goals</a>
+    </div>
+  </section>
+
+  <section id="product-owner">
+    <h2>Product-owner context</h2>
+    <p>Agent development already has strong skills for planning, review, implementation, and PR creation. What is missing is a single place that answers: for each worktree, where are we in the process, what evidence do we have, and what should happen next?</p>
+    <p>Hard gates are intentionally out. A broken optional check must never force the operator to disable the whole workflow. The system should make the right next step obvious and record gaps honestly, while still letting work continue.</p>
+    <table>
+      <thead><tr><th>Dimension</th><th>Impact</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>Indirect: higher quality and less incomplete delivery on customer-facing product work driven through this process.</td></tr>
+        <tr><td>Runtime product behavior</td><td>No change to customer product runtimes. This is operator/agent workflow tooling in ai-configs.</td></tr>
+        <tr><td>Security / permissions</td><td>No change. Ledger is local JSON; no new network authority.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Soft completion and PM/QA prompts improve honesty about what was checked before PR.</td></tr>
+        <tr><td>Deployment / migration</td><td>Not applicable for v0 beyond installing a local CLI/skill.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What's new</h2>
+    <h3>Per-worktree delivery board without hard blocks</h3>
+    <p><strong>Promise:</strong> every active delivery worktree can keep a durable stage ledger and appear on one board, with recommended next skills and soft advisories.</p>
+    <ul>
+      <li><strong>Before:</strong> process lived in long skill prose; progress was scattered across panes, git, Doct, and validation markdown.</li>
+      <li><strong>After:</strong> <code>delivery init/show/board/stage/record/check</code> plus a <code>delivery-run</code> skill that orchestrates existing skills as guidance.</li>
+      <li><strong>Observable result:</strong> <code>delivery board</code> lists worktrees by stage; <code>delivery check</code> prints advisories and never hard-blocks continuation.</li>
+      <li><strong>Preserved:</strong> existing <code>reviewed-html-plan</code>, <code>run-plan</code>, <code>autoreview</code>, PM, and QA skills remain the real workers.</li>
+    </ul>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Ship a v0 delivery stage ledger and skill that make the existing development cycle more automated, deterministic, and visible — using guidance and checks/balances, not required gates.</p>
+  </section>
+
+  <section id="decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li id="ld-1"><strong>Guidance, not gates.</strong> Missing recommended evidence becomes an advisory/gap in the ledger. Stage transitions always succeed. No command may refuse continuation solely because a recommended check is incomplete.</li>
+      <li id="ld-2"><strong>Do not reimplement workers.</strong> Planning, coding, review, PM, and QA stay in existing skills. Delivery-run records state and points to the next skill.</li>
+      <li id="ld-3"><strong>Ledger lives in the worktree</strong> at <code>.delivery/ledger.json</code>. Board scan covers cwd and <code>~/.herdr/worktrees/*/*/.delivery/ledger.json</code>.</li>
+      <li id="ld-4"><strong>Soft quality inserts in v0:</strong> recommended completion eval, PM/customer-impact matrix notes, and conditional adversarial QA prompts are structured fields + check advisories, not blockers.</li>
+      <li id="ld-5"><strong>Optional Herdr label sync.</strong> Best-effort only; failure never breaks delivery commands.</li>
+    </ol>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="progress">
+      <li id="p1">[x] Phase 1 — Plan + stage contract</li>
+      <li id="p2">[x] Phase 2 — <code>delivery</code> CLI + ledger schema + tests</li>
+      <li id="p3">[x] Phase 3 — <code>delivery-run</code> skill + Pi prompt</li>
+      <li id="p4">[x] Phase 4 — Install matrix, install.sh, AGENTS quick ref</li>
+      <li id="p5">[x] Phase 5 — Local verify and smoke on a worktree</li>
+    </ul>
+  </section>
+
+  <section id="stages">
+    <h2>Stage model</h2>
+    <pre>INTAKE
+PLAN_DRAFT
+PLAN_BROWSER_REVIEW
+PLAN_PM_REVIEW
+PLAN_TECH_REVIEW
+EXECUTION_READY
+IMPLEMENTING
+SCOPED_REVIEW
+IMPL_PM_OUTCOME
+AUTOREVIEW
+VERIFY_FRESHNESS
+PR_OPEN
+MERGE_READY
+ADVERSARIAL_QA
+DONE
+BLOCKED</pre>
+    <p class="muted">Plan stages may move backward during the plan ↔ review loop. Later stages may also move freely because this is guidance, not a locked state machine.</p>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance criteria</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Criterion</th><th>Verify</th></tr></thead>
+      <tbody>
+        <tr id="ac1"><td>AC1</td><td><code>delivery init</code> creates <code>.delivery/ledger.json</code> with id, stage, timestamps, and empty evidence slots.</td><td>CLI test + file inspect</td></tr>
+        <tr id="ac2"><td>AC2</td><td><code>delivery stage</code> updates stage and history without validating required gates.</td><td>CLI test</td></tr>
+        <tr id="ac3"><td>AC3</td><td><code>delivery record</code> stores recommended evidence status (<code>pass|skip|gap|na|pending</code>) and artifacts.</td><td>CLI test</td></tr>
+        <tr id="ac4"><td>AC4</td><td><code>delivery check</code> emits advisories for missing recommended evidence and exits 0 even when gaps exist.</td><td>CLI test</td></tr>
+        <tr id="ac5"><td>AC5</td><td><code>delivery board</code> lists multiple ledgers with stage and issue/plan summary.</td><td>CLI test with temp trees</td></tr>
+        <tr id="ac6"><td>AC6</td><td><code>delivery-run</code> skill documents the cycle and maps stages to existing skills without introducing hard stops.</td><td>skill read + wording check</td></tr>
+        <tr id="ac7"><td>AC7</td><td>Install path places skill in install-matrix and CLI on <code>~/.local/bin/delivery</code> via install.sh shared-skill install.</td><td>matrix grep + install path dry check</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="phases">
+    <h2>Phases</h2>
+
+    <article id="phase-1">
+      <h3>Phase 1 — Plan + stage contract</h3>
+      <p><strong>End state:</strong> this plan exists with guidance-not-gates doctrine locked.</p>
+      <p><strong>Work:</strong> capture process, stage list, soft-check philosophy, non-goals.</p>
+    </article>
+
+    <article id="phase-2">
+      <h3>Phase 2 — delivery CLI + ledger + tests</h3>
+      <p><strong>End state:</strong> <code>skills/delivery-run/scripts/delivery</code> supports init/show/status/board/stage/note/record/check/path.</p>
+      <p><strong>Tests first:</strong> bash tests for init, stage free movement, check exit 0 with gaps, board scan.</p>
+      <p><strong>Expected files:</strong> <code>skills/delivery-run/scripts/delivery</code>, <code>skills/delivery-run/tests/test_delivery_cli.sh</code>, schema notes in skill.</p>
+    </article>
+
+    <article id="phase-3">
+      <h3>Phase 3 — delivery-run skill + Pi prompt</h3>
+      <p><strong>End state:</strong> agents can follow <code>/skill:delivery-run</code> / <code>/delivery:run</code> and keep the ledger current while invoking existing skills.</p>
+      <p><strong>Expected files:</strong> <code>skills/delivery-run/SKILL.md</code>, <code>_pi/prompts/delivery:run.md</code>, optional <code>_pi/prompts/delivery:status.md</code>.</p>
+    </article>
+
+    <article id="phase-4">
+      <h3>Phase 4 — Install + docs</h3>
+      <p><strong>End state:</strong> matrix entry, install.sh CLI install beside git-with-index-lock, AGENTS quick reference.</p>
+    </article>
+
+    <article id="phase-5">
+      <h3>Phase 5 — Verify</h3>
+      <p><strong>End state:</strong> tests pass; local smoke init/board/check works from ai-configs.</p>
+    </article>
+  </section>
+
+  <section id="verify">
+    <h2>Verification strategy</h2>
+    <pre>skills/delivery-run/tests/test_delivery_cli.sh
+rg -n "guidance, not gates|never hard-block|exit 0" skills/delivery-run
+rg -n "delivery-run" skills/install-matrix.json AGENTS.md
+command -v delivery || test -x skills/delivery-run/scripts/delivery
+delivery --help
+delivery board --json || true</pre>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals (v0)</h2>
+    <ul>
+      <li>Hard tool locks or mandatory pre-PR blockers</li>
+      <li>Rewriting run-plan / reviewed-html-plan / autoreview</li>
+      <li>Web dashboard UI</li>
+      <li>Automatic multi-worktree fan-out orchestration</li>
+      <li>Post-merge delivery-health workflow</li>
+      <li>Required Doct browser review for this internal tooling plan before shipping v0</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions</h2>
+    <p>Continue from the first unchecked Progress item. Keep doctrine: guidance and visibility first; firmness later only with operator consent.</p>
+  </section>
+</main>
+</body>
+</html>

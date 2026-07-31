@@ -1,3 +1,6 @@
+# Local delivery stage ledgers (per-worktree runtime state)
+.delivery/
+
 # Local runtime / generated config trees
 .agent/
 .agents/

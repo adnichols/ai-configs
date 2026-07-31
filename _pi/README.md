@@ -16,7 +16,7 @@ Repo-owned default Pi/Codex shared skills live in the repo-level `skills/` tree,
 
 These resources are installed by `install.sh` to Pi's global agent directory. There are three distinct Pi installation surfaces:
 
-- repo-managed extensions: copied from this repo into `~/.pi/agent/extensions/`, including `vent.ts`, which writes the shared feedback log to `~/.pi/VENT.md`
+- repo-managed extensions: copied from this repo into `~/.pi/agent/extensions/`, including `vent.ts` (shared feedback log at `~/.pi/VENT.md`) and `delivery-reflect.ts` (end-of-run delivery reflections at `~/.pi/DELIVERY_REFLECTIONS.md` + `~/.pi/delivery-reflections.jsonl`)
 - repo-managed Pi libraries: copied from `_pi/lib/` into `~/.pi/agent/lib/`; this keeps import-only helpers out of Pi's auto-loaded `extensions/` directory
 - repo-managed model entries: merged from `_pi/models.json` into `~/.pi/agent/models.json` without replacing local API keys
 - repo-managed task defaults: copied from `_pi/tasks-config.json` to `~/.pi/agent/tasks-config.json`

@@ -190,6 +190,25 @@ Pi now supports both:
 - skill commands like `/skill:run-plan`
 
 ```bash
+# Per-worktree delivery board / stage ledger (guidance, not gates)
+# Tracks plan <-> review -> run-plan -> autoreview -> PR without hard-blocking
+# From any Pi session: create Herdr worktree + start delivery (plain language; no flags needed)
+/delivery:spawn <freeform request; Linear key optional in the text>
+delivery spawn -- "honest auto-sync status"
+delivery spawn -- "NOD-123 one login path"   # issue/slug inferred
+
+# Already inside a worktree: navigator brief only
+/delivery:bootstrap [goal] [--issue KEY] [--slug SLUG]
+/delivery:run [issue|plan]
+/delivery:status
+/skill:delivery-run
+delivery bootstrap --slug my-feature --goal "..."
+delivery set --issue NOD-123 --retarget-id   # Linear optional; attach later
+delivery reflect --trigger end-of-run --friction "..." --improvement "..." --mark-done
+# reflections land in ~/.pi/DELIVERY_REFLECTIONS.md + delivery-reflections.jsonl (outside worktree)
+delivery board
+delivery check -v
+
 # Full reviewed-plan implementation through ready PR:
 # implementation, PM review, applicable pre-PR review, base freshness,
 # PR creation, local merge-readiness consensus, and safe auto-rebase
@@ -225,6 +244,7 @@ unless it already satisfies that format.
 
 Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
+- `/delivery:run` / `/skill:delivery-run` keeps a per-worktree stage ledger and board for the plan ↔ review → run-plan → autoreview → PR cycle. Doctrine is guidance, not gates: `delivery check` advisories never hard-block continuation.
 - `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan: implementation, implementation-stage PM review, the active-harness reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus without waiting for external approval.
 - `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM and active-harness reviewer-subagent plan review; it must register through `doct-agent plans register`, follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
 - `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown plan publishing guidance, listener startup, readiness metadata, canonical URL rules, and comment mechanics; other planning skills should reference it instead of duplicating command recipes.
@@ -291,6 +311,7 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 
 **Reviews:**
 - `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus the active-harness reviewer-subagent plan review, and stop at execution-ready handoff
+- `/skill:delivery-run` — Per-worktree delivery stage ledger and board for plan ↔ review → run-plan → autoreview → PR. Guidance not gates; `delivery check` advisories never hard-block.
 - `/skill:autoreview` — Canonical bounded active-harness reviewer-subagent pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to mandatory PR creation instead of concluding or waiting for external approval.
 - `/skill:pre-pr-implementation-review` — Indefinite compatibility alias for `/skill:autoreview`; it preserves arguments and the same `OPEN_PR_READY` handoff semantics.
 - `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.

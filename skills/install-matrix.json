@@ -198,6 +198,17 @@
       "notes": "Codex-only: orchestrates the full lifecycle from issue or plan intake through reviewed planning, scoped execution, verification, push, and ready-for-review PR creation.",
       "sourceType": "repo"
     },
+    "delivery-run": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi"
+      ],
+      "canonicalSource": "skills/delivery-run",
+      "notes": "Per-worktree delivery stage ledger and board for plan <-> review -> run-plan -> autoreview -> PR. Guidance not gates: soft advisories, never hard-blocks continuation.",
+      "sourceType": "repo"
+    },
     "dependency-selection": {
       "class": "universal-installable",
       "allowedConsumers": [

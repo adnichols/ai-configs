@@ -133,7 +133,26 @@ Create `WORKTREE_PATH/thoughts/linear/${ISSUE_LOWER}.md` and its parent director
 
 Do not change application code or any other repository file.
 
-## 7. Report
+## 7. Bootstrap delivery navigator (soft, best-effort)
+
+If the `delivery` CLI is available (`command -v delivery` or `~/.agents/skills/delivery-run/scripts/delivery`), initialize the per-worktree delivery ledger and agent brief so a newly spawned Herdr agent can navigate without prior chat context:
+
+```bash
+DELIVERY_BIN="$(command -v delivery || true)"
+if [[ -z "$DELIVERY_BIN" && -x "$HOME/.agents/skills/delivery-run/scripts/delivery" ]]; then
+  DELIVERY_BIN="$HOME/.agents/skills/delivery-run/scripts/delivery"
+fi
+if [[ -n "$DELIVERY_BIN" ]]; then
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY_BIN" --cwd "$WORKTREE_PATH" bootstrap \
+    --issue "$ISSUE_KEY" \
+    --goal "$ISSUE_KEY: $TITLE" \
+    --stage INTAKE
+fi
+```
+
+This is guidance only. If `delivery` is missing or bootstrap fails, continue and report that delivery bootstrap was skipped — do not fail the worktree creation.
+
+## 8. Report
 
 Report:
 
@@ -144,12 +163,18 @@ Location: <absolute worktree path>
 Branch: <exact issue-lower branch>
 Linear: <issue URL>
 Context note: <absolute or worktree-relative note path>
+Delivery brief: <worktree>/.delivery/AGENT_BRIEF.md (or skipped)
 Base/upstream: <base ref and upstream status>
 
 Suggested commands:
 - cd <worktree path>
+- delivery show && delivery check -v
+- /delivery:bootstrap   # if spawning a fresh agent in this worktree
 - git status
 - <repo-specific install/test command only if directly evidenced by repo files>
+
+Suggested first prompt for a new Herdr agent in this worktree:
+You are in worktree <path> for <ISSUE_KEY>. Read .delivery/AGENT_BRIEF.md, run delivery show && delivery check -v, then continue from the recommended next step through plan ↔ review → run-plan → autoreview → PR. Guidance not gates.
 ```
 
 Do not switch the caller's current process directory implicitly. Suggestions must be evidence-based; omit install/test commands when uncertain.

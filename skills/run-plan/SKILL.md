@@ -142,6 +142,29 @@ An operator ship or stop directive ends this budget immediately wherever it stan
 
 Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: only when the operator explicitly asks to supervise this run, follow `skills/supervise/SKILL.md`. Otherwise, continue without supervisor checkpoints, phase pings, or expansion-log entries.
 
+### 0b. Optional delivery ledger (guidance, not a gate)
+
+When the `delivery` CLI or `delivery-run` skill is available, keep the per-worktree ledger current as soft progress tracking:
+
+```bash
+delivery init --plan <plan-path>                 # issue optional at start
+delivery set --issue <KEY> --retarget-id         # attach Linear later when it exists
+delivery stage IMPLEMENTING|SCOPED_REVIEW|IMPL_PM_OUTCOME|AUTOREVIEW|PR_OPEN|MERGE_READY|DONE
+delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
+delivery check -v   # advisories only; always exit 0
+```
+
+Missing ledger evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps.
+
+When the scoped run reaches local merge-readiness or a durable stop (DONE/blocked handoff), best-effort log a process reflection outside the worktree:
+
+```bash
+delivery reflect --trigger end-of-run --outcome done|pr-opened|blocked \
+  --friction "..." --rework "..." --improvement "..." --mark-done
+```
+
+This appends to `~/.pi/DELIVERY_REFLECTIONS.md` and `~/.pi/delivery-reflections.jsonl` (like vent). Skip only when there is nothing process-shaped to capture; never hard-block PR completion on reflection.
+
 ### 1. Establish Run State
 
 1. Check whether a compatible run-plan state is already active in the available runtime tracking surface.

@@ -1,0 +1,2040 @@
+#!/usr/bin/env python3
+"""Delivery stage ledger CLI.
+
+Guidance, not gates: recommended checks produce advisories and never block
+continuation. Stage transitions always succeed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+SCHEMA_VERSION = 1
+LEDGER_REL = Path(".delivery") / "ledger.json"
+HERDR_WORKTREES = Path.home() / ".herdr" / "worktrees"
+
+STAGES = [
+    "INTAKE",
+    "PLAN_DRAFT",
+    "PLAN_BROWSER_REVIEW",
+    "PLAN_PM_REVIEW",
+    "PLAN_TECH_REVIEW",
+    "EXECUTION_READY",
+    "IMPLEMENTING",
+    "SCOPED_REVIEW",
+    "IMPL_PM_OUTCOME",
+    "AUTOREVIEW",
+    "VERIFY_FRESHNESS",
+    "PR_OPEN",
+    "MERGE_READY",
+    "ADVERSARIAL_QA",
+    "REFLECT",
+    "DONE",
+    "BLOCKED",
+]
+
+PI_HOME = Path.home() / ".pi"
+REFLECTIONS_MD = PI_HOME / "DELIVERY_REFLECTIONS.md"
+REFLECTIONS_JSONL = PI_HOME / "delivery-reflections.jsonl"
+REFLECTIONS_HEADING = (
+    "# DELIVERY REFLECTIONS\n\n"
+    "End-of-run process reflections from delivery workflows. "
+    "Capture friction, rework, and improvement opportunities outside the worktree "
+    "for later processing (similar to ~/.pi/VENT.md).\n\n"
+)
+
+# Recommended (not required) evidence keys and the stages where they matter most.
+RECOMMENDED_EVIDENCE = {
+    "plan": ["PLAN_DRAFT", "PLAN_BROWSER_REVIEW", "PLAN_PM_REVIEW", "PLAN_TECH_REVIEW", "EXECUTION_READY"],
+    "planBrowserReview": ["PLAN_BROWSER_REVIEW", "EXECUTION_READY", "IMPLEMENTING"],
+    "planPm": ["PLAN_PM_REVIEW", "EXECUTION_READY", "IMPLEMENTING"],
+    "planTech": ["PLAN_TECH_REVIEW", "EXECUTION_READY", "IMPLEMENTING"],
+    "implementation": ["IMPLEMENTING", "SCOPED_REVIEW", "IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN"],
+    "scopedReview": ["SCOPED_REVIEW", "AUTOREVIEW", "PR_OPEN"],
+    "implPm": ["IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
+    "completionEval": ["IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
+    "customerImpact": ["PLAN_PM_REVIEW", "IMPL_PM_OUTCOME", "PR_OPEN", "MERGE_READY"],
+    "autoreview": ["AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
+    "verify": ["VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
+    "pr": ["PR_OPEN", "MERGE_READY", "DONE"],
+    "adversarialQa": ["ADVERSARIAL_QA", "MERGE_READY", "DONE"],
+}
+
+WORKER_SKILLS = {
+    "plan": "/skill:reviewed-html-plan or /skill:dev-plan",
+    "plan_pm": "/dev:pm-review <plan> plan",
+    "plan_tech": "active-harness reviewer via reviewed-html-plan",
+    "implement": "/skill:run-plan <plan>",
+    "impl_pm": "/dev:pm-review <plan> implementation",
+    "autoreview": "/skill:autoreview <plan>",
+    "pr": "run-plan PR section or /skill:cmd-create-pr",
+    "qa": "/qa:run when customer-visible; else record adversarialQa --status na",
+}
+
+STAGE_NEXT_SKILL = {
+    "INTAKE": "Start from description/plan even without Linear; attach issue later with delivery set --issue KEY. Then stage PLAN_DRAFT and use reviewed-html-plan or dev-plan",
+    "PLAN_DRAFT": "Use /skill:dev-plan or /skill:reviewed-html-plan to materialize the HTML plan",
+    "PLAN_BROWSER_REVIEW": "Register/listen via doct-document-ops; process Doct feedback",
+    "PLAN_PM_REVIEW": "Run /dev:pm-review <plan> plan (product outcome + stage fit)",
+    "PLAN_TECH_REVIEW": "Run active-harness reviewer plan review via reviewed-html-plan",
+    "EXECUTION_READY": "Use /skill:run-plan <plan> to implement through PR",
+    "IMPLEMENTING": "Continue /skill:run-plan phase work; keep ledger notes current",
+    "SCOPED_REVIEW": "Run scoped quality review (run-plan section) with live-worktree reviewer",
+    "IMPL_PM_OUTCOME": "Run /dev:pm-review <plan> implementation + fill customerImpact/completionEval",
+    "AUTOREVIEW": "Use /skill:autoreview <plan>; record verdict artifact",
+    "VERIFY_FRESHNESS": "Final verification + base freshness; record verify evidence",
+    "PR_OPEN": "Open/update PR via cmd-create-pr / run-plan PR section; record prUrl",
+    "MERGE_READY": "Confirm local merge-readiness; optional adversarial QA if customer-visible",
+    "ADVERSARIAL_QA": "Run /qa:run or equivalent golden-path adversarial checks when UI/customer path",
+    "REFLECT": "Run delivery reflect to log friction/rework/improvements to ~/.pi, then stage DONE",
+    "DONE": "Run delivery reflect if not already logged, then stop; board keeps the final state",
+    "BLOCKED": "Record blocker note; operator decision required — workflow remains usable. Reflect when the block is process-shaped.",
+}
+
+EVIDENCE_STATUSES = ("pending", "pass", "skip", "gap", "na")
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def die(msg: str, code: int = 2) -> None:
+    print(f"delivery: {msg}", file=sys.stderr)
+    raise SystemExit(code)
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        die(f"ledger not found: {path}")
+    except json.JSONDecodeError as exc:
+        die(f"invalid JSON in {path}: {exc}")
+
+
+def write_json(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
+    tmp.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
+def git_capture(cwd: Path, *args: str) -> str | None:
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=str(cwd),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
+def detect_repo_root(start: Path | None = None) -> Path:
+    start = (start or Path.cwd()).resolve()
+    captured = git_capture(start, "rev-parse", "--show-toplevel")
+    if captured:
+        return Path(captured)
+    return start
+
+
+def default_id(root: Path, issue: str | None, slug: str | None) -> str:
+    repo = root.name
+    branch = git_capture(root, "branch", "--show-current") or ""
+    label = issue or slug or branch or root.name
+    label = label.strip().replace(" ", "-")
+    return f"{repo}/{label}"
+
+
+def empty_evidence() -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key in RECOMMENDED_EVIDENCE:
+        out[key] = {
+            "status": "pending",
+            "artifact": None,
+            "summary": None,
+            "updatedAt": None,
+        }
+    return out
+
+
+def new_ledger(
+    *,
+    root: Path,
+    ledger_id: str,
+    issue: str | None,
+    plan: str | None,
+    stage: str,
+    doct_url: str | None,
+    pr_url: str | None,
+    slug: str | None = None,
+) -> dict[str, Any]:
+    now = utc_now()
+    branch = git_capture(root, "branch", "--show-current")
+    head = git_capture(root, "rev-parse", "--short", "HEAD")
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "id": ledger_id,
+        "issue": issue,
+        "slug": slug,
+        "plan": plan,
+        "doctUrl": doct_url,
+        "prUrl": pr_url,
+        "worktree": str(root),
+        "branch": branch,
+        "head": head,
+        "stage": stage,
+        "createdAt": now,
+        "updatedAt": now,
+        "notes": [],
+        "history": [
+            {
+                "at": now,
+                "type": "init",
+                "stage": stage,
+                "detail": "ledger created",
+            }
+        ],
+        "evidence": empty_evidence(),
+        "customerImpact": {
+            "promised": [],
+            "observed": [],
+            "gaps": [],
+            "summary": None,
+        },
+        "completionEval": {
+            "status": "pending",
+            "gaps": [],
+            "summary": None,
+        },
+        "blockers": [],
+        "advisories": [],
+        "labels": {
+            "herdr": None,
+        },
+        "doctrine": "guidance-not-gates",
+    }
+
+
+def find_ledger_path(start: Path | None = None, explicit: str | None = None) -> Path:
+    if explicit:
+        path = Path(explicit).expanduser().resolve()
+        if path.is_dir():
+            path = path / LEDGER_REL
+        return path
+    root = detect_repo_root(start)
+    return root / LEDGER_REL
+
+
+def append_history(ledger: dict[str, Any], event_type: str, detail: str, **extra: Any) -> None:
+    entry = {"at": utc_now(), "type": event_type, "stage": ledger.get("stage"), "detail": detail}
+    entry.update(extra)
+    history = ledger.setdefault("history", [])
+    history.append(entry)
+    # Keep history bounded but useful.
+    if len(history) > 200:
+        del history[:-200]
+    ledger["updatedAt"] = utc_now()
+
+
+def refresh_git_fields(ledger: dict[str, Any], root: Path) -> None:
+    branch = git_capture(root, "branch", "--show-current")
+    head = git_capture(root, "rev-parse", "--short", "HEAD")
+    if branch:
+        ledger["branch"] = branch
+    if head:
+        ledger["head"] = head
+    ledger["worktree"] = str(root)
+
+
+def maybe_herdr_label(ledger: dict[str, Any]) -> None:
+    """Best-effort Herdr tab/workspace label sync. Never fails the command."""
+    if os.environ.get("DELIVERY_SKIP_HERDR", "").strip() in {"1", "true", "yes"}:
+        return
+    pane = os.environ.get("HERDR_PANE_ID") or os.environ.get("HERDR_TAB_ID")
+    if not pane:
+        return
+    label = f"{ledger.get('issue') or ledger.get('id')} · {ledger.get('stage')}"
+    import subprocess
+
+    try:
+        # Prefer tab label when HERDR_TAB_ID is present.
+        tab = os.environ.get("HERDR_TAB_ID")
+        if tab:
+            subprocess.run(
+                ["herdr", "tab", "rename", tab, label],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        ledger.setdefault("labels", {})["herdr"] = label
+    except Exception:
+        # Guidance only — ignore herdr failures.
+        return
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    root = Path(args.cwd).resolve() if args.cwd else detect_repo_root()
+    path = root / LEDGER_REL
+    if path.exists() and not args.force:
+        die(f"ledger already exists: {path} (use --force to overwrite)")
+    stage = args.stage or "INTAKE"
+    if stage not in STAGES:
+        die(f"unknown stage {stage!r}; choose from: {', '.join(STAGES)}")
+    ledger_id = args.id or default_id(root, args.issue, args.slug)
+    ledger = new_ledger(
+        root=root,
+        ledger_id=ledger_id,
+        issue=args.issue,
+        plan=args.plan,
+        stage=stage,
+        doct_url=args.doct_url,
+        pr_url=args.pr_url,
+        slug=args.slug,
+    )
+    write_json(path, ledger)
+    maybe_herdr_label(ledger)
+    write_json(path, ledger)
+    print(path)
+    if args.json:
+        print(json.dumps(ledger, indent=2))
+    return 0
+
+
+def cmd_path(args: argparse.Namespace) -> int:
+    path = find_ledger_path(Path(args.cwd).resolve() if args.cwd else None, args.ledger)
+    print(path)
+    return 0 if path.exists() or args.allow_missing else 1
+
+
+def load_ledger_for(args: argparse.Namespace) -> tuple[Path, dict[str, Any], Path]:
+    root = Path(args.cwd).resolve() if getattr(args, "cwd", None) else detect_repo_root()
+    path = find_ledger_path(root, getattr(args, "ledger", None))
+    if not path.exists():
+        die(f"no ledger at {path}; run: delivery init")
+    ledger = load_json(path)
+    # If ledger records a worktree, prefer that root for git refresh.
+    wt = ledger.get("worktree")
+    if wt and Path(wt).is_dir():
+        root = Path(wt)
+    return path, ledger, root
+
+
+def cmd_show(args: argparse.Namespace) -> int:
+    path, ledger, root = load_ledger_for(args)
+    refresh_git_fields(ledger, root)
+    if args.json:
+        print(json.dumps(ledger, indent=2))
+        return 0
+    print(f"id:        {ledger.get('id')}")
+    print(f"path:      {path}")
+    print(f"stage:     {ledger.get('stage')}")
+    print(f"issue:     {ledger.get('issue')}")
+    print(f"slug:      {ledger.get('slug')}")
+    print(f"plan:      {ledger.get('plan')}")
+    print(f"branch:    {ledger.get('branch')}")
+    print(f"worktree:  {ledger.get('worktree')}")
+    print(f"pr:        {ledger.get('prUrl')}")
+    print(f"doct:      {ledger.get('doctUrl')}")
+    print(f"updated:   {ledger.get('updatedAt')}")
+    print(f"next:      {STAGE_NEXT_SKILL.get(str(ledger.get('stage')), 'n/a')}")
+    print("evidence:")
+    for key, val in (ledger.get("evidence") or {}).items():
+        status = (val or {}).get("status", "pending")
+        summary = (val or {}).get("summary") or ""
+        art = (val or {}).get("artifact") or ""
+        extra = " ".join(x for x in (summary, art) if x)
+        print(f"  - {key}: {status}" + (f"  {extra}" if extra else ""))
+    notes = ledger.get("notes") or []
+    if notes:
+        print("notes:")
+        for note in notes[-5:]:
+            print(f"  - [{note.get('at')}] {note.get('text')}")
+    blockers = ledger.get("blockers") or []
+    if blockers:
+        print("blockers:")
+        for b in blockers:
+            print(f"  - {b}")
+    return 0
+
+
+def cmd_stage(args: argparse.Namespace) -> int:
+    stage = args.stage
+    if stage not in STAGES:
+        die(f"unknown stage {stage!r}; choose from: {', '.join(STAGES)}")
+    path, ledger, root = load_ledger_for(args)
+    prev = ledger.get("stage")
+    ledger["stage"] = stage
+    refresh_git_fields(ledger, root)
+    append_history(ledger, "stage", f"{prev} -> {stage}")
+    if args.note:
+        ledger.setdefault("notes", []).append({"at": utc_now(), "text": args.note, "stage": stage})
+    maybe_herdr_label(ledger)
+    write_json(path, ledger)
+    print(f"{prev} -> {stage}")
+    print(f"next: {STAGE_NEXT_SKILL.get(stage, 'n/a')}")
+    return 0
+
+
+def cmd_note(args: argparse.Namespace) -> int:
+    path, ledger, root = load_ledger_for(args)
+    text = " ".join(args.text).strip()
+    if not text:
+        die("note text required")
+    ledger.setdefault("notes", []).append(
+        {"at": utc_now(), "text": text, "stage": ledger.get("stage")}
+    )
+    append_history(ledger, "note", text)
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
+    print("noted")
+    return 0
+
+
+def cmd_set(args: argparse.Namespace) -> int:
+    """Attach or update metadata after start (issue is optional at init)."""
+    path, ledger, root = load_ledger_for(args)
+    changes: list[str] = []
+
+    if args.clear_issue:
+        if ledger.get("issue") is not None:
+            changes.append(f"issue: {ledger.get('issue')!r} -> None")
+        ledger["issue"] = None
+    elif args.issue is not None:
+        issue = args.issue.strip() or None
+        prev = ledger.get("issue")
+        if prev != issue:
+            changes.append(f"issue: {prev!r} -> {issue!r}")
+        ledger["issue"] = issue
+
+    if args.plan is not None:
+        plan = args.plan.strip() or None
+        prev = ledger.get("plan")
+        if prev != plan:
+            changes.append(f"plan: {prev!r} -> {plan!r}")
+        ledger["plan"] = plan
+
+    if args.doct_url is not None:
+        url = args.doct_url.strip() or None
+        prev = ledger.get("doctUrl")
+        if prev != url:
+            changes.append(f"doctUrl: {prev!r} -> {url!r}")
+        ledger["doctUrl"] = url
+
+    if args.pr_url is not None:
+        url = args.pr_url.strip() or None
+        prev = ledger.get("prUrl")
+        if prev != url:
+            changes.append(f"prUrl: {prev!r} -> {url!r}")
+        ledger["prUrl"] = url
+
+    if args.slug is not None:
+        slug = args.slug.strip() or None
+        prev = ledger.get("slug")
+        if prev != slug:
+            changes.append(f"slug: {prev!r} -> {slug!r}")
+        ledger["slug"] = slug
+
+    if args.id is not None:
+        new_id = args.id.strip()
+        if not new_id:
+            die("--id cannot be empty")
+        prev = ledger.get("id")
+        if prev != new_id:
+            changes.append(f"id: {prev!r} -> {new_id!r}")
+        ledger["id"] = new_id
+    elif args.retarget_id:
+        # Rebuild id from repo + issue/slug/branch once an issue arrives later.
+        new_id = default_id(root, ledger.get("issue"), ledger.get("slug"))
+        prev = ledger.get("id")
+        if prev != new_id:
+            changes.append(f"id: {prev!r} -> {new_id!r}")
+        ledger["id"] = new_id
+
+    if not changes and not any(
+        [
+            args.clear_issue,
+            args.issue is not None,
+            args.plan is not None,
+            args.doct_url is not None,
+            args.pr_url is not None,
+            args.slug is not None,
+            args.id is not None,
+            args.retarget_id,
+        ]
+    ):
+        die("nothing to set; pass --issue, --plan, --doct-url, --pr-url, --slug, --id, and/or --retarget-id")
+
+    if changes:
+        append_history(ledger, "set", "; ".join(changes))
+    else:
+        append_history(ledger, "set", "no-op (values unchanged)")
+
+    refresh_git_fields(ledger, root)
+    maybe_herdr_label(ledger)
+    write_json(path, ledger)
+    if changes:
+        for line in changes:
+            print(line)
+    else:
+        print("unchanged")
+    print(f"id: {ledger.get('id')}")
+    print(f"issue: {ledger.get('issue')}")
+    return 0
+
+
+def cmd_record(args: argparse.Namespace) -> int:
+    key = args.key
+    if key not in RECOMMENDED_EVIDENCE and key not in {"completionEval", "customerImpact"}:
+        known = ", ".join(sorted(set(RECOMMENDED_EVIDENCE) | {"completionEval", "customerImpact"}))
+        die(f"unknown evidence key {key!r}; known: {known}")
+    status = args.status
+    if status not in EVIDENCE_STATUSES:
+        die(f"status must be one of {', '.join(EVIDENCE_STATUSES)}")
+    path, ledger, root = load_ledger_for(args)
+    now = utc_now()
+    if key == "completionEval":
+        slot = ledger.setdefault(
+            "completionEval",
+            {"status": "pending", "gaps": [], "summary": None},
+        )
+        slot["status"] = status
+        if args.summary:
+            slot["summary"] = args.summary
+        if args.gap:
+            gaps = slot.setdefault("gaps", [])
+            for g in args.gap:
+                if g not in gaps:
+                    gaps.append(g)
+        # Mirror into evidence for board uniformity.
+        ev = ledger.setdefault("evidence", {}).setdefault(
+            "completionEval",
+            {"status": "pending", "artifact": None, "summary": None, "updatedAt": None},
+        )
+        ev.update(
+            {
+                "status": status,
+                "artifact": args.artifact,
+                "summary": args.summary or ev.get("summary"),
+                "updatedAt": now,
+            }
+        )
+    elif key == "customerImpact":
+        slot = ledger.setdefault(
+            "customerImpact",
+            {"promised": [], "observed": [], "gaps": [], "summary": None},
+        )
+        if args.summary:
+            slot["summary"] = args.summary
+        if args.promised:
+            slot["promised"] = list(args.promised)
+        if args.observed:
+            slot["observed"] = list(args.observed)
+        if args.gap:
+            slot["gaps"] = list(dict.fromkeys((slot.get("gaps") or []) + list(args.gap)))
+        ev = ledger.setdefault("evidence", {}).setdefault(
+            "customerImpact",
+            {"status": "pending", "artifact": None, "summary": None, "updatedAt": None},
+        )
+        ev.update(
+            {
+                "status": status,
+                "artifact": args.artifact,
+                "summary": args.summary or slot.get("summary"),
+                "updatedAt": now,
+            }
+        )
+    else:
+        ev = ledger.setdefault("evidence", {}).setdefault(
+            key,
+            {"status": "pending", "artifact": None, "summary": None, "updatedAt": None},
+        )
+        ev["status"] = status
+        if args.artifact is not None:
+            ev["artifact"] = args.artifact
+        if args.summary is not None:
+            ev["summary"] = args.summary
+        ev["updatedAt"] = now
+
+    if args.pr_url:
+        ledger["prUrl"] = args.pr_url
+    if args.doct_url:
+        ledger["doctUrl"] = args.doct_url
+    if args.plan:
+        ledger["plan"] = args.plan
+
+    append_history(ledger, "record", f"{key}={status}", key=key, status=status)
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
+    print(f"recorded {key}={status}")
+    return 0
+
+
+def cmd_blocker(args: argparse.Namespace) -> int:
+    path, ledger, root = load_ledger_for(args)
+    text = " ".join(args.text).strip()
+    if args.clear:
+        ledger["blockers"] = []
+        if ledger.get("stage") == "BLOCKED" and args.stage:
+            ledger["stage"] = args.stage
+        append_history(ledger, "blocker_clear", "blockers cleared")
+    elif text:
+        ledger.setdefault("blockers", []).append({"at": utc_now(), "text": text})
+        if args.mark_blocked:
+            ledger["stage"] = "BLOCKED"
+        append_history(ledger, "blocker", text)
+    else:
+        die("provide blocker text or --clear")
+    refresh_git_fields(ledger, root)
+    maybe_herdr_label(ledger)
+    write_json(path, ledger)
+    print("ok")
+    return 0
+
+
+def build_advisories(ledger: dict[str, Any]) -> list[dict[str, str]]:
+    stage = str(ledger.get("stage") or "INTAKE")
+    advisories: list[dict[str, str]] = []
+    evidence = ledger.get("evidence") or {}
+
+    def add(code: str, message: str, severity: str = "info") -> None:
+        advisories.append({"code": code, "severity": severity, "message": message})
+
+    add("NEXT", STAGE_NEXT_SKILL.get(stage, "No mapped next skill"), "info")
+
+    for key, stages in RECOMMENDED_EVIDENCE.items():
+        if stage not in stages:
+            continue
+        slot = evidence.get(key) or {}
+        status = slot.get("status") or "pending"
+        if status in {"pass", "skip", "na"}:
+            continue
+        if status == "gap":
+            add(
+                f"GAP_{key}",
+                f"Recommended evidence '{key}' is marked gap"
+                + (f": {slot.get('summary')}" if slot.get("summary") else ""),
+                "warn",
+            )
+        else:
+            add(
+                f"MISSING_{key}",
+                f"Recommended evidence '{key}' is {status} at stage {stage}. "
+                f"Record with: delivery record {key} --status pass|skip|gap|na",
+                "warn",
+            )
+
+    # Completion / customer impact soft prompts near the end of the cycle.
+    if stage in {"IMPL_PM_OUTCOME", "AUTOREVIEW", "VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"}:
+        ce = ledger.get("completionEval") or {}
+        if (ce.get("status") or "pending") in {"pending", "gap"}:
+            add(
+                "COMPLETION_EVAL",
+                "Consider a completion evaluation against plan AC/BDD/progress before calling the work done.",
+                "warn",
+            )
+        ci = ledger.get("customerImpact") or {}
+        if not ci.get("summary") and not (ci.get("promised") or ci.get("observed")):
+            if (evidence.get("customerImpact") or {}).get("status") not in {"pass", "skip", "na"}:
+                add(
+                    "CUSTOMER_IMPACT",
+                    "Consider recording customer/operator impact promised vs observed "
+                    "(delivery record customerImpact --status pass --summary '...').",
+                    "warn",
+                )
+
+    if stage in {"MERGE_READY", "PR_OPEN", "ADVERSARIAL_QA", "DONE"}:
+        aq = evidence.get("adversarialQa") or {}
+        if (aq.get("status") or "pending") == "pending":
+            add(
+                "QA_OPTIONAL",
+                "If this change touches a customer-visible path, consider adversarial golden-path QA "
+                "(/qa:run) or record adversarialQa --status na.",
+                "info",
+            )
+
+    if ledger.get("blockers"):
+        add("BLOCKERS", f"{len(ledger['blockers'])} blocker note(s) present", "warn")
+
+    if not ledger.get("plan") and stage not in {"INTAKE", "DONE"}:
+        add("PLAN_PATH", "No plan path recorded yet (delivery record plan via --plan on record/init).", "info")
+
+    if stage in {"REFLECT", "DONE", "MERGE_READY", "PR_OPEN", "BLOCKED"} and not ledger.get(
+        "lastReflectionAt"
+    ):
+        add(
+            "REFLECT",
+            "No end-of-run reflection logged yet. "
+            "Recommended: delivery reflect --trigger end-of-run --friction '...' "
+            "--improvement '...' --mark-done  (writes ~/.pi/DELIVERY_REFLECTIONS.md).",
+            "info" if stage in {"PR_OPEN", "MERGE_READY"} else "warn",
+        )
+
+    return advisories
+
+
+def cmd_check(args: argparse.Namespace) -> int:
+    path, ledger, root = load_ledger_for(args)
+    refresh_git_fields(ledger, root)
+    advisories = build_advisories(ledger)
+    ledger["advisories"] = advisories
+    ledger["updatedAt"] = utc_now()
+    # Persist latest advisories for board visibility; never fail on gaps.
+    write_json(path, ledger)
+
+    payload = {
+        "id": ledger.get("id"),
+        "stage": ledger.get("stage"),
+        "path": str(path),
+        "doctrine": "guidance-not-gates",
+        "hardBlock": False,
+        "advisories": advisories,
+        "next": STAGE_NEXT_SKILL.get(str(ledger.get("stage")), None),
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"stage: {ledger.get('stage')}  (guidance only; never hard-blocks)")
+        print(f"next:  {payload['next']}")
+        warns = [a for a in advisories if a.get("severity") == "warn"]
+        infos = [a for a in advisories if a.get("severity") != "warn"]
+        if warns:
+            print("advisories:")
+            for a in warns:
+                print(f"  ! [{a['code']}] {a['message']}")
+        if infos and args.verbose:
+            print("info:")
+            for a in infos:
+                print(f"  - [{a['code']}] {a['message']}")
+        elif not warns:
+            print("advisories: none beyond next-step guidance")
+        print("exit: 0 (gaps do not block continuation)")
+    # Doctrine: always succeed.
+    return 0
+
+
+def iter_ledger_paths(extra_roots: list[Path] | None = None) -> list[Path]:
+    found: list[Path] = []
+    seen: set[Path] = set()
+
+    def add(path: Path) -> None:
+        path = path.resolve()
+        if path in seen or not path.is_file():
+            return
+        seen.add(path)
+        found.append(path)
+
+    cwd_ledger = detect_repo_root() / LEDGER_REL
+    add(cwd_ledger)
+
+    if HERDR_WORKTREES.is_dir():
+        for path in HERDR_WORKTREES.glob("*/*/.delivery/ledger.json"):
+            add(path)
+
+    for root in extra_roots or []:
+        add(Path(root) / LEDGER_REL)
+
+    return found
+
+
+def summarize_ledger(path: Path) -> dict[str, Any] | None:
+    try:
+        ledger = load_json(path)
+    except SystemExit:
+        return None
+    return {
+        "id": ledger.get("id"),
+        "stage": ledger.get("stage"),
+        "issue": ledger.get("issue"),
+        "plan": ledger.get("plan"),
+        "branch": ledger.get("branch"),
+        "worktree": ledger.get("worktree") or str(path.parent.parent),
+        "prUrl": ledger.get("prUrl"),
+        "updatedAt": ledger.get("updatedAt"),
+        "blockers": len(ledger.get("blockers") or []),
+        "path": str(path),
+        "next": STAGE_NEXT_SKILL.get(str(ledger.get("stage")), None),
+    }
+
+
+def cmd_board(args: argparse.Namespace) -> int:
+    paths = iter_ledger_paths([Path(p) for p in (args.root or [])])
+    rows = []
+    for path in paths:
+        row = summarize_ledger(path)
+        if row:
+            rows.append(row)
+    # Active first (not DONE), then newest updatedAt.
+    rows.sort(
+        key=lambda r: (
+            0 if r.get("stage") != "DONE" else 1,
+            -_parse_ts(r.get("updatedAt")),
+            str(r.get("id") or ""),
+        )
+    )
+
+    if args.json:
+        print(json.dumps({"count": len(rows), "runs": rows}, indent=2))
+        return 0
+
+    if not rows:
+        print("no delivery ledgers found")
+        print(f"scanned: cwd, {HERDR_WORKTREES}/*/*/.delivery/ledger.json")
+        return 0
+
+    # Simple table
+    print(f"{'STAGE':<18} {'ISSUE':<14} {'ID':<36} {'UPDATED':<22} PATH")
+    for r in rows:
+        print(
+            f"{str(r.get('stage') or '-'):<18} "
+            f"{str(r.get('issue') or '-'):<14} "
+            f"{str(r.get('id') or '-'):<36} "
+            f"{str(r.get('updatedAt') or '-'):<22} "
+            f"{r.get('path')}"
+        )
+    return 0
+
+
+def _parse_ts(value: Any) -> float:
+    if not value or not isinstance(value, str):
+        return 0.0
+    try:
+        cleaned = value.replace("Z", "+00:00")
+        return datetime.fromisoformat(cleaned).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    # Alias: single-run show if ledger present, else board.
+    root = Path(args.cwd).resolve() if args.cwd else detect_repo_root()
+    path = find_ledger_path(root, args.ledger)
+    if path.exists() and not args.all:
+        args.json = args.json
+        return cmd_show(args)
+    return cmd_board(args)
+
+
+def cmd_stages(_: argparse.Namespace) -> int:
+    for stage in STAGES:
+        print(f"{stage:<22} {STAGE_NEXT_SKILL.get(stage, '')}")
+    return 0
+
+
+ISSUE_KEY_RE = re.compile(r"\b([A-Za-z][A-Za-z0-9]*-\d+)\b")
+
+
+def extract_issue_key(text: str) -> str | None:
+    """Best-effort Linear-style key from freeform operator text."""
+    if not text:
+        return None
+    matches = ISSUE_KEY_RE.findall(text)
+    if not matches:
+        return None
+    # Prefer the first KEY-123 form; normalize to uppercase.
+    return matches[0].upper()
+
+
+def strip_issue_keys(text: str) -> str:
+    """Remove issue keys so slug/label come from the intent words."""
+    cleaned = ISSUE_KEY_RE.sub(" ", text or "")
+    cleaned = re.sub(
+        r"\b(linear|issue|ticket)\b[:\s]*", " ", cleaned, flags=re.IGNORECASE
+    )
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def slugify(text: str, *, max_len: int = 48, keep_issue_keys: bool = False) -> str:
+    raw = (text or "").strip()
+    if not keep_issue_keys:
+        raw = strip_issue_keys(raw)
+    raw = raw.lower()
+    # drop common stop-ish prefixes operators type when asking
+    raw = re.sub(
+        r"^(please\s+)?(help\s+me\s+)?(can\s+you\s+)?(to\s+)?",
+        "",
+        raw,
+    )
+    raw = re.sub(
+        r"^(fix|implement|build|add|make|create|ship|start|spawn)\s+",
+        "",
+        raw,
+    )
+    raw = raw.replace("&", " and ")
+    raw = re.sub(r"[^a-z0-9]+", "-", raw)
+    raw = re.sub(r"-+", "-", raw).strip("-")
+    if not raw:
+        raw = "delivery"
+    if len(raw) > max_len:
+        raw = raw[:max_len].rstrip("-")
+    return raw or "delivery"
+
+
+def short_label(text: str, *, max_len: int = 36) -> str:
+    text = re.sub(r"\s+", " ", (text or "").strip())
+    if len(text) <= max_len:
+        return text or "delivery"
+    cut = text[: max_len - 1].rsplit(" ", 1)[0]
+    return (cut or text[: max_len - 1]).rstrip() + "…"
+
+
+def run_cmd(
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+    check: bool = False,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    merged = os.environ.copy()
+    if env:
+        merged.update(env)
+    return subprocess.run(
+        args,
+        cwd=str(cwd) if cwd else None,
+        check=check,
+        capture_output=True,
+        text=True,
+        env=merged,
+    )
+
+
+def require_herdr() -> str:
+    path = shutil.which("herdr")
+    if not path:
+        die("herdr not found on PATH; install/start Herdr before delivery spawn")
+    return path
+
+
+def herdr_json(args: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
+    herdr = require_herdr()
+    proc = run_cmd([herdr, *args, "--json"], cwd=cwd)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        die(f"herdr {' '.join(args)} failed ({proc.returncode}): {detail}")
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        die(f"herdr returned non-JSON: {exc}\n{proc.stdout[:500]}")
+    if not isinstance(payload, dict):
+        die("herdr JSON root must be an object")
+    return payload
+
+
+def unique_branch_name(repo: Path, base_slug: str, issue: str | None) -> str:
+    if issue:
+        # Keep TEAM-123 form; do not strip issue keys here.
+        issue_slug = slugify(issue, max_len=32, keep_issue_keys=True)
+        candidate = issue_slug
+    else:
+        candidate = base_slug
+    # Prefer short delivery/ prefix only when no issue, to avoid colliding with mainline names.
+    if not issue:
+        candidate = f"delivery/{candidate}"
+
+    def exists(name: str) -> bool:
+        local = run_cmd(["git", "show-ref", "--verify", "--quiet", f"refs/heads/{name}"], cwd=repo)
+        remote = run_cmd(
+            ["git", "show-ref", "--verify", "--quiet", f"refs/remotes/origin/{name}"],
+            cwd=repo,
+        )
+        return local.returncode == 0 or remote.returncode == 0
+
+    if not exists(candidate):
+        return candidate
+    suffix = datetime.now(timezone.utc).strftime("%m%d%H%M")
+    alt = f"{candidate}-{suffix}"
+    if not exists(alt):
+        return alt
+    return f"{candidate}-{int(time.time()) % 100000}"
+
+
+def agent_start_prompt(goal: str, *, issue: str | None, worktree: str) -> str:
+    issue_line = (
+        f"Linear issue is attached as {issue}."
+        if issue
+        else "Linear issue is optional; if one appears later run: delivery set --issue KEY --retarget-id"
+    )
+    return (
+        "You were spawned into a fresh Herdr delivery worktree.\n\n"
+        f"Worktree: {worktree}\n"
+        f"Goal: {goal}\n"
+        f"{issue_line}\n\n"
+        "Do this now:\n"
+        "1. Read `.delivery/AGENT_BRIEF.md` fully.\n"
+        "2. Run `delivery show` and `delivery check -v`.\n"
+        "3. Continue from the brief's **Recommended next step** using existing worker skills\n"
+        "   (reviewed-html-plan / dev-plan → plan review loop → run-plan → autoreview → PR).\n"
+        "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
+        "5. Before finishing: `delivery reflect --trigger end-of-run --friction '...' "
+        "--improvement '...' --mark-done`.\n\n"
+        "Doctrine: guidance, not gates. Missing delivery evidence is advisory only — "
+        "never hard-block the operator solely because a recommended check is pending.\n"
+    )
+
+
+def cmd_spawn(args: argparse.Namespace) -> int:
+    """Create a Herdr worktree named from the goal and bootstrap delivery there."""
+    goal_parts = [p for p in (args.goal or []) if p and p != "--"]
+    # Drop a leading bare flag fragment if REMAINDER captured options incorrectly.
+    while goal_parts and goal_parts[0] in {"-", "--"}:
+        goal_parts.pop(0)
+    goal = " ".join(goal_parts).strip()
+    if not goal:
+        die('goal text required, e.g. delivery spawn "honest auto-sync status"')
+
+    repo = Path(args.cwd).resolve() if args.cwd else detect_repo_root()
+    if not (repo / ".git").exists() and not (repo / ".git").is_file():
+        # allow worktree paths that point at linked git via rev-parse
+        top = git_capture(repo, "rev-parse", "--show-toplevel")
+        if not top:
+            die(f"not a git repo: {repo}")
+        repo = Path(top)
+
+    # Freeform-first: operators paste a request; agents/flags only override.
+    inferred_issue = extract_issue_key(goal)
+    issue = (args.issue.strip().upper() if args.issue else None) or inferred_issue
+    intent_text = strip_issue_keys(goal) or goal
+    slug = slugify(args.slug) if args.slug else slugify(intent_text)
+    branch = args.branch or unique_branch_name(repo, slug, issue)
+    label_basis = intent_text if intent_text else goal
+    label = args.label or (
+        f"{issue} · {short_label(label_basis, max_len=28)}"
+        if issue
+        else short_label(label_basis)
+    )
+    base = args.base or "origin/main"
+    focus = bool(args.focus)
+
+    # Ensure base exists when possible (non-fatal if offline).
+    base_ok = run_cmd(["git", "rev-parse", "--verify", f"{base}^{{commit}}"], cwd=repo)
+    if base_ok.returncode != 0:
+        fetch = run_cmd(["git", "fetch", "--prune", "--tags"], cwd=repo)
+        if fetch.returncode != 0:
+            die(
+                f"base ref {base!r} not found and git fetch failed: "
+                f"{(fetch.stderr or fetch.stdout or '').strip()}"
+            )
+        base_ok = run_cmd(["git", "rev-parse", "--verify", f"{base}^{{commit}}"], cwd=repo)
+        if base_ok.returncode != 0:
+            die(f"base ref {base!r} still not found after fetch")
+
+    if args.dry_run:
+        payload = {
+            "dryRun": True,
+            "repo": str(repo),
+            "goal": goal,
+            "intent": intent_text,
+            "issue": issue,
+            "issueInferred": bool(inferred_issue) and not bool(args.issue),
+            "slug": slug,
+            "branch": branch,
+            "label": label,
+            "base": base,
+            "focus": focus,
+            "agent": None if args.no_agent else (args.agent or "pi"),
+        }
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    create_args = [
+        "worktree",
+        "create",
+        "--cwd",
+        str(repo),
+        "--branch",
+        branch,
+        "--base",
+        base,
+        "--label",
+        label,
+    ]
+    if args.path:
+        create_args.extend(["--path", str(Path(args.path).expanduser())])
+    create_args.append("--focus" if focus else "--no-focus")
+
+    created = herdr_json(create_args)
+    result = created.get("result") if isinstance(created.get("result"), dict) else created
+    root_pane = result.get("root_pane") or {}
+    workspace = result.get("workspace") or {}
+    worktree = result.get("worktree") or {}
+    tab = result.get("tab") or {}
+
+    worktree_path = (
+        worktree.get("path")
+        or (workspace.get("worktree") or {}).get("checkout_path")
+        or root_pane.get("cwd")
+    )
+    if not worktree_path:
+        die(f"herdr create succeeded but no worktree path in response: {created}")
+    worktree_path = str(worktree_path)
+    pane_id = root_pane.get("pane_id")
+    tab_id = tab.get("tab_id") or root_pane.get("tab_id")
+    workspace_id = (
+        workspace.get("workspace_id")
+        or root_pane.get("workspace_id")
+        or worktree.get("open_workspace_id")
+    )
+
+    # Best-effort rename tab to the human label (workspace already labeled via --label).
+    if tab_id:
+        run_cmd(["herdr", "tab", "rename", str(tab_id), label])
+
+    # Bootstrap delivery navigator inside the new worktree (in-process).
+    boot_ns = argparse.Namespace(
+        cwd=worktree_path,
+        ledger=None,
+        json=False,
+        issue=issue,
+        slug=slug,
+        plan=args.plan,
+        doct_url=None,
+        pr_url=None,
+        goal=goal,
+        stage=args.stage or "INTAKE",
+        id=None,
+        retarget_id=bool(issue),
+        refresh=False,
+        force=False,
+    )
+    # bootstrap prints a long brief; capture by temporarily redirecting if quiet
+    if args.quiet:
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cmd_bootstrap(boot_ns)
+    else:
+        print("--- delivery bootstrap ---")
+        cmd_bootstrap(boot_ns)
+
+    agent_name = None
+    agent_kind = None
+    prompted = False
+    if not args.no_agent:
+        agent_kind = args.agent or "pi"
+        agent_name = args.agent_name or "delivery"
+        if not pane_id:
+            print("delivery spawn: no pane id from herdr; skipped agent start", file=sys.stderr)
+        else:
+            start = run_cmd(
+                [
+                    "herdr",
+                    "agent",
+                    "start",
+                    agent_name,
+                    "--kind",
+                    agent_kind,
+                    "--pane",
+                    str(pane_id),
+                    "--timeout",
+                    str(args.agent_timeout_ms),
+                ]
+            )
+            if start.returncode != 0:
+                print(
+                    "delivery spawn: herdr agent start failed; worktree+bootstrap are ready.\n"
+                    f"{(start.stderr or start.stdout or '').strip()}",
+                    file=sys.stderr,
+                )
+            else:
+                prompt = agent_start_prompt(goal, issue=issue, worktree=worktree_path)
+                prompt_cmd = [
+                    "herdr",
+                    "agent",
+                    "prompt",
+                    agent_name,
+                    prompt,
+                ]
+                if args.wait_agent:
+                    prompt_cmd.extend(
+                        [
+                            "--wait",
+                            "--until",
+                            "idle",
+                            "--until",
+                            "done",
+                            "--until",
+                            "blocked",
+                            "--timeout",
+                            str(args.wait_timeout_ms),
+                        ]
+                    )
+                pr = run_cmd(prompt_cmd)
+                prompted = pr.returncode == 0
+                if pr.returncode != 0:
+                    print(
+                        "delivery spawn: agent started but initial prompt failed.\n"
+                        f"{(pr.stderr or pr.stdout or '').strip()}\n"
+                        "Paste /delivery:bootstrap manually in the pane.",
+                        file=sys.stderr,
+                    )
+
+    summary = {
+        "goal": goal,
+        "issue": issue,
+        "slug": slug,
+        "branch": branch,
+        "label": label,
+        "base": base,
+        "repo": str(repo),
+        "worktree": worktree_path,
+        "workspaceId": workspace_id,
+        "tabId": tab_id,
+        "paneId": pane_id,
+        "ledger": str(Path(worktree_path) / LEDGER_REL),
+        "brief": str(Path(worktree_path) / ".delivery" / "AGENT_BRIEF.md"),
+        "agent": {"name": agent_name, "kind": agent_kind, "prompted": prompted}
+        if not args.no_agent
+        else None,
+        "next": "Open the Herdr workspace and let the agent follow .delivery/AGENT_BRIEF.md",
+    }
+
+    # Record spawn on the new ledger if present.
+    ledger_path = Path(worktree_path) / LEDGER_REL
+    if ledger_path.exists():
+        ledger = load_json(ledger_path)
+        ledger["spawn"] = {
+            "at": utc_now(),
+            "branch": branch,
+            "label": label,
+            "workspaceId": workspace_id,
+            "paneId": pane_id,
+            "fromRepo": str(repo),
+        }
+        append_history(ledger, "spawn", f"herdr worktree {branch}")
+        write_json(ledger_path, ledger)
+
+    if args.json:
+        print(json.dumps(summary, indent=2))
+    else:
+        print("delivery spawn ready")
+        print(f"goal:      {goal}")
+        print(f"label:     {label}")
+        print(f"branch:    {branch}")
+        print(f"worktree:  {worktree_path}")
+        print(f"workspace: {workspace_id}")
+        print(f"pane:      {pane_id}")
+        print(f"brief:     {summary['brief']}")
+        if summary.get("agent"):
+            agent_state = "prompted" if prompted else "start-only/failed-prompt"
+            print(f"agent:     {agent_kind}:{agent_name} ({agent_state})")
+        print("next:      watch the Herdr workspace; agent should follow AGENT_BRIEF.md")
+    return 0
+
+
+def _reflect_timestamp(now: datetime | None = None) -> str:
+    now = now or datetime.now().astimezone()
+    return (
+        f"{str(now.year)[-2:]}-{now.month:02d}-{now.day:02d} "
+        f"{now.hour:02d}:{now.minute:02d}"
+    )
+
+
+def _split_items(values: list[str] | None, freeform: str | None = None) -> list[str]:
+    items: list[str] = []
+    for value in values or []:
+        text = value.strip()
+        if text:
+            items.append(text)
+    if freeform:
+        text = freeform.strip()
+        if text:
+            items.append(text)
+    # de-dupe preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def append_reflection(
+    *,
+    ledger: dict[str, Any] | None,
+    friction: list[str],
+    rework: list[str],
+    improvements: list[str],
+    notes: list[str],
+    trigger: str | None,
+    outcome: str | None,
+) -> dict[str, Any]:
+    if not any([friction, rework, improvements, notes, outcome]):
+        die(
+            "reflect needs at least one of --friction, --rework, --improvement, "
+            "--note, --outcome, or freeform text"
+        )
+
+    ts = _reflect_timestamp()
+    ledger = ledger or {}
+    title_bits = [
+        str(ledger.get("id") or "untracked"),
+        str(ledger.get("stage") or ""),
+    ]
+    if trigger:
+        title_bits.append(trigger)
+    title = " · ".join(b for b in title_bits if b)
+
+    md_lines = [f"## {ts} — {title}", ""]
+    meta = {
+        "id": ledger.get("id"),
+        "issue": ledger.get("issue"),
+        "slug": ledger.get("slug"),
+        "stage": ledger.get("stage"),
+        "plan": ledger.get("plan"),
+        "prUrl": ledger.get("prUrl"),
+        "worktree": ledger.get("worktree"),
+        "branch": ledger.get("branch"),
+        "outcome": outcome,
+        "trigger": trigger,
+    }
+    md_lines.append("| Field | Value |")
+    md_lines.append("|---|---|")
+    for key, label in [
+        ("id", "id"),
+        ("issue", "issue"),
+        ("slug", "slug"),
+        ("stage", "stage"),
+        ("plan", "plan"),
+        ("prUrl", "pr"),
+        ("worktree", "worktree"),
+        ("branch", "branch"),
+        ("outcome", "outcome"),
+        ("trigger", "trigger"),
+    ]:
+        val = meta.get(key)
+        if val:
+            md_lines.append(f"| {label} | {val} |")
+    md_lines.append("")
+
+    def section(name: str, items: list[str]) -> None:
+        if not items:
+            return
+        md_lines.append(f"### {name}")
+        md_lines.append("")
+        for item in items:
+            md_lines.append(f"- {item}")
+        md_lines.append("")
+
+    section("Friction", friction)
+    section("Rework challenges", rework)
+    section("Improvement opportunities", improvements)
+    section("Notes", notes)
+
+    entry_md = "\n".join(md_lines).rstrip() + "\n\n"
+    record = {
+        "ts": utc_now(),
+        "localTs": ts,
+        "trigger": trigger,
+        "outcome": outcome,
+        "friction": friction,
+        "rework": rework,
+        "improvements": improvements,
+        "notes": notes,
+        "delivery": {
+            "id": ledger.get("id"),
+            "issue": ledger.get("issue"),
+            "slug": ledger.get("slug"),
+            "stage": ledger.get("stage"),
+            "plan": ledger.get("plan"),
+            "prUrl": ledger.get("prUrl"),
+            "worktree": ledger.get("worktree"),
+            "branch": ledger.get("branch"),
+            "goal": ledger.get("goal"),
+        },
+    }
+
+    PI_HOME.mkdir(parents=True, exist_ok=True)
+    if not REFLECTIONS_MD.exists():
+        REFLECTIONS_MD.write_text(REFLECTIONS_HEADING, encoding="utf-8")
+    with REFLECTIONS_MD.open("a", encoding="utf-8") as fh:
+        fh.write(entry_md)
+    with REFLECTIONS_JSONL.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    return {
+        "markdownPath": str(REFLECTIONS_MD),
+        "jsonlPath": str(REFLECTIONS_JSONL),
+        "timestamp": ts,
+        "record": record,
+    }
+
+
+def cmd_reflect(args: argparse.Namespace) -> int:
+    """Append an end-of-run reflection outside the worktree (~/.pi)."""
+    ledger: dict[str, Any] | None = None
+    path: Path | None = None
+    root = Path(args.cwd).resolve() if args.cwd else detect_repo_root()
+    candidate = find_ledger_path(root, args.ledger)
+    if candidate.exists():
+        path = candidate
+        ledger = load_json(path)
+        refresh_git_fields(ledger, root)
+    elif not args.allow_untracked:
+        die(
+            f"no ledger at {candidate}; pass --allow-untracked to log without one, "
+            "or run delivery bootstrap first"
+        )
+
+    if args.list:
+        if not REFLECTIONS_MD.exists():
+            print(f"no reflections yet at {REFLECTIONS_MD}")
+            return 0
+        text = REFLECTIONS_MD.read_text(encoding="utf-8")
+        # print last N heading blocks roughly
+        chunks = [c for c in text.split("\n## ") if c.strip()]
+        # first chunk may be title
+        entries = []
+        for i, chunk in enumerate(chunks):
+            if i == 0 and chunk.lstrip().startswith("# DELIVERY"):
+                continue
+            entries.append("## " + chunk if not chunk.startswith("## ") else chunk)
+        tail = entries[-args.list :]
+        print("\n".join(t.rstrip() for t in tail) if tail else "(no entries)")
+        print(f"\nlog: {REFLECTIONS_MD}")
+        return 0
+
+    freeform = " ".join(args.text).strip() if args.text else ""
+    # strip leading -- leftovers from REMAINDER usage
+    if freeform.startswith("--"):
+        freeform = ""
+
+    friction = _split_items(args.friction)
+    rework = _split_items(args.rework)
+    improvements = _split_items(args.improvement)
+    notes = _split_items(args.note)
+    if freeform:
+        notes = _split_items(notes, freeform)
+
+    result = append_reflection(
+        ledger=ledger,
+        friction=friction,
+        rework=rework,
+        improvements=improvements,
+        notes=notes,
+        trigger=args.trigger,
+        outcome=args.outcome,
+    )
+
+    if ledger is not None and path is not None:
+        ledger.setdefault("reflections", []).append(
+            {
+                "at": utc_now(),
+                "timestamp": result["timestamp"],
+                "markdownPath": result["markdownPath"],
+                "jsonlPath": result["jsonlPath"],
+                "trigger": args.trigger,
+                "outcome": args.outcome,
+            }
+        )
+        # Keep only recent pointers in-worktree; full text lives in ~/.pi.
+        if len(ledger["reflections"]) > 20:
+            ledger["reflections"] = ledger["reflections"][-20:]
+        ledger["lastReflectionAt"] = utc_now()
+        append_history(
+            ledger,
+            "reflect",
+            args.trigger or args.outcome or "reflection logged",
+            path=result["markdownPath"],
+        )
+        if args.mark_done and ledger.get("stage") != "DONE":
+            prev = ledger.get("stage")
+            ledger["stage"] = "DONE"
+            append_history(ledger, "stage", f"{prev} -> DONE")
+        elif ledger.get("stage") not in {"DONE", "BLOCKED", "REFLECT"}:
+            # Soft nudge into REFLECT without forcing DONE.
+            if args.stage_reflect:
+                prev = ledger.get("stage")
+                ledger["stage"] = "REFLECT"
+                append_history(ledger, "stage", f"{prev} -> REFLECT")
+        maybe_herdr_label(ledger)
+        write_json(path, ledger)
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"reflected -> {result['markdownPath']}")
+        print(f"jsonl     -> {result['jsonlPath']}")
+        print(f"timestamp: {result['timestamp']}")
+        if args.mark_done:
+            print("stage: DONE")
+    return 0
+
+
+def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
+    stage = str(ledger.get("stage") or "INTAKE")
+    next_step = STAGE_NEXT_SKILL.get(stage, "delivery check -v")
+    advisories = build_advisories(ledger)
+    warn_lines = [
+        f"- [{a.get('code')}] {a.get('message')}"
+        for a in advisories
+        if a.get("severity") == "warn"
+    ]
+    if not warn_lines:
+        warn_lines = ["- none beyond next-step guidance"]
+
+    issue = ledger.get("issue") or "(none yet — attach later with delivery set --issue KEY --retarget-id)"
+    plan = ledger.get("plan") or "(none yet — set with delivery set --plan path)"
+    slug = ledger.get("slug") or "(none)"
+    pr = ledger.get("prUrl") or "(none)"
+    doct = ledger.get("doctUrl") or "(none)"
+
+    stage_rows = "\n".join(
+        f"| `{s}` | {STAGE_NEXT_SKILL.get(s, '')} |" for s in STAGES
+    )
+
+    return f"""# Delivery agent brief
+
+Generated: {utc_now()}  
+Doctrine: **guidance, not gates** — advisories never hard-block continuation.
+
+## This worktree
+
+| Field | Value |
+|---|---|
+| id | {ledger.get('id')} |
+| stage | {stage} |
+| issue | {issue} |
+| slug | {slug} |
+| plan | {plan} |
+| pr | {pr} |
+| doct | {doct} |
+| worktree | {ledger.get('worktree')} |
+| branch | {ledger.get('branch')} |
+| ledger | {path} |
+
+## Your job
+
+Keep this worktree moving through:
+
+```text
+plan ↔ review → run-plan → autoreview → PR
+```
+
+You are the driving agent in this worktree. Use existing worker skills for real work.
+The `delivery` CLI is the scoreboard + navigator, not the implementer.
+
+## Do this first
+
+1. `delivery show`
+2. `delivery check -v`
+3. Follow the **Recommended next step** below by invoking the named skill/command.
+4. After each meaningful step: `delivery stage <STAGE>`, `delivery record ...`, `delivery check -v`.
+5. If a Linear issue appears later: `delivery set --issue KEY --retarget-id`.
+6. Never stop solely because recommended evidence is pending/gap.
+
+## Recommended next step
+
+**{next_step}**
+
+## Current advisories
+
+{chr(10).join(warn_lines)}
+
+## Navigation commands
+
+```bash
+delivery show
+delivery check -v
+delivery stages
+delivery stage <STAGE> [--note "..."]
+delivery set --issue KEY --retarget-id          # Linear optional at start
+delivery set --plan path/to/plan.html
+delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
+delivery note "what happened / why waiting"
+delivery board                                  # all worktrees
+delivery bootstrap --refresh                    # rewrite this brief
+```
+
+## Worker skills (authoritative)
+
+| Need | Invoke |
+|---|---|
+| Create/review plan | {WORKER_SKILLS['plan']} |
+| Plan PM / customer impact | {WORKER_SKILLS['plan_pm']} |
+| Plan tech review | {WORKER_SKILLS['plan_tech']} |
+| Implement through PR | {WORKER_SKILLS['implement']} |
+| Implementation PM | {WORKER_SKILLS['impl_pm']} |
+| Pre-PR review | {WORKER_SKILLS['autoreview']} |
+| Open/update PR | {WORKER_SKILLS['pr']} |
+| Customer-visible QA | {WORKER_SKILLS['qa']} |
+
+## Stage map
+
+| Stage | Recommended next |
+|---|---|
+{stage_rows}
+
+## Soft quality inserts (recommended, never required)
+
+- `delivery record completionEval --status pass|gap --summary "..."`
+- `delivery record customerImpact --status pass --summary "..." --promised "..." --observed "..."`
+- `delivery record adversarialQa --status pass|na --summary "..."`
+
+## End-of-run reflection (outside the worktree)
+
+Before finishing (DONE/BLOCKED/hand-off), log process learning to `~/.pi` (not the git worktree):
+
+```bash
+delivery stage REFLECT
+delivery reflect --trigger end-of-run --outcome done \\
+  --friction "..." --rework "..." --improvement "..." \\
+  --mark-done
+```
+
+Files:
+- `~/.pi/DELIVERY_REFLECTIONS.md` (human)
+- `~/.pi/delivery-reflections.jsonl` (machine-processable)
+
+Skip only if there is truly nothing process-shaped to capture; prefer a short honest note over silence.
+
+## Rules of the road
+
+- Do **not** reimplement run-plan / reviewed-html-plan / autoreview inside ad-hoc prose.
+- Do **not** hard-block the operator on missing delivery evidence.
+- Do **not** require a Linear issue to start; attach it when it exists.
+- Prefer keeping the ledger honest over perfect process compliance.
+- If truly stuck on a human decision: `delivery blocker "..." --mark-blocked` and report the decision needed.
+- End every delivery run with `delivery reflect` when possible.
+
+## Resume contract
+
+If you are a newly spawned agent in this worktree with no prior context:
+
+1. Read this file: `.delivery/AGENT_BRIEF.md`
+2. Run `delivery show` and `delivery check -v`
+3. Continue from **Recommended next step**
+4. Refresh the brief after material progress: `delivery bootstrap --refresh`
+5. Before exit/DONE: `delivery reflect ...` then `delivery bootstrap --refresh`
+"""
+
+
+def cmd_bootstrap(args: argparse.Namespace) -> int:
+    """Cold-start or refresh a worktree delivery run for a new agent."""
+    root = Path(args.cwd).resolve() if args.cwd else detect_repo_root()
+    path = root / LEDGER_REL
+    created = False
+
+    if path.exists() and not args.force:
+        ledger = load_json(path)
+    else:
+        stage = args.stage or "INTAKE"
+        if stage not in STAGES:
+            die(f"unknown stage {stage!r}")
+        ledger_id = args.id or default_id(root, args.issue, args.slug)
+        ledger = new_ledger(
+            root=root,
+            ledger_id=ledger_id,
+            issue=args.issue,
+            plan=args.plan,
+            stage=stage,
+            doct_url=args.doct_url,
+            pr_url=args.pr_url,
+            slug=args.slug,
+        )
+        created = True
+
+    # Apply optional metadata updates on existing ledgers (and force-create already set them).
+    if not created:
+        if args.issue is not None:
+            ledger["issue"] = args.issue.strip() or None
+        if args.slug is not None:
+            ledger["slug"] = args.slug.strip() or None
+        if args.plan is not None:
+            ledger["plan"] = args.plan.strip() or None
+        if args.doct_url is not None:
+            ledger["doctUrl"] = args.doct_url.strip() or None
+        if args.pr_url is not None:
+            ledger["prUrl"] = args.pr_url.strip() or None
+        if args.stage and args.stage != ledger.get("stage"):
+            if args.stage not in STAGES:
+                die(f"unknown stage {args.stage!r}")
+            prev = ledger.get("stage")
+            ledger["stage"] = args.stage
+            append_history(ledger, "stage", f"{prev} -> {args.stage}")
+        if args.id:
+            ledger["id"] = args.id.strip()
+        if args.retarget_id:
+            ledger["id"] = default_id(root, ledger.get("issue"), ledger.get("slug"))
+
+    if args.goal:
+        goal = args.goal.strip()
+        ledger["goal"] = goal
+        # Keep a note so history shows the operator ask.
+        notes = ledger.setdefault("notes", [])
+        if not any(goal in (n.get("text") or "") for n in notes[-5:]):
+            notes.append({"at": utc_now(), "text": f"goal: {goal}", "stage": ledger.get("stage")})
+
+    refresh_git_fields(ledger, root)
+    brief = render_agent_brief(ledger, path)
+    brief_path = path.parent / "AGENT_BRIEF.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    brief_path.write_text(brief + "\n", encoding="utf-8")
+    ledger["agentBrief"] = str(brief_path)
+    ledger["advisories"] = build_advisories(ledger)
+    append_history(
+        ledger,
+        "bootstrap",
+        "created" if created else "refreshed",
+        brief=str(brief_path),
+    )
+    maybe_herdr_label(ledger)
+    write_json(path, ledger)
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "created": created,
+                    "ledger": str(path),
+                    "brief": str(brief_path),
+                    "id": ledger.get("id"),
+                    "stage": ledger.get("stage"),
+                    "issue": ledger.get("issue"),
+                    "plan": ledger.get("plan"),
+                    "next": STAGE_NEXT_SKILL.get(str(ledger.get("stage")), None),
+                    "goal": ledger.get("goal"),
+                },
+                indent=2,
+            )
+        )
+    else:
+        action = "created" if created else "refreshed"
+        print(f"delivery bootstrap {action}")
+        print(f"ledger: {path}")
+        print(f"brief:  {brief_path}")
+        print(f"stage:  {ledger.get('stage')}")
+        print(f"next:   {STAGE_NEXT_SKILL.get(str(ledger.get('stage')), 'n/a')}")
+        print("")
+        print(brief)
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="delivery",
+        description=(
+            "Per-worktree delivery stage ledger. Guidance, not gates: "
+            "checks advise and never hard-block continuation."
+        ),
+    )
+    parser.add_argument("--cwd", help="Worktree/repo root override")
+    parser.add_argument("--ledger", help="Explicit ledger file or directory")
+    parser.add_argument("--json", action="store_true", help="JSON output where supported")
+
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    def add_json_flag(p: argparse.ArgumentParser) -> None:
+        p.add_argument(
+            "--json",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="JSON output",
+        )
+
+    p_init = sub.add_parser("init", help="Create a delivery ledger in the current worktree")
+    add_json_flag(p_init)
+    p_init.add_argument("--id", help="Ledger id (default repo/issue-or-branch)")
+    p_init.add_argument("--issue", help="Issue key, e.g. NOD-1234")
+    p_init.add_argument("--slug", help="Slug used when issue is absent")
+    p_init.add_argument("--plan", help="Plan path")
+    p_init.add_argument("--doct-url", help="Doct plan URL")
+    p_init.add_argument("--pr-url", help="PR URL")
+    p_init.add_argument("--stage", default="INTAKE", help="Initial stage")
+    p_init.add_argument("--force", action="store_true", help="Overwrite existing ledger")
+    p_init.set_defaults(func=cmd_init)
+
+    p_path = sub.add_parser("path", help="Print ledger path for cwd")
+    p_path.add_argument("--allow-missing", action="store_true")
+    p_path.set_defaults(func=cmd_path)
+
+    p_show = sub.add_parser("show", help="Show current ledger")
+    add_json_flag(p_show)
+    p_show.set_defaults(func=cmd_show)
+
+    p_stage = sub.add_parser("stage", help="Set stage (always allowed)")
+    p_stage.add_argument("stage", help="Target stage")
+    p_stage.add_argument("--note", help="Optional note with the transition")
+    p_stage.set_defaults(func=cmd_stage)
+
+    p_note = sub.add_parser("note", help="Append a freeform note")
+    p_note.add_argument("text", nargs=argparse.REMAINDER)
+    p_note.set_defaults(func=cmd_note)
+
+    p_set = sub.add_parser(
+        "set",
+        help="Attach/update issue, plan, links after start (Linear optional at init)",
+    )
+    p_set.add_argument(
+        "--issue",
+        help="Linear/issue key to attach now (omit at init is fine; set later)",
+    )
+    p_set.add_argument(
+        "--clear-issue",
+        action="store_true",
+        help="Remove the issue key from the ledger",
+    )
+    p_set.add_argument("--plan", help="Plan path")
+    p_set.add_argument("--doct-url", help="Doct plan URL")
+    p_set.add_argument("--pr-url", help="PR URL")
+    p_set.add_argument("--slug", help="Slug label when no issue yet")
+    p_set.add_argument("--id", help="Explicit ledger id override")
+    p_set.add_argument(
+        "--retarget-id",
+        action="store_true",
+        help="Rebuild id from repo + issue/slug/branch after attaching an issue",
+    )
+    p_set.set_defaults(func=cmd_set)
+
+    p_rec = sub.add_parser("record", help="Record recommended evidence (never required)")
+    p_rec.add_argument("key", help="Evidence key")
+    p_rec.add_argument(
+        "--status",
+        required=True,
+        choices=list(EVIDENCE_STATUSES),
+        help="pass|skip|gap|na|pending",
+    )
+    p_rec.add_argument("--artifact", help="Artifact path")
+    p_rec.add_argument("--summary", help="Short summary")
+    p_rec.add_argument("--gap", action="append", default=[], help="Gap string (repeatable)")
+    p_rec.add_argument("--promised", action="append", default=[], help="customerImpact promised item")
+    p_rec.add_argument("--observed", action="append", default=[], help="customerImpact observed item")
+    p_rec.add_argument("--plan", help="Update plan path")
+    p_rec.add_argument("--pr-url", help="Update PR URL")
+    p_rec.add_argument("--doct-url", help="Update Doct URL")
+    p_rec.set_defaults(func=cmd_record)
+
+    p_block = sub.add_parser("blocker", help="Add or clear blocker notes")
+    p_block.add_argument("text", nargs=argparse.REMAINDER)
+    p_block.add_argument("--clear", action="store_true")
+    p_block.add_argument("--mark-blocked", action="store_true", help="Also set stage=BLOCKED")
+    p_block.add_argument("--stage", help="Stage to restore when clearing")
+    p_block.set_defaults(func=cmd_blocker)
+
+    p_check = sub.add_parser(
+        "check",
+        help="Soft checklist for current stage (always exit 0; advisories only)",
+    )
+    add_json_flag(p_check)
+    p_check.add_argument("-v", "--verbose", action="store_true")
+    p_check.set_defaults(func=cmd_check)
+
+    p_board = sub.add_parser("board", help="List known delivery ledgers")
+    add_json_flag(p_board)
+    p_board.add_argument(
+        "--root",
+        action="append",
+        default=[],
+        help="Extra root to scan for .delivery/ledger.json (repeatable)",
+    )
+    p_board.set_defaults(func=cmd_board)
+
+    p_status = sub.add_parser("status", help="Show current ledger, or board with --all")
+    add_json_flag(p_status)
+    p_status.add_argument("--all", action="store_true")
+    p_status.set_defaults(func=cmd_status)
+
+    p_stages = sub.add_parser("stages", help="List stages and recommended next skills")
+    p_stages.set_defaults(func=cmd_stages)
+
+    p_reflect = sub.add_parser(
+        "reflect",
+        help="Log end-of-run friction/rework/improvements to ~/.pi (outside worktree)",
+    )
+    add_json_flag(p_reflect)
+    p_reflect.add_argument(
+        "text",
+        nargs=argparse.REMAINDER,
+        help="Optional freeform reflection text",
+    )
+    p_reflect.add_argument(
+        "--friction",
+        action="append",
+        default=[],
+        help="Observed process friction (repeatable)",
+    )
+    p_reflect.add_argument(
+        "--rework",
+        action="append",
+        default=[],
+        help="Rework challenge (repeatable)",
+    )
+    p_reflect.add_argument(
+        "--improvement",
+        action="append",
+        default=[],
+        help="Improvement opportunity (repeatable)",
+    )
+    p_reflect.add_argument(
+        "--note",
+        action="append",
+        default=[],
+        help="Additional note (repeatable)",
+    )
+    p_reflect.add_argument("--outcome", help="Short outcome label, e.g. pr-opened / blocked / done")
+    p_reflect.add_argument("--trigger", help="Short trigger label, e.g. end-of-run")
+    p_reflect.add_argument(
+        "--list",
+        nargs="?",
+        const=5,
+        type=int,
+        metavar="N",
+        help="Show last N reflections instead of writing (default 5)",
+    )
+    p_reflect.add_argument(
+        "--allow-untracked",
+        action="store_true",
+        help="Allow reflection when no worktree ledger exists",
+    )
+    p_reflect.add_argument(
+        "--mark-done",
+        action="store_true",
+        help="After logging, set ledger stage to DONE",
+    )
+    p_reflect.add_argument(
+        "--stage-reflect",
+        action="store_true",
+        help="Set ledger stage to REFLECT after logging (if not already DONE/BLOCKED)",
+    )
+    p_reflect.set_defaults(func=cmd_reflect)
+
+    p_spawn = sub.add_parser(
+        "spawn",
+        help="Create a Herdr worktree named from a goal and bootstrap delivery there",
+    )
+    add_json_flag(p_spawn)
+    p_spawn.add_argument(
+        "goal",
+        nargs=argparse.REMAINDER,
+        help="What you are after, used to name branch/label and seed the agent brief",
+    )
+    p_spawn.add_argument(
+        "--cwd",
+        default=argparse.SUPPRESS,
+        help="Source repo root (default: current git root)",
+    )
+    p_spawn.add_argument("--issue", help="Optional Linear issue key to attach now")
+    p_spawn.add_argument("--slug", help="Override slug derived from the goal")
+    p_spawn.add_argument("--branch", help="Override git branch name")
+    p_spawn.add_argument("--label", help="Override Herdr workspace/tab label")
+    p_spawn.add_argument("--base", default="origin/main", help="Base ref (default origin/main)")
+    p_spawn.add_argument("--path", help="Optional explicit worktree path")
+    p_spawn.add_argument("--plan", help="Optional plan path to record")
+    p_spawn.add_argument("--stage", default="INTAKE", help="Initial delivery stage")
+    p_spawn.add_argument(
+        "--agent",
+        default="pi",
+        help="Agent kind to start in the new pane (default: pi)",
+    )
+    p_spawn.add_argument(
+        "--agent-name",
+        default="delivery",
+        help="Herdr agent name (default: delivery)",
+    )
+    p_spawn.add_argument(
+        "--no-agent",
+        action="store_true",
+        help="Only create worktree + bootstrap; do not start an agent",
+    )
+    p_spawn.add_argument(
+        "--agent-timeout-ms",
+        type=int,
+        default=60000,
+        help="herdr agent start timeout (default 60000)",
+    )
+    p_spawn.add_argument(
+        "--wait-agent",
+        action="store_true",
+        help="Wait for the initial agent prompt to settle (default: fire-and-return)",
+    )
+    p_spawn.add_argument(
+        "--wait-timeout-ms",
+        type=int,
+        default=120000,
+        help="Wait timeout when --wait-agent is set",
+    )
+    p_spawn.add_argument(
+        "--focus",
+        action="store_true",
+        help="Focus the new Herdr workspace (default: no-focus)",
+    )
+    p_spawn.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress bootstrap brief stdout (still writes AGENT_BRIEF.md)",
+    )
+    p_spawn.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print naming/plan only; do not create a worktree",
+    )
+    p_spawn.set_defaults(func=cmd_spawn)
+
+    p_boot = sub.add_parser(
+        "bootstrap",
+        help="Cold-start or refresh a worktree for a new agent (writes AGENT_BRIEF.md)",
+    )
+    add_json_flag(p_boot)
+    p_boot.add_argument("--issue", help="Linear/issue key if known")
+    p_boot.add_argument("--slug", help="Feature slug when no issue yet")
+    p_boot.add_argument("--plan", help="Plan path if known")
+    p_boot.add_argument("--doct-url", help="Doct plan URL")
+    p_boot.add_argument("--pr-url", help="PR URL")
+    p_boot.add_argument("--goal", help="Short operator goal/ask for this worktree")
+    p_boot.add_argument("--stage", help="Stage to set (default INTAKE on create)")
+    p_boot.add_argument("--id", help="Explicit ledger id")
+    p_boot.add_argument(
+        "--retarget-id",
+        action="store_true",
+        help="Rebuild id from repo + issue/slug",
+    )
+    p_boot.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Rewrite AGENT_BRIEF.md for an existing ledger without recreating it",
+    )
+    p_boot.add_argument(
+        "--force",
+        action="store_true",
+        help="Recreate ledger from scratch (destructive to prior evidence)",
+    )
+    p_boot.set_defaults(func=cmd_bootstrap)
+
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    # Parent and subcommand may both declare --json; default False when absent.
+    if not hasattr(args, "json"):
+        args.json = False
+    return int(args.func(args))
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except KeyboardInterrupt:
+        raise SystemExit(130)

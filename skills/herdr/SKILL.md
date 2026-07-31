@@ -215,6 +215,17 @@ herdr workspace create --cwd /path/to/project --label api --no-focus
 herdr worktree create --cwd /path/to/repo --branch feature/name --no-focus --json
 ```
 
+After creating or opening a delivery worktree, best-effort bootstrap the delivery navigator so a newly spawned agent can continue without prior chat context:
+
+```bash
+# Linear optional at start
+delivery --cwd <worktree-path> bootstrap --slug <feature-slug> --goal "<operator ask>"
+# or with issue:
+delivery --cwd <worktree-path> bootstrap --issue NOD-123 --goal "..."
+```
+
+Then prompt the worktree agent with `/delivery:bootstrap` or: read `.delivery/AGENT_BRIEF.md`, run `delivery show && delivery check -v`, continue from the recommended next step. If `delivery` is unavailable, skip without failing the Herdr operation.
+
 Parse every returned workspace, tab, pane, and worktree handle. Do not predict them.
 
 ## Safety rules

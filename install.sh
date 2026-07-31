@@ -1435,6 +1435,12 @@ sync_shared_skills() {
     ln -sfn "$HOME/.agents/scripts/ensure-git-with-index-lock" "$HOME/.local/bin/ensure-git-with-index-lock"
     echo "  - Installed git-with-index-lock + ensure-git-with-index-lock at ~/.agents/scripts and ~/.local/bin"
 
+    if [[ -f "$REPO_ROOT/skills/delivery-run/scripts/delivery" ]]; then
+        install -m 0755 "$REPO_ROOT/skills/delivery-run/scripts/delivery" "$HOME/.agents/scripts/delivery"
+        ln -sfn "$HOME/.agents/scripts/delivery" "$HOME/.local/bin/delivery"
+        echo "  - Installed delivery stage ledger CLI at ~/.agents/scripts/delivery and ~/.local/bin/delivery"
+    fi
+
     echo "  - Syncing repo-managed shared skills from skills/ into ~/.agents/skills/..."
     while IFS=$'\t' read -r skill_name source_rel; do
         install_shared_skill "$skill_name" "$source_rel" "$shared_skills_dir"
@@ -1729,6 +1735,7 @@ DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 PICKER_ENABLED_MODELS = [
     DEFAULT_MODEL_VALUE,
     "openai-codex/gpt-5.6-luna",
+    "openai-codex/gpt-5.6-sol",
     "xai/grok-4.5",
     "cursor/composer-2.5",
 ]
@@ -1958,7 +1965,7 @@ target_providers = updated_data.setdefault("providers", {})
 
 # Retire only exact model IDs previously managed by ai-configs. Display names
 # are not an ownership boundary: callers may keep custom CLI Proxy API models.
-RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.6-sol", "grok-4.5"}
+RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini", "grok-4.5"}
 NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.5", "grok-4.3", "grok-build-0.1"}
 MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
     "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
@@ -2431,17 +2438,23 @@ PY
     cp "$pi_source/README.md" "$agent/README.md"
     install_pi_append_system_file "$agent"
 
-    for skill in autoreview claude-code-review codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan; do
+    for skill in autoreview claude-code-review codex-review-partner delivery-run pre-pr-implementation-review reviewed-html-plan run-plan; do
         rm -rf "$shared/$skill"
         cp -a "$REPO_ROOT/skills/$skill" "$shared/$skill"
     done
-    rm -f "$review_runtime_dir/review_orchestration.py" "$review_runtime_dir/git-with-index-lock" "$review_runtime_dir/ensure-git-with-index-lock"
+    rm -f "$review_runtime_dir/review_orchestration.py" "$review_runtime_dir/git-with-index-lock" "$review_runtime_dir/ensure-git-with-index-lock" "$review_runtime_dir/delivery"
     install -m 0755 "$REPO_ROOT/scripts/review_orchestration.py" "$review_runtime_dir/review_orchestration.py"
     install -m 0755 "$REPO_ROOT/scripts/git-with-index-lock" "$review_runtime_dir/git-with-index-lock"
     install -m 0755 "$REPO_ROOT/scripts/ensure-git-with-index-lock" "$review_runtime_dir/ensure-git-with-index-lock"
+    if [[ -f "$REPO_ROOT/skills/delivery-run/scripts/delivery" ]]; then
+        install -m 0755 "$REPO_ROOT/skills/delivery-run/scripts/delivery" "$review_runtime_dir/delivery"
+    fi
     mkdir -p "$HOME/.local/bin"
     ln -sfn "$review_runtime_dir/git-with-index-lock" "$HOME/.local/bin/git-with-index-lock"
     ln -sfn "$review_runtime_dir/ensure-git-with-index-lock" "$HOME/.local/bin/ensure-git-with-index-lock"
+    if [[ -f "$review_runtime_dir/delivery" ]]; then
+        ln -sfn "$review_runtime_dir/delivery" "$HOME/.local/bin/delivery"
+    fi
     python3 - "$parent_metadata" <<'PY'
 import json, os, sys
 for raw, value in json.load(open(sys.argv[1])).items():
