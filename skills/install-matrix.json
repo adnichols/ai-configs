@@ -727,6 +727,17 @@
       "canonicalSource": "skills/supervise",
       "notes": "Opt-in trajectory-guarding supervisor for worker agents: adjacent Herdr pane, reactive checkpoint protocol (plan-ready and pre-PR blocking, advisory phase nudges), and expansion-log oversight. Never auto-launched by plan execution.",
       "sourceType": "repo"
+    },
+    "zero-tech-debt": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi"
+      ],
+      "canonicalSource": "skills/zero-tech-debt",
+      "notes": "Repo-owned skill for reworking changes from the intended product end state and removing dead compatibility complexity.",
+      "sourceType": "repo"
     }
   },
   "skillProfiles": {
