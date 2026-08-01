@@ -48,8 +48,6 @@ toggle_sidebar = "prefix+b"
 reload_config = "prefix+shift+r"
 edit_scrollback = "prefix+e"
 # `prefix+shift+t` is reserved for the Sesh plugin picker below.
-# Terminals commonly report Shift+comma as the literal `<` character.
-rename_tab = "prefix+<"
 close_tab = "prefix+shift+x"
 
 [ui.sound]
@@ -61,6 +59,13 @@ agent_panel_sort = "priority"
 
 [ui.toast]
 delivery = "terminal"
+
+# Terminals commonly report Shift+comma as the literal `<` character.
+[[keys.command]]
+key = "prefix+<"
+type = "plugin_action"
+command = "herdr-navigator.open"
+description = "open Herdr Navigator"
 
 [[keys.command]]
 key = "prefix+shift+f"

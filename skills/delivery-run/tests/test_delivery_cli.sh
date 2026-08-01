@@ -379,6 +379,45 @@ assert "login" in d["label"].lower(), d
 ' "$json3"
 }
 
+test_spawn_uses_workspace_scoped_default_agent_name() {
+  local repo="$TMP_ROOT/spawn-agent-repo"
+  local worktree="$TMP_ROOT/spawn-agent-worktree"
+  local fake_bin="$TMP_ROOT/fake-herdr-spawn-agent"
+  local log="$TMP_ROOT/fake-herdr-spawn-agent.log"
+  make_repo "$repo"
+  make_repo "$worktree"
+  mkdir -p "$fake_bin"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+if [[ "$1" == "worktree" && "$2" == "create" ]]; then
+  python3 - "$FAKE_HERDR_WORKTREE" <<'PY'
+import json,sys
+worktree=sys.argv[1]
+print(json.dumps({"result": {
+  "root_pane": {"pane_id": "wTest42:p1", "cwd": worktree, "workspace_id": "wTest42", "tab_id": "wTest42:t1"},
+  "workspace": {"workspace_id": "wTest42", "worktree": {"checkout_path": worktree}},
+  "worktree": {"path": worktree, "open_workspace_id": "wTest42"},
+  "tab": {"tab_id": "wTest42:t1"},
+}}))
+PY
+fi
+SH
+  chmod +x "$fake_bin/herdr"
+  local json
+  json="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$log" FAKE_HERDR_WORKTREE="$worktree" \
+    "$DELIVERY" --cwd "$repo" spawn --base main --quiet --json -- "agent collision regression")"
+  python3 -c 'import json,re,sys
+p=json.loads(sys.argv[1])
+assert p["agent"]["name"] == "delivery-77546573743432", p
+assert re.fullmatch(r"[a-z][a-z0-9_-]{0,31}", p["agent"]["name"]), p
+assert p["agent"]["prompted"] is True, p
+' "$json"
+  rg -Fxq "agent start delivery-77546573743432 --kind pi --pane wTest42:p1 --timeout 60000" "$log" || return 1
+  rg -q "^agent prompt delivery-77546573743432 " "$log" || return 1
+}
+
 test_reflect_logs_outside_worktree() {
   local repo="$TMP_ROOT/reflect-repo"
   local pi_home="$TMP_ROOT/pi-home"
@@ -572,6 +611,7 @@ run_test test_bootstrap_writes_agent_brief
 run_test test_reflect_logs_outside_worktree
 run_test test_phase_herdr_label_format
 run_test test_spawn_dry_run_names_from_goal
+run_test test_spawn_uses_workspace_scoped_default_agent_name
 run_test test_browser_review_waits_for_explicit_readiness_request
 run_test test_readiness_review_requires_explicit_request
 run_test test_execution_ready_requires_current_operator_approval

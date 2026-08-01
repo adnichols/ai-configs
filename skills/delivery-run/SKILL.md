@@ -37,6 +37,7 @@ Or: `/delivery:spawn NOD-1457 one login path`
 - Linear issue from any `TEAM-123` token in the text
 - slug/branch/label from the remaining intent words
 - Herdr worktree + delivery bootstrap + child Pi prompt
+- a workspace-scoped, Herdr-valid default child-agent name so concurrent runs do not collide
 - phase-prefixed Herdr **space** (workspace) + tab labels that update on `delivery stage`
 
 ### Herdr space phase codes

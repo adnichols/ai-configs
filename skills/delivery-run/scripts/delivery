@@ -1605,6 +1605,21 @@ def unique_branch_name(repo: Path, base_slug: str, issue: str | None) -> str:
     return f"{candidate}-{int(time.time()) % 100000}"
 
 
+def default_spawn_agent_name(workspace_id: str | None) -> str:
+    """Create a unique, Herdr-valid agent name for a new delivery workspace."""
+    if workspace_id:
+        # Workspace IDs are opaque and can contain uppercase characters, while
+        # Herdr agent names permit only lowercase letters, digits, '-' and '_'.
+        # Hex encoding preserves the exact workspace identity without collisions.
+        token = str(workspace_id).encode("utf-8").hex()
+        name = f"delivery-{token}"
+        if len(name) <= 32:
+            return name
+    # Worktree creation normally returns a short workspace ID. Retain collision
+    # safety if an older response omits it or exceeds Herdr's name-length limit.
+    return f"delivery-{uuid.uuid4().hex[:23]}"
+
+
 def agent_start_prompt(goal: str, *, issue: str | None, worktree: str) -> str:
     issue_line = (
         f"Linear issue is attached as {issue}."
@@ -1777,10 +1792,12 @@ def cmd_spawn(args: argparse.Namespace) -> int:
     agent_name = None
     agent_kind = None
     prompted = False
+    agent_status = None
     if not args.no_agent:
         agent_kind = args.agent or "pi"
-        agent_name = args.agent_name or "delivery"
+        agent_name = args.agent_name or default_spawn_agent_name(workspace_id)
         if not pane_id:
+            agent_status = "skipped-no-pane"
             print("delivery spawn: no pane id from herdr; skipped agent start", file=sys.stderr)
         else:
             start = run_cmd(
@@ -1798,6 +1815,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
                 ]
             )
             if start.returncode != 0:
+                agent_status = "start-failed"
                 print(
                     "delivery spawn: herdr agent start failed; worktree+bootstrap are ready.\n"
                     f"{(start.stderr or start.stdout or '').strip()}",
@@ -1828,6 +1846,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
                     )
                 pr = run_cmd(prompt_cmd)
                 prompted = pr.returncode == 0
+                agent_status = "prompted" if prompted else "prompt-failed"
                 if pr.returncode != 0:
                     print(
                         "delivery spawn: agent started but initial prompt failed.\n"
@@ -1850,7 +1869,12 @@ def cmd_spawn(args: argparse.Namespace) -> int:
         "paneId": pane_id,
         "ledger": str(Path(worktree_path) / LEDGER_REL),
         "brief": str(Path(worktree_path) / ".delivery" / "AGENT_BRIEF.md"),
-        "agent": {"name": agent_name, "kind": agent_kind, "prompted": prompted}
+        "agent": {
+            "name": agent_name,
+            "kind": agent_kind,
+            "prompted": prompted,
+            "status": agent_status,
+        }
         if not args.no_agent
         else None,
         "next": "Open the Herdr workspace and let the agent follow .delivery/AGENT_BRIEF.md",
@@ -1916,8 +1940,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
         print(f"pane:      {pane_id}")
         print(f"brief:     {summary['brief']}")
         if summary.get("agent"):
-            agent_state = "prompted" if prompted else "start-only/failed-prompt"
-            print(f"agent:     {agent_kind}:{agent_name} ({agent_state})")
+            print(f"agent:     {agent_kind}:{agent_name} ({agent_status})")
         print("next:      watch the Herdr workspace; agent should follow AGENT_BRIEF.md")
     return 0
 
@@ -2721,8 +2744,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_spawn.add_argument(
         "--agent-name",
-        default="delivery",
-        help="Herdr agent name (default: delivery)",
+        help="Herdr agent name (default: unique delivery workspace token)",
     )
     p_spawn.add_argument(
         "--no-agent",
