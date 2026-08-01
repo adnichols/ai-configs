@@ -140,7 +140,8 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
 
 ## Git & Review Workflow  <!-- PROJECT-SPECIFIC -->
 
-- **Branch protection rules:** TODO (what’s protected, and how)
+- **Branch protection rules:** Keep protected integration branches subject to the repository’s required checks. The GitHub repository settings are the enforcement point for merge-method restrictions.
+- **PR merge method:** Prefer squash-merging pull requests into the target branch. Keep intermediate commits available for review; do not rewrite branch history solely to produce one commit before opening a PR. Preserve the PR title and body as the final commit metadata when squash-merging.
 - **Commit style:** TODO (e.g., Conventional Commits)
 - **Review expectations:** TODO (e.g., when to request a human review, which files are high-risk)
 - **CI / CD:** TODO (what pipelines run on PRs, what must be green before merge)
