@@ -395,6 +395,18 @@ def implementation_approval_problem(ledger: dict[str, Any], root: Path) -> str |
     return None
 
 
+def stage_transition_problem(ledger: dict[str, Any], root: Path, stage: str) -> str | None:
+    """Return the authorization failure for a protected stage transition."""
+    if stage in {"PLAN_PM_REVIEW", "PLAN_TECH_REVIEW", "EXECUTION_READY"}:
+        return plan_readiness_request_problem(ledger, root)
+    if stage == "IMPLEMENTING":
+        readiness_problem = plan_readiness_request_problem(ledger, root)
+        if readiness_problem:
+            return f"no current execution-ready review request: {readiness_problem}"
+        return implementation_approval_problem(ledger, root)
+    return None
+
+
 def reset_implementation_approval(ledger: dict[str, Any], reason: str) -> None:
     approval = ledger.setdefault("implementationApproval", {})
     approval.update(
@@ -633,6 +645,12 @@ def cmd_init(args: argparse.Namespace) -> int:
         pr_url=args.pr_url,
         slug=args.slug,
     )
+    transition_problem = stage_transition_problem(ledger, root, stage)
+    if transition_problem:
+        die(
+            f"cannot initialize at {stage}: {transition_problem}. "
+            "Create the ledger at INTAKE and advance through delivery's guarded steps."
+        )
     write_json(path, ledger)
     maybe_herdr_label(ledger)
     write_json(path, ledger)
@@ -710,22 +728,19 @@ def cmd_stage(args: argparse.Namespace) -> int:
     if stage not in STAGES:
         die(f"unknown stage {stage!r}; choose from: {', '.join(STAGES)}")
     path, ledger, root = load_ledger_for(args)
-    if stage in {"PLAN_PM_REVIEW", "PLAN_TECH_REVIEW", "EXECUTION_READY"}:
-        readiness_problem = plan_readiness_request_problem(ledger, root)
-        if readiness_problem:
-            die(
-                f"cannot enter {stage}: {readiness_problem}. "
-                "Continue processing ordinary feedback in PLAN_BROWSER_REVIEW."
-            )
-    if stage == "IMPLEMENTING":
-        approval_problem = implementation_approval_problem(ledger, root)
-        if approval_problem:
+    transition_problem = stage_transition_problem(ledger, root, stage)
+    if transition_problem:
+        if stage == "IMPLEMENTING":
             die(
                 "cannot enter IMPLEMENTING: "
-                f"{approval_problem}. Present the execution-ready summary, obtain a direct "
+                f"{transition_problem}. Present the execution-ready summary, obtain a direct "
                 "operator approval, then run `delivery approve-implementation --source chat|doct "
                 "--summary \"...\"`."
             )
+        die(
+            f"cannot enter {stage}: {transition_problem}. "
+            "Continue processing ordinary feedback in PLAN_BROWSER_REVIEW."
+        )
     if stage == "MERGE_READY":
         completeness_problem = completeness_review_problem(ledger, root)
         if completeness_problem:
@@ -752,6 +767,9 @@ def cmd_approve_implementation(args: argparse.Namespace) -> int:
     path, ledger, root = load_ledger_for(args)
     if ledger.get("stage") != "EXECUTION_READY":
         die("implementation approval is allowed only at EXECUTION_READY")
+    readiness_problem = plan_readiness_request_problem(ledger, root)
+    if readiness_problem:
+        die(f"cannot approve implementation: {readiness_problem}")
     fingerprint = plan_sha256(ledger, root)
     if fingerprint is None:
         die("cannot approve implementation: recorded plan is missing, outside this worktree, or unreadable")
@@ -1678,6 +1696,21 @@ def cmd_spawn(args: argparse.Namespace) -> int:
     )
     base = args.base or "origin/main"
     focus = bool(args.focus)
+    requested_stage = args.stage or "INTAKE"
+    if requested_stage not in STAGES:
+        die(f"unknown stage {requested_stage!r}; choose from: {', '.join(STAGES)}")
+    stage_probe = {
+        "stage": requested_stage,
+        "plan": args.plan,
+        "evidence": empty_evidence(),
+        "implementationApproval": {"status": "pending"},
+    }
+    transition_problem = stage_transition_problem(stage_probe, repo, requested_stage)
+    if transition_problem:
+        die(
+            f"cannot initialize at {requested_stage}: {transition_problem}. "
+            "Create the worktree at INTAKE and advance through delivery's guarded steps."
+        )
 
     # Ensure base exists when possible (non-fatal if offline).
     base_ok = run_cmd(["git", "rev-parse", "--verify", f"{base}^{{commit}}"], cwd=repo)
@@ -1693,7 +1726,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             die(f"base ref {base!r} still not found after fetch")
 
     if args.dry_run:
-        preview_stage = args.stage or "INTAKE"
+        preview_stage = requested_stage
         preview_ledger = {
             "issue": issue,
             "slug": slug,
@@ -2410,6 +2443,14 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
         )
         created = True
 
+    if created:
+        transition_problem = stage_transition_problem(ledger, root, str(ledger.get("stage")))
+        if transition_problem:
+            die(
+                f"cannot initialize at {ledger.get('stage')}: {transition_problem}. "
+                "Create the ledger at INTAKE and advance through delivery's guarded steps."
+            )
+
     # Apply optional metadata updates on existing ledgers (and force-create already set them).
     if not created:
         if args.issue is not None:
@@ -2425,6 +2466,19 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
         if args.stage and args.stage != ledger.get("stage"):
             if args.stage not in STAGES:
                 die(f"unknown stage {args.stage!r}")
+            transition_problem = stage_transition_problem(ledger, root, args.stage)
+            if transition_problem:
+                if args.stage == "IMPLEMENTING":
+                    die(
+                        "cannot enter IMPLEMENTING: "
+                        f"{transition_problem}. Present the execution-ready summary, obtain a direct "
+                        "operator approval, then run `delivery approve-implementation --source chat|doct "
+                        "--summary \"...\"`."
+                    )
+                die(
+                    f"cannot enter {args.stage}: {transition_problem}. "
+                    "Continue processing ordinary feedback in PLAN_BROWSER_REVIEW."
+                )
             prev = ledger.get("stage")
             ledger["stage"] = args.stage
             append_history(ledger, "stage", f"{prev} -> {args.stage}")

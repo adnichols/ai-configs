@@ -267,7 +267,7 @@ delivery stage IMPLEMENTING
 # only now: /skill:run-plan <plan>
 ```
 
-The CLI rejects readiness-review stages without a current explicit readiness-request fingerprint and rejects `delivery stage IMPLEMENTING` without a current approval fingerprint. These are authorization boundaries, not quality-evidence advisories.
+The CLI rejects readiness-review stages without a current explicit readiness-request fingerprint and rejects implementation entry without a current approval fingerprint. These checks apply to `delivery stage`, `delivery init`, `delivery spawn`, `delivery bootstrap`, and `delivery approve-implementation`, so worktree or ledger creation/refresh cannot bypass the pause. These are authorization boundaries, not quality-evidence advisories.
 If the plan changes or material browser feedback arrives before implementation, reply and
 update the plan, then invalidate the approval and return to browser review:
 

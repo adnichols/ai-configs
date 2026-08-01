@@ -377,6 +377,13 @@ assert d["label"].startswith("PL: "), d
 assert "NOD-1457" in d["label"], d
 assert "login" in d["label"].lower(), d
 ' "$json3"
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" spawn --dry-run --stage EXECUTION_READY \
+    --base main -- "invalid direct execution-ready spawn" 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no explicit execution-ready review request" || return 1
 }
 
 test_spawn_uses_workspace_scoped_default_agent_name() {
@@ -521,6 +528,102 @@ test_readiness_review_requires_explicit_request() {
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
 }
 
+test_init_cannot_bypass_authorization_stages() {
+  local repo="$TMP_ROOT/init-authorization-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<article data-plan>init-bypass</article>\n' >"$repo/thoughts/plans/x.html"
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --stage EXECUTION_READY \
+    --plan thoughts/plans/x.html 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no explicit execution-ready review request" || return 1
+  [[ ! -f "$repo/.delivery/ledger.json" ]] || return 1
+
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --stage IMPLEMENTING \
+    --plan thoughts/plans/x.html 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no explicit execution-ready review request" || return 1
+}
+
+test_bootstrap_cannot_bypass_authorization_stages() {
+  local repo="$TMP_ROOT/bootstrap-authorization-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<article data-plan>bootstrap-bypass</article>\n' >"$repo/thoughts/plans/x.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --plan thoughts/plans/x.html >/dev/null
+
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --force \
+    --stage EXECUTION_READY --plan thoughts/plans/x.html 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no explicit execution-ready review request" || return 1
+
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap \
+    --stage EXECUTION_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no explicit execution-ready review request" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+assert json.load(open(sys.argv[1]))["stage"] == "INTAKE"
+PY
+}
+
+test_approval_cannot_bypass_readiness_request() {
+  local repo="$TMP_ROOT/approval-authorization-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<article data-plan>approval-bypass</article>\n' >"$repo/thoughts/plans/x.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  # Simulate a legacy/child-ledger path that wrote EXECUTION_READY directly.
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1]
+d=json.load(open(path))
+d["stage"]="EXECUTION_READY"
+json.dump(d,open(path,"w"),indent=2)
+PY
+  set +e
+  out="$(PI_MODEL=test-model PI_REASONING_LEVEL=high DELIVERY_SKIP_HERDR=1 \
+    "$DELIVERY" --cwd "$repo" approve-implementation --source chat \
+    --summary "Operator received status, changes, model, and steps" 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no explicit execution-ready review request" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+assert json.load(open(sys.argv[1]))["implementationApproval"]["status"] == "pending"
+PY
+  # Even a forged current approval cannot enter IMPLEMENTING without readiness.
+  python3 - "$repo/.delivery/ledger.json" "$repo/thoughts/plans/x.html" <<'PY'
+import hashlib,json,sys
+ledger_path,plan_path=sys.argv[1:]
+d=json.load(open(ledger_path))
+d["implementationApproval"].update({
+    "status":"approved",
+    "planSha256":hashlib.sha256(open(plan_path,"rb").read()).hexdigest(),
+})
+json.dump(d,open(ledger_path,"w"),indent=2)
+PY
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no current execution-ready review request" || return 1
+}
+
 test_execution_ready_requires_current_operator_approval() {
   local repo="$TMP_ROOT/implementation-approval-repo"
   make_repo "$repo"
@@ -614,6 +717,9 @@ run_test test_spawn_dry_run_names_from_goal
 run_test test_spawn_uses_workspace_scoped_default_agent_name
 run_test test_browser_review_waits_for_explicit_readiness_request
 run_test test_readiness_review_requires_explicit_request
+run_test test_init_cannot_bypass_authorization_stages
+run_test test_bootstrap_cannot_bypass_authorization_stages
+run_test test_approval_cannot_bypass_readiness_request
 run_test test_execution_ready_requires_current_operator_approval
 run_test test_skill_doctrine_wording
 
