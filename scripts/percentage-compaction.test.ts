@@ -43,7 +43,7 @@ const setup = (
 	options: {
 		sendMessageThrows?: boolean;
 		authority?: "legacy" | "coordinator";
-		model?: { provider?: string; id?: string };
+		model?: { provider?: string; id?: string; contextWindow?: number };
 		tokens?: number;
 		contextWindow?: number;
 	} = {},
@@ -169,6 +169,18 @@ const assistantError = {
 	message: { role: "assistant", stopReason: "error" },
 	toolResults: [],
 };
+const assistantContextOverflow = (
+	errorMessage = "prompt is too long: 2000 tokens > 1000 maximum",
+) => ({
+	message: {
+		role: "assistant",
+		stopReason: "error",
+		errorMessage,
+		provider: "test-provider",
+		model: "test-model",
+	},
+	toolResults: [],
+});
 const toolResult = (
 	toolCallId = "tc_1",
 	toolName = "compact_context",
@@ -609,6 +621,228 @@ describe("percentage-compaction extension", () => {
 		await handlers.turn_end?.(assistantStop, ctx);
 		await delay(0);
 		expect(compactCalls).toHaveLength(2);
+	});
+
+	test("agent_end owns provider overflow when core auto-compaction is disabled", async () => {
+		const { handlers, compactCalls, sentMessages, ctx } = setup(40, true, {
+			model: {
+				provider: "test-provider",
+				id: "test-model",
+				contextWindow: 1000,
+			},
+		});
+
+		await handlers.agent_end?.(
+			{ messages: [assistantContextOverflow().message] },
+			ctx,
+		);
+		await delay(0);
+
+		expect(compactCalls).toHaveLength(1);
+		expect(compactCalls[0].customInstructions).toBeUndefined();
+		compactCalls[0].onComplete();
+		await delay(0);
+
+		expect(sentMessages).toHaveLength(1);
+		expect(sentMessages[0].message.customType).toBe("compaction-resume");
+		expect(sentMessages[0].message.content).toContain("context-overflow");
+	});
+
+	test("provider overflow publishes a host-overflow coordinator continuation", async () => {
+		const {
+			handlers,
+			compactCalls,
+			sentMessages,
+			appendedEntries,
+			ctx,
+		} = setup(40, true, {
+			authority: "coordinator",
+			model: {
+				provider: "test-provider",
+				id: "test-model",
+				contextWindow: 1000,
+			},
+		});
+
+		await handlers.agent_end?.(
+			{ messages: [assistantContextOverflow().message] },
+			ctx,
+		);
+		await delay(0);
+		compactCalls[0].onComplete();
+
+		expect(sentMessages).toHaveLength(0);
+		expect(appendedEntries.map((entry) => entry.customType)).toEqual([
+			"pi-vcc-continuation-request",
+			"pi-vcc-continuation-safety-ready",
+		]);
+		expect(appendedEntries[0].data.snapshot).toMatchObject({
+			origin: "host-overflow",
+			reason: "compacted",
+		});
+	});
+
+	test("scheduled overflow recovery cancels a competing core overflow compaction", async () => {
+		const { handlers, compactCalls, ctx } = setup(40, true, {
+			model: {
+				provider: "test-provider",
+				id: "test-model",
+				contextWindow: 1000,
+			},
+		});
+
+		await handlers.agent_end?.(
+			{ messages: [assistantContextOverflow().message] },
+			ctx,
+		);
+		const coreResult = await handlers.session_before_compact?.(
+			{ customInstructions: undefined, reason: "overflow" },
+			ctx,
+		);
+
+		expect(coreResult).toEqual({ cancel: true });
+		await delay(0);
+		expect(compactCalls).toHaveLength(1);
+	});
+
+	test("scheduled overflow recovery cancels core overflow even when usage is unknown", async () => {
+		const { handlers, compactCalls, ctx } = setup(null, true, {
+			model: {
+				provider: "test-provider",
+				id: "test-model",
+				contextWindow: 1000,
+			},
+		});
+
+		await handlers.agent_end?.(
+			{ messages: [assistantContextOverflow().message] },
+			ctx,
+		);
+		const coreResult = await handlers.session_before_compact?.(
+			{ customInstructions: undefined, reason: "overflow" },
+			ctx,
+		);
+
+		expect(coreResult).toEqual({ cancel: true });
+		await delay(0);
+		expect(compactCalls).toHaveLength(1);
+	});
+
+	test("overflow detection ignores rate limits and retries silent overflow responses", async () => {
+		const mismatchedModel = setup(40, true, {
+			model: {
+				provider: "test-provider",
+				id: "test-model",
+				contextWindow: 1000,
+			},
+		});
+		await mismatchedModel.handlers.agent_end?.(
+			{
+				messages: [
+					{
+						...assistantContextOverflow().message,
+						provider: "other-provider",
+						model: "other-model",
+					},
+				],
+			},
+			mismatchedModel.ctx,
+		);
+		await delay(0);
+		expect(mismatchedModel.compactCalls).toHaveLength(0);
+
+		const rateLimit = setup(40, true, {
+			model: {
+				provider: "test-provider",
+				id: "test-model",
+				contextWindow: 1000,
+			},
+		});
+		await rateLimit.handlers.agent_end?.(
+			{
+				messages: [
+					assistantContextOverflow("rate limit: too many tokens, try again later")
+						.message,
+				],
+			},
+			rateLimit.ctx,
+		);
+		await delay(0);
+		expect(rateLimit.compactCalls).toHaveLength(0);
+
+		const silentOverflow = setup(40, true, {
+			model: {
+				provider: "test-provider",
+				id: "test-model",
+				contextWindow: 1000,
+			},
+		});
+		await silentOverflow.handlers.agent_end?.(
+			{
+				messages: [
+					{
+						role: "assistant",
+						stopReason: "stop",
+						provider: "test-provider",
+						model: "test-model",
+						usage: { input: 1001, cacheRead: 0, output: 1 },
+					},
+				],
+			},
+			silentOverflow.ctx,
+		);
+		await delay(0);
+		expect(silentOverflow.compactCalls).toHaveLength(1);
+		expect(silentOverflow.sentMessages).toHaveLength(0);
+
+		const lengthOverflow = setup(40, true, {
+			model: {
+				provider: "test-provider",
+				id: "test-model",
+				contextWindow: 1000,
+			},
+		});
+		await lengthOverflow.handlers.agent_end?.(
+			{
+				messages: [
+					{
+						role: "assistant",
+						stopReason: "length",
+						provider: "test-provider",
+						model: "test-model",
+						usage: { input: 990, cacheRead: 0, output: 0 },
+					},
+				],
+			},
+			lengthOverflow.ctx,
+		);
+		await delay(0);
+		expect(lengthOverflow.compactCalls).toHaveLength(1);
+		lengthOverflow.compactCalls[0].onComplete();
+		await delay(0);
+		expect(lengthOverflow.sentMessages).toHaveLength(1);
+		expect(lengthOverflow.sentMessages[0].message.customType).toBe(
+			"compaction-resume",
+		);
+	});
+
+	test("hard backstop preserves retry semantics for an overflow error", async () => {
+		const { handlers, compactCalls, sentMessages, ctx } = setup(80.2, true, {
+			model: {
+				provider: "test-provider",
+				id: "test-model",
+				contextWindow: 1000,
+			},
+		});
+
+		await handlers.turn_end?.(assistantContextOverflow(), ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(1);
+		compactCalls[0].onComplete();
+		await delay(0);
+
+		expect(sentMessages).toHaveLength(1);
+		expect(sentMessages[0].message.customType).toBe("compaction-resume");
 	});
 
 	test("compaction failure sends one continuation for an interrupted turn", async () => {

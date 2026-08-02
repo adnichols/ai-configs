@@ -1,7 +1,10 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import type { AssistantMessage } from "@earendil-works/pi-ai/compat";
+import { isContextOverflow } from "@earendil-works/pi-ai/compat";
 import type {
+	AgentEndEvent,
 	ExtensionAPI,
 	ExtensionContext,
 	ModelSelectEvent,
@@ -39,7 +42,8 @@ type ContinuationOutcome =
 type ContinuationInitiator =
 	| "package-compact-now"
 	| "compact_context"
-	| "hard-backstop";
+	| "hard-backstop"
+	| "host-overflow";
 
 interface PendingModelCompaction {
 	requestId: string;
@@ -218,6 +222,43 @@ const isInterruptedAgentWork = (message: TurnEndEvent["message"]) =>
 		message.stopReason === "toolUse") ||
 	message.role === "toolResult";
 
+const contextWindowFor = (ctx: ExtensionContext): number | undefined =>
+	(ctx.model as { contextWindow?: number } | undefined)?.contextWindow ??
+	ctx.getContextUsage()?.contextWindow;
+
+const isContextOverflowResponse = (
+	message: unknown,
+	ctx: ExtensionContext,
+): boolean => {
+	if ((message as { role?: string } | undefined)?.role !== "assistant")
+		return false;
+	const assistant = message as {
+		provider?: string;
+		model?: string;
+		stopReason?: string;
+		usage?: { input?: number; cacheRead?: number; output?: number };
+	};
+	const model = ctx.model as { provider?: string; id?: string } | undefined;
+	if (
+		!model ||
+		assistant.provider !== model.provider ||
+		assistant.model !== model.id
+	)
+		return false;
+	if (
+		(assistant.stopReason === "stop" || assistant.stopReason === "length") &&
+		!assistant.usage
+	)
+		return false;
+	return isContextOverflow(message as AssistantMessage, contextWindowFor(ctx));
+};
+
+const overflowRequiresRetry = (message: unknown): boolean =>
+	(message as { stopReason?: string } | undefined)?.stopReason !== "stop";
+
+const buildOverflowResumeMessage = () =>
+	"Pi VCC recovered from a provider context-overflow response. Retry the interrupted request from the compacted state; do not repeat an oversized request.";
+
 const isStaleAutoCompactionPercent = (
 	percent: number,
 	lastPercent: number | undefined,
@@ -371,7 +412,9 @@ const continuationAdapter = (
 			? "compact_context"
 			: initiator === "hard-backstop"
 				? "hard-backstop"
-				: "package-command",
+				: initiator === "host-overflow"
+					? "host-overflow"
+					: "package-command",
 	reason:
 		outcome === "cancellation"
 			? "cancelled"
@@ -836,12 +879,20 @@ export default function (pi: ExtensionAPI) {
 	const snapshotInterruptedCompactionTurn = (
 		event: TurnEndEvent,
 		reason: InterruptedCompactionTurn["reason"],
+		ctx: ExtensionContext,
 	): InterruptedCompactionTurn => {
 		const completedResponse = isCompletedAssistantResponse(event.message);
+		const overflowRetry =
+			isContextOverflowResponse(event.message, ctx) &&
+			overflowRequiresRetry(event.message);
 		return {
-			interrupted: !completedResponse && isInterruptedAgentWork(event.message),
+			interrupted:
+				overflowRetry ||
+				(!completedResponse && isInterruptedAgentWork(event.message)),
 			pendingToolCallIds: new Set(
-				completedResponse ? [] : [...outstandingAssistantToolCallIds],
+				completedResponse && !overflowRetry
+					? []
+					: [...outstandingAssistantToolCallIds],
 			),
 			reason,
 		};
@@ -1393,6 +1444,7 @@ export default function (pi: ExtensionAPI) {
 					interruptedTurn: snapshotInterruptedCompactionTurn(
 						event,
 						"compact_context",
+						ctx,
 					),
 				});
 				return;
@@ -1444,11 +1496,17 @@ export default function (pi: ExtensionAPI) {
 						? `✓ Auto-compacting Grok context at ${tokens.toLocaleString()} tokens (trigger: ${GROK_COMPACTION_TRIGGER_TOKENS.toLocaleString()})`
 						: `↻ Grok context at ${tokens.toLocaleString()} tokens (trigger: ${GROK_COMPACTION_TRIGGER_TOKENS.toLocaleString()}). Interrupting agent for pi-vcc compaction...`,
 					completionMessage: "Compacted with pi-vcc",
+					resumeMessage:
+						isContextOverflowResponse(event.message, ctx) &&
+						overflowRequiresRetry(event.message)
+							? buildOverflowResumeMessage()
+							: undefined,
 					ratchetPercent: usagePercent,
 					reason: "grok_context_ceiling",
 					interruptedTurn: snapshotInterruptedCompactionTurn(
 						event,
 						"hard_backstop",
+						ctx,
 					),
 					noCutRecovery: {
 						interruptedActiveTurn: isInterruptedAgentWork(event.message),
@@ -1493,11 +1551,17 @@ export default function (pi: ExtensionAPI) {
 					? `✓ Auto-compacting at ${currentPercent}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`
 					: `↻ Context at ${currentPercent}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%). Interrupting agent for pi-vcc compaction...`,
 				completionMessage: "Compacted with pi-vcc",
+				resumeMessage:
+					isContextOverflowResponse(event.message, ctx) &&
+					overflowRequiresRetry(event.message)
+						? buildOverflowResumeMessage()
+						: undefined,
 				ratchetPercent: usagePercent,
 				reason: "hard_backstop",
 				interruptedTurn: snapshotInterruptedCompactionTurn(
 					event,
 					"hard_backstop",
+					ctx,
 				),
 				noCutRecovery: {
 					interruptedActiveTurn: isInterruptedAgentWork(event.message),
@@ -1515,6 +1579,53 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		sendModelNudge(ctx, usagePercent, "soft");
+	});
+
+	// When Pi auto-compaction is disabled, its core overflow path is disabled too.
+	// Own that recovery at agent_end so the same pi-vcc compactor handles both
+	// percentage backstops and provider-reported context ceilings. If core
+	// auto-compaction is still enabled, scheduling first lets session_before_compact
+	// cancel the competing core overflow attempt before this timer starts.
+	pi.on("agent_end", (event: AgentEndEvent, ctx: ExtensionContext) => {
+		const message = [...event.messages]
+			.reverse()
+			.find((candidate) => candidate.role === "assistant");
+		if (!message || !isContextOverflowResponse(message, ctx)) return;
+		if (compactionInFlight || scheduledPiVccCompaction) return;
+		if (!isPiVccLoaded()) {
+			notifyMissingPiVcc(ctx);
+			return;
+		}
+
+		const needsRetry = overflowRequiresRetry(message);
+		const usagePercent = ctx.getContextUsage()?.percent ?? undefined;
+		logPiVccEvent("host_overflow_detected", {
+			stopReason: message.stopReason,
+			needsRetry,
+			usagePercent,
+			errorMessage: message.errorMessage,
+		});
+		schedulePiVccCompaction(ctx, {
+			initiator: "host-overflow",
+			resumePolicy: "active",
+			startMessage: needsRetry
+				? "↻ Provider reported context overflow. Interrupting agent for pi-vcc compaction and retry..."
+				: "✓ Provider response exceeded its context window. Compacting with pi-vcc...",
+			completionMessage: "Compacted with pi-vcc after context overflow",
+			resumeMessage: needsRetry ? buildOverflowResumeMessage() : undefined,
+			ratchetPercent: usagePercent,
+			reason: "overflow",
+			interruptedTurn: {
+				interrupted: needsRetry,
+				pendingToolCallIds: new Set(),
+				reason: "core_deferred",
+			},
+			noCutRecovery: {
+				interruptedActiveTurn: needsRetry,
+				pendingToolCallIds: () => [],
+				usagePercent,
+			},
+		});
 	});
 
 	pi.on("agent_start", () => {
@@ -1582,13 +1693,15 @@ export default function (pi: ExtensionAPI) {
 				return { cancel: true };
 			}
 
+			const rawEvent = event as { reason?: unknown; willRetry?: unknown };
 			const usage = ctx.getContextUsage();
-			if (!usage || usage.percent === null) return;
+			const usagePercent = usage?.percent ?? undefined;
 
 			const manualPiVccBypass =
 				event.customInstructions?.startsWith(PI_VCC_MANUAL_BYPASS_MARKER) ??
 				false;
 			if (manualPiVccBypass) {
+				if (!usage || usage.percent === null) return;
 				ctx.ui.notify(
 					`✓ Compaction bypassed ${HARD_AUTO_COMPACTION_PERCENT}% hard backstop at ${Math.floor(usage.percent)}%`,
 					"info",
@@ -1596,10 +1709,9 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
-			const rawEvent = event as { reason?: unknown; willRetry?: unknown };
-
 			if (pendingCompactionContinuation) {
-				lastAutoCompactionPercent = usage.percent;
+				if (usagePercent !== undefined)
+					lastAutoCompactionPercent = usagePercent;
 				ctx.ui.notify(
 					`⏸️ Delayed auto-compaction: waiting to continue interrupted pi-vcc attempt ${pendingCompactionContinuation.attemptId}`,
 					"info",
@@ -1608,13 +1720,16 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			if (scheduledPiVccCompaction) {
-				lastAutoCompactionPercent = usage.percent;
+				if (usagePercent !== undefined)
+					lastAutoCompactionPercent = usagePercent;
 				ctx.ui.notify(
-					`⏸️ Delayed auto-compaction: pi-vcc already scheduled ${Math.floor(usage.percent)}% compaction recovery`,
+					`⏸️ Delayed auto-compaction: pi-vcc already scheduled ${usagePercent == null ? "unknown-usage" : `${Math.floor(usagePercent)}%`} compaction recovery`,
 					"info",
 				);
 				return { cancel: true };
 			}
+
+			if (!usage || usage.percent === null) return;
 
 			if (
 				(rawEvent.reason === "overflow" ||
