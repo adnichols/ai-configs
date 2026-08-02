@@ -17,6 +17,7 @@ ai-configs/
 ├── _pi/          # Pi source config
 ├── amp/          # Canonical Amp settings + custom plugin modes installer
 ├── herdr/        # Canonical cross-host Herdr configuration and installer
+├── hammerspoon/  # Terminal-scoped macOS image-paste configuration
 ├── kitty/        # Managed Kitty/Herdr remote-workflow configuration
 ├── scripts/      # Shared helper scripts fanned out by install.sh
 ├── skills/       # Repo-owned shared skills + install matrix for package-backed skills
@@ -77,7 +78,7 @@ bash ~/ai-configs/install.sh --all ~
 - mirrors shared helper scripts into the runtime locations that need them
 - installs Pi to `~/.pi/agent/`
 - copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@juicesharp/rpiv-todo`
-- with `--tools` or `--all`, installs the canonical Herdr and Amp configuration plus managed Kitty screenshot/Herdr workflow locally, then streams the tracked configuration to remote hosts (`mbp`/`dever` for Kitty/Herdr; `mbp`/`dever`/`mbp14` for Amp) without modifying remote ai-configs checkouts
+- with `--tools` or `--all`, installs the canonical Herdr and Amp configuration, terminal-scoped Hammerspoon image-paste workflow, and managed Kitty screenshot/Herdr workflow locally; tracked Kitty/Herdr configuration is streamed to `mbp` and `dever`, while Amp is streamed to `mbp`, `dever`, and `mbp14`, without modifying remote ai-configs checkouts
 - removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`
 - with `--update`, first runs `npx skills update -g -y` for globally installed skills tracked by skills.sh, then runs the normal ai-configs sync
@@ -113,6 +114,9 @@ Run `bash herdr/install.sh` for a Herdr-only local install. From macOS, the norm
 ```bash
 KITTY_REMOTE_HOSTS="mbp14 mba" bash ./install.sh --tools
 ```
+
+### `hammerspoon/`
+Terminal-scoped macOS clipboard-image workflow. Its installer copies `scripts/remote-image-paste` to `~/.local/bin/`, adds an isolated managed block to `~/.hammerspoon/init.lua`, and installs Hammerspoon plus `pngpaste` through Homebrew when either is missing. With a supported terminal focused, `Cmd+Shift+V` uploads the clipboard image over SSH to both `dever` and `mbp`, then pastes `/tmp/ai-image-paste-anichols/latest.png` into the focused prompt. The event tap passes the chord through unchanged in non-terminal applications, and rechecks the active app before its asynchronous upload completion can paste text.
 
 ### `kitty/`
 Canonical Kitty remote-development configuration, shell reminder, SSH kitten settings, and its local installer. On macOS, `--tools` and `--all` also deploy this tracked bundle and the canonical Herdr config to the `mbp` and `dever` SSH aliases. Remote hosts that are offline produce a warning and are retried the next time the installer runs; set `KITTY_WORKFLOW_STRICT_REMOTE=1` to make an unreachable host fail the install.
@@ -184,7 +188,7 @@ Claude compatibility links are created where needed, but `~/.agents/skills` is t
 bash ./install.sh --skills --update
 ```
 
-`--tools` installs or updates the canonical Herdr and Amp configuration, managed Kitty remote workflow, `ltui` from the standalone `Nodaste-Lab/ltui` repository, and the managed Herdr plugin set:
+`--tools` installs or updates the canonical Herdr and Amp configuration, terminal-scoped Hammerspoon image-paste workflow, managed Kitty remote workflow, `ltui` from the standalone `Nodaste-Lab/ltui` repository, and the managed Herdr plugin set:
 
 - `persiyanov/herdr-reviewr`
 

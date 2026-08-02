@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# Upload the local clipboard image to both remote coding hosts, then place one
+# absolute, host-independent path on the local clipboard.
+set -euo pipefail
+
+readonly REMOTE_PATH='/tmp/ai-image-paste-anichols/latest.png'
+readonly REMOTE_DIR='/tmp/ai-image-paste-anichols'
+readonly TARGETS=(dever mbp)
+
+notify() {
+  if command -v osascript >/dev/null 2>&1; then
+    osascript -e "display notification \"$1\" with title \"Remote Image Paste\"" >/dev/null 2>&1 || true
+  fi
+}
+
+workdir=$(mktemp -d "${TMPDIR:-/tmp}/remote-image-paste.XXXXXX")
+trap 'rm -rf "$workdir"' EXIT
+image="$workdir/clipboard.png"
+
+if [[ "${1:-}" == "--file" ]]; then
+  if [[ $# -ne 2 || ! -f "$2" ]]; then
+    echo 'Usage: remote-image-paste [--file path/to/image.png]' >&2
+    exit 2
+  fi
+  cp "$2" "$image"
+elif [[ $# -ne 0 ]]; then
+  echo 'Usage: remote-image-paste [--file path/to/image.png]' >&2
+  exit 2
+elif command -v pngpaste >/dev/null 2>&1; then
+  if ! pngpaste "$image" >/dev/null 2>&1; then
+    echo 'No image is available in the local clipboard.' >&2
+    notify 'No image is available in the local clipboard.'
+    exit 1
+  fi
+elif command -v wl-paste >/dev/null 2>&1; then
+  if ! wl-paste --type image/png >"$image" 2>/dev/null; then
+    echo 'No PNG image is available in the local Wayland clipboard.' >&2
+    notify 'No PNG image is available in the local Wayland clipboard.'
+    exit 1
+  fi
+elif command -v xclip >/dev/null 2>&1; then
+  if ! xclip -selection clipboard -t image/png -o >"$image" 2>/dev/null; then
+    echo 'No PNG image is available in the local X11 clipboard.' >&2
+    notify 'No PNG image is available in the local X11 clipboard.'
+    exit 1
+  fi
+else
+  echo 'Need pngpaste (macOS), wl-paste (Wayland), or xclip (X11) to read clipboard images.' >&2
+  notify 'No supported clipboard-image reader is installed.'
+  exit 1
+fi
+
+if [[ ! -s "$image" ]]; then
+  echo 'The local clipboard image was empty.' >&2
+  notify 'The local clipboard image was empty.'
+  exit 1
+fi
+chmod 600 "$image"
+
+pids=()
+logs=()
+for host in "${TARGETS[@]}"; do
+  log="$workdir/$host.log"
+  logs+=("$log")
+  (
+    ssh -o BatchMode=yes -o ConnectTimeout=12 "$host" \
+      "mkdir -p '$REMOTE_DIR' && chmod 700 '$REMOTE_DIR'"
+    remote_tmp="$REMOTE_PATH.$$.tmp"
+    scp -q -o BatchMode=yes -o ConnectTimeout=12 "$image" "$host:$remote_tmp"
+    ssh -o BatchMode=yes -o ConnectTimeout=12 "$host" \
+      "chmod 600 '$remote_tmp' && mv -f '$remote_tmp' '$REMOTE_PATH' && test -s '$REMOTE_PATH'"
+  ) >"$log" 2>&1 &
+  pids+=("$!")
+done
+
+failed=0
+for pid in "${pids[@]}"; do
+  wait "$pid" || failed=1
+done
+
+if (( failed )); then
+  echo 'Image upload failed; no path was pasted.' >&2
+  for log in "${logs[@]}"; do
+    cat "$log" >&2
+  done
+  notify 'Upload failed; no path was pasted.'
+  exit 1
+fi
+
+if command -v pbcopy >/dev/null 2>&1; then
+  printf '%s' "$REMOTE_PATH" | pbcopy
+elif command -v wl-copy >/dev/null 2>&1; then
+  printf '%s' "$REMOTE_PATH" | wl-copy
+elif command -v xclip >/dev/null 2>&1; then
+  printf '%s' "$REMOTE_PATH" | xclip -selection clipboard
+else
+  echo 'Image uploaded, but no supported text clipboard writer is installed.' >&2
+  exit 1
+fi
+
+printf '%s\n' "$REMOTE_PATH"
+notify 'Image ready to paste into the remote agent.'

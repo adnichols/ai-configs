@@ -583,6 +583,8 @@ install_tools() {
     echo ""
     install_kitty_remote_workflow
     echo ""
+    install_hammerspoon_image_paste_workflow
+    echo ""
     install_herdr_plugins
     echo ""
     install_ltui
@@ -620,6 +622,12 @@ install_kitty_remote_workflow() {
     fi
 
     echo -e "${GREEN}✓ Managed Kitty remote workflow processed${NC}"
+}
+
+install_hammerspoon_image_paste_workflow() {
+    echo "Installing terminal-scoped Hammerspoon image-paste workflow..."
+    bash "$REPO_ROOT/hammerspoon/install.sh"
+    echo -e "${GREEN}✓ Terminal-scoped Hammerspoon image-paste workflow processed${NC}"
 }
 
 install_herdr_plugins() {
