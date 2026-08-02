@@ -116,9 +116,19 @@ The three-cycle implementation-review limit is global to the scoped change, not 
 
 Apply the disposition rule in the Scope Classification section to each finding: a regression this change causes or newly exposes, including newly reachable-domain correctness, is in scope; a defect this change merely discovers is captured as a finding and does not block.
 
+## Strict-suite preflight and bounded failure inventory
+
+Before the repository's full strict suite, discover and run any repo-defined high-signal partitions in this order when present: predecessor/upgrade compatibility; hygiene/format/static checks; convergence/locking/concurrency; and profile/transport/configuration. Do not invent partitions a repository does not expose. Record each gate, command, base/head SHA, and result in the coverage ledger before the full suite.
+
+For a long suite with multiple failures, allow exactly one bounded no-fail-fast inventory pass per delivery head. Cap detailed distinct signatures at five by default (repo guidance may set another explicit cap), count overflow families, and suppress repeated notifications for a signature already recorded. Reproduce one representative from each material family narrowly. Classification as inherited requires the same signature reproduced at `git merge-base <base> HEAD` or the target branch, not age or intuition. Record functional versus infra/cosmetic classification and terminal disposition; never serially reveal one known family per rerun.
+
+## Owned scratch contract
+
+Use only a repository-declared scratch root or runner-provided temporary root. Every run-owned root must contain an ownership marker with run ID, creator PID/process identity when available, and creation time. Before cleanup, report file count and bytes plus owner/lock diagnostics. Remove owned scratch on green. Preserve it on red with the exact inspection and cleanup command. Refuse deletion when the marker is missing, mismatched, or another live owner/lock is present; never clean broad shared temp paths by pattern.
+
 ## Verification Convergence Budget
 
-Full-suite verification and certification gates get a convergence budget, exactly as reviews do. Track attempts per delivery head in the coverage ledger: gate name, attempt number, failure signature, and whether the root cause is new or a repeat.
+Full-suite verification and certification gates get a convergence budget, exactly as reviews do. Track attempts per delivery head in the coverage ledger: gate name, attempt number, failure signature, introduced/inherited evidence, functional/infra classification, notification count, scratch ownership, and whether the root cause is new or a repeat.
 
 - A repeated full-gate attempt is justified only by a new distinct root cause — a failure this attempt will address that previous attempts did not. Rerunning to "get a clean one" is not a root cause.
 - Three full attempts at the same gate without a new distinct root cause exhaust the budget, or 90 minutes of attributable gate time on one delivery head — whichever comes first. Record the gate's normal green-run duration in the ledger so a legitimately slow, still-progressing gate is not misread as a loop; repo-local guidance may override these thresholds. When the budget is exhausted, the loop is over: classify every residual failure and dispose of it as below. Do not launch another attempt, a renamed certification, or a "final clean" serial lap to avoid the classification.
@@ -420,6 +430,16 @@ The **content identity** of a candidate is the combined hash of: the committed d
 8. Review evidence follows the same content identity: rerun full scoped quality reviews, PM review, or the reviewer-subagent pre-PR gate only when the rebase materially changed the content diff, touched files, acceptance evidence, or reviewer assumptions. An unchanged content identity never by itself stales accepted review evidence.
 
 Record the target branch, fetch result, rebase/skip decision, rerun verification, and any stale-review reruns in the PR body. A clean `OPEN_PR_READY` review verdict is not enough by itself if the branch became stale before PR creation.
+
+## Final committed-candidate checklist
+
+Immediately before PR creation, after the final scoped commit and any rebase:
+
+1. Resolve `MERGE_BASE="$(git merge-base <base> HEAD)"` and run `git diff --check "$MERGE_BASE"..HEAD`; an unstaged-only check is insufficient.
+2. Audit `git status --short`, including untracked paths, and confirm every changed file is plan-bound.
+3. Confirm every PR-reviewable plan phase/progress item is complete and the registered Doct source/version reflects the current plan.
+4. Fetch/recompare the target base after the final commit; safely rebase when required and rerun checks invalidated by changed content identity.
+5. Search changed files in the committed range for unresolved release/PR placeholders including `PR #TBD`, `TODO-PR`, and `CHANGELOG_PLACEHOLDER`; stop with exact file/line and remediation command on a hit.
 
 ## Commit, Push, and PR
 

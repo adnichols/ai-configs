@@ -53,6 +53,7 @@ test_init_creates_ledger() {
 import json,sys
 d=json.load(open(sys.argv[1]))
 assert d["schemaVersion"]==1
+assert d["receipts"]==[]
 assert d["issue"]=="NOD-1"
 assert d["stage"]=="INTAKE"
 assert d["doctrine"]=="guidance-not-gates"
@@ -61,6 +62,33 @@ assert "planTech" in d["evidence"]
 assert d["evidence"]["planTech"]["status"] == "pending"
 assert "completenessReview" in d["evidence"]
 assert d["plan"]=="thoughts/plans/x.html"
+PY
+}
+
+test_record_receipts_coexist_and_validate() {
+  local repo="$TMP_ROOT/receipt-repo"
+  make_repo "$repo"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-RECEIPT >/dev/null
+  python3 - "$repo" <<'PY'
+import json,sys
+from pathlib import Path
+root=Path(sys.argv[1])
+base={"schemaVersion":1,"mode":"pi-review-stack","status":"success","startedAt":"2026-01-01T00:00:00Z","finishedAt":"2026-01-01T00:00:01Z","cwd":str(root),"repoRoot":str(root),"managedSurfaceManifest":{"path":"manifest.json","sha256":"0"*64,"surfaceCount":1},"transportProbe":{"status":"pass","reason":None},"hosts":[],"warnings":[],"rollback":{"attempted":False,"status":"not_needed","snapshotPath":None}}
+for name,command in (("transaction.json","transaction"),("remote.json","remote-hosts")):
+ d=dict(base);d["command"]=command
+ (root/name).write_text(json.dumps(d)+"\n")
+(root/"invalid.json").write_text('{"schemaVersion":1}\n')
+PY
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record-receipt transaction.json --command transaction >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record-receipt remote.json --command remote-hosts >/dev/null
+  if DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record-receipt invalid.json >/dev/null 2>&1; then return 1; fi
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+value=json.load(open(sys.argv[1]))
+assert value["schemaVersion"]==1
+assert [item["command"] for item in value["receipts"]]==["transaction","remote-hosts"]
+assert all(len(item["sha256"])==64 for item in value["receipts"])
+assert value["ledgerRevision"] >= 3
 PY
 }
 
@@ -168,17 +196,16 @@ test_accepted_completeness_review_allows_merge_ready_only_while_fresh() {
   mkdir -p "$repo/thoughts/plans" "$fake_bin"
   printf '<html>plan</html>\n' >"$repo/thoughts/plans/x.html"
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-7 --plan thoughts/plans/x.html >/dev/null
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-path=sys.argv[1]
-d=json.load(open(path))
-d["completenessReview"]={"status":"pending","agentName":"completeness-nod-7","paneId":"w1:p2","requestId":"first-round"}
+  python3 - "$repo/.delivery/ledger.json" "$DELIVERY" "$repo" <<'PY'
+import json,runpy,sys
+path,delivery,root=sys.argv[1:];m=runpy.run_path(delivery);d=json.load(open(path));request="1"*32
+d["completenessReview"]={"status":"pending","agentName":"completeness-nod-7","paneId":"w1:p2","requestId":request,"requestLedgerRevision":d["ledgerRevision"],"planSha256":m["plan_sha256"](d,m["Path"](root)),"worktreeFingerprint":m["working_tree_fingerprint"](m["Path"](root)),"round":1}
 json.dump(d,open(path,"w"),indent=2)
 PY
   cat >"$fake_bin/herdr" <<'SH'
 #!/usr/bin/env bash
 if [[ "$1" == "agent" && "$2" == "read" ]]; then
-  printf 'COMPLETENESS_REVIEW_RESPONSE_ID: first-round\nVERDICT: COMPLETE\nAll criteria are evidenced.\n'
+  printf 'COMPLETENESS_REVIEW_RESPONSE_ID: 11111111111111111111111111111111\nVERDICT: COMPLETE\nAll criteria are evidenced.\n'
   exit 0
 fi
 exit 64
@@ -206,17 +233,16 @@ test_completion_review_rejects_prior_round_verdict() {
   mkdir -p "$repo/thoughts/plans" "$fake_bin"
   printf '<html>plan</html>\n' >"$repo/thoughts/plans/x.html"
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-8 --plan thoughts/plans/x.html >/dev/null
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-path=sys.argv[1]
-d=json.load(open(path))
-d["completenessReview"]={"status":"pending","agentName":"completeness-nod-8","paneId":"w1:p2","requestId":"latest-round"}
+  python3 - "$repo/.delivery/ledger.json" "$DELIVERY" "$repo" <<'PY'
+import json,runpy,sys
+path,delivery,root=sys.argv[1:];m=runpy.run_path(delivery);d=json.load(open(path));request="2"*32
+d["completenessReview"]={"status":"pending","agentName":"completeness-nod-8","paneId":"w1:p2","requestId":request,"requestLedgerRevision":d["ledgerRevision"],"planSha256":m["plan_sha256"](d,m["Path"](root)),"worktreeFingerprint":m["working_tree_fingerprint"](m["Path"](root)),"round":2}
 json.dump(d,open(path,"w"),indent=2)
 PY
   cat >"$fake_bin/herdr" <<'SH'
 #!/usr/bin/env bash
 if [[ "$1" == "agent" && "$2" == "read" ]]; then
-  printf 'COMPLETENESS_REVIEW_RESPONSE_ID: earlier-round\nVERDICT: COMPLETE\nAn older response.\n'
+  printf 'COMPLETENESS_REVIEW_RESPONSE_ID: 33333333333333333333333333333333\nVERDICT: COMPLETE\nAn older response.\n'
   exit 0
 fi
 exit 64
@@ -227,7 +253,87 @@ SH
   code=$?
   set -e
   [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "matching latest" || return 1
+  printf '%s' "$out" | rg -q "current response ID.*missing.*visible IDs" || return 1
+}
+
+test_completeness_parser_reports_wrapped_duplicate_malformed_and_truncated() {
+  python3 - "$DELIVERY" <<'PY'
+import json,runpy,sys,tempfile
+from pathlib import Path
+module=runpy.run_path(sys.argv[1]);parse=module["parse_completeness_transcript"];rid="a"*32;old="b"*32
+assert len(module["completeness_reviewer_name"]({"id":"delivery/"+"very-long-identity-"*5})) <= 32
+exact=parse(f"COMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: COMPLETE\n",rid);assert exact["accepted"]
+wrapped=parse(f"COMPLETENESS_REVIEW_RESPONSE_ID:\n\n{rid}\nnotes\nVERDICT:\nCOMPLETE\n",rid);assert wrapped["accepted"]
+duplicate=parse(f"COMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: COMPLETE\nCOMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: FINDINGS_TO_RESOLVE\n",rid);assert not duplicate["accepted"] and duplicate["verdict"]=="FINDINGS_TO_RESOLVE" and duplicate["duplicateCount"]==2
+malformed=parse(f"COMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: COMPLETE\nVERDICT: COMPLETE\n",rid);assert not malformed["accepted"] and "2 parsed verdicts" in malformed["diagnostic"]
+missing=parse(f"VERDICT: COMPLETE\nCOMPLETENESS_REVIEW_RESPONSE_ID: {old}\nVERDICT: COMPLETE\n",rid);assert not missing["accepted"] and missing["likelyTruncated"] and old in missing["visibleIds"]
+with tempfile.TemporaryDirectory() as temp:
+    session=Path(temp)/"session.jsonl"
+    event={"type":"message","message":{"role":"assistant","content":[{"type":"text","text":f"COMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: COMPLETE\n"}]}}
+    session.write_text(json.dumps(event)+"\n")
+    extracted=module["pi_session_transcript"](session);assert parse(extracted,rid)["accepted"]
+PY
+}
+
+test_ledger_lock_serializes_and_rejects_stale_writer() {
+  local repo="$TMP_ROOT/ledger-lock-repo"
+  make_repo "$repo"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-LOCK >/dev/null
+  python3 - "$DELIVERY" "$repo" <<'PY'
+import json,os,subprocess,sys
+from pathlib import Path
+delivery,root=sys.argv[1],Path(sys.argv[2]);ledger=root/'.delivery/ledger.json'
+code='''import json,runpy,sys,time\nm=runpy.run_path(sys.argv[1]);p=m["Path"](sys.argv[2]);d=json.loads(p.read_text());d.setdefault("notes",[]).append({"at":m["utc_now"](),"text":sys.argv[3]});time.sleep(.25);m["write_json"](p,d)'''
+ps=[subprocess.Popen([sys.executable,'-c',code,delivery,str(ledger),label],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True) for label in ('alpha','beta')]
+results=[p.communicate()+(p.returncode,) for p in ps];codes=sorted(item[2] for item in results);assert codes[0]==0 and codes[1]!=0,results
+failed='alpha' if 'alpha' not in [n['text'] for n in json.loads(ledger.read_text())['notes']] else 'beta'
+retry=subprocess.run([delivery,'--cwd',str(root),'note',failed],env={**os.environ,'DELIVERY_SKIP_HERDR':'1'},capture_output=True,text=True);assert retry.returncode==0,retry.stderr
+value=json.loads(ledger.read_text());assert {n['text'] for n in value['notes']} >= {'alpha','beta'};assert value['ledgerRevision']>=3
+PY
+}
+
+test_ledger_lock_timeout_reports_holder_metadata() {
+  local repo="$TMP_ROOT/ledger-timeout-repo"
+  make_repo "$repo"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-TIMEOUT >/dev/null
+  python3 - "$DELIVERY" "$repo" <<'PY'
+import fcntl,json,os,subprocess,sys,time
+from pathlib import Path
+delivery,root=sys.argv[1],Path(sys.argv[2]);lock=root/'.delivery/ledger.lock';fd=os.open(lock,os.O_CREAT|os.O_RDWR,0o600);fcntl.flock(fd,fcntl.LOCK_EX);os.ftruncate(fd,0);os.write(fd,b'{"pid":4242,"command":"holder-test","expectedRevision":1}\n');os.fsync(fd)
+result=subprocess.run([delivery,'--cwd',str(root),'note','blocked'],env={**os.environ,'DELIVERY_SKIP_HERDR':'1','DELIVERY_LEDGER_LOCK_TIMEOUT_SECONDS':'0.1'},capture_output=True,text=True)
+fcntl.flock(fd,fcntl.LOCK_UN);os.close(fd);assert result.returncode!=0;assert 'holder-test' in result.stderr and 'expectedRevision' in result.stderr,result.stderr
+PY
+}
+
+test_force_reinitialization_uses_locked_replace_semantics() {
+  local repo="$TMP_ROOT/force-replace-repo"
+  make_repo "$repo"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-OLD >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" note "advance revision" >/dev/null
+  before="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["ledgerRevision"])' "$repo/.delivery/ledger.json")"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --force --issue NOD-NEW >/dev/null
+  python3 - "$repo/.delivery/ledger.json" "$before" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]));assert d["issue"]=="NOD-NEW";assert d["ledgerRevision"]>int(sys.argv[2])
+PY
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --force --issue NOD-BOOT >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]));assert d["issue"]=="NOD-BOOT";assert d["ledgerRevision"]>0
+PY
+}
+
+test_unrelated_writer_proceeds_during_implementation_launch_lease() {
+  local repo="$TMP_ROOT/launch-lease-note-repo"
+  make_repo "$repo"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-LEASE >/dev/null
+  python3 - "$DELIVERY" "$repo" <<'PY'
+import fcntl,os,subprocess,sys
+from pathlib import Path
+delivery,root=sys.argv[1],Path(sys.argv[2]);lock=root/'.delivery/implementation-launch.lock';fd=os.open(lock,os.O_CREAT|os.O_RDWR,0o600);fcntl.flock(fd,fcntl.LOCK_EX)
+result=subprocess.run([delivery,'--cwd',str(root),'note','independent evidence'],env={**os.environ,'DELIVERY_SKIP_HERDR':'1'},capture_output=True,text=True)
+fcntl.flock(fd,fcntl.LOCK_UN);os.close(fd);assert result.returncode==0,result.stderr
+PY
 }
 
 test_board_lists_multiple() {
@@ -886,22 +992,14 @@ PY
     wait "$first_pid" || true
     return 1
   fi
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" note "concurrent independent evidence" >/dev/null
   set +e
-  revoke_out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" \
-    revoke-implementation-approval --reason "concurrent revoke" 2>&1)"
-  revoke_code=$?
-  stage_out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_BROWSER_REVIEW 2>&1)"
-  stage_code=$?
   out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_PANE_ID=w2:p1 \
     "$DELIVERY" --cwd "$repo" start-implementation 2>&1)"
   code=$?
   set -e
   touch "$hold_release"
   wait "$first_pid" || return 1
-  [[ "$revoke_code" -ne 0 ]] || return 1
-  printf '%s' "$revoke_out" | rg -q "ledger mutation rejected" || return 1
-  [[ "$stage_code" -ne 0 ]] || return 1
-  printf '%s' "$stage_out" | rg -q "ledger mutation rejected" || return 1
   [[ "$code" -ne 0 ]] || return 1
   printf '%s' "$out" | rg -q "launch is already in progress" || return 1
   python3 - "$repo/.delivery/ledger.json" <<'PY'
@@ -910,6 +1008,7 @@ d=json.load(open(sys.argv[1]))
 assert d["stage"] == "EXECUTION_READY"
 assert d["implementationApproval"]["status"] == "approved"
 assert d["implementationProfile"]["status"] == "ready"
+assert any(n.get("text")=="concurrent independent evidence" for n in d["notes"])
 assert d["ledgerRevision"] > 0
 PY
 }
@@ -941,6 +1040,7 @@ test_skill_doctrine_wording() {
 }
 
 run_test test_init_creates_ledger
+run_test test_record_receipts_coexist_and_validate
 run_test test_unprotected_stage_moves_without_gates
 run_test test_check_exit_zero_with_gaps
 run_test test_record_and_show
@@ -948,6 +1048,11 @@ run_test test_completion_review_dry_run_uses_visible_grok_agent
 run_test test_merge_ready_requires_validated_completeness_review
 run_test test_accepted_completeness_review_allows_merge_ready_only_while_fresh
 run_test test_completion_review_rejects_prior_round_verdict
+run_test test_completeness_parser_reports_wrapped_duplicate_malformed_and_truncated
+run_test test_ledger_lock_serializes_and_rejects_stale_writer
+run_test test_ledger_lock_timeout_reports_holder_metadata
+run_test test_force_reinitialization_uses_locked_replace_semantics
+run_test test_unrelated_writer_proceeds_during_implementation_launch_lease
 run_test test_board_lists_multiple
 run_test test_stages_lists_guidance
 run_test test_set_issue_after_start

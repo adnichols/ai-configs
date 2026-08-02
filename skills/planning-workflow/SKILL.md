@@ -117,18 +117,18 @@ Keep this complexity-aware. A lightweight plan must satisfy the contract with co
 
 Immediately after Product-owner context and before Goal, every full implementation plan must include a standalone `What's new` section. Give it a behavior-focused headline and a one-sentence promise, then state the concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, rationale, phases, or acceptance criteria; a heading without a distinct product delta does not satisfy the contract. This adds no new lightweight-plan requirement: only work already exempt from a full execution plan is exempt from `What's new`.
 
-### Socratic plan questions
+### Conditional planning evidence checkpoint
 
-Every full implementation plan must answer these eight questions in prose. Validators check that each is present and non-empty, not the wording of the answer; `Not applicable because <evidence>` is a legitimate answer.
+Do not require a standalone Socratic questionnaire or eight-answer prose block. Require the useful evidence where reviewers act on it when the plan changes an exact contract, distributes behavior across multiple sites, or carries material product/implementation uncertainty:
 
-1. **First hour** — what a customer on the previous shipped version experiences in the first hour after the update.
-2. **Consumers** — which contracts this change alters, who consumes each today, and how you will know each still works.
-3. **Siblings** — the other instances of the pattern you are fixing.
-4. **Moving ground** — what merged since the plan was scoped and any in-flight work on the same contracts; re-answer this per rebase.
-5. **Falsification** — what would make this change wrong, and which test catches it.
-6. **Proof** — the test that proves the customer-visible outcome from customer behavior, not from implementation pathways.
-7. **Untested** — what this environment cannot verify and the residual risk, which feeds the review "Not examined:" list.
-8. **Expansion log** — a living record of where you went beyond the ask and why it protects the outcome.
+- **First hour** belongs in Product-owner context and acceptance/BDD when rollout behavior changes.
+- **Consumers** and **Siblings** belong in the Contract and distributed-integration inventory, backed by the source search used to find them.
+- **Moving ground** belongs in resume/rebase instructions and must be rechecked when the base changes.
+- **Falsification** and **Proof** belong in acceptance criteria, BDD scenarios, the test coverage matrix, and phase `### Verify` items. A helper-only path is not customer/system proof.
+- **Untested** belongs in Verification strategy as explicit residual risk and must feed the implementation review's `Not examined:` disclosure.
+- **Expansion disposition** belongs in Decision Attention and the append-only Decisions / Deviations log, distinguishing outcome protection from product-changing expansion.
+
+A lightweight or single-site plan is not forced to repeat these labels. A dedicated questionnaire is never accepted as a substitute for the triggered contract inventory, production-path proof, residual-risk disclosure, or deviation record.
 
 Required sections for new plans unless repo-local overrides say otherwise:
 

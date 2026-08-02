@@ -15,6 +15,7 @@ Use this skill to define and verify the RED phase without delegating test change
 4. Run the narrowest deterministic command that exercises the new or updated tests and record the expected failure.
 5. Do not weaken, delete, or bypass the RED test to make a later implementation pass. A changed requirement needs a new explicit acceptance decision and updated test contract.
 6. Reuse the repository's existing runner, naming, fixture, and helper conventions unless the accepted scope requires a change.
+7. For workflow fixtures that depend on service/account transport, explicitly initialize Hub availability/default state, selected profile or account root, and transport success/failure. Clear inherited environment/home configuration first. Missing axes are fixture setup failures, not product failures.
 
 ## RED workflow
 
@@ -37,7 +38,7 @@ If none of these triggers applies, keep the RED test lightweight and local. Do n
 
 ### 3. Author and verify RED
 
-Write or update only the test files and necessary test fixtures. Run the narrowest command that executes the changed behavior. Confirm the failure is caused by the missing or incorrect production behavior. If the failure is a test problem, repair the test and rerun it while production code remains untouched.
+Write or update only the test files and necessary test fixtures. For relevant workflow tests, declare the fixture axes `hubState`, `profileRoot`, and `transportResult` (using repo-local equivalent names) before execution and reject omission or conflicting inherited state with a setup diagnostic. Run the narrowest command that executes the changed behavior. Confirm the failure is caused by the missing or incorrect production behavior. If the failure is a test problem, repair the test and rerun it while production code remains untouched.
 
 Record the test files, command, expected failure summary, and any assumptions in the working notes or plan-owned evidence surface. The plan or execution layer owns coverage-ledger and remediation-task management; this skill supplies the RED contract and evidence.
 

@@ -110,9 +110,13 @@ The three-cycle implementation-review limit is global to the scoped change, not 
 
 Apply the disposition rule in the Scope Classification section to each finding: a regression this change causes or newly exposes, including newly reachable-domain correctness, is in scope; a defect this change merely discovers is captured as a finding and does not block.
 
+## Strict-suite preflight, bounded failure inventory, and owned scratch
+
+Before the full strict suite, discover and run repo-defined partitions in this order when present: predecessor/upgrade; hygiene/static; convergence/locking; profile/transport. Permit one bounded no-fail-fast inventory pass per head, cap detailed distinct signatures at five by default, suppress repeated notifications, reproduce representative families narrowly, and require merge-base/target reproduction before calling a failure inherited. Use only marked run-owned scratch roots; report count/bytes and owner/lock state, remove on green, preserve with an exact cleanup command on red, and refuse unowned deletion.
+
 ## Verification Convergence Budget
 
-Full-suite verification and certification gates get a convergence budget, exactly as reviews do. Track attempts per delivery head in the coverage ledger: gate name, attempt number, failure signature, and whether the root cause is new or a repeat.
+Full-suite verification and certification gates get a convergence budget, exactly as reviews do. Track attempts per delivery head in the coverage ledger: gate name, attempt number, failure signature, introduced/inherited evidence, functional/infra class, notification count, scratch ownership, and whether the root cause is new or a repeat.
 
 - A repeated full-gate attempt is justified only by a new distinct root cause — a failure this attempt will address that previous attempts did not. Rerunning to "get a clean one" is not a root cause.
 - Three full attempts at the same gate without a new distinct root cause exhaust the budget, or 90 minutes of attributable gate time on one delivery head — whichever comes first. Record the gate's normal green-run duration in the ledger so a legitimately slow, still-progressing gate is not misread as a loop; repo-local guidance may override these thresholds. When the budget is exhausted, the loop is over: classify every residual failure and dispose of it as below. Do not launch another attempt, a renamed certification, or a "final clean" serial lap to avoid the classification.
@@ -352,6 +356,10 @@ The **content identity** of a candidate is the combined hash of: the committed d
 8. Review evidence follows the same content identity: rerun full scoped quality reviews, PM review, or the reviewer-subagent pre-PR gate only when the rebase materially changed the content diff, touched files, acceptance evidence, or reviewer assumptions. An unchanged content identity never by itself stales accepted review evidence.
 
 Record the target branch, fetch result, rebase/skip decision, rerun verification, and any stale-review reruns in the PR body. A clean `OPEN_PR_READY` review verdict is not enough by itself if the branch became stale before PR creation.
+
+## Final committed-candidate checklist
+
+After the final scoped commit and any rebase, run `git diff --check "$(git merge-base <base> HEAD)"..HEAD`, audit status/untracked paths, confirm plan progress and Doct source are current, recheck base freshness, and search changed committed files for `PR #TBD`, `TODO-PR`, and `CHANGELOG_PLACEHOLDER`. Stop with exact file/line remediation on a hit.
 
 ## Commit, Push, and PR
 

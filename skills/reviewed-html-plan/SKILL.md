@@ -63,6 +63,7 @@ The plan should follow the `planning-workflow` execution artifact contract while
 - a standalone `What's new` section after Product-owner context and before Goal that satisfies the canonical `planning-workflow` contract; a mere heading or a restatement of Goal, rationale, phases, or acceptance criteria is not sufficient,
 - a near-top `Decision Attention / Low-confidence Areas` section after Product-owner context, `What's new`, and Goal for blockers, required user input, unresolved decisions, and weak evidence; each unresolved product decision is a visually prominent `Decision Required` block with a stable ID, the exact question, every viable option, a thorough explanation of each option's behavior/benefits/costs/risks/implementation and compatibility implications/reversibility, and the agent's recommended option with rationale, confidence, and supporting evidence,
 - a `Progress` section containing the only checkboxes,
+- the conditional planning evidence required by `planning-workflow` when exact-contract, distributed-behavior, or material-uncertainty triggers apply: consumer/sibling inventory, moving-ground checks, falsification and production-path proof, residual risk, and expansion disposition in the existing sections where reviewers act on them; do not require a standalone questionnaire,
 - canonical content: status, product-owner context, What's new, goal, Decision Attention / Low-confidence Areas, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
 - one-to-one mapping between progress checkboxes and detailed phases,
 - each phase includes `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, and `Verify`,
@@ -128,7 +129,8 @@ The PM pass evaluates whether the plan will satisfy the intended user/operator o
 - routine self-healing versus fail-closed boundaries,
 - truthful status, docs, help text, and agent-legible errors,
 - early-stage stage fit and the smallest complete slice,
-- whether verification proves the shipped workflow, not just helper behavior.
+- whether verification proves the shipped workflow, not just helper behavior,
+- whether triggered planning evidence appears in the contract inventory, acceptance/BDD, verification/residual-risk, and decisions/deviations sections rather than being replaced by a standalone questionnaire.
 
 Default behavior is corrective: reshape the HTML plan directly when the right direction is inferable from repo evidence. When a product-shaping decision remains low-confidence, keep the plan blocked and surface the decision prominently in the HTML plan for Doct feedback, with all viable options, thorough explanations, and the agent's recommendation.
 

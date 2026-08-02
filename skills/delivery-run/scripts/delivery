@@ -27,6 +27,7 @@ from typing import Any
 
 SCHEMA_VERSION = 1
 LEDGER_REL = Path(".delivery") / "ledger.json"
+LEDGER_LOCK_REL = Path(".delivery") / "ledger.lock"
 IMPLEMENTATION_LAUNCH_LOCK_REL = Path(".delivery") / "implementation-launch.lock"
 HERDR_WORKTREES = Path.home() / ".herdr" / "worktrees"
 
@@ -176,7 +177,6 @@ STAGE_NEXT_SKILL = {
 }
 
 EVIDENCE_STATUSES = ("pending", "pass", "skip", "gap", "na")
-HELD_IMPLEMENTATION_LAUNCH_LOCKS: set[Path] = set()
 
 
 def utc_now() -> str:
@@ -197,38 +197,63 @@ def load_json(path: Path) -> dict[str, Any]:
         die(f"invalid JSON in {path}: {exc}")
 
 
-def write_json(path: Path, data: dict[str, Any]) -> None:
+def write_json(path: Path, data: dict[str, Any], *, force_replace: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     is_ledger = path.name == LEDGER_REL.name and path.parent.name == LEDGER_REL.parent.name
     root = path.parent.parent.resolve() if is_ledger else None
-    lock_fd: int | None = None
-    if root is not None and root not in HELD_IMPLEMENTATION_LAUNCH_LOCKS:
-        lock_path = root / IMPLEMENTATION_LAUNCH_LOCK_REL
-        lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
-        try:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            os.close(lock_fd)
-            die("ledger mutation rejected while an implementation launch is in progress")
+    ledger_fd: int | None = None
+    if root is not None:
+        lock_path = root / LEDGER_LOCK_REL
+        ledger_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+        timeout = float(os.environ.get("DELIVERY_LEDGER_LOCK_TIMEOUT_SECONDS", "10"))
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                fcntl.flock(ledger_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    os.lseek(ledger_fd, 0, os.SEEK_SET)
+                    holder = os.read(ledger_fd, 4096).decode("utf-8", "replace").strip() or "unavailable"
+                    os.close(ledger_fd)
+                    die(f"timed out after {timeout:g}s waiting for delivery ledger lock; holder={holder}")
+                time.sleep(0.05)
+        supplied_revision = int(data.get("ledgerRevision") or 0)
+        metadata = {"pid": os.getpid(), "command": " ".join(sys.argv[1:]) or "delivery", "acquiredAt": utc_now(), "expectedRevision": supplied_revision}
+        os.ftruncate(ledger_fd, 0); os.lseek(ledger_fd, 0, os.SEEK_SET)
+        os.write(ledger_fd, (json.dumps(metadata, sort_keys=True) + "\n").encode())
+        os.fsync(ledger_fd)
     try:
         if is_ledger:
             supplied_revision = int(data.get("ledgerRevision") or 0)
+            current_revision = 0
             if path.exists():
                 current = json.loads(path.read_text(encoding="utf-8"))
                 current_revision = int(current.get("ledgerRevision") or 0)
-                if current_revision != supplied_revision:
-                    die(
-                        "stale ledger mutation rejected; reload delivery state and retry "
-                        f"(current revision {current_revision}, supplied {supplied_revision})"
-                    )
-            data["ledgerRevision"] = supplied_revision + 1
-        tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
-        tmp.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n", encoding="utf-8")
-        tmp.replace(path)
+                if not force_replace and current_revision != supplied_revision:
+                    die("stale ledger mutation rejected; reload delivery state and retry " f"(current revision {current_revision}, supplied {supplied_revision})")
+            data["ledgerRevision"] = current_revision + 1 if force_replace else supplied_revision + 1
+        tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}.{uuid.uuid4().hex}")
+        try:
+            fd = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, "wb") as handle:
+                payload = (json.dumps(data, indent=2, sort_keys=False) + "\n").encode()
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp, path)
+        except BaseException:
+            try:
+                tmp.unlink()
+            except FileNotFoundError:
+                pass
+            raise
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try: os.fsync(directory_fd)
+        finally: os.close(directory_fd)
     finally:
-        if lock_fd is not None:
-            fcntl.flock(lock_fd, fcntl.LOCK_UN)
-            os.close(lock_fd)
+        if ledger_fd is not None:
+            fcntl.flock(ledger_fd, fcntl.LOCK_UN); os.close(ledger_fd)
 
 
 def git_capture(cwd: Path, *args: str) -> str | None:
@@ -324,6 +349,7 @@ def new_ledger(
             }
         ],
         "evidence": empty_evidence(),
+        "receipts": [],
         "implementationApproval": {
             "status": "pending",
             "source": None,
@@ -842,7 +868,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             f"cannot initialize at {stage}: {transition_problem}. "
             "Create the ledger at INTAKE and advance through delivery's guarded steps."
         )
-    write_json(path, ledger)
+    write_json(path, ledger, force_replace=args.force)
     maybe_herdr_label(ledger)
     write_json(path, ledger)
     print(path)
@@ -973,10 +999,8 @@ def implementation_launch_lock(root: Path):
             die("an implementation agent launch is already in progress")
         os.ftruncate(fd, 0)
         os.write(fd, f"pid={os.getpid()} at={utc_now()}\n".encode())
-        HELD_IMPLEMENTATION_LAUNCH_LOCKS.add(root.resolve())
         yield
     finally:
-        HELD_IMPLEMENTATION_LAUNCH_LOCKS.discard(root.resolve())
         try:
             fcntl.flock(fd, fcntl.LOCK_UN)
         finally:
@@ -1040,7 +1064,7 @@ def launch_implementation_agent(
     attempt_id = uuid.uuid4().hex
     reset_implementation_profile(ledger, "dedicated implementation agent launch in progress")
     ledger["implementationProfile"].update(
-        {"status": "launching", "launchAttemptId": attempt_id}
+        {"status": "launching", "launchAttemptId": attempt_id, "requestLedgerRevision": int(ledger.get("ledgerRevision") or 0)}
     )
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
@@ -1504,7 +1528,7 @@ COMPLETENESS_REVIEW_MODEL = "xai/grok-4.5:high"
 
 def completeness_reviewer_name(ledger: dict[str, Any]) -> str:
     identity = str(ledger.get("issue") or ledger.get("slug") or ledger.get("id") or "delivery")
-    return f"completeness-{slugify(identity, max_len=36, keep_issue_keys=True)}"
+    return f"completeness-{slugify(identity, max_len=19, keep_issue_keys=True)}"
 
 
 def completeness_review_prompt(ledger: dict[str, Any], root: Path, *, rerun: bool, request_id: str) -> str:
@@ -1593,6 +1617,145 @@ def completion_artifact_path(root: Path, ledger: dict[str, Any], requested: str 
     return resolved, relative.as_posix()
 
 
+def pi_session_transcript(path: Path, *, max_lines: int = 500) -> str:
+    """Extract bounded assistant text from a Pi JSONL session without terminal wrapping."""
+    messages: list[str] = []
+    with path.open(encoding="utf-8") as handle:
+        for raw in handle:
+            try:
+                event = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            message = event.get("message") if event.get("type") == "message" else None
+            if not isinstance(message, dict) or message.get("role") != "assistant":
+                continue
+            content = message.get("content")
+            if not isinstance(content, list):
+                continue
+            text = "\n".join(
+                item.get("text", "")
+                for item in content
+                if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str)
+            )
+            if text:
+                messages.append(text)
+    return "\n".join("\n".join(messages).splitlines()[-max_lines:]) + "\n"
+
+
+def read_completeness_transcript(reviewer_name: str, root: Path, request_id: str) -> str:
+    rendered = run_cmd(["herdr", "agent", "read", reviewer_name, "--source", "recent-unwrapped", "--lines", "500"], cwd=root)
+    if rendered.returncode != 0:
+        die(f"could not read visible completeness reviewer: {(rendered.stderr or rendered.stdout).strip()}")
+    if request_id in rendered.stdout:
+        return rendered.stdout
+    details = run_cmd(["herdr", "agent", "get", reviewer_name], cwd=root)
+    if details.returncode != 0:
+        return rendered.stdout
+    try:
+        payload = json.loads(details.stdout)
+        result = payload.get("result") if isinstance(payload.get("result"), dict) else payload
+        agent = result.get("agent") if isinstance(result.get("agent"), dict) else result
+        session = agent.get("agent_session") if isinstance(agent, dict) else None
+        raw_path = session.get("value") if isinstance(session, dict) and session.get("agent") == "pi" else None
+        if not isinstance(raw_path, str):
+            return rendered.stdout
+        session_path = Path(raw_path).expanduser().resolve()
+        sessions_root = (Path(os.environ.get("PI_CODING_AGENT_DIR", Path.home() / ".pi" / "agent")) / "sessions").resolve()
+        session_path.relative_to(sessions_root)
+        if not session_path.is_file():
+            return rendered.stdout
+        exact = pi_session_transcript(session_path)
+        return exact if request_id in exact else rendered.stdout
+    except (OSError, ValueError, json.JSONDecodeError, AttributeError):
+        return rendered.stdout
+
+
+def parse_completeness_transcript(text: str, request_id: str) -> dict[str, Any]:
+    lines = text.splitlines()
+    id_label = re.compile(r"^\s*COMPLETENESS_REVIEW_RESPONSE_ID:\s*(.*?)\s*$")
+    verdict_label = re.compile(r"^\s*VERDICT:\s*(.*?)\s*$")
+    valid_id = re.compile(r"^[0-9a-f]{32}$")
+    allowed = {"FINDINGS_TO_RESOLVE", "COMPLETE", "BLOCKED_BY_QUESTION"}
+    starts = [index for index, line in enumerate(lines) if id_label.match(line)]
+    blocks: list[dict[str, Any]] = []
+    for position, start in enumerate(starts):
+        end = starts[position + 1] if position + 1 < len(starts) else len(lines)
+        match = id_label.match(lines[start]); raw_id = (match.group(1) if match else "").strip()
+        id_line = start
+        if not raw_id:
+            cursor = start + 1
+            while cursor < end and not lines[cursor].strip(): cursor += 1
+            if cursor < end: raw_id = lines[cursor].strip(); id_line = cursor
+        verdicts = []
+        for cursor in range(id_line + 1, end):
+            verdict_match = verdict_label.match(lines[cursor])
+            if not verdict_match: continue
+            raw_verdict = verdict_match.group(1).strip()
+            if not raw_verdict:
+                following = cursor + 1
+                while following < end and not lines[following].strip(): following += 1
+                if following < end: raw_verdict = lines[following].strip()
+            verdicts.append(raw_verdict if raw_verdict in allowed else "INVALID:" + raw_verdict)
+        blocks.append({"id": raw_id if valid_id.fullmatch(raw_id) else None, "rawId": raw_id, "startLine": start + 1, "endLine": end, "verdicts": verdicts})
+    current = [block for block in blocks if block["id"] == request_id]
+    visible = [block["id"] or block["rawId"] for block in blocks]
+    first_nonempty = next((line.strip() for line in lines if line.strip()), "")
+    likely_truncated = bool(first_nonempty and not id_label.match(first_nonempty) and ("VERDICT:" in first_nonempty or bool(starts)))
+    result = {"blocks": blocks, "currentBlocks": current, "visibleIds": visible, "likelyTruncated": likely_truncated, "accepted": False, "verdict": None, "diagnostic": ""}
+    if not current:
+        result["diagnostic"] = f"current response ID {request_id} missing; visible IDs={visible or ['none']}; likelyTruncated={likely_truncated}"
+        return result
+    latest = current[-1]; result["selectedRange"] = [latest["startLine"], latest["endLine"]]; result["duplicateCount"] = len(current)
+    if len(latest["verdicts"]) != 1:
+        result["diagnostic"] = f"current response block lines {latest['startLine']}-{latest['endLine']} has {len(latest['verdicts'])} parsed verdicts; duplicateBlocks={len(current)}; likelyTruncated={likely_truncated}"
+        return result
+    verdict = latest["verdicts"][0]; result["verdict"] = verdict
+    if verdict != "COMPLETE":
+        result["diagnostic"] = f"latest current response block lines {latest['startLine']}-{latest['endLine']} verdict={verdict}; duplicateBlocks={len(current)}"
+        return result
+    result["accepted"] = True
+    result["diagnostic"] = f"accepted latest current response block lines {latest['startLine']}-{latest['endLine']}; duplicateBlocks={len(current)}"
+    return result
+
+
+def cmd_record_receipt(args: argparse.Namespace) -> int:
+    path, ledger, root = load_ledger_for(args)
+    artifact = Path(args.artifact).expanduser()
+    if not artifact.is_absolute():
+        artifact = (root / artifact).resolve()
+    try:
+        receipt = json.loads(artifact.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        die(f"receipt artifact not found: {artifact}")
+    except json.JSONDecodeError as exc:
+        die(f"invalid receipt JSON in {artifact}: {exc}")
+    required = {"schemaVersion", "command", "mode", "status", "startedAt", "finishedAt", "cwd", "repoRoot", "managedSurfaceManifest", "transportProbe", "hosts", "warnings", "rollback"}
+    missing = sorted(required - set(receipt)) if isinstance(receipt, dict) else sorted(required)
+    if missing or receipt.get("schemaVersion") != 1:
+        die(f"receipt does not satisfy install summary schema v1; missing={missing}")
+    if args.command and receipt.get("command") != args.command:
+        die(f"receipt command mismatch: expected {args.command}, got {receipt.get('command')}")
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    reference = {
+        "artifact": str(artifact),
+        "sha256": digest,
+        "command": receipt.get("command"),
+        "mode": receipt.get("mode"),
+        "status": receipt.get("status"),
+        "transportStatus": (receipt.get("transportProbe") or {}).get("status"),
+        "recordedAt": utc_now(),
+    }
+    ledger.setdefault("receipts", []).append(reference)
+    ledger["updatedAt"] = utc_now()
+    ledger.setdefault("history", []).append({"at": utc_now(), "type": "receipt", "stage": ledger.get("stage"), "detail": f"{reference['command']} {reference['status']}: {artifact}"})
+    write_json(path, ledger)
+    if getattr(args, "json", False):
+        print(json.dumps(reference, indent=2))
+    else:
+        print(f"recorded receipt: {artifact} ({reference['status']})")
+    return 0
+
+
 def cmd_completion_review(args: argparse.Namespace) -> int:
     """Launch, rerequest, or accept the visible adjacent Pi plan-completeness review."""
     path, ledger, root = load_ledger_for(args)
@@ -1618,23 +1781,21 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
         plan_fingerprint = plan_sha256(ledger, root)
         if not plan_fingerprint:
             die("cannot accept completeness review: recorded plan is missing, outside this worktree, or unreadable")
-        transcript = run_cmd(["herdr", "agent", "read", reviewer_name, "--source", "recent-unwrapped", "--lines", "500"], cwd=root)
-        if transcript.returncode != 0:
-            die(f"could not read visible completeness reviewer: {(transcript.stderr or transcript.stdout).strip()}")
+        if review.get("planSha256") != plan_fingerprint or review.get("worktreeFingerprint") != working_tree_fingerprint(root):
+            die("cannot accept completeness review: request is stale for the current plan or worktree; run `delivery completion-review --rerun`")
         request_id = review.get("requestId")
         if not isinstance(request_id, str) or not request_id:
             die("recorded completeness review has no request ID; run `delivery completion-review --rerun`")
-        response_pattern = re.compile(
-            rf"COMPLETENESS_REVIEW_RESPONSE_ID:\s*{re.escape(request_id)}\s*\nVERDICT:\s*(FINDINGS_TO_RESOLVE|COMPLETE|BLOCKED_BY_QUESTION)"
-        )
-        verdicts = response_pattern.findall(transcript.stdout)
-        verdict = verdicts[-1] if verdicts else None
-        if verdict != "COMPLETE":
-            die("visible reviewer has not returned a matching latest `VERDICT: COMPLETE`; address findings and run `delivery completion-review --rerun`")
+        transcript = read_completeness_transcript(reviewer_name, root, request_id)
+        parsed = parse_completeness_transcript(transcript, request_id)
+        verdict = parsed.get("verdict")
+        if not parsed.get("accepted"):
+            die("visible reviewer completeness response rejected: " + str(parsed.get("diagnostic")) + "; address findings and run `delivery completion-review --rerun`")
         artifact_path, artifact_rel = completion_artifact_path(root, ledger, args.artifact)
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_transcript = "\n".join(line.rstrip() for line in transcript.splitlines()) + "\n"
         artifact_path.write_text(
-            f"# Visible completeness review\n\n- Reviewer: {reviewer_name}\n- Model: {COMPLETENESS_REVIEW_MODEL}\n- Accepted: {utc_now()}\n\n## Transcript\n\n{transcript.stdout}",
+            f"# Visible completeness review\n\n- Reviewer: {reviewer_name}\n- Model: {COMPLETENESS_REVIEW_MODEL}\n- Accepted: {utc_now()}\n\n## Transcript\n\n{artifact_transcript}",
             encoding="utf-8",
         )
         ledger["completenessReview"] = {
@@ -1687,9 +1848,15 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
         if not reviewer_pane:
             die(f"herdr pane split returned no pane id: {split}")
         start_command[7] = str(reviewer_pane)
-        started = run_cmd(start_command, cwd=root)
-        if started.returncode != 0:
-            die(f"could not start visible completeness reviewer: {(started.stderr or started.stdout).strip()}")
+        start_deadline = time.monotonic() + min(max(args.timeout_ms / 1000.0, 1.0), 10.0)
+        while True:
+            started = run_cmd(start_command, cwd=root)
+            if started.returncode == 0:
+                break
+            detail = (started.stderr or started.stdout).strip()
+            if "agent_pane_busy" not in detail or time.monotonic() >= start_deadline:
+                die(f"could not start visible completeness reviewer: {detail}")
+            time.sleep(0.1)
 
     requested = run_cmd(["herdr", "agent", "prompt", reviewer_name, prompt], cwd=root)
     if requested.returncode != 0:
@@ -1701,6 +1868,9 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
         "paneId": str(reviewer_pane),
         "model": COMPLETENESS_REVIEW_MODEL,
         "requestId": request_id,
+        "requestLedgerRevision": int(ledger.get("ledgerRevision") or 0),
+        "planSha256": plan_sha256(ledger, root),
+        "worktreeFingerprint": working_tree_fingerprint(root),
         "lastRequestedAt": utc_now(),
         "round": int(review.get("round") or 0) + 1,
     }
@@ -2062,7 +2232,7 @@ def require_herdr() -> str:
 
 def herdr_json(args: list[str], *, cwd: Path | None = None) -> dict[str, Any]:
     herdr = require_herdr()
-    proc = run_cmd([herdr, *args, "--json"], cwd=cwd)
+    proc = run_cmd([herdr, *args], cwd=cwd)
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()
         die(f"herdr {' '.join(args)} failed ({proc.returncode}): {detail}")
@@ -2932,6 +3102,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
     """Cold-start or refresh a worktree delivery run for a new agent."""
     root = Path(args.cwd).resolve() if args.cwd else detect_repo_root()
     path = root / LEDGER_REL
+    replacing = path.exists() and args.force
     created = False
 
     if path.exists() and not args.force:
@@ -3019,7 +3190,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
         brief=str(brief_path),
     )
     maybe_herdr_label(ledger)
-    write_json(path, ledger)
+    write_json(path, ledger, force_replace=replacing)
 
     if args.json:
         print(
@@ -3189,6 +3360,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_rec.add_argument("--pr-url", help="Update PR URL")
     p_rec.add_argument("--doct-url", help="Update Doct URL")
     p_rec.set_defaults(func=cmd_record)
+
+    p_receipt = sub.add_parser(
+        "record-receipt",
+        help="Attach a transaction or remote-host JSON receipt to the delivery ledger",
+    )
+    add_json_flag(p_receipt)
+    p_receipt.add_argument("artifact", help="Receipt JSON path")
+    p_receipt.add_argument("--command", choices=["install", "transaction", "remote-hosts"], help="Require this receipt command")
+    p_receipt.set_defaults(func=cmd_record_receipt)
 
     p_completion = sub.add_parser(
         "completion-review",

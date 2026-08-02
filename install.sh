@@ -50,6 +50,10 @@ DEPRECATED_SHARED_SKILLS=(
 # there after they move to a managed non-extension library path.
 RETIRED_PI_EXTENSIONS=(aoe-status pi-prd-mode questionnaire.ts todo.ts grok-context-ceiling-policy.ts)
 DISABLED_PI_EXTENSIONS=(claude-review codex-review)
+SUMMARY_JSON=""
+INSTALL_SUMMARY_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+INSTALL_SUMMARY_TRANSPORT_STATUS="not_run"
+INSTALL_SUMMARY_TRANSPORT_REASON=""
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
 # Homebrew's node/npm/npx can be installed but absent from PATH.
@@ -82,6 +86,7 @@ print_usage() {
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
     echo "  --update    Update globally installed skills tracked by skills.sh before shared-skill sync"
+    echo "  --summary-json <path>  Atomically write an install-summary-v1 receipt (mode 0600)"
     echo ""
     echo "Default behavior (no args):"
     echo "  Installs Claude, Codex, Pi, and shared skills (no tools)."
@@ -115,6 +120,32 @@ print_usage() {
     echo "  $0 --skills                      # Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  $0 --skills --update             # Update skills.sh-managed global skills, then sync shared skills"
     echo "  $0 --all                         # Install all maintained surfaces and tools"
+}
+
+write_install_summary_on_exit() {
+    local status="$?" summary_status="success" summary_mode
+    trap - EXIT
+    [ -n "$SUMMARY_JSON" ] || exit "$status"
+    [ "$status" -eq 0 ] || summary_status="failed"
+    case "$INSTALL_MODE" in
+        --pi-review-stack) summary_mode="pi-review-stack" ;;
+        --pi) summary_mode="pi" ;;
+        --tools) summary_mode="tools" ;;
+        --skills) summary_mode="skills" ;;
+        *) summary_mode="all" ;;
+    esac
+    local args=(python3 "$REPO_ROOT/scripts/pi_review_stack_contract.py" write-summary
+        --output "$SUMMARY_JSON" --command install --mode "$summary_mode" --status "$summary_status"
+        --started-at "$INSTALL_SUMMARY_STARTED_AT" --cwd "$PWD" --repo-root "$REPO_ROOT"
+        --transport-status "$INSTALL_SUMMARY_TRANSPORT_STATUS")
+    if [ -n "$INSTALL_SUMMARY_TRANSPORT_REASON" ]; then
+        args+=(--transport-reason "$INSTALL_SUMMARY_TRANSPORT_REASON")
+    fi
+    if ! "${args[@]}"; then
+        echo "Error: install operation status was $summary_status, but the summary receipt could not be written: $SUMMARY_JSON" >&2
+        [ "$status" -ne 0 ] || status=1
+    fi
+    exit "$status"
 }
 
 cleanup_retired_runtime_surfaces() {
@@ -2364,31 +2395,92 @@ install_pi() {
     cleanup_pi_multi_codex_config "$pi_agent_dir"
 }
 
+preflight_pi_review_stack_contract() {
+    local allow_missing_transport="${1:-false}"
+    local pi_source="$REPO_ROOT/_pi"
+    local agent="$HOME/.pi/agent"
+    local manifest="$REPO_ROOT/scripts/pi-review-stack-managed-surfaces.json"
+    local contract="$REPO_ROOT/scripts/pi_review_stack_contract.py"
+    local preflight_agent
+
+    python3 "$contract" validate --manifest "$manifest" --repo-root "$REPO_ROOT" >/dev/null
+    validate_pi_model_inputs "$pi_source" "$agent"
+    preflight_agent="$(mktemp -d)"
+    mkdir -p "$preflight_agent/npm/node_modules/@tintinweb"
+    if [ -d "$agent/npm/node_modules/@tintinweb/pi-subagents" ]; then
+        cp -a "$agent/npm/node_modules/@tintinweb/pi-subagents" "$preflight_agent/npm/node_modules/@tintinweb/pi-subagents"
+    elif [ "$allow_missing_transport" = true ]; then
+        if ! command -v npm >/dev/null 2>&1 ||
+           ! npm install --prefix "$preflight_agent/npm" --no-save --no-package-lock --ignore-scripts --silent @tintinweb/pi-subagents >/dev/null 2>&1; then
+            rm -rf "$preflight_agent"
+            INSTALL_SUMMARY_TRANSPORT_STATUS=fail
+            INSTALL_SUMMARY_TRANSPORT_REASON="could not stage pi-subagents for the pre-install transport probe"
+            echo -e "${RED}Error: pi-subagents transport could not be staged for preflight${NC}" >&2
+            return 1
+        fi
+    fi
+    if ! PI_CODING_AGENT_DIR="$preflight_agent" python3 "$REPO_ROOT/scripts/patch_pi_subagents_review_isolation.py" >/dev/null ||
+       ! python3 "$REPO_ROOT/scripts/probe_pi_review_transport.py" --agent-dir "$preflight_agent" --agent-source-dir "$pi_source/agents" --target-checkout "$REPO_ROOT" --json >/dev/null; then
+        rm -rf "$preflight_agent"
+        INSTALL_SUMMARY_TRANSPORT_STATUS=fail
+        INSTALL_SUMMARY_TRANSPORT_REASON="pre-install reviewer transport probe failed"
+        echo -e "${RED}Error: installed Pi review transport is incompatible${NC}" >&2
+        return 1
+    fi
+    rm -rf "$preflight_agent"
+    INSTALL_SUMMARY_TRANSPORT_STATUS=pass
+    INSTALL_SUMMARY_TRANSPORT_REASON=""
+}
+
 install_pi_review_stack() {
     local pi_source="$REPO_ROOT/_pi"
     local agent="$HOME/.pi/agent"
-    local shared="$HOME/.agents/skills"
-    local review_runtime_dir="$HOME/.agents/scripts"
-    local skill entry base target parent_metadata managed_pi_path
+    local manifest="$REPO_ROOT/scripts/pi-review-stack-managed-surfaces.json"
+    local contract="$REPO_ROOT/scripts/pi_review_stack_contract.py"
+    local parent_metadata row id kind source destination mode preserve boundary target entries_json entry base
+    local manifest_scope="${1:-pi-review-stack}"
+
     if [ -L "$HOME/.pi" ]; then
         echo "Error: mutation-bounded Pi review-stack installation requires ~/.pi to be a real directory, not a symlink." >&2
         return 1
     fi
-    for managed_pi_path in "$HOME/.pi/agent" "$HOME/.pi/agent/prompts" "$HOME/.pi/agent/agents" "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/lib" "$HOME/.pi/agent/models.json" "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/README.md" "$HOME/.pi/agent/APPEND_SYSTEM.md"; do
-        if [ -L "$managed_pi_path" ]; then
-            echo "Error: mutation-bounded Pi review-stack installation refuses symlinks at managed ~/.pi paths: $managed_pi_path" >&2
-            return 1
+    python3 "$contract" validate --manifest "$manifest" --repo-root "$REPO_ROOT" >/dev/null
+    while IFS=$'\t' read -r id kind source destination mode preserve boundary target entries_json; do
+        if [ "$kind" = symlink ]; then
+            local link_path="$HOME/$destination"
+            if [ -L "$link_path" ] && ! python3 - "$link_path" "$HOME/$target" <<'PY'
+import pathlib, sys
+raise SystemExit(0 if pathlib.Path(sys.argv[1]).resolve() == pathlib.Path(sys.argv[2]).resolve() else 1)
+PY
+            then
+                echo "Error: mutation-bounded Pi review-stack installation refuses foreign symlinks at managed rollback paths: $link_path" >&2
+                return 1
+            fi
+            destination="$(dirname "$destination")"
+            boundary="$(dirname "$boundary")"
         fi
-    done
-    # Validate every model/settings JSON shape and the installed reviewer
-    # transport contract before replacing any bounded review-stack surface.
-    validate_pi_model_inputs "$pi_source" "$agent"
+        for row in "$HOME/$destination" "$HOME/$boundary"; do
+            while [[ "$row" == "$HOME"/* && "$row" != "$HOME" ]]; do
+                if [ -L "$row" ]; then
+                    echo "Error: mutation-bounded Pi review-stack installation refuses symlinks at managed rollback paths: $row" >&2
+                    return 1
+                fi
+                row="$(dirname "$row")"
+            done
+        done
+    done < <(python3 "$contract" list --manifest "$manifest" --repo-root "$REPO_ROOT" --scope "$manifest_scope")
+    preflight_pi_review_stack_contract false
+
+    # The compatibility probe above runs against a private copy. Mutate the
+    # installed transport only after preflight succeeds; transactional callers
+    # include the complete ~/.pi tree in their rollback snapshot.
     if ! PI_CODING_AGENT_DIR="$agent" python3 "$REPO_ROOT/scripts/patch_pi_subagents_review_isolation.py"; then
         echo -e "${RED}Error: pi-subagents cannot guarantee non-isolated reviewer/planner launches${NC}" >&2
         return 1
     fi
+
     parent_metadata="$(mktemp)"
-    python3 - "$parent_metadata" "$HOME/.agents" "$HOME/.agents/skills" "$review_runtime_dir" <<'PY'
+    python3 - "$parent_metadata" "$HOME/.agents" "$HOME/.agents/skills" "$HOME/.agents/scripts" "$HOME/.local" "$HOME/.local/bin" <<'PY'
 import json, os, stat, sys
 out = {}
 for raw in sys.argv[2:]:
@@ -2398,66 +2490,68 @@ for raw in sys.argv[2:]:
         out[resolved] = {"mode": stat.S_IMODE(value.st_mode), "atime_ns": value.st_atime_ns, "mtime_ns": value.st_mtime_ns}
 json.dump(out, open(sys.argv[1], "w"))
 PY
-    mkdir -p "$agent/prompts" "$agent/agents" "$agent/extensions" "$shared" "$review_runtime_dir"
-    chmod 700 "$HOME/.pi" "$agent" "$agent/prompts" "$agent/agents" "$agent/extensions" 2>/dev/null || true
 
-    # Prompts and extensions remain mutation-bounded: replace only entries owned
-    # by this repository and preserve caller-installed siblings.
-    for target in prompts extensions; do
-        if [ -d "$pi_source/$target" ]; then
-            shopt -s nullglob
-            for entry in "$pi_source/$target"/*; do
-                base="$(basename "$entry")"
-                rm -rf "$agent/$target/$base"
-                cp -a "$entry" "$agent/$target/$base"
-            done
-            shopt -u nullglob
+    while IFS=$'\t' read -r id kind source destination mode preserve boundary target entries_json; do
+        destination="$HOME/$destination"
+        case "$kind" in
+            overlay-children)
+                mkdir -p "$destination"
+                shopt -s nullglob
+                for entry in "$REPO_ROOT/$source"/*; do
+                    base="$(basename "$entry")"
+                    rm -rf "$destination/$base"
+                    cp -a "$entry" "$destination/$base"
+                done
+                shopt -u nullglob
+                ;;
+            exact-directory)
+                mkdir -p "$(dirname "$destination")"
+                rm -rf "$destination"
+                cp -a "$REPO_ROOT/$source" "$destination"
+                ;;
+            file)
+                mkdir -p "$(dirname "$destination")"
+                if [ "$id" = "pi-append-system" ]; then
+                    install_pi_append_system_file "$agent"
+                elif [ "$mode" = "preserve" ]; then
+                    cp -a "$REPO_ROOT/$source" "$destination"
+                else
+                    install -m "$mode" "$REPO_ROOT/$source" "$destination"
+                fi
+                ;;
+            json-merge)
+                if [ "$id" = "pi-models" ]; then
+                    install_pi_models_from_repo "$pi_source" "$agent" true
+                fi
+                ;;
+            remove-set)
+                while IFS= read -r entry; do
+                    [ -n "$entry" ] || continue
+                    rm -rf "$HOME/$boundary/$entry"
+                done < <(python3 -c 'import json,sys; print("\n".join(json.loads(sys.argv[1])))' "$entries_json")
+                ;;
+            symlink)
+                mkdir -p "$(dirname "$destination")"
+                ln -sfn "$HOME/$target" "$destination"
+                ;;
+        esac
+        if [ "$mode" != "preserve" ] && [ "$kind" != "file" ]; then
+            chmod "$mode" "$destination" 2>/dev/null || true
         fi
-    done
+    done < <(python3 "$contract" list --manifest "$manifest" --repo-root "$REPO_ROOT" --scope "$manifest_scope")
 
-    for retired_extension in "${RETIRED_PI_EXTENSIONS[@]}"; do
-        rm -rf "$agent/extensions/$retired_extension"
-    done
-    for disabled_extension in "${DISABLED_PI_EXTENSIONS[@]}"; do
-        rm -rf "$agent/extensions/$disabled_extension"
-    done
-    if [ -d "$pi_source/lib" ]; then
-        mkdir -p "$agent/lib"
-        shopt -s nullglob
-        for entry in "$pi_source/lib"/*; do
-            cp -a "$entry" "$agent/lib/$(basename "$entry")"
-        done
-        shopt -u nullglob
+    remove_repo_managed_pi_extension_registrations "$agent" "$pi_source/extensions" "$agent/extensions"
+    if ! python3 "$contract" verify --manifest "$manifest" --repo-root "$REPO_ROOT" --home "$HOME" --scope "$manifest_scope" >/dev/null; then
+        echo -e "${RED}Error: installed Pi review-stack manifest parity failed${NC}" >&2
+        return 1
     fi
-    remove_repo_managed_pi_extension_registrations \
-        "$agent" "$pi_source/extensions" "$agent/extensions"
+    if ! python3 "$REPO_ROOT/scripts/probe_pi_review_transport.py" --agent-dir "$agent" --target-checkout "$REPO_ROOT" --json >/dev/null; then
+        INSTALL_SUMMARY_TRANSPORT_STATUS=fail
+        INSTALL_SUMMARY_TRANSPORT_REASON="post-install reviewer transport probe failed"
+        echo -e "${RED}Error: installed Pi review transport parity failed${NC}" >&2
+        return 1
+    fi
 
-    # Agent definitions are one exact managed directory in both full and
-    # bounded installs. Reuse the canonical helper so retired/stale personas
-    # cannot survive a review-stack transaction.
-    install_pi_agents_from_repo "$pi_source" "$agent/agents"
-    chmod 700 "$agent/agents" 2>/dev/null || true
-    install_pi_models_from_repo "$pi_source" "$agent" true
-    cp "$pi_source/README.md" "$agent/README.md"
-    install_pi_append_system_file "$agent"
-
-    for skill in autoreview claude-code-review codex-review-partner delivery-run pre-pr-implementation-review reviewed-html-plan run-plan; do
-        rm -rf "$shared/$skill"
-        cp -a "$REPO_ROOT/skills/$skill" "$shared/$skill"
-    done
-    rm -f "$review_runtime_dir/review_orchestration.py" "$review_runtime_dir/git-with-index-lock" "$review_runtime_dir/ensure-git-with-index-lock" "$review_runtime_dir/delivery"
-    install -m 0755 "$REPO_ROOT/scripts/review_orchestration.py" "$review_runtime_dir/review_orchestration.py"
-    install -m 0755 "$REPO_ROOT/scripts/git-with-index-lock" "$review_runtime_dir/git-with-index-lock"
-    install -m 0755 "$REPO_ROOT/scripts/ensure-git-with-index-lock" "$review_runtime_dir/ensure-git-with-index-lock"
-    if [[ -f "$REPO_ROOT/skills/delivery-run/scripts/delivery" ]]; then
-        install -m 0755 "$REPO_ROOT/skills/delivery-run/scripts/delivery" "$review_runtime_dir/delivery"
-    fi
-    mkdir -p "$HOME/.local/bin"
-    ln -sfn "$review_runtime_dir/git-with-index-lock" "$HOME/.local/bin/git-with-index-lock"
-    ln -sfn "$review_runtime_dir/ensure-git-with-index-lock" "$HOME/.local/bin/ensure-git-with-index-lock"
-    if [[ -f "$review_runtime_dir/delivery" ]]; then
-        ln -sfn "$review_runtime_dir/delivery" "$HOME/.local/bin/delivery"
-    fi
     python3 - "$parent_metadata" <<'PY'
 import json, os, sys
 for raw, value in json.load(open(sys.argv[1])).items():
@@ -3268,6 +3362,11 @@ else
                 UPDATE_SKILLS=true
                 shift
                 ;;
+            --summary-json)
+                [ "$#" -ge 2 ] || { echo -e "${RED}Error: --summary-json requires a path${NC}" >&2; exit 1; }
+                SUMMARY_JSON="$2"
+                shift 2
+                ;;
             --help|-h)
                 print_usage
                 exit 0
@@ -3285,6 +3384,16 @@ else
         esac
     done
 fi
+
+trap write_install_summary_on_exit EXIT
+
+# Validate the one managed-surface authority before full/default Pi routes can
+# mutate any destination it owns. A fresh host may not have pi-subagents yet;
+# that transport is bootstrapped by the full installer and probed again by the
+# final manifest reconciliation.
+case "$INSTALL_MODE" in
+    --default|--pi|--all) preflight_pi_review_stack_contract true ;;
+esac
 
 # The review-stack transaction treats the complete ~/.pi tree as one snapshot
 # boundary. Following a symlink here would mutate storage outside that boundary.
@@ -3311,6 +3420,8 @@ case "$INSTALL_MODE" in
         echo ""
         sync_shared_skills claude
         echo ""
+        install_pi_review_stack full
+        echo ""
         enforce_central_project_skills "$TARGET_DIR"
         ;;
     --claude)
@@ -3330,6 +3441,8 @@ case "$INSTALL_MODE" in
         install_pi
         echo ""
         sync_shared_skills
+        echo ""
+        install_pi_review_stack full
         echo ""
         enforce_central_project_skills "$TARGET_DIR"
         ;;
@@ -3356,6 +3469,8 @@ case "$INSTALL_MODE" in
         install_tools
         echo ""
         sync_shared_skills claude
+        echo ""
+        install_pi_review_stack full
         echo ""
         enforce_central_project_skills "$TARGET_DIR"
         ;;

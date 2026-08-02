@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Retro Workflow Reliability Improvements</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a2d; --panel2:#18233b; --text:#eef3ff; --muted:#a9b6cf; --accent:#77bdfb; --good:#62d79c; --warn:#f3c86a; --line:#2d3b58; --code:#09101d; }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); color: var(--text); }
+    body { margin:0; font:16px/1.58 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:linear-gradient(180deg,#0d1426 0,#0b1020 18rem); }
+    main { width:min(1500px, calc(100% - 32px)); margin:0 auto; padding:42px 0 80px; }
+    h1,h2,h3,h4 { line-height:1.2; scroll-margin-top:20px; }
+    h1 { font-size:clamp(2rem,4vw,3.35rem); margin:.1rem 0 .65rem; }
+    h2 { margin-top:2.8rem; border-bottom:1px solid var(--line); padding-bottom:.45rem; }
+    h3 { margin-top:1.8rem; }
+    a { color:var(--accent); }
+    p,li,td,th { max-width:110ch; }
+    .summary,.card,.phase,.callout { background:rgba(18,26,45,.94); border:1px solid var(--line); border-radius:14px; padding:18px 20px; }
+    .summary { display:grid; gap:10px; }
+    .status { display:inline-block; width:max-content; padding:4px 10px; border-radius:999px; background:#342c13; color:#ffe3a0; font-weight:700; }
+    .muted { color:var(--muted); }
+    .toc { margin-top:22px; background:rgba(18,26,45,.82); border:1px solid var(--line); border-radius:14px; padding:16px 20px; }
+    .toc ul { columns:4 220px; margin:.5rem 0 0; padding-left:1.2rem; }
+    .impact,.inventory,.matrix { width:100%; border-collapse:collapse; background:rgba(18,26,45,.72); }
+    th,td { border:1px solid var(--line); padding:10px 12px; vertical-align:top; text-align:left; }
+    th { background:var(--panel2); }
+    code,pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+    code { color:#d8eaff; background:var(--code); padding:.1rem .3rem; border-radius:5px; }
+    pre { background:var(--code); border:1px solid var(--line); border-radius:10px; padding:14px; overflow:auto; }
+    .phase { margin:20px 0; }
+    .phase > h3 { margin-top:0; }
+    .progress { list-style:none; padding:0; }
+    .progress li { margin:9px 0; }
+    .good { border-left:5px solid var(--good); }
+    .warn { border-left:5px solid var(--warn); }
+    .tag { display:inline-block; margin:2px 5px 2px 0; padding:2px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:.9rem; }
+    @media (max-width:700px) { main { width:min(100% - 20px,1500px); padding-top:24px; } th,td { padding:8px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header id="title" class="summary">
+    <span class="status">Status: execution-ready</span>
+    <h1>Retro Workflow Reliability Improvements</h1>
+    <p><strong>Plan promise:</strong> turn recurring delivery-run failures into bounded, diagnosable workflow behavior without adding another review engine or a parallel installer architecture.</p>
+    <p class="muted">Target repository: <code>ai-configs</code>. Target branch: <code>main</code>. UI impact: <strong>text-only/operator-facing CLI output</strong>; no application screen or visual product flow changes.</p>
+  </header>
+
+  <nav class="toc" aria-label="Plan contents">
+    <strong>Contents</strong>
+    <ul>
+      <li><a href="#product-owner-context">Product-owner context</a></li>
+      <li><a href="#whats-new">What's new</a></li>
+      <li><a href="#goal">Goal</a></li>
+      <li><a href="#decision-attention">Decision attention</a></li>
+      <li><a href="#why">Why this plan exists</a></li>
+      <li><a href="#authority">Authority and inputs</a></li>
+      <li><a href="#reality">Current implementation reality</a></li>
+      <li><a href="#contract-inventory">Contract and integration inventory</a></li>
+      <li><a href="#exact-contracts">Locked contract details</a></li>
+      <li><a href="#progress">Progress</a></li>
+      <li><a href="#resume">Resume instructions</a></li>
+      <li><a href="#intent">Product intent alignment</a></li>
+      <li><a href="#locked">Locked decisions</a></li>
+      <li><a href="#acceptance">Acceptance criteria</a></li>
+      <li><a href="#bdd">BDD scenarios</a></li>
+      <li><a href="#coverage">Test coverage matrix</a></li>
+      <li><a href="#phase-p1">P1: Review and verification contracts</a></li>
+      <li><a href="#phase-p2">P2: Installer transaction and transport</a></li>
+      <li><a href="#phase-p3">P3: Delivery ledger and transcript safety</a></li>
+      <li><a href="#phase-p4">P4: Fixture and mirror reconciliation</a></li>
+      <li><a href="#phase-p5">P5: Final checks and release evidence</a></li>
+      <li><a href="#verification">Verification strategy</a></li>
+      <li><a href="#delivery-order">Delivery order</a></li>
+      <li><a href="#non-goals">Non-goals</a></li>
+      <li><a href="#post-merge">Post-merge operations</a></li>
+      <li><a href="#decisions-log">Decisions / deviations log</a></li>
+    </ul>
+  </nav>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <p>Recent delivery retros show the same reliability costs recurring across repositories: reviewers sometimes inspect the wrong checkout; long strict suites reveal inherited failures one at a time; temporary test data survives without clear ownership; final PR evidence becomes stale; installer rollback coverage drifts from the files the installer actually manages; and delivery callbacks can accept stale or ambiguously parsed state. These are workflow defects and evidence-quality gaps, not a newly discovered customer-runtime defect in an application.</p>
+    <p><strong>Why now:</strong> the failures appeared repeatedly in the latest delivery reflections, including live-checkout review rejection, 30–40 minute fail-fast reruns, missed committed whitespace, stale plan progress, a changelog placeholder after PR creation, incomplete installer snapshot coverage, and a visible completeness verdict that could not be parsed despite being present in the transcript.</p>
+    <table class="impact">
+      <thead><tr><th>Impact dimension</th><th>Planned effect</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>No direct application behavior change. Operators and coding agents get faster, more truthful delivery evidence and fewer repeated runs.</td></tr>
+        <tr><td>Runtime product behavior</td><td>Changes local workflow CLIs, installer behavior, review provenance handling, and test/run-plan guidance. No production service behavior changes.</td></tr>
+        <tr><td>Security / permissions</td><td>Preserves fail-closed behavior for ambiguous reviewer provenance, symlinked installer boundaries, foreign files, and stale ledger writes. No new credentials or broader permissions.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Improves early failure inventory, strict-suite partitioning, owned scratch cleanup, final diff/readiness checks, fixture initialization, and machine-readable evidence.</td></tr>
+        <tr><td>Deployment / migration</td><td>No data migration. Installer deployment commands gain explicit working-directory and per-host summaries; remote application remains a non-blocking post-merge operation.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What's new — one bounded reliability path from review launch to install receipt</h2>
+    <p><strong>Promise:</strong> a delivery run will detect wrong-checkout review transport before spending reviewer turns, inventory test failures without alert storms, keep scratch data bounded and attributable, validate the final committed candidate, install from one managed-surface contract, and reject stale delivery evidence with actionable diagnostics.</p>
+    <ul>
+      <li><strong>Before:</strong> prose requires live checkout provenance, but the effective reviewer transport can still isolate; long suites fail one item at a time; final checks are scattered; installer surfaces are duplicated; ledger writes share a launch-only lock; transcript acceptance returns one generic mismatch.</li>
+      <li><strong>After:</strong> deterministic preflights expose effective reviewer isolation and provenance; run-plan defines partitioned and bounded failure collection; final PR checks cover committed diff, plan progress, base freshness, and placeholders; installer mutation/rollback/verification share one manifest; all ledger writers use atomic revision-checked transactions; transcript rejection explains exactly what matched and what did not.</li>
+      <li><strong>Observable result:</strong> operators receive compact pass/fail summaries, ownership/lock diagnostics, host-deduplicated install receipts, and precise next actions instead of repeated expensive reruns.</li>
+      <li><strong>Planning result:</strong> the mandatory standalone eight-answer Socratic section is replaced by a conditional evidence checkpoint whose useful questions live in existing contract, acceptance, verification, decision-attention, and deviations sections.</li>
+      <li><strong>Preserved guarantees:</strong> one active-harness reviewer, no implementation subagent, guidance-not-gates for advisory evidence, explicit implementation approval, foreign-file preservation, transaction rollback, and visible Grok completeness review remain unchanged. Deterministic defaults constrain agents, not operators: an operator may explicitly approve a documented exception, while an agent may not silently waive or override the process.</li>
+    </ul>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Create one cohesive reliability upgrade for the existing reviewed-plan → implementation → review → verification → PR workflow. Consolidate overlapping mechanisms rather than adding competing runners. The PR must cover reviewer provenance, bounded test evidence, installer transactions and transport, delivery-ledger concurrency, transcript diagnostics, final candidate checks, fixture setup consistency, and removal of the low-value universal Socratic prose block in favor of evidence placed where reviewers use it.</p>
+  </section>
+
+  <section id="decision-attention" class="callout good">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <p><strong>No product decision required.</strong> Repository evidence supports a bounded in-repo implementation. The only external limitation found is Amp-specific documentation behavior; keep it as a non-code follow-up note unless execution discovers a maintained Amp integration surface in this repository.</p>
+    <p><strong>Implementation caution:</strong> the installer summary schema and managed-surface manifest are exact serialized contracts. Lock them with fixtures before dependent changes.</p>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>The workflow already contains most of the intended policy. The reliability gap is that policy is spread across prose, shell arrays, Python tests, and callback-specific code. This plan converts the recurring retro evidence into shared contracts and production-path tests while preserving the current architecture.</p>
+  </section>
+
+  <section id="authority">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>Operator goal in the delivery brief and <code>.delivery/AGENT_BRIEF.md</code>.</li>
+      <li>Recent process evidence in <code>~/.pi/DELIVERY_REFLECTIONS.md</code> and <code>~/.pi/delivery-reflections.jsonl</code>, especially live-review isolation, strict-suite, committed-diff, installer transaction, transcript parsing, and plan-progress entries.</li>
+      <li>Repository guidance in <code>AGENTS.md</code>, <code>skills/planning-workflow/SKILL.md</code>, <code>skills/product-principles/SKILL.md</code>, <code>skills/run-plan/SKILL.md</code>, <code>skills/autoreview/SKILL.md</code>, and <code>skills/delivery-run/SKILL.md</code>.</li>
+      <li>Current implementation and tests in <code>install.sh</code>, <code>scripts/install-pi-transactionally.sh</code>, <code>scripts/verify-pi-install.sh</code>, <code>scripts/patch_pi_subagents_review_isolation.py</code>, <code>skills/delivery-run/scripts/delivery</code>, and their test suites.</li>
+    </ul>
+  </section>
+
+  <section id="reality">
+    <h2>Current implementation reality</h2>
+    <table class="inventory">
+      <thead><tr><th>Lane</th><th>Existing implementation</th><th>Gap to close</th></tr></thead>
+      <tbody>
+        <tr><td>Reviewer checkout provenance</td><td><code>skills/autoreview/SKILL.md</code> and <code>skills/run-plan/SKILL.md</code> require <code>TARGET_CHECKOUT</code>, provenance fields, and omitted Agent isolation. <code>_pi/agents/{planner,reviewer}.md</code> declare <code>isolation: none</code>. <code>scripts/patch_pi_subagents_review_isolation.py</code> makes persona isolation authoritative.</td><td>No deterministic no-model probe proves the installed transport's effective launch configuration before a reviewer call, and no shared acceptance helper diagnoses incomplete provenance.</td></tr>
+        <tr><td>Pre-PR failure classification</td><td><code>skills/run-plan/SKILL.md</code> already defines convergence budgets and introduced/inherited plus functional/infra classification.</td><td>No explicit bounded no-fail-fast collection format, merge-base reproduction packet, notification cap, or strict-suite partition preflight order.</td></tr>
+        <tr><td>Scratch ownership</td><td>Individual tests and scripts use <code>mktemp</code>; installer transactions retain snapshots on rollback mismatch.</td><td>Run-plan lacks a generic contract for bounded repo scratch roots, ownership markers, size diagnostics, success cleanup, and failure preservation.</td></tr>
+        <tr><td>Final candidate checks</td><td>Run-plan checks base freshness and content identity; cmd-create-pr inspects range log/stat; plan progress is updated phase-by-phase.</td><td>No single pre-PR checklist requires committed-range <code>diff --check</code>, all phase/progress completion, current base, and unresolved changelog placeholder search after the final commit.</td></tr>
+        <tr><td>Installer transaction</td><td><code>install.sh --pi-review-stack</code> performs bounded mutations. <code>scripts/install-pi-transactionally.sh</code> snapshots and rolls back. <code>scripts/tests/test_install_pi_transaction.py</code> covers failpoints and symlink boundaries.</td><td>Managed paths and skills are duplicated across installer, transaction wrapper, verifier, and tests; host transport is not included in a compact machine-readable receipt.</td></tr>
+        <tr><td>Remote install transport</td><td><code>scripts/install-kitty-remote-hosts.sh</code> streams tracked files to <code>mbp</code>/<code>dever</code>; <code>test_herdr_remote_deploy.sh</code> checks failure propagation.</td><td>Hosts are not deduplicated, remote cwd is implicit, output is human-only, and there is no lightweight Pi reviewer transport probe.</td></tr>
+        <tr><td>Delivery ledger</td><td><code>write_json</code> does revision comparison and atomic rename while reusing <code>implementation-launch.lock</code>; implementation launch has a lease and stale-state checks.</td><td>The non-blocking lock can reject unrelated concurrent writers instead of serializing safely; read-modify-write is not expressed as one reusable ledger transaction; callback acceptance must bind to current request/revision.</td></tr>
+        <tr><td>Completeness transcript</td><td><code>delivery completion-review --accept</code> reads <code>recent-unwrapped</code>, matches current request ID plus verdict, fingerprints plan/worktree, and rejects old rounds.</td><td>The parser assumes adjacent lines and reports only a generic mismatch; it does not distinguish missing ID, visible-but-wrapped ID, wrong latest verdict, duplicate responses, truncation, or stale callback state.</td></tr>
+        <tr><td>Fixtures</td><td>Installer tests create fake Pi/package state in several local helpers; review orchestration has profile/transport fixtures.</td><td>Hub/profile/transport axes are not initialized consistently across workflow fixtures, allowing unrelated defaults or stale state to determine outcomes.</td></tr>
+        <tr><td>Planning evidence template</td><td><code>skills/planning-workflow/SKILL.md</code> requires eight standalone Socratic answers. <code>skills/supervise/</code> tells an optional supervisor to judge those answers. Recent full plans already contain contract inventories, acceptance/BDD, verification, decision attention, and deviations sections that carry the same evidence.</td><td>In the 2026-07-26 through 2026-08-02 sample, only one of three committed plans used the block; where present it mostly compressed adjacent sections. No delivery reflection attributed a caught defect or scope correction specifically to the block. The useful questions should remain, but not as mandatory duplicate prose.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="contract-inventory">
+    <h2>Contract and distributed-integration inventory</h2>
+    <p><strong>Triggers:</strong> exact serialized fields, CLI flags/paths, and behavior across installer, verifier, remote-host, delivery CLI, workflow skills, and mirrors. Coverage declaration: <strong>exhaustive-by-site</strong> for the listed managed surfaces and delivery ledger writers; <strong>exhaustive-by-family</strong> for workflow guidance mirrors and fixture axes.</p>
+    <table class="inventory">
+      <thead><tr><th>Contract / source of truth</th><th>Producers</th><th>Consumers</th><th>Cross-boundary proof</th><th>Reconciliation</th></tr></thead>
+      <tbody>
+        <tr><td><code>scripts/pi-review-stack-managed-surfaces.json</code> (new): managed paths, skill set, executable links, verifier expectations.</td><td><code>install.sh</code>, transactional wrapper.</td><td><code>scripts/verify-pi-install.sh</code>, <code>scripts/tests/test_install_pi_transaction.py</code>, installer docs.</td><td>Every manifest entry is installed, snapshotted, verified, rollback-restored, and absent foreign siblings remain unchanged.</td><td>Replace duplicated shell/Python lists; stale-reference search must find no independent managed-surface list.</td></tr>
+        <tr><td>Install summary schema: version, mode, status, cwd, managed-surface counts, transport probe, host results, warnings, rollback state.</td><td><code>install.sh</code>, <code>scripts/install-pi-transactionally.sh</code>, remote host installer.</td><td>Operators, tests, future automation.</td><td>Actual CLI parser invocation with <code>--summary-json &lt;path&gt;</code>; JSON schema assertions on success and failure.</td><td>One schema/version constant and one finalizer; human output remains.</td></tr>
+        <tr><td>Reviewer provenance record: <code>CWD</code>, <code>REVIEW_ROOT</code>, <code>HEAD</code>, <code>STATUS_SHORT</code>, <code>REVIEW_SOURCE</code>, unavailable content.</td><td>Planner/reviewer prompts and installed pi-subagents resolution.</td><td>Reviewed-plan and autoreview coordinators.</td><td>No-model transport probe plus test fixtures for live target, isolated fallback, and unavailable dirty content.</td><td>Keep one prompt contract in canonical skills; mirrors assert parity.</td></tr>
+        <tr><td>Failure inventory record: gate, base/head SHA, bounded failure signatures, introduced/inherited evidence, functional/infra class, notification count, scratch ownership.</td><td>Run-plan execution notes.</td><td>PR body, PM/reviewer packets, operator decision.</td><td>Contract tests inspect canonical workflow text and fixture examples; real implementation executes repository test commands, not a helper-only simulation.</td><td>Guidance only; no new universal test runner.</td></tr>
+        <tr><td>Delivery ledger revision/request identity.</td><td>Every mutating <code>delivery</code> command and external Herdr callback.</td><td>Stage gates, implementation launch, completeness accept, board/status.</td><td>Concurrent subprocess tests, stale revision tests, current/old request callbacks, atomic JSON readback.</td><td>All mutations pass through one blocking transaction helper; launch lease remains a narrower second lock.</td></tr>
+        <tr><td>Completeness response grammar.</td><td>Visible Grok prompt/transcript.</td><td><code>completion-review --accept</code>.</td><td>Parser unit fixtures for wrapped lines, duplicates, wrong request, non-COMPLETE latest verdict, truncation, and exact accepted response.</td><td>Extract parser into a pure tested function used by CLI.</td></tr>
+        <tr><td>Fixture axes: Hub state, profile/account root, transport result.</td><td>Test fixture builders.</td><td>Installer/review/delivery test families.</td><td>Each fixture declares all three axes; counterexamples omit or conflict one axis and fail with setup diagnostics.</td><td>Shared fixture helper or manifest within each test family; do not import application-specific Heddle code.</td></tr>
+        <tr><td>Conditional planning evidence checkpoint.</td><td><code>skills/planning-workflow/SKILL.md</code>.</td><td><code>skills/dev-plan</code>, <code>skills/reviewed-html-plan</code>, optional supervisor prompts, plan authors/reviewers, and installed mirrors.</td><td>Contract tests prove multi-surface/uncertain plans contain consumer/sibling evidence, falsification, production-path proof, residual risk, and expansion disposition in their existing sections; lightweight or single-site plans are not forced to repeat eight answers.</td><td>Remove standalone universal prose requirement; map each useful question to an existing section and update supervisor language. External Heddle schema/template reconciliation remains an explicitly named follow-up.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="exact-contracts">
+    <h2>Locked contract details</h2>
+
+    <h3>Managed-surface manifest v1</h3>
+    <p><code>scripts/pi-review-stack-managed-surfaces.json</code> is a JSON object with exactly <code>schemaVersion: 1</code> and <code>surfaces: []</code>. Every surface object requires <code>id</code> (stable unique string), <code>kind</code> (<code>exact-directory</code>, <code>overlay-children</code>, <code>file</code>, <code>json-merge</code>, <code>symlink</code>, or <code>remove-set</code>), <code>source</code> (repo-relative string or <code>null</code> only for removals/links), <code>destination</code> (HOME-relative template using only <code>${PI_AGENT_DIR}</code>, <code>${SHARED_SKILLS_DIR}</code>, <code>${AGENT_SCRIPTS_DIR}</code>, or <code>${LOCAL_BIN_DIR}</code>), <code>scopes</code> (non-empty array containing <code>pi-review-stack</code> and optionally <code>full</code>), <code>mode</code> (<code>preserve</code> or a four-digit octal string), <code>preserveUnlisted</code> (boolean), and <code>rollbackBoundary</code> (HOME-relative path). <code>symlink</code> additionally requires <code>targetSurfaceId</code>; <code>remove-set</code> requires sorted <code>entries</code>. Unknown fields, duplicate IDs/destinations, absolute or parent-traversing paths, unsupported variables, and rollback boundaries that do not contain their destination fail before mutation.</p>
+    <p>The initial manifest must enumerate these current families rather than hiding them behind another list: repo-owned prompt children, extension children, library children, exact agent directory, model/settings JSON merges, Pi README, APPEND_SYSTEM, retired/disabled extension removals, shared skills <code>autoreview</code>, <code>claude-code-review</code>, <code>codex-review-partner</code>, <code>delivery-run</code>, <code>pre-pr-implementation-review</code>, <code>reviewed-html-plan</code>, and <code>run-plan</code>; scripts <code>review_orchestration.py</code>, <code>git-with-index-lock</code>, <code>ensure-git-with-index-lock</code>, and <code>delivery</code>; and the three matching <code>~/.local/bin</code> links. <code>install.sh</code>, transaction snapshot/restore, verifier, and tests must expand this same manifest and may not maintain a second independent list.</p>
+
+    <h3>Install summary v1</h3>
+    <p><code>--summary-json &lt;path&gt;</code> is optional. When supplied, the installer writes one JSON object atomically through a mode-0600 sibling temporary file followed by replace. It creates missing parent directories, replaces an existing regular file, and rejects a symlink, directory, or non-regular destination. Once argument parsing succeeds, success and operational failure both attempt a receipt; an invalid receipt path is reported separately. No secrets, environment dumps, or command transcripts are included.</p>
+    <pre><code>{
+  "schemaVersion": 1,
+  "command": "install|transaction|remote-hosts",
+  "mode": "pi-review-stack|all|pi|tools|skills|remote-kitty",
+  "status": "success|failed|partial|rolled_back|rollback_failed",
+  "startedAt": "RFC3339 UTC",
+  "finishedAt": "RFC3339 UTC",
+  "cwd": "absolute local working directory",
+  "repoRoot": "absolute source checkout",
+  "managedSurfaceManifest": {"path": "repo-relative path", "sha256": "64 lowercase hex", "surfaceCount": 0},
+  "transportProbe": {"status": "pass|fail|not_run", "reason": null},
+  "hosts": [{"host": "dever", "status": "success|failed|skipped", "cwd": "/remote/tmp/path", "exitCode": 0, "warning": null}],
+  "warnings": [],
+  "rollback": {"attempted": false, "status": "not_needed|succeeded|failed", "snapshotPath": null}
+}</code></pre>
+    <p>All top-level fields are required. Host records preserve first-seen order after trimming and exact-string deduplication; empty tokens are ignored. <code>exitCode</code> is an integer or <code>null</code> only for skipped work, and <code>warning</code>/<code>reason</code>/<code>snapshotPath</code> are strings or <code>null</code>. Normal non-strict remote failure yields overall <code>partial</code> with process exit 0; strict mode yields <code>failed</code> with non-zero exit. The remote command creates one <code>mktemp -d</code> staging directory, emits its path for the host record, explicitly <code>cd</code>s there before invoking <code>herdr/install.sh</code> and <code>kitty/install.sh</code>, and removes it on exit.</p>
+
+    <h3>Ledger transaction and callback identity</h3>
+    <p>All ledger read-modify-write operations use <code>.delivery/ledger.lock</code>, separate from <code>implementation-launch.lock</code>. The transaction helper opens the lock mode 0600 and attempts an exclusive lock every 50ms for up to 10 seconds (override only in tests with <code>DELIVERY_LEDGER_LOCK_TIMEOUT_SECONDS</code>). The holder writes <code>pid</code>, command name, acquisition time, and expected revision to the lock file. Timeout diagnostics report those fields when readable. Under lock the helper reloads the ledger, requires the reloaded <code>ledgerRevision</code> to equal the caller's supplied revision, applies exactly one mutation, increments once, writes/fsyncs a sibling temp file, atomically replaces the ledger, and releases. A mismatch fails stale with current/supplied revisions; it never silently replays a mutation. The caller may retry by reloading and revalidating intent.</p>
+    <p>Callback identity is persisted in existing/current fields: implementation callbacks require <code>implementationProfile.launchAttemptId</code>, allowed <code>status</code>, current approval/plan fingerprint, and agent/pane identity; completeness callbacks require <code>completenessReview.requestId</code>, <code>round</code>, status, plan SHA, and worktree fingerprint. Add <code>requestLedgerRevision</code> to each request record for diagnostics. An unrelated note/evidence mutation does not by itself invalidate a current callback. At acceptance time, the transaction reloads under lock and rejects a changed request/attempt ID, round, status, plan/worktree fingerprint, or approval. If a concurrent unrelated write changes only ledger revision between command load and commit, the write fails stale and a retry must revalidate the same callback identity before applying.</p>
+
+    <h3>Completeness response grammar</h3>
+    <p>A response block starts with <code>COMPLETENESS_REVIEW_RESPONSE_ID:</code> followed by exactly 32 lowercase hexadecimal characters, either on the same line or the immediately following non-empty line. The block runs until the next response-ID label or transcript end. It must contain exactly one <code>VERDICT:</code> value—<code>FINDINGS_TO_RESOLVE</code>, <code>COMPLETE</code>, or <code>BLOCKED_BY_QUESTION</code>—on the same line as the label or its immediately following non-empty line. Other diagnostic lines inside the block are allowed. The parser trims surrounding whitespace but does not join arbitrary tokens or accept partial IDs.</p>
+    <p>For the current request, the latest block in transcript order is authoritative. Multiple complete older blocks are diagnostic only; a later complete block may supersede them. If the latest current-request block has zero or multiple verdicts, is cut off at the transcript boundary, or is otherwise malformed, acceptance fails closed rather than falling back to an older block. A missing current ID reports visible IDs; a present malformed block reports line range and parsed verdict count; a non-COMPLETE latest verdict reports that verdict; duplicate blocks report their count and selected range. The reader remains bounded to the current 500-line <code>recent-unwrapped</code> window and states when the first retained line appears to continue a block, so possible truncation is distinguishable from a genuinely absent response.</p>
+
+    <h3>Exhaustive distributed-site inventory</h3>
+    <p>Ledger mutation coverage is exhaustive-by-command for <code>init</code>/<code>spawn</code> creation; <code>stage</code>; <code>approve-implementation</code>; <code>start-implementation</code> and its launch callbacks; <code>revoke-implementation-approval</code>; <code>note</code>; <code>set</code>; <code>record</code>; every <code>completion-review</code> request/rerun/accept/waive path; <code>blocker</code>; and <code>reflect --mark-done</code>. <code>show</code>, <code>path</code>, <code>check</code>, <code>board</code>, <code>status</code>, <code>stages</code>, and <code>verify-implementation-profile</code> are read-only and must remain outside the writer list.</p>
+    <p>Workflow reconciliation is exhaustive for canonical files <code>skills/{run-plan,autoreview,pre-pr-implementation-review,reviewed-html-plan,tdd-test-writer,cmd-create-pr,planning-workflow,delivery-run}/SKILL.md</code>, <code>skills/supervise/{SKILL.md,supervisor-prompt.md}</code>, Pi prompts <code>_pi/prompts/{run-plan.md,dev:reviewed-html-plan.md,dev:plan.md}</code>, Codex prompts <code>_codex/prompts/{run-plan.md,dev:reviewed-html-plan.md,dev:plan.md}</code>, Claude commands <code>_claude/commands/{run-plan.md,dev:plan.md}</code>, and Hermes files <code>_hermes/default/skills/software-development/{run-plan,reviewed-html-plan,planning-workflow,writing-plans}/SKILL.md</code>.</p>
+    <p>Before edits, run the following exact searches from the repository root and save their sorted output to <code>thoughts/validation/retro-workflow-reliability-inventory-before.txt</code>. Run the identical block after reconciliation into <code>...-after.txt</code>. Each newly added or removed maintained path must be classified in the Decisions / Deviations log; the after artifact must contain every enumerated path above and every ledger writer family, with no unclassified hit. Generated/install snapshots are updated only through their source.</p>
+    <pre><code>{
+  rg -n 'install_pi_review_stack|PI_REVIEW_STACK|SKILLS=\(|PATHS=\(|verify-pi-install|review_orchestration\.py|git-with-index-lock|ensure-git-with-index-lock|\.local/bin/delivery' install.sh scripts test_install.sh test_install_shared_skills.sh test_herdr_remote_deploy.sh
+  rg -n 'TARGET_CHECKOUT|REVIEW_ROOT|REVIEW_SOURCE|isolation: (none|worktree)|patch_pi_subagents_review_isolation' AGENTS.md APPEND_SYSTEM.md skills _pi _codex _claude _hermes scripts test_install_shared_skills.sh
+  rg -n 'diff --check|merge-base|plan progress|planSha256|base freshness|PR #TBD|TODO-PR|CHANGELOG_PLACEHOLDER' skills _pi _codex _claude _hermes scripts test_install_shared_skills.sh CHANGELOG.md
+  rg -n 'write_json\(|cmd_(init|stage|approve_implementation|start_implementation|revoke_implementation_approval|note|set|record|completion_review|blocker|reflect|spawn)|launchAttemptId|requestId|requestLedgerRevision|ledgerRevision|implementation-launch\.lock|ledger\.lock' skills/delivery-run/scripts/delivery skills/delivery-run/tests/test_delivery_cli.sh
+  rg -n -i 'Socratic|planning evidence|consumer|sibling|falsification|not examined|expansion|deviation' skills/planning-workflow skills/supervise skills/dev-plan skills/reviewed-html-plan _pi/prompts _codex/prompts _claude/commands _hermes/default/skills/software-development test_install_shared_skills.sh
+  rg -n -i 'Hub|profile|account.?root|transport|fixture' scripts/tests tests skills test_install*.sh test_herdr_remote_deploy.sh
+} | LC_ALL=C sort</code></pre>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="progress">
+      <li><label><input type="checkbox" checked disabled> P1 — Reconcile reviewer provenance and bounded verification contracts.</label></li>
+      <li><label><input type="checkbox" checked disabled> P2 — Centralize installer surfaces, transport probes, host deployment, and summaries.</label></li>
+      <li><label><input type="checkbox" checked disabled> P3 — Make delivery ledger mutations atomic and completeness parsing diagnostic.</label></li>
+      <li><label><input type="checkbox" checked disabled> P4 — Reconcile fixture setup, workflow mirrors, and distributed tests.</label></li>
+      <li><label><input type="checkbox" checked disabled> P5 — Run final candidate checks, documentation/changelog updates, and full verification.</label></li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions (agent)</h2>
+    <p>Read this document fully. Reopen the current source of truth for each contract before editing its consumers. Start at the first unchecked Progress item and finish one phase at a time. After a phase passes its verification, immediately mark only its matching checkbox complete, update the Decisions / deviations log, push the latest plan source to Doct, and verify the registered version. Preserve unrelated work. Ask the operator only for a genuinely new product decision.</p>
+  </section>
+
+  <section id="intent">
+    <h2>Product intent alignment</h2>
+    <ul>
+      <li><strong>Golden path:</strong> the normal review/install/delivery command detects routine setup and evidence problems before expensive work.</li>
+      <li><strong>Safe defaults:</strong> reviewer launch defaults to the live checkout; host lists deduplicate; scratch cleanup affects only owned paths; advisory checks remain non-blocking.</li>
+      <li><strong>Self-healing:</strong> ordinary concurrency waits/retries through the transaction helper; successful runs clean owned scratch; install summaries retain warnings without pretending failure is success.</li>
+      <li><strong>Fail closed:</strong> stale revisions, mismatched request IDs, ambiguous provenance, symlinked rollback boundaries, unowned scratch, and unsafe rebase/placeholder states stop with a concrete next action.</li>
+      <li><strong>Actionable errors:</strong> diagnostics name current/supplied revision, lock owner or PID where available, parser match state, request IDs, paths, host, cwd, and retry command.</li>
+      <li><strong>Operator agency:</strong> deterministic paths remain the agent default, but operator-approved, recorded exceptions remain possible. Agents cannot self-authorize an exception or reinterpret an advisory as a mandatory gate.</li>
+    </ul>
+  </section>
+
+  <section id="locked">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li>Extend existing workflow and installer mechanisms; do not create another review engine, test runner, or delivery service.</li>
+      <li>Use one checked-in managed-surface manifest as installer mutation/rollback/verification authority.</li>
+      <li>Add a deterministic no-model transport probe; do not spend a real model call for installer verification.</li>
+      <li>Keep test execution repository-defined. Run-plan specifies partition discovery, bounded reporting, and merge-base classification rather than shipping a universal cross-language test runner.</li>
+      <li>Use a blocking ledger transaction lock with revision compare-and-swap and atomic rename for all ledger mutations. Keep the implementation launch lease as an additional narrow writer-ownership boundary.</li>
+      <li>Keep Amp-only limitations outside code unless an existing maintained integration action is discovered.</li>
+      <li>Reliability checks govern agent behavior by default. They must not remove an operator's ability to explicitly approve a documented exception; no agent may create or exercise that exception without operator approval.</li>
+    </ol>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance criteria</h2>
+    <table class="matrix">
+      <thead><tr><th>ID</th><th>Observable outcome</th></tr></thead>
+      <tbody>
+        <tr id="ac-1"><td>AC1</td><td>Installed Pi review transport can be probed without a model call and reports effective reviewer/planner isolation, target checkout handling, model, and reasoning profile; incompatible isolation fails before review launch.</td></tr>
+        <tr id="ac-2"><td>AC2</td><td>Run-plan requires strict-suite partitions before the full suite when the repo exposes them, bounded no-fail-fast failure inventory, merge-base reproduction for inherited classification, capped repeated notifications, and truthful terminal disposition.</td></tr>
+        <tr id="ac-3"><td>AC3</td><td>Run-plan/test guidance defines bounded owned scratch roots, ownership diagnostics, size/count reporting, cleanup on success, preservation on failure, and refusal to delete unowned paths.</td></tr>
+        <tr id="ac-4"><td>AC4</td><td>The final pre-PR path checks the committed comparison range with <code>git diff --check</code>, confirms plan progress and Doct source are current, rechecks base freshness after final commit, and rejects unresolved changelog/PR placeholders.</td></tr>
+        <tr id="ac-5"><td>AC5</td><td>Full and bounded Pi review-stack installs, transactional rollback, verifier, and tests consume one managed-surface manifest and preserve caller-owned siblings.</td></tr>
+        <tr id="ac-6"><td>AC6</td><td>Installer and remote deployment emit the locked install-summary-v1 object atomically; duplicate hosts execute once in first-seen order; every remote command reports and explicitly enters its temporary deployment cwd; partial, strict failure, rollback, and probe-failure states remain distinguishable and truthful.</td></tr>
+        <tr id="ac-7"><td>AC7</td><td>All enumerated delivery ledger writers use the locked 10-second revision-checked transaction algorithm; concurrent writers never lose an accepted update, stale writers fail with current/supplied revisions and lock-owner diagnostics, unrelated ledger mutations do not alone invalidate callbacks, and implementation launch still prevents a second writer.</td></tr>
+        <tr id="ac-8"><td>AC8</td><td>Completeness acceptance implements the locked response-block grammar over the bounded current transcript and reports missing IDs, malformed/current block ranges, verdict counts, duplicates, latest non-COMPLETE verdicts, and likely truncation; stale callbacks cannot certify a newer round.</td></tr>
+        <tr id="ac-9"><td>AC9</td><td>Relevant fixtures explicitly initialize Hub, profile/account-root, and transport axes so unrelated defaults cannot determine test outcomes; counterexamples fail as setup errors.</td></tr>
+        <tr id="ac-10"><td>AC10</td><td>Canonical skill sources, installed mirrors, Hermes equivalents, README/help text, tests, and changelog remain coherent; Amp-only limitations are recorded as external non-code follow-up unless an integration surface is found.</td></tr>
+        <tr id="ac-11"><td>AC11</td><td>Full plans no longer require a standalone eight-answer Socratic prose block. Multi-surface or materially uncertain plans still carry named consumer/sibling evidence, falsification, production-path proof, residual risk, moving-ground checks, and expansion disposition in the existing sections where reviewers act on them; optional supervisors review those artifacts rather than a heading.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-review-live"><h3>BDD1 — Live reviewer transport</h3><p><strong>Given</strong> reviewer frontmatter says <code>isolation: none</code> and a caller would otherwise request worktree isolation, <strong>when</strong> the deterministic transport probe resolves the launch, <strong>then</strong> it reports the live target checkout and no effective worktree isolation before any model call.</p></article>
+    <article id="bdd-review-fallback"><h3>BDD2 — Harness isolation fallback</h3><p><strong>Given</strong> the harness still launches elsewhere, <strong>when</strong> the reviewer returns provenance over <code>TARGET_CHECKOUT</code>, <strong>then</strong> the coordinator accepts visible-code findings and identifies only genuinely unavailable dirty content.</p></article>
+    <article id="bdd-failure-inventory"><h3>BDD3 — Bounded failure inventory</h3><p><strong>Given</strong> a long strict suite has several independent failures, <strong>when</strong> fail-fast is disabled for one bounded inventory pass, <strong>then</strong> output records distinct failure families up to the configured cap, suppresses repeated alerts, and instructs the agent to reproduce representative failures at the merge base.</p></article>
+    <article id="bdd-inherited"><h3>BDD4 — Inherited classification</h3><p><strong>Given</strong> a branch and merge base fail with the same signature outside a newly reachable domain, <strong>when</strong> final disposition runs, <strong>then</strong> it records inherited evidence instead of consuming repeated full-suite attempts.</p></article>
+    <article id="bdd-scratch"><h3>BDD5 — Owned scratch lifecycle</h3><p><strong>Given</strong> a test run creates scratch under its declared root with an ownership marker, <strong>when</strong> the run succeeds, <strong>then</strong> owned scratch is removed and size/count is summarized; on failure it is preserved with the exact cleanup command. A missing/mismatched marker prevents deletion.</p></article>
+    <article id="bdd-final-check"><h3>BDD6 — Final committed candidate</h3><p><strong>Given</strong> unstaged checks passed but the committed range contains whitespace or a changelog placeholder, <strong>when</strong> the pre-PR checklist runs, <strong>then</strong> PR creation stops with the exact file/line and remediation command.</p></article>
+    <article id="bdd-transaction"><h3>BDD7 — Managed-surface rollback</h3><p><strong>Given</strong> any managed surface fails after mutation, <strong>when</strong> the transaction unwinds, <strong>then</strong> every manifest-owned byte/link/mode is restored and foreign siblings are unchanged.</p></article>
+    <article id="bdd-host"><h3>BDD8 — Host deduplication and cwd</h3><p><strong>Given</strong> <code>KITTY_REMOTE_HOSTS</code> repeats a host, <strong>when</strong> deployment runs, <strong>then</strong> that host is contacted once, the remote shell enters the explicit deployment cwd, and the JSON summary contains one host record.</p></article>
+    <article id="bdd-ledger-concurrency"><h3>BDD9 — Concurrent ledger writers</h3><p><strong>Given</strong> two delivery commands start from the same revision, <strong>when</strong> both attempt to commit, <strong>then</strong> one commits and the other fails stale after acquiring the lock; after the caller reloads and retries, both intended independent mutations can be present, and the ledger is always valid JSON.</p></article>
+    <article id="bdd-stale-callback"><h3>BDD10 — Stale completeness callback</h3><p><strong>Given</strong> round one returns COMPLETE after round two was requested, <strong>when</strong> acceptance runs, <strong>then</strong> round one is rejected and diagnostics show the visible request IDs and latest verdicts. An unrelated note written after round two does not invalidate round two; a concurrent write during acceptance produces a stale retry rather than accepting against unchecked state.</p></article>
+    <article id="bdd-fixture"><h3>BDD11 — Explicit fixture axes</h3><p><strong>Given</strong> a workflow fixture declares Hub state, profile/account root, and transport result, <strong>when</strong> the test runs under a hostile inherited environment, <strong>then</strong> the declared fixture state controls the outcome; omission is reported as fixture setup failure.</p></article>
+    <article id="bdd-planning-evidence"><h3>BDD12 — Evidence without duplicate prose</h3><p><strong>Given</strong> a multi-surface plan changes an exact contract, <strong>when</strong> planning readiness is reviewed, <strong>then</strong> consumers, siblings, falsification, proof, residual risk, and expansion disposition are found in the contract inventory, acceptance/BDD, verification, decision-attention, and deviations artifacts; a separate Socratic heading is neither required nor accepted as a substitute for those artifacts.</p></article>
+  </section>
+
+  <section id="coverage">
+    <h2>Test coverage matrix</h2>
+    <table class="matrix">
+      <thead><tr><th>Acceptance / BDD</th><th>Planned test layer</th><th>Primary suites / files</th><th>Verification</th></tr></thead>
+      <tbody>
+        <tr><td>AC1; BDD1–2</td><td>Unit + installed integration</td><td><code>scripts/tests/test_patch_pi_subagents_review_isolation.py</code>, <code>scripts/tests/test_pi_agent_roster.py</code>, <code>scripts/tests/test_install_pi_transaction.py</code></td><td><code>python3 -m unittest ...</code> plus installed probe command</td></tr>
+        <tr><td>AC2–4; BDD3–6</td><td>Workflow contract + parser/fixture examples</td><td><code>skills/run-plan/SKILL.md</code>, <code>skills/tdd-test-writer/SKILL.md</code>, <code>skills/cmd-create-pr/SKILL.md</code>, <code>test_install_shared_skills.sh</code></td><td>Targeted shell contract tests and stale-reference search</td></tr>
+        <tr><td>AC5–6; BDD7–8</td><td>Installer production-path integration</td><td><code>scripts/tests/test_install_pi_transaction.py</code>, <code>test_herdr_remote_deploy.sh</code>, <code>scripts/verify-pi-install.sh</code></td><td>Actual installer CLI with failpoints and JSON summary readback</td></tr>
+        <tr><td>AC7–8; BDD9–10</td><td>CLI subprocess + pure parser unit</td><td><code>skills/delivery-run/tests/test_delivery_cli.sh</code></td><td>Concurrent processes, stale revisions, wrapped/duplicate transcript fixtures</td></tr>
+        <tr><td>AC9–10; BDD11</td><td>Fixture/mirror contract</td><td><code>scripts/tests/test_pi_agent_roster.py</code>, <code>test_install_shared_skills.sh</code>, Hermes skill mirrors, docs/changelog</td><td>Mirror parity and explicit fixture-axis assertions</td></tr>
+        <tr><td>AC11; BDD12</td><td>Planning contract + supervisor contract</td><td><code>skills/planning-workflow/SKILL.md</code>, <code>skills/supervise/SKILL.md</code>, <code>skills/supervise/supervisor-prompt.md</code>, <code>test_install_shared_skills.sh</code></td><td>Positive multi-surface evidence fixture, lightweight-plan counterexample, and stale Socratic-reference search</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="phase-p1" class="phase">
+    <h3>P1 — Reconcile reviewer provenance and bounded verification contracts</h3>
+    <h4>End State</h4>
+    <p>The canonical run-plan/autoreview/TDD/PR guidance uses one provenance contract, detects incompatible Pi isolation before model use, defines partitioned strict-suite preflights, bounded no-fail-fast inventories, merge-base classification, owned scratch lifecycle, and final committed-candidate checks.</p>
+    <h4>Tests first</h4>
+    <ul><li>Add failing contract tests for the no-model probe, required provenance diagnostics, strict partition order, bounded failure cap, merge-base evidence, scratch ownership rules, committed-range diff check, plan-progress/Doct sync, base freshness, and placeholder search.</li><li>Counterexamples: caller isolation overrides persona; inherited classification without base reproduction; deletion without marker; unstaged-only diff check; PR placeholder hidden in committed range.</li></ul>
+    <h4>Expected files</h4>
+    <p><code>scripts/patch_pi_subagents_review_isolation.py</code>, a small deterministic transport-probe script or probe mode beside it, <code>scripts/tests/test_patch_pi_subagents_review_isolation.py</code>, <code>scripts/tests/test_pi_agent_roster.py</code>, <code>skills/autoreview/SKILL.md</code>, <code>skills/run-plan/SKILL.md</code>, <code>skills/tdd-test-writer/SKILL.md</code>, <code>skills/cmd-create-pr/SKILL.md</code>, <code>test_install_shared_skills.sh</code>, and maintained harness mirrors.</p>
+    <h4>Work</h4>
+    <ol><li>Keep <code>TARGET_CHECKOUT</code> and provenance fields as the one review evidence contract; add a deterministic installed-transport probe that resolves effective persona/caller isolation, model, and reasoning without invoking a model.</li><li>Add an explicit preflight sequence to run-plan: discover repo-defined high-signal partitions; run predecessor/upgrade, hygiene, convergence/locking, and profile/transport families when present; only then run the full strict suite.</li><li>Define one bounded no-fail-fast inventory pass with distinct-signature cap, repeated-notification suppression, representative failure reproduction, and merge-base evidence requirements.</li><li>Define owned scratch behavior: repo-local root or runner-provided temp root, run ID/marker, count/bytes, owner/lock diagnostics, cleanup on green, preserve on red, refuse unowned cleanup.</li><li>Add one final-candidate checklist before PR creation: <code>git diff --check "$(git merge-base origin/&lt;base&gt; HEAD)"..HEAD</code>, status/untracked audit, all plan phases checked and Doct current, fresh base comparison, and placeholder search such as <code>PR #TBD</code>/<code>TODO-PR</code> on changed files.</li><li>Add fixture guidance that every relevant workflow test explicitly initializes Hub state, profile/account root, and transport outcome.</li></ol>
+    <h4>Open questions / decision dependencies</h4><p>None.</p>
+    <h4>Verify</h4>
+    <pre><code>python3 -m unittest scripts.tests.test_patch_pi_subagents_review_isolation scripts.tests.test_pi_agent_roster
+bash test_install_shared_skills.sh
+rg -n "TARGET_CHECKOUT|REVIEW_ROOT|strict-suite|no-fail-fast|merge-base|scratch|diff --check|plan progress|placeholder|Hub|profile|transport" skills scripts/tests test_install_shared_skills.sh</code></pre>
+  </section>
+
+  <section id="phase-p2" class="phase">
+    <h3>P2 — Centralize installer surfaces, transport probes, host deployment, and summaries</h3>
+    <h4>End State</h4>
+    <p>Installer mutation, rollback, verification, and test expectations derive from one checked-in managed-surface manifest. Full and bounded routes run the same deterministic transport compatibility probe. Remote deployment deduplicates hosts, uses explicit cwd, and emits a versioned JSON receipt.</p>
+    <h4>Tests first</h4>
+    <ul><li>Add failing tests proving every manifest surface participates in install, verification, snapshot, rollback, and parity.</li><li>Add CLI tests for <code>--summary-json</code>, success/failure/rollback fields, duplicate hosts, explicit remote cwd, offline host warnings, and transport probe failure before mutation.</li></ul>
+    <h4>Expected files</h4>
+    <p><code>scripts/pi-review-stack-managed-surfaces.json</code> (new exact contract), <code>install.sh</code>, <code>scripts/install-pi-transactionally.sh</code>, <code>scripts/verify-pi-install.sh</code>, transport probe source, <code>scripts/install-kitty-remote-hosts.sh</code>, <code>scripts/tests/test_install_pi_transaction.py</code>, <code>test_herdr_remote_deploy.sh</code>, <code>test_install_shared_skills.sh</code>, <code>README.md</code>, <code>_pi/README.md</code>.</p>
+    <h4>Work</h4>
+    <ol><li>Implement managed-surface manifest v1 exactly as locked above. Expand it from install, transaction, verify, and tests; remove duplicated lists and reject invalid paths/schema before mutation.</li><li>Run input validation and the no-model review transport probe before first bounded mutation. Repeat installed parity/probe after installation.</li><li>Add <code>--summary-json &lt;path&gt;</code> to the actual installer parser and implement install-summary-v1 types, enums, atomic mode-0600 write behavior, and operational-failure receipts exactly as locked above.</li><li>Deduplicate trimmed remote hosts by exact string while preserving first-seen order. Stream to one remote <code>mktemp -d</code>, report it, explicitly <code>cd</code> there, run both installers, clean it on exit, and emit one ordered host record.</li><li>Keep offline hosts advisory for normal tools installs with overall <code>partial</code>/exit 0, but make configured strict/test mode return <code>failed</code>/non-zero while preserving all host records.</li></ol>
+    <h4>Open questions / decision dependencies</h4><p>None. The summary path is explicit and opt-in; stdout remains human-readable.</p>
+    <h4>Verify</h4>
+    <pre><code>python3 -m unittest scripts.tests.test_install_pi_transaction scripts.tests.test_pi_agent_roster
+bash test_herdr_remote_deploy.sh
+bash test_install_shared_skills.sh
+bash scripts/install-pi-transactionally.sh --help 2&gt;/dev/null || true
+python3 -m json.tool scripts/pi-review-stack-managed-surfaces.json</code></pre>
+  </section>
+
+  <section id="phase-p3" class="phase">
+    <h3>P3 — Make delivery ledger mutations atomic and completeness parsing diagnostic</h3>
+    <h4>End State</h4>
+    <p>Every ledger mutation occurs inside one reusable blocking lock/read/compare/mutate/write transaction. Launch and completeness callbacks are bound to current revision/request identity. Completeness transcript parsing is pure, fixture-tested, and reports actionable mismatch details.</p>
+    <h4>Tests first</h4>
+    <ul><li>Add concurrent command tests that force overlapping writers and assert no invalid JSON or silent lost update.</li><li>Add stale callback tests for implementation launch and completeness rounds.</li><li>Add parser fixtures for exact, wrapped, separated, duplicated, stale, non-COMPLETE, and truncated responses; assert diagnostic output.</li></ul>
+    <h4>Expected files</h4>
+    <p><code>skills/delivery-run/scripts/delivery</code>, <code>skills/delivery-run/tests/test_delivery_cli.sh</code>, <code>skills/delivery-run/SKILL.md</code>, installer manifest/tests for the installed delivery executable.</p>
+    <h4>Work</h4>
+    <ol><li>Implement the exact <code>.delivery/ledger.lock</code> algorithm in Locked contract details, including 50ms acquisition attempts, 10-second default deadline, holder metadata, stale compare-and-swap, fsync/atomic replace, and retry diagnostics. Keep <code>implementation-launch.lock</code> as the narrower second-writer lease.</li><li>Route every exhaustively enumerated writer command and launch callback through the transaction helper; keep read-only commands outside it and add a test that fails when a new writer bypasses the helper.</li><li>Persist and validate the specified request/attempt fields plus <code>requestLedgerRevision</code>. Treat the request revision as diagnostic, not as a reason to reject a callback after an unrelated mutation; revalidate identity under lock on every retry.</li><li>Extract completeness transcript parsing from <code>cmd_completion_review</code> and implement the exact response-block grammar, latest-block rule, malformed/duplicate/truncation diagnostics, and 500-line bound.</li><li>Preserve current plan/worktree fingerprints and <code>MERGE_READY</code> gate semantics.</li></ol>
+    <h4>Open questions / decision dependencies</h4><p>None.</p>
+    <h4>Verify</h4>
+    <pre><code>bash skills/delivery-run/tests/test_delivery_cli.sh
+python3 -m py_compile skills/delivery-run/scripts/delivery
+DELIVERY_SKIP_HERDR=1 delivery check -v</code></pre>
+  </section>
+
+  <section id="phase-p4" class="phase">
+    <h3>P4 — Reconcile fixture setup, workflow mirrors, and distributed tests</h3>
+    <h4>End State</h4>
+    <p>All maintained workflow mirrors carry equivalent reliability contracts, relevant test fixtures declare Hub/profile/transport state explicitly, and the planning contract replaces mandatory duplicate Socratic prose with conditional evidence in existing review artifacts. Tests fail at setup when an axis is omitted rather than surfacing unrelated downstream failures.</p>
+    <h4>Tests first</h4>
+    <ul><li>Add parity tests for canonical Pi skills, Claude commands where maintained, OpenCode/Codex prompts, and Hermes mirrors.</li><li>Add fixture-axis validators and hostile-environment tests.</li><li>Add planning-contract tests showing multi-surface evidence is required in existing sections while lightweight/single-site plans are not forced to repeat an eight-answer block.</li><li>Add stale-reference tests ensuring no old installer surface lists, old placeholder rules, contradictory isolation guidance, or mandatory Socratic-heading checks remain.</li></ul>
+    <h4>Expected files</h4>
+    <p><code>skills/planning-workflow/SKILL.md</code>, <code>skills/supervise/SKILL.md</code>, <code>skills/supervise/supervisor-prompt.md</code>, <code>test_install_shared_skills.sh</code>, <code>scripts/tests/test_pi_agent_roster.py</code>, relevant <code>_claude/commands</code>, <code>_codex/prompts</code>, <code>_pi/prompts</code>, <code>_hermes/default/skills/software-development</code> mirrors, fixture helpers/manifests in existing test families, and <code>APPEND_SYSTEM.md</code> only if common doctrine must change.</p>
+    <h4>Work</h4>
+    <ol><li>Apply canonical changes from P1–P3 to every file enumerated in Locked contract details. Capture the exact locked search block into the named before artifact, classify all changes/new hits, rerun the identical block into the after artifact, and fail verification on an unclassified maintained path or a missing enumerated path/writer family.</li><li>Replace the universal eight-answer Socratic requirement in <code>planning-workflow</code> with a conditional planning-evidence checkpoint. Map each useful question to existing required sections and require evidence only when exact-contract, distributed-behavior, or material-uncertainty triggers apply.</li><li>Update the optional supervisor charter to inspect named contract inventory, acceptance/BDD proof, residual-risk disclosure, and deviations instead of judging a Socratic heading. Preserve its trajectory role and operator authority boundary.</li><li>Standardize test fixture setup names and values for Hub availability/default state, selected profile/account root, and transport success/failure. Clear inherited environment variables and home config before applying fixture state.</li><li>Keep fixture behavior local to each family when no shared executable abstraction is justified; share a compact manifest/helper only where two or more tests currently duplicate the same setup.</li><li>Record Amp limitation only in the deviation/external note unless a checked-in Amp integration action is found by the final source search. Record Heddle schema-v2/template reconciliation as an external repo follow-up rather than silently modifying another checkout.</li></ol>
+    <h4>Open questions / decision dependencies</h4><p>None.</p>
+    <h4>Verify</h4>
+    <pre><code>bash test_install_shared_skills.sh
+python3 -m unittest scripts.tests.test_pi_agent_roster scripts.tests.test_install_pi_transaction
+# Run the exact six-command reconciliation block from Locked contract details.
+diff -u thoughts/validation/retro-workflow-reliability-inventory-before.txt thoughts/validation/retro-workflow-reliability-inventory-after.txt || true
+# Review every diff row and confirm its classification in Decisions / Deviations; then assert all enumerated paths and writer families occur in the after artifact.</code></pre>
+  </section>
+
+  <section id="phase-p5" class="phase">
+    <h3>P5 — Run final candidate checks, documentation/changelog updates, and full verification</h3>
+    <h4>End State</h4>
+    <p>The committed candidate passes focused and repository-wide applicable suites, all plan phases are complete and synced to Doct, installer/help docs describe the new contracts, the changelog has no placeholder, and base freshness is current before PR creation.</p>
+    <h4>Tests first</h4>
+    <p>Not a new RED phase. This phase executes the already-authored verification and final evidence checks after the last implementation change.</p>
+    <h4>Expected files</h4>
+    <p><code>README.md</code>, <code>_pi/README.md</code>, <code>CHANGELOG.md</code>, this plan's Progress and Decisions log, Doct registration metadata, and validation artifacts.</p>
+    <h4>Work</h4>
+    <ol><li>Run focused suites after each prior phase, then run the complete applicable ai-configs test set once under the convergence budget.</li><li>Inspect owned scratch and transaction debris; clean only marked owned success artifacts and record preserved failure artifacts.</li><li>Run committed-range <code>git diff --check</code>, changed-file placeholder search, plan-progress/Doct hash check, installer summary JSON validation, and stale-reference searches.</li><li>Fetch <code>origin/main</code>, classify freshness, rebase safely if needed, compare content identity, and rerun only invalidated verification.</li><li>Use placeholder-free changelog wording before PR creation. An optional later edit adding the actual PR number is post-PR housekeeping and is not a P5 completion condition; never commit <code>PR #TBD</code>, <code>TODO-PR</code>, or an equivalent placeholder.</li></ol>
+    <h4>Open questions / decision dependencies</h4><p>None.</p>
+    <h4>Verify</h4>
+    <pre><code>bash test_install.sh
+bash test_install_shared_skills.sh
+bash test_herdr_config_install.sh
+bash test_herdr_remote_deploy.sh
+bash test_kitty_remote_workflow.sh
+python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+python3 -m unittest tests.test_review_orchestration
+git diff --check "$(git merge-base origin/main HEAD)"..HEAD
+git status --short
+rg -n "PR #TBD|TODO-PR|CHANGELOG_PLACEHOLDER" $(git diff --name-only "$(git merge-base origin/main HEAD)"..HEAD) || true</code></pre>
+  </section>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ul>
+      <li><strong>RED/GREEN:</strong> add focused failing tests before changing each exact contract or production path.</li>
+      <li><strong>Production parser proof:</strong> invoke actual <code>install.sh</code>, <code>delivery</code>, and remote deploy command parsers. String-presence tests supplement but do not replace them.</li>
+      <li><strong>Concurrency proof:</strong> use independent subprocesses and synchronization markers, not single-process helper calls.</li>
+      <li><strong>Rollback proof:</strong> compare complete manifests before and after every structural failpoint, including modes, links, and caller-owned siblings.</li>
+      <li><strong>Review proof:</strong> inspect the no-model transport probe and accepted reviewer provenance separately from behavioral verification.</li>
+      <li><strong>Final evidence:</strong> committed-range checks and current-base checks run after the final commit and again after any content-changing rebase.</li>
+    </ul>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol><li>P1 locks workflow/provenance/failure evidence contracts.</li><li>P2 locks installer manifest and summary contracts before consumers depend on them.</li><li>P3 changes delivery persistence and parsing under focused concurrency tests.</li><li>P4 reconciles mirrors and fixtures after canonical implementations stabilize.</li><li>P5 performs final cross-boundary verification, docs/changelog, base freshness, and PR evidence.</li></ol>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>No new model provider, reviewer persona, review engine, generic test runner, daemon, or web dashboard.</li>
+      <li>No Heddle/CCore application code or application-specific fixture migration in this repository.</li>
+      <li>No enterprise-scale CI orchestration, distributed lock service, or cross-machine delivery ledger.</li>
+      <li>No automatic deletion of unowned test data or external worktrees.</li>
+      <li>No requirement for deployment or external host availability before PR creation.</li>
+      <li>No Amp code changes unless a maintained in-repo integration surface is discovered and separately authorized.</li>
+      <li>No direct Heddle repository/template migration in this PR; record the remaining schema-v2 Socratic requirement as an external reconciliation follow-up.</li>
+    </ul>
+  </section>
+
+  <section id="post-merge">
+    <h2>Post-merge delivery / operations (non-blocking)</h2>
+    <p>After merge, the operator may run the full installer on local and remote hosts and inspect the machine-readable receipts. Owner: repository operator. Trigger: merged main. Evidence: summary JSON plus <code>scripts/verify-pi-install.sh --check-only</code>. A remote host being offline does not retroactively make the PR incomplete; rerun that host when available.</p>
+    <p><strong>External planning-template follow-up:</strong> the Heddle repository's schema-v2 template/validator still names standalone Socratic sections. Owner: Heddle planning-tool maintainer. Trigger: this ai-configs planning-contract change merges. Evidence: Heddle plan creation/validation accepts the mapped evidence sections without requiring the eight duplicate blocks. This follow-up does not block this PR.</p>
+  </section>
+
+  <section id="decisions-log">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li><strong>2026-08-02:</strong> Inventory found that reviewer provenance, merge-base classification, verification budgets, installer rollback, ledger revisions, and transcript request IDs already exist. The plan consolidates and tests them instead of replacing them.</li>
+      <li><strong>2026-08-02:</strong> Chose one installer managed-surface manifest and one opt-in summary JSON contract.</li>
+      <li><strong>2026-08-02:</strong> Chose workflow guidance rather than a universal strict-suite runner because test commands and partitions are repository-specific.</li>
+      <li><strong>2026-08-02:</strong> Amp limitation remains an external non-code note; no maintained in-repo Amp integration action was found during initial inventory.</li>
+      <li><strong>2026-08-02:</strong> Browser feedback clarified the authority boundary: deterministic workflow defaults constrain agents, while operators retain the ability to approve documented exceptions. Added this as preserved intent without introducing a broad override mechanism.</li>
+      <li><strong>2026-08-02:</strong> Operator-requested review of the last week's planning process found limited independent value from the standalone eight-answer planning block: one of three committed in-window plans used it, compliant plans mostly duplicated adjacent evidence, and no reflection tied a caught issue to the heading. Chose conditional evidence mapping rather than deleting the underlying review concerns.</li>
+      <li><strong>2026-08-02:</strong> At the operator's direction, removed the standalone planning-question section from this plan itself; the evidence and recommendation remain in Current implementation reality, the contract inventory, acceptance criteria, BDD, Phase P4, and this decisions log.</li>
+      <li><strong>2026-08-02:</strong> Independent readiness review found five bounded technical gaps. Locked exact managed-surface and summary schemas, ledger/callback semantics, transcript grammar, exhaustive writer/mirror inventories, and placeholder-free pre-PR changelog behavior before rereview.</li>
+      <li><strong>2026-08-02:</strong> Targeted rereview found the inventory concept complete but its search procedure underspecified. Added the exact six-command before/after search block, named artifacts, sorting, classification, and reconciliation criteria.</li>
+      <li><strong>2026-08-02:</strong> P1–P4 implementation retained the existing reviewer patch, repository test runners, installer entry points, delivery CLI, and planning sections. New code is limited to a manifest contract/probe, transaction-safe receipts, ledger locking/parser helpers, and test fixture support; no new service or review engine was added.</li>
+      <li><strong>2026-08-02:</strong> Kept delivery ledger schema version 1 because the added revision diagnostics and receipt references are backward-compatible fields; a persistence-format bump was not required by the reviewed plan.</li>
+      <li><strong>2026-08-02:</strong> The exact inventory diff classifies new hits as intended contract coverage: manifest/probe/summary paths (P1–P2), lock/request/parser fields (P3), and planning/fixture mirror evidence (P4). Removed hits are duplicated installer lists and mandatory standalone Socratic wording. No maintained Amp integration action was found; Heddle schema-v2 reconciliation remains the named external follow-up.</li>
+      <li><strong>2026-08-02:</strong> Implementation review found full-mode preflight ordering, force-replace revision handling, an over-broad implementation-launch lease, and incomplete symlink-boundary coverage. The candidate now stages and probes fresh review transport before manifest-owned full-install mutation, uses locked force replacement, permits unrelated ledger evidence during launch callbacks, and rejects foreign managed-link leaves and symlinked ancestors while preserving idempotent managed links.</li>
+      <li><strong>2026-08-02:</strong> Shared installer tests now materialize the pi-subagents transport fixture explicitly through fake npm/Pi operations. This replaces inherited-host assumptions and keeps the transport-success axis local to the installer family.</li>
+      <li><strong>2026-08-02:</strong> A final review concern requested rollback of every later failure in the legacy non-transactional full installer after a successful preflight. Disposition: outside AC5–AC6 and the plan's no-new-installer-architecture boundary. Exact rollback remains the responsibility of <code>scripts/install-pi-transactionally.sh</code>; the full route proves the required pre-mutation manifest/transport preflight and untouched state on preflight failure.</li>
+      <li><strong>2026-08-02:</strong> P5 verification closed with 50 focused Python tests, 30 delivery CLI tests, 93 review-orchestration tests, and the Herdr/remote/kitty shell suites green. Repository-wide discovery ran 144 tests with only the inherited real-host pi-vcc reload failure. <code>test_install.sh</code> retains its inherited obsolete Claude-agent assertion; <code>test_install_shared_skills.sh</code> improved from 14 baseline failures to four inherited Navigator/parity failures after transport fixtures were made explicit.</li>
+      <li><strong>2026-08-02:</strong> Final delivery execution exposed current Herdr CLI drift: Herdr emits JSON by default and rejects the removed <code>--json</code> option. Updated the shared delivery Herdr adapter, bounded reviewer names to Herdr's 32-character contract, retried transient shell-readiness races, recovered exact Pi JSONL text when narrow terminal rendering hard-wraps protocol labels, and added regression coverage. The two exact inventory artifacts also normalize trailing spaces from matched source lines so the committed-range whitespace gate can remain green without editing unrelated archived skill content.</li>
+      <li><strong>2026-08-02:</strong> The visible Grok completeness pass found two remaining locked-contract gaps. Remote receipts now emit and validate <code>mode=remote-kitty</code> rather than encoding strictness in the mode field, and a structural command/call-graph test classifies every delivery subcommand and proves every writer reaches the locked <code>write_json</code> transaction path.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

@@ -86,6 +86,8 @@ bash ~/ai-configs/install.sh --all ~
 
 To update an existing install from this repo, run the same `install.sh` command again. To also refresh skills installed through skills.sh, add `--update`.
 
+For the bounded Pi review stack, `install.sh --pi-review-stack` derives every managed path from `scripts/pi-review-stack-managed-surfaces.json`, runs the deterministic no-model planner/reviewer transport probe, and preserves caller-owned siblings. Use `--summary-json <path>` for an atomic mode-0600 install-summary-v1 receipt. `scripts/install-pi-transactionally.sh --summary-json <path>` adds exact rollback status, while `scripts/install-kitty-remote-hosts.sh --summary-json <path>` records ordered, deduplicated hosts, explicit remote staging cwd, transport status, and strict versus advisory failure.
+
 ## Key directories
 
 ### `_claude/`
