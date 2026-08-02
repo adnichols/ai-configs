@@ -12,7 +12,7 @@ Use the `reviewed-html-plan` skill as the source of truth for this command.
 ## Contract
 
 - Create or update one semantic HTML plan under `thoughts/plans/<slug>.html`.
-- Follow repo `AGENTS.md`, product-intent docs, `planning-workflow`, and `doct-document-ops`.
+- Follow repo `AGENTS.md`, product-intent docs, `planning-workflow`, and `doct-document-ops`; keep conditional planning evidence proportional to the task.
 - Register the HTML plan in Doct with `doct-agent plans register`, parse the returned `listenerInstructions`, set lifecycle active, leave the plan in its registration/default board column for browser-review handoff, drain pending comments with `agent next --no-wait`, and start `listenerInstructions.listenerCommand` (`doct-agent plans listen ... --jsonl`) in the harness background-process tool before asking for browser feedback. Do not use `agent next --wait` as the default listener.
 - If browser feedback has not been provided yet, stop after registration with the monitor running and ask the user to annotate the plan before continuing.
 - Process listener-delivered or manually claimed Doct plan comments/actions, ack/resolve/release with the returned commands, keep the listener running, and update the same HTML plan. A generic routed `submitAction: "agent"` comment without `agentRoute.requestedSkill` is feedback only; it must not start readiness review.

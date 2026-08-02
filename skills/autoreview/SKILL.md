@@ -136,7 +136,7 @@ Use the native subagent mechanism for the current harness:
 
 Required read-only reviewers must review the candidate in **whatever worktree state exists**: committed, staged, unstaged, untracked, clean, dirty, detached, or isolated. Worktree state is review provenance, not a gate. A reviewer must render findings whenever the candidate code is visible.
 
-**Pi launch rule:** the `Agent` call **must omit the `isolation` property entirely**. Never set `isolation: "worktree"` for an autoreview reviewer. Before submitting the tool call, inspect its arguments and remove the property if present. The live checkout naturally exposes staged, unstaged, and untracked edits. `TARGET_CHECKOUT` remains a safety fallback only when the harness itself isolates despite the omitted property; it is not permission for the coordinator to request isolation.
+**Pi launch rule:** before spending a model call, run the installed deterministic review-transport probe when available and fail closed if it reports incompatible effective isolation, planner/reviewer profile, or target-checkout handling. The `Agent` call **must omit the `isolation` property entirely**. Never set `isolation: "worktree"` for an autoreview reviewer. Before submitting the tool call, inspect its arguments and remove the property if present. The live checkout naturally exposes staged, unstaged, and untracked edits. `TARGET_CHECKOUT` remains a safety fallback only when the harness itself isolates despite the omitted property; it is not permission for the coordinator to request isolation.
 
 The workflow must remain resilient if the harness isolates anyway:
 

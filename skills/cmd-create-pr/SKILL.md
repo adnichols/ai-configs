@@ -68,7 +68,23 @@ git log --oneline "${base_ref}...HEAD"
 git diff --stat "${base_ref}...HEAD"
 ```
 
-### 4) Create PR
+### 4) Final Committed-Candidate Check
+
+Run this after the final scoped commit and any rebase, not only against unstaged files:
+
+```bash
+MERGE_BASE="$(git merge-base "$base_ref" HEAD)"
+git diff --check "$MERGE_BASE"..HEAD
+git status --short
+CHANGED="$(git diff --name-only "$MERGE_BASE"..HEAD)"
+if [[ -n "$CHANGED" ]]; then
+  rg -n "PR #TBD|TODO-PR|CHANGELOG_PLACEHOLDER" $CHANGED
+fi
+```
+
+A placeholder hit, unclassified changed/untracked path, stale base, incomplete plan progress, or stale Doct source stops agent-default PR creation with the exact remediation. An operator may explicitly override the gate; disclose the real state rather than calling it clean.
+
+### 5) Create PR
 
 ```bash
 BASE_NAME="${base_ref#origin/}"

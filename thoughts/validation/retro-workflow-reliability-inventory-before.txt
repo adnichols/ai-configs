@@ -1,0 +1,1073 @@
+APPEND_SYSTEM.md:98:- In Pi, every required `reviewer` or readiness-`planner` `Agent` call must omit the `isolation` property entirely. Never request `isolation: "worktree"` for a review. Inspect the final tool arguments before launch and remove the property if present. `TARGET_CHECKOUT` is only a fallback if the harness itself changes launch topology despite omission.
+_claude/commands/cmd:resume_handoff.md:156:   - Document any deviations from original plan
+_claude/commands/cmd:start-linear-issue-branch.md:161:- Include: Decisions / Deviations Log (append-only), Open Questions / Decision Points, Plan Changelog (append-only)
+_claude/commands/cmd:start-linear-issue.md:75:## 4. Derive Exact Branch and Sibling Path
+_claude/commands/dev:plan.md:138:- Decisions / Deviations Log (append-only)
+_claude/commands/dev:plan.md:57:- Any existing entries in `## Decisions / Deviations Log`
+_claude/commands/dev:reflect.md:42:- Any Phase N-related entries in `## Decisions / Deviations Log`
+_claude/commands/dev:reflect.md:49:1. `## Decisions / Deviations Log` entries relevant to the phase
+_claude/commands/dev:run.md:110:Full-suite gates follow the `run-plan` skill's Verification Convergence Budget: three attempts at the same gate without a new distinct root cause, or 90 minutes of attributable gate time, whichever comes first (repo-local guidance may override; record the gate's normal green-run duration). At exhaustion, classify each residual failure — introduced vs. inherited (inherited requires reproduction at the merge-base/target, and a domain this change newly makes reachable is introduced) and functional vs. infra/cosmetic (no approved tolerance means `QUESTION`, not cosmetic). Failing tests that pass in isolation/serial while the failure point moves between runs are flake evidence: certify on the serial evidence and disclose. All residuals inherited or infra/cosmetic with targeted verification green → stop with the classification and the ship/keep-fixing question (draft-PR disposition when a PR boundary applies); any introduced or functional residual is in scope — fix it or report it as the blocker.
+_claude/commands/dev:run.md:75:6. If implementation or review required a decision or revealed a constraint, append a structured entry to `## Decisions / Deviations Log` in the plan file.
+_claude/commands/dev:run.md:92:- Log the decision in `## Decisions / Deviations Log` with evidence (files/commands) and proceed.
+_claude/commands/dev:validate.md:117:## Deviations & Issues
+_claude/commands/dev:validate.md:37:- `## Decisions / Deviations Log` entries
+_claude/commands/functional-review.md:27:Create a sibling review document and write all answers there:
+_claude/commands/functional-review.md:74:How does this change the contract with consumers or dependencies, and is compatibility preserved? Identify API, schema, or behavioral contracts that others rely on. Explain whether the change is backward or forward compatible, and what versioning strategy is required. Call out any clients that might break silently.
+_claude/commands/functional-review.md:8:Answer the systemic review questions below for the provided specification or openspec change set. The output is a sibling markdown document that captures the answers with the reviewer name.
+_claude/commands/lean-functional-review.md:11:Write the output as a sibling markdown document that captures the answers with the reviewer name.
+_claude/commands/lean-functional-review.md:30:Create a sibling review document and write all answers there:
+_claude/commands/review:change-gemini.md:99:- `## Decisions / Deviations Log` exists.
+_claude/commands/review:change-gpt.md:88:- `## Decisions / Deviations Log` exists.
+_claude/commands/review:change-opus.md:100:- `## Decisions / Deviations Log` exists.
+_claude/commands/review:change.md:90:- `## Decisions / Deviations Log` exists.
+_codex/prompts/cmd:resume-handoff.md:166:   - Document any deviations from original plan
+_codex/prompts/cmd:resume_handoff.md:166:   - Document any deviations from original plan
+_codex/prompts/cmd:review-pr-comments.md:164:2. Inspect the full PR diff for sibling instances: analogous callsites, repeated assumptions, partial fixes, missing tests, related edge cases, and adjacent plan-bound surfaces.
+_codex/prompts/cmd:review-pr-comments.md:165:3. Run one bounded, read-only adversarial implementation review over the current PR diff, the original PR feedback, and the sibling-inspection notes.
+_codex/prompts/cmd:start-linear-issue-branch.md:167:- Include: Decisions / Deviations Log (append-only), Open Questions / Decision Points, Plan Changelog (append-only)
+_codex/prompts/cmd:start-linear-issue.md:75:## 4. Derive Exact Branch and Sibling Path
+_codex/prompts/dev:plan-from-prd.md:90:  - Decisions / Deviations Log
+_codex/prompts/dev:plan.md:135:- Decisions / Deviations Log (append-only)
+_codex/prompts/dev:plan.md:57:- Any existing entries in `## Decisions / Deviations Log`
+_codex/prompts/dev:pm-review.md:146:- append a clear decision/deviation entry explaining why the previously executed work did not fully satisfy intent.
+_codex/prompts/dev:pm-review.md:154:- Preserve completed progress items when they are still truthful; if previous completion claims are no longer truthful, correct them and explain the correction in `## Decisions / Deviations Log` or the plan changelog.
+_codex/prompts/dev:pm-review.md:176:- Decisions / Deviations Log
+_codex/prompts/dev:pm-review.md:40:- update `## Progress`, `## Resume instructions`, and `## Decisions / Deviations Log` so the plan remains truthful and resumable.
+_codex/prompts/dev:reflect.md:42:- Any Phase N-related entries in `## Decisions / Deviations Log`
+_codex/prompts/dev:reflect.md:49:1. `## Decisions / Deviations Log` entries relevant to the phase
+_codex/prompts/dev:run.md:111:4. Preserve completed phase IDs and append a structured note to `## Decisions / Deviations Log` explaining why the split was needed.
+_codex/prompts/dev:run.md:125:6. If implementation or review required a decision, revealed a constraint, or identified a true out-of-scope low-risk follow-up, append a structured entry with evidence and tracking destination to `## Decisions / Deviations Log` in the plan file. Do not defer plan-required work, verification gaps, BDD gaps, or regressions.
+_codex/prompts/dev:run.md:138:> Confirm that the promised slice is complete: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
+_codex/prompts/dev:run.md:157:- When authorized, audit the fixed candidate branch/diff for sibling instances in the named family: the same assumption, edge case, API contract, missing validation, lifecycle/state transition, analogous callsites, and tests that should have failed but did not. Use the active-harness read-only `reviewer` subagent as the sole adversarial leg. Do not add a Codex or Claude Code review process at higher risk. Run one bounded adversarial pass over the named family, allow the driving agent one bounded fix attempt for in-scope findings, and run the same reviewer pass once after fixes. This route has no PR prerequisite. Do not restart the ordinary three-round budget or review until clean.
+_codex/prompts/dev:run.md:184:- Log the decision in `## Decisions / Deviations Log` with evidence (files/commands) and proceed.
+_codex/prompts/dev:run.md:199:- Only now return a final summary of completed phases, final verification, and any logged deviations.
+_codex/prompts/dev:run.md:203:Full-suite gates follow the `run-plan` skill's Verification Convergence Budget: three attempts at the same gate without a new distinct root cause, or 90 minutes of attributable gate time, whichever comes first (repo-local guidance may override; record the gate's normal green-run duration). At exhaustion, classify each residual failure — introduced vs. inherited (inherited requires reproduction at the merge-base/target, and a domain this change newly makes reachable is introduced) and functional vs. infra/cosmetic (no approved tolerance means `QUESTION`, not cosmetic). Failing tests that pass in isolation/serial while the failure point moves between runs are flake evidence: certify on the serial evidence and disclose. All residuals inherited or infra/cosmetic with targeted verification green → stop with the classification and the ship/keep-fixing question (draft-PR disposition when a PR boundary applies); any introduced or functional residual is in scope — fix it or report it as the blocker.
+_codex/prompts/dev:validate.md:117:## Deviations & Issues
+_codex/prompts/dev:validate.md:37:- `## Decisions / Deviations Log` entries
+_codex/prompts/functional-review.md:27:Create a sibling review document and write all answers there:
+_codex/prompts/functional-review.md:74:How does this change the contract with consumers or dependencies, and is compatibility preserved? Identify API, schema, or behavioral contracts that others rely on. Explain whether the change is backward or forward compatible, and what versioning strategy is required. Call out any clients that might break silently.
+_codex/prompts/functional-review.md:8:Answer the systemic review questions below for the provided specification or openspec change set. The output is a sibling markdown document that captures the answers with the reviewer name.
+_codex/prompts/lean-functional-review.md:11:Write the output as a sibling markdown document that captures the answers with the reviewer name.
+_codex/prompts/lean-functional-review.md:30:Create a sibling review document and write all answers there:
+_codex/prompts/review:change-gpt.md:117:- `## Decisions / Deviations Log` exists.
+_codex/prompts/review:change.md:100:- `## Decisions / Deviations Log` exists.
+_hermes/default/profiles/nerd/skills/github/github-pr-workflow/SKILL.md:127:git merge-base --is-ancestor origin/<base-branch> HEAD
+_hermes/default/profiles/nerd/skills/github/github-pr-workflow/SKILL.md:312:   git merge-base --is-ancestor origin/<base-branch> HEAD
+_hermes/default/profiles/nerd/skills/productivity/codex-coding-workflow/SKILL.md:174:git merge-base --is-ancestor origin/<base-branch> HEAD
+_hermes/default/skills/productivity/doct-document-ops/SKILL.md:257:5. Re-run the repo plan validator and `git diff --check` before publishing.
+_hermes/default/skills/productivity/doct-document-ops/references/linear-issue-coverage-audit-pattern.md:41:   git diff --check -- thoughts/plans/<slug>.html thoughts/discoveries/<slug>.md
+_hermes/default/skills/software-development/debugging-hermes-tui-commands/SKILL.md:128:- After adding live UI state, search every consumer of the old prop/helper and thread the new state through all render paths, not just the active streaming path. TUI detail rendering has at least two important paths: live `StreamingAssistant`/`ToolTrail` and transcript/pending `MessageLine` rows. A `/clean` pass should explicitly check both.
+_hermes/default/skills/software-development/dev-plan/SKILL.md:58:- Existing entries in `## Decisions / Deviations Log`
+_hermes/default/skills/software-development/hermes-agent-skill-authoring/SKILL.md:178:5. **Writing a skill that duplicates a peer.** Before creating, `ls skills/<category>/` and open 2-3 peers. Prefer extending an existing skill to creating a narrow sibling.
+_hermes/default/skills/software-development/plan/SKILL.md:65:- Existing entries in `## Decisions / Deviations Log`
+_hermes/default/skills/software-development/planning-workflow/SKILL.md:138:20. Decisions / Deviations log
+_hermes/default/skills/software-development/planning-workflow/SKILL.md:193:- Preserve completed items and append-only deviation/history sections when regenerating a plan.
+_hermes/default/skills/software-development/planning-workflow/SKILL.md:225:- `discovery` means planning evidence is still being gathered and the work is not yet plan-finalization-ready; it is a pre-handoff state, not a substitute for a written research handoff.
+_hermes/default/skills/software-development/planning-workflow/SKILL.md:274:- keep deviations and migration notes append-only,
+_hermes/default/skills/software-development/planning-workflow/SKILL.md:84:When discovery identifies an exact contract that types cannot fully verify or behavior distributed across production sites, add a **Contract and distributed-integration inventory**. Record the source of truth, producer/consumer or source-search-backed operation rows, dependent docs/examples, cross-boundary or production-path proof, reconciliation status, and coverage as `exhaustive-by-site`, `exhaustive-by-family`, or `justified representative`.
+_hermes/default/skills/software-development/planning-workflow/SKILL.md:95:- Plan complete promised slices, not skeletons. Every claimed functional outcome must be connected, usable, and verifiable within its stated scope, without required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
+_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md:101:7. Ack and resolve only after the plan actually addresses the comment; after the user chooses, move the result into `Locked decisions` and append the rationale to `Decisions / Deviations log`.
+_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md:147:- instruction to avoid adjacent implementation expansion,
+_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md:155:- whether scope and non-goals prevent expansion,
+_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md:66:- canonical content: status, product-owner context, What's new, goal, Decision Attention / Low-confidence Areas, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
+_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md:71:- for an exact untyped contract or distributed production behavior, a Contract and distributed-integration inventory with source of truth, producer/consumer or source-search-backed operation rows, dependent docs/examples, cross-boundary or production-path proof, reconciliation status, and exhaustive-by-site, exhaustive-by-family, or justified-representative coverage. Say `None identified, based on <source search>` when neither trigger applies; helper-only, wrapper-only, middleware-only, or event-existence-only evidence cannot close a distributed outcome, and contractual documented CLI forms execute through the actual parser,
+_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md:74:If a prior reviewed plan exists, preserve truthful completed progress, stable IDs where possible, and append-only decisions/deviations history.
+_hermes/default/skills/software-development/run-plan/SKILL.md:10:The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
+_hermes/default/skills/software-development/run-plan/SKILL.md:122:- **Introduced** (caused or newly exposed by this branch) vs. **inherited** (reproducible at the merge-base or on the target branch). Inherited requires reproduction evidence at the merge-base or on the target branch, not inference from the failure's age — and the disposition rule still governs: a failure in a domain this change newly makes reachable is introduced regardless of where the defect predates the branch.
+_hermes/default/skills/software-development/run-plan/SKILL.md:139:Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: only when the operator explicitly asks to supervise this run, follow `skills/supervise/SKILL.md`. Otherwise, continue without supervisor checkpoints, phase pings, or expansion-log entries.
+_hermes/default/skills/software-development/run-plan/SKILL.md:146:   - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
+_hermes/default/skills/software-development/run-plan/SKILL.md:154:Execute <plan path> through the full scoped run-plan lifecycle without expanding beyond the plan contract: establish scope, align any registered Doct plan state, implement every unfinished PR-reviewable in-scope phase, preserve deployment/promotion/post-merge validation as non-blocking delivery obligations, run required targeted and final pre-merge verification, complete implementation-stage PM review, complete runtime-native scoped quality review, complete the active-harness reviewer-subagent pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, check base freshness, commit only scoped changes, push, open a PR against <target branch or the plan's/repository's normal integration branch>, inspect the PR for existing actionable feedback and mergeability evidence, and finish only when local merge-readiness consensus is satisfied. Do not stop at implementation complete, review clean, `OPEN_PR_READY`, or PR created. Do not mark complete until fresh evidence proves all actionable PR feedback already present has been addressed, any feedback-triggered code changes have rerun required verification and review gates, the branch is current or safely rebased as needed, and applicable review agents agree by substance that the current change is ready to merge locally. Do not wait for slow or absent external feedback, a Codex PR thumbs-up, `APPROVED` reviewDecision, or another explicit approval after local review-agent consensus is clean.
+_hermes/default/skills/software-development/run-plan/SKILL.md:191:4. Update the source plan progress only when that phase is actually complete.
+_hermes/default/skills/software-development/run-plan/SKILL.md:193:6. Record only documented out-of-scope discoveries in the plan's deviation log or the repo's discovery ledger. In-scope findings are not discoveries to defer; fix them before advancing.
+_hermes/default/skills/software-development/run-plan/SKILL.md:234:A `PASS` verdict must carry a `Not examined:` line disclosing what the review did not exercise (`Not examined: none` when the full surface was covered). Reject malformed reviews and rerun once with a tighter prompt. Legacy green verdicts (`PASS_SCOPED`, `PASS_WITH_DOCUMENTED_OUT_OF_SCOPE_FOLLOW_UPS`) are still accepted as green when read; treat a review as `FINDINGS_TO_RESOLVE` or `BLOCKED_BY_QUESTION` by substance when unresolved in-scope findings or a product question remain.
+_hermes/default/skills/software-development/run-plan/SKILL.md:238:Use the same single reviewer for every risk level. High-risk changes receive a more specific bounded packet, not a second external reviewer. The packet must include the plan path, base branch or comparison range, changed files, scope contract, self scope audit, latest verification results, touched surfaces, and the specific failure families to inspect. When the integration-integrity rule is triggered, it must also include the integration record: source of truth; producer/consumer or source-derived operation inventory; coverage declaration; reconciliation state; boundary or production-dispatch proof; stale-reference search result; and actual-parser proof for a contractual documented CLI form. It must not edit files. It must return findings in chat, classified with the same scope categories.
+_hermes/default/skills/software-development/run-plan/SKILL.md:343:The **content identity** of a candidate is the combined hash of: the committed diff against the merge-base with the target branch (`git diff "$(git merge-base origin/<target> HEAD)"..HEAD`), the staged diff, the unstaged diff, and a deterministic untracked-path manifest (sorted paths with type/mode and content hash). This reviewer fingerprint uses the merge-base diff hash rather than a HEAD commit component: it identifies the change content — committed or not — while ignoring commit SHAs. Two candidates with equal content identity carry the same change; a rebase that alters only SHAs leaves it unchanged.
+_hermes/default/skills/software-development/run-plan/SKILL.md:350:6. If conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations, stop with a base freshness blocker.
+_hermes/default/skills/software-development/run-plan/SKILL.md:358:When implementation, scoped reviews, implementation-stage PM review, the applicable reviewer-subagent pre-PR gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run. An explicit operator instruction to open the PR regardless of testing or review status bypasses only those testing/review gates and requires truthful disclosure; it does not turn skipped or failing evidence into a passing or merge-ready result.
+_hermes/default/skills/software-development/run-plan/SKILL.md:377:- base freshness and mergeability/rebase status before PR creation,
+_hermes/default/skills/software-development/run-plan/SKILL.md:37:- Complete the PR-reviewable promised slice before claiming local merge readiness: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
+_hermes/default/skills/software-development/run-plan/SKILL.md:418:10. Rebase onto the destination branch when GitHub reports the branch out of date, stale, conflicted, or blocked by base freshness, but only when conflicts are absent or limited to scoped files and do not require a product decision.
+_hermes/default/skills/software-development/run-plan/SKILL.md:435:2. Audit the fixed candidate branch/diff for sibling instances: same assumption, same edge case, same API contract, same missing validation, same lifecycle/state transition, analogous callsites, and tests that should have failed but did not.
+_hermes/default/skills/software-development/run-plan/SKILL.md:436:3. Run one read-only adversarial implementation review with the active-harness `reviewer` subagent. Review the current candidate branch/diff, the plan scope contract, the consultation disposition, any direct PR feedback when present, and the sibling-audit notes. Ask the reviewer to actively look for additional missed issues in the same failure family and nearby plan-bound surfaces, not to re-approve one fix. Use one bounded adversarial slice focused on the escaped failure family; use a second slice only when it spans clearly separate surfaces. The reviewer must return a verdict or `REVIEW_INCOMPLETE_RERUN_NEEDED`; the parent records completed slices, the single allowed incomplete rerun slice, and final synthesized gate status in the coverage ledger.
+_hermes/default/skills/software-development/run-plan/SKILL.md:45:- Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
+_hermes/default/skills/software-development/run-plan/SKILL.md:46:- Never delay PR creation for deployment or post-merge operational evidence, even when an older plan places that evidence in a phase or completion checklist. Reclassify it as a non-blocking delivery obligation and preserve it in the PR body/plan deviation log.
+_hermes/default/skills/software-development/run-plan/SKILL.md:553:<source of truth; producer/consumer or source-derived inventory; coverage declaration; reconciliation state; real boundary or production-dispatch proof; stale-reference search result; and actual-parser proof for each contractual documented CLI form>
+_hermes/default/skills/software-development/run-plan/SKILL.md:561:- producer/consumer and round-trip parity (import vs export, encode vs decode, rewrite vs collect)
+_hermes/default/skills/software-development/run-plan/SKILL.md:563:When you find one instance, enumerate its siblings (other call sites, other shapes, the inverse direction of the boundary) and report the family.
+_hermes/default/skills/software-development/run-plan/SKILL.md:577:- VERDICT: PASS (with a `Not examined:` line)
+_hermes/default/skills/software-development/run-plan/SKILL.md:614:- sibling callsites or analogous code paths
+_hermes/default/skills/software-development/run-plan/SKILL.md:636:- base freshness and rebase status,
+_hermes/default/skills/software-development/run-plan/SKILL.md:74:The base execution doctrine also governs direct work without this skill. For this plan run, whenever discovery finds an exact untyped contract or distributed production behavior, preserve in the coverage ledger the source of truth; producer/consumer or source-search-backed operation inventory; dependent docs/examples; coverage declaration; cross-boundary or production-path proof; and reconciliation status. Record `None identified, based on <source search>` when neither trigger applies.
+_hermes/default/skills/software-development/run-plan/SKILL.md:98:Evidence lives in the coverage ledger (working notes), the plan file's progress and deviation sections, and ultimately the PR body. Do not create repository commits whose sole content is recording verification, certification, review, or deferral status; fold plan-progress updates into at most one bookkeeping commit per completed phase. Never commit a "debt" record for a failure the disposition rule makes in scope — fix it or report the blocker. A run's commit history should read as the change, not as a diary of the process that produced it.
+_hermes/default/skills/software-development/simplify-code/SKILL.md:201:  bad, renaming breaks consumers. Tag public-contract changes as RISKY; never
+_hermes/default/skills/software-development/spike/SKILL.md:28:If `gsd-spike` shows up as a sibling skill (installed via `npx get-shit-done-cc --hermes`), prefer **`gsd-spike`** when the user wants the full GSD workflow: persistent `.planning/spikes/` state, MANIFEST tracking across sessions, Given/When/Then verdict format, and commit patterns that integrate with the rest of GSD. This skill is the lightweight standalone version for users who don't have (or don't want) the full system.
+_hermes/default/skills/software-development/test-driven-development/SKILL.md:325:Keep RED authoring and execution with the driving agent. For an exact untyped contract, exercise the actual producer-to-consumer or deterministic service boundary and reuse the source-of-truth contract artifact where available. For distributed behavior, use the source-derived operation inventory and prove the declared production-dispatch coverage; a helper, wrapper, middleware, or event-existence test is not enough. When a documented CLI form is contractual, execute it through the actual parser. If none of those triggers applies, keep the test lightweight rather than inventing integration coverage.
+_hermes/default/skills/software-development/writing-plans/SKILL.md:102:- Plan complete promised slices, not skeletons. Every claimed functional outcome must be connected, usable, and verifiable within its stated scope, without required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
+_hermes/default/skills/software-development/writing-plans/SKILL.md:145:20. Decisions / Deviations log
+_hermes/default/skills/software-development/writing-plans/SKILL.md:200:- Preserve completed items and append-only deviation/history sections when regenerating a plan.
+_hermes/default/skills/software-development/writing-plans/SKILL.md:232:- `discovery` means planning evidence is still being gathered and the work is not yet plan-finalization-ready; it is a pre-handoff state, not a substitute for a written research handoff.
+_hermes/default/skills/software-development/writing-plans/SKILL.md:281:- keep deviations and migration notes append-only,
+_hermes/default/skills/software-development/writing-plans/SKILL.md:91:When discovery identifies an exact contract that types cannot fully verify or behavior distributed across production sites, add a **Contract and distributed-integration inventory**. Record the source of truth, producer/consumer or source-search-backed operation rows, dependent docs/examples, cross-boundary or production-path proof, reconciliation status, and coverage as `exhaustive-by-site`, `exhaustive-by-family`, or `justified representative`.
+_pi/README.md:223:`planner` and `reviewer` declare `isolation: none`. During Pi installation, `scripts/patch_pi_subagents_review_isolation.py` extends `@tintinweb/pi-subagents` with that authoritative sentinel, so even a generated tool call that includes `isolation: "worktree"` resolves to the live checkout. Review skills still require callers to omit the property; the sentinel is a hard backstop against accidental isolated review launches and is reapplied after package updates.
+_pi/README.md:233:- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan. In a delivery run it is invoked only by the dedicated Pi agent pinned to `openai-codex/gpt-5.6-sol` at medium; implementation then proceeds through scoped reviews, implementation-stage PM review, Terra-medium reviewer-subagent pre-PR review, and a visible adjacent Pi/Grok 4.5 completeness-review loop to `COMPLETE`, followed by base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
+_pi/README.md:235:- `autoreview` — canonical reviewer-subagent pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. After the bounded three-cycle local budget, unresolved review non-convergence uses exactly one read-only advisory external consultation and, only if authorized, one scope-bound `REVIEW_ESCAPE` adversarial reviewer-pair pass plus the existing single pass-after-fixes allowance. This route applies before or after PR creation and does not require a PR URL or PR feedback. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
+_pi/README.md:254:- `autoreview` — runnable independently or automatically from `run-plan` before PR creation; it is not a terminal replacement for PM review, base freshness, opening the PR, or proving local merge readiness
+_pi/README.md:282:Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-ready-PR execution: durable Pi goal tracking, implementation, implementation-stage PM review, reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html` or the repo-selected Markdoc source, and `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown publishing guidance, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics.
+_pi/README.md:306:- `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one shared `reviewer` pass after each phase.
+_pi/README.md:307:- `/skill:autoreview` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, a clean reviewer-subagent verdict with no unresolved blocking in-scope P1/P2 findings means `OPEN_PR_READY`; plan-required, verification-required, or regression-caused P3 findings remain blocking. The runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for external approval. `/skill:pre-pr-implementation-review` remains supported indefinitely as a thin argument-preserving compatibility alias.
+_pi/agents/planner.md:8:isolation: none
+_pi/agents/reviewer.md:27:- Always report provenance at the top of the reply for both successful and incomplete reviews: `CWD`, `REVIEW_ROOT` (the checkout or supplied artifact actually reviewed), `HEAD` (short sha when applicable), `STATUS_SHORT` (`git status --short`, or `EMPTY`), and `REVIEW_SOURCE` (`target-live-worktree`, `launch-checkout`, or `supplied-diff`).
+_pi/agents/reviewer.md:8:isolation: none
+_pi/packages/pi-cursor-sdk/docs/cursor-live-smoke-checklist.md:359:git diff --check
+_pi/packages/pi-cursor-sdk/docs/cursor-native-tool-visual-audit.md:130:BASE_COMMIT=$(git merge-base origin/main HEAD)
+_pi/packages/pi-cursor-sdk/docs/evidence/cursor-local-resume-proof-execution-2026-07-08.md:145:git diff --check
+_pi/packages/pi-cursor-sdk/scripts/cloud-runtime-smoke.mjs:357:	command("git", ["merge-base", "--is-ancestor", startingCommit, branchCommit], { cwd: repo.seedDir, label: "verify cloud branch startingRef ancestry" });
+_pi/prompts/cmd:debug.md:35:- explicit exclusions (no diagnosis, synthesis, recommendations, fixes, edits, or scope expansion),
+_pi/prompts/cmd:resume-handoff.md:166:   - Document any deviations from original plan
+_pi/prompts/cmd:resume_handoff.md:166:   - Document any deviations from original plan
+_pi/prompts/cmd:review-pr-comments.md:164:2. Inspect the full PR diff for sibling instances: analogous callsites, repeated assumptions, partial fixes, missing tests, related edge cases, and adjacent plan-bound surfaces.
+_pi/prompts/cmd:review-pr-comments.md:165:3. Run one bounded, read-only adversarial implementation review over the current PR diff, the original PR feedback, and the sibling-inspection notes.
+_pi/prompts/cmd:start-linear-issue-branch.md:169:- Include: Decisions / Deviations Log (append-only), Open Questions / Decision Points, Plan Changelog (append-only)
+_pi/prompts/cmd:start-linear-issue.md:75:## 4. Derive Exact Branch and Sibling Path
+_pi/prompts/dev:plan-from-prd.md:90:  - Decisions / Deviations Log
+_pi/prompts/dev:plan.md:143:- Decisions / Deviations Log (append-only)
+_pi/prompts/dev:plan.md:64:- Any existing entries in `## Decisions / Deviations Log`
+_pi/prompts/dev:pm-review.md:146:- append a clear decision/deviation entry explaining why the previously executed work did not fully satisfy intent.
+_pi/prompts/dev:pm-review.md:154:- Preserve completed progress items when they are still truthful; if previous completion claims are no longer truthful, correct them and explain the correction in `## Decisions / Deviations Log` or the plan changelog.
+_pi/prompts/dev:pm-review.md:176:- Decisions / Deviations Log
+_pi/prompts/dev:pm-review.md:40:- update `## Progress`, `## Resume instructions`, and `## Decisions / Deviations Log` so the plan remains truthful and resumable.
+_pi/prompts/dev:reflect.md:42:- Any Phase N-related entries in `## Decisions / Deviations Log`
+_pi/prompts/dev:reflect.md:49:1. `## Decisions / Deviations Log` entries relevant to the phase
+_pi/prompts/dev:run.md:113:4. Preserve completed phase IDs and append a structured note to `## Decisions / Deviations Log` explaining why the split was needed.
+_pi/prompts/dev:run.md:127:6. If implementation or review required a decision, revealed a constraint, or identified a true out-of-scope low-risk follow-up, append a structured entry with evidence and tracking destination to `## Decisions / Deviations Log` in the plan file. Do not defer plan-required work, verification gaps, BDD gaps, or regressions.
+_pi/prompts/dev:run.md:140:> Confirm that the promised slice is complete: no required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
+_pi/prompts/dev:run.md:159:- When authorized, audit the fixed candidate branch/diff for sibling instances in the named family: the same assumption, edge case, API contract, missing validation, lifecycle/state transition, analogous callsites, and tests that should have failed but did not. Use the existing read-only `reviewer` for the adversarial pass at every risk level. Run one bounded pass over the named family, allow the driving agent one bounded fix attempt for in-scope findings, and run the same reviewer pass once after fixes. This route has no PR prerequisite. Do not restart the ordinary three-round budget or review until clean.
+_pi/prompts/dev:run.md:186:- Log the decision in `## Decisions / Deviations Log` with evidence (files/commands) and proceed.
+_pi/prompts/dev:run.md:201:- Only now return a final summary of completed phases, final verification, and any logged deviations.
+_pi/prompts/dev:run.md:205:Full-suite gates follow the `run-plan` skill's Verification Convergence Budget: three attempts at the same gate without a new distinct root cause, or 90 minutes of attributable gate time, whichever comes first (repo-local guidance may override; record the gate's normal green-run duration). At exhaustion, classify each residual failure — introduced vs. inherited (inherited requires reproduction at the merge-base/target, and a domain this change newly makes reachable is introduced) and functional vs. infra/cosmetic (no approved tolerance means `QUESTION`, not cosmetic). Failing tests that pass in isolation/serial while the failure point moves between runs are flake evidence: certify on the serial evidence and disclose. All residuals inherited or infra/cosmetic with targeted verification green → stop with the classification and the ship/keep-fixing question (draft-PR disposition when a PR boundary applies); any introduced or functional residual is in scope — fix it or report it as the blocker.
+_pi/prompts/dev:validate.md:117:## Deviations & Issues
+_pi/prompts/dev:validate.md:37:- `## Decisions / Deviations Log` entries
+_pi/prompts/functional-review.md:27:Create a sibling review document and write all answers there:
+_pi/prompts/functional-review.md:74:How does this change the contract with consumers or dependencies, and is compatibility preserved? Identify API, schema, or behavioral contracts that others rely on. Explain whether the change is backward or forward compatible, and what versioning strategy is required. Call out any clients that might break silently.
+_pi/prompts/functional-review.md:8:Answer the systemic review questions below for the provided specification or openspec change set. The output is a sibling markdown document that captures the answers with the reviewer name.
+_pi/prompts/lean-functional-review.md:11:Write the output as a sibling markdown document that captures the answers with the reviewer name.
+_pi/prompts/lean-functional-review.md:30:Create a sibling review document and write all answers there:
+_pi/prompts/review:change-gpt.md:116:- `## Decisions / Deviations Log` exists.
+_pi/prompts/review:change.md:100:- `## Decisions / Deviations Log` exists.
+_pi/prompts/review:prd.md:124:    lens: "Scope and stage fit: minimum complete outcome, non-goals, sequencing, and avoidance of unsupported expansion",
+_pi/workflows/heddle-release.js:486:      `git -C ${shellQuote(developRepo)} rev-parse --verify ${shellQuote(baseSha)}^{commit} >/dev/null 2>&1 && git -C ${shellQuote(developRepo)} merge-base --is-ancestor ${shellQuote(baseSha)} origin/develop && git -C ${shellQuote(developRepo)} rev-list --count ${shellQuote(baseSha)}..origin/develop`,
+install.sh:1430:    install -m 0755 "$REPO_ROOT/scripts/review_orchestration.py" "$HOME/.agents/scripts/review_orchestration.py"
+install.sh:1431:    echo "  - Installed shared review runtime at ~/.agents/scripts/review_orchestration.py"
+install.sh:1432:    install -m 0755 "$REPO_ROOT/scripts/git-with-index-lock" "$HOME/.agents/scripts/git-with-index-lock"
+install.sh:1433:    install -m 0755 "$REPO_ROOT/scripts/ensure-git-with-index-lock" "$HOME/.agents/scripts/ensure-git-with-index-lock"
+install.sh:1434:    ln -sfn "$HOME/.agents/scripts/git-with-index-lock" "$HOME/.local/bin/git-with-index-lock"
+install.sh:1435:    ln -sfn "$HOME/.agents/scripts/ensure-git-with-index-lock" "$HOME/.local/bin/ensure-git-with-index-lock"
+install.sh:1436:    echo "  - Installed git-with-index-lock + ensure-git-with-index-lock at ~/.agents/scripts and ~/.local/bin"
+install.sh:1440:        ln -sfn "$HOME/.agents/scripts/delivery" "$HOME/.local/bin/delivery"
+install.sh:1441:        echo "  - Installed delivery stage ledger CLI at ~/.agents/scripts/delivery and ~/.local/bin/delivery"
+install.sh:2367:install_pi_review_stack() {
+install.sh:2448:    rm -f "$review_runtime_dir/review_orchestration.py" "$review_runtime_dir/git-with-index-lock" "$review_runtime_dir/ensure-git-with-index-lock" "$review_runtime_dir/delivery"
+install.sh:2449:    install -m 0755 "$REPO_ROOT/scripts/review_orchestration.py" "$review_runtime_dir/review_orchestration.py"
+install.sh:2450:    install -m 0755 "$REPO_ROOT/scripts/git-with-index-lock" "$review_runtime_dir/git-with-index-lock"
+install.sh:2451:    install -m 0755 "$REPO_ROOT/scripts/ensure-git-with-index-lock" "$review_runtime_dir/ensure-git-with-index-lock"
+install.sh:2456:    ln -sfn "$review_runtime_dir/git-with-index-lock" "$HOME/.local/bin/git-with-index-lock"
+install.sh:2457:    ln -sfn "$review_runtime_dir/ensure-git-with-index-lock" "$HOME/.local/bin/ensure-git-with-index-lock"
+install.sh:2459:        ln -sfn "$review_runtime_dir/delivery" "$HOME/.local/bin/delivery"
+install.sh:29:CENTRAL_ONLY_PROJECT_SKILLS=(ccore todoist-cli brave-cdp chrome-cdp)
+install.sh:30:DEPRECATED_SHARED_SKILLS=(
+install.sh:3341:        install_pi_review_stack
+install.sh:91:    echo "  - Shared review runtime installs at ~/.agents/scripts/review_orchestration.py"
+scripts/ensure-git-with-index-lock:12:#   1. git-with-index-lock already on PATH
+scripts/ensure-git-with-index-lock:13:#   2. ~/.local/bin/git-with-index-lock
+scripts/ensure-git-with-index-lock:14:#   3. ~/.agents/scripts/git-with-index-lock
+scripts/ensure-git-with-index-lock:19:# ~/.agents/scripts/git-with-index-lock and symlinks ~/.local/bin/git-with-index-lock.
+scripts/ensure-git-with-index-lock:2:# ensure-git-with-index-lock — locate or install git-with-index-lock, print its path.
+scripts/ensure-git-with-index-lock:31:DEST="${DEST_DIR}/git-with-index-lock"
+scripts/ensure-git-with-index-lock:33:LINK="${LINK_DIR}/git-with-index-lock"
+scripts/ensure-git-with-index-lock:34:NAME="git-with-index-lock"
+scripts/ensure-git-with-index-lock:38:    printf 'ensure-git-with-index-lock: %s\n' "$*" >&2
+scripts/ensure-git-with-index-lock:7:#   GIT_WL="$(ensure-git-with-index-lock)" || exit 1
+scripts/ensure-git-with-index-lock:99:  # This script's own repo (when invoked as .../scripts/ensure-git-with-index-lock)
+scripts/eval-git-index-lock-fix.sh:12:WRAPPER="${GIT_WITH_INDEX_LOCK:-$SCRIPT_DIR/git-with-index-lock}"
+scripts/eval-git-index-lock-fix.sh:2:# Eval harness: prove git-with-index-lock fixes the VENT index.lock failure modes
+scripts/git-with-index-lock:15:#   git-with-index-lock <git-args...>
+scripts/git-with-index-lock:16:#   git-with-index-lock add path/to/file
+scripts/git-with-index-lock:17:#   git-with-index-lock commit -m "msg"
+scripts/git-with-index-lock:264:  tmp="$(mktemp -t git-with-index-lock.XXXXXX)"
+scripts/git-with-index-lock:2:# git-with-index-lock — run git with automatic .git/index.lock recovery.
+scripts/git-with-index-lock:39:Usage: git-with-index-lock <git-args...>
+scripts/git-with-index-lock:44:  git-with-index-lock add -A
+scripts/git-with-index-lock:45:  git-with-index-lock commit -m "msg"
+scripts/git-with-index-lock:46:  git-with-index-lock rebase --continue
+scripts/git-with-index-lock:52:    printf 'git-with-index-lock: %s\n' "$*" >&2
+scripts/git-with-index-lock:68:  echo "git-with-index-lock: MAX_WAIT_MS and POLL_MS must be non-negative integers" >&2
+scripts/install-pi-transactionally.sh:100:review_runtime="$HOME/.agents/scripts/review_orchestration.py"
+scripts/install-pi-transactionally.sh:101:cmp -s "$ROOT/scripts/review_orchestration.py" "$review_runtime"
+scripts/install-pi-transactionally.sh:120:bash "$ROOT/scripts/verify-pi-install.sh" --scope pi-review-stack --check-only
+scripts/install-pi-transactionally.sh:17:SKILLS=(autoreview claude-code-review codex-review-partner delivery-run pre-pr-implementation-review reviewed-html-plan run-plan)
+scripts/install-pi-transactionally.sh:38:PATHS=(.pi .agents/skills/autoreview .agents/skills/claude-code-review .agents/skills/codex-review-partner .agents/skills/delivery-run .agents/skills/herdr-reviewers .agents/skills/pre-pr-implementation-review .agents/skills/reviewed-html-plan .agents/skills/run-plan .agents/scripts/review_orchestration.py .agents/scripts/git-with-index-lock .agents/scripts/ensure-git-with-index-lock .agents/scripts/delivery .local/bin/git-with-index-lock .local/bin/ensure-git-with-index-lock .local/bin/delivery)
+scripts/install-pi-transactionally.sh:81:failpoint() { [ "${PI_REVIEW_STACK_FAILPOINT:-}" != "$1" ] || { echo "Triggered failpoint: $1" >&2; return 1; }; }
+scripts/install-pi-transactionally.sh:90:if [ -n "${PI_REVIEW_STACK_TEST_PAUSE_MARKER:-}" ]; then
+scripts/install-pi-transactionally.sh:91:  : >"$PI_REVIEW_STACK_TEST_PAUSE_MARKER"
+scripts/install-pi-transactionally.sh:92:  while [ ! -e "${PI_REVIEW_STACK_TEST_RESUME_MARKER:-$SNAPSHOT/resume}" ]; do sleep 0.02; done
+scripts/install-pi-transactionally.sh:95:bash "$ROOT/scripts/verify-pi-install.sh" --scope pi-review-stack --check-only
+scripts/patch_pi_subagents_review_isolation.py:77:        print("patched pi-subagents to support authoritative isolation: none")
+scripts/patch_pi_subagents_review_isolation.py:79:        print("pi-subagents authoritative isolation: none already present")
+scripts/tests/fixtures/pi-analytics-actions/config.json:2:  "aaron_doct_user_id": "user-aaron-fixture"
+scripts/tests/fixtures/pi-analytics-actions/non-analytics-agent-claim.json:12:    "workspaceId": "workspace-personal-fixture",
+scripts/tests/fixtures/pi-analytics-actions/non-analytics-agent-claim.json:13:    "threadId": "thread-generic-fixture",
+scripts/tests/fixtures/pi-analytics-actions/non-analytics-agent-claim.json:17:      "id": "comment-generic-fixture",
+scripts/tests/fixtures/pi-analytics-actions/non-analytics-agent-claim.json:19:      "authorUserId": "user-aaron-fixture",
+scripts/tests/fixtures/pi-analytics-actions/non-analytics-agent-claim.json:3:  "workspaceId": "workspace-personal-fixture",
+scripts/tests/fixtures/pi-analytics-actions/non-analytics-agent-claim.json:4:  "threadId": "thread-generic-fixture",
+scripts/tests/fixtures/pi-analytics-actions/non-analytics-agent-claim.json:5:  "claimId": "claim-generic-fixture",
+scripts/tests/fixtures/pi-analytics-actions/ordinary-conversation-claim.json:12:    "workspaceId": "workspace-personal-fixture",
+scripts/tests/fixtures/pi-analytics-actions/ordinary-conversation-claim.json:13:    "threadId": "thread-conversation-fixture",
+scripts/tests/fixtures/pi-analytics-actions/ordinary-conversation-claim.json:17:      "id": "comment-conversation-fixture",
+scripts/tests/fixtures/pi-analytics-actions/ordinary-conversation-claim.json:19:      "authorUserId": "user-aaron-fixture",
+scripts/tests/fixtures/pi-analytics-actions/ordinary-conversation-claim.json:3:  "workspaceId": "workspace-personal-fixture",
+scripts/tests/fixtures/pi-analytics-actions/ordinary-conversation-claim.json:4:  "threadId": "thread-conversation-fixture",
+scripts/tests/fixtures/pi-analytics-actions/ordinary-conversation-claim.json:5:  "claimId": "claim-conversation-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:10:    "threadId": "thread-analytics-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:22:      "id": "claim-analytics-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:24:      "workspaceId": "workspace-personal-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:25:      "threadId": "thread-analytics-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:31:    "workspaceId": "workspace-personal-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:32:    "threadId": "thread-analytics-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:46:        "id": "comment-analytics-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:48:        "authorUserId": "user-aaron-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:4:  "workspaceId": "workspace-personal-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:59:    "replyRoute": "fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:5:  "threadId": "thread-analytics-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:60:    "ackRoute": "fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:61:    "releaseRoute": "fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:62:    "resolveRoute": "fixture"
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:6:  "claimId": "claim-analytics-fixture",
+scripts/tests/fixtures/pi-analytics-actions/valid-agent-claim.json:9:    "workspaceId": "workspace-personal-fixture",
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:10:{"type":"message","timestamp":"2026-07-19T15:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","errorMessage":"empty_stream","content":"nonterminal must not count"}}
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:12:{"type":"message","timestamp":"2026-07-20T06:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"empty_stream","content":"out of window"}}
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:2:{"type":"message","timestamp":"2026-07-19T07:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"stop","errorMessage":null,"content":"PRIVACY_SENTINEL_TRANSCRIPT","prompt":"PRIVACY_SENTINEL_PROMPT","thinking":"PRIVACY_SENTINEL_THINKING","credentials":"PRIVACY_SENTINEL_CREDENTIAL","toolCall":{"arguments":"PRIVACY_SENTINEL_TOOL_ARGS","result":"PRIVACY_SENTINEL_TOOL_RESULT"}}}
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:3:{"type":"message","timestamp":"2026-07-19T08:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"Provider returned EMPTY_STREAM","content":"private error prose"}}
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:4:{"type":"message","timestamp":"2026-07-19T09:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"Request TIMED OUT while waiting"}}
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:5:{"type":"message","timestamp":"2026-07-19T10:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"HTTP/2 GOAWAY received"}}
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:6:{"type":"message","timestamp":"2026-07-19T11:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"HTTP2 stream reset"}}
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:7:{"type":"message","timestamp":"2026-07-19T12:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"Authentication failed: invalid token"}}
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:8:{"type":"message","timestamp":"2026-07-19T13:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"Unsupported-model configuration error"}}
+scripts/tests/fixtures/pi-session-analytics/comprehensive/session.jsonl:9:{"type":"message","timestamp":"2026-07-19T14:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"A novel structured provider failure"}}
+scripts/tests/fixtures/pi-session-analytics/zero-error/success.jsonl:1:{"type":"message","timestamp":"2026-07-19T18:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"stop","errorMessage":null,"content":"PRIVACY_SENTINEL_ZERO_ERROR_CONTENT"}}
+scripts/tests/fixtures/pi-session-analytics/zero-session/no-attempts.jsonl:2:{"type":"message","timestamp":"2026-07-19T19:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":null,"errorMessage":"empty_stream","content":"PRIVACY_SENTINEL_ZERO_SESSION_NONTERMINAL"}}
+scripts/tests/fixtures/pi-session-analytics/zero-session/no-attempts.jsonl:3:{"type":"message","timestamp":"2026-07-20T07:00:00Z","message":{"role":"assistant","provider":"fixture-provider","model":"fixture-model","api":"fixture-api","stopReason":"error","errorMessage":"empty_stream","content":"PRIVACY_SENTINEL_ZERO_SESSION_OUTSIDE"}}
+scripts/tests/test_audit_codex_review_sessions.py:17:            for name,token,profile in [('clean','CLEAN_FOR_PR','generic-implementation'),('pass','PASS','generic-implementation'),('pm','PASS_SCOPED','run-plan-pm'),('pmpass','PASS','run-plan-pm'),('plan','PLAN_EXECUTION_READY','reviewed-html-plan')]:
+scripts/tests/test_audit_codex_review_sessions.py:18:                (jobs/f'{name}.md').write_text(f'body\nVERDICT: {token}\n');self.state(jobs,name,status='succeeded',classification='CODEX_REVIEW_SUCCEEDED',verdict=token,verdictProfile=profile);self.delivery(sessions,f'delivery-{name}');self.codex_thread(jobs,codex,name)
+scripts/tests/test_audit_codex_review_sessions.py:21:    def test_missing_duplicate_and_profile_mismatch_fail(self):
+scripts/tests/test_audit_codex_review_sessions.py:26:            (jobs/'profile.md').write_text('body\nVERDICT: PASS_SCOPED\n');self.state(jobs,'profile',status='succeeded',classification='CODEX_REVIEW_SUCCEEDED',verdict='PASS_SCOPED',verdictProfile='generic-implementation');self.delivery(sessions,'delivery-profile')
+scripts/tests/test_audit_codex_review_sessions.py:27:            errors='\n'.join(audit(root,True,sessions)[1]);self.assertIn('delivery count is 0',errors);self.assertIn('delivery count is 2',errors);self.assertIn('selected profile',errors)
+scripts/tests/test_audit_codex_review_sessions.py:6:        base={'jobId':name,'jobNonce':f'nonce-{name}','action':'start','verdictProfile':'generic-implementation','status':'failed','classification':'CODEX_REVIEW_LAUNCH_FAILED','output':str(jobs/f'{name}.md'),'stdoutLog':str(jobs/f'{name}.stdout.jsonl'),'deliveryId':f'delivery-{name}','deliveryState':'delivered'};base.update(kw);(jobs/f'{name}.state.json').write_text(json.dumps(base));return base
+scripts/tests/test_ensure_git_with_index_lock.sh:14:chmod +x "$ENSURE" "$REPO_ROOT/scripts/git-with-index-lock"
+scripts/tests/test_ensure_git_with_index_lock.sh:29:if [[ $RC -eq 0 && -x "$OUT" && "$OUT" == *git-with-index-lock ]]; then
+scripts/tests/test_ensure_git_with_index_lock.sh:2:# Tests for scripts/ensure-git-with-index-lock bootstrap behavior.
+scripts/tests/test_ensure_git_with_index_lock.sh:35:if [[ -x "$HOME/.agents/scripts/git-with-index-lock" && -L "$HOME/.local/bin/git-with-index-lock" ]]; then
+scripts/tests/test_ensure_git_with_index_lock.sh:61:if [[ $RC3 -eq 0 && "$OUT3" == "$REPO_ROOT/scripts/git-with-index-lock" ]]; then
+scripts/tests/test_ensure_git_with_index_lock.sh:7:ENSURE="$REPO_ROOT/scripts/ensure-git-with-index-lock"
+scripts/tests/test_git_with_index_lock.sh:19:WORKDIR="$(mktemp -d -t git-with-index-lock-test.XXXXXX)"
+scripts/tests/test_git_with_index_lock.sh:2:# Unit/integration tests for scripts/git-with-index-lock
+scripts/tests/test_git_with_index_lock.sh:7:WRAPPER="$REPO_ROOT/scripts/git-with-index-lock"
+scripts/tests/test_gm_pi_analytics_action.py:145:                claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:156:        claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:15:FIXTURES = Path(__file__).parent / "fixtures" / "pi-analytics-actions"
+scripts/tests/test_gm_pi_analytics_action.py:161:        claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:165:        claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:177:            claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:188:        claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:192:        claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:220:            claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:247:            claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:24:def fixture(name: str) -> dict:
+scripts/tests/test_gm_pi_analytics_action.py:255:                return subprocess.CompletedProcess(argv, 1, "", "fixture failure")
+scripts/tests/test_gm_pi_analytics_action.py:25:    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+scripts/tests/test_gm_pi_analytics_action.py:283:            claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:291:                    return subprocess.CompletedProcess(argv, 1, "", "fixture failure")
+scripts/tests/test_gm_pi_analytics_action.py:314:            claim_path.write_text(json.dumps(fixture("valid-agent-claim.json")), encoding="utf-8")
+scripts/tests/test_gm_pi_analytics_action.py:315:            with mock.patch.object(action, "configured_aaron_user_id", return_value="user-aaron-fixture"), mock.patch.object(
+scripts/tests/test_gm_pi_analytics_action.py:32:            "workspace_id": "workspace-personal-fixture",
+scripts/tests/test_gm_pi_analytics_action.py:330:            claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:355:        ordinary = fixture("ordinary-conversation-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:356:        generic = fixture("non-analytics-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:362:            self.assertIsNone(listener.dispatch_claim("doc-good-morning-current", "workspace-personal-fixture", ordinary))
+scripts/tests/test_gm_pi_analytics_action.py:368:                listener.dispatch_claim("doc-good-morning-current", "workspace-personal-fixture", generic),
+scripts/tests/test_gm_pi_analytics_action.py:371:            start_generic.assert_called_once_with("doc-good-morning-current", "workspace-personal-fixture", generic)
+scripts/tests/test_gm_pi_analytics_action.py:377:                claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:383:                        listener.dispatch_claim("doc-good-morning-current", "workspace-personal-fixture", claim),
+scripts/tests/test_gm_pi_analytics_action.py:390:                claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:398:                        listener.dispatch_claim("doc-good-morning-current", "workspace-personal-fixture", claim)
+scripts/tests/test_gm_pi_analytics_action.py:405:        claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:417:                    "doc-good-morning-current", "workspace-personal-fixture", claim
+scripts/tests/test_gm_pi_analytics_action.py:466:                claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:471:                    aaron_user_id="user-aaron-fixture", runner=ok_runner(calls), now=UTC_NOW,
+scripts/tests/test_gm_pi_analytics_action.py:63:        self.config = json.loads((FIXTURES / "config.json").read_text(encoding="utf-8"))
+scripts/tests/test_gm_pi_analytics_action.py:75:                claim = fixture("valid-agent-claim.json")
+scripts/tests/test_gm_pi_analytics_action.py:96:            claim = fixture("valid-agent-claim.json")
+scripts/tests/test_hermes_config_sync_component.py:193:            os.environ, {"HERMES_AI_CONFIGS_INSTALL_STAMP": "fixture-stamp"}
+scripts/tests/test_hermes_config_sync_component.py:205:            backup_root = home / "backups" / "ai-configs-install-fixture-stamp"
+scripts/tests/test_hermes_config_sync_component.py:208:            self.assertFalse((hermes_config_sync.DEFAULT_HERMES_HOME / "backups" / "ai-configs-install-fixture-stamp").exists())
+scripts/tests/test_install_pi_transaction.py:111:            scoped=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+scripts/tests/test_install_pi_transaction.py:113:            full=subprocess.run(['bash','scripts/verify-pi-install.sh','--check-only'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+scripts/tests/test_install_pi_transaction.py:234:                home=Path(d);(home/'.pi').mkdir();(home/'.pi/foreign').write_text('old');env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT=point);before=manifest(home)
+scripts/tests/test_install_pi_transaction.py:239:            home=Path(d);external=Path(external_d)/'runtime.py';external.write_text('external runtime\n');scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.symlink_to(external);env=self.review_env(home)
+scripts/tests/test_install_pi_transaction.py:241:            self.assertFalse(runtime.is_symlink());self.assertEqual(runtime.read_bytes(),(ROOT/'scripts/review_orchestration.py').read_bytes());self.assertEqual(external.read_text(),'external runtime\n')
+scripts/tests/test_install_pi_transaction.py:244:            home=Path(d);scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.write_text('preexisting runtime\n');runtime.chmod(0o640);foreign=scripts/'caller-owned.py';foreign.write_text('keep sibling\n');env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-parity');before=manifest(home);before_metadata=self.metadata(scripts)
+scripts/tests/test_install_pi_transaction.py:249:            home=Path(d);external=Path(external_d)/'runtime.py';external.write_text('external runtime\n');scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.symlink_to(external);env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-parity')
+scripts/tests/test_install_pi_transaction.py:266:                if failpoint: env['PI_REVIEW_STACK_FAILPOINT']=failpoint
+scripts/tests/test_install_pi_transaction.py:277:            home=Path(d);skills=home/'.agents/skills';skills.mkdir(parents=True);os.chmod(home/'.agents',0o751);os.chmod(skills,0o753);env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-install');before=(stat.S_IMODE((home/'.agents').stat().st_mode),stat.S_IMODE(skills.stat().st_mode))
+scripts/tests/test_install_pi_transaction.py:285:                env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-install');before_home=manifest(home);before_external=manifest(external);before_metadata=[self.metadata(target) for target in targets]
+scripts/tests/test_install_pi_transaction.py:291:                home=Path(d);(home/'.pi').mkdir();(home/'.pi/foreign').write_text('old');marker=home/'paused';env=self.review_env(home, PI_REVIEW_STACK_TEST_PAUSE_MARKER=str(marker));before=manifest(home)
+scripts/tests/test_install_pi_transaction.py:301:            subprocess.run(['bash','scripts/verify-pi-install.sh','--check-only'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+scripts/tests/test_install_pi_transaction.py:62:            self.assertEqual(foreign.read_text(),'keep');self.assertEqual(foreign_script.read_text(),'keep sibling\n');self.assert_exact_installed_agents(home);installed=json.loads(models.read_text());self.assertEqual(installed['providers']['caller-owned']['apiKey'],'secret');self.assertIn('openai-codex',installed['providers']);self.assertTrue((home/'.agents/skills/autoreview/SKILL.md').is_file());self.assertTrue((home/'.agents/skills/claude-code-review/SKILL.md').is_file());self.assertFalse((home/'.agents/skills/herdr-reviewers').exists());self.assertFalse((home/'.pi/agent/extensions/claude-review').exists());self.assertFalse((home/'.pi/agent/extensions/codex-review').exists());runtime=home/'.agents/scripts/review_orchestration.py';self.assertEqual(runtime.read_bytes(),(ROOT/'scripts/review_orchestration.py').read_bytes());self.assertEqual(stat.S_IMODE(runtime.stat().st_mode),0o755);scripts=home/'.agents/skills/codex-review-partner/scripts';self.assertEqual(stat.S_IMODE((scripts/'process_identity.py').stat().st_mode)&0o500,0o500);self.assertEqual(stat.S_IMODE((scripts/'review_supervisor.py').stat().st_mode)&0o500,0o500);append=(home/'.pi/agent/APPEND_SYSTEM.md').read_text();self.assertNotIn('{{AI_CONFIGS_VERSION}}',append);self.assertRegex(append,r'Doctrine-Version: \d{4}-\d{2}-\d{2}\+[0-9a-f]{8}(?:-dirty)?');before=manifest(home)
+scripts/tests/test_install_pi_transaction.py:63:            subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
+scripts/tests/test_install_pi_transaction.py:66:            full=subprocess.run(['bash','scripts/verify-pi-install.sh','--check-only'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+scripts/tests/test_install_pi_transaction.py:70:            scoped=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+scripts/tests/test_install_pi_transaction.py:74:            result=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+scripts/tests/test_install_pi_transaction.py:76:            runtime.write_bytes((ROOT/'scripts/review_orchestration.py').read_bytes());runtime.chmod(0o700)
+scripts/tests/test_install_pi_transaction.py:77:            result=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+scripts/tests/test_install_pi_transaction.py:81:            result=subprocess.run(['bash','scripts/verify-pi-install.sh','--scope','pi-review-stack','--check-only'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+scripts/tests/test_install_pi_vcc.py:126:                    "git:github.com/adnichols/pi-vcc@v1",
+scripts/tests/test_install_pi_vcc.py:127:                    "git:git@github.com:sting8k/pi-vcc@v1",
+scripts/tests/test_install_pi_vcc.py:128:                    "https://github.com/adnichols/pi-vcc.git@v1",
+scripts/tests/test_install_pi_vcc.py:129:                    "ssh://github.com/sting8k/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:130:                    "ssh://git@github.com/adnichols/pi-vcc@v1",
+scripts/tests/test_install_pi_vcc.py:131:                    "git://github.com/sting8k/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:132:                    "git:https://github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:133:                    "git:https://github.com/adnichols/pi-vcc/",
+scripts/tests/test_install_pi_vcc.py:134:                    "git:https://github.com/adnichols/pi-vcc.git/",
+scripts/tests/test_install_pi_vcc.py:135:                    "git:https://github.com/adnichols/pi-vcc/.",
+scripts/tests/test_install_pi_vcc.py:136:                    "git:https://user:token@github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:137:                    "git:https://github.com:443/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:138:                    "git:ssh://git@github.com/sting8k/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:139:                    "git:ssh://git@github.com/sting8k/pi-vcc/",
+scripts/tests/test_install_pi_vcc.py:140:                    "git:ssh://git@github.com:22/sting8k/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:141:                    "git:git://github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:142:                    "git:git://github.com/adnichols/pi-vcc/",
+scripts/tests/test_install_pi_vcc.py:143:                    "git:github.com/adnichols/pi-vcc@release/v1",
+scripts/tests/test_install_pi_vcc.py:144:                    "git: https://github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:145:                    "git:git+https://github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:146:                    "git:git+ssh://git@github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:147:                    " https://github.com/adnichols/pi-vcc/ ",
+scripts/tests/test_install_pi_vcc.py:148:                    "ssh://git@GITHUB.COM/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:149:                    "https://GITHUB.COM/sting8k/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:153:                    "github:github.com/sting8k/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:154:                    "git@github.com:adnichols/pi-vcc.git@v1",
+scripts/tests/test_install_pi_vcc.py:155:                    "GIT:https://github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:160:                    "https://github.com.evil.example/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:161:                    r"https://evil.example\@github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:162:                    "https://github.com:999999/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:163:                    "git:https://github.com/adnichols/pi-vcc@",
+scripts/tests/test_install_pi_vcc.py:164:                    "https://github.com/adnichols/pi-vcc%40evil",
+scripts/tests/test_install_pi_vcc.py:165:                    "https://github.com/adnichols%2Fpi-vcc",
+scripts/tests/test_install_pi_vcc.py:166:                    "https://github.com/adnichols/pi-vcc;param",
+scripts/tests/test_install_pi_vcc.py:167:                    "git:https://github.com/adnichols//pi-vcc",
+scripts/tests/test_install_pi_vcc.py:168:                    "git:https://github.com/adnichols/pi-vcc.git%2Egit",
+scripts/tests/test_install_pi_vcc.py:170:                    "https://github.com/ADNICHOLS/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:171:                    "https://github.com/adnichols/PI-VCC",
+scripts/tests/test_install_pi_vcc.py:183:                    "github:github.com/sting8k/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:184:                    "git@github.com:adnichols/pi-vcc.git@v1",
+scripts/tests/test_install_pi_vcc.py:185:                    "GIT:https://github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:190:                    "https://github.com.evil.example/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:191:                    r"https://evil.example\@github.com/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:192:                    "https://github.com:999999/adnichols/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:193:                    "git:https://github.com/adnichols/pi-vcc@",
+scripts/tests/test_install_pi_vcc.py:194:                    "https://github.com/adnichols/pi-vcc%40evil",
+scripts/tests/test_install_pi_vcc.py:195:                    "https://github.com/adnichols%2Fpi-vcc",
+scripts/tests/test_install_pi_vcc.py:196:                    "https://github.com/adnichols/pi-vcc;param",
+scripts/tests/test_install_pi_vcc.py:197:                    "git:https://github.com/adnichols//pi-vcc",
+scripts/tests/test_install_pi_vcc.py:198:                    "git:https://github.com/adnichols/pi-vcc.git%2Egit",
+scripts/tests/test_install_pi_vcc.py:200:                    "https://github.com/ADNICHOLS/pi-vcc",
+scripts/tests/test_install_pi_vcc.py:201:                    "https://github.com/adnichols/PI-VCC",
+scripts/tests/test_patch_pi_subagents_review_isolation.py:8:PATCH = ROOT / "scripts" / "patch_pi_subagents_review_isolation.py"
+scripts/tests/test_pi_agent_roster.py:169:        self.assertIn("REVIEW_ROOT", reviewer)
+scripts/tests/test_pi_agent_roster.py:170:        self.assertIn("REVIEW_SOURCE", reviewer)
+scripts/tests/test_pi_agent_roster.py:193:            "TARGET_CHECKOUT",
+scripts/tests/test_pi_agent_roster.py:197:            "REVIEW_ROOT",
+scripts/tests/test_pi_agent_roster.py:200:            "REVIEW_SOURCE",
+scripts/tests/test_pi_agent_roster.py:241:        self.assertIn("patch_pi_subagents_review_isolation.py", installer)
+scripts/tests/test_pi_agent_roster.py:242:        review_stack = installer.split("install_pi_review_stack() {", 1)[1].split("remove_retired_pi_goal_plugin() {", 1)[0]
+scripts/tests/test_pi_agent_roster.py:243:        patch_index = review_stack.index("patch_pi_subagents_review_isolation.py")
+scripts/tests/test_pi_agent_roster.py:248:        self.assertIn("`planner` and `reviewer` declare `isolation: none`", readme)
+scripts/tests/test_pi_analytics_ccore_publish.py:117:            "current_version": {"content_sha256": "fixture-hash"},
+scripts/tests/test_pi_session_analytics.py:100:    def test_checked_in_baseline_is_fixture_derived(self):
+scripts/tests/test_pi_session_analytics.py:101:        report = analytics.analyze([FIXTURES / "comprehensive"], self.window())
+scripts/tests/test_pi_session_analytics.py:105:    def test_zero_error_fixture_is_one_successful_session(self):
+scripts/tests/test_pi_session_analytics.py:106:        report = analytics.analyze([FIXTURES / "zero-error"], self.window())
+scripts/tests/test_pi_session_analytics.py:112:    def test_zero_session_fixture_ignores_nonterminal_and_out_of_window_errors(self):
+scripts/tests/test_pi_session_analytics.py:113:        report = analytics.analyze([FIXTURES / "zero-session"], self.window())
+scripts/tests/test_pi_session_analytics.py:11:FIXTURES = Path(__file__).resolve().parent / "fixtures" / "pi-session-analytics"
+scripts/tests/test_pi_session_analytics.py:125:                "provider": "fixture-provider",
+scripts/tests/test_pi_session_analytics.py:126:                "model": "fixture-model",
+scripts/tests/test_pi_session_analytics.py:127:                "api": "fixture-api",
+scripts/tests/test_pi_session_analytics.py:201:        root = FIXTURES / "zero-error"
+scripts/tests/test_pi_session_analytics.py:222:                str(FIXTURES / "missing"),
+scripts/tests/test_pi_session_analytics.py:234:        self.assertNotIn(str(FIXTURES), result.stderr)
+scripts/tests/test_pi_session_analytics.py:27:    def run_cli(self, fixture_name):
+scripts/tests/test_pi_session_analytics.py:32:            str(FIXTURES / fixture_name),
+scripts/tests/test_pi_session_analytics.py:40:    def test_comprehensive_fixture_locks_v1_aggregate(self):
+scripts/tests/test_pi_session_analytics.py:41:        report = analytics.analyze([FIXTURES / "comprehensive"], self.window())
+scripts/tests/test_pi_session_analytics.py:93:            "fixture-provider",
+scripts/tests/test_pi_session_analytics.py:94:            "fixture-model",
+scripts/tests/test_pi_session_analytics.py:95:            "fixture-api",
+scripts/tests/test_verify_pi_vcc_install.py:139:            env, agent, _stable = self.install_fixture(root, package)
+scripts/tests/test_verify_pi_vcc_install.py:148:        # Only forms Pi itself parses as GitHub adnichols|sting8k/pi-vcc are official.
+scripts/tests/test_verify_pi_vcc_install.py:151:            "git:github.com/adnichols/pi-vcc@v1",
+scripts/tests/test_verify_pi_vcc_install.py:152:            "git:git@github.com:sting8k/pi-vcc@v1",
+scripts/tests/test_verify_pi_vcc_install.py:153:            "https://github.com/adnichols/pi-vcc.git@v1",
+scripts/tests/test_verify_pi_vcc_install.py:154:            "ssh://github.com/sting8k/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:155:            "ssh://git@github.com/adnichols/pi-vcc@v1",
+scripts/tests/test_verify_pi_vcc_install.py:156:            "git://github.com/sting8k/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:157:            "git:https://github.com/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:158:            "git:https://github.com/adnichols/pi-vcc/",
+scripts/tests/test_verify_pi_vcc_install.py:159:            "git:https://github.com/adnichols/pi-vcc.git/",
+scripts/tests/test_verify_pi_vcc_install.py:160:            "git:https://github.com/adnichols/pi-vcc/.",
+scripts/tests/test_verify_pi_vcc_install.py:161:            "git:https://user:token@github.com/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:162:            "git:https://github.com:443/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:163:            "git:ssh://git@github.com/sting8k/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:164:            "git:ssh://git@github.com/sting8k/pi-vcc/",
+scripts/tests/test_verify_pi_vcc_install.py:165:            "git:ssh://git@github.com:22/sting8k/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:166:            "git:git://github.com/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:167:            "git:git://github.com/adnichols/pi-vcc/",
+scripts/tests/test_verify_pi_vcc_install.py:168:            "git:github.com/adnichols/pi-vcc@release/v1",
+scripts/tests/test_verify_pi_vcc_install.py:169:            "git: https://github.com/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:170:            "git:git+https://github.com/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:171:            "git:git+ssh://git@github.com/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:172:            " https://github.com/adnichols/pi-vcc/ ",
+scripts/tests/test_verify_pi_vcc_install.py:173:            "ssh://git@GITHUB.COM/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:174:            "https://GITHUB.COM/sting8k/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:179:            "github:github.com/sting8k/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:180:            "git@github.com:adnichols/pi-vcc.git@v1",
+scripts/tests/test_verify_pi_vcc_install.py:181:            "GIT:https://github.com/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:186:            "https://github.com.evil.example/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:187:            r"https://evil.example\@github.com/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:188:            "https://github.com:999999/adnichols/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:189:            "git:https://github.com/adnichols/pi-vcc@",
+scripts/tests/test_verify_pi_vcc_install.py:190:            "https://github.com/adnichols/pi-vcc%40evil",
+scripts/tests/test_verify_pi_vcc_install.py:191:            "https://github.com/adnichols%2Fpi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:192:            "https://github.com/adnichols/pi-vcc;param",
+scripts/tests/test_verify_pi_vcc_install.py:193:            "git:https://github.com/adnichols//pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:194:            "git:https://github.com/adnichols/pi-vcc.git%2Egit",
+scripts/tests/test_verify_pi_vcc_install.py:196:            "https://github.com/ADNICHOLS/pi-vcc",
+scripts/tests/test_verify_pi_vcc_install.py:197:            "https://github.com/adnichols/PI-VCC",
+scripts/tests/test_verify_pi_vcc_install.py:203:                env, agent, stable = self.install_fixture(root, package)
+scripts/tests/test_verify_pi_vcc_install.py:219:            env, agent, stable = self.install_fixture(root, package)
+scripts/tests/test_verify_pi_vcc_install.py:236:            env, agent, _stable = self.install_fixture(root, package)
+scripts/tests/test_verify_pi_vcc_install.py:249:            env, agent, _stable = self.install_fixture(root, package)
+scripts/tests/test_verify_pi_vcc_install.py:262:            env, agent, _stable = self.install_fixture(root, package)
+scripts/tests/test_verify_pi_vcc_install.py:281:            env, agent, stable = self.install_fixture(root, installed)
+scripts/tests/test_verify_pi_vcc_install.py:54:    def install_fixture(self, root: Path, package: Path):
+scripts/tests/test_verify_pi_vcc_install.py:79:            env, _agent, stable = self.install_fixture(root, package)
+scripts/verify-pi-install.sh:153:  review_runtime="$HOME/.agents/scripts/review_orchestration.py"
+scripts/verify-pi-install.sh:154:  if ! cmp -s "$REPO_ROOT/scripts/review_orchestration.py" "$review_runtime"; then
+skills/autoreview/SKILL.md:139:**Pi launch rule:** the `Agent` call **must omit the `isolation` property entirely**. Never set `isolation: "worktree"` for an autoreview reviewer. Before submitting the tool call, inspect its arguments and remove the property if present. The live checkout naturally exposes staged, unstaged, and untracked edits. `TARGET_CHECKOUT` remains a safety fallback only when the harness itself isolates despite the omitted property; it is not permission for the coordinator to request isolation.
+skills/autoreview/SKILL.md:143:- Put `TARGET_CHECKOUT: <absolute path>` in every reviewer packet, plus the coordinator's `HEAD` and `git status --short` snapshot and the changed/untracked path list.
+skills/autoreview/SKILL.md:144:- If launch CWD differs from `TARGET_CHECKOUT`, the reviewer must inspect the target directly with path-qualified reads and commands such as `git -C <target> ...`. A temporary or isolated launch CWD is never by itself a review failure.
+skills/autoreview/SKILL.md:14:When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review; base freshness may still be pending until final verification and the scoped commit make a safe rebase possible. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement to the `run-plan` caller so it can rerun final verification if needed, complete base freshness safely, commit, push, open the PR, inspect the current PR snapshot for actionable feedback/mergeability, and complete once local merge-readiness consensus is proven. Do not tell the caller to wait for a bot or human approval after local review-agent consensus is clean.
+skills/autoreview/SKILL.md:165:- Before accepting a verdict, the parent must confirm what content the reviewer actually inspected. For a dirty candidate, valid evidence is either `REVIEW_ROOT` pointing at the target checkout or a supplied patch/diff that covers the listed staged, unstaged, and untracked paths.
+skills/autoreview/SKILL.md:166:- Do not discard an otherwise valid review because it ran from `/tmp`, an isolated checkout, a detached HEAD, or a clean/dirty worktree. If dirty content was omitted, keep the findings over the visible committed candidate and run at most one targeted follow-up with `TARGET_CHECKOUT` or an explicit patch for the missing paths; do not label the completed visible-code review an infrastructure failure.
+skills/autoreview/SKILL.md:167:- Require the reviewer to return a short provenance block: launch `CWD`, `REVIEW_ROOT`, `HEAD`, `git status --short` (or `EMPTY`), `REVIEW_SOURCE`, and any unavailable candidate content.
+skills/autoreview/SKILL.md:169:Do not launch Codex or Claude Code as a separate review leg, and do not use Herdr as the transport for this **autoreview code-review** gate. A Herdr delivery run separately performs its visible Pi/Grok 4.5 plan-completeness review after autoreview; that reviewer does not replace this gate. The reviewer is static inspection only: it must not edit files or run tests, builds, linters, typechecks, benchmarks, verification scripts, or other executable checks. The coordinating agent exclusively owns verification and fixes. If the configured reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user waives the gate or directs opening the PR regardless.
+skills/autoreview/SKILL.md:199:TARGET_CHECKOUT: <absolute path to the candidate checkout>
+skills/autoreview/SKILL.md:202:Review committed, staged, unstaged, and untracked changes visible at `TARGET_CHECKOUT`. If your launch CWD differs, inspect `TARGET_CHECKOUT` directly with path-qualified reads and `git -C`; do not refuse the review because of the launch directory or worktree state. If some requested content is unavailable, still review all visible code and disclose the missing portion under `Not examined:`.
+skills/autoreview/SKILL.md:206:- REVIEW_ROOT: <absolute checkout or artifact path actually reviewed>
+skills/autoreview/SKILL.md:209:- REVIEW_SOURCE: <target-live-worktree | launch-checkout | supplied-diff>
+skills/autoreview/SKILL.md:230:- API contract, schema, CLI, MCP, UI, or test fixture drift
+skills/autoreview/SKILL.md:27:If invoked from `run-plan`, use that plan path, target branch/base branch, scope contract, changed files, latest verification results, PM review status, caller-reported base freshness status or pending status, any known rebase-triggered rerun requirement, and the unified implementation-review cycle ledger (completed cycles, triggering diffs/fixes, verdicts, and remaining budget). Do not start a fresh autoreview budget at invocation.
+skills/autoreview/SKILL.md:331:- target branch/base context, caller-reported base freshness status, and any rebase-triggered rerun requirement when invoked from `run-plan`,
+skills/autoreview/SKILL.md:352:- base freshness context from the caller and any rebase-triggered rerun requirement,
+skills/brave-cdp/SKILL.md:16:To launch a dedicated automation profile without the recurring approval prompt on the default profile:
+skills/brave-cdp/scripts/start-brave-cdp.sh:132:if [[ "$RESET_PROFILE" -eq 1 ]]; then
+skills/brave-cdp/scripts/start-brave-cdp.sh:133:  rm -rf "$PROFILE_DIR"
+skills/brave-cdp/scripts/start-brave-cdp.sh:136:mkdir -p "$PROFILE_DIR"
+skills/brave-cdp/scripts/start-brave-cdp.sh:142:  --user-data-dir="$PROFILE_DIR"
+skills/brave-cdp/scripts/start-brave-cdp.sh:164:Brave automation profile started.
+skills/brave-cdp/scripts/start-brave-cdp.sh:166:Profile dir: $PROFILE_DIR
+skills/brave-cdp/scripts/start-brave-cdp.sh:16:Use this once to get the profile logged into the accounts you want the agent to use.
+skills/brave-cdp/scripts/start-brave-cdp.sh:19:  --profile-dir PATH   Override profile directory (default: $PROFILE_DIR)
+skills/brave-cdp/scripts/start-brave-cdp.sh:21:  --profile-name NAME  Profile subdir for DevToolsActivePort fallback (default: $PROFILE_NAME)
+skills/brave-cdp/scripts/start-brave-cdp.sh:22:  --reset-profile      Delete the automation profile before launching
+skills/brave-cdp/scripts/start-brave-cdp.sh:27:  BRAVE_CDP_PROFILE_DIR   Default profile directory
+skills/brave-cdp/scripts/start-brave-cdp.sh:29:  BRAVE_CDP_PROFILE_NAME  Fallback profile subdirectory name
+skills/brave-cdp/scripts/start-brave-cdp.sh:35:    --profile-dir)
+skills/brave-cdp/scripts/start-brave-cdp.sh:36:      PROFILE_DIR="$2"
+skills/brave-cdp/scripts/start-brave-cdp.sh:43:    --profile-name)
+skills/brave-cdp/scripts/start-brave-cdp.sh:44:      PROFILE_NAME="$2"
+skills/brave-cdp/scripts/start-brave-cdp.sh:47:    --reset-profile)
+skills/brave-cdp/scripts/start-brave-cdp.sh:48:      RESET_PROFILE=1
+skills/brave-cdp/scripts/start-brave-cdp.sh:4:PROFILE_DIR="${BRAVE_CDP_PROFILE_DIR:-$HOME/.brave-cdp-profile}"
+skills/brave-cdp/scripts/start-brave-cdp.sh:6:PROFILE_NAME="${BRAVE_CDP_PROFILE_NAME:-Default}"
+skills/brave-cdp/scripts/start-brave-cdp.sh:77:  if [[ -f "$PROFILE_DIR/DevToolsActivePort" ]]; then
+skills/brave-cdp/scripts/start-brave-cdp.sh:78:    printf '%s\n' "$PROFILE_DIR/DevToolsActivePort"
+skills/brave-cdp/scripts/start-brave-cdp.sh:80:    printf '%s\n' "$PROFILE_DIR/$PROFILE_NAME/DevToolsActivePort"
+skills/brave-cdp/scripts/start-brave-cdp.sh:8:RESET_PROFILE=0
+skills/ccore_DONOTUSE/SKILL.md:25:- `ingest run`: tracked import job such as Obsidian or Slack fixture ingest
+skills/ccore_DONOTUSE/SKILL.md:46:- Slack fixture: `ccore ingest slack-fixture <space> <fixture_path>` then `ccore ingest status <ingest_run_id>`
+skills/ccore_DONOTUSE/SKILL.md:66:- Treat `hub` and sync credential commands as sensitive operations; do not invent tokens or passphrases
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:134:  hub              Cloudflare Sync Hub tooling (secrets/bootstrap helpers)
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:2059:  slack-fixture
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:2115:### `ccore ingest slack-fixture`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:2118:Usage: slack-fixture [OPTIONS] <SPACE> <FIXTURE_PATH>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:2124:  <FIXTURE_PATH>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:219:      --transport <TRANSPORT>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:220:          Transport selection (first release: stdio only)
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:266:### `ccore hub`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:269:Cloudflare Sync Hub tooling (secrets/bootstrap helpers)
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:271:Usage: hub <COMMAND>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:274:  login    Store bootstrap auth for automatic hub provisioning
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:277:  config   Manage hub tool configuration (stored in the user config dir)
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:278:  secrets  Ensure required Cloudflare hub secrets exist
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:286:### `ccore hub login`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:289:Store bootstrap auth for automatic hub provisioning
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:294:      --hub-url <HUB_URL>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:295:          Hub base URL
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:298:          Hub bootstrap account token
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:301:          Passphrase used to encrypt local bootstrap auth. Defaults to `CCORE_PASSPHRASE`, with `CCORE_HUB_PASSPHRASE` as an override
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:303:      --hub-config <HUB_CONFIG>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:304:          Override hub tool config path
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:310:### `ccore hub status`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:318:      --hub-config <HUB_CONFIG>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:319:          Override hub tool config path
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:325:### `ccore hub logout`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:333:      --hub-config <HUB_CONFIG>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:334:          Override hub tool config path
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:340:### `ccore hub config`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:343:Manage hub tool configuration (stored in the user config dir)
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:348:  path  Print the hub tool config path
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:349:  show  Show effective hub tool config (redacted)
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:350:  init  Initialize or update hub tool config
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:358:### `ccore hub config path`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:361:Print the hub tool config path
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:370:### `ccore hub config show`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:373:Show effective hub tool config (redacted)
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:378:      --hub-config <HUB_CONFIG>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:379:          Override hub tool config path
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:385:### `ccore hub config init`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:388:Initialize or update hub tool config
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:394:          Hub project directory containing wrangler.toml
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:401:      --hub-config <HUB_CONFIG>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:402:          Override hub tool config path
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:408:### `ccore hub config help`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:40:### Ingest Slack fixture events
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:420:### `ccore hub secrets`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:423:Ensure required Cloudflare hub secrets exist
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:42:1. Start ingest: `ccore ingest slack-fixture <space> <fixture_path> [--workspace-id <id>]`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:436:### `ccore hub secrets ensure`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:450:          Hub project directory containing wrangler.toml
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:452:      --hub-config <HUB_CONFIG>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:453:          Override hub tool config path
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:459:### `ccore hub secrets help`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:471:### `ccore hub help`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:491:      --hub-url <HUB_URL>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:492:          Hub base URL
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:590:  sync-status         Show sync cursor/head/lag against a configured remote hub
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:593:  sync-push           Diagnostic: push local outbox events to a configured remote hub now
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:594:  sync-pull           Diagnostic: pull remote hub feed entries into local sync cursor state now
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:595:  sync-configure-hub  Configure per-space sync hub credentials for push/pull/invites
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:636:Show sync cursor/head/lag against a configured remote hub
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:690:Diagnostic: push local outbox events to a configured remote hub now
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:709:Diagnostic: pull remote hub feed entries into local sync cursor state now
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:725:### `ccore space sync-configure-hub`
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:728:Configure per-space sync hub credentials for push/pull/invites
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:730:Usage: sync-configure-hub [OPTIONS] --hub-url <HUB_URL> --hub-read-token <HUB_READ_TOKEN> --hub-write-token <HUB_WRITE_TOKEN> --space-key <SPACE_KEY> <SPACE>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:737:      --hub-url <HUB_URL>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:738:          Hub base URL
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:740:      --hub-read-token <HUB_READ_TOKEN>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:741:          Hub read token
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:743:      --hub-write-token <HUB_WRITE_TOKEN>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:744:          Hub write token
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:784:      --hub-url <HUB_URL>
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:785:          Hub base URL used for automatic setup when sync config is missing
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:788:          Hub bootstrap account token used for automatic setup when sync config is missing
+skills/ccore_DONOTUSE/references/ccore-skill-guide.md:791:          Passphrase used to unlock locally stored hub bootstrap auth. Defaults to `CCORE_PASSPHRASE`, with `CCORE_HUB_PASSPHRASE` as an override
+skills/claude-code-review/SKILL.md:13:Do not launch Claude Code in Herdr, private tmux, print mode, or any other external transport to meet the standard review gate. The coordinating agent owns the bounded review packet, verification, fixes, and artifact capture. If its configured reviewer cannot run, return `REVIEW_INFRASTRUCTURE_FAILURE` unless the user explicitly waives the gate.
+skills/claude-code-review/scripts/check_no_direct_claude_review_launches.py:2:"""Guardrail against direct Claude Code CLI launch transports in review surfaces."""
+skills/claude-code-review/tests/test_claude_interactive_review.py:20:FAKE_CLAUDE = ROOT / "skills/claude-code-review/tests/fixtures/fake_claude.py"
+skills/claude-code-review/tests/test_claude_interactive_review.py:212:                "CLAUDE_CONFIG_DIR": "/stale/harness/profile",
+skills/claude-code-review/tests/test_claude_interactive_review.py:575:    def test_guardrail_rejects_direct_transport_candidates(self) -> None:
+skills/cmd-create-pr/SKILL.md:3:description: Create a GitHub pull request from the current branch using gh CLI. Use when ready to submit code for review.
+skills/cmd-create-pr/SKILL.md:8:Create a GitHub PR for the current branch using `gh`.
+skills/codex-full-build/SKILL.md:136:Do not launch separate Codex or Claude Code reviewer processes or use Herdr as a required transport.
+skills/codex-full-build/SKILL.md:37:- Use `ltui` for Linear issue retrieval. If a Linear issue cannot be fetched after auth/profile/identifier remediation, stop and report the fetch blocker.
+skills/codex-full-build/SKILL.md:63:   - `auth_missing`: ask for the Linear API key or configured profile, then retry through `ltui`.
+skills/codex-full-build/SKILL.md:64:   - `auth_invalid`: ask for a valid profile/key, then retry through `ltui`.
+skills/codex-review-partner/scripts/check_no_direct_codex_review_launches.py:28:    # policy documentation/fixtures, never an exemption for an executable block.
+skills/codex-review-partner/scripts/run-review.sh:13:Pair and smoke accept no verdict profile. Smoke needs no input file.
+skills/codex-review-partner/scripts/run-review.sh:16:  run-review.sh --mode implementation-review --verdict-profile generic-implementation --input /tmp/review.md --output /tmp/review-output.md
+skills/codex-review-partner/scripts/run-review.sh:20:MODE="" INPUT_PATH="" TARGET_CWD="" OUTPUT_PATH="" STATUS_FILE="" PROCESS_IDENTITY_FILE="" JOB_NONCE="" VERDICT_PROFILE="" TIMEOUT_SECONDS=3600
+skills/codex-review-partner/scripts/run-review.sh:249:python3 - "$MODE" "$VERDICT_PROFILE" "$FINAL_MESSAGE" <<'PY'
+skills/codex-review-partner/scripts/run-review.sh:251:mode,profile,p=sys.argv[1:]
+skills/codex-review-partner/scripts/run-review.sh:260:'generic-plan':{'PLAN_EXECUTION_READY','PLAN_NEEDS_REVISION','BLOCKED_BY_QUESTION','REVIEW_INCOMPLETE_RERUN_NEEDED'}}[profile]
+skills/codex-review-partner/scripts/run-review.sh:274:  echo "Codex final message is invalid for mode/profile" >&2; exit 21
+skills/codex-review-partner/scripts/run-review.sh:34:    --verdict-profile) VERDICT_PROFILE="${2:-}"; shift 2 ;;
+skills/codex-review-partner/scripts/run-review.sh:70:  [[ -z "$VERDICT_PROFILE" ]] || { echo "$MODE accepts no --verdict-profile" >&2; exit 2; }
+skills/codex-review-partner/scripts/run-review.sh:72:  [[ -n "$VERDICT_PROFILE" ]] || { echo "$MODE requires --verdict-profile; migration: add --verdict-profile generic-$([[ $MODE == plan-review ]] && echo plan || echo implementation)" >&2; exit 2; }
+skills/codex-review-partner/scripts/run-review.sh:73:  [[ " $COMPATIBLE " == *" $VERDICT_PROFILE "* ]] || { echo "review mode/profile pair is incompatible; valid pairs: $MODE: ${COMPATIBLE// /, }" >&2; exit 2; }
+skills/codex-review-partner/scripts/run-review.sh:7:  run-review.sh --mode <implementation-review|adversarial-implementation-review|plan-review|pair|smoke> [--verdict-profile <profile>] [--input <file>] [--cwd <dir>] [--output <file>] [--status-file <file>] [--process-identity-file <file> --job-nonce <nonce>] [--owner-pid <pid> --owner-start-identity <identity> --owner-boot-id <identity>] [--timeout-seconds <seconds>]
+skills/codex-review-partner/scripts/run-review.sh:9:Review modes require --verdict-profile. Compatible pairs:
+skills/codex-review-partner/tests/fixtures/codex-json/README.md:1:# Codex JSON protocol fixtures
+skills/codex-review-partner/tests/fixtures/codex-json/README.md:7:no authoritative account-state capture or versioned schema fixture was
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:19:        fixtures = [
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:25:        for fixture in fixtures:
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:26:            with self.subTest(fixture=fixture):
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:27:                self.assertTrue(MOD.scan_text(fixture, prompt_file=True))
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:30:        fixtures = [
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:34:        for fixture in fixtures:
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:35:            with self.subTest(fixture=fixture):
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:36:                self.assertTrue(MOD.scan_text(fixture, prompt_file=True))
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:39:        fixtures = [
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:46:        for fixture in fixtures:
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:47:            with self.subTest(fixture=fixture):
+skills/codex-review-partner/tests/test_check_no_direct_codex_review_launches.py:48:                self.assertEqual(MOD.scan_text(fixture, prompt_file=True), [])
+skills/codex-review-partner/tests/test_process_identity.py:57:    def test_linux_fixture_parses_parent_group_session_start_and_zombie(self):
+skills/codex-review-partner/tests/test_process_identity.py:61:            (proc / "sys/kernel/random/boot_id").write_text("fixture-boot\n")
+skills/codex-review-partner/tests/test_process_identity.py:73:            self.assertEqual(adapter.boot_identity(), "linux:fixture-boot")
+skills/codex-review-partner/tests/test_run_review_contract.sh:103:FAKE_CODEX_MODE=identity-pause FAKE_FINAL=$'Body\nVERDICT: CLEAN_FOR_PR\n' run --mode implementation-review --verdict-profile generic-implementation --input "$ROOT/input.md" --output "$ROOT/identity-output" --status-file "$ROOT/identity-status" --process-identity-file "$identity" --job-nonce nonce-123 --timeout-seconds 3 >"$ROOT/identity-events" &
+skills/codex-review-partner/tests/test_run_review_contract.sh:122:assert_fails 'final status publication failed' env CODEX_REVIEW_TEST_FAIL_FINAL_STATUS_WRITE=1 FAKE_FINAL=$'Body\nVERDICT: CLEAN_FOR_PR\n' PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode implementation-review --verdict-profile generic-implementation --input "$ROOT/input.md" --output "$output" --status-file "$status" --timeout-seconds 3
+skills/codex-review-partner/tests/test_run_review_contract.sh:128:env CODEX_REVIEW_TEST_BEFORE_OUTPUT_COMMIT_MARKER="$marker" CODEX_REVIEW_TEST_ALLOW_OUTPUT_COMMIT="$allow" FAKE_FINAL=$'Body\nVERDICT: CLEAN_FOR_PR\n' PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode implementation-review --verdict-profile generic-implementation --input "$ROOT/input.md" --output "$output" --status-file "$status" --timeout-seconds 3 >"$ROOT/interrupted.out" 2>"$ROOT/interrupted.err" &
+skills/codex-review-partner/tests/test_run_review_contract.sh:150:  assert_fails 'final message is invalid' env FAKE_FINAL="$final" PATH="$ROOT/bin:/usr/bin:/bin" SHELL=/bin/bash "$LAUNCHER" --mode implementation-review --verdict-profile generic-implementation --input "$ROOT/input.md" --output "$output" --status-file "$status" --timeout-seconds 3
+skills/codex-review-partner/tests/test_run_review_contract.sh:154:# Every locked compatible pair accepts its profile vocabulary.
+skills/codex-review-partner/tests/test_run_review_contract.sh:165:  read -r mode profile token <<<"$row"
+skills/codex-review-partner/tests/test_run_review_contract.sh:167:VERDICT: $token" run --mode "$mode" --verdict-profile "$profile" --input "$ROOT/input.md" --output "$output" --status-file "$status" --timeout-seconds 3 >/dev/null
+skills/codex-review-partner/tests/test_run_review_contract.sh:213:echo 'PASS: Codex launcher final-message, profile, status, timeout, and no-clobber contracts'
+skills/codex-review-partner/tests/test_run_review_contract.sh:61:# Review modes require an explicit compatible profile before Codex launch.
+skills/codex-review-partner/tests/test_run_review_contract.sh:62:assert_fails 'requires --verdict-profile' run --mode implementation-review --input "$ROOT/input.md"
+skills/codex-review-partner/tests/test_run_review_contract.sh:63:assert_fails 'incompatible' run --mode plan-review --verdict-profile pre-pr-implementation --input "$ROOT/input.md"
+skills/codex-review-partner/tests/test_run_review_contract.sh:64:assert_fails 'accepts no --verdict-profile' run --mode pair --verdict-profile generic-plan --input "$ROOT/input.md"
+skills/codex-review-partner/tests/test_run_review_contract.sh:67:for mode_profile in \
+skills/codex-review-partner/tests/test_run_review_contract.sh:72:  read -r mode profile <<<"$mode_profile"
+skills/codex-review-partner/tests/test_run_review_contract.sh:74:  if [[ -n "${profile:-}" ]]; then args+=(--verdict-profile "$profile"); fi
+skills/codex-review-partner/tests/test_run_review_contract.sh:76:  case "$profile" in
+skills/codex-review-partner/tests/test_run_review_contract.sh:92:FAKE_FINAL=$'Body\r\nVERDICT: CLEAN_FOR_PR   \r\n' run --mode implementation-review --verdict-profile generic-implementation --input "$ROOT/input.md" --cwd "$ROOT/work tree" --output "$output" --status-file "$status" --timeout-seconds 3 >"$ROOT/events.jsonl"
+skills/codex-review-partner/tests/test_run_review_contract.sh:9:printf 'export PATH=%q\n' "$ROOT/bin:/usr/bin:/bin" >"$ROOT/.bash_profile"
+skills/codex-review-partner/tests/test_run_review_login_shell.sh:42:  "$LAUNCHER" --mode implementation-review --verdict-profile run-plan-pm --input "$TMP_DIR/input.md" --cwd "$TMP_DIR" --output "$TMP_DIR/output.md"
+skills/codex-review-partner/tests/test_run_review_login_shell.sh:58:  "$LAUNCHER" --mode implementation-review --verdict-profile run-plan-pm --input "$TMP_DIR/input.md" --cwd "$TMP_DIR" >"$TMP_DIR/unsupported.stdout" 2>"$TMP_DIR/unsupported.stderr"; then
+skills/delivery-run/SKILL.md:106:- A broken optional integration such as Herdr labels must never force the operator to disable the whole workflow. The explicit readiness, independent plan-review, implementation-profile, and completeness boundaries fail closed and report a retry command.
+skills/delivery-run/SKILL.md:109:- Firmness is limited to explicit readiness authorization, the independent Sol-medium plan verdict, the dedicated Sol-medium implementation profile, and completion evidence; the rest of the ledger optimizes for visibility, resumability, and honest status.
+skills/delivery-run/SKILL.md:124:delivery set --plan thoughts/plans/foo.html --doct-url https://doct... --pr-url https://github.com/...
+skills/delivery-run/SKILL.md:153:delivery verify-implementation-profile
+skills/delivery-run/SKILL.md:223:| `EXECUTION_READY` | pause, summarize the reviewed plan and implementation profile, then obtain explicit operator approval |
+skills/delivery-run/SKILL.md:265:3. the fixed implementation profile, `openai-codex/gpt-5.6-sol` at medium reasoning; and
+skills/delivery-run/SKILL.md:275:  --summary "Operator received plan status, changes, fixed Sol-medium profile, and remaining steps"
+skills/delivery-run/SKILL.md:279:delivery verify-implementation-profile
+skills/delivery-run/SKILL.md:306:| `VERIFY_FRESHNESS` | final verify + base freshness inside run-plan |
+skills/delivery-run/SKILL.md:392:9. The implementation agent must run `delivery verify-implementation-profile` before entering `IMPLEMENTING`; the stage gate independently checks the live Pi provider/model/reasoning environment.
+skills/delivery-run/scripts/delivery:1016:    profile = current.get("implementationProfile") or {}
+skills/delivery-run/scripts/delivery:1017:    if profile.get("launchAttemptId") != attempt_id:
+skills/delivery-run/scripts/delivery:1017:    if profile.get("launchAttemptId") != attempt_id:
+skills/delivery-run/scripts/delivery:1019:    if str(profile.get("status")) not in allowed_statuses:
+skills/delivery-run/scripts/delivery:1029:        reset_implementation_profile(ledger, "no Herdr source pane available")
+skills/delivery-run/scripts/delivery:1030:        write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1035:    reset_implementation_profile(ledger, "dedicated implementation agent launch in progress")
+skills/delivery-run/scripts/delivery:1036:    ledger["implementationProfile"].update(
+skills/delivery-run/scripts/delivery:1037:        {"status": "launching", "launchAttemptId": attempt_id}
+skills/delivery-run/scripts/delivery:1040:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1050:        reset_implementation_profile(current, "Herdr split returned no pane id")
+skills/delivery-run/scripts/delivery:1051:        write_json(path, current)
+skills/delivery-run/scripts/delivery:1076:    profile = current.setdefault("implementationProfile", {})
+skills/delivery-run/scripts/delivery:1077:    profile.update(
+skills/delivery-run/scripts/delivery:1084:            "planSha256": plan_sha256(current, root),
+skills/delivery-run/scripts/delivery:1090:            "launchAttemptId": attempt_id,
+skills/delivery-run/scripts/delivery:1096:        write_json(path, current)
+skills/delivery-run/scripts/delivery:1098:    write_json(path, current)
+skills/delivery-run/scripts/delivery:1102:    profile = current["implementationProfile"]
+skills/delivery-run/scripts/delivery:1104:        profile.update(
+skills/delivery-run/scripts/delivery:1111:        write_json(path, current)
+skills/delivery-run/scripts/delivery:1114:    profile.update({"status": "ready", "promptedAt": utc_now(), "reason": None})
+skills/delivery-run/scripts/delivery:1125:    write_json(path, current)
+skills/delivery-run/scripts/delivery:1127:    print("next: the pinned implementation agent verifies its profile and enters IMPLEMENTING")
+skills/delivery-run/scripts/delivery:1131:def cmd_approve_implementation(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:1166:            "planSha256": fingerprint,
+skills/delivery-run/scripts/delivery:1175:    reset_implementation_profile(ledger, "operator approved; implementation agent launch pending")
+skills/delivery-run/scripts/delivery:1181:        planSha256=fingerprint,
+skills/delivery-run/scripts/delivery:1186:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1191:def cmd_start_implementation(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:1203:    profile_status = str((ledger.get("implementationProfile") or {}).get("status") or "pending")
+skills/delivery-run/scripts/delivery:1204:    if profile_status == "ready":
+skills/delivery-run/scripts/delivery:1216:def cmd_verify_implementation_profile(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:1222:        or implementation_profile_problem(ledger, root, check_runtime=True)
+skills/delivery-run/scripts/delivery:1225:        die(f"implementation profile invalid: {problem}")
+skills/delivery-run/scripts/delivery:1226:    print(f"implementation profile verified: {IMPLEMENTATION_MODEL_REF} / {IMPLEMENTATION_REASONING}")
+skills/delivery-run/scripts/delivery:1230:def cmd_revoke_implementation_approval(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:1233:    reset_implementation_profile(ledger, args.reason)
+skills/delivery-run/scripts/delivery:1236:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1237:    print("implementation approval and agent profile revoked")
+skills/delivery-run/scripts/delivery:1241:def cmd_note(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:1251:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1256:def cmd_set(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:1280:            reset_implementation_profile(ledger, "recorded plan path changed")
+skills/delivery-run/scripts/delivery:1341:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1352:def cmd_record(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:1398:                    "planSha256": fingerprint,
+skills/delivery-run/scripts/delivery:1469:            ev["planSha256"] = plan_sha256(ledger, root) if status == "pass" else None
+skills/delivery-run/scripts/delivery:1470:            if status == "pass" and ev["planSha256"] is None:
+skills/delivery-run/scripts/delivery:1475:                reset_implementation_profile(ledger, "fresh execution-ready review request")
+skills/delivery-run/scripts/delivery:1486:            reset_implementation_profile(ledger, "recorded plan path changed")
+skills/delivery-run/scripts/delivery:1491:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1568:    if not plan_fingerprint or review.get("planSha256") != plan_fingerprint:
+skills/delivery-run/scripts/delivery:1590:def cmd_completion_review(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:1604:        write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1618:        request_id = review.get("requestId")
+skills/delivery-run/scripts/delivery:161:        "profile, then wait for explicit approval. Approval launches a dedicated implementation "
+skills/delivery-run/scripts/delivery:1639:            "planSha256": plan_fingerprint,
+skills/delivery-run/scripts/delivery:1647:        write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1697:        "requestId": request_id,
+skills/delivery-run/scripts/delivery:169:    "VERIFY_FRESHNESS": "Final verification + base freshness; record verify evidence",
+skills/delivery-run/scripts/delivery:1704:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1710:def cmd_blocker(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:1727:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1830:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:1965:def cmd_stages(_: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:200:def write_json(path: Path, data: dict[str, Any]) -> None:
+skills/delivery-run/scripts/delivery:2141:def cmd_spawn(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:215:            supplied_revision = int(data.get("ledgerRevision") or 0)
+skills/delivery-run/scripts/delivery:218:                current_revision = int(current.get("ledgerRevision") or 0)
+skills/delivery-run/scripts/delivery:224:            data["ledgerRevision"] = supplied_revision + 1
+skills/delivery-run/scripts/delivery:2426:        write_json(ledger_path, ledger)
+skills/delivery-run/scripts/delivery:2595:def cmd_reflect(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:2683:        write_json(path, ledger)
+skills/delivery-run/scripts/delivery:2715:    approval_profile = " / ".join(
+skills/delivery-run/scripts/delivery:2718:    implementation_profile = ledger.get("implementationProfile") or {}
+skills/delivery-run/scripts/delivery:2719:    implementation_agent_status = implementation_profile.get("status") or "pending"
+skills/delivery-run/scripts/delivery:2744:| implementation approval | {approval_status} ({approval_profile}) |
+skills/delivery-run/scripts/delivery:2792:implementation profile, and (4) the remaining phase/review/verification/PR steps. Ask whether to proceed.
+skills/delivery-run/scripts/delivery:2799:  --summary "Operator saw status, changes, fixed Sol-medium profile, and remaining steps"
+skills/delivery-run/scripts/delivery:2804:`delivery verify-implementation-profile` and then `delivery stage IMPLEMENTING`; the stage
+skills/delivery-run/scripts/delivery:2828:delivery verify-implementation-profile           # run in the new pinned agent
+skills/delivery-run/scripts/delivery:283:            "planSha256": None,
+skills/delivery-run/scripts/delivery:2889:- Approval launches a dedicated Sol-medium implementation agent. The planning agent must not implement; the new agent verifies its profile before code work.
+skills/delivery-run/scripts/delivery:2998:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:3061:    p_init.set_defaults(func=cmd_init)
+skills/delivery-run/scripts/delivery:3074:    p_stage.set_defaults(func=cmd_stage)
+skills/delivery-run/scripts/delivery:3094:    p_approve.set_defaults(func=cmd_approve_implementation)
+skills/delivery-run/scripts/delivery:30:IMPLEMENTATION_LAUNCH_LOCK_REL = Path(".delivery") / "implementation-launch.lock"
+skills/delivery-run/scripts/delivery:3103:    p_start_impl.set_defaults(func=cmd_start_implementation)
+skills/delivery-run/scripts/delivery:3106:        "verify-implementation-profile",
+skills/delivery-run/scripts/delivery:3109:    p_verify_impl.set_defaults(func=cmd_verify_implementation_profile)
+skills/delivery-run/scripts/delivery:3116:    p_revoke_approve.set_defaults(func=cmd_revoke_implementation_approval)
+skills/delivery-run/scripts/delivery:3120:    p_note.set_defaults(func=cmd_note)
+skills/delivery-run/scripts/delivery:3145:    p_set.set_defaults(func=cmd_set)
+skills/delivery-run/scripts/delivery:3167:    p_rec.set_defaults(func=cmd_record)
+skills/delivery-run/scripts/delivery:3183:    p_completion.set_defaults(func=cmd_completion_review)
+skills/delivery-run/scripts/delivery:3190:    p_block.set_defaults(func=cmd_blocker)
+skills/delivery-run/scripts/delivery:3216:    p_stages.set_defaults(func=cmd_stages)
+skills/delivery-run/scripts/delivery:3277:    p_reflect.set_defaults(func=cmd_reflect)
+skills/delivery-run/scripts/delivery:330:            "planSha256": None,
+skills/delivery-run/scripts/delivery:3348:    p_spawn.set_defaults(func=cmd_spawn)
+skills/delivery-run/scripts/delivery:338:        "implementationProfile": {
+skills/delivery-run/scripts/delivery:344:            "planSha256": None,
+skills/delivery-run/scripts/delivery:350:            "launchAttemptId": None,
+skills/delivery-run/scripts/delivery:434:    if request.get("planSha256") != current_hash:
+skills/delivery-run/scripts/delivery:444:    request.update({"status": "pending", "planSha256": None, "updatedAt": utc_now()})
+skills/delivery-run/scripts/delivery:460:            "planSha256": None,
+skills/delivery-run/scripts/delivery:480:    if review.get("planSha256") != current_hash:
+skills/delivery-run/scripts/delivery:506:    if approval.get("planSha256") != current_hash:
+skills/delivery-run/scripts/delivery:515:def implementation_profile_problem(
+skills/delivery-run/scripts/delivery:518:    profile = ledger.get("implementationProfile") or {}
+skills/delivery-run/scripts/delivery:519:    if profile.get("status") != "ready":
+skills/delivery-run/scripts/delivery:521:    if profile.get("provider") != IMPLEMENTATION_PROVIDER:
+skills/delivery-run/scripts/delivery:523:    if profile.get("model") != IMPLEMENTATION_MODEL:
+skills/delivery-run/scripts/delivery:525:    if profile.get("reasoningLevel") != IMPLEMENTATION_REASONING:
+skills/delivery-run/scripts/delivery:530:    if profile.get("planSha256") != current_hash:
+skills/delivery-run/scripts/delivery:530:    if profile.get("planSha256") != current_hash:
+skills/delivery-run/scripts/delivery:532:    if not profile.get("agentName") or not profile.get("paneId"):
+skills/delivery-run/scripts/delivery:541:        if current_pane != str(profile.get("paneId")):
+skills/delivery-run/scripts/delivery:544:                f"{profile.get('paneId')}"
+skills/delivery-run/scripts/delivery:569:            or implementation_profile_problem(ledger, root, check_runtime=True)
+skills/delivery-run/scripts/delivery:580:            "planSha256": None,
+skills/delivery-run/scripts/delivery:591:def reset_implementation_profile(ledger: dict[str, Any], reason: str) -> None:
+skills/delivery-run/scripts/delivery:592:    profile = ledger.setdefault("implementationProfile", {})
+skills/delivery-run/scripts/delivery:593:    profile.update(
+skills/delivery-run/scripts/delivery:600:            "planSha256": None,
+skills/delivery-run/scripts/delivery:606:            "launchAttemptId": None,
+skills/delivery-run/scripts/delivery:814:def cmd_init(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:839:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:841:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:889:    profile = ledger.get("implementationProfile") or {}
+skills/delivery-run/scripts/delivery:890:    profile_status = profile.get("status", "pending")
+skills/delivery-run/scripts/delivery:891:    profile_problem = implementation_profile_problem(ledger, root, check_runtime=False)
+skills/delivery-run/scripts/delivery:892:    if profile_problem:
+skills/delivery-run/scripts/delivery:893:        profile_status = f"{profile_status} ({profile_problem})"
+skills/delivery-run/scripts/delivery:894:    print(f"implementation agent: {profile_status}")
+skills/delivery-run/scripts/delivery:918:def cmd_stage(args: argparse.Namespace) -> int:
+skills/delivery-run/scripts/delivery:952:    write_json(path, ledger)
+skills/delivery-run/scripts/delivery:996:2. Run `delivery show` and `delivery verify-implementation-profile`. If the launch is still being finalized, retry verification once it reports ready.
+skills/delivery-run/tests/test_delivery_cli.sh:175:d["completenessReview"]={"status":"pending","agentName":"completeness-nod-7","paneId":"w1:p2","requestId":"first-round"}
+skills/delivery-run/tests/test_delivery_cli.sh:213:d["completenessReview"]={"status":"pending","agentName":"completeness-nod-8","paneId":"w1:p2","requestId":"latest-round"}
+skills/delivery-run/tests/test_delivery_cli.sh:512:assert d["evidence"]["planReadinessRequest"]["planSha256"]
+skills/delivery-run/tests/test_delivery_cli.sh:562:assert review["planSha256"]
+skills/delivery-run/tests/test_delivery_cli.sh:660:    "planSha256":hashlib.sha256(open(plan_path,"rb").read()).hexdigest(),
+skills/delivery-run/tests/test_delivery_cli.sh:712:    --summary "Operator received status, changes, fixed Sol medium profile, and steps" >/dev/null
+skills/delivery-run/tests/test_delivery_cli.sh:720:profile=d["implementationProfile"]
+skills/delivery-run/tests/test_delivery_cli.sh:725:assert approval["planSha256"]
+skills/delivery-run/tests/test_delivery_cli.sh:726:assert profile["status"] == "ready"
+skills/delivery-run/tests/test_delivery_cli.sh:727:assert profile["provider"] == "openai-codex"
+skills/delivery-run/tests/test_delivery_cli.sh:728:assert profile["model"] == "gpt-5.6-sol"
+skills/delivery-run/tests/test_delivery_cli.sh:729:assert profile["reasoningLevel"] == "medium"
+skills/delivery-run/tests/test_delivery_cli.sh:730:assert profile["agentName"].startswith("implementation-")
+skills/delivery-run/tests/test_delivery_cli.sh:731:assert profile["paneId"] == "w1:p2"
+skills/delivery-run/tests/test_delivery_cli.sh:732:assert profile["sourcePaneId"] == "w1:p1"
+skills/delivery-run/tests/test_delivery_cli.sh:733:assert profile["planSha256"] == approval["planSha256"]
+skills/delivery-run/tests/test_delivery_cli.sh:733:assert profile["planSha256"] == approval["planSha256"]
+skills/delivery-run/tests/test_delivery_cli.sh:758:    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile 2>&1)"
+skills/delivery-run/tests/test_delivery_cli.sh:773:    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile >/dev/null
+skills/delivery-run/tests/test_delivery_cli.sh:799:assert d["implementationProfile"]["status"] == "pending"
+skills/delivery-run/tests/test_delivery_cli.sh:849:assert d["implementationProfile"]["status"] == "start-failed"
+skills/delivery-run/tests/test_delivery_cli.sh:863:assert d["implementationProfile"]["status"] == "prompt-failed"
+skills/delivery-run/tests/test_delivery_cli.sh:908:assert d["implementationProfile"]["status"] == "ready"
+skills/delivery-run/tests/test_delivery_cli.sh:909:assert d["ledgerRevision"] > 0
+skills/delivery-run/tests/test_delivery_cli.sh:926:  rg -q "verify-implementation-profile" "$ROOT/skills/run-plan/SKILL.md" || return 1
+skills/dependency-selection/SKILL.md:128:   - Search crates.io / npm / GitHub for existing solutions
+skills/dependency-selection/SKILL.md:196:- Check maintenance via `pip show` and GitHub activity
+skills/design-skill/SKILL.md:270:3. Do not default to the same palette temperature and contrast profile repeatedly.
+skills/design-skill/SKILL.md:295:3. one `motion profile`:
+skills/dev-plan/SKILL.md:58:- Existing entries in `## Decisions / Deviations Log`
+skills/doct-document-ops/references/coding-plan-archive-audit-pattern.md:25:   - GitHub PR search/list by Linear issue key, branch, title slug, or explicit PR URL.
+skills/doct-document-ops/references/coding-plan-archive-audit-pattern.md:39:- GitHub PR list/search shows a matching Linear key/branch/title and state is `OPEN` or `MERGED`.
+skills/install-matrix.json:101:      "notes": "Shared CDP skill for attaching to an existing Chrome session over the DevTools Protocol without launching a separate browser instance. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:104:      "profile": "ops-browser"
+skills/install-matrix.json:113:      "notes": "Legacy compatibility guidance only. Standard plan and implementation reviews use the active harness's native reviewer subagent, not an external Claude Code transport.",
+skills/install-matrix.json:11:      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:15:      "profile": "creative-content"
+skills/install-matrix.json:257:      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:25:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:261:      "profile": "creative-content"
+skills/install-matrix.json:28:      "profile": "macos"
+skills/install-matrix.json:317:      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:321:      "profile": "creative-content"
+skills/install-matrix.json:345:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:348:      "profile": "macos"
+skills/install-matrix.json:369:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:372:      "profile": "macos"
+skills/install-matrix.json:37:      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:41:      "profile": "creative-content"
+skills/install-matrix.json:481:      "notes": "Fetched via `npx skills add jeffallan/claude-skills`. Optional profile: rust; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:485:      "profile": "rust"
+skills/install-matrix.json:51:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`, with Pi-safe wording for optional Codex integration. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:520:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:523:      "profile": "macos"
+skills/install-matrix.json:543:      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:547:      "profile": "creative-content"
+skills/install-matrix.json:54:      "profile": "macos"
+skills/install-matrix.json:557:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:560:      "profile": "macos"
+skills/install-matrix.json:570:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`, with Pi-safe wording for optional Codex integration. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:573:      "profile": "macos"
+skills/install-matrix.json:594:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:597:      "profile": "macos"
+skills/install-matrix.json:607:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:610:      "profile": "macos"
+skills/install-matrix.json:619:      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:623:      "profile": "creative-content"
+skills/install-matrix.json:644:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:647:      "profile": "macos"
+skills/install-matrix.json:64:      "notes": "Brave-first shared CDP skill for attaching to Aaron's existing browser session, with Chromium-family fallback support and a dedicated automation-profile launcher script. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:656:      "notes": "Portable virsh/libvirt workflow notes for VM inspection and storage discovery; installed for Pi only. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:659:      "profile": "ops-browser"
+skills/install-matrix.json:668:      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:672:      "profile": "creative-content"
+skills/install-matrix.json:67:      "profile": "ops-browser"
+skills/install-matrix.json:704:      "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:707:      "profile": "macos"
+skills/install-matrix.json:743:  "skillProfiles": {
+skills/install-matrix.json:76:      "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
+skills/install-matrix.json:80:      "profile": "creative-content"
+skills/linear/SKILL.md:266:- **`~/.config/ltui/config.json`** - Global profiles and default profile
+skills/linear/SKILL.md:34:2. **Check for existing profiles**: Run `ltui auth list` to see configured profiles
+skills/linear/SKILL.md:40:Switch profiles using `--profile <name>` flag on any command.
+skills/linear/references/ltui-command-reference.md:11:Global options such as `--format`, `--fields`, `--limit`, `--cursor`, `--profile`, and `--show-rate-limit` must appear before the command path, for example `ltui --format json --fields id,title issues list --team ENG`.
+skills/linear/references/ltui-command-reference.md:294:ltui issues link ENG-42 --url "https://github.com/org/repo/pull/123"
+skills/linear/references/ltui-command-reference.md:298:  --url "https://github.com/org/repo/pull/123" \
+skills/linear/references/ltui-command-reference.md:448:  --profile <name>      Profile to use for this project
+skills/linear/references/ltui-command-reference.md:725:List configured authentication profiles.
+skills/linear/references/ltui-command-reference.md:734:PROFILES:
+skills/linear/references/ltui-command-reference.md:741:Add a new authentication profile.
+skills/linear/references/ltui-command-reference.md:748:  --name <name>        Profile name
+skills/linear/references/ltui-command-reference.md:752:  --set-default        Make this the default profile
+skills/linear/references/ltui-command-reference.md:757:# Add profile
+skills/linear/references/ltui-command-reference.md:766:Remove an authentication profile.
+skills/linear/references/ltui-command-reference.md:773:  <name>              Profile name to remove
+skills/linear/references/ltui-command-reference.md:783:Set the default profile.
+skills/linear/references/ltui-command-reference.md:790:  <name>              Profile name to set as default
+skills/linear/references/ltui-command-reference.md:802:- `--profile <name>` - Use a specific profile instead of default
+skills/linear/references/ltui-command-reference.md:857:  "profiles": {
+skills/linear/references/ltui-command-reference.md:861:  "defaultProfile": "default"
+skills/linear/references/ltui-command-reference.md:868:  "profile": "default",
+skills/macos/liquid-glass/SKILL.md:63:  shared glass background, for example a profile/avatar item.
+skills/macos/signing-entitlements/SKILL.md:50:- If the real issue is a build setting or provisioning profile, say so directly.
+skills/macos/test-triage/SKILL.md:28:   - Environment or fixture setup issue
+skills/macos/window-management/SKILL.md:63:  between the video content and the controls so AVKit or transport controls keep
+skills/planning-workflow/SKILL.md:120:### Socratic plan questions
+skills/planning-workflow/SKILL.md:125:2. **Consumers** — which contracts this change alters, who consumes each today, and how you will know each still works.
+skills/planning-workflow/SKILL.md:126:3. **Siblings** — the other instances of the pattern you are fixing.
+skills/planning-workflow/SKILL.md:128:5. **Falsification** — what would make this change wrong, and which test catches it.
+skills/planning-workflow/SKILL.md:130:7. **Untested** — what this environment cannot verify and the residual risk, which feeds the review "Not examined:" list.
+skills/planning-workflow/SKILL.md:131:8. **Expansion log** — a living record of where you went beyond the ask and why it protects the outcome.
+skills/planning-workflow/SKILL.md:14:> **Understanding and protecting existing behavior around your change is never scope creep — it is the cost of the change.** When you change a contract, its consumers are part of your change whether or not the plan names them. When you fix one instance of a pattern, its siblings are part of the question you were asked. Reading, tracing, and reporting **within authorized surfaces — code, tests, documentation, and supported diagnostics; never secrets, production data, or private persistence** — is always free.
+skills/planning-workflow/SKILL.md:154:20. Decisions / Deviations log
+skills/planning-workflow/SKILL.md:166:Use a visually distinct warning/callout style and link each unresolved decision from the near-top table of contents or summary so it cannot be missed. Keep the plan non-execution-ready until the reviewer resolves every required decision. After feedback arrives, replace the unresolved block with the chosen decision in `Locked decisions` and append the choice and rationale to `Decisions / Deviations log`.
+skills/planning-workflow/SKILL.md:16:> The test, when unsure: is this work making something *new* happen, or keeping something *existing* working while I make my change? The first needs an expansion-log entry — and owner approval if it changes product behavior, public contracts, persistence, ownership, or release behavior. The second is yours.
+skills/planning-workflow/SKILL.md:212:- lock canonical contracts, schemas, fixtures, payloads, or evidence sources before downstream phases depend on them,
+skills/planning-workflow/SKILL.md:220:- Preserve completed items and append-only deviation/history sections when regenerating a plan.
+skills/planning-workflow/SKILL.md:253:- `discovery` means planning evidence is still being gathered and the work is not yet plan-finalization-ready; it is a pre-handoff state, not a substitute for a written research handoff.
+skills/planning-workflow/SKILL.md:305:- keep deviations and migration notes append-only,
+skills/planning-workflow/SKILL.md:84:Add a **Contract and distributed-integration inventory** section when either trigger applies. For every exact contract, record the source of truth, producer, consumer, dependent documentation/examples, and the real cross-boundary test. Prefer one shared executable definition, typed schema, or single contract artifact over duplicated fixtures or copied prose. Before planning dependent edits, reread the current source definition.
+skills/planning-workflow/SKILL.md:84:Add a **Contract and distributed-integration inventory** section when either trigger applies. For every exact contract, record the source of truth, producer, consumer, dependent documentation/examples, and the real cross-boundary test. Prefer one shared executable definition, typed schema, or single contract artifact over duplicated fixtures or copied prose. Before planning dependent edits, reread the current source definition.
+skills/planning-workflow/SKILL.md:95:- Plan complete promised slices, not skeletons. Every claimed functional outcome must be connected, usable, and verifiable within its stated scope, without required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
+skills/pre-pr-implementation-review/SKILL.md:18:Preserve the canonical result exactly. In particular, when called from `run-plan`, a passing gate remains `OPEN_PR_READY` and hands control back to the caller for final verification, base freshness, commit, push, PR creation, and local merge-readiness checking.
+skills/repo-agents-bootstrap/SKILL.md:52:- Update stale fixtures/tests when locked contracts, payloads, schemas, or evidence sources change.
+skills/repo-agents-bootstrap/references/plan_agents_template.md:29:- Contract, fixture, parity, or evidence-source expectations unique to this repo.
+skills/reviewed-html-plan/SKILL.md:108:7. Ack and resolve only after the plan actually addresses the comment; after the user chooses, move the result into `Locked decisions` and append the rationale to `Decisions / Deviations log`.
+skills/reviewed-html-plan/SKILL.md:144:Invoke Pi's native `planner` subagent with `subagent_type: "planner"` and capture the returned result in `thoughts/validation/<slug>-plan-review.md`. The planner is read-only for this call: the coordinating agent writes the returned review artifact and remains the only authority that may edit the plan. Do not launch separate Codex or Claude Code sessions and do not require Herdr transport. Launch `planner` via `Agent` with the `isolation` property omitted entirely; never set `isolation: "worktree"`. Inspect the final tool arguments and remove that property before launch. The review must still work in any clean, dirty, detached, or isolated state if the harness itself changes the launch topology. Reuse the candidate-visibility contract from `skills/autoreview/SKILL.md`: put the absolute `TARGET_CHECKOUT`, coordinator HEAD/status, and changed/untracked plan paths in the packet; require provenance (`CWD`, `REVIEW_ROOT`, `HEAD`, `STATUS_SHORT`, and `REVIEW_SOURCE`). If launch CWD differs, the reviewer must inspect `TARGET_CHECKOUT` directly with path-qualified reads and `git -C`. Never discard or refuse a visible plan review solely because the launch checkout is temporary, isolated, clean, or dirty. If a genuinely unavailable dirty portion matters, preserve findings over visible content and run at most one narrowed follow-up with the missing patch or target paths. The reviewer must return a concrete readiness verdict; invalid, empty, tool-only, provider-error, or incomplete output is a review-infrastructure failure and receives at most one narrower rerun.
+skills/reviewed-html-plan/SKILL.md:144:Invoke Pi's native `planner` subagent with `subagent_type: "planner"` and capture the returned result in `thoughts/validation/<slug>-plan-review.md`. The planner is read-only for this call: the coordinating agent writes the returned review artifact and remains the only authority that may edit the plan. Do not launch separate Codex or Claude Code sessions and do not require Herdr transport. Launch `planner` via `Agent` with the `isolation` property omitted entirely; never set `isolation: "worktree"`. Inspect the final tool arguments and remove that property before launch. The review must still work in any clean, dirty, detached, or isolated state if the harness itself changes the launch topology. Reuse the candidate-visibility contract from `skills/autoreview/SKILL.md`: put the absolute `TARGET_CHECKOUT`, coordinator HEAD/status, and changed/untracked plan paths in the packet; require provenance (`CWD`, `REVIEW_ROOT`, `HEAD`, `STATUS_SHORT`, and `REVIEW_SOURCE`). If launch CWD differs, the reviewer must inspect `TARGET_CHECKOUT` directly with path-qualified reads and `git -C`. Never discard or refuse a visible plan review solely because the launch checkout is temporary, isolated, clean, or dirty. If a genuinely unavailable dirty portion matters, preserve findings over visible content and run at most one narrowed follow-up with the missing patch or target paths. The reviewer must return a concrete readiness verdict; invalid, empty, tool-only, provider-error, or incomplete output is a review-infrastructure failure and receives at most one narrower rerun.
+skills/reviewed-html-plan/SKILL.md:165:- `TARGET_CHECKOUT`: the absolute candidate checkout path,
+skills/reviewed-html-plan/SKILL.md:169:- required reply provenance: `CWD`, `REVIEW_ROOT`, `HEAD`, `STATUS_SHORT`, and `REVIEW_SOURCE`,
+skills/reviewed-html-plan/SKILL.md:176:- instruction to avoid adjacent implementation expansion,
+skills/reviewed-html-plan/SKILL.md:184:- whether scope and non-goals prevent expansion,
+skills/reviewed-html-plan/SKILL.md:188:- whether any triggered Contract and distributed-integration inventory names an actual source of truth, source-search-backed producer/consumer or production-site set, meaningful dimensions, cross-boundary or real-dispatch proof, and an honest coverage declaration; reject helper-only, wrapper-only, middleware-only, or event-existence-only completion claims,
+skills/reviewed-html-plan/SKILL.md:195:Do not confuse an accepted plan-review verdict with an implementation-specific aggregate token. When each required leg is nonce-valid, fingerprint-valid, complete, and returns `PLAN_EXECUTION_READY`, the plan-review gate passes by substance even if a generic helper mistakenly reports infrastructure failure because it only recognizes an implementation green token such as `PASS` (or legacy `CLEAN_FOR_PR`). Record that condition as an orchestrator profile mismatch, preserve the accepted per-leg evidence, and do not rerun completed reviewers solely to satisfy the helper. Non-blocking `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, or `DISAGREE_REPO_EVIDENCE` observations may coexist with `PLAN_EXECUTION_READY`; readiness requires no blocking gap and complete assigned coverage, not an observation-free response.
+skills/reviewed-html-plan/SKILL.md:275:3. the fixed implementation profile: `openai-codex/gpt-5.6-sol` at medium reasoning, regardless of the planning session's model; and
+skills/reviewed-html-plan/SKILL.md:282:  --summary "Operator received the execution-ready status, changes, fixed Sol-medium profile, and remaining steps"
+skills/reviewed-html-plan/SKILL.md:66:- canonical content: status, product-owner context, What's new, goal, Decision Attention / Low-confidence Areas, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
+skills/reviewed-html-plan/SKILL.md:71:- when discovery finds an exact contract that types cannot fully verify or behavior distributed across production sites, a `Contract and distributed-integration inventory` with the source of truth; producer/consumer or source-search-backed operation rows; dependent docs/examples; cross-boundary or production-path proof; reconciliation status; and an exhaustive-by-site, exhaustive-by-family, or justified-representative coverage declaration. The plan must say `None identified, based on <source search>` when neither trigger applies. Helpers, wrappers, middleware, and event-existence tests do not close a distributed outcome; contractual documented CLI forms execute through the actual parser,
+skills/reviewed-html-plan/SKILL.md:74:If a prior reviewed plan exists, preserve truthful completed progress, stable IDs where possible, and append-only decisions/deviations history.
+skills/run-plan/SKILL.md:128:- **Introduced** (caused or newly exposed by this branch) vs. **inherited** (reproducible at the merge-base or on the target branch). Inherited requires reproduction evidence at the merge-base or on the target branch, not inference from the failure's age — and the disposition rule still governs: a failure in a domain this change newly makes reachable is introduced regardless of where the defect predates the branch.
+skills/run-plan/SKILL.md:155:# fixed Sol-medium profile, and remaining steps. After direct approval this launches
+skills/run-plan/SKILL.md:159:delivery verify-implementation-profile
+skills/run-plan/SKILL.md:187:   - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, and—when the run is a Herdr delivery worktree—the visible adjacent Grok 4.5 completeness-review loop to `COMPLETE` or an explicit waiver, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
+skills/run-plan/SKILL.md:195:Execute <plan path> through the full scoped run-plan lifecycle without expanding beyond the plan contract: establish scope, align any registered Doct plan state, implement every unfinished PR-reviewable in-scope phase, preserve deployment/promotion/post-merge validation as non-blocking delivery obligations, run required targeted and final pre-merge verification, complete implementation-stage PM review, complete runtime-native scoped quality review, complete the active-harness reviewer-subagent pre-PR implementation review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, check base freshness, commit only scoped changes, push, open a PR against <target branch or the plan's/repository's normal integration branch>, inspect the PR for existing actionable feedback and mergeability evidence, and finish only when local merge-readiness consensus is satisfied. Do not stop at implementation complete, review clean, `OPEN_PR_READY`, or PR created. Do not mark complete until fresh evidence proves all actionable PR feedback already present has been addressed, any feedback-triggered code changes have rerun required verification and review gates, the branch is current or safely rebased as needed, and applicable review agents agree by substance that the current change is ready to merge locally. Do not wait for slow or absent external feedback, a Codex PR thumbs-up, `APPROVED` reviewDecision, or another explicit approval after local review-agent consensus is clean.
+skills/run-plan/SKILL.md:232:4. Update the source plan progress only when that phase is actually complete.
+skills/run-plan/SKILL.md:283:For every reviewer, use bounded scope and bounded exploration. Give each reviewer a concrete review packet: plan scope, changed files, diff summary, verification results, named touched surfaces, the specific failure families to check, and `TARGET_CHECKOUT` with the coordinator's HEAD/status snapshot. Every Pi `Agent` reviewer call must omit the `isolation` property entirely; never set `isolation: "worktree"`. Inspect the final tool arguments and remove that property before launch. Staged, unstaged, and untracked changes must be visible from the live checkout. If the harness itself isolates despite omission, do not refuse or discard the review: the reviewer must inspect `TARGET_CHECKOUT` directly. Tool outputs should be narrow: prefer exact file reads with offsets/limits and `rg -n` on changed files over repo-wide dumps. Do not use parent-side `max_turns` as the primary bounding mechanism for reviewer completion; hard turn caps can truncate the final verdict and produce unusable output. Bound the assigned scope instead.
+skills/run-plan/SKILL.md:364:**Launch in the live checkout:** follow the autoreview candidate-visibility contract for every run-plan reviewer launch (scoped quality review, pre-PR gate, targeted rereview, and adversarial pass). In Pi, omit the `isolation` property entirely from every reviewer `Agent` call; requesting `isolation: "worktree"` is a workflow violation. Every packet must still name the absolute `TARGET_CHECKOUT` as a safety fallback; if the harness itself isolates despite omission, the reviewer inspects that target directly. Never turn a visible-code review into an infrastructure failure solely because of CWD or worktree state. If a dirty portion is genuinely unavailable, preserve the findings over visible code and run at most one targeted follow-up over the missing patch/paths.
+skills/run-plan/SKILL.md:411:The **content identity** of a candidate is the combined hash of: the committed diff against the merge-base with the target branch (`git diff "$(git merge-base origin/<target> HEAD)"..HEAD`), the staged diff, the unstaged diff, and a deterministic untracked-path manifest (sorted paths with type/mode and content hash). This reviewer fingerprint uses the merge-base diff hash rather than a HEAD commit component: it identifies the change content — committed or not — while ignoring commit SHAs. Two candidates with equal content identity carry the same change; a rebase that alters only SHAs leaves it unchanged.
+skills/run-plan/SKILL.md:418:6. If conflicts affect out-of-scope files, require unclear product decisions, or cannot be resolved without destructive git operations, stop with a base freshness blocker.
+skills/run-plan/SKILL.md:426:When implementation, scoped reviews, implementation-stage PM review, the applicable reviewer-subagent pre-PR gate status, visible completeness review for a Herdr delivery run, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run. An explicit operator instruction to open the PR regardless of testing or review status bypasses only those testing/review gates and requires truthful disclosure; it does not turn skipped or failing evidence into a passing or merge-ready result.
+skills/run-plan/SKILL.md:446:- base freshness and mergeability/rebase status before PR creation,
+skills/run-plan/SKILL.md:467:- GitHub reports the PR as mergeable with the destination branch, or GitHub mergeability is unavailable/unknown but a fresh base-freshness check shows no known merge conflict.
+skills/run-plan/SKILL.md:46:- Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
+skills/run-plan/SKILL.md:488:10. Rebase onto the destination branch when GitHub reports the branch out of date, stale, conflicted, or blocked by base freshness, but only when conflicts are absent or limited to scoped files and do not require a product decision.
+skills/run-plan/SKILL.md:488:10. Rebase onto the destination branch when GitHub reports the branch out of date, stale, conflicted, or blocked by base freshness, but only when conflicts are absent or limited to scoped files and do not require a product decision.
+skills/run-plan/SKILL.md:491:13. Recheck once after fixes or rebase to confirm GitHub shows the PR as mergeable, or that mergeability is unavailable/unknown with no known conflict from the fresh base-freshness check.
+skills/run-plan/SKILL.md:49:- Do not mark the active run state complete until local merge-readiness consensus is established: final verification passed, applicable review agents agree by substance that there are no unresolved blocking in-scope findings, scoped PR feedback already present has been addressed, and the PR is mergeable with the destination branch or has no known merge conflict when GitHub cannot provide a final mergeability value.
+skills/run-plan/SKILL.md:520:- A true blocker must be something the agent cannot resolve by scoped fixes or a fresh local/base-freshness check, such as lost GitHub authentication, a closed/deleted PR, a force-push/base-branch conflict requiring a product decision, failing required checks caused by this branch, `QUESTION` feedback that needs the user, or an exhausted unified review-cycle budget with unresolved blocking review risk. Pending deployment or post-merge observation is not a run-plan blocker.
+skills/run-plan/SKILL.md:523:Use GitHub product surfaces for this check:
+skills/run-plan/SKILL.md:579:If a required check or GitHub mergeability is temporarily unavailable and a bounded wait is needed, start a short-lived `process` monitor for that signal only; stop it once merge-readiness can be determined.
+skills/run-plan/SKILL.md:607:TARGET_CHECKOUT: <absolute path to the candidate checkout>
+skills/run-plan/SKILL.md:613:- REVIEW_ROOT: <absolute checkout or artifact path actually reviewed>
+skills/run-plan/SKILL.md:616:- REVIEW_SOURCE: <target-live-worktree | launch-checkout | supplied-diff>
+skills/run-plan/SKILL.md:617:Review visible candidate code in any clean, dirty, staged, unstaged, untracked, detached, or isolated state. If launch CWD differs from `TARGET_CHECKOUT`, inspect the target directly with path-qualified reads and `git -C`. Never return `REVIEW_INFRASTRUCTURE_FAILURE` solely because of launch CWD or worktree state; disclose genuinely unavailable portions under `Not examined:` while still reviewing available code.
+skills/run-plan/SKILL.md:68:- a delivery ledger exists and is not being entered from the dedicated implementation agent pinned to `openai-codex/gpt-5.6-sol` at medium, or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, current operator approval, and successful implementation-agent launch record; run `delivery verify-implementation-profile` before code work and never treat readiness metadata, a generic Doct comment/action, a quiet listener, an old approval, or the planning agent's runtime as implementation authorization,
+skills/run-plan/SKILL.md:718:- base freshness and rebase status,
+skills/supervise/SKILL.md:28:Record the supervisor's agent name and pane ID in the plan's session metadata (expansion log header). If no supervisor can be started, record `SUPERVISOR: none — <reason>` there instead; the pre-PR review surfaces that to the human.
+skills/supervise/SKILL.md:3:description: Attach a trajectory-guarding supervisor to a worker coding agent in an adjacent Herdr pane when the operator explicitly asks for supervision. It is never started automatically by plan execution (run-plan / dev:run). The supervisor guards outcome aim and expansion reasoning; it never fences investigation.
+skills/supervise/SKILL.md:40:5. On `PROCEED`: continue. On `REVISE`: address the items or record a reasoned disagreement in the expansion log, then submit a fresh request with a **new id**. On deadline expiry with no matching receipt: proceed, recording `SUPERVISOR: timeout at <checkpoint>[<id>]` in the expansion log.
+skills/supervise/SKILL.md:42:Mid-build, at each phase boundary, the worker sends a fire-and-forget ping — `herdr agent prompt supervisor-<worker-name> "PHASE COMPLETE: <n> — plan <path>"` with **no `--wait`** — and acknowledges any resulting `SUPERVISOR NUDGE:` in its next expansion-log entry. Nudges are advisory and never block.
+skills/supervise/SKILL.md:8:A supervisor is an optional second Pi session in an adjacent Herdr pane that watches a worker agent execute a plan. Launch it only when the operator explicitly requests supervision; plan-execution workflows must not start it by default. The worker owns technical judgment; the supervisor owns trajectory: is the work still aimed at the promised outcome, is expansion reasoned and logged, are the plan's Socratic answers and disclosures real. Its charter lives in `supervisor-prompt.md` beside this file.
+skills/supervise/supervisor-prompt.md:13:The plan file (especially its Socratic answers and expansion log), the working diff (`git diff` via bash), and the worker's recent activity (`herdr agent read <worker> --source recent-unwrapped`). You are not required to read the whole repository; go deeper only when something you read doesn't add up.
+skills/supervise/supervisor-prompt.md:19:- **Checkpoint requests** — a prompt of the form `CHECKPOINT REQUEST[<id>]: <plan-ready|pre-pr> — plan <path>`. Read the plan, diff, and expansion log, then reply with exactly one line at the end of your response: `CHECKPOINT[<id>]: PROCEED` or `CHECKPOINT[<id>]: REVISE — <specific items>`. The id in your reply must match the request. Judge plan-ready checkpoints on whether the Socratic answers are real (named artifacts, evidence-backed N/A) — not boilerplate. Judge pre-PR checkpoints on whether the expansion log is reconciled, disclosures are present, and the proof tests exercise customer-visible behavior rather than the implementation's own pathway.
+skills/supervise/supervisor-prompt.md:20:- **Phase-boundary pings** — `PHASE COMPLETE: <n> — plan <path>`. Read what changed. If something warrants attention, send one advisory nudge: `herdr agent prompt <worker> "SUPERVISOR NUDGE: <observation>"`. Nudges are advisory; the worker acknowledges them in its expansion log but is not blocked by them.
+skills/supervise/supervisor-prompt.md:29:- **Unreasoned expansion** — product-changing work absent from the expansion log. This is the thing the worker won't catch about itself.
+skills/supervise/supervisor-prompt.md:32:- **Boilerplate Socratic answers** — restated goals, unsupported "N/A", answers with no named artifacts. An evidence-backed "Not applicable because <evidence>" is legitimate; challenge only unsupported ones.
+skills/supervise/supervisor-prompt.md:33:- **Verification theater** — tests that mirror the implementation's own pathway rather than customer behavior; green claims missing their "Not examined:" disclosure.
+skills/supervise/supervisor-prompt.md:37:You may: nudge and refocus; require an expansion-log entry before related work continues; recommend parking optional technical cleanup (parked = captured as an issue, not deleted); escalate to the human in your own pane.
+skills/supervise/supervisor-prompt.md:41:Product-changing expansions — new or changed product behavior, public contracts, persistence formats, ownership, release behavior — are the human's to approve. You escalate these; you never approve them yourself.
+skills/supervise/supervisor-prompt.md:7:The worker owns technical judgment: where to look, what to test, what its change requires. You own trajectory and budget judgment: whether the work still serves the promised outcome, whether exploration is still producing decisions, and whether expansion is reasoned. You are a counterweight, not a fence.
+skills/tdd-test-writer/SKILL.md:14:3. Write behavior-focused tests that fail for the expected behavioral reason, not because of syntax, setup, or an unavailable fixture.
+skills/tdd-test-writer/SKILL.md:17:6. Reuse the repository's existing runner, naming, fixture, and helper conventions unless the accepted scope requires a change.
+skills/tdd-test-writer/SKILL.md:31:- **Exact contract trigger:** When serialized data, positional data, configuration, flags, paths, headers, payloads, migrations, or documented CLI forms are contractual, test the actual producer-to-consumer cross-boundary path or the nearest deterministic external-service boundary. Reuse the shared schema/contract artifact where available rather than duplicating fixtures.
+skills/tdd-test-writer/SKILL.md:34:- **External deterministic boundary:** When an external service sits between components, prove the actual request/response or serialized boundary with the supported deterministic fake, capture, or fixture. Do not require an impossible in-process round trip.
+skills/tdd-test-writer/SKILL.md:40:Write or update only the test files and necessary test fixtures. Run the narrowest command that executes the changed behavior. Confirm the failure is caused by the missing or incorrect production behavior. If the failure is a test problem, repair the test and rerun it while production code remains untouched.
+skills/tdd-test-writer/SKILL.md:74:- The test can reject a helper-only or disconnected-fixture implementation when a boundary or distributed-behavior trigger applies.
+test_herdr_remote_deploy.sh:10:mkdir -p "$FIXTURE_REPO/scripts" "$FIXTURE_REPO/herdr" "$FIXTURE_REPO/kitty" "$FAKE_BIN"
+test_herdr_remote_deploy.sh:12:cp "$REPO_ROOT/scripts/install-kitty-remote-hosts.sh" "$FIXTURE_REPO/scripts/"
+test_herdr_remote_deploy.sh:13:printf '#!/usr/bin/env bash\nexit 23\n' > "$FIXTURE_REPO/herdr/install.sh"
+test_herdr_remote_deploy.sh:14:printf 'test-config = true\n' > "$FIXTURE_REPO/herdr/config.toml"
+test_herdr_remote_deploy.sh:15:printf '#!/usr/bin/env bash\ntouch "$KITTY_TEST_MARKER"\n' > "$FIXTURE_REPO/kitty/install.sh"
+test_herdr_remote_deploy.sh:16:printf '#!/usr/bin/env bash\nexit 0\n' > "$FIXTURE_REPO/scripts/clipssh"
+test_herdr_remote_deploy.sh:17:printf '#!/usr/bin/env bash\nexit 0\n' > "$FIXTURE_REPO/scripts/kitty-paste-image-to-ssh"
+test_herdr_remote_deploy.sh:31:    bash "$FIXTURE_REPO/scripts/install-kitty-remote-hosts.sh" >/dev/null 2>&1; then
+test_herdr_remote_deploy.sh:7:FIXTURE_REPO="$TMP_ROOT/repo"
+test_install_shared_skills.sh:1098:    'consumer',
+test_install_shared_skills.sh:1119:    'producers and consumers',
+test_install_shared_skills.sh:1136:        'source of truth; producer/consumer or source-derived inventory',
+test_install_shared_skills.sh:1222:    'allowedConsumers': ['codex', 'claude', 'pi'],
+test_install_shared_skills.sh:1252:    '_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md': [
+test_install_shared_skills.sh:1255:    '_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md': [
+test_install_shared_skills.sh:1267:    '_hermes/default/profiles/nerd/skills/software-development/test-driven-development/SKILL.md': [
+test_install_shared_skills.sh:1344:    Path('_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md'),
+test_install_shared_skills.sh:1345:    Path('_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md'),
+test_install_shared_skills.sh:1373:    Path('_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md'),
+test_install_shared_skills.sh:1374:    Path('_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md'),
+test_install_shared_skills.sh:1567:    Path('_hermes/default/profiles/nerd/skills/software-development/plan/SKILL.md'),
+test_install_shared_skills.sh:1568:    Path('_hermes/default/profiles/nerd/skills/software-development/writing-plans/SKILL.md'),
+test_install_shared_skills.sh:1625:    if 'pi' in meta.get('allowedConsumers', [])
+test_install_shared_skills.sh:1626:    and 'codex' not in meta.get('allowedConsumers', [])
+test_install_shared_skills.sh:1685:  cmp "scripts/review_orchestration.py" "$home/.agents/scripts/review_orchestration.py" || return 1
+test_install_shared_skills.sh:1686:  [[ -x "$home/.agents/scripts/review_orchestration.py" ]] || return 1
+test_install_shared_skills.sh:1687:  HOME="$home" "$home/.agents/scripts/review_orchestration.py" --help >/dev/null || return 1
+test_install_shared_skills.sh:1749:  assert_file_contains "thoughts/archive/plans/skill-consolidation-to-agents.md" '- [x] P4 - Validate migration behavior, preservation rules, consumer compatibility wiring, and final repo alignment.' || return 1
+test_install_shared_skills.sh:1773:    assert_file_contains "$prompt" 'audit the fixed candidate branch/diff for sibling instances in the named family' || return 1
+test_install_shared_skills.sh:386:find_consumer_backup_dir() {
+test_install_shared_skills.sh:388:  local consumer="$2"
+test_install_shared_skills.sh:390:  find "$home/.agents/skill-backups/ai-configs" -path "*/consumers/$consumer/$skill" -type d 2>/dev/null | sort | head -n 1
+test_install_shared_skills.sh:395:  local profile="$2"
+test_install_shared_skills.sh:397:  find "$home/.agents/skill-backups/ai-configs" -path "*/optional/$profile/$skill" -type d 2>/dev/null | sort | head -n 1
+test_install_shared_skills.sh:487:  claude_backup_dir="$(find_consumer_backup_dir "$home" claude linear)"
+test_install_shared_skills.sh:824:    "git:github.com/adnichols/pi-codex-goal",
+test_install_shared_skills.sh:839:  assert_file_contains "$output_file" 'Removing retired Pi goal package git:github.com/adnichols/pi-codex-goal' || return 1
+test_install_shared_skills.sh:862:    "git:github.com/edxeth/pi-gpt-config",
+test_install_shared_skills.sh:873:  assert_file_contains "$output_file" 'Removing deprecated Pi package git:github.com/edxeth/pi-gpt-config' || return 1
+test_install_shared_skills.sh:875:  assert_file_not_contains "$settings_path" 'git:github.com/edxeth/pi-gpt-config' || return 1
+test_install_shared_skills.sh:923:packages.append("git:github.com/adnichols/pi-interactive-shell")
+test_install_shared_skills.sh:927:  if HOME="$home" PATH="$fake_bin:$PATH" PI_AGENT_DIR="$home/.pi/agent" bash "$SCRIPT_DIR/scripts/verify-pi-install.sh" >"$output_file" 2>&1; then
+test_install_shared_skills.sh:952:    "git:github.com/adnichols/pi-interactive-shell",
+test_install_shared_skills.sh:963:  assert_file_contains "$output_file" 'Removing retired pi-interactive-shell package git:github.com/adnichols/pi-interactive-shell' || return 1
+tests/fixtures/heddle-dual-review/manifest.json:14:      "profile": "gpt-5.6-terra/high/read-only/no-approval",
+tests/fixtures/heddle-dual-review/manifest.json:20:      "profile": "claude-sonnet-5/xhigh/Read,Grep,Glob",
+tests/fixtures/heddle-dual-review/manifest.json:2:  "fixture_version": "heddle-dual-review-v1",
+tests/test_review_orchestration.py:1470:    def test_prompt_stall_is_transport_failure_without_unusable_output_retry(self):
+tests/test_review_orchestration.py:1481:                "provider_or_transport_failure",
+tests/test_review_orchestration.py:17:from scripts.benchmark_review_orchestration import compare, fixture_prompt, load_fixture, run_benchmark
+tests/test_review_orchestration.py:1960:    def test_non_transport_untracked_mutation_remains_stale(self):
+tests/test_review_orchestration.py:2279:class BenchmarkFixtureTests(unittest.TestCase):
+tests/test_review_orchestration.py:2280:    fixture = Path(__file__).parent / "fixtures" / "heddle-dual-review"
+tests/test_review_orchestration.py:2282:    def copied_fixture(self, root):
+tests/test_review_orchestration.py:2283:        target = Path(root) / "fixture"
+tests/test_review_orchestration.py:2284:        shutil.copytree(self.fixture, target)
+tests/test_review_orchestration.py:2287:    def test_fixture_prompt_contains_bounded_coverage_and_verification_evidence(self):
+tests/test_review_orchestration.py:2288:        manifest = load_fixture(self.fixture)
+tests/test_review_orchestration.py:2289:        prompt = fixture_prompt(manifest, "codex")
+tests/test_review_orchestration.py:2296:    def test_fixture_rejects_missing_changed_file_coverage(self):
+tests/test_review_orchestration.py:2298:            fixture = self.copied_fixture(temp)
+tests/test_review_orchestration.py:2299:            verification = json.loads((fixture / "verification.json").read_text())
+tests/test_review_orchestration.py:2301:            (fixture / "verification.json").write_text(json.dumps(verification))
+tests/test_review_orchestration.py:2303:                load_fixture(fixture)
+tests/test_review_orchestration.py:2305:    def test_fixture_rejects_patch_manifest_changed_file_mismatch(self):
+tests/test_review_orchestration.py:2307:            fixture = self.copied_fixture(temp)
+tests/test_review_orchestration.py:2308:            patch = (fixture / "candidate.patch").read_text().replace(
+tests/test_review_orchestration.py:2311:            (fixture / "candidate.patch").write_text(patch)
+tests/test_review_orchestration.py:2313:                load_fixture(fixture)
+tests/test_review_orchestration.py:2315:    def test_fixture_rejects_mismatched_failure_family_assignments(self):
+tests/test_review_orchestration.py:2317:            fixture = self.copied_fixture(temp)
+tests/test_review_orchestration.py:2318:            verification = json.loads((fixture / "verification.json").read_text())
+tests/test_review_orchestration.py:2321:            (fixture / "verification.json").write_text(json.dumps(verification))
+tests/test_review_orchestration.py:2323:                load_fixture(fixture)
+tests/test_review_orchestration.py:2329:                fixture=str(self.fixture),
+tests/test_review_orchestration.py:2341:            self.assertIn("pre-created in-memory fixture reviewers", payload["startup"]["reason"])
+tests/test_review_orchestration.py:2359:                    fixture=str(self.fixture),
+tests/test_review_orchestration.py:2373:                    fixture=str(self.fixture),
+tests/test_review_orchestration.py:2391:    def test_fixture_rejects_missing_or_mismatched_fingerprint_checks(self):
+tests/test_review_orchestration.py:2393:            fixture = self.copied_fixture(temp)
+tests/test_review_orchestration.py:2394:            verification = json.loads((fixture / "verification.json").read_text())
+tests/test_review_orchestration.py:2396:            (fixture / "verification.json").write_text(json.dumps(verification))
+tests/test_review_orchestration.py:2398:                load_fixture(fixture)
+tests/test_review_orchestration.py:2401:            fixture = self.copied_fixture(temp)
+tests/test_review_orchestration.py:2402:            verification = json.loads((fixture / "verification.json").read_text())
+tests/test_review_orchestration.py:2404:            (fixture / "verification.json").write_text(json.dumps(verification))
+tests/test_review_orchestration.py:2406:                load_fixture(fixture)
+tests/test_review_orchestration.py:741:    def test_direct_call_rejects_shared_verdict_reclassification_before_transport(self):
+tests/test_review_orchestration.py:754:    def test_direct_call_rejects_unclassified_verdict_before_transport(self):
+tests/test_review_orchestration.py:839:    def test_direct_cleanup_supports_custom_pass_only_with_validated_request_profile(self):

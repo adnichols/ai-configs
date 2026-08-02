@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Changed
+
+- Centralized bounded Pi review-stack install, rollback, and verification surfaces in one validated manifest, with deterministic planner/reviewer transport probing and atomic private JSON receipts for local, transactional, and remote-host runs.
+- Added revision-checked blocking delivery-ledger writes, diagnostic completeness-response parsing, and install-receipt references that coexist in the delivery ledger.
+- Strengthened run-plan strict-suite partitioning, bounded failure inventory, owned scratch, and final committed-candidate checks; replaced the universal Socratic questionnaire with conditional evidence in existing plan-review sections.
+
 ## [Retire pi-side-agents] - 2026-07-16
 
 ### Removed

@@ -126,6 +126,16 @@ data["packages"] = packages
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(data, indent=2) + "\n")
 PY
+    if [[ "$source" == "npm:@tintinweb/pi-subagents" ]]; then
+      package="$HOME/.pi/agent/npm/node_modules/@tintinweb/pi-subagents"
+      mkdir -p "$package/src" "$package/dist"
+      printf '%s\n' 'isolation: agentConfig?.isolation ?? params.isolation,' >"$package/src/invocation-config.ts"
+      printf '%s\n' 'isolation: agentConfig?.isolation ?? params.isolation,' >"$package/dist/invocation-config.js"
+      printf '%s\n' 'export type IsolationMode = "worktree";' >"$package/src/types.ts"
+      printf '%s\n' 'export type IsolationMode = "worktree";' >"$package/dist/types.d.ts"
+      printf '%s\n' 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,' >"$package/src/custom-agents.ts"
+      printf '%s\n' 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,' >"$package/dist/custom-agents.js"
+    fi
     exit 0
     ;;
   update)
@@ -178,6 +188,24 @@ set -eu
 if [[ "${1:-}" == "ci" ]]; then
   mkdir -p node_modules/@cursor/sdk
   printf '{"name":"@cursor/sdk"}\n' > node_modules/@cursor/sdk/package.json
+  exit 0
+fi
+if [[ "${1:-}" == "install" ]]; then
+  shift
+  prefix=""
+  while [[ $# -gt 0 ]]; do
+    if [[ "$1" == "--prefix" ]]; then prefix="$2"; shift 2; else shift; fi
+  done
+  if [[ -n "$prefix" ]]; then
+    package="$prefix/node_modules/@tintinweb/pi-subagents"
+    mkdir -p "$package/src" "$package/dist"
+    printf '%s\n' 'isolation: agentConfig?.isolation ?? params.isolation,' >"$package/src/invocation-config.ts"
+    printf '%s\n' 'isolation: agentConfig?.isolation ?? params.isolation,' >"$package/dist/invocation-config.js"
+    printf '%s\n' 'export type IsolationMode = "worktree";' >"$package/src/types.ts"
+    printf '%s\n' 'export type IsolationMode = "worktree";' >"$package/dist/types.d.ts"
+    printf '%s\n' 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,' >"$package/src/custom-agents.ts"
+    printf '%s\n' 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,' >"$package/dist/custom-agents.js"
+  fi
 fi
 exit 0
 EOF

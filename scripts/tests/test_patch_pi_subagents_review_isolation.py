@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PATCH = ROOT / "scripts" / "patch_pi_subagents_review_isolation.py"
+PROBE = ROOT / "scripts" / "probe_pi_review_transport.py"
 
 
 class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
@@ -104,6 +105,60 @@ class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
             )
             self.assertNotEqual(0, result.returncode)
             self.assertIn("agent-config isolation precedence missing", result.stderr)
+
+    def test_probe_reports_effective_live_review_profiles_without_model_call(self):
+        with tempfile.TemporaryDirectory() as temp:
+            agent_dir = Path(temp)
+            package = agent_dir / "npm/node_modules/@tintinweb/pi-subagents"
+            for relative in ("src/invocation-config.ts", "dist/invocation-config.js"):
+                target = package / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("isolation: agentConfig?.isolation ?? params.isolation,\n")
+            agents = agent_dir / "agents"
+            agents.mkdir()
+            (agents / "planner.md").write_text(
+                "---\nname: planner\nmodel: openai-codex/gpt-5.6-sol\nreasoningEffort: medium\nisolation: none\n---\n"
+            )
+            (agents / "reviewer.md").write_text(
+                "---\nname: reviewer\nmodel: openai-codex/gpt-5.6-terra\nreasoningEffort: medium\nisolation: none\n---\n"
+            )
+            result = subprocess.run(
+                ["python3", str(PROBE), "--agent-dir", str(agent_dir), "--target-checkout", temp, "--json"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = __import__("json").loads(result.stdout)
+            self.assertEqual("pass", payload["status"])
+            self.assertEqual(str(Path(temp).resolve()), payload["targetCheckout"])
+            self.assertEqual("none", payload["profiles"]["reviewer"]["effectiveIsolation"])
+            self.assertEqual("openai-codex/gpt-5.6-sol", payload["profiles"]["planner"]["model"])
+
+    def test_probe_fails_closed_on_incompatible_effective_isolation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            agent_dir = Path(temp)
+            package = agent_dir / "npm/node_modules/@tintinweb/pi-subagents"
+            for relative in ("src/invocation-config.ts", "dist/invocation-config.js"):
+                target = package / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("isolation: params.isolation ?? agentConfig?.isolation,\n")
+            agents = agent_dir / "agents"
+            agents.mkdir()
+            for name, model in (("planner", "openai-codex/gpt-5.6-sol"), ("reviewer", "openai-codex/gpt-5.6-terra")):
+                (agents / f"{name}.md").write_text(
+                    f"---\nname: {name}\nmodel: {model}\nreasoningEffort: medium\nisolation: none\n---\n"
+                )
+            result = subprocess.run(
+                ["python3", str(PROBE), "--agent-dir", str(agent_dir), "--caller-isolation", "worktree", "--json"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertNotEqual(0, result.returncode)
+            payload = __import__("json").loads(result.stdout)
+            self.assertEqual("fail", payload["status"])
+            self.assertIn("caller isolation overrides", payload["reason"])
 
 
 if __name__ == "__main__":

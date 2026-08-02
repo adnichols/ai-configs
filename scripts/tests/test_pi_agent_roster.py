@@ -241,9 +241,16 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("patch_pi_subagents_review_isolation.py", installer)
         review_stack = installer.split("install_pi_review_stack() {", 1)[1].split("remove_retired_pi_goal_plugin() {", 1)[0]
         patch_index = review_stack.index("patch_pi_subagents_review_isolation.py")
-        for mutation in ('parent_metadata="$(mktemp)"', 'mkdir -p "$agent/prompts"', "install_pi_agents_from_repo", "for skill in autoreview"):
-            self.assertLess(patch_index, review_stack.index(mutation))
-        self.assertIn("return 1", review_stack[patch_index:review_stack.index('parent_metadata="$(mktemp)"')])
+        first_mutation = review_stack.index('parent_metadata="$(mktemp)"')
+        self.assertLess(patch_index, first_mutation)
+        self.assertIn("preflight_pi_review_stack_contract false", review_stack[:patch_index])
+        preflight = installer.split("preflight_pi_review_stack_contract() {", 1)[1].split("install_pi_review_stack() {", 1)[0]
+        self.assertIn("probe_pi_review_transport.py", preflight)
+        self.assertIn("pi-review-stack-managed-surfaces.json", review_stack)
+        self.assertIn('"$contract" list', review_stack)
+        self.assertGreaterEqual(installer.count("install_pi_review_stack full"), 3)
+        self.assertNotIn("for skill in autoreview", review_stack)
+        self.assertIn("return 1", review_stack[patch_index:first_mutation])
         readme = (ROOT / "_pi" / "README.md").read_text()
         self.assertIn("`planner` and `reviewer` declare `isolation: none`", readme)
 

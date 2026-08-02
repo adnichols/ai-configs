@@ -1,5 +1,6 @@
 import hashlib,json,os,stat,subprocess,tempfile,unittest
 from pathlib import Path
+from scripts.tests.workflow_fixture_axes import workflow_fixture_env
 ROOT=Path(__file__).resolve().parents[2]
 def manifest(root):
     result={}
@@ -22,7 +23,9 @@ class InstallTransactionTest(unittest.TestCase):
             target = package / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content)
-        return {**os.environ, 'HOME': str(home), **extra}
+        env=workflow_fixture_env(home=home,hub_state='unavailable',profile_root=home/'.config',transport_result='pass')
+        env.update(extra)
+        return env
 
     def assert_exact_installed_agents(self, home):
         source={path.name for path in (ROOT/'_pi/agents').iterdir()}
@@ -214,31 +217,43 @@ class InstallTransactionTest(unittest.TestCase):
             self.assertIn('required package not found', result.stderr)
             self.assertEqual(before, manifest(agent))
 
+    def test_full_pi_install_stages_transport_probe_before_managed_mutation(self):
+        with tempfile.TemporaryDirectory() as d:
+            home=Path(d);fake_bin=home/'fake-bin';fake_bin.mkdir();npm=fake_bin/'npm';npm.write_text('#!/usr/bin/env bash\nexit 9\n');npm.chmod(0o755);env={**os.environ,'HOME':d,'PATH':f'{fake_bin}:{os.environ["PATH"]}'}
+            result=subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+            self.assertNotEqual(result.returncode,0);self.assertIn('could not be staged for preflight',result.stderr)
+            for managed in (home/'.pi',home/'.agents',home/'.local/bin'):
+                self.assertFalse(managed.exists() or managed.is_symlink(),managed)
+
     def test_preexisting_agents_parent_metadata_is_not_mutated(self):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d);parents=[home/'.agents',home/'.agents/skills',home/'.agents/scripts'];parents[1].mkdir(parents=True);parents[2].mkdir();os.chmod(parents[0],0o751);os.chmod(parents[1],0o753);os.chmod(parents[2],0o750);before=[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents];env=self.review_env(home)
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(before,[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents])
-    def test_symlinked_agents_or_skills_parents_install_successfully(self):
+    def test_symlinked_agents_or_skills_parents_are_rejected_without_external_mutation(self):
         for kind in ('agents','skills'):
             with self.subTest(kind=kind),tempfile.TemporaryDirectory() as d:
-                home=Path(d);external=self.symlinked_parents(home,kind);(external/'foreign').write_text('keep');targets=[external,external/'skills'] if kind=='agents' else [external];stamp=1_577_934_245_123_456_789
-                for index,target in enumerate(targets): os.utime(target,ns=(stamp+index,stamp+index+10))
-                before=[self.metadata(target) for target in targets];env=self.review_env(home)
-                subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
-                self.assertEqual(before,[self.metadata(target) for target in targets])
-                self.assertTrue((home/'.agents').is_symlink() if kind=='agents' else (home/'.agents/skills').is_symlink());self.assertEqual((external/'foreign').read_text(),'keep');self.assertTrue((home/'.agents/skills/codex-review-partner/SKILL.md').is_file())
+                home=Path(d);external=self.symlinked_parents(home,kind);(external/'foreign').write_text('keep');env=self.review_env(home);link=home/'.agents' if kind=='agents' else home/'.agents/skills';before_link=self.path_snapshot(link);before_external=manifest(external)
+                result=subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+                self.assertNotEqual(result.returncode,0);self.assertIn('managed rollback paths',result.stderr);self.assertEqual(before_link,self.path_snapshot(link));self.assertEqual(before_external,manifest(external))
     def test_transaction_rolls_back_every_structural_failpoint(self):
         for point in ('after-install','after-verify','after-parity','after-preflight','after-host'):
             with self.subTest(point=point),tempfile.TemporaryDirectory() as d:
                 home=Path(d);(home/'.pi').mkdir();(home/'.pi/foreign').write_text('old');env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT=point);before=manifest(home)
                 r=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                 self.assertNotEqual(r.returncode,0);self.assertEqual(before,manifest(home))
-    def test_bounded_install_replaces_runtime_symlink_without_touching_external_target(self):
+    def test_bounded_install_rejects_runtime_symlink_without_touching_external_target(self):
         with tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as external_d:
             home=Path(d);external=Path(external_d)/'runtime.py';external.write_text('external runtime\n');scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.symlink_to(external);env=self.review_env(home)
-            subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
-            self.assertFalse(runtime.is_symlink());self.assertEqual(runtime.read_bytes(),(ROOT/'scripts/review_orchestration.py').read_bytes());self.assertEqual(external.read_text(),'external runtime\n')
+            result=subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+            self.assertNotEqual(result.returncode,0);self.assertIn('managed rollback paths',result.stderr);self.assertTrue(runtime.is_symlink());self.assertEqual(external.read_text(),'external runtime\n')
+    def test_managed_link_leaf_rejects_foreign_symlink_without_touching_target(self):
+        for command in (['bash','install.sh','--pi-review-stack'],['bash','scripts/install-pi-transactionally.sh']):
+            with self.subTest(command=command[-1]),tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as external_d:
+                home=Path(d);external=Path(external_d)/'foreign-delivery';external.write_text('foreign\n');bin_dir=home/'.local/bin';bin_dir.mkdir(parents=True);link=bin_dir/'delivery';link.symlink_to(external);env=self.review_env(home);before_link=self.path_snapshot(link);before_external=self.path_snapshot(external)
+                result=subprocess.run(command,cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+                self.assertNotEqual(result.returncode,0);self.assertIn('foreign symlinks',result.stderr);self.assertEqual(before_link,self.path_snapshot(link));self.assertEqual(before_external,self.path_snapshot(external))
+
     def test_transaction_rollback_restores_exact_runtime_and_preserves_foreign_sibling(self):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d);scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.write_text('preexisting runtime\n');runtime.chmod(0o640);foreign=scripts/'caller-owned.py';foreign.write_text('keep sibling\n');env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-parity');before=manifest(home);before_metadata=self.metadata(scripts)
@@ -262,16 +277,16 @@ class InstallTransactionTest(unittest.TestCase):
             with self.subTest(command=command[-1]),tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as external_d:
                 home=Path(d);external=Path(external_d);nested=external/'nested';nested.mkdir();payload=nested/'payload.bin';payload.write_bytes(b'\x00external\xffcontent\n');os.chmod(external,0o751);os.chmod(nested,0o753);os.chmod(payload,0o640);stamp=1_577_934_245_123_456_789
                 for index,target in enumerate((external,nested,payload)): os.utime(target,ns=(stamp+index,stamp+index+10))
-                link=home/'.pi';link.symlink_to(external,target_is_directory=True);before_link=self.path_snapshot(link);before_external=self.path_snapshot(external);env={**os.environ,'HOME':d}
+                link=home/'.pi';link.symlink_to(external,target_is_directory=True);before_link=self.path_snapshot(link);before_external=self.path_snapshot(external);env={**os.environ,'HOME':d};receipt=home/'failure-receipt.json'
                 if failpoint: env['PI_REVIEW_STACK_FAILPOINT']=failpoint
-                result=subprocess.run(command,cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
-                self.assertNotEqual(result.returncode,0);self.assertIn('requires ~/.pi to be a real directory, not a symlink',result.stderr);self.assertEqual(before_link,self.path_snapshot(link));self.assertEqual(before_external,self.path_snapshot(external))
+                result=subprocess.run([*command,'--summary-json',str(receipt)],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+                self.assertNotEqual(result.returncode,0);self.assertIn('requires ~/.pi to be a real directory, not a symlink',result.stderr);self.assertEqual(before_link,self.path_snapshot(link));self.assertEqual(before_external,self.path_snapshot(external));summary=json.loads(receipt.read_text());self.assertEqual('failed',summary['status']);self.assertEqual('not_run',summary['transportProbe']['status']);self.assertFalse(summary['rollback']['attempted'])
     def test_nested_pi_symlink_is_rejected_without_touching_external_tree(self):
         for command in (['bash','install.sh','--pi-review-stack'],['bash','scripts/install-pi-transactionally.sh']):
             with self.subTest(command=command[-1]),tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as external_d:
                 home=Path(d);external=Path(external_d);(home/'.pi').mkdir();(home/'.pi/agent').symlink_to(external,target_is_directory=True);payload=external/'payload';payload.write_text('external');before_home=self.path_snapshot(home/'.pi');before_external=self.path_snapshot(external);env={**os.environ,'HOME':d}
                 result=subprocess.run(command,cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
-                self.assertNotEqual(result.returncode,0);self.assertIn('symlinks at managed ~/.pi paths',result.stderr);self.assertEqual(before_home,self.path_snapshot(home/'.pi'));self.assertEqual(before_external,self.path_snapshot(external))
+                self.assertNotEqual(result.returncode,0);self.assertIn('managed rollback paths',result.stderr);self.assertEqual(before_home,self.path_snapshot(home/'.pi'));self.assertEqual(before_external,self.path_snapshot(external))
     def test_transaction_rollback_preserves_preexisting_parent_modes(self):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d);skills=home/'.agents/skills';skills.mkdir(parents=True);os.chmod(home/'.agents',0o751);os.chmod(skills,0o753);env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-install');before=(stat.S_IMODE((home/'.agents').stat().st_mode),stat.S_IMODE(skills.stat().st_mode))
@@ -295,6 +310,13 @@ class InstallTransactionTest(unittest.TestCase):
                     __import__('time').sleep(.02)
                 else: process.kill();self.fail('transaction did not reach signal failpoint')
                 process.send_signal(getattr(__import__('signal'),signal_name));self.assertEqual(process.wait(timeout=30),expected);marker.unlink();self.assertEqual(before,manifest(home))
+    def test_transaction_receipts_cover_success_and_rollback(self):
+        for failpoint,expected_status,rollback_status in ((None,'success','not_needed'),('after-install','rolled_back','succeeded')):
+            with self.subTest(failpoint=failpoint),tempfile.TemporaryDirectory() as d:
+                home=Path(d);receipt=home/'receipt.json';extra={'PI_REVIEW_STACK_FAILPOINT':failpoint} if failpoint else {};env=self.review_env(home,**extra)
+                result=subprocess.run(['bash','scripts/install-pi-transactionally.sh','--summary-json',str(receipt)],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                self.assertEqual(0 if failpoint is None else 1,result.returncode)
+                payload=json.loads(receipt.read_text());self.assertEqual('transaction',payload['command']);self.assertEqual(expected_status,payload['status']);self.assertEqual(rollback_status,payload['rollback']['status']);self.assertEqual(failpoint is not None,payload['rollback']['attempted']);self.assertEqual('pass',payload['transportProbe']['status']);self.assertEqual('scripts/pi-review-stack-managed-surfaces.json',payload['managedSurfaceManifest']['path']);self.assertEqual(0o600,stat.S_IMODE(receipt.stat().st_mode))
     def test_full_check_only_does_not_repair_settings_or_web_search(self):
         with tempfile.TemporaryDirectory() as d:
             home=Path(d);agent=home/'.pi/agent';agent.mkdir(parents=True);(agent/'settings.json').write_text(json.dumps({'defaultProvider':'foreign','defaultModel':'foreign','enabledModels':['foreign/model']}));(home/'.pi/web-search.json').write_text(json.dumps({'summaryModel':'foreign/model'}));bin_dir=home/'bin';bin_dir.mkdir();pi=bin_dir/'pi';pi.write_text('#!/bin/sh\nexit 1\n');pi.chmod(0o755);before=manifest(home);env={**os.environ,'HOME':d,'PATH':f'{bin_dir}:{os.environ["PATH"]}'}
