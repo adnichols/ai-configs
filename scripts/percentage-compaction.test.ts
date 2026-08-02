@@ -60,6 +60,10 @@ const setup = (
 	const appendedEntries: Array<{ customType: string; data: any }> = [];
 	const emittedEvents: Array<{ channel: string; data: any }> = [];
 	const actionOrder: string[] = [];
+	let runtimeValid = true;
+	const assertRuntimeValid = () => {
+		if (!runtimeValid) throw new Error("stale extension runtime used");
+	};
 	let remainingSendMessageFailures = options.sendMessageThrows
 		? Number.POSITIVE_INFINITY
 		: 0;
@@ -70,13 +74,16 @@ const setup = (
 	const ctx = {
 		ui: {
 			notify: (message: string, level: string) => {
+				assertRuntimeValid();
 				notifications.push({ message, level });
 			},
 		},
 		compact: (options?: any) => {
+			assertRuntimeValid();
 			compactCalls.push(options ?? {});
 		},
 		getContextUsage: () => {
+			assertRuntimeValid();
 			const currentPercent =
 				typeof percent === "function" ? percent() : percent;
 			if (currentPercent === null) return null;
@@ -103,17 +110,20 @@ const setup = (
 			tools[tool.name] = tool;
 		},
 		appendEntry: (customType: string, data: any) => {
+			assertRuntimeValid();
 			actionOrder.push(`append:${customType}`);
 			appendedEntries.push({ customType, data });
 		},
 		events: {
 			emit: (channel: string, data: any) => {
+				assertRuntimeValid();
 				actionOrder.push(`emit:${channel}`);
 				emittedEvents.push({ channel, data });
 			},
 			on: () => () => {},
 		},
 		sendMessage: (message: any, messageOptions: any) => {
+			assertRuntimeValid();
 			if (remainingSendMessageFailures > 0) {
 				remainingSendMessageFailures -= 1;
 				throw new Error("send failed");
@@ -137,6 +147,9 @@ const setup = (
 		emittedEvents,
 		actionOrder,
 		ctx,
+		invalidateRuntime: () => {
+			runtimeValid = false;
+		},
 	};
 };
 
@@ -1521,6 +1534,44 @@ describe("percentage-compaction extension", () => {
 				(entry) => entry.message.customType === "pi-vcc-continuation",
 			),
 		).toHaveLength(0);
+	});
+
+	test("late compact-now error callback after reload shutdown ignores the stale runtime", async () => {
+		const h = setup(20, true, { authority: "coordinator" });
+		await h.commands["compact-now"].handler("", h.ctx);
+		expect(h.compactCalls).toHaveLength(1);
+
+		await h.handlers.session_shutdown?.({ reason: "reload" }, h.ctx);
+		h.invalidateRuntime();
+
+		expect(() =>
+			h.compactCalls[0].onError(new Error("provider failed")),
+		).not.toThrow();
+		expect(h.appendedEntries).toHaveLength(0);
+		expect(h.emittedEvents).toHaveLength(0);
+	});
+
+	test("late compaction completion callback after reload shutdown ignores the stale context", async () => {
+		const h = setup(20);
+		await h.commands["compact-now"].handler("", h.ctx);
+		expect(h.compactCalls).toHaveLength(1);
+
+		await h.handlers.session_shutdown?.({ reason: "reload" }, h.ctx);
+		h.invalidateRuntime();
+
+		expect(() => h.compactCalls[0].onComplete()).not.toThrow();
+	});
+
+	test("reload shutdown cancels a scheduled hard-backstop compaction before it uses stale context", async () => {
+		const h = setup(80.2);
+		await h.handlers.turn_end?.(assistantStop, h.ctx);
+		expect(h.compactCalls).toHaveLength(0);
+
+		await h.handlers.session_shutdown?.({ reason: "reload" }, h.ctx);
+		h.invalidateRuntime();
+		await delay(0);
+
+		expect(h.compactCalls).toHaveLength(0);
 	});
 
 	test("status reports nudge, strong, hard backstop, and last reason", async () => {

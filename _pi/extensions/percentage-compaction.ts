@@ -516,6 +516,7 @@ const publishContinuationSafetyReady = (
 };
 
 export default function (pi: ExtensionAPI) {
+	let runtimeActive = true;
 	let compactionInFlight = false;
 	let lastAutoCompactionPercent: number | undefined;
 	let lastNudgePercentBand: NudgeBand | undefined;
@@ -643,6 +644,7 @@ export default function (pi: ExtensionAPI) {
 		"Continue from where you left off; do not summarize this recovery message unless it changes the task state.";
 
 	const sendPendingNoCutContinuation = (ctx: ExtensionContext) => {
+		if (!runtimeActive) return;
 		const pending = pendingNoCutContinuation;
 		if (!pending) return;
 		if (!pending.startedAt) pending.startedAt = Date.now();
@@ -699,7 +701,12 @@ export default function (pi: ExtensionAPI) {
 		reason: PendingNoCutContinuation["reason"],
 		recovery: NoCutRecoveryOptions,
 	) => {
-		if (!recovery.interruptedActiveTurn || pendingNoCutContinuation) return;
+		if (
+			!runtimeActive ||
+			!recovery.interruptedActiveTurn ||
+			pendingNoCutContinuation
+		)
+			return;
 		pendingNoCutContinuation = {
 			reason,
 			usagePercent: recovery.usagePercent,
@@ -737,6 +744,7 @@ export default function (pi: ExtensionAPI) {
 		"Continue from where you left off; use vcc_recall if needed.";
 
 	const sendPendingCompactionContinuation = (ctx: ExtensionContext) => {
+		if (!runtimeActive) return;
 		const pending = pendingCompactionContinuation;
 		if (!pending) return;
 		if (!pending.startedAt) pending.startedAt = Date.now();
@@ -796,7 +804,7 @@ export default function (pi: ExtensionAPI) {
 		reason: PendingCompactionContinuation["reason"],
 		interrupted: InterruptedCompactionTurn | undefined,
 	) => {
-		if (!interrupted?.interrupted) return;
+		if (!runtimeActive || !interrupted?.interrupted) return;
 		if (deliveredCompactionContinuationAttemptId === attemptId) return;
 		if (pendingCompactionContinuation?.attemptId === attemptId) return;
 		pendingCompactionContinuation = {
@@ -904,7 +912,7 @@ export default function (pi: ExtensionAPI) {
 		ctx.compact({
 			customInstructions: options.customInstructions,
 			onComplete: () => {
-				if (currentCompactionAttemptId !== attemptId) return;
+				if (!runtimeActive || currentCompactionAttemptId !== attemptId) return;
 				if (options.ratchetPercent !== undefined)
 					lastAutoCompactionPercent = options.ratchetPercent;
 				noCutRetryState = undefined;
@@ -954,6 +962,7 @@ export default function (pi: ExtensionAPI) {
 				}
 			},
 			onError: (err: Error) => {
+				if (!runtimeActive) return;
 				const ownsCurrentAttempt = currentCompactionAttemptId === attemptId;
 				const noCutReason =
 					err.message === "Already compacted"
@@ -1088,6 +1097,10 @@ export default function (pi: ExtensionAPI) {
 		activeCompactionOwner = "pi-vcc";
 		scheduledPiVccCompaction = setTimeout(() => {
 			scheduledPiVccCompaction = undefined;
+			if (!runtimeActive) {
+				activeCompactionOwner = undefined;
+				return;
+			}
 			if (compactionInFlight) return;
 			if (activeCompactionOwner !== "pi-vcc") {
 				activeCompactionOwner = undefined;
@@ -1533,6 +1546,23 @@ export default function (pi: ExtensionAPI) {
 			typeof event.message.customType !== "string"
 		)
 			userMessageCount += 1;
+	});
+
+	pi.on("session_shutdown", async () => {
+		runtimeActive = false;
+		clearPendingNoCutContinuation();
+		clearPendingCompactionContinuation();
+		if (scheduledPiVccCompaction) {
+			clearTimeout(scheduledPiVccCompaction);
+			scheduledPiVccCompaction = undefined;
+		}
+		compactionInFlight = false;
+		activeCompactionOwner = undefined;
+		currentCompactionAttemptId = undefined;
+		pendingModelCompaction = undefined;
+		currentContinuationTransaction = undefined;
+		currentContinuationPendingToolCallIds.clear();
+		safetyReadyTransactions.clear();
 	});
 
 	pi.on("session_compact", async () => {
