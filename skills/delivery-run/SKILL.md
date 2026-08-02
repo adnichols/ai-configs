@@ -216,8 +216,8 @@ delivery check -v
 
 | Stage | Recommended skill |
 |---|---|
-| `PLAN_DRAFT` | `$dev-plan` / `$reviewed-html-plan` |
-| `PLAN_BROWSER_REVIEW` | `doct-document-ops` listener; integrate feedback and wait for the explicit execution-ready review request |
+| `PLAN_DRAFT` | `$dev-plan` / `$reviewed-html-plan` — pick one canonical title and write it everywhere before register: Markdoc YAML `title:` (+ matching `#` heading if present), HTML both `<title>` and `<h1>`, and `doct-agent plans register --title`. Doct document/tree name and in-content chrome must be identical; Markdoc without frontmatter `title:` shows **Untitled Plan**. |
+| `PLAN_BROWSER_REVIEW` | `doct-document-ops` listener; integrate feedback and wait for the explicit execution-ready review request. `delivery check` warns with `PLAN_TITLE` if titles are missing, HTML `<title>`/`<h1>` disagree, or an explicitly recorded Doct title (`delivery set --doct-title` after `documents get`) drifts from content — fix all sides before review handoff. |
 | `PLAN_PM_REVIEW` | after that request, `/dev:pm-review <plan> plan` |
 | `PLAN_TECH_REVIEW` | after that request, independent `planner` pinned to `openai-codex/gpt-5.6-sol` at medium |
 | `EXECUTION_READY` | pause, summarize the reviewed plan and implementation profile, then obtain explicit operator approval |

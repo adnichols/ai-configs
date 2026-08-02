@@ -79,7 +79,7 @@ If a prior reviewed plan exists, preserve truthful completed progress, stable ID
 Use `doct-document-ops` as the sole source for current Doct registration commands and service behavior.
 
 1. Confirm `doct-agent` auth/context for `https://doct.nodaste.com` as documented by `doct-document-ops`.
-2. Register the plan through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html`, using `--allow-untemplated` for the handcrafted HTML plans this workflow normally produces.
+2. Register the plan through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html --title '<Plan Title>'`, using `--allow-untemplated` for the handcrafted HTML plans this workflow normally produces. The title must match the plan file's `<title>` and top-level `<h1>` (or Markdoc frontmatter `title:` when the source is Markdoc). Never hand off a browser-review draft that shows **Untitled Plan**.
 3. Parse the registration JSON and preserve the returned Doct document/plan id, workspace id, canonical URL, current version, `sourceGuidance`, and full `listenerInstructions`.
 4. Follow the current `doct-document-ops` listener contract immediately, including startup claim processing, host-specific supervision, restart behavior, and pre-execution ownership. Do not duplicate or weaken that contract here. Leave the plan in its registration/default board column (normally `backlog`); implementation execution workflows own the transition to `in_progress`.
 5. Share the canonical Doct review URL only after the listener is running, or report a concrete listener-start blocker. Never show a loopback, local `plan-review`, Tailscale local-service URL, or relative path to the user unless they explicitly requested a legacy local reviewer.

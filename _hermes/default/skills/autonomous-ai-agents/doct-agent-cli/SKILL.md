@@ -74,8 +74,8 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 | Surgical text edit | `doct-agent collab anchored <replace\|insert-before\|insert-after\|delete> --document-id <id> --selected-text '...' [--text '...']` |
 | Add a text-doc comment thread | `doct-agent collab comments add --document-id <id> --selected-text '...' --body '...'` |
 | List / reply / resolve text-doc comments | `doct-agent collab comments <list\|reply\|resolve\|unresolve> --document-id <id>` |
-| Register an HTML plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --json` |
-| Register a Markdoc plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --json` |
+| Register an HTML plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --title '<Plan Title>' --json` |
+| Register a Markdoc plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --title '<Plan Title>' --json` |
 | Update a registered plan | `doct-agent plans update --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.<html|markdoc> --source-format <html|markdoc> --expected-version <version> --json` |
 | Show a registered plan | `doct-agent plans show --id <document-id> --json` |
 | Watch/sync a plan file | `doct-agent plans watch --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --json` |
@@ -107,6 +107,7 @@ doct-agent plans register \
   --file thoughts/plans/<plan>.html \
   --source-format html \
   --allow-untemplated \
+  --title '<Plan Title>' \
   --json
 ```
 
@@ -119,6 +120,7 @@ doct-agent plans register \
   --base-url https://doct.nodaste.com \
   --file thoughts/plans/<plan>.markdoc \
   --source-format markdoc \
+  --title '<Plan Title>' \
   --json
 ```
 

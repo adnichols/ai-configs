@@ -164,7 +164,7 @@ doct-agent plans register \
   --file thoughts/plans/example.html \
   --source-format html \
   --allow-untemplated \
-  [--title 'Example Plan'] \
+  --title 'Example Plan' \
   [--workspace <workspace-id-or-slug> | --workspace-id <workspace-id>] \
   [--path '<path>'] \
   [--parent-id <document-id>] \
@@ -173,7 +173,7 @@ doct-agent plans register \
   --json
 ```
 
-Use this for repo-authorized handcrafted HTML plans. Omit `--allow-untemplated` only when using a Doct plan template/config that validates without it. Preserve any returned `sourceGuidance`; the service may recommend Markdoc/templates for new reviewed plans even while accepting intentional HTML registrations.
+Use this for repo-authorized handcrafted HTML plans. `--title` is required and must match the plan's `<title>` and top-level `<h1>`. Omit `--allow-untemplated` only when using a Doct plan template/config that validates without it. Preserve any returned `sourceGuidance`; the service may recommend Markdoc/templates for new reviewed plans even while accepting intentional HTML registrations.
 
 ### Register a Markdoc plan
 
@@ -182,9 +182,11 @@ doct-agent plans register \
   --base-url https://doct.nodaste.com \
   --file thoughts/plans/example.markdoc \
   --source-format markdoc \
-  [--title 'Example Plan'] \
+  --title 'Example Plan' \
   --json
 ```
+
+`--title` is required and must match non-empty YAML frontmatter `title:` in the Markdoc source. Doct browser-review chrome renders `frontmatter.title ?? "Untitled Plan"`; a leading `#` heading alone does not set the chrome title. Prefer template `{% section %}` / `{% phase %}` tags so the Contents TOC is not empty.
 
 ### Update a registered plan
 
@@ -460,7 +462,7 @@ doct-agent auth renew --base-url https://doct.nodaste.com --json
 doct-agent auth default --base-url https://doct.nodaste.com
 doct-agent context --base-url https://doct.nodaste.com --json
 doct-agent workspaces list --base-url https://doct.nodaste.com --json
-doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/example.html --source-format html --allow-untemplated --json
+doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/example.html --source-format html --allow-untemplated --title 'Example Plan' --json
 doct-agent plans lifecycle --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --state active --json
 doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --no-wait --json
 doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --wait --timeout 30 --json

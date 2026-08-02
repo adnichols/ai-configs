@@ -1,31 +1,29 @@
 ---
 name: planning-workflow
-description: Shared planning doctrine for creating or updating executable software plans. For Aaron-facing plan requests, default to a Doct-registered HTML/Markdoc plan, start/verify the comment listener, and use `doct-agent plans` on `https://doct.nodaste.com`.
+description: Shared planning doctrine for creating or updating executable software plans, including the default preference to register HTML plans in Doct through `doct-agent plans` on `https://doct.nodaste.com`. Use when moving from read-only research into writing a real plan, structuring a resumable TDD/BDD implementation plan, or when a command like `dev:plan` needs canonical planning workflow and skill-routing guidance.
 ---
 
 # Planning Workflow
 
-Use this skill as the canonical source of truth for plan-writing methodology across repos.
+Use this skill as the canonical source of truth for plan-writing methodology across repos. This skill has no default plan file format. Repo-local planning guidance must define the active plan artifact and serving workflow; when it says active plans are HTML or must use a checked-in plan service, follow that local contract exactly.
 
-## Aaron default: plans are Doct-registered HTML/Markdoc
+## Scope
 
-When Aaron says “create a plan”, “post a plan”, “make a plan”, “publish a plan”, or otherwise asks for an implementation/development plan, the default artifact is a reviewer-facing HTML or Markdoc plan registered in Doct with `doct-agent plans`, not a Markdown/text Doct document and not a chat-only plan. This default applies even when the user does not explicitly say “HTML”.
+> **Scope creep is changing what the product does beyond the promised outcome.** Building unrequested features, redesigning working systems, polishing things nobody asked about — that needs its own plan and, when product-changing, owner approval.
+>
+> **Understanding and protecting existing behavior around your change is never scope creep — it is the cost of the change.** When you change a contract, its consumers are part of your change whether or not the plan names them. When you fix one instance of a pattern, its siblings are part of the question you were asked. Reading, tracing, and reporting **within authorized surfaces — code, tests, documentation, and supported diagnostics; never secrets, production data, or private persistence** — is always free.
+>
+> The test, when unsure: is this work making something *new* happen, or keeping something *existing* working while I make my change? The first needs an expansion-log entry — and owner approval if it changes product behavior, public contracts, persistence, ownership, or release behavior. The second is yours.
 
-Only use a non-HTML/Markdoc plan when one of these is true:
+The disposition rule:
 
-- Aaron explicitly asks for Markdown/text/no Doct/no comments;
-- an existing non-HTML plan path is supplied and the task is only to update that artifact;
-- repo-local guidance explicitly forbids Doct HTML/Markdoc plans for this workflow.
-
-If repo-local guidance is absent or ambiguous, do not ask which format to use: create `thoughts/plans/<slug>.html` in a repo context, or a temporary handcrafted HTML source for standalone/non-repo planning, then register it through Doct. After registration, start or verify the Doct plan comment listener/queue watcher and report both the canonical Doct review URL and listener status.
-
-Repo-local planning guidance may refine the source path or choose Markdoc over handcrafted HTML, but it does not weaken the default that Aaron-facing plans must be browser-reviewable and commentable.
+> **A regression this change causes is in scope wherever it appears. When this change routes new valid inputs into a shared primitive or expands its reachable domain, correctness across that newly reachable domain is part of this change even where defects predate it. A defect this change merely discovers — and does not cause or newly expose — is a finding: capture it and keep going.**
 
 ## Boundaries
 
 - `plan mode` is for discovery only: inspect the codebase, validate assumptions, gather evidence, and identify ambiguities.
 - `dev:plan` (or equivalent plan-materialization step) writes the actual plan file once discovery has produced enough evidence to choose the correct readiness state: `execution-ready` when foundational decisions are resolved, or a single non-ready `research-ready` artifact when further research is the next handoff. Before that handoff point, the work remains `discovery`.
-- Default shared artifact for Aaron-facing plans is a Doct-registered HTML/Markdoc plan. Resolve the exact source path from repo-local guidance or an existing plan path supplied by the user. If local guidance does not define the active artifact and the user did not supply an existing plan path, use `thoughts/plans/<slug>.html` in a repo context or a temporary handcrafted HTML source for standalone planning. Do not ask which format to use unless Aaron explicitly requests a non-HTML format or repo guidance conflicts.
+- There is no default shared artifact path or extension. Resolve the single-file active plan artifact from repo-local guidance or an existing plan path supplied by the user. If local guidance does not define the active artifact and the user did not supply an existing plan path, ask one targeted question and stop. Do not assume markdown.
 - `dev:plan` ends when the plan artifact is written or updated; execution starts only after a separate explicit execution command or a new user instruction.
 - In Pi-style reviewed-plan workflows, keep the handoff explicit and prefer the repo's canonical workflow skill from repo-local guidance. For HTML plans, prefer Doct registration through `doct-agent plans` on `https://doct.nodaste.com`; do not assume a hidden fallback to Claude Code, a local `plan-review` service, or any other alternate review surface.
 - During plan writing, edit only the target plan artifact unless the repo's `AGENTS.md` explicitly allows another planning-side file.
@@ -49,7 +47,7 @@ If required repo guidance or product intent is missing, stop and ask the user or
 
 Always consider which additional skills are needed before writing the plan.
 
-- Load `doct-document-ops` before writing, registering, linking, updating, or monitoring any reviewer-facing `thoughts/plans/*.html` or `thoughts/plans/*.markdoc` artifact. Use its Doct-backed `doct-agent plans` instructions for reviewer-facing HTML/Markdoc plans, with `https://doct.nodaste.com` as the default registration endpoint.
+- Load `doct-document-ops` before writing, registering, linking, updating, or monitoring any reviewer-facing `thoughts/plans/*.html` or `thoughts/plans/*.markdoc` artifact. Use its Doct-backed `doct-agent plans` instructions for reviewer-facing plans, with `https://doct.nodaste.com` as the default registration endpoint. After registration, follow the returned `listenerInstructions` and start the durable listener before browser-review handoff.
 - Load `product-principles` for planning work that affects user/operator/agent workflows, defaults, onboarding, recovery behavior, error handling, architecture, or regression strategy. Use it to define the golden path, safe defaults, self-healing expectations, actionable error guidance, and a quick dissonance audit against repo guidance (`AGENTS.md`, product-intent docs, onboarding docs, config/status surfaces, and tests).
 - Load `tdd-test-writer` when phases will rely on tests-first delivery or when the RED-phase contract needs strengthening.
 - Load repo-recommended skills from `AGENTS.md` for the relevant surface or stack.
@@ -81,21 +79,26 @@ Use targeted `Glob`, `Grep`, and `Read` first. Delegate broad codebase discovery
 
 ## Integration-integrity planning contract
 
-When discovery identifies an exact contract that types cannot fully verify or behavior distributed across production sites, add a **Contract and distributed-integration inventory**. Record the source of truth, producer/consumer or source-search-backed operation rows, dependent docs/examples, cross-boundary or production-path proof, reconciliation status, and coverage as `exhaustive-by-site`, `exhaustive-by-family`, or `justified representative`.
+When discovery identifies either an exact contract that the type system cannot fully verify (for example, serialized fields, positional layouts, configuration keys, flags, paths, headers, payloads, migrations, or documented command forms) or behavior required across multiple production sites, make that evidence explicit in the plan. This is a planning representation of the common execution rule, not a reason to require a plan for otherwise lightweight work.
 
-Before planning dependent edits, reread the current source definition. Prefer one shared executable definition or contract artifact over duplicated fixtures. A helper, middleware, wrapper, or event-existence test is not completion evidence for a distributed outcome; contractual documented CLI forms must execute through the actual parser. If neither trigger applies, record `None identified, based on <source search>` rather than inventing an inventory.
+Add a **Contract and distributed-integration inventory** section when either trigger applies. For every exact contract, record the source of truth, producer, consumer, dependent documentation/examples, and the real cross-boundary test. Prefer one shared executable definition, typed schema, or single contract artifact over duplicated fixtures or copied prose. Before planning dependent edits, reread the current source definition.
+
+For distributed behavior, record the source-search basis, each site or operation family, the required behavior and meaningful dimensions, its production-path verification, and reconciliation status. Declare coverage as **exhaustive-by-site**, **exhaustive-by-family**, or **justified representative**; a representative claim must explain why its evidence covers the omitted sites. A helper, middleware, wrapper, or event-existence assertion demonstrates infrastructure only. It cannot close a distributed acceptance criterion without reconciliation and proof through the required production path.
+
+When neither trigger applies, write `None identified, based on <source search>` rather than manufacturing an inventory. When a documented CLI invocation is part of the requested contract, its evidence must execute the actual parser; help-text or documentation-string assertions alone are not sufficient.
 
 ## Canonical plan contract
 
 Write plans as execution artifacts, not brainstorming notes. A ready plan must be executable by another agent without inventing missing semantics.
 
-- Preserve the validated source scope. A ready plan should include only work that is critical to achieving the stated goal and verifying it.
-- When the requested scope is vague, tighten it by sharpening the Goal / Non-goals or other scoped language instead of widening the phase list to absorb adjacent surfaces.
-- Do not promote adjacent cleanup, optional follow-ups, broader parity not required by the source intent, or extra explicitness that does not materially change go/no-go confidence into required plan work unless source requirements or validated repo evidence show they are necessary for success.
+- Keep required plan work faithful to the validated source scope as defined in the Scope section above.
 - Plan complete promised slices, not skeletons. Every claimed functional outcome must be connected, usable, and verifiable within its stated scope, without required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
 - If the requested outcome cannot be completed safely in one change, resize it before implementation to a smaller independently useful complete slice. Independent future enhancements, scale work, optional hardening, and polish may remain out of scope; work required for the current slice to function as claimed may not.
+- Define the complete promised slice at the **PR boundary**: code, tests, docs, migration definitions, release configuration, and buildable artifacts that can truthfully be reviewed before merge. An environment deployment, promotion, merge, production observation window, or post-merge smoke check is delivery/operations work, not missing implementation in the PR slice.
+- Deployment must never be a prerequisite for creating or publishing a PR. Do not make preview/staging/production deployment evidence, post-merge rollout, or production validation a phase completion criterion, progress checkbox, acceptance gate, or `### Verify` command that must finish before PR creation. Put such work in a clearly labeled non-blocking `Post-merge delivery / operations` section with owner, trigger, evidence, rollback/observation guidance, and any separate workflow that will execute it.
+- If source requirements genuinely require deployment or production observation, preserve that requirement as a post-merge delivery obligation without representing it as PR readiness or implementation completeness. A plan may require deployable configuration and truthful pre-merge verification; it may not require the deployment event itself before the PR exists.
 - When a plan is rendered or delivered as HTML/Markdoc, load `doct-document-ops` and use the standard reviewer layout by default: a dark-mode visual theme with explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, plus a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so reviewers can scan links without sacrificing plan body width. Do not use a permanent left sidebar/rail for navigation. Do not leave color mode or navigation layout to browser, OS, or agent-selected defaults.
-- When a plan is rendered, delivered, registered, or reviewed as HTML/Markdoc, delegate service details to `doct-document-ops`: register through `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc>`, update through `doct-agent plans update`, share the canonical Doct URL, and process comments/actions through `doct-agent plans queue/agent/ack/resolve`.
+- When a plan is rendered, delivered, registered, or reviewed as HTML/Markdoc, delegate service details to `doct-document-ops`: register through `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc> --title '<Plan Title>'`, preserve `listenerInstructions`, start the returned durable listener before asking for browser feedback, update through `doct-agent plans update`, share the canonical Doct URL, and process comments/actions through Doct listener/queue/agent/ack/resolve commands. Always pass a real `--title`. Markdoc sources must include matching YAML frontmatter `title:` (Doct chrome falls back to **Untitled Plan** without it); HTML sources must set matching `<title>` and `<h1>`. Prefer Markdoc `{% section %}` / `{% phase %}` tags so the Contents TOC is populated.
 - Every user-facing HTML plan URL must be the canonical Doct URL from `https://doct.nodaste.com`; do not share local `plan-review`, loopback, or Tailscale service URLs unless the user explicitly requested a legacy local review service.
 
 ### Product-owner context contract
@@ -112,7 +115,20 @@ Keep this complexity-aware. A lightweight plan must satisfy the contract with co
 
 ### What's new contract
 
-For every full implementation plan, put a standalone `What's new` section after Product-owner context and before Goal. Give it a behavior-focused headline and a one-sentence product promise, then state the concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, rationale, phases, or acceptance criteria; a heading without a distinct product delta does not satisfy the contract. Work already exempt from a full plan remains exempt.
+Immediately after Product-owner context and before Goal, every full implementation plan must include a standalone `What's new` section. Give it a behavior-focused headline and a one-sentence promise, then state the concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, rationale, phases, or acceptance criteria; a heading without a distinct product delta does not satisfy the contract. This adds no new lightweight-plan requirement: only work already exempt from a full execution plan is exempt from `What's new`.
+
+### Conditional planning evidence checkpoint
+
+Do not require a standalone Socratic questionnaire or eight-answer prose block. Require the useful evidence where reviewers act on it when the plan changes an exact contract, distributes behavior across multiple sites, or carries material product/implementation uncertainty:
+
+- **First hour** belongs in Product-owner context and acceptance/BDD when rollout behavior changes.
+- **Consumers** and **Siblings** belong in the Contract and distributed-integration inventory, backed by the source search used to find them.
+- **Moving ground** belongs in resume/rebase instructions and must be rechecked when the base changes.
+- **Falsification** and **Proof** belong in acceptance criteria, BDD scenarios, the test coverage matrix, and phase `### Verify` items. A helper-only path is not customer/system proof.
+- **Untested** belongs in Verification strategy as explicit residual risk and must feed the implementation review's `Not examined:` disclosure.
+- **Expansion disposition** belongs in Decision Attention and the append-only Decisions / Deviations log, distinguishing outcome protection from product-changing expansion.
+
+A lightweight or single-site plan is not forced to repeat these labels. A dedicated questionnaire is never accepted as a substitute for the triggered contract inventory, production-path proof, residual-risk disclosure, or deviation record.
 
 Required sections for new plans unless repo-local overrides say otherwise:
 
@@ -137,13 +153,19 @@ Required sections for new plans unless repo-local overrides say otherwise:
 19. Non-goals
 20. Decisions / Deviations log
 
-Decision Attention must appear near the top of every non-trivial plan, immediately after Product-owner context, `What's new`, and goal/status framing. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
+Decision Attention must appear near the top of every non-trivial plan, immediately after the Product-owner context, `What's new`, and goal/status framing. It indexes blockers, required user input, unresolved or low-confidence decisions, and areas where repo evidence is weak. If none remain, say `None` or `No product decision required` explicitly; do not omit the section or bury the answer in later phases.
+
+For an HTML/Markdoc plan under browser review, put every product-shaping question in Decision Attention as a prominent `Decision Required` block instead of moving the question into chat. Give each decision a stable ID and include:
+
+- the exact decision question and why it blocks readiness,
+- every viable option supported by current evidence (do not present a partial shortlist while hiding a known viable choice),
+- a thorough explanation of each option: resulting behavior, benefits, costs/risks, implementation and compatibility implications, and reversibility or migration consequences,
+- the agent's recommended option, rationale, confidence level, and the evidence that drove the recommendation,
+- an explicit browser-feedback instruction telling the reviewer to select an option or add a Doct comment with a custom decision.
+
+Use a visually distinct warning/callout style and link each unresolved decision from the near-top table of contents or summary so it cannot be missed. Keep the plan non-execution-ready until the reviewer resolves every required decision. After feedback arrives, replace the unresolved block with the chosen decision in `Locked decisions` and append the choice and rationale to `Decisions / Deviations log`.
 
 Legacy heading aliases may be preserved in historical plans, but new plans should use canonical headings unless the repo explicitly says otherwise.
-
-## Conditional planning evidence checkpoint
-
-Do not require a standalone Socratic questionnaire. When exact-contract, distributed-behavior, or material-uncertainty triggers apply, put consumer/sibling inventory, moving-ground checks, falsification and production-path proof, residual risk (`Not examined:`), and expansion disposition in the existing contract, acceptance/BDD, verification, Decision Attention, and Decisions / Deviations sections. Lightweight or single-site plans are not forced to repeat eight labels, and a questionnaire never substitutes for triggered evidence.
 
 ## TDD + BDD rules
 
@@ -187,7 +209,8 @@ Phase guidance:
 - keep phases coarse and outcome-oriented,
 - do not hide task lists inside phases,
 - make multi-surface parity inventory explicit in `### Expected files` or `### Work`,
-- lock canonical contracts, schemas, fixtures, payloads, or evidence sources before downstream phases depend on them.
+- lock canonical contracts, schemas, fixtures, payloads, or evidence sources before downstream phases depend on them,
+- include only PR-bound implementation and verification work in executable phases and `Progress`; place deployment, promotion, merge-dependent validation, and production observation outside the phase/progress mapping as non-blocking post-merge delivery work.
 
 ## Resumability rules
 
@@ -203,9 +226,10 @@ An `execution-ready` plan is ready only when all of the following are true:
 
 - important questions are resolved,
 - the near-top product-owner context is standalone, plain-language, explicit about why now and the key conclusion, and separates all five impact dimensions,
-- `What's new` appears after Product-owner context and before Goal and states a distinct audience-visible change rather than a heading or restatement,
+- the standalone `What's new` section appears immediately after Product-owner context and before Goal, and is not missing, late, vague, or duplicative of Goal, rationale, phases, or acceptance criteria,
 - Decision Attention is near the top and truthfully reports blockers, user-input needs, and low-confidence areas,
-- required plan work stays faithful to the validated source scope, with optional adjacent improvements excluded or called out as non-goals rather than required phases,
+- required plan work stays faithful to the validated source scope as defined in the Scope section,
+- the PR boundary is explicit, and deployment/promotion/post-merge observation is separated into non-blocking delivery guidance rather than a PR-readiness phase or progress gate,
 - acceptance criteria and BDD scenarios are concrete,
 - every progress checkbox has exactly one matching phase and every phase has exactly one matching progress checkbox,
 - every phase includes explicit `Open questions / decision dependencies`, with `None` only when true,
@@ -235,9 +259,11 @@ If any item above is still missing, the plan is `not ready`: stay in `discovery`
 
 - Treat any materially outcome-shaping unknown as a `low-confidence` decision: contracts, migrations, rollout semantics, compatibility behavior, safety constraints, or cross-surface behavior.
 - Resolve low-confidence decisions from repo evidence first.
-- If repo evidence is insufficient and the choice changes intended behavior, ask the user before finalizing the plan.
+- If repo evidence is insufficient and the choice changes intended behavior, obtain the user's decision before finalizing the plan.
+- For a browser-reviewed HTML/Markdoc plan, obtain that decision through a prominent `Decision Required` block in the plan and Doct feedback; do not duplicate it as a chat question unless the review surface is unavailable.
+- For a non-browser plan, ask the user directly.
 - If the answer is researchable without user intent input, delegate research immediately or emit a non-ready `research-ready` research plan artifact.
-- A non-ready plan artifact must list the unresolved low-confidence decisions, make the exact next research action explicit, and stay clearly separate from an `execution-ready` handoff.
+- A non-ready plan artifact must list unresolved low-confidence decisions and the exact action that resolves each one: reviewer selection for product decisions or a concrete research action for researchable unknowns. Keep it clearly separate from an `execution-ready` handoff.
 - Never bury low-confidence decisions inside future execution phases or assume implementation will resolve them later.
 
 ## UI-impact triage
@@ -263,7 +289,8 @@ For `UI impact: yes`, include high-fidelity existing and target mocks or screens
 
 ## Verification ownership
 
-- Phase `### Verify` checks are agent-run execution gates: they must be runnable during implementation, grounded in repo reality, and expanded with compensating checks when strict TDD is not practical.
+- Phase `### Verify` checks are agent-run pre-PR execution gates: they must be runnable during implementation, grounded in repo reality, and expanded with compensating checks when strict TDD is not practical. They may validate deployability, packaging, configuration, or dry-run behavior, but must not require an environment deployment, promotion, merge, or production observation before PR creation.
+- Post-merge deployment and operational checks have separate ownership and evidence. Their pending state does not make the implementation plan unready, the PR slice incomplete, or PR creation blocked.
 - Final completion still requires a semantic coherence review across the shared files touched by the work so reviewers confirm the doctrine means the same thing everywhere, not just that strings appear.
 
 ## Handoff to execution
@@ -271,7 +298,7 @@ For `UI impact: yes`, include high-fidelity existing and target mocks or screens
 When the plan is complete:
 
 - leave the repo ready for the repo's canonical execution workflow,
-- if repo-local guidance requires a plan review registration, prefer the Doct-backed `doct-document-ops` flow; use a checked-in/local plan server only when the repo or user explicitly requires that legacy surface,
+- if repo-local guidance requires a plan review registration, prefer the Doct-backed `doct-document-ops` flow and verify the returned listener is running before browser-review handoff; use a checked-in/local plan server only when the repo or user explicitly requires that legacy surface,
 - `ready for` means handoff-ready, not permission to start execution in the current command,
 - if the active command is planning-only, stop after updating the plan and reporting the next suggested command,
 - ensure the plan reflects repo-specific commands from `AGENTS.md`,

@@ -1,6 +1,6 @@
 ---
 name: reviewed-html-plan
-description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`, PM product-intent review, and a read-only active-harness reviewer-subagent plan review. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
+description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`. For browser-reviewed plans, integrate comments but wait for an explicit execution-ready review request before PM and independent Sol-medium planner readiness review. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
 ---
 
 # Reviewed HTML Plan Workflow
@@ -16,7 +16,7 @@ Load and follow these skills when this workflow reaches their surface:
 - `planning-workflow` for the plan-writing contract and execution-readiness bar.
 - `doct-document-ops` for HTML/Markdoc plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, Markdown/text fallback publishing, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
-- The active harness's `reviewer` subagent for the single read-only plan-review leg. In Pi use `reviewer` (GPT-5.6 Terra, medium); in Claude Code use `reviewer` (Sonnet 5, high); in OpenCode use `reviewer` (GPT-5.6 Terra, medium).
+- In Pi, the `planner` subagent for the single independent read-only plan-review leg. Its checked-in frontmatter pins `openai-codex/gpt-5.6-sol` at medium reasoning. Do not pass a caller-side model or thinking override. Non-Pi harnesses use their configured planning persona only when it provides equivalent independent read-only review; a Pi delivery ledger cannot reach `EXECUTION_READY` without the fixed Sol-medium review evidence.
 - Domain skills required by the target repository guidance, stack, or plan surface.
 
 If a required review tool is unavailable, follow the relevant skill's remediation first. Stop only when the dependency cannot be restored safely or the next step requires a real product decision.
@@ -63,12 +63,13 @@ The plan should follow the `planning-workflow` execution artifact contract while
 - a standalone `What's new` section after Product-owner context and before Goal that satisfies the canonical `planning-workflow` contract; a mere heading or a restatement of Goal, rationale, phases, or acceptance criteria is not sufficient,
 - a near-top `Decision Attention / Low-confidence Areas` section after Product-owner context, `What's new`, and Goal for blockers, required user input, unresolved decisions, and weak evidence; each unresolved product decision is a visually prominent `Decision Required` block with a stable ID, the exact question, every viable option, a thorough explanation of each option's behavior/benefits/costs/risks/implementation and compatibility implications/reversibility, and the agent's recommended option with rationale, confidence, and supporting evidence,
 - a `Progress` section containing the only checkboxes,
+- the conditional planning evidence required by `planning-workflow` when exact-contract, distributed-behavior, or material-uncertainty triggers apply: consumer/sibling inventory, moving-ground checks, falsification and production-path proof, residual risk, and expansion disposition in the existing sections where reviewers act on them; do not require a standalone questionnaire,
 - canonical content: status, product-owner context, What's new, goal, Decision Attention / Low-confidence Areas, why this exists, authority and inputs, current implementation reality, product intent alignment, locked decisions, acceptance criteria, BDD scenarios, phase-by-phase execution plan, verification strategy, delivery order, non-goals, resume instructions, and decisions/deviations log,
 - one-to-one mapping between progress checkboxes and detailed phases,
 - each phase includes `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, and `Verify`,
 - explicit UI-impact triage with repo-appropriate design evidence for real UI-impacting work,
 - exact verification commands grounded in repo reality,
-- for an exact untyped contract or distributed production behavior, a Contract and distributed-integration inventory with source of truth, producer/consumer or source-search-backed operation rows, dependent docs/examples, cross-boundary or production-path proof, reconciliation status, and exhaustive-by-site, exhaustive-by-family, or justified-representative coverage. Say `None identified, based on <source search>` when neither trigger applies; helper-only, wrapper-only, middleware-only, or event-existence-only evidence cannot close a distributed outcome, and contractual documented CLI forms execute through the actual parser,
+- when discovery finds an exact contract that types cannot fully verify or behavior distributed across production sites, a `Contract and distributed-integration inventory` with the source of truth; producer/consumer or source-search-backed operation rows; dependent docs/examples; cross-boundary or production-path proof; reconciliation status; and an exhaustive-by-site, exhaustive-by-family, or justified-representative coverage declaration. The plan must say `None identified, based on <source search>` when neither trigger applies. Helpers, wrappers, middleware, and event-existence tests do not close a distributed outcome; contractual documented CLI forms execute through the actual parser,
 - no unresolved open questions when the status is `execution-ready`; plans awaiting a reviewer choice remain non-ready and explicitly instruct the reviewer to select an option or leave a Doct comment with a custom decision.
 
 If a prior reviewed plan exists, preserve truthful completed progress, stable IDs where possible, and append-only decisions/deviations history.
@@ -78,34 +79,45 @@ If a prior reviewed plan exists, preserve truthful completed progress, stable ID
 Use `doct-document-ops` as the sole source for current Doct registration commands and service behavior.
 
 1. Confirm `doct-agent` auth/context for `https://doct.nodaste.com` as documented by `doct-document-ops`.
-2. Register the plan through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html`, using `--allow-untemplated` for the handcrafted HTML plans this workflow normally produces.
+2. Register the plan through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html --title '<Plan Title>'`, using `--allow-untemplated` for the handcrafted HTML plans this workflow normally produces. The title must match the plan file's `<title>` and top-level `<h1>` (or Markdoc frontmatter `title:` when the source is Markdoc). Never hand off a browser-review draft that shows **Untitled Plan**.
 3. Parse the registration JSON and preserve the returned Doct document/plan id, workspace id, canonical URL, current version, `sourceGuidance`, and full `listenerInstructions`.
 4. Follow the current `doct-document-ops` listener contract immediately, including startup claim processing, host-specific supervision, restart behavior, and pre-execution ownership. Do not duplicate or weaken that contract here. Leave the plan in its registration/default board column (normally `backlog`); implementation execution workflows own the transition to `in_progress`.
 5. Share the canonical Doct review URL only after the listener is running, or report a concrete listener-start blocker. Never show a loopback, local `plan-review`, Tailscale local-service URL, or relative path to the user unless they explicitly requested a legacy local reviewer.
 6. Use listener-delivered events for browser comments/actions. Use `doct-agent plans queue list` and `doct-agent plans agent next --no-wait` for startup drain, recovery, or manual processing only.
 
-If browser feedback has not yet been provided, share the Doct URL and enter the monitoring state defined by `doct-document-ops`. In Codex, keep the task active and process routed feedback as it arrives without requiring the user to say “feedback is ready”; retain listener ownership until an execution workflow moves the plan to `in_progress`, the lifecycle ends, or the user cancels. Do not proceed to Codex/Claude or PM gates merely because the listener is quiet; proceed only when the workflow's browser-feedback/readiness condition is actually satisfied or the user explicitly skips it.
+If browser feedback has not yet been provided, share the Doct URL and enter the monitoring state defined by `doct-document-ops`. In Codex, keep the task active and process routed feedback as it arrives without requiring the user to say “feedback is ready”; retain listener ownership until an execution workflow moves the plan to `in_progress`, the lifecycle ends, or the user cancels.
+
+For a browser-reviewed plan, **generic feedback is not an execution-ready review request**. Process and resolve each ordinary routed comment, then return to the browser-review loop. Do not start PM or independent Sol-medium planner readiness review because the first comment was handled, the listener is quiet, or the plan has no queued work. Start the readiness cycle only after either:
+
+- the operator directly instructs the agent to begin execution-readiness review, or
+- Doct dispatches its explicit **Request execution-ready review** action. The current toolbar action carries `routingMetadata.agentRoute.requestedSkill: "plan-reviewer-execution-ready"`; accept an explicit `routingMetadata.submitAction: "execution-ready"` when returned by the service.
+
+A generic `routingMetadata.submitAction: "agent"` with only `targetScope: "plan-review"` is not sufficient. When this workflow runs under delivery, record `planReadinessRequest=pass` before advancing from `PLAN_BROWSER_REVIEW`; `delivery` binds the record to the current plan content and rejects PM/technical review and `EXECUTION_READY` stages without a current authorization record.
 
 ### 4. Process browser feedback
 
-When feedback is ready, process reviewer comments/actions through the Doct plan queue.
+Process reviewer comments/actions through the Doct plan queue. Keep the plan in browser review unless the current item is an explicit execution-ready request as defined in the preceding section.
 
 For each listener-delivered or pending comment:
 
 1. Use the thread id, claim id, workspace id, document id, selected context, and returned ack/resolve/release commands from the listener payload or `doct-agent plans agent next`. If no claim is available during manual recovery, inspect `doct-agent plans queue list` until it reports no pending work.
 2. Read the full plan before editing.
 3. Use the annotation context, heading path, quoted text, and reviewer note.
-4. Classify the comment as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, or `DISAGREE_REPO_EVIDENCE`.
+4. Classify the comment as `READINESS_BLOCKER`, `PRODUCT_QUESTION`, `OPTIONAL_CLARITY`, `OUT_OF_SCOPE_FOLLOW_UP`, `DISAGREE_REPO_EVIDENCE`, `EXECUTION_READY_REQUEST`, or `BUILD_REQUEST`.
 5. Edit the plan for readiness blockers and useful clarity that preserves scope.
 6. For product questions that cannot be resolved from repo evidence, add or update the plan's prominent `Decision Required` block with all viable options, thorough option explanations, and an agent recommendation; obtain the choice through Doct feedback rather than a separate chat question.
 7. Ack and resolve only after the plan actually addresses the comment; after the user chooses, move the result into `Locked decisions` and append the rationale to `Decisions / Deviations log`.
 8. Keep or restart the durable listener after each dispatch if more browser feedback is expected; do not leave review handoff dependent on a one-time queue check.
 
+For `EXECUTION_READY_REQUEST`, reply/ack that the readiness cycle is beginning, record delivery evidence when a ledger exists, then continue to the PM and independent Sol-medium planner readiness legs below. For every other classification, complete the plan update/ack/resolve and return to the browser-review loop. Do **not** infer a readiness request from generic routed `submitAction: "agent"` feedback or a quiet listener.
+
+If a material comment arrives after the plan was marked execution-ready but before implementation starts, reply and update the plan, clear its execution-ready metadata, and return the delivery ledger to `PLAN_BROWSER_REVIEW`. When a delivery ledger exists, run `delivery revoke-implementation-approval --reason "material plan feedback"`. The correction requires a fresh explicit execution-ready request and a fresh readiness review; a prior ready verdict does not survive a material plan edit.
+
 Keep the local HTML plan authoritative for implementation and Doct authoritative for review state. After editing the local file, push updates with `doct-agent plans update` or keep `doct-agent plans watch` running during active review. `plans watch` is source sync only; it does not replace the comment listener.
 
 ### 5. PM product-intent review
 
-Run an adversarial PM review before independent AI plan review.
+Run an adversarial PM review only after the explicit execution-ready request opened the readiness cycle. Do not run it merely because browser feedback was processed.
 
 The PM pass evaluates whether the plan will satisfy the intended user/operator outcome, not merely whether the phases are internally coherent. Use `product-principles` and repo product intent to check:
 
@@ -117,27 +129,46 @@ The PM pass evaluates whether the plan will satisfy the intended user/operator o
 - routine self-healing versus fail-closed boundaries,
 - truthful status, docs, help text, and agent-legible errors,
 - early-stage stage fit and the smallest complete slice,
-- whether verification proves the shipped workflow, not just helper behavior.
+- whether verification proves the shipped workflow, not just helper behavior,
+- whether triggered planning evidence appears in the contract inventory, acceptance/BDD, verification/residual-risk, and decisions/deviations sections rather than being replaced by a standalone questionnaire.
 
 Default behavior is corrective: reshape the HTML plan directly when the right direction is inferable from repo evidence. When a product-shaping decision remains low-confidence, keep the plan blocked and surface the decision prominently in the HTML plan for Doct feedback, with all viable options, thorough explanations, and the agent's recommendation.
 
 After material PM edits, ensure the review URL still points at the latest plan and the plan remains browser-reviewable.
 
-### 6. Active-harness plan review
+### 6. Independent Sol-medium planner review
 
-Run exactly one active-harness `reviewer` subagent before execution and keep it read-only. The same reviewer is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
+After the explicit execution-ready request and PM pass, run exactly one Pi `planner` subagent before execution and keep it read-only. The checked-in planner frontmatter pins `openai-codex/gpt-5.6-sol` at medium reasoning, so this independent pass happens regardless of the model that authored the plan or started delivery. Do not pass a model or thinking override. The same planner is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
 
 - For data loss, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another P1/P2 risk surface, give the reviewer a compact readiness packet with named files/surfaces, the exact risk question, relevant plan excerpts, verification expectations, and outcome limits.
 - For lower-risk plans, retain the same bounded readiness packet without broadening into a second opinion.
 
-Invoke the current harness's native `reviewer` subagent and capture its result in `thoughts/validation/<slug>-plan-review.md`. Do not launch separate Codex or Claude Code sessions and do not require Herdr transport. The reviewer must return a concrete readiness verdict; invalid, empty, tool-only, provider-error, or incomplete output is a review-infrastructure failure and receives at most one narrower rerun.
+Invoke Pi's native `planner` subagent with `subagent_type: "planner"` and capture the returned result in `thoughts/validation/<slug>-plan-review.md`. The planner is read-only for this call: the coordinating agent writes the returned review artifact and remains the only authority that may edit the plan. Do not launch separate Codex or Claude Code sessions and do not require Herdr transport. Launch `planner` via `Agent` with the `isolation` property omitted entirely; never set `isolation: "worktree"`. Inspect the final tool arguments and remove that property before launch. The review must still work in any clean, dirty, detached, or isolated state if the harness itself changes the launch topology. Reuse the candidate-visibility contract from `skills/autoreview/SKILL.md`: put the absolute `TARGET_CHECKOUT`, coordinator HEAD/status, and changed/untracked plan paths in the packet; require provenance (`CWD`, `REVIEW_ROOT`, `HEAD`, `STATUS_SHORT`, and `REVIEW_SOURCE`). If launch CWD differs, the reviewer must inspect `TARGET_CHECKOUT` directly with path-qualified reads and `git -C`. Never discard or refuse a visible plan review solely because the launch checkout is temporary, isolated, clean, or dirty. If a genuinely unavailable dirty portion matters, preserve findings over visible content and run at most one narrowed follow-up with the missing patch or target paths. The reviewer must return a concrete readiness verdict; invalid, empty, tool-only, provider-error, or incomplete output is a review-infrastructure failure and receives at most one narrower rerun.
 
-The coordinating agent may integrate plan edits, but after material edits it must rerun the active-harness reviewer before marking the plan execution-ready. If the configured reviewer is unavailable, leave the plan blocked on review infrastructure.
+The coordinating agent may integrate plan edits, but after material edits it must rerun the Sol-medium planner before marking the plan execution-ready. If the configured planner is unavailable, leave the plan blocked on review infrastructure.
+
+When a delivery ledger exists, record the final current-plan verdict with the fixed provenance fields before entering `EXECUTION_READY`:
+
+```bash
+delivery record planTech --status pass \
+  --artifact thoughts/validation/<slug>-plan-review.md \
+  --summary "independent Sol medium plan-readiness review" \
+  --reviewer planner --model openai-codex/gpt-5.6-sol \
+  --reasoning-level medium --verdict PLAN_EXECUTION_READY
+delivery stage EXECUTION_READY
+```
+
+`delivery` fingerprints the current plan and validates the artifact, reviewer identity, model, reasoning level, and verdict. Any plan edit or fresh readiness request invalidates the prior review.
 
 #### Reviewer packet
 
 The reviewer input should include:
 
+- `TARGET_CHECKOUT`: the absolute candidate checkout path,
+- `COORDINATOR_HEAD`: the coordinator's current short commit SHA,
+- `COORDINATOR_STATUS_SHORT`: the coordinator's `git status --short` snapshot or `EMPTY`,
+- changed paths, explicitly including staged, unstaged, and untracked plan/artifact paths,
+- required reply provenance: `CWD`, `REVIEW_ROOT`, `HEAD`, `STATUS_SHORT`, and `REVIEW_SOURCE`,
 - plan path and review URL,
 - source request or issue summary,
 - repo guidance paths,
@@ -156,7 +187,7 @@ For the single plan-review pass, stay limited to readiness concerns, including a
 - whether unresolved product questions remain,
 - whether the plan has enough file/surface specificity for implementation,
 - whether architecture/dependency risks are resolved enough to execute,
-- whether a triggered Contract and distributed-integration inventory is sourced, reconciled, and proven through a real boundary or production dispatch rather than only a helper, wrapper, middleware, or event-existence test,
+- whether any triggered Contract and distributed-integration inventory names an actual source of truth, source-search-backed producer/consumer or production-site set, meaningful dimensions, cross-boundary or real-dispatch proof, and an honest coverage declaration; reject helper-only, wrapper-only, middleware-only, or event-existence-only completion claims,
 - whether recovery/operator/error behavior is specified when relevant.
 
 For every reviewer, use bounded scope rather than parent-side turn caps. Do not cap tool calls or lower `max_turns` to force completion; hard caps can truncate the final verdict and produce unusable output. Give each reviewer a concrete readiness packet and require a final verdict. If any reviewer cannot complete the assigned readiness scope, it must return a non-ready result with completed checks, remaining checks, and the exact follow-up slice the parent should run next. If the caller explicitly supports `REVIEW_INCOMPLETE_RERUN_NEEDED`, use that verdict; otherwise map incomplete coverage to `VERDICT: PLAN_NEEDS_REVISION` with the same completed-checks, remaining-checks, and follow-up-slice fields.
@@ -194,16 +225,16 @@ Use these classifications:
 - `OUT_OF_SCOPE_FOLLOW_UP`: do not add to this plan only when it is outside the plan, not required for truthful verification, and not an acceptance-criteria/BDD gap; record it with evidence and a tracking destination if useful.
 - `DISAGREE_REPO_EVIDENCE`: do not change the plan; record the evidence if the disagreement matters.
 
-After fixing readiness blockers, rerun the active-harness reviewer. If it returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until the required coverage is complete or explicitly blocked. When the reviewer agrees by substance that the plan is execution-ready, update the same Doct-registered HTML plan and status/board metadata using the current `doct-document-ops` Doct flow.
+After fixing readiness blockers, rerun the Sol-medium planner. If it returns incomplete coverage, launch the recommended follow-up slice, record completed checks, remaining checks, rerun slices, and final synthesized readiness status, then continue until the required coverage is complete or explicitly blocked. When the planner agrees by substance that the plan is execution-ready, update the same Doct-registered HTML plan and status/board metadata using the current `doct-document-ops` Doct flow.
 
 #### Independent sign-off gate (do not self-certify)
 
-The closing ready verdict that marks a plan `execution-ready` must come from an **independent reviewer** — any reviewer other than the plan author/self. For this workflow, `PLAN_EXECUTION_READY` is the expected ready verdict; an equivalent approved `PASS_NO_ISSUES` verdict from another independent plan reviewer may also clear the gate by substance. The plan author may *integrate* review findings but may **never self-certify** execution readiness:
+The closing ready verdict that marks a plan `execution-ready` must come from the independent Sol-medium `planner` subagent, not the plan author/self. For this workflow, `PLAN_EXECUTION_READY` is the required ready verdict. The plan author may *integrate* review findings but may **never self-certify** execution readiness:
 
 - A `plan-author` / `plan-owner` / `pi` / `self` review verdict does not clear the gate, even if it is the latest review.
 - If any independent review returns `BLOCKED`, `PLAN_NEEDS_REVISION`, or raises in-scope findings, run a **fresh independent review after integrating** the fixes. The integration edit itself does not clear the gate; only a new independent ready verdict does.
 - The independent ready verdict must not be followed by any later non-pass review, and should post-date the last material plan edit. If you edit the plan after the independent pass, re-review.
-- Record reviews truthfully in the `review-record` section with the real reviewer identity. Do not relabel a self-review as a subagent review to satisfy the gate — actually run the independent configured reviewer.
+- Record reviews truthfully in the `review-record` section with the real reviewer identity. Do not relabel a self-review as a planner-subagent review to satisfy the gate — actually run the independent Sol-medium planner.
 
 This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/reviewer gates and Doct review state are the enforcement surface.
 
@@ -221,7 +252,7 @@ If AI reviews materially reshape product intent, run one final PM check before d
 Before final output, inspect the HTML plan for obvious handoff blockers:
 
 - unresolved browser-review comments remain in the queue, or the required listener was never started after registration,
-- the Doct registered plan has not been updated after a successful active-harness reviewer plan review, or its lifecycle/board/readiness state is stale,
+- the Doct registered plan has not been updated after a successful Sol-medium planner plan review, or its lifecycle/board/readiness state is stale,
 - unresolved inline review markers or unresolved question sections remain,
 - status is not `execution-ready`,
 - the near-top product-owner context is missing, assumes prior issue knowledge, buries why-now or the key conclusion, or fails to separate customer, runtime, security/permissions, testing/release, and deployment/migration impact,
@@ -231,10 +262,32 @@ Before final output, inspect the HTML plan for obvious handoff blockers:
 - an active phase is missing `End State`, `Tests first`, `Expected files`, `Work`, `Open questions / decision dependencies`, or `Verify`,
 - UI impact is missing, `unknown`, or lacks required design evidence for real UI-impacting work,
 - verification commands are stale or not copy/paste ready,
-- the active-harness reviewer did not agree by substance that the plan is ready,
-- PM review left unresolved product-intent or user-impact gaps.
+- the independent Sol-medium planner did not agree by substance that the plan is ready,
+- PM review left unresolved product-intent or user-impact gaps,
+- PM and Sol-medium planner readiness review began without an explicit execution-ready request (unless the operator directly requested that review).
 
 Do not start implementation as part of this skill.
+
+### 8b. Execution-ready operator approval pause
+
+`execution-ready` means the reviewed plan is eligible for implementation; it is **not** authorization to start product-code work. Keep the Doct listener active while the plan remains pre-execution. Before invoking `run-plan`, stop and ask the operator whether to proceed. The approval message must state:
+
+1. the current plan and review status, including any residual non-blocking observations;
+2. a concise summary of the customer-visible and technical changes implementation will make;
+3. the fixed implementation profile: `openai-codex/gpt-5.6-sol` at medium reasoning, regardless of the planning session's model; and
+4. the remaining implementation phases, tests, reviews, verification, and PR steps.
+
+A direct operator approval in the current conversation or a deliberate Doct implementation-approval action is required. For a delivery-managed run, record that approval against the current plan content before entering `IMPLEMENTING`:
+
+```bash
+delivery approve-implementation --source chat|doct \
+  --summary "Operator received the execution-ready status, changes, fixed Sol-medium profile, and remaining steps"
+# approve-implementation launches and prompts a dedicated Herdr Pi agent pinned to
+# openai-codex/gpt-5.6-sol at medium. The planning agent stops here.
+# The new implementation agent verifies its runtime and enters IMPLEMENTING.
+```
+
+Do not approve on the operator's behalf. A generic “execution-ready” action, a quiet listener, an old approval, or the original request to prepare a plan is not implementation approval. If the plan changes after approval, invalidate it and repeat this pause.
 
 ## Final output
 
@@ -248,6 +301,7 @@ Review URL: <canonical Doct URL>
 
 ### Gates completed
 - Browser feedback: <processed / skipped by request / blocked>
+- Execution-ready request: <Doct action / direct operator instruction>
 - PM review: <ready / reshaped plan / blocked>
 - Active-harness reviewer: <model/effort and verdict>
 
@@ -257,8 +311,8 @@ Review URL: <canonical Doct URL>
 ### Final status
 <execution-ready / blocked>
 
-### Execution handoff
-<Only when execution-ready: name the repo's preferred execution command for this explicit HTML plan path from repo-local guidance.>
+### Operator approval required
+<Only when execution-ready: give the four-part status/change/model-and-reasoning/remaining-steps summary, ask whether to proceed, and state that implementation will not start until explicit approval. For a delivery-managed run, name `delivery approve-implementation --source chat|doct ...` rather than invoking `run-plan`.>
 ```
 
 If the plan is blocked, replace the execution handoff with a pointer to the unresolved `Decision Required` block(s) in the canonical Doct plan and ask the user to select an option or comment there. Do not restate an abbreviated option list in chat, and do not suggest a Markdown-only execution command unless the repo explicitly supports converting the reviewed HTML plan back to Markdown.

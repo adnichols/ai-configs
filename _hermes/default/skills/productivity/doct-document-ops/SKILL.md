@@ -1,6 +1,6 @@
 ---
 name: doct-document-ops
-description: Interact with doct through the doct-agent CLI. Use when asked to open a doct URL, list doct workspaces or documents, view/create/edit doct documents, update metadata, rename/move/delete, add or inspect comments, create/register/update/monitor HTML, Markdoc, or Markdown coding plans in Doct, publish plans for browser review, or run read-only doct DB/log triage. For reviewer-facing coding plans, use `doct-agent plans register` on `https://doct.nodaste.com` and start/verify the comment listener; use text-document publishing only when Markdown/text is explicitly requested.
+description: Interact with doct through the doct-agent CLI. Use when asked to open a doct URL, list doct workspaces or documents, view/create/edit doct documents, update metadata, rename/move/delete, add or inspect comments, create/register/update/monitor HTML, Markdoc, or Markdown coding plans in Doct, publish plans for browser review, or run read-only doct DB/log triage. For reviewer-facing plans, automatically activate the plan, process already-routed queue items, and start the returned durable comment listener without waiting for a separate request. Keep pre-execution listener ownership until execution moves the plan to `in_progress` (or an explicitly configured equivalent), restarting it when necessary; supervise it using the current host's real wake mechanism and state any limitation truthfully. Use text-document publishing only when Markdown/text is explicitly requested.
 ---
 
 # Doct document operations
@@ -68,17 +68,17 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 | Surgical text edit | `doct-agent collab anchored <replace\|insert-before\|insert-after\|delete> --document-id <id> --selected-text '...' [--text '...']` |
 | Add a text-doc comment thread | `doct-agent collab comments add --document-id <id> --selected-text '...' --body '...'` |
 | List / reply / resolve text-doc comments | `doct-agent collab comments <list\|reply\|resolve\|unresolve> --document-id <id>` |
-| Register an HTML plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --json` |
-| Register a Markdoc plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --json` |
+| Initialize a plan source | `doct-agent plans init --output thoughts/plans/<plan>.markdoc [--template <template>] [--plan-config <file>] --json` |
+| Register an HTML plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --title '<Plan Title>' --json` |
+| Register a Markdoc plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --title '<Plan Title>' --json` |
 | Update a registered plan | `doct-agent plans update --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --source-format html --expected-version <version> --json` |
 | Show a registered plan | `doct-agent plans show --id <document-id> --json` |
 | Watch/sync a plan source file | `doct-agent plans watch --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --json` |
-| Update existing plan HTML | `doct-agent plans update --base-url https://doct.nodaste.com --id <document-id> --workspace-id <workspace-id> --file <path> --source-format html --expected-version <document.version> --json` |
-| Start Codex-observable plan comment listener | `doct-agent plans agent next --workspace-id <workspace-id> --document-id <document-id> --wait --json` |
+| Start durable plan comment listener | `doct-agent plans listen --workspace-id <workspace-id> --document-id <document-id> --jsonl` |
 | Inspect plan queue | `doct-agent plans queue list --workspace-id <workspace-id> --document-id <document-id> --json` |
-| Drain / claim next plan item | `doct-agent plans agent next --workspace-id <workspace-id> --document-id <document-id> --no-wait --json`; use `--wait` only for one-shot listener/recovery flows |
+| Drain / claim next plan item | `doct-agent plans agent next --workspace-id <workspace-id> --document-id <document-id> --no-wait --json`; reserve `--wait` for explicit diagnostics or one-shot recovery only |
 | Reply / ack / resolve / release plan item | `doct-agent plans <reply\|ack\|resolve\|release> ... --thread-id <thread-id> --claim-id <claim-id> --json` |
-| Plan lifecycle / board / readiness metadata | `doct-agent plans lifecycle --document-id <id> --workspace-id <id> --state active --json`; `doct-agent plans board list|set ...`; `doct-agent plans metadata --execution-ready true|false ...` |
+| Plan notes / columns / lifecycle / board / readiness | `doct-agent plans notes ...`; `doct-agent plans columns ...`; `doct-agent plans lifecycle --document-id <id> --workspace-id <id> --state active --json`; `doct-agent plans board list|set ...`; `doct-agent plans metadata --execution-ready true|false ...` |
 | Title / status | `doct-agent documents update-metadata --id <id> --title <t> --status <s>` |
 | Rename | `doct-agent documents rename --id <id> --workspace-id <id> --title <t>` |
 | Move / reorder | `doct-agent documents move --id <id> --workspace-id <id> --new-parent-id <id>` |
@@ -102,6 +102,15 @@ If the user asks to **create, send, publish, copy, save, register, review, or mo
 - If you accidentally create a text doc for a reviewer-facing coding plan, register a replacement HTML/Markdoc plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement URL as canonical.
 
 For Aaron-facing development plans, default to a browser-reviewable HTML or Markdoc plan registered in Doct even when the prompt only says "create a plan" or "publish a plan." Use Markdown/text only when he explicitly asks for that non-reviewable format or repo guidance requires it.
+
+### PR and deployment boundary in plans
+
+Doct registration, lifecycle, board columns, readiness metadata, and progress rendering must preserve the canonical planning boundary:
+
+- Executable phases and `Progress` cover the PR-reviewable slice: implementation, tests, docs, migration/release definitions, buildable artifacts, and truthful pre-merge verification.
+- Environment deployment, promotion, merge-dependent smoke checks, production observation, and rollback execution are non-blocking post-merge delivery/operations work. Put them in a separate labeled section, not in the phase/progress one-to-one mapping and not in readiness criteria for PR creation.
+- A pending deployment or missing deployment evidence must never prevent plan registration, execution-ready status, board movement to `in_progress`, source progress synchronization, or PR creation. Doct state describes plan/review workflow state; it does not turn an operational deployment checkpoint into an implementation gate.
+- If an existing registered plan mixes post-merge deployment checkpoints into executable phases, preserve the operational obligation but correct the boundary during the next plan update: identify the PR-ready end state, move deployment/observation guidance to the non-blocking post-merge section, and do not claim the deployment occurred.
 
 ## Plan source formats
 
@@ -127,11 +136,69 @@ When writing or updating a handcrafted HTML plan:
 
 Reviewer-friendly structure:
 
-- `Progress` contains the phase checkboxes.
+- `Progress` contains checkboxes only for PR-bound executable phases; post-merge deployment/operations items are shown separately without blocking progress or readiness.
 - The top table of contents links to every major plan section and each phase.
 - Each phase has a stable wrapper ID, for example `id="phase-p1-contracts"`.
 - Acceptance criteria and BDD scenarios have stable IDs, for example `id="ac-1"` and `id="bdd-retry-timeout"`.
 - Add short context near diagrams and images so comments on visual elements are meaningful to the agent.
+
+## Plan title contract (required)
+
+Doct has **two** titles that reviewers see, and they must be the **same string**:
+
+1. **Doct document / tree title** — set by `doct-agent plans register --title` (and repairable with `documents update-metadata --title` / `documents rename --title`).
+2. **In-content plan title** — Markdoc YAML frontmatter `title:` (rendered into plan chrome / H1) or HTML `<title>` **and** top-level `<h1>`.
+
+Never leave one fixed and the other stale. Filename stem inference is not a title.
+
+**Failure modes to prevent:**
+
+- Browser-review draft showing **Untitled Plan** with **No section entries generated** (missing Markdoc frontmatter `title:` / section tags; Doct renders `frontmatter.title ?? "Untitled Plan"`).
+- Doct sidebar/document name saying one thing while the plan body H1/chrome says another (register `--title` drifted from content, or only one side was updated).
+
+### Canonical title (one string, three places)
+
+Pick one concise human title (issue key optional), for example `NOD-1285 — Show signed-in Heddle account identity`. Write that **exact** string into every place below before handoff:
+
+| Surface | Where |
+|---------|--------|
+| Source content | Markdoc: YAML `title:`. HTML: both `<title>` and top-level `<h1>`. If Markdoc also has a leading `#` heading, it must match `title:`. |
+| Register CLI | `doct-agent plans register ... --title '<Plan Title>'` sets the Doct document/tree title. |
+| Doct document metadata | Created from `--title` on register. After any retitle, confirm with `documents get --id <id> --json` and repair with `documents update-metadata --id <id> --title '<Plan Title>'` (and `documents rename` when the tree label must move). `plans update` syncs plan **body/source only** and does **not** accept `--title`. |
+
+### Before every `plans register`
+
+1. Choose the canonical title.
+2. **Write it into the source first** (frontmatter and/or `<title>`+`<h1>`), not only the CLI flag.
+3. **Always** pass the same string as `--title '<Plan Title>'` on **register**. Do not rely on filename stem inference; it neither fixes Markdoc chrome nor guarantees document/content alignment.
+4. For later body-only edits use `plans update` **without** `--title`. If the human title itself changes, update source title(s), then repair Doct with `documents update-metadata --title` (and rename if needed). Re-register with `--title` only when creating a replacement document.
+5. **Markdoc** example:
+
+```markdoc
+---
+title: NOD-1285 — Show signed-in Heddle account identity
+status: browser-review-draft
+executionReady: false
+planId: account-detail-add
+templateId: default-execution-plan
+templateVersion: 1
+templateSchemaVersion: 1
+surfaces:
+  - src/app/...
+---
+
+# NOD-1285 — Show signed-in Heddle account identity
+```
+
+   A leading `# Heading` alone is **not** enough for Markdoc browser review. Prefer `doct-agent plans init` or the repo's default-execution-plan template so `{% section id="..." title="..." %}` / `{% phase %}` tags populate the Contents TOC.
+6. **HTML** must set **both** `<title>…</title>` and a visible top-level `<h1>…</h1>` to that same string, then pass `--title` on register.
+7. **After registration or retitle**, verify alignment:
+   - `documents get --id <id> --json` → `title` equals the canonical string
+   - Plan source still has the same string in frontmatter / `<title>` / `<h1>`
+   - Browser chrome is not Untitled Plan and does not disagree with the tree name
+8. **If anything is wrong**, fix **all** sides in one pass: edit source title(s) → `plans update` (body/source sync only; no `--title` flag) or re-register with `--title` → `documents update-metadata --title` (and rename if needed) so Doct metadata matches. Do not “fix” only the HTML body or only the Doct tree name.
+9. After register/retitle, record the verified Doct title into the delivery ledger with `delivery set --doct-title '<Plan Title>'` (from `documents get`). `delivery check` emits `PLAN_TITLE` when source titles are missing/mismatched, or when an explicitly recorded Doct title (`doctTitleSource=doct`) disagrees with content. It does **not** invent Doct drift from a local content snapshot alone.
+10. Delivery runs: fix `PLAN_TITLE` before browser-review handoff.
 
 ## Register reviewer-facing plans
 
@@ -145,6 +212,7 @@ doct-agent plans register \
   --file thoughts/plans/<plan>.html \
   --source-format html \
   --allow-untemplated \
+  --title '<Plan Title>' \
   --json
 ```
 
@@ -155,10 +223,11 @@ doct-agent plans register \
   --base-url https://doct.nodaste.com \
   --file thoughts/plans/<plan>.markdoc \
   --source-format markdoc \
+  --title '<Plan Title>' \
   --json
 ```
 
-Add `--title '<Plan Title>'`, `--workspace <workspace-slug-or-id>`, `--workspace-id <id>`, `--path '<path>'`, or `--parent-id <id>` only when repo guidance or the user specifies a destination. Otherwise use the CLI defaults. Use `--allow-untemplated` for handcrafted HTML plans. Do not use it for normal Markdoc template/config-backed plans unless the CLI or repo guidance says the plan is intentionally untemplated.
+`--title '<Plan Title>'` is **required** on every registration (and should match Markdoc frontmatter `title:` / HTML `<title>`+`<h1>`). Add `--workspace <workspace-slug-or-id>`, `--workspace-id <id>`, `--path '<path>'`, or `--parent-id <id>` only when repo guidance or the user specifies a destination; otherwise use the CLI defaults for those fields. Use `--allow-untemplated` for handcrafted HTML plans. Do not use it for normal Markdoc template/config-backed plans unless the CLI or repo guidance says the plan is intentionally untemplated. Untemplated Markdoc still requires frontmatter `title:` and `--title`.
 
 Parse the JSON and preserve at least:
 
@@ -167,52 +236,68 @@ Parse the JSON and preserve at least:
 - current source/version or expected-version value when returned,
 - canonical Doct URL,
 - `sourceGuidance` when returned,
-- the full returned `listenerInstructions` object, including `startCommand`, `preferredCommand`, `drainCommand`, lifecycle/board commands, ack/resolve guidance, and processing-loop requirements.
+- the returned `listenerInstructions` object, especially `listenerCommand` (`doct-agent plans listen ... --jsonl`) and any source/version metadata returned for local tracking.
 
 Show the user the canonical Doct URL from the registration response. If a command returns a relative path, resolve it against `https://doct.nodaste.com` before sharing it. Do not share `localhost`, local `plan-review` URLs, or Tailscale local-service URLs for the default flow.
 
 Registration creates or updates the Doct review artifact. The repo file remains the source artifact for implementation; Doct is the review/registration surface.
 
-## Start the comment listener
+## Start and supervise the comment worker automatically
 
-A registered reviewer-facing plan is not ready for browser-review handoff until the comment listener is running, unless the user explicitly asked for registration-only work. Treat the returned `listenerInstructions` as the live contract because field names and preferred delivery commands can evolve.
+A registered reviewer-facing plan is not ready for browser-review handoff until existing routed work has been processed and the durable comment listener is both running and observable by the supervising agent. Do this automatically after registration or a monitoring handoff; do not wait for the user to separately ask you to start the listener. The exceptions are an explicit registration-only request or a host that cannot provide a safe wake path, which must be reported precisely.
+
+Treat the returned `listenerInstructions.listenerCommand` as the live command contract. The CLI listener claims/dequeues routed items and emits one JSONL `plan_comment_dispatch` per claim; it does not edit the plan or acknowledge/resolve the claim for you.
 
 After registration:
 
-1. Run the returned `lifecycleCommand`, or equivalent `doct-agent plans lifecycle --state active`, before draining/listening.
+1. Run `doct-agent plans lifecycle --state active` before draining/listening when lifecycle is not already active.
 2. Leave the plan in its registration/default board column, normally `backlog`, unless the user explicitly requested a board move. Registration and browser-review handoff do not mean implementation is underway.
-3. Drain pending work with the returned `drainCommand` (`doct-agent plans agent next ... --no-wait --json`) until it returns `status: "empty"`.
-4. In Codex, start the observable one-claim listener with the `exec_command` tool, using the registration's `listenerInstructions.preferredCommand` or `listenerInstructions.listenCommand` when it is a `doct-agent plans agent next ... --wait --json` command. This command is quiet while the queue is empty; when a routed plan-review comment arrives, the subprocess returns a JSON claim payload and the Codex session is woken with the thread id, claim id, selected anchor, comment body, and reply/ack/resolve/release commands.
-5. Use the durable listener command returned by registration. Current Doct disables long `plans agent next --wait` calls because an upstream proxy can terminate them before a claim arrives. Start `plans listen` as a supervised background process:
+3. Drain existing routed work with `doct-agent plans agent next ... --no-wait --json`. If the response contains a claim, process that claim immediately, then call `agent next --no-wait` again. Stop only on the CLI's empty envelope. Never use a blind shell loop that discards claimed JSON; a claim that is dequeued but not handled remains leased and can be hidden until redelivery.
+4. Start the exact returned `listenerInstructions.listenerCommand` (`doct-agent plans listen ... --jsonl`) using the host-specific supervision path below. This durable listener uses bounded request timeouts and retries transient 408/429/5xx responses.
+5. Verify both halves before browser handoff: the process is alive, and every emitted `plan_comment_dispatch` can re-activate or remain connected to the agent that will handle it. A running PID alone is insufficient.
+6. When the listener emits a dispatch, treat that event as the already-claimed work item. Process exactly that claim, then reply/ack/resolve/release with the returned identifiers and commands. Do not call `agent next` to re-claim the same event. Keep the listener running for later work.
+7. A routed work item is created by the browser's agent action or by `doct-agent plans comments add --submit-action agent ...`. A generic routed item commonly has `submitAction: "agent"` with `agentRoute.targetScope: "plan-review"` and no requested skill; it is plan feedback, not an execution-ready request. Doct's **Request execution-ready review** action currently adds `agentRoute.requestedSkill: "plan-reviewer-execution-ready"`; an explicit `submitAction: "execution-ready"` is equivalent when returned by the service. Ordinary conversation comments use `submitAction: "conversation"`, return `queueState: "none"`, and intentionally do not wake the listener.
+8. If a claim cannot be completed before its lease expires, release it with a reason. Do not let a listener silently accumulate claimed-but-unhandled work.
+
+### Host supervision matrix
+
+- **Codex desktop/app:** Start the listener with a persistent `exec_command`/terminal session and capture its session id. Keep the plan-review task active; wait for output with `write_stdin` (or the equivalent terminal poll), process each dispatch immediately, and periodically inspect `doct-agent plans board list` for this document's assignment. Do not return a final handoff while Codex owns pre-execution monitoring. If a native recurring automation or thread-wake tool is available and the requested monitoring scope authorizes it, that may carry the same watchdog responsibility without holding the interactive turn open. A background exec process alone does **not** prove that Codex will start a new turn after the current task returns.
+- **Pi:** Start the listener through `process` with `alertOnFailure: true`, `alertOnKill: true`, and `logWatches: [{"pattern":"\\\"type\\\":\\\"plan_comment_dispatch\\\"","stream":"stdout","repeat":true}]`. The repeating watch wakes Pi for every dispatch; the failure/kill alerts create recovery turns.
+- **Other wake-capable harnesses:** Use their durable background-process primitive plus a repeating stdout match for `"type":"plan_comment_dispatch"`, and alerts for listener exit/failure.
+- **Claude Code:** This IS a wake-capable harness — supervise, do not opt out. Start the listener with Bash `run_in_background: true` (writing JSONL to a log file), then arm a **persistent `Monitor`** whose command tails that log filtered to `"type":"plan_comment_dispatch"` **plus** error/exit signatures (`error|Error|unauthorized|exit`). Each matching stdout line wakes a fresh turn with the already-claimed dispatch; `run_in_background` independently re-invokes you if the listener process exits, so a crash surfaces instead of going silent. That pair is durable supervision. Do **not** report `LISTENER_WAKE_UNAVAILABLE` from a Claude Code session that has `Monitor` and background Bash available — claiming you cannot supervise here is a false limitation.
+- **Terminal-only agents (no background-process or per-output wake primitive):** A detached PID or `nohup` is not autonomous supervision. Keep the interactive task attached and polling, install an explicitly authorized scheduler/worker, or report `LISTENER_WAKE_UNAVAILABLE`.
+
+### Pre-execution ownership and stop condition
+
+The agent that publishes or opens the plan for browser review owns the pre-execution listener until one of these observable conditions occurs:
+
+1. An execution workflow moves the exact document to the visible `in_progress` board column, or repo/service configuration explicitly identifies an equivalent execution-start column.
+2. The plan lifecycle is no longer `active`, the document is deleted/archived, or the listener exits because target validation is no longer valid.
+3. The user explicitly cancels monitoring or requested registration-only work.
+
+For Codex, treat this as an ongoing-task terminal condition:
+
+1. Keep the listener exec session attached and poll it for dispatches.
+2. Periodically run `doct-agent plans board list --workspace-id <workspace-id> --json` and locate the exact document card; do not infer execution from a local progress checkbox.
+3. If the listener exits before an ownership boundary, inspect lifecycle/auth/board state and restart the exact registration-provided command automatically when the plan is still active and pre-execution.
+4. When `in_progress` is observed, finish or release any current claim, drain the exact document queue once, interrupt the pre-execution listener cleanly, and report that listener ownership passed to the execution workflow.
+5. When a Codex task is resumed after interruption, inspect board state, lifecycle, queue, and listener health first; restart monitoring automatically if the plan is still active and not yet `in_progress`.
+
+If the listener command itself cannot start or fails lifecycle/auth/scope validation, report `LISTENER_START_BLOCKED`. If the user requires the Codex task to return before execution begins and no native automation/thread-wake path exists, report `LISTENER_WAKE_UNAVAILABLE` rather than pretending a detached listener is sufficient. Queue inspection and manual claims are recovery paths, not evidence of durable supervision.
+
+Durable listener example:
 
 ```bash
-doct-agent --base-url https://doct.nodaste.com plans listen \
-  --workspace-id <workspace-id> \
-  --document-id <document-id> \
-  --jsonl \
-  --lease-seconds 900
-```
-
-Preserve the background-process/session handle and verify it remains running. Use `plans agent next --wait --timeout 60` only for short diagnostics, not durable browser-review listening. For monitoring that must survive the current session, register listener ownership with the established dispatcher/supervisor pattern. See `references/doct-plan-update-versioning-and-listeners.md` for listener and version pitfalls.
-6. A routed work item is created by the browser's agent action or by `doct-agent plans comments add --submit-action agent ...`. A generic routed item commonly has `submitAction: "agent"` with `agentRoute.targetScope: "plan-review"` and no requested skill; it is plan feedback, not an execution-ready request. Doct's **Request execution-ready review** action currently adds `agentRoute.requestedSkill: "plan-reviewer-execution-ready"`; an explicit `submitAction: "execution-ready"` is equivalent when returned by the service. Ordinary conversation comments use `submitAction: "conversation"`, return `queueState: "none"`, and intentionally do not wake the plan-review listener.
-7. When the listener returns a claim, process exactly that claim in a separate worker step or sub-agent, then reply/ack/resolve/release with the returned commands. Start the next one-claim listener only after the current claim is no longer leased to this agent.
-8. If Codex cannot keep an observable `exec_command`/subprocess handle for the one-claim listener, report `LISTENER_START_BLOCKED` and leave the browser-review handoff incomplete.
-
-Codex observable-listener example:
-
-```bash
-doct-agent plans agent next \
+doct-agent plans listen \
   --base-url https://doct.nodaste.com \
   --workspace-id <workspace-id> \
   --document-id <document-id> \
-  --wait \
-  --timeout 300 \
-  --json
+  --jsonl
 ```
 
-Use the exact command returned by `listenerInstructions` when it differs from this example.
+Use the exact `listenerInstructions.listenerCommand` returned by registration when it differs from this example.
 
-`plans listen --jsonl` is an advanced compatibility supervisor for environments that have a real process supervisor and dispatcher. In Codex, prefer the one-claim `plans agent next --wait --json` command because it wakes the active session with a claim payload and then exits for claim handling. `plans watch` is only source sync/debug visibility and does not replace the comment listener.
+`plans agent next --wait --json` is a one-shot diagnostic/recovery path only. It depends on the HTTP request staying open until the server-side wait deadline and is more vulnerable to platform/proxy timeouts than `plans listen --jsonl`. `plans watch` is only source sync/debug visibility and does not replace the comment listener.
 
 ## Publish Markdown/text plans
 
@@ -246,20 +331,6 @@ Return the created/updated Doct URL, document id, workspace id, and status. Stat
 
 ## Update a registered plan
 
-### Linear issue coverage audits
-
-When Aaron asks to make sure a Linear issue is covered by an existing Doct/repo plan, do not answer from the plan title or a single `data-linear-issue` attribute. Perform a concrete coverage audit:
-
-1. Read the Linear issue body with the repo-local `ltui` surface when available (`ltui --format json issues view <KEY>`), falling back to the Linear API only if needed.
-2. Read the local plan source and verify whether each issue goal/acceptance area maps to explicit plan sections, ACs, BDD scenarios, and implementation phases.
-3. If coverage is implicit or scattered, add a dedicated `<KEY> Coverage Matrix` section to the HTML plan with stable `id` / `data-section` / `data-anchor` attributes and map every issue area to concrete anchors.
-4. Update any companion discovery ledger with a short coverage-audit note.
-5. Re-run the repo plan validator and `git diff --check` before publishing.
-6. Push the updated source through `doct-agent plans update` using the current integer `document.version` as `--expected-version`, then read back the Doct document and verify the new coverage text/attributes are present.
-7. Add a Linear issue comment summarizing the coverage and linking the canonical Doct URL so the Linear issue itself points at the reviewer-facing source of truth.
-
-See `references/linear-issue-coverage-audit-pattern.md` for a compact worked pattern.
-
 After editing a registered plan, push the updated source back through Doct:
 
 ```bash
@@ -292,7 +363,7 @@ Use background processing for the watcher when it is needed. Do not block the co
 
 Use Doct plan listener and queue commands, not the legacy `plan-review agent next` flow.
 
-The normal path is the durable listener started immediately after registration. Use queue inspection and one-shot claims for startup drain, recovery, or manual processing.
+The normal path is automatic startup drain followed by the durable listener immediately after registration. Use queue inspection and one-shot claims for startup drain, recovery, or manual processing; do not wait for a second user prompt before performing the startup drain.
 
 Inspect pending work:
 
@@ -317,7 +388,7 @@ doct-agent plans agent next \
 
 For cross-document adapter workers, use `--all` only when that worker is intentionally responsible for all active plan comments/actions in the workspace.
 
-A listener-delivered or manually claimed item should provide a thread id, claim id, reviewer context, action metadata, selected node/selector context, and returned ack/resolve/release commands. Process one claim at a time:
+A listener-delivered or manually claimed item should provide a thread id, claim id, reviewer context, action metadata, selected node/selector context, and returned ack/resolve/release commands. A listener event is already claimed; a manual drain response is the claim. Process one claim at a time:
 
 1. Read the full local plan file and, if needed, `doct-agent plans show --id <document-id> --json`.
 2. Use the selected node ID, selector, heading path, quoted text, and reviewer body.
@@ -382,7 +453,7 @@ doct-agent plans lifecycle \
   --json
 ```
 
-Registration should leave the board assignment at the service default, normally `backlog`. Do not move a newly registered plan to `in_progress` as part of browser-review setup. Execution workflows such as `run-plan` own the transition to `in_progress` when implementation actually starts.
+Registration should leave the board assignment at the service default, normally `backlog`. Do not move a newly registered plan to `in_progress` as part of browser-review setup. Execution workflows such as `run-plan` own the transition to `in_progress` when implementation actually starts. Do not delay that transition, readiness metadata, or later PR creation for deployment, promotion, merge-dependent validation, or production observation; those are separate post-merge operational states.
 
 ## Legacy local plan-review service
 
@@ -394,15 +465,13 @@ Use the old local `plan-review` CLI/service only when the user explicitly asks f
 - Production plan registration defaults to `https://doct.nodaste.com`; develop is opt-in.
 - Confirm before create / replace-body / delete / move on documents you did not create, and before publishing into shared workspaces.
 - `doct-agent triage` is read-only operational triage (DB checks and Railway logs) — use it to inspect state, not to mutate.
-- For registered plans, listener startup is part of registration completion. Do not tell the user to annotate a plan until the returned listener command is running or you have reported a concrete listener-start blocker.
+- For registered plans, startup drain and listener startup happen automatically as part of registration completion. Keep pre-execution ownership until the plan enters `in_progress`, its lifecycle ends, or the user cancels. Do not wait for a separate request, and do not tell the user to annotate a plan until supervision is verified or you have reported `LISTENER_START_BLOCKED` / `LISTENER_WAKE_UNAVAILABLE` accurately.
 - For visual verification inside doct, use browser automation after approval.
 
 ## References
 
 - `references/doct-agent-commands.md` — full per-command reference, flags, and worked examples.
-- `references/doct-plan-update-versioning-and-listeners.md` — field-version pitfall (`document.version` integer vs UUID-like ids), listener timeout handling, and nested `listenerInstructions` normalization.
 - `references/plan-format-listener-repair-pattern.md` — repair path for wrong text-doc plan artifacts or missing listeners.
 - `references/doct-plan-comment-dispatcher-pattern.md` — durable listener/worker pattern when comments remain pending.
 - `references/coding-plan-archive-audit-pattern.md` — evidence and commands for archiving completed Coding Plans.
-- `references/linear-issue-coverage-audit-pattern.md` — concrete audit/update pattern for proving a Linear issue is fully covered by a Doct/repo HTML plan.
 - `doct-agent onboard` — the canonical, always-current spec from the installed CLI.
