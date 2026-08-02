@@ -93,6 +93,7 @@ PICKER_ENABLED_MODELS = [
     "openai-codex/gpt-5.6-sol",
     "xai/grok-4.5",
     "opencode/deepseek-v4-flash",
+    "opencode/deepseek-v4-pro",
 ]
 
 if settings_path.exists():
@@ -369,6 +370,7 @@ else:
         "openai-codex/gpt-5.6-sol",
         "xai/grok-4.5",
         "opencode/deepseek-v4-flash",
+        "opencode/deepseek-v4-pro",
     ]
     if enabled != expected_models:
         errors.append(f"enabledModels={enabled!r}; expected exactly {expected_models!r}")

@@ -62,6 +62,7 @@ class PiAgentRosterTest(unittest.TestCase):
             "openai-codex/gpt-5.6-sol",
             "xai/grok-4.5",
             "opencode/deepseek-v4-flash",
+            "opencode/deepseek-v4-pro",
         ):
             self.assertIn(f'"{model}"', allowlist)
         for excluded in (
