@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Tracked Amp CLI config under `amp/` (`settings.json` + `plugins/subscription-models.ts` ADN/Grok modes), with local install via `amp/install.sh` / `install.sh --tools` and macOS remote streaming to `mbp`/`dever`/`mbp14`.
+
 ### Changed
 
 - Centralized bounded Pi review-stack install, rollback, and verification surfaces in one validated manifest, with deterministic planner/reviewer transport probing and atomic private JSON receipts for local, transactional, and remote-host runs.

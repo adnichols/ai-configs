@@ -82,7 +82,7 @@ print_usage() {
     echo "  --pi        Install Pi prompt templates, read-only/planning subagents, and extensions, then refresh shared skills"
     echo "  --pi-vcc [package-source]  Transactionally install only pi-vcc (repo package by default)"
     echo "  --pi-review-stack  Mutation-bounded Pi config plus six maintained review skills; no packages/global cleanup"
-    echo "  --tools     Install/update managed Herdr config/plugins, Kitty remote workflow, and CLI tools"
+    echo "  --tools     Install/update managed Herdr/Amp config, Kitty remote workflow, and CLI tools"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
     echo "  --update    Update globally installed skills tracked by skills.sh before shared-skill sync"
@@ -102,8 +102,9 @@ print_usage() {
     echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-powerline-footer, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-service-tier, pi-extensible-workflows, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
-    echo "  - The tracked Herdr config is installed locally whenever --tools or --all runs"
+    echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
+    echo "  - Managed Amp settings/modes are streamed to mbp/dever/mbp14 whenever --tools or --all runs on macOS"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
     echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OMP, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
@@ -116,7 +117,7 @@ print_usage() {
     echo "  $0 --pi                          # Install Pi prompt templates, read-only/planning subagents, extensions, and refresh shared skills"
     echo "  $0 --pi-vcc                     # Transactionally install only the vendored pi-vcc package"
     echo "  $0 --pi-vcc /path/to/pi-vcc     # Install or roll back from an explicit preserved package"
-    echo "  $0 --tools                       # Install/update managed Herdr config/plugins, Kitty workflow, and CLI tools"
+    echo "  $0 --tools                       # Install/update managed Herdr/Amp config, Kitty workflow, and CLI tools"
     echo "  $0 --skills                      # Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  $0 --skills --update             # Update skills.sh-managed global skills, then sync shared skills"
     echo "  $0 --all                         # Install all maintained surfaces and tools"
@@ -578,6 +579,8 @@ install_tools() {
 
     install_herdr_config
     echo ""
+    install_amp_config
+    echo ""
     install_kitty_remote_workflow
     echo ""
     install_herdr_plugins
@@ -589,6 +592,19 @@ install_herdr_config() {
     echo "Installing managed Herdr configuration..."
     bash "$REPO_ROOT/herdr/install.sh"
     echo -e "${GREEN}✓ Managed Herdr configuration installed${NC}"
+}
+
+install_amp_config() {
+    echo "Installing managed Amp configuration..."
+    bash "$REPO_ROOT/amp/install.sh"
+
+    # Stream tracked Amp settings/modes to other hosts from a macOS client,
+    # without relying on remote ai-configs checkouts being clean or current.
+    if [ "$(uname -s)" = "Darwin" ]; then
+        bash "$REPO_ROOT/scripts/install-amp-remote-hosts.sh"
+    fi
+
+    echo -e "${GREEN}✓ Managed Amp configuration processed${NC}"
 }
 
 install_kitty_remote_workflow() {

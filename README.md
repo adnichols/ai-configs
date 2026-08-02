@@ -15,6 +15,7 @@ ai-configs/
 ├── _claude/      # Claude source config
 ├── _codex/       # Codex source config
 ├── _pi/          # Pi source config
+├── amp/          # Canonical Amp settings + custom plugin modes installer
 ├── herdr/        # Canonical cross-host Herdr configuration and installer
 ├── kitty/        # Managed Kitty/Herdr remote-workflow configuration
 ├── scripts/      # Shared helper scripts fanned out by install.sh
@@ -76,7 +77,7 @@ bash ~/ai-configs/install.sh --all ~
 - mirrors shared helper scripts into the runtime locations that need them
 - installs Pi to `~/.pi/agent/`
 - copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@juicesharp/rpiv-todo`
-- with `--tools` or `--all`, installs the canonical Herdr configuration and managed Kitty screenshot/Herdr workflow locally, then streams the tracked configuration to `mbp` and `dever` without modifying either remote ai-configs checkout
+- with `--tools` or `--all`, installs the canonical Herdr and Amp configuration plus managed Kitty screenshot/Herdr workflow locally, then streams the tracked configuration to remote hosts (`mbp`/`dever` for Kitty/Herdr; `mbp`/`dever`/`mbp14` for Amp) without modifying remote ai-configs checkouts
 - removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`
 - with `--update`, first runs `npx skills update -g -y` for globally installed skills tracked by skills.sh, then runs the normal ai-configs sync
@@ -98,6 +99,11 @@ Codex prompt files plus config templates. Global Codex prompt discovery is handl
 
 ### `_pi/`
 Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.
+
+### `amp/`
+Canonical Amp CLI settings and custom plugin modes (`ADN Low` / `ADN Med` / `ADN High` / `ADN Ultra` / `Grok 4.5`) from `plugins/subscription-models.ts`. `install.sh --tools` and `install.sh --all` install them to `~/.config/amp/`, preserve first-differing backups as `*.before-ai-configs`, leave Orca's `orca-agent-status.ts` untouched, and on macOS stream the bundle to `mbp`, `dever`, and `mbp14` (override with `AMP_REMOTE_HOSTS`). Model-provider subscriptions stay host-local credentials.
+
+Run `bash amp/install.sh` for an Amp-only local install.
 
 ### `herdr/`
 Canonical host-independent Herdr configuration plus its installer. `install.sh --tools` and `install.sh --all` install it to `~/.config/herdr/config.toml`, preserving the first differing local file as `config.toml.before-ai-configs`. The same configuration validates on the current Herdr versions on `mbp`, `dever`, `mbp14`, and `mba`; it intentionally standardizes theme and UI preferences across hosts.
@@ -178,7 +184,7 @@ Claude compatibility links are created where needed, but `~/.agents/skills` is t
 bash ./install.sh --skills --update
 ```
 
-`--tools` installs or updates the canonical Herdr configuration, managed Kitty remote workflow, `ltui` from the standalone `Nodaste-Lab/ltui` repository, and the managed Herdr plugin set:
+`--tools` installs or updates the canonical Herdr and Amp configuration, managed Kitty remote workflow, `ltui` from the standalone `Nodaste-Lab/ltui` repository, and the managed Herdr plugin set:
 
 - `persiyanov/herdr-reviewr`
 
