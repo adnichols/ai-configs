@@ -2380,9 +2380,13 @@ install_pi_review_stack() {
             return 1
         fi
     done
-    # Validate every model/settings JSON shape before creating directories or
-    # replacing any bounded review-stack surface.
+    # Validate every model/settings JSON shape and the installed reviewer
+    # transport contract before replacing any bounded review-stack surface.
     validate_pi_model_inputs "$pi_source" "$agent"
+    if ! PI_CODING_AGENT_DIR="$agent" python3 "$REPO_ROOT/scripts/patch_pi_subagents_review_isolation.py"; then
+        echo -e "${RED}Error: pi-subagents cannot guarantee non-isolated reviewer/planner launches${NC}" >&2
+        return 1
+    fi
     parent_metadata="$(mktemp)"
     python3 - "$parent_metadata" "$HOME/.agents" "$HOME/.agents/skills" "$review_runtime_dir" <<'PY'
 import json, os, stat, sys
@@ -3227,6 +3231,14 @@ install_pi_npm_packages() {
     # a child cannot report or release its interactive pane lifecycle.
     if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_explore_subagents.py"; then
         echo -e "${YELLOW}⚠ Failed to apply pi-explore-subagents Herdr identity isolation patch${NC}"
+    fi
+
+    # Review personas must stay in the live checkout even when a generated
+    # Agent tool call includes isolation: worktree. The repo-owned agent
+    # frontmatter uses an authoritative `isolation: none` sentinel.
+    if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_subagents_review_isolation.py"; then
+        echo -e "${RED}Error: pi-subagents cannot guarantee non-isolated reviewer/planner launches${NC}" >&2
+        return 1
     fi
 
 }

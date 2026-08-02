@@ -14,7 +14,7 @@ done
 SNAPSHOT="$(mktemp -d)"; chmod 700 "$SNAPSHOT"
 mkdir -p "$SNAPSHOT/runtime-cache/python" "$SNAPSHOT/runtime-cache/xdg"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX="$SNAPSHOT/runtime-cache/python" XDG_CACHE_HOME="$SNAPSHOT/runtime-cache/xdg"
-SKILLS=(autoreview claude-code-review codex-review-partner pre-pr-implementation-review reviewed-html-plan run-plan)
+SKILLS=(autoreview claude-code-review codex-review-partner delivery-run pre-pr-implementation-review reviewed-html-plan run-plan)
 
 manifest() {
   python3 - "$HOME" "$@" <<'PY'
@@ -35,9 +35,9 @@ PY
 }
 
 # Keep the retired path in the snapshot so a failed transaction can restore it.
-PATHS=(.pi .agents/skills/autoreview .agents/skills/claude-code-review .agents/skills/codex-review-partner .agents/skills/herdr-reviewers .agents/skills/pre-pr-implementation-review .agents/skills/reviewed-html-plan .agents/skills/run-plan .agents/scripts/review_orchestration.py)
+PATHS=(.pi .agents/skills/autoreview .agents/skills/claude-code-review .agents/skills/codex-review-partner .agents/skills/delivery-run .agents/skills/herdr-reviewers .agents/skills/pre-pr-implementation-review .agents/skills/reviewed-html-plan .agents/skills/run-plan .agents/scripts/review_orchestration.py .agents/scripts/git-with-index-lock .agents/scripts/ensure-git-with-index-lock .agents/scripts/delivery .local/bin/git-with-index-lock .local/bin/ensure-git-with-index-lock .local/bin/delivery)
 PARENT_METADATA="$SNAPSHOT/parent-metadata.json"
-python3 - "$PARENT_METADATA" "$HOME/.agents" "$HOME/.agents/skills" "$HOME/.agents/scripts" <<'PY'
+python3 - "$PARENT_METADATA" "$HOME/.agents" "$HOME/.agents/skills" "$HOME/.agents/scripts" "$HOME/.local" "$HOME/.local/bin" <<'PY'
 import json,os,stat,sys
 out={}
 for raw in sys.argv[2:]:
@@ -45,10 +45,12 @@ for raw in sys.argv[2:]:
   resolved=os.path.realpath(raw);value=os.stat(resolved);out[resolved]={'mode':stat.S_IMODE(value.st_mode),'atime_ns':value.st_atime_ns,'mtime_ns':value.st_mtime_ns}
 json.dump(out,open(sys.argv[1],'w'))
 PY
-AGENTS_WAS_ABSENT=false; SKILLS_PARENT_WAS_ABSENT=false; SCRIPTS_PARENT_WAS_ABSENT=false
+AGENTS_WAS_ABSENT=false; SKILLS_PARENT_WAS_ABSENT=false; SCRIPTS_PARENT_WAS_ABSENT=false; LOCAL_WAS_ABSENT=false; LOCAL_BIN_WAS_ABSENT=false
 [ -e "$HOME/.agents" ] || AGENTS_WAS_ABSENT=true
 [ -e "$HOME/.agents/skills" ] || SKILLS_PARENT_WAS_ABSENT=true
 [ -e "$HOME/.agents/scripts" ] || SCRIPTS_PARENT_WAS_ABSENT=true
+[ -e "$HOME/.local" ] || LOCAL_WAS_ABSENT=true
+[ -e "$HOME/.local/bin" ] || LOCAL_BIN_WAS_ABSENT=true
 BEFORE="$(manifest "${PATHS[@]}")"; printf '%s\n' "$BEFORE" >"$SNAPSHOT/manifest.json"
 for rel in "${PATHS[@]}"; do
   if [ -e "$HOME/$rel" ] || [ -L "$HOME/$rel" ]; then mkdir -p "$SNAPSHOT/$(dirname "$rel")"; cp -a "$HOME/$rel" "$SNAPSHOT/$rel"; else mkdir -p "$SNAPSHOT/absent/$(dirname "$rel")"; : >"$SNAPSHOT/absent/$rel"; fi
@@ -60,6 +62,8 @@ restore() {
   if [ "$SKILLS_PARENT_WAS_ABSENT" = true ]; then rmdir "$HOME/.agents/skills" 2>/dev/null || true; fi
   if [ "$SCRIPTS_PARENT_WAS_ABSENT" = true ]; then rmdir "$HOME/.agents/scripts" 2>/dev/null || true; fi
   if [ "$AGENTS_WAS_ABSENT" = true ]; then rmdir "$HOME/.agents" 2>/dev/null || true; fi
+  if [ "$LOCAL_BIN_WAS_ABSENT" = true ]; then rmdir "$HOME/.local/bin" 2>/dev/null || true; fi
+  if [ "$LOCAL_WAS_ABSENT" = true ]; then rmdir "$HOME/.local" 2>/dev/null || true; fi
   python3 - "$PARENT_METADATA" <<'PY'
 import json,os,sys
 for raw,value in json.load(open(sys.argv[1])).items():

@@ -132,22 +132,25 @@ Use the native subagent mechanism for the current harness:
 - **Claude Code:** invoke the repository-owned `reviewer` subagent; it is `claude-sonnet-5` at high effort.
 - **OpenCode:** invoke the configured `reviewer` subagent; it is `cliproxyapi/gpt-5.6-terra` at medium reasoning effort.
 
-#### Live worktree launch contract (mandatory)
+#### Candidate visibility contract (mandatory)
 
-Required read-only reviewers must inspect the **current live worktree**, including committed, staged, unstaged, and untracked changes. Pi `isolation: "worktree"` creates a clean detached `HEAD` checkout and **drops dirty state**, so a rereview after uncommitted fixes will re-report already-fixed lines. That is a false review, not a valid gate.
+Required read-only reviewers must review the candidate in **whatever worktree state exists**: committed, staged, unstaged, untracked, clean, dirty, detached, or isolated. Worktree state is review provenance, not a gate. A reviewer must render findings whenever the candidate code is visible.
 
-Hard rules for every initial review, targeted rereview, and adversarial pass:
+**Pi launch rule:** the `Agent` call **must omit the `isolation` property entirely**. Never set `isolation: "worktree"` for an autoreview reviewer. Before submitting the tool call, inspect its arguments and remove the property if present. The live checkout naturally exposes staged, unstaged, and untracked edits. `TARGET_CHECKOUT` remains a safety fallback only when the harness itself isolates despite the omitted property; it is not permission for the coordinator to request isolation.
 
-- **Never** pass `isolation: "worktree"` (or any equivalent clean-worktree sandbox) when launching the reviewer.
-- **Never** launch the reviewer from a non-repo cwd and try to “fix” that with isolation. The driving session must already be in the target checkout (Herdr/Orca worktree or repo root).
-- In Pi, launch exactly like this shape (isolation omitted on purpose):
+The workflow must remain resilient if the harness isolates anyway:
+
+- Put `TARGET_CHECKOUT: <absolute path>` in every reviewer packet, plus the coordinator's `HEAD` and `git status --short` snapshot and the changed/untracked path list.
+- If launch CWD differs from `TARGET_CHECKOUT`, the reviewer must inspect the target directly with path-qualified reads and commands such as `git -C <target> ...`. A temporary or isolated launch CWD is never by itself a review failure.
+- If the target checkout is unavailable but the launch checkout contains the requested commit/range, review that visible code and disclose any staged/unstaged/untracked content that could not be examined. Do not refuse to review the committed candidate on a cleanliness technicality.
+- In Pi, use this launch shape. The absence of an `isolation` property is mandatory:
 
 ```javascript
 const review = Agent({
   subagent_type: "reviewer",
   description: "Pre-PR implementation review",
   prompt: "<bounded review packet>",
-  // Do NOT set isolation: "worktree"
+  // REQUIRED: launch from the current checkout.
   // Cursor Grok/Composer: always background + join (bridge also forces background).
   run_in_background: true,
 });
@@ -159,9 +162,9 @@ const verdict = get_subagent_result({
 
 On non-Cursor parents, foreground `Agent` without `run_in_background` remains acceptable. On Cursor Grok or Composer, background + join is required: foreground bridged `Agent` shares the parent MCP CallTool abort signal and can be marked stopped with a false "STOPPED BY THE USER" label while the parent turn dies with empty `Operation aborted`.
 
-- Before accepting a verdict, the parent must confirm the reviewer inspected the live candidate: same repo checkout (not a `/tmp/pi-agent-*` clean worktree), and when the parent packet listed dirty files (modified, staged, or untracked), the reviewer provenance must show non-empty `git status --short` covering those paths or otherwise prove they were read from the live tree.
-- If a reviewer result came from an isolated clean worktree while the candidate still had staged, unstaged, or untracked changes in scope, discard it as `REVIEW_INFRASTRUCTURE_FAILURE` and relaunch **without** isolation. Do not treat that result as PASS, FINDINGS_TO_RESOLVE, or cycle progress.
-- Require the reviewer to return a short provenance block: `cwd`, `HEAD`, `git status --short` (or `EMPTY`), and whether staged/unstaged/untracked changes were in the inspected tree.
+- Before accepting a verdict, the parent must confirm what content the reviewer actually inspected. For a dirty candidate, valid evidence is either `REVIEW_ROOT` pointing at the target checkout or a supplied patch/diff that covers the listed staged, unstaged, and untracked paths.
+- Do not discard an otherwise valid review because it ran from `/tmp`, an isolated checkout, a detached HEAD, or a clean/dirty worktree. If dirty content was omitted, keep the findings over the visible committed candidate and run at most one targeted follow-up with `TARGET_CHECKOUT` or an explicit patch for the missing paths; do not label the completed visible-code review an infrastructure failure.
+- Require the reviewer to return a short provenance block: launch `CWD`, `REVIEW_ROOT`, `HEAD`, `git status --short` (or `EMPTY`), `REVIEW_SOURCE`, and any unavailable candidate content.
 
 Do not launch Codex or Claude Code as a separate review leg, and do not use Herdr as the transport for this **autoreview code-review** gate. A Herdr delivery run separately performs its visible Pi/Grok 4.5 plan-completeness review after autoreview; that reviewer does not replace this gate. The reviewer is static inspection only: it must not edit files or run tests, builds, linters, typechecks, benchmarks, verification scripts, or other executable checks. The coordinating agent exclusively owns verification and fixes. If the configured reviewer is unavailable, report `REVIEW_INFRASTRUCTURE_FAILURE` unless the user waives the gate or directs opening the PR regardless.
 
@@ -193,14 +196,18 @@ Touched surfaces:
 Assigned failure families:
 <security/auth/privacy, data loss/persistence, contract parity, async/resource lifecycle, verification truthfulness, or other scoped slice>
 
-Review committed, staged, unstaged, and untracked changes in this live worktree. Focus on issues a pull-request reviewer would reasonably ask to fix, justify, or track before merge.
+TARGET_CHECKOUT: <absolute path to the candidate checkout>
+COORDINATOR_HEAD: <short sha>
+COORDINATOR_STATUS_SHORT: <git status --short one line, semicolon-separated, or EMPTY>
+Review committed, staged, unstaged, and untracked changes visible at `TARGET_CHECKOUT`. If your launch CWD differs, inspect `TARGET_CHECKOUT` directly with path-qualified reads and `git -C`; do not refuse the review because of the launch directory or worktree state. If some requested content is unavailable, still review all visible code and disclose the missing portion under `Not examined:`.
 
 Provenance (required at the top of your reply for every successful or incomplete review):
-- CWD: <absolute cwd>
+- CWD: <absolute launch cwd>
+- REVIEW_ROOT: <absolute checkout or artifact path actually reviewed>
 - HEAD: <short sha>
 - STATUS_SHORT: <git status --short one line, semicolon-separated, or EMPTY>
-- INSPECTED_TREE: <live-worktree | isolated-clean>
-Treat any non-empty `git status --short` output as dirty, including untracked `??` paths. If your cwd is a temporary isolated git worktree (for example under /tmp/pi-agent-*) or STATUS_SHORT is EMPTY while the packet listed dirty staged/unstaged/untracked paths, set `INSPECTED_TREE: isolated-clean`, stop with VERDICT: REVIEW_INFRASTRUCTURE_FAILURE, and explain that you are not inspecting the live dirty candidate. Do not report findings against a clean HEAD snapshot when dirty changes were in scope.
+- REVIEW_SOURCE: <target-live-worktree | launch-checkout | supplied-diff>
+Treat clean, dirty, staged, unstaged, untracked, detached, and isolated states as valid review inputs. None is grounds for `REVIEW_INFRASTRUCTURE_FAILURE` by itself.
 
 Completion contract for every reviewer: stay within the assigned scope and review budget. Use at most the tool budget in the review instructions; do not broaden into unrelated whole-product review. Return a final verdict even when coverage is incomplete. If the assigned scope is incomplete, return `VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED` with completed checks, remaining checks, and the exact single follow-up slice the parent should run next.
 

@@ -8,6 +8,22 @@ def manifest(root):
         result[rel]=(mode,'L:'+os.readlink(p) if p.is_symlink() else 'D' if p.is_dir() else hashlib.sha256(p.read_bytes()).hexdigest())
     return result
 class InstallTransactionTest(unittest.TestCase):
+    def review_env(self, home, **extra):
+        package = home / '.pi/agent/npm/node_modules/@tintinweb/pi-subagents'
+        files = {
+            'src/types.ts': 'export type IsolationMode = "worktree";\n',
+            'dist/types.d.ts': 'export type IsolationMode = "worktree";\n',
+            'src/custom-agents.ts': 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,\n',
+            'dist/custom-agents.js': 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,\n',
+            'src/invocation-config.ts': 'isolation: agentConfig?.isolation ?? params.isolation,\n',
+            'dist/invocation-config.js': 'isolation: agentConfig?.isolation ?? params.isolation,\n',
+        }
+        for relative, content in files.items():
+            target = package / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content)
+        return {**os.environ, 'HOME': str(home), **extra}
+
     def assert_exact_installed_agents(self, home):
         source={path.name for path in (ROOT/'_pi/agents').iterdir()}
         installed={path.name for path in (home/'.pi/agent/agents').iterdir()}
@@ -39,7 +55,7 @@ class InstallTransactionTest(unittest.TestCase):
         return result
     def test_bounded_install_and_scoped_check_only(self):
         with tempfile.TemporaryDirectory() as d:
-            home=Path(d); foreign=home/'foreign';foreign.write_text('keep');foreign_scripts=home/'.agents/scripts';foreign_scripts.mkdir(parents=True);foreign_script=foreign_scripts/'caller-owned.py';foreign_script.write_text('keep sibling\n');models=home/'.pi/agent/models.json';models.parent.mkdir(parents=True);models.write_text(json.dumps({'providers':{'caller-owned':{'apiKey':'secret','models':[{'id':'local'}]}}}));settings=home/'.pi/agent/settings.json';settings.write_text(json.dumps({'extensions':['.pi/agent/extensions/claude-review',{'source':str(home/'.pi/agent/extensions/codex-review')},'npm:caller-owned']}));env={**os.environ,'HOME':d}
+            home=Path(d); foreign=home/'foreign';foreign.write_text('keep');foreign_scripts=home/'.agents/scripts';foreign_scripts.mkdir(parents=True);foreign_script=foreign_scripts/'caller-owned.py';foreign_script.write_text('keep sibling\n');models=home/'.pi/agent/models.json';models.parent.mkdir(parents=True);models.write_text(json.dumps({'providers':{'caller-owned':{'apiKey':'secret','models':[{'id':'local'}]}}}));settings=home/'.pi/agent/settings.json';settings.write_text(json.dumps({'extensions':['.pi/agent/extensions/claude-review',{'source':str(home/'.pi/agent/extensions/codex-review')},'npm:caller-owned']}));env=self.review_env(home)
             subprocess.run(['bash','-c','umask 022; exec bash install.sh --pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(json.loads(settings.read_text())['extensions'],['npm:caller-owned'])
             self.assertEqual(stat.S_IMODE((home/'.pi/agent/agents').stat().st_mode),0o700)
@@ -83,7 +99,7 @@ class InstallTransactionTest(unittest.TestCase):
                 'openai-codex-old/gpt-5.4','openai-codex-history/gpt-5.4-mini',
                 'openai-codex-/gpt-5.4','caller-owned/gpt-5.4','openai-codex/caller-custom',42,
             ]}))
-            env={**os.environ,'HOME':d}
+            env=self.review_env(home)
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             installed=json.loads(models.read_text());providers=installed['providers'];codex=providers['openai-codex'];ids={model['id'] for model in codex['models']}
             self.assertNotIn('gpt-5.4',ids);self.assertNotIn('gpt-5.4-mini',ids);self.assertIn('caller-custom',ids);custom=next(model for model in codex['models'] if model['id']=='caller-custom');self.assertEqual(custom['name'],'Caller Custom (CLI Proxy API)');self.assertEqual(custom['customField'],'keep');self.assertEqual(codex['localField'],'keep')
@@ -140,7 +156,7 @@ class InstallTransactionTest(unittest.TestCase):
             legacy_policy = agent / 'extensions/grok-context-ceiling-policy.ts'
             legacy_policy.parent.mkdir(parents=True)
             legacy_policy.write_text('export const stale = true;\n')
-            env={**os.environ,'HOME':d,'PATH':f'{bin_dir}:{os.environ["PATH"]}'}
+            env=self.review_env(home, PATH=f'{bin_dir}:{os.environ["PATH"]}')
             subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             configured_data=json.loads(settings.read_text())
             configured=configured_data['enabledModels']
@@ -179,9 +195,28 @@ class InstallTransactionTest(unittest.TestCase):
             result=subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
             self.assertNotEqual(result.returncode,0);self.assertIn('settings.json must be a JSON object',result.stderr);self.assertEqual(before,manifest(agent))
 
+    def test_review_stack_rejects_missing_pi_subagents_before_mutation(self):
+        with tempfile.TemporaryDirectory() as d:
+            home = Path(d)
+            agent = home / '.pi/agent'
+            agent.mkdir(parents=True)
+            (agent / 'caller-owned').write_text('keep\n')
+            before = manifest(agent)
+            result = subprocess.run(
+                ['bash', 'install.sh', '--pi-review-stack'],
+                cwd=ROOT,
+                env={**os.environ, 'HOME': d},
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('required package not found', result.stderr)
+            self.assertEqual(before, manifest(agent))
+
     def test_preexisting_agents_parent_metadata_is_not_mutated(self):
         with tempfile.TemporaryDirectory() as d:
-            home=Path(d);parents=[home/'.agents',home/'.agents/skills',home/'.agents/scripts'];parents[1].mkdir(parents=True);parents[2].mkdir();os.chmod(parents[0],0o751);os.chmod(parents[1],0o753);os.chmod(parents[2],0o750);before=[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents];env={**os.environ,'HOME':d}
+            home=Path(d);parents=[home/'.agents',home/'.agents/skills',home/'.agents/scripts'];parents[1].mkdir(parents=True);parents[2].mkdir();os.chmod(parents[0],0o751);os.chmod(parents[1],0o753);os.chmod(parents[2],0o750);before=[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents];env=self.review_env(home)
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertEqual(before,[(stat.S_IMODE(p.stat().st_mode),p.stat().st_mtime_ns) for p in parents])
     def test_symlinked_agents_or_skills_parents_install_successfully(self):
@@ -189,29 +224,29 @@ class InstallTransactionTest(unittest.TestCase):
             with self.subTest(kind=kind),tempfile.TemporaryDirectory() as d:
                 home=Path(d);external=self.symlinked_parents(home,kind);(external/'foreign').write_text('keep');targets=[external,external/'skills'] if kind=='agents' else [external];stamp=1_577_934_245_123_456_789
                 for index,target in enumerate(targets): os.utime(target,ns=(stamp+index,stamp+index+10))
-                before=[self.metadata(target) for target in targets];env={**os.environ,'HOME':d}
+                before=[self.metadata(target) for target in targets];env=self.review_env(home)
                 subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
                 self.assertEqual(before,[self.metadata(target) for target in targets])
                 self.assertTrue((home/'.agents').is_symlink() if kind=='agents' else (home/'.agents/skills').is_symlink());self.assertEqual((external/'foreign').read_text(),'keep');self.assertTrue((home/'.agents/skills/codex-review-partner/SKILL.md').is_file())
     def test_transaction_rolls_back_every_structural_failpoint(self):
         for point in ('after-install','after-verify','after-parity','after-preflight','after-host'):
             with self.subTest(point=point),tempfile.TemporaryDirectory() as d:
-                home=Path(d);(home/'.pi').mkdir();(home/'.pi/foreign').write_text('old');before=manifest(home);env={**os.environ,'HOME':d,'PI_REVIEW_STACK_FAILPOINT':point}
+                home=Path(d);(home/'.pi').mkdir();(home/'.pi/foreign').write_text('old');env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT=point);before=manifest(home)
                 r=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                 self.assertNotEqual(r.returncode,0);self.assertEqual(before,manifest(home))
     def test_bounded_install_replaces_runtime_symlink_without_touching_external_target(self):
         with tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as external_d:
-            home=Path(d);external=Path(external_d)/'runtime.py';external.write_text('external runtime\n');scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.symlink_to(external);env={**os.environ,'HOME':d}
+            home=Path(d);external=Path(external_d)/'runtime.py';external.write_text('external runtime\n');scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.symlink_to(external);env=self.review_env(home)
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             self.assertFalse(runtime.is_symlink());self.assertEqual(runtime.read_bytes(),(ROOT/'scripts/review_orchestration.py').read_bytes());self.assertEqual(external.read_text(),'external runtime\n')
     def test_transaction_rollback_restores_exact_runtime_and_preserves_foreign_sibling(self):
         with tempfile.TemporaryDirectory() as d:
-            home=Path(d);scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.write_text('preexisting runtime\n');runtime.chmod(0o640);foreign=scripts/'caller-owned.py';foreign.write_text('keep sibling\n');before=manifest(home);before_metadata=self.metadata(scripts);env={**os.environ,'HOME':d,'PI_REVIEW_STACK_FAILPOINT':'after-parity'}
+            home=Path(d);scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.write_text('preexisting runtime\n');runtime.chmod(0o640);foreign=scripts/'caller-owned.py';foreign.write_text('keep sibling\n');env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-parity');before=manifest(home);before_metadata=self.metadata(scripts)
             result=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             self.assertNotEqual(result.returncode,0);self.assertEqual(before,manifest(home));self.assertEqual(before_metadata,self.metadata(scripts));self.assertEqual(foreign.read_text(),'keep sibling\n')
     def test_transaction_rollback_restores_runtime_symlink_without_touching_external_target(self):
         with tempfile.TemporaryDirectory() as d,tempfile.TemporaryDirectory() as external_d:
-            home=Path(d);external=Path(external_d)/'runtime.py';external.write_text('external runtime\n');scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.symlink_to(external);env={**os.environ,'HOME':d,'PI_REVIEW_STACK_FAILPOINT':'after-parity'}
+            home=Path(d);external=Path(external_d)/'runtime.py';external.write_text('external runtime\n');scripts=home/'.agents/scripts';scripts.mkdir(parents=True);runtime=scripts/'review_orchestration.py';runtime.symlink_to(external);env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-parity')
             result=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             self.assertNotEqual(result.returncode,0);self.assertTrue(runtime.is_symlink());self.assertEqual(runtime.resolve(),external.resolve());self.assertEqual(external.read_text(),'external runtime\n')
     def test_installed_preflight_precedes_final_host_failpoint(self):
@@ -239,7 +274,7 @@ class InstallTransactionTest(unittest.TestCase):
                 self.assertNotEqual(result.returncode,0);self.assertIn('symlinks at managed ~/.pi paths',result.stderr);self.assertEqual(before_home,self.path_snapshot(home/'.pi'));self.assertEqual(before_external,self.path_snapshot(external))
     def test_transaction_rollback_preserves_preexisting_parent_modes(self):
         with tempfile.TemporaryDirectory() as d:
-            home=Path(d);skills=home/'.agents/skills';skills.mkdir(parents=True);os.chmod(home/'.agents',0o751);os.chmod(skills,0o753);before=(stat.S_IMODE((home/'.agents').stat().st_mode),stat.S_IMODE(skills.stat().st_mode));env={**os.environ,'HOME':d,'PI_REVIEW_STACK_FAILPOINT':'after-install'}
+            home=Path(d);skills=home/'.agents/skills';skills.mkdir(parents=True);os.chmod(home/'.agents',0o751);os.chmod(skills,0o753);env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-install');before=(stat.S_IMODE((home/'.agents').stat().st_mode),stat.S_IMODE(skills.stat().st_mode))
             result=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             self.assertNotEqual(result.returncode,0);self.assertEqual(before,(stat.S_IMODE((home/'.agents').stat().st_mode),stat.S_IMODE(skills.stat().st_mode)))
     def test_transaction_rollback_with_symlinked_parents_is_exact(self):
@@ -247,13 +282,13 @@ class InstallTransactionTest(unittest.TestCase):
             with self.subTest(kind=kind),tempfile.TemporaryDirectory() as d:
                 home=Path(d);external=self.symlinked_parents(home,kind);(external/'foreign').write_text('keep');targets=[external,external/'skills'] if kind=='agents' else [external];stamp=1_577_934_245_123_456_789
                 for index,target in enumerate(targets): os.utime(target,ns=(stamp+index,stamp+index+10))
-                before_home=manifest(home);before_external=manifest(external);before_metadata=[self.metadata(target) for target in targets];env={**os.environ,'HOME':d,'PI_REVIEW_STACK_FAILPOINT':'after-install'}
+                env=self.review_env(home, PI_REVIEW_STACK_FAILPOINT='after-install');before_home=manifest(home);before_external=manifest(external);before_metadata=[self.metadata(target) for target in targets]
                 result=subprocess.run(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                 self.assertNotEqual(result.returncode,0);self.assertEqual(before_metadata,[self.metadata(target) for target in targets]);self.assertEqual(before_home,manifest(home));self.assertEqual(before_external,manifest(external))
     def test_transaction_signals_restore_and_return_shell_signal_codes(self):
         for signal_name,expected in (('SIGINT',130),('SIGTERM',143)):
             with self.subTest(signal=signal_name),tempfile.TemporaryDirectory() as d:
-                home=Path(d);(home/'.pi').mkdir();(home/'.pi/foreign').write_text('old');before=manifest(home);marker=home/'paused';env={**os.environ,'HOME':d,'PI_REVIEW_STACK_TEST_PAUSE_MARKER':str(marker)}
+                home=Path(d);(home/'.pi').mkdir();(home/'.pi/foreign').write_text('old');marker=home/'paused';env=self.review_env(home, PI_REVIEW_STACK_TEST_PAUSE_MARKER=str(marker));before=manifest(home)
                 process=subprocess.Popen(['bash','scripts/install-pi-transactionally.sh'],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                 for _ in range(500):
                     if marker.exists(): break

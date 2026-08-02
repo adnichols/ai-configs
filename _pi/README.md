@@ -220,6 +220,8 @@ The installed agent directory is an exact replacement with this roster:
 - `scout` — GPT-5.6 Terra low; bounded read-only discovery
 - `Explore.md` — disabled override, not an active agent
 
+`planner` and `reviewer` declare `isolation: none`. During Pi installation, `scripts/patch_pi_subagents_review_isolation.py` extends `@tintinweb/pi-subagents` with that authoritative sentinel, so even a generated tool call that includes `isolation: "worktree"` resolves to the live checkout. Review skills still require callers to omit the property; the sentinel is a hard backstop against accidental isolated review launches and is reapplied after package updates.
+
 Callers must supply the artifact or allowed surfaces, specialized lens, output destination/format, authority boundary, verification evidence, and stop/verdict vocabulary. There is no implementation **subagent**: the active driving session performs code edits, test changes, fixes, verification, and repository management directly. Delivery approval creates a new top-level Herdr Pi driving session pinned to Sol medium; it does not delegate edits through the `Agent` subagent tool. `/cmd:start-linear-issue` likewise performs its deterministic Git/Linear worktree workflow directly.
 
 ## Skills Overview

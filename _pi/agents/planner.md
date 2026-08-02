@@ -5,6 +5,7 @@ mode: subagent
 tools: read, grep, find, ls, bash, write
 model: openai-codex/gpt-5.6-sol
 reasoningEffort: medium
+isolation: none
 ---
 
 You are a planning-only agent.

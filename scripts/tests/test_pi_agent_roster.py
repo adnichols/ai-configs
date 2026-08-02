@@ -162,6 +162,91 @@ class PiAgentRosterTest(unittest.TestCase):
                     violations.append(f"{path.relative_to(ROOT)}:{line}: {match.group(0)}")
         self.assertEqual([], violations)
 
+    def test_reviewer_never_refuses_visible_code_due_to_worktree_state(self):
+        reviewer = (ROOT / "_pi" / "agents" / "reviewer.md").read_text()
+        self.assertIn("Worktree state is provenance, never a reason to refuse a review", reviewer)
+        self.assertIn("git -C <target>", reviewer)
+        self.assertIn("REVIEW_ROOT", reviewer)
+        self.assertIn("REVIEW_SOURCE", reviewer)
+
+        review_surfaces = {
+            ROOT / "skills" / "autoreview" / "SKILL.md": (
+                "Use this prompt shape for each reviewer:",
+                "Completion contract for every reviewer:",
+            ),
+            ROOT / "skills" / "run-plan" / "SKILL.md": (
+                "## Reviewer Prompt Template",
+                "For every reviewer slice, use bounded scope",
+            ),
+            ROOT / "skills" / "reviewed-html-plan" / "SKILL.md": (
+                "#### Reviewer packet",
+                "For the single plan-review pass",
+            ),
+        }
+        retired_refusal_tokens = (
+            "INSPECTED_TREE",
+            "isolated-clean",
+            "live-worktree launch contract",
+            "discard it as `REVIEW_INFRASTRUCTURE_FAILURE`",
+        )
+        required_fields = (
+            "TARGET_CHECKOUT",
+            "COORDINATOR_HEAD",
+            "COORDINATOR_STATUS_SHORT",
+            "CWD",
+            "REVIEW_ROOT",
+            "HEAD",
+            "STATUS_SHORT",
+            "REVIEW_SOURCE",
+        )
+        for path, (start, end) in review_surfaces.items():
+            text = path.read_text()
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertEqual(1, text.count(start), f"ambiguous start anchor: {start}")
+                self.assertEqual(1, text.count(end), f"ambiguous end anchor: {end}")
+                packet = text.split(start, 1)[1].split(end, 1)[0]
+                for field in required_fields:
+                    self.assertIn(field, packet)
+                self.assertRegex(packet, r"(?is)changed.*untracked|untracked.*changed")
+                for token in retired_refusal_tokens:
+                    self.assertNotIn(token, text)
+
+        for token in retired_refusal_tokens:
+            self.assertNotIn(token, reviewer)
+
+    def test_pi_review_launches_omit_worktree_isolation(self):
+        for name in ("reviewer", "planner"):
+            metadata, _ = frontmatter(ROOT / "_pi" / "agents" / f"{name}.md")
+            self.assertEqual("none", metadata.get("isolation"))
+
+        autoreview = (ROOT / "skills" / "autoreview" / "SKILL.md").read_text()
+        self.assertIn("must omit the `isolation` property entirely", autoreview)
+        self.assertIn("Never set `isolation: \"worktree\"`", autoreview)
+        launch = autoreview.split("const review = Agent({", 1)[1].split("});", 1)[0]
+        self.assertNotIn("isolation", launch)
+
+        run_plan = (ROOT / "skills" / "run-plan" / "SKILL.md").read_text()
+        self.assertIn("Every Pi `Agent` reviewer call must omit the `isolation` property entirely", run_plan)
+        self.assertIn("requesting `isolation: \"worktree\"` is a workflow violation", run_plan)
+
+        reviewed_plan = (ROOT / "skills" / "reviewed-html-plan" / "SKILL.md").read_text()
+        self.assertIn("with the `isolation` property omitted entirely", reviewed_plan)
+        self.assertIn("never set `isolation: \"worktree\"`", reviewed_plan)
+
+        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
+        self.assertIn("every required `reviewer` or readiness-`planner` `Agent` call must omit the `isolation` property entirely", doctrine)
+        self.assertIn("Never request `isolation: \"worktree\"` for a review", doctrine)
+
+        installer = (ROOT / "install.sh").read_text()
+        self.assertIn("patch_pi_subagents_review_isolation.py", installer)
+        review_stack = installer.split("install_pi_review_stack() {", 1)[1].split("remove_retired_pi_goal_plugin() {", 1)[0]
+        patch_index = review_stack.index("patch_pi_subagents_review_isolation.py")
+        for mutation in ('parent_metadata="$(mktemp)"', 'mkdir -p "$agent/prompts"', "install_pi_agents_from_repo", "for skill in autoreview"):
+            self.assertLess(patch_index, review_stack.index(mutation))
+        self.assertIn("return 1", review_stack[patch_index:review_stack.index('parent_metadata="$(mktemp)"')])
+        readme = (ROOT / "_pi" / "README.md").read_text()
+        self.assertIn("`planner` and `reviewer` declare `isolation: none`", readme)
+
     def test_claude_has_only_the_read_only_reviewer_subagent(self):
         agents = ROOT / "_claude" / "agents"
         self.assertEqual({"reviewer.md"}, {path.name for path in agents.glob("*.md")})
