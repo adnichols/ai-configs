@@ -760,10 +760,16 @@ def resolve_herdr_targets(ledger: dict[str, Any]) -> dict[str, str | None]:
     }
 
 
-def maybe_herdr_label(ledger: dict[str, Any]) -> None:
+def maybe_herdr_label(
+    ledger: dict[str, Any],
+    *,
+    targets: dict[str, str | None] | None = None,
+) -> None:
     """Best-effort Herdr workspace + tab label sync with phase prefix.
 
     Never fails the command. Format: "PL: nod-1234 short title".
+    Explicit targets let parent commands update a newly created destination
+    without inheriting the caller's HERDR_* environment identifiers.
     """
     if os.environ.get("DELIVERY_SKIP_HERDR", "").strip() in {"1", "true", "yes"}:
         return
@@ -771,7 +777,7 @@ def maybe_herdr_label(ledger: dict[str, Any]) -> None:
         return
 
     label = herdr_display_label(ledger)
-    targets = resolve_herdr_targets(ledger)
+    targets = targets or resolve_herdr_targets(ledger)
     labels = ledger.setdefault("labels", {})
     labels["herdr"] = label
     labels["phaseCode"] = phase_code(str(ledger.get("stage") or "INTAKE"))
@@ -2284,17 +2290,28 @@ def cmd_spawn(args: argparse.Namespace) -> int:
         refresh=False,
         force=False,
     )
-    # bootstrap prints a long brief; capture by temporarily redirecting if quiet
-    if args.quiet:
-        import io
-        from contextlib import redirect_stdout
+    # Bootstrap runs in this parent process, whose HERDR_* variables still
+    # identify the caller. Suppress its best-effort label sync; spawn applies
+    # the label to the explicit destination IDs after recording them.
+    bootstrap_skip = os.environ.get("DELIVERY_SKIP_HERDR")
+    os.environ["DELIVERY_SKIP_HERDR"] = "1"
+    try:
+        # bootstrap prints a long brief; capture by temporarily redirecting if quiet
+        if args.quiet:
+            import io
+            from contextlib import redirect_stdout
 
-        buf = io.StringIO()
-        with redirect_stdout(buf):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                cmd_bootstrap(boot_ns)
+        else:
+            print("--- delivery bootstrap ---")
             cmd_bootstrap(boot_ns)
-    else:
-        print("--- delivery bootstrap ---")
-        cmd_bootstrap(boot_ns)
+    finally:
+        if bootstrap_skip is None:
+            os.environ.pop("DELIVERY_SKIP_HERDR", None)
+        else:
+            os.environ["DELIVERY_SKIP_HERDR"] = bootstrap_skip
 
     agent_name = None
     agent_kind = None
@@ -2418,7 +2435,14 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             # Spawn always attempts label sync for the new workspace.
             os.environ.pop("DELIVERY_SKIP_HERDR", None)
             try:
-                maybe_herdr_label(ledger)
+                maybe_herdr_label(
+                    ledger,
+                    targets={
+                        "workspaceId": str(workspace_id) if workspace_id else None,
+                        "tabId": str(tab_id) if tab_id else None,
+                        "paneId": str(pane_id) if pane_id else None,
+                    },
+                )
             finally:
                 if prev_skip is not None:
                     os.environ["DELIVERY_SKIP_HERDR"] = prev_skip

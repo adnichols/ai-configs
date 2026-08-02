@@ -416,6 +416,7 @@ SH
   chmod +x "$fake_bin/herdr"
   local json
   json="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$log" FAKE_HERDR_WORKTREE="$worktree" \
+    HERDR_WORKSPACE_ID=wCaller HERDR_TAB_ID=wCaller:t9 HERDR_PANE_ID=wCaller:p9 \
     "$DELIVERY" --cwd "$repo" spawn --base main --quiet --json -- "agent collision regression")"
   python3 -c 'import json,re,sys
 p=json.loads(sys.argv[1])
@@ -425,6 +426,9 @@ assert p["agent"]["prompted"] is True, p
 ' "$json"
   rg -Fxq "agent start delivery-77546573743432 --kind pi --pane wTest42:p1 --timeout 60000" "$log" || return 1
   rg -q "^agent prompt delivery-77546573743432 " "$log" || return 1
+  rg -Fxq "workspace rename wTest42 PL: agent collision regression" "$log" || return 1
+  rg -Fxq "tab rename wTest42:t1 PL: agent collision regression" "$log" || return 1
+  ! rg -q "^(workspace|tab) rename wCaller" "$log" || return 1
 }
 
 test_reflect_logs_outside_worktree() {
