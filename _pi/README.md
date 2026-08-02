@@ -55,7 +55,7 @@ Installed layout:
 │   ├── dev:plan.md
 │   └── ...
 ├── agents/
-│   ├── planner.md        # GPT-5.6 Terra medium; planning-only
+│   ├── planner.md        # GPT-5.6 Sol medium; planning-only
 │   ├── reviewer.md       # GPT-5.6 Terra medium; read-only review
 │   ├── scout.md          # GPT-5.6 Terra low; read-only discovery
 │   └── Explore.md        # disabled bundled persona override
@@ -215,7 +215,7 @@ The maintained agent files use the flat frontmatter expected by `@tintinweb/pi-s
 
 The installed agent directory is an exact replacement with this roster:
 
-- `planner` — GPT-5.6 Terra medium; planning-only
+- `planner` — GPT-5.6 Sol medium; planning-only
 - `reviewer` — GPT-5.6 Terra medium; read-only material review
 - `scout` — GPT-5.6 Terra low; bounded read-only discovery
 - `Explore.md` — disabled override, not an active agent

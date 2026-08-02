@@ -764,7 +764,8 @@ EOF
   [[ ! -e "$home/.pi/agent/agents/researcher.md" ]] || return 1
   [[ -f "$home/.pi/agent/agents/planner.md" ]] || return 1
   assert_file_contains "$home/.pi/agent/agents/planner.md" 'name: planner' || return 1
-  assert_file_contains "$home/.pi/agent/agents/planner.md" 'model: openai-codex/gpt-5.6-terra' || return 1
+  assert_file_contains "$home/.pi/agent/agents/planner.md" 'model: openai-codex/gpt-5.6-sol' || return 1
+  assert_file_contains "$home/.pi/agent/agents/planner.md" 'reasoningEffort: medium' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'model: openai-codex/gpt-5.6-terra' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'reasoningEffort: low' || return 1
   assert_file_contains "$home/.pi/agent/models.json" 'gemma4:latest' || return 1
