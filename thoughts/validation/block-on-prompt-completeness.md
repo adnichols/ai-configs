@@ -2,143 +2,196 @@
 
 - Reviewer: completeness-block-on-prompt
 - Model: xai/grok-4.5:high
-- Accepted: 2026-08-02T20:24:47Z
+- Accepted: 2026-08-02T20:29:21Z
 
 ## Transcript
 
- │           │      │ flow docs   │
- └───────────┴──────┴─────────────┘
+ all(f'id="prog-p{i}" checked' in
+ plan for i in range(1,5)),
+   'helper CLI surface': all(x in
+ helper for x in
+ ['cmd_set','cmd_clear','cmd_status
+ ','--no-notify','SOURCE =
+ "workflow:operator-attention"','AG
+ ENT = "operator-wait"']),
+   'helper kinds': all(k in helper
+ for k in
+ ['approval','blocker','password','
+ generic']),
+   'helper sha256 marker':
+ 'hashlib.sha256' in helper,
+   'helper herdr best effort':
+ 'best_effort_herdr' in helper and
+ 'release-agent' in helper and
+ 'report-agent' in helper and
+ 'request' in helper,
+   'helper marker IO nonzero':
+ 'cannot write operator-attention
+ marker' in helper and 'cannot
+ delete' in helper,
+   'pi version 8':
+ 'HERDR_INTEGRATION_VERSION=8' in
+ ext,
+   'pi full schema': all(x in ext
+ for x in
+ ['notifyOnSet','operatorWaitKinds'
+ ,'endsWith("Z")','Number.isFinite(
+ Date.parse']),
+   'pi priority': order_ok,
+   'delivery sync after write':
+ 'def sync_operator_attention' in
+ delivery and
+ 'sync_operator_attention(data)' in
+ delivery,
+   'delivery precedence': 'stage ==
+ "BLOCKED"' in delivery and
+ 'EXECUTION_READY' in delivery and
+ 'Approve implementation to
+ continue' in delivery and
+ 'Delivery blocked' in delivery,
+   'delivery skip':
+ 'DELIVERY_SKIP_HERDR' in delivery,
+   'delivery blocker nargs*':
+ 'nargs="*"' in delivery,
+   'heddle wrap password':
+ 'withOperatorAttention' in heddle
+ and 'kind: "password"' in heddle
+ and 'finally' in heddle and
+ 'paneRunScript(gatePaneId' in
+ heddle,
+   'install dual dest':
+ '~/.agents/scripts/herdr-operator-
+ attention' in install and
+ '~/.local/bin/herdr-operator-atten
+ tion' in install,
+   'test helper contracts': all(x
+ in t_helper for x in
+ ['test_set_status_idempotence','te
+ st_missing_or_failing_herdr','test
+ _marker_write_failure','test_activ
+ e_marker_delete_failure','test_usa
+ ge_errors']),
+   'test pi latch+schema': all(x in
+ t_pi for x in ['operator wait must
+ outrank','wrong
+ target','incomplete','wrong
+ kind','Pi UI: confirm']),
+   'test delivery matrix': all(x in
+ t_del for x in
+ ['test_operator_attention_reconcil
+ es_delivery_state','Approve
+ implementation to continue','need
+ auth decision','set
+ --plan','planReadinessRequest','DE
+ LIVERY_SKIP_HERDR=1']),
+   'test heddle outcomes': all(x in
+ t_hed for x in ['success','failure
+ return','timeout
+ return','throw','helper
+ missing']),
+   'test install': all(x in t_inst
+ for x in
+ ['.agents/scripts/herdr-operator-a
+ ttention','.local/bin/herdr-operat
+ or-attention','-x']),
+   'docs mention helper':
+ docs.count('herdr-operator-attenti
+ on') >= 5,
+   # non-goals: no impersonation,
+ no completeness attention
+   'no herdr:pi impersonation':
+ 'herdr:pi' not in helper and
+ "source herdr:pi" not in delivery,
+   'no completeness attention set':
+ 'COMPLETENESS_REVIEW' not in
+ delivery[delivery.index('def
+ sync_operator_attention'):delivery
+ .index('def write_json')],
+ }
+ failed=[k for k,v in
+ checks.items() if not v]
+ for k,v in checks.items():
+     print(('OK' if v else 'FAIL'),
+ k)
+ print('---')
+ print('failed', failed)
+ # confirm approve writes before
+ launch
+ idx_w =
+ delivery.index('write_json(path,
+ ledger)', delivery.index('def
+ approve_implementation_locked'))
+ idx_l =
+ delivery.index('launch_implementat
+ ion_agent', delivery.index('def
+ approve_implementation_locked'))
+ print('approve write before
+ launch', idx_w < idx_l)
+ PY
 
- ### Distributed wiring
+ ... (21 earlier lines, ctrl+o t...
+ OK no herdr:pi impersonation
+ OK no completeness attention set
+ ---
+ failed ['install dual dest']
+ approve write before launch True
 
- - Helper: marker +
-   report-agent/release-agent/notif
-   y contracts match locked
-   decisions.
- - Pi: version bump to 8; fail-open
-   full schema validation (post
-   Terra fix).
- - Delivery: reconciliation after
-   every ledger write_json (covers
-   stage/bootstrap/approve/revoke/b
-   locker/set/record family without
-   missed producers).
- - Heddle: password kind on work
-   pane; clear always in finally.
- - Install: ~/.agents/scripts +
-   ~/.local/bin.
-
- ### Non-goals respected
-
- No Herdr binary/aggregation
- changes, no TTY scraping, no auto
- stage→BLOCKED for
- approval/password, no
- completeness-review attention, no
- publish free-text expansion.
-
- Not examined: live multi-pane
- Herdr UI smoke (plan-optional, not
- a PR gate); I did not re-execute
- the verification suite (read-only
- completeness role).
+ Took 0.0s
 
 
- You are the visible, read-only
- plan-completeness reviewer for
- this delivery run.
 
- This is a rereview after the
- driving agent addressed prior
- findings.
- Worktree:
+ $ cd
  /Users/anichols/.herdr/worktrees/a
- i-configs/block-on-prompt
- Plan:
- thoughts/plans/herdr-operator-bloc
- ked-attention.html
- Delivery stage:
- COMPLETENESS_REVIEW
- Completeness-review request ID:
- 91f8ab2642fd4f0e8b3e0ffd37f36d41
+ i-configs/block-on-prompt && ls
+ -la
+ thoughts/validation/herdr-operator
+ -blocked-attention*
+ thoughts/validation/block-on-promp
+ t* 2>/dev/null; rg -n
+ "VERDICT|verification|passed|ok -"
 
- Inspect the current live worktree,
- including committed, staged,
- unstaged, and untracked changes.
- Read the plan, diff,
- plan-progress/validation
- artifacts, and the driving agent's
- stated verification evidence. Do
- not edit files. Do not run tests,
- builds, linters, or other
- executable verification.
+ thoughts/validation/herdr-operator
+ -blocked-attention*.md
+ thoughts/validation/block-on-promp
+ t*.md 2>/dev/null | head -40
 
- Check whether the implementation
- is complete according to the plan:
- every acceptance criterion and BDD
- scenario, required
- producer/consumer or cross-surface
- wiring, real post-mutation UI
- states, stated non-goals, and
- truthful verification. Do not
- accept a green helper/unit test as
- proof that the user-visible
- completion state works.
+ ... (108 earlier lines, ctrl+o ...
+ pm.md:8:VERDICT: PASS
+ thoughts/validation/herdr-operator
+ -blocked-attention-pm.md:34:- Live
+ multi-pane smoke remains manual
+ verification after implementation.
 
- Start your response with
- COMPLETENESS_REVIEW_RESPONSE_ID:
- 91f8ab2642fd4f0e8b3e0ffd37f36d41,
- immediately followed by your
- verdict. Return exactly one
- verdict:
- - VERDICT: FINDINGS_TO_RESOLVE —
-   for an in-plan gap, with
-   criterion/BDD reference,
-   concrete evidence, user impact,
-   and smallest correction.
- - VERDICT: COMPLETE — only when
-   the plan is complete by
-   substance. Include an AC/BDD
-   coverage table and a Not
-   examined: line.
- - VERDICT: BLOCKED_BY_QUESTION —
-   only for a real plan or product
-   decision.
-
- The driving agent will read your
- visible response, make in-scope
- corrections, and ask you to
- rereview until the implementation
- and this review agree it is
- complete.
+ Took 0.0s
 
 
  Thinking...
 
- Re-inspecting the live worktree
- against the plan to confirm
- whether prior completeness still
- holds after any follow-up changes.
+ Git status looked empty —
+ verifying whether changes were
+ committed and confirming the
+ install path wiring.
 
 
  $ cd
  /Users/anichols/.herdr/worktrees/a
  i-configs/block-on-prompt && git
- status --short && echo '---' &&
- git diff --stat HEAD && echo
- '---UNTRACKED---' && git ls-files
- --others --exclude-standard &&
- echo '---' && ls -la
- thoughts/validation/herdr-operator
- -blocked-attention* 2>/dev/null;
- ls skills/herdr/scripts/
- 2>/dev/null
+ status && git log --oneline -5 &&
+ git branch -v | head -5 && rg -n
+ "herdr-operator-attention"
+ install.sh && sed -n '1470,1485p'
+ install.sh && ls -la
+ skills/herdr/scripts/
+ tests/test_herdr_operator_attentio
+ n.py
+ tests/test_heddle_release_operator
+ _attention.mjs 2>&1 | head -20
 
- ... (115 earlier lines, ctrl+o ...
- 1510 Aug  2 14:16
- thoughts/validation/herdr-operator
- -blocked-attention-run-plan-review
- .md
+ ... (100 earlier lines, ctrl+o ...
+ drwxr-xr-x  5 anichols  staff
+ 160 Aug  2 14:25 ..
+ -rwxr-xr-x@ 1 anichols  staff
+ 5743 Aug  2 14:25
  herdr-operator-attention
 
  Took 0.1s
@@ -147,179 +200,141 @@
 
  $ cd
  /Users/anichols/.herdr/worktrees/a
- i-configs/block-on-prompt && rg -n
+ i-configs/block-on-prompt && git
+ show
+ HEAD:skills/herdr/scripts/herdr-op
+ erator-attention 2>&1 | head -5;
+ git ls-tree -r HEAD --name-only |
+ rg
+ 'herdr-operator|heddle_release_ope
+ rator|test_herdr_operator' ; echo
+ '---diff main---'; git diff main
+ --stat 2>/dev/null | tail -30; git
+ log main..HEAD --oneline
+ 2>/dev/null | head
 
- "sync_operator_attention|withOpera
- torAttention|operatorWaitMarker|he
- rdr-operator-attention|HERDR_INTEG
- RATION_VERSION"
+ ... (118 earlier lines, ctrl+o ...
+ from adnichols/delivery-use-tabs
+ 3f2fcef fix(delivery): address
+ labeled-tab review feedback
+ cc69621 feat(delivery): launch
+ agents in labeled tabs
+
+ Took 0.1s
+
+
+
+ $ cd
+ /Users/anichols/.herdr/worktrees/a
+ i-configs/block-on-prompt && rg -n
+ "def
+ sync_operator_attention|withOperat
+ orAttention|operatorWaitMarker|tes
+ t_operator_attention_reconciles"
  skills/delivery-run/scripts/delive
- ry
+ ry _pi/workflows/heddle-release.js
+
+ _pi/extensions/herdr-agent-state.t
+ s
+ skills/delivery-run/tests/test_del
+ ivery_cli.sh | head -30
+
+ ... (22 earlier lines, ctrl+o t...
+ => withOperatorAttention({
+ skills/delivery-run/scripts/delive
+ ry:200:def
+ sync_operator_attention(ledger:
+ dict[str, Any]) -> None:
+
+ Took 0.0s
+
+
+ Thinking...
+
+ Work is committed now; I'm
+ verifying operator-attention still
+ wires correctly after the delivery
+ tabs merge.
+
+
+ read
+ ~/.herdr/worktrees/ai-configs/bloc
+ k-on-prompt/skills/delivery-run/sc
+ ripts/delivery:200-319
+
+
+
+ $ cd
+ /Users/anichols/.herdr/worktrees/a
+ i-configs/block-on-prompt && rg -n
+ "def resolve_herdr_targets|def
+ maybe_herdr_label|paneId|sync_oper
+ ator_attention|write_json\(path|HE
+ RDR_PANE"
+ skills/delivery-run/scripts/delive
+ ry | head -80
+
+ ... (118 earlier lines, ctrl+o ...
+ 3907:
+ p_completion.add_argument("--pane"
+ , help="Driving agent's Herdr pane
+ id (defaults to HERDR_PANE_ID or
+ delivery spawn pane)")
+
+ Took 0.0s
+
+
+
+ $ cd
+ /Users/anichols/.herdr/worktrees/a
+ i-configs/block-on-prompt && git
+ show fde8c84 --stat && echo '===='
+ && git show fde8c84 --
+ skills/delivery-run/scripts/delive
+ ry | rg -n
+ "sync_operator|operator.attention|
+ blocker|write_json|nargs" | head
+ -40
+
+ ... (100 earlier lines, ctrl+o ...
+ p_block.add_argument("text",
+ nargs=argparse.REMAINDER)
+ 79:+
+ p_block.add_argument("text",
+ nargs="*")
+
+ Took 0.0s
+
+
+
+ read
+ ~/.herdr/worktrees/ai-configs/bloc
+ k-on-prompt/skills/delivery-run/te
+ sts/test_delivery_cli.sh:1227-1346
+
+
+
+ $ cd
+ /Users/anichols/.herdr/worktrees/a
+ i-configs/block-on-prompt && git
+ show fde8c84 --stat --
  _pi/extensions/herdr-agent-state.t
  s _pi/workflows/heddle-release.js
- install.sh
  skills/herdr/scripts/herdr-operato
- r-attention tests/
- skills/delivery-run/tests/test_del
- ivery_cli.sh 2>/dev/null | head
- -80
+ r-attention install.sh tests/ &&
+ rg -n
+ "HERDR_INTEGRATION_VERSION|operato
+ rWaitMarker|withOperatorAttention|
+ kind: \"password\""
+ _pi/extensions/herdr-agent-state.t
+ s _pi/workflows/heddle-release.js
 
- ... (91 earlier lines, ctrl+o t...
- must be final`);
- tests/test_heddle_release_operator
- _attention.mjs:80:assert.match(sou
- rce, /interactiveOpen: async \(\)
- => withOperatorAttention\(\{/);
-
- Took 0.0s
-
-
-
- read
- ~/.herdr/worktrees/ai-configs/bloc
- k-on-prompt/thoughts/validation/he
- rdr-operator-blocked-attention-run
- -plan-review.md
-
-
-
- read
- ~/.herdr/worktrees/ai-configs/bloc
- k-on-prompt/thoughts/validation/he
- rdr-operator-blocked-attention-imp
- lementation-pm.md
-
-
- Thinking...
-
-
- read
- ~/.herdr/worktrees/ai-configs/bloc
- k-on-prompt/thoughts/validation/bl
- ock-on-prompt-completeness.md
-
-
-
- $ cd
- /Users/anichols/.herdr/worktrees/a
- i-configs/block-on-prompt &&
- python3 - <<'PY'
- from pathlib import Path
- # Spot-check locked contracts
- still present
- helper =
- Path('skills/herdr/scripts/herdr-o
- perator-attention').read_text()
- ext =
- Path('_pi/extensions/herdr-agent-s
- tate.ts').read_text()
- delivery =
- Path('skills/delivery-run/scripts/
- delivery').read_text()
- heddle =
- Path('_pi/workflows/heddle-release
- .js').read_text()
- tests_del =
- Path('skills/delivery-run/tests/te
- st_delivery_cli.sh').read_text()
- tests_pi =
- Path('tests/test_herdr_agent_state
- .mjs').read_text()
- checks = {
-  'helper SOURCE':
- 'workflow:operator-attention' in
- helper and 'operator-wait' in
- helper,
-  'helper kinds': all(k in helper
- for k in
- ['approval','blocker','password','
- generic']),
-  'helper sha256': 'sha256' in
- helper.lower() or 'hashlib.sha256'
- in helper,
-  'pi schema fields': all(x in ext
- for x in
- ['notifyOnSet','operatorWaitKinds'
- ,'setAt.endsWith("Z")']),
-  'pi priority order':
- ext.find('blockedCount') <
- ext.find('operatorWaitMarker') <
- ext.find('agentActive'),
-  'delivery sync': 'def
- sync_operator_attention' in
- delivery and
- 'sync_operator_attention(data)' in
- delivery,
-  'delivery skip':
- 'DELIVERY_SKIP_HERDR' in delivery,
-  'delivery blocker nargs':
- 'nargs="*"' in delivery,
-  'heddle password finally': 'kind:
- "password"' in heddle and
- 'finally' in heddle and
- 'withOperatorAttention' in heddle,
-  'delivery transition test':
- 'test_operator_attention_reconcile
- s_delivery_state' in tests_del,
-  'pi incomplete marker tests':
- 'incomplete' in tests_pi and
- 'wrong kind' in tests_pi,
-  'install dual path':
- 'herdr-operator-attention' in
- Path('install.sh').read_text(),
-  'plan progress checked':
- Path('thoughts/plans/herdr-operato
- r-blocked-attention.html').read_te
- xt().count('prog-p') >= 4,
- }
- for k,v in checks.items():
-     print(f"{'OK' if v else
- 'FAIL'}: {k}")
- print('FAIL count', sum(1 for v in
- checks.values() if not v))
- PY
-
- ... (9 earlier lines, ctrl+o to...
- OK: delivery transition test
- OK: pi incomplete marker tests
- OK: install dual path
- OK: plan progress checked
- FAIL count 1
-
- Took 0.0s
-
-
- Thinking...
-
-
- $ cd
- /Users/anichols/.herdr/worktrees/a
- i-configs/block-on-prompt &&
- python3 - <<'PY'
- from pathlib import Path
- ext =
- Path('_pi/extensions/herdr-agent-s
- tate.ts').read_text()
- # extract desiredState function
- body
- start = ext.index('function
- desiredState()')
- end = ext.index('function
- publishState', start)
- body = ext[start:end]
- print(body)
- for name in
- ['blockedCount','failureBlocked','
- operatorWait','agentActive']:
-     print(name, body.find(name))
- PY
-
- ... (34 earlier lines, ctrl+o t...
-
- blockedCount 34
- failureBlocked 137
- operatorWait 240
- agentActive 390
+ ... (50 earlier lines, ctrl+o t...
+ _pi/workflows/heddle-release.js:11
+ 54:    interactiveOpen: async ()
+ => withOperatorAttention({
+ _pi/workflows/heddle-release.js:11
+ 56:      kind: "password",
 
  Took 0.0s
 
@@ -327,17 +342,16 @@
  Thinking...
 
  COMPLETENESS_REVIEW_RESPONSE_ID:
- 91f8ab2642fd4f0e8b3e0ffd37f36d41
+ 357adc6ca1e34bd49a324724e40b7d28
  VERDICT: COMPLETE
 
- Rereview of the live worktree
- finds no new in-plan gaps. The
- tree is unchanged in substance
- from the prior COMPLETE pass:
- P1–P4 are present, Terra’s
- marker-schema fix remains in
- place, and PM/Terra validation
- still pass.
+ Rereview of the live worktree (now
+ clean on block-on-prompt at
+ fde8c84 feat: signal Herdr
+ operator waits) finds the plan
+ fully implemented. No new in-plan
+ gaps after commit; prior COMPLETE
+ substance holds.
 
  ### AC / BDD coverage
 
@@ -356,56 +370,50 @@
  │           │      │ tor_attenti │
  │           │      │ on.py       │
  ├───────────┼──────┼─────────────┤
- │ AC-2 Pi   │ Met  │ herdr-agent │
- │ latch →   │      │ -state.ts   │
- │ blocked   │      │ v8          │
+ │ AC-2      │ Met  │ herdr-agent │
+ │ Pi-owned  │      │ -state.ts   │
+ │ latch →   │      │ v8 marker   │
+ │ blocked   │      │ in          │
  │           │      │ desiredStat │
- │           │      │ e marker    │
- │           │      │ path;       │
- │           │      │ agent-state │
- │           │      │ idle+workin │
- │           │      │ g tests +   │
- │           │      │ full schema │
- │           │      │ fail-open   │
+ │           │      │ e above     │
+ │           │      │ working/idl │
+ │           │      │ e; schema   │
+ │           │      │ fail-open + │
+ │           │      │ idle/workin │
+ │           │      │ g tests     │
  ├───────────┼──────┼─────────────┤
  │ AC-3      │ Met  │ Fixed       │
  │ Shell     │ by   │ source/agen │
- │ report-ag │ cont │ t           │
- │ ent       │ ract │ workflow:op │
- │ blocked   │      │ erator-atte │
- │           │      │ ntion /     │
- │           │      │ operator-wa │
- │           │      │ it;         │
- │           │      │ fake-Herdr  │
- │           │      │ argv tests; │
- │           │      │ live tab    │
+ │ pane      │ cont │ t +         │
+ │ report-ag │ ract │ fake-Herdr  │
+ │ ent       │      │ argv tests; │
+ │ blocked   │      │ live tab    │
  │           │      │ aggregation │
+ │           │      │ is Herdr    │
+ │           │      │ product /   │
  │           │      │ optional    │
- │           │      │ per plan    │
+ │           │      │ smoke       │
  ├───────────┼──────┼─────────────┤
  │ AC-4      │ Met  │ sync_operat │
  │ EXECUTION │      │ or_attentio │
  │ _READY    │      │ n after     │
- │ approval  │      │ ledger      │
- │ set/clear │      │ write_json; │
- │ /revoke   │      │ delivery    │
+ │ approval  │      │ every       │
+ │ set/clear │      │ ledger      │
+ │ /revoke   │      │ write_json; │
+ │           │      │ approve     │
+ │           │      │ writes      │
+ │           │      │ before      │
+ │           │      │ launch;     │
+ │           │      │ delivery    │
  │           │      │ transition  │
  │           │      │ test        │
- │           │      │ (approve    │
- │           │      │ clears      │
- │           │      │ despite     │
- │           │      │ launch      │
- │           │      │ fail;       │
- │           │      │ revoke      │
- │           │      │ restores)   │
  ├───────────┼──────┼─────────────┤
- │ AC-5      │ Met  │ Same        │
- │ Blocker   │      │ delivery    │
- │ wins,     │      │ transition  │
- │ then      │      │ test;       │
- │ approval  │      │ blocker     │
- │ restores  │      │ positional  │
- │           │      │ nargs="*"   │
+ │ AC-5      │ Met  │ Delivery    │
+ │ Blocker   │      │ transition  │
+ │ wins,     │      │ test;       │
+ │ then      │      │ blocker     │
+ │ approval  │      │ nargs="*"   │
+ │ restores  │      │             │
  ├───────────┼──────┼─────────────┤
  │ AC-6      │ Met  │ withOperato │
  │ Heddle    │      │ rAttention  │
@@ -417,14 +425,11 @@
  │           │      │ l/timeout/t │
  │           │      │ hrow        │
  ├───────────┼──────┼─────────────┤
- │ AC-9 No   │ Met  │ Only        │
- │ completen │      │ BLOCKED and │
+ │ AC-9 No   │ Met  │ Sync only   │
+ │ completen │      │ BLOCKED /   │
  │ ess/advis │      │ pending     │
  │ ory       │      │ EXECUTION_R │
- │ attention │      │ EADY set;   │
- │           │      │ other       │
- │           │      │ stages      │
- │           │      │ clear       │
+ │ attention │      │ EADY        │
  ├───────────┼──────┼─────────────┤
  │ AC-7      │ Met  │ Delivery    │
  │ Best-effo │      │ check=False │
@@ -442,12 +447,8 @@
  │ Pi UI /   │      │ marker >    │
  │ delivery  │      │ working/idl │
  │ behavior  │      │ e; nested   │
- │           │      │ UI test;    │
- │           │      │ delivery    │
- │           │      │ suite still │
- │           │      │ registers   │
- │           │      │ the new     │
- │           │      │ case        │
+ │           │      │ UI test     │
+ │           │      │ retained    │
  ├───────────┼──────┼─────────────┤
  │ BDD shell │ Met  │ Heddle gate │
  │ password  │      │ + wrapper   │
@@ -470,9 +471,13 @@
  │           │      │ on          │
  ├───────────┼──────┼─────────────┤
  │ P4        │ Met  │ install.sh  │
- │ install + │      │ dual paths  │
- │ docs      │      │ + install   │
- │           │      │ test +      │
+ │ install + │      │ →           │
+ │ docs      │      │ $HOME/.agen │
+ │           │      │ ts/scripts  │
+ │           │      │ +           │
+ │           │      │ ~/.local/bi │
+ │           │      │ n; install  │
+ │           │      │ test;       │
  │           │      │ herdr/deliv │
  │           │      │ ery/pi/work │
  │           │      │ flow docs   │
@@ -480,17 +485,12 @@
 
  ### Wiring / non-goals
 
- Helper marker +
- report/release/notify contracts,
- Pi latch, delivery mutation-family
- reconciliation via write_json,
- Heddle open-gate, and install
- destinations are all present.
- Non-goals remain intact (no Herdr
- binary change, no TTY scraping, no
- auto stage→BLOCKED for
- approval/password, no
- completeness-review attention).
+ Helper dual-path, Pi latch,
+ delivery mutation-family
+ reconciliation, Heddle open-gate,
+ and install destinations are
+ present in the committed tree.
+ Non-goals remain intact.
 
  Not examined: live multi-pane
  Herdr UI smoke (plan-optional);
