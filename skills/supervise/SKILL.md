@@ -1,20 +1,23 @@
 ---
 name: supervise
-description: Attach a trajectory-guarding supervisor to a worker coding agent in an adjacent Herdr pane when the operator explicitly asks for supervision. It is never started automatically by plan execution (run-plan / dev:run). The supervisor guards outcome aim and expansion reasoning; it never fences investigation.
+description: Attach a trajectory-guarding supervisor to a worker coding agent in a labeled sibling Herdr tab when the operator explicitly asks for supervision. It is never started automatically by plan execution (run-plan / dev:run). The supervisor guards outcome aim and expansion reasoning; it never fences investigation.
 ---
 
 # Supervise
 
-A supervisor is an optional second Pi session in an adjacent Herdr pane that watches a worker agent execute a plan. Launch it only when the operator explicitly requests supervision; plan-execution workflows must not start it by default. The worker owns technical judgment; the supervisor owns trajectory: is the work still aimed at the promised outcome, is expansion reasoned and logged, and are the plan's triggered contract inventory, acceptance/BDD proof, residual-risk disclosure, and decisions/deviations real. Its charter lives in `supervisor-prompt.md` beside this file.
+A supervisor is an optional second Pi session in a labeled sibling Herdr tab that watches a worker agent execute a plan. Launch it only when the operator explicitly requests supervision; plan-execution workflows must not start it by default. The worker owns technical judgment; the supervisor owns trajectory: is the work still aimed at the promised outcome, is expansion reasoned and logged, and are the plan's triggered contract inventory, acceptance/BDD proof, residual-risk disclosure, and decisions/deviations real. Its charter lives in `supervisor-prompt.md` beside this file.
 
 ## Launch
 
-From the worker's session (or by the operator), with the worker's pane ID and agent name known:
+From the worker's session (or by the operator), with the worker's pane ID, workspace ID, worktree, and agent name known:
 
 ```bash
-herdr pane split <worker-pane> --direction right --no-focus
-# read result.pane.pane_id from the JSON response, then:
-herdr agent start supervisor-<worker-name> --kind pi --pane <new-pane-id> --timeout 45000 -- \
+# If the workspace id is not already available, read result.pane.workspace_id:
+herdr pane get <worker-pane>
+herdr tab create --workspace <workspace-id> --label "supervise · <worker-name>" \
+  --cwd <worktree> --no-focus
+# Read result.root_pane.pane_id and result.tab.tab_id from the JSON response, then:
+herdr agent start supervisor-<worker-name> --kind pi --pane <new-root-pane-id> --timeout 45000 -- \
   --provider openai-codex --model gpt-5.6-sol --thinking high \
   --append-system-prompt ~/.agents/skills/supervise/supervisor-prompt.md \
   --tools read,bash
@@ -25,7 +28,7 @@ herdr agent prompt supervisor-<worker-name> \
   --wait --timeout 60000
 ```
 
-Record the supervisor's agent name and pane ID in the plan's session metadata (expansion log header). If no supervisor can be started, record `SUPERVISOR: none — <reason>` there instead; the pre-PR review surfaces that to the human.
+Record the supervisor's agent name, tab ID, and root pane ID in the plan's session metadata (expansion log header). Keep the agent name as the prompt/read target; the tab label is for human orientation. If no supervisor can be started, record `SUPERVISOR: none — <reason>` there instead; the pre-PR review surfaces that to the human.
 
 Tool posture: `--tools read,bash` removes Pi's structured edit/write tools. Bash can still mutate, so repository non-mutation is prompt-enforced, not technically enforced — the charter forbids it and the dry run verifies the refusal.
 
@@ -43,6 +46,6 @@ Mid-build, at each phase boundary, the worker sends a fire-and-forget ping — `
 
 ## Shutdown
 
-Orderly: the caller that created the pane closes it as the final wrap-up step of the worker session, so the supervisor does not outlive the work. If the worker crashes, no further wakes occur and the idle supervisor persists until the operator closes the pane — crashed-worker cleanup is an operator responsibility (an idle session costs nothing meanwhile). A supervisor whose wake finds the worker gone ends its own session.
+Orderly: the caller that created the tab closes it as the final wrap-up step of the worker session, so the supervisor does not outlive the work. If the worker crashes, no further wakes occur and the idle supervisor persists until the operator closes the tab — crashed-worker cleanup is an operator responsibility (an idle session costs nothing meanwhile). A supervisor whose wake finds the worker gone ends its own session.
 
 An operator ship or stand-down directive for the worker's stream is also a shutdown signal: the supervisor discards its queued prompts and pending demands for that stream, acknowledges, and treats its supervision as complete. Stale supervision must never outlive an operator decision.
