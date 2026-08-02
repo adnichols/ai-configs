@@ -166,7 +166,7 @@ STAGE_NEXT_SKILL = {
     "SCOPED_REVIEW": "Run scoped quality review (run-plan section) with live-worktree reviewer",
     "IMPL_PM_OUTCOME": "Run /dev:pm-review <plan> implementation + fill customerImpact/completionEval",
     "AUTOREVIEW": "Use /skill:autoreview <plan>; record verdict artifact",
-    "COMPLETENESS_REVIEW": "Launch the adjacent visible Pi reviewer with `delivery completion-review`, address its plan-completeness findings, request a rereview, then run `delivery completion-review --accept` only after it returns COMPLETE",
+    "COMPLETENESS_REVIEW": "Launch the visible labeled-tab Pi reviewer with `delivery completion-review`, address its plan-completeness findings, request a rereview, then run `delivery completion-review --accept` only after it returns COMPLETE",
     "VERIFY_FRESHNESS": "Final verification + base freshness; record verify evidence",
     "PR_OPEN": "Open/update PR via cmd-create-pr / run-plan PR section; record prUrl",
     "MERGE_READY": "Confirm local merge-readiness; optional adversarial QA if customer-visible",
@@ -1046,6 +1046,131 @@ def resolve_herdr_targets(ledger: dict[str, Any]) -> dict[str, str | None]:
     }
 
 
+def agent_tab_label(role: str, ledger: dict[str, Any]) -> str:
+    """Human label for a delivery helper tab; agent names remain machine identity."""
+    prefix = f"{role} · "
+    base = short_label(ensure_base_title(ledger), max_len=max(12, 48 - len(prefix)))
+    return prefix + base
+
+
+def agent_tab_json(
+    args: list[str],
+    *,
+    root: Path,
+    step: str,
+    attempted: str,
+    next_action: str,
+) -> dict[str, Any]:
+    """Run a Herdr JSON command with launch-specific fail-closed diagnostics."""
+    herdr = require_herdr()
+    proc = run_cmd([herdr, *args], cwd=root)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip() or "no diagnostic output"
+        die(
+            f"agent-tab {step} failed ({proc.returncode}): {detail}. "
+            f"Tried: {attempted}. Next action: {next_action}."
+        )
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        die(
+            f"agent-tab {step} returned non-JSON ({exc}). Tried: {attempted}. "
+            f"Next action: {next_action}."
+        )
+    if not isinstance(payload, dict):
+        die(
+            f"agent-tab {step} returned a non-object JSON root. Tried: {attempted}. "
+            f"Next action: {next_action}."
+        )
+    return payload
+
+
+def resolve_workspace_id(ledger: dict[str, Any], source_pane: str) -> str:
+    """Resolve the current Herdr workspace without guessing from pane identifiers."""
+    workspace_id = resolve_herdr_targets(ledger).get("workspaceId")
+    if workspace_id:
+        return str(workspace_id)
+    attempted = (
+        "delivery workspace targets (HERDR_WORKSPACE_ID, labels.herdrWorkspaceId, "
+        f"spawn.workspaceId), then `herdr pane get {source_pane}`"
+    )
+    next_action = "supply --pane from a live Herdr workspace or restore HERDR_WORKSPACE_ID context"
+    payload = agent_tab_json(
+        ["pane", "get", str(source_pane)],
+        root=Path(ledger.get("worktree") or Path.cwd()),
+        step="workspace discovery",
+        attempted=attempted,
+        next_action=next_action,
+    )
+    result = payload.get("result")
+    pane = result.get("pane") if isinstance(result, dict) else None
+    workspace_id = pane.get("workspace_id") if isinstance(pane, dict) else None
+    if not workspace_id:
+        die(
+            "agent-tab workspace discovery returned no result.pane.workspace_id. "
+            f"Tried: {attempted}. Next action: {next_action}."
+        )
+    return str(workspace_id)
+
+
+def build_tab_create_command(workspace_id: str, root: Path, label: str) -> list[str]:
+    """Build the shared Herdr tab-create arguments used by preview and execution."""
+    return [
+        "tab",
+        "create",
+        "--workspace",
+        workspace_id,
+        "--cwd",
+        str(root),
+        "--label",
+        label,
+        "--no-focus",
+    ]
+
+
+def create_labeled_agent_tab(
+    *,
+    ledger: dict[str, Any],
+    root: Path,
+    source_pane: str,
+    role: str,
+) -> dict[str, str]:
+    """Create a same-workspace labeled tab and return its stable tab/pane IDs."""
+    workspace_id = resolve_workspace_id(ledger, source_pane)
+    label = agent_tab_label(role, ledger)
+    command = build_tab_create_command(workspace_id, root, label)
+    attempted = f"`herdr {' '.join(command)}` after workspace discovery"
+    next_action = "supply --pane from a live Herdr workspace or restore Herdr workspace context"
+    payload = agent_tab_json(
+        command,
+        root=root,
+        step="tab creation",
+        attempted=attempted,
+        next_action=next_action,
+    )
+    result = payload.get("result")
+    root_pane = result.get("root_pane") if isinstance(result, dict) else None
+    tab = result.get("tab") if isinstance(result, dict) else None
+    pane_id = root_pane.get("pane_id") if isinstance(root_pane, dict) else None
+    tab_id = tab.get("tab_id") if isinstance(tab, dict) else None
+    if not pane_id:
+        die(
+            "agent-tab tab creation returned no result.root_pane.pane_id. "
+            f"Tried: {attempted}. Next action: {next_action}."
+        )
+    if not tab_id:
+        die(
+            "agent-tab tab creation returned no result.tab.tab_id. "
+            f"Tried: {attempted}. Next action: {next_action}."
+        )
+    return {
+        "workspaceId": workspace_id,
+        "tabId": str(tab_id),
+        "paneId": str(pane_id),
+        "label": label,
+    }
+
+
 def maybe_herdr_label(
     ledger: dict[str, Any],
     *,
@@ -1328,18 +1453,19 @@ def launch_implementation_agent(
     )
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
-    split = herdr_json(
-        ["pane", "split", str(source_pane), "--direction", "right", "--cwd", str(root), "--no-focus"],
-        cwd=root,
-    )
-    split_result = split.get("result") if isinstance(split.get("result"), dict) else split
-    pane = split_result.get("pane") if isinstance(split_result.get("pane"), dict) else split_result
-    implementation_pane = pane.get("pane_id")
-    if not implementation_pane:
+    try:
+        agent_tab = create_labeled_agent_tab(
+            ledger=ledger,
+            root=root,
+            source_pane=str(source_pane),
+            role="impl",
+        )
+    except SystemExit:
         current = active_implementation_launch(path, root, attempt_id, allowed_statuses={"launching"})
-        reset_implementation_profile(current, "Herdr split returned no pane id")
+        reset_implementation_profile(current, "Herdr implementation tab creation failed")
         write_json(path, current)
-        die(f"implementation pane split returned no pane id: {split}")
+        raise
+    implementation_pane = agent_tab["paneId"]
 
     herdr = require_herdr()
     start_command = [
@@ -1374,6 +1500,8 @@ def launch_implementation_agent(
             "planSha256": plan_sha256(current, root),
             "agentName": reviewer_name,
             "paneId": str(implementation_pane),
+            "tabId": agent_tab["tabId"],
+            "tabLabel": agent_tab["label"],
             "sourcePaneId": str(source_pane),
             "launchedAt": utc_now() if started.returncode == 0 else None,
             "promptedAt": None,
@@ -1408,12 +1536,17 @@ def launch_implementation_agent(
         "dedicated Sol medium implementation agent ready",
         agent=reviewer_name,
         paneId=str(implementation_pane),
+        tabId=agent_tab["tabId"],
+        tabLabel=agent_tab["label"],
         model=IMPLEMENTATION_MODEL_REF,
         reasoningLevel=IMPLEMENTATION_REASONING,
     )
     refresh_git_fields(current, root)
     write_json(path, current)
-    print(f"implementation agent ready: {reviewer_name} in {implementation_pane}")
+    print(
+        f"implementation agent ready: {reviewer_name} in tab {agent_tab['tabId']} "
+        f"({agent_tab['label']}) / pane {implementation_pane}"
+    )
     print("next: the pinned implementation agent verifies its profile and enters IMPLEMENTING")
     return 0
 
@@ -2064,7 +2197,7 @@ def cmd_record_receipt(args: argparse.Namespace) -> int:
 
 
 def cmd_completion_review(args: argparse.Namespace) -> int:
-    """Launch, rerequest, or accept the visible adjacent Pi plan-completeness review."""
+    """Launch, rerequest, or accept the visible labeled-tab Pi completeness review."""
     path, ledger, root = load_ledger_for(args)
     labels = ledger.get("labels") or {}
     review = ledger.get("completenessReview") or {}
@@ -2132,12 +2265,14 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
     ]
 
     if args.dry_run:
+        workspace_id = resolve_workspace_id(ledger, str(source_pane))
+        label = agent_tab_label("complete", ledger)
         print(json.dumps({
             "sourcePane": source_pane,
             "reviewerName": reviewer_name,
             "model": COMPLETENESS_REVIEW_MODEL,
             "rerun": bool(args.rerun),
-            "splitCommand": ["herdr", "pane", "split", str(source_pane), "--direction", "right", "--cwd", str(root), "--no-focus"],
+            "tabCreateCommand": ["herdr", *build_tab_create_command(workspace_id, root, label)],
             "startCommand": start_command,
             "prompt": prompt,
         }, indent=2))
@@ -2147,13 +2282,25 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
         reviewer_pane = review.get("paneId")
         if not reviewer_pane:
             die("no visible completeness reviewer is recorded; run `delivery completion-review` first")
+        reviewer_tab = review.get("tabId")
+        if not reviewer_tab:
+            die(
+                "recorded completeness reviewer has no tab metadata; run `delivery completion-review` "
+                "without --rerun to create a fresh labeled tab"
+            )
+        agent_tab = {
+            "paneId": str(reviewer_pane),
+            "tabId": str(reviewer_tab),
+            "label": str(review.get("tabLabel") or agent_tab_label("complete", ledger)),
+        }
     else:
-        split = herdr_json(["pane", "split", str(source_pane), "--direction", "right", "--cwd", str(root), "--no-focus"], cwd=root)
-        split_result = split.get("result") if isinstance(split.get("result"), dict) else split
-        pane = split_result.get("pane") if isinstance(split_result.get("pane"), dict) else split_result
-        reviewer_pane = pane.get("pane_id")
-        if not reviewer_pane:
-            die(f"herdr pane split returned no pane id: {split}")
+        agent_tab = create_labeled_agent_tab(
+            ledger=ledger,
+            root=root,
+            source_pane=str(source_pane),
+            role="complete",
+        )
+        reviewer_pane = agent_tab["paneId"]
         start_command[7] = str(reviewer_pane)
         start_deadline = time.monotonic() + min(max(args.timeout_ms / 1000.0, 1.0), 10.0)
         while True:
@@ -2173,6 +2320,8 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
         "status": "pending",
         "agentName": reviewer_name,
         "paneId": str(reviewer_pane),
+        "tabId": agent_tab["tabId"],
+        "tabLabel": agent_tab["label"],
         "model": COMPLETENESS_REVIEW_MODEL,
         "requestId": request_id,
         "requestLedgerRevision": int(ledger.get("ledgerRevision") or 0),
@@ -2182,10 +2331,22 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
         "round": int(review.get("round") or 0) + 1,
     }
     ledger.setdefault("evidence", {}).setdefault("completenessReview", {}).update({"status": "pending", "updatedAt": utc_now()})
-    append_history(ledger, "completeness_review", "visible Grok 4.5 review requested", agent=reviewer_name, paneId=str(reviewer_pane), rerun=bool(args.rerun))
+    append_history(
+        ledger,
+        "completeness_review",
+        "visible Grok 4.5 review requested",
+        agent=reviewer_name,
+        paneId=str(reviewer_pane),
+        tabId=agent_tab["tabId"],
+        tabLabel=agent_tab["label"],
+        rerun=bool(args.rerun),
+    )
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
-    print(f"visible completeness reviewer: {reviewer_name} in {reviewer_pane}")
+    print(
+        f"visible completeness reviewer: {reviewer_name} in tab {agent_tab['tabId']} "
+        f"({agent_tab['label']}) / pane {reviewer_pane}"
+    )
     print("next: read the reviewer response, fix any in-plan findings, then run `delivery completion-review --rerun`; after COMPLETE run `delivery completion-review --accept`")
     return 0
 
@@ -3311,8 +3472,8 @@ delivery approve-implementation --source chat|doct \\
   --summary "Operator saw status, changes, fixed Sol-medium profile, and remaining steps"
 ```
 
-The approval command splits an adjacent Herdr pane, starts Pi with explicit Sol-medium flags,
-and prompts the new implementation agent. The planning agent stops. The new agent runs
+The approval command creates a labeled sibling Herdr tab, starts Pi on its root pane with
+explicit Sol-medium flags, and prompts the new implementation agent. The planning agent stops. The new agent runs
 `delivery verify-implementation-profile` and then `delivery stage IMPLEMENTING`; the stage
 rejects missing/stale approval, launch evidence, plan review, or a mismatched live Pi runtime.
 If launch failed, retry with `delivery start-implementation`. If a material Doct comment
@@ -3691,7 +3852,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_completion = sub.add_parser(
         "completion-review",
-        help="Launch or rerequest the adjacent visible Grok 4.5 plan-completeness reviewer",
+        help="Launch or rerequest the visible labeled-tab Grok 4.5 plan-completeness reviewer",
     )
     add_json_flag(p_completion)
     p_completion.add_argument("--pane", help="Driving agent's Herdr pane id (defaults to HERDR_PANE_ID or delivery spawn pane)")
@@ -3701,7 +3862,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_completion.add_argument("--waive", action="store_true", help="Record a direct operator waiver instead of a clean completeness verdict")
     p_completion.add_argument("--summary", help="Required with --waive; records the direct operator waiver")
     p_completion.add_argument("--artifact", help="Artifact path for --accept (default thoughts/validation/<slug>-completeness.md)")
-    p_completion.add_argument("--dry-run", action="store_true", help="Print the split/start/prompt contract without changing Herdr")
+    p_completion.add_argument("--dry-run", action="store_true", help="Print the tab-create/start/prompt contract without changing Herdr")
     p_completion.add_argument("--timeout-ms", type=int, default=60000, help="Reviewer Pi startup timeout (default 60000)")
     p_completion.set_defaults(func=cmd_completion_review)
 

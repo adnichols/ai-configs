@@ -1,6 +1,6 @@
 ---
 name: run-plan
-description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, active-harness pre-PR review, a visible adjacent Pi/Grok 4.5 completeness-review loop for Herdr delivery runs, verification, commit, push, PR creation, and local merge-readiness consensus without expanding beyond the plan's stated scope.
+description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, active-harness pre-PR review, a visible labeled-tab Pi/Grok 4.5 completeness-review loop for Herdr delivery runs, verification, commit, push, PR creation, and local merge-readiness consensus without expanding beyond the plan's stated scope.
 ---
 
 # Run Plan
@@ -41,7 +41,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Verification convergence is budgeted. When the Verification Convergence Budget is exhausted and every residual failure classifies as inherited or infra/cosmetic with targeted verification green, opening the draft PR with disclosure and stopping on the ship/keep-fixing question is the required next action, not a policy violation.
 - Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
 - Do not create a PR until the active-harness reviewer-subagent pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
-- For a Herdr delivery run, do not claim local merge readiness until the visible adjacent Pi reviewer running `xai/grok-4.5:high` returns `VERDICT: COMPLETE` against the current plan and live worktree, or the operator explicitly waives that completeness review. Fix every in-plan finding and request rereview; the driving agent owns fixes and verification.
+- For a Herdr delivery run, do not claim local merge readiness until the visible labeled-tab Pi reviewer running `xai/grok-4.5:high` returns `VERDICT: COMPLETE` against the current plan and live worktree, or the operator explicitly waives that completeness review. Fix every in-plan finding and request rereview; the driving agent owns fixes and verification.
 - Do not stop after the reviewer-subagent pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
 - Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
 - Never delay PR creation for deployment or post-merge operational evidence, even when an older plan places that evidence in a phase or completion checklist. Reclassify it as a non-blocking delivery obligation and preserve it in the PR body/plan deviation log.
@@ -194,7 +194,7 @@ This appends to `~/.pi/DELIVERY_REFLECTIONS.md` and `~/.pi/delivery-reflections.
 1. Check whether a compatible run-plan state is already active in the available runtime tracking surface.
 2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use the `todo` tool's `create` and `update` actions, keeping exactly one task `in_progress` at a time. In Codex, use Codex goal/task state. Include a final post-PR readiness task that cannot be marked complete until all completion criteria are satisfied.
 3. The objective must require both:
-   - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, and—when the run is a Herdr delivery worktree—the visible adjacent Grok 4.5 completeness-review loop to `COMPLETE` or an explicit waiver, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
+   - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, and—when the run is a Herdr delivery worktree—the visible labeled-tab Grok 4.5 completeness-review loop to `COMPLETE` or an explicit waiver, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
    - checking the PR after creation for existing actionable feedback and mergeability evidence, without waiting for a Codex thumbs-up or other external approval after local review-agent consensus is clean.
 4. If an active run state already exists and it is compatible with this scoped plan run, continue under it and state the compatibility in working notes.
 5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before replacing its task set.
@@ -390,9 +390,9 @@ delivery stage COMPLETENESS_REVIEW
 delivery completion-review
 ```
 
-`delivery completion-review` splits the driving pane to the right without moving operator focus, starts a new interactive Pi in that same live worktree with `--model xai/grok-4.5:high`, and sends its full visible review prompt. The reviewer may read the plan, current diff, status, and validation artifacts but must not edit files or execute verification.
+`delivery completion-review` creates a labeled sibling tab in the same Herdr workspace without moving operator focus, starts a new interactive Pi on that tab's root pane in the same live worktree with `--model xai/grok-4.5:high`, and sends its full visible review prompt. The reviewer may read the plan, current diff, status, and validation artifacts but must not edit files or execute verification.
 
-The driving agent must read the adjacent pane's verdict. For every `FINDINGS_TO_RESOLVE` item that is `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`, make the smallest in-scope correction, run invalidated verification, and request the same reviewer's next round:
+The driving agent must read the labeled completeness tab's verdict. For every `FINDINGS_TO_RESOLVE` item that is `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`, make the smallest in-scope correction, run invalidated verification, and request the same named reviewer's next round:
 
 ```bash
 delivery completion-review --rerun

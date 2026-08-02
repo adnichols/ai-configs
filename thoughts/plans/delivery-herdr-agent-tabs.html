@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Give each delivery agent its own labeled Herdr tab</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero, section {
+      background: rgba(17, 24, 39, 0.84);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      margin: 16px 0;
+    }
+    header.hero {
+      background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12));
+    }
+    h1, h2, h3 { color: #f8fafc; line-height: 1.2; }
+    h1 { margin: 0 0 10px; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 18px 0 8px; color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: #0f172a; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); text-align: left; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .pill {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--muted);
+      background: rgba(15, 23, 42, 0.76);
+      font-size: 0.9rem;
+    }
+    .pill.good { color: var(--good); border-color: rgba(52, 211, 153, 0.55); }
+    .pill.warn { color: var(--warn); border-color: rgba(251, 191, 36, 0.55); }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    .toc a { color: var(--muted); text-decoration: none; }
+    .toc a:hover { color: var(--text); }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: rgba(125, 211, 252, 0.08);
+      padding: 12px 14px;
+      border-radius: 0 12px 12px 0;
+      margin: 12px 0;
+    }
+    .decision {
+      border-left: 4px solid var(--warn);
+      background: rgba(251, 191, 36, 0.08);
+      padding: 12px 14px;
+      border-radius: 0 12px 12px 0;
+      margin: 12px 0;
+    }
+    ul.progress { list-style: none; padding: 0; }
+    ul.progress li { padding: 6px 0; border-bottom: 1px solid rgba(44, 54, 79, 0.6); }
+    .before-after { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 800px) { .before-after { grid-template-columns: 1fr; } }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      background: rgba(15, 23, 42, 0.65);
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero" id="top">
+    <h1>Give each delivery agent its own labeled Herdr tab</h1>
+    <p class="muted">Stop packing delivery agents into ever-smaller same-tab panes. Launch each multi-agent role into its own clearly labeled Herdr tab so humans can read full-height transcripts while agents keep unique names and stable pane IDs.</p>
+    <div class="pill-row">
+      <span class="pill good">Status: browser-review</span>
+      <span class="pill">Slug: delivery-herdr-agent-tabs</span>
+      <span class="pill">Surface: delivery-run + Herdr launch helpers</span>
+      <span class="pill warn">No product runtime change outside agent tooling</span>
+    </div>
+  </header>
+
+  <section id="toc" aria-label="Table of contents">
+    <h2>Contents</h2>
+    <div class="toc">
+      <a href="#product-owner-context">Product-owner context</a>
+      <a href="#whats-new">What's new</a>
+      <a href="#goal">Goal</a>
+      <a href="#decision-attention">Decision attention</a>
+      <a href="#why">Why this exists</a>
+      <a href="#authority">Authority and inputs</a>
+      <a href="#current-reality">Current reality</a>
+      <a href="#product-intent">Product intent</a>
+      <a href="#locked-decisions">Locked decisions</a>
+      <a href="#contracts">Contract inventory</a>
+      <a href="#acceptance">Acceptance criteria</a>
+      <a href="#bdd">BDD scenarios</a>
+      <a href="#progress">Progress</a>
+      <a href="#phase-1">Phase 1 — shared tab launcher</a>
+      <a href="#phase-2">Phase 2 — implementation + completeness</a>
+      <a href="#phase-3">Phase 3 — docs + supervise</a>
+      <a href="#phase-4">Phase 4 — tests</a>
+      <a href="#verification">Verification</a>
+      <a href="#delivery-order">Delivery order</a>
+      <a href="#non-goals">Non-goals</a>
+      <a href="#resume">Resume</a>
+      <a href="#decisions-log">Decisions log</a>
+    </div>
+  </section>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <p>When delivery hands work to a second agent (implementation) or opens a visible completeness reviewer (Grok), Herdr currently <strong>splits the current tab into panes</strong>. Each new agent shrinks every window on that tab. Operators cannot comfortably read transcripts, and the workspace feels crowded even though only a few agents are running.</p>
+    <p><strong>Why now:</strong> delivery intentionally launches multiple agents in one worktree. The pane-split default is now a daily readability problem rather than a rare edge case.</p>
+    <p><strong>Key conclusion:</strong> this is an operator-tooling UX defect in the delivery/Herdr integration, not a customer product bug. Fix by launching each multi-agent role into a <strong>full-size labeled tab</strong> inside the same workspace, while keeping agent names and pane IDs as the machine identity.</p>
+    <table>
+      <thead>
+        <tr><th>Dimension</th><th>Impact</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Customers</td><td>No change — internal agent/operator tooling only.</td></tr>
+        <tr><td>Runtime product behavior</td><td>No application runtime change. Delivery still launches the same agent kinds/models with the same prompts and authorization gates.</td></tr>
+        <tr><td>Security / permissions</td><td>No change. Still uses existing Herdr CLI socket; no new credentials or network surfaces.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Update delivery CLI fakes/assertions from <code>pane split</code> to <code>tab create</code>; keep authorization and completeness gates covered.</td></tr>
+        <tr><td>Deployment / migration</td><td>Not applicable beyond shipping the skill/script changes in ai-configs. No data migration. Existing in-flight ledgers that already recorded a split pane keep working via stored <code>paneId</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What's new</h2>
+    <p><strong>Headline:</strong> multi-agent delivery roles get their own full-height labeled tabs.</p>
+    <p><strong>Promise:</strong> approving implementation or starting completeness review no longer shrinks the planning/driving tab; each agent opens in a clearly labeled sibling tab you can switch to full-size.</p>
+    <div class="before-after">
+      <div class="card">
+        <h3>Before</h3>
+        <ul>
+          <li><code>herdr pane split … --direction right</code> for implementation and completeness agents</li>
+          <li>All agents share one tab; panes get narrower with each launch</li>
+          <li>Docs say “adjacent pane”</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>After</h3>
+        <ul>
+          <li><code>herdr tab create --workspace … --label … --cwd … --no-focus</code></li>
+          <li>Each role has a human-readable tab label; agent name remains the control target</li>
+          <li>Docs/tests/supervise guidance say “labeled tab”</li>
+        </ul>
+      </div>
+    </div>
+    <p><strong>Preserved:</strong> unique Herdr agent names, <code>--no-focus</code> so the operator is not yanked away, worktree cwd, model pins, authorization gates, completeness request IDs, and ledger fields that already store <code>paneId</code>.</p>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Change delivery’s multi-agent Herdr layout from same-tab pane splits to clearly labeled per-agent tabs so humans can read each agent full-size while agents remain uniquely addressable by name (and still record the pane/tab IDs needed for start/prompt/read/accept).</p>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="callout">
+      <p><strong>No blocking product decision.</strong> Tab-create response shape was verified live against Herdr 0.7.5: <code>result.root_pane.pane_id</code> and <code>result.tab.tab_id</code>. Label format and scope of the supervise skill are locked below with recommended defaults.</p>
+    </div>
+    <div class="callout" id="decision-label-format">
+      <h3>Resolved decision: tab label format</h3>
+      <p><strong>Selected:</strong> Option A — role prefix + short base title, e.g. <code>impl · NOD-123 short title</code>, <code>complete · NOD-123 short title</code>, <code>supervise · …</code>.</p>
+      <p><strong>Rejected:</strong> agent-name-only labels (harder human scan); phase-code-only labels (collides with workspace rename semantics).</p>
+      <p>Keep agent names as machine identity; never write agent tab IDs into <code>labels.herdrTabId</code>.</p>
+    </div>
+    <p><strong>UI impact:</strong> yes — operator interaction/layout in Herdr tabs; no Herdr binary UI implementation. Review evidence is the textual before/after plus the live tab-create probe. Manual visual smoke is optional and non-blocking for PR.</p>
+  </section>
+
+  <section id="why">
+    <h2>Why this exists</h2>
+    <p>Delivery intentionally runs multiple agents (planner → dedicated implementer → visible completeness reviewer). Pane splits were a convenient default when Herdr guidance preferred sibling panes, but they fight human readability once more than one helper agent is open. Tabs preserve full viewport height and match how operators already navigate Herdr workspaces.</p>
+  </section>
+
+  <section id="authority">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>Operator request: use labeled tabs instead of same-tab panes for multi-agent delivery work.</li>
+      <li>Repo: <code>ai-configs</code> worktree <code>delivery-use-tabs</code>.</li>
+      <li>Primary code: <code>skills/delivery-run/scripts/delivery</code> (<code>launch_implementation_agent</code>, <code>cmd_completion_review</code>).</li>
+      <li>Herdr CLI: <code>herdr tab create</code>, <code>herdr pane get</code>, agent start/prompt/read.</li>
+      <li>Docs/tests: <code>skills/delivery-run/SKILL.md</code>, brief template in delivery script, <code>skills/run-plan/SKILL.md</code>, <code>_pi/prompts/delivery:*.md</code>, <code>AGENTS.md</code>, <code>skills/supervise/*</code>, <code>skills/delivery-run/tests/test_delivery_cli.sh</code>.</li>
+      <li>Live probe (this worktree): tab create returned <code>wDV:t2</code> / root pane <code>wDV:p2</code> with label preserved under <code>--no-focus</code>.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>launch_implementation_agent</code> calls <code>herdr pane split &lt;source&gt; --direction right --cwd &lt;root&gt; --no-focus</code>, then <code>agent start … --pane &lt;new&gt;</code>.</li>
+      <li><code>cmd_completion_review</code> does the same for the Grok completeness reviewer; dry-run prints <code>splitCommand</code>.</li>
+      <li>Ledger stores <code>implementationProfile.paneId</code> / <code>completenessReview.paneId</code>; reruns reuse the existing pane.</li>
+      <li><code>maybe_herdr_label</code> renames workspace + primary tab from <code>labels.herdrTabId</code> / env — must not be overwritten with agent tab IDs.</li>
+      <li>Tests fake <code>pane split</code> returning <code>{"result":{"pane":{"pane_id":"w1:p2"}}}</code>.</li>
+      <li><code>skills/supervise</code> documents the same pane-split pattern for optional supervisors.</li>
+    </ul>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <p>Delivery doctrine already prefers visible, resumable multi-agent work without hard-blocking operators. Full-size labeled tabs improve visibility without changing authorization boundaries (Sol-medium implementation handoff, completeness COMPLETE accept). Guidance remains “guidance not gates” for advisory evidence; launch topology is operator UX, not a new gate.</p>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li><strong>Topology:</strong> create a new tab in the same workspace; do not open a new workspace per agent.</li>
+      <li><strong>Focus:</strong> keep <code>--no-focus</code> so background launches do not steal the operator’s current tab.</li>
+      <li><strong>Cwd:</strong> new tabs use the delivery worktree root (<code>--cwd</code>), same as today’s split.</li>
+      <li><strong>Identity:</strong> Herdr <strong>agent name</strong> remains the primary control target for start/prompt/wait/read. Pane ID is still required by <code>agent start --pane</code>. Tab ID is recorded for humans/debugging and optional rename, not as a replacement for agent names.</li>
+      <li><strong>Labels:</strong> <code>impl · &lt;baseTitle&gt;</code>, <code>complete · &lt;baseTitle&gt;</code>, and for supervise docs <code>supervise · &lt;base or worker&gt;</code>, truncated with the existing short-label helper if needed.</li>
+      <li><strong>Storage:</strong> persist <code>tabId</code> alongside <code>paneId</code> on implementation profile and completeness review records. Do <strong>not</strong> store agent tab IDs in <code>labels.herdrTabId</code>.</li>
+      <li><strong>Rerun:</strong> completeness <code>--rerun</code> continues to reuse the recorded reviewer pane/agent; do not create a second tab on rerun.</li>
+      <li><strong>Workspace resolution:</strong> prefer <code>resolve_herdr_targets().workspaceId</code>; if missing, <code>herdr pane get &lt;source_pane&gt;</code> and read <code>result.pane.workspace_id</code>. Fail with an actionable error if still unknown.</li>
+      <li><strong>Failure contract:</strong> missing workspace after pane-get, missing <code>root_pane.pane_id</code>, missing <code>tab.tab_id</code>, or non-JSON herdr output → die with agent-legible text stating what failed, what was tried, and the next action (supply <code>--pane</code> / restore Herdr workspace context). <strong>Never</strong> fall back to <code>pane split</code>.</li>
+      <li><strong>Scope includes supervise docs:</strong> update supervise skill to the same tab pattern for consistency (manual skill, not delivery CLI).</li>
+      <li><strong>Completion-review lifecycle exception:</strong> delivery completeness review is a durable, named multi-round workflow that reuses the recorded tab for <code>--rerun</code>, rather than one leg of <code>scripts/review_orchestration.py</code>. The delivery coordinator records the tab ID but intentionally does not auto-close it after acceptance; the operator owns cleanup in Herdr. Reviewers never close their own tabs. This exception preserves the transcript and does not change the parent-owned cleanup contract for interactive-reviewer orchestration.</li>
+      <li><strong>Tests-first sequencing:</strong> each production change phase writes its failing CLI tests before production code; Phase 4 is full-suite + corpus only.</li>
+    </ol>
+  </section>
+
+  <section id="contracts">
+    <h2>Contract and distributed-integration inventory</h2>
+    <p>Exact Herdr CLI contracts and multi-surface docs/tests apply.</p>
+    <table>
+      <thead>
+        <tr><th>Contract</th><th>Source of truth</th><th>Producers</th><th>Consumers</th><th>Proof</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>herdr tab create --workspace --cwd --label --no-focus</code> JSON</td>
+          <td>Live Herdr CLI 0.7.5; <code>skills/herdr/references/cli.md</code></td>
+          <td>delivery helper</td>
+          <td><code>launch_implementation_agent</code>, <code>cmd_completion_review</code></td>
+          <td><code>test_implementation_launch_creates_labeled_tab</code> + <code>test_completion_review_launch_creates_labeled_tab</code> assert argv and parse production JSON shape</td>
+        </tr>
+        <tr>
+          <td><code>herdr agent start --pane</code></td>
+          <td>Herdr agent CLI</td>
+          <td>delivery after tab create</td>
+          <td>Pi implementation + completeness agents</td>
+          <td>Same production-path launch tests assert start uses returned root pane id</td>
+        </tr>
+        <tr>
+          <td>Ledger <code>paneId</code> (+ new <code>tabId</code>)</td>
+          <td><code>.delivery/ledger.json</code> schema-in-code</td>
+          <td>approve/start-implementation, completion-review</td>
+          <td>rerun/accept, history, show/debug</td>
+          <td>Launch tests assert both IDs; primary-tab test asserts <code>labels.herdrTabId</code> unchanged</td>
+        </tr>
+        <tr>
+          <td>Dry-run launch contract JSON</td>
+          <td><code>completion-review --dry-run</code></td>
+          <td>delivery CLI</td>
+          <td>tests + operators</td>
+          <td><code>test_completion_review_dry_run_uses_tab_create</code> — supplementary only; does not close AC2</td>
+        </tr>
+        <tr>
+          <td>Failure / no pane-split fallback</td>
+          <td>helper + launch entry points</td>
+          <td>delivery CLI</td>
+          <td>operators / agents</td>
+          <td><code>test_agent_tab_create_failure_paths</code> via real launch entry points</td>
+        </tr>
+        <tr>
+          <td>Prose “adjacent pane”</td>
+          <td>delivery/run-plan/supervise/AGENTS/prompts</td>
+          <td>docs authors</td>
+          <td>agents following skills</td>
+          <td><code>test_docs_use_labeled_tabs_not_pane_splits</code> corpus rg</td>
+        </tr>
+      </tbody>
+    </table>
+    <p><strong>Coverage declaration:</strong> exhaustive-by-family for delivery multi-agent launches (implementation + completeness) plus supervise skill docs. Subagent tools inside Pi (planner/reviewer) are out of scope — they are not Herdr pane launches. Dry-run and static checks never close a production launch AC alone.</p>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance criteria</h2>
+    <ol id="ac-list">
+      <li id="ac1">Implementation launch (<code>approve-implementation</code> / <code>start-implementation</code>) creates a labeled tab via <code>herdr tab create</code> and starts Pi in that tab’s root pane — no <code>pane split</code>.</li>
+      <li id="ac2">Completeness review <strong>production</strong> launch creates a labeled tab and starts Grok Pi on its root pane; <code>--rerun</code> reuses the existing reviewer without a second <code>tab create</code> or <code>agent start</code>; <code>--dry-run</code> documents the tab-create contract as a supplementary check only.</li>
+      <li id="ac3">Tab labels are human-readable role labels (<code>impl · …</code> / <code>complete · …</code>); agent names remain unique and used for prompt/read.</li>
+      <li id="ac4">Ledger records both <code>paneId</code> and <code>tabId</code> for launched agents; primary <code>labels.herdrTabId</code> is not overwritten by agent tabs; phase workspace rename still targets the primary delivery tab/workspace.</li>
+      <li id="ac5">Docs and prompts that instruct delivery multi-agent launch describe labeled tabs, not adjacent pane splits; supervise skill matches.</li>
+      <li id="ac6"><code>skills/delivery-run/tests/test_delivery_cli.sh</code> passes with fakes updated for tab create and the named coverage matrix below.</li>
+      <li id="ac7">Workspace discovery failures, missing <code>root_pane.pane_id</code>/<code>tab.tab_id</code>, non-JSON (or non-object JSON) herdr output for <code>pane get</code>/<code>tab create</code>, and incomplete responses die with actionable errors and never fall back to <code>pane split</code> or start an agent without a pane id.</li>
+    </ol>
+
+    <h3 id="coverage-matrix">Test coverage matrix</h3>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Test function (in <code>test_delivery_cli.sh</code> unless noted)</th><th>Layer</th><th>Phase</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>AC1 / BDD1</td><td><code>test_implementation_launch_creates_labeled_tab</code> (extend existing approve-implementation fake)</td><td>production launch</td><td>P2</td></tr>
+        <tr><td>AC2 / BDD2 initial</td><td><code>test_completion_review_launch_creates_labeled_tab</code> — real <code>completion-review</code> (not dry-run) with fake herdr</td><td>production launch</td><td>P2</td></tr>
+        <tr><td>AC2 / BDD2 rerun</td><td><code>test_completion_review_rerun_reuses_tab</code> — second call does not <code>tab create</code>/<code>agent start</code></td><td>production launch</td><td>P2</td></tr>
+        <tr><td>AC2 dry-run</td><td><code>test_completion_review_dry_run_uses_tab_create</code></td><td>dry-run contract</td><td>P2</td></tr>
+        <tr><td>AC3</td><td>Implementation + completeness launch tests assert: role labels (<code>impl ·</code>/<code>complete ·</code>); distinct agent names; <code>agent start</code> and <code>agent prompt</code> use that name (not tab id); completeness accept/read continues using recorded agent name</td><td>production launch</td><td>P2</td></tr>
+        <tr><td>AC4 / BDD3</td><td><code>test_agent_tab_does_not_overwrite_primary_herdr_tab_label_target</code></td><td>ledger + rename targets</td><td>P2</td></tr>
+        <tr><td>AC5 / BDD4</td><td><code>test_docs_use_labeled_tabs_not_pane_splits</code> (rg corpus)</td><td>static docs</td><td>P3</td></tr>
+        <tr><td>AC6</td><td>Full suite green</td><td>aggregate</td><td>P4</td></tr>
+        <tr><td>AC7 / BDD5</td><td><code>test_agent_tab_create_failure_paths</code> cases (each via real entry point): (1) missing workspace after pane-get; (2) non-JSON pane get; (3) non-object JSON root pane get; (4) non-JSON tab create; (5) non-object JSON root tab create; (6) missing root_pane.pane_id; (7) missing tab.tab_id; plus no pane-split and no agent-start-without-pane on each</td><td>production entry point failures</td><td>P2</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+
+    <article id="bdd1">
+      <h3>BDD1 — Implementation agent opens in a labeled tab</h3>
+      <pre>Given a delivery ledger at EXECUTION_READY with current readiness/approval prerequisites
+And HERDR_PANE_ID / workspace targets are available
+When the operator runs delivery approve-implementation
+Then delivery invokes herdr tab create with the worktree cwd, workspace id, --no-focus, and an impl · label
+And starts the pinned Sol-medium Pi agent on the returned root pane id
+And records implementationProfile.paneId and implementationProfile.tabId
+And does not call herdr pane split</pre>
+    </article>
+
+    <article id="bdd2">
+      <h3>BDD2 — Completeness reviewer opens in a separate labeled tab</h3>
+      <pre>Given a delivery worktree ready for completeness review
+When delivery completion-review runs (not --rerun)
+Then a complete · labeled tab is created and the Grok Pi agent starts there
+When delivery completion-review --rerun runs
+Then no new tab is created and the recorded agent/pane is prompted again</pre>
+    </article>
+
+    <article id="bdd3">
+      <h3>BDD3 — Primary tab phase labels stay independent</h3>
+      <pre>Given the planner tab id is stored in labels.herdrTabId
+And an implementation agent tab was created
+When delivery stage advances and maybe_herdr_label runs
+Then the workspace/primary tab rename still targets the planner delivery tab
+And the implementation tab keeps its impl · label</pre>
+    </article>
+
+    <article id="bdd4">
+      <h3>BDD4 — Docs no longer teach pane splits for these launches</h3>
+      <pre>Given the skill and prompt corpus for delivery/run-plan/supervise
+When an agent follows the documented launch path
+Then it is instructed to create a labeled tab (or call delivery which does)
+And not to split the current pane for implementation, completeness, or supervise helpers</pre>
+    </article>
+
+    <article id="bdd5">
+      <h3>BDD5 — Fail closed without pane-split fallback</h3>
+      <pre>Given a delivery launch that needs a new agent tab
+When workspace id cannot be resolved (targets empty and pane get fails)
+Or pane get / tab create returns non-JSON or a non-object JSON root
+Or tab create returns JSON missing root_pane.pane_id or tab.tab_id
+Then the command exits non-zero with an error naming the failed step, discovery tried, and next action
+And the herdr command log contains no "pane split"
+And no agent start is attempted without a pane id</pre>
+    </article>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="progress">
+      <li><label><input type="checkbox" id="cb-phase-1" checked /> P1 — Shared Herdr tab launcher helper</label></li>
+      <li><label><input type="checkbox" id="cb-phase-2" checked /> P2 — Wire launches + production-path and failure tests</label></li>
+      <li><label><input type="checkbox" id="cb-phase-3" checked /> P3 — Docs, briefs, supervise + corpus test</label></li>
+      <li><label><input type="checkbox" id="cb-phase-4" checked /> P4 — Full suite green + coherence audit</label></li>
+    </ul>
+  </section>
+
+  <section id="phase-1">
+    <h2>P1 — Shared Herdr tab launcher helper</h2>
+    <h3>End State</h3>
+    <p><code>skills/delivery-run/scripts/delivery</code> defines <code>agent_tab_label</code>, <code>resolve_workspace_id</code>, and <code>create_labeled_agent_tab</code> with the locked parse paths and fail-closed error text. Call sites may still use pane split until P2 — that is intentional. No new CLI public surface is invented in P1.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>No production-entry RED suite is required in P1 (callers are still on pane split). Add only a minimal structural assertion if useful (functions exist / importable via <code>runpy</code>), or skip automated tests until P2 wires callers — either is acceptable; do not invent a temporary public CLI flag.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>skills/delivery-run/scripts/delivery</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Add <code>agent_tab_label(role, ledger) &rarr; str</code> using <code>ensure_base_title</code> / <code>short_label</code>.</li>
+      <li>Add <code>resolve_workspace_id(ledger, source_pane) &rarr; str</code> via targets then <code>pane get</code>.</li>
+      <li>Add <code>create_labeled_agent_tab(*, ledger, root, source_pane, role) &rarr; dict</code> wrapping:
+        <pre>herdr tab create --workspace &lt;ws&gt; --cwd &lt;root&gt; --label &lt;label&gt; --no-focus</pre>
+      </li>
+      <li>Parse only <code>result.root_pane.pane_id</code> and <code>result.tab.tab_id</code>; die if either missing; treat non-JSON / non-object JSON as fail-closed with actionable text. <strong>No fallback to pane split inside the helper.</strong></li>
+      <li>Failure messages name: failed step, discovery attempted, next action.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None. AC7 production-entry proof is owned by P2 after wiring.</p>
+    <h3>Verify</h3>
+    <pre>rg -n "def create_labeled_agent_tab|def agent_tab_label|def resolve_workspace_id" skills/delivery-run/scripts/delivery
+# P1 intentionally leaves existing caller pane-split sites; only the new helper must not fallback.
+# Confirm helper functions contain no "pane split" string.</pre>
+  </section>
+
+  <section id="phase-2">
+    <h2>P2 — Wire launches + production-path and failure tests</h2>
+    <h3>End State</h3>
+    <p>Implementation and completeness production launches use the helper; ledger stores <code>tabId</code>; primary tab label target remains independent; AC1–AC4, AC7 and BDD1–BDD3, BDD5 green via production-path tests (not dry-run alone).</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li><code>test_implementation_launch_creates_labeled_tab</code> — fake herdr logs <code>tab create</code> argv (workspace, cwd, label containing <code>impl</code>, <code>--no-focus</code>); returns production JSON; assert <code>agent start --pane &lt;root&gt; --name/agent</code> uses implementation agent name (not tab id); assert subsequent <code>agent prompt</code> uses same name; assert profile <code>paneId</code>+<code>tabId</code>+agentName; assert no <code>pane split</code>.</li>
+      <li><code>test_completion_review_launch_creates_labeled_tab</code> — real non-dry-run <code>completion-review</code>; <code>complete ·</code> label; distinct completeness agent name; start+prompt by name; ledger pane/tab/agent fields.</li>
+      <li><code>test_completion_review_rerun_reuses_tab</code> — after initial launch, <code>--rerun</code> does not call <code>tab create</code> or <code>agent start</code>; prompts same agent name; round/request advances.</li>
+      <li><code>test_completion_review_dry_run_uses_tab_create</code> — update from <code>splitCommand</code> to <code>tabCreateCommand</code> (supplementary).</li>
+      <li><code>test_agent_tab_does_not_overwrite_primary_herdr_tab_label_target</code> — seed primary <code>labels.herdrTabId=w1:t1</code>; launch agent returning <code>w1:t9</code>; assert primary label id unchanged; invoke stage/label path and assert <code>herdr tab rename</code> targets <code>w1:t1</code> not agent tab; agent record keeps <code>tabId=w1:t9</code>.</li>
+      <li><code>test_agent_tab_create_failure_paths</code> — after wiring, drive through real <code>approve-implementation</code> and/or <code>completion-review</code> for each case: missing workspace after pane-get; non-JSON pane get; non-object JSON root pane get; non-JSON tab create; non-object JSON root tab create; missing <code>root_pane.pane_id</code>; missing <code>tab.tab_id</code>. Each case: non-zero exit; stderr names failed step + discovery tried + next action; no <code>pane split</code>; no <code>agent start</code> without pane id.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>skills/delivery-run/scripts/delivery</code> (<code>launch_implementation_agent</code>, <code>cmd_completion_review</code>, history payloads)</li>
+      <li><code>skills/delivery-run/tests/test_delivery_cli.sh</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Add/adjust the failing production-path tests above first.</li>
+      <li>Replace pane split blocks with <code>create_labeled_agent_tab(..., role="impl"|"complete")</code>.</li>
+      <li>Record <code>tabId</code> on <code>implementationProfile</code> and <code>completenessReview</code> without writing agent tabs into <code>labels.herdrTabId</code>.</li>
+      <li>Update user-facing print lines to include tab id/label.</li>
+      <li>Update dry-run JSON keys and help text that say “adjacent pane”.</li>
+      <li>Keep <code>--rerun</code> on existing <code>paneId</code>/<code>agentName</code> only.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>bash skills/delivery-run/tests/test_delivery_cli.sh
+# named tests for AC1–AC4 / BDD1–BDD3 green
+rg -n "pane split" skills/delivery-run/scripts/delivery   # expect zero launch paths
+rg -n "tab create" skills/delivery-run/scripts/delivery</pre>
+  </section>
+
+  <section id="phase-3">
+    <h2>P3 — Docs, briefs, supervise + corpus test</h2>
+    <h3>End State</h3>
+    <p>Operators and agents reading skills/prompts learn the tab topology; AC5/BDD4 corpus test green.</p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Add <code>test_docs_use_labeled_tabs_not_pane_splits</code> that fails while docs still teach pane splits for delivery/supervise multi-agent launches.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>skills/delivery-run/SKILL.md</code></li>
+      <li>Brief template strings inside <code>skills/delivery-run/scripts/delivery</code></li>
+      <li><code>skills/run-plan/SKILL.md</code> (launch/read wording only)</li>
+      <li><code>_pi/prompts/delivery:run.md</code>, <code>_pi/prompts/delivery:bootstrap.md</code></li>
+      <li><code>AGENTS.md</code> delivery completeness wording</li>
+      <li><code>skills/supervise/SKILL.md</code>, <code>skills/supervise/supervisor-prompt.md</code></li>
+      <li><code>skills/herdr/SKILL.md</code> only if it hard-codes delivery multi-agent split as the preferred multi-agent pattern for this workflow (do not rewrite general Herdr “default sibling pane” guidance globally unless it contradicts this delivery rule)</li>
+      <li><code>skills/delivery-run/tests/test_delivery_cli.sh</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Write the failing corpus test first.</li>
+      <li>Replace “adjacent pane” launch language with “labeled sibling tab” / “visible completeness tab”.</li>
+      <li>Supervise: document <code>herdr tab create --workspace … --label "supervise · …" --cwd … --no-focus</code> then start on root pane.</li>
+      <li>Keep agent-name addressing central; tab labels are human orientation.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>bash skills/delivery-run/tests/test_delivery_cli.sh
+# test_docs_use_labeled_tabs_not_pane_splits passes
+rg -n "pane split|splits an adjacent|adjacent Herdr pane|adjacent pane" \
+  skills/delivery-run skills/run-plan skills/supervise _pi/prompts/delivery:run.md \
+  _pi/prompts/delivery:bootstrap.md AGENTS.md
+# Remaining hits must not instruct delivery multi-agent launches to split panes.
+# Phrases like "adjacent problems" (scope language) are fine.</pre>
+  </section>
+
+  <section id="phase-4">
+    <h2>P4 — Full suite green + coherence audit</h2>
+    <h3>End State</h3>
+    <p>Entire delivery CLI suite green (AC6); matrix IDs all have green named tests; no pane-split launch paths remain in code/tests.</p>
+    <h3>Tests first</h3>
+    <p>No new production code. Re-run the full suite and fix any residual assertion drift only.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>skills/delivery-run/tests/test_delivery_cli.sh</code> (cohesion only)</li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Run full suite; fix only test drift or missing matrix registrations.</li>
+      <li>Confirm coverage matrix IDs AC1–AC7 / BDD1–BDD5 map to passing tests.</li>
+      <li>Final rg audit for pane-split launch instructions in code + tests.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>bash skills/delivery-run/tests/test_delivery_cli.sh
+rg -n "pane split" skills/delivery-run/scripts/delivery skills/delivery-run/tests/test_delivery_cli.sh
+# zero expected for delivery launch paths</pre>
+  </section>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ul>
+      <li><strong>Primary:</strong> <code>bash skills/delivery-run/tests/test_delivery_cli.sh</code> including every named matrix test.</li>
+      <li><strong>Static:</strong> corpus rg for pane-split launch instructions; helper/tab-create presence.</li>
+      <li><strong>Optional manual (non-blocking for PR):</strong> live multi-agent launch smoke in a Herdr delivery workspace if the operator wants visual confirmation.</li>
+    </ul>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>P1 helper only</li>
+      <li>P2 wire launches + production-path and failure tests</li>
+      <li>P3 docs + corpus test</li>
+      <li>P4 full suite / coherence</li>
+      <li>PR</li>
+    </ol>
+    <p>No post-merge deployment obligations.</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Changing Pi subagent transport (in-process reviewer/planner) to Herdr tabs</li>
+      <li>Auto-focusing new agent tabs</li>
+      <li>Auto-closing agent tabs on stage changes</li>
+      <li>One-tab-per-workspace redesign of spawn itself (spawn already creates a workspace)</li>
+      <li>Rewriting global Herdr skill defaults for all non-delivery multi-agent workflows beyond supervise consistency</li>
+      <li>GUI/theme work inside Herdr binary</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions</h2>
+    <ol>
+      <li>Read this plan and <code>.delivery/AGENT_BRIEF.md</code>.</li>
+      <li>Continue from the first unchecked progress item.</li>
+      <li>Do not reintroduce <code>pane split</code> fallbacks.</li>
+      <li>After implementation, run the delivery CLI test script before PR.</li>
+    </ol>
+  </section>
+
+  <section id="decisions-log">
+    <h2>Decisions / deviations log</h2>
+    <ul>
+      <li><strong>2026-08-02:</strong> Chose labeled same-workspace tabs over pane splits for delivery multi-agent launches after live Herdr tab-create probe; keep agent names as machine identity; include supervise docs for consistency; no split fallback.</li>
+      <li><strong>2026-08-02 (readiness revision):</strong> After Sol-medium planner <code>PLAN_NEEDS_REVISION</code>, added AC7/BDD5 failure contract, named production-path completeness + primary-tab tests, AC/BDD coverage matrix, and tests-first phase sequencing so dry-run alone cannot close launch ACs.</li>
+      <li><strong>2026-08-02 (readiness revision 2):</strong> Moved AC7 production-entry failure proof to P2 after callers are wired (P1 is helper-only, no invented public path). Explicitly mapped non-JSON/non-object herdr output into AC7/BDD5/matrix/P2 tests.</li>
+      <li><strong>2026-08-02 (readiness revision 3):</strong> Expanded AC7 matrix to seven explicit failure cases (both pane get and tab create non-JSON and non-object roots). Expanded AC3 proof to agent-name start/prompt addressing, not labels alone.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

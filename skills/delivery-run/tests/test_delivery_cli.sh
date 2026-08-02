@@ -151,11 +151,11 @@ PY
   printf '%s' "$out" | rg -q "autoreview: pass" || return 1
 }
 
-test_completion_review_dry_run_uses_visible_grok_agent() {
+test_completion_review_dry_run_uses_tab_create() {
   local repo="$TMP_ROOT/completion-review-repo"
   make_repo "$repo"
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-5 --plan thoughts/plans/x.html >/dev/null
-  json="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --dry-run --pane w1:p1)"
+  json="$(HERDR_WORKSPACE_ID=w1 DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --dry-run --pane w1:p1)"
   python3 -c 'import json,sys
 from pathlib import Path
 p=json.loads(sys.argv[1])
@@ -163,10 +163,178 @@ assert p["model"]=="xai/grok-4.5:high", p
 assert p["sourcePane"]=="w1:p1", p
 assert p["reviewerName"].startswith("completeness-"), p
 assert p["startCommand"][-2:]==["--model", "xai/grok-4.5:high"], p
-assert p["splitCommand"][-3:]==["--cwd", str(Path(sys.argv[2]).resolve()), "--no-focus"], p
+cmd=p["tabCreateCommand"]
+assert cmd[:7]==["herdr", "tab", "create", "--workspace", "w1", "--cwd", str(Path(sys.argv[2]).resolve())], p
+assert cmd[7]=="--label" and cmd[8].startswith("complete · ") and cmd[9]=="--no-focus", p
+assert ("split" + "Command") not in p, p
 assert "VERDICT: COMPLETE" in p["prompt"], p
 assert "acceptance criterion" in p["prompt"].lower(), p
 ' "$json" "$repo"
+}
+
+prepare_completion_review_repo() {
+  local repo="$1"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<article data-plan>completion tabs</article>\n' >"$repo/thoughts/plans/x.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-5 --plan thoughts/plans/x.html >/dev/null
+}
+
+test_completion_review_launch_creates_labeled_tab() {
+  local repo="$TMP_ROOT/completion-tab-launch-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-completion-tab"
+  local herdr_log="$TMP_ROOT/fake-herdr-completion-tab.log"
+  prepare_completion_review_repo "$repo"
+  mkdir -p "$fake_bin"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+if [[ "$1" == "tab" && "$2" == "create" ]]; then
+  printf '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{"pane_id":"w1:p9"}}}\n'
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+    "$DELIVERY" --cwd "$repo" completion-review >/dev/null
+  rg -q "tab create --workspace w1 --cwd .*completion-tab-launch-repo --label complete · .* --no-focus" "$herdr_log" || return 1
+  rg -q "agent start completeness-.* --kind pi --pane w1:p9" "$herdr_log" || return 1
+  rg -q "agent prompt completeness-" "$herdr_log" || return 1
+  ! rg -q "pane[[:space:]]+split" "$herdr_log" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1])); review=d["completenessReview"]
+assert review["agentName"].startswith("completeness-")
+assert review["paneId"] == "w1:p9"
+assert review["tabId"] == "w1:t9"
+assert review["tabLabel"].startswith("complete · ")
+PY
+}
+
+test_completion_review_rerun_reuses_tab() {
+  local repo="$TMP_ROOT/completion-tab-rerun-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-completion-rerun"
+  local herdr_log="$TMP_ROOT/fake-herdr-completion-rerun.log"
+  prepare_completion_review_repo "$repo"
+  mkdir -p "$fake_bin"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+if [[ "$1" == "tab" && "$2" == "create" ]]; then
+  printf '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{"pane_id":"w1:p9"}}}\n'
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+    "$DELIVERY" --cwd "$repo" completion-review >/dev/null
+  : >"$herdr_log"
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+    "$DELIVERY" --cwd "$repo" completion-review --rerun >/dev/null
+  ! rg -q "tab create|agent start" "$herdr_log" || return 1
+  rg -q "agent prompt completeness-" "$herdr_log" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+r=json.load(open(sys.argv[1]))["completenessReview"]
+assert r["round"] == 2
+assert r["paneId"] == "w1:p9"
+assert r["tabId"] == "w1:t9"
+PY
+}
+
+test_completion_review_rerun_rejects_legacy_record_without_tab() {
+  local repo="$TMP_ROOT/completion-tab-legacy-rerun-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-completion-legacy-rerun"
+  local herdr_log="$TMP_ROOT/fake-herdr-completion-legacy-rerun.log"
+  local out code
+  prepare_completion_review_repo "$repo"
+  mkdir -p "$fake_bin"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1]
+d=json.load(open(path))
+d["completenessReview"]={
+    "status":"pending",
+    "agentName":"completeness-legacy",
+    "paneId":"w1:p9",
+    "requestId":"legacy-request",
+    "round":1,
+}
+json.dump(d,open(path,"w"),indent=2)
+PY
+  set +e
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+    "$DELIVERY" --cwd "$repo" completion-review --rerun 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no tab metadata.*without --rerun.*fresh labeled tab" || return 1
+  [[ ! -s "$herdr_log" ]] || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+r=json.load(open(sys.argv[1]))["completenessReview"]
+assert r["requestId"] == "legacy-request"
+assert r["round"] == 1
+assert "tabId" not in r
+PY
+}
+
+ test_agent_tab_create_failure_paths() {
+  local repo="$TMP_ROOT/agent-tab-failure-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-agent-tab-failure"
+  local mode_file="$TMP_ROOT/fake-herdr-agent-tab-mode"
+  local herdr_log="$TMP_ROOT/fake-herdr-agent-tab-failure.log"
+  prepare_completion_review_repo "$repo"
+  mkdir -p "$fake_bin"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+mode="$(cat "$FAKE_HERDR_MODE")"
+if [[ "$1" == "pane" && "$2" == "get" ]]; then
+  case "$mode" in
+    missing-workspace) printf '{"result":{"pane":{"pane_id":"w1:p1"}}}\n' ;;
+    pane-non-json) printf 'not-json\n' ;;
+    pane-non-object) printf '[]\n' ;;
+    *) printf '{"result":{"pane":{"workspace_id":"w1"}}}\n' ;;
+  esac
+elif [[ "$1" == "tab" && "$2" == "create" ]]; then
+  case "$mode" in
+    tab-non-json) printf 'not-json\n' ;;
+    tab-non-object) printf '[]\n' ;;
+    missing-root-pane) printf '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{}}}\n' ;;
+    missing-tab-id) printf '{"result":{"tab":{},"root_pane":{"pane_id":"w1:p9"}}}\n' ;;
+    *) printf '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{"pane_id":"w1:p9"}}}\n' ;;
+  esac
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+  local mode out code
+  for mode in missing-workspace pane-non-json pane-non-object tab-non-json tab-non-object missing-root-pane missing-tab-id; do
+    printf '%s\n' "$mode" >"$mode_file"
+    : >"$herdr_log"
+    set +e
+    out="$(env -u HERDR_WORKSPACE_ID PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" \
+      FAKE_HERDR_LOG="$herdr_log" HERDR_PANE_ID=w1:p1 \
+      "$DELIVERY" --cwd "$repo" completion-review 2>&1)"
+    code=$?
+    set -e
+    [[ "$code" -ne 0 ]] || return 1
+    printf '%s' "$out" | rg -qi "workspace discovery|tab creation" || return 1
+    printf '%s' "$out" | rg -qi "tried|attempted" || return 1
+    printf '%s' "$out" | rg -qi "next action" || return 1
+    ! rg -q "pane[[:space:]]+split|agent start" "$herdr_log" || return 1
+  done
 }
 
 test_merge_ready_requires_validated_completeness_review() {
@@ -791,8 +959,8 @@ test_execution_ready_requires_current_operator_approval() {
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
-if [[ "$1" == "pane" && "$2" == "split" ]]; then
-  printf '{"result":{"pane":{"pane_id":"w1:p2"}}}\n'
+if [[ "$1" == "tab" && "$2" == "create" ]]; then
+  printf '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{"pane_id":"w1:p2"}}}\n'
 fi
 exit 0
 SH
@@ -816,12 +984,17 @@ SH
   [[ "$code" -ne 0 ]] || return 1
   printf '%s' "$out" | rg -q "explicit operator implementation approval" || return 1
 
-  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_PANE_ID=w1:p1 \
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
     PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high \
     "$DELIVERY" --cwd "$repo" approve-implementation --source chat \
     --summary "Operator received status, changes, fixed Sol medium profile, and steps" >/dev/null
+  rg -q "tab create" "$herdr_log" || return 1
+  rg -q -- "--workspace w1" "$herdr_log" || return 1
+  rg -q -- "--label impl ·" "$herdr_log" || return 1
+  rg -q -- "--no-focus" "$herdr_log" || return 1
   rg -q "agent start implementation-.* --kind pi --pane w1:p2 --timeout 60000 -- --provider openai-codex --model gpt-5.6-sol --thinking medium" "$herdr_log" || return 1
   rg -q "agent prompt implementation-" "$herdr_log" || return 1
+  ! rg -q "pane[[:space:]]+split" "$herdr_log" || return 1
 
   python3 - "$repo/.delivery/ledger.json" <<'PY'
 import json,sys
@@ -839,6 +1012,8 @@ assert profile["model"] == "gpt-5.6-sol"
 assert profile["reasoningLevel"] == "medium"
 assert profile["agentName"].startswith("implementation-")
 assert profile["paneId"] == "w1:p2"
+assert profile["tabId"] == "w1:t9"
+assert profile["tabLabel"].startswith("impl · "), profile
 assert profile["sourcePaneId"] == "w1:p1"
 assert profile["planSha256"] == approval["planSha256"]
 PY
@@ -846,7 +1021,7 @@ PY
   local launch_log_lines
   launch_log_lines="$(wc -l <"$herdr_log")"
   set +e
-  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_PANE_ID=w1:p1 \
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
     "$DELIVERY" --cwd "$repo" approve-implementation --source chat --summary again 2>&1)"
   code=$?
   set -e
@@ -855,7 +1030,7 @@ PY
   [[ "$(wc -l <"$herdr_log")" -eq "$launch_log_lines" ]] || return 1
 
   set +e
-  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_PANE_ID=w1:p1 \
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
     "$DELIVERY" --cwd "$repo" start-implementation 2>&1)"
   code=$?
   set -e
@@ -883,6 +1058,20 @@ PY
     DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile >/dev/null
   PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p2 \
     DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING >/dev/null
+
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1]; d=json.load(open(path)); d.setdefault("labels", {}).update({"herdrWorkspaceId":"w1","herdrTabId":"w1:t1"}); json.dump(d,open(path,"w"),indent=2)
+PY
+  : >"$herdr_log"
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_TAB_ID=w1:t1 HERDR_PANE_ID=w1:p2 \
+    "$DELIVERY" --cwd "$repo" stage SCOPED_REVIEW >/dev/null
+  rg -q "tab rename w1:t1" "$herdr_log" || return 1
+  ! rg -q "tab rename w1:t9" "$herdr_log" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1])); assert d["labels"]["herdrTabId"] == "w1:t1"; assert d["implementationProfile"]["tabId"] == "w1:t9"
+PY
 
   printf '<article data-plan>revision-two</article>\n' >"$repo/thoughts/plans/x.html"
   set +e
@@ -923,8 +1112,8 @@ test_implementation_agent_launch_failures_are_not_ready() {
 #!/usr/bin/env bash
 set -euo pipefail
 mode="$(cat "$FAKE_HERDR_MODE")"
-if [[ "$1" == "pane" && "$2" == "split" ]]; then
-  printf '{"result":{"pane":{"pane_id":"w2:p2"}}}\n'
+if [[ "$1" == "tab" && "$2" == "create" ]]; then
+  printf '{"result":{"tab":{"tab_id":"w2:t2"},"root_pane":{"pane_id":"w2:p2"}}}\n'
 elif [[ "$1" == "agent" && "$2" == "start" && "$mode" == "start-fail" ]]; then
   echo "synthetic start failure" >&2
   exit 9
@@ -946,7 +1135,7 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
 
   set +e
-  PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_PANE_ID=w2:p1 \
+  PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_WORKSPACE_ID=w2 HERDR_PANE_ID=w2:p1 \
     "$DELIVERY" --cwd "$repo" approve-implementation --source chat --summary approved >/dev/null 2>&1
   code=$?
   set -e
@@ -961,7 +1150,7 @@ PY
 
   printf 'prompt-fail\n' >"$mode_file"
   set +e
-  PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_PANE_ID=w2:p1 \
+  PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_WORKSPACE_ID=w2 HERDR_PANE_ID=w2:p1 \
     "$DELIVERY" --cwd "$repo" start-implementation >/dev/null 2>&1
   code=$?
   set -e
@@ -979,7 +1168,7 @@ PY
   printf 'hold\n' >"$mode_file"
   rm -f "$hold_ready" "$hold_release"
   PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" FAKE_HERDR_HOLD_READY="$hold_ready" \
-    FAKE_HERDR_HOLD_RELEASE="$hold_release" HERDR_PANE_ID=w2:p1 \
+    FAKE_HERDR_HOLD_RELEASE="$hold_release" HERDR_WORKSPACE_ID=w2 HERDR_PANE_ID=w2:p1 \
     "$DELIVERY" --cwd "$repo" start-implementation >"$first_output" 2>&1 &
   local first_pid=$!
   local ready_seen=0
@@ -994,7 +1183,7 @@ PY
   fi
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" note "concurrent independent evidence" >/dev/null
   set +e
-  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_PANE_ID=w2:p1 \
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_WORKSPACE_ID=w2 HERDR_PANE_ID=w2:p1 \
     "$DELIVERY" --cwd "$repo" start-implementation 2>&1)"
   code=$?
   set -e
@@ -1011,6 +1200,28 @@ assert d["implementationProfile"]["status"] == "ready"
 assert any(n.get("text")=="concurrent independent evidence" for n in d["notes"])
 assert d["ledgerRevision"] > 0
 PY
+}
+
+test_docs_use_labeled_tabs_not_pane_splits() {
+  local corpus=(
+    "$ROOT/skills/delivery-run/SKILL.md"
+    "$ROOT/skills/run-plan/SKILL.md"
+    "$ROOT/skills/supervise/SKILL.md"
+    "$ROOT/skills/supervise/supervisor-prompt.md"
+    "$ROOT/_pi/prompts/delivery:run.md"
+    "$ROOT/_pi/prompts/delivery:bootstrap.md"
+    "$ROOT/AGENTS.md"
+  )
+  local file
+  for file in "${corpus[@]}"; do
+    [[ -f "$file" ]] || return 1
+  done
+  ! rg -n "visible adjacent|adjacent visible|splits an adjacent|[Ss]plits the driving pane|adjacent Herdr pane|adjacent pane|pane[[:space:]]+split" "${corpus[@]}" || return 1
+  rg -q "labeled.*tab|tab create" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "labeled.*tab|tab create" "$ROOT/skills/supervise/SKILL.md" || return 1
+  help="$($DELIVERY completion-review --help)"
+  printf '%s' "$help" | rg -q "tab-create/start/prompt" || return 1
+  ! printf '%s' "$help" | rg -q "split[/]start[/]prompt" || return 1
 }
 
 test_skill_doctrine_wording() {
@@ -1138,7 +1349,11 @@ run_test test_record_receipts_coexist_and_validate
 run_test test_unprotected_stage_moves_without_gates
 run_test test_check_exit_zero_with_gaps
 run_test test_record_and_show
-run_test test_completion_review_dry_run_uses_visible_grok_agent
+run_test test_completion_review_dry_run_uses_tab_create
+run_test test_completion_review_launch_creates_labeled_tab
+run_test test_completion_review_rerun_reuses_tab
+run_test test_completion_review_rerun_rejects_legacy_record_without_tab
+run_test test_agent_tab_create_failure_paths
 run_test test_merge_ready_requires_validated_completeness_review
 run_test test_accepted_completeness_review_allows_merge_ready_only_while_fresh
 run_test test_completion_review_rejects_prior_round_verdict
@@ -1162,6 +1377,7 @@ run_test test_bootstrap_cannot_bypass_authorization_stages
 run_test test_approval_cannot_bypass_readiness_request
 run_test test_execution_ready_requires_current_operator_approval
 run_test test_implementation_agent_launch_failures_are_not_ready
+run_test test_docs_use_labeled_tabs_not_pane_splits
 run_test test_skill_doctrine_wording
 
 printf '\n%d/%d passed\n' "$TESTS_PASSED" "$TESTS_RUN"
