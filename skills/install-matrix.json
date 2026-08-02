@@ -468,7 +468,7 @@
         "pi"
       ],
       "canonicalSource": "skills/reviewed-html-plan",
-      "notes": "Creates and gates HTML plans through Doct browser feedback, PM review, and the active-harness reviewer-subagent plan review.",
+      "notes": "Creates and gates HTML plans through Doct browser feedback, PM review, and an independent Pi planner-subagent review pinned to GPT-5.6 Sol medium; delivery then launches a dedicated Sol-medium implementation agent.",
       "sourceType": "repo"
     },
     "rust-engineer": {

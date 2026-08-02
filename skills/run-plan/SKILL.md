@@ -65,7 +65,7 @@ Before editing, read the full plan and extract:
 Stop before implementation if:
 
 - the plan is not execution-ready,
-- a delivery ledger exists and is not `EXECUTION_READY` with a recorded explicit readiness request, or it lacks a current explicit operator approval for the exact reviewed plan content (`delivery approve-implementation`); never treat readiness metadata, a generic Doct comment/action, a quiet listener, or an old approval as implementation authorization,
+- a delivery ledger exists and is not being entered from the dedicated implementation agent pinned to `openai-codex/gpt-5.6-sol` at medium, or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, current operator approval, and successful implementation-agent launch record; run `delivery verify-implementation-profile` before code work and never treat readiness metadata, a generic Doct comment/action, a quiet listener, an old approval, or the planning agent's runtime as implementation authorization,
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
@@ -151,9 +151,12 @@ When the `delivery` CLI or `delivery-run` skill is available, keep the per-workt
 ```bash
 delivery init --plan <plan-path>                 # issue optional at start
 delivery set --issue <KEY> --retarget-id         # attach Linear later when it exists
-# At EXECUTION_READY: give the operator status, changes, model/reasoning, and remaining steps;
-# then, after direct approval:
+# At EXECUTION_READY the planning agent gives the operator status, changes,
+# fixed Sol-medium profile, and remaining steps. After direct approval this launches
+# a dedicated Herdr Pi agent pinned to openai-codex/gpt-5.6-sol at medium:
 delivery approve-implementation --source chat|doct --summary "Operator received the execution-ready summary"
+# The planning agent stops. In the newly launched implementation agent:
+delivery verify-implementation-profile
 delivery stage IMPLEMENTING
 delivery stage SCOPED_REVIEW|IMPL_PM_OUTCOME|AUTOREVIEW|COMPLETENESS_REVIEW|PR_OPEN|MERGE_READY|DONE
 # Before final verification/local merge readiness in Herdr:
@@ -165,7 +168,7 @@ delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "...
 delivery check -v   # advisories only; always exit 0
 ```
 
-Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. A missing, stale, or revoked implementation approval is different: it stops pre-code execution until the operator approves the current plan revision. For a Herdr delivery run, a missing validated `delivery completion-review --accept` result after implementation also prevents a local merge-readiness claim unless the operator explicitly waives that review. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
+Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization, Sol-medium plan review, operator approval, dedicated-agent launch, recorded Herdr-pane identity, or live Sol-medium runtime evidence is different: it stops pre-code execution. A failed launch is retried with `delivery start-implementation`; the planning agent does not take over implementation. For a Herdr delivery run, a missing validated `delivery completion-review --accept` result after implementation also prevents a local merge-readiness claim unless the operator explicitly waives that review. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
 
 When the scoped run reaches local merge-readiness or a durable stop (DONE/blocked handoff), best-effort log a process reflection outside the worktree:
 

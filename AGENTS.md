@@ -5,7 +5,7 @@ Current Pi subagent roster and Claude/Codex execution boundaries defined in this
 ## Pi Subagents (Exact Three-Agent Roster)
 Located under `_pi/agents/` and invoked through Pi's subagent system:
 
-- `planner` (GPT-5.6 Sol, medium; `_pi/agents/planner.md`) — planning-only authority; it may write only the caller-named plan artifact.
+- `planner` (GPT-5.6 Sol, medium; `_pi/agents/planner.md`) — planning and independent plan-readiness-review authority; it may write only a caller-named plan artifact and otherwise returns review findings without edits.
 - `reviewer` (GPT-5.6 Terra, medium; `_pi/agents/reviewer.md`) — read-only materiality-focused review authority, except for an explicitly named review artifact when the caller authorizes comments or output there.
 - `scout` (GPT-5.6 Terra, low; `_pi/agents/scout.md`) — bounded read-only local/web discovery and evidence gathering.
 
@@ -17,7 +17,7 @@ Every caller packet must name the artifact or allowed surfaces, task-specific le
 
 ### Pi Subagent Reasoning-Effort Policy
 
-- Agent frontmatter is authoritative: planning uses GPT-5.6 Sol medium; review uses GPT-5.6 Terra medium; scout uses GPT-5.6 Terra low.
+- Agent frontmatter is authoritative: planning and independent plan-readiness review use GPT-5.6 Sol medium; implementation/code review uses GPT-5.6 Terra medium; scout uses GPT-5.6 Terra low.
 - Do not pass caller-side reasoning overrides merely because a task appears difficult.
 - Development stays in the driving session. Do not route code-writing, tests, fixes, or repository operations through any Pi persona; use subagents only for bounded planning, read-only discovery, or read-only review.
 - GPT-5.4 and GPT-5.4-mini are retired from Pi-owned agents, the managed `openai-codex` model catalog, and Pi settings aliases. This is an exact Pi-only retirement and does not rewrite caller-owned providers or models.
@@ -247,7 +247,7 @@ Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
 - `/delivery:run` / `/skill:delivery-run` keeps a per-worktree stage ledger and board for the plan ↔ review → run-plan → autoreview → PR cycle. Doctrine is guidance, not gates: `delivery check` advisories never hard-block continuation.
 - `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan: implementation, implementation-stage PM review, the active-harness reviewer-subagent pre-PR review, and—when delivery runs in Herdr—a visible adjacent Pi/Grok 4.5 completeness-review loop to `COMPLETE`, followed by base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus.
-- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM and active-harness reviewer-subagent plan review; it must register through `doct-agent plans register`, follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
+- `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM and independent Sol-medium planner-subagent plan review; it must register through `doct-agent plans register`, follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
 - `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown plan publishing guidance, listener startup, readiness metadata, canonical URL rules, and comment mechanics; other planning skills should reference it instead of duplicating command recipes.
 - `/skill:dev-plan <task>` remains available for planning-only work.
 - `/dev:run <plan>` remains available when you already have an execution-ready reviewed plan and want direct execution only.
@@ -311,7 +311,7 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:cmd-resume-handoff` — Resume from handoff
 
 **Reviews:**
-- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus the active-harness reviewer-subagent plan review, and stop at execution-ready handoff
+- `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, run PM plus the independent Sol-medium planner-subagent plan review, and stop at execution-ready handoff
 - `/skill:delivery-run` — Per-worktree delivery stage ledger and board for plan ↔ review → run-plan → autoreview → PR. Guidance not gates; `delivery check` advisories never hard-block.
 - `/skill:autoreview` — Canonical bounded active-harness reviewer-subagent pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to mandatory PR creation instead of concluding or waiting for external approval.
 - `/skill:pre-pr-implementation-review` — Indefinite compatibility alias for `/skill:autoreview`; it preserves arguments and the same `OPEN_PR_READY` handoff semantics.

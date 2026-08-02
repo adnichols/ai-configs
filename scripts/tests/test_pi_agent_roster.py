@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / "_pi" / "agents"
 EXPECTED_FILES = {"Explore.md", "planner.md", "reviewer.md", "scout.md"}
 EXPECTED_ROUTES = {
-    "planner": ("openai-codex/gpt-5.6-terra", "medium"),
+    "planner": ("openai-codex/gpt-5.6-sol", "medium"),
     "reviewer": ("openai-codex/gpt-5.6-terra", "medium"),
     "scout": ("openai-codex/gpt-5.6-terra", "low"),
 }

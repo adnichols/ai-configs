@@ -176,7 +176,7 @@ Before finishing:
 ## Next Steps
 
 - If the written plan is an HTML plan, suggest:
-  - `/dev:reviewed-html-plan <plan_path>` to register it, process browser comments, run PM plus the reviewer-subagent plan review, and iterate to execution-ready.
+  - `/dev:reviewed-html-plan <plan_path>` to register it, process browser comments, run PM plus the independent Sol-medium `planner` subagent review, and iterate to execution-ready.
   - `/cmd:execute-plan <plan_path>` only after browser-review metadata and readiness gates are complete.
 - If the written plan is a legacy Markdown plan and is `execution-ready`, suggest:
   - `/review:change <plan_path>`

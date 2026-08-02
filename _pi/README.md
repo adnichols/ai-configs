@@ -55,7 +55,7 @@ Installed layout:
 │   ├── dev:plan.md
 │   └── ...
 ├── agents/
-│   ├── planner.md        # GPT-5.6 Sol medium; planning-only
+│   ├── planner.md        # GPT-5.6 Sol medium; planning + independent plan-readiness review
 │   ├── reviewer.md       # GPT-5.6 Terra medium; read-only review
 │   ├── scout.md          # GPT-5.6 Terra low; read-only discovery
 │   └── Explore.md        # disabled bundled persona override
@@ -215,20 +215,20 @@ The maintained agent files use the flat frontmatter expected by `@tintinweb/pi-s
 
 The installed agent directory is an exact replacement with this roster:
 
-- `planner` — GPT-5.6 Sol medium; planning-only
+- `planner` — GPT-5.6 Sol medium; planning plus independent read-only plan-readiness review
 - `reviewer` — GPT-5.6 Terra medium; read-only material review
 - `scout` — GPT-5.6 Terra low; bounded read-only discovery
 - `Explore.md` — disabled override, not an active agent
 
-Callers must supply the artifact or allowed surfaces, specialized lens, output destination/format, authority boundary, verification evidence, and stop/verdict vocabulary. There is no implementation subagent: the driving session performs code edits, test changes, fixes, verification, and repository management directly. `/cmd:start-linear-issue` likewise performs its deterministic Git/Linear worktree workflow directly.
+Callers must supply the artifact or allowed surfaces, specialized lens, output destination/format, authority boundary, verification evidence, and stop/verdict vocabulary. There is no implementation **subagent**: the active driving session performs code edits, test changes, fixes, verification, and repository management directly. Delivery approval creates a new top-level Herdr Pi driving session pinned to Sol medium; it does not delegate edits through the `Agent` subagent tool. `/cmd:start-linear-issue` likewise performs its deterministic Git/Linear worktree workflow directly.
 
 ## Skills Overview
 
 ### Canonical workflow
-- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in Doct, follows returned `listenerInstructions`, starts the durable queue-backed listener, processes browser feedback, runs PM plus the reviewer subagent plan review, and stops at execution-ready handoff
+- `reviewed-html-plan` / `/dev:reviewed-html-plan` — creates/registers HTML plans in Doct, follows returned `listenerInstructions`, starts the durable queue-backed listener, processes browser feedback, runs PM plus the independent Sol-medium `planner` subagent review, and stops at operator approval; delivery approval launches a dedicated Sol-medium implementation agent
 
 ### Dev / execution
-- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan: durable Pi goal tracking, implementation, scoped reviews, implementation-stage PM review, reviewer-subagent pre-PR review, and for Herdr delivery runs a visible adjacent Pi/Grok 4.5 completeness-review loop to `COMPLETE`, followed by base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
+- `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan. In a delivery run it is invoked only by the dedicated Pi agent pinned to `openai-codex/gpt-5.6-sol` at medium; implementation then proceeds through scoped reviews, implementation-stage PM review, Terra-medium reviewer-subagent pre-PR review, and a visible adjacent Pi/Grok 4.5 completeness-review loop to `COMPLETE`, followed by base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
 - `dev:run` — direct GPT-5.6 Sol medium execution with one shared `reviewer` pass after each phase
 - `autoreview` — canonical reviewer-subagent pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. After the bounded three-cycle local budget, unresolved review non-convergence uses exactly one read-only advisory external consultation and, only if authorized, one scope-bound `REVIEW_ESCAPE` adversarial reviewer-pair pass plus the existing single pass-after-fixes allowance. This route applies before or after PR creation and does not require a PR URL or PR feedback. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
 
@@ -283,7 +283,7 @@ Canonical browser-reviewed HTML plan flow:
 
 ```text
 /dev:plan <plan>
-/dev:reviewed-html-plan <plan>    # register, monitor browser comments, PM-review, and run the reviewer-subagent plan review
+/dev:reviewed-html-plan <plan>    # browser comments + PM review + independent Sol-medium planner review
 /cmd:execute-plan <plan>
 ```
 

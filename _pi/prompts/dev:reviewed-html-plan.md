@@ -1,5 +1,5 @@
 ---
-description: Create/register an HTML plan, process browser feedback, run PM plus the active-harness reviewer subagent plan review, and iterate until execution-ready
+description: Create/register an HTML plan, process browser feedback, run PM plus the independent Sol-medium planner subagent review, and iterate until execution-ready
 argument-hint: '<plan description | slug | thoughts/plans/<slug>.html | issue key>'
 ---
 
@@ -18,9 +18,9 @@ Use the `reviewed-html-plan` skill as the source of truth for this command.
 - Process listener-delivered or manually claimed Doct plan comments/actions, ack/resolve/release with the returned commands, keep the listener running, and update the same HTML plan. A generic routed `submitAction: "agent"` comment without `agentRoute.requestedSkill` is feedback only; it must not start readiness review.
 - Wait for an explicit execution-ready request before PM or technical readiness review: Doct's **Request execution-ready review** action currently emits `agentRoute.requestedSkill: "plan-reviewer-execution-ready"`; accept `submitAction: "execution-ready"` when returned by the service, or an equivalent direct operator instruction. Do not infer a request from the first feedback comment or a quiet listener.
 - Only after that request, run a PM product-intent/stage-fit review and reshape the plan directly when repo evidence supports the correction.
-- Only after that request, run the read-only active-harness reviewer-subagent plan review, then iterate plan edits and rerun the reviewer until it agrees by substance that the plan is execution-ready.
+- Only after that request, run the read-only `planner` subagent. Its checked-in frontmatter pins `openai-codex/gpt-5.6-sol` at medium; do not override model or reasoning. Iterate plan edits and rerun the planner until it returns `PLAN_EXECUTION_READY`, then record the fixed planTech evidence when delivery-managed.
 - Do not start implementation or edit product code in this command.
-- When the plan becomes execution-ready, keep the listener active and pause. Give the operator the current plan/review status, a concise description of the customer-visible and technical changes implementation will make, the exact implementation model and reasoning level, and the remaining implementation/test/review/verification/PR steps. Ask whether to proceed. Execution-ready is not authorization to invoke `run-plan`; a direct operator approval is required first. If the plan changes after approval, return it to browser review and require a fresh explicit execution-ready request.
+- When the plan becomes execution-ready, keep the listener active and pause. Give the operator the current plan/review status, a concise description of the customer-visible and technical changes implementation will make, the fixed implementation profile (`openai-codex/gpt-5.6-sol`, medium), and the remaining implementation/test/review/verification/PR steps. Ask whether to proceed. Execution-ready is not authorization to invoke `run-plan`; a direct operator approval is required first. In delivery, `approve-implementation` launches the dedicated pinned agent and the planning agent stops. If the plan changes after approval, return it to browser review and require a fresh explicit execution-ready request.
 
 ## Final output
 

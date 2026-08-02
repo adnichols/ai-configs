@@ -766,6 +766,7 @@ EOF
   assert_file_contains "$home/.pi/agent/agents/planner.md" 'name: planner' || return 1
   assert_file_contains "$home/.pi/agent/agents/planner.md" 'model: openai-codex/gpt-5.6-sol' || return 1
   assert_file_contains "$home/.pi/agent/agents/planner.md" 'reasoningEffort: medium' || return 1
+  assert_file_contains "$home/.pi/agent/agents/planner.md" 'independently review an existing plan' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'model: openai-codex/gpt-5.6-terra' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'reasoningEffort: low' || return 1
   assert_file_contains "$home/.pi/agent/models.json" 'gemma4:latest' || return 1
@@ -1912,7 +1913,8 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "$hermes_run_plan" 'Run exactly one bounded, static inspection with the active harness' || return 1
   assert_file_not_contains "$hermes_run_plan" 'claude-code-review' || return 1
   assert_file_contains "_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md" "active harness's \`reviewer\` subagent" || return 1
-  assert_file_contains "APPEND_SYSTEM.md" 'exactly one active-harness read-only `reviewer` subagent' || return 1
+  assert_file_contains "APPEND_SYSTEM.md" 'For required implementation/code review, use exactly one active-harness read-only `reviewer` subagent' || return 1
+  assert_file_contains "APPEND_SYSTEM.md" 'use the read-only `planner` subagent on GPT-5.6 Sol at medium reasoning effort' || return 1
 }
 
 test_active_agent_configuration_has_no_kimi() {

@@ -57,6 +57,8 @@ assert d["issue"]=="NOD-1"
 assert d["stage"]=="INTAKE"
 assert d["doctrine"]=="guidance-not-gates"
 assert "planPm" in d["evidence"]
+assert "planTech" in d["evidence"]
+assert d["evidence"]["planTech"]["status"] == "pending"
 assert "completenessReview" in d["evidence"]
 assert d["plan"]=="thoughts/plans/x.html"
 PY
@@ -514,6 +516,8 @@ PY
 test_readiness_review_requires_explicit_request() {
   local repo="$TMP_ROOT/readiness-authorization-repo"
   make_repo "$repo"
+  mkdir -p "$repo/thoughts/validation"
+  printf '# Sol plan review\n\nVERDICT: PLAN_EXECUTION_READY\n' >"$repo/thoughts/validation/plan-review.md"
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-READINESS --plan README.md >/dev/null
   set +e
   out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_PM_REVIEW 2>&1)"
@@ -525,7 +529,48 @@ test_readiness_review_requires_explicit_request() {
     --summary "Doct execution-ready review request" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_PM_REVIEW >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_TECH_REVIEW >/dev/null
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "Sol medium planner review" || return 1
+
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/plan-review.md --summary "independent plan review" \
+    --reviewer planner --model openai-codex/gpt-5.6-terra --reasoning-level medium \
+    --verdict PLAN_EXECUTION_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "requires model openai-codex/gpt-5.6-sol" || return 1
+
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/plan-review.md --summary "independent Sol medium plan review" \
+    --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
+    --verdict PLAN_EXECUTION_READY >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+review=json.load(open(sys.argv[1]))["evidence"]["planTech"]
+assert review["status"] == "pass"
+assert review["reviewer"] == "planner"
+assert review["model"] == "openai-codex/gpt-5.6-sol"
+assert review["reasoningLevel"] == "medium"
+assert review["verdict"] == "PLAN_EXECUTION_READY"
+assert review["planSha256"]
+PY
+
+  printf '\nmaterial plan change\n' >>"$repo/README.md"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass \
+    --summary "fresh execution-ready request" >/dev/null
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "Sol medium planner review" || return 1
 }
 
 test_init_cannot_bypass_authorization_stages() {
@@ -626,12 +671,30 @@ PY
 
 test_execution_ready_requires_current_operator_approval() {
   local repo="$TMP_ROOT/implementation-approval-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-implementation"
+  local herdr_log="$TMP_ROOT/fake-herdr-implementation.log"
   make_repo "$repo"
-  mkdir -p "$repo/thoughts/plans"
+  mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation" "$fake_bin"
   printf '<article data-plan>revision-one</article>\n' >"$repo/thoughts/plans/x.html"
+  printf '# Plan review\n\nVERDICT: PLAN_EXECUTION_READY\n' >"$repo/thoughts/validation/x-plan-review.md"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+if [[ "$1" == "pane" && "$2" == "split" ]]; then
+  printf '{"result":{"pane":{"pane_id":"w1:p2"}}}\n'
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass \
     --summary "Doct execution-ready review request" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/x-plan-review.md --summary "independent Sol medium plan review" \
+    --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
+    --verdict PLAN_EXECUTION_READY >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --refresh >/dev/null
   rg -q "Execution-ready approval pause" "$repo/.delivery/AGENT_BRIEF.md" || return 1
@@ -642,18 +705,75 @@ test_execution_ready_requires_current_operator_approval() {
   set -e
   [[ "$code" -ne 0 ]] || return 1
   printf '%s' "$out" | rg -q "explicit operator implementation approval" || return 1
-  PI_MODEL=test-model PI_REASONING_LEVEL=high DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" \
-    approve-implementation --source chat --summary "Operator received status, changes, model, and steps" >/dev/null
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING >/dev/null
+
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_PANE_ID=w1:p1 \
+    PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high \
+    "$DELIVERY" --cwd "$repo" approve-implementation --source chat \
+    --summary "Operator received status, changes, fixed Sol medium profile, and steps" >/dev/null
+  rg -q "agent start implementation-.* --kind pi --pane w1:p2 --timeout 60000 -- --provider openai-codex --model gpt-5.6-sol --thinking medium" "$herdr_log" || return 1
+  rg -q "agent prompt implementation-" "$herdr_log" || return 1
+
   python3 - "$repo/.delivery/ledger.json" <<'PY'
 import json,sys
-approval=json.load(open(sys.argv[1]))["implementationApproval"]
+d=json.load(open(sys.argv[1]))
+approval=d["implementationApproval"]
+profile=d["implementationProfile"]
 assert approval["status"] == "approved"
 assert approval["source"] == "chat"
-assert approval["model"] == "test-model"
-assert approval["reasoningLevel"] == "high"
+assert approval["model"] == "openai-codex/gpt-5.6-sol"
+assert approval["reasoningLevel"] == "medium"
 assert approval["planSha256"]
+assert profile["status"] == "ready"
+assert profile["provider"] == "openai-codex"
+assert profile["model"] == "gpt-5.6-sol"
+assert profile["reasoningLevel"] == "medium"
+assert profile["agentName"].startswith("implementation-")
+assert profile["paneId"] == "w1:p2"
+assert profile["sourcePaneId"] == "w1:p1"
+assert profile["planSha256"] == approval["planSha256"]
 PY
+
+  local launch_log_lines
+  launch_log_lines="$(wc -l <"$herdr_log")"
+  set +e
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_PANE_ID=w1:p1 \
+    "$DELIVERY" --cwd "$repo" approve-implementation --source chat --summary again 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "already approved" || return 1
+  [[ "$(wc -l <"$herdr_log")" -eq "$launch_log_lines" ]] || return 1
+
+  set +e
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_PANE_ID=w1:p1 \
+    "$DELIVERY" --cwd "$repo" start-implementation 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "already ready" || return 1
+  [[ "$(wc -l <"$herdr_log")" -eq "$launch_log_lines" ]] || return 1
+
+  set +e
+  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p1 \
+    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "current Herdr pane does not match" || return 1
+
+  set +e
+  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high HERDR_PANE_ID=w1:p2 \
+    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "current Pi runtime is not the pinned implementation model" || return 1
+
+  PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p2 \
+    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile >/dev/null
+  PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p2 \
+    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING >/dev/null
+
   printf '<article data-plan>revision-two</article>\n' >"$repo/thoughts/plans/x.html"
   set +e
   out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY 2>&1)"
@@ -663,20 +783,130 @@ PY
   printf '%s' "$out" | rg -q "plan changed after the recorded execution-ready review request" || return 1
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass \
     --summary "Fresh Doct execution-ready review request" >/dev/null
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
   set +e
-  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING 2>&1)"
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY 2>&1)"
   code=$?
   set -e
   [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "plan changed after" || return 1
+  printf '%s' "$out" | rg -q "Sol medium planner review" || return 1
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" \
     revoke-implementation-approval --reason "material plan feedback" >/dev/null
   python3 - "$repo/.delivery/ledger.json" <<'PY'
 import json,sys
-approval=json.load(open(sys.argv[1]))["implementationApproval"]
-assert approval["status"] == "pending"
-assert approval["reason"] == "material plan feedback"
+d=json.load(open(sys.argv[1]))
+assert d["implementationApproval"]["status"] == "pending"
+assert d["implementationApproval"]["reason"] == "material plan feedback"
+assert d["implementationProfile"]["status"] == "pending"
+PY
+}
+
+test_implementation_agent_launch_failures_are_not_ready() {
+  local repo="$TMP_ROOT/implementation-launch-failure-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-implementation-failure"
+  local mode_file="$TMP_ROOT/fake-herdr-implementation-mode"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation" "$fake_bin"
+  printf '<article data-plan>ready</article>\n' >"$repo/thoughts/plans/x.html"
+  printf 'VERDICT: PLAN_EXECUTION_READY\n' >"$repo/thoughts/validation/x-plan-review.md"
+  printf 'start-fail\n' >"$mode_file"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+mode="$(cat "$FAKE_HERDR_MODE")"
+if [[ "$1" == "pane" && "$2" == "split" ]]; then
+  printf '{"result":{"pane":{"pane_id":"w2:p2"}}}\n'
+elif [[ "$1" == "agent" && "$2" == "start" && "$mode" == "start-fail" ]]; then
+  echo "synthetic start failure" >&2
+  exit 9
+elif [[ "$1" == "agent" && "$2" == "start" && "$mode" == "hold" ]]; then
+  : >"$FAKE_HERDR_HOLD_READY"
+  while [[ ! -e "$FAKE_HERDR_HOLD_RELEASE" ]]; do sleep 0.02; done
+elif [[ "$1" == "agent" && "$2" == "prompt" && "$mode" == "prompt-fail" ]]; then
+  echo "synthetic prompt failure" >&2
+  exit 8
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
+    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+
+  set +e
+  PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_PANE_ID=w2:p1 \
+    "$DELIVERY" --cwd "$repo" approve-implementation --source chat --summary approved >/dev/null 2>&1
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["stage"] == "EXECUTION_READY"
+assert d["implementationApproval"]["status"] == "approved"
+assert d["implementationProfile"]["status"] == "start-failed"
+PY
+
+  printf 'prompt-fail\n' >"$mode_file"
+  set +e
+  PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_PANE_ID=w2:p1 \
+    "$DELIVERY" --cwd "$repo" start-implementation >/dev/null 2>&1
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["stage"] == "EXECUTION_READY"
+assert d["implementationProfile"]["status"] == "prompt-failed"
+PY
+
+  local hold_ready="$TMP_ROOT/fake-herdr-hold-ready"
+  local hold_release="$TMP_ROOT/fake-herdr-hold-release"
+  local first_output="$TMP_ROOT/fake-herdr-first-launch.out"
+  printf 'hold\n' >"$mode_file"
+  rm -f "$hold_ready" "$hold_release"
+  PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" FAKE_HERDR_HOLD_READY="$hold_ready" \
+    FAKE_HERDR_HOLD_RELEASE="$hold_release" HERDR_PANE_ID=w2:p1 \
+    "$DELIVERY" --cwd "$repo" start-implementation >"$first_output" 2>&1 &
+  local first_pid=$!
+  local ready_seen=0
+  for _ in $(seq 1 100); do
+    if [[ -e "$hold_ready" ]]; then ready_seen=1; break; fi
+    sleep 0.02
+  done
+  if [[ "$ready_seen" -ne 1 ]]; then
+    touch "$hold_release"
+    wait "$first_pid" || true
+    return 1
+  fi
+  set +e
+  revoke_out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" \
+    revoke-implementation-approval --reason "concurrent revoke" 2>&1)"
+  revoke_code=$?
+  stage_out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_BROWSER_REVIEW 2>&1)"
+  stage_code=$?
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_PANE_ID=w2:p1 \
+    "$DELIVERY" --cwd "$repo" start-implementation 2>&1)"
+  code=$?
+  set -e
+  touch "$hold_release"
+  wait "$first_pid" || return 1
+  [[ "$revoke_code" -ne 0 ]] || return 1
+  printf '%s' "$revoke_out" | rg -q "ledger mutation rejected" || return 1
+  [[ "$stage_code" -ne 0 ]] || return 1
+  printf '%s' "$stage_out" | rg -q "ledger mutation rejected" || return 1
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "launch is already in progress" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["stage"] == "EXECUTION_READY"
+assert d["implementationApproval"]["status"] == "approved"
+assert d["implementationProfile"]["status"] == "ready"
+assert d["ledgerRevision"] > 0
 PY
 }
 
@@ -689,8 +919,15 @@ test_skill_doctrine_wording() {
     "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "approve-implementation" "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "plan-reviewer-execution-ready" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q "openai-codex/gpt-5.6-sol" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q 'subagent_type.*planner|`planner` subagent' "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q "reasoning-level medium --verdict PLAN_EXECUTION_READY" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "Execution-ready operator approval pause" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
-  rg -q "implementation approval" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "verify-implementation-profile" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "start-implementation" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q 'IMPLEMENTATION_PROVIDER = "openai-codex"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q 'IMPLEMENTATION_MODEL = "gpt-5.6-sol"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q 'IMPLEMENTATION_REASONING = "medium"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "COMPLETENESS_REVIEW" "$ROOT/skills/delivery-run/SKILL.md" || return 1
   rg -q "xai/grok-4.5:high" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "completion-review" "$ROOT/_pi/prompts/delivery:run.md" || return 1
@@ -721,6 +958,7 @@ run_test test_init_cannot_bypass_authorization_stages
 run_test test_bootstrap_cannot_bypass_authorization_stages
 run_test test_approval_cannot_bypass_readiness_request
 run_test test_execution_ready_requires_current_operator_approval
+run_test test_implementation_agent_launch_failures_are_not_ready
 run_test test_skill_doctrine_wording
 
 printf '\n%d/%d passed\n' "$TESTS_PASSED" "$TESTS_RUN"

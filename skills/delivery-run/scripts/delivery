@@ -10,6 +10,7 @@ exceptions.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -19,13 +20,23 @@ import subprocess
 import sys
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = 1
 LEDGER_REL = Path(".delivery") / "ledger.json"
+IMPLEMENTATION_LAUNCH_LOCK_REL = Path(".delivery") / "implementation-launch.lock"
 HERDR_WORKTREES = Path.home() / ".herdr" / "worktrees"
+
+PLAN_REVIEW_AGENT = "planner"
+PLAN_REVIEW_MODEL = "openai-codex/gpt-5.6-sol"
+PLAN_REVIEW_REASONING = "medium"
+IMPLEMENTATION_PROVIDER = "openai-codex"
+IMPLEMENTATION_MODEL = "gpt-5.6-sol"
+IMPLEMENTATION_MODEL_REF = f"{IMPLEMENTATION_PROVIDER}/{IMPLEMENTATION_MODEL}"
+IMPLEMENTATION_REASONING = "medium"
 
 STAGES = [
     "INTAKE",
@@ -87,7 +98,7 @@ RECOMMENDED_EVIDENCE = {
 WORKER_SKILLS = {
     "plan": "/skill:reviewed-html-plan or /skill:dev-plan",
     "plan_pm": "/dev:pm-review <plan> plan",
-    "plan_tech": "active-harness reviewer via reviewed-html-plan",
+    "plan_tech": "independent Sol medium planner via reviewed-html-plan",
     "implement": "/skill:run-plan <plan>",
     "impl_pm": "/dev:pm-review <plan> implementation",
     "autoreview": "/skill:autoreview <plan>",
@@ -142,13 +153,13 @@ STAGE_NEXT_SKILL = {
         "run /dev:pm-review <plan> plan (product outcome + stage fit)"
     ),
     "PLAN_TECH_REVIEW": (
-        "After planReadinessRequest is recorded, run active-harness reviewer plan review "
-        "via reviewed-html-plan"
+        "After planReadinessRequest is recorded, run the independent planner subagent on "
+        "openai-codex/gpt-5.6-sol at medium reasoning and record its current-plan verdict"
     ),
     "EXECUTION_READY": (
-        "Pause: present the operator approval summary (plan status, expected changes, "
-        "implementation model/reasoning, and remaining steps), then wait for explicit "
-        "approval. Do not invoke run-plan yet."
+        "Pause: present the operator approval summary and fixed Sol-medium implementation "
+        "profile, then wait for explicit approval. Approval launches a dedicated implementation "
+        "agent; do not invoke run-plan in the planning agent."
     ),
     "IMPLEMENTING": "Continue /skill:run-plan phase work; keep ledger notes current",
     "SCOPED_REVIEW": "Run scoped quality review (run-plan section) with live-worktree reviewer",
@@ -165,6 +176,7 @@ STAGE_NEXT_SKILL = {
 }
 
 EVIDENCE_STATUSES = ("pending", "pass", "skip", "gap", "na")
+HELD_IMPLEMENTATION_LAUNCH_LOCKS: set[Path] = set()
 
 
 def utc_now() -> str:
@@ -187,9 +199,36 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
-    tmp.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    is_ledger = path.name == LEDGER_REL.name and path.parent.name == LEDGER_REL.parent.name
+    root = path.parent.parent.resolve() if is_ledger else None
+    lock_fd: int | None = None
+    if root is not None and root not in HELD_IMPLEMENTATION_LAUNCH_LOCKS:
+        lock_path = root / IMPLEMENTATION_LAUNCH_LOCK_REL
+        lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(lock_fd)
+            die("ledger mutation rejected while an implementation launch is in progress")
+    try:
+        if is_ledger:
+            supplied_revision = int(data.get("ledgerRevision") or 0)
+            if path.exists():
+                current = json.loads(path.read_text(encoding="utf-8"))
+                current_revision = int(current.get("ledgerRevision") or 0)
+                if current_revision != supplied_revision:
+                    die(
+                        "stale ledger mutation rejected; reload delivery state and retry "
+                        f"(current revision {current_revision}, supplied {supplied_revision})"
+                    )
+            data["ledgerRevision"] = supplied_revision + 1
+        tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
+        tmp.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+        tmp.replace(path)
+    finally:
+        if lock_fd is not None:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            os.close(lock_fd)
 
 
 def git_capture(cwd: Path, *args: str) -> str | None:
@@ -235,6 +274,15 @@ def empty_evidence() -> dict[str, Any]:
             "summary": None,
             "updatedAt": None,
         }
+    out["planTech"].update(
+        {
+            "reviewer": None,
+            "model": None,
+            "reasoningLevel": None,
+            "verdict": None,
+            "planSha256": None,
+        }
+    )
     return out
 
 
@@ -285,6 +333,21 @@ def new_ledger(
             "summary": None,
             "approvedAt": None,
             "invalidatedAt": None,
+            "reason": None,
+        },
+        "implementationProfile": {
+            "status": "pending",
+            "provider": IMPLEMENTATION_PROVIDER,
+            "model": IMPLEMENTATION_MODEL,
+            "modelRef": IMPLEMENTATION_MODEL_REF,
+            "reasoningLevel": IMPLEMENTATION_REASONING,
+            "planSha256": None,
+            "agentName": None,
+            "paneId": None,
+            "sourcePaneId": None,
+            "launchedAt": None,
+            "promptedAt": None,
+            "launchAttemptId": None,
             "reason": None,
         },
         "customerImpact": {
@@ -382,6 +445,56 @@ def reset_plan_readiness_request(ledger: dict[str, Any], reason: str) -> None:
     request["summary"] = reason
 
 
+def reset_plan_technical_review(ledger: dict[str, Any], reason: str) -> None:
+    review = ledger.setdefault("evidence", {}).setdefault("planTech", {})
+    review.update(
+        {
+            "status": "pending",
+            "artifact": None,
+            "summary": reason,
+            "updatedAt": utc_now(),
+            "reviewer": None,
+            "model": None,
+            "reasoningLevel": None,
+            "verdict": None,
+            "planSha256": None,
+        }
+    )
+
+
+def plan_technical_review_problem(ledger: dict[str, Any], root: Path) -> str | None:
+    review = (ledger.get("evidence") or {}).get("planTech") or {}
+    if review.get("status") != "pass":
+        return "no current independent Sol medium planner review is recorded"
+    if review.get("reviewer") != PLAN_REVIEW_AGENT:
+        return f"plan review must come from the {PLAN_REVIEW_AGENT} subagent"
+    if review.get("model") != PLAN_REVIEW_MODEL:
+        return f"Sol medium planner review requires model {PLAN_REVIEW_MODEL}"
+    if review.get("reasoningLevel") != PLAN_REVIEW_REASONING:
+        return f"Sol medium planner review requires reasoning level {PLAN_REVIEW_REASONING}"
+    if review.get("verdict") != "PLAN_EXECUTION_READY":
+        return "Sol medium planner review has not returned PLAN_EXECUTION_READY"
+    current_hash = plan_sha256(ledger, root)
+    if current_hash is None:
+        return "the recorded plan is missing, outside this worktree, or unreadable"
+    if review.get("planSha256") != current_hash:
+        return "the Sol medium planner review is stale for the current plan"
+    artifact = review.get("artifact")
+    if not isinstance(artifact, str) or not artifact.strip():
+        return "the Sol medium planner review artifact is missing"
+    candidate = Path(artifact).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    candidate = candidate.resolve()
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return "the Sol medium planner review artifact is outside the worktree"
+    if not candidate.is_file():
+        return "the Sol medium planner review artifact is missing"
+    return None
+
+
 def implementation_approval_problem(ledger: dict[str, Any], root: Path) -> str | None:
     """Explain why implementation cannot begin for this ledger, if applicable."""
     approval = ledger.get("implementationApproval") or {}
@@ -392,18 +505,69 @@ def implementation_approval_problem(ledger: dict[str, Any], root: Path) -> str |
         return "the recorded plan is missing, outside this worktree, or unreadable"
     if approval.get("planSha256") != current_hash:
         return "the plan changed after the recorded implementation approval"
+    if approval.get("model") != IMPLEMENTATION_MODEL_REF:
+        return f"implementation approval is not pinned to {IMPLEMENTATION_MODEL_REF}"
+    if approval.get("reasoningLevel") != IMPLEMENTATION_REASONING:
+        return f"implementation approval is not pinned to {IMPLEMENTATION_REASONING} reasoning"
+    return None
+
+
+def implementation_profile_problem(
+    ledger: dict[str, Any], root: Path, *, check_runtime: bool
+) -> str | None:
+    profile = ledger.get("implementationProfile") or {}
+    if profile.get("status") != "ready":
+        return "the dedicated Sol medium implementation agent has not been launched successfully"
+    if profile.get("provider") != IMPLEMENTATION_PROVIDER:
+        return f"implementation agent provider must be {IMPLEMENTATION_PROVIDER}"
+    if profile.get("model") != IMPLEMENTATION_MODEL:
+        return f"implementation agent model must be {IMPLEMENTATION_MODEL}"
+    if profile.get("reasoningLevel") != IMPLEMENTATION_REASONING:
+        return f"implementation agent reasoning must be {IMPLEMENTATION_REASONING}"
+    current_hash = plan_sha256(ledger, root)
+    if current_hash is None:
+        return "the recorded plan is missing, outside this worktree, or unreadable"
+    if profile.get("planSha256") != current_hash:
+        return "the dedicated implementation agent was launched for an older plan revision"
+    if not profile.get("agentName") or not profile.get("paneId"):
+        return "the dedicated implementation agent identity is incomplete"
+    if check_runtime:
+        provider = (os.environ.get("PI_PROVIDER") or "").strip()
+        model = (os.environ.get("PI_MODEL") or "").strip()
+        reasoning = (os.environ.get("PI_REASONING_LEVEL") or "").strip()
+        current_pane = (os.environ.get("HERDR_PANE_ID") or "").strip()
+        if not provider or not model or not reasoning or not current_pane:
+            return "implementation entry must be run from the recorded pinned Herdr Pi agent"
+        if current_pane != str(profile.get("paneId")):
+            return (
+                "current Herdr pane does not match the recorded implementation agent pane "
+                f"{profile.get('paneId')}"
+            )
+        if provider != IMPLEMENTATION_PROVIDER or model != IMPLEMENTATION_MODEL:
+            return (
+                "current Pi runtime is not the pinned implementation model "
+                f"{IMPLEMENTATION_MODEL_REF}"
+            )
+        if reasoning != IMPLEMENTATION_REASONING:
+            return f"current Pi runtime reasoning must be {IMPLEMENTATION_REASONING}"
     return None
 
 
 def stage_transition_problem(ledger: dict[str, Any], root: Path, stage: str) -> str | None:
     """Return the authorization failure for a protected stage transition."""
-    if stage in {"PLAN_PM_REVIEW", "PLAN_TECH_REVIEW", "EXECUTION_READY"}:
+    if stage in {"PLAN_PM_REVIEW", "PLAN_TECH_REVIEW"}:
         return plan_readiness_request_problem(ledger, root)
+    if stage == "EXECUTION_READY":
+        return plan_readiness_request_problem(ledger, root) or plan_technical_review_problem(ledger, root)
     if stage == "IMPLEMENTING":
         readiness_problem = plan_readiness_request_problem(ledger, root)
         if readiness_problem:
             return f"no current execution-ready review request: {readiness_problem}"
-        return implementation_approval_problem(ledger, root)
+        return (
+            plan_technical_review_problem(ledger, root)
+            or implementation_approval_problem(ledger, root)
+            or implementation_profile_problem(ledger, root, check_runtime=True)
+        )
     return None
 
 
@@ -419,6 +583,27 @@ def reset_implementation_approval(ledger: dict[str, Any], reason: str) -> None:
             "summary": None,
             "approvedAt": None,
             "invalidatedAt": utc_now(),
+            "reason": reason,
+        }
+    )
+
+
+def reset_implementation_profile(ledger: dict[str, Any], reason: str) -> None:
+    profile = ledger.setdefault("implementationProfile", {})
+    profile.update(
+        {
+            "status": "pending",
+            "provider": IMPLEMENTATION_PROVIDER,
+            "model": IMPLEMENTATION_MODEL,
+            "modelRef": IMPLEMENTATION_MODEL_REF,
+            "reasoningLevel": IMPLEMENTATION_REASONING,
+            "planSha256": None,
+            "agentName": None,
+            "paneId": None,
+            "sourcePaneId": None,
+            "launchedAt": None,
+            "promptedAt": None,
+            "launchAttemptId": None,
             "reason": reason,
         }
     )
@@ -701,6 +886,13 @@ def cmd_show(args: argparse.Namespace) -> int:
     if approval_problem:
         approval_status = f"{approval_status} ({approval_problem})"
     print(f"implementation approval: {approval_status}")
+    profile = ledger.get("implementationProfile") or {}
+    profile_status = profile.get("status", "pending")
+    profile_problem = implementation_profile_problem(ledger, root, check_runtime=False)
+    if profile_problem:
+        profile_status = f"{profile_status} ({profile_problem})"
+    print(f"implementation agent: {profile_status}")
+    print(f"implementation runtime: {IMPLEMENTATION_MODEL_REF} / {IMPLEMENTATION_REASONING}")
     print(f"updated:   {ledger.get('updatedAt')}")
     print(f"next:      {STAGE_NEXT_SKILL.get(str(ledger.get('stage')), 'n/a')}")
     print("evidence:")
@@ -733,9 +925,9 @@ def cmd_stage(args: argparse.Namespace) -> int:
         if stage == "IMPLEMENTING":
             die(
                 "cannot enter IMPLEMENTING: "
-                f"{transition_problem}. Present the execution-ready summary, obtain a direct "
-                "operator approval, then run `delivery approve-implementation --source chat|doct "
-                "--summary \"...\"`."
+                f"{transition_problem}. Obtain direct operator approval, let `delivery "
+                "approve-implementation` launch the fixed Sol medium agent, then enter "
+                "IMPLEMENTING from that pinned Pi runtime."
             )
         die(
             f"cannot enter {stage}: {transition_problem}. "
@@ -763,56 +955,286 @@ def cmd_stage(args: argparse.Namespace) -> int:
     return 0
 
 
+@contextmanager
+def implementation_launch_lock(root: Path):
+    lock_path = root / IMPLEMENTATION_LAUNCH_LOCK_REL
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            die("an implementation agent launch is already in progress")
+        os.ftruncate(fd, 0)
+        os.write(fd, f"pid={os.getpid()} at={utc_now()}\n".encode())
+        HELD_IMPLEMENTATION_LAUNCH_LOCKS.add(root.resolve())
+        yield
+    finally:
+        HELD_IMPLEMENTATION_LAUNCH_LOCKS.discard(root.resolve())
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+
+def implementation_agent_name(ledger: dict[str, Any]) -> str:
+    identity = str(ledger.get("issue") or ledger.get("slug") or ledger.get("id") or "delivery")
+    suffix = slugify(identity, max_len=9, keep_issue_keys=True)
+    return f"implementation-{suffix}-{uuid.uuid4().hex[:6]}"
+
+
+def implementation_agent_prompt(ledger: dict[str, Any], root: Path) -> str:
+    plan = str(ledger.get("plan") or "(missing plan)")
+    return f"""You are the dedicated implementation agent for this delivery run.
+
+Worktree: {root}
+Plan: {plan}
+Required runtime: {IMPLEMENTATION_MODEL_REF} at {IMPLEMENTATION_REASONING} reasoning
+
+Do this now:
+1. Read `.delivery/AGENT_BRIEF.md` and the full plan.
+2. Run `delivery show` and `delivery verify-implementation-profile`. If the launch is still being finalized, retry verification once it reports ready.
+3. Run `delivery stage IMPLEMENTING` from this pinned Pi runtime.
+4. Execute `/skill:run-plan {plan}` through implementation, verification, Terra code review, the visible Grok completeness review, and PR readiness.
+
+Do not re-plan beyond the reviewed contract. The planning agent must not implement; you own all code, tests, fixes, Git, and PR work from this point."""
+
+
+def active_implementation_launch(
+    path: Path, root: Path, attempt_id: str, *, allowed_statuses: set[str]
+) -> dict[str, Any]:
+    current = json.loads(path.read_text())
+    if current.get("stage") != "EXECUTION_READY":
+        die("implementation launch authorization changed before the agent became ready")
+    problem = (
+        plan_readiness_request_problem(current, root)
+        or plan_technical_review_problem(current, root)
+        or implementation_approval_problem(current, root)
+    )
+    if problem:
+        die(f"implementation launch authorization changed: {problem}")
+    profile = current.get("implementationProfile") or {}
+    if profile.get("launchAttemptId") != attempt_id:
+        die("implementation launch lease was superseded or revoked")
+    if str(profile.get("status")) not in allowed_statuses:
+        die("implementation launch state changed before the agent became ready")
+    return current
+
+
+def launch_implementation_agent(
+    path: Path, ledger: dict[str, Any], root: Path, args: argparse.Namespace
+) -> int:
+    source_pane = args.pane or resolve_herdr_targets(ledger).get("paneId")
+    if not source_pane:
+        reset_implementation_profile(ledger, "no Herdr source pane available")
+        write_json(path, ledger)
+        die("implementation launch needs --pane, HERDR_PANE_ID, or a delivery spawn pane")
+    reviewer_name = args.agent_name or implementation_agent_name(ledger)
+    prompt = implementation_agent_prompt(ledger, root)
+    attempt_id = uuid.uuid4().hex
+    reset_implementation_profile(ledger, "dedicated implementation agent launch in progress")
+    ledger["implementationProfile"].update(
+        {"status": "launching", "launchAttemptId": attempt_id}
+    )
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
+    split = herdr_json(
+        ["pane", "split", str(source_pane), "--direction", "right", "--cwd", str(root), "--no-focus"],
+        cwd=root,
+    )
+    split_result = split.get("result") if isinstance(split.get("result"), dict) else split
+    pane = split_result.get("pane") if isinstance(split_result.get("pane"), dict) else split_result
+    implementation_pane = pane.get("pane_id")
+    if not implementation_pane:
+        current = active_implementation_launch(path, root, attempt_id, allowed_statuses={"launching"})
+        reset_implementation_profile(current, "Herdr split returned no pane id")
+        write_json(path, current)
+        die(f"implementation pane split returned no pane id: {split}")
+
+    herdr = require_herdr()
+    start_command = [
+        herdr,
+        "agent",
+        "start",
+        reviewer_name,
+        "--kind",
+        "pi",
+        "--pane",
+        str(implementation_pane),
+        "--timeout",
+        str(args.timeout_ms),
+        "--",
+        "--provider",
+        IMPLEMENTATION_PROVIDER,
+        "--model",
+        IMPLEMENTATION_MODEL,
+        "--thinking",
+        IMPLEMENTATION_REASONING,
+    ]
+    started = run_cmd(start_command, cwd=root)
+    current = active_implementation_launch(path, root, attempt_id, allowed_statuses={"launching"})
+    profile = current.setdefault("implementationProfile", {})
+    profile.update(
+        {
+            "status": "started" if started.returncode == 0 else "start-failed",
+            "provider": IMPLEMENTATION_PROVIDER,
+            "model": IMPLEMENTATION_MODEL,
+            "modelRef": IMPLEMENTATION_MODEL_REF,
+            "reasoningLevel": IMPLEMENTATION_REASONING,
+            "planSha256": plan_sha256(current, root),
+            "agentName": reviewer_name,
+            "paneId": str(implementation_pane),
+            "sourcePaneId": str(source_pane),
+            "launchedAt": utc_now() if started.returncode == 0 else None,
+            "promptedAt": None,
+            "launchAttemptId": attempt_id,
+            "reason": None if started.returncode == 0 else (started.stderr or started.stdout).strip(),
+        }
+    )
+    if started.returncode != 0:
+        append_history(current, "implementation_agent", "dedicated Sol medium agent start failed")
+        write_json(path, current)
+        die(f"could not start dedicated implementation agent: {(started.stderr or started.stdout).strip()}")
+    write_json(path, current)
+
+    requested = run_cmd([herdr, "agent", "prompt", reviewer_name, prompt], cwd=root)
+    current = active_implementation_launch(path, root, attempt_id, allowed_statuses={"started"})
+    profile = current["implementationProfile"]
+    if requested.returncode != 0:
+        profile.update(
+            {
+                "status": "prompt-failed",
+                "reason": (requested.stderr or requested.stdout).strip(),
+            }
+        )
+        append_history(current, "implementation_agent", "dedicated Sol medium agent prompt failed")
+        write_json(path, current)
+        die(f"could not prompt dedicated implementation agent: {(requested.stderr or requested.stdout).strip()}")
+
+    profile.update({"status": "ready", "promptedAt": utc_now(), "reason": None})
+    append_history(
+        current,
+        "implementation_agent",
+        "dedicated Sol medium implementation agent ready",
+        agent=reviewer_name,
+        paneId=str(implementation_pane),
+        model=IMPLEMENTATION_MODEL_REF,
+        reasoningLevel=IMPLEMENTATION_REASONING,
+    )
+    refresh_git_fields(current, root)
+    write_json(path, current)
+    print(f"implementation agent ready: {reviewer_name} in {implementation_pane}")
+    print("next: the pinned implementation agent verifies its profile and enters IMPLEMENTING")
+    return 0
+
+
 def cmd_approve_implementation(args: argparse.Namespace) -> int:
-    path, ledger, root = load_ledger_for(args)
+    _, _, root = load_ledger_for(args)
+    with implementation_launch_lock(root):
+        path, ledger, root = load_ledger_for(args)
+        return approve_implementation_locked(args, path, ledger, root)
+
+
+def approve_implementation_locked(
+    args: argparse.Namespace, path: Path, ledger: dict[str, Any], root: Path
+) -> int:
     if ledger.get("stage") != "EXECUTION_READY":
         die("implementation approval is allowed only at EXECUTION_READY")
+    if (ledger.get("implementationApproval") or {}).get("status") == "approved":
+        die(
+            "implementation is already approved; refusing to launch a second writer "
+            "(use `delivery start-implementation` only when the recorded launch failed)"
+        )
     readiness_problem = plan_readiness_request_problem(ledger, root)
     if readiness_problem:
         die(f"cannot approve implementation: {readiness_problem}")
+    review_problem = plan_technical_review_problem(ledger, root)
+    if review_problem:
+        die(f"cannot approve implementation: {review_problem}")
+    if args.model and args.model != IMPLEMENTATION_MODEL_REF:
+        die(f"implementation model is fixed at {IMPLEMENTATION_MODEL_REF}")
+    if args.reasoning_level and args.reasoning_level != IMPLEMENTATION_REASONING:
+        die(f"implementation reasoning level is fixed at {IMPLEMENTATION_REASONING}")
     fingerprint = plan_sha256(ledger, root)
     if fingerprint is None:
         die("cannot approve implementation: recorded plan is missing, outside this worktree, or unreadable")
-    model = (args.model or os.environ.get("PI_MODEL") or "").strip()
-    reasoning = (args.reasoning_level or os.environ.get("PI_REASONING_LEVEL") or "").strip()
-    if not model or not reasoning:
-        die("implementation approval requires --model and --reasoning-level (or PI_MODEL and PI_REASONING_LEVEL)")
     approval = ledger.setdefault("implementationApproval", {})
     approval.update(
         {
             "status": "approved",
             "source": args.source,
             "planSha256": fingerprint,
-            "model": model,
-            "reasoningLevel": reasoning,
+            "model": IMPLEMENTATION_MODEL_REF,
+            "reasoningLevel": IMPLEMENTATION_REASONING,
             "summary": args.summary,
             "approvedAt": utc_now(),
             "invalidatedAt": None,
             "reason": None,
         }
     )
+    reset_implementation_profile(ledger, "operator approved; implementation agent launch pending")
     append_history(
         ledger,
         "implementation_approval",
-        "operator approved implementation",
+        "operator approved fixed Sol medium implementation",
         source=args.source,
         planSha256=fingerprint,
-        model=model,
-        reasoningLevel=reasoning,
+        model=IMPLEMENTATION_MODEL_REF,
+        reasoningLevel=IMPLEMENTATION_REASONING,
     )
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
-    print("implementation approval recorded")
+    print("implementation approval recorded; launching fixed Sol medium implementation agent")
+    return launch_implementation_agent(path, ledger, root, args)
+
+
+def cmd_start_implementation(args: argparse.Namespace) -> int:
+    _, _, root = load_ledger_for(args)
+    with implementation_launch_lock(root):
+        path, ledger, root = load_ledger_for(args)
+        return start_implementation_locked(args, path, ledger, root)
+
+
+def start_implementation_locked(
+    args: argparse.Namespace, path: Path, ledger: dict[str, Any], root: Path
+) -> int:
+    if ledger.get("stage") != "EXECUTION_READY":
+        die("implementation agent launch is allowed only at EXECUTION_READY")
+    profile_status = str((ledger.get("implementationProfile") or {}).get("status") or "pending")
+    if profile_status == "ready":
+        die("implementation agent is already ready; refusing to launch a second writer")
+    problem = (
+        plan_readiness_request_problem(ledger, root)
+        or plan_technical_review_problem(ledger, root)
+        or implementation_approval_problem(ledger, root)
+    )
+    if problem:
+        die(f"cannot start implementation agent: {problem}")
+    return launch_implementation_agent(path, ledger, root, args)
+
+
+def cmd_verify_implementation_profile(args: argparse.Namespace) -> int:
+    _, ledger, root = load_ledger_for(args)
+    problem = (
+        plan_readiness_request_problem(ledger, root)
+        or plan_technical_review_problem(ledger, root)
+        or implementation_approval_problem(ledger, root)
+        or implementation_profile_problem(ledger, root, check_runtime=True)
+    )
+    if problem:
+        die(f"implementation profile invalid: {problem}")
+    print(f"implementation profile verified: {IMPLEMENTATION_MODEL_REF} / {IMPLEMENTATION_REASONING}")
     return 0
 
 
 def cmd_revoke_implementation_approval(args: argparse.Namespace) -> int:
     path, ledger, root = load_ledger_for(args)
     reset_implementation_approval(ledger, args.reason)
+    reset_implementation_profile(ledger, args.reason)
     append_history(ledger, "implementation_approval_revoked", args.reason)
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
-    print("implementation approval revoked")
+    print("implementation approval and agent profile revoked")
     return 0
 
 
@@ -853,7 +1275,9 @@ def cmd_set(args: argparse.Namespace) -> int:
         if prev != plan:
             changes.append(f"plan: {prev!r} -> {plan!r}")
             reset_plan_readiness_request(ledger, "recorded plan path changed")
+            reset_plan_technical_review(ledger, "recorded plan path changed")
             reset_implementation_approval(ledger, "recorded plan path changed")
+            reset_implementation_profile(ledger, "recorded plan path changed")
         ledger["plan"] = plan
 
     if args.doct_url is not None:
@@ -935,7 +1359,51 @@ def cmd_record(args: argparse.Namespace) -> int:
         die(f"status must be one of {', '.join(EVIDENCE_STATUSES)}")
     path, ledger, root = load_ledger_for(args)
     now = utc_now()
-    if key == "completionEval":
+    if key == "planTech":
+        ev = ledger.setdefault("evidence", {}).setdefault("planTech", {})
+        if status == "pass":
+            if args.reviewer != PLAN_REVIEW_AGENT:
+                die(f"planTech=pass requires reviewer {PLAN_REVIEW_AGENT}")
+            if args.model != PLAN_REVIEW_MODEL:
+                die(f"planTech=pass requires model {PLAN_REVIEW_MODEL}")
+            if args.reasoning_level != PLAN_REVIEW_REASONING:
+                die(f"planTech=pass requires reasoning level {PLAN_REVIEW_REASONING}")
+            if args.verdict != "PLAN_EXECUTION_READY":
+                die("planTech=pass requires verdict PLAN_EXECUTION_READY")
+            if not args.artifact:
+                die("planTech=pass requires --artifact")
+            artifact = Path(args.artifact).expanduser()
+            if not artifact.is_absolute():
+                artifact = root / artifact
+            artifact = artifact.resolve()
+            try:
+                artifact.relative_to(root.resolve())
+            except ValueError:
+                die("planTech artifact must be inside the worktree")
+            if not artifact.is_file():
+                die("planTech artifact does not exist")
+            fingerprint = plan_sha256(ledger, root)
+            if fingerprint is None:
+                die("cannot record planTech=pass: recorded plan is missing, outside this worktree, or unreadable")
+            ev.update(
+                {
+                    "status": "pass",
+                    "artifact": args.artifact,
+                    "summary": args.summary,
+                    "updatedAt": now,
+                    "reviewer": args.reviewer,
+                    "model": args.model,
+                    "reasoningLevel": args.reasoning_level,
+                    "verdict": args.verdict,
+                    "planSha256": fingerprint,
+                }
+            )
+        else:
+            reset_plan_technical_review(ledger, args.summary or f"planTech={status}")
+            ev = ledger["evidence"]["planTech"]
+            ev["status"] = status
+            ev["artifact"] = args.artifact
+    elif key == "completionEval":
         slot = ledger.setdefault(
             "completionEval",
             {"status": "pending", "gaps": [], "summary": None},
@@ -1001,6 +1469,10 @@ def cmd_record(args: argparse.Namespace) -> int:
             ev["planSha256"] = plan_sha256(ledger, root) if status == "pass" else None
             if status == "pass" and ev["planSha256"] is None:
                 die("cannot record planReadinessRequest=pass: recorded plan is missing, outside this worktree, or unreadable")
+            if status == "pass":
+                reset_plan_technical_review(ledger, "fresh execution-ready review request")
+                reset_implementation_approval(ledger, "fresh execution-ready review request")
+                reset_implementation_profile(ledger, "fresh execution-ready review request")
 
     if args.pr_url:
         ledger["prUrl"] = args.pr_url
@@ -1009,7 +1481,9 @@ def cmd_record(args: argparse.Namespace) -> int:
     if args.plan:
         if ledger.get("plan") != args.plan:
             reset_plan_readiness_request(ledger, "recorded plan path changed")
+            reset_plan_technical_review(ledger, "recorded plan path changed")
             reset_implementation_approval(ledger, "recorded plan path changed")
+            reset_implementation_profile(ledger, "recorded plan path changed")
         ledger["plan"] = args.plan
 
     append_history(ledger, "record", f"{key}={status}", key=key, status=status)
@@ -1653,7 +2127,7 @@ def agent_start_prompt(goal: str, *, issue: str | None, worktree: str) -> str:
         "1. Read `.delivery/AGENT_BRIEF.md` fully.\n"
         "2. Run `delivery show` and `delivery check -v`.\n"
         "3. Continue from the brief's **Recommended next step** using existing worker skills\n"
-        "   (reviewed-html-plan / dev-plan → plan review loop → run-plan → autoreview → PR).\n"
+        "   (reviewed-html-plan / dev-plan → Sol-medium planner review → dedicated Sol-medium implementation → Terra autoreview → Grok completeness → PR).\n"
         "   During `PLAN_BROWSER_REVIEW`, integrate ordinary feedback but wait for Doct's explicit\n"
         "   `Request execution-ready review` action before PM or technical readiness review.\n"
         "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
@@ -2240,7 +2714,9 @@ def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
     approval_status = approval.get("status") or "pending"
     approval_profile = " / ".join(
         part for part in (approval.get("model"), approval.get("reasoningLevel")) if part
-    ) or "(selected at approval)"
+    ) or f"{IMPLEMENTATION_MODEL_REF} / {IMPLEMENTATION_REASONING} (fixed)"
+    implementation_profile = ledger.get("implementationProfile") or {}
+    implementation_agent_status = implementation_profile.get("status") or "pending"
 
     stage_rows = "\n".join(
         f"| `{s}` | {STAGE_NEXT_SKILL.get(s, '')} |" for s in STAGES
@@ -2249,7 +2725,7 @@ def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
     return f"""# Delivery agent brief
 
 Generated: {utc_now()}  
-Doctrine: **guidance, not gates** — advisories never hard-block continuation.
+Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization, independent Sol-medium plan review, the pinned implementation handoff, and completeness evidence are explicit boundaries.
 
 ## This worktree
 
@@ -2266,17 +2742,18 @@ Doctrine: **guidance, not gates** — advisories never hard-block continuation.
 | branch | {ledger.get('branch')} |
 | ledger | {path} |
 | implementation approval | {approval_status} ({approval_profile}) |
+| implementation agent | {implementation_agent_status} ({IMPLEMENTATION_MODEL_REF} / {IMPLEMENTATION_REASONING}) |
 
 ## Your job
 
 Keep this worktree moving through:
 
 ```text
-plan ↔ review → run-plan → autoreview → PR
+plan ↔ Sol-medium planner review → dedicated Sol-medium implementation → Terra autoreview → Grok completeness → PR
 ```
 
-You are the driving agent in this worktree. Use existing worker skills for real work.
-The `delivery` CLI is the scoreboard + navigator, not the implementer.
+You are the planning/driving agent until operator approval. Use existing worker skills for real work.
+The `delivery` CLI is the scoreboard + navigator, not the implementer. After approval it launches a dedicated Sol-medium implementation agent; the planning agent stops.
 
 ## Do this first
 
@@ -2301,27 +2778,32 @@ While the stage is `PLAN_BROWSER_REVIEW`:
   emits `agentRoute.requestedSkill: "plan-reviewer-execution-ready"`.
 - Record that signal before advancing: `delivery record planReadinessRequest
   --status pass --summary "Doct execution-ready review request"`, then move to
-  `PLAN_PM_REVIEW`. `delivery stage PLAN_PM_REVIEW`, `PLAN_TECH_REVIEW`, and
-  `EXECUTION_READY` reject a missing request record. This is an authorization
-  boundary, not ordinary advisory evidence.
+  `PLAN_PM_REVIEW`. `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW`
+  reject a missing request record. `EXECUTION_READY` additionally requires a
+  current independent planner artifact from `openai-codex/gpt-5.6-sol` at medium
+  with `VERDICT: PLAN_EXECUTION_READY`. These are authorization boundaries.
 
 ## Execution-ready approval pause
 
 When the stage is `EXECUTION_READY`, do **not** invoke `run-plan`, change product code,
 or move to `IMPLEMENTING`. Keep the Doct listener alive and give the operator a concise
 summary of: (1) the current plan/review status, (2) the customer-visible and technical
-changes implementation will make, (3) the implementation model and reasoning level, and
-(4) the remaining phase/review/verification/PR steps. Ask whether to proceed.
+changes implementation will make, (3) the fixed `openai-codex/gpt-5.6-sol` medium
+implementation profile, and (4) the remaining phase/review/verification/PR steps. Ask whether to proceed.
 
 Only after a direct operator approval in chat or a deliberate Doct implementation-approval
 action may you record it:
 
 ```bash
 delivery approve-implementation --source chat|doct \\
-  --summary "Operator saw status, changes, model/reasoning, and remaining steps"
+  --summary "Operator saw status, changes, fixed Sol-medium profile, and remaining steps"
 ```
 
-`delivery stage IMPLEMENTING` rejects missing or stale approval. If a material Doct comment
+The approval command splits an adjacent Herdr pane, starts Pi with explicit Sol-medium flags,
+and prompts the new implementation agent. The planning agent stops. The new agent runs
+`delivery verify-implementation-profile` and then `delivery stage IMPLEMENTING`; the stage
+rejects missing/stale approval, launch evidence, plan review, or a mismatched live Pi runtime.
+If launch failed, retry with `delivery start-implementation`. If a material Doct comment
 arrives before implementation, update the plan, run
 `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to
 `PLAN_BROWSER_REVIEW`; a fresh explicit execution-ready request is then required.
@@ -2342,6 +2824,8 @@ delivery check -v
 delivery stages
 delivery stage <STAGE> [--note "..."]
 delivery approve-implementation --source chat|doct --summary "..."
+delivery start-implementation                    # retry failed dedicated-agent launch
+delivery verify-implementation-profile           # run in the new pinned agent
 delivery revoke-implementation-approval --reason "material plan feedback"
 delivery set --issue KEY --retarget-id          # Linear optional at start
 delivery set --plan path/to/plan.html
@@ -2373,6 +2857,7 @@ delivery bootstrap --refresh                    # rewrite this brief
 ## Soft quality inserts (recommended, never required)
 
 - `delivery record planReadinessRequest --status pass --summary "Doct execution-ready review request"`
+- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY`
 - `delivery record completionEval --status pass|gap --summary "..."`
 - `delivery record customerImpact --status pass --summary "..." --promised "..." --observed "..."`
 - `delivery record adversarialQa --status pass|na --summary "..."`
@@ -2397,11 +2882,12 @@ Skip only if there is truly nothing process-shaped to capture; prefer a short ho
 ## Rules of the road
 
 - Do **not** reimplement run-plan / reviewed-html-plan / autoreview inside ad-hoc prose.
-- Do **not** hard-block the operator on missing delivery evidence.
+- Do **not** hard-block the operator on advisory delivery evidence. Enforce the explicit readiness, Sol-medium plan-review, pinned implementation-runtime, and completeness boundaries.
 - Do **not** require a Linear issue to start; attach it when it exists.
 - Treat generic browser feedback as plan iteration, not an implied execution-ready review request.
-- `execution-ready` is a reviewed-plan status, not authorization to implement. Pause for explicit operator approval.
-- If material feedback arrives after readiness but before implementation, invalidate approval and return to browser review.
+- `execution-ready` requires the current independent Sol-medium planner verdict but is still not authorization to implement. Pause for explicit operator approval.
+- Approval launches a dedicated Sol-medium implementation agent. The planning agent must not implement; the new agent verifies its profile before code work.
+- If material feedback arrives after readiness but before implementation, invalidate approval and launch evidence, then return to browser review.
 - Prefer keeping the ledger honest over perfect process compliance.
 - If truly stuck on a human decision: `delivery blocker "..." --mark-blocked` and report the decision needed.
 - End every delivery run with `delivery reflect` when possible.
@@ -2597,12 +3083,30 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Record that the operator received status, change, model, and remaining-step summary",
     )
-    p_approve.add_argument("--model", help="Implementation model (defaults to PI_MODEL)")
+    p_approve.add_argument("--model", help=f"Must be {IMPLEMENTATION_MODEL_REF} when supplied")
     p_approve.add_argument(
         "--reasoning-level",
-        help="Implementation reasoning level (defaults to PI_REASONING_LEVEL)",
+        help=f"Must be {IMPLEMENTATION_REASONING} when supplied",
     )
+    p_approve.add_argument("--pane", help="Planning agent's Herdr pane id")
+    p_approve.add_argument("--agent-name", help="Override the generated implementation agent name")
+    p_approve.add_argument("--timeout-ms", type=int, default=60000, help="Implementation Pi startup timeout")
     p_approve.set_defaults(func=cmd_approve_implementation)
+
+    p_start_impl = sub.add_parser(
+        "start-implementation",
+        help="Retry launch of the approved fixed Sol medium implementation agent",
+    )
+    p_start_impl.add_argument("--pane", help="Planning agent's Herdr pane id")
+    p_start_impl.add_argument("--agent-name", help="Override the generated implementation agent name")
+    p_start_impl.add_argument("--timeout-ms", type=int, default=60000, help="Implementation Pi startup timeout")
+    p_start_impl.set_defaults(func=cmd_start_implementation)
+
+    p_verify_impl = sub.add_parser(
+        "verify-implementation-profile",
+        help="Verify this Pi runtime is the approved fixed Sol medium implementation agent",
+    )
+    p_verify_impl.set_defaults(func=cmd_verify_implementation_profile)
 
     p_revoke_approve = sub.add_parser(
         "revoke-implementation-approval",
@@ -2650,6 +3154,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_rec.add_argument("--artifact", help="Artifact path")
     p_rec.add_argument("--summary", help="Short summary")
+    p_rec.add_argument("--reviewer", help="Reviewer identity for structured review evidence")
+    p_rec.add_argument("--model", help="Model reference for structured review evidence")
+    p_rec.add_argument("--reasoning-level", help="Reasoning level for structured review evidence")
+    p_rec.add_argument("--verdict", help="Verdict token for structured review evidence")
     p_rec.add_argument("--gap", action="append", default=[], help="Gap string (repeatable)")
     p_rec.add_argument("--promised", action="append", default=[], help="customerImpact promised item")
     p_rec.add_argument("--observed", action="append", default=[], help="customerImpact observed item")
