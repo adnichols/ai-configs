@@ -1224,6 +1224,93 @@ test_docs_use_labeled_tabs_not_pane_splits() {
   ! printf '%s' "$help" | rg -q "split[/]start[/]prompt" || return 1
 }
 
+test_operator_attention_reconciles_delivery_state() {
+  local repo="$TMP_ROOT/operator-attention-repo"
+  local fake_bin="$TMP_ROOT/operator-attention-bin"
+  local attention_log="$TMP_ROOT/operator-attention.log"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation" "$fake_bin"
+  printf '<!doctype html><html><head><title>Plan X</title></head><body><h1>Plan X</h1></body></html>\n' >"$repo/thoughts/plans/x.html"
+  printf '<!doctype html><html><head><title>Plan Y</title></head><body><h1>Plan Y</h1></body></html>\n' >"$repo/thoughts/plans/y.html"
+  printf 'VERDICT: PLAN_EXECUTION_READY\n' >"$repo/thoughts/validation/plan-review.md"
+  cat >"$fake_bin/herdr-operator-attention" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$ATTENTION_LOG"
+exit "${ATTENTION_EXIT:-0}"
+SH
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+if [[ "$1" == "pane" && "$2" == "split" ]]; then
+  printf '{"result":{"pane":{"pane_id":"w-attn:p2"}}}\n'
+  exit 0
+fi
+if [[ "$1" == "agent" && "$2" == "start" ]]; then
+  echo 'synthetic launch failure' >&2
+  exit 9
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr-operator-attention" "$fake_bin/herdr"
+  local env_path="$fake_bin:$PATH"
+
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/plan-review.md --summary ready --reviewer planner \
+    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY >/dev/null
+
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
+    "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+
+  set +e
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
+    "$DELIVERY" --cwd "$repo" approve-implementation --source chat --summary approved >/dev/null 2>&1
+  local approve_code=$?
+  set -e
+  [[ "$approve_code" -ne 0 ]] || return 1
+  tail -1 "$attention_log" | rg -Fxq 'clear --pane w-attn:p1' || return 1
+
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
+    "$DELIVERY" --cwd "$repo" revoke-implementation-approval --reason feedback >/dev/null
+  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
+    "$DELIVERY" --cwd "$repo" blocker 'need auth decision' --mark-blocked >/dev/null
+  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind blocker --message need auth decision' || return 1
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
+    "$DELIVERY" --cwd "$repo" blocker --clear --stage EXECUTION_READY >/dev/null
+  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+
+  # A current approved state clears, then changing the plan path invalidates it and restores approval wait.
+  python3 - "$repo/.delivery/ledger.json" "$repo/thoughts/plans/x.html" <<'PY'
+import hashlib,json,sys
+path,plan=sys.argv[1:];d=json.load(open(path));d['implementationApproval'].update({'status':'approved','planSha256':hashlib.sha256(open(plan,'rb').read()).hexdigest()});json.dump(d,open(path,'w'),indent=2)
+PY
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
+    "$DELIVERY" --cwd "$repo" set --plan thoughts/plans/y.html >/dev/null
+  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+
+  # Fresh readiness records also revoke an otherwise current approval and reconcile immediately.
+  python3 - "$repo/.delivery/ledger.json" "$repo/thoughts/plans/y.html" <<'PY'
+import hashlib,json,sys
+path,plan=sys.argv[1:];d=json.load(open(path));d['implementationApproval'].update({'status':'approved','planSha256':hashlib.sha256(open(plan,'rb').read()).hexdigest()});json.dump(d,open(path,'w'),indent=2)
+PY
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
+    "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary refreshed >/dev/null
+  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
+    "$DELIVERY" --cwd "$repo" stage PLAN_BROWSER_REVIEW >/dev/null
+  tail -1 "$attention_log" | rg -Fxq 'clear --pane w-attn:p1' || return 1
+
+  local before_skip
+  before_skip="$(wc -l <"$attention_log")"
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 DELIVERY_SKIP_HERDR=1 \
+    "$DELIVERY" --cwd "$repo" stage PR_OPEN >/dev/null
+  [[ "$(wc -l <"$attention_log")" -eq "$before_skip" ]] || return 1
+}
+
 test_skill_doctrine_wording() {
   rg -q "guidance, not gates|Guidance, not gates|never hard-block|always exits 0" \
     "$ROOT/skills/delivery-run/SKILL.md" || return 1
@@ -1378,6 +1465,7 @@ run_test test_approval_cannot_bypass_readiness_request
 run_test test_execution_ready_requires_current_operator_approval
 run_test test_implementation_agent_launch_failures_are_not_ready
 run_test test_docs_use_labeled_tabs_not_pane_splits
+run_test test_operator_attention_reconciles_delivery_state
 run_test test_skill_doctrine_wording
 
 printf '\n%d/%d passed\n' "$TESTS_PASSED" "$TESTS_RUN"

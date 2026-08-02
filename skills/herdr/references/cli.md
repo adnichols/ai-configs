@@ -124,6 +124,16 @@ herdr pane report-metadata <pane_id> --source ID [--agent LABEL] [--applies-to-s
 
 `pane wait-output` searches the current snapshot immediately and then polls. `--regex` accepts Rust regular expressions. Without a timeout, it waits indefinitely.
 
+Ai-configs installs `herdr-operator-attention` as a workflow-facing wrapper around the reporting commands:
+
+```text
+herdr-operator-attention set --pane <id> --message <text> [--kind approval|blocker|password|generic] [--no-notify]
+herdr-operator-attention clear --pane <id>
+herdr-operator-attention status --pane <id>
+```
+
+Pane defaults to `HERDR_PANE_ID`. The fixed report identity is source `workflow:operator-attention`, agent `operator-wait`. The helper also maintains a SHA-256-named JSON marker so the authoritative Pi integration can report blocked without surrendering `herdr:pi` ownership. `set` notifies with request sound only for a new or changed message unless `--no-notify`; `clear` never notifies.
+
 ## Direct terminal commands
 
 The terminal group remains active even though it may not appear in abbreviated top-level help.

@@ -16,7 +16,7 @@ Commands: `/heddle:release`, `/heddle:release-resume`
 - Herdr-native panes
 - State in `~/.heddle-release/v{version}/` (outside git worktree — required for clean signed provenance)
 - Deterministic cut script (temp develop worktree)
-- Interactive gate TTY + watch script
+- Interactive gate TTY + watch script; `herdr-operator-attention` marks the stable work pane blocked while the 1Password gate is waiting and clears it on every outcome
 - Single flocked `npm ci` + `release:signed` with failure `build.json`
 - Auto-resume from cut/gate/build progress
 - Publish agent + Slack `#heddle-release`

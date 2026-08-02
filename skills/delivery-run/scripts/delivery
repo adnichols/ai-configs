@@ -197,6 +197,53 @@ def load_json(path: Path) -> dict[str, Any]:
         die(f"invalid JSON in {path}: {exc}")
 
 
+def sync_operator_attention(ledger: dict[str, Any]) -> None:
+    """Best-effort reconciliation of human-wait attention from resulting ledger state."""
+    if os.environ.get("DELIVERY_SKIP_HERDR", "").strip().lower() in {"1", "true", "yes"}:
+        return
+    pane_id = resolve_herdr_targets(ledger).get("paneId")
+    helper = shutil.which("herdr-operator-attention")
+    if not pane_id or not helper:
+        return
+
+    stage = str(ledger.get("stage") or "INTAKE")
+    command = [helper, "clear", "--pane", str(pane_id)]
+    if stage == "BLOCKED":
+        blockers = ledger.get("blockers") if isinstance(ledger.get("blockers"), list) else []
+        latest = blockers[-1] if blockers else None
+        message = latest.get("text") if isinstance(latest, dict) else None
+        command = [
+            helper, "set", "--pane", str(pane_id), "--kind", "blocker",
+            "--message", str(message or "Delivery blocked"),
+        ]
+    elif stage == "EXECUTION_READY":
+        root_value = ledger.get("worktree")
+        root = Path(root_value).resolve() if isinstance(root_value, str) and root_value else Path.cwd().resolve()
+        approval = ledger.get("implementationApproval") if isinstance(ledger.get("implementationApproval"), dict) else {}
+        current_hash = plan_sha256(ledger, root)
+        approval_valid = bool(
+            approval.get("status") == "approved"
+            and current_hash
+            and approval.get("planSha256") == current_hash
+        )
+        if not approval_valid:
+            command = [
+                helper, "set", "--pane", str(pane_id), "--kind", "approval",
+                "--message", "Approve implementation to continue",
+            ]
+
+    try:
+        subprocess.run(
+            command,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def write_json(path: Path, data: dict[str, Any], *, force_replace: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     is_ledger = path.name == LEDGER_REL.name and path.parent.name == LEDGER_REL.parent.name
@@ -254,6 +301,8 @@ def write_json(path: Path, data: dict[str, Any], *, force_replace: bool = False)
     finally:
         if ledger_fd is not None:
             fcntl.flock(ledger_fd, fcntl.LOCK_UN); os.close(ledger_fd)
+    if is_ledger:
+        sync_operator_attention(data)
 
 
 def git_capture(cwd: Path, *args: str) -> str | None:
@@ -3867,7 +3916,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_completion.set_defaults(func=cmd_completion_review)
 
     p_block = sub.add_parser("blocker", help="Add or clear blocker notes")
-    p_block.add_argument("text", nargs=argparse.REMAINDER)
+    p_block.add_argument("text", nargs="*")
     p_block.add_argument("--clear", action="store_true")
     p_block.add_argument("--mark-blocked", action="store_true", help="Also set stage=BLOCKED")
     p_block.add_argument("--stage", help="Stage to restore when clearing")
