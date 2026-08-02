@@ -194,6 +194,12 @@ const logPiVccError = (
 	logPiVccEvent(event, { ...data, error: err });
 };
 
+const STALE_EXTENSION_CONTEXT_PREFIX =
+	"This extension ctx is stale after session replacement or reload.";
+
+const isStaleExtensionContextError = (err: unknown): boolean =>
+	err instanceof Error && err.message.startsWith(STALE_EXTENSION_CONTEXT_PREFIX);
+
 const isPiVccLoaded = () => Boolean((globalThis as any)[PI_VCC_LOAD_MARKER]);
 
 const notifyMissingPiVcc = (ctx: ExtensionContext) => {
@@ -560,6 +566,17 @@ const publishContinuationSafetyReady = (
 
 export default function (pi: ExtensionAPI) {
 	let runtimeActive = true;
+	const ignoreStaleContextCallback = (
+		operation: string,
+		callback: () => void,
+	): void => {
+		try {
+			callback();
+		} catch (err) {
+			if (!isStaleExtensionContextError(err)) throw err;
+			logPiVccEvent("stale_context_callback_ignored", { operation });
+		}
+	};
 	let compactionInFlight = false;
 	let lastAutoCompactionPercent: number | undefined;
 	let lastNudgePercentBand: NudgeBand | undefined;
@@ -712,6 +729,14 @@ export default function (pi: ExtensionAPI) {
 			if (pending.timer) clearTimeout(pending.timer);
 			pendingNoCutContinuation = undefined;
 		} catch (err) {
+			if (isStaleExtensionContextError(err)) {
+				if (pending.timer) clearTimeout(pending.timer);
+				pendingNoCutContinuation = undefined;
+				logPiVccEvent("stale_context_callback_ignored", {
+					operation: "no_cut_continuation_delivery",
+				});
+				return;
+			}
 			pending.lastError = (err as Error).message;
 			const elapsed = Date.now() - pending.startedAt;
 			if (elapsed < NO_CUT_CONTINUATION_MAX_WAIT_MS) {
@@ -814,6 +839,14 @@ export default function (pi: ExtensionAPI) {
 			deliveredCompactionContinuationAttemptId = pending.attemptId;
 			pendingCompactionContinuation = undefined;
 		} catch (err) {
+			if (isStaleExtensionContextError(err)) {
+				if (pending.timer) clearTimeout(pending.timer);
+				pendingCompactionContinuation = undefined;
+				logPiVccEvent("stale_context_callback_ignored", {
+					operation: "compaction_continuation_delivery",
+				});
+				return;
+			}
 			pending.lastError = (err as Error).message;
 			const elapsed = Date.now() - pending.startedAt;
 			if (elapsed < COMPACTION_CONTINUATION_MAX_WAIT_MS) {
@@ -962,7 +995,8 @@ export default function (pi: ExtensionAPI) {
 		ctx.ui.notify(options.startMessage, "info");
 		ctx.compact({
 			customInstructions: options.customInstructions,
-			onComplete: () => {
+			onComplete: () =>
+				ignoreStaleContextCallback("compaction_complete", () => {
 				if (!runtimeActive || currentCompactionAttemptId !== attemptId) return;
 				if (options.ratchetPercent !== undefined)
 					lastAutoCompactionPercent = options.ratchetPercent;
@@ -1011,8 +1045,9 @@ export default function (pi: ExtensionAPI) {
 						publishSafetyReadyIfMatched();
 					}
 				}
-			},
-			onError: (err: Error) => {
+			}),
+			onError: (err: Error) =>
+				ignoreStaleContextCallback("compaction_error", () => {
 				if (!runtimeActive) return;
 				const ownsCurrentAttempt = currentCompactionAttemptId === attemptId;
 				const noCutReason =
@@ -1134,7 +1169,7 @@ export default function (pi: ExtensionAPI) {
 						publishSafetyReadyIfMatched();
 					}
 				}
-			},
+			}),
 		});
 		return true;
 	};
@@ -1147,18 +1182,20 @@ export default function (pi: ExtensionAPI) {
 			return false;
 		activeCompactionOwner = "pi-vcc";
 		scheduledPiVccCompaction = setTimeout(() => {
-			scheduledPiVccCompaction = undefined;
-			if (!runtimeActive) {
-				activeCompactionOwner = undefined;
-				return;
-			}
-			if (compactionInFlight) return;
-			if (activeCompactionOwner !== "pi-vcc") {
-				activeCompactionOwner = undefined;
-				return;
-			}
-			const started = triggerCompaction(ctx, options);
-			if (!started) activeCompactionOwner = undefined;
+			ignoreStaleContextCallback("scheduled_compaction", () => {
+				scheduledPiVccCompaction = undefined;
+				if (!runtimeActive) {
+					activeCompactionOwner = undefined;
+					return;
+				}
+				if (compactionInFlight) return;
+				if (activeCompactionOwner !== "pi-vcc") {
+					activeCompactionOwner = undefined;
+					return;
+				}
+				const started = triggerCompaction(ctx, options);
+				if (!started) activeCompactionOwner = undefined;
+			});
 		}, 0);
 		return true;
 	};

@@ -62,7 +62,10 @@ const setup = (
 	const actionOrder: string[] = [];
 	let runtimeValid = true;
 	const assertRuntimeValid = () => {
-		if (!runtimeValid) throw new Error("stale extension runtime used");
+		if (!runtimeValid)
+			throw new Error(
+				"This extension ctx is stale after session replacement or reload. Test runtime invalidated.",
+			);
 	};
 	let remainingSendMessageFailures = options.sendMessageThrows
 		? Number.POSITIVE_INFINITY
@@ -1806,6 +1809,75 @@ describe("percentage-compaction extension", () => {
 		await delay(0);
 
 		expect(h.compactCalls).toHaveLength(0);
+	});
+
+	test("late compaction cancellation ignores a stale context when shutdown cleanup loses the race", async () => {
+		const h = setup(80.2);
+		await h.handlers.turn_end?.(assistantStop, h.ctx);
+		await delay(0);
+		expect(h.compactCalls).toHaveLength(1);
+
+		h.invalidateRuntime();
+
+		expect(() =>
+			h.compactCalls[0].onError(new Error("Compaction cancelled")),
+		).not.toThrow();
+	});
+
+	test("late terminal cancellation ignores stale coordinator publication without shutdown cleanup", async () => {
+		const h = setup(20, true, { authority: "coordinator" });
+		await h.commands["compact-now"].handler("", h.ctx);
+		expect(h.compactCalls).toHaveLength(1);
+
+		h.invalidateRuntime();
+
+		expect(() =>
+			h.compactCalls[0].onError(new Error("Compaction cancelled")),
+		).not.toThrow();
+		expect(h.appendedEntries).toHaveLength(0);
+		expect(h.emittedEvents).toHaveLength(0);
+	});
+
+	test("late compaction completion ignores a stale context when shutdown cleanup loses the race", async () => {
+		const h = setup(80.2);
+		await h.handlers.turn_end?.(assistantStop, h.ctx);
+		await delay(0);
+		expect(h.compactCalls).toHaveLength(1);
+
+		h.invalidateRuntime();
+
+		expect(() => h.compactCalls[0].onComplete()).not.toThrow();
+	});
+
+	test("scheduled hard-backstop callback ignores a stale context when shutdown cleanup loses the race", async () => {
+		const h = setup(80.2);
+		await h.handlers.turn_end?.(assistantStop, h.ctx);
+		expect(h.compactCalls).toHaveLength(0);
+
+		h.invalidateRuntime();
+		await delay(0);
+
+		expect(h.compactCalls).toHaveLength(0);
+	});
+
+	test("queued continuation stops retrying after its captured runtime becomes stale", async () => {
+		const h = setup(80.2);
+		await h.handlers.turn_end?.(
+			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
+			h.ctx,
+		);
+		await delay(0);
+		expect(h.compactCalls).toHaveLength(1);
+
+		h.compactCalls[0].onError(new Error("Compaction cancelled"));
+		h.invalidateRuntime();
+		await delay();
+
+		expect(
+			h.sentMessages.filter(
+				(entry) => entry.message.customType === "pi-vcc-continuation",
+			),
+		).toHaveLength(0);
 	});
 
 	test("status reports nudge, strong, hard backstop, and last reason", async () => {
