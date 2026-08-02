@@ -2,7 +2,8 @@
 
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -37,6 +38,7 @@ process.env.HERDR_PI_RECONCILE_MS = "10";
 process.env.HERDR_PI_HEARTBEAT_MS = "0";
 process.env.HERDR_PI_SEND_RETRY_DELAY_MS = "1";
 process.env.HERDR_PI_BACKGROUND_PROCESS_IGNORE = "custom-idle";
+process.env.HERDR_OPERATOR_WAIT_DIR = path.join(tempDir, "operator-wait");
 delete process.env.HERDR_PI_BACKGROUND_PROCESS_MODE;
 delete process.env.HERDR_PI_COUNT_BACKGROUND_PROCESSES;
 
@@ -92,6 +94,31 @@ function lastState() {
   return stateReports().at(-1);
 }
 
+function lastStateReport() {
+  return reports.filter((report) => report.method === "pane.report_agent").at(-1);
+}
+
+const operatorMarkerPath = path.join(
+  process.env.HERDR_OPERATOR_WAIT_DIR,
+  `${createHash("sha256").update(process.env.HERDR_PANE_ID, "utf8").digest("hex")}.json`,
+);
+
+function operatorMarker(message, overrides = {}) {
+  return {
+    paneId: "test-pane",
+    message,
+    setAt: "2026-08-02T20:00:00Z",
+    kind: "generic",
+    notifyOnSet: true,
+    ...overrides,
+  };
+}
+
+async function writeOperatorMarker(value) {
+  await mkdir(process.env.HERDR_OPERATOR_WAIT_DIR, { recursive: true });
+  await writeFile(operatorMarkerPath, typeof value === "string" ? value : `${JSON.stringify(value)}\n`);
+}
+
 async function waitForState(state, timeoutMs = 1000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -137,6 +164,49 @@ function vccEntry(customType, state, transactionId = "vcc-test") {
 
 try {
   await pi.emit("session_start", { reason: "startup" }, ctx);
+  await waitForState("idle");
+
+  // A valid workflow-owned marker latches the authoritative Pi reporter blocked,
+  // both while Pi is otherwise idle and while a foreground turn is active.
+  await writeOperatorMarker(operatorMarker("Approve implementation", { kind: "approval" }));
+  await waitForState("blocked");
+  assert.equal(lastStateReport()?.params.message, "Approve implementation");
+  await pi.emit("agent_start", {}, ctx);
+  await delay(30);
+  assert.equal(lastState(), "blocked", "operator wait must outrank foreground working");
+  await pi.emit("agent_settled", {}, ctx);
+  await rm(operatorMarkerPath);
+  await waitForState("idle");
+
+  // Malformed and cross-pane markers fail open instead of blocking or throwing.
+  await writeOperatorMarker("{not json");
+  await delay(30);
+  assert.equal(lastState(), "idle");
+  await writeOperatorMarker(operatorMarker("wrong target", { paneId: "different-pane" }));
+  await delay(30);
+  assert.equal(lastState(), "idle");
+  for (const invalid of [
+    { paneId: "test-pane", message: "incomplete" },
+    operatorMarker("wrong kind", { kind: "other" }),
+    operatorMarker("wrong notify", { notifyOnSet: "yes" }),
+    operatorMarker("wrong time", { setAt: "yesterday" }),
+  ]) {
+    await writeOperatorMarker(invalid);
+    await delay(30);
+    assert.equal(lastState(), "idle", `schema-invalid marker must fail open: ${JSON.stringify(invalid)}`);
+  }
+  await rm(operatorMarkerPath);
+
+  // Existing nested Pi UI blocked ownership remains higher priority than the marker.
+  await writeOperatorMarker(operatorMarker("Workflow wait"));
+  await waitForState("blocked");
+  pi.events.emit("herdr:blocked", { active: true, label: "Pi UI: confirm" });
+  await delay(20);
+  assert.equal(lastStateReport()?.params.message, "Pi UI: confirm");
+  await rm(operatorMarkerPath);
+  await delay(20);
+  assert.equal(lastState(), "blocked", "removing marker must not clear nested Pi UI block");
+  pi.events.emit("herdr:blocked", { active: false, label: "Pi UI: confirm" });
   await waitForState("idle");
 
   // Pi reload keeps the same session reference. Releasing Herdr authority on

@@ -72,6 +72,19 @@ Agent states are `idle`, `working`, `blocked`, `done`, and `unknown`:
 
 Treat `idle` and `done` as settled. Focus and visibility can turn `done` into `idle`, so do not require only one of them unless the task specifically depends on attention state.
 
+### Signal workflow-owned operator waits
+
+Use the installed `herdr-operator-attention` helper when an authorized workflow needs human action outside Pi's own blocking UI, such as a password prompt on a shell pane or an execution-stage approval pause:
+
+```bash
+herdr-operator-attention set --pane <pane-id> --kind password --message "Enter password to continue"
+# run the interactive wait; always clear in finally/trap
+herdr-operator-attention clear --pane <pane-id>
+herdr-operator-attention status --pane <pane-id>
+```
+
+The helper writes a per-pane marker under `${HERDR_OPERATOR_WAIT_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/herdr-operator-wait}` for Pi's authoritative reporter and best-effort calls `pane report-agent` for shell-only panes. It uses fixed source `workflow:operator-attention` and agent `operator-wait`. Herdr CLI/socket failures do not fail the helper after marker I/O succeeds; marker write/delete failures remain non-zero. Prefer Pi's normal `ctx.ui` input/confirm methods when the interaction already lives inside Pi because the integration reports those blocks automatically.
+
 ### Start a supported agent
 
 Default to a sibling pane in the relevant tab and cwd. Do not create a workspace, tab, or worktree unless the user requests that topology.

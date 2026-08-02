@@ -170,6 +170,8 @@ delivery path
 Ledger path: `<worktree>/.delivery/ledger.json`  
 Board scan: cwd + `~/.herdr/worktrees/*/*/.delivery/ledger.json`
 
+Delivery reconciles operator attention from the resulting ledger after every write. `EXECUTION_READY` with no current implementation approval sets `herdr-operator-attention --kind approval`; an explicit `BLOCKED` stage uses the latest blocker text; approval, stage exit, or blocker clear derives and publishes the next state rather than relying on paired events. `DELIVERY_SKIP_HERDR=1` disables both attention and labels. Completeness review and advisory gaps are agent-owned work and never set operator-blocked attention.
+
 ## Stages
 
 ```text

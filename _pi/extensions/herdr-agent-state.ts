@@ -4,7 +4,7 @@
 // herdr asset; re-run `install.sh --pi` to restore this improved version.
 // add custom hooks/plugins beside this file instead of editing it.
 // HERDR_INTEGRATION_ID=pi
-// HERDR_INTEGRATION_VERSION=7
+// HERDR_INTEGRATION_VERSION=8
 // Pi-vcc continuation entries also count as working until their durable terminal
 // outcome is recorded, so compaction/recovery work never appears idle.
 // Background processes count as working by default. Set
@@ -13,6 +13,10 @@
 // name or command fragments that should remain idle.
 // @ts-nocheck
 
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { createConnection } from "node:net";
 
 const HERDR_ENV = process.env.HERDR_ENV;
@@ -35,6 +39,43 @@ function isHeadlessChildRuntime(): boolean {
 
 function enabled() {
   return HERDR_ENV === "1" && !!socketPath && !!paneId && !isHeadlessChildRuntime();
+}
+
+type OperatorWaitMarker = {
+  paneId: string;
+  message: string;
+  setAt: string;
+  kind: "approval" | "blocker" | "password" | "generic";
+  notifyOnSet: boolean;
+};
+
+const operatorWaitKinds = new Set(["approval", "blocker", "password", "generic"]);
+
+function operatorWaitMarker(): OperatorWaitMarker | undefined {
+  if (!paneId) {
+    return undefined;
+  }
+  const stateRoot = process.env.HERDR_OPERATOR_WAIT_DIR
+    || join(process.env.XDG_STATE_HOME || join(homedir(), ".local", "state"), "herdr-operator-wait");
+  const filename = `${createHash("sha256").update(paneId, "utf8").digest("hex")}.json`;
+  try {
+    const value = JSON.parse(readFileSync(join(stateRoot, filename), "utf8"));
+    if (
+      value?.paneId !== paneId
+      || typeof value?.message !== "string"
+      || typeof value?.setAt !== "string"
+      || !value.setAt.endsWith("Z")
+      || !Number.isFinite(Date.parse(value.setAt))
+      || !operatorWaitKinds.has(value?.kind)
+      || typeof value?.notifyOnSet !== "boolean"
+    ) {
+      return undefined;
+    }
+    return value as OperatorWaitMarker;
+  } catch {
+    // Workflow marker I/O is an attention aid and must never break Pi lifecycle reporting.
+    return undefined;
+  }
 }
 
 // sendRequest resolves with true on a successful round-trip and false on any
@@ -650,6 +691,10 @@ export default function (pi) {
     }
     if (failureBlocked) {
       return { state: "blocked" as const, message: failureMessage };
+    }
+    const operatorWait = operatorWaitMarker();
+    if (operatorWait) {
+      return { state: "blocked" as const, message: operatorWait.message };
     }
     if (agentActive || retryHoldActive || vccContinuationIds.size > 0) {
       return { state: "working" as const, message: undefined };

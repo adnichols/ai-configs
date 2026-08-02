@@ -1472,6 +1472,12 @@ sync_shared_skills() {
         echo "  - Installed delivery stage ledger CLI at ~/.agents/scripts/delivery and ~/.local/bin/delivery"
     fi
 
+    if [[ -f "$REPO_ROOT/skills/herdr/scripts/herdr-operator-attention" ]]; then
+        install -m 0755 "$REPO_ROOT/skills/herdr/scripts/herdr-operator-attention" "$HOME/.agents/scripts/herdr-operator-attention"
+        ln -sfn "$HOME/.agents/scripts/herdr-operator-attention" "$HOME/.local/bin/herdr-operator-attention"
+        echo "  - Installed Herdr operator-attention CLI at ~/.agents/scripts and ~/.local/bin"
+    fi
+
     echo "  - Syncing repo-managed shared skills from skills/ into ~/.agents/skills/..."
     while IFS=$'\t' read -r skill_name source_rel; do
         install_shared_skill "$skill_name" "$source_rel" "$shared_skills_dir"

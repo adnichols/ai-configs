@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Herdr operator-blocked attention for workflow waits</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero, section {
+      background: rgba(17, 24, 39, 0.84);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      margin: 16px 0;
+    }
+    header.hero {
+      background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12));
+    }
+    h1, h2, h3 { color: #f8fafc; line-height: 1.2; }
+    h1 { margin: 0 0 10px; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 18px 0 8px; color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: #0f172a; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); text-align: left; }
+    .pill {
+      display: inline-flex;
+      border: 1px solid rgba(251, 191, 36, 0.55);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--warn);
+      background: rgba(15, 23, 42, 0.76);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .pill.good {
+      border-color: rgba(52, 211, 153, 0.55);
+      color: var(--good);
+    }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    .toc a { color: var(--muted); text-decoration: none; }
+    .toc a:hover { color: var(--accent); }
+    .impact td:first-child { font-weight: 700; white-space: nowrap; }
+    .check { list-style: none; padding: 0; }
+    .check li { margin: 8px 0; }
+    .decision {
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      background: rgba(251, 191, 36, 0.08);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin: 12px 0;
+    }
+    .ok { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero" id="top">
+    <p class="pill good">Status: implementation complete — verified and reviewed</p>
+    <h1>Herdr operator-blocked attention for workflow waits</h1>
+    <p class="muted">
+      Slug: <code>herdr-operator-blocked-attention</code> ·
+      Worktree: <code>block-on-prompt</code> ·
+      Repo: <code>ai-configs</code>
+    </p>
+    <p>
+      Make Herdr tabs/panes report <code>blocked</code> whenever a workflow needs operator action —
+      password prompts, stage approvals, and other human waits — even when the coding agent itself
+      is still <code>working</code> or has settled to <code>idle</code> without asking through Pi UI.
+    </p>
+  </header>
+
+  <section id="toc" aria-label="Table of contents">
+    <h2>Contents</h2>
+    <div class="toc">
+      <a href="#product-owner-context">Product-owner context</a>
+      <a href="#whats-new">What's new</a>
+      <a href="#goal">Goal</a>
+      <a href="#decision-attention">Decision attention</a>
+      <a href="#why">Why this exists</a>
+      <a href="#authority">Authority and inputs</a>
+      <a href="#reality">Current reality</a>
+      <a href="#product-intent">Product intent</a>
+      <a href="#locked-decisions">Locked decisions</a>
+      <a href="#contracts">Contract inventory</a>
+      <a href="#acceptance">Acceptance criteria</a>
+      <a href="#bdd">BDD scenarios</a>
+      <a href="#progress">Progress</a>
+      <a href="#phase-p1">P1 Shared helper + Pi latch</a>
+      <a href="#phase-p2">P2 Delivery stage approvals</a>
+      <a href="#phase-p3">P3 Release/workflow call sites</a>
+      <a href="#phase-p4">P4 Docs + install</a>
+      <a href="#verification">Verification</a>
+      <a href="#delivery-order">Delivery order</a>
+      <a href="#non-goals">Non-goals</a>
+      <a href="#resume">Resume</a>
+      <a href="#log">Decisions / deviations</a>
+    </div>
+  </section>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <p>
+      Operators run multi-step agent workflows in Herdr. When a step needs a human — typing a
+      1Password password during release, or approving implementation after plan review — the tab
+      often keeps looking busy or idle. The person does not get the same attention signal Herdr
+      already uses for agent <code>blocked</code> (needs input). Work sits until someone notices
+      the quiet prompt.
+    </p>
+    <p>
+      <strong>Key conclusion:</strong> this is an operator-attention gap in our workflow stack, not
+      a Herdr product bug. Herdr already has <code>blocked</code> state and notifications. Our
+      delivery and release workflows do not set that state when <em>they</em> need a human, and Pi's
+      lifecycle reporter only marks blocked for Pi UI dialogs and hard failures — not chat-text
+      approval pauses or shell password prompts on sibling panes.
+    </p>
+    <table class="impact" id="impact-table">
+      <thead>
+        <tr><th>Area</th><th>Impact</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Customers</td>
+          <td>No external customer product change. Operator-facing Herdr attention improves for people running ai-configs workflows.</td>
+        </tr>
+        <tr>
+          <td>Runtime product behavior</td>
+          <td>Herdr pane/tab <code>agent_status</code> becomes <code>blocked</code> during defined operator waits; optional request notification; clears when the wait ends.</td>
+        </tr>
+        <tr>
+          <td>Security / permissions</td>
+          <td>No secret handling change. Password still typed in the existing interactive TTY. We only change attention signaling around that wait.</td>
+        </tr>
+        <tr>
+          <td>Testing / release confidence</td>
+          <td>Unit/contract tests for helper + Pi latch + delivery stage hooks; release workflow gets an explicit gate-wait call site.</td>
+        </tr>
+        <tr>
+          <td>Deployment / migration</td>
+          <td>Shipped via normal <code>install.sh</code> Pi/delivery install paths. No migration. Marker files are ephemeral runtime state outside git.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What's new</h2>
+    <p>
+      Today, Herdr <code>blocked</code> mostly means “the coding agent integration said it needs
+      input.” After this change, workflow orchestration can also own a temporary operator-wait
+      signal: password gates, execution-ready approval pauses, and explicit delivery blockers light
+      the same blocked attention path (and optionally a request notification), then clear it when
+      the human action completes or the wait is cancelled.
+    </p>
+    <p>
+      The mechanism is dual-path because live Herdr behavior requires it: a secondary
+      <code>report-agent</code> source <strong>cannot</strong> override a pane already owned by
+      <code>herdr:pi</code>, but it <strong>can</strong> mark a shell-only pane blocked and that
+      blocked pane bubbles to the tab even while another pane stays working. Pi-owned panes need a
+      latch the existing Pi extension honors inside its authoritative reporter.
+    </p>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>
+      When an ai-configs workflow needs operator action, the relevant Herdr tab reports
+      <code>blocked</code> (and preferably shows a short reason) until that action is done —
+      including cases where the agent is not itself reporting blocked.
+    </p>
+    <ul>
+      <li>Release gate password prompt on the stable work pane grabs attention.</li>
+      <li>Delivery <code>EXECUTION_READY</code> (and other true operator-approval pauses) grabs attention on the planning pane/tab.</li>
+      <li>Explicit <code>delivery blocker --mark-blocked</code> also sets Herdr blocked attention, not only the ledger stage label.</li>
+      <li>Clearing is reliable: no stuck blocked after approval, gate success/failure, or blocker clear.</li>
+    </ul>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <p class="muted">
+      No product decision is blocked on the operator for implementation to proceed. The dual-path
+      design is locked from live Herdr experiments in this worktree. Prior Sol findings on
+      reconciliation coverage, marker I/O exit codes, and invalid <code>node --check</code> for
+      heddle-release are locked closed in this revision.
+    </p>
+    <div class="decision" id="decision-none">
+      <strong>No Decision Required.</strong> Proceed with the recommended dual-path helper + Pi latch +
+      delivery/release wiring described below.
+    </div>
+  </section>
+
+  <section id="why">
+    <h2>Why this exists</h2>
+    <ul>
+      <li>Heddle release opens an interactive 1Password gate via <code>herdr pane run</code> on the stable work pane. That pane is a shell, not Pi UI, so <code>herdr-agent-state</code> never sees a password prompt.</li>
+      <li>Delivery pauses at <code>EXECUTION_READY</code> for explicit operator approval. Agents often ask in chat and settle to idle; idle does not attract attention like blocked.</li>
+      <li>Live check (2026-08-02): while Pi owns a pane as source <code>herdr:pi</code>, <code>herdr pane report-agent --source workflow:… --state blocked</code> leaves <code>agent_status</code> as Pi's state. On a shell-only pane, the same call sets <code>agent_status=blocked</code> and the tab becomes blocked even if a sibling Pi pane is working.</li>
+      <li>Pi already emits blocked for UI methods (<code>select</code>, <code>confirm</code>, <code>input</code>, <code>editor</code>, <code>custom</code>) via <code>herdr:blocked</code> events. That path is correct and must keep working; this plan extends the same attention outcome to workflow-owned waits.</li>
+    </ul>
+  </section>
+
+  <section id="authority">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>Operator request: use delivery workflow; set Herdr blocked on tabs needing operator action even if the agent is not blocked; password prompt example; also operator approval between stages.</li>
+      <li>Repo guidance: <code>AGENTS.md</code>, delivery skill doctrine (guidance not gates; blocked stage is for true human decisions).</li>
+      <li>Live Herdr CLI/API: <code>pane report-agent</code>, <code>pane release-agent</code>, <code>notification show --sound request</code>, tab <code>agent_status</code> aggregation.</li>
+      <li>Existing code: <code>_pi/extensions/herdr-agent-state.ts</code>, <code>tests/test_herdr_agent_state.mjs</code>, <code>skills/delivery-run/scripts/delivery</code>, <code>_pi/workflows/heddle-release.js</code>, <code>createHerdrAgentReporter</code> in pi-extensible-workflows (pattern reference only; we ship an ai-configs-owned helper).</li>
+    </ul>
+  </section>
+
+  <section id="reality">
+    <h2>Current implementation reality</h2>
+    <table>
+      <thead><tr><th>Surface</th><th>Today</th><th>Gap</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>herdr-agent-state.ts</code></td>
+          <td>Reports idle/working/blocked for Pi lifecycle; UI wrappers emit <code>herdr:blocked</code>; failure hold → blocked</td>
+          <td>No latch for external workflow operator-waits on the Pi-owned pane</td>
+        </tr>
+        <tr>
+          <td>Delivery CLI</td>
+          <td>Renames workspace/tab with phase codes; <code>BLOCKED</code> stage sets <code>B:</code> label; no <code>report-agent</code></td>
+          <td><code>EXECUTION_READY</code> and blockers do not set Herdr <code>agent_status=blocked</code></td>
+        </tr>
+        <tr>
+          <td>Heddle release</td>
+          <td>Interactive gate on work pane via <code>paneRunScript</code>; host watch polls verify-gate</td>
+          <td>Password wait is invisible to Herdr attention</td>
+        </tr>
+        <tr>
+          <td>pi-extensible-workflows <code>createHerdrAgentReporter</code></td>
+          <td>Can report state for workflow-owned panes under source <code>herdr:pi-extensible-workflows</code></td>
+          <td>Not installed as a shared operator-wait helper; does not pierce Pi authority</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <ul>
+      <li><strong>Golden path:</strong> needing a human automatically lights blocked attention; finishing the human step clears it without a separate remediation command.</li>
+      <li><strong>Safe defaults:</strong> Herdr CLI calls are best-effort and never fail the workflow; marker latch still works without <code>herdr</code> on PATH so Pi panes can block; delivery respects <code>DELIVERY_SKIP_HERDR</code>.</li>
+      <li><strong>Honest status:</strong> blocked means “operator action needed now,” not “agent crashed” and not delivery ledger quality gaps.</li>
+      <li><strong>Do not expand</strong> into automatic password detection heuristics or changing Herdr core binaries.</li>
+    </ul>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li id="lock-dual-path"><strong>Dual-path attention helper.</strong> One CLI both (a) writes a per-pane operator-wait marker that Pi's <code>herdr-agent-state</code> honors as blocked, and (b) best-effort calls <code>herdr pane report-agent --state blocked</code> with the fixed workflow source for shell/non-Pi panes. Clear removes the marker and best-effort <code>release-agent</code> for that same source/agent pair.</li>
+      <li id="lock-paths"><strong>Pinned paths.</strong> Source file <code>skills/herdr/scripts/herdr-operator-attention</code> (Python 3 or bash+python, executable). Install copies/links to <code>~/.agents/scripts/herdr-operator-attention</code> and <code>~/.local/bin/herdr-operator-attention</code> beside delivery (<code>install.sh</code> near the delivery install block ~1469). Tests: <code>tests/test_herdr_operator_attention.py</code> and extended <code>tests/test_herdr_agent_state.mjs</code>. Heddle gate wrapper test: <code>tests/test_heddle_release_operator_attention.mjs</code>.</li>
+      <li id="lock-source"><strong>Fixed source/agent labels only.</strong> Source <code>workflow:operator-attention</code>, agent <code>operator-wait</code>. No public <code>--source</code> override. Do not impersonate <code>herdr:pi</code>.</li>
+      <li id="lock-marker"><strong>Marker path and schema.</strong>
+        <ul>
+          <li>Directory: <code>${HERDR_OPERATOR_WAIT_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/herdr-operator-wait}</code></li>
+          <li>Filename: SHA-256 hex of the exact pane id UTF-8 bytes + <code>.json</code> (collision-free; no slash issues).</li>
+          <li>JSON fields: <code>paneId</code> (string, must equal target pane), <code>message</code> (string), <code>setAt</code> (ISO-8601 UTC), <code>kind</code> (string enum used by delivery: <code>approval</code> | <code>blocker</code> | <code>password</code> | <code>generic</code>), <code>notifyOnSet</code> (bool).</li>
+          <li>Pi reader: ignore missing file; ignore unreadable/malformed JSON; ignore when <code>paneId</code> ≠ current <code>HERDR_PANE_ID</code>; never throw from marker I/O.</li>
+        </ul>
+      </li>
+      <li id="lock-cli"><strong>CLI surface.</strong>
+        <pre>herdr-operator-attention set --pane &lt;id&gt; --message "…" [--kind generic] [--no-notify]
+herdr-operator-attention clear --pane &lt;id&gt;
+herdr-operator-attention status --pane &lt;id&gt;   # exit 0 with JSON; inactive → {"active":false}</pre>
+        Pane defaults to <code>HERDR_PANE_ID</code> when omitted.
+        <strong>Exit codes:</strong> usage errors (missing pane/message/unknown subcommand) → non-zero; authoritative marker I/O failure (cannot create dir, write JSON, or delete active marker) → non-zero with stderr explaining the path/error; successful marker write/delete with Herdr CLI/socket failures → exit 0 (Herdr is best-effort only). Delivery and Heddle callers treat any helper non-zero as best-effort (log/ignore; do not fail the primary command).
+      </li>
+      <li id="lock-idempotence"><strong>Idempotence and notifications.</strong>
+        <ul>
+          <li><code>set</code> with same pane + same message + already-active marker: no Herdr notification; still best-effort re-publish <code>report-agent blocked</code> (shell path) so state can recover; refresh <code>setAt</code> optional but message unchanged.</li>
+          <li><code>set</code> that creates a new marker or changes <code>message</code>: write marker; best-effort report-agent; notify once unless <code>--no-notify</code>.</li>
+          <li><code>clear</code> when inactive: no-op success (delete absent file OK); still best-effort release-agent.</li>
+          <li>Clear never notifies.</li>
+        </ul>
+      </li>
+      <li id="lock-herdr-missing"><strong>Missing Herdr CLI/socket vs marker I/O.</strong> When pane id is known, always attempt marker write/delete first. If marker I/O fails, helper exits non-zero (authoritative). If marker I/O succeeds, Herdr subprocesses are skipped or ignored on failure and the helper exits 0. Marker-only success is intentional so Pi-owned panes still latch blocked without <code>herdr</code> on PATH.</li>
+      <li id="lock-priority"><strong>Pi desiredState priority.</strong> After existing UI <code>blockedCount</code> and failure-blocked, honor operator-wait marker (still above working/idle). Message: UI block label if <code>blockedCount&gt;0</code>, else failure message, else marker message.</li>
+      <li id="lock-delivery-reconcile"><strong>Delivery uses state reconciliation, not one-shot event pairs.</strong>
+        <p>After every ledger mutation that can change stage, blockers, or implementation approval, call one function <code>sync_operator_attention(ledger)</code> (best-effort; no-op under <code>DELIVERY_SKIP_HERDR</code> or missing pane) that derives desired attention from the <em>resulting</em> ledger:</p>
+        <ol>
+          <li>If <code>stage == BLOCKED</code> OR there is at least one uncleared blocker entry while stage is <code>BLOCKED</code>: <code>set --kind blocker --message &lt;latest blocker text&gt;</code> (if blockers empty but stage BLOCKED, message <code>Delivery blocked</code>).</li>
+          <li>Else if <code>stage == EXECUTION_READY</code> AND implementation approval is not currently approved for the current plan fingerprint (pending/missing/stale/revoked): <code>set --kind approval --message "Approve implementation to continue"</code>.</li>
+          <li>Else: <code>clear</code>.</li>
+        </ol>
+        <p>Invoke <code>sync_operator_attention</code> after ledger fields update on <strong>every</strong> path that can change stage, blockers, implementation approval, or the plan fingerprint approval is bound to. Repo source-search baseline includes at least: <code>cmd_stage</code>; bootstrap/update/spawn paths that write a new stage; <code>approve_implementation_locked</code> / <code>start_implementation_locked</code> / revoke; <code>cmd_blocker</code> set and clear; <code>cmd_set</code> when <code>--plan</code> changes (calls <code>reset_implementation_approval</code> while stage may stay <code>EXECUTION_READY</code>); <code>cmd_record</code> when recording fresh <code>planReadinessRequest=pass</code> or changing plan path (both reset approval). During implementation, re-run <code>rg reset_implementation_approval skills/delivery-run/scripts/delivery</code> and wire any additional call sites — do not leave unlisted producers. Do not set operator-wait for completeness-review or quality advisories.</p>
+        <p>Required transition tests: enter EXECUTION_READY → set approval; approve → clear even if launch fails; revoke while still EXECUTION_READY → set approval again; blocker --mark-blocked → blocker wins; blocker --clear --stage EXECUTION_READY with approval pending → approval set again; leave EXECUTION_READY → clear; <strong>approved EXECUTION_READY then plan/readiness mutation via <code>delivery set --plan</code> or record that resets approval → approval wait restored</strong>; DELIVERY_SKIP_HERDR → no helper calls.</p>
+      </li>
+      <li id="lock-release"><strong>Heddle release open-gate.</strong> Extract a small testable helper (in the workflow file or <code>_pi/workflows/lib/operator-attention.js</code>) that shells out to <code>herdr-operator-attention</code>. Around interactive open-gate: <code>set --kind password</code> on <code>gatePaneId</code> before <code>paneRunScript</code>; <code>clear</code> in <code>finally</code> covering success, verify-fail return (~1168-1198), timeout, and thrown errors. Host Pi UI prompts stay on existing wrappers. No publish free-text expansion.</li>
+      <li id="lock-not-stage"><strong>Do not auto-move delivery stage to <code>BLOCKED</code></strong> for approval/password waits. Attention blocked ≠ ledger stage <code>BLOCKED</code>.</li>
+    </ol>
+  </section>
+
+  <section id="contracts">
+    <h2>Contract and distributed-integration inventory</h2>
+    <p>Exact contracts and multi-site behavior both apply.</p>
+    <table id="contract-table">
+      <thead>
+        <tr><th>Contract</th><th>Source of truth</th><th>Producers</th><th>Consumers</th><th>Cross-boundary proof</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Herdr <code>pane report-agent/release-agent</code> fixed source/agent/state/message</td>
+          <td>Installed herdr CLI + <code>skills/herdr/references/cli.md</code></td>
+          <td><code>skills/herdr/scripts/herdr-operator-attention</code></td>
+          <td>Herdr pane/tab <code>agent_status</code></td>
+          <td><code>python3 tests/test_herdr_operator_attention.py</code> with fake <code>herdr</code> on PATH</td>
+        </tr>
+        <tr>
+          <td>Marker file path = sha256(paneId)+.json; JSON schema fields</td>
+          <td>Helper writer (locked decisions)</td>
+          <td>Helper; delivery sync; heddle gate wrapper</td>
+          <td><code>herdr-agent-state.ts</code></td>
+          <td>Helper tests + extended <code>node tests/test_herdr_agent_state.mjs</code> (valid, mismatched paneId, malformed JSON, missing file)</td>
+        </tr>
+        <tr>
+          <td>Delivery desired-attention function of stage + approval + blockers</td>
+          <td><code>sync_operator_attention</code> in delivery CLI</td>
+          <td>All listed mutation sites</td>
+          <td>Helper set/clear</td>
+          <td><code>bash skills/delivery-run/tests/test_delivery_cli.sh</code> transition matrix</td>
+        </tr>
+        <tr>
+          <td>Env <code>HERDR_OPERATOR_WAIT_DIR</code>, <code>HERDR_PANE_ID</code>, <code>DELIVERY_SKIP_HERDR</code></td>
+          <td>This plan</td>
+          <td>Callers</td>
+          <td>Helper + Pi + delivery</td>
+          <td>Unit tests for override/skip</td>
+        </tr>
+        <tr>
+          <td>Install destinations ~/.agents/scripts + ~/.local/bin</td>
+          <td><code>install.sh</code> delivery pattern</td>
+          <td>install.sh</td>
+          <td>PATH users</td>
+          <td><code>bash tests/test_herdr_operator_attention_install.sh</code> sandboxed HOME</td>
+        </tr>
+      </tbody>
+    </table>
+    <h3>Distributed sites</h3>
+    <p>Source search basis: <code>rg</code> over <code>_pi/</code>, <code>skills/delivery-run/</code>, <code>skills/herdr/</code>, <code>install.sh</code>, <code>tests/</code> for report-agent, EXECUTION_READY, open-gate, herdr-agent-state, maybe_herdr_label.</p>
+    <table>
+      <thead><tr><th>Site / family</th><th>Required behavior</th><th>Proof</th><th>Coverage</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>skills/herdr/scripts/herdr-operator-attention</code></td>
+          <td>set/clear/status contracts above</td>
+          <td><code>python3 tests/test_herdr_operator_attention.py</code></td>
+          <td>exhaustive-by-site</td>
+        </tr>
+        <tr>
+          <td><code>_pi/extensions/herdr-agent-state.ts</code></td>
+          <td>marker latch in desiredState/reconcile; fail-open; headless skip</td>
+          <td><code>node tests/test_herdr_agent_state.mjs</code></td>
+          <td>exhaustive-by-site</td>
+        </tr>
+        <tr>
+          <td>Delivery mutation family (stage, bootstrap stage write, approve, revoke, blocker, cmd_set plan change, cmd_record readiness/plan resets, any other <code>reset_implementation_approval</code> site)</td>
+          <td><code>sync_operator_attention</code> after each</td>
+          <td><code>bash skills/delivery-run/tests/test_delivery_cli.sh</code></td>
+          <td>exhaustive-by-family</td>
+        </tr>
+        <tr>
+          <td>Heddle open-gate control flow</td>
+          <td>set before pane run; clear in finally for success/fail/timeout/throw</td>
+          <td><code>node tests/test_heddle_release_operator_attention.mjs</code> exercising exported/testable gate wrapper with mocks</td>
+          <td>justified representative (gate)</td>
+        </tr>
+        <tr>
+          <td>install.sh helper install</td>
+          <td>both destinations executable/linked</td>
+          <td><code>bash tests/test_herdr_operator_attention_install.sh</code></td>
+          <td>exhaustive-by-site</td>
+        </tr>
+      </tbody>
+    </table>
+    <p><strong>Coverage declaration:</strong> exhaustive for helper, Pi latch, delivery reconciliation family, install; justified representative for release gate via behavioral wrapper test (not grep-only).</p>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance criteria</h2>
+    <ol>
+      <li id="ac-1">A shared operator-attention helper can set and clear Herdr blocked attention for a target pane without requiring the coding agent to emit blocked itself.</li>
+      <li id="ac-2">On a Pi-owned pane, setting the helper while Pi would otherwise be idle/working results in Herdr <code>agent_status=blocked</code> via the Pi extension latch (not only metadata labels).</li>
+      <li id="ac-3">On a shell-only pane, setting the helper results in that pane <code>agent_status=blocked</code>, and a multi-pane tab becomes blocked when any pane is blocked.</li>
+      <li id="ac-4">Delivery <code>sync_operator_attention</code> sets approval wait on the planning pane whenever the resulting ledger is <code>EXECUTION_READY</code> with approval not currently valid; approve clears even if agent launch fails; revoke while still <code>EXECUTION_READY</code> restores approval wait.</li>
+      <li id="ac-5"><code>delivery blocker --mark-blocked</code> sets blocker attention; after <code>blocker --clear --stage EXECUTION_READY</code> with approval still pending, attention becomes approval wait again (not stuck clear).</li>
+      <li id="ac-6">Heddle release interactive open-gate sets blocked on the work pane before the password prompt and clears after gate open or gate failure (including failure/timeout paths).</li>
+    <li id="ac-9">Delivery does not treat completeness-review or other agent-owned waits as operator-blocked attention; only true human approval/blocker/password waits use the helper.</li>
+      <li id="ac-7">Delivery/Heddle never fail the primary workflow because operator-attention helper exits non-zero; direct helper still reports marker I/O failure with non-zero for honest CLI use; marker write/delete proceeds when Herdr CLI is missing; delivery honors <code>DELIVERY_SKIP_HERDR</code>.</li>
+      <li id="ac-8">Existing Pi UI blocked behavior and process/subagent working semantics remain green under <code>node tests/test_herdr_agent_state.mjs</code> and delivery CLI tests.</li>
+    </ol>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-shell-password">
+      <h3>Shell password wait (release gate)</h3>
+      <pre>Given a Herdr tab with a Pi shell pane and a shell-only work pane
+When the release workflow begins interactive open-gate on the work pane
+Then the work pane reports agent_status blocked with a password/operator message
+And the tab agent_status is blocked
+When the gate verifies open (or the gate phase fails)
+Then the operator-wait signal is cleared from the work pane</pre>
+    </article>
+    <article id="bdd-execution-ready">
+      <h3>Execution-ready approval pause</h3>
+      <pre>Given a delivery ledger advancing to EXECUTION_READY on a Pi-owned planning pane
+When stage becomes EXECUTION_READY and approval is not yet valid
+Then sync_operator_attention sets approval wait even if the agent later settles idle
+When the operator runs delivery approve-implementation
+Then attention clears even if the dedicated agent launch fails afterward
+When revoke-implementation-approval leaves stage EXECUTION_READY
+Then approval wait is set again</pre>
+    </article>
+    <article id="bdd-delivery-blocker">
+      <h3>Explicit delivery blocker vs approval</h3>
+      <pre>Given EXECUTION_READY with approval pending (approval wait active)
+When delivery blocker "need auth decision" --mark-blocked
+Then blocker message wins
+When delivery blocker --clear --stage EXECUTION_READY
+Then approval wait is restored because approval is still pending</pre>
+    </article>
+    <article id="bdd-pi-authority">
+      <h3>Pi authority is not stolen</h3>
+      <pre>Given a pane owned by herdr:pi
+When the helper sets operator-wait
+Then Pi remains the lifecycle authority source
+And blocked is achieved because herdr-agent-state reads the latch, not because a second source overwrote herdr:pi</pre>
+    </article>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="check">
+      <li><label><input type="checkbox" id="prog-p1" checked /> P1 — Shared helper + Pi operator-wait latch</label></li>
+      <li><label><input type="checkbox" id="prog-p2" checked /> P2 — Delivery EXECUTION_READY / approve / revoke / blocker wiring</label></li>
+      <li><label><input type="checkbox" id="prog-p3" checked /> P3 — Heddle release open-gate wiring</label></li>
+      <li><label><input type="checkbox" id="prog-p4" checked /> P4 — Install PATH + docs/skill notes</label></li>
+    </ul>
+  </section>
+
+  <section id="phase-p1">
+    <h2>P1 — Shared helper + Pi operator-wait latch</h2>
+    <h3>End State</h3>
+    <p>
+      <code>skills/herdr/scripts/herdr-operator-attention</code> implements the locked CLI/marker/idempotence contracts.
+      Pi <code>herdr-agent-state</code> latches blocked from a valid marker for its pane. Shell path best-effort reports blocked via fixed source.
+    </p>
+    <h3>Tests first</h3>
+    <ul>
+      <li><code>tests/test_herdr_operator_attention.py</code>: marker path sha256 mapping; set creates JSON; identical re-set does not notify; message change notifies once; clear removes; clear when absent ok; fake herdr captures report-agent/release-agent/notification argv; herdr binary missing still writes/deletes marker and exits 0; usage errors exit non-zero; simulated marker write failure and delete failure exit non-zero with stderr.</li>
+      <li>Extend <code>tests/test_herdr_agent_state.mjs</code>: marker present → blocked (idle and working agent paths); remove → idle when otherwise idle; mismatched paneId ignored; malformed JSON ignored; headless/rpc child never reports; UI <code>herdr:blocked</code> nesting still works with marker present.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>skills/herdr/scripts/herdr-operator-attention</code></li>
+      <li><code>_pi/extensions/herdr-agent-state.ts</code> (bump <code>HERDR_INTEGRATION_VERSION</code> comment)</li>
+      <li><code>tests/test_herdr_operator_attention.py</code></li>
+      <li><code>tests/test_herdr_agent_state.mjs</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Implement helper per locked CLI/marker/idempotence/missing-herdr decisions.</li>
+      <li>Pi extension: read marker in desiredState + reconcile; fail-open; keep headless guards.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>python3 tests/test_herdr_operator_attention.py
+node tests/test_herdr_agent_state.mjs</pre>
+  </section>
+
+  <section id="phase-p2">
+    <h2>P2 — Delivery state-derived operator attention</h2>
+    <h3>End State</h3>
+    <p>
+      Delivery calls <code>sync_operator_attention(ledger)</code> after every mutation that can change stage, blockers, or implementation approval,
+      so attention always matches the resulting ledger (including revoke-while-EXECUTION_READY and blocker-clear back to approval).
+    </p>
+    <h3>Tests first</h3>
+    <ul>
+      <li>Extend <code>skills/delivery-run/tests/test_delivery_cli.sh</code> with a fake <code>herdr-operator-attention</code> logger on PATH covering the locked transition matrix (approval set/clear/restore, blocker precedence, skip env, approve-then-failed-launch still clear, approved-then-<code>set --plan</code>/readiness-record restores approval wait).</li>
+    </ul>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>skills/delivery-run/scripts/delivery</code></li>
+      <li><code>skills/delivery-run/tests/test_delivery_cli.sh</code></li>
+      <li><code>skills/delivery-run/SKILL.md</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Implement <code>sync_operator_attention</code> using the precedence rules in locked decisions.</li>
+      <li>Call it from every mutation site listed (stage, bootstrap stage write, approve, start-implementation if needed, revoke, blocker set/clear, cmd_set plan change, cmd_record readiness/plan resets, and any other <code>reset_implementation_approval</code> hit) after ledger fields are updated.</li>
+      <li>Keep phase labels unchanged; do not auto-stage BLOCKED for approval waits.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>bash skills/delivery-run/tests/test_delivery_cli.sh</pre>
+  </section>
+
+  <section id="phase-p3">
+    <h2>P3 — Heddle release open-gate wiring</h2>
+    <h3>End State</h3>
+    <p>
+      Interactive open-gate sets password attention on the work pane and always clears via finally.
+      Gate success/failure remains driven by verify-gate, not helper exit codes.
+    </p>
+    <h3>Tests first</h3>
+    <ul>
+      <li><code>tests/test_heddle_release_operator_attention.mjs</code> imports a small exported/testable wrapper (extract from heddle-release if needed) and mocks helper + pane run to prove: set before run; clear on success; clear on failure return; clear on throw; clear on timeout simulation.</li>
+    </ul>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>_pi/workflows/heddle-release.js</code> (and optional <code>_pi/workflows/lib/operator-attention.js</code> if extraction keeps the workflow file cleaner)</li>
+      <li><code>tests/test_heddle_release_operator_attention.mjs</code></li>
+      <li><code>_pi/workflows/README.md</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Wire set/clear around interactive open-gate with try/finally.</li>
+      <li>Export or isolate the wrapper so the node test exercises real control flow with mocks (no full release e2e).</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>node tests/test_heddle_release_operator_attention.mjs</pre>
+  </section>
+
+  <section id="phase-p4">
+    <h2>P4 — Install PATH + docs</h2>
+    <h3>End State</h3>
+    <p>
+      Install places the helper beside delivery; docs describe dual-path, delivery sync, and release gate usage.
+    </p>
+    <h3>Tests first</h3>
+    <ul>
+      <li><code>tests/test_herdr_operator_attention_install.sh</code>: sandboxed HOME/tmp repo copy or targeted install function invocation that asserts both <code>$HOME/.agents/scripts/herdr-operator-attention</code> and <code>$HOME/.local/bin/herdr-operator-attention</code> exist and are executable after the install snippet runs (mirror delivery install test style if present; otherwise self-contained).</li>
+    </ul>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>install.sh</code></li>
+      <li><code>tests/test_herdr_operator_attention_install.sh</code></li>
+      <li><code>skills/herdr/SKILL.md</code>, <code>skills/herdr/references/cli.md</code> (brief)</li>
+      <li><code>_pi/README.md</code></li>
+      <li><code>skills/delivery-run/SKILL.md</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Add install next to delivery binary install (~1469).</li>
+      <li>Document CLI, marker dir, delivery reconciliation, release gate, and prefer-Pi-UI guidance.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3>
+    <p>None.</p>
+    <h3>Verify</h3>
+    <pre>bash tests/test_herdr_operator_attention_install.sh
+rg -n "herdr-operator-attention" install.sh skills/herdr _pi/README.md skills/delivery-run/SKILL.md</pre>
+  </section>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <pre># Required PR-bound suite
+python3 tests/test_herdr_operator_attention.py
+node tests/test_herdr_agent_state.mjs
+bash skills/delivery-run/tests/test_delivery_cli.sh
+node tests/test_heddle_release_operator_attention.mjs
+bash tests/test_herdr_operator_attention_install.sh
+rg -n "herdr-operator-attention" install.sh skills/herdr _pi/README.md skills/delivery-run/SKILL.md
+
+# Optional manual live smoke (not a PR gate)
+# herdr-operator-attention set --message "test" && herdr agent get "$HERDR_PANE_ID"
+# herdr-operator-attention clear
+</pre>
+    <p>
+      Live multi-pane smoke (manual): split shell pane, set blocked on shell pane, confirm tab
+      <code>agent_status=blocked</code> while Pi works; clear and close pane.
+    </p>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>P1 helper + Pi latch (foundation)</li>
+      <li>P2 delivery approval/blocker (primary “between stages” ask)</li>
+      <li>P3 release gate (named password example)</li>
+      <li>P4 install/docs</li>
+    </ol>
+    <p>Single PR-reviewable slice: all four phases. No post-merge deployment gate.</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Changing Herdr application source/binary behavior or tab aggregation rules.</li>
+      <li>Automatic detection of arbitrary TTY password prompts via screen scraping.</li>
+      <li>Moving delivery quality advisories to hard gates.</li>
+      <li>Auto-setting ledger stage <code>BLOCKED</code> for every operator wait.</li>
+      <li>Impersonating <code>herdr:pi</code> or releasing Pi agent authority to force state.</li>
+      <li>Reworking publish-agent prompt copy beyond optional later reuse of the helper.</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions</h2>
+    <ol>
+      <li>Read this plan and <code>.delivery/AGENT_BRIEF.md</code>.</li>
+      <li>Run <code>delivery show && delivery check -v</code>.</li>
+      <li>Continue from first unchecked Progress item.</li>
+      <li>After implementation approval, use run-plan; keep operator-attention clear/set invariants green in tests.</li>
+    </ol>
+  </section>
+
+  <section id="log">
+    <h2>Decisions / Deviations log</h2>
+    <table>
+      <thead><tr><th>When</th><th>Decision</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>2026-08-02</td>
+          <td>Dual-path helper (marker for Pi + report-agent for shell)</td>
+          <td>Live Herdr experiment: secondary source cannot override herdr:pi; shell report-agent works and bubbles to tab</td>
+        </tr>
+        <tr>
+          <td>2026-08-02</td>
+          <td>Include delivery EXECUTION_READY / blocker, not only release password</td>
+          <td>Operator clarified stage approvals must also grab attention</td>
+        </tr>
+        <tr>
+          <td>2026-08-02</td>
+          <td>Default notify with --sound request on set</td>
+          <td>Blocked alone may be missed if operator is in another app; notification is best-effort and opt-out</td>
+        </tr>
+        <tr>
+          <td>2026-08-02</td>
+          <td>Do not flip ledger stage to BLOCKED for approval/password waits</td>
+          <td>Stage BLOCKED means stuck decision; attention blocked is orthogonal glance state</td>
+        </tr>
+        <tr>
+          <td>2026-08-02</td>
+          <td>PM readiness pass: keep scope to true human waits; exclude completeness-review agent work; rely on existing Pi UI blocked for in-workflow select/prompt</td>
+          <td>Golden path is password gate + EXECUTION_READY approval + explicit blockers without over-signaling during agent-owned review panes</td>
+        </tr>
+        <tr>
+          <td>2026-08-02</td>
+          <td>Sol planner readiness: switch delivery to ledger-state reconciliation; lock marker/filename/idempotence/missing-herdr; pin exact test commands and install path</td>
+          <td>Addresses PLAN_NEEDS_REVISION blockers B1–B3 in thoughts/validation/herdr-operator-blocked-attention-plan-review.md</td>
+        </tr>
+        <tr>
+          <td>2026-08-02</td>
+          <td>Second Sol rereview fixes: cmd_set/cmd_record approval resets in sync inventory; marker I/O failure exit non-zero; drop invalid node --check on heddle-release.js</td>
+          <td>Repo evidence for reset_implementation_approval sites and top-level-await workflow format</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

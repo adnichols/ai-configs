@@ -275,6 +275,25 @@ async function paneRunScript(paneId, scriptPath, options = {}) {
     launchExitCode: launch.exitCode,
   };
 }
+async function bestEffortOperatorAttention(args) {
+  try {
+    await run(joinCmd(["herdr-operator-attention", ...args]));
+  } catch {
+    // Attention signaling must never change release gate success or failure.
+  }
+}
+
+async function withOperatorAttention({ paneId, message, kind = "generic", operation }) {
+  await bestEffortOperatorAttention([
+    "set", "--pane", paneId, "--kind", kind, "--message", message,
+  ]);
+  try {
+    return await operation();
+  } finally {
+    await bestEffortOperatorAttention(["clear", "--pane", paneId]);
+  }
+}
+
 async function startAgent(name, paneId) {
   const parts = [
     ...herdrArgs(["agent", "start", name, "--kind", agentKind, "--pane", paneId, "--timeout", "120000"]),
@@ -1132,10 +1151,21 @@ if (!skipGate) {
 
   const gateTimeoutMs = 45 * 60 * 1000;
   const gateStage = await parallel("open-gate-stage", {
-    interactiveOpen: async () => {
-      const result = await paneRunScript(gatePaneId, gateOpenScript, { timeoutMs: gateTimeoutMs });
-      return { paneId: gatePaneId, exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
-    },
+    interactiveOpen: async () => withOperatorAttention({
+      paneId: gatePaneId,
+      kind: "password",
+      message: "Enter 1Password password to open the release gate",
+      operation: async () => {
+        const result = await paneRunScript(gatePaneId, gateOpenScript, { timeoutMs: gateTimeoutMs });
+        return {
+          paneId: gatePaneId,
+          exitCode: result.exitCode,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          timedOut: result.timedOut,
+        };
+      },
+    }),
     hostWatch: async () => {
       const result = await run(joinCmd(["bash", gateWatchScript]), { timeoutMs: gateTimeoutMs + 60_000 });
       return { exitCode: result.exitCode, host: true };
