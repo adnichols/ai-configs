@@ -1037,8 +1037,102 @@ test_skill_doctrine_wording() {
   rg -q "operator-approval summary" "$ROOT/_pi/prompts/dev:reviewed-html-plan.md" || return 1
   rg -q 'in `EXECUTION_READY`, pause before product-code work' "$ROOT/_pi/prompts/delivery:run.md" || return 1
   rg -q 'except at `EXECUTION_READY`' "$ROOT/_pi/prompts/delivery:bootstrap.md" || return 1
+  rg -q "PLAN_TITLE" "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q "Untitled Plan" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
+  rg -q -- "--title" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
+  rg -q "YAML frontmatter" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
+  rg -q "Doct document / tree title" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
+  rg -qi "in-content plan title" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
 }
 
+test_plan_title_extraction_and_advisory() {
+  python3 - "$DELIVERY" <<'PY'
+import importlib.util, sys, tempfile
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+path = Path(sys.argv[1]).resolve()
+loader = SourceFileLoader("delivery_cli", str(path))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+assert spec is not None and spec.loader is not None
+mod = importlib.util.module_from_spec(spec)
+loader.exec_module(mod)
+with tempfile.TemporaryDirectory() as tmp:
+    root = Path(tmp)
+    good = root / "good.markdoc"
+    good.write_text("---\ntitle: Real Plan Title\nstatus: browser-review-draft\n---\n\n# Real Plan Title\n\n{% section id=\"goal\" title=\"Goal\" %}\nok\n{% /section %}\n", encoding="utf-8")
+    bad = root / "bad.markdoc"
+    bad.write_text("# Heading only is not enough\n\n## Goal\nDo stuff.\n", encoding="utf-8")
+    mismatch_md = root / "mismatch.markdoc"
+    mismatch_md.write_text("---\ntitle: Frontmatter Title\n---\n\n# Different Heading\n", encoding="utf-8")
+    html = root / "good.html"
+    html.write_text("<!doctype html><html><head><title>HTML Plan Title</title></head><body><h1>HTML Plan Title</h1></body></html>", encoding="utf-8")
+    mismatch_html = root / "mismatch.html"
+    mismatch_html.write_text("<!doctype html><html><head><title>Doc Title</title></head><body><h1>Body Title</h1></body></html>", encoding="utf-8")
+    assert mod.extract_plan_title(good) == "Real Plan Title"
+    h2_only = root / "h2-only.markdoc"
+    h2_only.write_text("---\ntitle: Correct title\n---\n\n## Goal\nBody.\n", encoding="utf-8")
+    assert mod.extract_plan_title(h2_only) == "Correct title"
+    assert mod.plan_title_problem({"plan": "h2-only.markdoc", "stage": "PLAN_BROWSER_REVIEW", "worktree": str(root)}, root) is None
+    assert mod.extract_plan_title(bad) is None
+    assert mod.extract_plan_title(html) == "HTML Plan Title"
+    assert mod.extract_plan_title(mismatch_html) is None
+    case_html = root / "case.html"
+    case_html.write_text("<!doctype html><html><head><title>Canonical Title</title></head><body><h1>canonical title</h1></body></html>", encoding="utf-8")
+    assert mod.extract_plan_title(case_html) is None
+    assert not mod.titles_match("Canonical Title", "canonical title")
+    assert mod.titles_match("Canonical  Title", "Canonical Title")
+    assert mod.extract_plan_title(mismatch_md) is None
+    assert mod.is_untitled_plan_title("Untitled Plan")
+    assert not mod.is_untitled_plan_title("Real Plan Title")
+    ledger_bad = {"plan": "bad.markdoc", "stage": "PLAN_BROWSER_REVIEW", "worktree": str(root)}
+    problem = mod.plan_title_problem(ledger_bad, root)
+    assert problem and "frontmatter" in problem.lower(), problem
+    ledger_mismatch = {"plan": "mismatch.html", "stage": "PLAN_BROWSER_REVIEW", "worktree": str(root)}
+    mprob = mod.plan_title_problem(ledger_mismatch, root)
+    assert mprob and "mismatched" in mprob.lower(), mprob
+    ledger_recorded = {
+        "plan": "good.html",
+        "stage": "PLAN_BROWSER_REVIEW",
+        "worktree": str(root),
+        "doctTitle": "Stale Doct Title",
+        "doctTitleSource": "doct",
+    }
+    rprob = mod.plan_title_problem(ledger_recorded, root)
+    assert rprob and "does not match" in rprob.lower(), rprob
+    # Content-derived planContentTitle alone must not invent Doct drift.
+    ledger_content_only = {
+        "plan": "good.html",
+        "stage": "PLAN_BROWSER_REVIEW",
+        "worktree": str(root),
+        "planContentTitle": "HTML Plan Title",
+    }
+    assert mod.plan_title_problem(ledger_content_only, root) is None
+    advisories = mod.build_advisories(ledger_bad, root)
+    codes = {a["code"] for a in advisories}
+    assert "PLAN_TITLE" in codes, advisories
+    ledger_good = {"plan": "good.markdoc", "stage": "PLAN_BROWSER_REVIEW", "worktree": str(root)}
+    assert mod.plan_title_problem(ledger_good, root) is None
+    codes_good = {a["code"] for a in mod.build_advisories(ledger_good, root)}
+    assert "PLAN_TITLE" not in codes_good, codes_good
+PY
+
+  local repo="$TMP_ROOT/plan-title-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  cat >"$repo/thoughts/plans/untitled.markdoc" <<'EOF'
+# Only a heading
+
+## Goal
+Missing frontmatter title.
+EOF
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --slug title-check --plan thoughts/plans/untitled.markdoc >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PLAN_BROWSER_REVIEW >/dev/null
+  local out
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" check --json)"
+  python3 -c 'import json,sys; d=json.loads(sys.argv[1]); codes={a["code"] for a in d.get("advisories") or []}; assert "PLAN_TITLE" in codes, d' "$out"
+}
+
+run_test test_plan_title_extraction_and_advisory
 run_test test_init_creates_ledger
 run_test test_record_receipts_coexist_and_validate
 run_test test_unprotected_stage_moves_without_gates

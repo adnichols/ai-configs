@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fix Untitled Plan titles in delivery workflow</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --good: #34d399;
+      --warn: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero, section {
+      background: rgba(17, 24, 39, 0.84);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      margin: 16px 0;
+    }
+    header.hero {
+      background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12));
+    }
+    h1, h2, h3 { color: #f8fafc; line-height: 1.2; }
+    h1 { margin: 0 0 10px; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 18px 0 8px; color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: #0f172a; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); text-align: left; }
+    .pill {
+      display: inline-flex;
+      border: 1px solid rgba(251, 191, 36, 0.55);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--warn);
+      background: rgba(15, 23, 42, 0.76);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+    .toc a { color: var(--muted); text-decoration: none; }
+    .toc a:hover { color: var(--text); }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: rgba(125, 211, 252, 0.08);
+      padding: 12px 14px;
+      border-radius: 0 12px 12px 0;
+      margin: 12px 0;
+    }
+    ul.progress { list-style: none; padding: 0; }
+    ul.progress li { padding: 6px 0; border-bottom: 1px solid rgba(44, 54, 79, 0.6); }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero" id="top">
+    <p class="pill">Status: implementation complete — delivery review through PR</p>
+    <h1>Fix Untitled Plan titles in delivery workflow</h1>
+    <p class="muted">Stop Doct browser-review drafts from rendering as <strong>Untitled Plan</strong> with empty Contents when delivery agents register Markdoc/HTML plans without a real title.</p>
+  </header>
+
+  <section id="toc">
+    <h2>Contents</h2>
+    <div class="toc">
+      <a href="#product-owner">Product-owner context</a>
+      <a href="#whats-new">What's new</a>
+      <a href="#goal">Goal</a>
+      <a href="#decision-attention">Decision Attention</a>
+      <a href="#why">Why this exists</a>
+      <a href="#authority">Authority and inputs</a>
+      <a href="#reality">Current reality</a>
+      <a href="#locked">Locked decisions</a>
+      <a href="#acceptance">Acceptance criteria</a>
+      <a href="#bdd">BDD scenarios</a>
+      <a href="#progress">Progress</a>
+      <a href="#phase-p1">P1 — Title contract</a>
+      <a href="#phase-p2">P2 — Delivery detection</a>
+      <a href="#phase-p3">P3 — Verification and PR</a>
+      <a href="#verification">Verification</a>
+      <a href="#non-goals">Non-goals</a>
+      <a href="#resume">Resume</a>
+      <a href="#log">Decisions / deviations</a>
+    </div>
+  </section>
+
+  <section id="product-owner">
+    <h2>Product-owner context</h2>
+    <p>When agents use the delivery workflow to publish a coding plan for browser review in Doct, reviewers sometimes land on a page titled <strong>Untitled Plan</strong> with <em>No section entries generated</em> in the Contents panel. The tree/document name can still look reasonable, but the plan chrome itself is empty of identity.</p>
+    <p><strong>Key conclusion:</strong> this is an agent-workflow / guidance defect in how plans are authored and registered, not a customer runtime product bug in Heddle. Operators and reviewers lose orientation; the plan content may still exist below the chrome.</p>
+    <table>
+      <thead><tr><th>Impact area</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>No change to end-user product apps.</td></tr>
+        <tr><td>Runtime product behavior</td><td>No change.</td></tr>
+        <tr><td>Security / permissions</td><td>No change.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Delivery CLI tests assert title extraction and <code>PLAN_TITLE</code> advisory.</td></tr>
+        <tr><td>Deployment / migration</td><td>Not applicable; ai-configs guidance + delivery CLI only.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What's new</h2>
+    <h3>Plans keep a real title through delivery → Doct</h3>
+    <p><strong>Promise:</strong> a delivery-published browser-review plan shows the human plan title in Doct chrome, not Untitled Plan.</p>
+    <p><strong>Before:</strong> agents could omit <code>--title</code> on <code>doct-agent plans register</code>, and Markdoc sources often lacked YAML frontmatter <code>title:</code>. Doct’s Markdoc compiler renders <code>frontmatter.title ?? "Untitled Plan"</code>, so chrome showed Untitled Plan and empty TOC when template section tags were also missing.</p>
+    <p><strong>After:</strong> one canonical title is written to source content (Markdoc frontmatter <code>title:</code> and matching heading, or HTML <code>&lt;title&gt;</code> <em>and</em> <code>&lt;h1&gt;</code>), passed as register <code>--title</code> (Doct document/tree name), and verified after register so chrome and sidebar never disagree. <code>delivery check</code> warns with <code>PLAN_TITLE</code> on missing, mismatched, or drifted titles.</p>
+    <p><strong>Preserved:</strong> guidance-not-gates doctrine (advisory only), existing stage authorization boundaries, and Doct registration/listener flow.</p>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Make delivery + planning + doct-document-ops guidance and the delivery CLI prevent Untitled Plan registrations: agents always pass a real title, Markdoc/HTML sources carry that title in the places Doct actually reads, and delivery surfaces a soft advisory when the recorded plan path would still publish untitled.</p>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <p><strong>No product decision required.</strong> Doct’s Markdoc chrome title source is confirmed in <code>lib/plan-review/markdoc.ts</code> (<code>frontmatter.title ?? "Untitled Plan"</code>). This change fixes the ai-configs / delivery agent side; a future Doct-side fallback from first heading remains optional and out of scope.</p>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>Screenshot evidence showed Status <code>browser-review-draft</code>, title <strong>Untitled Plan</strong>, and empty Contents during delivery browser review. Live delivery Markdoc sources (for example account-detail-add, signout-fix) started with a <code>#</code> heading and no frontmatter <code>title:</code>. Skill text previously said to add <code>--title</code> only when destination was specified, so agents skipped it.</p>
+  </section>
+
+  <section id="authority">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>Repo: <code>AGENTS.md</code>, delivery-run / doct-document-ops / planning-workflow / reviewed-html-plan / dev-plan skills</li>
+      <li>Doct compiler behavior: <code>lib/plan-review/markdoc.ts</code> title + TOC generation</li>
+      <li>doct-agent: <code>plans register --title</code>; title inference is weak (filename stem) and does not fix Markdoc chrome</li>
+      <li>Operator request: fix untitled titles; then use delivery workflow to review, complete, and open a PR</li>
+    </ul>
+  </section>
+
+  <section id="reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>skills/doct-document-ops/SKILL.md</code> now has a Plan title contract and required <code>--title</code> on register examples.</li>
+      <li><code>skills/delivery-run/scripts/delivery</code> extracts titles (Markdoc frontmatter required; HTML title/h1) and emits advisory <code>PLAN_TITLE</code>.</li>
+      <li>Cross-skill and prompt wording updated so register paths always include title.</li>
+      <li>Tests in <code>skills/delivery-run/tests/test_delivery_cli.sh</code> cover extraction + advisory.</li>
+    </ul>
+  </section>
+
+  <section id="locked">
+    <h2>Locked decisions</h2>
+    <ul>
+      <li><strong>D1:</strong> Markdoc browser chrome title comes from YAML frontmatter <code>title:</code>; a leading <code>#</code> heading alone is insufficient.</li>
+      <li><strong>D2:</strong> Always pass <code>doct-agent plans register --title</code>; do not rely on filename inference.</li>
+      <li><strong>D3:</strong> Delivery detection is advisory (<code>PLAN_TITLE</code>), not a hard stage gate.</li>
+      <li><strong>D4:</strong> No Doct product code change in this PR; ai-configs only.</li>
+    </ul>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance criteria</h2>
+    <ol>
+      <li id="ac-1"><strong>AC1 — Title contract documented:</strong> skills require one canonical title in source content, register <code>--title</code>, and Doct document metadata; retitles must update all sides.</li>
+      <li id="ac-2"><strong>AC2 — Detection:</strong> heading-only Markdoc, mismatched HTML <code>&lt;title&gt;</code>/<code>&lt;h1&gt;</code>, or recorded Doct title ≠ content each yield <code>PLAN_TITLE</code> on <code>delivery check --json</code>.</li>
+      <li id="ac-3"><strong>AC3 — Extraction:</strong> aligned Markdoc/HTML sources yield a canonical title; mismatched or heading-only sources yield none.</li>
+      <li id="ac-4"><strong>AC4 — Tests:</strong> <code>bash skills/delivery-run/tests/test_delivery_cli.sh</code> passes, including mismatch and drift cases.</li>
+      <li id="ac-5"><strong>AC5 — Self-consistent artifact:</strong> this plan’s <code>&lt;title&gt;</code>, <code>&lt;h1&gt;</code>, and register <code>--title</code> are the identical string; post-register Doct document title matches.</li>
+    </ol>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-1">
+      <h3>BDD1 — Heading-only Markdoc is flagged</h3>
+      <pre>Given a worktree ledger at PLAN_BROWSER_REVIEW
+And the recorded plan is Markdoc with only a # heading (no frontmatter title)
+When an agent runs delivery check --json
+Then advisories include code PLAN_TITLE
+And the message mentions frontmatter title / Untitled Plan</pre>
+    </article>
+    <article id="bdd-2">
+      <h3>BDD2 — Frontmatter title is accepted</h3>
+      <pre>Given a Markdoc plan with YAML title: Real Plan Title
+When extract_plan_title runs
+Then it returns "Real Plan Title"
+And plan_title_problem returns None</pre>
+    </article>
+    <article id="bdd-3">
+      <h3>BDD3 — Register guidance requires aligned titles</h3>
+      <pre>Given skills/doct-document-ops/SKILL.md
+When an agent follows the register recipes
+Then both HTML and Markdoc examples include --title '&lt;Plan Title&gt;'
+And guidance requires Doct document/tree title and in-content title to be the same string
+And Untitled Plan plus title drift are called out as failure modes</pre>
+    </article>
+    <article id="bdd-4">
+      <h3>BDD4 — HTML title/h1 mismatch is flagged</h3>
+      <pre>Given an HTML plan with &lt;title&gt;Doc Title&lt;/title&gt; and &lt;h1&gt;Body Title&lt;/h1&gt;
+When plan_title_problem runs
+Then it reports mismatched titles and extract_plan_title returns None</pre>
+    </article>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="progress">
+      <li><input type="checkbox" checked disabled /> P1 — Title contract in skills/prompts</li>
+      <li><input type="checkbox" checked disabled /> P2 — Delivery title extraction + PLAN_TITLE advisory + tests</li>
+      <li><input type="checkbox" checked disabled /> P3 — Delivery review gates, verification, commit, PR</li>
+    </ul>
+  </section>
+
+  <section id="phase-p1" class="phase">
+    <h2>P1 — Title contract in skills and prompts</h2>
+    <h3>End state</h3>
+    <p>Agents reading doct-document-ops / planning / delivery / reviewed-html-plan always pass a real title and author Markdoc/HTML titles correctly.</p>
+    <h3>Tests first</h3>
+    <p>Doctrine wording assertions in delivery CLI tests for Untitled Plan and <code>--title</code>.</p>
+    <h3>Expected files</h3>
+    <pre>skills/doct-document-ops/SKILL.md
+skills/doct-document-ops/references/doct-agent-commands.md
+skills/planning-workflow/SKILL.md
+skills/dev-plan/SKILL.md
+skills/reviewed-html-plan/SKILL.md
+skills/delivery-run/SKILL.md
+_pi/prompts/dev:reviewed-html-plan.md
+AGENTS.md</pre>
+    <h3>Work</h3>
+    <p>Document required <code>--title</code>, Markdoc frontmatter <code>title:</code>, HTML title/h1, and the Untitled Plan failure mode. Update register command tables/examples.</p>
+    <h3>Verify</h3>
+    <pre>rg -n "Untitled Plan|--title" skills/doct-document-ops/SKILL.md
+bash skills/delivery-run/tests/test_delivery_cli.sh</pre>
+  </section>
+
+  <section id="phase-p2" class="phase">
+    <h2>P2 — Delivery detection</h2>
+    <h3>End state</h3>
+    <p><code>delivery check</code> and plan set/record warn when the recorded plan would publish untitled.</p>
+    <h3>Tests first</h3>
+    <p>Unit-style Python assertions via delivery module import + JSON check fixture in test_delivery_cli.sh.</p>
+    <h3>Expected files</h3>
+    <pre>skills/delivery-run/scripts/delivery
+skills/delivery-run/tests/test_delivery_cli.sh</pre>
+    <h3>Work</h3>
+    <p>Add extract_plan_title / plan_title_problem / PLAN_TITLE advisory; warn on set/record --plan.</p>
+    <h3>Verify</h3>
+    <pre>bash skills/delivery-run/tests/test_delivery_cli.sh</pre>
+  </section>
+
+  <section id="phase-p3" class="phase">
+    <h2>P3 — Review, verify, PR</h2>
+    <h3>End state</h3>
+    <p>This plan is registered with a real title; implementation reviewed; PR opened against main.</p>
+    <h3>Work</h3>
+    <ul>
+      <li>Register this plan with matching <code>--title</code></li>
+      <li>Independent Sol-medium planner readiness on the plan/diff</li>
+      <li>Autoreview of the implementation</li>
+      <li>Herdr completeness review when applicable</li>
+      <li>Commit, push, open PR</li>
+    </ul>
+    <h3>Verify</h3>
+    <pre>bash skills/delivery-run/tests/test_delivery_cli.sh
+git diff --check
+gh pr create ...</pre>
+  </section>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ul>
+      <li>Primary: <code>bash skills/delivery-run/tests/test_delivery_cli.sh</code></li>
+      <li>Static: rg for required title wording in doct-document-ops and delivery script</li>
+      <li>Manual: confirm registered Doct plan chrome title is not Untitled Plan</li>
+    </ul>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Changing Doct server/compiler fallback behavior</li>
+      <li>Bulk-fixing historical untitled Doct documents</li>
+      <li>Making PLAN_TITLE a hard stage gate</li>
+      <li>Product app (Heddle/CCore) changes</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions</h2>
+    <ol>
+      <li>Read this plan and <code>delivery show</code></li>
+      <li>Confirm tests green</li>
+      <li>Continue P3 review → PR if not open</li>
+    </ol>
+  </section>
+
+  <section id="log">
+    <h2>Decisions / deviations log</h2>
+    <ul>
+      <li>2026-08-02: Implementation completed in driving session before formal delivery ledger; remaining work is review + PR under operator request to complete and open PR.</li>
+      <li>2026-08-02: Skip dedicated Sol-medium implementation agent launch because code is already landed; record implementation evidence and proceed through autoreview/completeness/PR.</li>
+      <li>2026-08-02: Planner readiness blocked once — <code>titles_match</code> was case-insensitive; fixed to exact identity after whitespace collapse so Doct document title and HTML content titles cannot drift by case.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

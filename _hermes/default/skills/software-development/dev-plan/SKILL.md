@@ -1,13 +1,13 @@
 ---
 name: dev-plan
-description: Materialize or update a single-file execution plan after discovery. For Aaron-facing plan requests, default to a Doct-registered HTML/Markdoc plan and start/verify the comment listener; do not use Markdown/text docs unless explicitly requested or repo guidance forbids HTML.
+description: Materialize or update a single-file execution plan after discovery, preferring Doct-backed registration for HTML plans through `doct-agent plans` on `https://doct.nodaste.com` when the plan is reviewer-facing. Planning-only work - synthesizes validated research into an actual execution plan without modifying product code.
 ---
 
 # Materialize Plan
 
 You are leaving read-only discovery mode and entering plan-materialization mode. This is still non-execution work: synthesize validated research into the actual execution plan file.
 
-For Aaron-facing work, the default plan artifact is a browser-reviewable HTML/Markdoc plan registered in Doct with `doct-agent plans`; this applies when Aaron says “create a plan” even if he does not explicitly say “HTML”. Determine the exact source path from repo-local guidance (`AGENTS.md`, `thoughts/plans/AGENTS.md`, local planning skills, or an existing plan path supplied by the user). Follow local HTML/Markdoc conventions exactly; do not create Markdown companions for an HTML-plan repo. If repo guidance does not define the active plan artifact format/path and the user did not supply an existing plan path, default to `thoughts/plans/<slug>.html` in a repo context or a temporary handcrafted HTML source for standalone planning. Do not ask which format to use unless Aaron explicitly requests a non-HTML format or repo guidance conflicts.
+This shared skill has no default plan file format. Determine the active plan artifact from repo-local guidance (`AGENTS.md`, `thoughts/plans/AGENTS.md`, local planning skills, or an existing plan path supplied by the user). Follow the local artifact format exactly; do not create markdown companions for an HTML-plan repo. If repo guidance does not define the active plan artifact format/path and the user did not supply an existing plan path, ask one targeted question and stop. Do not assume markdown.
 
 Treat this command as planning-only work even though normal file writes are available. You may inspect the repo and write the plan artifact, but you must not change product code, tests, app config, docs, generated files, or environment files.
 
@@ -29,7 +29,7 @@ Output: exactly one `plan_path`, resolved from repo-local guidance or an existin
 
 1. If arguments look like a path to an existing plan file, treat it as `plan_path`.
 2. Otherwise derive `slug` from arguments (lowercase, digits, hyphens only).
-3. Set `plan_path` to the repo's active HTML/Markdoc plan path from local guidance. If local guidance does not define one and the user did not supply an existing plan path, default to `thoughts/plans/<slug>.html` in a repo context or a temporary handcrafted HTML source for standalone planning. Do not infer or create Markdown unless Aaron explicitly requested Markdown/text/no Doct, or repo guidance explicitly forbids HTML/Markdoc.
+3. Set `plan_path` to the repo's active plan path from local guidance. If local guidance does not define one and the user did not supply an existing plan path, ask one targeted question and stop. Do not infer a markdown path.
 4. Ensure the parent directory for `plan_path` exists (create it if missing).
 
 ### 2) Re-establish Planning Context
@@ -41,7 +41,7 @@ Before writing the plan:
 3. Read `thoughts/plans/AGENTS.md` only if it exists for local planning overrides.
 4. If local guidance names an HTML plan contract, template, validator, or plan service, read those docs before writing and use the checked-in tooling they name.
 5. Load relevant skills:
-   - `doct-document-ops` before writing, registering, linking, updating, or monitoring any reviewer-facing `thoughts/plans/*.html` or `thoughts/plans/*.markdoc` artifact; use its Doct-backed `doct-agent plans` workflow against `https://doct.nodaste.com` for reviewer-facing HTML/Markdoc plans
+   - `doct-document-ops` before writing, registering, linking, updating, or monitoring any reviewer-facing `thoughts/plans/*.html` or `thoughts/plans/*.markdoc` artifact; use its Doct-backed `doct-agent plans` workflow against `https://doct.nodaste.com` for reviewer-facing plans, including the returned listener startup instructions after registration
    - `product-principles` when the plan affects workflows, defaults, onboarding, recovery behavior, error handling, architecture, or regression strategy; use it to define the golden path, self-healing expectations, fail-closed boundaries, agent-legible errors, and to audit repo guidance/tests for dissonance
    - `tdd-test-writer` when phases will depend on tests-first delivery
    - `dependency-selection` when introducing non-trivial functionality
@@ -90,10 +90,11 @@ Non-negotiable requirements:
 - `### Verify` steps are copy/paste ready and match actual repo reality
 - The plan is resumable by another agent without inventing missing semantics
 - Every implementation plan includes a near-top standalone product-owner context section before implementation history and technical detail. It explains the situation in plain language without assuming issue/Linear context, explains why the work is needed now, and makes the key conclusion unmistakable (especially runtime/customer defect versus stale test or operational evidence). It separately covers `Customers`, `Runtime product behavior`, `Security / permissions`, `Testing / release confidence`, and `Deployment / migration`, saying `No change` or `Not applicable` when a dimension is unaffected. Use a scannable impact table or equivalent structured block for non-trivial plans; lightweight plans must use at least concise labeled prose.
-- Follow the `planning-workflow` `What's new` contract after Product-owner context and before Goal; a heading or surrounding-section restatement is insufficient.
-- Follow the `planning-workflow` integration-integrity planning contract. When an exact untyped contract or distributed production behavior is found, include the Contract and distributed-integration inventory with source-search evidence; record `None identified, based on <source search>` when neither trigger applies.
+- Follow the canonical `planning-workflow` `What's new` contract: add the standalone section after Product-owner context and before Goal. Do not treat a heading or a restatement of surrounding sections as compliance.
+- Follow the canonical `planning-workflow` integration-integrity planning contract. When discovery finds an exact untyped contract or distributed production behavior, include the triggered Contract and distributed-integration inventory and its source-search evidence. Record `None identified, based on <source search>` when neither trigger applies; do not fabricate a richer inventory.
+- Apply the canonical conditional planning-evidence checkpoint. When exact-contract, distributed-behavior, or material-uncertainty triggers apply, place consumer/sibling evidence, moving-ground checks, falsification and production-path proof, residual risk, and expansion disposition in the existing plan sections where reviewers act on them. Do not require a standalone questionnaire.
 - If the plan is rendered or delivered as HTML/Markdoc, load `doct-document-ops` and use the standard reviewer layout: a dark-mode visual theme with an explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, and a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so the plan body keeps the full content width. Do not use a permanent left sidebar/rail for navigation or let the agent choose light mode or an alternate navigation layout.
-- If the plan is rendered, registered, linked, updated, or monitored as HTML/Markdoc, use `doct-document-ops` as the sole source for current Doct commands: auth/context checks, `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc>`, canonical Doct URLs, `plans update`, plan queue inspection, agent claims, ack/resolve, and final readiness/status updates.
+- If the plan is rendered, registered, linked, updated, or monitored as HTML/Markdoc, use `doct-document-ops` as the sole source for current Doct commands: auth/context checks, `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc> --title '<Plan Title>'`, returned `listenerInstructions`, listener startup before browser-review handoff, canonical Doct URLs, `plans update`, plan queue inspection, agent claims, ack/resolve, and final readiness/status updates. Never register without `--title`. Markdoc plans need matching frontmatter `title:`; HTML plans need matching `<title>`/`<h1>`.
 - Every user-facing HTML plan URL must be the canonical Doct URL from `https://doct.nodaste.com`; do not share local `plan-review`, loopback, or Tailscale service URLs unless the user explicitly requested a legacy local review service.
 - For product-facing work, the plan explicitly documents the default workflow, inferred defaults, self-healing expectations, fail-closed boundaries, actionable agent-legible error guidance, and any repo-doc/test updates needed to stay aligned
 - When a repo uses a reviewed-plan flow, the plan assumes explicit handoff to the canonical continuation named in repo-local guidance rather than hidden recovery paths.
@@ -104,7 +105,7 @@ Non-negotiable requirements:
 
 Before finishing:
 - The product-owner context stands alone, appears before implementation history/technical detail, explains why now, states the key conclusion, and covers all five impact dimensions at complexity-appropriate depth
-- `What's new` follows Product-owner context and precedes Goal with a distinct audience-visible product delta
+- `What's new` follows Product-owner context and precedes Goal, with distinct content that satisfies the canonical `planning-workflow` contract
 - Every acceptance criterion has at least one phase `### Verify` item
 - Every progress checkbox corresponds to a phase header
 - Phase ordering and naming is consistent
@@ -114,7 +115,7 @@ Before finishing:
 
 ## Forbidden Actions
 
-- Do not create a new execution todo list after the plan is complete
+- Do not create a new execution task list after the plan is complete
 - Do not switch into build, run, or implementation mode
 - Do not edit any file except `plan_path` unless scope is explicitly broadened
 - Do not run lint, tests, build, e2e, migrations, or other execution-oriented verification

@@ -32,10 +32,11 @@ doct-agent plans register \
   --file "$ARGUMENTS" \
   --source-format html \
   --allow-untemplated \
+  --title '<Plan Title>' \
   --json
 ```
 
-For Markdoc plans, use `--source-format markdoc` and omit `--allow-untemplated` unless the CLI/template guidance says otherwise.
+For Markdoc plans, use `--source-format markdoc` and omit `--allow-untemplated` unless the CLI/template guidance says otherwise. `--title` is required and must match the plan content title (HTML `<title>`+`<h1>`, or Markdoc frontmatter `title:`).
 
 3. Parse the registration JSON and preserve:
 - canonical Doct URL (`reviewUrl` or `documentUrl` resolved against `https://doct.nodaste.com`)

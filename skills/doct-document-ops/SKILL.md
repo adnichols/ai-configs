@@ -69,8 +69,8 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 | Add a text-doc comment thread | `doct-agent collab comments add --document-id <id> --selected-text '...' --body '...'` |
 | List / reply / resolve text-doc comments | `doct-agent collab comments <list\|reply\|resolve\|unresolve> --document-id <id>` |
 | Initialize a plan source | `doct-agent plans init --output thoughts/plans/<plan>.markdoc [--template <template>] [--plan-config <file>] --json` |
-| Register an HTML plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --json` |
-| Register a Markdoc plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --json` |
+| Register an HTML plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --title '<Plan Title>' --json` |
+| Register a Markdoc plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --title '<Plan Title>' --json` |
 | Update a registered plan | `doct-agent plans update --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --source-format html --expected-version <version> --json` |
 | Show a registered plan | `doct-agent plans show --id <document-id> --json` |
 | Watch/sync a plan source file | `doct-agent plans watch --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --json` |
@@ -142,6 +142,64 @@ Reviewer-friendly structure:
 - Acceptance criteria and BDD scenarios have stable IDs, for example `id="ac-1"` and `id="bdd-retry-timeout"`.
 - Add short context near diagrams and images so comments on visual elements are meaningful to the agent.
 
+## Plan title contract (required)
+
+Doct has **two** titles that reviewers see, and they must be the **same string**:
+
+1. **Doct document / tree title** — set by `doct-agent plans register --title` (and repairable with `documents update-metadata --title` / `documents rename --title`).
+2. **In-content plan title** — Markdoc YAML frontmatter `title:` (rendered into plan chrome / H1) or HTML `<title>` **and** top-level `<h1>`.
+
+Never leave one fixed and the other stale. Filename stem inference is not a title.
+
+**Failure modes to prevent:**
+
+- Browser-review draft showing **Untitled Plan** with **No section entries generated** (missing Markdoc frontmatter `title:` / section tags; Doct renders `frontmatter.title ?? "Untitled Plan"`).
+- Doct sidebar/document name saying one thing while the plan body H1/chrome says another (register `--title` drifted from content, or only one side was updated).
+
+### Canonical title (one string, three places)
+
+Pick one concise human title (issue key optional), for example `NOD-1285 — Show signed-in Heddle account identity`. Write that **exact** string into every place below before handoff:
+
+| Surface | Where |
+|---------|--------|
+| Source content | Markdoc: YAML `title:`. HTML: both `<title>` and top-level `<h1>`. If Markdoc also has a leading `#` heading, it must match `title:`. |
+| Register CLI | `doct-agent plans register ... --title '<Plan Title>'` sets the Doct document/tree title. |
+| Doct document metadata | Created from `--title` on register. After any retitle, confirm with `documents get --id <id> --json` and repair with `documents update-metadata --id <id> --title '<Plan Title>'` (and `documents rename` when the tree label must move). `plans update` syncs plan **body/source only** and does **not** accept `--title`. |
+
+### Before every `plans register`
+
+1. Choose the canonical title.
+2. **Write it into the source first** (frontmatter and/or `<title>`+`<h1>`), not only the CLI flag.
+3. **Always** pass the same string as `--title '<Plan Title>'` on **register**. Do not rely on filename stem inference; it neither fixes Markdoc chrome nor guarantees document/content alignment.
+4. For later body-only edits use `plans update` **without** `--title`. If the human title itself changes, update source title(s), then repair Doct with `documents update-metadata --title` (and rename if needed). Re-register with `--title` only when creating a replacement document.
+5. **Markdoc** example:
+
+```markdoc
+---
+title: NOD-1285 — Show signed-in Heddle account identity
+status: browser-review-draft
+executionReady: false
+planId: account-detail-add
+templateId: default-execution-plan
+templateVersion: 1
+templateSchemaVersion: 1
+surfaces:
+  - src/app/...
+---
+
+# NOD-1285 — Show signed-in Heddle account identity
+```
+
+   A leading `# Heading` alone is **not** enough for Markdoc browser review. Prefer `doct-agent plans init` or the repo's default-execution-plan template so `{% section id="..." title="..." %}` / `{% phase %}` tags populate the Contents TOC.
+6. **HTML** must set **both** `<title>…</title>` and a visible top-level `<h1>…</h1>` to that same string, then pass `--title` on register.
+7. **After registration or retitle**, verify alignment:
+   - `documents get --id <id> --json` → `title` equals the canonical string
+   - Plan source still has the same string in frontmatter / `<title>` / `<h1>`
+   - Browser chrome is not Untitled Plan and does not disagree with the tree name
+8. **If anything is wrong**, fix **all** sides in one pass: edit source title(s) → `plans update` (body/source sync only; no `--title` flag) or re-register with `--title` → `documents update-metadata --title` (and rename if needed) so Doct metadata matches. Do not “fix” only the HTML body or only the Doct tree name.
+9. After register/retitle, record the verified Doct title into the delivery ledger with `delivery set --doct-title '<Plan Title>'` (from `documents get`). `delivery check` emits `PLAN_TITLE` when source titles are missing/mismatched, or when an explicitly recorded Doct title (`doctTitleSource=doct`) disagrees with content. It does **not** invent Doct drift from a local content snapshot alone.
+10. Delivery runs: fix `PLAN_TITLE` before browser-review handoff.
+
 ## Register reviewer-facing plans
 
 From the repo that owns the plan, register with `doct-agent plans register`.
@@ -154,6 +212,7 @@ doct-agent plans register \
   --file thoughts/plans/<plan>.html \
   --source-format html \
   --allow-untemplated \
+  --title '<Plan Title>' \
   --json
 ```
 
@@ -164,10 +223,11 @@ doct-agent plans register \
   --base-url https://doct.nodaste.com \
   --file thoughts/plans/<plan>.markdoc \
   --source-format markdoc \
+  --title '<Plan Title>' \
   --json
 ```
 
-Add `--title '<Plan Title>'`, `--workspace <workspace-slug-or-id>`, `--workspace-id <id>`, `--path '<path>'`, or `--parent-id <id>` only when repo guidance or the user specifies a destination. Otherwise use the CLI defaults. Use `--allow-untemplated` for handcrafted HTML plans. Do not use it for normal Markdoc template/config-backed plans unless the CLI or repo guidance says the plan is intentionally untemplated.
+`--title '<Plan Title>'` is **required** on every registration (and should match Markdoc frontmatter `title:` / HTML `<title>`+`<h1>`). Add `--workspace <workspace-slug-or-id>`, `--workspace-id <id>`, `--path '<path>'`, or `--parent-id <id>` only when repo guidance or the user specifies a destination; otherwise use the CLI defaults for those fields. Use `--allow-untemplated` for handcrafted HTML plans. Do not use it for normal Markdoc template/config-backed plans unless the CLI or repo guidance says the plan is intentionally untemplated. Untemplated Markdoc still requires frontmatter `title:` and `--title`.
 
 Parse the JSON and preserve at least:
 

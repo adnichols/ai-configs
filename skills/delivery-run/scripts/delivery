@@ -427,8 +427,8 @@ def refresh_git_fields(ledger: dict[str, Any], root: Path) -> None:
     ledger["worktree"] = str(root)
 
 
-def plan_sha256(ledger: dict[str, Any], root: Path) -> str | None:
-    """Return the recorded plan's current content hash, or None when unavailable."""
+def resolve_plan_path(ledger: dict[str, Any], root: Path) -> Path | None:
+    """Return the recorded plan path when it is a readable file inside the worktree."""
     raw_plan = ledger.get("plan")
     if not isinstance(raw_plan, str) or not raw_plan.strip():
         return None
@@ -442,7 +442,267 @@ def plan_sha256(ledger: dict[str, Any], root: Path) -> str | None:
         return None
     if not candidate.is_file():
         return None
+    return candidate
+
+
+def plan_sha256(ledger: dict[str, Any], root: Path) -> str | None:
+    """Return the recorded plan's current content hash, or None when unavailable."""
+    candidate = resolve_plan_path(ledger, root)
+    if candidate is None:
+        return None
     return hashlib.sha256(candidate.read_bytes()).hexdigest()
+
+
+_UNTITLED_PLAN_TITLES = {
+    "",
+    "untitled",
+    "untitled plan",
+    "untitled document",
+    "plan",
+    "new plan",
+}
+
+
+def _first_markdown_heading(text: str) -> str | None:
+    """Return the first ATX H1 only (a line starting with exactly one #)."""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") and not stripped.startswith("##"):
+            heading = stripped[1:].strip()
+            if heading:
+                return heading
+    return None
+
+
+def _frontmatter_title(text: str) -> str | None:
+    if not text.startswith("---"):
+        return None
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for line in lines[1:]:
+        stripped = line.strip()
+        if stripped == "---":
+            break
+        if stripped.startswith("#") or ":" not in stripped:
+            continue
+        key, value = stripped.split(":", 1)
+        if key.strip() != "title":
+            continue
+        title = value.strip().strip("'\"")
+        return title or None
+    return None
+
+
+def _normalize_plan_title(title: str | None) -> str | None:
+    if title is None:
+        return None
+    cleaned = re.sub(r"\s+", " ", title).strip()
+    return cleaned or None
+
+
+def _html_document_title(text: str) -> str | None:
+    match = re.search(r"<title[^>]*>(.*?)</title>", text, flags=re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    return _normalize_plan_title(match.group(1))
+
+
+def _html_h1_title(text: str) -> str | None:
+    match = re.search(r"<h1[^>]*>(.*?)</h1>", text, flags=re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    inner = re.sub(r"<[^>]+>", "", match.group(1))
+    return _normalize_plan_title(inner)
+
+
+def _html_title(text: str) -> str | None:
+    """Aligned HTML title when <title> and first <h1> agree; else prefer <title>."""
+    doc_title = _html_document_title(text)
+    h1_title = _html_h1_title(text)
+    if doc_title and h1_title and titles_match(doc_title, h1_title):
+        return doc_title
+    return doc_title or h1_title
+
+
+def is_untitled_plan_title(title: str | None) -> bool:
+    cleaned = _normalize_plan_title(title)
+    if cleaned is None:
+        return True
+    return cleaned.casefold() in _UNTITLED_PLAN_TITLES
+
+
+def titles_match(left: str | None, right: str | None) -> bool:
+    """Exact identity after whitespace normalization (case-sensitive).
+
+    Doct document title, register --title, and in-content titles must be the
+    same human string. Collapse runs of whitespace so incidental wrapping does
+    not create false drift, but do not treat case variants as equal.
+    """
+    a = _normalize_plan_title(left)
+    b = _normalize_plan_title(right)
+    if a is None or b is None:
+        return False
+    return a == b
+
+
+def analyze_plan_title(path: Path, text: str | None = None) -> dict[str, Any]:
+    """Inspect plan source titles that must stay aligned with Doct document metadata.
+
+    Canonical human title sources by format:
+    - Markdoc: YAML frontmatter ``title:`` (chrome); optional first ``#`` heading must match
+    - HTML: both ``<title>`` and top-level ``<h1>`` must exist and match each other
+    - Markdown: frontmatter title or first heading
+
+    The same canonical string must be passed as ``doct-agent plans register --title``
+    so the Doct document/tree title matches in-content plan chrome.
+    """
+    source = text if text is not None else path.read_text(encoding="utf-8", errors="replace")
+    suffix = path.suffix.lower()
+    frontmatter = _frontmatter_title(source)
+    heading = _first_markdown_heading(source)
+    html_title = _html_document_title(source)
+    html_h1 = _html_h1_title(source)
+    parts = {
+        "frontmatter": frontmatter,
+        "heading": heading,
+        "htmlTitle": html_title,
+        "htmlH1": html_h1,
+    }
+
+    if suffix == ".markdoc":
+        canonical = frontmatter
+        problem = None
+        if is_untitled_plan_title(canonical):
+            problem = (
+                f"Markdoc plan {path.as_posix()} is missing a non-empty YAML frontmatter "
+                "title: field. Doct renders browser-review chrome as 'Untitled Plan' without it; "
+                "add `title: <Plan Title>` under the opening --- frontmatter and pass the same "
+                "value as `doct-agent plans register --title '<Plan Title>'` so the Doct document "
+                "title matches the plan contents."
+            )
+        elif heading and not titles_match(canonical, heading):
+            problem = (
+                f"Markdoc plan {path.as_posix()} frontmatter title {canonical!r} does not match "
+                f"first heading {heading!r}. Align frontmatter title, leading # heading, and "
+                f"`doct-agent plans register --title` to the same string so Doct document title "
+                "and plan contents stay identical."
+            )
+            canonical = None
+        return {"canonical": canonical, "parts": parts, "problem": problem}
+
+    if suffix in {".html", ".htm"}:
+        problem = None
+        if is_untitled_plan_title(html_title) and is_untitled_plan_title(html_h1):
+            problem = (
+                f"HTML plan {path.as_posix()} is missing a usable <title> and <h1>. Set both to "
+                "the same human title and pass that exact string as "
+                "`doct-agent plans register --title '<Plan Title>'` so the Doct document title "
+                "matches the plan contents."
+            )
+            canonical = None
+        elif is_untitled_plan_title(html_title):
+            problem = (
+                f"HTML plan {path.as_posix()} is missing a usable <title> tag. Set <title> to "
+                f"match the visible <h1> ({html_h1!r}) and pass the same string as "
+                "`doct-agent plans register --title`."
+            )
+            canonical = None
+        elif is_untitled_plan_title(html_h1):
+            problem = (
+                f"HTML plan {path.as_posix()} is missing a usable top-level <h1>. Set <h1> to "
+                f"match <title> ({html_title!r}) and pass the same string as "
+                "`doct-agent plans register --title`."
+            )
+            canonical = None
+        elif not titles_match(html_title, html_h1):
+            problem = (
+                f"HTML plan {path.as_posix()} has mismatched titles: <title>={html_title!r} vs "
+                f"<h1>={html_h1!r}. Doct document title comes from register --title while plan "
+                "chrome shows the in-content heading — set <title>, <h1>, and "
+                "`doct-agent plans register --title` to one identical string."
+            )
+            canonical = None
+        else:
+            canonical = html_title
+        return {"canonical": canonical, "parts": parts, "problem": problem}
+
+    if suffix in {".md", ".markdown"}:
+        canonical = frontmatter or heading
+        problem = None
+        if is_untitled_plan_title(canonical):
+            problem = (
+                f"plan {path.as_posix()} has no usable title. Set frontmatter title or a leading "
+                "# heading and pass the same string as register --title."
+            )
+            canonical = None
+        elif frontmatter and heading and not titles_match(frontmatter, heading):
+            problem = (
+                f"plan {path.as_posix()} frontmatter title {frontmatter!r} does not match first "
+                f"heading {heading!r}. Align both with register --title."
+            )
+            canonical = None
+        return {"canonical": canonical, "parts": parts, "problem": problem}
+
+    canonical = frontmatter or heading or html_title or html_h1
+    problem = None
+    if is_untitled_plan_title(canonical):
+        problem = (
+            f"plan {path.as_posix()} has no usable title (found {canonical!r}). Set a real "
+            "content title and pass the same value as `doct-agent plans register --title`."
+        )
+        canonical = None
+    return {"canonical": canonical, "parts": parts, "problem": problem}
+
+
+def extract_plan_title(path: Path, text: str | None = None) -> str | None:
+    """Canonical plan title when source titles are present and aligned."""
+    value = analyze_plan_title(path, text).get("canonical")
+    return value if isinstance(value, str) else None
+
+
+def plan_title_problem(ledger: dict[str, Any], root: Path) -> str | None:
+    """Explain when the recorded plan would publish untitled or with mismatched titles."""
+    candidate = resolve_plan_path(ledger, root)
+    if candidate is None:
+        return None
+    try:
+        text = candidate.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return f"recorded plan is unreadable: {candidate}"
+    analysis = analyze_plan_title(candidate, text)
+    problem = analysis.get("problem")
+    if isinstance(problem, str) and problem.strip():
+        return problem
+    title = analysis.get("canonical")
+    if is_untitled_plan_title(title if isinstance(title, str) else None):
+        return (
+            f"plan {candidate.as_posix()} has no usable title "
+            f"(found {title!r}). Align content title(s) and always pass "
+            "`doct-agent plans register --title '<Plan Title>'` so the Doct document title "
+            "matches the plan contents."
+        )
+    # Optional: compare an explicitly recorded Doct document title (never auto-copied
+    # from local content — that would make drift checks tautological).
+    labels = ledger.get("labels") if isinstance(ledger.get("labels"), dict) else {}
+    doct_title = ledger.get("doctTitle") or labels.get("doctTitle")
+    source = ledger.get("doctTitleSource") or labels.get("doctTitleSource")
+    if (
+        isinstance(doct_title, str)
+        and doct_title.strip()
+        and source == "doct"
+        and isinstance(title, str)
+        and not titles_match(doct_title, title)
+    ):
+        return (
+            f"Doct document title {doct_title!r} does not match plan content title "
+            f"{title!r} in {candidate.as_posix()}. Keep one canonical string: edit source "
+            "title(s), pass the same value as `doct-agent plans register --title`, then repair "
+            "metadata with `doct-agent documents update-metadata --id <id> --title '<Plan Title>'` "
+            "(and rename if the tree label must move). `plans update` syncs source body only and "
+            "does not accept --title."
+        )
+    return None
 
 
 def plan_readiness_request_problem(ledger: dict[str, Any], root: Path) -> str | None:
@@ -1309,6 +1569,39 @@ def cmd_set(args: argparse.Namespace) -> int:
             reset_implementation_approval(ledger, "recorded plan path changed")
             reset_implementation_profile(ledger, "recorded plan path changed")
         ledger["plan"] = plan
+        title_problem = plan_title_problem(ledger, root)
+        if title_problem:
+            print(f"warning: {title_problem}", file=sys.stderr)
+        else:
+            if plan:
+                plan_path = Path(plan).expanduser()
+                if not plan_path.is_absolute():
+                    plan_path = root / plan_path
+                canonical = extract_plan_title(plan_path)
+                if canonical:
+                    ledger["planContentTitle"] = canonical
+                    labels = ledger.setdefault("labels", {})
+                    if isinstance(labels, dict):
+                        labels["planContentTitle"] = canonical
+
+    if getattr(args, "doct_title", None) is not None:
+        doct_title = (args.doct_title or "").strip() or None
+        prev = ledger.get("doctTitle")
+        if prev != doct_title:
+            changes.append(f"doctTitle: {prev!r} -> {doct_title!r}")
+        ledger["doctTitle"] = doct_title
+        labels = ledger.setdefault("labels", {})
+        if isinstance(labels, dict):
+            if doct_title:
+                labels["doctTitle"] = doct_title
+                labels["doctTitleSource"] = "doct"
+            else:
+                labels.pop("doctTitle", None)
+                labels.pop("doctTitleSource", None)
+        if doct_title:
+            ledger["doctTitleSource"] = "doct"
+        else:
+            ledger.pop("doctTitleSource", None)
 
     if args.doct_url is not None:
         url = args.doct_url.strip() or None
@@ -1353,13 +1646,14 @@ def cmd_set(args: argparse.Namespace) -> int:
             args.issue is not None,
             args.plan is not None,
             args.doct_url is not None,
+            getattr(args, "doct_title", None) is not None,
             args.pr_url is not None,
             args.slug is not None,
             args.id is not None,
             args.retarget_id,
         ]
     ):
-        die("nothing to set; pass --issue, --plan, --doct-url, --pr-url, --slug, --id, and/or --retarget-id")
+        die("nothing to set; pass --issue, --plan, --doct-url, --doct-title, --pr-url, --slug, --id, and/or --retarget-id")
 
     if changes:
         append_history(ledger, "set", "; ".join(changes))
@@ -1515,6 +1809,19 @@ def cmd_record(args: argparse.Namespace) -> int:
             reset_implementation_approval(ledger, "recorded plan path changed")
             reset_implementation_profile(ledger, "recorded plan path changed")
         ledger["plan"] = args.plan
+        title_problem = plan_title_problem(ledger, root)
+        if title_problem:
+            print(f"warning: {title_problem}", file=sys.stderr)
+        else:
+            plan_path = Path(args.plan)
+            if not plan_path.is_absolute():
+                plan_path = root / plan_path
+            canonical = extract_plan_title(plan_path)
+            if canonical:
+                ledger["planContentTitle"] = canonical
+                labels = ledger.setdefault("labels", {})
+                if isinstance(labels, dict):
+                    labels["planContentTitle"] = canonical
 
     append_history(ledger, "record", f"{key}={status}", key=key, status=status)
     refresh_git_fields(ledger, root)
@@ -1905,18 +2212,28 @@ def cmd_blocker(args: argparse.Namespace) -> int:
     return 0
 
 
-def build_advisories(ledger: dict[str, Any]) -> list[dict[str, str]]:
+def build_advisories(
+    ledger: dict[str, Any], root: Path | None = None
+) -> list[dict[str, str]]:
     stage = str(ledger.get("stage") or "INTAKE")
     advisories: list[dict[str, str]] = []
     evidence = ledger.get("evidence") or {}
+    worktree = root
+    if worktree is None:
+        raw_worktree = ledger.get("worktree")
+        worktree = Path(raw_worktree) if isinstance(raw_worktree, str) and raw_worktree.strip() else Path.cwd()
 
     def add(code: str, message: str, severity: str = "info") -> None:
         advisories.append({"code": code, "severity": severity, "message": message})
 
     add("NEXT", STAGE_NEXT_SKILL.get(stage, "No mapped next skill"), "info")
 
+    title_problem = plan_title_problem(ledger, worktree)
+    if title_problem and stage not in {"INTAKE", "DONE"}:
+        add("PLAN_TITLE", title_problem, "warn")
+
     if stage == "EXECUTION_READY":
-        approval_problem = implementation_approval_problem(ledger, Path(ledger.get("worktree") or Path.cwd()))
+        approval_problem = implementation_approval_problem(ledger, worktree)
         if approval_problem:
             add(
                 "IMPLEMENTATION_APPROVAL",
@@ -1999,7 +2316,7 @@ def build_advisories(ledger: dict[str, Any]) -> list[dict[str, str]]:
 def cmd_check(args: argparse.Namespace) -> int:
     path, ledger, root = load_ledger_for(args)
     refresh_git_fields(ledger, root)
-    advisories = build_advisories(ledger)
+    advisories = build_advisories(ledger, root)
     ledger["advisories"] = advisories
     ledger["updatedAt"] = utc_now()
     # Persist latest advisories for board visibility; never fail on gaps.
@@ -2890,7 +3207,8 @@ def cmd_reflect(args: argparse.Namespace) -> int:
 def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
     stage = str(ledger.get("stage") or "INTAKE")
     next_step = STAGE_NEXT_SKILL.get(stage, "delivery check -v")
-    advisories = build_advisories(ledger)
+    root = Path(ledger.get("worktree") or path.parent.parent)
+    advisories = build_advisories(ledger, root)
     warn_lines = [
         f"- [{a.get('code')}] {a.get('message')}"
         for a in advisories
@@ -3182,7 +3500,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     brief_path.write_text(brief + "\n", encoding="utf-8")
     ledger["agentBrief"] = str(brief_path)
-    ledger["advisories"] = build_advisories(ledger)
+    ledger["advisories"] = build_advisories(ledger, root)
     append_history(
         ledger,
         "bootstrap",
@@ -3329,6 +3647,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_set.add_argument("--plan", help="Plan path")
     p_set.add_argument("--doct-url", help="Doct plan URL")
+    p_set.add_argument("--doct-title", help="Doct document/tree title from documents get; must match plan content title")
     p_set.add_argument("--pr-url", help="PR URL")
     p_set.add_argument("--slug", help="Slug label when no issue yet")
     p_set.add_argument("--id", help="Explicit ledger id override")
