@@ -18,9 +18,11 @@ printf '%s\n' "$*" >> "$HERDR_TEST_CALLS"
 case "$1 $2" in
   "config check")
     grep -q '^previous_tab = \["prefix+p", "alt+\["\]$' "$HERDR_CONFIG_PATH"
-    grep -q '^key = "prefix+<"$' "$HERDR_CONFIG_PATH"
+    grep -q '^rename_tab = "prefix+<"$' "$HERDR_CONFIG_PATH"
+    grep -q '^key = "prefix+shift+t"$' "$HERDR_CONFIG_PATH"
     grep -q '^command = "herdr-navigator.open"$' "$HERDR_CONFIG_PATH"
-    ! grep -q '^rename_tab =' "$HERDR_CONFIG_PATH"
+    ! grep -q '^key = "prefix+<"$' "$HERDR_CONFIG_PATH"
+    ! grep -q '^command = "fullerzz.sesh.open-picker"$' "$HERDR_CONFIG_PATH"
     ;;
   "plugin list")
     case "$(cat "$HERDR_TEST_PLUGIN_STATE" 2>/dev/null || true)" in
