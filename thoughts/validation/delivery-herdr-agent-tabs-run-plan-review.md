@@ -1,7 +1,7 @@
 # Scoped implementation review — cycle 1
 
 - Reviewer: active-harness `reviewer` (GPT-5.6 Terra, medium per repository agent profile)
-- Target: live worktree `/Users/anichols/.herdr/worktrees/ai-configs/delivery-use-tabs`
+- Target: live worktree `<worktree-root>`
 - Base: `origin/main`
 - Review source: target live worktree, including dirty and untracked files
 - Executable verification: not run by reviewer; coordinator evidence inspected only

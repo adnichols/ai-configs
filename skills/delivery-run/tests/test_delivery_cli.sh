@@ -244,6 +244,50 @@ assert r["tabId"] == "w1:t9"
 PY
 }
 
+test_completion_review_rerun_rejects_legacy_record_without_tab() {
+  local repo="$TMP_ROOT/completion-tab-legacy-rerun-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-completion-legacy-rerun"
+  local herdr_log="$TMP_ROOT/fake-herdr-completion-legacy-rerun.log"
+  local out code
+  prepare_completion_review_repo "$repo"
+  mkdir -p "$fake_bin"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1]
+d=json.load(open(path))
+d["completenessReview"]={
+    "status":"pending",
+    "agentName":"completeness-legacy",
+    "paneId":"w1:p9",
+    "requestId":"legacy-request",
+    "round":1,
+}
+json.dump(d,open(path,"w"),indent=2)
+PY
+  set +e
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+    "$DELIVERY" --cwd "$repo" completion-review --rerun 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no tab metadata.*without --rerun.*fresh labeled tab" || return 1
+  [[ ! -s "$herdr_log" ]] || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+r=json.load(open(sys.argv[1]))["completenessReview"]
+assert r["requestId"] == "legacy-request"
+assert r["round"] == 1
+assert "tabId" not in r
+PY
+}
+
  test_agent_tab_create_failure_paths() {
   local repo="$TMP_ROOT/agent-tab-failure-repo"
   local fake_bin="$TMP_ROOT/fake-herdr-agent-tab-failure"
@@ -1168,6 +1212,10 @@ test_docs_use_labeled_tabs_not_pane_splits() {
     "$ROOT/_pi/prompts/delivery:bootstrap.md"
     "$ROOT/AGENTS.md"
   )
+  local file
+  for file in "${corpus[@]}"; do
+    [[ -f "$file" ]] || return 1
+  done
   ! rg -n "visible adjacent|adjacent visible|splits an adjacent|[Ss]plits the driving pane|adjacent Herdr pane|adjacent pane|pane[[:space:]]+split" "${corpus[@]}" || return 1
   rg -q "labeled.*tab|tab create" "$ROOT/skills/delivery-run/SKILL.md" || return 1
   rg -q "labeled.*tab|tab create" "$ROOT/skills/supervise/SKILL.md" || return 1
@@ -1304,6 +1352,7 @@ run_test test_record_and_show
 run_test test_completion_review_dry_run_uses_tab_create
 run_test test_completion_review_launch_creates_labeled_tab
 run_test test_completion_review_rerun_reuses_tab
+run_test test_completion_review_rerun_rejects_legacy_record_without_tab
 run_test test_agent_tab_create_failure_paths
 run_test test_merge_ready_requires_validated_completeness_review
 run_test test_accepted_completeness_review_allows_merge_ready_only_while_fresh

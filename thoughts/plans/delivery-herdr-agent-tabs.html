@@ -240,7 +240,7 @@
       <li><strong>Workspace resolution:</strong> prefer <code>resolve_herdr_targets().workspaceId</code>; if missing, <code>herdr pane get &lt;source_pane&gt;</code> and read <code>result.pane.workspace_id</code>. Fail with an actionable error if still unknown.</li>
       <li><strong>Failure contract:</strong> missing workspace after pane-get, missing <code>root_pane.pane_id</code>, missing <code>tab.tab_id</code>, or non-JSON herdr output → die with agent-legible text stating what failed, what was tried, and the next action (supply <code>--pane</code> / restore Herdr workspace context). <strong>Never</strong> fall back to <code>pane split</code>.</li>
       <li><strong>Scope includes supervise docs:</strong> update supervise skill to the same tab pattern for consistency (manual skill, not delivery CLI).</li>
-      <li><strong>No auto-close:</strong> do not close agent tabs automatically when stages advance; leave cleanup to the operator/Herdr.</li>
+      <li><strong>Completion-review lifecycle exception:</strong> delivery completeness review is a durable, named multi-round workflow that reuses the recorded tab for <code>--rerun</code>, rather than one leg of <code>scripts/review_orchestration.py</code>. The delivery coordinator records the tab ID but intentionally does not auto-close it after acceptance; the operator owns cleanup in Herdr. Reviewers never close their own tabs. This exception preserves the transcript and does not change the parent-owned cleanup contract for interactive-reviewer orchestration.</li>
       <li><strong>Tests-first sequencing:</strong> each production change phase writes its failing CLI tests before production code; Phase 4 is full-suite + corpus only.</li>
     </ol>
   </section>
@@ -407,9 +407,9 @@ And no agent start is attempted without a pane id</pre>
     </ul>
     <h3>Work</h3>
     <ol>
-      <li>Add <code>agent_tab_label(role, ledger) -> str</code> using <code>ensure_base_title</code> / <code>short_label</code>.</li>
-      <li>Add <code>resolve_workspace_id(ledger, source_pane) -> str</code> via targets then <code>pane get</code>.</li>
-      <li>Add <code>create_labeled_agent_tab(*, ledger, root, source_pane, role) -> dict</code> wrapping:
+      <li>Add <code>agent_tab_label(role, ledger) &rarr; str</code> using <code>ensure_base_title</code> / <code>short_label</code>.</li>
+      <li>Add <code>resolve_workspace_id(ledger, source_pane) &rarr; str</code> via targets then <code>pane get</code>.</li>
+      <li>Add <code>create_labeled_agent_tab(*, ledger, root, source_pane, role) &rarr; dict</code> wrapping:
         <pre>herdr tab create --workspace &lt;ws&gt; --cwd &lt;root&gt; --label &lt;label&gt; --no-focus</pre>
       </li>
       <li>Parse only <code>result.root_pane.pane_id</code> and <code>result.tab.tab_id</code>; die if either missing; treat non-JSON / non-object JSON as fail-closed with actionable text. <strong>No fallback to pane split inside the helper.</strong></li>

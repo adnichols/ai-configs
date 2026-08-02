@@ -1,8 +1,8 @@
 # Independent plan-readiness review — delivery-herdr-agent-tabs
 
 ## Provenance
-- CWD: /Users/anichols/.herdr/worktrees/ai-configs/delivery-use-tabs
-- REVIEW_ROOT: /Users/anichols/.herdr/worktrees/ai-configs/delivery-use-tabs
+- CWD: `<worktree-root>`
+- REVIEW_ROOT: `<worktree-root>`
 - HEAD: 1d4e6b0988654882e7f072b6df75168f0edc8729
 - STATUS_SHORT:
   ?? thoughts/plans/delivery-herdr-agent-tabs.html

@@ -1113,17 +1113,9 @@ def resolve_workspace_id(ledger: dict[str, Any], source_pane: str) -> str:
     return str(workspace_id)
 
 
-def create_labeled_agent_tab(
-    *,
-    ledger: dict[str, Any],
-    root: Path,
-    source_pane: str,
-    role: str,
-) -> dict[str, str]:
-    """Create a same-workspace labeled tab and return its stable tab/pane IDs."""
-    workspace_id = resolve_workspace_id(ledger, source_pane)
-    label = agent_tab_label(role, ledger)
-    command = [
+def build_tab_create_command(workspace_id: str, root: Path, label: str) -> list[str]:
+    """Build the shared Herdr tab-create arguments used by preview and execution."""
+    return [
         "tab",
         "create",
         "--workspace",
@@ -1134,6 +1126,19 @@ def create_labeled_agent_tab(
         label,
         "--no-focus",
     ]
+
+
+def create_labeled_agent_tab(
+    *,
+    ledger: dict[str, Any],
+    root: Path,
+    source_pane: str,
+    role: str,
+) -> dict[str, str]:
+    """Create a same-workspace labeled tab and return its stable tab/pane IDs."""
+    workspace_id = resolve_workspace_id(ledger, source_pane)
+    label = agent_tab_label(role, ledger)
+    command = build_tab_create_command(workspace_id, root, label)
     attempted = f"`herdr {' '.join(command)}` after workspace discovery"
     next_action = "supply --pane from a live Herdr workspace or restore Herdr workspace context"
     payload = agent_tab_json(
@@ -2267,10 +2272,7 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
             "reviewerName": reviewer_name,
             "model": COMPLETENESS_REVIEW_MODEL,
             "rerun": bool(args.rerun),
-            "tabCreateCommand": [
-                "herdr", "tab", "create", "--workspace", workspace_id,
-                "--cwd", str(root), "--label", label, "--no-focus",
-            ],
+            "tabCreateCommand": ["herdr", *build_tab_create_command(workspace_id, root, label)],
             "startCommand": start_command,
             "prompt": prompt,
         }, indent=2))
@@ -2280,9 +2282,15 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
         reviewer_pane = review.get("paneId")
         if not reviewer_pane:
             die("no visible completeness reviewer is recorded; run `delivery completion-review` first")
+        reviewer_tab = review.get("tabId")
+        if not reviewer_tab:
+            die(
+                "recorded completeness reviewer has no tab metadata; run `delivery completion-review` "
+                "without --rerun to create a fresh labeled tab"
+            )
         agent_tab = {
             "paneId": str(reviewer_pane),
-            "tabId": str(review.get("tabId") or ""),
+            "tabId": str(reviewer_tab),
             "label": str(review.get("tabLabel") or agent_tab_label("complete", ledger)),
         }
     else:
