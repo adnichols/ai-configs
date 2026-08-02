@@ -170,6 +170,7 @@ class InstallTransactionTest(unittest.TestCase):
                 'openai-codex/gpt-5.6-luna',
                 'openai-codex/gpt-5.6-sol',
                 'xai/grok-4.5',
+                'opencode/deepseek-v4-flash',
             ])
             installed_models=json.loads(models.read_text())['providers']
             self.assertNotIn('xai',installed_models)
