@@ -7,11 +7,12 @@ onboarding = false
 prefix = "ctrl+a"
 
 # tmux windows -> Herdr tabs
-# Direct alt+[ / alt+] is CSI-ambiguous (ESC [) in many terminals, so the reliable
-# direct chords are ctrl+alt+[ / ]. Kitty rewrites Option+[ / ] to those chords.
+# alt+[ / alt+] work when the outer client delivers unambiguous encodings.
+# Over mosh/legacy streams Kitty injects modifyOtherKeys for Option+brackets
+# (see kitty/remote-workflow.conf). ctrl+alt remains a direct fallback chord.
 new_tab = "prefix+c"
-previous_tab = ["prefix+p", "ctrl+alt+[", "alt+["]
-next_tab = ["prefix+n", "ctrl+alt+]", "alt+]"]
+previous_tab = ["prefix+p", "alt+[", "ctrl+alt+["]
+next_tab = ["prefix+n", "alt+]", "ctrl+alt+]"]
 switch_tab = "prefix+1..9"
 previous_workspace = "alt+up"
 next_workspace = "alt+down"

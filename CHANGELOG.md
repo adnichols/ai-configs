@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- Restored Herdr Option/Alt+`[` / `]` tab switching by binding reliable `ctrl+alt+[` / `]` chords and rewriting Kitty Option+bracket keys to those chords (plain `alt+[` is CSI-ambiguous).
+- Restored Herdr Option/Alt+`[` / `]` tab switching over mosh by having Kitty inject complete xterm modifyOtherKeys sequences (`CSI 27;3;91/93 ~`). Bare `ESC [` / `ESC ]` never complete as alt-bracket events in Herdr's legacy framer, and Kitty `send_key` does not survive mosh.
 
 ### Changed
 
