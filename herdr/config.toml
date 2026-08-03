@@ -7,9 +7,11 @@ onboarding = false
 prefix = "ctrl+a"
 
 # tmux windows -> Herdr tabs
+# Direct alt+[ / alt+] is CSI-ambiguous (ESC [) in many terminals, so the reliable
+# direct chords are ctrl+alt+[ / ]. Kitty rewrites Option+[ / ] to those chords.
 new_tab = "prefix+c"
-previous_tab = ["prefix+p", "alt+["]
-next_tab = ["prefix+n", "alt+]"]
+previous_tab = ["prefix+p", "ctrl+alt+[", "alt+["]
+next_tab = ["prefix+n", "ctrl+alt+]", "alt+]"]
 switch_tab = "prefix+1..9"
 previous_workspace = "alt+up"
 next_workspace = "alt+down"

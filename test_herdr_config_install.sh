@@ -17,7 +17,8 @@ set -euo pipefail
 printf '%s\n' "$*" >> "$HERDR_TEST_CALLS"
 case "$1 $2" in
   "config check")
-    grep -q '^previous_tab = \["prefix+p", "alt+\["\]$' "$HERDR_CONFIG_PATH"
+    grep -q '^previous_tab = \["prefix+p", "ctrl+alt+\[", "alt+\["\]$' "$HERDR_CONFIG_PATH"
+    grep -q '^next_tab = \["prefix+n", "ctrl+alt+]", "alt+]"\]$' "$HERDR_CONFIG_PATH"
     grep -q '^rename_tab = "prefix+<"$' "$HERDR_CONFIG_PATH"
     grep -q '^key = "prefix+shift+t"$' "$HERDR_CONFIG_PATH"
     grep -q '^command = "herdr-navigator.open"$' "$HERDR_CONFIG_PATH"
