@@ -49,7 +49,7 @@ fi
 echo "Installed managed Amp config at $TARGET_ROOT"
 echo "Managed surfaces:"
 echo "  - settings.json (remote thread creation)"
-echo "  - plugins/subscription-models.ts (ADN Low/Med/High/Ultra + Grok 4.5 modes)"
+echo "  - plugins/subscription-models.ts (ADN Low/High + adn_oracle/adn_alt second opinions)"
 echo ""
 echo "Note: Amp model-provider subscriptions (ChatGPT / SuperGrok) are host-local"
 echo "credentials. On a new host, link them with:"

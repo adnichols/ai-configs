@@ -1,116 +1,204 @@
 // @amp-agent-mode {"key":"adn-low","label":"ADN Low"}
-// @amp-agent-mode {"key":"adn-med","label":"ADN Med"}
 // @amp-agent-mode {"key":"adn-high","label":"ADN High"}
-// @amp-agent-mode {"key":"adn-ultra","label":"ADN Ultra"}
-// @amp-agent-mode {"key":"grok45","label":"Grok 4.5"}
+// @amp-agent-mode {"key":"adn-alt","label":"ADN Alt"}
+// @amp-agent-mode {"key":"adn-oracle","label":"ADN Oracle"}
 
 import type { PluginAPI } from '@ampcode/plugin'
 
-const CODING_INSTRUCTIONS = [
-  'You are Amp, an autonomous coding agent.',
+/**
+ * Custom Amp modes + second-opinion tools using subscription models.
+ *
+ * Amp's built-in mode keys (low/medium/high/ultra) cannot be overwritten by
+ * plugins. These ADN modes sit beside them in the mode picker.
+ *
+ * Shape mirrors Amp's product model:
+ *   - ADN Low / ADN High = selectable main-thread modes
+ *   - adn_oracle tool    = Sol second opinion (hard analysis / judgment)
+ *   - adn_alt tool       = Grok second opinion (alternate frontier take)
+ *   - ADN Oracle / ADN Alt modes = optional direct threads for those agents
+ */
+
+const MAIN_INSTRUCTIONS = [
+  'You are Amp, an autonomous coding agent running one of the ADN custom modes.',
   'Inspect the relevant code before editing, make the smallest correct change,',
-  'preserve unrelated user work, and verify the result with the narrowest useful check.',
+  'preserve unrelated user work, and verify with the narrowest useful check.',
+  '',
+  'Second-opinion tools:',
+  '- Call adn_oracle (GPT-5.6 Sol high) for deeper analysis, architecture judgment,',
+  '  subtle debugging, or independent review of a risky change.',
+  '- Call adn_alt (Grok 4.5 high) when you want a different frontier model\'s take,',
+  '  a contrasting second opinion, or the user asks for Grok / an alternate view.',
+  'Pass each tool a focused question plus the evidence it should weigh.',
+  'Do not use either tool for routine edits, simple lookups, or work you can',
+  'finish cheaply yourself. Prefer an explicit user request when one is present.',
+  'If both adn_oracle and Amp\'s built-in oracle tool are available, prefer adn_oracle.',
 ].join(' ')
 
-const DEEP_INSTRUCTIONS = [
-  CODING_INSTRUCTIONS,
-  'Use deeper analysis for difficult debugging, architecture, planning, and review tasks.',
-  'Explain material tradeoffs and carry implementation through verification when authorized.',
+const SECOND_OPINION_INSTRUCTIONS = [
+  'You are a read-mostly second-opinion agent for an ADN main-thread agent.',
+  'You do not own the main implementation thread.',
+  'Focus on hard analysis, design tradeoffs, root-cause debugging, and review.',
+  'Return concise findings: conclusion first, then evidence, risks, and a',
+  'recommended next step for the main agent.',
+  'Do not make broad drive-by edits. Prefer inspection and recommendations.',
+  'If a tiny verification command is essential, keep it narrow and explain why.',
 ].join(' ')
+
+// Keep second-opinion agents away from broad write/delegation surfaces.
+// Read + shell stay available so they can inspect code and run narrow checks.
+const SECOND_OPINION_TOOLS = {
+  include: 'all' as const,
+  exclude: [
+    'create_file',
+    'edit_file',
+    'apply_patch',
+    'Task',
+    'oracle',
+    'painter',
+    'adn_oracle',
+    'adn_alt',
+  ],
+}
 
 export default function (amp: PluginAPI) {
-  // ── Tier: Low ──────────────────────────────────────────────────────
-  // Main: GPT-5.6 Terra (fast/cheap — DeepSeek-V4-Flash requested but not
-  //       supported by Amp's built-in provider list)
-  // Oracle: spawn a GPT-5.6 Sol sub-agent for deeper analysis when needed
   const low = amp.createAgent({
     name: 'adn-low',
-    model: 'openai/gpt-5.6-terra',
-    instructions: CODING_INSTRUCTIONS,
+    model: 'openai/gpt-5.6-luna',
+    instructions: MAIN_INSTRUCTIONS,
     tools: 'all',
-    reasoningEffort: 'low',
+    reasoningEffort: 'max',
     display: { label: 'ADN Low', color: '#6b7280' },
   })
 
-  // ── Tier: Med ──────────────────────────────────────────────────────
-  // Main: Grok 4.5
-  // Oracle: spawn GPT-5.6 Sol sub-agent for second opinions
-  const med = amp.createAgent({
-    name: 'adn-med',
-    model: 'xai/grok-4.5',
-    instructions: CODING_INSTRUCTIONS,
-    tools: 'all',
-    reasoningEffort: 'medium',
-    display: { label: 'ADN Med', color: '#f59e0b' },
-  })
-
-  // ── Tier: High ─────────────────────────────────────────────────────
-  // Main: GPT-5.6 Sol (high reasoning)
-  // Secondary Oracle / review: spawn Grok 4.5 sub-agent
   const high = amp.createAgent({
     name: 'adn-high',
-    model: 'openai/gpt-5.6-sol',
-    instructions: DEEP_INSTRUCTIONS,
+    model: 'openai/gpt-5.6-terra',
+    instructions: MAIN_INSTRUCTIONS,
     tools: 'all',
     reasoningEffort: 'high',
     display: { label: 'ADN High', color: '#8b5cf6' },
   })
 
-  // ── Tier: Ultra ────────────────────────────────────────────────────
-  // Main: GPT-5.6 Sol (max reasoning)
-  // Second opinion: spawn GPT-5.6 Sol or Grok sub-agent
-  const ultra = amp.createAgent({
-    name: 'adn-ultra',
+  const oracle = amp.createAgent({
+    name: 'adn-oracle',
     model: 'openai/gpt-5.6-sol',
-    instructions: DEEP_INSTRUCTIONS,
-    tools: 'all',
-    reasoningEffort: 'max',
-    display: { label: 'ADN Ultra', color: '#ef4444' },
-  })
-
-  // ── Standalone Grok 4.5 (kept for direct use) ─────────────────────
-  const grok = amp.createAgent({
-    name: 'grok-4-5',
-    model: 'xai/grok-4.5',
-    instructions: DEEP_INSTRUCTIONS,
-    tools: 'all',
+    instructions: [
+      'You are ADN Oracle (GPT-5.6 Sol).',
+      SECOND_OPINION_INSTRUCTIONS,
+    ].join(' '),
+    tools: SECOND_OPINION_TOOLS,
     reasoningEffort: 'high',
-    display: { label: 'Grok 4.5', color: '#111827' },
+    display: { label: 'ADN Oracle', color: '#0f766e' },
   })
 
-  // ── Register modes ─────────────────────────────────────────────────
+  const alt = amp.createAgent({
+    name: 'adn-alt',
+    model: 'xai/grok-4.5',
+    instructions: [
+      'You are ADN Alt (Grok 4.5), an alternate-frontier second opinion.',
+      SECOND_OPINION_INSTRUCTIONS,
+      'Prefer a contrasting angle from the main agent when evidence allows.',
+    ].join(' '),
+    tools: SECOND_OPINION_TOOLS,
+    reasoningEffort: 'high',
+    display: { label: 'ADN Alt', color: '#111827' },
+  })
+
+  amp.registerTool({
+    name: 'adn_oracle',
+    description: [
+      'Ask ADN Oracle (GPT-5.6 Sol, high reasoning) for a second opinion.',
+      'Use for complex analysis, architecture tradeoffs, subtle bugs, or review.',
+      'Pass a self-contained request with the question and relevant evidence.',
+    ].join(' '),
+    inputSchema: {
+      type: 'object',
+      properties: {
+        request: {
+          type: 'string',
+          description:
+            'Focused oracle question plus the files, diffs, errors, or constraints to consider.',
+        },
+      },
+      required: ['request'],
+    },
+    async execute(input, ctx) {
+      const request = typeof input.request === 'string' ? input.request.trim() : ''
+      if (!request) {
+        return 'Missing ADN Oracle request.'
+      }
+
+      const result = await oracle.run(request, {
+        parentThreadID: ctx.thread.id,
+        timeoutMs: 10 * 60 * 1000,
+      })
+      return result.text
+    },
+  })
+
+  amp.registerTool({
+    name: 'adn_alt',
+    description: [
+      'Ask ADN Alt (Grok 4.5, high reasoning) for an alternate-frontier second opinion.',
+      'Use when you want a contrasting take, or the user asks for Grok / an alt view.',
+      'Pass a self-contained request with the question and relevant evidence.',
+    ].join(' '),
+    inputSchema: {
+      type: 'object',
+      properties: {
+        request: {
+          type: 'string',
+          description:
+            'Focused alt-opinion question plus the files, diffs, errors, or constraints to consider.',
+        },
+      },
+      required: ['request'],
+    },
+    async execute(input, ctx) {
+      const request = typeof input.request === 'string' ? input.request.trim() : ''
+      if (!request) {
+        return 'Missing ADN Alt request.'
+      }
+
+      const result = await alt.run(request, {
+        parentThreadID: ctx.thread.id,
+        timeoutMs: 10 * 60 * 1000,
+      })
+      return result.text
+    },
+  })
+
   amp.registerAgentMode({
     key: 'adn-low',
     label: 'ADN Low',
-    description: 'GPT-5.6 Terra fast/cheap — Oracle: GPT-5.6 Sol when needed',
+    description: 'GPT-5.6 Luna max — everyday implementation; second opinions via adn_oracle / adn_alt',
+    color: '#6b7280',
     agent: low.definition,
-  })
-
-  amp.registerAgentMode({
-    key: 'adn-med',
-    label: 'ADN Med',
-    description: 'Grok 4.5 (balanced) — Oracle: GPT-5.6 Sol',
-    agent: med.definition,
   })
 
   amp.registerAgentMode({
     key: 'adn-high',
     label: 'ADN High',
-    description: 'GPT-5.6 Sol high reasoning — Review: Grok 4.5',
+    description: 'GPT-5.6 Terra high — harder implementation; second opinions via adn_oracle / adn_alt',
+    color: '#8b5cf6',
     agent: high.definition,
   })
 
+  // Optional direct modes. Prefer the tools from Low/High for second opinions
+  // inside an active implementation thread.
   amp.registerAgentMode({
-    key: 'adn-ultra',
-    label: 'ADN Ultra',
-    description: 'GPT-5.6 Sol max reasoning — Second opinion: GPT-5.6 Sol or Grok',
-    agent: ultra.definition,
+    key: 'adn-oracle',
+    label: 'ADN Oracle',
+    description: 'GPT-5.6 Sol high — direct analysis / second-opinion mode',
+    color: '#0f766e',
+    agent: oracle.definition,
   })
 
   amp.registerAgentMode({
-    key: 'grok45',
-    label: 'Grok 4.5',
-    description: 'Grok 4.5 with high reasoning via your xAI subscription',
-    agent: grok.definition,
+    key: 'adn-alt',
+    label: 'ADN Alt',
+    description: 'Grok 4.5 high — direct alternate-frontier mode',
+    color: '#111827',
+    agent: alt.definition,
   })
 }
