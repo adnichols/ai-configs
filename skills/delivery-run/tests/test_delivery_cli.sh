@@ -523,8 +523,8 @@ assert d["count"]>=2
 test_stages_lists_guidance() {
   out="$("$DELIVERY" stages)"
   printf '%s' "$out" | rg -q "EXECUTION_READY" || return 1
-  printf '%s' "$out" | rg -q "Pause: present the operator approval summary" || return 1
-  ! printf '%s' "$out" | rg -q "EXECUTION_READY.*Use /skill:run-plan" || return 1
+  printf '%s' "$out" | rg -q "Automatically authorize.*launch the dedicated" || return 1
+  printf '%s' "$out" | rg -q "PR creation without another operator approval pause" || return 1
 }
 
 test_set_issue_after_start() {
@@ -961,7 +961,7 @@ PY
   printf '%s' "$out" | rg -q "no current execution-ready review request" || return 1
 }
 
-test_execution_ready_requires_current_operator_approval() {
+test_held_execution_ready_requires_manual_authorization() {
   local repo="$TMP_ROOT/implementation-approval-repo"
   local fake_bin="$TMP_ROOT/fake-herdr-implementation"
   local herdr_log="$TMP_ROOT/fake-herdr-implementation.log"
@@ -990,14 +990,14 @@ SH
     --implementation-rationale "critical correctness is difficult to validate fully before merge" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --refresh >/dev/null
-  rg -q "Execution-ready approval pause" "$repo/.delivery/AGENT_BRIEF.md" || return 1
-  rg -qi 'do \*\*not\*\* invoke `run-plan`' "$repo/.delivery/AGENT_BRIEF.md" || return 1
+  rg -q "Automatic execution-ready handoff" "$repo/.delivery/AGENT_BRIEF.md" || return 1
+  rg -q 'continue through PR creation' "$repo/.delivery/AGENT_BRIEF.md" || return 1
   set +e
   out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING 2>&1)"
   code=$?
   set -e
   [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "explicit operator implementation approval" || return 1
+  printf '%s' "$out" | rg -q "current implementation authorization" || return 1
 
   set +e
   out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
@@ -1221,6 +1221,154 @@ assert "manual operator" in d["implementationProfile"]["overrideReason"]
 PY
 }
 
+test_execution_ready_auto_starts_without_operator_approval() {
+  local repo="$TMP_ROOT/auto-execution-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-auto-execution"
+  local herdr_log="$TMP_ROOT/fake-herdr-auto-execution.log"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation" "$fake_bin"
+  printf '<article data-plan>automatic execution</article>\n' >"$repo/thoughts/plans/x.html"
+  printf 'VERDICT: PLAN_EXECUTION_READY\n' >"$repo/thoughts/validation/x-plan-review.md"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+if [[ "$1" == "tab" && "$2" == "create" ]]; then
+  printf '{"result":{"tab":{"tab_id":"w-auto:t2"},"root_pane":{"pane_id":"w-auto:p2"}}}\n'
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
+    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
+
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-auto HERDR_PANE_ID=w-auto:p1 \
+    "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+  rg -q "agent start implementation-.* --kind pi --pane w-auto:p2.*--model gpt-5.6-terra --thinking high" "$herdr_log" || return 1
+  rg -q "agent prompt implementation-" "$herdr_log" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["stage"] == "EXECUTION_READY"
+assert d["implementationApproval"]["status"] == "approved"
+assert d["implementationApproval"]["source"] == "workflow"
+assert d["implementationProfile"]["status"] == "ready"
+PY
+}
+
+test_implementation_agent_launch_race_reconciles_live_agent() {
+  local repo="$TMP_ROOT/implementation-launch-reconcile-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-implementation-reconcile"
+  local herdr_log="$TMP_ROOT/fake-herdr-implementation-reconcile.log"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation" "$fake_bin"
+  printf '<article data-plan>ready</article>\n' >"$repo/thoughts/plans/x.html"
+  printf 'VERDICT: PLAN_EXECUTION_READY\n' >"$repo/thoughts/validation/x-plan-review.md"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+if [[ "$1" == "tab" && "$2" == "create" ]]; then
+  printf '{"result":{"tab":{"tab_id":"w-race:t2"},"root_pane":{"pane_id":"w-race:p2"}}}\n'
+elif [[ "$1" == "agent" && "$2" == "start" ]]; then
+  echo 'synthetic shell-readiness race' >&2
+  exit 9
+elif [[ "$1" == "agent" && "$2" == "get" ]]; then
+  printf '{"result":{"agent":{"agent":"pi","agent_status":"idle","name":"implementation-race","pane_id":"w-race:p2"}}}\n'
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
+    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-race HERDR_PANE_ID=w-race:p1 \
+    "$DELIVERY" --cwd "$repo" approve-implementation --source chat --summary approved \
+    --agent-name implementation-race >/dev/null
+  rg -q "agent get implementation-race" "$herdr_log" || return 1
+  rg -q "agent prompt implementation-race" "$herdr_log" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["implementationProfile"]["status"] == "ready"
+assert any(h.get("type") == "implementation_agent_reconciled" for h in d["history"])
+PY
+}
+
+test_done_rejects_incomplete_implementation_run() {
+  local repo="$TMP_ROOT/done-integrity-repo"
+  local pi_home="$TMP_ROOT/done-integrity-home"
+  make_repo "$repo"
+  mkdir -p "$pi_home"
+  DELIVERY_SKIP_HERDR=1 HOME="$pi_home" "$DELIVERY" --cwd "$repo" init --plan README.md >/dev/null
+  DELIVERY_SKIP_HERDR=1 HOME="$pi_home" "$DELIVERY" --cwd "$repo" stage IMPLEMENTING >/dev/null 2>&1 || true
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1];d=json.load(open(path));d["history"].append({"at":"2026-01-01T00:00:00Z","type":"stage","detail":"EXECUTION_READY -> IMPLEMENTING"});d["stage"]="IMPLEMENTING";json.dump(d,open(path,"w"),indent=2)
+PY
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 HOME="$pi_home" "$DELIVERY" --cwd "$repo" reflect \
+    --trigger end-of-run --outcome done --mark-done 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "cannot enter DONE.*missing required delivery evidence" || return 1
+  DELIVERY_SKIP_HERDR=1 HOME="$pi_home" "$DELIVERY" --cwd "$repo" blocker \
+    'pause before completion' --mark-blocked >/dev/null
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 HOME="$pi_home" "$DELIVERY" --cwd "$repo" blocker \
+    --clear --stage DONE 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "cannot restore DONE.*missing required delivery evidence" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1];d=json.load(open(path));assert d["stage"] == "BLOCKED";d["blockers"]=[];d["stage"]="IMPLEMENTING"
+for key in ("implementation","scopedReview","implPm","completionEval","customerImpact","autoreview","verify","pr"):
+    d["evidence"][key]["status"]="pass"
+d["evidence"]["adversarialQa"]["status"]="na"
+d["prUrl"]="https://example.test/pull/1"
+d["completenessReview"]={"status":"waived","summary":"explicit test waiver"}
+json.dump(d,open(path,"w"),indent=2)
+PY
+  DELIVERY_SKIP_HERDR=1 HOME="$pi_home" "$DELIVERY" --cwd "$repo" reflect \
+    --trigger end-of-run --outcome done --mark-done >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+assert json.load(open(sys.argv[1]))["stage"] == "DONE"
+PY
+}
+
+test_plan_review_cycle_limit_stops_fourth_gap() {
+  local repo="$TMP_ROOT/plan-review-budget-repo"
+  make_repo "$repo"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan README.md >/dev/null
+  for cycle in 1 2 3; do
+    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status gap \
+      --summary "cycle $cycle blocker set" >/dev/null
+  done
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status gap \
+    --summary "cycle 4 blocker" 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "planning review convergence budget exhausted" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]));assert d["planReviewCycleCount"] == 3
+PY
+}
+
 test_implementation_agent_launch_failures_are_not_ready() {
   local repo="$TMP_ROOT/implementation-launch-failure-repo"
   local fake_bin="$TMP_ROOT/fake-herdr-implementation-failure"
@@ -1384,8 +1532,8 @@ SH
     --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
 
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
-    "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
-  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+    "$DELIVERY" --cwd "$repo" stage EXECUTION_READY --hold >/dev/null
+  tail -1 "$attention_log" | rg -Fxq 'clear --pane w-attn:p1' || return 1
 
   set +e
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
@@ -1397,14 +1545,16 @@ SH
 
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
     "$DELIVERY" --cwd "$repo" revoke-implementation-approval --reason feedback >/dev/null
-  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+  tail -1 "$attention_log" | rg -Fxq 'clear --pane w-attn:p1' || return 1
 
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
     "$DELIVERY" --cwd "$repo" blocker 'need auth decision' --mark-blocked >/dev/null
   tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind blocker --message need auth decision' || return 1
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
-    "$DELIVERY" --cwd "$repo" blocker --clear --stage EXECUTION_READY >/dev/null
-  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+    "$DELIVERY" --cwd "$repo" blocker --clear >/dev/null
+  PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
+    "$DELIVERY" --cwd "$repo" stage EXECUTION_READY --hold >/dev/null
+  tail -1 "$attention_log" | rg -Fxq 'clear --pane w-attn:p1' || return 1
 
   # A current approved state clears, then changing the plan path invalidates it and restores approval wait.
   python3 - "$repo/.delivery/ledger.json" "$repo/thoughts/plans/x.html" <<'PY'
@@ -1413,7 +1563,7 @@ path,plan=sys.argv[1:];d=json.load(open(path));d['implementationApproval'].updat
 PY
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
     "$DELIVERY" --cwd "$repo" set --plan thoughts/plans/y.html >/dev/null
-  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+  tail -1 "$attention_log" | rg -Fxq 'clear --pane w-attn:p1' || return 1
 
   # Fresh readiness records also revoke an otherwise current approval and reconcile immediately.
   python3 - "$repo/.delivery/ledger.json" "$repo/thoughts/plans/y.html" <<'PY'
@@ -1422,7 +1572,7 @@ path,plan=sys.argv[1:];d=json.load(open(path));d['implementationApproval'].updat
 PY
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
     "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary refreshed >/dev/null
-  tail -1 "$attention_log" | rg -Fxq 'set --pane w-attn:p1 --kind approval --message Approve implementation to continue' || return 1
+  tail -1 "$attention_log" | rg -Fxq 'clear --pane w-attn:p1' || return 1
 
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
     "$DELIVERY" --cwd "$repo" stage PLAN_BROWSER_REVIEW >/dev/null
@@ -1447,7 +1597,7 @@ test_skill_doctrine_wording() {
   rg -q "openai-codex/gpt-5.6-sol" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q 'subagent_type.*planner|`planner` subagent' "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "reasoning-level medium --verdict PLAN_EXECUTION_READY" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
-  rg -q "Execution-ready operator approval pause" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q "Automatic execution-ready handoff" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "verify-implementation-profile" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "start-implementation" "$ROOT/skills/delivery-run/SKILL.md" || return 1
   rg -q '"terra-high"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
@@ -1459,9 +1609,9 @@ test_skill_doctrine_wording() {
   rg -q "COMPLETENESS_REVIEW" "$ROOT/skills/delivery-run/SKILL.md" || return 1
   rg -q "xai/grok-4.5:high" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "completion-review" "$ROOT/_pi/prompts/delivery:run.md" || return 1
-  rg -q "operator-approval summary" "$ROOT/_pi/prompts/dev:reviewed-html-plan.md" || return 1
-  rg -q 'in `EXECUTION_READY`, pause before product-code work' "$ROOT/_pi/prompts/delivery:run.md" || return 1
-  rg -q 'except at `EXECUTION_READY`' "$ROOT/_pi/prompts/delivery:bootstrap.md" || return 1
+  rg -q "automatically authorizes the exact reviewed plan" "$ROOT/_pi/prompts/dev:reviewed-html-plan.md" || return 1
+  rg -q 'delivery stage EXECUTION_READY' "$ROOT/_pi/prompts/delivery:run.md" || return 1
+  rg -q 'continues through PR creation' "$ROOT/_pi/prompts/delivery:bootstrap.md" || return 1
   rg -q "PLAN_TITLE" "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "Untitled Plan" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
   rg -q -- "--title" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
@@ -1589,8 +1739,12 @@ run_test test_readiness_review_requires_explicit_request
 run_test test_init_cannot_bypass_authorization_stages
 run_test test_bootstrap_cannot_bypass_authorization_stages
 run_test test_approval_cannot_bypass_readiness_request
-run_test test_execution_ready_requires_current_operator_approval
+run_test test_held_execution_ready_requires_manual_authorization
 run_test test_normal_work_routes_to_terra_high
+run_test test_execution_ready_auto_starts_without_operator_approval
+run_test test_implementation_agent_launch_race_reconciles_live_agent
+run_test test_done_rejects_incomplete_implementation_run
+run_test test_plan_review_cycle_limit_stops_fourth_gap
 run_test test_implementation_agent_launch_failures_are_not_ready
 run_test test_docs_use_labeled_tabs_not_pane_splits
 run_test test_operator_attention_reconciles_delivery_state

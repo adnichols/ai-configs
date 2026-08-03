@@ -176,9 +176,9 @@ STAGE_NEXT_SKILL = {
         "openai-codex/gpt-5.6-sol at medium reasoning and record its current-plan verdict"
     ),
     "EXECUTION_READY": (
-        "Pause: present the operator approval summary and Sol-planner-selected implementation "
-        "profile plus rationale, then wait for explicit approval. Approval launches a dedicated implementation "
-        "agent; do not invoke run-plan in the planning agent."
+        "Automatically authorize the reviewed plan and launch the dedicated planner-selected implementation "
+        "agent; that agent continues run-plan through verification, review, and PR creation without another "
+        "operator approval pause."
     ),
     "IMPLEMENTING": "Continue /skill:run-plan phase work; keep ledger notes current",
     "SCOPED_REVIEW": "Run scoped quality review (run-plan section) with live-worktree reviewer",
@@ -234,21 +234,8 @@ def sync_operator_attention(ledger: dict[str, Any]) -> None:
             helper, "set", "--pane", str(pane_id), "--kind", "blocker",
             "--message", str(message or "Delivery blocked"),
         ]
-    elif stage == "EXECUTION_READY":
-        root_value = ledger.get("worktree")
-        root = Path(root_value).resolve() if isinstance(root_value, str) and root_value else Path.cwd().resolve()
-        approval = ledger.get("implementationApproval") if isinstance(ledger.get("implementationApproval"), dict) else {}
-        current_hash = plan_sha256(ledger, root)
-        approval_valid = bool(
-            approval.get("status") == "approved"
-            and current_hash
-            and approval.get("planSha256") == current_hash
-        )
-        if not approval_valid:
-            command = [
-                helper, "set", "--pane", str(pane_id), "--kind", "approval",
-                "--message", "Approve implementation to continue",
-            ]
+    # EXECUTION_READY automatically launches the reviewed implementation profile.
+    # Operator attention is reserved for real blockers, not a routine approval pause.
 
     try:
         subprocess.run(
@@ -941,12 +928,12 @@ def implementation_approval_problem(ledger: dict[str, Any], root: Path) -> str |
     """Explain why implementation cannot begin for this ledger, if applicable."""
     approval = ledger.get("implementationApproval") or {}
     if approval.get("status") != "approved":
-        return "no explicit operator implementation approval is recorded"
+        return "no current implementation authorization is recorded"
     current_hash = plan_sha256(ledger, root)
     if current_hash is None:
         return "the recorded plan is missing, outside this worktree, or unreadable"
     if approval.get("planSha256") != current_hash:
-        return "the plan changed after the recorded implementation approval"
+        return "the plan changed after the recorded implementation authorization"
     planner_selected = selected_implementation_profile(ledger)
     selection_source = str(approval.get("selectionSource") or "planner")
     selected = approved_implementation_profile(ledger)
@@ -956,14 +943,14 @@ def implementation_approval_problem(ledger: dict[str, Any], root: Path) -> str |
         and (not is_known_implementation_profile(approval_profile)
              or canonical_implementation_profile(str(approval_profile)) != planner_selected["profile"])
     ):
-        return f"implementation approval does not match selected profile {planner_selected['profile']}"
+        return f"implementation authorization does not match selected profile {planner_selected['profile']}"
     if selection_source != "planner" and not str(approval.get("overrideReason") or "").strip():
         return "manual implementation model selection is missing an override reason"
     expected = planner_selected if selection_source == "planner" else selected
     if approval.get("model") != expected["modelRef"]:
-        return f"implementation approval is not pinned to {expected['modelRef']}"
+        return f"implementation authorization is not pinned to {expected['modelRef']}"
     if approval.get("reasoningLevel") != expected["reasoningLevel"]:
-        return f"implementation approval is not pinned to {expected['reasoningLevel']} reasoning"
+        return f"implementation authorization is not pinned to {expected['reasoningLevel']} reasoning"
     return None
 
 
@@ -1016,8 +1003,45 @@ def implementation_profile_problem(
     return None
 
 
+def implementation_run_started(ledger: dict[str, Any]) -> bool:
+    history = ledger.get("history") if isinstance(ledger.get("history"), list) else []
+    if any(
+        item.get("type") == "stage" and "-> IMPLEMENTING" in str(item.get("detail") or "")
+        for item in history
+        if isinstance(item, dict)
+    ):
+        return True
+    implementation = ((ledger.get("evidence") or {}).get("implementation") or {}).get("status")
+    profile = (ledger.get("implementationProfile") or {}).get("status")
+    return implementation not in {None, "pending"} or profile in {"started", "ready", "verified"}
+
+
+def terminal_stage_problem(ledger: dict[str, Any], root: Path, stage: str) -> str | None:
+    if stage != "DONE" or not implementation_run_started(ledger):
+        return None
+    evidence = ledger.get("evidence") or {}
+    required_pass = (
+        "implementation", "scopedReview", "implPm", "completionEval",
+        "customerImpact", "autoreview", "verify", "pr",
+    )
+    missing = [
+        key for key in required_pass
+        if (evidence.get(key) or {}).get("status") != "pass"
+    ]
+    if (evidence.get("adversarialQa") or {}).get("status") not in {"pass", "na"}:
+        missing.append("adversarialQa")
+    if not ledger.get("prUrl"):
+        missing.append("prUrl")
+    completeness_problem = completeness_review_problem(ledger, root)
+    if completeness_problem:
+        missing.append(f"completenessReview ({completeness_problem})")
+    if missing:
+        return "missing required delivery evidence: " + ", ".join(missing)
+    return None
+
+
 def stage_transition_problem(ledger: dict[str, Any], root: Path, stage: str) -> str | None:
-    """Return the authorization failure for a protected stage transition."""
+    """Return the authorization or terminal-integrity failure for a protected stage transition."""
     if stage in {"PLAN_PM_REVIEW", "PLAN_TECH_REVIEW"}:
         return plan_readiness_request_problem(ledger, root)
     if stage == "EXECUTION_READY":
@@ -1031,7 +1055,7 @@ def stage_transition_problem(ledger: dict[str, Any], root: Path, stage: str) -> 
             or implementation_approval_problem(ledger, root)
             or implementation_profile_problem(ledger, root, check_runtime=True)
         )
-    return None
+    return terminal_stage_problem(ledger, root, stage)
 
 
 def reset_implementation_approval(ledger: dict[str, Any], reason: str) -> None:
@@ -1486,7 +1510,7 @@ def cmd_show(args: argparse.Namespace) -> int:
     approval_status = approval.get("status", "pending")
     if approval_problem:
         approval_status = f"{approval_status} ({approval_problem})"
-    print(f"implementation approval: {approval_status}")
+    print(f"implementation authorization: {approval_status}")
     profile = ledger.get("implementationProfile") or {}
     profile_status = profile.get("status", "pending")
     profile_problem = implementation_profile_problem(ledger, root, check_runtime=False)
@@ -1494,6 +1518,7 @@ def cmd_show(args: argparse.Namespace) -> int:
         profile_status = f"{profile_status} ({profile_problem})"
     selected = approved_implementation_profile(ledger)
     print(f"implementation agent: {profile_status}")
+    print(f"plan review cycles: {int(ledger.get('planReviewCycleCount') or 0)}/3")
     print(
         f"implementation runtime: {selected['profile']} / {selected['modelRef']} / "
         f"{selected['reasoningLevel']}"
@@ -1530,9 +1555,9 @@ def cmd_stage(args: argparse.Namespace) -> int:
         if stage == "IMPLEMENTING":
             die(
                 "cannot enter IMPLEMENTING: "
-                f"{transition_problem}. Obtain direct operator approval, let `delivery "
-                "approve-implementation` launch the recommended implementation agent, then enter "
-                "IMPLEMENTING from the recorded Pi runtime. If this same implementation pane was "
+                f"{transition_problem}. Let the execution-ready transition automatically authorize and launch "
+                "the recommended implementation agent, then enter IMPLEMENTING from the recorded Pi runtime. "
+                "If this same implementation pane was "
                 "deliberately switched to another model, adopt it with `delivery verify-implementation-profile "
                 "--adopt-current-runtime --reason \"...\"`."
             )
@@ -1559,6 +1584,21 @@ def cmd_stage(args: argparse.Namespace) -> int:
     write_json(path, ledger)
     print(f"{prev} -> {stage}")
     print(f"next: {STAGE_NEXT_SKILL.get(stage, 'n/a')}")
+    skip_herdr = os.environ.get("DELIVERY_SKIP_HERDR", "").strip().lower() in {"1", "true", "yes"}
+    if stage == "EXECUTION_READY" and not getattr(args, "hold", False) and not skip_herdr:
+        with implementation_launch_lock(root):
+            path, current, root = load_ledger_for(args)
+            auto_args = argparse.Namespace(
+                source="workflow",
+                summary="Independent plan readiness passed; automatically continue through implementation, verification, review, and PR creation.",
+                model=None,
+                reasoning_level=None,
+                override_reason=None,
+                pane=getattr(args, "pane", None),
+                agent_name=getattr(args, "agent_name", None),
+                timeout_ms=getattr(args, "timeout_ms", 60000),
+            )
+            return approve_implementation_locked(auto_args, path, current, root)
     return 0
 
 
@@ -1690,11 +1730,27 @@ def launch_implementation_agent(
         selected["reasoningLevel"],
     ]
     started = run_cmd(start_command, cwd=root)
+    reconciled = False
+    if started.returncode != 0:
+        observed = run_cmd([herdr, "agent", "get", reviewer_name], cwd=root)
+        if observed.returncode == 0:
+            try:
+                payload = json.loads(observed.stdout)
+                agent = ((payload.get("result") or {}).get("agent") or {}) if isinstance(payload, dict) else {}
+                reconciled = bool(
+                    agent.get("agent") == "pi"
+                    and str(agent.get("pane_id") or "") == str(implementation_pane)
+                    and str(agent.get("name") or reviewer_name) == reviewer_name
+                    and agent.get("agent_status") in {"idle", "done", "working", "blocked"}
+                )
+            except (json.JSONDecodeError, AttributeError):
+                reconciled = False
+    start_succeeded = started.returncode == 0 or reconciled
     current = active_implementation_launch(path, root, attempt_id, allowed_statuses={"launching"})
     profile = current.setdefault("implementationProfile", {})
     profile.update(
         {
-            "status": "started" if started.returncode == 0 else "start-failed",
+            "status": "started" if start_succeeded else "start-failed",
             "profile": selected["profile"],
             "provider": selected["provider"],
             "model": selected["model"],
@@ -1706,16 +1762,24 @@ def launch_implementation_agent(
             "tabId": agent_tab["tabId"],
             "tabLabel": agent_tab["label"],
             "sourcePaneId": str(source_pane),
-            "launchedAt": utc_now() if started.returncode == 0 else None,
+            "launchedAt": utc_now() if start_succeeded else None,
             "promptedAt": None,
             "launchAttemptId": attempt_id,
-            "reason": None if started.returncode == 0 else (started.stderr or started.stdout).strip(),
+            "reason": None if start_succeeded else (started.stderr or started.stdout).strip(),
         }
     )
-    if started.returncode != 0:
+    if not start_succeeded:
         append_history(current, "implementation_agent", f"dedicated {selected['profile']} agent start failed")
         write_json(path, current)
         die(f"could not start dedicated implementation agent: {(started.stderr or started.stdout).strip()}")
+    if reconciled:
+        append_history(
+            current,
+            "implementation_agent_reconciled",
+            "Herdr reported the expected live Pi agent after the start command failed",
+            agent=reviewer_name,
+            paneId=str(implementation_pane),
+        )
     write_json(path, current)
 
     requested = run_cmd([herdr, "agent", "prompt", reviewer_name, prompt], cwd=root)
@@ -1766,7 +1830,7 @@ def approve_implementation_locked(
     args: argparse.Namespace, path: Path, ledger: dict[str, Any], root: Path
 ) -> int:
     if ledger.get("stage") != "EXECUTION_READY":
-        die("implementation approval is allowed only at EXECUTION_READY")
+        die("implementation authorization is allowed only at EXECUTION_READY")
     if (ledger.get("implementationApproval") or {}).get("status") == "approved":
         die(
             "implementation is already approved; refusing to launch a second writer "
@@ -1813,11 +1877,12 @@ def approve_implementation_locked(
             "reason": None,
         }
     )
-    reset_implementation_profile(ledger, "operator approved; implementation agent launch pending")
+    reset_implementation_profile(ledger, "implementation authorized; implementation agent launch pending")
+    authorization_actor = "workflow authorized" if args.source == "workflow" else "operator approved"
     append_history(
         ledger,
         "implementation_approval",
-        f"operator approved {selection_source} {selected['profile']} implementation",
+        f"{authorization_actor} {selection_source} {selected['profile']} implementation",
         source=args.source,
         planSha256=fingerprint,
         profile=selected["profile"],
@@ -1829,7 +1894,7 @@ def approve_implementation_locked(
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
     print(
-        "implementation approval recorded; launching "
+        "implementation authorization recorded; launching "
         f"{selection_source} {selected['profile']} implementation agent"
     )
     return launch_implementation_agent(path, ledger, root, args)
@@ -1949,7 +2014,7 @@ def cmd_revoke_implementation_approval(args: argparse.Namespace) -> int:
     append_history(ledger, "implementation_approval_revoked", args.reason)
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
-    print("implementation approval and agent profile revoked")
+    print("implementation authorization and agent profile revoked")
     return 0
 
 
@@ -2157,6 +2222,14 @@ def cmd_record(args: argparse.Namespace) -> int:
                 }
             )
         else:
+            if status == "gap":
+                cycle_count = int(ledger.get("planReviewCycleCount") or 0)
+                if cycle_count >= 3:
+                    die(
+                        "planning review convergence budget exhausted after three gap cycles; "
+                        "record a blocker or obtain an explicit operator decision instead of launching another ordinary review"
+                    )
+                ledger["planReviewCycleCount"] = cycle_count + 1
             reset_plan_technical_review(ledger, args.summary or f"planTech={status}")
             ev = ledger["evidence"]["planTech"]
             ev["status"] = status
@@ -2658,7 +2731,20 @@ def cmd_blocker(args: argparse.Namespace) -> int:
     if args.clear:
         ledger["blockers"] = []
         if ledger.get("stage") == "BLOCKED" and args.stage:
+            if args.stage not in STAGES:
+                die(f"unknown stage {args.stage!r}")
+            if args.stage == "EXECUTION_READY":
+                die("clear the blocker first, then run `delivery stage EXECUTION_READY` so automatic authorization and launch cannot be bypassed")
+            transition_problem = stage_transition_problem(ledger, root, args.stage)
+            if transition_problem:
+                die(f"cannot restore {args.stage}: {transition_problem}")
+            if args.stage == "MERGE_READY":
+                completeness_problem = completeness_review_problem(ledger, root)
+                if completeness_problem:
+                    die(f"cannot restore MERGE_READY: {completeness_problem}")
+            previous = ledger["stage"]
             ledger["stage"] = args.stage
+            append_history(ledger, "stage", f"{previous} -> {args.stage}")
         append_history(ledger, "blocker_clear", "blockers cleared")
     elif text:
         ledger.setdefault("blockers", []).append({"at": utc_now(), "text": text})
@@ -3611,6 +3697,11 @@ def cmd_reflect(args: argparse.Namespace) -> int:
     if freeform:
         notes = _split_items(notes, freeform)
 
+    if args.mark_done and ledger is not None:
+        done_problem = terminal_stage_problem(ledger, root, "DONE")
+        if done_problem:
+            die(f"cannot enter DONE: {done_problem}")
+
     result = append_reflection(
         ledger=ledger,
         friction=friction,
@@ -3716,7 +3807,7 @@ Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization
 | worktree | {ledger.get('worktree')} |
 | branch | {ledger.get('branch')} |
 | ledger | {path} |
-| implementation approval | {approval_status} ({approval_profile}) |
+| implementation authorization | {approval_status} ({approval_profile}) |
 | implementation agent | {implementation_agent_status} ({selected['profile']} / {selected['modelRef']} / {selected['reasoningLevel']}) |
 
 ## Your job
@@ -3727,8 +3818,8 @@ Keep this worktree moving through:
 plan ↔ Sol-medium planner decision → GPT-5.6 Terra at high by default or Sol medium for hard-to-validate work → Terra autoreview → Grok completeness → PR
 ```
 
-You are the planning/driving agent until operator approval. Use existing worker skills for real work.
-The `delivery` CLI is the scoreboard + navigator, not the implementer. The Sol-medium planner selects the implementation profile. After approval, delivery launches that dedicated agent and the planning agent stops.
+You are the planning/driving agent through reviewed-plan readiness. Use existing worker skills for real work.
+The `delivery` CLI is the scoreboard + navigator, not the implementer. The Sol-medium planner selects the implementation profile. Entering `EXECUTION_READY` automatically authorizes and launches that dedicated agent; the planning agent then stops without another routine approval pause.
 
 ## Do this first
 
@@ -3761,31 +3852,19 @@ While the stage is `PLAN_BROWSER_REVIEW`:
   materially on critical technical judgment.
   These are authorization boundaries.
 
-## Execution-ready approval pause
+## Automatic execution-ready handoff
 
-When the stage is `EXECUTION_READY`, do **not** invoke `run-plan`, change product code,
-or move to `IMPLEMENTING`. Keep the Doct listener alive and give the operator a concise
-summary of: (1) the current plan/review status, (2) the customer-visible and technical
-changes implementation will make, (3) the planner-selected `{selected['profile']}` profile
-(`{selected['modelRef']}` at `{selected['reasoningLevel']}`) and its rationale, and (4) the remaining
-phase/review/verification/PR steps. Ask whether to proceed.
-
-Only after a direct operator approval in chat or a deliberate Doct implementation-approval
-action may you record it:
+When the PM and independent Sol-medium readiness gates pass for the exact plan, run:
 
 ```bash
-delivery approve-implementation --source chat|doct \\
-  --summary "Operator saw status, changes, selected implementation profile, rationale, and remaining steps"
+delivery stage EXECUTION_READY
 ```
 
-The approval command creates a labeled sibling Herdr tab, starts Pi on its root pane with
-the planner recommendation by default, and prompts the new implementation agent. A deliberate manual launch may use `--model`, `--reasoning-level`, and `--override-reason`. The planning agent stops. The new agent runs
-`delivery verify-implementation-profile` and then `delivery stage IMPLEMENTING`; the stage
-rejects missing/stale approval, launch evidence, plan review, or a runtime that does not match the recorded profile. If the same recorded pane was deliberately switched to another model, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`.
-If launch failed, retry with `delivery start-implementation`. If a material Doct comment
-arrives before implementation, update the plan, run
-`delivery revoke-implementation-approval --reason "material plan feedback"`, and return to
-`PLAN_BROWSER_REVIEW`; a fresh explicit execution-ready request is then required.
+In Herdr this transition records workflow authorization, creates a labeled sibling tab, starts Pi on its root pane with the planner-selected `{selected['profile']}` profile (`{selected['modelRef']}` at `{selected['reasoningLevel']}`), and prompts the new implementation agent to continue through PR creation. Do not ask for another routine approval. The planning agent stops after the handoff and must not implement.
+
+Use `delivery stage EXECUTION_READY --hold` only when the operator explicitly requests a pause or a real external dependency blocks execution. After a hold, `delivery approve-implementation` remains available for compatibility or a deliberate manual model override with `--override-reason`.
+
+The new agent runs `delivery verify-implementation-profile` and then `delivery stage IMPLEMENTING`; the stage rejects missing/stale authorization, launch evidence, plan review, or a runtime that does not match the recorded profile. If launch failed, retry with `delivery start-implementation`; delivery reconciles the expected live agent after a shell-readiness race. If material Doct feedback changes the contract before implementation, update the plan, revoke authorization, and return to `PLAN_BROWSER_REVIEW` for a fresh readiness cycle.
 
 ## Recommended next step
 
@@ -3801,8 +3880,9 @@ arrives before implementation, update the plan, run
 delivery show
 delivery check -v
 delivery stages
-delivery stage <STAGE> [--note "..."]
-delivery approve-implementation --source chat|doct --summary "..."
+delivery stage <STAGE> [--note "..."]        # EXECUTION_READY auto-launches
+delivery stage EXECUTION_READY --hold            # explicit pause only
+delivery approve-implementation --source chat|doct --summary "..."  # compatibility/manual override after hold
 delivery start-implementation                    # retry failed dedicated-agent launch
 delivery verify-implementation-profile           # run in the recorded implementation pane
 delivery verify-implementation-profile --adopt-current-runtime --reason "..."  # record a deliberate manual switch
@@ -3865,8 +3945,8 @@ Skip only if there is truly nothing process-shaped to capture; prefer a short ho
 - Do **not** hard-block the operator on advisory delivery evidence. Enforce explicit readiness, Sol-medium plan review, one recorded implementation pane/runtime, and completeness boundaries. Recommend models, but allow deliberate manual model/reasoning choices when recorded with a reason.
 - Do **not** require a Linear issue to start; attach it when it exists.
 - Treat generic browser feedback as plan iteration, not an implied execution-ready review request.
-- `execution-ready` requires the current independent Sol-medium planner verdict but is still not authorization to implement. Pause for explicit operator approval.
-- Approval launches the dedicated implementation agent selected by the Sol-medium planner. The planning agent must not implement; the new agent verifies its profile before code work.
+- `execution-ready` requires the current independent Sol-medium planner verdict and automatically authorizes the exact reviewed plan for implementation in delivery-managed Herdr runs.
+- Entering `EXECUTION_READY` launches the dedicated implementation agent selected by the Sol-medium planner. The planning agent must not implement; the new agent verifies its profile before code work and continues through PR creation.
 - If material feedback arrives after readiness but before implementation, invalidate approval and launch evidence, then return to browser review.
 - Prefer keeping the ledger honest over perfect process compliance.
 - If truly stuck on a human decision: `delivery blocker "..." --mark-blocked` and report the decision needed.
@@ -3938,9 +4018,8 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
                 if args.stage == "IMPLEMENTING":
                     die(
                         "cannot enter IMPLEMENTING: "
-                        f"{transition_problem}. Present the execution-ready summary, obtain a direct "
-                        "operator approval, then run `delivery approve-implementation --source chat|doct "
-                        "--summary \"...\"`."
+                        f"{transition_problem}. Enter EXECUTION_READY in a Herdr delivery run so the "
+                        "reviewed plan is automatically authorized and the dedicated implementation agent launches."
                     )
                 die(
                     f"cannot enter {args.stage}: {transition_problem}. "
@@ -4049,16 +4128,20 @@ def build_parser() -> argparse.ArgumentParser:
     add_json_flag(p_show)
     p_show.set_defaults(func=cmd_show)
 
-    p_stage = sub.add_parser("stage", help="Set stage (IMPLEMENTING requires current operator approval)")
+    p_stage = sub.add_parser("stage", help="Set stage; EXECUTION_READY auto-launches implementation in Herdr")
     p_stage.add_argument("stage", help="Target stage")
     p_stage.add_argument("--note", help="Optional note with the transition")
+    p_stage.add_argument("--hold", action="store_true", help="Stop at EXECUTION_READY instead of automatically launching implementation")
+    p_stage.add_argument("--pane", help="Planning agent's Herdr pane id for automatic implementation launch")
+    p_stage.add_argument("--agent-name", help="Override the generated implementation agent name")
+    p_stage.add_argument("--timeout-ms", type=int, default=60000, help="Automatic implementation Pi startup timeout")
     p_stage.set_defaults(func=cmd_stage)
 
     p_approve = sub.add_parser(
         "approve-implementation",
-        help="Record explicit operator approval for the current execution-ready plan revision",
+        help="Compatibility/manual override: authorize and launch the current execution-ready plan revision",
     )
-    p_approve.add_argument("--source", required=True, choices=("chat", "doct"))
+    p_approve.add_argument("--source", required=True, choices=("chat", "doct", "workflow"))
     p_approve.add_argument(
         "--summary",
         required=True,

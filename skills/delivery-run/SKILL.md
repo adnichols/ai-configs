@@ -107,6 +107,8 @@ Goal: <paste goal>
 - Existing skills (`reviewed-html-plan`, `run-plan`, `autoreview`, PM review, `qa:run`) remain authoritative for their work.
 - The labeled-tab **visible completeness review** is the exception to advisory quality evidence for a Herdr delivery run: `delivery stage MERGE_READY` rejects a missing, stale, or unaccepted Grok 4.5 `COMPLETE` verdict unless the operator explicitly waives that review. `delivery check` and all other stage changes remain non-blocking so work can be inspected, corrected, or handed off.
 - Firmness is limited to explicit readiness authorization, the independent Sol-medium plan verdict and implementation-profile decision, the dedicated selected runtime, and completion evidence; the rest of the ledger optimizes for visibility, resumability, and honest status.
+- An implementation run cannot enter `DONE`—including through `delivery reflect --mark-done`—until current implementation, scoped review, PM outcome, autoreview, completeness, verification, PR, customer-impact/completion, and adversarial-QA disposition evidence is recorded. Planning-only runs that never entered `IMPLEMENTING` may still finish without a PR.
+- Planning readiness has a three-cycle convergence budget. Every `planTech=gap` consumes one cycle; after three gaps, stop with a blocker or explicit operator decision rather than launching another ordinary review.
 
 If guidance and checks/balances are right, agents should usually do the right thing without hard boundaries. Record when they do not, and keep going unless the operator stops the work.
 
@@ -150,10 +152,12 @@ delivery record planTech --status pass \
   --implementation-rationale "deterministic tests strongly validate the changed behavior"
 # Use --implementation-profile sol-medium instead when meaningful correctness is
 # hard to validate or depends materially on critical technical judgment.
-# After operator approval this launches a dedicated Herdr Pi agent on the selected profile.
-delivery approve-implementation --source chat --summary "Operator approved the planner-selected implementation profile"
-# Manual choices are allowed; to launch another model deliberately:
-delivery approve-implementation --source chat --summary "Operator approved a manual model" \
+# Entering EXECUTION_READY automatically authorizes the reviewed plan and launches
+# a dedicated Herdr Pi agent on the planner-selected profile.
+delivery stage EXECUTION_READY
+# Rare compatibility/manual override before launch:
+delivery stage EXECUTION_READY --hold
+delivery approve-implementation --source chat --summary "Deliberate manual model override" \
   --model openai-codex/gpt-5.6-terra --reasoning-level high \
   --override-reason "manual choice for this run"
 # Run by the newly launched implementation agent:
@@ -180,7 +184,7 @@ delivery path
 Ledger path: `<worktree>/.delivery/ledger.json`  
 Board scan: cwd + `~/.herdr/worktrees/*/*/.delivery/ledger.json`
 
-Delivery reconciles operator attention from the resulting ledger after every write. `EXECUTION_READY` with no current implementation approval sets `herdr-operator-attention --kind approval`; an explicit `BLOCKED` stage uses the latest blocker text; approval, stage exit, or blocker clear derives and publishes the next state rather than relying on paired events. `DELIVERY_SKIP_HERDR=1` disables both attention and labels. Completeness review and advisory gaps are agent-owned work and never set operator-blocked attention.
+Delivery reconciles operator attention from the resulting ledger after every write. Routine `EXECUTION_READY` handoff is automatic and does not request operator attention. An explicit `BLOCKED` stage uses the latest blocker text; stage exit or blocker clear derives and publishes the next state rather than relying on paired events. `DELIVERY_SKIP_HERDR=1` disables both attention and labels. Completeness review and advisory gaps are agent-owned work and never set operator-blocked attention.
 
 ## Stages
 
@@ -232,7 +236,7 @@ delivery check -v
 | `PLAN_BROWSER_REVIEW` | `doct-document-ops` listener; integrate feedback and wait for the explicit execution-ready review request. `delivery check` warns with `PLAN_TITLE` if titles are missing, HTML `<title>`/`<h1>` disagree, or an explicitly recorded Doct title (`delivery set --doct-title` after `documents get`) drifts from content — fix all sides before review handoff. |
 | `PLAN_PM_REVIEW` | after that request, `/dev:pm-review <plan> plan` |
 | `PLAN_TECH_REVIEW` | after that request, independent `planner` pinned to `openai-codex/gpt-5.6-sol` at medium |
-| `EXECUTION_READY` | pause, summarize the reviewed plan and implementation profile, then obtain explicit operator approval |
+| `EXECUTION_READY` | automatically authorize the reviewed plan and launch the dedicated planner-selected implementation agent |
 
 #### Browser-feedback escalation rule
 
@@ -267,46 +271,30 @@ delivery stage <STAGE>
 delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
 ```
 
-### 2a. Execution-ready approval pause
+### 2a. Automatic execution-ready handoff
 
-`EXECUTION_READY` is a pause, not an automatic handoff to `$run-plan`. At that stage,
-keep the Doct listener active and give the operator a concise summary of:
-
-1. the current plan/review status and residual non-blocking observations;
-2. the customer-visible and technical changes implementation will make;
-3. the Sol planner's selected implementation profile (`terra-high` by default, `sol-medium` for hard-to-validate or critical work) and its rationale; and
-4. the remaining implementation, test, review, verification, and PR steps.
-
-Ask whether to proceed. Do not change product code, invoke `$run-plan`, or move to
-`IMPLEMENTING` until the operator directly approves in chat or uses a deliberate Doct
-implementation-approval action. Record the approval against the current plan content,
-then start execution:
+`EXECUTION_READY` is the automatic handoff from reviewed planning to implementation. In a Herdr delivery run, entering this stage records workflow authorization for the exact reviewed plan, creates a labeled sibling tab, starts the planner-selected implementation runtime, and prompts it to continue through implementation, verification, bounded reviews, completeness review, and PR creation. The planning agent stops after the handoff; it does not ask for another routine approval.
 
 ```bash
-delivery approve-implementation --source chat|doct \
-  --summary "Operator received plan status, changes, selected profile and rationale, and remaining steps"
-# This creates a labeled sibling Herdr tab, starts Pi on that tab's root pane
-# with the planner-selected flags by default, and prompts the new implementation agent. The planning agent stops here.
-# A deliberate manual model/reasoning choice may be supplied with --model, --reasoning-level,
-# and --override-reason; the workflow records rather than prohibits that choice.
-# In the new agent:
+delivery stage EXECUTION_READY
+# In the automatically launched implementation agent:
 delivery verify-implementation-profile
 delivery stage IMPLEMENTING
-# only now: /skill:run-plan <plan>
+/skill:run-plan <plan>
 ```
 
-The CLI rejects readiness-review stages without a current explicit request and rejects `EXECUTION_READY` without the Sol-medium planner verdict. Before `IMPLEMENTING`, it requires approval, implementation-agent launch evidence, the current plan fingerprint, the recorded Herdr pane, and a Pi runtime matching the recorded profile. The recorded profile normally comes from the planner, but manual choices are explicitly allowed through `approve-implementation --model ... --reasoning-level ... --override-reason ...` or, within the already-recorded implementation pane, `verify-implementation-profile --adopt-current-runtime --reason ...`. `approve-implementation` launches the dedicated implementation agent; `start-implementation` retries a failed launch without asking for a new approval. An exclusive per-worktree launch lease plus ledger revisions rejects concurrent launches and stale/concurrent ledger mutations while the handoff is active. Repeated approval and a successful launch both refuse any later second writer. These checks apply to `delivery stage`, `delivery init`, `delivery spawn`, `delivery bootstrap`, and approval/launch commands, so ledger creation or refresh cannot bypass the handoff. These are authorization boundaries, not quality-evidence advisories.
-If the plan changes or material browser feedback arrives before implementation, reply and
-update the plan, then invalidate the approval and return to browser review:
+Use `delivery stage EXECUTION_READY --hold` only for a deliberate operator-requested pause or a known external dependency. `approve-implementation` remains a compatibility/manual-override command after a hold; a deliberate model/reasoning override must include `--override-reason`.
+
+The CLI rejects readiness-review stages without a current explicit readiness request and rejects `EXECUTION_READY` without the Sol-medium planner verdict. Before `IMPLEMENTING`, it requires current workflow authorization, implementation-agent launch evidence, the exact plan fingerprint, the recorded Herdr pane, and a matching live Pi runtime. `start-implementation` retries a failed launch; when Herdr reports the expected Pi agent after a start race, delivery reconciles that live agent instead of leaving a false `start-failed` record. An exclusive per-worktree launch lease plus ledger revisions rejects concurrent launches and stale writers.
+
+If material browser feedback changes the contract before implementation begins, update the plan, revoke the authorization, and return to browser review:
 
 ```bash
 delivery revoke-implementation-approval --reason "material plan feedback"
 delivery stage PLAN_BROWSER_REVIEW
 ```
 
-A fresh explicit **Request execution-ready review** action and fresh readiness review are
-required before a new operator approval. Generic feedback, a quiet listener, readiness
-metadata, and an old approval never authorize implementation.
+A fresh explicit **Request execution-ready review** action and fresh readiness review are required after a material contract change. Progress bookkeeping during implementation is not a new readiness request: record phase progress in the delivery/coverage ledger and synchronize plan checkboxes to Doct once before completeness review so bookkeeping does not invalidate the live implementation handoff.
 
 ### 3. Implement through PR
 
@@ -402,7 +390,7 @@ Prefer process-shaped notes (friction, retries, unclear guidance, handoff gaps),
 5. Do not stop the operator solely because recommended evidence is `pending` or `gap`, except that a Herdr delivery run cannot claim local merge readiness without a validated visible `completion-review --accept` result or an explicit operator waiver.
 6. At `COMPLETENESS_REVIEW`, run `delivery completion-review`; read the labeled Grok 4.5 tab, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture and validate its artifact before final readiness.
 7. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
-8. Treat execution-ready as eligibility only: present the approval summary, recommended profile, and rationale, then wait for explicit operator permission. `approve-implementation` launches the recommended profile by default but must permit a deliberate manual model/reasoning override with a recorded reason; the planning agent must not implement. Invalidate approval and launch evidence if material feedback changes the plan.
+8. Treat execution-ready as automatic implementation authorization for a delivery-managed run: `delivery stage EXECUTION_READY` launches the recommended profile and the planning agent stops. Do not wait for another routine approval. Use `--hold` only when the operator explicitly requests a pause or a real external dependency blocks execution; invalidate authorization and launch evidence if material feedback changes the plan.
 9. The implementation agent must run `delivery verify-implementation-profile` before entering `IMPLEMENTING`; the stage gate independently checks the live Pi provider/model/reasoning environment.
 10. Do not reimplement run-plan/autoreview/reviewed-html-plan here.
 11. If something is truly stuck on a human decision, `delivery blocker "..." --mark-blocked` and say what is needed — still leave the workflow usable.

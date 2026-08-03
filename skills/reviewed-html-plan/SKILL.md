@@ -7,7 +7,7 @@ description: Create and gate execution-ready HTML development plans through Doct
 
 Use this skill when the user wants the planning and review process completed before implementation starts. The output is a single reviewed HTML plan that is registered in Doct through `doct-agent plans` on `https://doct.nodaste.com` and either marked execution-ready or explicitly blocked on a product/scope decision.
 
-This workflow stops before product-code execution. It may edit the plan artifact, but it must not change product code, tests, app config, generated files, or environment files.
+The planning agent stops before product-code execution and may edit only the plan artifact. In a delivery-managed Herdr run, its final `EXECUTION_READY` transition automatically launches a separate dedicated implementation agent; in planning-only use, no implementation agent is launched.
 
 ## Required companion skills
 
@@ -252,6 +252,8 @@ Stop and report a convergence blocker if:
 - a product question remains unanswered,
 - three full review cycles do not converge.
 
+Require each planner pass to return the complete bounded blocker set it found, not one representative blocker. In a delivery-managed run, each `planTech=gap` record consumes one planning-review cycle and the CLI refuses a fourth ordinary gap cycle; record a blocker or obtain an explicit operator decision instead of renaming or restarting the review loop.
+
 If AI reviews materially reshape product intent, run one final PM check before declaring the plan execution-ready.
 
 ### 8. Final readiness gate
@@ -273,29 +275,21 @@ Before final output, inspect the HTML plan for obvious handoff blockers:
 - PM review left unresolved product-intent or user-impact gaps,
 - PM and Sol-medium planner readiness review began without an explicit execution-ready request (unless the operator directly requested that review).
 
-Do not start implementation as part of this skill.
+Do not implement product code in the planning agent. In a delivery-managed run, the final action of this skill is the automatic handoff below; the dedicated implementation agent owns all code, tests, fixes, Git, and PR work.
 
-### 8b. Execution-ready operator approval pause
+### 8b. Automatic execution-ready handoff
 
-`execution-ready` means the reviewed plan is eligible for implementation; it is **not** authorization to start product-code work. Keep the Doct listener active while the plan remains pre-execution. Before invoking `run-plan`, stop and ask the operator whether to proceed. The approval message must state:
-
-1. the current plan and review status, including any residual non-blocking observations;
-2. a concise summary of the customer-visible and technical changes implementation will make;
-3. the planner-selected implementation profile and rationale: normally `openai-codex/gpt-5.6-terra` at high by default, or `openai-codex/gpt-5.6-sol` at medium when meaningful correctness is hard to validate or technically critical; and
-4. the remaining implementation phases, tests, reviews, verification, and PR steps.
-
-A direct operator approval in the current conversation or a deliberate Doct implementation-approval action is required. For a delivery-managed run, record that approval against the current plan content before entering `IMPLEMENTING`:
+For a delivery-managed run, `execution-ready` authorizes the reviewed plan to proceed automatically. After the explicit execution-ready review request, PM readiness, and independent Sol-medium `PLAN_EXECUTION_READY` verdict are current for the exact plan, enter `EXECUTION_READY`:
 
 ```bash
-delivery approve-implementation --source chat|doct \
-  --summary "Operator received the execution-ready status, changes, selected profile and rationale, and remaining steps"
-# approve-implementation launches and prompts a dedicated Herdr Pi agent using
-# the planner recommendation by default. A deliberate manual model/reasoning choice is allowed
-# with --model, --reasoning-level, and --override-reason. The planning agent stops here.
-# The new implementation agent verifies its runtime and enters IMPLEMENTING.
+delivery stage EXECUTION_READY
 ```
 
-Do not approve on the operator's behalf. A generic “execution-ready” action, a quiet listener, an old approval, or the original request to prepare a plan is not implementation approval. The planner's profile is a recommendation and workflow default, not a prohibition: the operator or implementation agent may deliberately choose another available model when the override and reason are recorded. If the already-recorded implementation pane has been switched manually, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. If the plan changes after approval, invalidate it and repeat this pause.
+That transition records workflow authorization, launches and prompts a dedicated Herdr Pi agent on the planner-selected profile, and continues toward implementation, verification, review, and PR creation without another routine operator approval. The planning agent stops after the handoff. Use `--hold` only when the operator explicitly requests a pause or a real external dependency prevents execution.
+
+The planner's profile remains a workflow default, not a prohibition. A deliberate manual model/reasoning override may be recorded through the compatibility `approve-implementation` command after `delivery stage EXECUTION_READY --hold`, or from the already-recorded implementation pane with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. If material plan feedback arrives before code work, revoke the authorization and return to browser review for a fresh readiness request and review.
+
+For planning-only use without a delivery ledger, stop after publishing the execution-ready plan; do not create an implementation worktree or edit product code.
 
 ## Final output
 
@@ -319,8 +313,8 @@ Review URL: <canonical Doct URL>
 ### Final status
 <execution-ready / blocked>
 
-### Operator approval required
-<Only when execution-ready: give the four-part status/change/model-and-reasoning/remaining-steps summary, ask whether to proceed, and state that implementation will not start until explicit approval. For a delivery-managed run, name `delivery approve-implementation --source chat|doct ...` rather than invoking `run-plan`.>
+### Execution handoff
+<For a delivery-managed run: report the planner-selected implementation profile and confirm that `delivery stage EXECUTION_READY` automatically launched the dedicated implementation agent, then stop the planning agent. For planning-only use: state that the plan is ready and no implementation was started.>
 ```
 
 If the plan is blocked, replace the execution handoff with a pointer to the unresolved `Decision Required` block(s) in the canonical Doct plan and ask the user to select an option or comment there. Do not restate an abbreviated option list in chat, and do not suggest a Markdown-only execution command unless the repo explicitly supports converting the reviewed HTML plan back to Markdown.

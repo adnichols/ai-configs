@@ -65,7 +65,7 @@ Before editing, read the full plan and extract:
 Stop before implementation if:
 
 - the plan is not execution-ready,
-- a delivery ledger exists and is not being entered from the dedicated implementation pane with the recorded runtime profile—or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, current operator approval, and successful implementation-agent launch record. The planner recommends `openai-codex/gpt-5.6-terra` at high by default and `openai-codex/gpt-5.6-sol` at medium for hard-to-validate/critical work, but a deliberate manual model/reasoning choice is allowed when recorded with a reason. Run `delivery verify-implementation-profile` before code work; if this already-recorded pane was deliberately switched, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. Never treat readiness metadata, a generic Doct comment/action, a quiet listener, or an old approval as implementation authorization,
+- a delivery ledger exists and is not being entered from the dedicated implementation pane with the recorded runtime profile—or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, automatic workflow authorization, and successful implementation-agent launch record. The planner recommends `openai-codex/gpt-5.6-terra` at high by default and `openai-codex/gpt-5.6-sol` at medium for hard-to-validate/critical work, but a deliberate manual model/reasoning choice is allowed when recorded with a reason. `delivery stage EXECUTION_READY` performs the normal authorization and launch without another operator approval pause. Run `delivery verify-implementation-profile` before code work; if this already-recorded pane was deliberately switched, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. Never treat readiness metadata, a generic Doct comment/action, or a quiet listener as readiness authorization,
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
@@ -161,11 +161,11 @@ When the `delivery` CLI or `delivery-run` skill is available, keep the per-workt
 ```bash
 delivery init --plan <plan-path>                 # issue optional at start
 delivery set --issue <KEY> --retarget-id         # attach Linear later when it exists
-# At EXECUTION_READY the planning agent gives the operator status, changes,
-# planner-selected profile and rationale, and remaining steps. After direct approval this launches
-# a dedicated Herdr Pi agent using the recommended GPT-5.6 Terra at high or Sol-medium runtime by default:
-delivery approve-implementation --source chat|doct --summary "Operator received the execution-ready summary"
-# A deliberate manual launch may add --model, --reasoning-level, and --override-reason.
+# After the explicit readiness request and clean PM/Sol reviews, this automatically
+# authorizes and launches a dedicated Herdr Pi agent using the recommended GPT-5.6 Terra
+# at high or Sol-medium runtime. No additional routine operator approval is required:
+delivery stage EXECUTION_READY
+# Use `delivery stage EXECUTION_READY --hold` only for an explicit pause or real external dependency.
 # The planning agent stops. In the newly launched implementation agent:
 delivery verify-implementation-profile
 # If this recorded implementation pane was deliberately switched to another model:
@@ -181,7 +181,7 @@ delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "...
 delivery check -v   # advisories only; always exit 0
 ```
 
-Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization, Sol-medium plan review and profile recommendation, operator approval, dedicated-agent launch, recorded Herdr-pane identity, or live recorded-runtime evidence is different: it stops pre-code execution. A model mismatch is recoverable rather than a hard policy block: either switch to the recorded model, or deliberately adopt the current model in the same implementation pane with `--adopt-current-runtime --reason`. A failed launch is retried with `delivery start-implementation`; the planning agent does not take over implementation. For a Herdr delivery run, a missing validated `delivery completion-review --accept` result after implementation also prevents a local merge-readiness claim unless the operator explicitly waives that review. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
+Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization, Sol-medium plan review and profile recommendation, automatic workflow authorization, dedicated-agent launch, recorded Herdr-pane identity, or live recorded-runtime evidence is different: it stops pre-code execution. A model mismatch is recoverable rather than a hard policy block: either switch to the recorded model, or deliberately adopt the current model in the same implementation pane with `--adopt-current-runtime --reason`. A failed launch is retried with `delivery start-implementation`; delivery first reconciles an expected live Pi agent in the recorded pane so shell-readiness races do not leave a false `start-failed` state. The planning agent does not take over implementation. For a Herdr delivery run, a missing validated `delivery completion-review --accept` result after implementation also prevents a local merge-readiness claim unless the operator explicitly waives that review. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
 
 When the scoped run reaches local merge-readiness or a durable stop (DONE/blocked handoff), best-effort log a process reflection outside the worktree:
 
@@ -221,7 +221,7 @@ Before implementation starts:
 3. If a visible `in_progress` column exists, run `doct-agent plans board set --base-url https://doct.nodaste.com --document-id <document-id> --workspace-id <workspace-id> --column in_progress --json`.
 4. If `in_progress` is absent, hidden, or ambiguous, stop with an actionable status-sync blocker unless repo/service configuration explicitly identifies an equivalent in-progress column.
 
-Do not treat a disk progress checkbox update as sufficient reviewer-state alignment. After each completed phase, update the source plan `Progress`, push the updated HTML through `doct-agent plans update` or verify an active `doct-agent plans watch`, and inspect Doct evidence (`plans show`, board/list output, or returned update metadata) before advancing.
+Do not treat a disk progress checkbox update as sufficient reviewer-state alignment. During implementation, keep phase progress in the delivery/coverage ledger so the reviewed plan hash remains stable. Immediately before completeness review, apply one truthful progress/status-only update to the source plan, publish it through `doct-agent plans update` or an active `doct-agent plans watch`, and inspect Doct evidence (`plans show`, board/list output, or returned update metadata). Material contract changes still require revocation and a fresh readiness cycle.
 
 ### 2. Prepare
 
@@ -242,8 +242,8 @@ For each unfinished **PR-reviewable** phase:
 1. Write or update only the tests required by the phase.
 2. Implement the smallest product change that satisfies the phase.
 3. Run the phase's targeted verification.
-4. Update the source plan progress only when that phase is actually complete.
-5. Verify Doct reflects that source progress through `doct-agent plans update`, an active `doct-agent plans watch`, or `doct-agent plans show`/board evidence before advancing.
+4. Record completed phase progress in the delivery/coverage ledger; do not mutate the reviewed source plan after each phase because the plan content hash anchors the live implementation authorization.
+5. Immediately before completeness review, synchronize all truthful progress checkboxes to the source plan and Doct in one bookkeeping update, verify the change is progress/status-only, and preserve the active implementation handoff. A material contract edit instead requires revocation and a fresh readiness cycle.
 6. Record only documented out-of-scope discoveries in the plan's deviation log or the repo's discovery ledger. In-scope findings are not discoveries to defer; fix them before advancing.
 
 If an existing plan phase requires deployment, promotion, merge-dependent validation, production observation, or rollback execution, split the boundary rather than executing or waiting on that operation: complete and check off only the PR-reviewable implementation portion when truthful, move/preserve the operational portion as a non-blocking post-merge obligation, sync that clarification to Doct, and continue toward PR creation.
