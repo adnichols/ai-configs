@@ -35,11 +35,11 @@ PLAN_REVIEW_AGENT = "planner"
 PLAN_REVIEW_MODEL = "openai-codex/gpt-5.6-sol"
 PLAN_REVIEW_REASONING = "medium"
 IMPLEMENTATION_PROFILES = {
-    "luna-max": {
+    "terra-high": {
         "provider": "openai-codex",
-        "model": "gpt-5.6-luna",
-        "reasoningLevel": "max",
-        "label": "GPT-5.6 Luna at max reasoning",
+        "model": "gpt-5.6-terra",
+        "reasoningLevel": "high",
+        "label": "GPT-5.6 Terra at high reasoning",
     },
     "sol-medium": {
         "provider": "openai-codex",
@@ -48,10 +48,13 @@ IMPLEMENTATION_PROFILES = {
         "label": "GPT-5.6 Sol at medium reasoning",
     },
 }
-# Persisted ledgers may still carry the former profile name. Resolve it to
-# Luna without allowing new plan-review records to select a retired model.
-IMPLEMENTATION_PROFILE_ALIASES = {"deepseek-flash": "luna-max"}
-DEFAULT_IMPLEMENTATION_PROFILE = "luna-max"
+# Old profile names resolve to the current normal profile. New plan-review
+# records must use a current profile name.
+IMPLEMENTATION_PROFILE_ALIASES = {
+    "deepseek-flash": "terra-high",
+    "luna-max": "terra-high",
+}
+DEFAULT_IMPLEMENTATION_PROFILE = "terra-high"
 LEGACY_IMPLEMENTATION_PROFILE = "sol-medium"
 
 STAGES = [
@@ -1608,7 +1611,7 @@ Do this now:
 3. Run `delivery stage IMPLEMENTING` from this pinned Pi runtime.
 4. Execute `/skill:run-plan {plan}` through implementation, verification, Terra code review, the visible Grok completeness review, and PR readiness.
 
-GPT-5.6 Luna at max reasoning is the normal implementation profile when deterministic tests strongly validate the result. Sol medium is recommended when meaningful correctness is hard to validate or depends materially on critical technical judgment. The recommendation is not a prohibition: if this recorded implementation pane is deliberately switched to another model, record it with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` before code work.
+GPT-5.6 Terra at high reasoning is the normal implementation profile when deterministic tests strongly validate the result. Sol medium is recommended when meaningful correctness is hard to validate or depends materially on critical technical judgment. The recommendation is not a prohibition: if this recorded implementation pane is deliberately switched to another model, record it with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` before code work.
 
 Do not re-plan beyond the reviewed contract. The planning agent must not implement; you own all code, tests, fixes, Git, and PR work from this point."""
 
@@ -3079,7 +3082,7 @@ def agent_start_prompt(goal: str, *, issue: str | None, worktree: str) -> str:
         "1. Read `.delivery/AGENT_BRIEF.md` when present. If it is absent, continue from `delivery show`, the ledger, and the plan; `delivery bootstrap --refresh` may recreate it.\n"
         "2. Run `delivery show` and `delivery check -v`.\n"
         "3. Continue from the current state's recommended next step using existing worker skills\n"
-        "   (reviewed-html-plan / dev-plan → Sol-medium profile decision → GPT-5.6 Luna at max or Sol implementation → Terra autoreview → Grok completeness → PR).\n"
+        "   (reviewed-html-plan / dev-plan → Sol-medium profile decision → GPT-5.6 Terra at high or Sol implementation → Terra autoreview → Grok completeness → PR).\n"
         "   During `PLAN_BROWSER_REVIEW`, integrate ordinary feedback but wait for Doct's explicit\n"
         "   `Request execution-ready review` action before PM or technical readiness review.\n"
         "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
@@ -3721,7 +3724,7 @@ Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization
 Keep this worktree moving through:
 
 ```text
-plan ↔ Sol-medium planner decision → GPT-5.6 Luna at max for strongly testable work or Sol medium for hard-to-validate work → Terra autoreview → Grok completeness → PR
+plan ↔ Sol-medium planner decision → GPT-5.6 Terra at high by default or Sol medium for hard-to-validate work → Terra autoreview → Grok completeness → PR
 ```
 
 You are the planning/driving agent until operator approval. Use existing worker skills for real work.
@@ -3753,9 +3756,9 @@ While the stage is `PLAN_BROWSER_REVIEW`:
   `PLAN_PM_REVIEW`. `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW`
   reject a missing request record. `EXECUTION_READY` additionally requires a
   current independent planner artifact from `openai-codex/gpt-5.6-sol` at medium
-  with `VERDICT: PLAN_EXECUTION_READY`. The same review should select `luna-max`
-  when deterministic tests strongly validate the result, and `sol-medium` when meaningful
-  correctness is hard to validate or depends materially on critical technical judgment.
+  with `VERDICT: PLAN_EXECUTION_READY`. The same review should select `terra-high`
+  by default, and `sol-medium` when meaningful correctness is hard to validate or depends
+  materially on critical technical judgment.
   These are authorization boundaries.
 
 ## Execution-ready approval pause
@@ -3834,7 +3837,7 @@ delivery bootstrap --refresh                    # rewrite this brief
 ## Soft quality inserts (recommended, never required)
 
 - `delivery record planReadinessRequest --status pass --summary "Doct execution-ready review request"`
-- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY --implementation-profile luna-max|sol-medium --implementation-rationale "..."`
+- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY --implementation-profile terra-high|sol-medium --implementation-rationale "..."`
 - `delivery record completionEval --status pass|gap --summary "..."`
 - `delivery record customerImpact --status pass --summary "..." --promised "..." --observed "..."`
 - `delivery record adversarialQa --status pass|na --summary "..."`
@@ -4154,7 +4157,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--implementation-profile",
         choices=tuple(sorted(IMPLEMENTATION_PROFILES)),
         help=(
-            "Planner-selected implementation profile: luna-max for strongly testable work; "
+            "Planner-selected implementation profile: terra-high by default; "
             "sol-medium when meaningful correctness is hard to validate or technically critical"
         ),
     )

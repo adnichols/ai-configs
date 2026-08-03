@@ -1,6 +1,6 @@
 ---
 name: delivery-run
-description: Spawn a Herdr worktree from a goal and run plan ↔ independent Sol-medium review and implementation-profile decision → GPT-5.6 Luna at max for strongly testable work or Sol medium for hard-to-validate work → Terra code review → visible Grok completeness review → PR with a durable stage ledger, board visibility, and end-of-run reflections. Use when the operator wants a new worktree started for them, delivery spawn/bootstrap/status/board/reflect, resuming delivery, or attaching a Linear issue later.
+description: Spawn a Herdr worktree from a goal and run plan ↔ independent Sol-medium review and implementation-profile decision → GPT-5.6 Terra at high by default or Sol medium for hard-to-validate work → Terra code review → visible Grok completeness review → PR with a durable stage ledger, board visibility, and end-of-run reflections. Use when the operator wants a new worktree started for them, delivery spawn/bootstrap/status/board/reflect, resuming delivery, or attaching a Linear issue later.
 ---
 
 # Delivery Run
@@ -8,7 +8,7 @@ description: Spawn a Herdr worktree from a goal and run plan ↔ independent Sol
 Use this skill to keep each delivery worktree visible in the existing development cycle:
 
 ```text
-plan ↔ Sol-medium planner review + profile decision → GPT-5.6 Luna at max for strongly testable work or Sol medium for hard-to-validate work → Terra autoreview → visible Grok completeness review → PR
+plan ↔ Sol-medium planner review + profile decision → GPT-5.6 Terra at high by default or Sol medium for hard-to-validate work → Terra autoreview → visible Grok completeness review → PR
 ```
 
 with a visible plan-completeness reviewer, PM/customer-impact notes, and adversarial QA prompts.
@@ -146,7 +146,7 @@ delivery record planTech --status pass \
   --summary "independent Sol medium review" --reviewer planner \
   --model openai-codex/gpt-5.6-sol --reasoning-level medium \
   --verdict PLAN_EXECUTION_READY \
-  --implementation-profile luna-max \
+  --implementation-profile terra-high \
   --implementation-rationale "deterministic tests strongly validate the changed behavior"
 # Use --implementation-profile sol-medium instead when meaningful correctness is
 # hard to validate or depends materially on critical technical judgment.
@@ -258,7 +258,7 @@ delivery record planReadinessRequest --status pass \
 delivery stage PLAN_PM_REVIEW
 ```
 
-This is an authorization boundary: `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW` reject a missing or stale `planReadinessRequest=pass` record. `EXECUTION_READY` additionally requires a current `PLAN_EXECUTION_READY` artifact from the independent `planner` subagent with model `openai-codex/gpt-5.6-sol` and medium reasoning. That planner also chooses `luna-max` when deterministic tests strongly validate the implementation, or `sol-medium` when meaningful correctness is hard to validate or depends materially on critical technical judgment, and records a concise rationale. Both records are tied to the current plan content, so a changed plan requires a fresh explicit request and fresh Sol-medium review. Other delivery evidence remains advisory.
+This is an authorization boundary: `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW` reject a missing or stale `planReadinessRequest=pass` record. `EXECUTION_READY` additionally requires a current `PLAN_EXECUTION_READY` artifact from the independent `planner` subagent with model `openai-codex/gpt-5.6-sol` and medium reasoning. That planner also chooses `terra-high` when deterministic tests strongly validate the implementation, or `sol-medium` when meaningful correctness is hard to validate or depends materially on critical technical judgment, and records a concise rationale. Both records are tied to the current plan content, so a changed plan requires a fresh explicit request and fresh Sol-medium review. Other delivery evidence remains advisory.
 
 After each meaningful step:
 
@@ -274,7 +274,7 @@ keep the Doct listener active and give the operator a concise summary of:
 
 1. the current plan/review status and residual non-blocking observations;
 2. the customer-visible and technical changes implementation will make;
-3. the Sol planner's selected implementation profile (`luna-max` normally, `sol-medium` for hard-to-validate or critical work) and its rationale; and
+3. the Sol planner's selected implementation profile (`terra-high` by default, `sol-medium` for hard-to-validate or critical work) and its rationale; and
 4. the remaining implementation, test, review, verification, and PR steps.
 
 Ask whether to proceed. Do not change product code, invoke `$run-plan`, or move to

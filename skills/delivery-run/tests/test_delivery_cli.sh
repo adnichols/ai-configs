@@ -838,7 +838,7 @@ test_readiness_review_requires_explicit_request() {
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/plan-review.md --summary "independent Sol medium plan review" \
     --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
-    --verdict PLAN_EXECUTION_READY --implementation-profile luna-max \
+    --verdict PLAN_EXECUTION_READY --implementation-profile terra-high \
     --implementation-rationale "deterministic tests strongly validate this plan" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
   python3 - "$repo/.delivery/ledger.json" <<'PY'
@@ -849,7 +849,7 @@ assert review["reviewer"] == "planner"
 assert review["model"] == "openai-codex/gpt-5.6-sol"
 assert review["reasoningLevel"] == "medium"
 assert review["verdict"] == "PLAN_EXECUTION_READY"
-assert review["implementationProfile"] == "luna-max"
+assert review["implementationProfile"] == "terra-high"
 assert "deterministic tests" in review["implementationRationale"]
 assert review["planSha256"]
 PY
@@ -1134,10 +1134,10 @@ assert d["implementationProfile"]["status"] == "pending"
 PY
 }
 
-test_testable_work_routes_to_luna_max() {
-  local repo="$TMP_ROOT/luna-implementation-repo"
-  local fake_bin="$TMP_ROOT/fake-herdr-luna"
-  local herdr_log="$TMP_ROOT/fake-herdr-luna.log"
+test_normal_work_routes_to_terra_high() {
+  local repo="$TMP_ROOT/terra-implementation-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-terra"
+  local herdr_log="$TMP_ROOT/fake-herdr-terra.log"
   make_repo "$repo"
   mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation" "$fake_bin"
   printf '<article data-plan>testable implementation</article>\n' >"$repo/thoughts/plans/x.html"
@@ -1158,14 +1158,14 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary "testable work" --reviewer planner \
     --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
-    --implementation-profile luna-max \
+    --implementation-profile terra-high \
     --implementation-rationale "deterministic unit and integration tests exercise the changed behavior" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
 
   PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-deep HERDR_PANE_ID=w-deep:p1 \
     "$DELIVERY" --cwd "$repo" approve-implementation --source chat \
-    --summary "Operator approved the planner-selected Luna implementation profile" >/dev/null
-  rg -q "agent start implementation-.* --kind pi --pane w-deep:p2 --timeout 60000 -- --provider openai-codex --model gpt-5.6-luna --thinking max" "$herdr_log" || return 1
+    --summary "Operator approved the planner-selected Terra implementation profile" >/dev/null
+  rg -q "agent start implementation-.* --kind pi --pane w-deep:p2 --timeout 60000 -- --provider openai-codex --model gpt-5.6-terra --thinking high" "$herdr_log" || return 1
 
   python3 - "$repo/.delivery/ledger.json" <<'PY'
 import json,sys
@@ -1173,15 +1173,15 @@ d=json.load(open(sys.argv[1]))
 review=d["evidence"]["planTech"]
 approval=d["implementationApproval"]
 profile=d["implementationProfile"]
-assert review["implementationProfile"] == "luna-max"
+assert review["implementationProfile"] == "terra-high"
 assert "deterministic" in review["implementationRationale"]
-assert approval["profile"] == "luna-max"
-assert approval["model"] == "openai-codex/gpt-5.6-luna"
-assert approval["reasoningLevel"] == "max"
-assert profile["profile"] == "luna-max"
+assert approval["profile"] == "terra-high"
+assert approval["model"] == "openai-codex/gpt-5.6-terra"
+assert approval["reasoningLevel"] == "high"
+assert profile["profile"] == "terra-high"
 assert profile["provider"] == "openai-codex"
-assert profile["model"] == "gpt-5.6-luna"
-assert profile["reasoningLevel"] == "max"
+assert profile["model"] == "gpt-5.6-terra"
+assert profile["reasoningLevel"] == "high"
 PY
 
   set +e
@@ -1254,7 +1254,7 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
     --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
-    --implementation-profile luna-max --implementation-rationale "tests strongly validate the change" >/dev/null
+    --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
 
   set +e
@@ -1381,7 +1381,7 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/plan-review.md --summary ready --reviewer planner \
     --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
-    --implementation-profile luna-max --implementation-rationale "tests strongly validate the change" >/dev/null
+    --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
 
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
     "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
@@ -1450,12 +1450,12 @@ test_skill_doctrine_wording() {
   rg -q "Execution-ready operator approval pause" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "verify-implementation-profile" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "start-implementation" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q '"luna-max"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q '"terra-high"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q '"provider": "openai-codex"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
-  rg -q '"model": "gpt-5.6-luna"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q '"model": "gpt-5.6-terra"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   ! rg -q 'deepseek-v4-flash' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q '"sol-medium"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
-  rg -q 'DEFAULT_IMPLEMENTATION_PROFILE = "luna-max"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q 'DEFAULT_IMPLEMENTATION_PROFILE = "terra-high"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "COMPLETENESS_REVIEW" "$ROOT/skills/delivery-run/SKILL.md" || return 1
   rg -q "xai/grok-4.5:high" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "completion-review" "$ROOT/_pi/prompts/delivery:run.md" || return 1
@@ -1590,7 +1590,7 @@ run_test test_init_cannot_bypass_authorization_stages
 run_test test_bootstrap_cannot_bypass_authorization_stages
 run_test test_approval_cannot_bypass_readiness_request
 run_test test_execution_ready_requires_current_operator_approval
-run_test test_testable_work_routes_to_luna_max
+run_test test_normal_work_routes_to_terra_high
 run_test test_implementation_agent_launch_failures_are_not_ready
 run_test test_docs_use_labeled_tabs_not_pane_splits
 run_test test_operator_attention_reconciles_delivery_state
