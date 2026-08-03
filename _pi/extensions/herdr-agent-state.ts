@@ -81,16 +81,20 @@ function operatorWaitMarker(): OperatorWaitMarker | undefined {
 // sendRequest resolves with true on a successful round-trip and false on any
 // error or timeout. Callers use the result to retry dropped reports so a lost
 // final idle never leaves the pane stuck in working.
-function sendRequest(request: unknown): Promise<boolean> {
+function sendRequestAttempt(request: unknown): Promise<boolean> {
   if (!enabled()) {
     return Promise.resolve(false);
   }
 
   return new Promise((resolve) => {
     let done = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     const finish = (ok: boolean) => {
       if (done) return;
       done = true;
+      if (timeout) {
+        clearTimeout(timeout);
+      }
       socket.destroy();
       resolve(ok);
     };
@@ -99,10 +103,26 @@ function sendRequest(request: unknown): Promise<boolean> {
     socket.on("error", () => finish(false));
     socket.on("connect", () => socket.write(`${JSON.stringify(request)}\n`));
     socket.on("data", () => finish(true));
-    socket.on("end", () => finish(true));
-    const timeout = setTimeout(() => finish(false), 500);
+    // A peer close before its JSON-RPC response is not delivery confirmation.
+    // Return failure so the state queue retries rather than losing the report.
+    socket.on("end", () => finish(false));
+    timeout = setTimeout(() => finish(false), 500);
     timeout.unref?.();
   });
+}
+
+async function sendRequest(request: unknown): Promise<boolean> {
+  if (!enabled()) {
+    return false;
+  }
+  if (await sendRequestAttempt(request)) {
+    return true;
+  }
+
+  // Session handoffs and final releases are not part of the state queue, so
+  // retry every RPC once here as well as retaining the queue's state retries.
+  await sleepUnref(sendRetryDelayMs);
+  return sendRequestAttempt(request);
 }
 
 type AgentState = "working" | "blocked" | "idle";
@@ -244,7 +264,7 @@ function currentSessionRef(): Record<string, unknown> | undefined {
   return undefined;
 }
 
-function reportSession(): Promise<boolean> {
+function reportSession(sessionStartSource?: string): Promise<boolean> {
   const sessionRef = currentSessionRef();
   if (!sessionRef) {
     return Promise.resolve(false);
@@ -258,6 +278,7 @@ function reportSession(): Promise<boolean> {
       source,
       agent: "pi",
       seq: nextReportSeq(),
+      session_start_source: sessionStartSource,
       ...sessionRef,
     },
   });
@@ -289,6 +310,13 @@ function releaseAgent(): Promise<boolean> {
       seq: nextReportSeq(),
     },
   });
+}
+
+function shouldReleaseOnSessionShutdown(event: any): boolean {
+  // Pi tears down and rebinds extension runtimes for /reload, /new, /resume,
+  // and /fork. Those actions do not mean the pane process has exited, and a
+  // release can suppress the replacement runtime's legitimate reports.
+  return event?.reason === "quit";
 }
 
 let sendInFlight = false;
@@ -851,8 +879,10 @@ export default function (pi) {
   pi.events.on("subagents:completed", (data) => removeSubagent(data?.id));
   pi.events.on("subagents:failed", (data) => removeSubagent(data?.id));
 
-  pi.on("session_start", (_event, ctx) => {
-    if (ctx?.hasUI !== true) {
+  pi.on("session_start", (event, ctx) => {
+    // Pi RPC mode exposes hasUI for protocol dialogs, but only a terminal TUI
+    // session owns this Herdr pane. Retain the hasUI check as a second guard.
+    if (ctx?.mode !== "tui" || ctx?.hasUI !== true) {
       return;
     }
     stateReportGeneration += 1;
@@ -867,7 +897,7 @@ export default function (pi) {
     restoreVccContinuations(ctx);
     wrapBlockingUi(ctx);
     updateSessionRef(ctx);
-    void reportSession();
+    void reportSession(event?.reason);
     publishState(true);
     startReconcile();
     startHeartbeat();
@@ -880,6 +910,8 @@ export default function (pi) {
     if (ctx) {
       currentCtx = ctx;
       wrapBlockingUi(ctx);
+      updateSessionRef(ctx);
+      void reportSession();
     }
     clearPendingTimers();
     clearFailureState();
@@ -1027,7 +1059,7 @@ export default function (pi) {
       return;
     }
     const shutdownGeneration = stateReportGeneration;
-    const shouldReleaseAgent = event?.reason !== "reload";
+    const shouldReleaseAgent = shouldReleaseOnSessionShutdown(event);
     stopReconcile();
     stopHeartbeat();
     clearPendingTimers();
@@ -1039,10 +1071,6 @@ export default function (pi) {
     rootSession = false;
     currentCtx = undefined;
     await waitForStateQueueIdle();
-    // Pi reloads extensions in-place and keeps the same session reference.
-    // Releasing here makes Herdr suppress subsequent full-lifecycle reports
-    // for that same session, so preserve authority until the new extension
-    // instance republishes state from reload-time session_start.
     if (shouldReleaseAgent && shutdownGeneration === stateReportGeneration && !rootSession) {
       await releaseAgent();
     }

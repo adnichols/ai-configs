@@ -12,6 +12,8 @@ import { pathToFileURL } from "node:url";
 const tempDir = await mkdtemp(path.join(tmpdir(), "herdr-agent-state-test-"));
 const socketPath = path.join(tempDir, "herdr.sock");
 const reports = [];
+let socketAttempts = 0;
+let droppedResponses = 0;
 
 const server = createServer((socket) => {
   let buffer = "";
@@ -19,7 +21,13 @@ const server = createServer((socket) => {
     buffer += chunk.toString("utf8");
     const newline = buffer.indexOf("\n");
     if (newline === -1) return;
+    socketAttempts += 1;
     reports.push(JSON.parse(buffer.slice(0, newline)));
+    if (droppedResponses > 0) {
+      droppedResponses -= 1;
+      socket.end();
+      return;
+    }
     socket.end('{"ok":true}\n');
   });
 });
@@ -37,6 +45,7 @@ process.env.HERDR_PI_RETRY_GRACE_MS = "20";
 process.env.HERDR_PI_RECONCILE_MS = "10";
 process.env.HERDR_PI_HEARTBEAT_MS = "0";
 process.env.HERDR_PI_SEND_RETRY_DELAY_MS = "1";
+process.env.HERDR_PI_MAX_SEND_RETRIES = "3";
 process.env.HERDR_PI_BACKGROUND_PROCESS_IGNORE = "custom-idle";
 process.env.HERDR_OPERATOR_WAIT_DIR = path.join(tempDir, "operator-wait");
 delete process.env.HERDR_PI_BACKGROUND_PROCESS_MODE;
@@ -63,14 +72,17 @@ class MockPi {
 
 let pi = new MockPi();
 let parentIdle = false;
+let sessionPath = "/tmp/test-session.jsonl";
+let sessionId = "test-session";
 const sessionEntries = [];
 const ctx = {
+  mode: "tui",
   hasUI: true,
   hasPendingMessages: () => false,
   isIdle: () => parentIdle,
   sessionManager: {
-    getSessionFile: () => "/tmp/test-session.jsonl",
-    getSessionId: () => "test-session",
+    getSessionFile: () => sessionPath,
+    getSessionId: () => sessionId,
     getBranch: () => sessionEntries,
   },
   ui: {},
@@ -96,6 +108,14 @@ function lastState() {
 
 function lastStateReport() {
   return reports.filter((report) => report.method === "pane.report_agent").at(-1);
+}
+
+function sessionReports() {
+  return reports.filter((report) => report.method === "pane.report_agent_session");
+}
+
+function releaseReports() {
+  return reports.filter((report) => report.method === "pane.release_agent");
 }
 
 const operatorMarkerPath = path.join(
@@ -126,6 +146,15 @@ async function waitForState(state, timeoutMs = 1000) {
     await delay(5);
   }
   assert.fail(`timed out waiting for ${state}; states=${stateReports().join(",")}`);
+}
+
+async function waitFor(condition, message, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (condition()) return;
+    await delay(5);
+  }
+  assert.fail(message);
 }
 
 async function startProcess({ id, name, command }) {
@@ -163,7 +192,47 @@ function vccEntry(customType, state, transactionId = "vcc-test") {
 }
 
 try {
+  // A peer can receive a report then close before its JSON-RPC response. That
+  // is not delivery confirmation: every RPC, including session handoffs, must
+  // retry so a lost session reference cannot strand the pane's ownership.
+  droppedResponses = 1;
   await pi.emit("session_start", { reason: "startup" }, ctx);
+  await waitForState("idle");
+  await waitFor(
+    () => sessionReports().length >= 2,
+    "early EOF must retry the session handoff report",
+  );
+  assert.equal(sessionReports().at(-1)?.params.session_start_source, "startup");
+
+  // State reports retain the same protection before the queue's own retries.
+  // Pi can change the active session during a continuation, so agent_start
+  // must refresh both the session handoff and its following state report.
+  sessionPath = "/tmp/refreshed-session.jsonl";
+  sessionId = "refreshed-session";
+  const sessionsBeforeAgentStart = sessionReports().length;
+  const statesBeforeAgentStart = stateReports().length;
+  await pi.emit("agent_start", {}, ctx);
+  await waitForState("working");
+  await waitFor(
+    () => sessionReports().length > sessionsBeforeAgentStart,
+    "agent start must refresh Herdr's current session reference",
+  );
+  await waitFor(
+    () => stateReports().length > statesBeforeAgentStart,
+    "agent start must publish state with the refreshed session reference",
+  );
+  assert.equal(sessionReports().at(-1)?.params.agent_session_path, sessionPath);
+  assert.equal(lastStateReport()?.params.agent_session_path, sessionPath);
+  const statesBeforeEarlyEof = stateReports().length;
+  droppedResponses = 1;
+  pi.events.emit("herdr:blocked", { active: true, label: "Retry state report" });
+  await waitFor(
+    () => stateReports().length >= statesBeforeEarlyEof + 2,
+    "early EOF must retry the state report",
+  );
+  pi.events.emit("herdr:blocked", { active: false, label: "Retry state report" });
+  await waitForState("working");
+  await pi.emit("agent_settled", {}, ctx);
   await waitForState("idle");
 
   // A valid workflow-owned marker latches the authoritative Pi reporter blocked,
@@ -240,6 +309,51 @@ try {
   );
   assert.ok(stateReports().length > statesBeforeReload, "reload-time session_start must republish state");
   assert.equal(lastState(), "idle", "reload-time session_start must restore idle authority");
+  assert.equal(sessionReports().at(-1)?.params.session_start_source, "reload");
+
+  // Pi also replaces the extension runtime for /new, /resume, and /fork.
+  // None of these handoffs may release pane ownership; the new runtime must
+  // report its source and continue to publish state. Missing reasons fail safe.
+  for (const reason of ["new", "resume", "fork", undefined]) {
+    const releasesBeforeReplacement = releaseReports().length;
+    await pi.emit("session_shutdown", reason === undefined ? {} : { reason }, ctx);
+    await delay(20);
+    assert.equal(
+      releaseReports().length,
+      releasesBeforeReplacement,
+      `${reason ?? "missing"} shutdown must retain Herdr authority`,
+    );
+
+    const sessionsBeforeReplacementStart = sessionReports().length;
+    const replacementExtensionUrl = new URL(extensionUrl.href);
+    replacementExtensionUrl.searchParams.set(`replacement-${reason ?? "missing"}`, String(Date.now()));
+    const { default: installReplacementExtension } = await import(replacementExtensionUrl.href);
+    pi = new MockPi();
+    installReplacementExtension(pi);
+    await pi.emit("session_start", reason === undefined ? {} : { reason }, ctx);
+    await waitFor(
+      () => sessionReports().length > sessionsBeforeReplacementStart,
+      `${reason ?? "missing"} session start must republish its session reference`,
+    );
+    const replacementSession = sessionReports().at(-1);
+    if (reason === undefined) {
+      assert.equal(
+        Object.hasOwn(replacementSession?.params ?? {}, "session_start_source"),
+        false,
+        "a missing Pi lifecycle reason must not be misrepresented as a replacement source",
+      );
+    } else {
+      assert.equal(
+        replacementSession?.params.session_start_source,
+        reason,
+        `${reason} session start must identify its handoff source`,
+      );
+    }
+    await pi.emit("agent_start", {}, ctx);
+    await waitForState("working");
+    await pi.emit("agent_settled", {}, ctx);
+    await waitForState("idle");
+  }
 
   // agent_end is only a low-level boundary. The pane must remain working until
   // the session-level agent_settled event arrives.
@@ -368,9 +482,34 @@ try {
   assert.equal(rpcPi.handlers.size, 0, "generic RPC child must not register Herdr lifecycle hooks");
   process.argv.splice(0, process.argv.length, ...argvBeforeRpcGuard);
 
+  // Pi's RPC, JSON, and print contexts can inherit HERDR_* identity even when
+  // no explicit child marker or --mode argument is present. They must not
+  // claim, update, or release the terminal pane.
+  const reportsBeforeHeadlessModes = reports.length;
+  for (const mode of ["rpc", "json", "print"]) {
+    const modeExtensionUrl = new URL(extensionUrl.href);
+    modeExtensionUrl.searchParams.set(`mode-${mode}`, String(Date.now()));
+    const { default: installModeExtension } = await import(modeExtensionUrl.href);
+    const modePi = new MockPi();
+    installModeExtension(modePi);
+    await modePi.emit("session_start", { reason: "startup" }, { ...ctx, mode, hasUI: true });
+    await modePi.emit("agent_start", {}, { ...ctx, mode, hasUI: true });
+    await modePi.emit("session_shutdown", { reason: "quit" }, { ...ctx, mode, hasUI: true });
+  }
+  await delay(20);
+  assert.equal(reports.length, reportsBeforeHeadlessModes, "non-TUI modes must not report or release the pane");
+
+  const releasesBeforeQuit = releaseReports().length;
+  await pi.emit("session_shutdown", { reason: "quit" }, ctx);
   await pi.emit("session_shutdown", { reason: "quit" }, ctx);
   await delay(20);
-  assert.ok(reports.some((report) => report.method === "pane.release_agent"));
+  assert.equal(releaseReports().length, releasesBeforeQuit + 1, "quit must release exactly once");
+  assert.deepEqual(releaseReports().at(-1)?.params, {
+    pane_id: "test-pane",
+    source: "herdr:pi",
+    agent: "pi",
+    seq: releaseReports().at(-1)?.params.seq,
+  });
   console.log(`ok - Herdr agent state lifecycle (${stateReports().join(" -> ")})`);
 } finally {
   await new Promise((resolve) => server.close(resolve));
