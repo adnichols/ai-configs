@@ -468,7 +468,7 @@
         "pi"
       ],
       "canonicalSource": "skills/reviewed-html-plan",
-      "notes": "Creates and gates HTML plans through Doct browser feedback, PM review, and an independent Pi planner-subagent review pinned to GPT-5.6 Sol medium; delivery then launches a dedicated Sol-medium implementation agent.",
+      "notes": "Creates and gates HTML plans through Doct browser feedback, PM review, and an independent Pi planner-subagent review pinned to GPT-5.6 Sol medium; that planner selects DeepSeek V4 Flash for strongly testable implementation or Sol medium for hard-to-validate/critical work, and delivery launches the selected dedicated agent.",
       "sourceType": "repo"
     },
     "rust-engineer": {

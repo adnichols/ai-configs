@@ -1,6 +1,6 @@
 ---
 name: delivery-run
-description: Spawn a Herdr worktree from a goal and run plan ↔ independent Sol-medium review → dedicated Sol-medium implementation → Terra code review → visible Grok completeness review → PR with a durable stage ledger, board visibility, and end-of-run reflections. Use when the operator wants a new worktree started for them, delivery spawn/bootstrap/status/board/reflect, resuming delivery, or attaching a Linear issue later.
+description: Spawn a Herdr worktree from a goal and run plan ↔ independent Sol-medium review and implementation-profile decision → DeepSeek V4 Flash for strongly testable work or Sol medium for hard-to-validate work → Terra code review → visible Grok completeness review → PR with a durable stage ledger, board visibility, and end-of-run reflections. Use when the operator wants a new worktree started for them, delivery spawn/bootstrap/status/board/reflect, resuming delivery, or attaching a Linear issue later.
 ---
 
 # Delivery Run
@@ -8,7 +8,7 @@ description: Spawn a Herdr worktree from a goal and run plan ↔ independent Sol
 Use this skill to keep each delivery worktree visible in the existing development cycle:
 
 ```text
-plan ↔ Sol-medium planner review → dedicated Sol-medium implementation → Terra autoreview → visible Grok completeness review → PR
+plan ↔ Sol-medium planner review + profile decision → DeepSeek V4 Flash for strongly testable work or Sol medium for hard-to-validate work → Terra autoreview → visible Grok completeness review → PR
 ```
 
 with a visible plan-completeness reviewer, PM/customer-impact notes, and adversarial QA prompts.
@@ -78,7 +78,7 @@ delivery bootstrap --refresh
 
 Then:
 
-1. Read `.delivery/AGENT_BRIEF.md` (written by bootstrap) end-to-end.
+1. Read `.delivery/AGENT_BRIEF.md` (written by bootstrap) end-to-end when present. If it is absent, continue from `delivery show`, the ledger, and the plan; optionally recreate it with `delivery bootstrap --refresh`. A missing brief is not a code-work blocker.
 2. Run `delivery show` and `delivery check -v`.
 3. Execute the brief's **Recommended next step** via the named worker skill.
 4. After progress: `delivery stage ...`, `delivery record ...`, `delivery bootstrap --refresh`.
@@ -106,7 +106,7 @@ Goal: <paste goal>
 - A broken optional integration such as Herdr labels must never force the operator to disable the whole workflow. The explicit readiness, independent plan-review, implementation-profile, and completeness boundaries fail closed and report a retry command.
 - Existing skills (`reviewed-html-plan`, `run-plan`, `autoreview`, PM review, `qa:run`) remain authoritative for their work.
 - The labeled-tab **visible completeness review** is the exception to advisory quality evidence for a Herdr delivery run: `delivery stage MERGE_READY` rejects a missing, stale, or unaccepted Grok 4.5 `COMPLETE` verdict unless the operator explicitly waives that review. `delivery check` and all other stage changes remain non-blocking so work can be inspected, corrected, or handed off.
-- Firmness is limited to explicit readiness authorization, the independent Sol-medium plan verdict, the dedicated Sol-medium implementation profile, and completion evidence; the rest of the ledger optimizes for visibility, resumability, and honest status.
+- Firmness is limited to explicit readiness authorization, the independent Sol-medium plan verdict and implementation-profile decision, the dedicated selected runtime, and completion evidence; the rest of the ledger optimizes for visibility, resumability, and honest status.
 
 If guidance and checks/balances are right, agents should usually do the right thing without hard boundaries. Record when they do not, and keep going unless the operator stops the work.
 
@@ -145,12 +145,22 @@ delivery record planTech --status pass \
   --artifact thoughts/validation/foo-plan-review.md \
   --summary "independent Sol medium review" --reviewer planner \
   --model openai-codex/gpt-5.6-sol --reasoning-level medium \
-  --verdict PLAN_EXECUTION_READY
-# After operator approval this automatically launches a dedicated Herdr Pi agent
-# pinned to openai-codex/gpt-5.6-sol at medium.
-delivery approve-implementation --source chat --summary "Operator approved fixed Sol-medium implementation"
+  --verdict PLAN_EXECUTION_READY \
+  --implementation-profile deepseek-flash \
+  --implementation-rationale "deterministic tests strongly validate the changed behavior"
+# Use --implementation-profile sol-medium instead when meaningful correctness is
+# hard to validate or depends materially on critical technical judgment.
+# After operator approval this launches a dedicated Herdr Pi agent on the selected profile.
+delivery approve-implementation --source chat --summary "Operator approved the planner-selected implementation profile"
+# Manual choices are allowed; to launch another model deliberately:
+delivery approve-implementation --source chat --summary "Operator approved a manual model" \
+  --model openai-codex/gpt-5.6-terra --reasoning-level high \
+  --override-reason "manual choice for this run"
 # Run by the newly launched implementation agent:
 delivery verify-implementation-profile
+# If the recorded implementation pane was deliberately switched to another model:
+delivery verify-implementation-profile --adopt-current-runtime \
+  --reason "manual choice for this run"
 delivery stage IMPLEMENTING --note "starting run-plan"
 # Opens a visible labeled Herdr tab running Pi on xai/grok-4.5:high.
 delivery completion-review
@@ -248,7 +258,7 @@ delivery record planReadinessRequest --status pass \
 delivery stage PLAN_PM_REVIEW
 ```
 
-This is an authorization boundary: `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW` reject a missing or stale `planReadinessRequest=pass` record. `EXECUTION_READY` additionally requires a current `PLAN_EXECUTION_READY` artifact from the independent `planner` subagent with model `openai-codex/gpt-5.6-sol` and medium reasoning. Both records are tied to the current plan content, so a changed plan requires a fresh explicit request and fresh Sol-medium review. Other delivery evidence remains advisory.
+This is an authorization boundary: `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW` reject a missing or stale `planReadinessRequest=pass` record. `EXECUTION_READY` additionally requires a current `PLAN_EXECUTION_READY` artifact from the independent `planner` subagent with model `openai-codex/gpt-5.6-sol` and medium reasoning. That planner also chooses `deepseek-flash` when deterministic tests strongly validate the implementation, or `sol-medium` when meaningful correctness is hard to validate or depends materially on critical technical judgment, and records a concise rationale. Both records are tied to the current plan content, so a changed plan requires a fresh explicit request and fresh Sol-medium review. Other delivery evidence remains advisory.
 
 After each meaningful step:
 
@@ -264,7 +274,7 @@ keep the Doct listener active and give the operator a concise summary of:
 
 1. the current plan/review status and residual non-blocking observations;
 2. the customer-visible and technical changes implementation will make;
-3. the fixed implementation profile, `openai-codex/gpt-5.6-sol` at medium reasoning; and
+3. the Sol planner's selected implementation profile (`deepseek-flash` normally, `sol-medium` for hard-to-validate or critical work) and its rationale; and
 4. the remaining implementation, test, review, verification, and PR steps.
 
 Ask whether to proceed. Do not change product code, invoke `$run-plan`, or move to
@@ -274,16 +284,18 @@ then start execution:
 
 ```bash
 delivery approve-implementation --source chat|doct \
-  --summary "Operator received plan status, changes, fixed Sol-medium profile, and remaining steps"
+  --summary "Operator received plan status, changes, selected profile and rationale, and remaining steps"
 # This creates a labeled sibling Herdr tab, starts Pi on that tab's root pane
-# with explicit Sol-medium flags, and prompts the new implementation agent. The planning agent stops here.
+# with the planner-selected flags by default, and prompts the new implementation agent. The planning agent stops here.
+# A deliberate manual model/reasoning choice may be supplied with --model, --reasoning-level,
+# and --override-reason; the workflow records rather than prohibits that choice.
 # In the new agent:
 delivery verify-implementation-profile
 delivery stage IMPLEMENTING
 # only now: /skill:run-plan <plan>
 ```
 
-The CLI rejects readiness-review stages without a current explicit request; rejects `EXECUTION_READY` without the fixed Sol-medium planner verdict; and rejects `IMPLEMENTING` unless approval, implementation-agent launch evidence, the current plan fingerprint, the live Herdr pane, and the Pi runtime all match the recorded dedicated agent and `openai-codex/gpt-5.6-sol` at medium. `approve-implementation` launches the dedicated implementation agent; `start-implementation` retries a failed launch without asking for a new approval. An exclusive per-worktree launch lease plus ledger revisions rejects concurrent launches and stale/concurrent ledger mutations while the handoff is active. Repeated approval and a successful launch both refuse any later second writer. These checks apply to `delivery stage`, `delivery init`, `delivery spawn`, `delivery bootstrap`, and approval/launch commands, so ledger creation or refresh cannot bypass the handoff. These are authorization boundaries, not quality-evidence advisories.
+The CLI rejects readiness-review stages without a current explicit request and rejects `EXECUTION_READY` without the Sol-medium planner verdict. Before `IMPLEMENTING`, it requires approval, implementation-agent launch evidence, the current plan fingerprint, the recorded Herdr pane, and a Pi runtime matching the recorded profile. The recorded profile normally comes from the planner, but manual choices are explicitly allowed through `approve-implementation --model ... --reasoning-level ... --override-reason ...` or, within the already-recorded implementation pane, `verify-implementation-profile --adopt-current-runtime --reason ...`. `approve-implementation` launches the dedicated implementation agent; `start-implementation` retries a failed launch without asking for a new approval. An exclusive per-worktree launch lease plus ledger revisions rejects concurrent launches and stale/concurrent ledger mutations while the handoff is active. Repeated approval and a successful launch both refuse any later second writer. These checks apply to `delivery stage`, `delivery init`, `delivery spawn`, `delivery bootstrap`, and approval/launch commands, so ledger creation or refresh cannot bypass the handoff. These are authorization boundaries, not quality-evidence advisories.
 If the plan changes or material browser feedback arrives before implementation, reply and
 update the plan, then invalidate the approval and return to browser review:
 
@@ -390,7 +402,7 @@ Prefer process-shaped notes (friction, retries, unclear guidance, handoff gaps),
 5. Do not stop the operator solely because recommended evidence is `pending` or `gap`, except that a Herdr delivery run cannot claim local merge readiness without a validated visible `completion-review --accept` result or an explicit operator waiver.
 6. At `COMPLETENESS_REVIEW`, run `delivery completion-review`; read the labeled Grok 4.5 tab, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture and validate its artifact before final readiness.
 7. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
-8. Treat execution-ready as eligibility only: present the approval summary and wait for explicit operator permission. `approve-implementation` launches the dedicated Sol-medium agent; the planning agent must not implement. Invalidate approval and launch evidence if material feedback changes the plan.
+8. Treat execution-ready as eligibility only: present the approval summary, recommended profile, and rationale, then wait for explicit operator permission. `approve-implementation` launches the recommended profile by default but must permit a deliberate manual model/reasoning override with a recorded reason; the planning agent must not implement. Invalidate approval and launch evidence if material feedback changes the plan.
 9. The implementation agent must run `delivery verify-implementation-profile` before entering `IMPLEMENTING`; the stage gate independently checks the live Pi provider/model/reasoning environment.
 10. Do not reimplement run-plan/autoreview/reviewed-html-plan here.
 11. If something is truly stuck on a human decision, `delivery blocker "..." --mark-blocked` and say what is needed — still leave the workflow usable.

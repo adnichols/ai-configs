@@ -65,7 +65,7 @@ Before editing, read the full plan and extract:
 Stop before implementation if:
 
 - the plan is not execution-ready,
-- a delivery ledger exists and is not being entered from the dedicated implementation agent pinned to `openai-codex/gpt-5.6-sol` at medium, or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, current operator approval, and successful implementation-agent launch record; run `delivery verify-implementation-profile` before code work and never treat readiness metadata, a generic Doct comment/action, a quiet listener, an old approval, or the planning agent's runtime as implementation authorization,
+- a delivery ledger exists and is not being entered from the dedicated implementation pane with the recorded runtime profile—or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, current operator approval, and successful implementation-agent launch record. The planner recommends `opencode/deepseek-v4-flash` at medium for strongly testable work and `openai-codex/gpt-5.6-sol` at medium for hard-to-validate/critical work, but a deliberate manual model/reasoning choice is allowed when recorded with a reason. Run `delivery verify-implementation-profile` before code work; if this already-recorded pane was deliberately switched, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. Never treat readiness metadata, a generic Doct comment/action, a quiet listener, or an old approval as implementation authorization,
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
@@ -162,11 +162,14 @@ When the `delivery` CLI or `delivery-run` skill is available, keep the per-workt
 delivery init --plan <plan-path>                 # issue optional at start
 delivery set --issue <KEY> --retarget-id         # attach Linear later when it exists
 # At EXECUTION_READY the planning agent gives the operator status, changes,
-# fixed Sol-medium profile, and remaining steps. After direct approval this launches
-# a dedicated Herdr Pi agent pinned to openai-codex/gpt-5.6-sol at medium:
+# planner-selected profile and rationale, and remaining steps. After direct approval this launches
+# a dedicated Herdr Pi agent using the recommended DeepSeek Flash or Sol-medium runtime by default:
 delivery approve-implementation --source chat|doct --summary "Operator received the execution-ready summary"
+# A deliberate manual launch may add --model, --reasoning-level, and --override-reason.
 # The planning agent stops. In the newly launched implementation agent:
 delivery verify-implementation-profile
+# If this recorded implementation pane was deliberately switched to another model:
+delivery verify-implementation-profile --adopt-current-runtime --reason "manual choice for this run"
 delivery stage IMPLEMENTING
 delivery stage SCOPED_REVIEW|IMPL_PM_OUTCOME|AUTOREVIEW|COMPLETENESS_REVIEW|PR_OPEN|MERGE_READY|DONE
 # Before final verification/local merge readiness in Herdr:
@@ -178,7 +181,7 @@ delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "...
 delivery check -v   # advisories only; always exit 0
 ```
 
-Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization, Sol-medium plan review, operator approval, dedicated-agent launch, recorded Herdr-pane identity, or live Sol-medium runtime evidence is different: it stops pre-code execution. A failed launch is retried with `delivery start-implementation`; the planning agent does not take over implementation. For a Herdr delivery run, a missing validated `delivery completion-review --accept` result after implementation also prevents a local merge-readiness claim unless the operator explicitly waives that review. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
+Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization, Sol-medium plan review and profile recommendation, operator approval, dedicated-agent launch, recorded Herdr-pane identity, or live recorded-runtime evidence is different: it stops pre-code execution. A model mismatch is recoverable rather than a hard policy block: either switch to the recorded model, or deliberately adopt the current model in the same implementation pane with `--adopt-current-runtime --reason`. A failed launch is retried with `delivery start-implementation`; the planning agent does not take over implementation. For a Herdr delivery run, a missing validated `delivery completion-review --accept` result after implementation also prevents a local merge-readiness claim unless the operator explicitly waives that review. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
 
 When the scoped run reaches local merge-readiness or a durable stop (DONE/blocked handoff), best-effort log a process reflection outside the worktree:
 

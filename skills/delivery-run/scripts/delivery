@@ -34,10 +34,22 @@ HERDR_WORKTREES = Path.home() / ".herdr" / "worktrees"
 PLAN_REVIEW_AGENT = "planner"
 PLAN_REVIEW_MODEL = "openai-codex/gpt-5.6-sol"
 PLAN_REVIEW_REASONING = "medium"
-IMPLEMENTATION_PROVIDER = "openai-codex"
-IMPLEMENTATION_MODEL = "gpt-5.6-sol"
-IMPLEMENTATION_MODEL_REF = f"{IMPLEMENTATION_PROVIDER}/{IMPLEMENTATION_MODEL}"
-IMPLEMENTATION_REASONING = "medium"
+IMPLEMENTATION_PROFILES = {
+    "deepseek-flash": {
+        "provider": "opencode",
+        "model": "deepseek-v4-flash",
+        "reasoningLevel": "max",
+        "label": "DeepSeek V4 Flash at max reasoning",
+    },
+    "sol-medium": {
+        "provider": "openai-codex",
+        "model": "gpt-5.6-sol",
+        "reasoningLevel": "medium",
+        "label": "GPT-5.6 Sol at medium reasoning",
+    },
+}
+DEFAULT_IMPLEMENTATION_PROFILE = "deepseek-flash"
+LEGACY_IMPLEMENTATION_PROFILE = "sol-medium"
 
 STAGES = [
     "INTAKE",
@@ -158,8 +170,8 @@ STAGE_NEXT_SKILL = {
         "openai-codex/gpt-5.6-sol at medium reasoning and record its current-plan verdict"
     ),
     "EXECUTION_READY": (
-        "Pause: present the operator approval summary and fixed Sol-medium implementation "
-        "profile, then wait for explicit approval. Approval launches a dedicated implementation "
+        "Pause: present the operator approval summary and Sol-planner-selected implementation "
+        "profile plus rationale, then wait for explicit approval. Approval launches a dedicated implementation "
         "agent; do not invoke run-plan in the planning agent."
     ),
     "IMPLEMENTING": "Continue /skill:run-plan phase work; keep ledger notes current",
@@ -354,6 +366,8 @@ def empty_evidence() -> dict[str, Any]:
             "model": None,
             "reasoningLevel": None,
             "verdict": None,
+            "implementationProfile": None,
+            "implementationRationale": None,
             "planSha256": None,
         }
     )
@@ -403,8 +417,11 @@ def new_ledger(
             "status": "pending",
             "source": None,
             "planSha256": None,
+            "profile": None,
             "model": None,
             "reasoningLevel": None,
+            "selectionSource": None,
+            "overrideReason": None,
             "summary": None,
             "approvedAt": None,
             "invalidatedAt": None,
@@ -412,10 +429,13 @@ def new_ledger(
         },
         "implementationProfile": {
             "status": "pending",
-            "provider": IMPLEMENTATION_PROVIDER,
-            "model": IMPLEMENTATION_MODEL,
-            "modelRef": IMPLEMENTATION_MODEL_REF,
-            "reasoningLevel": IMPLEMENTATION_REASONING,
+            "profile": None,
+            "provider": None,
+            "model": None,
+            "modelRef": None,
+            "reasoningLevel": None,
+            "selectionSource": None,
+            "overrideReason": None,
             "planSha256": None,
             "agentName": None,
             "paneId": None,
@@ -780,6 +800,69 @@ def reset_plan_readiness_request(ledger: dict[str, Any], reason: str) -> None:
     request["summary"] = reason
 
 
+def implementation_profile_spec(profile_name: str) -> dict[str, str]:
+    spec = IMPLEMENTATION_PROFILES.get(profile_name)
+    if spec is None:
+        die(
+            f"unknown implementation profile {profile_name!r}; choose from: "
+            + ", ".join(sorted(IMPLEMENTATION_PROFILES))
+        )
+    provider = str(spec["provider"])
+    model = str(spec["model"])
+    return {
+        "profile": profile_name,
+        "provider": provider,
+        "model": model,
+        "modelRef": f"{provider}/{model}",
+        "reasoningLevel": str(spec["reasoningLevel"]),
+        "label": str(spec["label"]),
+    }
+
+
+def selected_implementation_profile(ledger: dict[str, Any]) -> dict[str, str]:
+    review = (ledger.get("evidence") or {}).get("planTech") or {}
+    profile_name = review.get("implementationProfile")
+    if not isinstance(profile_name, str) or profile_name not in IMPLEMENTATION_PROFILES:
+        # Ledgers created before validation-based routing remain on Sol medium rather
+        # than silently moving an already-reviewed implementation to a cheaper model.
+        profile_name = LEGACY_IMPLEMENTATION_PROFILE
+    return implementation_profile_spec(profile_name)
+
+
+def runtime_profile(model_ref: str, reasoning_level: str, *, profile: str = "manual") -> dict[str, str]:
+    if "/" not in model_ref:
+        die("implementation model must use provider/model form")
+    provider, model = model_ref.split("/", 1)
+    if not provider.strip() or not model.strip():
+        die("implementation model must use provider/model form")
+    return {
+        "profile": profile,
+        "provider": provider.strip(),
+        "model": model.strip(),
+        "modelRef": f"{provider.strip()}/{model.strip()}",
+        "reasoningLevel": reasoning_level.strip(),
+        "label": f"{model_ref} at {reasoning_level} reasoning",
+    }
+
+
+def approved_implementation_profile(ledger: dict[str, Any]) -> dict[str, str]:
+    approval = ledger.get("implementationApproval") or {}
+    model_ref = approval.get("model")
+    reasoning = approval.get("reasoningLevel")
+    planner_selected = selected_implementation_profile(ledger)
+    if approval.get("status") == "approved" and isinstance(model_ref, str) and isinstance(reasoning, str):
+        profile_name = approval.get("profile")
+        if not isinstance(profile_name, str) or not profile_name:
+            profile_name = (
+                planner_selected["profile"]
+                if model_ref == planner_selected["modelRef"]
+                and reasoning == planner_selected["reasoningLevel"]
+                else "manual"
+            )
+        return runtime_profile(model_ref, reasoning, profile=profile_name)
+    return planner_selected
+
+
 def reset_plan_technical_review(ledger: dict[str, Any], reason: str) -> None:
     review = ledger.setdefault("evidence", {}).setdefault("planTech", {})
     review.update(
@@ -792,6 +875,8 @@ def reset_plan_technical_review(ledger: dict[str, Any], reason: str) -> None:
             "model": None,
             "reasoningLevel": None,
             "verdict": None,
+            "implementationProfile": None,
+            "implementationRationale": None,
             "planSha256": None,
         }
     )
@@ -809,6 +894,11 @@ def plan_technical_review_problem(ledger: dict[str, Any], root: Path) -> str | N
         return f"Sol medium planner review requires reasoning level {PLAN_REVIEW_REASONING}"
     if review.get("verdict") != "PLAN_EXECUTION_READY":
         return "Sol medium planner review has not returned PLAN_EXECUTION_READY"
+    profile_name = review.get("implementationProfile")
+    if profile_name is not None and profile_name not in IMPLEMENTATION_PROFILES:
+        return "Sol medium planner review selected an unknown implementation profile"
+    if profile_name is not None and not str(review.get("implementationRationale") or "").strip():
+        return "Sol medium planner review did not explain its implementation profile selection"
     current_hash = plan_sha256(ledger, root)
     if current_hash is None:
         return "the recorded plan is missing, outside this worktree, or unreadable"
@@ -840,10 +930,17 @@ def implementation_approval_problem(ledger: dict[str, Any], root: Path) -> str |
         return "the recorded plan is missing, outside this worktree, or unreadable"
     if approval.get("planSha256") != current_hash:
         return "the plan changed after the recorded implementation approval"
-    if approval.get("model") != IMPLEMENTATION_MODEL_REF:
-        return f"implementation approval is not pinned to {IMPLEMENTATION_MODEL_REF}"
-    if approval.get("reasoningLevel") != IMPLEMENTATION_REASONING:
-        return f"implementation approval is not pinned to {IMPLEMENTATION_REASONING} reasoning"
+    planner_selected = selected_implementation_profile(ledger)
+    selection_source = str(approval.get("selectionSource") or "planner")
+    selected = approved_implementation_profile(ledger)
+    if selection_source == "planner" and approval.get("profile") not in {None, planner_selected["profile"]}:
+        return f"implementation approval does not match selected profile {planner_selected['profile']}"
+    if selection_source != "planner" and not str(approval.get("overrideReason") or "").strip():
+        return "manual implementation model selection is missing an override reason"
+    if approval.get("model") != selected["modelRef"]:
+        return f"implementation approval is not pinned to {selected['modelRef']}"
+    if approval.get("reasoningLevel") != selected["reasoningLevel"]:
+        return f"implementation approval is not pinned to {selected['reasoningLevel']} reasoning"
     return None
 
 
@@ -851,14 +948,17 @@ def implementation_profile_problem(
     ledger: dict[str, Any], root: Path, *, check_runtime: bool
 ) -> str | None:
     profile = ledger.get("implementationProfile") or {}
+    selected = approved_implementation_profile(ledger)
     if profile.get("status") != "ready":
-        return "the dedicated Sol medium implementation agent has not been launched successfully"
-    if profile.get("provider") != IMPLEMENTATION_PROVIDER:
-        return f"implementation agent provider must be {IMPLEMENTATION_PROVIDER}"
-    if profile.get("model") != IMPLEMENTATION_MODEL:
-        return f"implementation agent model must be {IMPLEMENTATION_MODEL}"
-    if profile.get("reasoningLevel") != IMPLEMENTATION_REASONING:
-        return f"implementation agent reasoning must be {IMPLEMENTATION_REASONING}"
+        return "the selected dedicated implementation agent has not been launched successfully"
+    if profile.get("profile") not in {None, selected["profile"]}:
+        return f"implementation agent profile must be {selected['profile']}"
+    if profile.get("provider") != selected["provider"]:
+        return f"implementation agent provider must be {selected['provider']}"
+    if profile.get("model") != selected["model"]:
+        return f"implementation agent model must be {selected['model']}"
+    if profile.get("reasoningLevel") != selected["reasoningLevel"]:
+        return f"implementation agent reasoning must be {selected['reasoningLevel']}"
     current_hash = plan_sha256(ledger, root)
     if current_hash is None:
         return "the recorded plan is missing, outside this worktree, or unreadable"
@@ -878,13 +978,13 @@ def implementation_profile_problem(
                 "current Herdr pane does not match the recorded implementation agent pane "
                 f"{profile.get('paneId')}"
             )
-        if provider != IMPLEMENTATION_PROVIDER or model != IMPLEMENTATION_MODEL:
+        if provider != selected["provider"] or model != selected["model"]:
             return (
-                "current Pi runtime is not the pinned implementation model "
-                f"{IMPLEMENTATION_MODEL_REF}"
+                "current Pi runtime is not the selected implementation model "
+                f"{selected['modelRef']}"
             )
-        if reasoning != IMPLEMENTATION_REASONING:
-            return f"current Pi runtime reasoning must be {IMPLEMENTATION_REASONING}"
+        if reasoning != selected["reasoningLevel"]:
+            return f"current Pi runtime reasoning must be {selected['reasoningLevel']}"
     return None
 
 
@@ -913,8 +1013,11 @@ def reset_implementation_approval(ledger: dict[str, Any], reason: str) -> None:
             "status": "pending",
             "source": None,
             "planSha256": None,
+            "profile": None,
             "model": None,
             "reasoningLevel": None,
+            "selectionSource": None,
+            "overrideReason": None,
             "summary": None,
             "approvedAt": None,
             "invalidatedAt": utc_now(),
@@ -924,14 +1027,18 @@ def reset_implementation_approval(ledger: dict[str, Any], reason: str) -> None:
 
 
 def reset_implementation_profile(ledger: dict[str, Any], reason: str) -> None:
+    selected = approved_implementation_profile(ledger)
     profile = ledger.setdefault("implementationProfile", {})
     profile.update(
         {
             "status": "pending",
-            "provider": IMPLEMENTATION_PROVIDER,
-            "model": IMPLEMENTATION_MODEL,
-            "modelRef": IMPLEMENTATION_MODEL_REF,
-            "reasoningLevel": IMPLEMENTATION_REASONING,
+            "profile": selected["profile"],
+            "provider": selected["provider"],
+            "model": selected["model"],
+            "modelRef": selected["modelRef"],
+            "reasoningLevel": selected["reasoningLevel"],
+            "selectionSource": (ledger.get("implementationApproval") or {}).get("selectionSource") or "planner",
+            "overrideReason": (ledger.get("implementationApproval") or {}).get("overrideReason"),
             "planSha256": None,
             "agentName": None,
             "paneId": None,
@@ -1357,8 +1464,12 @@ def cmd_show(args: argparse.Namespace) -> int:
     profile_problem = implementation_profile_problem(ledger, root, check_runtime=False)
     if profile_problem:
         profile_status = f"{profile_status} ({profile_problem})"
+    selected = approved_implementation_profile(ledger)
     print(f"implementation agent: {profile_status}")
-    print(f"implementation runtime: {IMPLEMENTATION_MODEL_REF} / {IMPLEMENTATION_REASONING}")
+    print(
+        f"implementation runtime: {selected['profile']} / {selected['modelRef']} / "
+        f"{selected['reasoningLevel']}"
+    )
     print(f"updated:   {ledger.get('updatedAt')}")
     print(f"next:      {STAGE_NEXT_SKILL.get(str(ledger.get('stage')), 'n/a')}")
     print("evidence:")
@@ -1392,8 +1503,10 @@ def cmd_stage(args: argparse.Namespace) -> int:
             die(
                 "cannot enter IMPLEMENTING: "
                 f"{transition_problem}. Obtain direct operator approval, let `delivery "
-                "approve-implementation` launch the fixed Sol medium agent, then enter "
-                "IMPLEMENTING from that pinned Pi runtime."
+                "approve-implementation` launch the recommended implementation agent, then enter "
+                "IMPLEMENTING from the recorded Pi runtime. If this same implementation pane was "
+                "deliberately switched to another model, adopt it with `delivery verify-implementation-profile "
+                "--adopt-current-runtime --reason \"...\"`."
             )
         die(
             f"cannot enter {stage}: {transition_problem}. "
@@ -1449,17 +1562,28 @@ def implementation_agent_name(ledger: dict[str, Any]) -> str:
 
 def implementation_agent_prompt(ledger: dict[str, Any], root: Path) -> str:
     plan = str(ledger.get("plan") or "(missing plan)")
+    selected = approved_implementation_profile(ledger)
+    approval = ledger.get("implementationApproval") or {}
+    rationale = str(
+        approval.get("overrideReason")
+        or ((ledger.get("evidence") or {}).get("planTech") or {}).get("implementationRationale")
+        or "legacy reviewed plan retained on Sol medium"
+    )
     return f"""You are the dedicated implementation agent for this delivery run.
 
 Worktree: {root}
 Plan: {plan}
-Required runtime: {IMPLEMENTATION_MODEL_REF} at {IMPLEMENTATION_REASONING} reasoning
+Selected profile: {selected['profile']}
+Required runtime: {selected['modelRef']} at {selected['reasoningLevel']} reasoning
+Selection rationale: {rationale}
 
 Do this now:
-1. Read `.delivery/AGENT_BRIEF.md` and the full plan.
-2. Run `delivery show` and `delivery verify-implementation-profile`. If the launch is still being finalized, retry verification once it reports ready.
+1. Read the full plan. Read `.delivery/AGENT_BRIEF.md` when present; if it is absent, continue from the ledger and plan rather than blocking (`delivery bootstrap --refresh` may recreate it).
+2. Run `delivery show` and `delivery verify-implementation-profile`. If the launch is still being finalized, retry verification once it reports ready. If this pane was deliberately switched to another model, run `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` to record that manual choice.
 3. Run `delivery stage IMPLEMENTING` from this pinned Pi runtime.
 4. Execute `/skill:run-plan {plan}` through implementation, verification, Terra code review, the visible Grok completeness review, and PR readiness.
+
+DeepSeek V4 Flash is the normal implementation profile when deterministic tests strongly validate the result. Sol medium is recommended when meaningful correctness is hard to validate or depends materially on critical technical judgment. The recommendation is not a prohibition: if this recorded implementation pane is deliberately switched to another model, record it with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` before code work.
 
 Do not re-plan beyond the reviewed contract. The planning agent must not implement; you own all code, tests, fixes, Git, and PR work from this point."""
 
@@ -1494,6 +1618,7 @@ def launch_implementation_agent(
         write_json(path, ledger)
         die("implementation launch needs --pane, HERDR_PANE_ID, or a delivery spawn pane")
     reviewer_name = args.agent_name or implementation_agent_name(ledger)
+    selected = approved_implementation_profile(ledger)
     prompt = implementation_agent_prompt(ledger, root)
     attempt_id = uuid.uuid4().hex
     reset_implementation_profile(ledger, "dedicated implementation agent launch in progress")
@@ -1530,11 +1655,11 @@ def launch_implementation_agent(
         str(args.timeout_ms),
         "--",
         "--provider",
-        IMPLEMENTATION_PROVIDER,
+        selected["provider"],
         "--model",
-        IMPLEMENTATION_MODEL,
+        selected["model"],
         "--thinking",
-        IMPLEMENTATION_REASONING,
+        selected["reasoningLevel"],
     ]
     started = run_cmd(start_command, cwd=root)
     current = active_implementation_launch(path, root, attempt_id, allowed_statuses={"launching"})
@@ -1542,10 +1667,11 @@ def launch_implementation_agent(
     profile.update(
         {
             "status": "started" if started.returncode == 0 else "start-failed",
-            "provider": IMPLEMENTATION_PROVIDER,
-            "model": IMPLEMENTATION_MODEL,
-            "modelRef": IMPLEMENTATION_MODEL_REF,
-            "reasoningLevel": IMPLEMENTATION_REASONING,
+            "profile": selected["profile"],
+            "provider": selected["provider"],
+            "model": selected["model"],
+            "modelRef": selected["modelRef"],
+            "reasoningLevel": selected["reasoningLevel"],
             "planSha256": plan_sha256(current, root),
             "agentName": reviewer_name,
             "paneId": str(implementation_pane),
@@ -1559,7 +1685,7 @@ def launch_implementation_agent(
         }
     )
     if started.returncode != 0:
-        append_history(current, "implementation_agent", "dedicated Sol medium agent start failed")
+        append_history(current, "implementation_agent", f"dedicated {selected['profile']} agent start failed")
         write_json(path, current)
         die(f"could not start dedicated implementation agent: {(started.stderr or started.stdout).strip()}")
     write_json(path, current)
@@ -1574,7 +1700,7 @@ def launch_implementation_agent(
                 "reason": (requested.stderr or requested.stdout).strip(),
             }
         )
-        append_history(current, "implementation_agent", "dedicated Sol medium agent prompt failed")
+        append_history(current, "implementation_agent", f"dedicated {selected['profile']} agent prompt failed")
         write_json(path, current)
         die(f"could not prompt dedicated implementation agent: {(requested.stderr or requested.stdout).strip()}")
 
@@ -1582,13 +1708,14 @@ def launch_implementation_agent(
     append_history(
         current,
         "implementation_agent",
-        "dedicated Sol medium implementation agent ready",
+        f"dedicated {selected['profile']} implementation agent ready",
         agent=reviewer_name,
         paneId=str(implementation_pane),
         tabId=agent_tab["tabId"],
         tabLabel=agent_tab["label"],
-        model=IMPLEMENTATION_MODEL_REF,
-        reasoningLevel=IMPLEMENTATION_REASONING,
+        profile=selected["profile"],
+        model=selected["modelRef"],
+        reasoningLevel=selected["reasoningLevel"],
     )
     refresh_git_fields(current, root)
     write_json(path, current)
@@ -1623,10 +1750,21 @@ def approve_implementation_locked(
     review_problem = plan_technical_review_problem(ledger, root)
     if review_problem:
         die(f"cannot approve implementation: {review_problem}")
-    if args.model and args.model != IMPLEMENTATION_MODEL_REF:
-        die(f"implementation model is fixed at {IMPLEMENTATION_MODEL_REF}")
-    if args.reasoning_level and args.reasoning_level != IMPLEMENTATION_REASONING:
-        die(f"implementation reasoning level is fixed at {IMPLEMENTATION_REASONING}")
+    planner_selected = selected_implementation_profile(ledger)
+    requested_model = args.model or planner_selected["modelRef"]
+    requested_reasoning = args.reasoning_level or planner_selected["reasoningLevel"]
+    manual_override = (
+        requested_model != planner_selected["modelRef"]
+        or requested_reasoning != planner_selected["reasoningLevel"]
+    )
+    if manual_override:
+        if not str(args.override_reason or "").strip():
+            die("manual implementation model selection requires --override-reason")
+        selected = runtime_profile(requested_model, requested_reasoning, profile="manual")
+        selection_source = "manual-approval"
+    else:
+        selected = planner_selected
+        selection_source = "planner"
     fingerprint = plan_sha256(ledger, root)
     if fingerprint is None:
         die("cannot approve implementation: recorded plan is missing, outside this worktree, or unreadable")
@@ -1636,8 +1774,11 @@ def approve_implementation_locked(
             "status": "approved",
             "source": args.source,
             "planSha256": fingerprint,
-            "model": IMPLEMENTATION_MODEL_REF,
-            "reasoningLevel": IMPLEMENTATION_REASONING,
+            "profile": selected["profile"],
+            "model": selected["modelRef"],
+            "reasoningLevel": selected["reasoningLevel"],
+            "selectionSource": selection_source,
+            "overrideReason": args.override_reason if manual_override else None,
             "summary": args.summary,
             "approvedAt": utc_now(),
             "invalidatedAt": None,
@@ -1648,15 +1789,21 @@ def approve_implementation_locked(
     append_history(
         ledger,
         "implementation_approval",
-        "operator approved fixed Sol medium implementation",
+        f"operator approved {selection_source} {selected['profile']} implementation",
         source=args.source,
         planSha256=fingerprint,
-        model=IMPLEMENTATION_MODEL_REF,
-        reasoningLevel=IMPLEMENTATION_REASONING,
+        profile=selected["profile"],
+        model=selected["modelRef"],
+        reasoningLevel=selected["reasoningLevel"],
+        selectionSource=selection_source,
+        overrideReason=args.override_reason if manual_override else None,
     )
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
-    print("implementation approval recorded; launching fixed Sol medium implementation agent")
+    print(
+        "implementation approval recorded; launching "
+        f"{selection_source} {selected['profile']} implementation agent"
+    )
     return launch_implementation_agent(path, ledger, root, args)
 
 
@@ -1685,8 +1832,72 @@ def start_implementation_locked(
     return launch_implementation_agent(path, ledger, root, args)
 
 
+def adopt_current_implementation_runtime(
+    path: Path, ledger: dict[str, Any], root: Path, reason: str
+) -> None:
+    if ledger.get("stage") != "EXECUTION_READY":
+        die("current runtime can be adopted only at EXECUTION_READY before code work")
+    if not reason.strip():
+        die("adopting the current runtime requires --reason")
+    problem = (
+        plan_readiness_request_problem(ledger, root)
+        or plan_technical_review_problem(ledger, root)
+        or implementation_approval_problem(ledger, root)
+        or implementation_profile_problem(ledger, root, check_runtime=False)
+    )
+    if problem:
+        die(f"cannot adopt current implementation runtime: {problem}")
+    provider = (os.environ.get("PI_PROVIDER") or "").strip()
+    model = (os.environ.get("PI_MODEL") or "").strip()
+    reasoning = (os.environ.get("PI_REASONING_LEVEL") or "").strip()
+    pane_id = (os.environ.get("HERDR_PANE_ID") or "").strip()
+    profile = ledger.get("implementationProfile") or {}
+    if not provider or not model or not reasoning or not pane_id:
+        die("adopting the current runtime requires PI_PROVIDER, PI_MODEL, PI_REASONING_LEVEL, and HERDR_PANE_ID")
+    if pane_id != str(profile.get("paneId") or ""):
+        die(
+            "manual runtime adoption must occur in the already-recorded implementation pane "
+            f"{profile.get('paneId')}"
+        )
+    adopted = runtime_profile(f"{provider}/{model}", reasoning, profile="manual")
+    approval = ledger.setdefault("implementationApproval", {})
+    approval.update(
+        {
+            "profile": "manual",
+            "model": adopted["modelRef"],
+            "reasoningLevel": adopted["reasoningLevel"],
+            "selectionSource": "manual-runtime",
+            "overrideReason": reason,
+        }
+    )
+    profile.update(
+        {
+            "profile": "manual",
+            "provider": adopted["provider"],
+            "model": adopted["model"],
+            "modelRef": adopted["modelRef"],
+            "reasoningLevel": adopted["reasoningLevel"],
+            "selectionSource": "manual-runtime",
+            "overrideReason": reason,
+        }
+    )
+    append_history(
+        ledger,
+        "implementation_runtime_override",
+        reason,
+        model=adopted["modelRef"],
+        reasoningLevel=adopted["reasoningLevel"],
+        paneId=pane_id,
+    )
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
+
+
 def cmd_verify_implementation_profile(args: argparse.Namespace) -> int:
-    _, ledger, root = load_ledger_for(args)
+    path, ledger, root = load_ledger_for(args)
+    if args.adopt_current_runtime:
+        adopt_current_implementation_runtime(path, ledger, root, args.reason or "")
+        ledger = load_json(path)
     problem = (
         plan_readiness_request_problem(ledger, root)
         or plan_technical_review_problem(ledger, root)
@@ -1695,7 +1906,11 @@ def cmd_verify_implementation_profile(args: argparse.Namespace) -> int:
     )
     if problem:
         die(f"implementation profile invalid: {problem}")
-    print(f"implementation profile verified: {IMPLEMENTATION_MODEL_REF} / {IMPLEMENTATION_REASONING}")
+    selected = approved_implementation_profile(ledger)
+    print(
+        f"implementation profile verified: {selected['profile']} / "
+        f"{selected['modelRef']} / {selected['reasoningLevel']}"
+    )
     return 0
 
 
@@ -1876,6 +2091,13 @@ def cmd_record(args: argparse.Namespace) -> int:
                 die(f"planTech=pass requires reasoning level {PLAN_REVIEW_REASONING}")
             if args.verdict != "PLAN_EXECUTION_READY":
                 die("planTech=pass requires verdict PLAN_EXECUTION_READY")
+            if args.implementation_profile not in IMPLEMENTATION_PROFILES:
+                die(
+                    "planTech=pass requires --implementation-profile; choose from: "
+                    + ", ".join(sorted(IMPLEMENTATION_PROFILES))
+                )
+            if not str(args.implementation_rationale or "").strip():
+                die("planTech=pass requires --implementation-rationale for the profile decision")
             if not args.artifact:
                 die("planTech=pass requires --artifact")
             artifact = Path(args.artifact).expanduser()
@@ -1901,6 +2123,8 @@ def cmd_record(args: argparse.Namespace) -> int:
                     "model": args.model,
                     "reasoningLevel": args.reasoning_level,
                     "verdict": args.verdict,
+                    "implementationProfile": args.implementation_profile,
+                    "implementationRationale": args.implementation_rationale,
                     "planSha256": fingerprint,
                 }
             )
@@ -2827,10 +3051,10 @@ def agent_start_prompt(goal: str, *, issue: str | None, worktree: str) -> str:
         f"Goal: {goal}\n"
         f"{issue_line}\n\n"
         "Do this now:\n"
-        "1. Read `.delivery/AGENT_BRIEF.md` fully.\n"
+        "1. Read `.delivery/AGENT_BRIEF.md` when present. If it is absent, continue from `delivery show`, the ledger, and the plan; `delivery bootstrap --refresh` may recreate it.\n"
         "2. Run `delivery show` and `delivery check -v`.\n"
-        "3. Continue from the brief's **Recommended next step** using existing worker skills\n"
-        "   (reviewed-html-plan / dev-plan → Sol-medium planner review → dedicated Sol-medium implementation → Terra autoreview → Grok completeness → PR).\n"
+        "3. Continue from the current state's recommended next step using existing worker skills\n"
+        "   (reviewed-html-plan / dev-plan → Sol-medium profile decision → DeepSeek Flash or Sol implementation → Terra autoreview → Grok completeness → PR).\n"
         "   During `PLAN_BROWSER_REVIEW`, integrate ordinary feedback but wait for Doct's explicit\n"
         "   `Request execution-ready review` action before PM or technical readiness review.\n"
         "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
@@ -3434,9 +3658,10 @@ def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
     doct = ledger.get("doctUrl") or "(none)"
     approval = ledger.get("implementationApproval") or {}
     approval_status = approval.get("status") or "pending"
+    selected = approved_implementation_profile(ledger)
     approval_profile = " / ".join(
-        part for part in (approval.get("model"), approval.get("reasoningLevel")) if part
-    ) or f"{IMPLEMENTATION_MODEL_REF} / {IMPLEMENTATION_REASONING} (fixed)"
+        part for part in (approval.get("profile"), approval.get("model"), approval.get("reasoningLevel")) if part
+    ) or f"{selected['profile']} / {selected['modelRef']} / {selected['reasoningLevel']} (selected at plan review)"
     implementation_profile = ledger.get("implementationProfile") or {}
     implementation_agent_status = implementation_profile.get("status") or "pending"
 
@@ -3447,7 +3672,7 @@ def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
     return f"""# Delivery agent brief
 
 Generated: {utc_now()}  
-Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization, independent Sol-medium plan review, the pinned implementation handoff, and completeness evidence are explicit boundaries.
+Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization, independent Sol-medium plan review, a recorded single-writer implementation handoff, and completeness evidence are explicit boundaries. The recommended model may be overridden manually with a recorded reason.
 
 ## This worktree
 
@@ -3464,18 +3689,18 @@ Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization
 | branch | {ledger.get('branch')} |
 | ledger | {path} |
 | implementation approval | {approval_status} ({approval_profile}) |
-| implementation agent | {implementation_agent_status} ({IMPLEMENTATION_MODEL_REF} / {IMPLEMENTATION_REASONING}) |
+| implementation agent | {implementation_agent_status} ({selected['profile']} / {selected['modelRef']} / {selected['reasoningLevel']}) |
 
 ## Your job
 
 Keep this worktree moving through:
 
 ```text
-plan ↔ Sol-medium planner review → dedicated Sol-medium implementation → Terra autoreview → Grok completeness → PR
+plan ↔ Sol-medium planner decision → DeepSeek Flash for strongly testable work or Sol medium for hard-to-validate work → Terra autoreview → Grok completeness → PR
 ```
 
 You are the planning/driving agent until operator approval. Use existing worker skills for real work.
-The `delivery` CLI is the scoreboard + navigator, not the implementer. After approval it launches a dedicated Sol-medium implementation agent; the planning agent stops.
+The `delivery` CLI is the scoreboard + navigator, not the implementer. The Sol-medium planner selects the implementation profile. After approval, delivery launches that dedicated agent and the planning agent stops.
 
 ## Do this first
 
@@ -3503,28 +3728,32 @@ While the stage is `PLAN_BROWSER_REVIEW`:
   `PLAN_PM_REVIEW`. `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW`
   reject a missing request record. `EXECUTION_READY` additionally requires a
   current independent planner artifact from `openai-codex/gpt-5.6-sol` at medium
-  with `VERDICT: PLAN_EXECUTION_READY`. These are authorization boundaries.
+  with `VERDICT: PLAN_EXECUTION_READY`. The same review should select `deepseek-flash`
+  when deterministic tests strongly validate the result, and `sol-medium` when meaningful
+  correctness is hard to validate or depends materially on critical technical judgment.
+  These are authorization boundaries.
 
 ## Execution-ready approval pause
 
 When the stage is `EXECUTION_READY`, do **not** invoke `run-plan`, change product code,
 or move to `IMPLEMENTING`. Keep the Doct listener alive and give the operator a concise
 summary of: (1) the current plan/review status, (2) the customer-visible and technical
-changes implementation will make, (3) the fixed `openai-codex/gpt-5.6-sol` medium
-implementation profile, and (4) the remaining phase/review/verification/PR steps. Ask whether to proceed.
+changes implementation will make, (3) the planner-selected `{selected['profile']}` profile
+(`{selected['modelRef']}` at `{selected['reasoningLevel']}`) and its rationale, and (4) the remaining
+phase/review/verification/PR steps. Ask whether to proceed.
 
 Only after a direct operator approval in chat or a deliberate Doct implementation-approval
 action may you record it:
 
 ```bash
 delivery approve-implementation --source chat|doct \\
-  --summary "Operator saw status, changes, fixed Sol-medium profile, and remaining steps"
+  --summary "Operator saw status, changes, selected implementation profile, rationale, and remaining steps"
 ```
 
 The approval command creates a labeled sibling Herdr tab, starts Pi on its root pane with
-explicit Sol-medium flags, and prompts the new implementation agent. The planning agent stops. The new agent runs
+the planner recommendation by default, and prompts the new implementation agent. A deliberate manual launch may use `--model`, `--reasoning-level`, and `--override-reason`. The planning agent stops. The new agent runs
 `delivery verify-implementation-profile` and then `delivery stage IMPLEMENTING`; the stage
-rejects missing/stale approval, launch evidence, plan review, or a mismatched live Pi runtime.
+rejects missing/stale approval, launch evidence, plan review, or a runtime that does not match the recorded profile. If the same recorded pane was deliberately switched to another model, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`.
 If launch failed, retry with `delivery start-implementation`. If a material Doct comment
 arrives before implementation, update the plan, run
 `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to
@@ -3547,7 +3776,8 @@ delivery stages
 delivery stage <STAGE> [--note "..."]
 delivery approve-implementation --source chat|doct --summary "..."
 delivery start-implementation                    # retry failed dedicated-agent launch
-delivery verify-implementation-profile           # run in the new pinned agent
+delivery verify-implementation-profile           # run in the recorded implementation pane
+delivery verify-implementation-profile --adopt-current-runtime --reason "..."  # record a deliberate manual switch
 delivery revoke-implementation-approval --reason "material plan feedback"
 delivery set --issue KEY --retarget-id          # Linear optional at start
 delivery set --plan path/to/plan.html
@@ -3579,7 +3809,7 @@ delivery bootstrap --refresh                    # rewrite this brief
 ## Soft quality inserts (recommended, never required)
 
 - `delivery record planReadinessRequest --status pass --summary "Doct execution-ready review request"`
-- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY`
+- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY --implementation-profile deepseek-flash|sol-medium --implementation-rationale "..."`
 - `delivery record completionEval --status pass|gap --summary "..."`
 - `delivery record customerImpact --status pass --summary "..." --promised "..." --observed "..."`
 - `delivery record adversarialQa --status pass|na --summary "..."`
@@ -3604,11 +3834,11 @@ Skip only if there is truly nothing process-shaped to capture; prefer a short ho
 ## Rules of the road
 
 - Do **not** reimplement run-plan / reviewed-html-plan / autoreview inside ad-hoc prose.
-- Do **not** hard-block the operator on advisory delivery evidence. Enforce the explicit readiness, Sol-medium plan-review, pinned implementation-runtime, and completeness boundaries.
+- Do **not** hard-block the operator on advisory delivery evidence. Enforce explicit readiness, Sol-medium plan review, one recorded implementation pane/runtime, and completeness boundaries. Recommend models, but allow deliberate manual model/reasoning choices when recorded with a reason.
 - Do **not** require a Linear issue to start; attach it when it exists.
 - Treat generic browser feedback as plan iteration, not an implied execution-ready review request.
 - `execution-ready` requires the current independent Sol-medium planner verdict but is still not authorization to implement. Pause for explicit operator approval.
-- Approval launches a dedicated Sol-medium implementation agent. The planning agent must not implement; the new agent verifies its profile before code work.
+- Approval launches the dedicated implementation agent selected by the Sol-medium planner. The planning agent must not implement; the new agent verifies its profile before code work.
 - If material feedback arrives after readiness but before implementation, invalidate approval and launch evidence, then return to browser review.
 - Prefer keeping the ledger honest over perfect process compliance.
 - If truly stuck on a human decision: `delivery blocker "..." --mark-blocked` and report the decision needed.
@@ -3806,10 +4036,17 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Record that the operator received status, change, model, and remaining-step summary",
     )
-    p_approve.add_argument("--model", help=f"Must be {IMPLEMENTATION_MODEL_REF} when supplied")
+    p_approve.add_argument(
+        "--model",
+        help="Optional provider/model; may manually override the planner selection with --override-reason",
+    )
     p_approve.add_argument(
         "--reasoning-level",
-        help=f"Must be {IMPLEMENTATION_REASONING} when supplied",
+        help="Optional reasoning level; may manually override the planner selection with --override-reason",
+    )
+    p_approve.add_argument(
+        "--override-reason",
+        help="Why this run is manually using a model/reasoning profile other than the planner recommendation",
     )
     p_approve.add_argument("--pane", help="Planning agent's Herdr pane id")
     p_approve.add_argument("--agent-name", help="Override the generated implementation agent name")
@@ -3818,7 +4055,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_start_impl = sub.add_parser(
         "start-implementation",
-        help="Retry launch of the approved fixed Sol medium implementation agent",
+        help="Retry launch of the approved recorded implementation profile",
     )
     p_start_impl.add_argument("--pane", help="Planning agent's Herdr pane id")
     p_start_impl.add_argument("--agent-name", help="Override the generated implementation agent name")
@@ -3827,8 +4064,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_verify_impl = sub.add_parser(
         "verify-implementation-profile",
-        help="Verify this Pi runtime is the approved fixed Sol medium implementation agent",
+        help="Verify this Pi runtime; optionally adopt a manual model choice in the recorded implementation pane",
     )
+    p_verify_impl.add_argument(
+        "--adopt-current-runtime",
+        action="store_true",
+        help="Record the current PI_PROVIDER/PI_MODEL/PI_REASONING_LEVEL as a manual override",
+    )
+    p_verify_impl.add_argument("--reason", help="Required explanation for --adopt-current-runtime")
     p_verify_impl.set_defaults(func=cmd_verify_implementation_profile)
 
     p_revoke_approve = sub.add_parser(
@@ -3882,6 +4125,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_rec.add_argument("--model", help="Model reference for structured review evidence")
     p_rec.add_argument("--reasoning-level", help="Reasoning level for structured review evidence")
     p_rec.add_argument("--verdict", help="Verdict token for structured review evidence")
+    p_rec.add_argument(
+        "--implementation-profile",
+        choices=tuple(sorted(IMPLEMENTATION_PROFILES)),
+        help=(
+            "Planner-selected implementation profile: deepseek-flash for strongly testable work; "
+            "sol-medium when meaningful correctness is hard to validate or technically critical"
+        ),
+    )
+    p_rec.add_argument(
+        "--implementation-rationale",
+        help="Why the Sol-medium planner selected this implementation profile",
+    )
     p_rec.add_argument("--gap", action="append", default=[], help="Gap string (repeatable)")
     p_rec.add_argument("--promised", action="append", default=[], help="customerImpact promised item")
     p_rec.add_argument("--observed", action="append", default=[], help="customerImpact observed item")

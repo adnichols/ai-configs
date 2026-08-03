@@ -700,6 +700,7 @@ assert p["agent"]["prompted"] is True, p
 ' "$json"
   rg -Fxq "agent start delivery-77546573743432 --kind pi --pane wTest42:p1 --timeout 60000" "$log" || return 1
   rg -q "^agent prompt delivery-77546573743432 " "$log" || return 1
+  rg -Fq 'Read `.delivery/AGENT_BRIEF.md` when present. If it is absent, continue from `delivery show`, the ledger, and the plan' "$log" || return 1
   rg -Fxq "workspace rename wTest42 PL: agent collision regression" "$log" || return 1
   rg -Fxq "tab rename wTest42:t1 PL: agent collision regression" "$log" || return 1
   ! rg -q "^(workspace|tab) rename wCaller" "$log" || return 1
@@ -824,10 +825,21 @@ test_readiness_review_requires_explicit_request() {
   [[ "$code" -ne 0 ]] || return 1
   printf '%s' "$out" | rg -q "requires model openai-codex/gpt-5.6-sol" || return 1
 
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/plan-review.md --summary "missing profile decision" \
+    --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
+    --verdict PLAN_EXECUTION_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "requires --implementation-profile" || return 1
+
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/plan-review.md --summary "independent Sol medium plan review" \
     --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
-    --verdict PLAN_EXECUTION_READY >/dev/null
+    --verdict PLAN_EXECUTION_READY --implementation-profile deepseek-flash \
+    --implementation-rationale "deterministic tests strongly validate this plan" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
   python3 - "$repo/.delivery/ledger.json" <<'PY'
 import json,sys
@@ -837,6 +849,8 @@ assert review["reviewer"] == "planner"
 assert review["model"] == "openai-codex/gpt-5.6-sol"
 assert review["reasoningLevel"] == "medium"
 assert review["verdict"] == "PLAN_EXECUTION_READY"
+assert review["implementationProfile"] == "deepseek-flash"
+assert "deterministic tests" in review["implementationRationale"]
 assert review["planSha256"]
 PY
 
@@ -972,7 +986,8 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary "independent Sol medium plan review" \
     --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
-    --verdict PLAN_EXECUTION_READY >/dev/null
+    --verdict PLAN_EXECUTION_READY --implementation-profile sol-medium \
+    --implementation-rationale "critical correctness is difficult to validate fully before merge" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --refresh >/dev/null
   rg -q "Execution-ready approval pause" "$repo/.delivery/AGENT_BRIEF.md" || return 1
@@ -984,32 +999,52 @@ SH
   [[ "$code" -ne 0 ]] || return 1
   printf '%s' "$out" | rg -q "explicit operator implementation approval" || return 1
 
+  set +e
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+    "$DELIVERY" --cwd "$repo" approve-implementation --source chat \
+    --summary "Operator deliberately selected Terra high" \
+    --model openai-codex/gpt-5.6-terra --reasoning-level high 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "manual implementation model selection requires --override-reason" || return 1
+  [[ ! -s "$herdr_log" ]] || return 1
+
   PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
     PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high \
     "$DELIVERY" --cwd "$repo" approve-implementation --source chat \
-    --summary "Operator received status, changes, fixed Sol medium profile, and steps" >/dev/null
+    --summary "Operator deliberately selected Terra high" \
+    --model openai-codex/gpt-5.6-terra --reasoning-level high \
+    --override-reason "manual operator choice for this implementation" >/dev/null
   rg -q "tab create" "$herdr_log" || return 1
   rg -q -- "--workspace w1" "$herdr_log" || return 1
   rg -q -- "--label impl ·" "$herdr_log" || return 1
   rg -q -- "--no-focus" "$herdr_log" || return 1
-  rg -q "agent start implementation-.* --kind pi --pane w1:p2 --timeout 60000 -- --provider openai-codex --model gpt-5.6-sol --thinking medium" "$herdr_log" || return 1
+  rg -q "agent start implementation-.* --kind pi --pane w1:p2 --timeout 60000 -- --provider openai-codex --model gpt-5.6-terra --thinking high" "$herdr_log" || return 1
   rg -q "agent prompt implementation-" "$herdr_log" || return 1
   ! rg -q "pane[[:space:]]+split" "$herdr_log" || return 1
 
   python3 - "$repo/.delivery/ledger.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
+review=d["evidence"]["planTech"]
 approval=d["implementationApproval"]
 profile=d["implementationProfile"]
+assert review["implementationProfile"] == "sol-medium"
+assert "difficult to validate" in review["implementationRationale"]
 assert approval["status"] == "approved"
 assert approval["source"] == "chat"
-assert approval["model"] == "openai-codex/gpt-5.6-sol"
-assert approval["reasoningLevel"] == "medium"
+assert approval["profile"] == "manual"
+assert approval["model"] == "openai-codex/gpt-5.6-terra"
+assert approval["reasoningLevel"] == "high"
+assert approval["selectionSource"] == "manual-approval"
+assert approval["overrideReason"] == "manual operator choice for this implementation"
 assert approval["planSha256"]
 assert profile["status"] == "ready"
+assert profile["profile"] == "manual"
 assert profile["provider"] == "openai-codex"
-assert profile["model"] == "gpt-5.6-sol"
-assert profile["reasoningLevel"] == "medium"
+assert profile["model"] == "gpt-5.6-terra"
+assert profile["reasoningLevel"] == "high"
 assert profile["agentName"].startswith("implementation-")
 assert profile["paneId"] == "w1:p2"
 assert profile["tabId"] == "w1:t9"
@@ -1039,7 +1074,7 @@ PY
   [[ "$(wc -l <"$herdr_log")" -eq "$launch_log_lines" ]] || return 1
 
   set +e
-  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p1 \
+  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high HERDR_PANE_ID=w1:p1 \
     DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile 2>&1)"
   code=$?
   set -e
@@ -1047,16 +1082,16 @@ PY
   printf '%s' "$out" | rg -q "current Herdr pane does not match" || return 1
 
   set +e
-  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high HERDR_PANE_ID=w1:p2 \
+  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p2 \
     DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING 2>&1)"
   code=$?
   set -e
   [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "current Pi runtime is not the pinned implementation model" || return 1
+  printf '%s' "$out" | rg -q "current Pi runtime is not the selected implementation model" || return 1
 
-  PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p2 \
+  PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high HERDR_PANE_ID=w1:p2 \
     DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile >/dev/null
-  PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p2 \
+  PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high HERDR_PANE_ID=w1:p2 \
     DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING >/dev/null
 
   python3 - "$repo/.delivery/ledger.json" <<'PY'
@@ -1099,6 +1134,93 @@ assert d["implementationProfile"]["status"] == "pending"
 PY
 }
 
+test_testable_work_routes_to_deepseek_flash() {
+  local repo="$TMP_ROOT/deepseek-implementation-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-deepseek"
+  local herdr_log="$TMP_ROOT/fake-herdr-deepseek.log"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation" "$fake_bin"
+  printf '<article data-plan>testable implementation</article>\n' >"$repo/thoughts/plans/x.html"
+  printf '# Plan review\n\nVERDICT: PLAN_EXECUTION_READY\n' >"$repo/thoughts/validation/x-plan-review.md"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+if [[ "$1" == "tab" && "$2" == "create" ]]; then
+  printf '{"result":{"tab":{"tab_id":"w-deep:t2"},"root_pane":{"pane_id":"w-deep:p2"}}}\n'
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/x-plan-review.md --summary "testable work" --reviewer planner \
+    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --implementation-profile deepseek-flash \
+    --implementation-rationale "deterministic unit and integration tests exercise the changed behavior" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-deep HERDR_PANE_ID=w-deep:p1 \
+    "$DELIVERY" --cwd "$repo" approve-implementation --source chat \
+    --summary "Operator approved the planner-selected DeepSeek implementation profile" >/dev/null
+  rg -q "agent start implementation-.* --kind pi --pane w-deep:p2 --timeout 60000 -- --provider opencode --model deepseek-v4-flash --thinking max" "$herdr_log" || return 1
+
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+review=d["evidence"]["planTech"]
+approval=d["implementationApproval"]
+profile=d["implementationProfile"]
+assert review["implementationProfile"] == "deepseek-flash"
+assert "deterministic" in review["implementationRationale"]
+assert approval["profile"] == "deepseek-flash"
+assert approval["model"] == "opencode/deepseek-v4-flash"
+assert approval["reasoningLevel"] == "max"
+assert profile["profile"] == "deepseek-flash"
+assert profile["provider"] == "opencode"
+assert profile["model"] == "deepseek-v4-flash"
+assert profile["reasoningLevel"] == "max"
+PY
+
+  set +e
+  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w-deep:p2 \
+    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "current Pi runtime is not the selected implementation model" || return 1
+
+  # Simulate a launch recorded by the older fixed-profile ledger schema.
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1]
+d=json.load(open(path))
+for key in ("profile", "selectionSource", "overrideReason"):
+    d["implementationApproval"].pop(key, None)
+    d["implementationProfile"].pop(key, None)
+json.dump(d,open(path,"w"),indent=2)
+PY
+
+  PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high HERDR_PANE_ID=w-deep:p2 \
+    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile \
+    --adopt-current-runtime --reason "manual operator model choice for this implementation" >/dev/null
+  PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high HERDR_PANE_ID=w-deep:p2 \
+    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["implementationApproval"]["selectionSource"] == "manual-runtime"
+assert d["implementationApproval"]["model"] == "openai-codex/gpt-5.6-terra"
+assert d["implementationApproval"]["reasoningLevel"] == "high"
+assert d["implementationProfile"]["profile"] == "manual"
+assert d["implementationProfile"]["modelRef"] == "openai-codex/gpt-5.6-terra"
+assert d["implementationProfile"]["reasoningLevel"] == "high"
+assert "manual operator" in d["implementationProfile"]["overrideReason"]
+PY
+}
+
 test_implementation_agent_launch_failures_are_not_ready() {
   local repo="$TMP_ROOT/implementation-launch-failure-repo"
   local fake_bin="$TMP_ROOT/fake-herdr-implementation-failure"
@@ -1131,7 +1253,8 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
-    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY >/dev/null
+    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --implementation-profile deepseek-flash --implementation-rationale "tests strongly validate the change" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
 
   set +e
@@ -1257,7 +1380,8 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/plan-review.md --summary ready --reviewer planner \
-    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY >/dev/null
+    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --implementation-profile deepseek-flash --implementation-rationale "tests strongly validate the change" >/dev/null
 
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
     "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
@@ -1326,9 +1450,11 @@ test_skill_doctrine_wording() {
   rg -q "Execution-ready operator approval pause" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "verify-implementation-profile" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "start-implementation" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q 'IMPLEMENTATION_PROVIDER = "openai-codex"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
-  rg -q 'IMPLEMENTATION_MODEL = "gpt-5.6-sol"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
-  rg -q 'IMPLEMENTATION_REASONING = "medium"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q '"deepseek-flash"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q '"provider": "opencode"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q '"model": "deepseek-v4-flash"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q '"sol-medium"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q 'DEFAULT_IMPLEMENTATION_PROFILE = "deepseek-flash"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "COMPLETENESS_REVIEW" "$ROOT/skills/delivery-run/SKILL.md" || return 1
   rg -q "xai/grok-4.5:high" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "completion-review" "$ROOT/_pi/prompts/delivery:run.md" || return 1
@@ -1463,6 +1589,7 @@ run_test test_init_cannot_bypass_authorization_stages
 run_test test_bootstrap_cannot_bypass_authorization_stages
 run_test test_approval_cannot_bypass_readiness_request
 run_test test_execution_ready_requires_current_operator_approval
+run_test test_testable_work_routes_to_deepseek_flash
 run_test test_implementation_agent_launch_failures_are_not_ready
 run_test test_docs_use_labeled_tabs_not_pane_splits
 run_test test_operator_attention_reconciles_delivery_state
