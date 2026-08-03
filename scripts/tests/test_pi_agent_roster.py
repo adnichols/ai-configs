@@ -61,8 +61,6 @@ class PiAgentRosterTest(unittest.TestCase):
             "openai-codex/gpt-5.6-luna",
             "openai-codex/gpt-5.6-sol",
             "xai/grok-4.5",
-            "opencode/deepseek-v4-flash",
-            "opencode/deepseek-v4-pro",
         ):
             self.assertIn(f'"{model}"', allowlist)
         for excluded in (
@@ -71,6 +69,8 @@ class PiAgentRosterTest(unittest.TestCase):
             "xai/grok-build-0.1",
             "cursor/grok-4.5",
             "cursor/composer-2.5",
+            "opencode/deepseek-v4-pro",
+            "opencode/deepseek-v4-flash",
         ):
             self.assertNotIn(f'"{excluded}"', allowlist)
         models = json.loads((ROOT / "_pi" / "models.json").read_text())

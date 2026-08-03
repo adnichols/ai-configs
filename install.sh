@@ -1794,12 +1794,10 @@ DEFAULT_PROVIDER = "openai-codex"
 DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 PICKER_ENABLED_MODELS = [
-    DEFAULT_MODEL_VALUE,
-    "openai-codex/gpt-5.6-luna",
-    "openai-codex/gpt-5.6-sol",
-    "xai/grok-4.5",
-    "opencode/deepseek-v4-flash",
-    "opencode/deepseek-v4-pro",
+    f"{DEFAULT_MODEL_VALUE}:high",
+    "openai-codex/gpt-5.6-luna:max",
+    "openai-codex/gpt-5.6-sol:medium",
+    "xai/grok-4.5:high",
 ]
 
 changed = []

@@ -65,7 +65,7 @@ Before editing, read the full plan and extract:
 Stop before implementation if:
 
 - the plan is not execution-ready,
-- a delivery ledger exists and is not being entered from the dedicated implementation pane with the recorded runtime profile—or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, current operator approval, and successful implementation-agent launch record. The planner recommends `opencode/deepseek-v4-flash` at medium for strongly testable work and `openai-codex/gpt-5.6-sol` at medium for hard-to-validate/critical work, but a deliberate manual model/reasoning choice is allowed when recorded with a reason. Run `delivery verify-implementation-profile` before code work; if this already-recorded pane was deliberately switched, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. Never treat readiness metadata, a generic Doct comment/action, a quiet listener, or an old approval as implementation authorization,
+- a delivery ledger exists and is not being entered from the dedicated implementation pane with the recorded runtime profile—or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, current operator approval, and successful implementation-agent launch record. The planner recommends `openai-codex/gpt-5.6-luna` at max for strongly testable work and `openai-codex/gpt-5.6-sol` at medium for hard-to-validate/critical work, but a deliberate manual model/reasoning choice is allowed when recorded with a reason. Run `delivery verify-implementation-profile` before code work; if this already-recorded pane was deliberately switched, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. Never treat readiness metadata, a generic Doct comment/action, a quiet listener, or an old approval as implementation authorization,
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
@@ -163,7 +163,7 @@ delivery init --plan <plan-path>                 # issue optional at start
 delivery set --issue <KEY> --retarget-id         # attach Linear later when it exists
 # At EXECUTION_READY the planning agent gives the operator status, changes,
 # planner-selected profile and rationale, and remaining steps. After direct approval this launches
-# a dedicated Herdr Pi agent using the recommended DeepSeek Flash or Sol-medium runtime by default:
+# a dedicated Herdr Pi agent using the recommended GPT-5.6 Luna at max or Sol-medium runtime by default:
 delivery approve-implementation --source chat|doct --summary "Operator received the execution-ready summary"
 # A deliberate manual launch may add --model, --reasoning-level, and --override-reason.
 # The planning agent stops. In the newly launched implementation agent:

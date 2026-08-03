@@ -166,12 +166,10 @@ class InstallTransactionTest(unittest.TestCase):
             self.assertEqual(configured_data['defaultProvider'],'openai-codex')
             self.assertEqual(configured_data['defaultModel'],'gpt-5.6-terra')
             self.assertEqual(configured,[
-                'openai-codex/gpt-5.6-terra',
-                'openai-codex/gpt-5.6-luna',
-                'openai-codex/gpt-5.6-sol',
-                'xai/grok-4.5',
-                'opencode/deepseek-v4-flash',
-                'opencode/deepseek-v4-pro',
+                'openai-codex/gpt-5.6-terra:high',
+                'openai-codex/gpt-5.6-luna:max',
+                'openai-codex/gpt-5.6-sol:medium',
+                'xai/grok-4.5:high',
             ])
             installed_models=json.loads(models.read_text())['providers']
             self.assertNotIn('xai',installed_models)

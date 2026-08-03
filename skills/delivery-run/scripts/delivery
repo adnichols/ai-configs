@@ -35,11 +35,11 @@ PLAN_REVIEW_AGENT = "planner"
 PLAN_REVIEW_MODEL = "openai-codex/gpt-5.6-sol"
 PLAN_REVIEW_REASONING = "medium"
 IMPLEMENTATION_PROFILES = {
-    "deepseek-flash": {
-        "provider": "opencode",
-        "model": "deepseek-v4-flash",
+    "luna-max": {
+        "provider": "openai-codex",
+        "model": "gpt-5.6-luna",
         "reasoningLevel": "max",
-        "label": "DeepSeek V4 Flash at max reasoning",
+        "label": "GPT-5.6 Luna at max reasoning",
     },
     "sol-medium": {
         "provider": "openai-codex",
@@ -48,7 +48,10 @@ IMPLEMENTATION_PROFILES = {
         "label": "GPT-5.6 Sol at medium reasoning",
     },
 }
-DEFAULT_IMPLEMENTATION_PROFILE = "deepseek-flash"
+# Persisted ledgers may still carry the former profile name. Resolve it to
+# Luna without allowing new plan-review records to select a retired model.
+IMPLEMENTATION_PROFILE_ALIASES = {"deepseek-flash": "luna-max"}
+DEFAULT_IMPLEMENTATION_PROFILE = "luna-max"
 LEGACY_IMPLEMENTATION_PROFILE = "sol-medium"
 
 STAGES = [
@@ -800,7 +803,16 @@ def reset_plan_readiness_request(ledger: dict[str, Any], reason: str) -> None:
     request["summary"] = reason
 
 
+def canonical_implementation_profile(profile_name: str) -> str:
+    return IMPLEMENTATION_PROFILE_ALIASES.get(profile_name, profile_name)
+
+
+def is_known_implementation_profile(profile_name: object) -> bool:
+    return isinstance(profile_name, str) and canonical_implementation_profile(profile_name) in IMPLEMENTATION_PROFILES
+
+
 def implementation_profile_spec(profile_name: str) -> dict[str, str]:
+    profile_name = canonical_implementation_profile(profile_name)
     spec = IMPLEMENTATION_PROFILES.get(profile_name)
     if spec is None:
         die(
@@ -822,11 +834,11 @@ def implementation_profile_spec(profile_name: str) -> dict[str, str]:
 def selected_implementation_profile(ledger: dict[str, Any]) -> dict[str, str]:
     review = (ledger.get("evidence") or {}).get("planTech") or {}
     profile_name = review.get("implementationProfile")
-    if not isinstance(profile_name, str) or profile_name not in IMPLEMENTATION_PROFILES:
+    if not is_known_implementation_profile(profile_name):
         # Ledgers created before validation-based routing remain on Sol medium rather
         # than silently moving an already-reviewed implementation to a cheaper model.
         profile_name = LEGACY_IMPLEMENTATION_PROFILE
-    return implementation_profile_spec(profile_name)
+    return implementation_profile_spec(str(profile_name))
 
 
 def runtime_profile(model_ref: str, reasoning_level: str, *, profile: str = "manual") -> dict[str, str]:
@@ -835,6 +847,8 @@ def runtime_profile(model_ref: str, reasoning_level: str, *, profile: str = "man
     provider, model = model_ref.split("/", 1)
     if not provider.strip() or not model.strip():
         die("implementation model must use provider/model form")
+    if is_known_implementation_profile(profile):
+        profile = canonical_implementation_profile(profile)
     return {
         "profile": profile,
         "provider": provider.strip(),
@@ -895,7 +909,7 @@ def plan_technical_review_problem(ledger: dict[str, Any], root: Path) -> str | N
     if review.get("verdict") != "PLAN_EXECUTION_READY":
         return "Sol medium planner review has not returned PLAN_EXECUTION_READY"
     profile_name = review.get("implementationProfile")
-    if profile_name is not None and profile_name not in IMPLEMENTATION_PROFILES:
+    if profile_name is not None and not is_known_implementation_profile(profile_name):
         return "Sol medium planner review selected an unknown implementation profile"
     if profile_name is not None and not str(review.get("implementationRationale") or "").strip():
         return "Sol medium planner review did not explain its implementation profile selection"
@@ -933,14 +947,20 @@ def implementation_approval_problem(ledger: dict[str, Any], root: Path) -> str |
     planner_selected = selected_implementation_profile(ledger)
     selection_source = str(approval.get("selectionSource") or "planner")
     selected = approved_implementation_profile(ledger)
-    if selection_source == "planner" and approval.get("profile") not in {None, planner_selected["profile"]}:
+    approval_profile = approval.get("profile")
+    if selection_source == "planner" and (
+        approval_profile is not None
+        and (not is_known_implementation_profile(approval_profile)
+             or canonical_implementation_profile(str(approval_profile)) != planner_selected["profile"])
+    ):
         return f"implementation approval does not match selected profile {planner_selected['profile']}"
     if selection_source != "planner" and not str(approval.get("overrideReason") or "").strip():
         return "manual implementation model selection is missing an override reason"
-    if approval.get("model") != selected["modelRef"]:
-        return f"implementation approval is not pinned to {selected['modelRef']}"
-    if approval.get("reasoningLevel") != selected["reasoningLevel"]:
-        return f"implementation approval is not pinned to {selected['reasoningLevel']} reasoning"
+    expected = planner_selected if selection_source == "planner" else selected
+    if approval.get("model") != expected["modelRef"]:
+        return f"implementation approval is not pinned to {expected['modelRef']}"
+    if approval.get("reasoningLevel") != expected["reasoningLevel"]:
+        return f"implementation approval is not pinned to {expected['reasoningLevel']} reasoning"
     return None
 
 
@@ -951,7 +971,12 @@ def implementation_profile_problem(
     selected = approved_implementation_profile(ledger)
     if profile.get("status") != "ready":
         return "the selected dedicated implementation agent has not been launched successfully"
-    if profile.get("profile") not in {None, selected["profile"]}:
+    recorded_profile = profile.get("profile")
+    recorded_profile_matches = recorded_profile == selected["profile"] or (
+        is_known_implementation_profile(recorded_profile)
+        and canonical_implementation_profile(str(recorded_profile)) == selected["profile"]
+    )
+    if recorded_profile is not None and not recorded_profile_matches:
         return f"implementation agent profile must be {selected['profile']}"
     if profile.get("provider") != selected["provider"]:
         return f"implementation agent provider must be {selected['provider']}"
@@ -1583,7 +1608,7 @@ Do this now:
 3. Run `delivery stage IMPLEMENTING` from this pinned Pi runtime.
 4. Execute `/skill:run-plan {plan}` through implementation, verification, Terra code review, the visible Grok completeness review, and PR readiness.
 
-DeepSeek V4 Flash is the normal implementation profile when deterministic tests strongly validate the result. Sol medium is recommended when meaningful correctness is hard to validate or depends materially on critical technical judgment. The recommendation is not a prohibition: if this recorded implementation pane is deliberately switched to another model, record it with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` before code work.
+GPT-5.6 Luna at max reasoning is the normal implementation profile when deterministic tests strongly validate the result. Sol medium is recommended when meaningful correctness is hard to validate or depends materially on critical technical judgment. The recommendation is not a prohibition: if this recorded implementation pane is deliberately switched to another model, record it with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` before code work.
 
 Do not re-plan beyond the reviewed contract. The planning agent must not implement; you own all code, tests, fixes, Git, and PR work from this point."""
 
@@ -3054,7 +3079,7 @@ def agent_start_prompt(goal: str, *, issue: str | None, worktree: str) -> str:
         "1. Read `.delivery/AGENT_BRIEF.md` when present. If it is absent, continue from `delivery show`, the ledger, and the plan; `delivery bootstrap --refresh` may recreate it.\n"
         "2. Run `delivery show` and `delivery check -v`.\n"
         "3. Continue from the current state's recommended next step using existing worker skills\n"
-        "   (reviewed-html-plan / dev-plan → Sol-medium profile decision → DeepSeek Flash or Sol implementation → Terra autoreview → Grok completeness → PR).\n"
+        "   (reviewed-html-plan / dev-plan → Sol-medium profile decision → GPT-5.6 Luna at max or Sol implementation → Terra autoreview → Grok completeness → PR).\n"
         "   During `PLAN_BROWSER_REVIEW`, integrate ordinary feedback but wait for Doct's explicit\n"
         "   `Request execution-ready review` action before PM or technical readiness review.\n"
         "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
@@ -3696,7 +3721,7 @@ Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization
 Keep this worktree moving through:
 
 ```text
-plan ↔ Sol-medium planner decision → DeepSeek Flash for strongly testable work or Sol medium for hard-to-validate work → Terra autoreview → Grok completeness → PR
+plan ↔ Sol-medium planner decision → GPT-5.6 Luna at max for strongly testable work or Sol medium for hard-to-validate work → Terra autoreview → Grok completeness → PR
 ```
 
 You are the planning/driving agent until operator approval. Use existing worker skills for real work.
@@ -3728,7 +3753,7 @@ While the stage is `PLAN_BROWSER_REVIEW`:
   `PLAN_PM_REVIEW`. `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW`
   reject a missing request record. `EXECUTION_READY` additionally requires a
   current independent planner artifact from `openai-codex/gpt-5.6-sol` at medium
-  with `VERDICT: PLAN_EXECUTION_READY`. The same review should select `deepseek-flash`
+  with `VERDICT: PLAN_EXECUTION_READY`. The same review should select `luna-max`
   when deterministic tests strongly validate the result, and `sol-medium` when meaningful
   correctness is hard to validate or depends materially on critical technical judgment.
   These are authorization boundaries.
@@ -3809,7 +3834,7 @@ delivery bootstrap --refresh                    # rewrite this brief
 ## Soft quality inserts (recommended, never required)
 
 - `delivery record planReadinessRequest --status pass --summary "Doct execution-ready review request"`
-- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY --implementation-profile deepseek-flash|sol-medium --implementation-rationale "..."`
+- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY --implementation-profile luna-max|sol-medium --implementation-rationale "..."`
 - `delivery record completionEval --status pass|gap --summary "..."`
 - `delivery record customerImpact --status pass --summary "..." --promised "..." --observed "..."`
 - `delivery record adversarialQa --status pass|na --summary "..."`
@@ -4129,7 +4154,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--implementation-profile",
         choices=tuple(sorted(IMPLEMENTATION_PROFILES)),
         help=(
-            "Planner-selected implementation profile: deepseek-flash for strongly testable work; "
+            "Planner-selected implementation profile: luna-max for strongly testable work; "
             "sol-medium when meaningful correctness is hard to validate or technically critical"
         ),
     )

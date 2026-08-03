@@ -138,7 +138,7 @@ After material PM edits, ensure the review URL still points at the latest plan a
 
 ### 6. Independent Sol-medium planner review
 
-After the explicit execution-ready request and PM pass, run exactly one Pi `planner` subagent before execution and keep it read-only. The checked-in planner frontmatter pins `openai-codex/gpt-5.6-sol` at medium reasoning, so this independent pass happens regardless of the model that authored the plan or started delivery. Do not pass a model or thinking override. The planner also selects the implementation profile: choose `deepseek-flash` by default when deterministic tests can strongly validate the changed behavior; choose `sol-medium` when meaningful correctness is hard to validate before merge or depends materially on critical technical judgment. The same planner is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
+After the explicit execution-ready request and PM pass, run exactly one Pi `planner` subagent before execution and keep it read-only. The checked-in planner frontmatter pins `openai-codex/gpt-5.6-sol` at medium reasoning, so this independent pass happens regardless of the model that authored the plan or started delivery. Do not pass a model or thinking override. The planner also selects the implementation profile: choose `luna-max` by default when deterministic tests can strongly validate the changed behavior; choose `sol-medium` when meaningful correctness is hard to validate before merge or depends materially on critical technical judgment. The same planner is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
 
 - For data loss, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another P1/P2 risk surface, give the reviewer a compact readiness packet with named files/surfaces, the exact risk question, relevant plan excerpts, verification expectations, and outcome limits.
 - For lower-risk plans, retain the same bounded readiness packet without broadening into a second opinion.
@@ -155,8 +155,8 @@ delivery record planTech --status pass \
   --summary "independent Sol medium plan-readiness review" \
   --reviewer planner --model openai-codex/gpt-5.6-sol \
   --reasoning-level medium --verdict PLAN_EXECUTION_READY \
-  --implementation-profile deepseek-flash|sol-medium \
-  --implementation-rationale "why tests are strong enough for DeepSeek, or why Sol is warranted"
+  --implementation-profile luna-max|sol-medium \
+  --implementation-rationale "why tests are strong enough for Luna, or why Sol is warranted"
 delivery stage EXECUTION_READY
 ```
 
@@ -185,7 +185,7 @@ For the single plan-review pass, stay limited to readiness concerns, including a
 - whether `What's new` is missing, late, vague, or duplicative/restated; it must be present immediately after product-owner context and before goal, with a behavior-focused headline, one-sentence product promise, concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees; it does not restate goal, rationale, phases, or acceptance criteria; instruct the reviewer not to return an execution-ready verdict until the canonical section is distinct and correctly placed,
 - whether the plan has executable phases,
 - whether acceptance criteria and verification are testable,
-- whether deterministic tests exercise enough of the meaningful behavior to use `deepseek-flash`; otherwise require `sol-medium`, especially for critical technical work where correctness depends on judgment, environment behavior, concurrency, persistence, security, or another result that cannot be confidently established by pre-merge tests,
+- whether deterministic tests exercise enough of the meaningful behavior to use `luna-max`; otherwise require `sol-medium`, especially for critical technical work where correctness depends on judgment, environment behavior, concurrency, persistence, security, or another result that cannot be confidently established by pre-merge tests,
 - whether scope and non-goals prevent expansion,
 - whether unresolved product questions remain,
 - whether the plan has enough file/surface specificity for implementation,
@@ -208,11 +208,11 @@ VERDICT: PLAN_EXECUTION_READY
 VERDICT: PLAN_NEEDS_REVISION
 VERDICT: BLOCKED_BY_PRODUCT_QUESTION
 VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
-IMPLEMENTATION_PROFILE: deepseek-flash|sol-medium
+IMPLEMENTATION_PROFILE: luna-max|sol-medium
 IMPLEMENTATION_RATIONALE: <one concise evidence-based sentence>
 ```
 
-Require the implementation profile and rationale with a ready verdict. Use `deepseek-flash` when the planned deterministic tests strongly exercise the meaningful behavior. Use `sol-medium` when they do not, or when critical correctness depends materially on technical judgment beyond the available test evidence.
+Require the implementation profile and rationale with a ready verdict. Use `luna-max` when the planned deterministic tests strongly exercise the meaningful behavior. Use `sol-medium` when they do not, or when critical correctness depends materially on technical judgment beyond the available test evidence.
 
 Normalize fuzzy reviewer output by substance, but never normalize empty, tool-only, provider-error, or incomplete-coverage output into a ready verdict. Treat a review as ready only when it finds no blocking readiness gaps and all required slices are complete.
 
@@ -281,7 +281,7 @@ Do not start implementation as part of this skill.
 
 1. the current plan and review status, including any residual non-blocking observations;
 2. a concise summary of the customer-visible and technical changes implementation will make;
-3. the planner-selected implementation profile and rationale: normally `opencode/deepseek-v4-flash` at medium for strongly testable work, or `openai-codex/gpt-5.6-sol` at medium when meaningful correctness is hard to validate or technically critical; and
+3. the planner-selected implementation profile and rationale: normally `openai-codex/gpt-5.6-luna` at max for strongly testable work, or `openai-codex/gpt-5.6-sol` at medium when meaningful correctness is hard to validate or technically critical; and
 4. the remaining implementation phases, tests, reviews, verification, and PR steps.
 
 A direct operator approval in the current conversation or a deliberate Doct implementation-approval action is required. For a delivery-managed run, record that approval against the current plan content before entering `IMPLEMENTING`:
