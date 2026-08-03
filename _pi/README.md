@@ -217,14 +217,15 @@ The maintained agent files use the flat frontmatter expected by `@tintinweb/pi-s
 
 The installed agent directory is an exact replacement with this roster:
 
+- `oracle` — GPT-5.6 Sol high; inherited-context, read-only decision support for risky, ambiguous, drifting, or non-converging choices
 - `planner` — GPT-5.6 Sol medium; planning plus independent read-only plan-readiness review
 - `reviewer` — GPT-5.6 Terra medium; read-only material review
 - `scout` — GPT-5.6 Terra low; bounded read-only discovery
 - `Explore.md` — disabled override, not an active agent
 
-`planner` and `reviewer` declare `isolation: none`. During Pi installation, `scripts/patch_pi_subagents_review_isolation.py` extends `@tintinweb/pi-subagents` with that authoritative sentinel, so even a generated tool call that includes `isolation: "worktree"` resolves to the live checkout. Review skills still require callers to omit the property; the sentinel is a hard backstop against accidental isolated review launches and is reapplied after package updates.
+`oracle`, `planner`, and `reviewer` declare `isolation: none`. During Pi installation, `scripts/patch_pi_subagents_review_isolation.py` extends `@tintinweb/pi-subagents` with that authoritative sentinel, so even a generated tool call that includes `isolation: "worktree"` resolves to the live checkout. Review skills still require callers to omit the property; the sentinel is a hard backstop against accidental isolated review launches and is reapplied after package updates. Oracle also pins inherited parent context so it can reconstruct established decisions and detect drift rather than acting as a generic fresh-context reviewer. Its frontmatter deliberately carries both the current tintinweb keys (`thinking: high`, `inherit_context: true`) and nicobailon's equivalent fork-context key (`defaultContext: fork`), alongside the repository's `reasoningEffort: high` policy marker. This keeps the new Oracle's core model/context contract executable now and compatible with the planned orchestrator migration.
 
-Callers must supply the artifact or allowed surfaces, specialized lens, output destination/format, authority boundary, verification evidence, and stop/verdict vocabulary. There is no implementation **subagent**: the active driving session performs code edits, test changes, fixes, verification, and repository management directly. Delivery approval creates a new top-level Herdr Pi driving session pinned to the planner-selected implementation profile (Terra high by default, Sol medium for hard-to-validate work); it does not delegate edits through the `Agent` subagent tool. `/cmd:start-linear-issue` likewise performs its deterministic Git/Linear worktree workflow directly.
+Callers must supply the artifact or allowed surfaces, specialized lens, output destination/format, authority boundary, verification evidence, and stop/verdict vocabulary. Oracle callers additionally supply one bounded decision, credible options, the driving agent's current recommendation, uncertainty, and one narrow question. There is no implementation **subagent**: the active driving session performs code edits, test changes, fixes, verification, and repository management directly. Delivery approval creates a new top-level Herdr Pi driving session pinned to the planner-selected implementation profile (Terra high by default, Sol medium for hard-to-validate work); it does not delegate edits through the `Agent` subagent tool. `/cmd:start-linear-issue` likewise performs its deterministic Git/Linear worktree workflow directly.
 
 ## Skills Overview
 
@@ -234,7 +235,7 @@ Callers must supply the artifact or allowed surfaces, specialized lens, output d
 ### Dev / execution
 - `run-plan` / `/run-plan` — full lifecycle execution for an explicit reviewed plan. In a delivery run it is invoked only from the dedicated recorded implementation pane. The Sol planner recommends `openai-codex/gpt-5.6-terra` at high by default, or `openai-codex/gpt-5.6-sol` at medium when meaningful correctness is hard to validate or technically critical. This is a default, not a prohibition: a manual model/reasoning choice may be recorded at approval or adopted in the same implementation pane with a reason. Implementation then proceeds through scoped reviews, implementation-stage PM review, Terra-medium reviewer-subagent pre-PR review, and a visible labeled Pi/Grok 4.5 completeness-review loop to `COMPLETE`, followed by base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed
 - `dev:run` — direct GPT-5.6 Sol medium execution with one shared `reviewer` pass after each phase
-- `autoreview` — canonical reviewer-subagent pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. After the bounded three-cycle local budget, unresolved review non-convergence uses exactly one read-only advisory external consultation and, only if authorized, one scope-bound `REVIEW_ESCAPE` adversarial reviewer-pair pass plus the existing single pass-after-fixes allowance. This route applies before or after PR creation and does not require a PR URL or PR feedback. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
+- `autoreview` — canonical reviewer-subagent pre-PR implementation review with one targeted rereview after fixes and no unresolved blocking in-scope P1/P2 findings; plan-required, verification-required, or regression-caused P3 findings still block. After the bounded three-cycle local budget, unresolved review non-convergence uses exactly one read-only advisory consultation through Pi's Sol-high `oracle` and, only if authorized, one scope-bound `REVIEW_ESCAPE` adversarial reviewer-pair pass plus the existing single pass-after-fixes allowance. This route applies before or after PR creation and does not require a PR URL or PR feedback. When invoked by `run-plan`, it returns `OPEN_PR_READY` so the caller continues to final verification, base freshness, PR creation, and local merge-readiness checking without waiting for a Codex thumbs-up
 
 ### Git / workflow
 - `cmd-create-pr`
@@ -262,6 +263,7 @@ Prompt templates:
 
 ```text
 /cmd:debug login flake in CI
+/consult:oracle choose ownership boundary for retry policy
 /dev:plan feature-name
 /dev:reviewed-html-plan feature-name
 /dev:pm-review thoughts/plans/my-plan.html
@@ -347,7 +349,7 @@ Skills:
 - `~/.pi/agent/APPEND_SYSTEM.md` is rendered from the repo-root `APPEND_SYSTEM.md` with its install date and source Git SHA recorded on the `Doctrine-Version` line.
 - Project-local Pi resources can also live under `.pi/prompts/`, `.pi/skills/`, `.pi/agents/`, and `.pi/extensions/`.
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the canonical default shared runtime location and reserves `~/.pi/agent/skills/` for Pi-local-only entries. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
-- `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`.
+- `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`. The global `oracle` agent is therefore available to ordinary Pi sessions as well as delivery workflows; `/consult:oracle <decision>` is the explicit prompt shortcut, while APPEND_SYSTEM guidance tells driving agents when to invoke it proactively.
 - `_pi/agents/Explore.md` is only an `enabled: false` override for tintinweb's bundled `Explore` persona; it does not define a repository-owned Explore persona. It does not affect the separately installed `@howaboua/pi-explore-subagents` extension or its `explore_subagent` tool, which remains the intended isolated-discovery path.
 - GPT-5.6 Sol medium in the driving session is the only repository-owned Pi GPT code-writing route. Perform implementation, test changes, fixes, and repository management directly with native tools. Prefer direct targeted reads for discovery; use `explore_subagent` only as a bounded read-only exception when broad discovery materially benefits from isolated context. Never route code-writing through a subagent or persona.
 

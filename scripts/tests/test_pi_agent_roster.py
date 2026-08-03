@@ -5,8 +5,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / "_pi" / "agents"
-EXPECTED_FILES = {"Explore.md", "planner.md", "reviewer.md", "scout.md"}
+EXPECTED_FILES = {"Explore.md", "oracle.md", "planner.md", "reviewer.md", "scout.md"}
 EXPECTED_ROUTES = {
+    "oracle": ("openai-codex/gpt-5.6-sol", "high"),
     "planner": ("openai-codex/gpt-5.6-sol", "medium"),
     "reviewer": ("openai-codex/gpt-5.6-terra", "medium"),
     "scout": ("openai-codex/gpt-5.6-terra", "low"),
@@ -50,7 +51,12 @@ class PiAgentRosterTest(unittest.TestCase):
             self.assertEqual("subagent", metadata.get("mode"))
             self.assertEqual(model, metadata.get("model"))
             self.assertEqual(effort, metadata.get("reasoningEffort"))
-            self.assertNotIn("thinking", metadata)
+            if name == "oracle":
+                self.assertEqual("high", metadata.get("thinking"))
+                self.assertEqual("fork", metadata.get("defaultContext"))
+            else:
+                self.assertNotIn("thinking", metadata)
+                self.assertNotIn("defaultContext", metadata)
             self.assertNotIn("output", metadata)
             self.assertNotIn("defaultReads", metadata)
 
@@ -99,6 +105,54 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertRegex(bodies["reviewer"], r"explicit.*review artifact")
         self.assertIn("caller-authorized annotations", bodies["reviewer"])
         self.assertIn("beyond that granted output contract", bodies["reviewer"])
+        self.assertIn("decision-consistency", bodies["oracle"])
+        self.assertIn("inherited decisions", bodies["oracle"])
+        self.assertIn("do not edit", bodies["oracle"])
+        self.assertIn("driving agent", bodies["oracle"])
+        self.assertIn("recommendation", bodies["oracle"])
+        oracle_metadata, _ = frontmatter(AGENTS / "oracle.md")
+        self.assertEqual("none", oracle_metadata.get("isolation"))
+        self.assertEqual("true", oracle_metadata.get("inherit_context"))
+
+    def test_oracle_is_proactively_available_inside_and_outside_workflows(self):
+        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
+        for required in (
+            'subagent_type: "oracle"',
+            "decision support",
+            "Do not use Oracle for routine",
+            "The driving agent remains the decision-maker",
+            "current recommendation",
+            "one narrow question",
+        ):
+            self.assertIn(required, doctrine)
+
+        command = ROOT / "_pi" / "prompts" / "consult:oracle.md"
+        self.assertTrue(command.is_file())
+        command_text = command.read_text()
+        self.assertIn('subagent_type: "oracle"', command_text)
+        self.assertIn("read-only", command_text)
+        self.assertIn("verify", command_text.lower())
+
+        workflow_surfaces = {
+            ROOT / "skills" / "delivery-run" / "SKILL.md",
+            ROOT / "skills" / "reviewed-html-plan" / "SKILL.md",
+            ROOT / "skills" / "run-plan" / "SKILL.md",
+            ROOT / "skills" / "autoreview" / "SKILL.md",
+            ROOT / "_pi" / "prompts" / "dev:run.md",
+            ROOT / "_pi" / "prompts" / "dev:reviewed-html-plan.md",
+            ROOT / "_pi" / "prompts" / "delivery:run.md",
+        }
+        for path in workflow_surfaces:
+            with self.subTest(path=path.relative_to(ROOT)):
+                text = path.read_text()
+                self.assertIn("`oracle`", text)
+                self.assertIn("advisory", text.lower())
+
+        for path in (ROOT / "skills" / "run-plan" / "SKILL.md", ROOT / "skills" / "autoreview" / "SKILL.md"):
+            text = path.read_text()
+            self.assertIn("configured Pi consultation surface is the `oracle` subagent", text)
+            self.assertIn("openai-codex/gpt-5.6-sol", text)
+            self.assertIn("high reasoning", text)
 
     def test_development_stays_in_driving_session(self):
         retired_claude_agents = {
@@ -217,7 +271,7 @@ class PiAgentRosterTest(unittest.TestCase):
             self.assertNotIn(token, reviewer)
 
     def test_pi_review_launches_omit_worktree_isolation(self):
-        for name in ("reviewer", "planner"):
+        for name in ("oracle", "reviewer", "planner"):
             metadata, _ = frontmatter(ROOT / "_pi" / "agents" / f"{name}.md")
             self.assertEqual("none", metadata.get("isolation"))
 
@@ -254,7 +308,7 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertNotIn("for skill in autoreview", review_stack)
         self.assertIn("return 1", review_stack[patch_index:first_mutation])
         readme = (ROOT / "_pi" / "README.md").read_text()
-        self.assertIn("`planner` and `reviewer` declare `isolation: none`", readme)
+        self.assertIn("`oracle`, `planner`, and `reviewer` declare `isolation: none`", readme)
 
     def test_claude_has_only_the_read_only_reviewer_subagent(self):
         agents = ROOT / "_claude" / "agents"

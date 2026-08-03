@@ -15,6 +15,7 @@ Keep the per-worktree delivery ledger current while calling existing worker skil
 
 - use `delivery init/show/stage/record/check/board`
 - treat `delivery check` advisories as a to-do list, never a hard stop
+- keep the read-only `oracle` subagent available as advisory decision support across planning, implementation, review, and recovery. Invoke it once when targeted evidence leaves a consequential technical choice or drift from locked decisions genuinely ambiguous; verify its claims and record the accepted or rejected disposition. It never replaces product decisions or required review gates.
 - do not reimplement `reviewed-html-plan`, `run-plan`, `autoreview`, PM review, or `qa:run`
 - missing recommended evidence is recorded as gap/pending and work may continue
 - in `PLAN_BROWSER_REVIEW`, generic feedback only updates the plan; wait for Doct's explicit **Request execution-ready review** action (`agentRoute.requestedSkill: "plan-reviewer-execution-ready"`) before PM or technical plan review, then record `planReadinessRequest=pass`. Run the independent `planner` subagent with its checked-in `openai-codex/gpt-5.6-sol` medium profile. It returns `PLAN_EXECUTION_READY` plus an implementation choice: `terra-high` when deterministic tests strongly validate the work, or `sol-medium` when meaningful correctness is hard to validate or technically critical. Record the artifact, profile, and rationale with `delivery record planTech ...`. `delivery` binds both records to the current plan and refuses `EXECUTION_READY` without them.

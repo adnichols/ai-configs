@@ -271,7 +271,13 @@ delivery stage <STAGE>
 delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
 ```
 
-### 2a. Automatic execution-ready handoff
+### 2a. Oracle decision support
+
+The repository-owned Pi `oracle` subagent remains available across planning, implementation, review, and recovery. Invoke it proactively for one consequential decision when targeted evidence leaves competing approaches, a hard-to-reverse contract or migration choice, likely drift from locked plan decisions, or a newly exposed unplanned tradeoff genuinely ambiguous. Give it the decision, current stage and plan constraints, relevant evidence, credible options, the driving agent's recommendation, uncertainty, and one narrow question.
+
+Oracle is advisory and read-only. Verify its claims and record the disposition in the plan decisions/deviations log or delivery coverage ledger when the recommendation affects the run. It cannot authorize product-changing expansion, replace Doct or operator decisions, satisfy the Sol-medium planner readiness gate, substitute for the Terra implementation review or visible completeness review, or add review cycles. Do not repeatedly consult it on the same question without materially new evidence.
+
+### 2b. Automatic execution-ready handoff
 
 `EXECUTION_READY` is the automatic handoff from reviewed planning to implementation. In a Herdr delivery run, entering this stage records workflow authorization for the exact reviewed plan, creates a labeled sibling tab, starts the planner-selected implementation runtime, and prompts it to continue through implementation, verification, bounded reviews, completeness review, and PR creation. The planning agent stops after the handoff; it does not ask for another routine approval.
 

@@ -17,6 +17,7 @@ Load and follow these skills when this workflow reaches their surface:
 - `doct-document-ops` for HTML/Markdoc plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, Markdown/text fallback publishing, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
 - In Pi, the `planner` subagent for the single independent read-only plan-review leg. Its checked-in frontmatter pins `openai-codex/gpt-5.6-sol` at medium reasoning. Do not pass a caller-side model or thinking override. Non-Pi harnesses use their configured planning persona only when it provides equivalent independent read-only review; a Pi delivery ledger cannot reach `EXECUTION_READY` without the fixed Sol-medium review evidence.
+- In Pi, the `oracle` subagent is optional bounded decision support during plan authoring or revision. Use it when targeted repo inspection leaves competing technical approaches, ownership boundaries, compatibility tradeoffs, or drift from locked decisions genuinely ambiguous. Oracle is advisory only and never replaces browser feedback, product-owner decisions, PM review, or the independent Sol-medium planner readiness verdict.
 - Domain skills required by the target repository guidance, stack, or plan surface.
 
 If a required review tool is unavailable, follow the relevant skill's remediation first. Stop only when the dependency cannot be restored safely or the next step requires a real product decision.
@@ -49,7 +50,9 @@ Use lowercase, digits, and hyphens for the slug. If the user gave an existing Ma
 4. Read any source issue, handoff, existing plan, PRD, or specification the input references.
 5. Inspect the repo enough to validate important claims, file paths, commands, data shapes, and integration points. Do not rely on the user's description alone for executable plan details.
 
-When repo evidence cannot resolve a decision that changes user-visible behavior, security/privacy posture, data handling, scope, or compatibility, capture it in the HTML plan as a prominent `Decision Required` block for browser feedback. Do not ask it separately in chat unless Doct registration or browser review is unavailable.
+When repo evidence leaves a consequential technical decision ambiguous, the Pi planning agent should consult `oracle` once with the bounded decision, inherited constraints, evidence, credible options, its current recommendation, and uncertainty. Verify the response against current sources and record the accepted or rejected recommendation in the plan's decisions/deviations log when it affects the plan. Do not use Oracle for routine discovery or to rubber-stamp a preferred option.
+
+When repo evidence cannot resolve a decision that changes user-visible behavior, security/privacy posture, data handling, scope, or compatibility, capture it in the HTML plan as a prominent `Decision Required` block for browser feedback. Oracle may improve the option analysis, but it cannot make the product choice or authorize scope expansion. Do not ask it separately in chat unless Doct registration or browser review is unavailable.
 
 ### 2. Create or refresh the HTML plan
 
@@ -132,11 +135,13 @@ The PM pass evaluates whether the plan will satisfy the intended user/operator o
 - whether verification proves the shipped workflow, not just helper behavior,
 - whether triggered planning evidence appears in the contract inventory, acceptance/BDD, verification/residual-risk, and decisions/deviations sections rather than being replaced by a standalone questionnaire.
 
-Default behavior is corrective: reshape the HTML plan directly when the right direction is inferable from repo evidence. When a product-shaping decision remains low-confidence, keep the plan blocked and surface the decision prominently in the HTML plan for Doct feedback, with all viable options, thorough explanations, and the agent's recommendation.
+Default behavior is corrective: reshape the HTML plan directly when the right direction is inferable from repo evidence. When a product-shaping decision remains low-confidence, keep the plan blocked and surface the decision prominently in the HTML plan for Doct feedback, with all viable options, thorough explanations, and the agent's recommendation. In Pi, an Oracle consultation may challenge a low-confidence technical recommendation before it is presented, but Oracle does not count as PM or product-owner approval.
 
 After material PM edits, ensure the review URL still points at the latest plan and the plan remains browser-reviewable.
 
 ### 6. Independent Sol-medium planner review
+
+An earlier Oracle consultation does not satisfy, skip, or modify this gate. Oracle answers a bounded decision question; the `planner` independently evaluates the whole current plan for execution readiness and selects the implementation profile.
 
 After the explicit execution-ready request and PM pass, run exactly one Pi `planner` subagent before execution and keep it read-only. The checked-in planner frontmatter pins `openai-codex/gpt-5.6-sol` at medium reasoning, so this independent pass happens regardless of the model that authored the plan or started delivery. Do not pass a model or thinking override. The planner also selects the implementation profile: choose `terra-high` by default when deterministic tests can strongly validate the changed behavior; choose `sol-medium` when meaningful correctness is hard to validate before merge or depends materially on critical technical judgment. The same planner is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
 
