@@ -99,7 +99,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, @fnnm/pi-ast-grep, pi-updater, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-service-tier, pi-extensible-workflows, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
@@ -3254,14 +3254,11 @@ install_pi_npm_packages() {
         "@aliou/pi-processes"
         "@narumitw/pi-goal"
         "pi-web-access"
-        "@fnnm/pi-ast-grep"
-        "pi-updater"
         "pi-no-soft-cursor"
         "@tmustier/pi-files-widget"
         "@tmustier/pi-raw-paste"
         "@pi-kaush/pi-inline-skill-identifier"
         "@howaboua/pi-explore-subagents"
-        "pi-service-tier"
         "pi-extensible-workflows"
     )
     local deprecated_npm_packages=(
@@ -3278,6 +3275,9 @@ install_pi_npm_packages() {
         "@howaboua/pi-dynamic-tools"
         "@ff-labs/pi-fff"
         "pi-powerline-footer"
+        "@fnnm/pi-ast-grep"
+        "pi-service-tier"
+        "pi-updater"
     )
     local deprecated_git_packages=(
         "git:github.com/adnichols/pi-codex-conversion"
@@ -3341,14 +3341,6 @@ install_pi_npm_packages() {
     fi
 
     echo -e "${GREEN}  ✓ npm-based extensions processed${NC}"
-
-    # CLIProxyAPI exposes Codex GPT models through Pi's standard
-    # openai-responses adapter, while pi-service-tier's upstream provider check
-    # only recognizes openai-codex-responses. Keep the installed package
-    # compatible with the repo-managed local CLIProxyAPI provider.
-    if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_service_tier.py"; then
-        echo -e "${YELLOW}⚠ Failed to apply pi-service-tier CLIProxyAPI compatibility patch${NC}"
-    fi
 
     # @howaboua/pi-explore-subagents launches no-session RPC children by
     # copying process.env. Remove the parent's Herdr identity before launch so

@@ -50,14 +50,11 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@aliou/pi-processes"
   "npm:@narumitw/pi-goal"
   "npm:pi-web-access"
-  "npm:@fnnm/pi-ast-grep"
-  "npm:pi-updater"
   "npm:pi-no-soft-cursor"
   "npm:@tmustier/pi-files-widget"
   "npm:@tmustier/pi-raw-paste"
   "npm:@pi-kaush/pi-inline-skill-identifier"
   "npm:@howaboua/pi-explore-subagents"
-  "npm:pi-service-tier"
   "npm:pi-extensible-workflows"
 )
 
@@ -296,11 +293,6 @@ ALL_EXPECTED_PACKAGES="$(printf '%s\n%s\n' "$EXPECTED_GIT_PACKAGE_LINES" "$(prin
 ALL_EXPECTED_PACKAGES="$(printf '%s\n%s\n' "$ALL_EXPECTED_PACKAGES" "$EXPECTED_LOCAL_PACKAGES")"
 report_expected_vs_actual "  Comparison:" "$ALL_EXPECTED_PACKAGES" "$INSTALLED_PI_PACKAGES" true
 
-PI_SERVICE_TIER_SHARED="$PI_AGENT_DIR/npm/node_modules/pi-service-tier/shared.ts"
-if [ -f "$PI_SERVICE_TIER_SHARED" ] && ! grep -Fq 'const usesCLIProxyAPIResponses =' "$PI_SERVICE_TIER_SHARED"; then
-  note_failure "pi-service-tier is installed without the CLIProxyAPI openai-responses compatibility patch"
-fi
-
 if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_explore_subagents.py" --check >/dev/null; then
   note_failure "pi-explore-subagents is installed without complete Herdr child-environment isolation"
 fi
@@ -527,6 +519,24 @@ if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-powerline-footer'; then
   note_failure "retired pi-powerline-footer package is still registered"
 else
   echo "  pi-powerline-footer registration: absent"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq '@fnnm/pi-ast-grep'; then
+  note_failure "retired @fnnm/pi-ast-grep package is still registered"
+else
+  echo "  @fnnm/pi-ast-grep registration: absent"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-service-tier'; then
+  note_failure "retired pi-service-tier package is still registered"
+else
+  echo "  pi-service-tier registration: absent"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-updater'; then
+  note_failure "retired pi-updater package is still registered"
+else
+  echo "  pi-updater registration: absent"
 fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"
