@@ -1010,13 +1010,14 @@ SH
   printf '%s' "$out" | rg -q "manual implementation model selection requires --override-reason" || return 1
   [[ ! -s "$herdr_log" ]] || return 1
 
-  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_TAB_ID=w1:t1 HERDR_PANE_ID=w1:p1 \
     PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high \
     "$DELIVERY" --cwd "$repo" approve-implementation --source chat \
     --summary "Operator deliberately selected Terra high" \
     --model openai-codex/gpt-5.6-terra --reasoning-level high \
     --override-reason "manual operator choice for this implementation" >/dev/null
   rg -q "tab create" "$herdr_log" || return 1
+  rg -q "tab focus w1:t9" "$herdr_log" || return 1
   rg -q -- "--workspace w1" "$herdr_log" || return 1
   rg -q -- "--label impl ·" "$herdr_log" || return 1
   rg -q -- "--no-focus" "$herdr_log" || return 1
@@ -1051,6 +1052,11 @@ assert profile["tabId"] == "w1:t9"
 assert profile["tabLabel"].startswith("impl · "), profile
 assert profile["sourcePaneId"] == "w1:p1"
 assert profile["planSha256"] == approval["planSha256"]
+owner=d.get("workspaceOwner") or {}
+assert owner.get("role") == "implementation"
+assert owner.get("tabId") == "w1:t9"
+assert owner.get("paneId") == "w1:p2"
+assert any((t or {}).get("tabId") == "w1:t1" for t in (d.get("tabsToRetire") or [])), d.get("tabsToRetire")
 PY
 
   local launch_log_lines
@@ -1089,8 +1095,18 @@ PY
   [[ "$code" -ne 0 ]] || return 1
   printf '%s' "$out" | rg -q "current Pi runtime is not the selected implementation model" || return 1
 
-  PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high HERDR_PANE_ID=w1:p2 \
-    DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile >/dev/null
+  : >"$herdr_log"
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" \
+    PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high \
+    HERDR_WORKSPACE_ID=w1 HERDR_TAB_ID=w1:t9 HERDR_PANE_ID=w1:p2 \
+    "$DELIVERY" --cwd "$repo" verify-implementation-profile >/dev/null
+  rg -q "tab close w1:t1" "$herdr_log" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d.get("tabsToRetire") in (None, [])
+assert d["workspaceOwner"]["role"] == "implementation"
+PY
   PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high HERDR_PANE_ID=w1:p2 \
     DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING >/dev/null
 
@@ -1099,13 +1115,17 @@ import json,sys
 path=sys.argv[1]; d=json.load(open(path)); d.setdefault("labels", {}).update({"herdrWorkspaceId":"w1","herdrTabId":"w1:t1"}); json.dump(d,open(path,"w"),indent=2)
 PY
   : >"$herdr_log"
+  # Ambient HERDR_TAB_ID still points at retired planning tab; chrome follows workspaceOwner.
   PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_TAB_ID=w1:t1 HERDR_PANE_ID=w1:p2 \
     "$DELIVERY" --cwd "$repo" stage SCOPED_REVIEW >/dev/null
-  rg -q "tab rename w1:t1" "$herdr_log" || return 1
-  ! rg -q "tab rename w1:t9" "$herdr_log" || return 1
+  rg -q "tab rename w1:t9" "$herdr_log" || return 1
+  ! rg -q "tab rename w1:t1" "$herdr_log" || return 1
   python3 - "$repo/.delivery/ledger.json" <<'PY'
 import json,sys
-d=json.load(open(sys.argv[1])); assert d["labels"]["herdrTabId"] == "w1:t1"; assert d["implementationProfile"]["tabId"] == "w1:t9"
+d=json.load(open(sys.argv[1]))
+assert d["workspaceOwner"]["tabId"] == "w1:t9"
+assert d["labels"]["herdrTabId"] == "w1:t9"
+assert d["implementationProfile"]["tabId"] == "w1:t9"
 PY
 
   printf '<article data-plan>revision-two</article>\n' >"$repo/thoughts/plans/x.html"
@@ -1381,9 +1401,14 @@ test_implementation_agent_launch_failures_are_not_ready() {
   cat >"$fake_bin/herdr" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ -n "${FAKE_HERDR_LOG:-}" ]]; then
+  printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+fi
 mode="$(cat "$FAKE_HERDR_MODE")"
 if [[ "$1" == "tab" && "$2" == "create" ]]; then
   printf '{"result":{"tab":{"tab_id":"w2:t2"},"root_pane":{"pane_id":"w2:p2"}}}\n'
+elif [[ "$1" == "tab" && "$2" == "close" ]]; then
+  exit 0
 elif [[ "$1" == "agent" && "$2" == "start" && "$mode" == "start-fail" ]]; then
   echo "synthetic start failure" >&2
   exit 9
@@ -1405,18 +1430,23 @@ SH
     --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
 
+  local fail_log="$TMP_ROOT/fake-herdr-implementation-failure.log"
+  : >"$fail_log"
   set +e
-  PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" HERDR_WORKSPACE_ID=w2 HERDR_PANE_ID=w2:p1 \
+  PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" FAKE_HERDR_LOG="$fail_log" HERDR_WORKSPACE_ID=w2 HERDR_TAB_ID=w2:t1 HERDR_PANE_ID=w2:p1 \
     "$DELIVERY" --cwd "$repo" approve-implementation --source chat --summary approved >/dev/null 2>&1
   code=$?
   set -e
   [[ "$code" -ne 0 ]] || return 1
+  rg -q "tab close w2:t2" "$fail_log" || return 1
   python3 - "$repo/.delivery/ledger.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
 assert d["stage"] == "EXECUTION_READY"
 assert d["implementationApproval"]["status"] == "approved"
 assert d["implementationProfile"]["status"] == "start-failed"
+assert d["implementationProfile"].get("tabId") in (None, "")
+assert d["implementationProfile"].get("paneId") in (None, "")
 PY
 
   printf 'prompt-fail\n' >"$mode_file"
@@ -1707,6 +1737,75 @@ EOF
   python3 -c 'import json,sys; d=json.loads(sys.argv[1]); codes={a["code"] for a in d.get("advisories") or []}; assert "PLAN_TITLE" in codes, d' "$out"
 }
 
+
+test_workspace_owner_handoff_and_witness_close() {
+  local repo="$TMP_ROOT/owner-handoff-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-owner-handoff"
+  local herdr_log="$TMP_ROOT/fake-herdr-owner-handoff.log"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation" "$fake_bin"
+  printf '<article data-plan>owner-handoff</article>\n' >"$repo/thoughts/plans/x.html"
+  printf 'VERDICT: PLAN_EXECUTION_READY\n' >"$repo/thoughts/validation/x-plan-review.md"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+if [[ "$1" == "tab" && "$2" == "create" ]]; then
+  if rg -q "complete ·" <<<"$*"; then
+    printf '{"result":{"tab":{"tab_id":"w-own:t-complete"},"root_pane":{"pane_id":"w-own:p-complete"}}}\n'
+  else
+    printf '{"result":{"tab":{"tab_id":"w-own:t-impl"},"root_pane":{"pane_id":"w-own:p-impl"}}}\n'
+  fi
+fi
+exit 0
+SH
+  chmod +x "$fake_bin/herdr"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
+    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
+
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-own HERDR_TAB_ID=w-own:t-plan HERDR_PANE_ID=w-own:p-plan \
+    "$DELIVERY" --cwd "$repo" approve-implementation --source chat --summary go >/dev/null
+  rg -q "tab focus w-own:t-impl" "$herdr_log" || return 1
+  ! rg -q "tab close w-own:t-plan" "$herdr_log" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["workspaceOwner"]["role"]=="implementation"
+assert d["workspaceOwner"]["tabId"]=="w-own:t-impl"
+assert any(t.get("tabId")=="w-own:t-plan" and t.get("reason")=="planning-handoff-complete" for t in d.get("tabsToRetire") or [])
+PY
+
+  : >"$herdr_log"
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" \
+    PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-terra PI_REASONING_LEVEL=high \
+    HERDR_WORKSPACE_ID=w-own HERDR_TAB_ID=w-own:t-impl HERDR_PANE_ID=w-own:p-impl \
+    "$DELIVERY" --cwd "$repo" verify-implementation-profile >/dev/null
+  rg -q "tab close w-own:t-plan" "$herdr_log" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1])); assert d.get("tabsToRetire") in (None, [])
+PY
+
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-own HERDR_PANE_ID=w-own:p-impl \
+    "$DELIVERY" --cwd "$repo" completion-review >/dev/null
+  : >"$herdr_log"
+  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-own HERDR_TAB_ID=w-own:t-impl HERDR_PANE_ID=w-own:p-impl \
+    "$DELIVERY" --cwd "$repo" completion-review --waive --summary "test waiver closes witness" >/dev/null
+  rg -q "tab close w-own:t-complete" "$herdr_log" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["completenessReview"]["status"]=="waived"
+assert d["workspaceOwner"]["tabId"]=="w-own:t-impl"
+PY
+}
+
+run_test test_workspace_owner_handoff_and_witness_close
 run_test test_plan_title_extraction_and_advisory
 run_test test_init_creates_ledger
 run_test test_record_receipts_coexist_and_validate

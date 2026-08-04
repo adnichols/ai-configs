@@ -438,6 +438,15 @@ def new_ledger(
             "launchAttemptId": None,
             "reason": None,
         },
+        "workspaceOwner": {
+            "role": None,
+            "tabId": None,
+            "paneId": None,
+            "agentName": None,
+            "workspaceId": None,
+            "claimedAt": None,
+        },
+        "tabsToRetire": [],
         "customerImpact": {
             "promised": [],
             "observed": [],
@@ -1094,7 +1103,10 @@ def reset_implementation_profile(ledger: dict[str, Any], reason: str) -> None:
             "planSha256": None,
             "agentName": None,
             "paneId": None,
+            "tabId": None,
+            "tabLabel": None,
             "sourcePaneId": None,
+            "sourceTabId": None,
             "launchedAt": None,
             "promptedAt": None,
             "launchAttemptId": None,
@@ -1229,29 +1241,243 @@ def herdr_display_label(ledger: dict[str, Any]) -> str:
     return f"{code}: {base}"
 
 
+def herdr_mutations_enabled() -> bool:
+    if os.environ.get("DELIVERY_SKIP_HERDR", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    return shutil.which("herdr") is not None
+
+
 def resolve_herdr_targets(ledger: dict[str, Any]) -> dict[str, str | None]:
+    """Resolve Herdr chrome targets. Workspace owner wins over ambient HERDR_* env."""
     labels = ledger.get("labels") if isinstance(ledger.get("labels"), dict) else {}
     spawn = ledger.get("spawn") if isinstance(ledger.get("spawn"), dict) else {}
+    owner = ledger.get("workspaceOwner") if isinstance(ledger.get("workspaceOwner"), dict) else {}
     workspace_id = (
-        os.environ.get("HERDR_WORKSPACE_ID")
+        owner.get("workspaceId")
+        or os.environ.get("HERDR_WORKSPACE_ID")
         or labels.get("herdrWorkspaceId")
         or spawn.get("workspaceId")
     )
+    # Owner tab is the product glance surface; ambient HERDR_TAB_ID must not steal chrome.
     tab_id = (
-        os.environ.get("HERDR_TAB_ID")
+        owner.get("tabId")
         or labels.get("herdrTabId")
         or spawn.get("tabId")
+        or os.environ.get("HERDR_TAB_ID")
     )
     pane_id = (
-        os.environ.get("HERDR_PANE_ID")
+        owner.get("paneId")
         or labels.get("herdrPaneId")
         or spawn.get("paneId")
+        or os.environ.get("HERDR_PANE_ID")
     )
     return {
         "workspaceId": str(workspace_id) if workspace_id else None,
         "tabId": str(tab_id) if tab_id else None,
         "paneId": str(pane_id) if pane_id else None,
     }
+
+
+def caller_tab_id() -> str | None:
+    value = (os.environ.get("HERDR_TAB_ID") or "").strip()
+    return value or None
+
+
+def enqueue_tab_retire(ledger: dict[str, Any], tab_id: str | None, reason: str) -> None:
+    if not tab_id:
+        return
+    tid = str(tab_id)
+    pending = ledger.setdefault("tabsToRetire", [])
+    if not isinstance(pending, list):
+        pending = []
+        ledger["tabsToRetire"] = pending
+    for item in pending:
+        if isinstance(item, dict) and str(item.get("tabId") or "") == tid:
+            return
+    pending.append({"tabId": tid, "reason": reason, "enqueuedAt": utc_now()})
+
+
+def retire_tab(tab_id: str | None, reason: str, *, caller_tab: str | None = None) -> str:
+    """Best-effort close a Herdr tab. Returns closed|skipped-self|skipped|failed."""
+    if not tab_id:
+        return "skipped"
+    if caller_tab and str(tab_id) == str(caller_tab):
+        return "skipped-self"
+    if not herdr_mutations_enabled():
+        return "skipped"
+    try:
+        proc = subprocess.run(
+            ["herdr", "tab", "close", str(tab_id)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return "closed" if proc.returncode == 0 else "failed"
+    except Exception:
+        return "failed"
+
+
+def retire_pending_tabs(
+    ledger: dict[str, Any],
+    *,
+    caller_tab: str | None = None,
+    history: bool = True,
+) -> list[str]:
+    """Drain tabsToRetire from a non-target caller context. Returns closed tab ids."""
+    pending = ledger.get("tabsToRetire")
+    if not isinstance(pending, list) or not pending:
+        return []
+    remaining: list[dict[str, Any]] = []
+    closed: list[str] = []
+    caller = caller_tab if caller_tab is not None else caller_tab_id()
+    for item in pending:
+        if not isinstance(item, dict):
+            continue
+        tid = item.get("tabId")
+        reason = str(item.get("reason") or "retire")
+        status = retire_tab(tid if isinstance(tid, str) else None, reason, caller_tab=caller)
+        if status == "closed":
+            closed.append(str(tid))
+            if history:
+                append_history(
+                    ledger,
+                    "tab_retired",
+                    reason,
+                    tabId=str(tid),
+                )
+        elif status == "skipped-self":
+            remaining.append(item)
+        elif status == "failed":
+            # Keep for a later drain attempt from another owner context.
+            remaining.append(item)
+        # skipped (no herdr): drop so SKIP mode does not accumulate forever
+    ledger["tabsToRetire"] = remaining
+    return closed
+
+
+def claim_workspace_owner(
+    ledger: dict[str, Any],
+    *,
+    role: str,
+    tab_id: str | None,
+    pane_id: str | None,
+    agent_name: str | None = None,
+    workspace_id: str | None = None,
+    retire_previous_reason: str | None = None,
+    focus: bool = True,
+) -> None:
+    """Record the single workspace owner and sync chrome to that tab."""
+    prev = ledger.get("workspaceOwner") if isinstance(ledger.get("workspaceOwner"), dict) else {}
+    prev_tab = prev.get("tabId")
+    if (
+        retire_previous_reason
+        and prev_tab
+        and tab_id
+        and str(prev_tab) != str(tab_id)
+    ):
+        enqueue_tab_retire(ledger, str(prev_tab), retire_previous_reason)
+    targets = resolve_herdr_targets(ledger)
+    ws = workspace_id or targets.get("workspaceId")
+    owner = {
+        "role": role,
+        "tabId": str(tab_id) if tab_id else None,
+        "paneId": str(pane_id) if pane_id else None,
+        "agentName": agent_name,
+        "workspaceId": str(ws) if ws else None,
+        "claimedAt": utc_now(),
+    }
+    ledger["workspaceOwner"] = owner
+    labels = ledger.setdefault("labels", {})
+    if isinstance(labels, dict):
+        if owner["tabId"]:
+            labels["herdrTabId"] = owner["tabId"]
+        if owner["paneId"]:
+            labels["herdrPaneId"] = owner["paneId"]
+        if owner["workspaceId"]:
+            labels["herdrWorkspaceId"] = owner["workspaceId"]
+    if focus and herdr_mutations_enabled() and owner["tabId"]:
+        try:
+            subprocess.run(
+                ["herdr", "tab", "focus", owner["tabId"]],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except Exception:
+            pass
+    maybe_herdr_label(
+        ledger,
+        targets={
+            "workspaceId": owner.get("workspaceId"),
+            "tabId": owner.get("tabId"),
+            "paneId": owner.get("paneId"),
+        },
+    )
+
+
+def start_agent_on_pane(
+    *,
+    root: Path,
+    agent_name: str,
+    pane_id: str,
+    timeout_ms: int,
+    extra_args: list[str],
+) -> subprocess.CompletedProcess[str]:
+    """Start a Pi agent on a pane, retrying briefly on agent_pane_busy."""
+    herdr = require_herdr()
+    start_command = [
+        herdr,
+        "agent",
+        "start",
+        agent_name,
+        "--kind",
+        "pi",
+        "--pane",
+        str(pane_id),
+        "--timeout",
+        str(timeout_ms),
+        *extra_args,
+    ]
+    deadline = time.monotonic() + min(max(timeout_ms / 1000.0, 1.0), 10.0)
+    started: subprocess.CompletedProcess[str] | None = None
+    while True:
+        started = run_cmd(start_command, cwd=root)
+        if started.returncode == 0:
+            return started
+        detail = (started.stderr or started.stdout or "").strip()
+        if "agent_pane_busy" not in detail or time.monotonic() >= deadline:
+            return started
+        time.sleep(0.1)
+
+
+def discover_tab_id_for_pane(ledger: dict[str, Any], root: Path, pane_id: str) -> str | None:
+    """Best-effort tab id for a pane (used when enqueueing the previous owner)."""
+    owner = ledger.get("workspaceOwner") if isinstance(ledger.get("workspaceOwner"), dict) else {}
+    if owner.get("paneId") and str(owner.get("paneId")) == str(pane_id) and owner.get("tabId"):
+        return str(owner["tabId"])
+    spawn = ledger.get("spawn") if isinstance(ledger.get("spawn"), dict) else {}
+    if spawn.get("paneId") and str(spawn.get("paneId")) == str(pane_id) and spawn.get("tabId"):
+        return str(spawn["tabId"])
+    env_tab = caller_tab_id()
+    env_pane = (os.environ.get("HERDR_PANE_ID") or "").strip()
+    if env_tab and env_pane and env_pane == str(pane_id):
+        return env_tab
+    if not herdr_mutations_enabled():
+        return env_tab
+    try:
+        proc = run_cmd([require_herdr(), "pane", "get", str(pane_id)], cwd=root)
+        if proc.returncode != 0:
+            return env_tab
+        payload = json.loads(proc.stdout)
+        result = payload.get("result") if isinstance(payload, dict) else None
+        pane = result.get("pane") if isinstance(result, dict) else result
+        if isinstance(pane, dict) and pane.get("tab_id"):
+            return str(pane["tab_id"])
+    except Exception:
+        pass
+    return env_tab
 
 
 def agent_tab_label(role: str, ledger: dict[str, Any]) -> str:
@@ -1384,15 +1610,18 @@ def maybe_herdr_label(
     *,
     targets: dict[str, str | None] | None = None,
 ) -> None:
-    """Best-effort Herdr workspace + tab label sync with phase prefix.
+    """Best-effort Herdr workspace + owner-tab label sync with phase prefix.
 
     Never fails the command. Format: "PL: nod-1234 short title".
-    Explicit targets let parent commands update a newly created destination
-    without inheriting the caller's HERDR_* environment identifiers.
+    Chrome always prefers workspaceOwner via resolve_herdr_targets unless the
+    caller passes explicit destination targets (spawn).
     """
-    if os.environ.get("DELIVERY_SKIP_HERDR", "").strip() in {"1", "true", "yes"}:
-        return
-    if shutil.which("herdr") is None:
+    if not herdr_mutations_enabled():
+        # Still record the intended label text for briefs/tests when Herdr is skipped.
+        labels = ledger.setdefault("labels", {})
+        if isinstance(labels, dict):
+            labels["herdr"] = herdr_display_label(ledger)
+            labels["phaseCode"] = phase_code(str(ledger.get("stage") or "INTAKE"))
         return
 
     label = herdr_display_label(ledger)
@@ -1417,7 +1646,7 @@ def maybe_herdr_label(
             if proc.returncode == 0:
                 labels["herdrWorkspaceId"] = str(workspace_id)
 
-        # Keep the tab aligned when we know it.
+        # Keep the owner tab aligned when we know it.
         if tab_id:
             proc = subprocess.run(
                 ["herdr", "tab", "rename", str(tab_id), label],
@@ -1580,7 +1809,32 @@ def cmd_stage(args: argparse.Namespace) -> int:
     append_history(ledger, "stage", f"{prev} -> {stage}")
     if args.note:
         ledger.setdefault("notes", []).append({"at": utc_now(), "text": args.note, "stage": stage})
-    maybe_herdr_label(ledger)
+    if stage == "DONE":
+        owner = ledger.get("workspaceOwner") if isinstance(ledger.get("workspaceOwner"), dict) else {}
+        profile = ledger.get("implementationProfile") or {}
+        done_tab = owner.get("tabId") or profile.get("tabId")
+        done_pane = owner.get("paneId") or profile.get("paneId")
+        if done_tab or done_pane:
+            claim_workspace_owner(
+                ledger,
+                role="done",
+                tab_id=str(done_tab) if done_tab else None,
+                pane_id=str(done_pane) if done_pane else None,
+                agent_name=owner.get("agentName") or profile.get("agentName"),
+                focus=False,
+            )
+        review = ledger.get("completenessReview") or {}
+        witness = review.get("tabId")
+        if witness and str(witness) != str(done_tab or ""):
+            enqueue_tab_retire(ledger, str(witness), "completeness-fulfilled")
+        retire_pending_tabs(ledger, caller_tab=caller_tab_id())
+    else:
+        maybe_herdr_label(ledger)
+        # Safety net: drain retires when the caller is already the owner.
+        owner = ledger.get("workspaceOwner") if isinstance(ledger.get("workspaceOwner"), dict) else {}
+        caller = caller_tab_id()
+        if caller and owner.get("tabId") and str(caller) == str(owner.get("tabId")):
+            retire_pending_tabs(ledger, caller_tab=caller)
     write_json(path, ledger)
     print(f"{prev} -> {stage}")
     print(f"next: {STAGE_NEXT_SKILL.get(stage, 'n/a')}")
@@ -1647,7 +1901,7 @@ Selection rationale: {rationale}
 
 Do this now:
 1. Read the full plan. Read `.delivery/AGENT_BRIEF.md` when present; if it is absent, continue from the ledger and plan rather than blocking (`delivery bootstrap --refresh` may recreate it).
-2. Run `delivery show` and `delivery verify-implementation-profile`. If the launch is still being finalized, retry verification once it reports ready. If this pane was deliberately switched to another model, run `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` to record that manual choice.
+2. Run `delivery show` and `delivery verify-implementation-profile` (this retires the previous planning owner tab). If the launch is still being finalized, retry verification once it reports ready. If this pane was deliberately switched to another model, run `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` to record that manual choice.
 3. Run `delivery stage IMPLEMENTING` from this pinned Pi runtime.
 4. Execute `/skill:run-plan {plan}` through implementation, verification, Terra code review, the visible Grok completeness review, and PR readiness.
 
@@ -1685,6 +1939,16 @@ def launch_implementation_agent(
         reset_implementation_profile(ledger, "no Herdr source pane available")
         write_json(path, ledger)
         die("implementation launch needs --pane, HERDR_PANE_ID, or a delivery spawn pane")
+    # Prefer the planning/source pane identity before owner flips to implementation.
+    source_tab = discover_tab_id_for_pane(ledger, root, str(source_pane))
+    if not (ledger.get("workspaceOwner") or {}).get("tabId") and source_tab:
+        claim_workspace_owner(
+            ledger,
+            role="planning",
+            tab_id=source_tab,
+            pane_id=str(source_pane),
+            focus=False,
+        )
     reviewer_name = args.agent_name or implementation_agent_name(ledger)
     selected = approved_implementation_profile(ledger)
     prompt = implementation_agent_prompt(ledger, root)
@@ -1708,28 +1972,25 @@ def launch_implementation_agent(
         write_json(path, current)
         raise
     implementation_pane = agent_tab["paneId"]
+    implementation_tab = agent_tab["tabId"]
+    caller = caller_tab_id()
 
     herdr = require_herdr()
-    start_command = [
-        herdr,
-        "agent",
-        "start",
-        reviewer_name,
-        "--kind",
-        "pi",
-        "--pane",
-        str(implementation_pane),
-        "--timeout",
-        str(args.timeout_ms),
-        "--",
-        "--provider",
-        selected["provider"],
-        "--model",
-        selected["model"],
-        "--thinking",
-        selected["reasoningLevel"],
-    ]
-    started = run_cmd(start_command, cwd=root)
+    started = start_agent_on_pane(
+        root=root,
+        agent_name=reviewer_name,
+        pane_id=str(implementation_pane),
+        timeout_ms=int(args.timeout_ms),
+        extra_args=[
+            "--",
+            "--provider",
+            selected["provider"],
+            "--model",
+            selected["model"],
+            "--thinking",
+            selected["reasoningLevel"],
+        ],
+    )
     reconciled = False
     if started.returncode != 0:
         observed = run_cmd([herdr, "agent", "get", reviewer_name], cwd=root)
@@ -1759,9 +2020,10 @@ def launch_implementation_agent(
             "planSha256": plan_sha256(current, root),
             "agentName": reviewer_name,
             "paneId": str(implementation_pane),
-            "tabId": agent_tab["tabId"],
+            "tabId": implementation_tab,
             "tabLabel": agent_tab["label"],
             "sourcePaneId": str(source_pane),
+            "sourceTabId": source_tab,
             "launchedAt": utc_now() if start_succeeded else None,
             "promptedAt": None,
             "launchAttemptId": attempt_id,
@@ -1769,6 +2031,21 @@ def launch_implementation_agent(
         }
     )
     if not start_succeeded:
+        # Failed launch tabs are never the caller — close immediately (no tab museum).
+        close_status = retire_tab(
+            implementation_tab,
+            "implementation-start-failed",
+            caller_tab=caller,
+        )
+        if close_status == "closed":
+            append_history(
+                current,
+                "tab_retired",
+                "implementation-start-failed",
+                tabId=implementation_tab,
+            )
+            profile["tabId"] = None
+            profile["paneId"] = None
         append_history(current, "implementation_agent", f"dedicated {selected['profile']} agent start failed")
         write_json(path, current)
         die(f"could not start dedicated implementation agent: {(started.stderr or started.stdout).strip()}")
@@ -1797,13 +2074,29 @@ def launch_implementation_agent(
         die(f"could not prompt dedicated implementation agent: {(requested.stderr or requested.stdout).strip()}")
 
     profile.update({"status": "ready", "promptedAt": utc_now(), "reason": None})
+    # New owner is implementation. Do not self-close the planning caller tab here.
+    prior_tab = source_tab or (current.get("workspaceOwner") or {}).get("tabId")
+    if prior_tab and str(prior_tab) != str(implementation_tab):
+        enqueue_tab_retire(current, str(prior_tab), "planning-handoff-complete")
+    claim_workspace_owner(
+        current,
+        role="implementation",
+        tab_id=implementation_tab,
+        pane_id=str(implementation_pane),
+        agent_name=reviewer_name,
+        workspace_id=agent_tab.get("workspaceId"),
+        retire_previous_reason=None,  # already enqueued explicitly above
+        focus=True,
+    )
+    # Drain only tabs that are not the caller (failed helpers etc.).
+    retire_pending_tabs(current, caller_tab=caller)
     append_history(
         current,
         "implementation_agent",
         f"dedicated {selected['profile']} implementation agent ready",
         agent=reviewer_name,
         paneId=str(implementation_pane),
-        tabId=agent_tab["tabId"],
+        tabId=implementation_tab,
         tabLabel=agent_tab["label"],
         profile=selected["profile"],
         model=selected["modelRef"],
@@ -1812,10 +2105,13 @@ def launch_implementation_agent(
     refresh_git_fields(current, root)
     write_json(path, current)
     print(
-        f"implementation agent ready: {reviewer_name} in tab {agent_tab['tabId']} "
+        f"implementation agent ready: {reviewer_name} in tab {implementation_tab} "
         f"({agent_tab['label']}) / pane {implementation_pane}"
     )
-    print("next: the pinned implementation agent verifies its profile and enters IMPLEMENTING")
+    print(
+        "next: the pinned implementation agent verifies its profile "
+        "(retires the previous owner tab) and enters IMPLEMENTING"
+    )
     return 0
 
 
@@ -1999,6 +2295,20 @@ def cmd_verify_implementation_profile(args: argparse.Namespace) -> int:
     )
     if problem:
         die(f"implementation profile invalid: {problem}")
+    # New owner retires previous owner tabs (planning handoff) from the impl pane.
+    retire_pending_tabs(ledger, caller_tab=caller_tab_id())
+    profile = ledger.get("implementationProfile") or {}
+    if profile.get("tabId") and profile.get("paneId"):
+        claim_workspace_owner(
+            ledger,
+            role="implementation",
+            tab_id=str(profile.get("tabId")),
+            pane_id=str(profile.get("paneId")),
+            agent_name=profile.get("agentName") if isinstance(profile.get("agentName"), str) else None,
+            focus=False,
+        )
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
     selected = approved_implementation_profile(ledger)
     print(
         f"implementation profile verified: {selected['profile']} / "
@@ -2009,8 +2319,26 @@ def cmd_verify_implementation_profile(args: argparse.Namespace) -> int:
 
 def cmd_revoke_implementation_approval(args: argparse.Namespace) -> int:
     path, ledger, root = load_ledger_for(args)
+    profile = ledger.get("implementationProfile") or {}
+    impl_tab = profile.get("tabId")
+    if impl_tab:
+        enqueue_tab_retire(ledger, str(impl_tab), "implementation-revoked")
+    spawn = ledger.get("spawn") if isinstance(ledger.get("spawn"), dict) else {}
+    planning_tab = spawn.get("tabId") or (ledger.get("implementationProfile") or {}).get("sourceTabId")
+    planning_pane = spawn.get("paneId") or (ledger.get("implementationProfile") or {}).get("sourcePaneId")
     reset_implementation_approval(ledger, args.reason)
     reset_implementation_profile(ledger, args.reason)
+    if planning_tab or planning_pane:
+        claim_workspace_owner(
+            ledger,
+            role="planning",
+            tab_id=str(planning_tab) if planning_tab else None,
+            pane_id=str(planning_pane) if planning_pane else None,
+            workspace_id=spawn.get("workspaceId"),
+            focus=bool(planning_tab),
+        )
+    # Drain from the new planning caller when safe (not closing self).
+    retire_pending_tabs(ledger, caller_tab=caller_tab_id())
     append_history(ledger, "implementation_approval_revoked", args.reason)
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
@@ -2581,8 +2909,12 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
     if args.waive:
         if not args.summary:
             die("completion-review --waive requires --summary describing the direct operator waiver")
+        witness_tab = review.get("tabId")
         ledger["completenessReview"] = {"status": "waived", "summary": args.summary, "waivedAt": utc_now()}
         append_history(ledger, "completeness_review", "operator waived visible completeness review")
+        if witness_tab:
+            enqueue_tab_retire(ledger, str(witness_tab), "completeness-waived")
+            retire_pending_tabs(ledger, caller_tab=caller_tab_id())
         refresh_git_fields(ledger, root)
         write_json(path, ledger)
         print("visible completeness review waived")
@@ -2612,6 +2944,7 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
             f"# Visible completeness review\n\n- Reviewer: {reviewer_name}\n- Model: {COMPLETENESS_REVIEW_MODEL}\n- Accepted: {utc_now()}\n\n## Transcript\n\n{artifact_transcript}",
             encoding="utf-8",
         )
+        witness_tab = review.get("tabId")
         ledger["completenessReview"] = {
             **review,
             "status": "complete",
@@ -2624,6 +2957,9 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
         ev = ledger.setdefault("evidence", {}).setdefault("completenessReview", {})
         ev.update({"status": "pass", "artifact": artifact_rel, "summary": "Visible Grok 4.5 reviewer returned COMPLETE", "updatedAt": utc_now()})
         append_history(ledger, "completeness_review", "visible Grok 4.5 review accepted", agent=reviewer_name, paneId=str(reviewer_pane), artifact=artifact_rel)
+        if witness_tab:
+            enqueue_tab_retire(ledger, str(witness_tab), "completeness-accepted")
+            retire_pending_tabs(ledger, caller_tab=caller_tab_id())
         refresh_git_fields(ledger, root)
         write_json(path, ledger)
         print(f"visible completeness review accepted -> {artifact_rel}")
@@ -2675,16 +3011,29 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
             role="complete",
         )
         reviewer_pane = agent_tab["paneId"]
-        start_command[7] = str(reviewer_pane)
-        start_deadline = time.monotonic() + min(max(args.timeout_ms / 1000.0, 1.0), 10.0)
-        while True:
-            started = run_cmd(start_command, cwd=root)
-            if started.returncode == 0:
-                break
+        started = start_agent_on_pane(
+            root=root,
+            agent_name=reviewer_name,
+            pane_id=str(reviewer_pane),
+            timeout_ms=int(args.timeout_ms),
+            extra_args=["--", "--model", COMPLETENESS_REVIEW_MODEL],
+        )
+        if started.returncode != 0:
             detail = (started.stderr or started.stdout).strip()
-            if "agent_pane_busy" not in detail or time.monotonic() >= start_deadline:
-                die(f"could not start visible completeness reviewer: {detail}")
-            time.sleep(0.1)
+            close_status = retire_tab(
+                agent_tab["tabId"],
+                "completeness-start-failed",
+                caller_tab=caller_tab_id(),
+            )
+            if close_status == "closed":
+                append_history(
+                    ledger,
+                    "tab_retired",
+                    "completeness-start-failed",
+                    tabId=agent_tab["tabId"],
+                )
+                write_json(path, ledger)
+            die(f"could not start visible completeness reviewer: {detail}")
 
     requested = run_cmd(["herdr", "agent", "prompt", reviewer_name, prompt], cwd=root)
     if requested.returncode != 0:
@@ -3470,13 +3819,14 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             # Spawn always attempts label sync for the new workspace.
             os.environ.pop("DELIVERY_SKIP_HERDR", None)
             try:
-                maybe_herdr_label(
+                claim_workspace_owner(
                     ledger,
-                    targets={
-                        "workspaceId": str(workspace_id) if workspace_id else None,
-                        "tabId": str(tab_id) if tab_id else None,
-                        "paneId": str(pane_id) if pane_id else None,
-                    },
+                    role="planning",
+                    tab_id=str(tab_id) if tab_id else None,
+                    pane_id=str(pane_id) if pane_id else None,
+                    agent_name=agent_name,
+                    workspace_id=str(workspace_id) if workspace_id else None,
+                    focus=False,
                 )
             finally:
                 if prev_skip is not None:
@@ -3860,11 +4210,13 @@ When the PM and independent Sol-medium readiness gates pass for the exact plan, 
 delivery stage EXECUTION_READY
 ```
 
-In Herdr this transition records workflow authorization, creates a labeled sibling tab, starts Pi on its root pane with the planner-selected `{selected['profile']}` profile (`{selected['modelRef']}` at `{selected['reasoningLevel']}`), and prompts the new implementation agent to continue through PR creation. Do not ask for another routine approval. The planning agent stops after the handoff and must not implement.
+In Herdr this transition records workflow authorization, creates a labeled sibling **implementation owner** tab, starts Pi on its root pane with the planner-selected `{selected['profile']}` profile (`{selected['modelRef']}` at `{selected['reasoningLevel']}`), claims `workspaceOwner` for that tab, and prompts the new implementation agent to continue through PR creation. Do not ask for another routine approval. The planning agent stops after the handoff and must not implement. The planning tab is enqueued for retirement and is closed when the implementation agent runs `delivery verify-implementation-profile` (never self-closed mid-launch).
 
 Use `delivery stage EXECUTION_READY --hold` only when the operator explicitly requests a pause or a real external dependency blocks execution. After a hold, `delivery approve-implementation` remains available for compatibility or a deliberate manual model override with `--override-reason`.
 
-The new agent runs `delivery verify-implementation-profile` and then `delivery stage IMPLEMENTING`; the stage rejects missing/stale authorization, launch evidence, plan review, or a runtime that does not match the recorded profile. If launch failed, retry with `delivery start-implementation`; delivery reconciles the expected live agent after a shell-readiness race. If material Doct feedback changes the contract before implementation, update the plan, revoke authorization, and return to `PLAN_BROWSER_REVIEW` for a fresh readiness cycle.
+The new agent runs `delivery verify-implementation-profile` (which retires the previous owner tab) and then `delivery stage IMPLEMENTING`; the stage rejects missing/stale authorization, launch evidence, plan review, or a runtime that does not match the recorded profile. If launch failed, delivery closes the failed shell tab; retry with `delivery start-implementation`. Delivery reconciles the expected live Pi agent after a shell-readiness race. If material Doct feedback changes the contract before implementation, update the plan, revoke authorization, and return to `PLAN_BROWSER_REVIEW` for a fresh readiness cycle.
+
+**Workspace owner chrome:** labels and focus follow ledger `workspaceOwner`, not ambient `HERDR_TAB_ID`. Completeness review uses a short-lived witness tab that is closed after `--accept` or `--waive`. After a tab is closed, evidence is ledger + artifacts + Pi session transcripts—not the retired TUI.
 
 ## Recommended next step
 

@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Delivery single-owner tab lifecycle</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #a7b0c2;
+      --border: #2c364f;
+      --accent: #7dd3fc;
+      --good: #34d399;
+      --warn: #fbbf24;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(125, 211, 252, 0.12), transparent 30rem), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+    main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 72px; }
+    header.hero, section {
+      background: rgba(17, 24, 39, 0.84);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      margin: 16px 0;
+    }
+    header.hero {
+      background: linear-gradient(135deg, rgba(125, 211, 252, 0.14), rgba(167, 139, 250, 0.12));
+    }
+    h1, h2, h3 { color: #f8fafc; line-height: 1.2; }
+    h1 { margin: 0 0 10px; font-size: clamp(1.8rem, 4vw, 2.4rem); }
+    h2 { margin: 0 0 12px; }
+    h3 { margin: 18px 0 8px; color: var(--accent); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    code { background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border); border-radius: 6px; padding: 0.06rem 0.28rem; }
+    pre { overflow-x: auto; background: #0f172a; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; vertical-align: top; }
+    th { background: rgba(125, 211, 252, 0.10); text-align: left; }
+    .pill {
+      display: inline-flex;
+      border: 1px solid rgba(251, 191, 36, 0.55);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--warn);
+      background: rgba(15, 23, 42, 0.76);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .pill.good {
+      border-color: rgba(52, 211, 153, 0.55);
+      color: var(--good);
+    }
+    .toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 16px; }
+    .toc a { color: var(--muted); text-decoration: none; }
+    .toc a:hover { color: var(--accent); }
+    .impact td:first-child { font-weight: 700; white-space: nowrap; }
+    .check { list-style: none; padding: 0; }
+    .check li { margin: 8px 0; padding-left: 1.4rem; position: relative; }
+    .check li::before { content: "☐"; position: absolute; left: 0; color: var(--muted); }
+    .ok { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    .decision {
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      background: rgba(251, 191, 36, 0.08);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin: 12px 0;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div class="pill">Implemented · ai-configs delivery workflow</div>
+    <h1>Delivery single-owner tab lifecycle</h1>
+    <p class="muted">
+      Make every Herdr delivery workspace converge on one obvious owning tab.
+      Role tabs exist only while that role is live; fulfilled and failed tabs are retired automatically.
+      Workspace chrome always mirrors the current owner.
+    </p>
+    <p><strong>Primary surfaces:</strong> <code>skills/delivery-run/scripts/delivery</code>,
+      <code>skills/delivery-run/SKILL.md</code>, <code>skills/run-plan/SKILL.md</code>,
+      <code>skills/delivery-run/tests/test_delivery_cli.sh</code></p>
+  </header>
+
+  <section>
+    <h2>Contents</h2>
+    <nav class="toc">
+      <a href="#product-owner">Product-owner context</a>
+      <a href="#whats-new">What's new</a>
+      <a href="#goal">Goal</a>
+      <a href="#decisions">Decision attention</a>
+      <a href="#end-state">Intended end state</a>
+      <a href="#zero-tech-debt">Zero-tech-debt review</a>
+      <a href="#reality">Current reality</a>
+      <a href="#architecture">Target architecture</a>
+      <a href="#contracts">Contract inventory</a>
+      <a href="#acceptance">Acceptance criteria</a>
+      <a href="#bdd">BDD scenarios</a>
+      <a href="#phases">Phases</a>
+      <a href="#verify">Verification</a>
+      <a href="#non-goals">Non-goals</a>
+      <a href="#resume">Resume</a>
+    </nav>
+  </section>
+
+  <section id="product-owner">
+    <h2>Product-owner context</h2>
+    <p>
+      Delivery workspaces for Heddle (and other repos) currently accumulate many Herdr tabs:
+      a planning tab, several failed or superseded implementation tabs, and a completeness tab.
+      Operators look at the first tab or the workspace row and cannot tell whether work finished,
+      because ownership moved elsewhere and dead tabs were never cleaned up.
+    </p>
+    <p>
+      <strong>Why now:</strong> Live multi-delivery supervision under heddle shows the failure mode clearly
+      (empty shell tabs after <code>agent_pane_busy</code> retries; planning tabs stuck on <code>PL:</code>
+      after handoff; DONE workspaces still showing three tabs). This is an operator-attention defect in the
+      delivery workflow product, not a Heddle application bug.
+    </p>
+    <p>
+      <strong>Key conclusion:</strong> Fix the delivery/Herdr lifecycle so the workspace always has one
+      current owner tab and retires fulfilled helpers. Do not return to multi-pane splits as the primary layout.
+    </p>
+    <table class="impact">
+      <tr><td>Customers</td><td>No change to end-user Heddle/Doct product behavior.</td></tr>
+      <tr><td>Runtime product behavior</td><td>Delivery/Herdr operator UX changes: tab create/close/focus/label ownership during delivery runs.</td></tr>
+      <tr><td>Security / permissions</td><td>No change. Still best-effort Herdr control of tabs the workflow created; no broader session teardown.</td></tr>
+      <tr><td>Testing / release confidence</td><td>Extend delivery CLI fake-herdr tests for owner transfer, close-on-failure, and close-on-fulfillment.</td></tr>
+      <tr><td>Deployment / migration</td><td>Not applicable for hosted deploy. Existing in-flight workspaces keep junk tabs until a delivery command runs a best-effort reconcile, or operator closes them manually.</td></tr>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What's new</h2>
+    <h3>One owner tab is the workspace truth</h3>
+    <p>
+      After this change, a delivery workspace no longer keeps a museum of planning, failed-impl, and
+      finished-reviewer tabs. The workspace label and focus follow a single ledger owner; when a role
+      finishes or fails, its tab is closed so the remaining tab is obviously the place to look.
+    </p>
+    <table>
+      <tr>
+        <th>Before</th>
+        <th>After</th>
+      </tr>
+      <tr>
+        <td>Planning tab stays forever on <code>PL:</code>; impl/completeness tabs pile up; failed starts leave empty shells.</td>
+        <td>Planning tab lives only during planning; impl becomes sole owner after ready handoff; failed tabs close immediately; completeness tab closes after accept/waive.</td>
+      </tr>
+      <tr>
+        <td>Workspace rename uses whichever agent last called <code>delivery</code> (<code>HERDR_TAB_ID</code> drift).</td>
+        <td>Workspace chrome always targets the ledger <code>workspaceOwner</code>.</td>
+      </tr>
+      <tr>
+        <td>Evidence often assumed live sibling tabs remain open.</td>
+        <td>Live tabs while role is active; after close, ledger + artifacts + Pi session transcripts are authoritative.</td>
+      </tr>
+    </table>
+    <p><strong>Observable result:</strong> At DONE, the workspace has one settled implementation tab and a phase label that matches that tab.</p>
+    <p><strong>Preserved:</strong> Multi-tab only for concurrent live roles; no return to multi-pane as the default; single-writer implementation handoff; visible completeness review while pending; guidance-not-gates for advisory evidence; <code>DELIVERY_SKIP_HERDR=1</code> still disables Herdr side effects.</p>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>
+      Redesign delivery’s Herdr tab lifecycle around a single <strong>workspace owner</strong> so operators
+      always have one obvious tab, failed/fulfilled role tabs are retired automatically, and skill guidance
+      matches that architecture without compatibility cruft.
+    </p>
+  </section>
+
+  <section id="decisions">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <p class="ok">No open product decisions blocking execution. Locked choices below reflect operator direction from the design thread.</p>
+    <ul>
+      <li><strong>Locked:</strong> Multi-tab is allowed only for concurrent live roles; not permanent multi-pane.</li>
+      <li><strong>Locked:</strong> Close planning tab after implementation is confirmed live—not earlier.</li>
+      <li><strong>Locked:</strong> Evidence after close comes from ledger/artifacts/Pi sessions, not preserved TUIs.</li>
+      <li><strong>Locked:</strong> Completeness remains a short-lived witness tab, never the long-term owner.</li>
+      <li><strong>Locked:</strong> Do not self-close the tab running the delivery CLI; the new owner retires the previous owner.</li>
+    </ul>
+  </section>
+
+  <section id="end-state">
+    <h2>Intended end state</h2>
+    <p>
+      A delivery workspace has exactly one long-lived owner tab at a time. That owner’s agent status and
+      phase label are what the workspace chrome shows. Helper tabs exist only while their role is live and
+      are closed when the role succeeds, fails, is revoked, or is superseded.
+    </p>
+    <pre>Planning:     [ PL owner ]
+Handoff:      [ PL retiring ] [ I owner ]  → close PL after I ready
+Implementing: [ I owner ]
+Completeness: [ I owner ] [ complete witness ]  → close witness after accept
+DONE:         [ D owner ]</pre>
+  </section>
+
+  <section id="zero-tech-debt">
+    <h2>Zero-tech-debt review</h2>
+    <h3>1. End state first</h3>
+    <p>Build the owner lifecycle as if multi-tab museums never existed. Do not add a “cleanup mode” flag beside the old forever-tabs behavior.</p>
+
+    <h3>2. Callers / delete non-callers</h3>
+    <ul>
+      <li>Real callers today: <code>create_labeled_agent_tab</code>, <code>launch_implementation_agent</code>, <code>cmd_completion_review</code>, <code>maybe_herdr_label</code>, spawn bootstrap, stage/set/reflect paths, run-plan/delivery skill prose about sibling tabs.</li>
+      <li>Delete or stop teaching: assumptions that planning tabs remain after handoff; label sync via ambient <code>HERDR_TAB_ID</code> when it disagrees with ledger owner; leaving start-failed tabs for humans to notice; dual permanent role labels (<code>impl ·</code> forever) once owner phase codes exist on the owner tab.</li>
+      <li>Do not preserve a parallel “legacy multi-tab keep-all” path unless a test proves a current external caller needs it. None identified outside this repo’s delivery skill/tests.</li>
+    </ul>
+
+    <h3>3. One product surface</h3>
+    <p>
+      One ledger object <code>workspaceOwner</code> is the product surface for “where is this run?”
+      Implementation profile and completeness review still record their own pane/tab identities as
+      <em>role records</em>, but chrome and retirement decisions read owner + explicit retire lists—not
+      ad hoc env vars.
+    </p>
+
+    <h3>4. Shared rules in one place</h3>
+    <ul>
+      <li><code>claim_workspace_owner(...)</code> — set owner, rename workspace+owner tab, focus owner tab, persist labels.</li>
+      <li><code>retire_tab(tab_id, reason)</code> — best-effort <code>herdr tab close</code>, history note, never close the caller’s current tab.</li>
+      <li><code>retire_pending_tabs(ledger)</code> — drain <code>tabsToRetire[]</code> from the new owner context.</li>
+      <li><code>launch_role_tab(role)</code> — create tab, start agent with same-pane busy retry, close tab on terminal start failure.</li>
+    </ul>
+    <p>Impl and completeness both use <code>launch_role_tab</code>; no duplicated busy-retry only on completeness.</p>
+
+    <h3>5. Names by intent</h3>
+    <ul>
+      <li>Prefer <code>workspaceOwner</code>, <code>tabsToRetire</code>, <code>claim_workspace_owner</code>, <code>retire_tab</code>.</li>
+      <li>Avoid history-shaped names like <code>legacyTabCleanup</code>, <code>compatKeepPlanner</code>.</li>
+    </ul>
+
+    <h3>What we explicitly will not do</h3>
+    <ul>
+      <li>No generic tab-GC framework or background daemon.</li>
+      <li>No forced single-tab-from-second-zero that reintroduces multi-pane splits.</li>
+      <li>No requirement that agents scroll closed TUIs; transcripts/artifacts suffice.</li>
+      <li>No hard-fail of delivery stage transitions solely because Herdr close failed (log + advisory); owner claim still records intent.</li>
+    </ul>
+  </section>
+
+  <section id="reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>create_labeled_agent_tab</code> always creates a new tab with role label <code>impl ·</code> / <code>complete ·</code>.</li>
+      <li><code>launch_implementation_agent</code> on start failure records <code>start-failed</code> and <strong>leaves the shell tab open</strong>; retries create another tab.</li>
+      <li>Completeness has a short same-pane <code>agent_pane_busy</code> retry; implementation does not share that helper.</li>
+      <li><code>maybe_herdr_label</code> renames workspace + one tab from <code>HERDR_*</code> / labels / spawn—after handoff this drifts to whichever agent last ran delivery, while tab 1 often stays <code>PL:</code>.</li>
+      <li>No <code>herdr tab close</code> anywhere in delivery today.</li>
+      <li>Skills tell planning to stop after handoff but never retire the planning tab; completeness accept writes an artifact but keeps the reviewer tab.</li>
+      <li>Live evidence (2026-08-04 heddle deliveries): NOD-1501 left three agentless tabs; supersession left stopped early impl agents; DONE hub-membership kept PL+impl+complete.</li>
+    </ul>
+  </section>
+
+  <section id="architecture">
+    <h2>Target architecture</h2>
+
+    <h3>Ledger: workspaceOwner</h3>
+    <pre>{
+  "workspaceOwner": {
+    "role": "planning" | "implementation" | "done",
+    "tabId": "wEY:t3",
+    "paneId": "wEY:p3",
+    "agentName": "implementation-nod-1501-59efcf",
+    "claimedAt": "…Z"
+  },
+  "tabsToRetire": [
+    { "tabId": "wEY:t1", "reason": "planning-handoff-complete", "enqueuedAt": "…Z" }
+  ]
+}</pre>
+    <ul>
+      <li>Spawn/init claims owner <code>planning</code> on the spawn tab.</li>
+      <li>Successful impl launch claims owner <code>implementation</code>, enqueues previous owner tab for retire, focuses new owner.</li>
+      <li>Completeness is <strong>not</strong> owner; it is a witness recorded only under <code>completenessReview</code>.</li>
+      <li>DONE/reflect may set owner role <code>done</code> (same tab) and phase label <code>D:</code>.</li>
+    </ul>
+
+    <h3>Self-close hazard (critical)</h3>
+    <p>
+      Planning often runs <code>delivery stage EXECUTION_READY</code>, which launches impl inside the planning pane.
+      Closing the planning tab from that process would kill the caller. Therefore:
+    </p>
+    <ol>
+      <li>On impl ready: claim owner=implementation, focus impl tab, enqueue planning tab in <code>tabsToRetire</code>, do <strong>not</strong> close caller tab from the launch process if it is the retire target.</li>
+      <li>Implementation agent’s required early path (<code>verify-implementation-profile</code> and/or first successful delivery write from the impl pane) calls <code>retire_pending_tabs</code>.</li>
+      <li>Failed launch tabs are never the caller; close them immediately from the launch process.</li>
+      <li>Completeness accept/waive closes the witness tab from the impl owner context (not self).</li>
+    </ol>
+
+    <h3>Launch lifecycle</h3>
+    <ol>
+      <li>If ledger has a start-failed role tab still open for this attempt, retry <code>agent start</code> on that same pane with busy backoff (unify with completeness).</li>
+      <li>Else create one labeled tab.</li>
+      <li>Start agent; on terminal failure → <code>retire_tab</code> that tab, clear role pane/tab ids that are dead, history note.</li>
+      <li>On ready → claim owner (impl only), enqueue prior owner for retire, prompt agent.</li>
+    </ol>
+
+    <h3>Label chrome</h3>
+    <ul>
+      <li><code>maybe_herdr_label</code> / rename always targets <code>workspaceOwner.tabId</code> (fallback spawn only if owner missing).</li>
+      <li>Ignore ambient <code>HERDR_TAB_ID</code> for rename when it disagrees with owner (env remains useful for “who is calling” and self-close guards only).</li>
+      <li>Owner tab label uses phase code (<code>PL:</code>/<code>I:</code>/<code>R:</code>/<code>PR:</code>/<code>D:</code>/<code>B:</code>). Witness tabs may keep short role labels (<code>complete · …</code>) until closed.</li>
+    </ul>
+
+    <h3>Revoke / return to planning</h3>
+    <p>
+      On <code>revoke-implementation-approval</code> or explicit return to plan stages before a live impl owner is needed:
+      claim or create a planning owner tab, enqueue impl tab for retire after stop guidance, drain retires from the new planning context.
+      Do not leave both forever.
+    </p>
+
+    <h3>Guidance changes</h3>
+    <ul>
+      <li><code>delivery-run</code> / <code>run-plan</code>: document owner lifecycle; while completeness tab is live, read it via Herdr; after accept, read artifact.</li>
+      <li>After planning handoff, do not instruct agents to inspect the planning tab.</li>
+      <li>For historical planning context, use plan files, ledger history, and Pi session paths from ledger/history—not closed Herdr tabs.</li>
+      <li>Impl brief: after verify, retire pending tabs is part of becoming owner (automatic in CLI preferred over asking the model to remember).</li>
+    </ul>
+  </section>
+
+  <section id="contracts">
+    <h2>Contract and distributed-integration inventory</h2>
+    <table>
+      <tr>
+        <th>Contract</th>
+        <th>Source of truth</th>
+        <th>Producers</th>
+        <th>Consumers</th>
+        <th>Verification</th>
+      </tr>
+      <tr>
+        <td><code>workspaceOwner</code> ledger object</td>
+        <td><code>skills/delivery-run/scripts/delivery</code> write paths</td>
+        <td>spawn, impl launch ready, revoke/replan, DONE/reflect</td>
+        <td><code>maybe_herdr_label</code>, retire drain, show/brief, tests</td>
+        <td>CLI tests assert owner fields after launch/accept/fail</td>
+      </tr>
+      <tr>
+        <td><code>tabsToRetire[]</code></td>
+        <td>same delivery script</td>
+        <td>impl ready (prior owner), failed helper cleanup leftovers, revoke</td>
+        <td><code>retire_pending_tabs</code> from non-target caller</td>
+        <td>fake-herdr log contains <code>tab close</code> for enqueued ids only after owner context</td>
+      </tr>
+      <tr>
+        <td>Herdr CLI: <code>tab create|close|focus|rename</code>, <code>agent start|prompt|get</code></td>
+        <td>installed <code>herdr</code> 0.8.x</td>
+        <td>delivery launch helpers</td>
+        <td>live Herdr session</td>
+        <td>fake-herdr argv log in <code>test_delivery_cli.sh</code>; optional manual smoke</td>
+      </tr>
+      <tr>
+        <td>Skill prose: owner lifecycle + evidence after close</td>
+        <td><code>delivery-run/SKILL.md</code>, <code>run-plan/SKILL.md</code>, AGENT_BRIEF generator</td>
+        <td>this change</td>
+        <td>planning/impl agents</td>
+        <td>string/contract tests already used for skill phrases; update assertions</td>
+      </tr>
+      <tr>
+        <td>Completeness accept artifact path</td>
+        <td>existing completion-review accept</td>
+        <td>accept path</td>
+        <td>MERGE_READY gate, humans, later agents</td>
+        <td>existing accept tests + new close-after-accept assertion</td>
+      </tr>
+    </table>
+    <p>Coverage: <strong>exhaustive-by-family</strong> for delivery Herdr tab roles (planning owner, implementation owner, completeness witness, failed launch). No product multi-pane family.</p>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance criteria</h2>
+    <ul class="check">
+      <li>AC1: After successful implementation launch, ledger <code>workspaceOwner.role=implementation</code> and owner tab/pane match the live impl agent.</li>
+      <li>AC2: Planning tab id is enqueued for retire on that handoff and is closed by a delivery command running from the impl owner (not by killing the launch caller mid-flight).</li>
+      <li>AC3: Terminal impl <code>agent start</code> failure closes the just-created tab and does not leave an agentless tab recorded as live owner.</li>
+      <li>AC4: Retry after start-failed reuses the same pane when still open and appropriate, or creates a replacement only after the dead tab was retired—no unbounded tab pile-up on repeated busy failures.</li>
+      <li>AC5: Completeness accept or waive closes the completeness witness tab; owner remains implementation.</li>
+      <li>AC6: <code>maybe_herdr_label</code> renames workspace + owner tab from <code>workspaceOwner</code>, not a disagreeing ambient <code>HERDR_TAB_ID</code>.</li>
+      <li>AC7: Skills/brief no longer require reading closed planning tabs; completeness live-tab read remains until accept; artifact is authoritative after.</li>
+      <li>AC8: <code>DELIVERY_SKIP_HERDR=1</code> still skips Herdr mutations including close/focus/rename.</li>
+      <li>AC9: Existing delivery CLI tests stay green; new tests cover fail-close, owner claim, pending retire drain, accept-close.</li>
+    </ul>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <h3>Happy handoff</h3>
+    <pre>Given a delivery workspace owned by the planning tab
+When EXECUTION_READY launches a dedicated implementation agent successfully
+Then workspaceOwner points at the impl tab
+And the planning tab is listed in tabsToRetire
+And the impl agent’s verify/first delivery command closes the planning tab
+And the workspace label phase tracks implementation stages on the impl tab</pre>
+
+    <h3>Start failure does not litter</h3>
+    <pre>Given implementation launch creates a new tab
+When herdr agent start fails terminally (including busy timeout)
+Then delivery closes that tab
+And ledger does not claim it as workspaceOwner
+And a retry does not retain multiple dead shell tabs</pre>
+
+    <h3>Completeness is temporary</h3>
+    <pre>Given an implementation owner tab
+When completion-review launches a witness tab and later --accept succeeds
+Then the completeness artifact is recorded
+And the witness tab is closed
+And workspaceOwner remains the implementation tab</pre>
+
+    <h3>Evidence after close</h3>
+    <pre>Given the planning tab was retired after handoff
+When an implementation agent needs planning context
+Then it uses the plan path, ledger history, and validation artifacts
+And it does not fail solely because herdr agent read on the old planning pane is unavailable</pre>
+  </section>
+
+  <section id="phases">
+    <h2>Phase-by-phase execution plan</h2>
+
+    <h3>P0 — RED: owner lifecycle contracts</h3>
+    <ul class="check">
+      <li>Add failing tests in <code>test_delivery_cli.sh</code> for: start-failed → <code>tab close</code>; impl ready → owner claim + tabsToRetire; verify/drain → close prior owner; completion accept → close witness; label rename targets owner not ambient env mismatch.</li>
+      <li>Extend fake-herdr stubs to log <code>tab close</code>, <code>tab focus</code>, and return stable tab/pane ids.</li>
+    </ul>
+    <p><strong>Verify:</strong> <code>bash skills/delivery-run/tests/test_delivery_cli.sh</code> shows new tests RED.</p>
+
+    <h3>P1 — GREEN: shared Herdr tab helpers</h3>
+    <ul class="check">
+      <li>Implement <code>claim_workspace_owner</code>, <code>retire_tab</code>, <code>retire_pending_tabs</code>, <code>launch_role_tab</code> (create + start with busy retry + close on terminal fail).</li>
+      <li>Refactor impl launch and completeness launch to use <code>launch_role_tab</code>.</li>
+      <li>Change <code>maybe_herdr_label</code> to prefer <code>workspaceOwner</code>.</li>
+      <li>Wire impl ready → claim + enqueue prior owner; drain on verify-implementation-profile and other impl-pane delivery writes as a safety net.</li>
+      <li>Wire completion accept/waive → retire witness tab.</li>
+      <li>Spawn/init seeds <code>workspaceOwner</code> planning.</li>
+    </ul>
+    <p><strong>Verify:</strong> delivery CLI tests GREEN for new + existing cases.</p>
+
+    <h3>P2 — Guidance alignment (same PR)</h3>
+    <ul class="check">
+      <li>Update <code>skills/delivery-run/SKILL.md</code>, AGENT_BRIEF text in delivery script, <code>skills/run-plan/SKILL.md</code> completeness section for live-vs-artifact reads.</li>
+      <li>Update skill phrase tests that currently only assert “labeled sibling tab” without retirement.</li>
+      <li>Remove any prose that implies planning tabs remain after successful handoff.</li>
+    </ul>
+    <p><strong>Verify:</strong> skill assertion tests in <code>test_delivery_cli.sh</code> pass; manual skim of brief output from <code>delivery bootstrap --refresh</code> in a temp repo.</p>
+
+    <h3>P3 — Revoke / DONE polish</h3>
+    <ul class="check">
+      <li>Revoke/replan path: reclaim planning owner; enqueue impl tab retire; drain from planning context when safe.</li>
+      <li>DONE/reflect: owner role <code>done</code>, label <code>D:</code>, best-effort retire any leftover non-owner delivery tabs recorded in ledger role fields.</li>
+    </ul>
+    <p><strong>Verify:</strong> targeted CLI tests for revoke owner flip + done cleanup.</p>
+
+    <h3>P4 — REFACTOR coherence</h3>
+    <ul class="check">
+      <li>Delete duplicated busy-retry / tab-create blocks left after helper extraction.</li>
+      <li>Ensure no dead “keep all tabs” comments or unused label fallbacks.</li>
+      <li>Confirm install sync path still points at the same <code>skills/delivery-run</code> sources (no second divergent copy logic beyond existing install).</li>
+    </ul>
+    <p><strong>Verify:</strong> full <code>bash skills/delivery-run/tests/test_delivery_cli.sh</code>.</p>
+  </section>
+
+  <section id="verify">
+    <h2>Verification strategy</h2>
+    <ul>
+      <li><strong>Primary:</strong> <code>bash skills/delivery-run/tests/test_delivery_cli.sh</code></li>
+      <li><strong>Contract:</strong> fake-herdr argv logs for <code>tab create</code>, <code>tab close</code>, <code>tab focus</code>, <code>workspace rename</code>, <code>tab rename</code>, <code>agent start</code>.</li>
+      <li><strong>Manual smoke (post-merge optional):</strong> <code>delivery spawn</code> throwaway workspace → force handoff in dry conditions or staged fake; confirm one owner tab remains after verify.</li>
+      <li><strong>Non-blocking:</strong> cleaning already-polluted live heddle workspaces is operator/manual or opportunistic on next delivery command—not a PR gate.</li>
+    </ul>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Changing Heddle application code or Doct product behavior.</li>
+      <li>Forcing true single-tab execution with model switches inside one pane only (allowed later; not required).</li>
+      <li>Returning to multi-pane splits as the default supervision layout.</li>
+      <li>Auto-vacuum of arbitrary human-created tabs unrelated to delivery role records.</li>
+      <li>Hard-blocking stages when Herdr close/focus fails.</li>
+      <li>Building a supervisor UI outside Herdr labels/tabs.</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions</h2>
+    <ol>
+      <li>Read this plan and <code>skills/delivery-run/scripts/delivery</code> launch/label sections.</li>
+      <li>Start at first unchecked phase; keep TDD order P0→P1.</li>
+      <li>Do not implement “cleanup flags” beside the owner model—replace the lifecycle.</li>
+      <li>When impl launch touches self-close, re-read the self-close hazard section before coding.</li>
+    </ol>
+    <h3>Decisions / deviations log</h3>
+    <ul>
+      <li>2026-08-04: Operator chose fulfilled-tab cleanup over permanent single-tab-from-start; planning stays during planning; close after impl ready; evidence via transcripts/artifacts.</li>
+      <li>2026-08-04: Zero-tech-debt planning pass locked single <code>workspaceOwner</code>, shared launch helper, no legacy keep-all path, new owner retires previous owner.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Post-merge delivery / operations</h2>
+    <p class="muted">Not a PR gate.</p>
+    <ul>
+      <li>Optionally close junk tabs on existing live heddle delivery workspaces once, or run any delivery command that drains <code>tabsToRetire</code> after upgrade.</li>
+      <li>Watch one real delivery handoff for focus/close timing with live Herdr 0.8.x.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

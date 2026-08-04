@@ -283,7 +283,7 @@ Oracle is advisory and read-only. Verify its claims and record disposition (`acc
 
 ### 2b. Automatic execution-ready handoff
 
-`EXECUTION_READY` is the automatic handoff from reviewed planning to implementation. In a Herdr delivery run, entering this stage records workflow authorization for the exact reviewed plan, creates a labeled sibling tab, starts the planner-selected implementation runtime, and prompts it to continue through implementation, verification, bounded reviews, completeness review, and PR creation. The planning agent stops after the handoff; it does not ask for another routine approval.
+`EXECUTION_READY` is the automatic handoff from reviewed planning to implementation. In a Herdr delivery run, entering this stage records workflow authorization for the exact reviewed plan, creates a labeled **implementation owner** tab, starts the planner-selected implementation runtime, claims ledger `workspaceOwner` for that tab, and prompts it to continue through implementation, verification, bounded reviews, completeness review, and PR creation. The planning agent stops after the handoff; it does not ask for another routine approval. The planning tab is enqueued for retirement and is closed when the implementation agent runs `delivery verify-implementation-profile` (never self-closed mid-launch). Workspace chrome follows `workspaceOwner`, not ambient `HERDR_TAB_ID`. Failed `agent start` attempts close their shell tabs immediately.
 
 ```bash
 delivery stage EXECUTION_READY
@@ -327,8 +327,7 @@ These are **recommended evidence**, not blockers.
 
 ```bash
 delivery stage COMPLETENESS_REVIEW
-# Creates a labeled sibling tab without stealing focus, starts Pi on the tab's root pane
-# with --model xai/grok-4.5:high, and submits the visible read-only review packet.
+# Creates a short-lived completeness witness tab (not workspace owner); closed after --accept/--waive.
 delivery completion-review
 
 # Read the labeled completeness tab. Fix every in-plan finding, then ask the same named agent
@@ -398,9 +397,9 @@ Prefer process-shaped notes (friction, retries, unclear guidance, handoff gaps),
 3. After a worker skill finishes, `delivery record` what happened and `delivery check -v`.
 4. Treat check advisories as a to-do list, not a red light.
 5. Do not stop the operator solely because recommended evidence is `pending` or `gap`, except that a Herdr delivery run cannot claim local merge readiness without a validated visible `completion-review --accept` result or an explicit operator waiver.
-6. At `COMPLETENESS_REVIEW`, run `delivery completion-review`; read the labeled Grok 4.5 tab, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture and validate its artifact before final readiness.
+6. At `COMPLETENESS_REVIEW`, run `delivery completion-review`; while the witness tab is live, read the labeled Grok 4.5 tab, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture the artifact and retire the witness tab. After accept, the artifact is authoritative—do not require the closed TUI.
 7. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
-8. Treat execution-ready as automatic implementation authorization for a delivery-managed run: `delivery stage EXECUTION_READY` launches the recommended profile and the planning agent stops. Do not wait for another routine approval. Use `--hold` only when the operator explicitly requests a pause or a real external dependency blocks execution; invalidate authorization and launch evidence if material feedback changes the plan.
+8. Treat execution-ready as automatic implementation authorization for a delivery-managed run: `delivery stage EXECUTION_READY` launches the recommended profile on a new owner tab and the planning agent stops. Do not wait for another routine approval. Use `--hold` only when the operator explicitly requests a pause or a real external dependency blocks execution; invalidate authorization and launch evidence if material feedback changes the plan. After handoff, do not keep or inspect the planning tab—use the plan path, ledger, and validation artifacts.
 9. The implementation agent must run `delivery verify-implementation-profile` before entering `IMPLEMENTING`; the stage gate independently checks the live Pi provider/model/reasoning environment.
 10. Do not reimplement run-plan/autoreview/reviewed-html-plan here.
 11. If something is truly stuck on a human decision, `delivery blocker "..." --mark-blocked` and say what is needed — still leave the workflow usable.
