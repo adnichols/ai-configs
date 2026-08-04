@@ -52,7 +52,6 @@ EXPECTED_NPM_PACKAGES=(
   "npm:pi-web-access"
   "npm:@fnnm/pi-ast-grep"
   "npm:pi-updater"
-  "npm:pi-powerline-footer"
   "npm:pi-no-soft-cursor"
   "npm:@tmustier/pi-files-widget"
   "npm:@tmustier/pi-raw-paste"
@@ -522,6 +521,12 @@ if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-interactive-shell'; the
   note_failure "retired pi-interactive-shell package is still registered"
 else
   echo "  pi-interactive-shell registration: absent"
+fi
+
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-powerline-footer'; then
+  note_failure "retired pi-powerline-footer package is still registered"
+else
+  echo "  pi-powerline-footer registration: absent"
 fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"

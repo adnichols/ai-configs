@@ -933,7 +933,6 @@ packages = [
     "npm:pi-web-access",
     "npm:@fnnm/pi-ast-grep",
     "npm:pi-updater",
-    "npm:pi-powerline-footer",
     "npm:pi-no-soft-cursor",
     "npm:@tmustier/pi-files-widget",
     "npm:@tmustier/pi-raw-paste",

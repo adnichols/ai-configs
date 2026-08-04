@@ -191,7 +191,6 @@ npm-managed packages:
 - `pi-web-access`
 - `@fnnm/pi-ast-grep`
 - `pi-updater`
-- `pi-powerline-footer`
 - `pi-no-soft-cursor`
 - `@tmustier/pi-files-widget`
 - `@tmustier/pi-raw-paste`
