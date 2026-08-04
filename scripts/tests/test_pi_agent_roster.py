@@ -123,6 +123,9 @@ class PiAgentRosterTest(unittest.TestCase):
             "The driving agent remains the decision-maker",
             "current recommendation",
             "one narrow question",
+            'Do not wait for the operator to say "use Oracle."',
+            'Setting `inherit_context: false` or `isolation: "worktree"` is a workflow violation',
+            "every required `reviewer`, readiness-`planner`, or `oracle` `Agent` call must omit the `isolation` property entirely",
         ):
             self.assertIn(required, doctrine)
 
@@ -132,6 +135,13 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn('subagent_type: "oracle"', command_text)
         self.assertIn("read-only", command_text)
         self.assertIn("verify", command_text.lower())
+        self.assertIn("workflow violation", command_text)
+        self.assertIn("?", command_text)
+
+        oracle_body = frontmatter(AGENTS / "oracle.md")[1]
+        self.assertIn("Caller contract", oracle_body)
+        self.assertIn("workflow violation", oracle_body)
+        self.assertIn("partially-accepted", oracle_body)
 
         workflow_surfaces = {
             ROOT / "skills" / "delivery-run" / "SKILL.md",
@@ -147,12 +157,25 @@ class PiAgentRosterTest(unittest.TestCase):
                 text = path.read_text()
                 self.assertIn("`oracle`", text)
                 self.assertIn("advisory", text.lower())
+                self.assertIn("omit", text.lower())
+                self.assertRegex(text, r"inherit_context")
+                self.assertRegex(text, r"isolation.*worktree|worktree.*isolation")
 
         for path in (ROOT / "skills" / "run-plan" / "SKILL.md", ROOT / "skills" / "autoreview" / "SKILL.md"):
             text = path.read_text()
             self.assertIn("configured Pi consultation surface is the `oracle` subagent", text)
             self.assertIn("openai-codex/gpt-5.6-sol", text)
             self.assertIn("high reasoning", text)
+            self.assertIn("workflow violation", text)
+
+        self.assertTrue((ROOT / "scripts" / "probe_pi_oracle_transport.py").is_file())
+        self.assertTrue((ROOT / "scripts" / "analyze_oracle_session.py").is_file())
+        self.assertTrue((ROOT / "scripts" / "e2e_oracle_proactive_trigger.py").is_file())
+        fixture_prompt = (
+            ROOT / "scripts" / "fixtures" / "oracle-proactive-trigger" / "OPERATOR_PROMPT.md"
+        ).read_text()
+        self.assertNotRegex(fixture_prompt, r"(?i)\boracle\b")
+        self.assertIn("decision-support workflow", fixture_prompt)
 
     def test_development_stays_in_driving_session(self):
         retired_claude_agents = {
@@ -290,8 +313,8 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("never set `isolation: \"worktree\"`", reviewed_plan)
 
         doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
-        self.assertIn("every required `reviewer` or readiness-`planner` `Agent` call must omit the `isolation` property entirely", doctrine)
-        self.assertIn("Never request `isolation: \"worktree\"` for a review", doctrine)
+        self.assertIn("every required `reviewer`, readiness-`planner`, or `oracle` `Agent` call must omit the `isolation` property entirely", doctrine)
+        self.assertIn("Never request `isolation: \"worktree\"` for a review or Oracle consultation", doctrine)
 
         installer = (ROOT / "install.sh").read_text()
         self.assertIn("patch_pi_subagents_review_isolation.py", installer)

@@ -14,6 +14,28 @@ class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             agent_dir = Path(temp)
             package = agent_dir / "npm/node_modules/@tintinweb/pi-subagents"
+            guidance_src = (
+                '- isolation: "worktree" runs the agent in an isolated git worktree; changes land on a branch.\n'
+                '- Use inherit_context if the agent needs the parent conversation history.\n'
+                '- Use isolation: "worktree" to run the agent in an isolated git worktree '
+                '(safe parallel file modifications). The worktree is automatically cleaned up if the agent '
+                'makes no changes; otherwise the path and branch are returned in the result.\n'
+                'Set to "worktree" to run the agent in a temporary git worktree (isolated copy of the repo). '
+                'Changes are saved to a branch on completion.\n'
+                'const customConfig = getAgentConfig(subagentType);\n\n'
+                '      const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);\n'
+            )
+            guidance_dist = (
+                '- isolation: "worktree" runs the agent in an isolated git worktree; changes land on a branch.\n'
+                '- Use inherit_context if the agent needs the parent conversation history.\n'
+                '- Use isolation: "worktree" to run the agent in an isolated git worktree '
+                '(safe parallel file modifications). The worktree is automatically cleaned up if the agent '
+                'makes no changes; otherwise the path and branch are returned in the result.\n'
+                'Set to "worktree" to run the agent in a temporary git worktree (isolated copy of the repo). '
+                'Changes are saved to a branch on completion.\n'
+                'const customConfig = getAgentConfig(subagentType);\n'
+                '            const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);\n'
+            )
             files = {
                 "src/types.ts": 'export type IsolationMode = "worktree";\n',
                 "dist/types.d.ts": 'export type IsolationMode = "worktree";\n',
@@ -21,6 +43,8 @@ class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
                 "dist/custom-agents.js": 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,\n',
                 "src/invocation-config.ts": "isolation: agentConfig?.isolation ?? params.isolation,\n",
                 "dist/invocation-config.js": "isolation: agentConfig?.isolation ?? params.isolation,\n",
+                "src/index.ts": guidance_src,
+                "dist/index.js": guidance_dist,
             }
             for relative, content in files.items():
                 target = package / relative
@@ -45,6 +69,18 @@ class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
             self.assertIn(
                 'fm.isolation === "worktree" || fm.isolation === "none"',
                 (package / "dist/custom-agents.js").read_text(),
+            )
+            self.assertIn(
+                "Never set isolation for oracle, reviewer, or planner",
+                (package / "dist/index.js").read_text(),
+            )
+            self.assertIn(
+                "Omit inherit_context for oracle",
+                (package / "src/index.ts").read_text(),
+            )
+            self.assertIn(
+                "ai-configs live-checkout agent guard",
+                (package / "dist/index.js").read_text(),
             )
 
     def test_rejects_incompatible_layout_without_partial_writes(self):
