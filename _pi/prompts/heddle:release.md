@@ -25,7 +25,7 @@ $ARGUMENTS
 |---|---|
 | `dryRun` | false |
 | `bump` | patch |
-| `publishTarget` | omit (ask at publish) |
+| `publishTarget` | none (local signed build only; set github or github-sparkle to publish) |
 | `developRepo` | `/Users/anichols/code/heddle-develop` |
 | `parentRepo` | same as developRepo |
 | `worktreePath` | omit |

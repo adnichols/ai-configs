@@ -92,9 +92,11 @@ const bumpRaw = asNonEmptyString(argsObject.bump) || "patch";
 const bump = ["patch", "minor", "major"].includes(bumpRaw) ? bumpRaw : null;
 if (!bump) throw new Error('args.bump must be one of "patch", "minor", or "major"');
 const publishTargetRaw = asNonEmptyString(argsObject.publishTarget);
+// Default omitted publishTarget to none so cut/gate/build can finish a local
+// signed release without an interactive publish decision.
 const publishTarget = publishTargetRaw
   ? (["none", "github", "github-sparkle"].includes(publishTargetRaw) ? publishTargetRaw : null)
-  : null;
+  : "none";
 if (publishTargetRaw && !publishTarget) {
   throw new Error('args.publishTarget must be one of "none", "github", or "github-sparkle"');
 }
@@ -818,6 +820,12 @@ if (dryRun) {
 }
 
 if (progressStage === "done") {
+  await writeProgress("publish-complete", {
+    cut,
+    gate: priorGate,
+    build: priorBuild,
+    publish: priorPublish,
+  });
   return {
     ok: true,
     alreadyComplete: true,
@@ -827,6 +835,7 @@ if (progressStage === "done") {
     build: priorBuild,
     publish: priorPublish,
     stateDir,
+    pkgPath: priorBuild && priorBuild.pkgPath ? priorBuild.pkgPath : null,
   };
 }
 
@@ -1466,10 +1475,8 @@ if (publishTarget === "none") {
   };
   await writeText(publishResultPath, `${JSON.stringify(publish, null, 2)}\n`);
 } else {
-  log("Publish on stable work pane (operator choice if publishTarget unset).");
-  const publishTargetLine = publishTarget
-    ? `Use publishTarget=${publishTarget} without asking.`
-    : "ASK the operator in this pane to choose exactly one: none | github | github-sparkle. Wait for their answer.";
+  log(`Publish on stable work pane (publishTarget=${publishTarget}).`);
+  const publishTargetLine = `Use publishTarget=${publishTarget} without asking.`;
 
   await writeText(
     publishPromptPath,
