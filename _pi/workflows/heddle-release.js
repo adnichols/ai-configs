@@ -85,8 +85,11 @@ sys.exit(2)
 }
 
 const argsObject = args && typeof args === "object" && !Array.isArray(args) ? args : {};
-const developRepo = asNonEmptyString(argsObject.developRepo) || "/Users/anichols/code/heddle-develop";
-const parentRepo = asNonEmptyString(argsObject.parentRepo) || developRepo;
+// Prefer an explicit arg; otherwise resolve a local Heddle checkout at preflight.
+const developRepoArg = asNonEmptyString(argsObject.developRepo);
+const parentRepoArg = asNonEmptyString(argsObject.parentRepo);
+let developRepo = developRepoArg;
+let parentRepo = parentRepoArg;
 const githubRepo = asNonEmptyString(argsObject.githubRepo) || "Nodaste-Lab/heddle";
 const bumpRaw = asNonEmptyString(argsObject.bump) || "patch";
 const bump = ["patch", "minor", "major"].includes(bumpRaw) ? bumpRaw : null;
@@ -361,10 +364,34 @@ if (!parentPaneId || herdrEnvFlag !== "1" || !herdrSocket) {
     "heddle-release must run from inside a Herdr pane (HERDR_PANE_ID + HERDR_ENV=1 + HERDR_SOCKET_PATH).",
   );
 }
+const homeDir = (await runOk('printf "%s" "$HOME"')).stdout.trim();
+if (!developRepo) {
+  const candidates = [`${homeDir}/code/heddle`, `${homeDir}/code/heddle-develop`];
+  for (const candidate of candidates) {
+    const probe = await run(
+      joinCmd([
+        "bash",
+        "-lc",
+        `[[ -d ${shellQuote(candidate)} && -e ${shellQuote(candidate)}/.git ]] && printf '%s' ${shellQuote(candidate)} || true`,
+      ]),
+    );
+    const resolved = (probe.stdout || "").trim();
+    if (resolved) {
+      developRepo = resolved;
+      break;
+    }
+  }
+  if (!developRepo) {
+    throw new Error(
+      `args.developRepo omitted and no default Heddle checkout found. Tried: ${candidates.join(", ")}`,
+    );
+  }
+  log(`Resolved developRepo=${developRepo}`);
+}
+if (!parentRepo) parentRepo = developRepo;
 await runOk(joinCmd(["test", "-d", developRepo]));
 await runOk(joinCmd(["test", "-d", parentRepo]));
 
-const homeDir = (await runOk('printf "%s" "$HOME"')).stdout;
 const launchCwd = (await runOk("pwd -P")).stdout.trim();
 const stateName = ".heddle-release"; // legacy in-worktree name (migrated away)
 

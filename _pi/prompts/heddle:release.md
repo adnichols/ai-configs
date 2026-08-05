@@ -26,8 +26,8 @@ $ARGUMENTS
 | `dryRun` | false |
 | `bump` | patch |
 | `publishTarget` | none (local signed build only; set github or github-sparkle to publish) |
-| `developRepo` | `/Users/anichols/code/heddle-develop` |
-| `parentRepo` | same as developRepo |
+| `developRepo` | omit (auto: `~/code/heddle`, then `~/code/heddle-develop`) |
+| `parentRepo` | omit (same as developRepo) |
 | `worktreePath` | omit |
 | `releaseVersion` | omit (from develop tip, or cwd release worktree) |
 | `resumeFrom` | omit (`auto` if progress exists) |
@@ -36,6 +36,8 @@ $ARGUMENTS
 | `agentKind` | pi |
 
 ## Launch
+
+Omit `developRepo` / `parentRepo` unless the operator overrode them. The workflow auto-resolves `~/code/heddle` then `~/code/heddle-develop`.
 
 ```text
 workflow
