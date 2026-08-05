@@ -29,6 +29,7 @@ modelRoles:
   commit: openai-codex/gpt-5.6-luna:xhigh
   tiny: openai-codex/gpt-5.6-luna:low
   advisor: openai-codex/gpt-5.6-sol:xhigh
+  reviewer: openai-codex/gpt-5.6-terra:medium
   default: openai-codex/gpt-5.6-luna:xhigh
   Oracle: openai-codex/gpt-5.6-sol:xhigh
 defaultThinkingLevel: auto

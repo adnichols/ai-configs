@@ -5,6 +5,7 @@ Shared configuration repo for:
 - Claude Code
 - Codex
 - Pi (`_pi`)
+- Oh My Pi (`_omp`)
 
 It packages prompt/command surfaces, agent definitions, shared skills, helper scripts, and install tooling in one place.
 
@@ -15,6 +16,7 @@ ai-configs/
 ├── _claude/      # Claude source config
 ├── _codex/       # Codex source config
 ├── _pi/          # Pi source config
+├── _omp/         # Oh My Pi source config and custom agents
 ├── amp/          # Canonical Amp settings + custom plugin modes installer
 ├── herdr/        # Canonical cross-host Herdr configuration and installer
 ├── hammerspoon/  # Terminal-scoped macOS image-paste configuration
@@ -78,7 +80,7 @@ bash ~/ai-configs/install.sh --all ~
 - mirrors shared helper scripts into the runtime locations that need them
 - installs Pi to `~/.pi/agent/`
 - copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@juicesharp/rpiv-todo`
-- with `--tools` or `--all`, installs the canonical Herdr and Amp configuration, terminal-scoped Hammerspoon image-paste workflow, and managed Kitty screenshot/Herdr workflow locally; tracked Kitty/Herdr configuration is streamed to `mbp` and `dever`, while Amp is streamed to `mbp`, `dever`, and `mbp14`, without modifying remote ai-configs checkouts
+- with `--tools` or `--all`, installs Oh My Pi configuration, cross-repository guidance, custom Oracle/reviewer agents, the canonical Herdr and Amp configuration, terminal-scoped Hammerspoon image-paste workflow, and managed Kitty screenshot/Herdr workflow locally; tracked Kitty/Herdr configuration is streamed to `mbp` and `dever`, while Amp is streamed to `mbp`, `dever`, and `mbp14`, without modifying remote ai-configs checkouts
 - removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`
 - with `--update`, first runs `npx skills update -g -y` for globally installed skills tracked by skills.sh, then runs the normal ai-configs sync
@@ -101,13 +103,13 @@ Codex prompt files plus config templates. Global Codex prompt discovery is handl
 ### `_pi/`
 Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.
 
-### `omp/`
-Canonical Oh My Pi host configuration. `config.yml` is installed to `~/.omp/agent/config.yml` with mode `0600`; the installer preserves the first differing local file as `config.yml.before-ai-configs`.
+### `_omp/`
+Canonical Oh My Pi host configuration and custom agents. `config.yml` is installed to `~/.omp/agent/config.yml` with mode `0600`; `AGENTS.md` and the custom agents are installed alongside it. The installer preserves the first differing local file as `<name>.before-ai-configs`.
 
-Run `bash omp/install.sh` for an OMP-only local install. To install the tracked configuration on a remote host without requiring a remote ai-configs checkout:
+Run `bash _omp/install.sh` for an OMP-only local install. To install the tracked configuration on a remote host without requiring a remote ai-configs checkout:
 
 ```bash
-tar -C omp -cf - config.yml install.sh | ssh dever 'tmp=$(mktemp -d); trap "rm -rf \"$tmp\"" EXIT; tar -xf - -C "$tmp"; OMP_CONFIG_TARGET="$HOME/.omp/agent" bash "$tmp/install.sh"'
+tar -C _omp -cf - config.yml AGENTS.md agents install.sh | ssh dever 'tmp=$(mktemp -d); trap "rm -rf \"$tmp\"" EXIT; tar -xf - -C "$tmp"; OMP_CONFIG_TARGET="$HOME/.omp/agent" bash "$tmp/install.sh"'
 ```
 
 ### `amp/`
@@ -224,7 +226,7 @@ The repo keeps long-lived and working documentation separate:
 ## Notes
 
 - This repo intentionally no longer tracks accumulated local runtime trees like `.claude/`, `.codex/`, `.pi/`, `.agent/`, or `.agents/`.
-- The retired `_gemini/`, `_omp/`, and `_opencode/` source trees are no longer installed or maintained here.
+- The retired `_gemini/` and `_opencode/` source trees are no longer installed or maintained here.
 - Installed runtime paths remain the normal dot-directories used by each maintained tool.
 
 For a host-level verification of both Pi installation surfaces, run:

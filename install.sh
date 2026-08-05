@@ -103,10 +103,11 @@ print_usage() {
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
+    echo "  - The tracked OMP config, guidance, and Oracle/reviewer agents are installed locally whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
     echo "  - Managed Amp settings/modes are streamed to mbp/dever/mbp14 whenever --tools or --all runs on macOS"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
-    echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OMP, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
+    echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"
     echo "  - In non-interactive mode, existing configs are preserved automatically"
     echo ""
@@ -585,9 +586,17 @@ install_tools() {
     echo ""
     install_hammerspoon_image_paste_workflow
     echo ""
+    install_omp_config
+    echo ""
     install_herdr_plugins
     echo ""
     install_ltui
+}
+
+install_omp_config() {
+    echo "Installing managed Oh My Pi configuration..."
+    bash "$REPO_ROOT/_omp/install.sh"
+    echo -e "${GREEN}✓ Managed Oh My Pi configuration installed${NC}"
 }
 
 install_herdr_config() {

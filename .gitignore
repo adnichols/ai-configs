@@ -10,6 +10,7 @@
 .crush/
 .gemini/
 .history/
+.omp/
 .opencode/
 .pi/
 .ruff_cache/
