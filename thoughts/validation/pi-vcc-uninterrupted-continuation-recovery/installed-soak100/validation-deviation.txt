@@ -1,0 +1,6 @@
+Candidate: installed
+Package: /Users/anichols/.pi/agent/local-packages/ai-configs/pi-vcc
+Standalone extension inspected: /Users/anichols/.pi/agent/extensions/percentage-compaction.ts
+Pi version: 0.84.0
+Gate type: deterministic no-network host-faithful ExtensionAPI/EventBus/session harness.
+Deviation: a real provider-backed Pi process was not driven because the rollout gate must not use external credentials/network. The selected source/installed createContinuationCoordinator was instantiated and driven through its real handlers/timers/reconcile/sendMessage paths, and the selected standalone percentage extension was loaded and executed through compact-now publisher ordering/wire parity. The mixed shared log audit passed. This artifact makes that boundary explicit rather than claiming a model-backed host run.

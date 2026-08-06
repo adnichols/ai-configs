@@ -1,0 +1,22 @@
+{
+  "source-soak100": {
+    "path": "thoughts/validation/pi-vcc-uninterrupted-continuation-recovery/source-soak100",
+    "log": "thoughts/validation/pi-vcc-uninterrupted-continuation-recovery/source-soak100/logs/pi-vcc.jsonl",
+    "log_lines": 700,
+    "entries": [
+      "validation-deviation.txt",
+      "sessions/soak-session.jsonl",
+      "logs/pi-vcc.jsonl"
+    ]
+  },
+  "installed-soak100": {
+    "path": "thoughts/validation/pi-vcc-uninterrupted-continuation-recovery/installed-soak100",
+    "log": "thoughts/validation/pi-vcc-uninterrupted-continuation-recovery/installed-soak100/logs/pi-vcc.jsonl",
+    "log_lines": 700,
+    "entries": [
+      "validation-deviation.txt",
+      "sessions/soak-session.jsonl",
+      "logs/pi-vcc.jsonl"
+    ]
+  }
+}

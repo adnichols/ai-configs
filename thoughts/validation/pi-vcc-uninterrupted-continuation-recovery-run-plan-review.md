@@ -24,10 +24,10 @@ Not examined: live third-party provider streaming timing; 100-compaction soak wa
 
 Verification after fixes:
 
-- unit: 376 pass
-- source real-host + audit: PASS (19 hosts incl. hard-backstop-generation-race)
+- unit: 376+ pass
+- source real-host + audit: PASS (23 hosts incl. hard-backstop settlement, sibling deferral, package-command terminal, host-threshold/overflow variants, loud-failure warning)
 - installed real-host + audit: PASS (exact installed package+extension)
-- source soak 20 + installed soak 20: PASS
+- source+installed soak100: PASS — artifacts at thoughts/validation/pi-vcc-uninterrupted-continuation-recovery/{source,installed}-soak100 (102 terminal txs each; see SOAK100_EVIDENCE.json)
 - install.sh --pi-vcc + verify-pi-vcc-install: PASS (package+extension hashes match)
 
 ## Implementation-stage PM

@@ -193,8 +193,11 @@ const createHost = async (
     modelRuntime,
     sessionManager,
     // An empty tools array is treated as an allowlist that blocks extension tools.
-    // Omit the option entirely so package/extension tools such as compact_context remain available.
-    ...(customTools.length ? { tools: ["host_progress_tool"] as string[] } : {}),
+    // Omit the option entirely so package/extension tools remain available. When a
+    // custom tool is required, explicitly allow compact_context/vcc_recall too.
+    ...(customTools.length
+      ? { tools: ["host_progress_tool", "compact_context", "vcc_recall"] as string[] }
+      : {}),
     customTools,
   });
   const session = result.session as any;
@@ -317,6 +320,9 @@ const REQUIRED_REAL_HOST_CASES = [
   "actual-compact-context-turn-end-resume",
   "hard-backstop-generation-race",
   "loud-failure-warning",
+  "sibling-deferred-compact-context",
+  "package-command-terminal-restraint",
+  "host-threshold-and-overflow-variants",
 ] as const;
 type RealHostCaseName = (typeof REQUIRED_REAL_HOST_CASES)[number];
 const caseRegistry = new Map<RealHostCaseName, () => Promise<void>>();
@@ -1012,6 +1018,113 @@ try {
       if (!warning.includes(needle)) throw new Error(`loud failure warning missing ${needle}: ${warning}`);
     }
     void originalSend;
+    host.dispose();
+  });
+
+  registerCase("sibling-deferred-compact-context", async () => {
+    const host = await createHost(async () => ({ content: [{ type: "text", text: "sibling output" }], details: {} }), {
+      extensionPaths: [percentageCompactionExtension],
+    });
+    host.core.setResponses([
+      faux.fauxAssistantMessage([
+        faux.fauxToolCall("compact_context", { reason: "sibling batch", boundary: "after_test_loop" }, { id: "sib-compact" }),
+        faux.fauxToolCall("host_progress_tool", {}, { id: "sib-read" }),
+      ], { stopReason: "toolUse" }),
+      faux.fauxAssistantMessage("Interpreted sibling output."),
+      faux.fauxAssistantMessage("Post-compaction progress after sibling settle."),
+    ]);
+    for (let i = 0; i < 6; i += 1) {
+      host.sessionManager.appendMessage(
+        i % 2 === 0
+          ? { role: "user", content: [{ type: "text", text: `sib seed ${i}` }], timestamp: Date.now() }
+          : faux.fauxAssistantMessage(`sib seed ${i}`),
+      );
+    }
+    await host.session.prompt("Run sibling batch then compact.");
+    await waitFor("sibling deferred continuation settled", () =>
+      host.sessionManager.getBranch().some(
+        (entry: any) =>
+          entry.type === "custom" &&
+          entry.customType === protocol.CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+          (entry.data?.snapshot?.origin === "compact_context" || entry.data?.origin === "compact_context") &&
+          (entry.data?.terminalState === "settled" || entry.data?.snapshot?.state === "settled"),
+      ),
+      5_000,
+    );
+    host.dispose();
+  });
+
+  registerCase("package-command-terminal-restraint", async () => {
+    const host = await createHost();
+    host.coordinator.request({
+      initiator: "package-compact-now",
+      outcome: "compacted",
+      attemptId: "pkg-compact-now-1",
+      transactionId: "pkg-compact-now-tx",
+      resumePolicy: "terminal",
+    }, host.ctx);
+    await waitFor("package-compact-now terminalized", () => outcomes(host, "pkg-compact-now-tx").length === 1);
+    if (outcomes(host, "pkg-compact-now-tx")[0]?.data?.terminalReason !== "explicitly_stopped") {
+      throw new Error(`package-compact-now was not terminal restraint: ${JSON.stringify(outcomes(host, "pkg-compact-now-tx")[0]?.data)}`);
+    }
+    if (durableMessages(host, "pkg-compact-now-tx").length !== 0) {
+      throw new Error("terminal package-compact-now delivered a continuation message");
+    }
+    host.coordinator.request({
+      initiator: "package-pi-vcc",
+      outcome: "compacted",
+      attemptId: "pkg-pi-vcc-1",
+      transactionId: "pkg-pi-vcc-tx",
+      resumePolicy: "terminal",
+    }, host.ctx);
+    await waitFor("package-pi-vcc terminalized", () => outcomes(host, "pkg-pi-vcc-tx").length === 1);
+    if (durableMessages(host, "pkg-pi-vcc-tx").length !== 0) {
+      throw new Error("terminal package-pi-vcc delivered a continuation message");
+    }
+    host.dispose();
+  });
+
+  registerCase("host-threshold-and-overflow-variants", async () => {
+    const host = await createHost();
+    host.core.setResponses([
+      faux.fauxAssistantMessage("threshold active progress"),
+      faux.fauxAssistantMessage("overflow active progress"),
+    ]);
+    host.coordinator.request({
+      initiator: "host-overflow",
+      outcome: "compacted",
+      attemptId: "overflow-non-retry",
+      transactionId: "overflow-non-retry-tx",
+      resumePolicy: "terminal",
+    }, host.ctx);
+    await waitFor("host-overflow non-retry terminalized", () => outcomes(host, "overflow-non-retry-tx").length === 1);
+    if (durableMessages(host, "overflow-non-retry-tx").length !== 0) {
+      throw new Error("non-retry host-overflow delivered continuation");
+    }
+    host.coordinator.request({
+      initiator: "host-threshold",
+      outcome: "compacted",
+      attemptId: "threshold-terminal",
+      transactionId: "threshold-terminal-tx",
+      resumePolicy: "terminal",
+    }, host.ctx);
+    await waitFor("host-threshold terminalized", () => outcomes(host, "threshold-terminal-tx").length === 1);
+    host.coordinator.request({
+      initiator: "host-threshold",
+      outcome: "compacted",
+      attemptId: "threshold-active",
+      transactionId: "threshold-active-tx",
+      resumePolicy: "active",
+    }, host.ctx);
+    await waitFor("host-threshold active delivered", () => durableMessages(host, "threshold-active-tx").length === 1, 5_000);
+    host.coordinator.request({
+      initiator: "host-overflow",
+      outcome: "compacted",
+      attemptId: "overflow-retry",
+      transactionId: "overflow-retry-tx",
+      resumePolicy: "active",
+    }, host.ctx);
+    await waitFor("host-overflow retry delivered", () => durableMessages(host, "overflow-retry-tx").length === 1, 5_000);
     host.dispose();
   });
 
