@@ -863,14 +863,39 @@ describe("continuation coordinator", () => {
 
 	it("bounds repeated synchronous send throws and fails loudly", () => {
 		const h = setup("coordinator", { sendFailures: 10 });
-		request(h, { retryLimit: 1 });
+		request(h, { retryLimit: 1, transactionId: "tx-1", attemptId: "attempt-1" });
 		expect(h.coordinator.getPending()?.state).toBe("retrying");
 		h.fireTimer(5);
 		expect(h.coordinator.getPending()?.state).toBe("failed_loudly");
 		expect(h.coordinator.getPending()?.terminalReason).toBe(
 			"retry_limit_exhausted",
 		);
-		expect(h.notifications.at(-1)?.message).toContain("Manual recovery");
+		const warning = h.notifications.at(-1)?.message ?? "";
+		expect(warning).toContain("Pi-vcc continuation failed (transaction=tx-1; attempt=attempt-1; retries=");
+		expect(warning).toContain("reason=retry_limit_exhausted");
+		expect(warning).toContain("jq -c 'select(.transactionId==\"tx-1\")'");
+		expect(warning).toContain("Manual recovery");
+		expect(warning).toContain('send “continue” once');
+		const jqMatch = warning.match(/jq -c 'select\(\.transactionId==\"([^\"]+)\"\)' (\S+)/);
+		expect(jqMatch?.[1]).toBe("tx-1");
+		const { execFileSync } = require("node:child_process");
+		const { writeFileSync } = require("node:fs");
+		const { join } = require("node:path");
+		const fixture = join(require("node:os").tmpdir(), `loud-fail-fixture-${Date.now()}.jsonl`);
+		writeFileSync(
+			fixture,
+			[
+				JSON.stringify({ transactionId: "other", event: "created" }),
+				JSON.stringify({ transactionId: "tx-1", event: "failed", terminalReason: "retry_limit_exhausted" }),
+			].join("\n") + "\n",
+		);
+		const filtered = execFileSync(
+			"bash",
+			["-lc", `jq -c 'select(.transactionId=="tx-1")' ${JSON.stringify(fixture)}`],
+			{ encoding: "utf8" },
+		).trim();
+		expect(filtered).toContain('"transactionId":"tx-1"');
+		expect(filtered.split("\n")).toHaveLength(1);
 	});
 
 	it("settlement without consumption remains lifecycle-driven", () => {

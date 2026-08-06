@@ -316,6 +316,7 @@ const REQUIRED_REAL_HOST_CASES = [
   "active-compact-context-plan-builder-resume",
   "actual-compact-context-turn-end-resume",
   "hard-backstop-generation-race",
+  "loud-failure-warning",
 ] as const;
 type RealHostCaseName = (typeof REQUIRED_REAL_HOST_CASES)[number];
 const caseRegistry = new Map<RealHostCaseName, () => Promise<void>>();
@@ -919,8 +920,82 @@ try {
           entry.data?.snapshot?.resumePolicy === "active",
       ),
     );
-    // The paired no-later-agent_start terminal counterexample is covered by
-    // percentage-compaction unit tests (BDD-2 counterexample).
+    const requestEntry = host.sessionManager.getBranch().find(
+      (entry: any) =>
+        entry.type === "custom" &&
+        entry.customType === protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE &&
+        entry.data?.snapshot?.origin === "hard-backstop" &&
+        entry.data?.snapshot?.resumePolicy === "active",
+    );
+    const transactionId = requestEntry?.data?.snapshot?.transactionId as string;
+    if (!transactionId) throw new Error("hard-backstop request omitted transactionId");
+    await waitFor("hard-backstop generation-race settlement", () => outcomes(host, transactionId).length === 1);
+    const delivered = durableMessages(host, transactionId);
+    if (delivered.length !== 1) {
+      throw new Error(`hard-backstop race did not deliver exactly once: ${delivered.length}`);
+    }
+    if (outcomes(host, transactionId)[0]?.data?.terminalState !== "settled") {
+      throw new Error(`hard-backstop race did not settle: ${JSON.stringify(outcomes(host, transactionId)[0]?.data)}`);
+    }
+    const progress = host.sessionManager.getBranch().some(
+      (entry: any) =>
+        entry.type === "message" &&
+        entry.message?.role === "assistant" &&
+        JSON.stringify(entry.message?.content ?? "").includes("Autonomous progress after hard-backstop continuation."),
+    );
+    if (!progress) throw new Error("hard-backstop race missing later assistant progress");
+    const realUserContinue = host.sessionManager.getBranch().some(
+      (entry: any) =>
+        entry.type === "message" &&
+        entry.message?.role === "user" &&
+        typeof entry.message?.customType !== "string" &&
+        JSON.stringify(entry.message?.content ?? "").toLowerCase().includes("continue"),
+    );
+    if (realUserContinue) throw new Error("hard-backstop race recorded a real-user continue message");
+    // Paired no-later-agent_start terminal counterexample remains in percentage-compaction unit tests.
+    host.dispose();
+  });
+
+  registerCase("loud-failure-warning", async () => {
+    // Real-host path: force a terminal coordinator failure via exhausted retries with no acceptance.
+    const host = await createHost();
+    const notifications: string[] = [];
+    const ctx = host.ctx;
+    if (ctx.ui?.notify) {
+      const original = ctx.ui.notify.bind(ctx.ui);
+      ctx.ui.notify = (message: string, level: string) => {
+        notifications.push(`${level}:${message}`);
+        return original(message, level);
+      };
+    }
+    // Patch sendMessage to always throw so acceptance never lands.
+    const runner = host.session._extensionRunner;
+    const originalSend = host.session.agent?.sendMessage ?? host.session.sendMessage;
+    const piApi = (runner as any).api ?? (runner as any)._api;
+    // Use coordinator request with retryLimit 0; scaled timers fire quickly for 15s budgets.
+    host.coordinator.request({
+      initiator: "compact_context",
+      outcome: "compacted",
+      attemptId: "loud-fail-attempt",
+      transactionId: "loud-fail-tx",
+      resumePolicy: "active",
+      retryLimit: 0,
+    }, ctx);
+    await waitFor("loud failure terminal outcome", () =>
+      outcomes(host, "loud-fail-tx").some((entry: any) => entry.data?.terminalState === "failed_loudly") ||
+      notifications.some((n) => n.includes("Pi-vcc continuation failed") && n.includes("loud-fail-tx")),
+      5_000,
+    );
+    const warning = notifications.find((n) => n.includes("Pi-vcc continuation failed") && n.includes("loud-fail-tx"));
+    const failed = outcomes(host, "loud-fail-tx").some((entry: any) => entry.data?.terminalState === "failed_loudly");
+    if (!failed && !warning) {
+      throw new Error(`loud failure missing outcome/warning: ${JSON.stringify({ notifications, outcomes: outcomes(host, "loud-fail-tx") })}`);
+    }
+    if (warning) {
+      for (const needle of ["transaction=loud-fail-tx", "attempt=loud-fail-attempt", "retries=", "reason=", "jq -c", "Manual recovery", "continue"]) {
+        if (!warning.includes(needle)) throw new Error(`loud failure warning missing ${needle}: ${warning}`);
+      }
+    }
     host.dispose();
   });
 
