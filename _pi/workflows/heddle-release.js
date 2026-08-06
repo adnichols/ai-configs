@@ -95,9 +95,9 @@ const bumpRaw = asNonEmptyString(argsObject.bump) || "patch";
 const bump = ["patch", "minor", "major"].includes(bumpRaw) ? bumpRaw : null;
 if (!bump) throw new Error('args.bump must be one of "patch", "minor", or "major"');
 const publishTargetRaw = asNonEmptyString(argsObject.publishTarget);
-// Default omitted publishTarget to none so cut/gate/build can finish a local
-// signed release without an interactive publish decision.
-const publishTarget = publishTargetRaw
+// Default omitted publishTarget to none as the initial preference. The publish
+// stage always asks before any GitHub publication.
+let publishTarget = publishTargetRaw
   ? (["none", "github", "github-sparkle"].includes(publishTargetRaw) ? publishTargetRaw : null)
   : "none";
 if (publishTargetRaw && !publishTarget) {
@@ -1462,6 +1462,34 @@ if (skipBuild) {
 }
 
 // ---------------------------------------------------------------------------
+// PUBLISH CONFIRMATION
+// ---------------------------------------------------------------------------
+const publishDecision = await checkpoint({
+  name: "heddle-release-publish-github",
+  prompt: [
+    `Signed build for v${releaseVersion} is ready.`,
+    `Publish it to GitHub${publishTarget === "github-sparkle" ? " and Sparkle" : ""}?`,
+    "Approve to publish; reject to keep the signed package local.",
+  ].join(" "),
+  context: {
+    releaseVersion,
+    githubRepo,
+    requestedPublishTarget: publishTarget,
+    pkgPath: build && build.pkgPath ? build.pkgPath : null,
+  },
+});
+publishTarget = publishDecision
+  ? (publishTarget === "github-sparkle" ? "github-sparkle" : "github")
+  : "none";
+config.publishTarget = publishTarget;
+await writeText(`${stateDir}/config.json`, JSON.stringify(config, null, 2));
+log(
+  publishDecision
+    ? `Operator approved ${publishTarget} for v${releaseVersion}.`
+    : `Operator declined GitHub publication for v${releaseVersion}.`,
+);
+
+// ---------------------------------------------------------------------------
 // PUBLISH
 // ---------------------------------------------------------------------------
 phase("publish");
@@ -1503,7 +1531,7 @@ if (publishTarget === "none") {
   await writeText(publishResultPath, `${JSON.stringify(publish, null, 2)}\n`);
 } else {
   log(`Publish on stable work pane (publishTarget=${publishTarget}).`);
-  const publishTargetLine = `Use publishTarget=${publishTarget} without asking.`;
+  const publishTargetLine = `The workflow already received operator confirmation; use publishTarget=${publishTarget} without asking again.`;
 
   await writeText(
     publishPromptPath,
