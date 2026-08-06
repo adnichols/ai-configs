@@ -7,12 +7,18 @@ TARGET_ROOT="${OMP_CONFIG_TARGET:-$HOME/.omp/agent}"
 TARGET_CONFIG="$TARGET_ROOT/config.yml"
 SOURCE_CONFIG="$SOURCE_DIR/config.yml"
 SOURCE_GUIDANCE="$SOURCE_DIR/AGENTS.md"
+REPO_ROOT="$(cd -- "$SOURCE_DIR/.." && pwd)"
+SOURCE_DELIVERY_SKILL="$REPO_ROOT/skills/delivery-run/SKILL.md"
+SOURCE_DELIVERY_CLI="$REPO_ROOT/skills/delivery-run/scripts/delivery"
+SHARED_TARGET="${OMP_SHARED_TARGET:-$HOME/.agents}"
+BIN_TARGET="${OMP_BIN_TARGET:-$HOME/.local/bin}"
 SOURCE_AGENTS=(
   "$SOURCE_DIR/agents/oracle.md"
+  "$SOURCE_DIR/agents/planner.md"
   "$SOURCE_DIR/agents/reviewer.md"
 )
 
-for source in "$SOURCE_CONFIG" "$SOURCE_GUIDANCE" "${SOURCE_AGENTS[@]}"; do
+for source in "$SOURCE_CONFIG" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "${SOURCE_AGENTS[@]}"; do
   if [[ ! -f "$source" ]]; then
     echo "Missing managed OMP file at $source" >&2
     exit 1
@@ -41,3 +47,9 @@ install_managed_file "$SOURCE_GUIDANCE" "$TARGET_ROOT/AGENTS.md" 0644 "OMP guida
 for source in "${SOURCE_AGENTS[@]}"; do
   install_managed_file "$source" "$TARGET_ROOT/agents/$(basename -- "$source")" 0644 "OMP agent"
 done
+
+install_managed_file "$SOURCE_DELIVERY_SKILL" "$SHARED_TARGET/skills/delivery-run/SKILL.md" 0644 "OMP delivery skill"
+install_managed_file "$SOURCE_DELIVERY_CLI" "$SHARED_TARGET/scripts/delivery" 0755 "delivery CLI"
+mkdir -p "$BIN_TARGET"
+ln -sfn "$SHARED_TARGET/scripts/delivery" "$BIN_TARGET/delivery"
+echo "Installed delivery command at $BIN_TARGET/delivery"

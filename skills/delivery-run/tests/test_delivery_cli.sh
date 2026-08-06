@@ -10,6 +10,8 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
+export PI_CODING_AGENT_DIR="$TMP_ROOT/pi-agent"
+unset OMPCODE
 
 pass() {
   printf 'PASS %s\n' "$1"
@@ -704,6 +706,66 @@ assert p["agent"]["prompted"] is True, p
   rg -Fxq "workspace rename wTest42 PL: agent collision regression" "$log" || return 1
   rg -Fxq "tab rename wTest42:t1 PL: agent collision regression" "$log" || return 1
   ! rg -q "^(workspace|tab) rename wCaller" "$log" || return 1
+}
+
+test_omp_spawn_keeps_same_runtime_and_owner() {
+  local repo="$TMP_ROOT/omp-spawn-repo"
+  local worktree="$TMP_ROOT/omp-spawn-worktree"
+  local fake_bin="$TMP_ROOT/fake-herdr-omp-spawn"
+  local log="$TMP_ROOT/fake-herdr-omp-spawn.log"
+  make_repo "$repo"
+  make_repo "$worktree"
+  mkdir -p "$fake_bin"
+  cat >"$fake_bin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
+if [[ "$1" == "worktree" && "$2" == "create" ]]; then
+  python3 - "$FAKE_HERDR_WORKTREE" <<'PY'
+import json,sys
+worktree=sys.argv[1]
+print(json.dumps({"result": {
+  "root_pane": {"pane_id": "wOmp:p1", "cwd": worktree, "workspace_id": "wOmp", "tab_id": "wOmp:t1"},
+  "workspace": {"workspace_id": "wOmp", "worktree": {"checkout_path": worktree}},
+  "worktree": {"path": worktree, "open_workspace_id": "wOmp"},
+  "tab": {"tab_id": "wOmp:t1"},
+}}))
+PY
+fi
+SH
+  chmod +x "$fake_bin/herdr"
+  local json
+  json="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$log" FAKE_HERDR_WORKTREE="$worktree" \
+    OMPCODE=1 HERDR_WORKSPACE_ID=wCaller HERDR_TAB_ID=wCaller:t9 HERDR_PANE_ID=wCaller:p9 \
+    "$DELIVERY" --cwd "$repo" spawn --runtime omp --base main --quiet --json -- "OMP same owner delivery")"
+  python3 -c 'import json,sys
+p=json.loads(sys.argv[1])
+assert p["runtime"] == "omp", p
+assert p["workflowProfile"] == "omp-lite", p
+assert p["agent"]["kind"] == "omp", p
+assert p["agent"]["prompted"] is True, p
+' "$json"
+  rg -q "agent start .* --kind omp --pane wOmp:p1" "$log" || return 1
+  rg -Fq "Continue in this same OMP session" "$log" || return 1
+  rg -Fq "Never launch Pi or hand implementation to another agent" "$log" || return 1
+  ! rg -q "Sol-medium profile decision|Grok completeness|dedicated implementation agent" "$log" || return 1
+  python3 - "$worktree/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert (d["runtime"],d["workflowProfile"]) == ("omp","omp-lite"), d
+PY
+  rg -q "Stay in this OMP session" "$worktree/.delivery/AGENT_BRIEF.md" || return 1
+  local command_count
+  command_count="$(wc -l <"$log")"
+  set +e
+  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$log" FAKE_HERDR_WORKTREE="$worktree" \
+    OMPCODE=1 "$DELIVERY" --cwd "$repo" spawn --runtime omp --agent pi --base main --quiet --json -- \
+    "OMP conflicting agent" 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "agent kind 'pi' conflicts with immutable runtime 'omp'" || return 1
+  [[ "$(wc -l <"$log")" == "$command_count" ]] || return 1
 }
 
 test_reflect_logs_outside_worktree() {
@@ -1805,8 +1867,229 @@ assert d["workspaceOwner"]["tabId"]=="w-own:t-impl"
 PY
 }
 
+test_omp_runtime_profile_detection_and_legacy_backfill() {
+  local omp_repo="$TMP_ROOT/omp-runtime-repo"
+  local pi_repo="$TMP_ROOT/legacy-pi-runtime-repo"
+  local ambiguous_repo="$TMP_ROOT/ambiguous-runtime-repo"
+  make_repo "$omp_repo"
+  make_repo "$pi_repo"
+  make_repo "$ambiguous_repo"
+
+  OMPCODE=1 DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$omp_repo" init --runtime omp --issue NOD-OMP >/dev/null
+  python3 - "$omp_repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert (d["runtime"], d["workflowProfile"]) == ("omp", "omp-lite"), d
+PY
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$omp_repo" bootstrap --refresh >/dev/null
+  rg -q "Stay in this OMP session" "$omp_repo/.delivery/AGENT_BRIEF.md" || return 1
+  ! rg -q "Grok|Sol-medium profile|dedicated implementation agent" "$omp_repo/.delivery/AGENT_BRIEF.md" || return 1
+  local show_out stages_out board_out help_out
+  show_out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$omp_repo" show)"
+  printf '%s' "$show_out" | rg -q "runtime:   omp" || return 1
+  printf '%s' "$show_out" | rg -q "profile:   omp-lite" || return 1
+  printf '%s' "$show_out" | rg -q "phase:     PL" || return 1
+  printf '%s' "$show_out" | rg -q "current OMP session" || return 1
+  ! printf '%s' "$show_out" | rg -q "implementation agent|terra-high|sol-medium" || return 1
+  stages_out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$omp_repo" stages)"
+  printf '%s' "$stages_out" | rg -q "runtime profile: omp-lite" || return 1
+  printf '%s' "$stages_out" | rg -q "PLAN_BROWSER_REVIEW.*PL" || return 1
+  printf '%s' "$stages_out" | rg -q "PLAN_TECH_REVIEW.*PL" || return 1
+  printf '%s' "$stages_out" | rg -q "EXECUTION_READY.*PL" || return 1
+  printf '%s' "$stages_out" | rg -q "IMPLEMENTING.*I" || return 1
+  printf '%s' "$stages_out" | rg -q "SCOPED_REVIEW.*R" || return 1
+  printf '%s' "$stages_out" | rg -q "AUTOREVIEW.*R" || return 1
+  printf '%s' "$stages_out" | rg -q "COMPLETENESS_REVIEW.*R" || return 1
+  printf '%s' "$stages_out" | rg -q "MERGE_READY.*PR" || return 1
+  ! printf '%s' "$stages_out" | rg -q "ADVERSARIAL_QA|REFLECT" || return 1
+  board_out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$omp_repo" board --root "$omp_repo")"
+  printf '%s' "$board_out" | rg -q "omp-lite" || return 1
+  printf '%s' "$board_out" | rg -q "PL" || return 1
+  help_out="$("$DELIVERY" --help)"
+  printf '%s' "$help_out" | rg -q "persisted runtime and workflow" || return 1
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$omp_repo" stage REFLECT 2>&1)"
+  printf '%s' "$out" | rg -q "OMP Lite remains at INTAKE" || return 1
+  python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["stage"] == "INTAKE"' \
+    "$omp_repo/.delivery/ledger.json" || return 1
+
+  OMPCODE=1 DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$pi_repo" init --runtime pi --issue NOD-PI >/dev/null
+  python3 - "$pi_repo/.delivery/ledger.json" <<'PY'
+import json,sys
+path=sys.argv[1]; d=json.load(open(path))
+d.pop("runtime"); d.pop("workflowProfile")
+json.dump(d,open(path,"w"),indent=2)
+PY
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$pi_repo" show >/dev/null
+  python3 - "$pi_repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert (d["runtime"], d["workflowProfile"]) == ("pi", "pi-full"), d
+assert any(x.get("type") == "runtime_backfill" for x in d["history"]), d["history"]
+PY
+
+  out="$(env -u OMPCODE -u PI_CODING_AGENT_DIR DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$ambiguous_repo" init --issue NOD-NO-MARKER 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q -- "--runtime omp|pi" || return 1
+  [[ ! -e "$ambiguous_repo/.delivery/ledger.json" ]]
+}
+
+test_omp_completion_review_uses_bound_envelope() {
+  local repo="$TMP_ROOT/omp-completion-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<article data-plan>omp completion</article>\n' >"$repo/thoughts/plans/x.html"
+  OMPCODE=1 DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare --reviewer-identity reviewer.one)"
+  python3 - "$packet" "$repo" <<'PY'
+import json,sys
+packet=json.loads(sys.argv[1]); root=sys.argv[2]
+assert packet["runtime"] == "omp", packet
+assert packet["reviewer"] == "reviewer.one", packet
+assert len(packet["responseId"]) == 32, packet
+path=f"{root}/{packet['artifact']}"
+import os
+os.makedirs(os.path.dirname(path), exist_ok=True)
+with open(path,"w") as f:
+    f.write("\n".join(packet["requiredEnvelope"]).replace("VERDICT: COMPLETE", "VERDICT: INCOMPLETE") + "\n")
+with open(f"{root}/thoughts/validation/alternate.md","w") as f:
+    f.write("\n".join(packet["requiredEnvelope"]) + "\n")
+PY
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --artifact thoughts/validation/alternate.md --response-id "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pendingCompletenessReview"]["responseId"])' "$repo/.delivery/ledger.json")" 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "artifact does not match the pending request" || return 1
+  rm "$repo/thoughts/validation/alternate.md"
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --response-id "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pendingCompletenessReview"]["responseId"])' "$repo/.delivery/ledger.json")" 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "does not match" || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+assert "pendingCompletenessReview" in json.load(open(sys.argv[1]))
+PY
+  old_response_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pendingCompletenessReview"]["responseId"])' "$repo/.delivery/ledger.json")"
+  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare --reviewer-identity reviewer.one)"
+  response_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["responseId"])' <<<"$packet")"
+  [[ "$response_id" != "$old_response_id" ]] || return 1
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --response-id "$old_response_id" 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "does not match the pending request" || return 1
+  python3 - "$repo/.delivery/ledger.json" "$repo" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1])); p=d["pendingCompletenessReview"]
+path=f"{sys.argv[2]}/{p['artifact']}"
+lines=[
+    "<!-- OMP_COMPLETENESS_RESPONSE -->",
+    f"COMPLETENESS_REVIEW_RESPONSE_ID: {p['responseId']}",
+    f"REVIEWER_IDENTITY: {p['reviewerIdentity']}",
+    f"PLAN_SHA256: {p['planSha256']}",
+    f"WORKTREE_FINGERPRINT: {p['worktreeFingerprint']}",
+    "VERDICT: COMPLETE",
+    "<!-- /OMP_COMPLETENESS_RESPONSE -->",
+]
+open(path,"w").write("\n".join(lines)+"\n")
+PY
+  response_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pendingCompletenessReview"]["responseId"])' "$repo/.delivery/ledger.json")"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --response-id "$response_id" >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert "pendingCompletenessReview" not in d
+assert d["completenessReview"]["status"] == "complete"
+assert len(d["completenessReview"]["artifactSha256"]) == 64
+assert d["evidence"]["completenessReview"]["status"] == "pass"
+PY
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record implPm --status pass --summary outcome >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record autoreview --status pass --summary reviewed >/dev/null
+  artifact="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["completenessReview"]["artifact"])' "$repo/.delivery/ledger.json")"
+  cp "$repo/$artifact" "$repo/$artifact.accepted"
+  printf 'tampered after acceptance\n' >>"$repo/$artifact"
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "artifact has changed since acceptance" || return 1
+  mv "$repo/$artifact.accepted" "$repo/$artifact"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY >/dev/null
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --response-id "$response_id" 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "no OMP completeness request is pending" || return 1
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record verify --status pass --summary verified >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record pr --status pass --summary opened >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" set --pr-url https://example.test/pr/1 >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage DONE >/dev/null
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["stage"] == "DONE", d
+assert (d["evidence"].get("adversarialQa") or {}).get("status") != "pass", d["evidence"]
+PY
+}
+
+
+test_omp_delivery_transitions_require_current_review_and_closeout_evidence() {
+  local repo="$TMP_ROOT/omp-transition-gates"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<article data-plan>omp gates</article>\n' >"$repo/thoughts/plans/x.html"
+  OMPCODE=1 DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING >/dev/null
+
+  local out code packet response_id artifact
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PR_OPEN 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "implPm.*autoreview.*completenessReview" || return 1
+
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record implPm --status pass --summary outcome >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record autoreview --status pass --summary reviewed >/dev/null
+  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare --reviewer-identity reviewer.one)"
+  artifact="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["artifact"])' <<<"$packet")"
+  response_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["responseId"])' <<<"$packet")"
+  python3 - "$packet" "$repo/$artifact" <<'PY'
+import json, os, sys
+packet=json.loads(sys.argv[1]); path=sys.argv[2]
+os.makedirs(os.path.dirname(path), exist_ok=True)
+with open(path, "w") as f:
+    f.write("\n".join(packet["requiredEnvelope"]) + "\n")
+PY
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --artifact "$artifact" --response-id "$response_id" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage PR_OPEN >/dev/null
+
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage DONE 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "verify.*pr.*prUrl" || return 1
+
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record verify --status pass --summary verified >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record pr --status pass --summary opened >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" set --pr-url https://example.test/pr/1 >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage DONE >/dev/null
+}
+
 run_test test_workspace_owner_handoff_and_witness_close
 run_test test_plan_title_extraction_and_advisory
+run_test test_omp_runtime_profile_detection_and_legacy_backfill
+run_test test_omp_completion_review_uses_bound_envelope
+run_test test_omp_delivery_transitions_require_current_review_and_closeout_evidence
 run_test test_init_creates_ledger
 run_test test_record_receipts_coexist_and_validate
 run_test test_unprotected_stage_moves_without_gates
@@ -1833,6 +2116,7 @@ run_test test_reflect_logs_outside_worktree
 run_test test_phase_herdr_label_format
 run_test test_spawn_dry_run_names_from_goal
 run_test test_spawn_uses_workspace_scoped_default_agent_name
+run_test test_omp_spawn_keeps_same_runtime_and_owner
 run_test test_browser_review_waits_for_explicit_readiness_request
 run_test test_readiness_review_requires_explicit_request
 run_test test_init_cannot_bypass_authorization_stages

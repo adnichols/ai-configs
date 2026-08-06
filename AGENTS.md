@@ -258,6 +258,12 @@ Expected Pi reviewed-plan flow in this repo:
 - `/skill:dev-plan <task>` remains available for planning-only work.
 - `/dev:run <plan>` remains available when you already have an execution-ready reviewed plan and want direct execution only.
 
+Expected OMP delivery flow in this repo:
+- Read `skill://delivery-run`, select `runtime=omp` / `workflowProfile=omp-lite`, and keep `.delivery/ledger.json` as the shared authoritative scoreboard.
+- Use normal OMP mode for planning and same-session implementation. Do not enable native plan mode, launch Pi, require a Pi implementation profile, or use Pi slash commands.
+- Use the configured OMP planner/reviewer contracts for readiness, autoreview, and completeness. OMP completeness is accepted only through the request-bound envelope from `delivery completion-review --prepare`; no Pi/Grok witness tab is involved.
+- OMP Lite renders only `PL:`, `I:`, `R:`, `PR:`, `D:`, and `B:` phase labels. It cannot enter PR stages without PM outcome, autoreview, and current completeness evidence, or enter `DONE` without final verification and PR evidence.
+
 Legacy external review commands remain explicit opt-in tools. They are not hidden fallbacks inside plan mode or execution.
 
 ## Linear Integration (ltui)

@@ -7,7 +7,7 @@ description: Create and gate execution-ready HTML development plans through Doct
 
 Use this skill when the user wants the planning and review process completed before implementation starts. The output is a single reviewed HTML plan that is registered in Doct through `doct-agent plans` on `https://doct.nodaste.com` and either marked execution-ready or explicitly blocked on a product/scope decision.
 
-The planning agent stops before product-code execution and may edit only the plan artifact. In a delivery-managed Herdr run, its final `EXECUTION_READY` transition automatically launches a separate dedicated implementation agent; in planning-only use, no implementation agent is launched.
+The planning agent stops before product-code execution and may edit only the plan artifact. In a Pi Full delivery run, its final `EXECUTION_READY` transition launches a separate dedicated implementation agent. In OMP Lite, the current OMP session remains the implementation owner and the transition records authorization without a handoff. In planning-only use, no implementation starts.
 
 ## Required companion skills
 
@@ -280,7 +280,7 @@ Before final output, inspect the HTML plan for obvious handoff blockers:
 - PM review left unresolved product-intent or user-impact gaps,
 - PM and Sol-medium planner readiness review began without an explicit execution-ready request (unless the operator directly requested that review).
 
-Do not implement product code in the planning agent. In a delivery-managed run, the final action of this skill is the automatic handoff below; the dedicated implementation agent owns all code, tests, fixes, Git, and PR work.
+Do not implement product code while the workflow is still in its planning-only authority. In Pi Full, the final action is the automatic handoff below and the dedicated implementation agent owns code, tests, fixes, Git, and PR work. In OMP Lite, readiness expands the same driving session's authority to implementation; no Pi handoff or model-profile verification occurs.
 
 ### 8b. Automatic execution-ready handoff
 
@@ -290,7 +290,7 @@ For a delivery-managed run, `execution-ready` authorizes the reviewed plan to pr
 delivery stage EXECUTION_READY
 ```
 
-That transition records workflow authorization, launches and prompts a dedicated Herdr Pi agent on the planner-selected profile, and continues toward implementation, verification, review, and PR creation without another routine operator approval. The planning agent stops after the handoff. Use `--hold` only when the operator explicitly requests a pause or a real external dependency prevents execution.
+That transition records workflow authorization. For Pi Full it launches and prompts a dedicated Herdr Pi agent on the planner-selected profile, then the planning agent stops. For OMP Lite it keeps the current OMP session as owner and proceeds without another routine operator approval. Use `--hold` only when the operator explicitly requests a pause or a real external dependency prevents execution.
 
 The planner's profile remains a workflow default, not a prohibition. A deliberate manual model/reasoning override may be recorded through the compatibility `approve-implementation` command after `delivery stage EXECUTION_READY --hold`, or from the already-recorded implementation pane with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. If material plan feedback arrives before code work, revoke the authorization and return to browser review for a fresh readiness request and review.
 
@@ -319,7 +319,7 @@ Review URL: <canonical Doct URL>
 <execution-ready / blocked>
 
 ### Execution handoff
-<For a delivery-managed run: report the planner-selected implementation profile and confirm that `delivery stage EXECUTION_READY` automatically launched the dedicated implementation agent, then stop the planning agent. For planning-only use: state that the plan is ready and no implementation was started.>
+<For Pi Full: report the planner-selected implementation profile and confirm that `delivery stage EXECUTION_READY` launched the dedicated implementation agent, then stop the planning agent. For OMP Lite: confirm that readiness was recorded and implementation continues in the current OMP session. For planning-only use: state that the plan is ready and no implementation was started.>
 ```
 
 If the plan is blocked, replace the execution handoff with a pointer to the unresolved `Decision Required` block(s) in the canonical Doct plan and ask the user to select an option or comment there. Do not restate an abbreviated option list in chat, and do not suggest a Markdown-only execution command unless the repo explicitly supports converting the reviewed HTML plan back to Markdown.

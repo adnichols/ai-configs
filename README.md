@@ -104,12 +104,27 @@ Codex prompt files plus config templates. Global Codex prompt discovery is handl
 Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.
 
 ### `_omp/`
-Canonical Oh My Pi host configuration and custom agents. `config.yml` is installed to `~/.omp/agent/config.yml` with mode `0600`; `AGENTS.md` and the custom agents are installed alongside it. The installer preserves the first differing local file as `<name>.before-ai-configs`.
+Canonical Oh My Pi host configuration, custom agents, and delivery routing.
+`config.yml` is installed to `~/.omp/agent/config.yml` with mode `0600`;
+`AGENTS.md` and custom agents are installed alongside it. The OMP-discoverable
+`delivery-run` skill is installed to
+`~/.agents/skills/delivery-run/SKILL.md`, and the `delivery` CLI is exposed
+through `~/.local/bin/delivery`. It preserves the first differing managed file as
+`<name>.before-ai-configs`.
 
-Run `bash _omp/install.sh` for an OMP-only local install. To install the tracked configuration on a remote host without requiring a remote ai-configs checkout:
+OMP delivery uses the persisted `omp-lite` profile: normal-mode planning,
+same-session implementation, bounded OMP planner/reviewer agents, request-bound
+completeness acceptance, verification, and PR handoff. It never launches Pi or
+enables OMP native plan mode. Start from OMP with
+`delivery spawn --runtime omp -- "<goal>"`, or bootstrap the current worktree
+with `delivery bootstrap --runtime omp --slug <slug> --goal "<goal>"`.
+
+Run `bash _omp/install.sh` for an OMP-only local install. To install the tracked
+configuration and delivery workflow on a remote host without requiring a
+remote ai-configs checkout:
 
 ```bash
-tar -C _omp -cf - config.yml AGENTS.md agents install.sh | ssh dever 'tmp=$(mktemp -d); trap "rm -rf \"$tmp\"" EXIT; tar -xf - -C "$tmp"; OMP_CONFIG_TARGET="$HOME/.omp/agent" bash "$tmp/install.sh"'
+tar -cf - _omp/config.yml _omp/AGENTS.md _omp/agents _omp/install.sh skills/delivery-run/SKILL.md skills/delivery-run/scripts/delivery | ssh dever 'tmp=$(mktemp -d); trap "rm -rf \"$tmp\"" EXIT; tar -xf - -C "$tmp"; OMP_CONFIG_TARGET="$HOME/.omp/agent" bash "$tmp/_omp/install.sh"'
 ```
 
 ### `amp/`

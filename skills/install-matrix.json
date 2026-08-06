@@ -393,6 +393,16 @@
       "notes": "Canonical shared planning doctrine.",
       "sourceType": "repo"
     },
+    "plan-reviewer-execution-ready": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [
+        "codex",
+        "pi"
+      ],
+      "canonicalSource": "skills/plan-reviewer-execution-ready",
+      "notes": "Compatibility route for Doct's requestedSkill=plan-reviewer-execution-ready dispatch; delegates unchanged plan and claim context to reviewed-html-plan at its explicit execution-readiness gate.",
+      "sourceType": "repo"
+    },
     "playwright-skill": {
       "class": "universal-installable",
       "allowedConsumers": [

@@ -1,42 +1,56 @@
 ---
 name: delivery-run
-description: Spawn a Herdr worktree from a goal and run plan ↔ independent Sol-medium review and implementation-profile decision → GPT-5.6 Terra at high by default or Sol medium for hard-to-validate work → Terra code review → visible Grok completeness review → PR with a durable stage ledger, board visibility, and end-of-run reflections. Use when the operator wants a new worktree started for them, delivery spawn/bootstrap/status/board/reflect, resuming delivery, or attaching a Linear issue later.
+description: Arm, spawn, bootstrap, resume, inspect, or complete the shared delivery workflow for OMP or Pi. Select the current runtime explicitly, use the durable delivery CLI and Herdr worktree, run the runtime-specific planning/review/implementation path through PR, and preserve board visibility and end-of-run reflections. Use for "arm our delivery workflow", "start delivery", delivery spawn/bootstrap/status/board/reflect, resuming delivery, or attaching a Linear issue later.
 ---
 
 # Delivery Run
 
-Use this skill to keep each delivery worktree visible in the existing development cycle:
+Use this skill to arm and operate the shared delivery state machine. Select the
+runtime before invoking it:
+
+- **OMP session:** use `runtime=omp`, `workflowProfile=omp-lite`, and the OMP
+  path in this skill.
+- **Pi session:** use `runtime=pi`, `workflowProfile=pi-full`, and the Pi path
+  in this skill.
+
+Never infer Pi merely because this skill originated in the shared
+configuration repository. Never create a second ledger or translate the
+workflow into ad hoc todos.
 
 ```text
-plan ↔ Sol-medium planner review + profile decision → GPT-5.6 Terra at high by default or Sol medium for hard-to-validate work → Terra autoreview → visible Grok completeness review → PR
+plan ↔ independent readiness review → implementation → scoped review →
+PM outcome → pre-PR review → independent completeness review → verify → PR
 ```
 
-with a visible plan-completeness reviewer, PM/customer-impact notes, and adversarial QA prompts.
+This skill is an **orchestrator and scoreboard**, not a replacement for the
+worker skills.
 
-This skill is an **orchestrator and scoreboard**, not a replacement for the worker skills.
+## From any session: spawn a new delivery worktree
 
-## From any Pi session: spawn a new delivery worktree
-
-Operators give **one freeform request**. They will not pass flags. Agents infer the rest.
+Operators give **one freeform request**. They will not pass flags. Agents infer
+the rest, but runtime selection is mandatory.
 
 ```bash
-# Typical human/agent usage — plain language only
-delivery spawn -- "honest auto-sync status"
-delivery spawn -- "NOD-1457 one login path"          # issue auto-detected
-delivery spawn -- "fix comment box jump on doct"
+# OMP — use this when the current agent is running in OMP
+delivery spawn --runtime omp -- "honest auto-sync status"
+delivery spawn --runtime omp -- "NOD-1457 one login path"
+
+# Pi — use this only when the current agent is running in Pi
+delivery spawn --runtime pi -- "fix comment box jump on doct"
 
 # Rare overrides (agent-only)
-delivery spawn --base origin/develop -- "…"
-delivery spawn --no-agent -- "…"
-delivery spawn --dry-run -- "preview naming"
+delivery spawn --runtime omp --base origin/develop -- "…"
+delivery spawn --runtime omp --no-agent -- "…"
+delivery spawn --runtime omp --dry-run -- "preview naming"
 ```
 
-Or: `/delivery:spawn NOD-1457 one login path`
+Pi also exposes `/delivery:spawn ...`; OMP does not require a Pi prompt
+command. In OMP, invoke `delivery` directly.
 
 `delivery spawn` auto-derives:
 - Linear issue from any `TEAM-123` token in the text
 - slug/branch/label from the remaining intent words
-- Herdr worktree + delivery bootstrap + child Pi prompt
+- Herdr worktree + delivery bootstrap + a child agent matching the selected runtime
 - a workspace-scoped, Herdr-valid default child-agent name so concurrent runs do not collide
 - phase-prefixed Herdr **space** (workspace) + tab labels that update on `delivery stage`
 
@@ -59,24 +73,29 @@ The descriptive half is always the work title/slug — never the long stage name
 
 `delivery stage …` refreshes the Herdr workspace name best-effort (never hard-fails).
 
-This parent session runs spawn and reports paths; the child worktree agent does the delivery cycle.
+This parent session runs spawn and reports paths; the child worktree agent does
+the delivery cycle. When already inside the target worktree, bootstrap there
+instead of spawning a nested worktree.
 
 ## Cold start (already inside a new Herdr worktree / new agent)
 
-If you were just spawned in a worktree, or an operator asked you to start the delivery workflow, do this immediately:
+If you were just spawned in a worktree, or an operator asked you to arm/start
+delivery for the current worktree, do this immediately:
 
 ```bash
-# Common: no Linear issue yet
-delivery bootstrap --slug <feature-slug> --goal "<operator ask>"
+# OMP, no Linear issue yet
+delivery bootstrap --runtime omp --slug <feature-slug> --goal "<operator ask>"
 
-# Linear known
-delivery bootstrap --issue NOD-123 --goal "<operator ask>"
+# OMP, Linear known
+delivery bootstrap --runtime omp --issue NOD-123 --goal "<operator ask>"
+
+# Pi equivalents
+delivery bootstrap --runtime pi --slug <feature-slug> --goal "<operator ask>"
+delivery bootstrap --runtime pi --issue NOD-123 --goal "<operator ask>"
 
 # Already bootstrapped earlier in this worktree
 delivery bootstrap --refresh
 ```
-
-Then:
 
 1. Read `.delivery/AGENT_BRIEF.md` (written by bootstrap) end-to-end when present. If it is absent, continue from `delivery show`, the ledger, and the plan; optionally recreate it with `delivery bootstrap --refresh`. A missing brief is not a code-work blocker.
 2. Run `delivery show` and `delivery check -v`.
@@ -90,24 +109,67 @@ delivery set --issue NOD-123 --retarget-id
 delivery bootstrap --refresh
 ```
 
-**Operator prompt to hand another agent** (copy/paste into a new Herdr pane):
+**Operator prompt to hand another OMP agent** (copy/paste into a new Herdr pane):
 
 ```text
-You are in a fresh worktree. Run /delivery:bootstrap with this goal, read .delivery/AGENT_BRIEF.md, then continue the delivery cycle (plan ↔ review → run-plan → autoreview → PR) from the recommended next step. Linear issue is optional; attach later with delivery set --issue KEY --retarget-id. Guidance not gates — do not hard-block on missing delivery evidence.
+You are in a fresh worktree. Read skill://delivery-run, bootstrap with
+runtime=omp, read .delivery/AGENT_BRIEF.md, then continue the OMP Lite delivery
+cycle from the recommended next step. Linear is optional; attach it later with
+delivery set --issue KEY --retarget-id.
 
 Goal: <paste goal>
 ```
+For Pi, use `/delivery:bootstrap` and the Pi Full cycle instead.
+
+## OMP Lite path
+
+When the current runtime is OMP, this section overrides every Pi-specific
+launch, model-profile, slash-command, and visible-Grok instruction elsewhere
+in this skill.
+
+1. Arm the current worktree with
+   `delivery bootstrap --runtime omp --slug <slug> --goal "<ask>"`, or spawn a
+   new OMP-owned worktree with `delivery spawn --runtime omp -- "<ask>"`.
+2. Confirm `delivery show` reports `runtime: omp` and
+   `workflowProfile: omp-lite`. A mismatch is a hard stop; do not continue on a
+   Pi ledger.
+3. Keep the current OMP agent as owner from planning through implementation.
+   `delivery stage EXECUTION_READY` records authorization only; it does not
+   launch a replacement Pi agent, choose a Pi model profile, or require OMP
+   native plan mode.
+4. Materialize the plan, request one bounded independent readiness review with
+   the configured OMP `@planner`, resolve findings within the review-cycle
+   limit, and record the current request/evidence. Do not enter
+   `IMPLEMENTING` until the CLI accepts `EXECUTION_READY`.
+5. Implement directly in the driving OMP session. Run the scoped review, PM
+   outcome review, configured OMP `@reviewer` pre-PR review, and verification;
+   record each result with `delivery record`.
+6. At `COMPLETENESS_REVIEW`, run
+   `delivery completion-review --prepare --reviewer-identity <identity>`.
+   Give the emitted packet to a separate OMP `@reviewer`; it must write its
+   result to the exact packet artifact using the exact seven-line envelope.
+   Accept only with the emitted `acceptCommand`. On `INCOMPLETE`, fix the
+   findings and prepare a fresh request.
+7. Stage `VERIFY_FRESHNESS`, create the PR with repository conventions, record
+   the PR URL, then stage `PR_OPEN` and `MERGE_READY`. `ADVERSARIAL_QA` and
+   `REFLECT` are optional OMP actions recorded without exposing extra OMP
+   phases; finish at `DONE`.
+
+OMP Lite visible phase codes are only `PL`, `I`, `R`, `PR`, `D`, and `B`.
+Detailed stages remain in `.delivery/ledger.json`; do not surface Pi-only
+ceremony in OMP status labels. Run `delivery stages` and `delivery check -v`
+for the current exact next-step and evidence contract.
 
 ## Doctrine: guidance, not gates
 
 - Recommended checks produce **advisories and ledger gaps**.
 - Most stage transitions succeed even with advisory evidence gaps.
 - `delivery check` always exits 0, even when evidence is missing.
-- A broken optional integration such as Herdr labels must never force the operator to disable the whole workflow. The explicit readiness, independent plan-review, implementation-profile, and completeness boundaries fail closed and report a retry command.
-- Existing skills (`reviewed-html-plan`, `run-plan`, `autoreview`, PM review, `qa:run`) remain authoritative for their work.
-- The labeled-tab **visible completeness review** is the exception to advisory quality evidence for a Herdr delivery run: `delivery stage MERGE_READY` rejects a missing, stale, or unaccepted Grok 4.5 `COMPLETE` verdict unless the operator explicitly waives that review. `delivery check` and all other stage changes remain non-blocking so work can be inspected, corrected, or handed off.
-- Firmness is limited to explicit readiness authorization, the independent Sol-medium plan verdict and implementation-profile decision, the dedicated selected runtime, and completion evidence; the rest of the ledger optimizes for visibility, resumability, and honest status.
-- An implementation run cannot enter `DONE`—including through `delivery reflect --mark-done`—until current implementation, scoped review, PM outcome, autoreview, completeness, verification, PR, customer-impact/completion, and adversarial-QA disposition evidence is recorded. Planning-only runs that never entered `IMPLEMENTING` may still finish without a PR.
+- A broken optional integration such as Herdr labels must never force the operator to disable the whole workflow. Explicit readiness and completeness boundaries fail closed and report a retry command. Pi Full additionally enforces its plan-review and implementation-profile boundaries.
+- Runtime-specific worker skills remain authoritative: OMP uses the configured `@planner` and `@reviewer` contracts plus direct driving-session implementation; Pi Full uses `reviewed-html-plan`, `run-plan`, `autoreview`, PM review, and its visible Grok reviewer.
+- Completeness is the exception to advisory quality evidence. OMP Lite requires a fresh accepted OMP reviewer envelope; Pi Full requires a fresh accepted labeled-tab Grok 4.5 `COMPLETE` verdict unless the operator explicitly waives it. `delivery stage MERGE_READY` rejects missing or stale evidence.
+- Firmness is limited to explicit readiness authorization, the selected runtime/profile, and runtime-specific completion evidence; the rest of the ledger optimizes for visibility, resumability, and honest status.
+- Pi Full implementation runs cannot enter `DONE` until current implementation, scoped review, PM outcome, pre-PR review, completeness, verification, PR, customer-impact/completion, and adversarial-QA disposition evidence is recorded. OMP Lite cannot enter `PR_OPEN` or `MERGE_READY` without `implPm`, `autoreview`, and a current accepted request-bound completeness artifact, and cannot enter `DONE` without those plus `verify`, `pr`, and `prUrl`. Planning-only runs that never entered `IMPLEMENTING` may still finish without a PR.
 - Planning readiness has a three-cycle convergence budget. Every `planTech=gap` consumes one cycle; after three gaps, stop with a blocker or explicit operator decision rather than launching another ordinary review.
 
 If guidance and checks/balances are right, agents should usually do the right thing without hard boundaries. Record when they do not, and keep going unless the operator stops the work.
@@ -126,9 +188,9 @@ delivery set --issue NOD-123 --retarget-id   # also rebuild id to repo/NOD-123
 delivery set --plan thoughts/plans/foo.html --doct-url https://doct... --pr-url https://github.com/...
 delivery set --clear-issue
 
-# New agent / new worktree navigator
-delivery bootstrap --slug my-feature --goal "what the operator asked"
-delivery bootstrap --issue NOD-123 --goal "..."
+# New agent / new worktree navigator (always name the runtime on first bootstrap)
+delivery bootstrap --runtime omp --slug my-feature --goal "what the operator asked"
+delivery bootstrap --runtime pi --issue NOD-123 --goal "..."
 delivery bootstrap --refresh
 
 # End-of-run reflection (outside worktree → ~/.pi)

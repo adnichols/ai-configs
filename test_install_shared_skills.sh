@@ -310,7 +310,6 @@ seed_phase_two_home() {
     cmd-start-linear-issue-branch
     opencode-safe-restart
     plan-reviewer-build
-    plan-reviewer-execution-ready
     review-change
     review-change-integrate
     herdr-reviewers
@@ -445,7 +444,6 @@ assert_shared_skill_install_state() {
     cmd-start-linear-issue-branch
     opencode-safe-restart
     plan-reviewer-build
-    plan-reviewer-execution-ready
     review-change
     review-change-integrate
     herdr-reviewers
@@ -656,6 +654,46 @@ test_single_surface_modes_reuse_shared_sync() {
   [[ -d "$home/.agents/skills" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/linear" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/cmd-debug" ]] || return 1
+}
+
+test_pi_local_skills_are_consolidated_into_shared_agents_directory() {
+  local home
+  local backup_dir
+  local remaining_pi_entries
+
+  home="$(new_tmp_dir)"
+  mkdir -p \
+    "$home/.agents/skills/conflicting-skill" \
+    "$home/.pi/agent/skills/pi-only-skill" \
+    "$home/.pi/agent/skills/conflicting-skill"
+
+  printf '%s\n' 'shared version' > "$home/.agents/skills/conflicting-skill/SKILL.md"
+  printf '%s\n' 'pi-only version' > "$home/.pi/agent/skills/pi-only-skill/SKILL.md"
+  printf '%s\n' 'pi-local conflict' > "$home/.pi/agent/skills/conflicting-skill/SKILL.md"
+  ln -s "$home/.agents/skills/dangling-skill" "$home/.pi/agent/skills/dangling-skill"
+
+  run_installer "$home" --skills || return 1
+
+  assert_file_contains "$home/.agents/skills/pi-only-skill/SKILL.md" 'pi-only version' || return 1
+  assert_file_contains "$home/.agents/skills/conflicting-skill/SKILL.md" 'shared version' || return 1
+  backup_dir="$(find_consumer_backup_dir "$home" pi conflicting-skill)"
+  [[ -n "$backup_dir" ]] || return 1
+  assert_file_contains "$backup_dir/SKILL.md" 'pi-local conflict' || return 1
+
+  remaining_pi_entries="$(find "$home/.pi/agent/skills" -mindepth 1 -maxdepth 1 -print)"
+  [[ -z "$remaining_pi_entries" ]]
+}
+
+test_execution_ready_route_is_installed_for_omp() {
+  local home
+
+  home="$(new_tmp_dir)"
+  run_installer "$home" --skills || return 1
+
+  [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" ]] || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'name: plan-reviewer-execution-ready' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" '/skill:reviewed-html-plan <same plan and event context, unchanged>' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'Do not wait for another readiness request' || return 1
 }
 
 test_project_local_central_skill_overrides_are_removed() {
@@ -1741,11 +1779,14 @@ test_phase_four_validation_proves_final_alignment() {
   [[ -f "$home/.agents/skills/external-skill/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/linear/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/doct-document-ops/SKILL.md" ]] || return 1
-  [[ ! -e "$home/.agents/skills/plan-reviewer-execution-ready" ]] || return 1
+  [[ -f "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" ]] || return 1
   [[ ! -e "$home/.agents/skills/plan-reviewer-build" ]] || return 1
   [[ -f "$home/.agents/skills/run-plan/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/autoreview/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/pre-pr-implementation-review/SKILL.md" ]] || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'name: plan-reviewer-execution-ready' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" '/skill:reviewed-html-plan <same plan and event context, unchanged>' || return 1
+  assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'Do not wait for another readiness request' || return 1
   assert_file_contains "$home/.agents/skills/autoreview/SKILL.md" 'name: autoreview' || return 1
   assert_file_contains "$home/.agents/skills/pre-pr-implementation-review/SKILL.md" 'indefinite compatibility alias' || return 1
   assert_file_contains "$home/.agents/skills/pre-pr-implementation-review/SKILL.md" '/skill:autoreview <same arguments, unchanged>' || return 1
@@ -1988,6 +2029,8 @@ main() {
   run_test test_update_modifier_syncs_skills_for_modes_without_normal_skill_sync
   run_test test_default_mode_reuses_shared_sync_without_mutating_repo_root
   run_test test_single_surface_modes_reuse_shared_sync
+  run_test test_pi_local_skills_are_consolidated_into_shared_agents_directory
+  run_test test_execution_ready_route_is_installed_for_omp
   run_test test_project_local_central_skill_overrides_are_removed
   run_test test_non_managed_retired_skill_is_preserved
   run_test test_failpoint_after_backup_keeps_destination_recoverable

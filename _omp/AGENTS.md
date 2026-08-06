@@ -38,6 +38,32 @@ or explicit scope.
 - Do not invoke either agent for routine factual lookups, ordinary coding
   choices, or unresolved human/product decisions that require user input.
 
+## Delivery workflow routing
+
+- When the operator says "arm our delivery workflow", "start delivery",
+  "delivery spawn", "run this through delivery", "resume delivery", or asks
+  for the maintained plan-to-PR delivery cycle, MUST read
+  `skill://delivery-run` before changing delivery state.
+- OMP MUST select `runtime=omp` and `workflowProfile=omp-lite`. From a parent
+  session, use `delivery spawn --runtime omp -- "<operator ask>"`; inside the
+  target worktree, use
+  `delivery bootstrap --runtime omp --slug <slug> --goal "<operator ask>"`.
+  Never enter the Pi Full route merely because shared repository guidance also
+  documents Pi.
+- The `delivery` CLI and `.delivery/ledger.json` are authoritative. Do not
+  create a parallel state machine, reduce delivery to ordinary todos, or
+  bypass a readiness/completeness rejection.
+- OMP Lite keeps the driving OMP session as implementation owner after
+  `EXECUTION_READY`; it does not launch a Pi implementation agent, require Pi
+  model-profile verification, or use Pi slash commands.
+- Use the configured OMP `@planner` for bounded independent plan readiness and
+  `@reviewer` for material pre-PR and completeness review. The driving OMP
+  session owns all edits, tests, Git state, and fixes.
+- OMP completeness uses
+  `delivery completion-review --prepare --reviewer-identity <identity>` and
+  the emitted request-bound artifact/envelope. Accept only with the emitted
+  `acceptCommand`; never substitute the Pi/Grok transcript protocol.
+
 ## Implementation and verification
 
 - Reuse existing repository patterns. Make the smallest complete change that

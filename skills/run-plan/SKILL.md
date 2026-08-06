@@ -1,11 +1,13 @@
 ---
 name: run-plan
-description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, active-harness pre-PR review, a visible labeled-tab Pi/Grok 4.5 completeness-review loop for Herdr delivery runs, verification, commit, push, PR creation, and local merge-readiness consensus without expanding beyond the plan's stated scope.
+description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, active-harness pre-PR review, runtime-specific completeness review, verification, commit, push, PR creation, and local merge-readiness consensus without expanding beyond the plan's stated scope.
 ---
 
 # Run Plan
 
-Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates, active-harness reviewer-subagent pre-PR review gate, and—when running through Herdr delivery—a visible Grok 4.5 plan-completeness review loop, while preventing reviewer-driven scope creep.
+Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates, active-harness reviewer-subagent pre-PR review gate, and runtime-specific plan-completeness review, while preventing reviewer-driven scope creep.
+
+When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before applying runtime-specific instructions. `omp / omp-lite` keeps implementation in the current OMP session and uses the request-bound OMP reviewer envelope produced by `delivery completion-review --prepare`; it does not require a dedicated Pi pane, Pi model-profile verification, Pi slash commands, or a Grok tab. `pi / pi-full` retains the dedicated implementation pane, planner-selected profile, and visible labeled-tab Grok completeness loop. Never convert an existing ledger between profiles.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
@@ -41,7 +43,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Verification convergence is budgeted. When the Verification Convergence Budget is exhausted and every residual failure classifies as inherited or infra/cosmetic with targeted verification green, opening the draft PR with disclosure and stopping on the ship/keep-fixing question is the required next action, not a policy violation.
 - Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
 - Do not create a PR until the active-harness reviewer-subagent pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
-- For a Herdr delivery run, do not claim local merge readiness until the visible labeled-tab Pi reviewer running `xai/grok-4.5:high` returns `VERDICT: COMPLETE` against the current plan and live worktree, or the operator explicitly waives that completeness review. Fix every in-plan finding and request rereview; the driving agent owns fixes and verification.
+- For a Herdr delivery run, do not claim local merge readiness until the selected profile's current completeness evidence is accepted or the operator explicitly waives it. OMP Lite accepts only the exact request-bound OMP response envelope emitted by `delivery completion-review --prepare`; Pi Full requires the visible labeled-tab reviewer running `xai/grok-4.5:high` to return `VERDICT: COMPLETE`. Fix every in-plan finding and request rereview; the driving agent owns fixes and verification.
 - Do not stop after the reviewer-subagent pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
 - Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
 - Never delay PR creation for deployment or post-merge operational evidence, even when an older plan places that evidence in a phase or completion checklist. Reclassify it as a non-blocking delivery obligation and preserve it in the PR body/plan deviation log.
@@ -65,7 +67,7 @@ Before editing, read the full plan and extract:
 Stop before implementation if:
 
 - the plan is not execution-ready,
-- a delivery ledger exists and is not being entered from the dedicated implementation pane with the recorded runtime profile—or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, automatic workflow authorization, and successful implementation-agent launch record. The planner recommends `openai-codex/gpt-5.6-terra` at high by default and `openai-codex/gpt-5.6-sol` at medium for hard-to-validate/critical work, but a deliberate manual model/reasoning choice is allowed when recorded with a reason. `delivery stage EXECUTION_READY` performs the normal authorization and launch without another operator approval pause. Run `delivery verify-implementation-profile` before code work; if this already-recorded pane was deliberately switched, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. Never treat readiness metadata, a generic Doct comment/action, or a quiet listener as readiness authorization,
+- a `pi-full` delivery ledger exists and is not being entered from the dedicated implementation pane with the recorded runtime profile—or it lacks a current explicit readiness request, independent Sol-medium planner verdict for the exact plan, automatic workflow authorization, and successful implementation-agent launch record. The planner recommends `openai-codex/gpt-5.6-terra` at high by default and `openai-codex/gpt-5.6-sol` at medium for hard-to-validate/critical work, but a deliberate manual model/reasoning choice is allowed when recorded with a reason. `delivery stage EXECUTION_READY` performs the normal authorization and launch without another operator approval pause. Run `delivery verify-implementation-profile` before code work; if this already-recorded pane was deliberately switched, use `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. OMP Lite deliberately remains in the coordinating OMP session and does not launch a dedicated implementation pane. Never treat readiness metadata, a generic Doct comment/action, or a quiet listener as readiness authorization,
 - acceptance criteria are vague enough that scope cannot be enforced,
 - required user decisions remain unresolved,
 - the current branch contains unrelated dirty changes that make isolation unsafe,
@@ -73,9 +75,9 @@ Stop before implementation if:
 
 ## Oracle decision support
 
-In Pi, proactively invoke the repository-owned read-only `oracle` subagent when implementation exposes one consequential decision that the reviewed plan and targeted repository evidence do not settle: competing ownership or architecture choices, hard-to-reverse exact-contract/schema/migration decisions, conflict with locked plan decisions, or a newly exposed tradeoff that could require a plan pivot. Do not wait for the operator to request Oracle. Consult once before locking the choice, changing a public contract, or escalating.
+In Pi Full, proactively invoke the repository-owned read-only `oracle` subagent when implementation exposes one consequential decision that the reviewed plan and targeted repository evidence do not settle: competing ownership or architecture choices, hard-to-reverse exact-contract/schema/migration decisions, conflict with locked plan decisions, or a newly exposed tradeoff that could require a plan pivot. Do not wait for the operator to request Oracle. Consult once before locking the choice, changing a public contract, or escalating. OMP Lite has no Oracle requirement; ask the operator when repository evidence cannot settle a consequential product or scope decision.
 
-**Launch contract:** `Agent` with only `subagent_type: "oracle"`, a short 3–5 word `description`, and the decision `prompt`. Omit caller-side `model`, `thinking`, `reasoningEffort`, `inherit_context`, and `isolation`. Checked-in frontmatter pins `openai-codex/gpt-5.6-sol` high, inherited/forked parent context, and `isolation: none`. Setting `inherit_context: false` or `isolation: "worktree"` is a workflow violation. Inspect final tool arguments before launch and strip those properties if present.
+**Pi Full launch contract:** `Agent` with only `subagent_type: "oracle"`, a short 3–5 word `description`, and the decision `prompt`. Omit caller-side `model`, `thinking`, `reasoningEffort`, `inherit_context`, and `isolation`. Checked-in frontmatter pins `openai-codex/gpt-5.6-sol` high, inherited/forked parent context, and `isolation: none`. Setting `inherit_context: false` or `isolation: "worktree"` is a workflow violation. Inspect final tool arguments before launch and strip those properties if present.
 
 **Packet:** bounded decision; plan constraints and inherited decisions; current evidence and files; credible options; the driving agent's recommendation and uncertainty; one narrow question ending with `?`. Verify claims and record disposition (`accepted` / `partially-accepted` / `rejected` / `escalated`) with why in the coverage ledger and plan decisions/deviations log when it changes the execution path.
 
@@ -166,32 +168,35 @@ Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: onl
 
 ### 0b. Delivery ledger and visible completeness review
 
-When the `delivery` CLI or `delivery-run` skill is available, keep the per-worktree ledger current as soft progress tracking. The implementation authorization remains mandatory before code work. In a Herdr delivery worktree, the visible completeness review is also mandatory before a local merge-readiness claim; other ledger evidence remains advisory.
+When the `delivery` CLI or `delivery-run` skill is available, keep the per-worktree ledger current as soft progress tracking. The implementation authorization remains mandatory before code work. In a `pi-full` Herdr delivery worktree, the visible labeled-tab Pi/Grok completeness review is mandatory before a local merge-readiness claim. In an `omp-lite` run, completeness review stays in the coordinating OMP session and uses request-bound packet acceptance. Other ledger evidence remains advisory.
 
 ```bash
 delivery init --plan <plan-path>                 # issue optional at start
 delivery set --issue <KEY> --retarget-id         # attach Linear later when it exists
-# After the explicit readiness request and clean PM/Sol reviews, this automatically
-# authorizes and launches a dedicated Herdr Pi agent using the recommended GPT-5.6 Terra
-# at high or Sol-medium runtime. No additional routine operator approval is required:
+# Pi Full: this authorizes and launches the dedicated Herdr implementation agent.
+# OMP Lite: this records authorization and remains in the coordinating OMP session.
 delivery stage EXECUTION_READY
 # Use `delivery stage EXECUTION_READY --hold` only for an explicit pause or real external dependency.
-# The planning agent stops. In the newly launched implementation agent:
+# Pi Full only, in the newly launched implementation agent:
 delivery verify-implementation-profile
 # If this recorded implementation pane was deliberately switched to another model:
 delivery verify-implementation-profile --adopt-current-runtime --reason "manual choice for this run"
 delivery stage IMPLEMENTING
 delivery stage SCOPED_REVIEW|IMPL_PM_OUTCOME|AUTOREVIEW|COMPLETENESS_REVIEW|PR_OPEN|MERGE_READY|DONE
-# Before final verification/local merge readiness in Herdr:
+# Before final verification/local merge readiness:
 delivery stage COMPLETENESS_REVIEW
+# Pi Full:
 delivery completion-review
 delivery completion-review --rerun  # after in-plan fixes, until VERDICT: COMPLETE
-delivery completion-review --accept  # captures artifact and validates plan/worktree freshness
+delivery completion-review --accept
+# OMP Lite:
+delivery completion-review --prepare --reviewer-identity <configured-reviewer>
+delivery completion-review --accept --artifact <artifact> --response-id <id>
 delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
 delivery check -v   # advisories only; always exit 0
 ```
 
-Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization, Sol-medium plan review and profile recommendation, automatic workflow authorization, dedicated-agent launch, recorded Herdr-pane identity, or live recorded-runtime evidence is different: it stops pre-code execution. A model mismatch is recoverable rather than a hard policy block: either switch to the recorded model, or deliberately adopt the current model in the same implementation pane with `--adopt-current-runtime --reason`. A failed launch is retried with `delivery start-implementation`; delivery first reconciles an expected live Pi agent in the recorded pane so shell-readiness races do not leave a false `start-failed` state. The planning agent does not take over implementation. For a Herdr delivery run, a missing validated `delivery completion-review --accept` result after implementation also prevents a local merge-readiness claim unless the operator explicitly waives that review. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
+Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization is different: it stops pre-code execution. Pi Full additionally requires its Sol-medium plan review/profile recommendation, automatic workflow authorization, dedicated-agent launch, recorded Herdr-pane identity, and live recorded-runtime evidence. A Pi Full model mismatch is recoverable: switch to the recorded model, or deliberately adopt the current model in the same implementation pane with `--adopt-current-runtime --reason`. Retry a failed Pi Full launch with `delivery start-implementation`; delivery first reconciles an expected live Pi agent in the recorded pane. OMP Lite has no dedicated-agent launch or implementation-profile requirement and intentionally plans and implements in one coordinating session. For any delivery run, a missing validated completeness result after implementation prevents a local merge-readiness claim unless the operator explicitly waives it: Pi Full uses the visible labeled-tab review; OMP Lite uses the exact request-bound acceptance envelope. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
 
 When the scoped run reaches local merge-readiness or a durable stop (DONE/blocked handoff), best-effort log a process reflection outside the worktree:
 
@@ -207,7 +212,7 @@ This appends to `~/.pi/DELIVERY_REFLECTIONS.md` and `~/.pi/delivery-reflections.
 1. Check whether a compatible run-plan state is already active in the available runtime tracking surface.
 2. If no compatible run state is active, create an explicit lifecycle task set before implementation. In Pi, use the `todo` tool's `create` and `update` actions, keeping exactly one task `in_progress` at a time. In Codex, use Codex goal/task state. Include a final post-PR readiness task that cannot be marked complete until all completion criteria are satisfied.
 3. The objective must require both:
-   - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, and—when the run is a Herdr delivery worktree—the visible labeled-tab Grok 4.5 completeness-review loop to `COMPLETE` or an explicit waiver, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
+   - executing every unfinished PR-reviewable phase of the specified plan through implementation, verification, implementation-stage PM review, runtime-native scoped review, the active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings or an explicit recorded waiver, and—when the run is a Herdr delivery worktree—the selected profile's completeness review or an explicit waiver, base freshness checks, commit, push, and PR creation, while preserving deployment/post-merge work as non-blocking delivery obligations;
    - checking the PR after creation for existing actionable feedback and mergeability evidence, without waiting for a Codex thumbs-up or other external approval after local review-agent consensus is clean.
 4. If an active run state already exists and it is compatible with this scoped plan run, continue under it and state the compatibility in working notes.
 5. If an active run state exists but conflicts with this scoped plan run, stop and ask the user whether to finish, block, or abandon the existing run before replacing its task set.
@@ -394,9 +399,11 @@ When the gate reports `OPEN_PR_READY` or equivalent clean consensus, run the vis
 
 Record the reviewer model/effort, verdict, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
 
-### 10a. Visible Completeness Review (Herdr delivery runs)
+### 10a. Runtime-owned Completeness Review (delivery runs)
 
-This is a second, operator-visible review of **whether the implementation completes the plan**, not a replacement for the active-harness code reviewer. It applies when this run is in a delivery-managed Herdr worktree. Start it from the driving agent's pane:
+This is a second review of **whether the implementation completes the plan**, not a replacement for the active-harness code reviewer. It applies when this run uses the delivery ledger.
+
+For Pi Full, start the visible labeled-tab review from the driving agent's pane:
 
 ```bash
 delivery stage COMPLETENESS_REVIEW
@@ -416,6 +423,18 @@ Repeat until it returns `VERDICT: COMPLETE`, with an AC/BDD coverage table and `
 ```bash
 delivery completion-review --accept
 ```
+
+For OMP Lite, stay in the coordinating OMP session:
+
+```bash
+delivery stage COMPLETENESS_REVIEW
+delivery completion-review --prepare --reviewer-identity <configured-reviewer>
+# Send the emitted packet unchanged to the configured read-only OMP reviewer.
+# Save exactly one seven-line response envelope to the requested artifact.
+delivery completion-review --accept --artifact <artifact> --response-id <id>
+```
+
+OMP Lite acceptance is request-bound. The response ID, reviewer identity, plan SHA-256, worktree fingerprint, and exact `VERDICT: COMPLETE` envelope must match the pending request; stale, replayed, interrupted, malformed, Pi-origin, or `INCOMPLETE` artifacts are rejected without partial ledger mutation. Fix in-plan findings and prepare a fresh request rather than reusing an accepted or invalid artifact.
 
 This loop is separate from the active-harness reviewer-cycle budget because it checks plan completion rather than re-running the same code-review gate. If the same plan-completeness disagreement remains unresolved after three correction/rereview rounds, stop with the concrete criterion and smallest required operator decision; do not fabricate consensus. An explicit operator waiver may permit PR creation, but record it as waived/missing completeness coverage and never claim local merge readiness as clean.
 

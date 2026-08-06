@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Minimal Cross-Runtime Delivery Workflow for OMP and Pi</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#111827; --text:#e5e7eb; --muted:#a7b0c2; --border:#2c364f; --accent:#7dd3fc; --good:#34d399; --warn:#fbbf24; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at top left,rgba(125,211,252,.12),transparent 30rem),var(--bg); color:var(--text); font:16px/1.58 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1100px,calc(100% - 32px)); margin:auto; padding:32px 0 72px; }
+    header,section,article { background:rgba(17,24,39,.88); border:1px solid var(--border); border-radius:18px; padding:22px; margin:16px 0; }
+    header { background:linear-gradient(135deg,rgba(125,211,252,.14),rgba(167,139,250,.12)); }
+    h1,h2,h3 { color:#f8fafc; line-height:1.2; } h1 { margin:0 0 10px; font-size:clamp(1.8rem,4vw,2.4rem); } h2 { margin:0 0 12px; } h3 { color:var(--accent); }
+    a { color:var(--accent); } .muted { color:var(--muted); } .good { color:var(--good); } .status { display:inline-flex; border:1px solid rgba(251,191,36,.55); border-radius:999px; padding:5px 10px; color:var(--warn); background:rgba(15,23,42,.76); font-weight:700; }
+    code,pre { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; } code { background:#0f172a; border:1px solid var(--border); border-radius:6px; padding:.06rem .28rem; } pre { overflow:auto; background:#0f172a; border:1px solid var(--border); border-radius:12px; padding:16px; }
+    table { width:100%; border-collapse:collapse; margin:12px 0; } th,td { border:1px solid var(--border); padding:10px 12px; vertical-align:top; } th { background:rgba(125,211,252,.1); text-align:left; }
+    .toc { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:8px 16px; } .toc a { color:var(--muted); text-decoration:none; } .toc a:hover { color:var(--accent); }
+    .decision { border:1px solid rgba(251,191,36,.45); background:rgba(251,191,36,.08); border-radius:14px; padding:14px 16px; } .phase { border-color:#355378; } .checklist { list-style:none; padding-left:0; } .checklist li { margin:7px 0; } .checklist input { accent-color:var(--accent); }
+  </style>
+</head>
+<body>
+<main>
+  <header id="summary">
+    <div class="status">Execution-ready</div>
+    <h1>Minimal Cross-Runtime Delivery Workflow for OMP and Pi</h1>
+    <p class="muted">Introduce a small OMP-native delivery profile that keeps normal OMP coding mode, prevents accidental Pi handoff, and exposes only useful phase indicators. Pi retains its existing delivery profile.</p>
+    <p><strong>Request:</strong> make the shared workflow callable from either runtime without OMP enabling plan mode or launching Pi. Keep PM outcome review, autoreview, and a completeness review; remove Pi-specific ceremony from the OMP default.</p>
+  </header>
+
+  <section id="contents"><h2>Contents</h2><nav class="toc">
+    <a href="#product-context">Product-owner context</a><a href="#whats-new">What’s new</a><a href="#goal">Goal</a><a href="#decision-attention">Decision attention</a><a href="#progress">Progress</a><a href="#why">Why this exists</a><a href="#authority">Authority and inputs</a><a href="#reality">Current implementation reality</a><a href="#alignment">Product intent alignment</a><a href="#decisions">Locked decisions</a><a href="#contract-inventory">Contract inventory</a><a href="#acceptance">Acceptance criteria</a><a href="#bdd">BDD scenarios</a><a href="#phases">Execution phases</a><a href="#verification">Verification strategy</a><a href="#order">Delivery order</a><a href="#non-goals">Non-goals</a><a href="#resume">Resume instructions</a><a href="#review-record">Review record</a><a href="#deviations">Decisions / deviations log</a>
+  </nav></section>
+
+  <section id="product-context">
+    <h2>Product-owner context</h2>
+    <p><strong>Conclusion:</strong> this is an operator workflow defect, not a stale-test or documentation-only problem. The current delivery CLI identifies itself as shared infrastructure but executes Pi-specific handoffs at launch, runtime verification, completeness review, and reflection. An OMP caller can therefore create a Pi session unintentionally.</p>
+    <p>OMP does not need Pi’s native-plan-mode assumptions to produce a reviewed Doct plan. The desired first release is deliberately narrow: retain trustworthy reviews but display only the operator’s real state—planning, implementing, reviewing, PR, done, or blocked.</p>
+    <table id="impact-table"><tr><th>Dimension</th><th>Impact</th></tr>
+      <tr><td>Customers</td><td>Internal delivery-tool operators gain a predictable OMP path; no external customer behavior changes.</td></tr>
+      <tr><td>Runtime product behavior</td><td>OMP runs stay in their OMP owner session; Pi runs retain their existing Pi Full behavior.</td></tr>
+      <tr><td>Security / permissions</td><td>No change. Runtime selection fails closed rather than silently launching another runtime.</td></tr>
+      <tr><td>Testing / release confidence</td><td>New fake-Herdr and CLI integration coverage proves both dispatch and evidence gates; Pi regression tests remain required.</td></tr>
+      <tr><td>Deployment / migration</td><td>No migration, service deployment, or post-merge operational gate. Existing ledgers retain Pi semantics unless explicitly bootstrapped as OMP before plan work.</td></tr>
+    </table>
+    <p><strong>UI-impact triage:</strong> only Herdr labels and delivery CLI text change. Hosted application UI is not affected; fake-Herdr assertions and CLI output tests are the appropriate design evidence.</p>
+  </section>
+
+  <section id="whats-new">
+    <h2>What’s new</h2>
+    <p><strong>Behavior promise:</strong> starting delivery from OMP now selects and persists an OMP Lite profile, continues in the current OMP session, and never launches Pi by accident.</p>
+    <table><tr><th>Audience-visible change</th><th>Before</th><th>After</th></tr>
+      <tr><td>OMP operator</td><td>A shared command can enter Pi-specific launch/review paths and many detailed Pi stages appear.</td><td>An explicit or detected <code>omp-lite</code> ledger uses normal OMP mode and six macro labels.</td></tr>
+      <tr><td>Pi operator</td><td>Pi Full launch, profile selection, visible completeness review, and reflection exist.</td><td>Those guarantees remain unchanged behind the <code>pi-full</code> profile.</td></tr>
+      <tr><td>Observable result</td><td>Runtime ownership is implicit and unsafe.</td><td>Status and board display runtime/profile; ambiguous new runs provide one corrective command.</td></tr>
+    </table>
+    <p>Preserved guarantees: Doct remains the browser-review surface; OMP does not enable native plan mode; OMP Lite still requires PM outcome, autoreview, current completeness evidence, final verification, and PR evidence.</p>
+  </section>
+
+  <section id="goal"><h2>Goal</h2><p>Make <code>delivery</code> safely usable from OMP and Pi by persisting caller runtime and workflow profile. Ship <strong>OMP Lite</strong>: normal-mode reviewed planning, same-session implementation, one consolidated review phase, verification, and PR handoff, while keeping <strong>Pi Full</strong> behavior intact.</p></section>
+
+  <section id="decision-attention"><h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="decision" id="decision-runtime-contract"><p><strong>Resolved by the request:</strong> OMP plan mode remains disabled; OMP uses same-session implementation; PM outcome, autoreview, and completeness stay required; no visible Grok/Herdr witness tab is required for OMP Lite.</p><p><strong>Confidence:</strong> high. These are explicit user decisions and align with the current <code>OMPCODE=1</code> runtime marker and configured OMP reviewer.</p></div>
+    <p>No unresolved product decision blocks readiness. Technical uncertainty is limited to exact existing CLI seams; Phase 1 tests define the required behavior before adapter changes. A runtime/profile cannot change after plan fingerprint, authorization, or implementation evidence; a new run is required.</p>
+  </section>
+
+  <section id="progress"><h2>Progress</h2><ul class="checklist">
+    <li><label><input type="checkbox" checked disabled /> Phase 1 — Runtime/profile contract tests</label></li>
+    <li><label><input type="checkbox" checked disabled /> Phase 2 - Runtime-aware CLI and adapters</label></li>
+    <li><label><input type="checkbox" checked disabled /> Phase 3 - OMP Lite review and transition gates</label></li>
+    <li><label><input type="checkbox" checked disabled /> Phase 4 — Cross-runtime guidance cutover</label></li>
+    <li><label><input type="checkbox" checked disabled /> Phase 5 — End-to-end regression verification</label></li>
+  </ul><p>Only these executable phases carry checkboxes. Post-merge observation is non-blocking and outside this plan.</p></section>
+
+  <section id="why"><h2>Why this exists</h2><p>The delivery CLI’s durable ledger, locks, fingerprints, evidence records, and Herdr label updates are valuable shared primitives. The Pi launcher, Pi environment validation, visible Pi/Grok completeness transport, and <code>~/.pi</code> reflection sink are runtime-specific policy mistakenly embedded in the shared path. The smallest safe change separates that policy without rebuilding delivery.</p></section>
+
+  <section id="authority"><h2>Authority and inputs</h2><ul>
+    <li><strong>Source request:</strong> cross-runtime workflow with visual planning/implementing/reviewing indicators; no OMP plan mode; retain PM/autoreview/completeness while removing redundant Pi ceremony.</li>
+    <li><strong>Repo guidance:</strong> root <code>AGENTS.md</code>; it requires direct implementation by the driving agent, OMP native tools, and Pi-specific review transport only for Pi delivery runs.</li>
+    <li><strong>Product intent:</strong> no <code>thoughts/specs/product_intent.md</code> or <code>PRODUCT_INTENT.md</code> exists; the user request and repository guidance are the governing product inputs.</li>
+    <li><strong>Plan authority:</strong> this HTML file is the implementation contract; Doct is the review-state surface. This direct invocation is the explicit execution-ready review request.</li>
+  </ul></section>
+
+  <section id="reality"><h2>Current implementation reality</h2><ul>
+    <li><code>skills/delivery-run/scripts/delivery</code> has one detailed global stage list and maps each stage to Herdr phase codes.</li>
+    <li>Pi is the current default at agent launch, dedicated implementation handoff, runtime-environment verification, visible completeness transport, and reflection storage.</li>
+    <li><code>OMPCODE=1</code> is present in OMP and is a usable default-detection marker; no runtime marker must silently fall back to Pi.</li>
+    <li><code>skills/delivery-run/tests/test_delivery_cli.sh</code> supplies temporary repositories and fake-Herdr-style CLI coverage. Existing tests include Pi implementation and completeness paths.</li>
+    <li>OMP already supplies a read-only <code>reviewer</code> and shared skills; an OMP extension, new daemon, or native-plan-mode configuration is not required for this slice.</li>
+  </ul></section>
+
+  <section id="alignment"><h2>Product intent alignment</h2><p>The golden path makes the safe action obvious: detected runtime → persisted profile → only compatible handoffs. It removes an accidental cross-runtime transfer, fails closed for ambiguous ownership, and presents six labels rather than implementation-detail stages. No automatic recovery may change a ledger’s runtime after meaningful work begins; that boundary remains fail-closed and actionable.</p></section>
+
+  <section id="decisions"><h2>Locked decisions</h2><ul>
+    <li>Runtime and profile are first-class ledger fields: <code>omp-lite</code> and <code>pi-full</code>.</li>
+    <li>Detection order is explicit CLI value, a fully identified ledger, <code>OMPCODE=1</code>, Pi markers, then a failure with <code>--runtime omp|pi</code> guidance.</li>
+    <li>A pre-profile schema-v1 ledger is a recognized legacy Pi run, not a new ambiguous run: atomically backfill it to <code>runtime=pi</code>/<code>workflowProfile=pi-full</code> with a history entry on first read. An explicit attempt to convert that legacy run to OMP fails and instructs the operator to start a new run. This compatibility backfill is not an operator-selected runtime change.</li>
+    <li>OMP Lite renders only <code>PL:</code>, <code>I:</code>, <code>R:</code>, <code>PR:</code>, <code>D:</code>, and <code>B:</code>. Its detailed-stage mapping and evidence gates are fixed below; <code>REFLECT</code> and <code>ADVERSARIAL_QA</code> never become visible OMP phases.</li>
+    <li>OMP Lite execution authorization keeps the current owner; it does not start a new implementation tab/process or choose a Pi model profile.</li>
+    <li>OMP Lite completeness is an independent OMP <code>reviewer</code> task. <code>delivery completion-review --prepare</code> creates and durably records a cryptographically random <code>COMPLETENESS_REVIEW_RESPONSE_ID</code>, then returns it in the reviewer packet. The driver writes <code>thoughts/validation/&lt;plan-slug&gt;-completeness-review.md</code>, which begins at byte zero with exactly these seven LF-terminated ASCII lines, in this order and with no leading/trailing whitespace: <code>&lt;!-- OMP_COMPLETENESS_RESPONSE --&gt;</code>; <code>COMPLETENESS_REVIEW_RESPONSE_ID: [0-9a-f]{32}</code>; <code>REVIEWER_IDENTITY: [A-Za-z0-9._-]+</code>; <code>PLAN_SHA256: [0-9a-f]{64}</code>; <code>WORKTREE_FINGERPRINT: [0-9a-f]{64}</code>; <code>VERDICT: COMPLETE|INCOMPLETE</code>; <code>&lt;!-- /OMP_COMPLETENESS_RESPONSE --&gt;</code>. The parser rejects missing/extra/reordered lines, non-exact casing or spacing, an invalid value, and any occurrence of an envelope field name elsewhere in the artifact. The driver then runs <code>delivery completion-review --accept --artifact &lt;path&gt; --response-id &lt;id&gt;</code>. Under the existing ledger lock/revision CAS, acceptance requires pending ID = CLI ID = artifact ID; artifact reviewer identity, plan SHA-256, and worktree fingerprint must each match both pending-request metadata and the current recomputed identity. One atomic ledger replacement consumes the pending ID and creates completeness evidence/history, so missing, malformed, duplicate, wrong, replayed, or mismatched responses fail without partial consumption. It never creates a Pi tab, invokes <code>--kind pi</code>, or requires Pi environment variables.</li>
+    <li>Pi Full remains behaviorally unchanged in this first slice. Pi-only lifecycle requirements stay inside Pi Full.</li>
+    <li>OMP Lite review retains a lightweight PM outcome check, canonical autoreview, and the completeness contract above; reflection and adversarial QA are not completion gates.</li>
+  </ul></section>
+
+  <section id="omp-stage-map"><h2>OMP Lite macro-stage and transition map</h2><p>The detailed ledger remains the durable implementation state. OMP status/board/Herdr chrome render only the following map; Pi Full continues using its existing detailed display and transitions.</p>
+    <table><tr><th>Detailed stage or action</th><th>OMP label</th><th>Required behavior</th></tr>
+      <tr><td><code>INTAKE</code>, <code>PLAN_DRAFT</code>, <code>PLAN_BROWSER_REVIEW</code>, <code>PLAN_PM_REVIEW</code>, <code>PLAN_TECH_REVIEW</code>, <code>EXECUTION_READY</code></td><td><code>PL:</code></td><td>Normal-mode plan creation, Doct review, and explicit authorization. OMP skips Pi planner/profile selection and does not launch an implementation process.</td></tr>
+      <tr><td><code>IMPLEMENTING</code></td><td><code>I:</code></td><td>Current OMP owner implements and records direct verification; entering it requires current plan authorization.</td></tr>
+      <tr><td><code>SCOPED_REVIEW</code>, <code>IMPL_PM_OUTCOME</code>, <code>AUTOREVIEW</code>, <code>COMPLETENESS_REVIEW</code>, <code>VERIFY_FRESHNESS</code></td><td><code>R:</code></td><td>PM outcome, autoreview, OMP completeness preparation/acceptance, and final verification. PR is rejected until all current required evidence passes.</td></tr>
+      <tr><td><code>PR_OPEN</code>, <code>MERGE_READY</code></td><td><code>PR:</code></td><td>Commit/push/PR and local merge-readiness evidence.</td></tr>
+      <tr><td><code>DONE</code></td><td><code>D:</code></td><td>Terminal workflow state.</td></tr>
+      <tr><td><code>BLOCKED</code></td><td><code>B:</code></td><td>Store the actionable blocker and preserve the prior detailed stage for resume.</td></tr>
+      <tr><td><code>ADVERSARIAL_QA</code> or <code>REFLECT</code> command</td><td>Current label unchanged</td><td>OMP Lite may record QA as <code>na</code> or append optional reflection without mutating its detailed stage; no <code>QA:</code> or <code>RF:</code> label or Pi next action is emitted.</td></tr>
+    </table>
+  </section>
+
+  <section id="contract-inventory"><h2>Contract and distributed-integration inventory</h2><p><strong>Coverage declaration:</strong> exhaustive by runtime/profile family and command family. Source of truth is the delivery CLI’s command parser, ledger schema, transition guards, Herdr command construction, completion-review validator, and <code>STAGE_PHASE_CODE</code>; skills and guidance are consumers.</p>
+    <table><tr><th>Producer / operation</th><th>Consumers / proof</th><th>Reconciliation</th></tr>
+      <tr><td>Bootstrap/spawn runtime detection and immutable ledger fields</td><td>Ledger JSON, <code>show</code>, <code>board</code>, next-action text; CLI tests inspect OMP/Pi persistence, legacy Pi backfill, attempted legacy conversion, and new-run ambiguity failure.</td><td>One resolver distinguishes a complete ledger, a recognized pre-profile Pi ledger, and an unmarked new run.</td></tr>
+      <tr><td>Runtime adapter launch dispatch</td><td>Captured Herdr command; OMP requires <code>--kind omp</code> and forbids <code>--kind pi</code>; Pi regression asserts the existing Pi launch.</td><td>Adapter owns launch/runtime verification only; shared CLI owns locks and ledger.</td></tr>
+      <tr><td>OMP completeness request and acceptance</td><td><code>delivery completion-review --prepare</code> creates <code>pendingCompletenessReview</code> with response ID, configured reviewer identity, plan SHA-256, and worktree fingerprint, then returns that metadata in one reviewer task packet and artifact path. The artifact begins with the exact seven-line OMP completeness response envelope defined in Locked decisions; no envelope field name may occur outside it. <code>--accept --response-id</code> compares every envelope field to pending and current identity; under the existing lock/revision CAS it validates, consumes the pending request, and creates completeness evidence/history in one atomic ledger replacement.</td><td>Absent, malformed, duplicate, reordered, wrong, replayed, incomplete, stale, mismatched-metadata, or Pi-transport evidence is rejected before PR with no partial consumption or evidence record. A non-complete verdict returns the run to implementation/review with a rerun instruction.</td></tr>
+      <tr><td>OMP macro transition/evidence guard</td><td>Status/board labels; PR/DONE rejection tests for missing or stale PM, autoreview, completeness, verification, and PR evidence.</td><td>The profile map below binds every detailed stage and optional action to a macro label or no stage mutation.</td></tr>
+      <tr><td>Skill and guidance prose</td><td>Delivery, planning, execution, autoreview, OMP and Pi docs/quick references.</td><td>No generic prose may require Pi plan selection, handoff, Grok witness, or OMP plan mode.</td></tr>
+    </table><p>No external HTTP/API producer is changed. Cross-boundary proof is the real delivery parser plus fake-Herdr capture and the independent OMP reviewer artifact, not helper-only unit coverage.</p></section>
+
+  <section id="acceptance"><h2>Acceptance criteria</h2><ol>
+    <li id="ac-runtime-detection">With <code>OMPCODE=1</code>, bootstrap/spawn persist <code>runtime=omp</code> and <code>workflowProfile=omp-lite</code>; explicit Pi persists <code>pi-full</code>. A pre-profile ledger atomically backfills only to <code>pi-full</code>; a new markerless run fails.</li>
+    <li id="ac-fail-closed">A new ambiguous runtime exits non-zero with corrective <code>--runtime omp|pi</code> guidance and creates no misleading ledger. A legacy ledger cannot be changed to OMP in place after backfill.</li>
+    <li id="ac-launch">OMP spawn uses <code>--kind omp</code>; no OMP Lite command launches <code>--kind pi</code>, including execution authorization and completeness preparation/acceptance.</li>
+    <li id="ac-pi-regression">Pi Full preserves its existing dedicated handoff, implementation profile checks, and visible completeness transport.</li>
+    <li id="ac-macro-phases">For every OMP Lite detailed stage, status/board render the macro mapping below and never show Pi-only stage labels such as <code>RF:</code>.</li>
+    <li id="ac-normal-mode">OMP planning guidance explicitly uses normal coding mode and never enables, reads as required, or recommends native plan mode.</li>
+    <li id="ac-review-gates">OMP Lite cannot reach PR without current PM outcome, autoreview, and an artifact beginning with the exact seven-line response envelope defined in Locked decisions. Pending, CLI, and artifact response IDs match; artifact metadata matches pending-request metadata and the current recomputed identity. It cannot reach DONE without final verification and PR evidence.</li>
+    <li id="ac-freshness">Absent, malformed, duplicated, reordered, wrong, or replayed response-envelope fields; non-exact line syntax; an envelope-field occurrence outside the opening response block; <code>INCOMPLETE</code> verdicts; stale or mismatched fingerprints/reviewer identity; and Pi-transported OMP completeness evidence are rejected. Under the existing ledger lock/revision CAS, validation, pending-ID consumption, completeness evidence creation, and history recording occur in one atomic replacement; a conflict or interruption records neither acceptance nor consumption. Changing the plan or worktree after acceptance requires a fresh OMP reviewer invocation.</li>
+    <li id="ac-guidance">Status, board, help, skills, and affected OMP/Pi quick-reference guidance name the persisted runtime/profile and the compatible next action.</li>
+  </ol></section>
+
+  <section id="bdd"><h2>BDD scenarios</h2>
+    <article id="bdd-omp-detection"><h3>OMP selection without plan mode</h3><pre>Given OMPCODE=1 and no delivery ledger
+When delivery bootstrap or spawn runs without --runtime
+Then the ledger records omp / omp-lite
+And instructions say to plan in the normal OMP coding session
+And no plan-mode setting is read or changed.</pre></article>
+    <article id="bdd-legacy-pi"><h3>Legacy Pi ledger remains compatible</h3><pre>Given a schema-v1 delivery ledger without runtime/profile fields
+When it is first read by the new CLI
+Then it atomically records pi / pi-full and a legacy-backfill history item
+And an explicit --runtime omp conversion is rejected
+And a markerless new invocation still fails rather than becoming Pi.</pre></article>
+    <article id="bdd-no-pi-handoff"><h3>OMP never falls into Pi launch</h3><pre>Given an omp-lite ledger in PLANNING
+When execution is authorized or OMP completeness is prepared/accepted
+Then the current OMP owner remains the owner
+And captured Herdr commands contain no agent start --kind pi.</pre></article>
+    <article id="bdd-omp-completeness"><h3>OMP completeness has an executable, request-bound contract</h3><pre>Given an omp-lite run after passing PM and autoreview evidence
+When delivery completion-review --prepare runs
+Then it durably creates a cryptographically random pending response ID with configured reviewer identity, plan SHA-256, and worktree fingerprint
+And returns one reviewer packet, artifact path, response ID, and that metadata
+When the OMP reviewer artifact begins at byte zero with the exact seven-line response envelope defined in Locked decisions
+And every envelope value equals pending-request metadata and the current recomputed identity
+And no envelope field name occurs elsewhere in the artifact
+And delivery completion-review --accept --response-id uses that same ID
+Then one lock/CAS-protected atomic ledger replacement consumes the pending request and records completeness evidence/history
+And absent, malformed, duplicate, reordered, wrong, replayed, non-exact, INCOMPLETE, stale, metadata-mismatched, Pi-transported, interrupted, or second-accepted artifacts are rejected with a rerun instruction and no partial consumption.</pre></article>
+    <article id="bdd-review"><h3>Reviewing consolidates required checks</h3><pre>Given passing OMP implementation evidence
+When detailed stages IMPL_PM_OUTCOME, AUTOREVIEW, COMPLETENESS_REVIEW, or VERIFY_FRESHNESS run
+Then status stays R while PM outcome, autoreview, completeness, and verification execute
+And PR is rejected until all required current artifacts pass.</pre></article>
+    <article id="bdd-stage-map"><h3>Optional Pi-only actions do not leak into OMP chrome</h3><pre>Given an omp-lite run in any macro phase
+When reflection is recorded or adversarial QA is marked not applicable
+Then the current macro label is preserved
+And no REFLECT, ADVERSARIAL_QA, RF, or Pi next action is exposed.</pre></article>
+    <article id="bdd-pi"><h3>Pi behavior remains intact</h3><pre>Given a pi-full ledger
+When execution-ready is reached
+Then existing Pi handoff/profile checks and visible completeness transport run.</pre></article>
+  </section>
+
+  <section id="phases"><h2>Execution phases</h2>
+    <article class="phase" id="phase-1"><h3>Phase 1 — Runtime/profile contract tests</h3><p><strong>End State:</strong> failing executable tests define new-run detection, legacy Pi backfill, immutable runtime boundaries, adapter dispatch, every macro-map family, and request-bound completeness acceptance.</p><p><strong>Tests first:</strong> extend <code>skills/delivery-run/tests/test_delivery_cli.sh</code> with OMP/Pi detection, markerless failure, schema-v1 backfill and failed OMP conversion, fake-Herdr command capture, every macro-map/optional-action family, and OMP completeness pass/stale/malformed/<code>INCOMPLETE</code>/Pi-forbidden/wrong-or-missing-or-duplicate-or-replayed-response-ID plus every response-envelope grammar failure (delimiter, order, exact casing/spacing, value syntax, and field outside the block), reviewer/plan/worktree mismatch, interrupted-acceptance, and second-acceptance cases.</p><p><strong>Expected files:</strong> <code>skills/delivery-run/tests/test_delivery_cli.sh</code>.</p><p><strong>Work:</strong> add tests before production edits; preserve current Pi implementation/completeness assertions as regressions.</p><p><strong>Open questions / decision dependencies:</strong> none; test exact existing parser command names before adding the proposed prepare/accept flags.</p><p><strong>Verify:</strong> new OMP tests fail before the implementation, while existing Pi tests pass.</p></article>
+    <article class="phase" id="phase-2"><h3>Phase 2 — Runtime-aware CLI and adapters</h3><p><strong>End State:</strong> the ledger persists immutable runtime/profile identity; recognized schema-v1 ledgers backfill to Pi Full; all runtime-specific operations dispatch through a small profile adapter.</p><p><strong>Tests first:</strong> Phase 1 detection, legacy, immutability, and fake-Herdr cases.</p><p><strong>Expected files:</strong> <code>skills/delivery-run/scripts/delivery</code>; <code>skills/delivery-run/tests/test_delivery_cli.sh</code>.</p><p><strong>Work:</strong> add <code>--runtime</code>/<code>--workflow-profile</code> only at bootstrap/spawn; implement resolver precedence and atomic legacy history backfill; preserve shared locks/fingerprints/evidence; route launch, authorization, runtime verification, completeness preparation/acceptance, and reflection behavior by profile. OMP authorization keeps its owner; Pi uses its current handoff.</p><p><strong>Open questions / decision dependencies:</strong> none. Missing identity is fail-closed except the exact pre-profile schema signature, which preserves known Pi semantics.</p><p><strong>Verify:</strong> OMP captured command is <code>--kind omp</code>, OMP authorization has no agent start, legacy conversion is rejected, and Pi captured commands retain their current form.</p></article>
+    <article class="phase" id="phase-3"><h3>Phase 3 — OMP Lite review and transition gates</h3><p><strong>End State:</strong> OMP renders the fixed PL/I/R/PR/D/B map and accepts only current PM, autoreview, request-bound completeness, verification, and PR evidence at the relevant transitions.</p><p><strong>Tests first:</strong> Phase 1 macro-map and OMP completeness acceptance cases.</p><p><strong>Expected files:</strong> <code>skills/delivery-run/scripts/delivery</code>; <code>skills/delivery-run/tests/test_delivery_cli.sh</code>; <code>thoughts/validation/&lt;plan-slug&gt;-completeness-review.md</code> at run time.</p><p><strong>Work:</strong> make <code>delivery completion-review --prepare</code> mint and persist <code>pendingCompletenessReview</code> with response ID, configured reviewer identity, plan SHA-256, and worktree fingerprint, then return one task packet for the configured OMP <code>reviewer</code> naming the exact plan path, artifact path, and the literal seven-line response envelope in Locked decisions. The driving OMP session invokes that reviewer. <code>--accept --response-id</code> accepts only an artifact beginning byte-zero with that exact envelope; it rejects a missing/extra/reordered line, non-exact casing/spacing, invalid value, or any envelope field name outside the block, then verifies pending ID = CLI ID = artifact ID and each metadata field against both pending and current identity. It uses the existing ledger lock/revision CAS for one atomic replacement that validates, consumes the pending request, and creates <code>completenessReview</code>/evidence/history. A conflict or interruption leaves neither consumption nor acceptance recorded. Map every detailed stage and ensure optional QA/reflection preserve the current OMP label.</p><p><strong>Open questions / decision dependencies:</strong> none. The CLI never invokes an in-process OMP tool; it prepares/validates durable evidence while the driving session owns the reviewer call.</p><p><strong>Verify:</strong> fake-run planning → implementing → reviewing → PR → done; assert every malformed response-envelope grammar and all wrong/duplicate/replayed fields, stale/mismatched metadata, <code>INCOMPLETE</code>, Pi-origin, interruption, and second-acceptance cases reject without partial ledger effects; a fresh matching complete artifact consumes the request and permits transition; no label or next action leaks Pi-only flow.</p></article>
+    <article class="phase" id="phase-4"><h3>Phase 4 — Cross-runtime guidance cutover</h3><p><strong>End State:</strong> user-facing commands state runtime ownership and do not present Pi policy as an OMP requirement.</p><p><strong>Tests first:</strong> existing documentation/help assertions plus focused text/output assertions only where the repository already tests them.</p><p><strong>Expected files:</strong> <code>skills/delivery-run/SKILL.md</code>, <code>skills/run-plan/SKILL.md</code>, <code>skills/reviewed-html-plan/SKILL.md</code>, <code>skills/autoreview/SKILL.md</code>, <code>_omp/AGENTS.md</code>, and only affected statements in <code>AGENTS.md</code>, <code>README.md</code>, <code>_pi/README.md</code>.</p><p><strong>Work:</strong> describe shared entrypoint plus OMP Lite/Pi Full paths; state OMP normal-mode planning, same-session continuation, and reviewer preparation/acceptance; isolate Pi’s planner selection, handoff, Grok tab, and reflection language to Pi Full; preserve <code>_omp/config.yml</code> with plan mode disabled.</p><p><strong>Open questions / decision dependencies:</strong> none; do not rewrite unrelated workflow doctrine.</p><p><strong>Verify:</strong> review every changed statement against the profile contract and run a temporary OMP install target.</p></article>
+    <article class="phase" id="phase-5"><h3>Phase 5 — End-to-end regression verification</h3><p><strong>End State:</strong> production paths—not only helpers—prove runtime-safe dispatch, legacy compatibility, OMP review evidence, and Pi preservation.</p><p><strong>Tests first:</strong> no new tests; execute Phase 1’s test suite and smoke sequence.</p><p><strong>Expected files:</strong> no planned source file; temporary test repository and <code>OMP_CONFIG_TARGET</code> directory only.</p><p><strong>Work:</strong> run the delivery suite; drive fake-Herdr OMP macro path plus OMP completeness prepare/reviewer-artifact/accept; run Pi regression path; install OMP config into a temporary target and inspect its preserved plan-mode setting.</p><p><strong>Open questions / decision dependencies:</strong> none. Deployment, promotion, production observation, and rollback are explicitly post-merge.</p><p><strong>Verify:</strong> execute the exact commands below and retain command/ledger/artifact evidence for review.</p></article>
+  </section>
+
+  <section id="verification"><h2>Verification strategy</h2><pre>bash skills/delivery-run/tests/test_delivery_cli.sh
+
+tmp="$(mktemp -d)"
+OMP_CONFIG_TARGET="$tmp/omp" bash _omp/install.sh
+python3 -c 'from pathlib import Path; assert "plan.enabled: false" in Path("'"$tmp"'/omp/config.yml").read_text()'
+
+# Within the test suite’s fake-Herdr fixtures, prove:
+# 1. OMPCODE=1 emits --kind omp and never --kind pi.
+# 2. A pre-profile ledger atomically backfills only to pi-full; new ambiguity fails.
+# 3. Every detailed-stage family renders the declared OMP macro label.
+# 4. completion-review prepare returns an OMP reviewer packet and exact response envelope;
+#    accept rejects every delimiter/order/casing/spacing/value/outside-block grammar failure,
+#    wrong/duplicate/replayed response or metadata fields, stale, INCOMPLETE, Pi-origin,
+#    interrupted, and second-accept artifacts with no partial ledger effect, then atomically
+#    consumes and records one matching acceptance.
+# 5. pi-full retains existing implementation and completeness launches.</pre><p><strong>Production-path proof:</strong> inspect temporary-run <code>.delivery/ledger.json</code>, status/board output, captured Herdr commands, and the accepted OMP completeness artifact for a complete OMP macro path plus the Pi regression path. Parser-only or helper-only tests do not satisfy this plan.</p><p><strong>Residual risk:</strong> host-specific Herdr runtime availability may differ from fake command capture. The actual parser dispatch and review-evidence contract are still validated before merge; live production session launch remains a post-merge operational confirmation, not a PR gate.</p></section>
+
+  <section id="order"><h2>Delivery order</h2><ol><li>Land tests and runtime dispatch together.</li><li>Land OMP macro evidence gates before guidance that advertises them.</li><li>Update cross-runtime guidance after the CLI contract is executable.</li><li>Run OMP and Pi production-path verification.</li><li>Run PM outcome, autoreview, and independent completeness review; then open the PR.</li></ol></section>
+
+  <section id="non-goals"><h2>Non-goals</h2><ul><li>Enabling, configuring, or depending on OMP native plan mode.</li><li>Rebuilding Doct, Herdr, Linear, GitHub, or the delivery ledger.</li><li>Making OMP emulate Pi model pinning, separate implementation ownership, or visible Grok review tabs.</li><li>Simplifying Pi Full beyond isolating its policy behind the profile adapter.</li><li>Adding an OMP extension, daemon, telemetry, workflow configurator, or generic plugin framework.</li><li>Changing application product behavior outside delivery tooling and operator guidance.</li><li>Making PM review optional by configuration in this slice.</li></ul></section>
+
+  <section id="resume"><h2>Resume instructions</h2><ol><li>Read this plan and current Doct queue; confirm the plan fingerprint still matches authorization.</li><li>Start with Phase 1 failing tests. Do not change <code>_omp/config.yml</code> plan-mode configuration.</li><li>Implement the resolver, legacy Pi backfill, and profile dispatch before prose changes.</li><li>Implement OMP completeness <code>--prepare</code>, run the configured OMP reviewer packet, and validate <code>--accept</code> before exposing the OMP review path.</li><li>Run the verification strategy, then the promised PM/autoreview/completeness sequence before PR work.</li></ol></section>
+
+  <section id="review-record"><h2>Review record</h2><table><tr><th>Leg</th><th>Status</th><th>Evidence</th></tr><tr><td>Browser feedback</td><td>Skipped by direct execution-ready request; queue was empty at registration drain.</td><td>Doct plan <code>6aa7b46c-0428-4306-9bff-c6834a989832</code>.</td></tr><tr><td>PM product-intent review</td><td>PASS</td><td>Current plan preserves the requested normal OMP mode, same-session execution, required PM/autoreview/completeness gates, and Pi Full behavior; final envelope clarification changes no product decision.</td></tr><tr><td>Independent active-harness plan review</td><td>PASS — REVIEW_ESCAPE consumed</td><td>Envelope reviewer passed SHA <code>a7900a955888a02e235fc72023b30546c023926880ea232bfe2611821f04c0cb</code>; atomic reviewer found the exact grammar issue; the authorized post-fix rereview passed SHA <code>c69182b078620a069bbc0a64cd72e40fe252975c4a36a75756fbf067c6dca0f3</code>. The bounded pair and one conditional rereview are complete.</td></tr><tr><td>Oracle consultation</td><td>Accepted — REVIEW_ESCAPE consumed once</td><td><code>REVIEW_ESCAPE:omp-completeness-envelope-atomic-acceptance</code>; consultation authorized the exact bounded pair and conditional rereview only.</td></tr></table></section>
+
+  <section id="deviations"><h2>Decisions / deviations log</h2><ol><li><strong>2026-08-06 — User decision:</strong> retain normal OMP mode and same-session implementation; do not require Pi plan mode or Pi handoff.</li><li><strong>2026-08-06 — Scope decision:</strong> start with OMP Lite and preserve Pi Full rather than simplifying both runtimes at once.</li><li><strong>2026-08-06 — Readiness reshape:</strong> converted generic stage prose into an executable runtime/profile contract, added contract inventory, phase-level end states/tests/files/work/decisions/verification, and limited checkboxes to Progress.</li><li><strong>2026-08-06 — Oracle disposition: accepted.</strong> The response-envelope/cardinality and atomic ledger replacement clarification remains the same OMP completeness-acceptance family. One <code>REVIEW_ESCAPE:omp-completeness-envelope-atomic-acceptance</code> adversarial reviewer-pair pass is authorized; no fourth ordinary review or self-certification is allowed.</li></ol></section>
+</main>
+</body>
+</html>

@@ -196,6 +196,116 @@ STAGE_NEXT_SKILL = {
 
 EVIDENCE_STATUSES = ("pending", "pass", "skip", "gap", "na")
 
+RUNTIME_PROFILES = {
+    "omp": "omp-lite",
+    "pi": "pi-full",
+}
+
+
+def next_step_for(stage: str, workflow_profile: str | None = None) -> str:
+    if workflow_profile != "omp-lite":
+        return STAGE_NEXT_SKILL.get(stage, "")
+    return {
+        "INTAKE": "Capture the request, attach a plan when needed, then stage PLAN_DRAFT",
+        "PLAN_DRAFT": "Create the reviewed HTML plan in normal OMP coding mode",
+        "PLAN_BROWSER_REVIEW": "Process Doct feedback and wait for an explicit execution-ready review request",
+        "PLAN_PM_REVIEW": "Run the lightweight product-outcome readiness check",
+        "PLAN_TECH_REVIEW": "Record the OMP execution-readiness decision; no Pi profile selection",
+        "EXECUTION_READY": "Continue in this same OMP session and stage IMPLEMENTING",
+        "IMPLEMENTING": "Implement and verify in this same OMP session",
+        "SCOPED_REVIEW": "Run the bounded scoped implementation review",
+        "IMPL_PM_OUTCOME": "Check the implemented product outcome and record customer impact",
+        "AUTOREVIEW": "Run the configured OMP autoreview and resolve blocking findings",
+        "COMPLETENESS_REVIEW": "Prepare the OMP completion packet, run the read-only reviewer, then accept its exact response envelope",
+        "VERIFY_FRESHNESS": "Run final verification and check base freshness",
+        "PR_OPEN": "Open or update the PR and record its URL",
+        "MERGE_READY": "Confirm local merge readiness",
+        "DONE": "Stop; the requested delivery is complete",
+        "BLOCKED": "Record the actionable blocker and required operator decision",
+    }.get(stage, "Keep the current OMP phase; this action is optional")
+
+
+def pi_runtime_marker() -> bool:
+    return any(
+        os.environ.get(name)
+        for name in ("PI_CODING_AGENT_DIR", "PI_SESSION_ID", "PI_MODEL", "PI_PROVIDER")
+    )
+
+
+def resolve_runtime_profile(
+    ledger: dict[str, Any] | None,
+    *,
+    runtime: str | None = None,
+    workflow_profile: str | None = None,
+) -> tuple[str, str, bool]:
+    """Resolve immutable runtime ownership; bool marks a legacy Pi backfill."""
+    if runtime and runtime not in RUNTIME_PROFILES:
+        die("runtime must be omp or pi")
+    if workflow_profile and workflow_profile not in set(RUNTIME_PROFILES.values()):
+        die("workflow profile must be omp-lite or pi-full")
+    if runtime and workflow_profile and RUNTIME_PROFILES[runtime] != workflow_profile:
+        die(f"runtime {runtime} requires workflow profile {RUNTIME_PROFILES[runtime]}")
+
+    stored_runtime = ledger.get("runtime") if ledger else None
+    stored_profile = ledger.get("workflowProfile") if ledger else None
+    if stored_runtime or stored_profile:
+        if not isinstance(stored_runtime, str) or not isinstance(stored_profile, str):
+            die("ledger runtime/profile fields are incomplete; start a new run")
+        if RUNTIME_PROFILES.get(stored_runtime) != stored_profile:
+            die("ledger runtime/profile fields are invalid; start a new run")
+        if runtime and runtime != stored_runtime:
+            die(f"runtime is immutable ({stored_runtime}); start a new run for {runtime}")
+        if workflow_profile and workflow_profile != stored_profile:
+            die(f"workflow profile is immutable ({stored_profile}); start a new run")
+        return stored_runtime, stored_profile, False
+
+    if ledger is not None:
+        if runtime == "omp" or workflow_profile == "omp-lite":
+            die("legacy delivery ledgers are Pi runs; start a new run with --runtime omp")
+        return "pi", "pi-full", True
+
+    selected = runtime
+    if selected is None:
+        if os.environ.get("OMPCODE") == "1":
+            selected = "omp"
+        elif pi_runtime_marker():
+            selected = "pi"
+        else:
+            die("cannot determine runtime; rerun with --runtime omp|pi")
+    profile = workflow_profile or RUNTIME_PROFILES[selected]
+    if profile != RUNTIME_PROFILES[selected]:
+        die(f"runtime {selected} requires workflow profile {RUNTIME_PROFILES[selected]}")
+    return selected, profile, False
+
+
+def initialize_runtime_profile(
+    ledger: dict[str, Any],
+    *,
+    runtime: str | None = None,
+    workflow_profile: str | None = None,
+) -> None:
+    resolved_runtime, resolved_profile, _ = resolve_runtime_profile(
+        None, runtime=runtime, workflow_profile=workflow_profile
+    )
+    ledger["runtime"] = resolved_runtime
+    ledger["workflowProfile"] = resolved_profile
+
+
+def backfill_legacy_runtime_profile(
+    path: Path, ledger: dict[str, Any], root: Path, *, runtime: str | None = None,
+    workflow_profile: str | None = None,
+) -> None:
+    resolved_runtime, resolved_profile, legacy = resolve_runtime_profile(
+        ledger, runtime=runtime, workflow_profile=workflow_profile
+    )
+    if not legacy:
+        return
+    ledger["runtime"] = resolved_runtime
+    ledger["workflowProfile"] = resolved_profile
+    append_history(ledger, "runtime_backfill", "legacy ledger recognized as pi-full")
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -1037,7 +1147,10 @@ def terminal_stage_problem(ledger: dict[str, Any], root: Path, stage: str) -> st
         key for key in required_pass
         if (evidence.get(key) or {}).get("status") != "pass"
     ]
-    if (evidence.get("adversarialQa") or {}).get("status") not in {"pass", "na"}:
+    if (
+        not is_omp_lite(ledger)
+        and (evidence.get("adversarialQa") or {}).get("status") not in {"pass", "na"}
+    ):
         missing.append("adversarialQa")
     if not ledger.get("prUrl"):
         missing.append("prUrl")
@@ -1049,21 +1162,58 @@ def terminal_stage_problem(ledger: dict[str, Any], root: Path, stage: str) -> st
     return None
 
 
+def is_omp_lite(ledger: dict[str, Any]) -> bool:
+    return ledger.get("runtime") == "omp" and ledger.get("workflowProfile") == "omp-lite"
+
+
+def omp_lite_delivery_problem(ledger: dict[str, Any], root: Path, stage: str) -> str | None:
+    """Return missing OMP Lite review/closeout evidence for protected delivery stages."""
+    if stage not in {"PR_OPEN", "MERGE_READY", "DONE"}:
+        return None
+    evidence = ledger.get("evidence") or {}
+    required_pass = ["implPm", "autoreview"]
+    if stage == "DONE":
+        required_pass.extend(("verify", "pr"))
+    missing = [
+        key for key in required_pass
+        if (evidence.get(key) or {}).get("status") != "pass"
+    ]
+    completeness_problem = completeness_review_problem(ledger, root)
+    if completeness_problem:
+        missing.append(f"completenessReview ({completeness_problem})")
+    if stage == "DONE" and not ledger.get("prUrl"):
+        missing.append("prUrl")
+    if missing:
+        return "missing required OMP Lite delivery evidence: " + ", ".join(missing)
+    return None
+
+
 def stage_transition_problem(ledger: dict[str, Any], root: Path, stage: str) -> str | None:
     """Return the authorization or terminal-integrity failure for a protected stage transition."""
+    if is_omp_lite(ledger) and stage in {"ADVERSARIAL_QA", "REFLECT"}:
+        return (
+            f"OMP Lite {stage} is an optional action, not a stage; "
+            "record it without changing the current detailed stage"
+        )
     if stage in {"PLAN_PM_REVIEW", "PLAN_TECH_REVIEW"}:
         return plan_readiness_request_problem(ledger, root)
     if stage == "EXECUTION_READY":
+        if is_omp_lite(ledger):
+            return plan_readiness_request_problem(ledger, root)
         return plan_readiness_request_problem(ledger, root) or plan_technical_review_problem(ledger, root)
     if stage == "IMPLEMENTING":
         readiness_problem = plan_readiness_request_problem(ledger, root)
         if readiness_problem:
             return f"no current execution-ready review request: {readiness_problem}"
+        if is_omp_lite(ledger):
+            return None
         return (
             plan_technical_review_problem(ledger, root)
             or implementation_approval_problem(ledger, root)
             or implementation_profile_problem(ledger, root, check_runtime=True)
         )
+    if is_omp_lite(ledger):
+        return omp_lite_delivery_problem(ledger, root, stage)
     return terminal_stage_problem(ledger, root, stage)
 
 
@@ -1115,7 +1265,11 @@ def reset_implementation_profile(ledger: dict[str, Any], reason: str) -> None:
     )
 
 
-def phase_code(stage: str | None) -> str:
+def phase_code(stage: str | None, workflow_profile: str | None = None) -> str:
+    if workflow_profile == "omp-lite":
+        if stage in {"ADVERSARIAL_QA", "REFLECT"}:
+            return ""
+        return STAGE_PHASE_CODE.get(str(stage or "INTAKE"), "PL")
     return STAGE_PHASE_CODE.get(str(stage or "INTAKE"), "PL")
 
 
@@ -1228,7 +1382,7 @@ def ensure_base_title(ledger: dict[str, Any]) -> str:
 
 
 def herdr_display_label(ledger: dict[str, Any]) -> str:
-    code = phase_code(str(ledger.get("stage") or "INTAKE"))
+    code = phase_code(str(ledger.get("stage") or "INTAKE"), ledger.get("workflowProfile"))
     base = ensure_base_title(ledger)
     # Guard: never allow a stage token back into the visible title.
     base = sanitize_base_title(base) or base
@@ -1621,14 +1775,14 @@ def maybe_herdr_label(
         labels = ledger.setdefault("labels", {})
         if isinstance(labels, dict):
             labels["herdr"] = herdr_display_label(ledger)
-            labels["phaseCode"] = phase_code(str(ledger.get("stage") or "INTAKE"))
+            labels["phaseCode"] = phase_code(str(ledger.get("stage") or "INTAKE"), ledger.get("workflowProfile"))
         return
 
     label = herdr_display_label(ledger)
     targets = targets or resolve_herdr_targets(ledger)
     labels = ledger.setdefault("labels", {})
     labels["herdr"] = label
-    labels["phaseCode"] = phase_code(str(ledger.get("stage") or "INTAKE"))
+    labels["phaseCode"] = phase_code(str(ledger.get("stage") or "INTAKE"), ledger.get("workflowProfile"))
 
     try:
         workspace_id = targets.get("workspaceId")
@@ -1684,6 +1838,11 @@ def cmd_init(args: argparse.Namespace) -> int:
         pr_url=args.pr_url,
         slug=args.slug,
     )
+    initialize_runtime_profile(
+        ledger,
+        runtime=getattr(args, "runtime", None),
+        workflow_profile=getattr(args, "workflow_profile", None),
+    )
     transition_problem = stage_transition_problem(ledger, root, stage)
     if transition_problem:
         die(
@@ -1715,6 +1874,13 @@ def load_ledger_for(args: argparse.Namespace) -> tuple[Path, dict[str, Any], Pat
     wt = ledger.get("worktree")
     if wt and Path(wt).is_dir():
         root = Path(wt)
+    backfill_legacy_runtime_profile(
+        path,
+        ledger,
+        root,
+        runtime=getattr(args, "runtime", None),
+        workflow_profile=getattr(args, "workflow_profile", None),
+    )
     return path, ledger, root
 
 
@@ -1727,33 +1893,42 @@ def cmd_show(args: argparse.Namespace) -> int:
     print(f"id:        {ledger.get('id')}")
     print(f"path:      {path}")
     print(f"stage:     {ledger.get('stage')}")
+    print(f"phase:     {phase_code(str(ledger.get('stage')), ledger.get('workflowProfile'))}")
     print(f"issue:     {ledger.get('issue')}")
     print(f"slug:      {ledger.get('slug')}")
     print(f"plan:      {ledger.get('plan')}")
+    print(f"runtime:   {ledger.get('runtime')}")
+    print(f"profile:   {ledger.get('workflowProfile')}")
     print(f"branch:    {ledger.get('branch')}")
     print(f"worktree:  {ledger.get('worktree')}")
     print(f"pr:        {ledger.get('prUrl')}")
     print(f"doct:      {ledger.get('doctUrl')}")
-    approval = ledger.get("implementationApproval") or {}
-    approval_problem = implementation_approval_problem(ledger, root)
-    approval_status = approval.get("status", "pending")
-    if approval_problem:
-        approval_status = f"{approval_status} ({approval_problem})"
-    print(f"implementation authorization: {approval_status}")
-    profile = ledger.get("implementationProfile") or {}
-    profile_status = profile.get("status", "pending")
-    profile_problem = implementation_profile_problem(ledger, root, check_runtime=False)
-    if profile_problem:
-        profile_status = f"{profile_status} ({profile_problem})"
-    selected = approved_implementation_profile(ledger)
-    print(f"implementation agent: {profile_status}")
-    print(f"plan review cycles: {int(ledger.get('planReviewCycleCount') or 0)}/3")
-    print(
-        f"implementation runtime: {selected['profile']} / {selected['modelRef']} / "
-        f"{selected['reasoningLevel']}"
-    )
+    if is_omp_lite(ledger):
+        readiness = ((ledger.get("evidence") or {}).get("planReadinessRequest") or {}).get("status", "pending")
+        print(f"implementation authorization: OMP plan readiness {readiness}")
+        print("implementation owner: current OMP session")
+        print("implementation runtime: normal OMP coding mode")
+    else:
+        approval = ledger.get("implementationApproval") or {}
+        approval_problem = implementation_approval_problem(ledger, root)
+        approval_status = approval.get("status", "pending")
+        if approval_problem:
+            approval_status = f"{approval_status} ({approval_problem})"
+        print(f"implementation authorization: {approval_status}")
+        profile = ledger.get("implementationProfile") or {}
+        profile_status = profile.get("status", "pending")
+        profile_problem = implementation_profile_problem(ledger, root, check_runtime=False)
+        if profile_problem:
+            profile_status = f"{profile_status} ({profile_problem})"
+        selected = approved_implementation_profile(ledger)
+        print(f"implementation agent: {profile_status}")
+        print(f"plan review cycles: {int(ledger.get('planReviewCycleCount') or 0)}/3")
+        print(
+            f"implementation runtime: {selected['profile']} / {selected['modelRef']} / "
+            f"{selected['reasoningLevel']}"
+        )
     print(f"updated:   {ledger.get('updatedAt')}")
-    print(f"next:      {STAGE_NEXT_SKILL.get(str(ledger.get('stage')), 'n/a')}")
+    print(f"next:      {next_step_for(str(ledger.get('stage')), ledger.get('workflowProfile'))}")
     print("evidence:")
     for key, val in (ledger.get("evidence") or {}).items():
         status = (val or {}).get("status", "pending")
@@ -1773,22 +1948,38 @@ def cmd_show(args: argparse.Namespace) -> int:
             print(f"  - {b}")
     return 0
 
-
 def cmd_stage(args: argparse.Namespace) -> int:
     stage = args.stage
     if stage not in STAGES:
         die(f"unknown stage {stage!r}; choose from: {', '.join(STAGES)}")
     path, ledger, root = load_ledger_for(args)
+    if is_omp_lite(ledger) and stage in {"ADVERSARIAL_QA", "REFLECT"}:
+        append_history(ledger, "optional_action", f"{stage} recorded without stage change")
+        if args.note:
+            ledger.setdefault("notes", []).append(
+                {"at": utc_now(), "text": args.note, "stage": ledger.get("stage")}
+            )
+        refresh_git_fields(ledger, root)
+        write_json(path, ledger)
+        print(f"{stage} recorded; OMP Lite remains at {ledger.get('stage')}")
+        return 0
     transition_problem = stage_transition_problem(ledger, root, stage)
     if transition_problem:
         if stage == "IMPLEMENTING":
+            if is_omp_lite(ledger):
+                die(f"cannot enter IMPLEMENTING: {transition_problem}. Record the current OMP authorization before implementing.")
             die(
                 "cannot enter IMPLEMENTING: "
                 f"{transition_problem}. Let the execution-ready transition automatically authorize and launch "
                 "the recommended implementation agent, then enter IMPLEMENTING from the recorded Pi runtime. "
-                "If this same implementation pane was "
-                "deliberately switched to another model, adopt it with `delivery verify-implementation-profile "
-                "--adopt-current-runtime --reason \"...\"`."
+                "If this same implementation pane was deliberately switched to another model, adopt it with "
+                "`delivery verify-implementation-profile --adopt-current-runtime --reason \"...\"`."
+            )
+        if is_omp_lite(ledger) and stage in {"PR_OPEN", "MERGE_READY", "DONE"}:
+            die(
+                f"cannot enter {stage}: {transition_problem}. "
+                "Run `delivery check -v`, record the missing OMP review or closeout evidence, "
+                "and use `delivery completion-review --prepare` for missing or stale completeness."
             )
         die(
             f"cannot enter {stage}: {transition_problem}. "
@@ -1830,7 +2021,6 @@ def cmd_stage(args: argparse.Namespace) -> int:
         retire_pending_tabs(ledger, caller_tab=caller_tab_id())
     else:
         maybe_herdr_label(ledger)
-        # Safety net: drain retires when the caller is already the owner.
         owner = ledger.get("workspaceOwner") if isinstance(ledger.get("workspaceOwner"), dict) else {}
         caller = caller_tab_id()
         if caller and owner.get("tabId") and str(caller) == str(owner.get("tabId")):
@@ -1839,7 +2029,7 @@ def cmd_stage(args: argparse.Namespace) -> int:
     print(f"{prev} -> {stage}")
     print(f"next: {STAGE_NEXT_SKILL.get(stage, 'n/a')}")
     skip_herdr = os.environ.get("DELIVERY_SKIP_HERDR", "").strip().lower() in {"1", "true", "yes"}
-    if stage == "EXECUTION_READY" and not getattr(args, "hold", False) and not skip_herdr:
+    if stage == "EXECUTION_READY" and not is_omp_lite(ledger) and not getattr(args, "hold", False) and not skip_herdr:
         with implementation_launch_lock(root):
             path, current, root = load_ledger_for(args)
             auto_args = argparse.Namespace(
@@ -2672,7 +2862,6 @@ def completeness_reviewer_name(ledger: dict[str, Any]) -> str:
     identity = str(ledger.get("issue") or ledger.get("slug") or ledger.get("id") or "delivery")
     return f"completeness-{slugify(identity, max_len=19, keep_issue_keys=True)}"
 
-
 def completeness_review_prompt(ledger: dict[str, Any], root: Path, *, rerun: bool, request_id: str) -> str:
     plan = str(ledger.get("plan") or "(no plan path recorded)")
     round_text = "This is a rereview after the driving agent addressed prior findings." if rerun else "This is the initial completeness review."
@@ -2696,21 +2885,19 @@ Start your response with `COMPLETENESS_REVIEW_RESPONSE_ID: {request_id}`, immedi
 The driving agent will read your visible response, make in-scope corrections, and ask you to rereview until the implementation and this review agree it is complete."""
 
 
-def _fingerprint_paths(root: Path, paths: list[str], digest: Any) -> None:
+def _fingerprint_paths(root: Path, paths: list[str], digest: Any, exclude_paths: set[str] | None = None) -> None:
     for raw in sorted(paths):
-        # Delivery's own ledger is process metadata, not candidate implementation content.
-        if raw == ".delivery" or raw.startswith(".delivery/"):
+        if raw == ".delivery" or raw.startswith(".delivery/") or raw in (exclude_paths or set()):
             continue
         candidate = root / raw
         digest.update(raw.encode("utf-8") + b"\0")
         if candidate.is_file():
             digest.update(candidate.read_bytes())
         else:
-            # Keep deletions and broken paths distinct from an empty file.
             digest.update(b"<missing>")
 
 
-def working_tree_fingerprint(root: Path) -> str:
+def working_tree_fingerprint(root: Path, *, exclude_paths: set[str] | None = None) -> str:
     """Fingerprint worktree content independently of whether it has been committed."""
     digest = hashlib.sha256()
     tracked = run_cmd(["git", "ls-files", "-z"], cwd=root)
@@ -2724,6 +2911,7 @@ def working_tree_fingerprint(root: Path) -> str:
         [part for part in tracked.stdout.split("\0") if part]
         + [part for part in untracked.stdout.split("\0") if part],
         digest,
+        exclude_paths,
     )
     return digest.hexdigest()
 
@@ -2736,14 +2924,34 @@ def completeness_review_problem(ledger: dict[str, Any], root: Path) -> str | Non
         return "visible completeness review has not been accepted"
     if review.get("verdict") != "COMPLETE":
         return "visible completeness review did not return VERDICT: COMPLETE"
-    plan_fingerprint = plan_sha256(ledger, root)
-    if not plan_fingerprint or review.get("planSha256") != plan_fingerprint:
-        return "visible completeness review is stale for the current plan"
-    if review.get("worktreeFingerprint") != working_tree_fingerprint(root):
-        return "visible completeness review is stale for the current worktree"
     artifact = review.get("artifact")
     if not isinstance(artifact, str) or not (root / artifact).is_file():
         return "visible completeness review artifact is missing"
+    if is_omp_lite(ledger):
+        try:
+            artifact_path = (root / artifact).resolve()
+            artifact_path.relative_to(root.resolve())
+            artifact_bytes = artifact_path.read_bytes()
+            values = parse_omp_completeness_artifact(artifact_bytes.decode("ascii"))
+        except (OSError, UnicodeDecodeError, ValueError):
+            return "OMP completeness review artifact is malformed"
+        if review.get("artifactSha256") != hashlib.sha256(artifact_bytes).hexdigest():
+            return "OMP completeness review artifact has changed since acceptance"
+        expected_envelope = {
+            "COMPLETENESS_REVIEW_RESPONSE_ID": review.get("responseId"),
+            "REVIEWER_IDENTITY": review.get("reviewerIdentity"),
+            "PLAN_SHA256": review.get("planSha256"),
+            "WORKTREE_FINGERPRINT": review.get("worktreeFingerprint"),
+            "VERDICT": "COMPLETE",
+        }
+        if any(values.get(key) != value for key, value in expected_envelope.items()):
+            return "OMP completeness review artifact does not match the accepted response"
+    plan_fingerprint = plan_sha256(ledger, root)
+    if not plan_fingerprint or review.get("planSha256") != plan_fingerprint:
+        return "visible completeness review is stale for the current plan"
+    excluded = {artifact} if review.get("responseId") else None
+    if review.get("worktreeFingerprint") != working_tree_fingerprint(root, exclude_paths=excluded):
+        return "visible completeness review is stale for the current worktree"
     return None
 
 
@@ -2865,6 +3073,8 @@ def cmd_record_receipt(args: argparse.Namespace) -> int:
     artifact = Path(args.artifact).expanduser()
     if not artifact.is_absolute():
         artifact = (root / artifact).resolve()
+
+
     try:
         receipt = json.loads(artifact.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -2896,11 +3106,162 @@ def cmd_record_receipt(args: argparse.Namespace) -> int:
     else:
         print(f"recorded receipt: {artifact} ({reference['status']})")
     return 0
+OMP_COMPLETENESS_OPEN = "<!-- OMP_COMPLETENESS_RESPONSE -->"
+OMP_COMPLETENESS_CLOSE = "<!-- /OMP_COMPLETENESS_RESPONSE -->"
+OMP_COMPLETENESS_FIELDS = (
+    "COMPLETENESS_REVIEW_RESPONSE_ID",
+    "REVIEWER_IDENTITY",
+    "PLAN_SHA256",
+    "WORKTREE_FINGERPRINT",
+    "VERDICT",
+)
+
+
+def omp_completion_artifact_path(root: Path, ledger: dict[str, Any], requested: str | None) -> tuple[Path, str]:
+    slug = slugify(str(ledger.get("slug") or ledger.get("issue") or "delivery"))
+    raw = Path(requested or f"thoughts/validation/{slug}-completeness-review.md")
+    candidate = raw if raw.is_absolute() else root / raw
+    try:
+        resolved = candidate.resolve()
+        relative = resolved.relative_to(root.resolve())
+    except ValueError:
+        die("completeness review artifact must be inside the worktree")
+    return resolved, relative.as_posix()
+
+
+def parse_omp_completeness_artifact(text: str) -> dict[str, str]:
+    if not text.isascii():
+        raise ValueError("OMP completeness artifact must be ASCII")
+    lines = text.splitlines(keepends=True)
+    if len(lines) < 7 or any(not line.endswith("\n") or line.endswith("\r\n") for line in lines[:7]):
+        raise ValueError("OMP completeness artifact must begin with exactly seven LF-terminated envelope lines")
+    envelope = [line[:-1] for line in lines[:7]]
+    patterns = (
+        re.compile(r"^COMPLETENESS_REVIEW_RESPONSE_ID: ([0-9a-f]{32})$"),
+        re.compile(r"^REVIEWER_IDENTITY: ([A-Za-z0-9._-]+)$"),
+        re.compile(r"^PLAN_SHA256: ([0-9a-f]{64})$"),
+        re.compile(r"^WORKTREE_FINGERPRINT: ([0-9a-f]{64})$"),
+        re.compile(r"^VERDICT: (COMPLETE|INCOMPLETE)$"),
+    )
+    if envelope[0] != OMP_COMPLETENESS_OPEN or envelope[6] != OMP_COMPLETENESS_CLOSE:
+        raise ValueError("OMP completeness artifact has an invalid envelope delimiter")
+    values: dict[str, str] = {}
+    for label, line, pattern in zip(OMP_COMPLETENESS_FIELDS, envelope[1:6], patterns):
+        match = pattern.fullmatch(line)
+        if not match:
+            raise ValueError(f"OMP completeness artifact has invalid {label} line")
+        values[label] = match.group(1)
+    for field in OMP_COMPLETENESS_FIELDS:
+        if text.count(field) != 1:
+            raise ValueError(f"OMP completeness artifact must contain {field} exactly once in its opening envelope")
+    return values
+
+
+def cmd_omp_completion_review(args: argparse.Namespace, path: Path, ledger: dict[str, Any], root: Path) -> int:
+    if args.waive or args.rerun:
+        die("OMP Lite completeness uses --prepare and --accept; Pi reviewer controls are unavailable")
+    if args.prepare:
+        prior_pending = ledger.get("pendingCompletenessReview")
+        plan_fingerprint = plan_sha256(ledger, root)
+        if not plan_fingerprint:
+            die("OMP completeness review requires a readable plan inside the worktree")
+        reviewer = args.reviewer_identity or "omp-reviewer"
+        request_id = uuid.uuid4().hex
+        artifact_path, artifact_rel = omp_completion_artifact_path(root, ledger, args.artifact)
+        pending = {
+            "responseId": request_id,
+            "reviewerIdentity": reviewer,
+            "planSha256": plan_fingerprint,
+            "worktreeFingerprint": working_tree_fingerprint(root, exclude_paths={artifact_rel}),
+            "artifact": artifact_rel,
+            "requestedAt": utc_now(),
+        }
+        ledger["pendingCompletenessReview"] = pending
+        ledger.setdefault("evidence", {}).setdefault("completenessReview", {}).update(
+            {"status": "pending", "updatedAt": utc_now()}
+        )
+        if isinstance(prior_pending, dict):
+            append_history(
+                ledger,
+                "completeness_review",
+                "superseded pending OMP reviewer packet",
+                responseId=prior_pending.get("responseId"),
+            )
+        append_history(ledger, "completeness_review", "OMP reviewer packet prepared", responseId=request_id)
+        refresh_git_fields(ledger, root)
+        write_json(path, ledger)
+        packet = {
+            "runtime": "omp",
+            "reviewer": reviewer,
+            "responseId": request_id,
+            "artifact": artifact_rel,
+            "acceptCommand": f"delivery completion-review --accept --response-id {request_id}",
+            "requiredEnvelope": [
+                OMP_COMPLETENESS_OPEN,
+                f"COMPLETENESS_REVIEW_RESPONSE_ID: {request_id}",
+                f"REVIEWER_IDENTITY: {reviewer}",
+                f"PLAN_SHA256: {plan_fingerprint}",
+                f"WORKTREE_FINGERPRINT: {pending['worktreeFingerprint']}",
+                "VERDICT: COMPLETE",
+                OMP_COMPLETENESS_CLOSE,
+            ],
+        }
+        print(json.dumps(packet, indent=2))
+        return 0
+    if not args.accept:
+        die("OMP Lite completeness requires --prepare or --accept")
+    pending = ledger.get("pendingCompletenessReview")
+    if not isinstance(pending, dict):
+        die("no OMP completeness request is pending; run `delivery completion-review --prepare`")
+    if args.response_id != pending.get("responseId"):
+        die("OMP completeness response ID does not match the pending request; rerun `delivery completion-review --prepare`")
+    artifact_path, artifact_rel = omp_completion_artifact_path(root, ledger, pending.get("artifact"))
+    if args.artifact is not None:
+        _, requested_rel = omp_completion_artifact_path(root, ledger, args.artifact)
+        if requested_rel != artifact_rel:
+            die("OMP completeness artifact does not match the pending request; rerun `delivery completion-review --prepare`")
+    try:
+        artifact_bytes = artifact_path.read_bytes()
+        values = parse_omp_completeness_artifact(artifact_bytes.decode("ascii"))
+    except FileNotFoundError:
+        die("OMP completeness artifact is missing; rerun the OMP reviewer")
+    except (UnicodeDecodeError, ValueError) as exc:
+        die(str(exc))
+    expected = {
+        "COMPLETENESS_REVIEW_RESPONSE_ID": pending.get("responseId"),
+        "REVIEWER_IDENTITY": pending.get("reviewerIdentity"),
+        "PLAN_SHA256": plan_sha256(ledger, root),
+        "WORKTREE_FINGERPRINT": working_tree_fingerprint(root, exclude_paths={artifact_rel}),
+    }
+    if any(values.get(key) != value for key, value in expected.items()) or values["VERDICT"] != "COMPLETE":
+        die("OMP completeness artifact does not match the pending current request; rerun `delivery completion-review --prepare`")
+    del ledger["pendingCompletenessReview"]
+    ledger["completenessReview"] = {
+        "status": "complete",
+        "verdict": "COMPLETE",
+        "artifact": artifact_rel,
+        "artifactSha256": hashlib.sha256(artifact_bytes).hexdigest(),
+        "responseId": values["COMPLETENESS_REVIEW_RESPONSE_ID"],
+        "reviewerIdentity": values["REVIEWER_IDENTITY"],
+        "planSha256": values["PLAN_SHA256"],
+        "worktreeFingerprint": values["WORKTREE_FINGERPRINT"],
+        "acceptedAt": utc_now(),
+    }
+    ledger.setdefault("evidence", {}).setdefault("completenessReview", {}).update(
+        {"status": "pass", "artifact": artifact_rel, "summary": "OMP reviewer returned COMPLETE", "updatedAt": utc_now()}
+    )
+    append_history(ledger, "completeness_review", "OMP completeness review accepted", artifact=artifact_rel)
+    refresh_git_fields(ledger, root)
+    write_json(path, ledger)
+    print(f"OMP completeness review accepted -> {artifact_rel}")
+    return 0
 
 
 def cmd_completion_review(args: argparse.Namespace) -> int:
     """Launch, rerequest, or accept the visible labeled-tab Pi completeness review."""
     path, ledger, root = load_ledger_for(args)
+    if is_omp_lite(ledger):
+        return cmd_omp_completion_review(args, path, ledger, root)
     labels = ledger.get("labels") or {}
     review = ledger.get("completenessReview") or {}
     source_pane = args.pane or os.environ.get("HERDR_PANE_ID") or labels.get("herdrPaneId")
@@ -3283,6 +3644,9 @@ def summarize_ledger(path: Path) -> dict[str, Any] | None:
         "id": ledger.get("id"),
         "stage": ledger.get("stage"),
         "issue": ledger.get("issue"),
+        "runtime": ledger.get("runtime"),
+        "workflowProfile": ledger.get("workflowProfile"),
+        "phaseCode": phase_code(str(ledger.get("stage")), ledger.get("workflowProfile")),
         "plan": ledger.get("plan"),
         "branch": ledger.get("branch"),
         "worktree": ledger.get("worktree") or str(path.parent.parent),
@@ -3290,7 +3654,7 @@ def summarize_ledger(path: Path) -> dict[str, Any] | None:
         "updatedAt": ledger.get("updatedAt"),
         "blockers": len(ledger.get("blockers") or []),
         "path": str(path),
-        "next": STAGE_NEXT_SKILL.get(str(ledger.get("stage")), None),
+        "next": next_step_for(str(ledger.get("stage")), ledger.get("workflowProfile")),
     }
 
 
@@ -3320,12 +3684,15 @@ def cmd_board(args: argparse.Namespace) -> int:
         return 0
 
     # Simple table
-    print(f"{'STAGE':<18} {'ISSUE':<14} {'ID':<36} {'UPDATED':<22} PATH")
+    print(f"{'STAGE':<18} {'PHASE':<6} {'RUNTIME':<8} {'PROFILE':<12} {'ISSUE':<14} {'ID':<28} {'UPDATED':<22} PATH")
     for r in rows:
         print(
             f"{str(r.get('stage') or '-'):<18} "
+            f"{str(r.get('phaseCode') or '-'):<6} "
+            f"{str(r.get('runtime') or '-'):<8} "
+            f"{str(r.get('workflowProfile') or '-'):<12} "
             f"{str(r.get('issue') or '-'):<14} "
-            f"{str(r.get('id') or '-'):<36} "
+            f"{str(r.get('id') or '-'):<28} "
             f"{str(r.get('updatedAt') or '-'):<22} "
             f"{r.get('path')}"
         )
@@ -3352,11 +3719,21 @@ def cmd_status(args: argparse.Namespace) -> int:
     return cmd_board(args)
 
 
-def cmd_stages(_: argparse.Namespace) -> int:
+def cmd_stages(args: argparse.Namespace) -> int:
+    profile = None
+    root = Path(args.cwd).resolve() if args.cwd else detect_repo_root()
+    path = find_ledger_path(root, getattr(args, "ledger", None))
+    if path.exists():
+        ledger = load_json(path)
+        backfill_legacy_runtime_profile(path, ledger, root)
+        profile = ledger.get("workflowProfile")
+    print(f"runtime profile: {profile or 'unbound'}")
     print(f"{'STAGE':<22} {'CODE':<5} NEXT")
     for stage in STAGES:
-        code = phase_code(stage)
-        print(f"{stage:<22} {code:<5} {STAGE_NEXT_SKILL.get(stage, '')}")
+        if profile == "omp-lite" and stage in {"ADVERSARIAL_QA", "REFLECT"}:
+            continue
+        code = phase_code(stage, profile)
+        print(f"{stage:<22} {code:<5} {next_step_for(stage, profile)}")
     return 0
 
 
@@ -3502,27 +3879,49 @@ def default_spawn_agent_name(workspace_id: str | None) -> str:
     return f"delivery-{uuid.uuid4().hex[:23]}"
 
 
-def agent_start_prompt(goal: str, *, issue: str | None, worktree: str) -> str:
+def agent_start_prompt(
+    goal: str,
+    *,
+    issue: str | None,
+    worktree: str,
+    workflow_profile: str,
+) -> str:
     issue_line = (
         f"Linear issue is attached as {issue}."
         if issue
         else "Linear issue is optional; if one appears later run: delivery set --issue KEY --retarget-id"
     )
+    if workflow_profile == "omp-lite":
+        route = (
+            "3. Continue in this same OMP session through normal-mode planning, implementation, "
+            "PM outcome review, autoreview, OMP completeness review, verification, and PR.\n"
+            "   Never launch Pi or hand implementation to another agent. At completeness, run "
+            "`delivery completion-review --prepare`, send its packet to the configured read-only "
+            "OMP reviewer, write the exact response artifact, then run `delivery completion-review --accept`.\n"
+            "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
+            "5. Reflection and adversarial QA are optional and never gate OMP completion.\n"
+        )
+    else:
+        route = (
+            "3. Continue from the current state's recommended next step using existing worker skills\n"
+            "   (reviewed-html-plan / dev-plan → Sol-medium profile decision → GPT-5.6 Terra at high "
+            "or Sol implementation → Terra autoreview → Grok completeness → PR).\n"
+            "   During `PLAN_BROWSER_REVIEW`, integrate ordinary feedback but wait for Doct's explicit\n"
+            "   `Request execution-ready review` action before PM or technical readiness review.\n"
+            "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
+            "5. Before finishing: `delivery reflect --trigger end-of-run --friction '...' "
+            "--improvement '...' --mark-done`.\n"
+        )
     return (
         "You were spawned into a fresh Herdr delivery worktree.\n\n"
         f"Worktree: {worktree}\n"
         f"Goal: {goal}\n"
         f"{issue_line}\n\n"
         "Do this now:\n"
-        "1. Read `.delivery/AGENT_BRIEF.md` when present. If it is absent, continue from `delivery show`, the ledger, and the plan; `delivery bootstrap --refresh` may recreate it.\n"
+        "1. Read `.delivery/AGENT_BRIEF.md` when present. If it is absent, continue from "
+        "`delivery show`, the ledger, and the plan; `delivery bootstrap --refresh` may recreate it.\n"
         "2. Run `delivery show` and `delivery check -v`.\n"
-        "3. Continue from the current state's recommended next step using existing worker skills\n"
-        "   (reviewed-html-plan / dev-plan → Sol-medium profile decision → GPT-5.6 Terra at high or Sol implementation → Terra autoreview → Grok completeness → PR).\n"
-        "   During `PLAN_BROWSER_REVIEW`, integrate ordinary feedback but wait for Doct's explicit\n"
-        "   `Request execution-ready review` action before PM or technical readiness review.\n"
-        "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
-        "5. Before finishing: `delivery reflect --trigger end-of-run --friction '...' "
-        "--improvement '...' --mark-done`.\n\n"
+        f"{route}\n"
         "Doctrine: guidance, not gates. Missing delivery evidence is advisory only — "
         "never hard-block the operator solely because a recommended check is pending.\n"
     )
@@ -3561,6 +3960,16 @@ def cmd_spawn(args: argparse.Namespace) -> int:
     base = args.base or "origin/main"
     focus = bool(args.focus)
     requested_stage = args.stage or "INTAKE"
+    runtime, workflow_profile, _ = resolve_runtime_profile(
+        None,
+        runtime=getattr(args, "runtime", None),
+        workflow_profile=getattr(args, "workflow_profile", None),
+    )
+    if args.agent and args.agent != runtime:
+        die(
+            f"agent kind {args.agent!r} conflicts with immutable runtime {runtime!r}; "
+            f"use `--agent {runtime}` or omit --agent"
+        )
     if requested_stage not in STAGES:
         die(f"unknown stage {requested_stage!r}; choose from: {', '.join(STAGES)}")
     stage_probe = {
@@ -3598,6 +4007,8 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             "stage": preview_stage,
             "labels": {"baseTitle": sanitize_base_title(label)},
             "spawn": {"label": label},
+            "runtime": runtime,
+            "workflowProfile": workflow_profile,
         }
         payload = {
             "dryRun": True,
@@ -3610,10 +4021,10 @@ def cmd_spawn(args: argparse.Namespace) -> int:
             "branch": branch,
             "label": herdr_display_label(preview_ledger),
             "baseTitle": sanitize_base_title(label),
-            "phaseCode": phase_code(preview_stage),
+            "phaseCode": phase_code(preview_stage, workflow_profile),
             "base": base,
             "focus": focus,
-            "agent": None if args.no_agent else (args.agent or "pi"),
+            "agent": None if args.no_agent else (args.agent or runtime),
         }
         print(json.dumps(payload, indent=2))
         return 0
@@ -3673,6 +4084,8 @@ def cmd_spawn(args: argparse.Namespace) -> int:
         retarget_id=bool(issue),
         refresh=False,
         force=False,
+        runtime=runtime,
+        workflow_profile=workflow_profile,
     )
     # Bootstrap runs in this parent process, whose HERDR_* variables still
     # identify the caller. Suppress its best-effort label sync; spawn applies
@@ -3702,7 +4115,7 @@ def cmd_spawn(args: argparse.Namespace) -> int:
     prompted = False
     agent_status = None
     if not args.no_agent:
-        agent_kind = args.agent or "pi"
+        agent_kind = args.agent or runtime
         agent_name = args.agent_name or default_spawn_agent_name(workspace_id)
         if not pane_id:
             agent_status = "skipped-no-pane"
@@ -3730,7 +4143,12 @@ def cmd_spawn(args: argparse.Namespace) -> int:
                     file=sys.stderr,
                 )
             else:
-                prompt = agent_start_prompt(goal, issue=issue, worktree=worktree_path)
+                prompt = agent_start_prompt(
+                    goal,
+                    issue=issue,
+                    worktree=worktree_path,
+                    workflow_profile=workflow_profile,
+                )
                 prompt_cmd = [
                     "herdr",
                     "agent",
@@ -3766,6 +4184,8 @@ def cmd_spawn(args: argparse.Namespace) -> int:
     summary = {
         "goal": goal,
         "issue": issue,
+        "runtime": runtime,
+        "workflowProfile": workflow_profile,
         "slug": slug,
         "branch": branch,
         "label": label,
@@ -4047,7 +4467,8 @@ def cmd_reflect(args: argparse.Namespace) -> int:
     if freeform:
         notes = _split_items(notes, freeform)
 
-    if args.mark_done and ledger is not None:
+    omp_optional = ledger is not None and is_omp_lite(ledger)
+    if args.mark_done and ledger is not None and not omp_optional:
         done_problem = terminal_stage_problem(ledger, root, "DONE")
         if done_problem:
             die(f"cannot enter DONE: {done_problem}")
@@ -4083,13 +4504,13 @@ def cmd_reflect(args: argparse.Namespace) -> int:
             args.trigger or args.outcome or "reflection logged",
             path=result["markdownPath"],
         )
-        if args.mark_done and ledger.get("stage") != "DONE":
+        if args.mark_done and not omp_optional and ledger.get("stage") != "DONE":
             prev = ledger.get("stage")
             ledger["stage"] = "DONE"
             append_history(ledger, "stage", f"{prev} -> DONE")
         elif ledger.get("stage") not in {"DONE", "BLOCKED", "REFLECT"}:
             # Soft nudge into REFLECT without forcing DONE.
-            if args.stage_reflect:
+            if args.stage_reflect and not omp_optional:
                 prev = ledger.get("stage")
                 ledger["stage"] = "REFLECT"
                 append_history(ledger, "stage", f"{prev} -> REFLECT")
@@ -4102,12 +4523,79 @@ def cmd_reflect(args: argparse.Namespace) -> int:
         print(f"reflected -> {result['markdownPath']}")
         print(f"jsonl     -> {result['jsonlPath']}")
         print(f"timestamp: {result['timestamp']}")
-        if args.mark_done:
+        if args.mark_done and not omp_optional:
             print("stage: DONE")
+        elif args.mark_done and omp_optional:
+            print(f"stage: {ledger.get('stage')} (OMP reflection does not change stage)")
     return 0
 
 
+def render_omp_agent_brief(ledger: dict[str, Any], path: Path) -> str:
+    stage = str(ledger.get("stage") or "INTAKE")
+    root = Path(ledger.get("worktree") or path.parent.parent)
+    warnings = [
+        f"- [{item.get('code')}] {item.get('message')}"
+        for item in build_advisories(ledger, root)
+        if item.get("severity") == "warn"
+    ] or ["- none beyond next-step guidance"]
+    stage_rows = "\n".join(
+        f"| `{item}` | `{phase_code(item, 'omp-lite')}:` | {next_step_for(item, 'omp-lite')} |"
+        for item in STAGES
+        if item not in {"ADVERSARIAL_QA", "REFLECT"}
+    )
+    return f"""# OMP Lite delivery brief
+
+Generated: {utc_now()}
+
+- Runtime: `omp`
+- Workflow profile: `omp-lite`
+- Stage: `{stage}`
+- Plan: `{ledger.get('plan') or '(set with delivery set --plan path)'}`
+- Ledger: `{path}`
+
+## Ownership contract
+
+Stay in this OMP session. Use normal OMP coding mode for planning and implementation.
+Do not enable native plan mode, launch Pi, select a Pi implementation profile, or hand
+implementation to another process. The ledger is the shared scoreboard, not the worker.
+
+## Do this now
+
+1. Run `delivery show` and `delivery check -v`.
+2. Follow the compatible next action: **{next_step_for(stage, 'omp-lite')}**
+3. Record material progress with `delivery stage` and `delivery record`.
+4. Refresh this brief after material progress with `delivery bootstrap --refresh`.
+
+## OMP completeness
+
+At `COMPLETENESS_REVIEW`, run `delivery completion-review --prepare
+--reviewer-identity <configured-reviewer>`. Send the emitted packet unchanged to the
+configured read-only OMP reviewer. Write its exact seven-line response envelope to the
+packet's artifact path, then run `delivery completion-review --accept --response-id <id>`.
+Fix an `INCOMPLETE` result and prepare a fresh request; never reuse a response ID.
+
+PM outcome review, autoreview, current completeness evidence, final verification, and PR
+evidence remain required. Reflection and adversarial QA are optional and never gate OMP
+completion or change the visible OMP phase.
+
+## Current advisories
+
+{chr(10).join(warnings)}
+
+## OMP phase map
+
+| Detailed stage | Label | Compatible next action |
+|---|---|---|
+{stage_rows}
+
+If blocked on a human decision, run `delivery blocker "..." --mark-blocked`. Otherwise,
+continue until the requested work is complete; do not stop at an internal phase boundary.
+"""
+
+
 def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
+    if is_omp_lite(ledger):
+        return render_omp_agent_brief(ledger, path)
     stage = str(ledger.get("stage") or "INTAKE")
     next_step = STAGE_NEXT_SKILL.get(stage, "delivery check -v")
     root = Path(ledger.get("worktree") or path.parent.parent)
@@ -4325,6 +4813,13 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
 
     if path.exists() and not args.force:
         ledger = load_json(path)
+        backfill_legacy_runtime_profile(
+            path,
+            ledger,
+            root,
+            runtime=getattr(args, "runtime", None),
+            workflow_profile=getattr(args, "workflow_profile", None),
+        )
     else:
         stage = args.stage or "INTAKE"
         if stage not in STAGES:
@@ -4339,6 +4834,11 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
             doct_url=args.doct_url,
             pr_url=args.pr_url,
             slug=args.slug,
+        )
+        initialize_runtime_profile(
+            ledger,
+            runtime=getattr(args, "runtime", None),
+            workflow_profile=getattr(args, "workflow_profile", None),
         )
         created = True
 
@@ -4442,8 +4942,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="delivery",
         description=(
-            "Per-worktree delivery stage ledger. Guidance, not gates: "
-            "checks advise and never hard-block continuation."
+            "Shared OMP/Pi per-worktree delivery ledger with persisted runtime and workflow "
+            "profile. Guidance, not gates: checks advise and never hard-block continuation."
         ),
     )
     parser.add_argument("--cwd", help="Worktree/repo root override")
@@ -4470,6 +4970,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--pr-url", help="PR URL")
     p_init.add_argument("--stage", default="INTAKE", help="Initial stage")
     p_init.add_argument("--force", action="store_true", help="Overwrite existing ledger")
+    p_init.add_argument("--runtime", choices=tuple(RUNTIME_PROFILES), help="Runtime owner: omp or pi")
+    p_init.add_argument("--workflow-profile", choices=tuple(RUNTIME_PROFILES.values()), help="Runtime workflow profile")
     p_init.set_defaults(func=cmd_init)
 
     p_path = sub.add_parser("path", help="Print ledger path for cwd")
@@ -4480,7 +4982,10 @@ def build_parser() -> argparse.ArgumentParser:
     add_json_flag(p_show)
     p_show.set_defaults(func=cmd_show)
 
-    p_stage = sub.add_parser("stage", help="Set stage; EXECUTION_READY auto-launches implementation in Herdr")
+    p_stage = sub.add_parser(
+        "stage",
+        help="Set stage; Pi Full launches its implementer at EXECUTION_READY, OMP Lite stays in-session",
+    )
     p_stage.add_argument("stage", help="Target stage")
     p_stage.add_argument("--note", help="Optional note with the transition")
     p_stage.add_argument("--hold", action="store_true", help="Stop at EXECUTION_READY instead of automatically launching implementation")
@@ -4619,13 +5124,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_completion = sub.add_parser(
         "completion-review",
-        help="Launch or rerequest the visible labeled-tab Grok 4.5 plan-completeness reviewer",
+        help="Prepare, launch, or accept the runtime-specific plan-completeness reviewer",
     )
     add_json_flag(p_completion)
     p_completion.add_argument("--pane", help="Driving agent's Herdr pane id (defaults to HERDR_PANE_ID or delivery spawn pane)")
     p_completion.add_argument("--agent-name", help="Override the generated completeness reviewer name")
     p_completion.add_argument("--rerun", action="store_true", help="Prompt the existing reviewer after the driving agent addresses findings")
     p_completion.add_argument("--accept", action="store_true", help="Capture the latest visible COMPLETE verdict and record it")
+    p_completion.add_argument("--prepare", action="store_true", help="Prepare an OMP reviewer packet and response envelope")
+    p_completion.add_argument("--response-id", help="OMP response ID required by --accept")
+    p_completion.add_argument("--reviewer-identity", help="OMP reviewer identity recorded in the response envelope")
     p_completion.add_argument("--waive", action="store_true", help="Record a direct operator waiver instead of a clean completeness verdict")
     p_completion.add_argument("--summary", help="Required with --waive; records the direct operator waiver")
     p_completion.add_argument("--artifact", help="Artifact path for --accept (default thoughts/validation/<slug>-completeness.md)")
@@ -4750,10 +5258,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_spawn.add_argument("--path", help="Optional explicit worktree path")
     p_spawn.add_argument("--plan", help="Optional plan path to record")
     p_spawn.add_argument("--stage", default="INTAKE", help="Initial delivery stage")
+    p_spawn.add_argument("--runtime", choices=tuple(RUNTIME_PROFILES), help="Runtime owner: omp or pi")
+    p_spawn.add_argument("--workflow-profile", choices=tuple(RUNTIME_PROFILES.values()), help="Runtime workflow profile")
     p_spawn.add_argument(
         "--agent",
-        default="pi",
-        help="Agent kind to start in the new pane (default: pi)",
+        choices=tuple(RUNTIME_PROFILES),
+        help="Override the runtime-native agent kind",
     )
     p_spawn.add_argument(
         "--agent-name",
@@ -4826,6 +5336,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Recreate ledger from scratch (destructive to prior evidence)",
     )
+    p_boot.add_argument("--runtime", choices=tuple(RUNTIME_PROFILES), help="Runtime owner: omp or pi")
+    p_boot.add_argument("--workflow-profile", choices=tuple(RUNTIME_PROFILES.values()), help="Runtime workflow profile")
     p_boot.set_defaults(func=cmd_bootstrap)
 
     return parser
