@@ -21,6 +21,7 @@ ai-configs/
 ├── herdr/        # Canonical cross-host Herdr configuration and installer
 ├── hammerspoon/  # Terminal-scoped macOS image-paste configuration
 ├── kitty/        # Managed Kitty/Herdr remote-workflow configuration
+├── wezterm/      # Managed WezTerm/Herdr remote-workflow configuration
 ├── scripts/      # Shared helper scripts fanned out by install.sh
 ├── skills/       # Repo-owned shared skills + install matrix for package-backed skills
 ├── tools/        # Optional local tool shims/cache; distributable CLIs live in standalone repos
@@ -141,6 +142,12 @@ Run `bash herdr/install.sh` for a Herdr-only local install. From macOS, the norm
 KITTY_REMOTE_HOSTS="mbp14 mba" bash ./install.sh --tools
 ```
 
+### `wezterm/`
+
+Canonical WezTerm remote-development configuration. `install.sh --tools` and `--all` install a narrowly composed Lua module into `~/.config/wezterm/` and add its loader to a compatible user-owned `~/.wezterm.lua`; the installer refuses to guess when that root config does not have exactly one `return config`. It renders each Herdr tab with a solid host-colored background — **mbp** purple, **dever** blue, and **mbp14** green — while preserving live working / blocked / done counts from the existing `herdr-kitty-status` terminal-title contract. It also adds the `herdr-mbp`, `herdr-dever`, and `herdr-mbp14` shell functions, launch-menu entries, `Cmd+Shift+1/2/3` host shortcuts, and `Cmd+Shift+V` image upload/path insertion for the focused supported remote pane. The WezTerm workflow is local-only; it does not alter Kitty or stream WezTerm files to remote hosts.
+
+Run `bash wezterm/install.sh` for a WezTerm-only local install.
+
 ### `hammerspoon/`
 Terminal-scoped macOS clipboard-image workflow. Its installer copies `scripts/remote-image-paste` to `~/.local/bin/`, adds an isolated managed block to `~/.hammerspoon/init.lua`, and installs Hammerspoon plus `pngpaste` through Homebrew when either is missing. With a supported terminal focused, `Cmd+Shift+V` uploads the clipboard image over SSH to both `dever` and `mbp`, then pastes `/tmp/ai-image-paste-anichols/latest.png` into the focused prompt. The event tap passes the chord through unchanged in non-terminal applications, and rechecks the active app before its asynchronous upload completion can paste text.
 
@@ -214,7 +221,7 @@ Claude compatibility links are created where needed, but `~/.agents/skills` is t
 bash ./install.sh --skills --update
 ```
 
-`--tools` installs or updates the canonical Herdr and Amp configuration, terminal-scoped Hammerspoon image-paste workflow, managed Kitty remote workflow, `ltui` from the standalone `Nodaste-Lab/ltui` repository, and the managed Herdr plugin set:
+`--tools` installs or updates the canonical Herdr, Amp, and WezTerm configuration, terminal-scoped Hammerspoon image-paste workflow, managed Kitty remote workflow, `ltui` from the standalone `Nodaste-Lab/ltui` repository, and the managed Herdr plugin set:
 
 - `persiyanov/herdr-reviewr`
 

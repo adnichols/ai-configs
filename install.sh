@@ -81,7 +81,7 @@ print_usage() {
     echo "  --pi        Install Pi prompt templates, read-only/planning subagents, and extensions, then refresh shared skills"
     echo "  --pi-vcc [package-source]  Transactionally install only pi-vcc (repo package by default)"
     echo "  --pi-review-stack  Mutation-bounded Pi config plus six maintained review skills; no packages/global cleanup"
-    echo "  --tools     Install/update managed Herdr/Amp config, Kitty remote workflow, and CLI tools"
+    echo "  --tools     Install/update managed Herdr/Amp/WezTerm config, remote workflows, and CLI tools"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
     echo "  --update    Update globally installed skills tracked by skills.sh before shared-skill sync"
@@ -104,6 +104,7 @@ print_usage() {
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
     echo "  - The tracked OMP config, guidance, and Oracle/planner/reviewer agents are installed locally whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
+    echo "  - The tracked WezTerm remote workflow is installed locally whenever --tools or --all runs"
     echo "  - Managed Amp settings/modes are streamed to mbp/dever/mbp14 whenever --tools or --all runs on macOS"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
     echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
@@ -583,6 +584,8 @@ install_tools() {
     echo ""
     install_kitty_remote_workflow
     echo ""
+    install_wezterm_remote_workflow
+    echo ""
     install_hammerspoon_image_paste_workflow
     echo ""
     install_omp_config
@@ -630,6 +633,12 @@ install_kitty_remote_workflow() {
     fi
 
     echo -e "${GREEN}✓ Managed Kitty remote workflow processed${NC}"
+}
+
+install_wezterm_remote_workflow() {
+    echo "Installing managed WezTerm remote workflow..."
+    bash "$REPO_ROOT/wezterm/install.sh"
+    echo -e "${GREEN}✓ Managed WezTerm remote workflow installed${NC}"
 }
 
 install_hammerspoon_image_paste_workflow() {

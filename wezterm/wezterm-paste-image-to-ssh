@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+  printf 'wezterm-paste-image-to-ssh: %s\n' "$*" >&2
+  if command -v osascript >/dev/null 2>&1; then
+    osascript -e 'display notification "Image was not pasted; see the terminal log for details." with title "WezTerm image paste"' >/dev/null 2>&1 || true
+  fi
+  exit 1
+}
+
+host=''
+pane_id=''
+while (($#)); do
+  case "$1" in
+    --host)
+      (($# >= 2)) || fail '--host requires a value'
+      host="$2"
+      shift 2
+      ;;
+    --pane-id)
+      (($# >= 2)) || fail '--pane-id requires a value'
+      pane_id="$2"
+      shift 2
+      ;;
+    *)
+      fail "unknown argument: $1"
+      ;;
+  esac
+done
+
+case "$host" in
+  mbp|dever|mbp14|mbp14-2) ;;
+  *) fail 'host must be mbp, dever, mbp14, or mbp14-2' ;;
+esac
+[[ "$pane_id" =~ ^[0-9]+$ ]] || fail 'pane ID must be numeric'
+
+command -v wezterm >/dev/null 2>&1 || fail 'wezterm is not on PATH'
+command -v pbpaste >/dev/null 2>&1 || fail 'pbpaste is not on PATH'
+
+# The managed installer places clipssh beside this helper so GUI-launched
+# WezTerm does not depend on an interactive shell's PATH.
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if command -v clipssh >/dev/null 2>&1; then
+  clipssh_bin="$(command -v clipssh)"
+elif [[ -x "$script_dir/clipssh" ]]; then
+  clipssh_bin="$script_dir/clipssh"
+else
+  fail 'clipssh was not found on PATH or next to this helper'
+fi
+
+CLIPSSH_REMOTE_DIR='~/.cache/clipssh' "$clipssh_bin" "$host" >/dev/null || fail "could not upload the clipboard image to $host"
+remote_path="$(pbpaste)"
+case "$remote_path" in
+  '~/.cache/clipssh/'*.png|/Users/*/.cache/clipssh/*.png|/home/*/.cache/clipssh/*.png) ;;
+  *) fail 'clipssh returned an unexpected remote path' ;;
+esac
+
+# Target the original pane rather than the currently focused pane. The helper
+# runs asynchronously while the upload happens, so focus may have changed.
+printf '%s' "$remote_path" | wezterm cli send-text --pane-id "$pane_id" --no-paste
