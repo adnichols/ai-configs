@@ -957,22 +957,32 @@ try {
   });
 
   registerCase("loud-failure-warning", async () => {
-    // Real-host path: force a terminal coordinator failure via exhausted retries with no acceptance.
     const host = await createHost();
-    const notifications: string[] = [];
+    const notifications: Array<{ message: string; level: string }> = [];
     const ctx = host.ctx;
-    if (ctx.ui?.notify) {
-      const original = ctx.ui.notify.bind(ctx.ui);
-      ctx.ui.notify = (message: string, level: string) => {
-        notifications.push(`${level}:${message}`);
-        return original(message, level);
+    if (!ctx.ui) (ctx as any).ui = {};
+    ctx.ui.notify = (message: string, level: string) => {
+      notifications.push({ message, level });
+    };
+    // Break steer delivery so acceptance never lands and retries exhaust.
+    const originalSend = (host.session as any).sendMessage?.bind(host.session);
+    if (typeof (host.session as any).agent?.steer === "function") {
+      (host.session as any).agent.steer = () => {
+        throw new Error("injected loud-failure send error");
       };
     }
-    // Patch sendMessage to always throw so acceptance never lands.
-    const runner = host.session._extensionRunner;
-    const originalSend = host.session.agent?.sendMessage ?? host.session.sendMessage;
-    const piApi = (runner as any).api ?? (runner as any)._api;
-    // Use coordinator request with retryLimit 0; scaled timers fire quickly for 15s budgets.
+    if (typeof (host.session as any).sendMessage === "function") {
+      (host.session as any).sendMessage = () => {
+        throw new Error("injected loud-failure send error");
+      };
+    }
+    // Also patch extension runner pi send if present.
+    const runner = host.session._extensionRunner as any;
+    if (runner?.sendMessage) {
+      runner.sendMessage = () => {
+        throw new Error("injected loud-failure send error");
+      };
+    }
     host.coordinator.request({
       initiator: "compact_context",
       outcome: "compacted",
@@ -982,20 +992,26 @@ try {
       retryLimit: 0,
     }, ctx);
     await waitFor("loud failure terminal outcome", () =>
-      outcomes(host, "loud-fail-tx").some((entry: any) => entry.data?.terminalState === "failed_loudly") ||
-      notifications.some((n) => n.includes("Pi-vcc continuation failed") && n.includes("loud-fail-tx")),
+      outcomes(host, "loud-fail-tx").some((entry: any) => entry.data?.terminalState === "failed_loudly"),
       5_000,
     );
-    const warning = notifications.find((n) => n.includes("Pi-vcc continuation failed") && n.includes("loud-fail-tx"));
-    const failed = outcomes(host, "loud-fail-tx").some((entry: any) => entry.data?.terminalState === "failed_loudly");
-    if (!failed && !warning) {
-      throw new Error(`loud failure missing outcome/warning: ${JSON.stringify({ notifications, outcomes: outcomes(host, "loud-fail-tx") })}`);
+    const warnings = notifications.filter((n) => n.level === "warning" && n.message.includes("Pi-vcc continuation failed") && n.message.includes("loud-fail-tx"));
+    if (warnings.length !== 1) {
+      throw new Error(`expected exactly one loud-failure warning, got ${warnings.length}: ${JSON.stringify(notifications)}`);
     }
-    if (warning) {
-      for (const needle of ["transaction=loud-fail-tx", "attempt=loud-fail-attempt", "retries=", "reason=", "jq -c", "Manual recovery", "continue"]) {
-        if (!warning.includes(needle)) throw new Error(`loud failure warning missing ${needle}: ${warning}`);
-      }
+    const warning = warnings[0].message;
+    for (const needle of [
+      "transaction=loud-fail-tx",
+      "attempt=loud-fail-attempt",
+      "retries=",
+      "reason=",
+      "jq -c",
+      "Manual recovery",
+      "continue",
+    ]) {
+      if (!warning.includes(needle)) throw new Error(`loud failure warning missing ${needle}: ${warning}`);
     }
+    void originalSend;
     host.dispose();
   });
 
