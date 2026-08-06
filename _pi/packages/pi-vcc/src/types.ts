@@ -35,15 +35,17 @@ export interface NoCutClassification {
   willRetry?: boolean;
 }
 
+export type CompactionResumeIntent = "active" | "none";
+
 export interface CompactionIntent {
-  source?: string;
+  source: string;
+  resumeIntent: CompactionResumeIntent;
   reason?: string;
   boundary?: string;
   preserve?: string;
   requestId?: string;
-  attemptId?: string;
+  attemptId: string;
   transactionId?: string;
-  resumePolicy?: "active" | "terminal" | "auto";
 }
 
 export const isBashExecutionMessage = (msg: PiMessage): msg is BashExecutionMessage =>

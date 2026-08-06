@@ -67,13 +67,17 @@ const parseCompactionIntent = (customInstructions?: string): CompactionIntent | 
   try {
     const parsed = JSON.parse(payload.slice(jsonStart));
     if (!parsed || typeof parsed !== "object") return undefined;
-    const intent: CompactionIntent = {};
-    for (const key of ["source", "reason", "boundary", "preserve", "requestId", "attemptId", "transactionId", "resumePolicy"] as const) {
+    const source = typeof parsed.source === "string" ? parsed.source.replace(/\s+/g, " ").trim().slice(0, 500) : "";
+    const attemptId = typeof parsed.attemptId === "string" ? parsed.attemptId.replace(/\s+/g, " ").trim().slice(0, 500) : "";
+    const resumeIntent = parsed.resumeIntent === "active" || parsed.resumeIntent === "none" ? parsed.resumeIntent : undefined;
+    if (!source || !attemptId || !resumeIntent) return undefined;
+    const intent: CompactionIntent = { source, attemptId, resumeIntent };
+    for (const key of ["reason", "boundary", "preserve", "requestId", "transactionId"] as const) {
       const value = parsed[key];
       const cleaned = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
-      if (cleaned) intent[key] = cleaned.slice(0, 500) as never;
+      if (cleaned) intent[key] = cleaned.slice(0, 500);
     }
-    return Object.keys(intent).length ? intent : undefined;
+    return intent;
   } catch {
     return undefined;
   }
@@ -367,7 +371,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
     // request to resume the task after the context replacement.
     const activeCompactContext =
       details.compactionIntent?.source === "compact_context" &&
-      details.continuationResumePolicy === "active";
+      details.compactionResumeIntent === "active";
     if (!commandOrigin && !activeCompactContext && !details.interruptedInFlightTurn) return;
     if (event.willRetry === true || (!commandOrigin && !activeCompactContext && details.requiresContinuation === false)) return;
     const request = {
@@ -381,7 +385,7 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
       compactionId: event.compactionEntry.id,
       requestId: details.continuationRequestId ?? details.compactionIntent?.requestId,
       originatingRequestId: details.continuationRequestId ?? details.compactionIntent?.requestId,
-      resumePolicy: details.continuationResumePolicy ?? details.compactionIntent?.resumePolicy ?? "active",
+      resumePolicy: details.continuationResumePolicy ?? (details.compactionResumeIntent === "active" ? "active" : "terminal"),
       transactionId: details.continuationTransactionId ?? details.compactionIntent?.transactionId,
     };
     if (activeCompactContext) {
@@ -397,7 +401,8 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
     const { reason, willRetry } = eventContext;
     const compactionIntent = parseCompactionIntent(customInstructions);
     const compactingActiveTurn =
-      (agentTurnActive && !activeAgentFinishedResponse) || inferActiveTurnFromBranchEntries(branchEntries as any[]);
+      (agentTurnActive && !activeAgentFinishedResponse) ||
+      inferActiveTurnFromBranchEntries(branchEntries as any[]);
 
     const keepOptions = parseKeepOptions(customInstructions);
     const ownCut = buildOwnCut(
@@ -506,7 +511,8 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
       continuationAttemptId: compactionIntent?.attemptId,
       continuationRequestId: compactionIntent?.requestId,
       continuationTransactionId: compactionIntent?.transactionId,
-      continuationResumePolicy: compactionIntent?.resumePolicy,
+      compactionResumeIntent: compactionIntent?.resumeIntent ?? (compactingActiveTurn && event.willRetry !== true ? "active" : "none"),
+      continuationResumePolicy: (compactionIntent?.resumeIntent ?? (compactingActiveTurn && event.willRetry !== true ? "active" : "none")) === "active" ? "active" : "terminal",
     };
 
     return {

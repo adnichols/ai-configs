@@ -33,4 +33,11 @@ describe("continuation log schema", () => {
     expect(isStrictContinuationLogRecord({ ...record, error: "Bearer secret" })).toBe(false);
     expect(isStrictContinuationLogRecord({ ...record, preserve: "password=secret" })).toBe(false);
   });
+
+  it("rejects non-enum resume policies including auto", () => {
+    const record = continuationLogRecordFor("created", snapshot, 20);
+    expect(isStrictContinuationLogRecord({ ...record, resumePolicy: "auto" })).toBe(false);
+    expect(isStrictContinuationLogRecord({ ...record, resumePolicy: "later" })).toBe(false);
+    expect(isStrictContinuationLogRecord({ ...record, resumePolicy: "terminal" })).toBe(true);
+  });
 });

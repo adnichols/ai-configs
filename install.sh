@@ -39,7 +39,6 @@ DEPRECATED_SHARED_SKILLS=(
     cmd-start-linear-issue-branch
     opencode-safe-restart
     plan-reviewer-build
-    plan-reviewer-execution-ready
     review-change
     review-change-integrate
     herdr-reviewers
@@ -103,7 +102,7 @@ print_usage() {
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
-    echo "  - The tracked OMP config, guidance, and Oracle/reviewer agents are installed locally whenever --tools or --all runs"
+    echo "  - The tracked OMP config, guidance, and Oracle/planner/reviewer agents are installed locally whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
     echo "  - Managed Amp settings/modes are streamed to mbp/dever/mbp14 whenever --tools or --all runs on macOS"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
@@ -1464,17 +1463,64 @@ sync_consumer_skill_links() {
     done < <(iterate_installable_skills)
 }
 
-cleanup_pi_shared_skill_mirrors() {
+consolidate_pi_local_skills() {
     local pi_skills_dir="$1"
+    local shared_skills_dir="$HOME/.agents/skills"
+    local entry_path
+    local skill_name
+    local shared_target
+    local stage_dir
+    local backup_path
+    local entries=()
 
     if [ ! -d "$pi_skills_dir" ]; then
         return 0
     fi
 
-    echo "  - Removing repo-managed shared skill mirrors from $pi_skills_dir..."
-    while IFS=$'\t' read -r skill_name source_rel _skill_class _allowed_consumers _default_install; do
-        remove_consumer_skill_entry "pi" "$pi_skills_dir" "$skill_name" "$source_rel" "$HOME/.agents/skills"
-    done < <(iterate_installable_skills)
+    echo "  - Consolidating Pi-local skills into $shared_skills_dir..."
+    shopt -s nullglob dotglob
+    entries=("$pi_skills_dir"/*)
+    shopt -u nullglob dotglob
+
+    for entry_path in "${entries[@]}"; do
+        skill_name="$(basename "$entry_path")"
+        shared_target="$shared_skills_dir/$skill_name"
+
+        if [ -e "$shared_target" ] || [ -L "$shared_target" ]; then
+            if [ -L "$entry_path" ] && [ "$(readlink "$entry_path")" = "$shared_target" ]; then
+                rm -f "$entry_path"
+                continue
+            fi
+
+            backup_path="$(backup_existing_consumer_entry "$entry_path" "pi" "$skill_name")"
+            rm -rf "$entry_path"
+            echo "    - Removed Pi-local duplicate: $skill_name (backup: $backup_path)"
+            continue
+        fi
+
+        if [ -f "$entry_path/SKILL.md" ]; then
+            stage_dir="$(mktemp -d "$shared_skills_dir/.${skill_name}.stage.XXXXXX")"
+            if ! cp -a "$entry_path/." "$stage_dir/" || [ ! -f "$stage_dir/SKILL.md" ]; then
+                rm -rf "$stage_dir"
+                echo -e "${RED}Error: Failed to stage Pi-local skill $skill_name for shared discovery${NC}" >&2
+                return 1
+            fi
+
+            backup_path="$(backup_existing_consumer_entry "$entry_path" "pi" "$skill_name")"
+            if ! mv "$stage_dir" "$shared_target"; then
+                rm -rf "$stage_dir"
+                echo -e "${RED}Error: Failed to install Pi-local skill $skill_name at $shared_target${NC}" >&2
+                return 1
+            fi
+            rm -rf "$entry_path"
+            echo "    - Promoted Pi-local skill into shared discovery: $skill_name (backup: $backup_path)"
+            continue
+        fi
+
+        backup_path="$(backup_existing_consumer_entry "$entry_path" "pi" "$skill_name")"
+        rm -rf "$entry_path"
+        echo "    - Removed invalid or dangling Pi-local skill entry: $skill_name (backup: $backup_path)"
+    done
 }
 
 sync_shared_skills() {
@@ -1525,7 +1571,7 @@ sync_shared_skills() {
     cleanup_optional_profile_shared_skills
 
     sync_consumer_skill_links "claude" "$HOME/.claude/skills" "$@"
-    cleanup_pi_shared_skill_mirrors "$HOME/.pi/agent/skills"
+    consolidate_pi_local_skills "$HOME/.pi/agent/skills"
 
     echo -e "${GREEN}✓ Shared skills synced successfully${NC}"
     SHARED_SKILLS_SYNCED=true
@@ -1533,6 +1579,7 @@ sync_shared_skills() {
     echo "  Default shared skills now live in ~/.agents/skills"
     echo "  Repo-owned payloads come from skills/; package-backed payloads are fetched per skills/install-matrix.json"
     echo "  Optional-profile skills remain declared in the matrix but are backed out of default discovery"
+    echo "  Pi-local skill entries are promoted into ~/.agents/skills and removed from ~/.pi/agent/skills"
 }
 
 update_installed_skills_from_skills_sh() {
@@ -2321,7 +2368,7 @@ install_pi() {
     fi
 
     # Shared installable skills are discovered via ~/.agents/skills.
-    echo "  - Shared installable skills are discovered via ~/.agents/skills; ~/.pi/agent/skills is reserved for Pi-local-only entries."
+    echo "  - Shared installable skills are discovered via ~/.agents/skills; Pi-local skill entries are consolidated there during skill sync."
 
     # Install planning and read-only subagent definitions for @tintinweb/pi-subagents.
     echo "  - Installing Pi planning/read-only subagents..."
@@ -2933,27 +2980,35 @@ install_scoped_pi_vcc_package() (
     set -eE
 
     local source_input="${PI_VCC_PACKAGE_SOURCE:-$REPO_ROOT/_pi/packages/pi-vcc}"
+    local extension_source="$REPO_ROOT/_pi/extensions/percentage-compaction.ts"
     local pi_agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
     local settings_path="$pi_agent_dir/settings.json"
     local stable_parent="$pi_agent_dir/local-packages/ai-configs"
     local stable_source="$stable_parent/pi-vcc"
+    local live_extension="$pi_agent_dir/extensions/percentage-compaction.ts"
     local identity_helper="$REPO_ROOT/scripts/pi-vcc-package-tree.py"
     local verify_script="$REPO_ROOT/scripts/verify-pi-vcc-install.sh"
     local source_abs source_hash staged_hash
     local stage_path=""
     local backup_path=""
     local settings_snapshot=""
+    local extension_snapshot=""
     local settings_existed=0
     local settings_snapshot_ready=0
+    local extension_existed=0
+    local extension_snapshot_ready=0
+    local extension_swapped=0
     local stable_moved=0
     local candidate_installed=0
     local committed=0
     local failpoint="${PI_VCC_INSTALL_FAILPOINT:-}"
 
     case "$failpoint" in
-        ""|copy|staged-hash|backup-move|swap|registration|post-swap-verification|remove-candidate|restore-mirror|restore-settings) ;;
+        ""|copy|staged-hash|backup-move|swap|registration|extension-swap|post-swap-verification|remove-candidate|restore-mirror|restore-settings|restore-extension) ;;
         *) echo "Error: unknown PI_VCC_INSTALL_FAILPOINT: $failpoint" >&2; exit 2 ;;
     esac
+
+    [ -f "$extension_source" ] || { echo "Error: pi-vcc percentage extension source missing: $extension_source" >&2; exit 1; }
 
     [ -d "$source_input" ] || { echo "Error: pi-vcc package source is not a directory: $source_input" >&2; exit 1; }
     [ -f "$source_input/package.json" ] || { echo "Error: pi-vcc package source is missing package.json: $source_input" >&2; exit 1; }
@@ -3068,14 +3123,26 @@ PY
             elif [ "$settings_existed" -eq 0 ]; then
                 rm -f "$settings_path" || restore_failed=1
             fi
+            if [ "$extension_swapped" -eq 1 ] || [ "$extension_snapshot_ready" -eq 1 ]; then
+                if [ "$extension_existed" -eq 1 ] && [ "$extension_snapshot_ready" -eq 1 ]; then
+                    if [ "$failpoint" = "restore-extension" ]; then
+                        restore_failed=1
+                    elif ! cp -p "$extension_snapshot" "$live_extension"; then
+                        restore_failed=1
+                    fi
+                elif [ "$extension_existed" -eq 0 ]; then
+                    rm -f "$live_extension" || restore_failed=1
+                fi
+            fi
         fi
         [ -z "$stage_path" ] || rm -rf "$stage_path" || restore_failed=1
         if [ "$restore_failed" -eq 0 ]; then
             [ -z "$backup_path" ] || rm -rf "$backup_path" || restore_failed=1
             [ -z "$settings_snapshot" ] || rm -f "$settings_snapshot" || restore_failed=1
+            [ -z "$extension_snapshot" ] || rm -f "$extension_snapshot" || restore_failed=1
         fi
         if [ "$restore_failed" -ne 0 ]; then
-            echo "Error: pi-vcc automatic rollback encountered an error; recovery evidence retained at backup=${backup_path:-none} settings=${settings_snapshot:-none}" >&2
+            echo "Error: pi-vcc automatic rollback encountered an error; recovery evidence retained at backup=${backup_path:-none} settings=${settings_snapshot:-none} extension=${extension_snapshot:-none}" >&2
             status=1
         fi
         exit "$status"
@@ -3084,13 +3151,19 @@ PY
     trap 'exit 130' INT
     trap 'exit 143' TERM
 
-    mkdir -p "$stable_parent" "$(dirname "$settings_path")"
+    mkdir -p "$stable_parent" "$(dirname "$settings_path")" "$(dirname "$live_extension")"
     stage_path="$(mktemp -d "$stable_parent/.pi-vcc-stage.XXXXXX")"
     settings_snapshot="$(mktemp "$stable_parent/.pi-vcc-settings.XXXXXX")"
+    extension_snapshot="$(mktemp "$stable_parent/.pi-vcc-extension.XXXXXX")"
     if [ -f "$settings_path" ]; then
         settings_existed=1
         cp -p "$settings_path" "$settings_snapshot"
         settings_snapshot_ready=1
+    fi
+    if [ -f "$live_extension" ]; then
+        extension_existed=1
+        cp -p "$live_extension" "$extension_snapshot"
+        extension_snapshot_ready=1
     fi
 
     [ "$failpoint" != "copy" ] || { echo "Injected pi-vcc install failure: copy" >&2; exit 1; }
@@ -3149,8 +3222,11 @@ os.chmod(temporary, mode)
 os.replace(temporary, settings)
 PY
     [ "$failpoint" != "registration" ] || { echo "Injected pi-vcc install failure: registration" >&2; exit 1; }
+    [ "$failpoint" != "extension-swap" ] || { echo "Injected pi-vcc install failure: extension-swap" >&2; exit 1; }
+    cp -p "$extension_source" "$live_extension"
+    extension_swapped=1
     case "$failpoint" in
-        post-swap-verification|remove-candidate|restore-mirror|restore-settings)
+        post-swap-verification|remove-candidate|restore-mirror|restore-settings|restore-extension)
             echo "Injected pi-vcc install failure: $failpoint" >&2
             exit 1
             ;;
@@ -3161,8 +3237,8 @@ PY
     committed=1
     trap - EXIT INT TERM
     [ -z "$backup_path" ] || rm -rf "$backup_path"
-    rm -f "$settings_snapshot"
-    echo "pi-vcc scoped install: PASS source=$source_abs stable=$stable_source hash=$source_hash"
+    rm -f "$settings_snapshot" "$extension_snapshot"
+    echo "pi-vcc scoped install: PASS source=$source_abs stable=$stable_source extension=$live_extension hash=$source_hash"
 )
 
 # Mirror and register the pinned Cursor extension from this repository rather

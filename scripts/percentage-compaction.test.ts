@@ -48,9 +48,6 @@ const setup = (
 		contextWindow?: number;
 	} = {},
 ) => {
-	(globalThis as any)[PI_VCC_LOAD_MARKER] = piVccLoaded;
-	process.env.PI_VCC_STANDALONE_CONTINUATION_AUTHORITY = options.authority ?? "legacy";
-
 	const handlers: HandlerMap = {};
 	const commands: CommandMap = {};
 	const tools: ToolMap = {};
@@ -59,7 +56,26 @@ const setup = (
 	const sentMessages: Array<{ message: any; options: any }> = [];
 	const appendedEntries: Array<{ customType: string; data: any }> = [];
 	const emittedEvents: Array<{ channel: string; data: any }> = [];
+	const continuationRequests: Array<any> = [];
 	const actionOrder: string[] = [];
+	(globalThis as any)[PI_VCC_LOAD_MARKER] = piVccLoaded
+		? {
+				status: "active",
+				continuation: {
+					request: (input: any) => {
+						continuationRequests.push(input);
+						return {
+							transactionId: `tx-${continuationRequests.length}`,
+							...input,
+							resumePolicy: input.resumeIntent === "active" ? "active" : "terminal",
+							state: "created",
+						};
+					},
+					getPending: () => undefined,
+				},
+			}
+		: false;
+	delete process.env.PI_VCC_STANDALONE_CONTINUATION_AUTHORITY;
 	let runtimeValid = true;
 	const assertRuntimeValid = () => {
 		if (!runtimeValid)
@@ -148,6 +164,7 @@ const setup = (
 		sentMessages,
 		appendedEntries,
 		emittedEvents,
+		continuationRequests,
 		actionOrder,
 		ctx,
 		invalidateRuntime: () => {
@@ -310,7 +327,7 @@ describe("percentage-compaction extension", () => {
 		);
 	});
 
-	test("compact_context defers after fresh failure output until an assistant interprets it", async () => {
+	test("BDD-1: standalone compact_context is not stranded by an earlier tool failure", async () => {
 		const { handlers, tools, compactCalls, ctx } = setup(65);
 
 		await handlers.turn_end?.(
@@ -319,7 +336,7 @@ describe("percentage-compaction extension", () => {
 			]),
 			ctx,
 		);
-		await tools.compact_context.execute("tc_1", {
+		const queued = await tools.compact_context.execute("tc_1", {
 			reason: "after failing tests",
 			boundary: "after_test_loop",
 		});
@@ -330,15 +347,10 @@ describe("percentage-compaction extension", () => {
 			ctx,
 		);
 
-		expect(compactCalls).toHaveLength(0);
-
-		await handlers.turn_end?.(
-			assistantStopWithText(
-				"I interpreted the test error and the failure is understood.",
-			),
-			ctx,
-		);
 		expect(compactCalls).toHaveLength(1);
+		expect(compactCalls[0].customInstructions).toContain('"resumeIntent":"active"');
+		expect(compactCalls[0].customInstructions).toContain(queued.details.requestId);
+		expect(compactCalls[0].customInstructions).toContain(queued.details.attemptId);
 	});
 
 	test("failed model-visible nudge delivery is retried instead of marked delivered", async () => {
@@ -613,7 +625,8 @@ describe("percentage-compaction extension", () => {
 		expect(compactCalls).toHaveLength(0);
 		await delay(0);
 		expect(compactCalls).toHaveLength(1);
-		expect(compactCalls[0].customInstructions).toBeUndefined();
+		expect(compactCalls[0].customInstructions).toContain('"source":"hard-backstop"');
+		expect(compactCalls[0].customInstructions).toContain('"resumeIntent":"none"');
 		compactCalls[0].onComplete();
 
 		await handlers.turn_end?.(assistantStop, ctx);
@@ -624,6 +637,49 @@ describe("percentage-compaction extension", () => {
 		await handlers.turn_end?.(assistantStop, ctx);
 		await delay(0);
 		expect(compactCalls).toHaveLength(2);
+	});
+
+	test("BDD-2: generation race marks scheduled hard-backstop active when a later agent_start arrives", async () => {
+		const { handlers, compactCalls, ctx } = setup(81);
+		await handlers.turn_end?.(assistantStop, ctx);
+		await handlers.agent_start?.({}, ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(1);
+		expect(compactCalls[0].customInstructions).toContain('"resumeIntent":"active"');
+	});
+
+	test("BDD-2 counterexample: completed response stays terminal without a later agent_start", async () => {
+		const { handlers, compactCalls, ctx } = setup(81);
+		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(1);
+		expect(compactCalls[0].customInstructions).toContain('"resumeIntent":"none"');
+	});
+
+	test("AC-4: pending semantic request identity survives hard-backstop escalation", async () => {
+		const { handlers, tools, compactCalls, ctx } = setup(81);
+		const queued = await tools.compact_context.execute("tc_sem", {
+			reason: "still working",
+			boundary: "after_test_loop",
+		});
+		await handlers.turn_end?.(assistantToolUse(2, [toolResult("tc_sem")]), ctx);
+		await delay(0);
+		expect(compactCalls).toHaveLength(1);
+		expect(compactCalls[0].customInstructions).toContain(queued.details.requestId);
+		expect(compactCalls[0].customInstructions).toContain(queued.details.attemptId);
+		expect(compactCalls[0].customInstructions).toContain('"source":"compact_context"');
+		expect(compactCalls[0].customInstructions).toContain('"resumeIntent":"active"');
+	});
+
+	test("AC-6: extension routes through package facade without legacy authority or wire constructors", async () => {
+		const source = await Bun.file(
+			new URL("../_pi/extensions/percentage-compaction.ts", import.meta.url),
+		).text();
+		expect(source).not.toContain("PI_VCC_STANDALONE_CONTINUATION_AUTHORITY");
+		expect(source).not.toContain("continuationAuthority");
+		expect(source).not.toContain("publishContinuationRequest");
+		expect(source).not.toContain('"resumePolicy"');
+		expect(source).toContain("continuationFacade");
 	});
 
 	test("agent_end owns provider overflow when core auto-compaction is disabled", async () => {
@@ -642,13 +698,11 @@ describe("percentage-compaction extension", () => {
 		await delay(0);
 
 		expect(compactCalls).toHaveLength(1);
-		expect(compactCalls[0].customInstructions).toBeUndefined();
+		expect(compactCalls[0].customInstructions).toContain('"source":"host-overflow"');
+		expect(compactCalls[0].customInstructions).toContain('"resumeIntent":"active"');
 		compactCalls[0].onComplete();
 		await delay(0);
-
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe("compaction-resume");
-		expect(sentMessages[0].message.content).toContain("context-overflow");
+		expect(sentMessages).toHaveLength(0);
 	});
 
 	test("provider overflow publishes a host-overflow coordinator continuation", async () => {
@@ -675,14 +729,9 @@ describe("percentage-compaction extension", () => {
 		compactCalls[0].onComplete();
 
 		expect(sentMessages).toHaveLength(0);
-		expect(appendedEntries.map((entry) => entry.customType)).toEqual([
-			"pi-vcc-continuation-request",
-			"pi-vcc-continuation-safety-ready",
-		]);
-		expect(appendedEntries[0].data.snapshot).toMatchObject({
-			origin: "host-overflow",
-			reason: "compacted",
-		});
+		expect(appendedEntries).toEqual([]);
+		// successful compaction is owned by package session_compact; error path uses facade
+		expect(compactCalls[0].customInstructions).toContain('"source":"host-overflow"');
 	});
 
 	test("scheduled overflow recovery cancels a competing core overflow compaction", async () => {
@@ -821,12 +870,10 @@ describe("percentage-compaction extension", () => {
 		);
 		await delay(0);
 		expect(lengthOverflow.compactCalls).toHaveLength(1);
+		expect(lengthOverflow.compactCalls[0].customInstructions).toContain('"resumeIntent":"active"');
 		lengthOverflow.compactCalls[0].onComplete();
 		await delay(0);
-		expect(lengthOverflow.sentMessages).toHaveLength(1);
-		expect(lengthOverflow.sentMessages[0].message.customType).toBe(
-			"compaction-resume",
-		);
+		expect(lengthOverflow.sentMessages).toHaveLength(0);
 	});
 
 	test("hard backstop preserves retry semantics for an overflow error", async () => {
@@ -841,15 +888,14 @@ describe("percentage-compaction extension", () => {
 		await handlers.turn_end?.(assistantContextOverflow(), ctx);
 		await delay(0);
 		expect(compactCalls).toHaveLength(1);
+		expect(compactCalls[0].customInstructions).toContain('"resumeIntent":"active"');
 		compactCalls[0].onComplete();
 		await delay(0);
-
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe("compaction-resume");
+		expect(sentMessages).toHaveLength(0);
 	});
 
 	test("compaction failure sends one continuation for an interrupted turn", async () => {
-		const { handlers, compactCalls, sentMessages, notifications, ctx } =
+		const { handlers, compactCalls, sentMessages, continuationRequests, notifications, ctx } =
 			setup(96.2);
 
 		await handlers.turn_end?.(
@@ -863,24 +909,24 @@ describe("percentage-compaction extension", () => {
 		);
 		await delay();
 
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
-		expect(sentMessages[0].message.details.reason).toBe("failed");
-		expect(sentMessages[0].options).toEqual({
-			deliverAs: "steer",
-			triggerTurn: true,
+		expect(sentMessages).toHaveLength(0);
+		expect(continuationRequests).toHaveLength(1);
+		expect(continuationRequests[0]).toMatchObject({
+			initiator: "hard-backstop",
+			outcome: "failure",
+			resumeIntent: "active",
 		});
 		expect(
 			notifications.some(
 				(entry) =>
 					entry.level === "warning" &&
-					entry.message.includes("continuing interrupted turn"),
+					entry.message.includes("continuation is coordinator-owned"),
 			),
 		).toBe(true);
 	});
 
 	test("compaction cancelled sends one continuation for an interrupted turn", async () => {
-		const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+		const { handlers, compactCalls, sentMessages, continuationRequests, ctx } = setup(96.2);
 
 		await handlers.turn_end?.(
 			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
@@ -891,9 +937,9 @@ describe("percentage-compaction extension", () => {
 		compactCalls[0].onError(new Error("Compaction cancelled"));
 		await delay();
 
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
-		expect(sentMessages[0].message.details.reason).toBe("cancelled");
+		expect(sentMessages).toHaveLength(0);
+		expect(continuationRequests).toHaveLength(1);
+		expect(continuationRequests[0]).toMatchObject({ outcome: "cancellation", resumeIntent: "active" });
 	});
 
 	test("completed assistant response does not continue after compaction failure", async () => {
@@ -910,50 +956,21 @@ describe("percentage-compaction extension", () => {
 	});
 
 	test("integrated observed race recovers once and suppresses same-percent retry", async () => {
-		const { handlers, compactCalls, sentMessages, notifications, ctx } =
-			setup(96.2);
-
+		const { handlers, compactCalls, sentMessages, continuationRequests, ctx } = setup(96.2);
 		await handlers.turn_end?.(
 			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
 			ctx,
 		);
-		expect(compactCalls).toHaveLength(0);
-
-		const coreResult = await handlers.session_before_compact?.(
-			{ customInstructions: undefined },
-			ctx,
-		);
-		expect(coreResult).toEqual({ cancel: true });
-		expect(
-			notifications.some((entry) =>
-				entry.message.includes("pi-vcc already scheduled 96%"),
-			),
-		).toBe(true);
-
 		await delay(0);
 		expect(compactCalls).toHaveLength(1);
-		compactCalls[0].onError(new Error("Compaction cancelled"));
-		compactCalls[0].onError(
-			new Error("Cannot read properties of undefined (reading 'signal')"),
-		);
 		compactCalls[0].onError(
 			new Error("Cannot read properties of undefined (reading 'signal')"),
 		);
 		await delay();
-
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
-		expect(sentMessages[0].message.details.reason).toBe("cancelled");
-
-		await handlers.turn_end?.(assistantToolUse(1, []), ctx);
+		expect(sentMessages).toHaveLength(0);
+		expect(continuationRequests).toHaveLength(1);
+		await handlers.turn_end?.(assistantStop, ctx);
 		await delay(0);
-		expect(compactCalls).toHaveLength(1);
-
-		const samePercentCoreResult = await handlers.session_before_compact?.(
-			{ customInstructions: undefined },
-			ctx,
-		);
-		expect(samePercentCoreResult).toEqual({ cancel: true });
 		expect(compactCalls).toHaveLength(1);
 	});
 
@@ -1026,8 +1043,8 @@ describe("percentage-compaction extension", () => {
 		expect(willRetry.compactCalls).toHaveLength(1);
 	});
 
-	test("pending failure continuation blocks replacement compaction until safe", async () => {
-		const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
+	test("pending failure continuation is package-owned and does not use extension delivery queues", async () => {
+		const { handlers, compactCalls, sentMessages, continuationRequests, ctx } = setup(96.2);
 
 		await handlers.turn_end?.(assistantToolUse(2, []), ctx);
 		await delay(0);
@@ -1035,33 +1052,12 @@ describe("percentage-compaction extension", () => {
 		compactCalls[0].onError(new Error("Compaction cancelled"));
 		await delay();
 		expect(sentMessages).toHaveLength(0);
-
-		await handlers.turn_end?.(assistantToolUse(1, []), ctx);
-		await delay(0);
-		expect(compactCalls).toHaveLength(1);
-		expect(sentMessages).toHaveLength(0);
-
-		const overflowResult = await handlers.session_before_compact?.(
-			{ customInstructions: undefined, reason: "overflow" },
-			ctx,
-		);
-		expect(overflowResult).toEqual({ cancel: true });
-		const retryResult = await handlers.session_before_compact?.(
-			{ customInstructions: undefined, willRetry: true },
-			ctx,
-		);
-		expect(retryResult).toEqual({ cancel: true });
-		expect(compactCalls).toHaveLength(1);
-		expect(sentMessages).toHaveLength(0);
-
-		await handlers.turn_end?.(assistantStop, ctx);
-		await delay(0);
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
+		expect(continuationRequests).toHaveLength(1);
+		expect(continuationRequests[0].outcome).toBe("cancellation");
 	});
 
 	test("active hard-backstop no-cut sends one continuation and clears state", async () => {
-		const { handlers, compactCalls, sentMessages, notifications, ctx } =
+		const { handlers, compactCalls, sentMessages, continuationRequests, notifications, ctx } =
 			setup(96.2);
 
 		await handlers.turn_end?.(
@@ -1075,17 +1071,10 @@ describe("percentage-compaction extension", () => {
 		);
 		await delay();
 
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe(
-			"pi-vcc-no-cut-continuation",
-		);
-		expect(sentMessages[0].message.content).toContain(
-			"no safe compaction cut was available",
-		);
-		expect(sentMessages[0].options).toEqual({
-			deliverAs: "steer",
-			triggerTurn: true,
-		});
+		expect(sentMessages).toHaveLength(0);
+		expect(continuationRequests).toEqual([
+			expect.objectContaining({ outcome: "no-safe-cut", resumeIntent: "active" }),
+		]);
 		expect(
 			notifications.some((entry) =>
 				entry.message.includes("No safe compaction cut available"),
@@ -1097,94 +1086,8 @@ describe("percentage-compaction extension", () => {
 		expect(compactCalls).toHaveLength(1);
 	});
 
-	test("hard-backstop no-cut defers continuation until pending tool results are delivered", async () => {
-		const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
 
-		await handlers.turn_end?.(assistantToolUse(2, []), ctx);
-		await delay(0);
-		await handlers.turn_end?.(
-			{
-				message: toolResult("tc_1", "compact_context", "queued"),
-				toolResults: [],
-			},
-			ctx,
-		);
-		compactCalls[0].onError(
-			new Error("Nothing to compact (session too small)"),
-		);
-		await delay();
-		expect(sentMessages).toHaveLength(0);
 
-		await handlers.turn_end?.(
-			{ message: toolResult("tc_2", "read", "source"), toolResults: [] },
-			ctx,
-		);
-		await delay();
-		expect(sentMessages).toHaveLength(1);
-	});
-
-	test("no-cut continuation retries once then succeeds", async () => {
-		const { handlers, compactCalls, sentMessages, notifications, ctx } = setup(
-			96.2,
-			true,
-			{ sendMessageFailures: 1 } as any,
-		);
-
-		await handlers.turn_end?.(
-			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
-			ctx,
-		);
-		await delay(0);
-		compactCalls[0].onError(
-			new Error("Nothing to compact (session too small)"),
-		);
-		await delay(700);
-
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.details.deliveryAttempts).toBe(2);
-		expect(
-			notifications.some((entry) =>
-				entry.message.includes("delivery failed after"),
-			),
-		).toBe(false);
-	});
-
-	test("permanent no-cut continuation delivery failure warns without stuck compaction", async () => {
-		const originalDateNow = Date.now;
-		let now = 0;
-		Date.now = () => {
-			now += 6000;
-			return now;
-		};
-		try {
-			const { handlers, compactCalls, notifications, ctx } = setup(96.2, true, {
-				sendMessageThrows: true,
-			});
-
-			await handlers.turn_end?.(
-				assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
-				ctx,
-			);
-			await delay(0);
-			compactCalls[0].onError(
-				new Error("Nothing to compact (session too small)"),
-			);
-			await delay();
-
-			expect(
-				notifications.some(
-					(entry) =>
-						entry.level === "warning" &&
-						entry.message.includes("No-cut continuation delivery failed"),
-				),
-			).toBe(true);
-			await handlers.turn_end?.(assistantStop, ctx);
-			await delay(0);
-			expect(compactCalls).toHaveLength(1);
-		} finally {
-			Date.now = originalDateNow;
-		}
-	});
 
 	test("idle hard-backstop no-cut does not auto-resume", async () => {
 		const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
@@ -1238,31 +1141,6 @@ describe("percentage-compaction extension", () => {
 		expect(model.sentMessages).toHaveLength(0);
 	});
 
-	test("same-percent hard-backstop failure retry is suppressed after continuation delivery", async () => {
-		const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
-
-		await handlers.turn_end?.(assistantToolUse(1, []), ctx);
-		await delay(0);
-		expect(compactCalls).toHaveLength(1);
-
-		compactCalls[0].onError(new Error("provider failed"));
-		await handlers.turn_end?.(
-			{
-				message: toolResult("tc_1", "read", "source"),
-				toolResults: [],
-			},
-			ctx,
-		);
-		await delay(0);
-
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
-		expect(compactCalls).toHaveLength(1);
-
-		await handlers.turn_end?.(assistantStop, ctx);
-		await delay(0);
-		expect(compactCalls).toHaveLength(1);
-	});
 
 	test("same floored no-cut percent is suppressed until usage rises or a user speaks", async () => {
 		let percent = 96.2;
@@ -1302,28 +1180,6 @@ describe("percentage-compaction extension", () => {
 		expect(compactCalls).toHaveLength(3);
 	});
 
-	test("model-visible no-cut continuation does not re-arm retry suppression as user input", async () => {
-		const { handlers, compactCalls, sentMessages, ctx } = setup(96.2);
-
-		await handlers.turn_end?.(
-			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
-			ctx,
-		);
-		await delay(0);
-		compactCalls[0].onError(
-			new Error("Nothing to compact (session too small)"),
-		);
-		await delay();
-		expect(sentMessages).toHaveLength(1);
-
-		await handlers.message_end?.(
-			{ message: { role: "user", customType: "pi-vcc-no-cut-continuation" } },
-			ctx,
-		);
-		await handlers.turn_end?.(assistantStop, ctx);
-		await delay(0);
-		expect(compactCalls).toHaveLength(1);
-	});
 
 	test("no-cut reset allows later interrupted hard-backstop attempt", async () => {
 		let percent = 96.2;
@@ -1711,66 +1567,40 @@ describe("percentage-compaction extension", () => {
 
 	test.each([
 		["success", undefined, "compacted"],
-		["failure", new Error("provider failed"), "failed"],
-		["cancellation", new Error("Compaction cancelled"), "cancelled"],
+		["failure", new Error("provider failed"), "failure"],
+		["cancellation", new Error("Compaction cancelled"), "cancellation"],
 		[
 			"no-safe-cut",
 			new Error("Nothing to compact (session too small)"),
 			"no-safe-cut",
 		],
-	])("compact-now callback publication is deterministic for %s", async (_label, error, reason) => {
+	])("compact-now callback publication is deterministic for %s", async (_label, error, outcome) => {
 		const {
 			commands,
 			compactCalls,
 			appendedEntries,
-			emittedEvents,
-			actionOrder,
 			sentMessages,
+			continuationRequests,
 			ctx,
 		} = setup(20, true, { authority: "coordinator" });
 		await commands["compact-now"].handler("", ctx);
 		expect(compactCalls).toHaveLength(1);
+		expect(compactCalls[0].customInstructions).toContain('"resumeIntent":"none"');
 		if (error) compactCalls[0].onError(error);
 		else compactCalls[0].onComplete();
 
+		expect(appendedEntries).toHaveLength(0);
+		expect(sentMessages).toHaveLength(0);
 		if (!error) {
-			expect(appendedEntries).toHaveLength(0);
-			expect(emittedEvents).toHaveLength(0);
-			expect(sentMessages).toHaveLength(0);
+			expect(continuationRequests).toHaveLength(0);
 			return;
 		}
-
-		expect(appendedEntries).toHaveLength(1);
-		const request = appendedEntries[0];
-		expect(request.customType).toBe("pi-vcc-continuation-request");
-		expect(request.data.snapshot.resumePolicy).toBe("terminal");
-		expect(request.data.snapshot.reason).toBe(reason);
-		expect(request.data.outcomeHint).toBe(
-			reason === "failed"
-				? "failure"
-				: reason === "cancelled"
-					? "cancellation"
-					: reason,
-		);
-		expect(emittedEvents).toEqual([
-			{
-				channel: "pi-vcc:continuation-requested",
-				data: {
-					transactionId: request.data.snapshot.transactionId,
-					attemptId: request.data.snapshot.attemptId,
-					requestId: request.data.snapshot.requestId,
-				},
-			},
-		]);
-		expect(actionOrder).toEqual([
-			"append:pi-vcc-continuation-request",
-			"emit:pi-vcc:continuation-requested",
-		]);
-		expect(
-			sentMessages.filter(
-				(entry) => entry.message.customType === "pi-vcc-continuation",
-			),
-		).toHaveLength(0);
+		expect(continuationRequests).toHaveLength(1);
+		expect(continuationRequests[0]).toMatchObject({
+			initiator: "package-compact-now",
+			outcome,
+			resumeIntent: "none",
+		});
 	});
 
 	test("late compact-now error callback after reload shutdown ignores the stale runtime", async () => {
@@ -1931,13 +1761,13 @@ describe("percentage-compaction extension", () => {
 		).toBe(true);
 	});
 
-	test("coordinator authority publishes durable request before advisory wake and never sends legacy continuation", async () => {
+	test("package facade owns error-path continuation requests without extension wire publication", async () => {
 		const {
 			handlers,
 			compactCalls,
 			sentMessages,
 			appendedEntries,
-			emittedEvents,
+			continuationRequests,
 			ctx,
 		} = setup(96.2, true, { authority: "coordinator" });
 
@@ -1953,128 +1783,40 @@ describe("percentage-compaction extension", () => {
 				(entry) => entry.message.customType === "pi-vcc-continuation",
 			),
 		).toHaveLength(0);
-		expect(appendedEntries.map((entry) => entry.customType)).toEqual([
-			"pi-vcc-continuation-request",
-			"pi-vcc-continuation-safety-ready",
-		]);
-		expect(emittedEvents).toHaveLength(2);
-		expect(emittedEvents[0].channel).toBe("pi-vcc:continuation-requested");
-		expect(emittedEvents[1].channel).toBe("pi-vcc:continuation-safety-ready");
-		expect(appendedEntries[0].data.snapshot.transactionId).toBe(
-			emittedEvents[0].data.transactionId,
-		);
-		expect(appendedEntries[0].data).toMatchObject({
-			protocol: "pi-vcc-continuation",
-			version: 2,
-			kind: "request",
-			snapshot: {
-				protocol: "pi-vcc-continuation",
-				version: 2,
-				origin: "hard-backstop",
-				reason: "cancelled",
-				phaseEpoch: 0,
-			},
+		expect(appendedEntries).toEqual([]);
+		expect(continuationRequests).toHaveLength(1);
+		expect(continuationRequests[0]).toMatchObject({
+			initiator: "hard-backstop",
+			outcome: "cancellation",
+			resumeIntent: "active",
 		});
-		expect(appendedEntries[0].data.snapshot.queuedAt).toBe(
-			appendedEntries[0].data.snapshot.createdAt,
-		);
-		expect(
-			appendedEntries[0].data.snapshot.deadlineAt -
-				appendedEntries[0].data.snapshot.createdAt,
-		).toBe(15_000);
-		expect(appendedEntries[1].data.version).toBe(2);
-		const reconciled = reconcileContinuationEntries(
-			appendedEntries.map((entry, index) => ({
-				id: `percentage-entry-${index}`,
-				type: "custom",
-				customType: entry.customType,
-				data: entry.data,
-			})),
-		);
-		expect(reconciled.invalidEntryIds).toEqual([]);
-		expect(reconciled.pending).toHaveLength(1);
-		expect(reconciled.pending[0]).toMatchObject({
-			version: 2,
-			transactionId: appendedEntries[0].data.snapshot.transactionId,
-			state: "created",
-		});
-		expect(reconciled.safetyReady).toHaveLength(1);
 	});
 
-	test("coordinator publisher preserves live lifecycle epochs and persists safety-ready before wake", async () => {
-		const h = setup(96.2, true, { authority: "coordinator" });
-		await h.handlers.session_start?.({}, h.ctx);
-		await h.handlers.agent_start?.({}, h.ctx);
-		await h.handlers.agent_start?.({}, h.ctx);
-		await h.handlers.turn_start?.({}, h.ctx);
-		await h.handlers.turn_end?.(
-			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
-			h.ctx,
-		);
-		await delay(0);
-		h.compactCalls[0].onError(new Error("Compaction cancelled"));
-
-		const request = h.appendedEntries.find(
-			(entry) => entry.customType === "pi-vcc-continuation-request",
-		);
-		const safety = h.appendedEntries.find(
-			(entry) => entry.customType === "pi-vcc-continuation-safety-ready",
-		);
-		expect(request.data.snapshot.epochs).toMatchObject({
-			session: 1,
-			agent: 2,
-			turn: 1,
-		});
-		expect(safety.data.transactionId).toBe(request.data.snapshot.transactionId);
-		expect(h.emittedEvents.map((entry) => entry.channel)).toEqual([
-			"pi-vcc:continuation-requested",
-			"pi-vcc:continuation-safety-ready",
-		]);
-		expect(h.actionOrder).toEqual([
-			"append:pi-vcc-continuation-request",
-			"emit:pi-vcc:continuation-requested",
-			"append:pi-vcc-continuation-safety-ready",
-			"emit:pi-vcc:continuation-safety-ready",
-		]);
-	});
-
-	test("compact_context resume policy is persisted and active/terminal/auto semantics are deterministic", async () => {
+	test("compact_context always queues active resume intent without resumePolicy", async () => {
 		const active = setup(65, true, { authority: "coordinator" });
 		const activeResult = await active.tools.compact_context.execute(
 			"tc_active",
 			{
 				reason: "done",
 				boundary: "subtask_complete",
-				resumePolicy: "active",
 			},
 		);
-		expect(activeResult.details.resumePolicy).toBe("active");
+		expect(activeResult.details.resumeIntent).toBe("active");
 		expect(activeResult.details.willResume).toBe(true);
+		expect(activeResult.details.attemptId).toBeTruthy();
+		expect(active.tools.compact_context.parameters.properties.resumePolicy).toBeUndefined();
 
-		const terminal = setup(65, true, { authority: "coordinator" });
-		const terminalResult = await terminal.tools.compact_context.execute(
-			"tc_terminal",
-			{
-				reason: "continue remaining work",
-				boundary: "after_test_loop",
-				resumePolicy: "terminal",
-			},
-		);
-		expect(terminalResult.details.willResume).toBe(false);
-
-		const auto = setup(65, true, { authority: "coordinator" });
-		const autoResult = await auto.tools.compact_context.execute("tc_auto", {
-			reason: "done",
+		const second = setup(65, true, { authority: "coordinator" });
+		const secondResult = await second.tools.compact_context.execute("tc_2", {
+			reason: "continue remaining work",
 			boundary: "after_test_loop",
 		});
-		expect(autoResult.details.resumePolicy).toBe("auto");
-		expect(autoResult.details.willResume).toBe(true);
-		expect(activeResult.details.requestId).not.toBe(
-			terminalResult.details.requestId,
-		);
+		expect(secondResult.details.resumeIntent).toBe("active");
+		expect(secondResult.details.willResume).toBe(true);
+		expect(activeResult.details.requestId).not.toBe(secondResult.details.requestId);
 	});
 
-	test("mismatched hard-backstop completion cannot erase pending compact_context request", async () => {
+	test("hard-backstop completion of an escalated semantic attempt clears that attempt", async () => {
 		let percent = 81;
 		const { handlers, tools, compactCalls, ctx } = setup(() => percent, true, {
 			authority: "coordinator",
@@ -2082,24 +1824,19 @@ describe("percentage-compaction extension", () => {
 		const queued = await tools.compact_context.execute("tc_request", {
 			reason: "remaining work",
 			boundary: "subtask_complete",
-			resumePolicy: "active",
 		});
-
 		await handlers.turn_end?.(assistantToolUse(2, []), ctx);
 		await delay(0);
 		expect(compactCalls).toHaveLength(1);
+		expect(compactCalls[0].customInstructions).toContain(queued.details.requestId);
 		compactCalls[0].onComplete();
-
 		percent = 65;
 		await handlers.turn_end?.(
 			{ message: toolResult("tc_request"), toolResults: [] },
 			ctx,
 		);
 		await handlers.turn_end?.(assistantStop, ctx);
-		expect(compactCalls).toHaveLength(2);
-		expect(compactCalls[1].customInstructions).toContain(
-			queued.details.requestId,
-		);
+		expect(compactCalls).toHaveLength(1);
 	});
 
 	test("event matrix prevents repeated hard-backstop compaction across tool loops", async () => {
@@ -2160,6 +1897,7 @@ describe("Grok context ceiling integration", () => {
 		const { handlers, compactCalls, notifications, ctx } = grokSetup(180_000);
 
 		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
 		expect(compactCalls).toHaveLength(1);
 		await delay(0);
 		expect(compactCalls).toHaveLength(1);
@@ -2185,6 +1923,7 @@ describe("Grok context ceiling integration", () => {
 		const { handlers, compactCalls, notifications, ctx } = grokSetup(180_000);
 
 		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
 		expect(compactCalls).toHaveLength(1);
 
 		const result = await handlers.session_before_compact?.(
@@ -2227,9 +1966,11 @@ describe("Grok context ceiling integration", () => {
 		);
 
 		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
 		expect(compactCalls).toHaveLength(1);
 		compactCalls[0].onComplete();
 		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
 		expect(compactCalls).toHaveLength(1);
 
 		await handlers.model_select?.(
@@ -2240,6 +1981,7 @@ describe("Grok context ceiling integration", () => {
 
 		tokens = 180_001;
 		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
 		expect(compactCalls).toHaveLength(2);
 	});
 
@@ -2267,10 +2009,12 @@ describe("Grok context ceiling integration", () => {
 		const { handlers, compactCalls, ctx } = grokSetup(180_000);
 
 		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
 		expect(compactCalls).toHaveLength(1);
 		compactCalls[0].onComplete();
 
 		await handlers.turn_end?.(assistantStop, ctx);
+		await delay(0);
 		expect(compactCalls).toHaveLength(1);
 	});
 
@@ -2293,27 +2037,29 @@ describe("Grok context ceiling integration", () => {
 			assistantToolUse(1, [toolResult("tc_1", "read", "x".repeat(5000))]),
 			ctx,
 		);
+		await delay(0);
 		expect(compactCalls).toHaveLength(1);
 	});
 
 	test("Grok no-safe-cut at hard trigger sends continuation for interrupted turn", async () => {
-		const { handlers, compactCalls, sentMessages, notifications, ctx } =
+		const { handlers, compactCalls, sentMessages, continuationRequests, notifications, ctx } =
 			grokSetup(180_000);
 
 		await handlers.turn_end?.(
 			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
 			ctx,
 		);
+		await delay(0);
 		expect(compactCalls).toHaveLength(1);
 		compactCalls[0].onError(
 			new Error("Nothing to compact (session too small)"),
 		);
 		await delay();
 
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe(
-			"pi-vcc-no-cut-continuation",
-		);
+		expect(sentMessages).toHaveLength(0);
+		expect(continuationRequests).toEqual([
+			expect.objectContaining({ outcome: "no-safe-cut", resumeIntent: "active" }),
+		]);
 		expect(
 			notifications.some((entry) =>
 				entry.message.includes("No safe compaction cut available"),
@@ -2322,19 +2068,21 @@ describe("Grok context ceiling integration", () => {
 	});
 
 	test("Grok compaction failure at hard trigger sends continuation", async () => {
-		const { handlers, compactCalls, sentMessages, ctx } = grokSetup(180_000);
+		const { handlers, compactCalls, sentMessages, continuationRequests, ctx } = grokSetup(180_000);
 
 		await handlers.turn_end?.(
 			assistantToolUse(1, [toolResult("tc_1", "read", "source")]),
 			ctx,
 		);
+		await delay(0);
 		expect(compactCalls).toHaveLength(1);
 		compactCalls[0].onError(new Error("provider failed"));
 		await delay();
 
-		expect(sentMessages).toHaveLength(1);
-		expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
-		expect(sentMessages[0].message.details.reason).toBe("failed");
+		expect(sentMessages).toHaveLength(0);
+		expect(continuationRequests).toEqual([
+			expect.objectContaining({ outcome: "failure", resumeIntent: "active" }),
+		]);
 	});
 
 	test("Grok session_before_compact cancels core compaction below 180K trigger", async () => {

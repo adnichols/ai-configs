@@ -154,7 +154,7 @@ export const isStrictContinuationLogRecord = (value: unknown): value is Continua
     && typeof record.attemptId === "string"
     && typeof record.origin === "string"
     && typeof record.reason === "string"
-    && typeof record.resumePolicy === "string"
+    && (record.resumePolicy === "active" || record.resumePolicy === "terminal")
     && typeof record.state === "string"
     && typeof record.retryCount === "number"
     && typeof record.retryLimit === "number"

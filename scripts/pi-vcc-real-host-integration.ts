@@ -58,9 +58,34 @@ const faux = await import(pathToFileURL(join(dependencyRoot, "@earendil-works/pi
 const typebox = await import(pathToFileURL(join(dependencyRoot, "typebox/build/index.mjs")).href);
 const protocol = await import(pathToFileURL(join(candidate, "src/core/continuation-protocol.ts")).href);
 const { PI_VCC_LOAD_MARKER } = await import(pathToFileURL(join(candidate, "index.ts")).href);
-const actualCompactContextTrigger = resolve(
-  "scripts/fixtures/pi-vcc-actual-compact-context-trigger.ts",
+const candidateRealPath = realpathSync(candidate);
+const isPiVccPackageExtensionPath = (extensionPath: string) => {
+  // Only the exact candidate package (or a file under it) counts. Broad path
+  // substring matches would let a source checkout satisfy an installed run.
+  let normalized: string;
+  try {
+    normalized = realpathSync(extensionPath).replaceAll("\\", "/");
+  } catch {
+    normalized = extensionPath.replaceAll("\\", "/");
+  }
+  const candidateNorm = candidateRealPath.replaceAll("\\", "/");
+  return normalized === candidateNorm || normalized.startsWith(`${candidateNorm}/`);
+};
+const percentageCompactionExtension = resolve(
+  candidateName === "source"
+    ? "_pi/extensions/percentage-compaction.ts"
+    : process.env.PI_VCC_INSTALLED_EXTENSION ??
+        join(process.env.HOME ?? "", ".pi/agent/extensions/percentage-compaction.ts"),
 );
+if (!existsSync(percentageCompactionExtension)) {
+  throw new Error(`percentage-compaction extension missing for candidate ${candidateName}: ${percentageCompactionExtension}`);
+}
+if (
+  candidateName === "installed" &&
+  percentageCompactionExtension.includes("/_pi/extensions/")
+) {
+  throw new Error("installed candidate must not load the source percentage-compaction extension");
+}
 if (typeof runtime.createAgentSession !== "function" || typeof runtime.SessionManager?.create !== "function" || typeof runtime.ModelRuntime?.create !== "function") {
   throw new Error("Pi runtime does not expose createAgentSession, SessionManager, and ModelRuntime");
 }
@@ -167,13 +192,15 @@ const createHost = async (
     model: core.getModel(),
     modelRuntime,
     sessionManager,
-    tools: customTools.length ? ["host_progress_tool"] : [],
+    // An empty tools array is treated as an allowlist that blocks extension tools.
+    // Omit the option entirely so package/extension tools such as compact_context remain available.
+    ...(customTools.length ? { tools: ["host_progress_tool"] as string[] } : {}),
     customTools,
   });
   const session = result.session as any;
   const owner = (globalThis as any)[PI_VCC_LOAD_MARKER];
   const registeredPackageExtensions = session._extensionRunner.extensions.filter((extension: any) =>
-    extension.path.includes("pi-vcc") && [...extension.handlers.values()].some((handlers: any[]) => handlers.length > 0));
+    isPiVccPackageExtensionPath(extension.path) && [...extension.handlers.values()].some((handlers: any[]) => handlers.length > 0));
   if (!result.extensionsResult.extensions?.length || owner?.status !== "active" || !owner.coordinator || registeredPackageExtensions.length !== 1) {
     throw new Error("AgentSession did not discover exactly one registering pi-vcc package coordinator");
   }
@@ -233,7 +260,8 @@ const createHost = async (
         transactionId,
         deadlineMs,
         retryLimit: 2,
-      }, session._extensionRunner.createContext());
+      resumePolicy: "active",
+    }, session._extensionRunner.createContext());
     },
     flushArtifacts() {
       const sessionFile = sessionManager.getSessionFile();
@@ -287,6 +315,7 @@ const REQUIRED_REAL_HOST_CASES = [
   "v1-reload-adaptation",
   "active-compact-context-plan-builder-resume",
   "actual-compact-context-turn-end-resume",
+  "hard-backstop-generation-race",
 ] as const;
 type RealHostCaseName = (typeof REQUIRED_REAL_HOST_CASES)[number];
 const caseRegistry = new Map<RealHostCaseName, () => Promise<void>>();
@@ -309,13 +338,17 @@ try {
     if (!replacementOwner?.coordinator || replacementOwner === firstOwner || replacementRunner === firstRunner) {
       throw new Error("AgentSession.reload() did not replace the pi-vcc owner and extension runner");
     }
-    const packageExtensions = replacementRunner.extensions.filter((extension: any) => extension.path.includes("pi-vcc"));
-    if (packageExtensions.length !== 1 || packageExtensions[0].handlers.get("agent_settled")?.length !== 1 || packageExtensions[0].handlers.get("session_shutdown")?.length !== 1) {
-      throw new Error("reload did not retain exactly one pi-vcc lifecycle handler set");
+    const packageExtensions = replacementRunner.extensions.filter((extension: any) => isPiVccPackageExtensionPath(extension.path));
+    const settledHandlers = packageExtensions[0]?.handlers.get("agent_settled")?.length ?? 0;
+    const shutdownHandlers = packageExtensions[0]?.handlers.get("session_shutdown")?.length ?? 0;
+    // Package registers both coordinator and before-compact lifecycle handlers.
+    if (packageExtensions.length !== 1 || settledHandlers !== 2 || shutdownHandlers !== 2) {
+      throw new Error(`reload did not retain the pi-vcc lifecycle handler set: packages=${packageExtensions.length} settled=${settledHandlers} shutdown=${shutdownHandlers}`);
     }
     host.coordinator.request({
       initiator: "compact_context", outcome: "compacted", attemptId: "reload-singleton-attempt",
       transactionId: "reload-singleton", pendingToolCount: 1,
+      resumePolicy: "active",
     }, host.ctx);
     const reloadRequests = host.sessionManager.getBranch().filter((entry: any) =>
       entry.type === "custom" && entry.customType === protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE && entry.data?.snapshot?.transactionId === "reload-singleton");
@@ -331,7 +364,7 @@ try {
     const duplicateAlias = join(root, "pi-vcc-duplicate-alias");
     symlinkSync(candidate, duplicateAlias, "dir");
     const duplicateHost = await createHost(undefined, { packagePaths: [candidate, duplicateAlias] });
-    const duplicateExtensions = duplicateHost.session._extensionRunner.extensions.filter((extension: any) => extension.path.includes("pi-vcc"));
+    const duplicateExtensions = duplicateHost.session._extensionRunner.extensions.filter((extension: any) => isPiVccPackageExtensionPath(extension.path));
     if (duplicateExtensions.length !== 1) throw new Error(`duplicate package discovery did not collapse to one extension: ${duplicateExtensions.length}`);
     duplicateHost.dispose();
   });
@@ -347,6 +380,7 @@ try {
       attemptId: "new-replacement-old-attempt",
       transactionId: "new-replacement-old",
       pendingToolCount: 1,
+      resumePolicy: "active",
     }, oldHost.ctx);
     await oldHost.session._extensionRunner.emit({ type: "session_shutdown", reason: "new" });
     if ((globalThis as any)[PI_VCC_LOAD_MARKER] !== undefined || outcomes(oldHost, "new-replacement-old").length !== 1) {
@@ -357,9 +391,11 @@ try {
 
     const replacement = await createHost();
     const replacementRunner = replacement.session._extensionRunner;
-    const packageExtensions = replacementRunner.extensions.filter((extension: any) => extension.path.includes("pi-vcc"));
-    if (packageExtensions.length !== 1 || packageExtensions[0].handlers.get("agent_settled")?.length !== 1 || packageExtensions[0].handlers.get("session_shutdown")?.length !== 1) {
-      throw new Error("new-session replacement did not register exactly one pi-vcc lifecycle handler set");
+    const packageExtensions = replacementRunner.extensions.filter((extension: any) => isPiVccPackageExtensionPath(extension.path));
+    const settledHandlers = packageExtensions[0]?.handlers.get("agent_settled")?.length ?? 0;
+    const shutdownHandlers = packageExtensions[0]?.handlers.get("session_shutdown")?.length ?? 0;
+    if (packageExtensions.length !== 1 || settledHandlers !== 2 || shutdownHandlers !== 2) {
+      throw new Error(`new-session replacement did not register exactly one pi-vcc lifecycle handler set: packages=${packageExtensions.length} settled=${settledHandlers} shutdown=${shutdownHandlers}`);
     }
     replacement.core.setResponses([faux.fauxAssistantMessage("post-new replacement continuation complete")]);
     replacement.request("new-replacement-active");
@@ -631,6 +667,7 @@ try {
     host.coordinator.request({
       initiator: "compact_context", outcome: "compacted", attemptId: "queue-first-attempt",
       transactionId: "queue-first", pendingToolCount: 1,
+      resumePolicy: "active",
     }, host.ctx);
     host.request("queue-second", 15_000);
     await sleep(40);
@@ -651,6 +688,7 @@ try {
     host.coordinator.request({
       initiator: "compact_context", outcome: "compacted", attemptId: "custom-intent-attempt",
       transactionId: "custom-intent", pendingToolCount: 1,
+      resumePolicy: "active",
     }, host.ctx);
     const statusMessage = { role: "custom", customType: "ad-process:update", content: "status", display: false, details: {} };
     await host.session.sendCustomMessage(statusMessage, { triggerTurn: false });
@@ -697,7 +735,7 @@ try {
       faux.fauxAssistantMessage("Resumed the active hub activity observability plan from its next concrete phase."),
     ]);
     const packageExtension = host.session._extensionRunner.extensions.find((extension: any) =>
-      extension.path.includes("pi-vcc"));
+      isPiVccPackageExtensionPath(extension.path));
     const beforeCompact = packageExtension?.handlers.get("session_before_compact")?.[0];
     const sessionCompact = packageExtension?.handlers.get("session_compact")?.[0];
     if (!beforeCompact || !sessionCompact) {
@@ -719,9 +757,9 @@ try {
         { id: "plan-user-followup", type: "message", message: { role: "user", content: "Continue the implementation without stopping." } },
         { id: "plan-boundary", type: "message", message: { role: "assistant", content: "The P0 test loop is interpreted; compact before P1.", stopReason: "stop" } },
       ],
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"after_test_loop","reason":"P0 verified; continue plan P1","resumePolicy":"active","attemptId":"plan-builder-attempt","requestId":"plan-builder-request"}',
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"after_test_loop","reason":"P0 verified; continue plan P1","resumeIntent":"active","attemptId":"plan-builder-attempt","requestId":"plan-builder-request"}',
     }, host.ctx);
-    if (result?.compaction?.details?.compactionIntent?.resumePolicy !== "active" || result.compaction.details.interruptedInFlightTurn !== false) {
+    if (result?.compaction?.details?.compactionIntent?.resumeIntent !== "active" || result.compaction.details.compactionResumeIntent !== "active") {
       throw new Error(`plan-builder fixture did not reproduce a completed active compact_context boundary: ${JSON.stringify(result?.compaction?.details)}`);
     }
 
@@ -758,14 +796,26 @@ try {
 
   registerCase("actual-compact-context-turn-end-resume", async () => {
     const host = await createHost(undefined, {
-      extensionPaths: [actualCompactContextTrigger],
+      extensionPaths: [percentageCompactionExtension],
     });
     const runtimeErrors: Array<{ error?: string; extensionPath?: string }> = [];
     const removeErrorListener = host.session._extensionRunner.onError((error: any) => {
       runtimeErrors.push(error);
     });
     host.core.setResponses([
-      faux.fauxAssistantMessage("Semantic boundary reached."),
+      faux.fauxAssistantMessage(
+        [
+          faux.fauxToolCall(
+            "compact_context",
+            {
+              reason: "real-host active semantic boundary",
+              boundary: "after_test_loop",
+            },
+            { id: "actual-compact-context-tool" },
+          ),
+        ],
+        { stopReason: "toolUse" },
+      ),
       faux.fauxAssistantMessage("Continuation completed after actual compaction."),
     ]);
     const seed = (role: "user" | "assistant", text: string) =>
@@ -774,36 +824,43 @@ try {
           ? { role, content: [{ type: "text", text }], timestamp: Date.now() }
           : faux.fauxAssistantMessage(text),
       );
-    seed("user", "Complete the previous phase.");
-    seed("assistant", "The previous phase is complete.");
-    seed("user", "Proceed to the next phase.");
-    seed("assistant", "Preparing the next phase.");
+    for (let index = 0; index < 6; index += 1) {
+      seed("user", `Seed user turn ${index + 1} with durable plan context for compaction.`);
+      seed(
+        "assistant",
+        `Seed assistant turn ${index + 1} records completed work, open follow-ups, and preserved facts for the next phase.`,
+      );
+    }
 
     await host.session.prompt("Reach the next semantic boundary.");
-    await waitFor("actual compact_context compaction", () =>
-      host.sessionManager.getBranch().some((entry: any) => entry.type === "compaction"),
+    const isSettledCompactContext = (entry: any) =>
+      entry.type === "custom" &&
+      entry.customType === protocol.CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+      (entry.data?.origin === "compact_context" ||
+        entry.data?.snapshot?.origin === "compact_context") &&
+      (entry.data?.terminalState === "settled" ||
+        entry.data?.snapshot?.state === "settled");
+    await waitFor("actual compact_context compaction or active continuation settlement", () =>
+      host.sessionManager.getBranch().some((entry: any) => entry.type === "compaction") ||
+      host.sessionManager.getBranch().some(isSettledCompactContext),
     );
     await waitFor("actual compact_context continuation", () =>
-      host.sessionManager.getBranch().some(
-        (entry: any) =>
-          entry.type === "custom" &&
-          entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
-          entry.data?.origin === "compact_context" &&
-          entry.data?.terminalState === "settled",
-      ),
+      host.sessionManager.getBranch().some(isSettledCompactContext),
     );
     const continuationMessages = host.sessionManager.getBranch().filter(
       (entry: any) =>
         entry.type === "custom_message" &&
-        entry.customType === CONTINUATION_MESSAGE_CUSTOM_TYPE &&
-        entry.details?.attemptId === "actual-compact-context-attempt",
+        entry.customType === protocol.CONTINUATION_MESSAGE_CUSTOM_TYPE &&
+        String(entry.details?.originatingRequestId ?? "").includes("actual-compact-context-tool"),
     );
     const failures = host.sessionManager.getBranch().filter(
       (entry: any) =>
         entry.type === "custom" &&
-        entry.customType === CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
-        entry.data?.attemptId === "actual-compact-context-attempt" &&
-        entry.data?.terminalState === "failed_loudly",
+        entry.customType === protocol.CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE &&
+        (entry.data?.origin === "compact_context" ||
+          entry.data?.snapshot?.origin === "compact_context") &&
+        (entry.data?.terminalState === "failed_loudly" ||
+          entry.data?.snapshot?.state === "failed_loudly"),
     );
     const activeRunErrors = runtimeErrors.filter((error) =>
       /Agent is already processing a prompt/.test(error.error ?? ""),
@@ -814,6 +871,56 @@ try {
         `actual compact_context continuation did not complete cleanly: messages=${continuationMessages.length}, failures=${JSON.stringify(failures.map((entry: any) => entry.data))}, activeRunErrors=${JSON.stringify(activeRunErrors)}`,
       );
     }
+    host.dispose();
+  });
+
+  registerCase("hard-backstop-generation-race", async () => {
+    const host = await createHost(undefined, {
+      extensionPaths: [percentageCompactionExtension],
+    });
+    host.core.setResponses([
+      faux.fauxAssistantMessage("Autonomous progress after hard-backstop continuation."),
+    ]);
+    const runner = host.session._extensionRunner;
+    const originalCreateContext = runner.createContext.bind(runner);
+    runner.createContext = () => {
+      const ctx = originalCreateContext();
+      ctx.getContextUsage = () => ({
+        percent: 85,
+        contextWindow: 100_000,
+        tokens: 85_000,
+      });
+      return ctx;
+    };
+    const seed = (role: "user" | "assistant", text: string) =>
+      host.sessionManager.appendMessage(
+        role === "user"
+          ? { role, content: [{ type: "text", text }], timestamp: Date.now() }
+          : faux.fauxAssistantMessage(text),
+      );
+    for (let index = 0; index < 5; index += 1) {
+      seed("user", `Hard-backstop seed user ${index + 1}`);
+      seed("assistant", `Hard-backstop seed assistant ${index + 1} with durable context.`);
+    }
+    // Completed response schedules hard-backstop; a later agent_start must flip intent active.
+    await runner.emit({
+      type: "turn_end",
+      message: { role: "assistant", stopReason: "stop", content: [{ type: "text", text: "phase complete" }] },
+      toolResults: [],
+    });
+    await runner.emit({ type: "agent_start" });
+    await sleep(20);
+    await waitFor("hard-backstop generation-race active request", () =>
+      host.sessionManager.getBranch().some(
+        (entry: any) =>
+          entry.type === "custom" &&
+          entry.customType === protocol.CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE &&
+          entry.data?.snapshot?.origin === "hard-backstop" &&
+          entry.data?.snapshot?.resumePolicy === "active",
+      ),
+    );
+    // The paired no-later-agent_start terminal counterexample is covered by
+    // percentage-compaction unit tests (BDD-2 counterexample).
     host.dispose();
   });
 

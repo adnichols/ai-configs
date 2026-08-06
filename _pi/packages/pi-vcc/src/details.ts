@@ -1,4 +1,4 @@
-import type { CompactionIntent, CompactionReason } from "./types";
+import type { CompactionIntent, CompactionReason, CompactionResumeIntent } from "./types";
 
 export interface PiVccCompactionDetails {
   compactor: "pi-vcc";
@@ -15,5 +15,6 @@ export interface PiVccCompactionDetails {
   continuationAttemptId?: string;
   continuationRequestId?: string;
   continuationTransactionId?: string;
-  continuationResumePolicy?: "active" | "terminal" | "auto";
+  compactionResumeIntent?: CompactionResumeIntent;
+  continuationResumePolicy?: "active" | "terminal";
 }

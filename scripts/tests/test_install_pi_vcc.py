@@ -93,7 +93,12 @@ class InstallPiVccTest(unittest.TestCase):
 
     def assert_no_transaction_debris(self, stable: Path):
         parent = stable.parent
-        debris = list(parent.glob(".pi-vcc-stage.*")) + list(parent.glob(".pi-vcc-backup.*")) + list(parent.glob(".pi-vcc-settings.*"))
+        debris = (
+            list(parent.glob(".pi-vcc-stage.*"))
+            + list(parent.glob(".pi-vcc-backup.*"))
+            + list(parent.glob(".pi-vcc-settings.*"))
+            + list(parent.glob(".pi-vcc-extension.*"))
+        )
         self.assertEqual(debris, [])
 
     def test_candidate_install_and_explicit_source_rollback_are_scoped(self):
@@ -105,6 +110,8 @@ class InstallPiVccTest(unittest.TestCase):
             result = self.run_install(env, candidate)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(tree_manifest(stable), tree_manifest(candidate))
+            live_extension = agent / "extensions/percentage-compaction.ts"
+            self.assertEqual(live_extension.read_bytes(), EXTENSION.read_bytes())
             installed_settings = json.loads(settings.read_text())
             self.assertEqual(installed_settings["theme"], "caller-owned")
             self.assertEqual(installed_settings["packages"], ["npm:unrelated", "npm:company-pi-vcc-tools", str(stable)])
@@ -369,24 +376,35 @@ class InstallPiVccTest(unittest.TestCase):
                 self.assert_no_transaction_debris(stable)
 
     def test_every_transaction_failpoint_restores_prior_bytes_and_registration(self):
-        for failpoint in ("copy", "staged-hash", "backup-move", "swap", "registration", "post-swap-verification"):
+        for failpoint in (
+            "copy",
+            "staged-hash",
+            "backup-move",
+            "swap",
+            "registration",
+            "extension-swap",
+            "post-swap-verification",
+        ):
             with self.subTest(failpoint=failpoint), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                env, _agent, _old, candidate, stable, settings = prepare_install(root)
+                env, agent, _old, candidate, stable, settings = prepare_install(root)
+                live_extension = agent / "extensions/percentage-compaction.ts"
                 before_tree = tree_manifest(stable)
                 before_settings = settings.read_bytes()
+                before_extension = live_extension.read_bytes()
                 before_mode = stat.S_IMODE(settings.stat().st_mode)
                 result = self.run_install(env, candidate, failpoint)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(before_tree, tree_manifest(stable))
                 self.assertEqual(before_settings, settings.read_bytes())
+                self.assertEqual(before_extension, live_extension.read_bytes())
                 self.assertEqual(before_mode, stat.S_IMODE(settings.stat().st_mode))
                 registrations = json.loads(settings.read_text())["packages"]
                 self.assertEqual(registrations.count(str(stable)), 1)
                 self.assert_no_transaction_debris(stable)
 
     def test_restore_failures_retain_recovery_evidence(self):
-        for failpoint in ("remove-candidate", "restore-mirror", "restore-settings"):
+        for failpoint in ("remove-candidate", "restore-mirror", "restore-settings", "restore-extension"):
             with self.subTest(failpoint=failpoint), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 env, agent, _old, candidate, stable, settings = prepare_install(root)

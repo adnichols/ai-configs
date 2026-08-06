@@ -29,7 +29,7 @@ export const registerPiVccCommand = (
 						source: "package-pi-vcc",
 						attemptId,
 						transactionId,
-						resumePolicy: followUpPrompt ? "terminal" : "active",
+						resumeIntent: "none",
 					}),
 				),
 				onComplete: () => {
@@ -79,7 +79,7 @@ export const registerPiVccCommand = (
 							outcome: legacyOutcome,
 							attemptId,
 							transactionId,
-							resumePolicy: followUpPrompt ? "terminal" : "active",
+							resumePolicy: "terminal",
 						},
 						ctx,
 					);

@@ -12,7 +12,7 @@ export const CONTINUATION_ORIGINS = ["package-command", "compact_context", "hard
 export type ContinuationOrigin = (typeof CONTINUATION_ORIGINS)[number];
 export const CONTINUATION_REASONS = ["compacted", "no-safe-cut", "cancelled", "failed"] as const;
 export type ContinuationReason = (typeof CONTINUATION_REASONS)[number];
-export const CONTINUATION_RESUME_POLICIES = ["active", "terminal", "auto"] as const;
+export const CONTINUATION_RESUME_POLICIES = ["active", "terminal"] as const;
 export type ContinuationResumePolicy = (typeof CONTINUATION_RESUME_POLICIES)[number];
 export const CONTINUATION_INITIATORS = ["package-pi-vcc", "package-compact-now", "compact_context", "hard-backstop", "host-threshold", "host-overflow"] as const;
 export type ContinuationInitiator = (typeof CONTINUATION_INITIATORS)[number];
@@ -162,14 +162,29 @@ export const isContinuationTransactionSnapshot = (value: unknown): value is Cont
 };
 
 const wireBase = (value: unknown, kind: string): value is Record<string, unknown> => record(value) && value.protocol === CONTINUATION_PROTOCOL_NAME && version(value.version) && value.kind === kind;
-export const isContinuationRequestWire = (value: unknown): value is ContinuationRequestWire => wireBase(value, "request") && exact(value, ["protocol", "version", "kind", "snapshot"], ["outcomeHint"]) && isContinuationTransactionSnapshot(value.snapshot) && value.snapshot.state === "created" && (value.outcomeHint === undefined || oneOf(CONTINUATION_ATTEMPT_OUTCOMES, value.outcomeHint));
-export const isContinuationSnapshotWire = (value: unknown): value is ContinuationSnapshotWire => wireBase(value, "snapshot") && exact(value, ["protocol", "version", "kind", "snapshot"]) && isContinuationTransactionSnapshot(value.snapshot);
-export const isContinuationOutcomeWire = (value: unknown): value is ContinuationOutcomeWire => wireBase(value, "outcome") && exact(value, ["protocol", "version", "kind", "transactionId", "terminalState", "terminalReason", "snapshot"]) && nonempty(value.transactionId) && oneOf(CONTINUATION_TERMINAL_STATES, value.terminalState) && oneOf(CONTINUATION_TERMINAL_REASONS, value.terminalReason) && isContinuationTransactionSnapshot(value.snapshot) && value.snapshot.transactionId === value.transactionId && value.snapshot.state === value.terminalState && value.snapshot.terminalReason === value.terminalReason;
+const matchingWireSnapshotVersion = (value: Record<string, unknown>) =>
+  record(value.snapshot) && value.version === value.snapshot.version;
+export const isContinuationRequestWire = (value: unknown): value is ContinuationRequestWire => wireBase(value, "request") && exact(value, ["protocol", "version", "kind", "snapshot"], ["outcomeHint"]) && matchingWireSnapshotVersion(value) && isContinuationTransactionSnapshot(value.snapshot) && value.snapshot.state === "created" && (value.outcomeHint === undefined || oneOf(CONTINUATION_ATTEMPT_OUTCOMES, value.outcomeHint));
+export const isContinuationSnapshotWire = (value: unknown): value is ContinuationSnapshotWire => wireBase(value, "snapshot") && exact(value, ["protocol", "version", "kind", "snapshot"]) && matchingWireSnapshotVersion(value) && isContinuationTransactionSnapshot(value.snapshot);
+export const isContinuationOutcomeWire = (value: unknown): value is ContinuationOutcomeWire => wireBase(value, "outcome") && exact(value, ["protocol", "version", "kind", "transactionId", "terminalState", "terminalReason", "snapshot"]) && matchingWireSnapshotVersion(value) && nonempty(value.transactionId) && oneOf(CONTINUATION_TERMINAL_STATES, value.terminalState) && oneOf(CONTINUATION_TERMINAL_REASONS, value.terminalReason) && isContinuationTransactionSnapshot(value.snapshot) && value.snapshot.transactionId === value.transactionId && value.snapshot.state === value.terminalState && value.snapshot.terminalReason === value.terminalReason;
 export const isContinuationSafetyReadyWire = (value: unknown): value is ContinuationSafetyReadyWire => wireBase(value, "safety-ready") && exact(value, ["protocol", "version", "kind", "transactionId", "attemptId"], ["requestId"]) && nonempty(value.transactionId) && nonempty(value.attemptId) && (value.requestId === undefined || nonempty(value.requestId));
 export const isContinuationWire = (value: unknown): value is ContinuationWire => isContinuationRequestWire(value) || isContinuationSnapshotWire(value) || isContinuationOutcomeWire(value) || isContinuationSafetyReadyWire(value);
-export const parseContinuationRequest = (value: unknown) => { const parsed = parseJson(value); return isContinuationRequestWire(parsed) ? parsed : undefined; };
-export const parseContinuationSnapshot = (value: unknown) => { const parsed = parseJson(value); return isContinuationSnapshotWire(parsed) ? parsed : undefined; };
-export const parseContinuationOutcome = (value: unknown) => { const parsed = parseJson(value); return isContinuationOutcomeWire(parsed) ? parsed : undefined; };
+const adaptPersistedSnapshot = (value: unknown): unknown => {
+  if (!record(value)) return value;
+  if (value.version !== CONTINUATION_LEGACY_PROTOCOL_VERSION || value.resumePolicy !== "auto") return value;
+  if (value.origin !== "compact_context") return value;
+  return { ...value, resumePolicy: "active" };
+};
+const adaptPersistedWire = (value: unknown): unknown => {
+  if (!record(value) || !record(value.snapshot)) return value;
+  // Envelope and snapshot versions must agree before adaptation. A V2 envelope
+  // carrying a V1 auto snapshot is invalid persistence, not a dual-read form.
+  if (value.version !== value.snapshot.version) return value;
+  return { ...value, snapshot: adaptPersistedSnapshot(value.snapshot) };
+};
+export const parseContinuationRequest = (value: unknown) => { const parsed = adaptPersistedWire(parseJson(value)); return isContinuationRequestWire(parsed) ? parsed : undefined; };
+export const parseContinuationSnapshot = (value: unknown) => { const parsed = adaptPersistedWire(parseJson(value)); return isContinuationSnapshotWire(parsed) ? parsed : undefined; };
+export const parseContinuationOutcome = (value: unknown) => { const parsed = adaptPersistedWire(parseJson(value)); return isContinuationOutcomeWire(parsed) ? parsed : undefined; };
 export const parseContinuationSafetyReady = (value: unknown) => { const parsed = parseJson(value); return isContinuationSafetyReadyWire(parsed) ? parsed : undefined; };
 export const serializeContinuationWire = (wire: ContinuationWire) => { if (!isContinuationWire(wire)) throw new TypeError("Invalid pi-vcc continuation wire payload"); return JSON.stringify(wire); };
 

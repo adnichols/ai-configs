@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { CompactionResumeIntent } from "../types";
 import { classifyCustomMessageIntent } from "./custom-message-classifier";
 import { createContinuationTransaction, isContinuationTerminal, transitionContinuation, type ContinuationEvent } from "./continuation";
 import {
@@ -37,8 +38,17 @@ const CONTINUATION_PROMPT = "Pi-vcc interrupted active work for compaction or re
 export type ContinuationAuthority = "coordinator";
 export interface ContinuationRequestInput {
   initiator: ContinuationInitiator; outcome: ContinuationAttemptOutcome; attemptId: string; compactionId?: string; requestId?: string;
-  originatingRequestId?: string; resumePolicy?: ContinuationResumePolicy; pendingToolCount?: number; deadlineMs?: number; retryLimit?: number; transactionId?: string;
+  originatingRequestId?: string; resumePolicy: ContinuationResumePolicy; pendingToolCount?: number; deadlineMs?: number; retryLimit?: number; transactionId?: string;
 }
+export interface ContinuationFacadeRequest extends Omit<ContinuationRequestInput, "resumePolicy"> {
+  resumeIntent: CompactionResumeIntent;
+}
+export interface ContinuationFacade {
+  request(input: ContinuationFacadeRequest, ctx: ExtensionContext): ContinuationTransactionSnapshot;
+  getPending(): ContinuationTransactionSnapshot | undefined;
+}
+export const continuationResumePolicyFor = (intent: CompactionResumeIntent): ContinuationResumePolicy =>
+  intent === "active" ? "active" : "terminal";
 export interface ContinuationCoordinatorOptions {
   authority?: ContinuationAuthority; now?: () => number;
   setTimer?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
@@ -186,7 +196,7 @@ export const createContinuationCoordinator = (pi: ExtensionAPI, options: Continu
     rememberDurableSnapshot(snapshot);
   };
   const persistOutcome = (snapshot: ContinuationTransactionSnapshot) => pi.appendEntry(CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE, createContinuationOutcomeWire(snapshot));
-  const warnFailure = (snapshot: ContinuationTransactionSnapshot, previous: ContinuationState, ctx: ExtensionContext) => ctx.ui.notify(`Pi-vcc continuation failed in ${snapshot.acceptedAt === undefined ? "acceptance" : "execution"} (transaction=${snapshot.transactionId}; attempt=${snapshot.attemptId}; retries=${snapshot.retryCount}; last-state=${previous}). See ${getPiVccLogPath()}. Manual action: send “continue” after checking the interrupted task state.`, "warning");
+  const warnFailure = (snapshot: ContinuationTransactionSnapshot, _previous: ContinuationState, ctx: ExtensionContext) => ctx.ui.notify(`Pi-vcc continuation failed (transaction=${snapshot.transactionId}; attempt=${snapshot.attemptId}; retries=${snapshot.retryCount}/${snapshot.retryLimit}; reason=${snapshot.terminalReason}). Inspect: jq -c 'select(.transactionId=="${snapshot.transactionId}")' ${getPiVccLogPath()}. Manual recovery: return to this Pi session, inspect the interrupted task state, then send “continue” once.`, "warning");
   const warnStalled = (snapshot: ContinuationTransactionSnapshot, ctx: ExtensionContext) => ctx.ui.notify(`Pi-vcc continuation stalled with ${snapshot.pendingToolCount} outstanding tool(s) (transaction=${snapshot.transactionId}). Ownership is retained and queued continuation work is paused. Recovery action: allow the tool to finish or send new input to supersede this continuation.`, "warning");
 
   const subscribeWakes = () => {
@@ -430,7 +440,7 @@ export const createContinuationCoordinator = (pi: ExtensionAPI, options: Continu
   const request = (input: ContinuationRequestInput, ctx: ExtensionContext) => {
     lastContext = ctx; const at = now(); const adapted = adaptContinuationInitiatorOutcome(input.initiator, input.outcome);
     const budget = input.deadlineMs ?? acceptanceMs;
-    const snapshot = createContinuationTransaction({ transactionId: transactionIdFor(input, at), origin: adapted.origin, reason: adapted.reason, ...(input.compactionId ? { compactionId: input.compactionId } : {}), attemptId: input.attemptId, ...(input.requestId ? { requestId: input.requestId } : {}), ...(input.originatingRequestId ? { originatingRequestId: input.originatingRequestId } : {}), resumePolicy: input.resumePolicy ?? "active", createdAt: at, deadlineMs: budget, pendingToolCount: input.pendingToolCount ?? 0, retryLimit: input.retryLimit ?? DEFAULT_RETRY_LIMIT, epochs });
+    const snapshot = createContinuationTransaction({ transactionId: transactionIdFor(input, at), origin: adapted.origin, reason: adapted.reason, ...(input.compactionId ? { compactionId: input.compactionId } : {}), attemptId: input.attemptId, ...(input.requestId ? { requestId: input.requestId } : {}), ...(input.originatingRequestId ? { originatingRequestId: input.originatingRequestId } : {}), resumePolicy: input.resumePolicy, createdAt: at, deadlineMs: budget, pendingToolCount: input.pendingToolCount ?? 0, retryLimit: input.retryLimit ?? DEFAULT_RETRY_LIMIT, epochs });
     acceptanceBudgets.set(snapshot.transactionId, budget);
     pi.appendEntry(CONTINUATION_REQUEST_ENTRY_CUSTOM_TYPE, createContinuationRequestWire(snapshot, input.outcome)); logContinuationTransaction("created", snapshot, at);
     if (!current || isContinuationTerminal(current)) activateNext(ctx);

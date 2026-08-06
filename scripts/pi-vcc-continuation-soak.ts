@@ -28,7 +28,6 @@ mkdirSync(join(root, "sessions"), { recursive: true });
 mkdirSync(join(root, "logs"), { recursive: true });
 process.env.PI_VCC_LOG_PATH = join(root, "logs", "pi-vcc.jsonl");
 process.env.PI_VCC_CONTINUATION_AUTHORITY = "coordinator";
-(globalThis as any)[PI_VCC_LOAD_MARKER] = true;
 
 type HandlerMap = Record<string, Array<(event: any, ctx: any) => any>>;
 type TimerRecord = { callback: () => void; due: number; cancelled: boolean };
@@ -125,6 +124,23 @@ const pi = {
   },
 } as any;
 
+const installOwner = (next: ReturnType<typeof createContinuationCoordinator>) => {
+  (globalThis as any)[PI_VCC_LOAD_MARKER] = {
+    status: "active",
+    coordinator: next,
+    continuation: {
+      request: (input: any, requestCtx: any) =>
+        next.request(
+          {
+            ...input,
+            resumePolicy: input.resumeIntent === "active" ? "active" : "terminal",
+          },
+          requestCtx,
+        ),
+      getPending: () => next.getPending(),
+    },
+  };
+};
 const createCoordinator = () => {
   const next = createContinuationCoordinator(pi, {
     authority: "coordinator",
@@ -140,6 +156,7 @@ const createCoordinator = () => {
     },
   });
   registerBeforeCompactHook(pi, next);
+  installOwner(next);
   return next;
 };
 let coordinator = createCoordinator();
@@ -333,7 +350,7 @@ if (
 // clears during compaction, so direct submission here would re-enter the agent.
 const activeCompactContext = await packageBeforeCompact(
   {
-    customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"after_test_loop","reason":"soak active continuation","resumePolicy":"active","attemptId":"soak-active-compact-context","requestId":"soak-active-compact-context-request"}',
+    customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"after_test_loop","reason":"soak active continuation","resumeIntent":"active","attemptId":"soak-active-compact-context","requestId":"soak-active-compact-context-request"}',
     preparation: {
       previousSummary: undefined,
       tokensBefore: 100,

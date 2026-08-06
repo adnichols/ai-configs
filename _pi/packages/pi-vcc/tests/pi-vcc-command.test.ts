@@ -121,7 +121,7 @@ describe("package /pi-vcc command protocol parity", () => {
     expect(h.requests[0]).toMatchObject({
       initiator: "package-pi-vcc",
       outcome: "compacted",
-      resumePolicy: "active",
+      resumePolicy: "terminal",
     });
   });
 
@@ -138,7 +138,7 @@ describe("package /pi-vcc command protocol parity", () => {
     expect(h.requests[0]).toMatchObject({
       initiator: "package-pi-vcc",
       outcome,
-      resumePolicy: "active",
+      resumePolicy: "terminal",
     });
   });
 

@@ -3,7 +3,7 @@ import { registerBeforeCompactHook } from "./src/hooks/before-compact";
 import { registerPiVccCommand } from "./src/commands/pi-vcc";
 import { registerVccRecallCommand } from "./src/commands/vcc-recall";
 import { registerRecallTool } from "./src/tools/recall";
-import { createContinuationCoordinator, type ContinuationCoordinator } from "./src/core/coordinator";
+import { continuationResumePolicyFor, createContinuationCoordinator, type ContinuationCoordinator, type ContinuationFacade } from "./src/core/coordinator";
 import { CONTINUATION_PROTOCOL_NAME, CONTINUATION_PROTOCOL_VERSION } from "./src/core/continuation-protocol";
 
 export * from "./src/core/continuation";
@@ -18,6 +18,7 @@ export interface PiVccOwnerRecord {
   version: typeof CONTINUATION_PROTOCOL_VERSION;
   status: "initializing" | "active";
   coordinator?: ContinuationCoordinator;
+  continuation?: ContinuationFacade;
   createdAt: number;
 }
 
@@ -61,6 +62,13 @@ export default (pi: ExtensionAPI) => {
     registerVccRecallCommand(pi);
     registerRecallTool(pi);
     lease.coordinator = coordinator;
+    lease.continuation = {
+      request: (input, ctx) => coordinator!.request({
+        ...input,
+        resumePolicy: continuationResumePolicyFor(input.resumeIntent),
+      }, ctx),
+      getPending: () => coordinator!.getPending(),
+    };
     lease.status = "active";
   } catch (error) {
     coordinator?.dispose();

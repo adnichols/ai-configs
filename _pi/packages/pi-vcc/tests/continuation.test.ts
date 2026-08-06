@@ -7,6 +7,7 @@ import {
 } from "../src/core/continuation";
 import {
 	adaptContinuationInitiatorOutcome,
+	CONTINUATION_PROTOCOL_NAME,
 	CONTINUATION_ATTEMPT_OUTCOMES,
 	CONTINUATION_INITIATORS,
 	CONTINUATION_OUTCOME_ENTRY_CUSTOM_TYPE,
@@ -673,5 +674,65 @@ describe("initiator/outcome adapter matrix", () => {
 				expect(entry.reason).toBe("cancelled");
 			if (entry.outcome === "failure") expect(entry.reason).toBe("failed");
 		}
+	});
+});
+
+describe("persisted resume policy compatibility", () => {
+	it("adapts V1 compact_context auto to active and rejects invalid auto forms", () => {
+		const baseSnapshot = {
+			protocol: CONTINUATION_PROTOCOL_NAME,
+			transactionId: "tx-auto",
+			origin: "compact_context",
+			reason: "compacted",
+			attemptId: "attempt-auto",
+			state: "created",
+			createdAt: 100,
+			deadlineAt: 1100,
+			pendingToolCount: 0,
+			submissionCount: 0,
+			retryCount: 0,
+			retryLimit: 2,
+			epochs: { session: 0, input: 0, agent: 0, turn: 0, message: 0, settlement: 0 },
+		};
+		const adapted = parseContinuationRequest({
+			protocol: CONTINUATION_PROTOCOL_NAME,
+			version: 1,
+			kind: "request",
+			snapshot: { ...baseSnapshot, version: 1, resumePolicy: "auto" },
+		});
+		expect(adapted?.snapshot.resumePolicy).toBe("active");
+
+		expect(
+			parseContinuationRequest({
+				protocol: CONTINUATION_PROTOCOL_NAME,
+				version: 1,
+				kind: "request",
+				snapshot: { ...baseSnapshot, version: 1, origin: "hard-backstop", resumePolicy: "auto" },
+			}),
+		).toBeUndefined();
+
+		expect(
+			parseContinuationRequest({
+				protocol: CONTINUATION_PROTOCOL_NAME,
+				version: 2,
+				kind: "request",
+				snapshot: {
+					...baseSnapshot,
+					version: 2,
+					queuedAt: 100,
+					phaseEpoch: 0,
+					resumePolicy: "auto",
+				},
+			}),
+		).toBeUndefined();
+
+		expect(
+			parseContinuationRequest({
+				protocol: CONTINUATION_PROTOCOL_NAME,
+				version: 2,
+				kind: "request",
+				snapshot: { ...baseSnapshot, version: 1, resumePolicy: "auto" },
+			}),
+		).toBeUndefined();
 	});
 });

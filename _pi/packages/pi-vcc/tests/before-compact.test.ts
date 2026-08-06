@@ -387,7 +387,7 @@ describe("compaction intent and overflow fallback", () => {
     const result = handler({
       preparation: basePreparation,
       branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","reason":"done","boundary":"subtask_complete","preserve":"keep tests","attemptId":"attempt-1","transactionId":"transaction-1","resumePolicy":"active"}',
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","reason":"done","boundary":"subtask_complete","preserve":"keep tests","attemptId":"attempt-1","transactionId":"transaction-1","resumeIntent":"active"}',
     });
 
     expect(result.cancel).toBeUndefined();
@@ -401,8 +401,9 @@ describe("compaction intent and overflow fallback", () => {
       preserve: "keep tests",
       attemptId: "attempt-1",
       transactionId: "transaction-1",
-      resumePolicy: "active",
+      resumeIntent: "active",
     });
+    expect(result.compaction.details.compactionResumeIntent).toBe("active");
     expect(result.compaction.details.continuationAttemptId).toBe("attempt-1");
     expect(result.compaction.details.continuationTransactionId).toBe("transaction-1");
     expect(result.compaction.details.continuationResumePolicy).toBe("active");
@@ -748,14 +749,14 @@ describe("active compaction continuation", () => {
     const result = handlers.session_before_compact[0]({
       preparation: basePreparation,
       branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"subtask_complete","resumePolicy":"active","attemptId":"compact-context-1","requestId":"compact-context-request"}',
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"subtask_complete","resumeIntent":"active","attemptId":"compact-context-1","requestId":"compact-context-request"}',
       reason: "manual",
     });
 
     expect(result.compaction.details.interruptedInFlightTurn).toBe(false);
     expect(result.compaction.details.compactionIntent).toMatchObject({
       source: "compact_context",
-      resumePolicy: "active",
+      resumeIntent: "active",
     });
 
     handlers.session_compact[0]({
@@ -790,7 +791,7 @@ describe("active compaction continuation", () => {
     const result = handlers.session_before_compact[0]({
       preparation: basePreparation,
       branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"subtask_complete","resumePolicy":"active","attemptId":"shutdown-compact-context","requestId":"shutdown-compact-context-request"}',
+      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"subtask_complete","resumeIntent":"active","attemptId":"shutdown-compact-context","requestId":"shutdown-compact-context-request"}',
       reason: "manual",
     });
 

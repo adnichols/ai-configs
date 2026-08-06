@@ -388,6 +388,7 @@ describe("continuation coordinator", () => {
 						outcome: "compacted",
 						attemptId: `${reason}-attempt`,
 						transactionId: `${reason}-old-work`,
+						resumePolicy: "active",
 					}, first.ctx);
 				}
 				for (const handler of first.handlers.session_shutdown ?? []) handler({ reason }, first.ctx);
@@ -410,6 +411,7 @@ describe("continuation coordinator", () => {
 					outcome: "compacted",
 					attemptId: `${reason}-replacement-attempt`,
 					transactionId: `${reason}-replacement-work`,
+					resumePolicy: "active",
 				}, replacement.ctx);
 				expect(replacement.sent).toHaveLength(1);
 				expect(replacement.sent[0].message.details.transactionId).toBe(`${reason}-replacement-work`);
@@ -529,6 +531,7 @@ describe("continuation coordinator", () => {
 					outcome: "compacted",
 					attemptId: `${reason}-failure-attempt-1`,
 					transactionId: `${reason}-failure-tx-1`,
+					resumePolicy: "active",
 				}, first.ctx);
 				if (failureOrdinal === 2) {
 					firstOwner.coordinator.request({
@@ -536,6 +539,7 @@ describe("continuation coordinator", () => {
 						outcome: "compacted",
 						attemptId: `${reason}-failure-attempt-2`,
 						transactionId: `${reason}-failure-tx-2`,
+						resumePolicy: "active",
 					}, first.ctx);
 				}
 				expect(first.wakeHandlers.size).toBe(2);
@@ -866,7 +870,7 @@ describe("continuation coordinator", () => {
 		expect(h.coordinator.getPending()?.terminalReason).toBe(
 			"retry_limit_exhausted",
 		);
-		expect(h.notifications.at(-1)?.message).toContain("Manual action");
+		expect(h.notifications.at(-1)?.message).toContain("Manual recovery");
 	});
 
 	it("settlement without consumption remains lifecycle-driven", () => {

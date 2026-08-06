@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi VCC — Uninterrupted Continuation Recovery</title>
+  <style>
+    :root { color-scheme: dark; --bg:#071019; --panel:#101a27; --panel2:#152235; --text:#edf4ff; --muted:#aebbd0; --accent:#66d9ef; --accent2:#b69cff; --ok:#61d99c; --warn:#f5c75d; --danger:#ff8585; --border:#2a3c55; --code:#030a13; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin:0; background:radial-gradient(circle at 15% 0,rgba(102,217,239,.11),transparent 34rem),radial-gradient(circle at 90% 10%,rgba(182,156,255,.10),transparent 30rem),var(--bg); color:var(--text); font:16px/1.62 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1320px,calc(100vw - 44px)); margin:auto; padding:36px 0 72px; }
+    header,section,article { background:rgba(16,26,39,.92); border:1px solid var(--border); border-radius:18px; margin:16px 0; padding:24px; }
+    header { padding:32px; }
+    h1,h2,h3,h4 { line-height:1.2; margin:0 0 12px; }
+    h1 { font-size:clamp(2rem,5vw,3.8rem); letter-spacing:-.045em; }
+    h2 { font-size:1.55rem; }
+    h3 { color:#dce9ff; margin-top:22px; }
+    p { margin:0 0 12px; }
+    a { color:var(--accent); }
+    code,pre { background:var(--code); color:#d9fbe8; border-radius:9px; }
+    code { padding:.14em .35em; }
+    pre { padding:14px; overflow:auto; border:1px solid var(--border); white-space:pre-wrap; }
+    ul,ol { padding-left:1.4rem; }
+    li { margin:.38rem 0; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th,td { border:1px solid var(--border); padding:10px; vertical-align:top; }
+    th { background:var(--panel2); text-align:left; }
+    .muted { color:var(--muted); }
+    .badge { display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:5px 11px; margin:0 8px 8px 0; color:var(--accent); background:rgba(102,217,239,.08); }
+    .warn { color:var(--warn); }
+    .ok { color:var(--ok); }
+    .danger { color:var(--danger); }
+    .toc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+    .toc-card,.callout { background:rgba(21,34,53,.78); border:1px solid var(--border); border-radius:14px; padding:14px; }
+    .toc-card strong,.toc-card a { display:block; margin:5px 0; }
+    .phase { border-left:5px solid var(--accent2); }
+    .attention { border-left:5px solid var(--warn); }
+    .criteria { border-left:5px solid var(--ok); }
+    .risk { border-left:5px solid var(--danger); }
+    .progress label { display:block; padding:6px 0; }
+  </style>
+</head>
+<body><main>
+<header id="title">
+  <p><span class="badge">Browser-review plan</span><span class="badge">Status: execution ready</span><span class="badge">Independent Sol-medium review passed</span></p>
+  <h1>Pi VCC — Uninterrupted Continuation Recovery</h1>
+  <p class="muted">Replace race-prone continuation inference and duplicate recovery paths with one explicit compaction-attempt contract, one coordinator authority, and real-host proof that active work resumes without an operator typing <code>continue</code>.</p>
+</header>
+
+<section id="toc">
+  <h2>Contents</h2>
+  <div class="toc-grid">
+    <div class="toc-card"><strong>Outcome</strong><a href="#product-context">Product-owner context</a><a href="#whats-new">What’s new</a><a href="#goal">Goal</a><a href="#decision-attention">Decision Attention</a></div>
+    <div class="toc-card"><strong>Contract</strong><a href="#reality">Current implementation reality</a><a href="#intent">Intended end state</a><a href="#inventory">Contract inventory</a><a href="#acceptance">Acceptance criteria</a></div>
+    <div class="toc-card"><strong>Behavior</strong><a href="#bdd">BDD scenarios</a><a href="#test-matrix">Test coverage matrix</a><a href="#verification">Verification strategy</a><a href="#risks">Risks</a></div>
+    <div class="toc-card"><strong>Execution</strong><a href="#progress">Progress</a><a href="#phase-p1">P1 contract</a><a href="#phase-p2">P2 cutover</a><a href="#phase-p3">P3 real-host proof</a><a href="#phase-p4">P4 rollout gates</a></div>
+    <div class="toc-card"><strong>Handoff</strong><a href="#resume">Resume instructions</a><a href="#delivery">Delivery order</a><a href="#non-goals">Non-goals</a><a href="#review-record">Review record</a><a href="#decisions">Decisions / Deviations</a></div>
+  </div>
+</section>
+
+<section id="product-context">
+  <h2>Product-owner context</h2>
+  <p><strong>Situation.</strong> Pi compacts long conversations to stay within model context limits. During NOD-1504, compaction repeatedly aborted active model turns and then left Pi idle. The operator had to type <code>continue</code> three times.</p>
+  <p><strong>Why now.</strong> The live transcript supplies a deterministic failure signature: an active semantic compaction request is stranded, the 80% hard backstop later calls Pi’s aborting compaction API, and no continuation transaction is created. Existing tests passed because they bypass the real percentage-extension and next-turn timing.</p>
+  <p><strong>Key conclusion.</strong> This is a runtime workflow defect, not stale evidence. The fix must make context maintenance transparent: active work resumes exactly once without operator intervention, while genuinely completed work stays complete.</p>
+  <table>
+    <thead><tr><th>Impact dimension</th><th>Observed / planned impact</th></tr></thead>
+    <tbody>
+      <tr><td>Customers</td><td>Internal Pi operators lose time and confidence when long delivery runs silently pause. The target removes routine manual continuation.</td></tr>
+      <tr><td>Runtime product behavior</td><td>Changes: active compaction becomes self-healing and exactly-once; terminal compaction remains non-resuming.</td></tr>
+      <tr><td>Security / permissions</td><td>No change. No credentials, authorization, or external service boundary changes.</td></tr>
+      <tr><td>Testing / release confidence</td><td>Changes materially: deterministic real-host tests will exercise the actual package, actual percentage extension, Pi’s aborting <code>AgentSession.compact()</code>, durable session entries, and post-compaction model progress.</td></tr>
+      <tr><td>Deployment / migration</td><td>No data migration. The repo source and installed Pi mirror/extension must be updated transactionally and hash-verified before live acceptance.</td></tr>
+    </tbody>
+  </table>
+  <p><strong>UI impact: text-only.</strong> Normal successful runs should show no new operator step. Terminal failure output must identify the failed continuation transaction and the exact recovery action instead of silently idling.</p>
+</section>
+
+<section id="whats-new">
+  <h2>What’s new — compaction becomes invisible maintenance</h2>
+  <p><strong>Promise:</strong> when Pi compacts during unfinished work, it resumes the next concrete step automatically and exactly once.</p>
+  <table>
+    <thead><tr><th>Before</th><th>After</th></tr></thead>
+    <tbody>
+      <tr><td>A model requests active compaction, later work starts, the hard backstop aborts it, and Pi may idle until the operator types <code>continue</code>.</td><td>Every compaction attempt carries explicit workflow intent through completion or failure; the sole coordinator durably resumes active work exactly once.</td></tr>
+      <tr><td>The standalone extension duplicates wire schemas, retry timers, authority selection, and continuation publication already owned by pi-vcc.</td><td>The extension owns only compaction timing and attempt intent. The package coordinator owns all continuation persistence, delivery, retry, and settlement.</td></tr>
+      <tr><td>Tests directly invoke hook internals or a fixture that calls <code>ctx.compact()</code>, missing the actual tool → next turn → abort race.</td><td>A deterministic Pi host loads both real extensions, invokes the registered <code>compact_context</code> tool, crosses the hard backstop, observes the abort, and proves autonomous progress.</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Preserved guarantees:</strong> no task/goal interpretation in pi-vcc; no duplicate continuations; no resume after completed terminal responses; no provider credentials in deterministic gates; V1 persisted continuation records remain readable while V2 remains the only writer.</p>
+</section>
+
+<section id="goal">
+  <h2>Goal</h2>
+  <p>Deliver one coherent continuation flow in which every compaction attempt has explicit product intent, every active attempt reaches the package coordinator, and end-to-end verification proves that the reported NOD-1504 pause cannot recur without a loud terminal failure.</p>
+</section>
+
+<section id="decision-attention" class="criteria">
+  <h2>Decision Attention / low-confidence areas</h2>
+  <p><strong>No product decision required.</strong> Repository and live-session evidence resolve the architecture and behavior. Independent review must challenge implementation completeness, especially the actual-host timing fixture, but does not need to select product semantics.</p>
+  <p><strong>Execution ready.</strong> The explicit execution-ready review was requested on 2026-08-06. The PM pass found no product-intent blocker. Two independent Sol-medium revision passes identified and closed the complete technical blocker set; the final fresh review returned <code>PLAN_EXECUTION_READY</code> with implementation profile <code>sol-medium</code>. The canonical review artifact is <code>thoughts/validation/pi-vcc-uninterrupted-continuation-recovery-plan-review.md</code>.</p>
+</section>
+
+<section id="why">
+  <h2>Why this plan exists</h2>
+  <p>Prior continuation plans hardened individual races and added retries, but the current implementation still contains parallel authorities and schedule-time inference. The NOD-1504 session demonstrates that passing unit/soak suites do not prove the golden path. A zero-tech-debt cutover is required rather than another fallback.</p>
+</section>
+
+<section id="authority">
+  <h2>Authority and inputs</h2>
+  <ul>
+    <li>NOD-1504 Pi transcript: compactions <code>4826c519</code>, <code>4a4f32b4</code>, and <code>db1d1b32</code>, each preceded by <code>stopReason: aborted</code> and followed only by manual <code>continue</code>.</li>
+    <li><code>~/.pi/logs/pi-vcc.jsonl</code>: those compactions have <code>interruptedInFlightTurn:false</code>, <code>requiresContinuation:false</code>, no intent, and no coordinator transaction lifecycle.</li>
+    <li>Pi 0.84.0 <code>AgentSession.compact()</code>: always calls <code>abort()</code> before manual compaction.</li>
+    <li>Source/live install verification: package and extension hashes match; exactly one package registration and extension path are active.</li>
+    <li>Current source: <code>_pi/extensions/percentage-compaction.ts</code>, <code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code>, and <code>_pi/packages/pi-vcc/src/core/coordinator.ts</code>.</li>
+  </ul>
+</section>
+
+<section id="reality">
+  <h2>Current implementation reality</h2>
+  <ol>
+    <li><code>compact_context</code> creates <code>pendingModelCompaction</code>, but a stale global <code>uninterpretedFailure</code> can prevent it from running indefinitely.</li>
+    <li>The 80% hard backstop can supersede that request. Its attempt omits semantic intent instructions and only supplies a resume message for provider overflow.</li>
+    <li>The interruption snapshot is taken at <code>turn_end</code> after delivered tool IDs are removed, before the scheduled call to Pi’s aborting compaction API. It can therefore report no interruption while a subsequent model turn is actually aborted.</li>
+    <li>The extension contains copied continuation protocol constants/wire construction, coordinator publication, legacy direct-send recovery timers, and runtime authority selection. The package separately owns the canonical coordinator.</li>
+    <li>The package already rejects legacy authority, so the extension’s <code>legacy</code> authority branch has no supported runtime caller.</li>
+    <li><code>resumePolicy:"auto"</code> exists only to infer whether a model-requested compaction should resume. The product intent is clearer: <code>compact_context</code> means active maintenance; terminal commands are separate surfaces.</li>
+    <li>The real-host fixture <code>pi-vcc-actual-compact-context-trigger.ts</code> directly calls <code>ctx.compact()</code>. It does not exercise the registered tool, percentage thresholds, stale failure state, hard-backstop supersession, or a model turn starting before compaction.</li>
+  </ol>
+</section>
+
+<section id="intent">
+  <h2>Intended end state</h2>
+  <p>Compaction timing and continuation delivery are separate, single-owner concerns. The percentage extension creates one explicit attempt record and decides when to call Pi; the pi-vcc package coordinator is the only component that persists, sends, retries, reconciles, and settles continuation work.</p>
+  <div class="callout"><strong>Golden-path invariant:</strong> an active compaction attempt must produce exactly one durable coordinator outcome—settled after autonomous model progress, superseded by genuine independent input, or failed loudly with actionable guidance. Silent idle is not a terminal state.</div>
+  <h3>Final product surface</h3>
+  <ul>
+    <li><code>compact_context</code> has no <code>resumePolicy</code> argument. Invoking it always means “compact this active workflow and continue.”</li>
+    <li><code>/compact-now</code> is terminal maintenance: compact without starting another turn.</li>
+    <li><code>/pi-vcc</code> without follow-up text is terminal. Its explicit follow-up form remains terminal to the coordinator and sends that user message exactly once after successful compaction; failed/no-cut command attempts do not invent or replay follow-up work.</li>
+    <li>Hard-backstop intent is resolved at actual start from a monotonic <code>agent_start</code> generation plus an <code>agentActive</code> latch cleared only by <code>agent_settled</code>. A completed response stays terminal unless a later <code>agent_start</code> occurred; an unfinished scheduled response stays active even if settlement races the timer. <code>turn_start</code>, <code>message_start</code>, cleared tool IDs, and <code>ctx.isIdle()</code> never override that decision.</li>
+    <li>Host overflow is active only when <code>overflowRequiresRetry</code> is true. Pi host-threshold compaction is active only when the package hook’s interruption snapshot or explicit active intent says so; otherwise it is terminal.</li>
+    <li>A pending active semantic request is never anonymously replaced by the hard backstop. Threshold escalation starts that same attempt immediately.</li>
+  </ul>
+</section>
+
+<section id="product-alignment">
+  <h2>Product intent alignment</h2>
+  <ul>
+    <li><strong>Obvious default:</strong> active work continues; no flag or operator command is needed.</li>
+    <li><strong>Self-healing:</strong> compaction aborts are absorbed into the same workflow through the durable coordinator.</li>
+    <li><strong>Fail closed:</strong> duplicate ownership, invalid persisted protocol state, expired retries, or ambiguous independent input stop loudly rather than guessing.</li>
+    <li><strong>Actionable failure:</strong> the coordinator is the source of truth and emits one <code>ctx.ui.notify(..., "warning")</code> at terminal failure. The literal contract is <code>Pi-vcc continuation failed (transaction=&lt;id&gt;; attempt=&lt;id&gt;; retries=&lt;count&gt;/&lt;limit&gt;; reason=&lt;terminalReason&gt;). Inspect: jq -c 'select(.transactionId=="&lt;id&gt;")' ~/.pi/logs/pi-vcc.jsonl. Manual recovery: return to this Pi session, inspect the interrupted task state, then send “continue” once.</code></li>
+    <li><strong>Dissonance cleanup:</strong> package README, tests, soak scripts, and real-host fixtures must describe and prove the same sole-authority architecture.</li>
+  </ul>
+</section>
+
+<section id="locked-decisions">
+  <h2>Locked decisions</h2>
+  <ol>
+    <li>The package coordinator is the sole continuation authority. Delete extension-owned legacy send/retry queues, copied wire publication, and authority switching.</li>
+    <li>Use two deliberately distinct types. Runtime <code>CompactionResumeIntent = "active" | "none"</code> exists only before/during compaction and is never serialized. Wire/persisted <code>ContinuationResumePolicy = "active" | "terminal"</code> remains the V2 protocol vocabulary. The sole translation occurs when compaction details or a coordinator request are created: runtime <code>active</code> maps to wire <code>active</code>; runtime <code>none</code> maps to wire <code>terminal</code>. Neither field is optional after attempt creation, and <code>none</code> is never a wire value.</li>
+    <li>Keep V1 read adaptation because persisted session histories are real consumers; write only V2. V1 <code>active</code>/<code>terminal</code> preserve their meaning; V1 <code>auto</code> is accepted only for <code>compact_context</code> and deterministically adapts to <code>active</code>; V1 <code>auto</code> on any other origin and every V2 <code>auto</code> payload are invalid persistence. This is data compatibility, not a second runtime mode.</li>
+    <li>Trust a standalone <code>compact_context</code> tool invocation as the model’s interpreted semantic boundary. Only same-batch outstanding siblings can defer it.</li>
+    <li>If the hard threshold arrives while a semantic request is pending, escalate that attempt rather than create a replacement attempt.</li>
+    <li>Track <code>agentActive</code> from <code>agent_start</code> until <code>agent_settled</code> and a monotonic agent generation. A scheduled attempt stores the generation and whether its source response was complete. At actual start: a pending semantic request is active; a source response that was incomplete is active; a completed response is active only if the generation advanced and the latch is active. Freeze that result on the attempt before calling Pi’s aborting API.</li>
+    <li>Acceptance requires source and installed-candidate real-host runs. Mock-only soak success is insufficient.</li>
+  </ol>
+</section>
+
+<section id="inventory">
+  <h2>Contract and distributed-integration inventory</h2>
+  <table>
+    <thead><tr><th>Contract / family</th><th>Source of truth</th><th>Producers</th><th>Consumers</th><th>Required proof</th></tr></thead>
+    <tbody>
+      <tr><td>Compaction attempt intent and identity</td><td>Runtime <code>CompactionResumeIntent</code> in <code>types.ts</code>; wire <code>ContinuationResumePolicy</code> in <code>continuation-protocol.ts</code>; one explicit mapping in <code>details.ts</code>/request creation</td><td><code>compact_context</code>, percentage/Grok hard backstop, Pi host threshold, host overflow, <code>/compact-now</code>, <code>/pi-vcc</code></td><td><code>before-compact.ts</code>, <code>details.ts</code>, <code>continuation.ts</code>, <code>log-schema.ts</code>, coordinator, audit/log consumers</td><td>Cross-boundary tests assert exact request ID, attempt ID, origin, runtime active/none, mapped wire active/terminal, required field presence, pending tools, and one terminal outcome.</td></tr>
+      <tr><td>Actual-start active state</td><td>Percentage extension lifecycle latch and generation</td><td><code>agent_start</code>, <code>agent_settled</code>, scheduled attempt baseline</td><td>Hard-backstop attempt creation before <code>ctx.compact()</code></td><td>Timer-controlled tests start a later agent after scheduling but before compaction and prove active resume; the same schedule without a later start after a completed response proves terminal restraint.</td></tr>
+      <tr><td>Successful compaction continuation</td><td>Package before/session-compact hook</td><td>Pi <code>session_before_compact</code> / <code>session_compact</code></td><td>Coordinator</td><td>Real host persists intent in compaction details, waits for safe settlement, delivers once, and progresses.</td></tr>
+      <tr><td>Failed/no-cut active attempt</td><td>Package coordinator request API</td><td>Percentage extension <code>onError</code> / no-cut result</td><td>Coordinator</td><td>Fault cases prove retry, exactly-once durable acceptance, settlement or loud failure.</td></tr>
+      <tr><td>Continuation wire V2</td><td><code>continuation-protocol.ts</code> and <code>log-schema.ts</code></td><td>Coordinator only</td><td><code>continuation.ts</code>, coordinator reconciliation, custom-message classification, <code>audit-pi-vcc-continuations.py</code>, logs, session resume</td><td>Protocol and log schemas reject <code>auto</code> and non-enum strings; <code>continuation.test.ts</code>, <code>log-schema.test.ts</code>, <code>custom-message-classifier.test.ts</code>, and real file-backed audit pass; extension contains no copied wire constants.</td></tr>
+      <tr><td>Persisted V1 reads</td><td>Version-conditional protocol adapter</td><td>Historical sessions only</td><td>Reload/reconcile</td><td>Reload tests cover V1 active, terminal, compact-context auto→active, invalid non-compact-context auto, and invalid V2 auto with no duplicate delivery; no V1 writer remains.</td></tr>
+      <tr><td>Command initiators</td><td><code>commands/pi-vcc.ts</code> and extension <code>/compact-now</code> registration</td><td><code>package-pi-vcc</code>, <code>package-compact-now</code></td><td>before-compact hook/coordinator and direct successful follow-up send</td><td><code>/compact-now</code> and plain <code>/pi-vcc</code> stay terminal; <code>/pi-vcc &lt;followup&gt;</code> sends exactly one follow-up only after success and never adds coordinator delivery.</td></tr>
+      <tr><td>Production trigger families</td><td><code>CONTINUATION_INITIATORS</code> plus percentage-extension variants</td><td><code>compact_context</code>; percentage hard backstop; Grok ceiling; Pi <code>host-threshold</code>; <code>host-overflow</code>; both command initiators</td><td>Pi compaction, package hook, coordinator</td><td><strong>Exhaustive-by-initiator and variant:</strong> semantic active; percentage and Grok active/terminal; host-threshold interrupted/terminal; host-overflow retry/non-retry; compact-now terminal; pi-vcc plain/follow-up success/error.</td></tr>
+      <tr><td>Real-host harness ownership</td><td><code>pi-vcc-real-host-integration.ts</code></td><td>Deterministic faux provider and real registered extensions</td><td>Source/installed gates</td><td>Migrate unique ordinary-percentage and Grok cases from <code>percentage-compaction-real-host-repro.ts</code>, then delete that competing harness and the direct-compaction fixture when no caller remains.</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Source-search basis:</strong> searches for <code>resumePolicy</code>, <code>continuationAuthority</code>, <code>pendingModelCompaction</code>, <code>uninterpretedFailure</code>, protocol publication constants, coordinator requests, and all real-host/soak fixtures across <code>_pi/extensions</code>, <code>_pi/packages/pi-vcc</code>, and <code>scripts</code>.</p>
+</section>
+
+<section id="acceptance" class="criteria">
+  <h2>Acceptance criteria</h2>
+  <ol>
+    <li id="ac-1"><strong>AC-1 Autonomous active continuation.</strong> The exact NOD-1504 sequence reaches later assistant progress without any real-user <code>continue</code> message.</li>
+    <li id="ac-2"><strong>AC-2 Exactly once.</strong> Every active attempt has one durable continuation acceptance and one terminal coordinator outcome; no duplicate delivery across retries.</li>
+    <li id="ac-3"><strong>AC-3 Terminal restraint.</strong> Completed assistant responses and terminal maintenance commands do not trigger another model turn.</li>
+    <li id="ac-4"><strong>AC-4 Pending intent survives escalation.</strong> A pending semantic request blocked by same-batch siblings retains its identity and active intent if the hard backstop fires.</li>
+    <li id="ac-5"><strong>AC-5 No stale failure deadlock.</strong> An earlier tool failure cannot strand a later standalone <code>compact_context</code> request.</li>
+    <li id="ac-6"><strong>AC-6 Sole authority.</strong> The extension contains no legacy authority switch, direct continuation send timers, copied protocol wire constructor, or duplicate retry state machine.</li>
+    <li id="ac-7"><strong>AC-7 Honest real-host proof.</strong> Source and installed runs load the actual package plus percentage extension and exercise Pi 0.84’s real aborting compaction method with file-backed session persistence.</li>
+    <li id="ac-8"><strong>AC-8 Loud bounded failure.</strong> If autonomous continuation cannot be accepted or progress within bounded retries, the coordinator emits exactly one warning notification using the locked literal contract: transaction, attempt, retry count/limit, terminal reason, transaction-filtered <code>jq</code> log command, and instruction to inspect the interrupted state then send one <code>continue</code> in the same Pi session.</li>
+    <li id="ac-9"><strong>AC-9 Persisted compatibility.</strong> V1 active/terminal and compact-context auto→active reconcile without duplicate delivery; invalid V1 auto origins and every V2 auto record fail closed; all new requests are V2 without auto.</li>
+    <li id="ac-10"><strong>AC-10 Install integrity.</strong> Source, stable mirror, and live extension hashes match with exactly one registration before live acceptance.</li>
+  </ol>
+</section>
+
+<section id="bdd">
+  <h2>BDD scenarios</h2>
+  <article id="bdd-1"><h3>BDD-1 — semantic compaction after an interpreted failure</h3><p><strong>Given</strong> an earlier tool failure and a later standalone <code>compact_context</code> call, <strong>when</strong> its tool result is delivered, <strong>then</strong> the request compacts without waiting for a completed assistant response and resumes exactly once.</p></article>
+  <article id="bdd-2"><h3>BDD-2 — reported NOD-1504 race</h3><p><strong>Given</strong> a completed source turn schedules compaction at generation N, <strong>when</strong> <code>agent_start</code> advances to N+1 before the timer calls Pi’s real <code>compact()</code>, <strong>then</strong> the actual-start latch marks the attempt active, the abort produces one coordinator request, and later assistant progress occurs without user input. The paired counterexample with no later <code>agent_start</code> remains terminal.</p></article>
+  <article id="bdd-3"><h3>BDD-3 — hard backstop without semantic request</h3><p><strong>Given</strong> unfinished work crosses the hard threshold, <strong>when</strong> compaction aborts the active run, <strong>then</strong> the hard-backstop attempt resumes once and settles.</p></article>
+  <article id="bdd-4"><h3>BDD-4 — final response at hard threshold</h3><p><strong>Given</strong> a completed final assistant response, <strong>when</strong> hard-backstop maintenance compacts, <strong>then</strong> no continuation request or new model turn is created.</p></article>
+  <article id="bdd-5"><h3>BDD-5 — active no-safe-cut or cancellation</h3><p><strong>Given</strong> compaction already occurred, is too small, is cancelled, or fails, <strong>when</strong> active work was interrupted, <strong>then</strong> the coordinator retries/resumes once; the same outcomes on terminal maintenance do not resume.</p></article>
+  <article id="bdd-6"><h3>BDD-6 — sibling tools still outstanding</h3><p><strong>Given</strong> <code>compact_context</code> shares a tool batch, <strong>when</strong> sibling results remain pending, <strong>then</strong> compaction waits; after all results are durable it starts the same attempt without losing intent.</p></article>
+  <article id="bdd-7"><h3>BDD-7 — independent input supersedes</h3><p><strong>Given</strong> a queued continuation, <strong>when</strong> genuine model-driving user input arrives first, <strong>then</strong> the coordinator records <code>independent_input</code> and does not add another continuation.</p></article>
+  <article id="bdd-8"><h3>BDD-8 — reload and persisted protocol</h3><p><strong>Given</strong> V1 active, terminal, or compact-context auto records, <strong>when</strong> Pi reloads, <strong>then</strong> active/terminal are preserved and auto deterministically becomes active without duplicate delivery. V1 auto from another origin and V2 auto are rejected as invalid persistence; no new V1 or auto record is written.</p></article>
+  <article id="bdd-9"><h3>BDD-9 — bounded failure guidance</h3><p><strong>Given</strong> all coordinator acceptance/progress retries expire, <strong>when</strong> the transaction fails loudly, <strong>then</strong> the coordinator emits exactly one warning notification matching the locked literal contract; its <code>jq</code> command selects that transaction from <code>~/.pi/logs/pi-vcc.jsonl</code>, and its manual action is to inspect the interrupted state then send one <code>continue</code> in the same session.</p></article>
+  <article id="bdd-10"><h3>BDD-10 — repeated compaction soak</h3><p><strong>Given</strong> at least 100 mixed active/terminal/fault compactions, <strong>when</strong> the audit runs, <strong>then</strong> every active transaction has exactly one runtime-matching durable delivery and every transaction reaches an allowed terminal state.</p></article>
+  <article id="bdd-11"><h3>BDD-11 — complete initiator and trigger coverage</h3><p><strong>Given</strong> every protocol initiator and percentage-extension variant, <strong>when</strong> its real dispatch path executes, <strong>then</strong> compact-context resumes; percentage/Grok resume only when active; host-threshold resumes only when interrupted; overflow resumes only when retryable; compact-now and plain pi-vcc remain terminal; and successful pi-vcc follow-up sends exactly one direct user message without coordinator duplication.</p></article>
+</section>
+
+<section id="progress" class="progress">
+  <h2>Progress</h2>
+  <label><input type="checkbox" disabled /> P1 — Lock the single-owner attempt and continuation contracts with RED tests</label>
+  <label><input type="checkbox" disabled /> P2 — Cut over every trigger and delete duplicate/legacy recovery paths</label>
+  <label><input type="checkbox" disabled /> P3 — Prove the actual NOD-1504 sequence in deterministic real-host source and installed runs</label>
+  <label><input type="checkbox" disabled /> P4 — Reconcile docs, soak/audit/install gates, review, and PR-ready evidence</label>
+</section>
+
+<section id="phase-p1" class="phase">
+  <h2>P1 — Contract-first RED: one attempt, one authority</h2>
+  <h3>End State</h3><p>Behavioral tests define one immutable compaction attempt contract and prove the current implementation fails for the reported reasons before production code changes.</p>
+  <h3>Tests first</h3>
+  <ul>
+    <li>Add extension tests for BDD-1, BDD-2’s timer-controlled generation race and paired terminal counterexample, BDD-4, BDD-6, and AC-4/5/6.</li>
+    <li>Add package hook/coordinator/protocol/log-schema/classifier tests for the runtime-to-wire intent mapping, required field presence, V1 active/terminal/compact-context-auto adaptation, invalid V1 auto origins, invalid V2 auto and non-enum strings, and duplicate-free reload.</li>
+    <li>Add command tests for plain <code>/pi-vcc</code>, successful explicit follow-up, failed/no-cut follow-up, and <code>/compact-now</code>; assert coordinator delivery and direct follow-up cannot both own the same continuation.</li>
+    <li>Tests must fail because stale failure state blocks the semantic attempt, hard-backstop intent is absent, or duplicate extension authority remains—not because fixtures are incomplete.</li>
+  </ul>
+  <h3>Expected files</h3><p><code>scripts/percentage-compaction.test.ts</code>; <code>_pi/packages/pi-vcc/tests/before-compact.test.ts</code>; <code>_pi/packages/pi-vcc/tests/continuation.test.ts</code>; <code>_pi/packages/pi-vcc/tests/coordinator.test.ts</code>; <code>_pi/packages/pi-vcc/tests/log-schema.test.ts</code>; <code>_pi/packages/pi-vcc/tests/custom-message-classifier.test.ts</code>; <code>_pi/packages/pi-vcc/tests/pi-vcc-command.test.ts</code>.</p>
+  <h3>Work</h3>
+  <ul>
+    <li>Define the intended shared attempt shape in tests: identity, origin, required runtime <code>active|none</code> intent, its single required wire <code>active|terminal</code> mapping, pending tools, and lifecycle outcome. Prove <code>none</code> cannot serialize and no created attempt omits intent.</li>
+    <li>Lock the reconciled caller list from the inventory: extension/tool/commands; <code>types.ts</code>, <code>details.ts</code>, before-compact, <code>continuation.ts</code>, <code>continuation-protocol.ts</code>, <code>log-schema.ts</code>, coordinator; command, continuation, log-schema, custom-message-classifier, extension, and coordinator tests; real-host harnesses, soak, audit, install verification, and README. Any newly discovered production hit is a plan deviation requiring disposition before deletion—not an invitation to preserve another mode.</li>
+    <li>Record RED commands and behavioral failure reasons in implementation evidence.</li>
+  </ul>
+  <h3>Open questions / decision dependencies</h3><p>None.</p>
+  <h3>Verify</h3><pre><code>bun test scripts/percentage-compaction.test.ts
+bun test _pi/packages/pi-vcc/tests/before-compact.test.ts _pi/packages/pi-vcc/tests/continuation.test.ts _pi/packages/pi-vcc/tests/coordinator.test.ts _pi/packages/pi-vcc/tests/log-schema.test.ts _pi/packages/pi-vcc/tests/custom-message-classifier.test.ts _pi/packages/pi-vcc/tests/pi-vcc-command.test.ts</code></pre>
+</section>
+
+<section id="phase-p2" class="phase">
+  <h2>P2 — Clean cutover to explicit intent and package-owned continuation</h2>
+  <h3>End State</h3><p>The extension owns a single compaction-attempt state machine; the package coordinator owns every continuation. No compatibility shim or secondary delivery loop remains.</p>
+  <h3>Tests first</h3><p>Keep P1 tests immutable. Add focused failure tests only when implementation reveals a missing observable boundary; do not weaken exact-once or real-caller assertions.</p>
+  <h3>Expected files</h3>
+  <p><code>_pi/extensions/percentage-compaction.ts</code>; <code>_pi/packages/pi-vcc/index.ts</code>; <code>_pi/packages/pi-vcc/src/types.ts</code>; <code>_pi/packages/pi-vcc/src/details.ts</code>; <code>_pi/packages/pi-vcc/src/commands/pi-vcc.ts</code>; <code>_pi/packages/pi-vcc/src/hooks/before-compact.ts</code>; <code>_pi/packages/pi-vcc/src/core/coordinator.ts</code>; <code>_pi/packages/pi-vcc/src/core/continuation.ts</code>; <code>_pi/packages/pi-vcc/src/core/continuation-protocol.ts</code>; <code>_pi/packages/pi-vcc/src/core/log-schema.ts</code>; <code>scripts/audit-pi-vcc-continuations.py</code>; <code>_pi/packages/pi-vcc/tests/log-schema.test.ts</code>; <code>_pi/packages/pi-vcc/tests/custom-message-classifier.test.ts</code>; the other P1 test files.</p>
+  <h3>Work</h3>
+  <ol>
+    <li>Create one package-exposed runtime continuation facade on the existing process-wide owner record. It accepts typed requests and delegates to the coordinator; it does not expose wire construction.</li>
+    <li>Replace <code>resumePolicy:auto</code> and heuristic terminal-text parsing with required runtime <code>CompactionResumeIntent</code>. Remove <code>resumePolicy</code> from the <code>compact_context</code> tool schema; that tool always creates <code>active</code>. At the one details/request boundary map <code>active→active</code> and <code>none→terminal</code>; do not serialize <code>none</code> or permit an absent intent.</li>
+    <li>Replace the global stale <code>uninterpretedFailure</code> gate with same-batch safety: standalone semantic requests are trusted; sibling tools must settle first.</li>
+    <li>Represent pending semantic work and threshold escalation as one attempt. The hard backstop starts the existing attempt instead of anonymously replacing it.</li>
+    <li>Add the lifecycle latch: set <code>agentActive=true</code> and increment generation on <code>agent_start</code>; clear only on <code>agent_settled</code>. Scheduled attempts store source completion and generation. Immediately before <code>ctx.compact()</code>, resolve intent with this precedence: pending semantic request → active; incomplete source response → active; completed source response plus newer active generation → active; otherwise none. Freeze that result; do not consult <code>ctx.isIdle()</code>, later text, or cleared tool IDs.</li>
+    <li>Carry intent through custom instructions/compaction details for successful <code>session_compact</code>. Package hook queues active continuation after <code>agent_settled</code>.</li>
+    <li>For error/no-cut paths without <code>session_compact</code>, call the package continuation facade once with the same attempt identity.</li>
+    <li>Delete extension-owned protocol constants, wire constructors, safety-ready publication, direct-send continuation queues/timers, legacy authority branches, and redundant transaction state.</li>
+    <li>Split protocol validation by version. Preserve V1 active/terminal; map V1 compact-context auto to active; reject V1 auto from other origins and every V2 auto; emit only V2 active/terminal. Update <code>details.ts</code>, <code>types.ts</code>, <code>continuation.ts</code>, <code>continuation-protocol.ts</code>, <code>log-schema.ts</code>, coordinator rehydration, custom-message classification, and audit schema together. Log schema validates the exact policy enum rather than a generic string.</li>
+    <li>Make the coordinator the only loud-failure producer. On terminal acceptance/progress exhaustion, emit exactly one warning notification using the locked literal contract and persist the terminal outcome first; unit tests execute the rendered <code>jq</code> filter against a fixture log and the real-host failure case captures the warning.</li>
+    <li>Update <code>commands/pi-vcc.ts</code>: plain command and all failure/no-cut outcomes remain terminal; successful explicit follow-up sends exactly one direct user message and the coordinator remains terminal. Keep <code>/compact-now</code> terminal on every outcome.</li>
+  </ol>
+  <h3>Open questions / decision dependencies</h3><p>None.</p>
+  <h3>Verify</h3><pre><code>bun test scripts/percentage-compaction.test.ts
+bun test _pi/packages/pi-vcc/tests/before-compact.test.ts _pi/packages/pi-vcc/tests/continuation.test.ts _pi/packages/pi-vcc/tests/coordinator.test.ts _pi/packages/pi-vcc/tests/log-schema.test.ts _pi/packages/pi-vcc/tests/custom-message-classifier.test.ts _pi/packages/pi-vcc/tests/pi-vcc-command.test.ts _pi/packages/pi-vcc/tests/integration/continuation-runtime.test.ts
+bash scripts/run-pi-vcc-continuation-soak.sh --candidate source --compactions 20 --fault-matrix all</code></pre>
+</section>
+
+<section id="phase-p3" class="phase">
+  <h2>P3 — Real-host reproduction and autonomous-progress proof</h2>
+  <h3>End State</h3><p>A deterministic, file-backed Pi 0.84 host reproduces the NOD-1504 ordering through real registered surfaces and proves autonomous progress with no manual continuation.</p>
+  <h3>Tests first</h3>
+  <ul>
+    <li>Replace the direct-<code>ctx.compact()</code> fixture with a real extension-driven fixture or delete it if the host can invoke the registered tool without an adapter.</li>
+    <li>Add an initially failing case that loads both the package and percentage extension, invokes the actual <code>compact_context</code> registration, preserves a prior failure, starts a later model/tool turn, reaches the hard threshold, and observes Pi aborting that run.</li>
+    <li>Assert session evidence, not callback counts: compaction intent, continuation request, exactly one durable message, later assistant progress, settled outcome, zero real-user <code>continue</code>, and no silent orphan abort.</li>
+  </ul>
+  <h3>Expected files</h3><p><code>scripts/pi-vcc-real-host-integration.ts</code>; <code>scripts/percentage-compaction-real-host-repro.ts</code> (migrate unique cases, then delete); <code>scripts/fixtures/pi-vcc-actual-compact-context-trigger.ts</code> (delete once the registered tool is driven directly); <code>scripts/tests/test_pi_vcc_validation_cli.py</code>; real-host package tests if shared helpers belong there.</p>
+  <h3>Work</h3>
+  <ol>
+    <li>Expose deterministic context-usage control in the host fixture without patching production code.</li>
+    <li>Script faux-provider responses that issue the real tool call, enter a next turn, receive compaction abort, consume the coordinator continuation, and emit a final progress response.</li>
+    <li>Add the paired same-boundary terminal case, independent-input case, and active cancellation/no-cut cases. Cover ordinary percentage and Grok active/terminal variants, host-threshold interrupted/terminal, host-overflow retry/non-retry, compact-now terminal, and pi-vcc plain/follow-up success/error.</li>
+    <li>Migrate every unique ordinary-percentage and Grok assertion from <code>percentage-compaction-real-host-repro.ts</code> into the canonical registry, delete the competing harness and legacy authority environment assignment, and delete the direct-compaction fixture when no caller remains.</li>
+    <li>Write artifacts to an isolated directory: session JSONL, pi-vcc log, case manifest, and audit result.</li>
+    <li>Run the same case registry against source and installed candidates; fail if either silently substitutes the other.</li>
+  </ol>
+  <h3>Open questions / decision dependencies</h3><p>None. If Pi’s public deterministic host cannot control context usage, use a test-only extension to provide usage—not a production flag—and disclose the boundary in the artifact.</p>
+  <h3>Verify</h3><p>Every artifact directory must be fresh and empty; the runners intentionally reject reused non-empty paths.</p><pre><code>source_artifacts="$(mktemp -d)" &amp;&amp; bun scripts/pi-vcc-real-host-integration.ts --candidate source --cases all --session-mode file-backed --provider deterministic-fake --artifacts-dir "$source_artifacts" &amp;&amp; python3 scripts/audit-pi-vcc-continuations.py --require-terminal --sessions "$source_artifacts/sessions" --log "$source_artifacts/logs/pi-vcc.jsonl"</code></pre>
+</section>
+
+<section id="phase-p4" class="phase">
+  <h2>P4 — Documentation, installed rollout, and PR-ready evidence</h2>
+  <h3>End State</h3><p>All repository guidance describes the single-owner architecture, installed surfaces match source, long fault soak passes, and review evidence covers the actual regression.</p>
+  <h3>Tests first</h3><p>Add CLI contract tests for any changed verification command or case registry before changing scripts. Existing install tests must reject mismatched or duplicate registrations.</p>
+  <h3>Expected files</h3><p><code>_pi/packages/pi-vcc/README.md</code>; <code>scripts/pi-vcc-continuation-soak.ts</code>; <code>scripts/run-pi-vcc-continuation-soak.sh</code>; <code>scripts/audit-pi-vcc-continuations.py</code>; <code>install.sh</code>; <code>scripts/verify-pi-vcc-install.sh</code>; <code>scripts/tests/test_install_pi_vcc.py</code>; <code>scripts/tests/test_verify_pi_vcc_install.py</code>; related script tests; plan progress and append-only log at completion.</p>
+  <h3>Work</h3>
+  <ol>
+    <li>Remove documentation for deleted modes/flags and describe the active/terminal product surfaces.</li>
+    <li>Extend soak/audit coverage to reject <code>auto</code> in V2, active transactions with zero delivery, duplicate delivery, non-terminal state, or an aborted model turn without subsequent progress/supersession/loud failure.</li>
+    <li>Extend the scoped <code>./install.sh --pi-vcc</code> transaction to stage, verify, swap, and roll back both the stable package/registration and live <code>percentage-compaction.ts</code>. Snapshot the pre-install extension beside the existing package/settings snapshots; add failpoints after extension swap and post-swap verification; restore all three surfaces on every pre-commit failure. Installer tests prove byte-identical package, settings, and extension restoration. Do not use broad non-atomic <code>--pi</code> for this rollout.</li>
+    <li>Run source gates, install through the extended scoped transaction, verify hashes/registrations, then run installed real-host and 100-compaction soak gates.</li>
+    <li>Run the bounded active-harness implementation review and one targeted rereview after fixes if needed.</li>
+    <li>Update plan progress truthfully and preserve final evidence in existing validation surfaces; do not create redundant architecture documents.</li>
+  </ol>
+  <h3>Open questions / decision dependencies</h3><p>None.</p>
+  <h3>Verify</h3><pre><code>bun test scripts/percentage-compaction.test.ts _pi/packages/pi-vcc/tests/*.test.ts _pi/packages/pi-vcc/tests/integration/*.test.ts
+python3 -m unittest scripts.tests.test_pi_vcc_validation_cli scripts.tests.test_install_pi_vcc scripts.tests.test_verify_pi_vcc_install
+source_soak="$(mktemp -d)" &amp;&amp; bash scripts/run-pi-vcc-continuation-soak.sh --candidate source --compactions 100 --fault-matrix all --artifacts-dir "$source_soak"
+bash ./install.sh --pi-vcc
+bash scripts/verify-pi-vcc-install.sh
+installed_host="$(mktemp -d)" &amp;&amp; bun scripts/pi-vcc-real-host-integration.ts --candidate installed --cases all --session-mode file-backed --provider deterministic-fake --artifacts-dir "$installed_host" &amp;&amp; python3 scripts/audit-pi-vcc-continuations.py --require-terminal --sessions "$installed_host/sessions" --log "$installed_host/logs/pi-vcc.jsonl"
+installed_soak="$(mktemp -d)" &amp;&amp; bash scripts/run-pi-vcc-continuation-soak.sh --candidate installed --compactions 100 --fault-matrix all --artifacts-dir "$installed_soak"</code></pre>
+</section>
+
+<section id="test-matrix">
+  <h2>Test coverage matrix</h2>
+  <table>
+    <thead><tr><th>Acceptance / BDD</th><th>Layer</th><th>Suite / artifact</th><th>Misleading partial implementation rejected</th></tr></thead>
+    <tbody>
+      <tr><td>AC-1, AC-4, AC-5 / BDD-1,2</td><td>Extension + real host</td><td><code>percentage-compaction.test.ts</code>; source/installed real-host artifacts</td><td>Rejects merely adding a resume message to hard backstop while semantic intent is still stranded.</td></tr>
+      <tr><td>AC-2 / BDD-3,5,10</td><td>Coordinator + soak + audit</td><td>coordinator/runtime tests; 100-case source/installed soak</td><td>Rejects duplicate send paths and callback-only success.</td></tr>
+      <tr><td>AC-3 / BDD-4</td><td>Extension + real host</td><td>completed-response negative case</td><td>Rejects unconditional continuation after every compaction.</td></tr>
+      <tr><td>AC-4 / BDD-6</td><td>Extension attempt state + real host</td><td><code>percentage-compaction.test.ts</code> sibling-deferral identity case; canonical real-host sibling case</td><td>Rejects recreating an attempt, losing active intent, or starting before every sibling result is durable.</td></tr>
+      <tr><td>AC-2 / BDD-7</td><td>Coordinator + real host</td><td><code>coordinator.test.ts</code> independent-input precedence; canonical real-host supersession artifact</td><td>Rejects delivering queued continuation after genuine model-driving input supersedes it.</td></tr>
+      <tr><td>AC-6</td><td>Source contract</td><td>tests import/use package facade; stale-symbol search in review</td><td>Rejects keeping legacy timers/publishers behind unused flags.</td></tr>
+      <tr><td>AC-7 / BDD-2</td><td>Pi real host</td><td>file-backed deterministic source and installed runs</td><td>Rejects fixtures that call hook internals or <code>ctx.compact()</code> directly.</td></tr>
+      <tr><td>AC-8 / BDD-9</td><td>Coordinator deadlines + visible diagnostics</td><td><code>coordinator.test.ts</code> literal warning and executable fixture-log filter; canonical real-host captured warning</td><td>Rejects duplicate/silent warnings, generic “failed” output, or a recovery command that cannot select the named transaction.</td></tr>
+      <tr><td>AC-9 / BDD-8</td><td>Persistence/reload</td><td>continuation/coordinator and real-host reload cases</td><td>Rejects deleting a real persisted reader or writing new V1 entries.</td></tr>
+      <tr><td>AC-2, AC-3 / BDD-11</td><td>Commands, extension variants, package hook, real host</td><td>command/extension/hook unit tests plus canonical real-host registry</td><td>Rejects omitting host-threshold, Grok, overflow non-retry, command follow-up, or another source-of-truth initiator.</td></tr>
+      <tr><td>AC-10</td><td>Installed integrity + rollback</td><td><code>test_install_pi_vcc.py</code>; <code>verify-pi-vcc-install.sh</code></td><td>Rejects source-only success, duplicate registration, extension/package skew, or a failed scoped install that does not restore all managed surfaces byte-for-byte.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="verification">
+  <h2>Verification strategy</h2>
+  <ol>
+    <li><strong>RED:</strong> actual stale-failure + pending semantic request + next-run abort fails before production edits.</li>
+    <li><strong>GREEN:</strong> focused extension/package tests prove the contract and deleted assumptions.</li>
+    <li><strong>Runtime smoke:</strong> deterministic Pi host runs the actual tool and compaction API, ending in later assistant progress.</li>
+    <li><strong>Persistence:</strong> file-backed session and log audit prove exact transaction lifecycle.</li>
+    <li><strong>Scale/fault:</strong> 100-compaction source and installed soaks cover retries, duplicates, aborts, no-cut, reload, and terminal restraint.</li>
+    <li><strong>Install:</strong> the scoped <code>--pi-vcc</code> transaction and injected-failure rollback tests cover package, registration/settings, and live extension as one unit; hash/registration checks prevent testing a different candidate than the live runtime.</li>
+  </ol>
+  <p><strong>Residual risk / not examined:</strong> a third-party provider may have unique streaming timing not reproduced by the deterministic faux provider. This does not weaken the pre-PR gate because the defect is in Pi host lifecycle ordering, which the real host exercises. A later live long-running delivery is useful observation, not a PR blocker.</p>
+</section>
+
+<section id="risks" class="risk">
+  <h2>Risks and mitigations</h2>
+  <table><thead><tr><th>Risk</th><th>Mitigation</th></tr></thead><tbody>
+    <tr><td>Unconditional resume loops after final answers.</td><td>Explicit active/none intent and completed-response negative real-host case.</td></tr>
+    <tr><td>Removing legacy code strands persisted work.</td><td>Delete unsupported runtime authority modes, but retain and test V1 read adaptation because historical session files are real consumers.</td></tr>
+    <tr><td>Global owner facade becomes a generic framework.</td><td>Expose only the existing coordinator’s narrow <code>request</code> capability and status; no service locator or plugin bus.</td></tr>
+    <tr><td>Test fixture repeats the old bypass.</td><td>Acceptance requires the registered tool and percentage extension to run inside Pi’s real host.</td></tr>
+    <tr><td>Install changes user environment before proof.</td><td>Source real-host and soak gates pass first; scoped <code>--pi-vcc</code> atomically swaps or restores package, settings, and live extension under injected-failure tests; installed hashes and cases pass afterward.</td></tr>
+  </tbody></table>
+</section>
+
+<section id="resume">
+  <h2>Resume instructions (agent)</h2>
+  <ol>
+    <li>Read this plan fully and inspect the latest NOD-1504 transcript evidence if the implementation base changed.</li>
+    <li>Start at the first unchecked Progress item and complete phases in order.</li>
+    <li>Re-run the caller inventory before deleting compatibility paths; preserve only currently evidenced consumers.</li>
+    <li>Keep implementation in the driving session. Use the configured reviewer only for bounded read-only review.</li>
+    <li>After each phase, update its single Progress checkbox and append any material decision/deviation below.</li>
+    <li>Do not ask the operator to type <code>continue</code> as verification. Autonomous post-compaction progress is the contract.</li>
+  </ol>
+</section>
+
+<section id="delivery">
+  <h2>Delivery order</h2>
+  <p>P1 RED contract → P2 clean cutover/deletion → P3 real-host proof → P4 docs, source gates, transactional install, installed gates, bounded review, PR-ready handoff.</p>
+  <h3>PR boundary</h3><p>Source code, tests, deterministic host/soak/audit tooling, package docs, installable artifacts, and pre-merge verification are required. A long-running production delivery observation is not required before PR creation.</p>
+  <h3>Post-merge delivery / operations (non-blocking)</h3><p>Owner: Pi configuration maintainer. Trigger: merged change installed on the operator workstation. Observe the next naturally long delivery run for absence of manual continuation and inspect strict pi-vcc transaction logs if a pause recurs. Roll back only by installing a known-good archived repo release; do not patch live extension/package files directly.</p>
+</section>
+
+<section id="non-goals">
+  <h2>Non-goals</h2>
+  <ul>
+    <li>No task, todo, Linear, PR, or broader goal-completion interpretation inside pi-vcc.</li>
+    <li>No edit to globally installed Pi core; the real host API behavior is treated as a constraint.</li>
+    <li>No new generic event framework, workflow supervisor, or operator status command.</li>
+    <li>No provider-backed network test in the deterministic pre-PR gate.</li>
+    <li>No rewrite of unrelated compaction summary quality or <code>vcc_recall</code> behavior.</li>
+  </ul>
+</section>
+
+<section id="review-record">
+  <h2>Review record</h2>
+  <table>
+    <thead><tr><th>Date</th><th>Reviewer</th><th>Scope</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>2026-08-06</td><td>Driving agent PM pass</td><td>Product intent, operator outcome, defaults, recovery, status, scope, and verification shape</td><td><strong class="ok">Ready.</strong> Product-owner context is standalone; “What’s new” is distinct and behavior-focused; the default workflow self-heals; failures are actionable; no product question remains.</td></tr>
+      <tr><td>2026-08-06</td><td>Required independent <code>planner</code></td><td>Whole-plan Sol-medium execution-readiness review and implementation-profile selection</td><td><strong class="danger">Infrastructure blocked.</strong> Launch failed because the active harness exposes <code>oracle</code>, <code>reviewer</code>, <code>scout</code>, <code>designer</code>, <code>security-reviewer</code>, <code>librarian</code>, <code>task</code>, and <code>sonic</code>, but not <code>planner</code>. No substitute verdict is accepted.</td></tr>
+      <tr><td>2026-08-06</td><td>OMP <code>planner</code> — GPT-5.6 Sol, medium</td><td>Whole-plan execution readiness and implementation-profile selection</td><td><strong class="danger">PLAN_NEEDS_REVISION.</strong> Required explicit actual-start lifecycle precedence, complete caller/file disposition, version-conditional V1 auto adaptation, and exhaustive initiator/trigger proof. Selected <code>sol-medium</code>.</td></tr>
+      <tr><td>2026-08-06</td><td>OMP <code>planner</code> — targeted fresh rereview</td><td>Integrated first-pass blockers and complete remaining blocker set</td><td><strong class="danger">PLAN_NEEDS_REVISION.</strong> Locked separate runtime/wire intent vocabularies, remaining schema/classifier consumers, literal visible recovery behavior, scoped install transactionality, and BDD-6/7 matrix evidence.</td></tr>
+      <tr><td>2026-08-06</td><td>OMP <code>planner</code> — final fresh gate</td><td>Whole current plan and repository-grounded execution readiness</td><td><strong class="ok">PLAN_EXECUTION_READY.</strong> No remaining blockers or product questions. Selected <code>sol-medium</code>; canonical evidence is recorded in <code>thoughts/validation/pi-vcc-uninterrupted-continuation-recovery-plan-review.md</code>.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="decisions">
+  <h2>Decisions / Deviations log</h2>
+  <ul>
+    <li><strong>2026-08-06 — Plan created.</strong> Chose a clean single-authority cutover rather than patching hard-backstop resume alone. Evidence: three NOD-1504 silent pauses, absent coordinator transactions, duplicated extension/package continuation machinery, and an E2E fixture that bypasses the failing surfaces.</li>
+    <li><strong>2026-08-06 — Compatibility disposition.</strong> Delete unsupported legacy authority/runtime paths and <code>auto</code> writer behavior. Retain V1 read adaptation because persisted historical sessions are real callers.</li>
+    <li><strong>2026-08-06 — Expansion disposition.</strong> Real-host and installed-candidate verification protect the promised outcome; they are not product expansion. Pi core modification and provider-network testing remain out of scope.</li>
+    <li><strong>2026-08-06 — Execution-readiness request.</strong> PM review passed without material plan edits. The independent planner launch failed because the active harness has no <code>planner</code> persona; readiness remains blocked rather than self-certified or downgraded to a different reviewer.</li>
+    <li><strong>2026-08-06 — OMP planner restored and first review integrated.</strong> Added the OMP-shaped Sol-medium planner from the managed Pi contract. Accepted all four readiness blockers: locked generation/latch precedence at actual compaction start; reconciled command, details, audit, and competing real-host consumers; defined V1 compact-context auto→active with all other auto forms invalid; and mapped every protocol initiator plus percentage/Grok variants to production-path proof. The planner’s <code>sol-medium</code> profile recommendation is retained pending the fresh final verdict.</li>
+    <li><strong>2026-08-06 — Targeted rereview integrated.</strong> Accepted all five remaining blockers: separated required runtime active/none intent from required wire active/terminal policy with one mapping boundary; completed protocol/log-schema/classifier consumers and tests; locked coordinator-only warning text and executable recovery proof; extended the scoped installer transaction across package, settings, and live extension; and mapped sibling deferral plus independent-input supersession to named unit and real-host evidence.</li>
+    <li><strong>2026-08-06 — Final execution-readiness verdict.</strong> Fresh independent Sol-medium review returned <code>PLAN_EXECUTION_READY</code> with no blockers or product questions and selected <code>sol-medium</code> for implementation because lifecycle timing, abort ordering, durable reconciliation, installed rollback, and artifact judgment remain materially correctness-sensitive.</li>
+  </ul>
+</section>
+</main></body></html>
