@@ -79,6 +79,9 @@ class PiAgentRosterTest(unittest.TestCase):
             "opencode/deepseek-v4-flash",
         ):
             self.assertNotIn(f'"{excluded}"', allowlist)
+        self.assertIn("await registry.refresh({ allowNetwork: false })", allowlist)
+        self.assertIn("getAvailable(provider, options)", allowlist)
+        self.assertNotIn("forceRefreshAvailability", allowlist)
         models = json.loads((ROOT / "_pi" / "models.json").read_text())
         managed_ids = {item["id"] for item in models["providers"]["openai-codex"]["models"]}
         self.assertIn("gpt-5.6-sol", managed_ids)

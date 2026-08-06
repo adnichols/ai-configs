@@ -18,7 +18,8 @@ function isAllowed(model: ModelLike): boolean {
  * both the selector and model lookup, so constrain it before interactive use.
  */
 async function installAllowlist(ctx: { modelRegistry: unknown }) {
-	const runtime = (ctx.modelRegistry as any).runtime;
+	const registry = ctx.modelRegistry as any;
+	const runtime = registry.runtime;
 	const collection = runtime?.models;
 	if (!runtime || !collection) {
 		throw new Error("Pi model runtime is unavailable; cannot install the model allowlist");
@@ -35,13 +36,12 @@ async function installAllowlist(ctx: { modelRegistry: unknown }) {
 		if (!ALLOWED_MODELS.has(`${provider}/${modelId}`)) return undefined;
 		return getModel(provider, modelId);
 	};
-	collection.getAvailable = async (provider?: string) =>
-		(await getAvailable(provider)).filter((model: ModelLike) => isAllowed(model));
+	collection.getAvailable = async (provider?: string, options?: unknown) =>
+		(await getAvailable(provider, options)).filter((model: ModelLike) => isAllowed(model));
 	collection.__aiConfigsModelAllowlistVersion = 1;
 
-	// The picker reads this snapshot before and after refreshing its catalogs.
-	runtime.updateModelSnapshot();
-	await runtime.forceRefreshAvailability();
+	// Rebuild model and availability snapshots through Pi's public refresh API.
+	await registry.refresh({ allowNetwork: false });
 }
 
 export default function (pi: ExtensionAPI) {
