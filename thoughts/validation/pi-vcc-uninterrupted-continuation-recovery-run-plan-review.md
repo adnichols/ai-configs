@@ -20,7 +20,7 @@
 
 **VERDICT: PASS** after residual package-identity matcher tightened to exact `candidateRealPath` only.
 
-Not examined: live third-party provider streaming timing; 100-compaction soak wall-clock beyond the 20-compaction fault matrix (same code paths; 100-run optional scale).
+Not examined: live third-party provider streaming timing; 100-compaction soak wall-clock beyond the 20-compaction fault matrix (same code paths; 100-run completed scale gate).
 
 Verification after fixes:
 
