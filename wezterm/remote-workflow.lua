@@ -5,10 +5,10 @@
 local M = {}
 
 local HOST_COLORS = {
-  mbp = { background = '#3B2E5A', foreground = '#F0EAF7' },
-  dever = { background = '#1E3A5F', foreground = '#E6EDF3' },
-  mbp14 = { background = '#244436', foreground = '#E6F2EA' },
-  ['mbp14-2'] = { background = '#244436', foreground = '#E6F2EA' },
+  mbp = { background = '#3B2E5A', active_background = '#594382', foreground = '#F0EAF7' },
+  dever = { background = '#1E3A5F', active_background = '#2A5185', foreground = '#E6EDF3' },
+  mbp14 = { background = '#244436', active_background = '#32604D', foreground = '#E6F2EA' },
+  ['mbp14-2'] = { background = '#244436', active_background = '#32604D', foreground = '#E6F2EA' },
 }
 
 local STATUS_COLORS = {
@@ -116,10 +116,13 @@ function M.format_tab_title(wezterm, tab, max_width)
   local colors = status.colors
   -- Paint every Herdr tab with its host color. The status title remains text,
   -- so the live counts keep updating without a terminal-specific renderer.
+  local background = tab.is_active and colors.active_background or colors.background
   return {
-    { Background = { Color = colors.background } },
+    { Background = { Color = background } },
     { Foreground = { Color = colors.foreground } },
+    { Attribute = { Intensity = tab.is_active and 'Bold' or 'Normal' } },
     { Text = ' ' .. status.label .. ' ' },
+    { Attribute = { Intensity = 'Normal' } },
     { Foreground = { Color = STATUS_COLORS.working } },
     { Text = status.working },
     { Foreground = { Color = colors.foreground } },

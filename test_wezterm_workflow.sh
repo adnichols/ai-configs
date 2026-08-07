@@ -40,15 +40,25 @@ for _, case in ipairs(cases) do
   )
   assert(rendered[1].Background.Color == case[3])
   assert(rendered[2].Foreground.Color == status.colors.foreground)
-  assert(rendered[4].Foreground.Color == '#F9E2AF')
-  assert(rendered[8].Foreground.Color == '#FAB387')
-  assert(rendered[12].Foreground.Color == '#A6E3A1')
+  assert(rendered[3].Attribute.Intensity == 'Normal')
+  assert(rendered[6].Foreground.Color == '#F9E2AF')
+  assert(rendered[10].Foreground.Color == '#FAB387')
+  assert(rendered[14].Foreground.Color == '#A6E3A1')
   for _, item in ipairs(rendered) do
     assert(item.Text ~= '● ')
   end
 end
 assert(workflow.parse_status_title('plain shell') == nil)
 assert(workflow.parse_status_title('Herdr (unknown) 1 / 0 / 0') == nil)
+
+local active = workflow.format_tab_title(
+  { truncate_right = function(value) return value end },
+  { tab_title = '', is_active = true, active_pane = { title = cases[1][1] } },
+  36
+)
+assert(active[1].Background.Color == '#594382')
+assert(active[3].Attribute.Intensity == 'Bold')
+assert(active[5].Attribute.Intensity == 'Normal')
 
 local events = {}
 local fake_wezterm = {
