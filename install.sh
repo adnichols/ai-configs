@@ -1864,7 +1864,7 @@ PICKER_ENABLED_MODELS = [
     "openai-codex/gpt-5.6-sol:medium",
     "xai/grok-4.5:high",
     "opencode/deepseek-v4-flash:high",
-    "synthetic/hf:moonshotai/Kimi-K3:max",
+    "synthetic/hf:moonshotai/Kimi-K3:high",
 ]
 
 changed = []
