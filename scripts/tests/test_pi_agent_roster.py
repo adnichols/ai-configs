@@ -69,6 +69,8 @@ class PiAgentRosterTest(unittest.TestCase):
             "xai/grok-4.5",
             "opencode/deepseek-v4-flash",
             "synthetic/hf:moonshotai/Kimi-K3",
+            "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
+            "fireworks/accounts/fireworks/models/kimi-k3",
         ):
             self.assertIn(f'"{model}"', allowlist)
         for excluded in (
@@ -90,6 +92,13 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertNotIn("grok-4.5", managed_ids)
         self.assertNotIn("xai", models["providers"])
         self.assertNotIn("opencode-go", models["providers"])
+        self.assertNotIn("fireworks", models["providers"])
+        install_script = (ROOT / "install.sh").read_text()
+        for unscoped_model in (
+            "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
+            "fireworks/accounts/fireworks/models/kimi-k3",
+        ):
+            self.assertNotIn(unscoped_model, install_script)
 
     def test_prompts_keep_generic_authority_and_stop_rules(self):
         bodies = {name: frontmatter(AGENTS / f"{name}.md")[1].lower() for name in EXPECTED_ROUTES}
