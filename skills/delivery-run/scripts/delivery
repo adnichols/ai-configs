@@ -3108,6 +3108,7 @@ def cmd_record_receipt(args: argparse.Namespace) -> int:
     return 0
 OMP_COMPLETENESS_OPEN = "<!-- OMP_COMPLETENESS_RESPONSE -->"
 OMP_COMPLETENESS_CLOSE = "<!-- /OMP_COMPLETENESS_RESPONSE -->"
+OMP_COMPLETENESS_REVIEWER_IDENTITY = "omp-completeness-grok-4.5-high"
 OMP_COMPLETENESS_FIELDS = (
     "COMPLETENESS_REVIEW_RESPONSE_ID",
     "REVIEWER_IDENTITY",
@@ -3165,7 +3166,15 @@ def cmd_omp_completion_review(args: argparse.Namespace, path: Path, ledger: dict
         plan_fingerprint = plan_sha256(ledger, root)
         if not plan_fingerprint:
             die("OMP completeness review requires a readable plan inside the worktree")
-        reviewer = args.reviewer_identity or "omp-reviewer"
+        if (
+            args.reviewer_identity is not None
+            and args.reviewer_identity != OMP_COMPLETENESS_REVIEWER_IDENTITY
+        ):
+            die(
+                "OMP completeness reviewer identity must be "
+                f"`{OMP_COMPLETENESS_REVIEWER_IDENTITY}`"
+            )
+        reviewer = OMP_COMPLETENESS_REVIEWER_IDENTITY
         request_id = uuid.uuid4().hex
         artifact_path, artifact_rel = omp_completion_artifact_path(root, ledger, args.artifact)
         pending = {
@@ -3896,8 +3905,10 @@ def agent_start_prompt(
             "3. Continue in this same OMP session through normal-mode planning, implementation, "
             "PM outcome review, autoreview, OMP completeness review, verification, and PR.\n"
             "   Never launch Pi or hand implementation to another agent. At completeness, run "
-            "`delivery completion-review --prepare`, send its packet to the configured read-only "
-            "OMP reviewer, write the exact response artifact, then run `delivery completion-review --accept`.\n"
+            "`delivery completion-review --prepare --reviewer-identity "
+            "omp-completeness-grok-4.5-high`, send its packet to `@completeness` "
+            "(xai/grok-4.5:high), write the exact response artifact, then run "
+            "`delivery completion-review --accept`.\n"
             "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
             "5. Reflection and adversarial QA are optional and never gate OMP completion.\n"
         )
@@ -4569,9 +4580,9 @@ implementation to another process. The ledger is the shared scoreboard, not the 
 ## OMP completeness
 
 At `COMPLETENESS_REVIEW`, run `delivery completion-review --prepare
---reviewer-identity <configured-reviewer>`. Send the emitted packet unchanged to the
-configured read-only OMP reviewer. Write its exact seven-line response envelope to the
-packet's artifact path, then run `delivery completion-review --accept --response-id <id>`.
+--reviewer-identity omp-completeness-grok-4.5-high`. Send the emitted packet unchanged
+to `@completeness` on `xai/grok-4.5:high`. Write its exact seven-line response envelope
+to the packet's artifact path, then run `delivery completion-review --accept --response-id <id>`.
 Fix an `INCOMPLETE` result and prepare a fresh request; never reuse a response ID.
 
 PM outcome review, autoreview, current completeness evidence, final verification, and PR

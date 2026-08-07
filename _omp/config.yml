@@ -30,7 +30,9 @@ modelRoles:
   tiny: openai-codex/gpt-5.6-luna:low
   advisor: openai-codex/gpt-5.6-sol:xhigh
   reviewer: openai-codex/gpt-5.6-terra:medium
-  default: openai-codex/gpt-5.6-luna:xhigh
+  # OMP Lite keeps implementation, scoped review, and PM outcome review in
+  # the driving session. Pin that session's default to the delivery runtime.
+  default: openai-codex/gpt-5.6-terra:high
   Oracle: openai-codex/gpt-5.6-sol:xhigh
 defaultThinkingLevel: auto
 compaction:

@@ -7,7 +7,7 @@ description: Execute an existing implementation plan persistently through code c
 
 Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates, active-harness reviewer-subagent pre-PR review gate, and runtime-specific plan-completeness review, while preventing reviewer-driven scope creep.
 
-When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before applying runtime-specific instructions. `omp / omp-lite` keeps implementation in the current OMP session and uses the request-bound OMP reviewer envelope produced by `delivery completion-review --prepare`; it does not require a dedicated Pi pane, Pi model-profile verification, Pi slash commands, or a Grok tab. `pi / pi-full` retains the dedicated implementation pane, planner-selected profile, and visible labeled-tab Grok completeness loop. Never convert an existing ledger between profiles.
+When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before applying runtime-specific instructions. `omp / omp-lite` keeps implementation, scoped review, and PM outcome review in the current `openai-codex/gpt-5.6-terra:high` OMP session and uses the request-bound `@completeness` envelope from `xai/grok-4.5:high`, produced by `delivery completion-review --prepare`; it does not require a dedicated Pi pane, Pi model-profile verification, Pi slash commands, or a Grok tab. `pi / pi-full` retains the dedicated implementation pane, planner-selected profile, and visible labeled-tab Grok completeness loop. Never convert an existing ledger between profiles.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
@@ -43,7 +43,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Verification convergence is budgeted. When the Verification Convergence Budget is exhausted and every residual failure classifies as inherited or infra/cosmetic with targeted verification green, opening the draft PR with disclosure and stopping on the ship/keep-fixing question is the required next action, not a policy violation.
 - Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
 - Do not create a PR until the active-harness reviewer-subagent pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
-- For a Herdr delivery run, do not claim local merge readiness until the selected profile's current completeness evidence is accepted or the operator explicitly waives it. OMP Lite accepts only the exact request-bound OMP response envelope emitted by `delivery completion-review --prepare`; Pi Full requires the visible labeled-tab reviewer running `xai/grok-4.5:high` to return `VERDICT: COMPLETE`. Fix every in-plan finding and request rereview; the driving agent owns fixes and verification.
+- For a Herdr delivery run, do not claim local merge readiness until the selected profile's current completeness evidence is accepted or the operator explicitly waives it. OMP Lite accepts only the exact request-bound envelope from `@completeness` running `xai/grok-4.5:high`, emitted by `delivery completion-review --prepare`; Pi Full requires the visible labeled-tab reviewer running `xai/grok-4.5:high` to return `VERDICT: COMPLETE`. Fix every in-plan finding and request rereview; the driving agent owns fixes and verification.
 - Do not stop after the reviewer-subagent pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
 - Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
 - Never delay PR creation for deployment or post-merge operational evidence, even when an older plan places that evidence in a phase or completion checklist. Reclassify it as a non-blocking delivery obligation and preserve it in the PR body/plan deviation log.
@@ -190,7 +190,7 @@ delivery completion-review
 delivery completion-review --rerun  # after in-plan fixes, until VERDICT: COMPLETE
 delivery completion-review --accept
 # OMP Lite:
-delivery completion-review --prepare --reviewer-identity <configured-reviewer>
+delivery completion-review --prepare --reviewer-identity omp-completeness-grok-4.5-high
 delivery completion-review --accept --artifact <artifact> --response-id <id>
 delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
 delivery check -v   # advisories only; always exit 0
@@ -428,8 +428,8 @@ For OMP Lite, stay in the coordinating OMP session:
 
 ```bash
 delivery stage COMPLETENESS_REVIEW
-delivery completion-review --prepare --reviewer-identity <configured-reviewer>
-# Send the emitted packet unchanged to the configured read-only OMP reviewer.
+delivery completion-review --prepare --reviewer-identity omp-completeness-grok-4.5-high
+# Send the emitted packet unchanged to @completeness (xai/grok-4.5:high).
 # Save exactly one seven-line response envelope to the requested artifact.
 delivery completion-review --accept --artifact <artifact> --response-id <id>
 ```

@@ -56,13 +56,17 @@ or explicit scope.
 - OMP Lite keeps the driving OMP session as implementation owner after
   `EXECUTION_READY`; it does not launch a Pi implementation agent, require Pi
   model-profile verification, or use Pi slash commands.
-- Use the configured OMP `@planner` for bounded independent plan readiness and
-  `@reviewer` for material pre-PR and completeness review. The driving OMP
-  session owns all edits, tests, Git state, and fixes.
+- OMP Lite's driving session uses `openai-codex/gpt-5.6-terra:high` for
+  implementation, scoped review, and PM outcome review. Use the configured
+  OMP `@planner` for bounded independent plan readiness and `@reviewer` for
+  material pre-PR review. The driving OMP session owns all edits, tests, Git
+  state, and fixes.
 - OMP completeness uses
-  `delivery completion-review --prepare --reviewer-identity <identity>` and
-  the emitted request-bound artifact/envelope. Accept only with the emitted
-  `acceptCommand`; never substitute the Pi/Grok transcript protocol.
+  `@completeness` on `xai/grok-4.5:high`. First run
+  `delivery completion-review --prepare --reviewer-identity
+  omp-completeness-grok-4.5-high`, then give its emitted packet to that agent.
+  Accept only with the emitted `acceptCommand`; never substitute the Pi/Grok
+  transcript protocol.
 
 ## Implementation and verification
 

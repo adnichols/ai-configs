@@ -16,6 +16,7 @@ SOURCE_AGENTS=(
   "$SOURCE_DIR/agents/oracle.md"
   "$SOURCE_DIR/agents/planner.md"
   "$SOURCE_DIR/agents/reviewer.md"
+  "$SOURCE_DIR/agents/completeness.md"
 )
 
 for source in "$SOURCE_CONFIG" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "${SOURCE_AGENTS[@]}"; do

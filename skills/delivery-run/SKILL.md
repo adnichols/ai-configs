@@ -141,15 +141,17 @@ in this skill.
    the configured OMP `@planner`, resolve findings within the review-cycle
    limit, and record the current request/evidence. Do not enter
    `IMPLEMENTING` until the CLI accepts `EXECUTION_READY`.
-5. Implement directly in the driving OMP session. Run the scoped review, PM
-   outcome review, configured OMP `@reviewer` pre-PR review, and verification;
-   record each result with `delivery record`.
+5. Implement directly in the driving OMP session, whose configured default is
+   `openai-codex/gpt-5.6-terra:high`. Run implementation, scoped review, and
+   PM outcome review there; run the configured OMP `@reviewer` pre-PR review
+   and verification; record each result with `delivery record`.
 6. At `COMPLETENESS_REVIEW`, run
-   `delivery completion-review --prepare --reviewer-identity <identity>`.
-   Give the emitted packet to a separate OMP `@reviewer`; it must write its
-   result to the exact packet artifact using the exact seven-line envelope.
-   Accept only with the emitted `acceptCommand`. On `INCOMPLETE`, fix the
-   findings and prepare a fresh request.
+   `delivery completion-review --prepare --reviewer-identity
+   omp-completeness-grok-4.5-high`. Give the emitted packet to
+   `@completeness`, pinned to `xai/grok-4.5:high`; it must write its result to
+   the exact packet artifact using the exact seven-line envelope. Accept only
+   with the emitted `acceptCommand`. On `INCOMPLETE`, fix the findings and
+   prepare a fresh request.
 7. Stage `VERIFY_FRESHNESS`, create the PR with repository conventions, record
    the PR URL, then stage `PR_OPEN` and `MERGE_READY`. `ADVERSARIAL_QA` and
    `REFLECT` are optional OMP actions recorded without exposing extra OMP
@@ -166,8 +168,8 @@ for the current exact next-step and evidence contract.
 - Most stage transitions succeed even with advisory evidence gaps.
 - `delivery check` always exits 0, even when evidence is missing.
 - A broken optional integration such as Herdr labels must never force the operator to disable the whole workflow. Explicit readiness and completeness boundaries fail closed and report a retry command. Pi Full additionally enforces its plan-review and implementation-profile boundaries.
-- Runtime-specific worker skills remain authoritative: OMP uses the configured `@planner` and `@reviewer` contracts plus direct driving-session implementation; Pi Full uses `reviewed-html-plan`, `run-plan`, `autoreview`, PM review, and its visible Grok reviewer.
-- Completeness is the exception to advisory quality evidence. OMP Lite requires a fresh accepted OMP reviewer envelope; Pi Full requires a fresh accepted labeled-tab Grok 4.5 `COMPLETE` verdict unless the operator explicitly waives it. `delivery stage MERGE_READY` rejects missing or stale evidence.
+- Runtime-specific worker skills remain authoritative: OMP uses the configured `@planner`, `@reviewer`, and Grok-high `@completeness` contracts plus direct Terra-high driving-session implementation; Pi Full uses `reviewed-html-plan`, `run-plan`, `autoreview`, PM review, and its visible Grok reviewer.
+- Completeness is the exception to advisory quality evidence. OMP Lite requires a fresh accepted `@completeness` envelope from `xai/grok-4.5:high`; Pi Full requires a fresh accepted labeled-tab Grok 4.5 `COMPLETE` verdict unless the operator explicitly waives it. `delivery stage MERGE_READY` rejects missing or stale evidence.
 - Firmness is limited to explicit readiness authorization, the selected runtime/profile, and runtime-specific completion evidence; the rest of the ledger optimizes for visibility, resumability, and honest status.
 - Pi Full implementation runs cannot enter `DONE` until current implementation, scoped review, PM outcome, pre-PR review, completeness, verification, PR, customer-impact/completion, and adversarial-QA disposition evidence is recorded. OMP Lite cannot enter `PR_OPEN` or `MERGE_READY` without `implPm`, `autoreview`, and a current accepted request-bound completeness artifact, and cannot enter `DONE` without those plus `verify`, `pr`, and `prUrl`. Planning-only runs that never entered `IMPLEMENTING` may still finish without a PR.
 - Planning readiness has a three-cycle convergence budget. Every `planTech=gap` consumes one cycle; after three gaps, stop with a blocker or explicit operator decision rather than launching another ordinary review.

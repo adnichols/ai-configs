@@ -27,7 +27,7 @@ def split_frontmatter(path: Path) -> tuple[dict[str, str], str]:
 class OmpAgentRosterTest(unittest.TestCase):
     def test_source_roster_includes_planner(self):
         self.assertEqual(
-            {"oracle.md", "planner.md", "reviewer.md"},
+            {"oracle.md", "planner.md", "reviewer.md", "completeness.md"},
             {path.name for path in AGENTS.glob("*.md")},
         )
 
@@ -52,6 +52,16 @@ class OmpAgentRosterTest(unittest.TestCase):
         ):
             self.assertIn(required, body)
 
+    def test_omp_delivery_model_routing_is_pinned(self):
+        config = (OMP / "config.yml").read_text()
+        metadata, body = split_frontmatter(AGENTS / "completeness.md")
+
+        self.assertIn("default: openai-codex/gpt-5.6-terra:high", config)
+        self.assertEqual("completeness", metadata.get("name"))
+        self.assertEqual("xai/grok-4.5:high", metadata.get("model"))
+        self.assertIn("request-bound artifact", metadata.get("description", ""))
+        self.assertIn("requiredEnvelope", body)
+
     def test_omp_guidance_routes_delivery_phrases_to_omp_lite(self):
         guidance = (OMP / "AGENTS.md").read_text()
         skill = DELIVERY_SKILL.read_text()
@@ -63,6 +73,8 @@ class OmpAgentRosterTest(unittest.TestCase):
             "delivery bootstrap --runtime omp",
             "workflowProfile=omp-lite",
             "completion-review --prepare",
+            "@completeness",
+            "xai/grok-4.5:high",
             "acceptCommand",
         ):
             self.assertIn(required, guidance)
@@ -72,6 +84,8 @@ class OmpAgentRosterTest(unittest.TestCase):
             "runtime: omp",
             "workflowProfile: omp-lite",
             "current OMP agent as owner",
+            "openai-codex/gpt-5.6-terra:high",
+            "xai/grok-4.5:high",
             "exact seven-line envelope",
         ):
             self.assertIn(required, skill)
@@ -96,12 +110,20 @@ class OmpAgentRosterTest(unittest.TestCase):
 
             installed = target / "agents"
             self.assertEqual(
-                {"oracle.md", "planner.md", "reviewer.md"},
+                {"oracle.md", "planner.md", "reviewer.md", "completeness.md"},
                 {path.name for path in installed.glob("*.md")},
             )
             self.assertEqual(
                 (AGENTS / "planner.md").read_text(),
                 (installed / "planner.md").read_text(),
+            )
+            self.assertEqual(
+                (AGENTS / "completeness.md").read_text(),
+                (installed / "completeness.md").read_text(),
+            )
+            self.assertEqual(
+                (OMP / "config.yml").read_text(),
+                (target / "config.yml").read_text(),
             )
             self.assertEqual(
                 DELIVERY_SKILL.read_text(),

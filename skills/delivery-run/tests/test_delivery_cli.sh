@@ -1941,12 +1941,12 @@ test_omp_completion_review_uses_bound_envelope() {
   mkdir -p "$repo/thoughts/plans"
   printf '<article data-plan>omp completion</article>\n' >"$repo/thoughts/plans/x.html"
   OMPCODE=1 DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
-  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare --reviewer-identity reviewer.one)"
+  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare)"
   python3 - "$packet" "$repo" <<'PY'
 import json,sys
 packet=json.loads(sys.argv[1]); root=sys.argv[2]
 assert packet["runtime"] == "omp", packet
-assert packet["reviewer"] == "reviewer.one", packet
+assert packet["reviewer"] == "omp-completeness-grok-4.5-high", packet
 assert len(packet["responseId"]) == 32, packet
 path=f"{root}/{packet['artifact']}"
 import os
@@ -1974,7 +1974,13 @@ import json,sys
 assert "pendingCompletenessReview" in json.load(open(sys.argv[1]))
 PY
   old_response_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pendingCompletenessReview"]["responseId"])' "$repo/.delivery/ledger.json")"
-  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare --reviewer-identity reviewer.one)"
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare --reviewer-identity reviewer.one 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "omp-completeness-grok-4.5-high" || return 1
+  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare)"
   response_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["responseId"])' <<<"$packet")"
   [[ "$response_id" != "$old_response_id" ]] || return 1
   set +e
@@ -2059,7 +2065,7 @@ test_omp_delivery_transitions_require_current_review_and_closeout_evidence() {
 
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record implPm --status pass --summary outcome >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record autoreview --status pass --summary reviewed >/dev/null
-  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare --reviewer-identity reviewer.one)"
+  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare)"
   artifact="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["artifact"])' <<<"$packet")"
   response_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["responseId"])' <<<"$packet")"
   python3 - "$packet" "$repo/$artifact" <<'PY'
