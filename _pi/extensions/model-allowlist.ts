@@ -5,6 +5,8 @@ const ALLOWED_MODELS = new Set([
 	"openai-codex/gpt-5.6-luna",
 	"openai-codex/gpt-5.6-sol",
 	"xai/grok-4.5",
+	"opencode/deepseek-v4-flash",
+	"synthetic/hf:moonshotai/Kimi-K3",
 ]);
 
 type ModelLike = { provider: string; id: string };

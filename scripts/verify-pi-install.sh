@@ -85,9 +85,11 @@ DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 PICKER_ENABLED_MODELS = [
     f"{DEFAULT_MODEL_VALUE}:high",
-    "openai-codex/gpt-5.6-luna:max",
+    "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
     "xai/grok-4.5:high",
+    "opencode/deepseek-v4-flash:high",
+    "synthetic/hf:moonshotai/Kimi-K3:max",
 ]
 
 if settings_path.exists():
@@ -355,9 +357,11 @@ if not isinstance(enabled, list):
 else:
     expected_models = [
         f"{default_model_value}:high",
-        "openai-codex/gpt-5.6-luna:max",
+        "openai-codex/gpt-5.6-luna:xhigh",
         "openai-codex/gpt-5.6-sol:medium",
         "xai/grok-4.5:high",
+        "opencode/deepseek-v4-flash:high",
+        "synthetic/hf:moonshotai/Kimi-K3:max",
     ]
     if enabled != expected_models:
         errors.append(f"enabledModels={enabled!r}; expected exactly {expected_models!r}")
@@ -381,7 +385,7 @@ PY
 )"
   if [ "$PI_MODEL_STATUS" = "ok" ]; then
     echo "  Pi default model: $PI_DEFAULT_MODEL_VALUE"
-    echo "  Pi scoped reasoning: Terra high; Luna max; Sol medium; Grok high"
+    echo "  Pi scoped reasoning: Terra high; Luna xhigh; Sol medium; Grok high; DeepSeek Flash high; Kimi K3 max"
     echo "  Pi Codex goal token budgets: disabled"
   else
     note_failure "Pi default model settings are not GPT-5.6 Terra: $PI_MODEL_STATUS"

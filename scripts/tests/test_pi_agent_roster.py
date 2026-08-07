@@ -67,6 +67,8 @@ class PiAgentRosterTest(unittest.TestCase):
             "openai-codex/gpt-5.6-luna",
             "openai-codex/gpt-5.6-sol",
             "xai/grok-4.5",
+            "opencode/deepseek-v4-flash",
+            "synthetic/hf:moonshotai/Kimi-K3",
         ):
             self.assertIn(f'"{model}"', allowlist)
         for excluded in (
@@ -76,7 +78,6 @@ class PiAgentRosterTest(unittest.TestCase):
             "cursor/grok-4.5",
             "cursor/composer-2.5",
             "opencode/deepseek-v4-pro",
-            "opencode/deepseek-v4-flash",
         ):
             self.assertNotIn(f'"{excluded}"', allowlist)
         self.assertIn("await registry.refresh({ allowNetwork: false })", allowlist)

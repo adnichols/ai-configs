@@ -1860,9 +1860,11 @@ DEFAULT_MODEL = "gpt-5.6-terra"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 PICKER_ENABLED_MODELS = [
     f"{DEFAULT_MODEL_VALUE}:high",
-    "openai-codex/gpt-5.6-luna:max",
+    "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
     "xai/grok-4.5:high",
+    "opencode/deepseek-v4-flash:high",
+    "synthetic/hf:moonshotai/Kimi-K3:max",
 ]
 
 changed = []

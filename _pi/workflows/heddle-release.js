@@ -304,7 +304,7 @@ async function startAgent(name, paneId) {
     ...herdrArgs(["agent", "start", name, "--kind", agentKind, "--pane", paneId, "--timeout", "120000"]),
   ];
   if (agentKind === "pi") {
-    parts.push("--", "--provider", "openai-codex", "--model", "gpt-5.6-luna", "--thinking", "max");
+    parts.push("--", "--provider", "openai-codex", "--model", "gpt-5.6-luna", "--thinking", "xhigh");
   }
   const result = await run(joinCmd(parts), { timeoutMs: 180_000 });
   if (result.exitCode !== 0) {
