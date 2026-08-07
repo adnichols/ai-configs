@@ -48,6 +48,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@tintinweb/pi-subagents"
   "npm:@juicesharp/rpiv-todo"
   "npm:@aliou/pi-processes"
+  "npm:@aliou/pi-synthetic"
   "npm:@narumitw/pi-goal"
   "npm:pi-web-access"
   "npm:pi-no-soft-cursor"

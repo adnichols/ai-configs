@@ -187,6 +187,7 @@ npm-managed packages:
 - `@tintinweb/pi-subagents`
 - `@juicesharp/rpiv-todo` — the structured task-tracking extension for Pi; it provides the `todo` tool, `/todos`, and a live overlay that survives `/reload` and compaction
 - `@aliou/pi-processes`
+- `@aliou/pi-synthetic`
 - `@narumitw/pi-goal`
 - `pi-web-access`
 - `pi-no-soft-cursor`
