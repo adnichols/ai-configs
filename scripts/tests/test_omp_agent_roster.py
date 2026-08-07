@@ -57,6 +57,9 @@ class OmpAgentRosterTest(unittest.TestCase):
         metadata, body = split_frontmatter(AGENTS / "completeness.md")
 
         self.assertIn("default: openai-codex/gpt-5.6-terra:high", config)
+        self.assertIn("smol: openai-codex/gpt-5.6-luna:xhigh", config)
+        self.assertIn("advisor: opencode-zen/deepseek-v4-flash:high", config)
+        self.assertIn("Trouble: xai/grok-4.5:high", config)
         self.assertEqual("completeness", metadata.get("name"))
         self.assertEqual("xai/grok-4.5:high", metadata.get("model"))
         self.assertIn("request-bound artifact", metadata.get("description", ""))
