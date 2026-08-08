@@ -19,9 +19,11 @@ case "$1 $2" in
   "config check")
     grep -q '^previous_tab = \["prefix+p", "alt+\[", "ctrl+alt+\["\]$' "$HERDR_CONFIG_PATH"
     grep -q '^next_tab = \["prefix+n", "alt+]", "ctrl+alt+]"\]$' "$HERDR_CONFIG_PATH"
-    grep -q '^rename_tab = "prefix+<"$' "$HERDR_CONFIG_PATH"
-    grep -q '^key = "prefix+shift+t"$' "$HERDR_CONFIG_PATH"
+    grep -q '^rename_tab = \["prefix+comma", "prefix+<"\]$' "$HERDR_CONFIG_PATH"
+    grep -q '^key = "prefix+t"$' "$HERDR_CONFIG_PATH"
     grep -q '^command = "herdr-navigator.open"$' "$HERDR_CONFIG_PATH"
+    grep -q '^key = "ctrl+b"$' "$HERDR_CONFIG_PATH"
+    grep -q '^command = "herdr-navigator.jump-back"$' "$HERDR_CONFIG_PATH"
     ! grep -q '^key = "prefix+<"$' "$HERDR_CONFIG_PATH"
     ! grep -q '^command = "fullerzz.sesh.open-picker"$' "$HERDR_CONFIG_PATH"
     ;;

@@ -50,8 +50,8 @@ close_workspace = "prefix+shift+d"
 toggle_sidebar = "prefix+b"
 reload_config = "prefix+shift+r"
 edit_scrollback = "prefix+e"
-# Terminals commonly report Shift+comma as the literal `<` character.
-rename_tab = "prefix+<"
+# Tab rename: plain comma plus the Shift+, form many terminals report as `<`.
+rename_tab = ["prefix+comma", "prefix+<"]
 close_tab = "prefix+shift+x"
 
 [ui.sound]
@@ -67,10 +67,19 @@ mouse_scroll_lines = 1
 delivery = "terminal"
 
 [[keys.command]]
-key = "prefix+shift+t"
+key = "prefix+t"
 type = "plugin_action"
 command = "herdr-navigator.open"
 description = "open Herdr Navigator"
+
+# Jump Back is a separate plugin action (not automatic). Direct ctrl+b toggles
+# current/previous workspace; distinct from prefix+b (sidebar). README's prefix+l
+# conflicts with focus_pane_right here.
+[[keys.command]]
+key = "ctrl+b"
+type = "plugin_action"
+command = "herdr-navigator.jump-back"
+description = "jump to previous workspace"
 
 [[keys.command]]
 key = "prefix+shift+f"
@@ -82,6 +91,7 @@ key = "prefix+shift+b"
 type = "plugin_action"
 command = "fullerzz.sesh.last"
 description = "switch to previous Sesh workspace"
+# Note: fullerzz.sesh is currently disabled, so this binding is inert until enabled.
 
 [update]
 channel = "preview"
