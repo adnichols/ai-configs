@@ -46,6 +46,16 @@ export const assistantWithToolCall = (
   stopReason: "toolUse",
 });
 
+// Tombstone left behind when an in-flight request is aborted (hard-backstop
+// interrupt or user escape): persisted as an assistant message with no
+// content and stopReason "aborted" directly after the last tool result.
+export const assistantAborted = (): Message => ({
+  role: "assistant",
+  content: [],
+  ...assistBase,
+  stopReason: "aborted" as any,
+});
+
 export const toolResult = (
   name: string,
   text: string,

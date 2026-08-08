@@ -3,6 +3,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import {
+  assistantAborted,
   assistantText,
   assistantWithToolCall,
   toolResult,
@@ -651,6 +652,62 @@ describe("active compaction continuation", () => {
     expect(sentMessages).toHaveLength(1);
     expect(sentMessages[0].message.content).toContain("Pi-vcc compacted the active in-flight conversation.");
     expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
+  });
+
+  // Regression coverage for the 2026-08-07 production failure: the
+  // percentage-compaction hard backstop aborts the in-flight request to
+  // compact, which persists an empty aborted assistant tombstone as the last
+  // branch entry. The abort's agent_end has already cleared the active-turn
+  // flag by the time compaction runs, so branch inference is the only
+  // detection leg left — and it must look through the tombstone to the
+  // trailing tool result, or the workstream stalls until a manual "continue".
+  it("infers an in-flight turn when an abort tombstone masks the trailing tool result", async () => {
+    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
+
+    const result = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: [
+        messageEntry("1", userMsg("Initial work")),
+        messageEntry("2", assistantText("Finished that step.")),
+        messageEntry("3", assistantWithToolCall("Bash", { command: "npm test" }, "tc_b")),
+        messageEntry("4", toolResult("Bash", "tests passed", false, "tc_b")),
+        // Hard-backstop interrupt persisted this tombstone before compacting.
+        messageEntry("5", assistantAborted()),
+      ],
+    });
+
+    expect(result.compaction.details.interruptedInFlightTurn).toBe(true);
+    expect(result.compaction.details.requiresContinuation).toBe(true);
+
+    handlers.session_compact[0]({
+      type: "session_compact",
+      compactionEntry: { details: result.compaction.details },
+      fromExtension: true,
+    }, ctx);
+    await delay();
+
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].message.content).toContain("Pi-vcc compacted the active in-flight conversation.");
+    expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
+  });
+
+  it("does not infer an in-flight turn when an abort tombstone follows a completed response", async () => {
+    const { handlers } = await getRegisteredHandlers();
+
+    const result = handlers.session_before_compact[0]({
+      preparation: basePreparation,
+      branchEntries: [
+        messageEntry("1", userMsg("Initial work")),
+        messageEntry("2", assistantText("Finished that step.")),
+        messageEntry("3", userMsg("One more thing")),
+        messageEntry("4", assistantText("Done with that too.")),
+        // User pressed escape at an idle boundary; nothing is in flight.
+        messageEntry("5", assistantAborted()),
+      ],
+    });
+
+    expect(result.compaction.details.interruptedInFlightTurn).toBe(false);
+    expect(result.compaction.details.requiresContinuation).toBe(false);
   });
 
   it("queues continuation even when Pi never reports idle", async () => {

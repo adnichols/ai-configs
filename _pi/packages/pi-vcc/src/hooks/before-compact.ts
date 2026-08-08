@@ -197,14 +197,31 @@ const readLiveMessagesSinceLastCompaction = (branchEntries: any[]): {
   return { liveMessages, firstKeptEntryId: lastKeptId, hadPreviousCompaction: Boolean(lastKeptId) };
 };
 
+// An aborted in-flight request is persisted as an assistant message with
+// stopReason "aborted" and no tool calls, appended directly after the last
+// real message (hard-backstop interrupts, user escape). It is a tombstone,
+// not a turn boundary: look through trailing tombstones when inferring
+// whether a turn was in flight. Otherwise an interrupt-then-compact cycle
+// (e.g. the percentage-compaction hard backstop, whose abort clears the
+// active-turn flag before compaction runs) loses its continuation and the
+// workstream stalls until a manual "continue".
+const isAbortedAssistantTombstone = (entry: EntryWithMessage | undefined): boolean => {
+  const message = entry?.message as any;
+  if (message?.role !== "assistant" || message?.stopReason !== "aborted") return false;
+  if (!Array.isArray(message?.content)) return true;
+  return !message.content.some((item: any) => item?.type === "toolCall");
+};
+
 const inferActiveTurnFromMessages = (liveMessages: EntryWithMessage[]): boolean => {
-  const latest = liveMessages[liveMessages.length - 1]?.message as any;
+  let end = liveMessages.length - 1;
+  while (end >= 0 && isAbortedAssistantTombstone(liveMessages[end])) end -= 1;
+  const latest = liveMessages[end]?.message as any;
   if (!latest) return false;
 
   if (latest.role === "assistant") return latest.stopReason === "toolUse";
   if (latest.role !== "toolResult" || !latest.toolCallId) return false;
 
-  for (let i = liveMessages.length - 2; i >= 0; i--) {
+  for (let i = end - 1; i >= 0; i--) {
     const message = liveMessages[i]?.message as any;
     if (hasMatchingToolCall(message, latest.toolCallId)) return true;
     if (message?.role === "user") return false;
@@ -377,9 +394,10 @@ export const registerBeforeCompactHook = (pi: ExtensionAPI, coordinator: Continu
     const request = {
       initiator: details.compactionIntent?.source === "package-compact-now" ? "package-compact-now"
         : details.compactionIntent?.source === "compact_context" ? "compact_context"
+        : details.compactionIntent?.source === "hard-backstop" ? "hard-backstop"
         : details.reason === "threshold" ? "host-threshold"
-          : details.reason === "overflow" ? "host-overflow"
-            : "package-pi-vcc",
+        : details.reason === "overflow" ? "host-overflow"
+        : "package-pi-vcc",
       outcome: "compacted" as const,
       attemptId: details.continuationAttemptId ?? details.compactionIntent?.attemptId ?? event.compactionEntry.id,
       compactionId: event.compactionEntry.id,
