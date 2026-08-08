@@ -50,3 +50,8 @@ commands:
   enableClaudeProject: false
   enableOpencodeUser: false
   enableOpencodeProject: false
+cycleOrder:
+  - smol
+  - default
+  - slow
+  - Trouble
