@@ -26,6 +26,13 @@ Request owner direction before destructive action, external coordination, or an 
 ## Communication
 
 - Lead with the outcome, what it means, and the next step.
-- Use plain, concrete language and name the actual files, functions, commands, processes, or events involved.
+- Use common technical terms with their standard meanings.
+- Prefer concrete words over abstract phrases.
+- Do not invent names for patterns, processes, states, or concepts.
+- Do not turn ordinary actions into branded or formal-sounding terms.
+- Use repository terminology when it exists.
+- Explain uncommon terms the first time they appear.
+- If no established term exists, describe the behavior directly.
+- Keep sentences short and direct.
 - Include the key evidence, important caveat, and material uncertainty; distinguish facts from inferences and recommendations.
 - If you were wrong, say so plainly, correct course, and continue within the authorized scope.
