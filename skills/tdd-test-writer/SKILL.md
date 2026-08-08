@@ -29,8 +29,7 @@ Read the current implementation, existing tests, and repository instructions bef
 
 Keep the test as close as practical to the observable entry point. Unit tests remain appropriate for local behavior; use a stronger shape only when the trigger requires it.
 
-- **Exact contract trigger:** When serialized data, positional data, configuration, flags, paths, headers, payloads, migrations, or documented CLI forms are contractual, test the actual producer-to-consumer cross-boundary path or the nearest deterministic external-service boundary. Reuse the shared schema/contract artifact where available rather than duplicating fixtures.
-- **Distributed-behavior trigger:** When behavior is required across multiple production call sites, handlers, operations, resources, or environments, use the source-derived inventory from the plan or execution record. Add production-dispatch tests that exercise the declared coverage; a helper, middleware, wrapper, or event-existence test is not proof that every required site is wired with meaningful dimensions.
+- **Integration-integrity trigger:** When exact-contract or distributed-production work applies, load `integration-integrity`. Test the actual cross-boundary or production-dispatch path represented by its inventory, and reuse the shared contract artifact where available.
 - **Documented CLI trigger:** When a documented command form is part of the request, execute that representative form through the actual parser. Help-text or documentation-string assertions alone do not prove parser acceptance.
 - **External deterministic boundary:** When an external service sits between components, prove the actual request/response or serialized boundary with the supported deterministic fake, capture, or fixture. Do not require an impossible in-process round trip.
 

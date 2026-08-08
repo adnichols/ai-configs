@@ -80,7 +80,7 @@ print_usage() {
     echo "  --codex     Sync global Codex prompts/scripts and refresh shared skills for Codex"
     echo "  --pi        Install Pi prompt templates, read-only/planning subagents, and extensions, then refresh shared skills"
     echo "  --pi-vcc [package-source]  Transactionally install only pi-vcc (repo package by default)"
-    echo "  --pi-review-stack  Mutation-bounded Pi config plus six maintained review skills; no packages/global cleanup"
+    echo "  --pi-review-stack  Mutation-bounded Pi config plus maintained review and conditional safety skills; no packages/global cleanup"
     echo "  --tools     Install/update managed Herdr/Amp/WezTerm config, remote workflows, and CLI tools"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"

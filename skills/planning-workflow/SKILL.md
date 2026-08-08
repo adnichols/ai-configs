@@ -79,13 +79,9 @@ Use targeted `Glob`, `Grep`, and `Read` first. Delegate broad codebase discovery
 
 ## Integration-integrity planning contract
 
-When discovery identifies either an exact contract that the type system cannot fully verify (for example, serialized fields, positional layouts, configuration keys, flags, paths, headers, payloads, migrations, or documented command forms) or behavior required across multiple production sites, make that evidence explicit in the plan. This is a planning representation of the common execution rule, not a reason to require a plan for otherwise lightweight work.
+When discovery finds an exact contract that types cannot fully verify or behavior required across multiple production sites, load `integration-integrity` and add a **Contract and distributed-integration inventory** to the plan. Map the skill's record into the plan: source of truth, producers/consumers or site/family inventory, dependent docs/examples, coverage declaration, required cross-boundary or production-path proof, and reconciliation state.
 
-Add a **Contract and distributed-integration inventory** section when either trigger applies. For every exact contract, record the source of truth, producer, consumer, dependent documentation/examples, and the real cross-boundary test. Prefer one shared executable definition, typed schema, or single contract artifact over duplicated fixtures or copied prose. Before planning dependent edits, reread the current source definition.
-
-For distributed behavior, record the source-search basis, each site or operation family, the required behavior and meaningful dimensions, its production-path verification, and reconciliation status. Declare coverage as **exhaustive-by-site**, **exhaustive-by-family**, or **justified representative**; a representative claim must explain why its evidence covers the omitted sites. A helper, middleware, wrapper, or event-existence assertion demonstrates infrastructure only. It cannot close a distributed acceptance criterion without reconciliation and proof through the required production path.
-
-When neither trigger applies, write `None identified, based on <source search>` rather than manufacturing an inventory. When a documented CLI invocation is part of the requested contract, its evidence must execute the actual parser; help-text or documentation-string assertions alone are not sufficient.
+Keep this conditional. When neither trigger applies, do not add an empty inventory. A contractual documented CLI form must be verified through the actual parser.
 
 ## Canonical plan contract
 

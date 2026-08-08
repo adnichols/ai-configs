@@ -307,6 +307,17 @@
       "notes": "Repo-owned override of the upstream Herdr control skill. Allows Codex and Claude to control a reachable Herdr session from outside a managed pane instead of treating `HERDR_ENV=1` as a hard prerequisite.",
       "sourceType": "repo"
     },
+    "integration-integrity": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi"
+      ],
+      "canonicalSource": "skills/integration-integrity",
+      "notes": "Conditional exact-contract and distributed-production integration procedure.",
+      "sourceType": "repo"
+    },
     "internal-comms": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -357,6 +368,15 @@
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
+    },
+    "oracle-consultation": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [
+        "pi"
+      ],
+      "canonicalSource": "skills/oracle-consultation",
+      "notes": "Conditional proactive Oracle caller contract for consequential unresolved choices.",
+      "sourceType": "repo"
     },
     "packaging-notarization": {
       "class": "universal-installable",
@@ -517,6 +537,17 @@
       ],
       "canonicalSource": "skills/run-plan",
       "notes": "Codex/Claude/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews with one targeted rereview after fixes, active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
+      "sourceType": "repo"
+    },
+    "safe-git-index": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi"
+      ],
+      "canonicalSource": "skills/safe-git-index",
+      "notes": "Conditional protected Git index mutation and lock recovery procedure.",
       "sourceType": "repo"
     },
     "signing-entitlements": {

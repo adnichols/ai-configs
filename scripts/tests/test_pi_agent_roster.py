@@ -129,27 +129,29 @@ class PiAgentRosterTest(unittest.TestCase):
 
     def test_oracle_is_proactively_available_inside_and_outside_workflows(self):
         doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
+        self.assertIn("load `oracle-consultation`", doctrine)
+        self.assertIn("invoke Oracle proactively", doctrine)
+        self.assertIn("Do not wait for the operator to request it", doctrine)
+
+        consultation = ROOT / "skills" / "oracle-consultation" / "SKILL.md"
+        self.assertTrue(consultation.is_file())
+        metadata, consultation_body = frontmatter(consultation)
+        self.assertTrue(metadata["description"].startswith("Use when "))
         for required in (
             'subagent_type: "oracle"',
-            "decision support",
             "Do not use Oracle for routine",
-            "The driving agent remains the decision-maker",
             "current recommendation",
             "one narrow question",
-            'Do not wait for the operator to say "use Oracle."',
             'Setting `inherit_context: false` or `isolation: "worktree"` is a workflow violation',
-            "every required `reviewer`, readiness-`planner`, or `oracle` `Agent` call must omit the `isolation` property entirely",
+            "partially-accepted",
         ):
-            self.assertIn(required, doctrine)
+            self.assertIn(required, consultation_body)
 
         command = ROOT / "_pi" / "prompts" / "consult:oracle.md"
         self.assertTrue(command.is_file())
         command_text = command.read_text()
-        self.assertIn('subagent_type: "oracle"', command_text)
-        self.assertIn("read-only", command_text)
+        self.assertIn("Load `oracle-consultation`", command_text)
         self.assertIn("verify", command_text.lower())
-        self.assertIn("workflow violation", command_text)
-        self.assertIn("?", command_text)
 
         oracle_body = frontmatter(AGENTS / "oracle.md")[1]
         self.assertIn("Caller contract", oracle_body)
@@ -167,19 +169,7 @@ class PiAgentRosterTest(unittest.TestCase):
         }
         for path in workflow_surfaces:
             with self.subTest(path=path.relative_to(ROOT)):
-                text = path.read_text()
-                self.assertIn("`oracle`", text)
-                self.assertIn("advisory", text.lower())
-                self.assertIn("omit", text.lower())
-                self.assertRegex(text, r"inherit_context")
-                self.assertRegex(text, r"isolation.*worktree|worktree.*isolation")
-
-        for path in (ROOT / "skills" / "run-plan" / "SKILL.md", ROOT / "skills" / "autoreview" / "SKILL.md"):
-            text = path.read_text()
-            self.assertIn("configured Pi consultation surface is the `oracle` subagent", text)
-            self.assertIn("openai-codex/gpt-5.6-sol", text)
-            self.assertIn("high reasoning", text)
-            self.assertIn("workflow violation", text)
+                self.assertIn("oracle-consultation", path.read_text())
 
         self.assertTrue((ROOT / "scripts" / "probe_pi_oracle_transport.py").is_file())
         self.assertTrue((ROOT / "scripts" / "analyze_oracle_session.py").is_file())
@@ -325,9 +315,9 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("with the `isolation` property omitted entirely", reviewed_plan)
         self.assertIn("never set `isolation: \"worktree\"`", reviewed_plan)
 
-        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
-        self.assertIn("every required `reviewer`, readiness-`planner`, or `oracle` `Agent` call must omit the `isolation` property entirely", doctrine)
-        self.assertIn("Never request `isolation: \"worktree\"` for a review or Oracle consultation", doctrine)
+        oracle_skill = (ROOT / "skills" / "oracle-consultation" / "SKILL.md").read_text()
+        self.assertIn("Omit caller-side", oracle_skill)
+        self.assertIn('isolation: "worktree"', oracle_skill)
 
         installer = (ROOT / "install.sh").read_text()
         self.assertIn("patch_pi_subagents_review_isolation.py", installer)
@@ -345,6 +335,35 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("return 1", review_stack[patch_index:first_mutation])
         readme = (ROOT / "_pi" / "README.md").read_text()
         self.assertIn("`oracle`, `planner`, and `reviewer` declare `isolation: none`", readme)
+
+    def test_append_system_uses_progressive_disclosure(self):
+        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
+        self.assertLess(len(doctrine.split()), 600)
+        for skill in ("integration-integrity", "safe-git-index", "oracle-consultation"):
+            self.assertIn(f"`{skill}`", doctrine)
+        for moved_detail in (
+            "ENSURE=",
+            "openai-codex/gpt-5.6-sol",
+            "Cursor Grok",
+            "get_subagent_result",
+            "TARGET_CHECKOUT",
+        ):
+            self.assertNotIn(moved_detail, doctrine)
+
+        matrix = json.loads((ROOT / "skills" / "install-matrix.json").read_text())["installableSkills"]
+        bodies = {}
+        for skill in ("integration-integrity", "safe-git-index", "oracle-consultation"):
+            path = ROOT / "skills" / skill / "SKILL.md"
+            metadata, body = frontmatter(path)
+            self.assertTrue(metadata["description"].startswith("Use when "), skill)
+            self.assertLessEqual(len(metadata["description"].split()), 22, skill)
+            self.assertIn(skill, matrix)
+            bodies[skill] = body
+
+        for required in ("After compaction, handoff, resume, rebase", "stale-reference search", "actual parser"):
+            self.assertIn(required, bodies["integration-integrity"])
+        for required in ("$HOME/.local/bin/git-with-index-lock", "$HOME/.agents/scripts/git-with-index-lock", "lsof", "Never silently fall back"):
+            self.assertIn(required, bodies["safe-git-index"])
 
     def test_claude_has_only_the_read_only_reviewer_subagent(self):
         agents = ROOT / "_claude" / "agents"

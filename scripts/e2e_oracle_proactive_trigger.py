@@ -152,6 +152,8 @@ def main() -> int:
         append_bits[1],
         "--append-system-prompt",
         append_bits[2],
+        "--skill",
+        str(ROOT / "skills/oracle-consultation"),
         # Keep tools needed for Agent + inspection; avoid unrelated extensions noise.
         prompt,
     ]

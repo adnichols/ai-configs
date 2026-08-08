@@ -238,9 +238,12 @@ Callers must supply the artifact or allowed surfaces, specialized lens, output d
 
 ### Git / workflow
 - `cmd-create-pr`
+- `safe-git-index` — loaded before index-mutating Git commands or lock recovery
 
 ### Development
 - `dev-plan`
+- `integration-integrity` — loaded for exact non-type-checked contracts or behavior distributed across production sites
+- `oracle-consultation` — loaded proactively when targeted evidence leaves a consequential choice unresolved
 - `dev:pm-review` — adversarial PM review that reshapes plans against intended outcomes, product principles, and early-stage scope fit
 - `cmd-graduate`
 - `doct-document-ops` — doct document operations, including publishing coding plans under personal `Coding Plans`
@@ -345,10 +348,10 @@ Skills:
 
 - Pi global resources live under `~/.pi/agent/`, not `~/.pi/`.
 - Repo-managed extensions live in `~/.pi/agent/extensions/`; package-managed installs are reported by `pi list`.
-- `~/.pi/agent/APPEND_SYSTEM.md` is rendered from the repo-root `APPEND_SYSTEM.md` with its install date and source Git SHA recorded on the `Doctrine-Version` line.
+- `~/.pi/agent/APPEND_SYSTEM.md` is rendered from the repo-root `APPEND_SYSTEM.md` with its install date and source Git SHA recorded on the `Doctrine-Version` line. The prompt keeps only always-on authority, ownership, and communication rules; conditional implementation procedures load through skills.
 - Project-local Pi resources can also live under `.pi/prompts/`, `.pi/skills/`, `.pi/agents/`, and `.pi/extensions/`.
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the only skill runtime location so OMP and Pi discover the same skills. During skill sync, valid Pi-local skills are promoted into `~/.agents/skills/`, conflicts are backed up in favor of the shared copy, and stale or dangling Pi-local entries are removed. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
-- `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`. The global `oracle` agent is therefore available to ordinary Pi sessions as well as delivery workflows; `/consult:oracle <decision>` is the explicit prompt shortcut, while APPEND_SYSTEM guidance tells driving agents when to invoke it proactively.
+- `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`. The global `oracle` agent is available to ordinary Pi sessions and delivery workflows. APPEND_SYSTEM tells driving agents to load `oracle-consultation` proactively for consequential unresolved choices; `/consult:oracle <decision>` is the explicit shortcut.
 - `_pi/agents/Explore.md` is only an `enabled: false` override for tintinweb's bundled `Explore` persona; it does not define a repository-owned Explore persona. It does not affect the separately installed `@howaboua/pi-explore-subagents` extension or its `explore_subagent` tool, which remains the intended isolated-discovery path.
 - GPT-5.6 Sol medium in the driving session is the only repository-owned Pi GPT code-writing route. Perform implementation, test changes, fixes, and repository management directly with native tools. Prefer direct targeted reads for discovery; use `explore_subagent` only as a bounded read-only exception when broad discovery materially benefits from isolated context. Never route code-writing through a subagent or persona.
 

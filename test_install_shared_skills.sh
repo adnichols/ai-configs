@@ -1099,9 +1099,9 @@ test_pi_interaction_doctrine_is_versioned_and_read_only_by_default() {
   fi
   [[ "$(head -n 1 "$installed_doctrine")" == "Doctrine-Version: $expected_version" ]] || return 1
   assert_file_not_contains "$installed_doctrine" '{{AI_CONFIGS_VERSION}}' || return 1
-  assert_file_contains "$installed_doctrine" 'do not by themselves authorize implementation' || return 1
+  assert_file_contains "$installed_doctrine" 'do not authorize implementation' || return 1
   assert_file_contains "$installed_doctrine" 'Do not edit files, run state-changing commands, create execution todos' || return 1
-  assert_file_contains "$installed_doctrine" 'does not broaden the set of authorized actions' || return 1
+  assert_file_contains "$installed_doctrine" 'increases persistence only within that scope' || return 1
 
   assert_file_contains "APPEND_SYSTEM.md" 'Doctrine-Version: {{AI_CONFIGS_VERSION}}' || return 1
   assert_file_not_contains "APPEND_SYSTEM.md" 'assume they want you to act' || return 1
@@ -1123,24 +1123,22 @@ test_integration_integrity_is_common_and_portable() {
     return 1
   }
 
-  for path in \
-    "APPEND_SYSTEM.md" \
-    "$installed_doctrine" \
-    "skills/repo-agents-bootstrap/SKILL.md" \
-    "skills/repo-agents-bootstrap/references/root_agents_template.md"; do
-    assert_file_contains "$path" 'Integration integrity' || return 1
-    assert_file_contains "$path" 'source of truth' || return 1
-    assert_file_contains "$path" 'dependent' || return 1
-    assert_file_contains "$path" 'cross-boundary' || return 1
-    assert_file_contains "$path" 'production-path' || return 1
+  assert_file_contains "APPEND_SYSTEM.md" 'load `integration-integrity`' || return 1
+  assert_file_contains "$installed_doctrine" 'load `integration-integrity`' || return 1
+  assert_file_not_contains "APPEND_SYSTEM.md" 'After changing a shared contract' || return 1
+  assert_file_not_contains "APPEND_SYSTEM.md" 'event-existence test' || return 1
+
+  for skill in integration-integrity safe-git-index oracle-consultation; do
+    [[ -f "$home/.agents/skills/$skill/SKILL.md" ]] || return 1
+    assert_file_contains "skills/$skill/SKILL.md" 'description: Use when ' || return 1
   done
 
-  assert_file_contains "APPEND_SYSTEM.md" 'If neither trigger applies' || return 1
-  assert_file_contains "APPEND_SYSTEM.md" 'After changing a shared contract' || return 1
-  assert_file_contains "APPEND_SYSTEM.md" 'after compaction, handoff, or resume' || return 1
-  assert_file_contains "APPEND_SYSTEM.md" 'event-existence test' || return 1
-  assert_file_contains "skills/repo-agents-bootstrap/references/root_agents_template.md" 'not only plan execution' || return 1
-  assert_file_contains "skills/repo-agents-bootstrap/references/root_agents_template.md" 'arbitrary external repositories that have not adopted the template' || return 1
+  for phrase in 'source of truth' 'dependent docs/examples' 'cross-boundary or production-path' 'stale-reference search' 'event-existence test'; do
+    assert_file_contains "skills/integration-integrity/SKILL.md" "$phrase" || return 1
+  done
+
+  assert_file_contains "skills/repo-agents-bootstrap/SKILL.md" 'load `integration-integrity`' || return 1
+  assert_file_contains "skills/repo-agents-bootstrap/references/root_agents_template.md" 'load `integration-integrity`' || return 1
 }
 
 test_integration_integrity_materializes_across_workflows() {
@@ -1161,19 +1159,15 @@ planning = section(
     '## Canonical plan contract',
 ).lower()
 for phrase in [
-    'exact contract',
-    'distributed',
+    'load `integration-integrity`',
     'contract and distributed-integration inventory',
     'source of truth',
-    'producer',
-    'consumer',
-    'cross-boundary',
-    'exhaustive-by-site',
-    'exhaustive-by-family',
-    'justified representative',
-    'helper, middleware, wrapper, or event-existence assertion',
+    'producers/consumers',
+    'coverage declaration',
+    'cross-boundary or production-path proof',
+    'reconciliation state',
+    'do not add an empty inventory',
     'actual parser',
-    'none identified, based on <source search>',
 ]:
     if phrase not in planning:
         raise SystemExit(f'planning integration contract missing: {phrase}')
@@ -1184,15 +1178,12 @@ execution = section(
     '## Scope Classification',
 ).lower()
 for phrase in [
-    'base execution doctrine governs direct work',
+    'load `integration-integrity`',
     'coverage ledger',
-    'source of truth',
-    'producers and consumers',
-    'dependent documentation/examples',
-    'after compaction, handoff, resume, rebase',
-    'readers, writers, importers, string references',
-    'named remediation work',
-    'actual parser',
+    'exact-contract or distributed-production work',
+    'relevant plan acceptance criterion',
+    'do not create a negative record',
+    'evidence defined by `integration-integrity`',
 ]:
     if phrase not in execution:
         raise SystemExit(f'run-plan integration record missing: {phrase}')
@@ -1218,8 +1209,8 @@ for path in [
 
 review = Path('skills/autoreview/SKILL.md').read_text().lower()
 for phrase in [
-    "executor's **integration-integrity record**",
-    'source-search-backed operation inventory',
+    'triggered `integration-integrity`',
+    'current record and verification evidence',
     'reviewer validates the supplied evidence',
     'exact-contract evidence',
     'distributed-behavior evidence',
@@ -1230,10 +1221,10 @@ for phrase in [
 
 reviewed_plan = Path('skills/reviewed-html-plan/SKILL.md').read_text().lower()
 for phrase in [
+    '`integration-integrity` is triggered',
     'contract and distributed-integration inventory',
-    'none identified, based on <source search>',
-    'justified-representative coverage declaration',
-    'actual parser',
+    'maps its record into the plan',
+    'do not add an empty inventory',
     'reject helper-only, wrapper-only, middleware-only, or event-existence-only completion claims',
 ]:
     if phrase not in reviewed_plan:
@@ -1243,8 +1234,8 @@ for path in ['skills/dev-plan/SKILL.md', '_pi/prompts/dev:plan.md']:
     text = Path(path).read_text().lower()
     if 'canonical `planning-workflow` integration-integrity planning contract' not in text:
         raise SystemExit(f'{path} does not delegate to the canonical integration contract')
-    if 'none identified, based on <source search>' not in text:
-        raise SystemExit(f'{path} does not preserve the no-trigger record')
+    if 'load `integration-integrity`' not in text or 'do not add an empty inventory' not in text:
+        raise SystemExit(f'{path} does not use conditional integration skill loading')
 
 reviewer = Path('_pi/agents/reviewer.md').read_text().lower()
 for forbidden in ['integration-integrity record', 'contract and distributed-integration inventory']:
@@ -1693,9 +1684,13 @@ matrix = json.loads(Path('skills/install-matrix.json').read_text())['installable
 missing_codex = [
     name
     for name, meta in sorted(matrix.items())
-    if 'pi' in meta.get('allowedConsumers', [])
+    if meta.get('class') == 'universal-installable'
+    and 'pi' in meta.get('allowedConsumers', [])
     and 'codex' not in meta.get('allowedConsumers', [])
 ]
+oracle = matrix.get('oracle-consultation', {})
+if oracle.get('class') != 'consumer-specific-installable' or oracle.get('allowedConsumers') != ['pi']:
+    raise SystemExit('oracle-consultation must remain explicitly Pi-only')
 if missing_codex:
     raise SystemExit(f"Pi skills missing Codex parity: {missing_codex}")
 
@@ -1784,6 +1779,9 @@ test_phase_four_validation_proves_final_alignment() {
   [[ -f "$home/.agents/skills/run-plan/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/autoreview/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/pre-pr-implementation-review/SKILL.md" ]] || return 1
+  [[ -f "$home/.agents/skills/integration-integrity/SKILL.md" ]] || return 1
+  [[ -f "$home/.agents/skills/safe-git-index/SKILL.md" ]] || return 1
+  [[ -f "$home/.agents/skills/oracle-consultation/SKILL.md" ]] || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'name: plan-reviewer-execution-ready' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" '/skill:reviewed-html-plan <same plan and event context, unchanged>' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'Do not wait for another readiness request' || return 1
@@ -1987,8 +1985,10 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "$hermes_run_plan" 'Run exactly one bounded, static inspection with the active harness' || return 1
   assert_file_not_contains "$hermes_run_plan" 'claude-code-review' || return 1
   assert_file_contains "_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md" "active harness's \`reviewer\` subagent" || return 1
-  assert_file_contains "APPEND_SYSTEM.md" 'For required implementation/code review, use exactly one active-harness read-only `reviewer` subagent' || return 1
-  assert_file_contains "APPEND_SYSTEM.md" 'use the read-only `planner` subagent on GPT-5.6 Sol at medium reasoning effort' || return 1
+  assert_file_not_contains "APPEND_SYSTEM.md" 'For required implementation/code review' || return 1
+  assert_file_not_contains "APPEND_SYSTEM.md" 'GPT-5.6 Sol at medium reasoning effort' || return 1
+  assert_file_contains "skills/autoreview/SKILL.md" 'active-harness reviewer' || return 1
+  assert_file_contains "skills/reviewed-html-plan/SKILL.md" 'planner` subagent' || return 1
 }
 
 test_active_agent_configuration_has_no_kimi() {

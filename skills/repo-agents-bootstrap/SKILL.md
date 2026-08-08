@@ -167,7 +167,7 @@ Required outcomes:
 - The shared expectation that non-trivial ready plans include a `test coverage matrix`.
 - The shared execution feedback loop: substantive review misses reassess the `original test scope` and original plan, and repeated or cross-surface misses widen coverage before phase advance.
 - The repo's discovery-ledger destination for documented out-of-scope low-risk items (for example `thoughts/discoveries/<plan-or-feature>.md`).
-- A concise integration-integrity rule: when a change crosses an exact non-type-checked contract or requires distributed production behavior, record the source of truth, producers/consumers or source-derived call-site inventory, dependent docs/examples, verification, and reconciliation state. Require rereading the definition before dependent edits, searching dependents after contract changes, and real cross-boundary or production-path proof. State that helpers, wrappers, and event-existence tests do not complete a distributed outcome. Keep this rule local to execution behavior; do not duplicate the shared plan or review lifecycle.
+- A concise integration-integrity dispatcher: require agents to load `integration-integrity` before changing exact non-type-checked contracts or behavior distributed across production sites. Keep detailed record and verification mechanics in that skill instead of duplicating them in repo guidance.
 - Repo-specific skill-routing hints for likely work surfaces.
 - Any repo-specific rules that override stale rule files.
 

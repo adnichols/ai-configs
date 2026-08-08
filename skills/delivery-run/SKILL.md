@@ -337,13 +337,9 @@ delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "...
 
 ### 2a. Oracle decision support
 
-The repository-owned Pi `oracle` subagent remains available across planning, implementation, review, and recovery. Invoke it proactively for one consequential decision when targeted evidence leaves competing approaches, a hard-to-reverse contract or migration choice, likely drift from locked plan decisions, or a newly exposed unplanned tradeoff genuinely ambiguous. Do not wait for the operator to request Oracle; consult once before locking the direction.
+Load `oracle-consultation` and invoke Oracle proactively when targeted evidence leaves one consequential technical choice or drift from locked decisions unresolved. Record the verified disposition in the plan decisions/deviations log or delivery coverage ledger when it affects the run.
 
-**Launch contract:** `Agent` with only `subagent_type: "oracle"`, a short 3–5 word `description`, and the decision `prompt`. Omit caller-side `model`, `thinking`, `reasoningEffort`, `inherit_context`, and `isolation`. Frontmatter pins Sol high, inherited/forked context, and live checkout (`isolation: none`). Setting `inherit_context: false` or `isolation: "worktree"` is a workflow violation; strip those properties before launch.
-
-**Packet:** decision; current stage and plan constraints; relevant evidence; credible options; driving-agent recommendation and uncertainty; one narrow question ending with `?`.
-
-Oracle is advisory and read-only. Verify its claims and record disposition (`accepted` / `partially-accepted` / `rejected` / `escalated`) with why in the plan decisions/deviations log or delivery coverage ledger when the recommendation affects the run. It cannot authorize product-changing expansion, replace Doct or operator decisions, satisfy the Sol-medium planner readiness gate, substitute for the Terra implementation review or visible completeness review, or add review cycles. Do not repeatedly consult it on the same question without materially new evidence.
+Oracle cannot authorize product-changing expansion, replace Doct or operator decisions, satisfy readiness or implementation review gates, substitute for completeness review, or add review cycles.
 
 ### 2b. Automatic execution-ready handoff
 
