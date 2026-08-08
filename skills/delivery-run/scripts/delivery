@@ -109,6 +109,7 @@ RECOMMENDED_EVIDENCE = {
     "completionEval": ["COMPLETENESS_REVIEW", "VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
     "customerImpact": ["PLAN_PM_REVIEW", "IMPL_PM_OUTCOME", "PR_OPEN", "MERGE_READY"],
     "autoreview": ["AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
+    "permanentDocs": ["SCOPED_REVIEW", "IMPL_PM_OUTCOME", "AUTOREVIEW", "COMPLETENESS_REVIEW", "PR_OPEN", "MERGE_READY"],
     "verify": ["VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
     "pr": ["PR_OPEN", "MERGE_READY", "DONE"],
     "adversarialQa": ["ADVERSARIAL_QA", "MERGE_READY", "DONE"],
@@ -184,7 +185,7 @@ STAGE_NEXT_SKILL = {
     "SCOPED_REVIEW": "Run scoped quality review (run-plan section) with live-worktree reviewer",
     "IMPL_PM_OUTCOME": "Run /dev:pm-review <plan> implementation + fill customerImpact/completionEval",
     "AUTOREVIEW": "Use /skill:autoreview <plan>; record verdict artifact",
-    "COMPLETENESS_REVIEW": "Launch the visible labeled-tab Pi reviewer with `delivery completion-review`, address its plan-completeness findings, request a rereview, then run `delivery completion-review --accept` only after it returns COMPLETE",
+    "COMPLETENESS_REVIEW": "Launch the visible labeled-tab Pi reviewer with `delivery completion-review`, address its plan-completeness findings (including permanent-doc disposition coverage when Heddle/local permanent-docs applies), request a rereview, then run `delivery completion-review --accept` only after it returns COMPLETE",
     "VERIFY_FRESHNESS": "Final verification + base freshness; record verify evidence",
     "PR_OPEN": "Open/update PR via cmd-create-pr / run-plan PR section; record prUrl",
     "MERGE_READY": "Confirm local merge-readiness; optional adversarial QA if customer-visible",
@@ -2876,6 +2877,12 @@ Completeness-review request ID: {request_id}
 Inspect the current live worktree, including committed, staged, unstaged, and untracked changes. Read the plan, diff, plan-progress/validation artifacts, and the driving agent's stated verification evidence. Do not edit files. Do not run tests, builds, linters, or other executable verification.
 
 Check whether the implementation is complete according to the plan: every acceptance criterion and BDD scenario, required producer/consumer or cross-surface wiring, real post-mutation UI states, stated non-goals, and truthful verification. Do not accept a green helper/unit test as proof that the user-visible completion state works.
+
+When the worktree is Heddle or has a local permanent-docs skill, also require a durable-outcome coverage row:
+
+| Durable outcome in this PR slice | Disposition (`none`/`patch`/`new-record`/`ADR`/`deferred-to-final-plan-slice`) | Permanent home | In diff? |
+
+Reject hollow permanent docs (empty templates, TODO-only bodies, or “see plan” stubs) for `patch` / `new-record` / `ADR`. Do not require CCore archive packages or plan-source deletion. Missing or false disposition is FINDINGS_TO_RESOLVE unless an explicit operator waiver is disclosed.
 
 Start your response with `COMPLETENESS_REVIEW_RESPONSE_ID: {request_id}`, immediately followed by your verdict. Return exactly one verdict:
 - VERDICT: FINDINGS_TO_RESOLVE — for an in-plan gap, with criterion/BDD reference, concrete evidence, user impact, and smallest correction.

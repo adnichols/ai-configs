@@ -132,6 +132,8 @@ test_record_and_show() {
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-4 >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record autoreview --status pass \
     --artifact thoughts/validation/x.md --summary "clean" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record permanentDocs --status pass \
+    --summary "disposition=none reason=fixture" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record completionEval --status gap \
     --gap "BDD missing" --summary "thin" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record completenessReview --status pass \
@@ -142,6 +144,8 @@ test_record_and_show() {
 import json,sys
 d=json.load(open(sys.argv[1]))
 assert d["evidence"]["autoreview"]["status"]=="pass"
+assert d["evidence"]["permanentDocs"]["status"]=="pass"
+assert "disposition=none" in d["evidence"]["permanentDocs"]["summary"]
 assert d["completionEval"]["status"]=="gap"
 assert "BDD missing" in d["completionEval"]["gaps"]
 assert d["evidence"]["completenessReview"]["status"]=="pass"

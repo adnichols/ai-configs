@@ -109,7 +109,8 @@ Before launching reviewers, record a pre-review scope baseline containing:
 - the task or plan and intended behavior;
 - supported paths and explicit non-goals;
 - existing owner boundaries and product surfaces in scope;
-- the initial changed files, including committed, staged, unstaged, and untracked changes.
+- the initial changed files, including committed, staged, unstaged, and untracked changes;
+- caller-supplied permanent-document disposition and claimed paths when provided (do not invent a brittle code⇒spec requirement; do not treat changelog fragments alone as architecture completeness).
 
 When exact-contract or distributed-production work triggered `integration-integrity`, include its current record and verification evidence in the review packet. Do not create a negative inventory when no trigger applied. The reviewer validates the supplied evidence read-only; it never becomes the inventory owner.
 
