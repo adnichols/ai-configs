@@ -67,6 +67,7 @@ class PiAgentRosterTest(unittest.TestCase):
             "openai-codex/gpt-5.6-luna",
             "openai-codex/gpt-5.6-sol",
             "xai/grok-4.5",
+            "cursor/grok-4.5",
             "opencode/deepseek-v4-flash",
             "synthetic/hf:moonshotai/Kimi-K3",
             "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
@@ -77,7 +78,8 @@ class PiAgentRosterTest(unittest.TestCase):
             "opencode/glm-5.2",
             "xai/grok-4.3",
             "xai/grok-build-0.1",
-            "cursor/grok-4.5",
+            "cursor/grok-4.5:fast",
+            "cursor/grok-4.5:slow",
             "cursor/composer-2.5",
             "opencode/deepseek-v4-pro",
         ):
@@ -94,6 +96,7 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertNotIn("opencode-go", models["providers"])
         self.assertNotIn("fireworks", models["providers"])
         install_script = (ROOT / "install.sh").read_text()
+        self.assertIn('"cursor/grok-4.5:high"', install_script)
         for unscoped_model in (
             "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
             "fireworks/accounts/fireworks/models/kimi-k3",

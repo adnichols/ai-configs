@@ -89,6 +89,7 @@ PICKER_ENABLED_MODELS = [
     "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
     "xai/grok-4.5:high",
+    "cursor/grok-4.5:high",
     "opencode/deepseek-v4-flash:high",
     "synthetic/hf:moonshotai/Kimi-K3:high",
 ]
@@ -361,6 +362,7 @@ else:
         "openai-codex/gpt-5.6-luna:xhigh",
         "openai-codex/gpt-5.6-sol:medium",
         "xai/grok-4.5:high",
+        "cursor/grok-4.5:high",
         "opencode/deepseek-v4-flash:high",
         "synthetic/hf:moonshotai/Kimi-K3:high",
     ]
@@ -386,7 +388,7 @@ PY
 )"
   if [ "$PI_MODEL_STATUS" = "ok" ]; then
     echo "  Pi default model: $PI_DEFAULT_MODEL_VALUE"
-    echo "  Pi scoped reasoning: Terra high; Luna xhigh; Sol medium; Grok high; DeepSeek Flash high; Kimi K3 high"
+    echo "  Pi scoped reasoning: Terra high; Luna xhigh; Sol medium; xAI Grok high; Cursor Grok high; DeepSeek Flash high; Kimi K3 high"
     echo "  Pi Codex goal token budgets: disabled"
   else
     note_failure "Pi default model settings are not GPT-5.6 Terra: $PI_MODEL_STATUS"
