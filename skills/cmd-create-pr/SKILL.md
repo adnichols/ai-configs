@@ -84,6 +84,18 @@ fi
 
 A placeholder hit, unclassified changed/untracked path, stale base, incomplete plan progress, or stale Doct source stops agent-default PR creation with the exact remediation. An operator may explicitly override the gate; disclose the real state rather than calling it clean.
 
+### 4b) Permanent documentation disposition (Heddle / local permanent-docs)
+
+When the repo has `.agents/skills/heddle-permanent-docs/SKILL.md`, `docs/DEV_DOCUMENTATION_ARCHIVE.md`, or `changelog/unreleased/README.md` (or another repo-local `*-permanent-docs` skill), load that skill and hard-stop agent-default PR creation unless:
+
+- exactly one disposition is recorded: `none` | `patch` | `new-record` | `ADR` | `deferred-to-final-plan-slice`;
+- for `patch` / `new-record` / `ADR`, every claimed path exists in `$CHANGED`;
+- for `deferred-to-final-plan-slice`, a final slice/issue and interim source of truth are named;
+- the PR body will include a **Permanent documentation** section (or an explicit operator waiver is disclosed);
+- the body does not claim a verified `graduated-plan/...` archive receipt when none exists.
+
+Do not require CCore archive package creation or plan-source deletion. Changelog fragment rules remain the separate existing gate.
+
 ### 5) Create PR
 
 ```bash
@@ -100,6 +112,14 @@ gh pr create \
 
 ## Verification
 - (commands run)
+
+## Permanent documentation
+- Disposition: none | patch | new-record | ADR | deferred-to-final-plan-slice
+- Reason / final slice: ...
+- Specs or docs updated: ...
+- Changelog fragment: ...
+- Plan source retained: ...
+- Archive: post-merge only (not in this PR)
 
 ## Notes
 - (links / caveats)"

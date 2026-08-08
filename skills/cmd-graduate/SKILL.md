@@ -7,6 +7,18 @@ description: Graduate completed work from thoughts/ directory to permanent spec/
 
 Move completed features from the working `thoughts/` directory to permanent `spec/` documentation.
 
+This skill is a **generic baseline**. It does not own Heddle develop-PR changelog
+fragments, pre-PR disposition gates, or plan archive/CCore packages.
+
+- **Heddle / repos with a local permanent-docs skill:** for pre-PR permanent-doc
+  disposition and capture, prefer `.agents/skills/heddle-permanent-docs/SKILL.md`
+  (or the local `*-permanent-docs` skill). On Heddle, use
+  `changelog/unreleased/` fragments—do not append root `CHANGELOG.md` as the
+  develop-PR contract. Do not delete plan sources or create CCore archive
+  packages as a PR gate; follow the repo archive runbook post-merge.
+- **Other repos:** continue with the generic process below when no local
+  permanent-docs skill exists.
+
 ## Usage
 
 ```

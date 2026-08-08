@@ -237,6 +237,7 @@ delivery completion-review --rerun
 # Captures the completeness tab's latest COMPLETE verdict, writes its artifact, and validates freshness.
 delivery completion-review --accept
 delivery record completionEval --status gap --gap "BDD3 not evidenced" --summary "one scenario missing"
+delivery record permanentDocs --status pass|skip|gap --summary "disposition=... paths=..."
 delivery record customerImpact --status pass --summary "Operators see honest sync status" \
   --promised "honest auto-sync status" --observed "status axes + receipts shipped"
 delivery check -v        # soft advisories only; exit 0
@@ -381,7 +382,7 @@ A fresh explicit **Request execution-ready review** action and fresh readiness r
 
 ### 4. Soft quality inserts
 
-These are **recommended evidence**, not blockers.
+These are **recommended evidence**, not blockers. `permanentDocs` is recommended visibility for Heddle/local permanent-doc disposition (`pass|skip|gap`); it does not create a completeness-class hard stage reject—`run-plan` and `cmd-create-pr` own that hard stop.
 
 **Visible completeness review** before final verification / local merge readiness:
 

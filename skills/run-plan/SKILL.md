@@ -51,6 +51,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not mark the active run state complete until local merge-readiness consensus is established: final verification passed, applicable review agents agree by substance that there are no unresolved blocking in-scope findings, scoped PR feedback already present has been addressed, and the PR is mergeable with the destination branch or has no known merge conflict when GitHub cannot provide a final mergeability value.
 - Treat actionable PR feedback that is already present after local reviews as a review escape: the earlier review cycle missed something, so the next local review cycle must become scope-bound adversarial review instead of only patching the commented issue.
 - Do not wait for slow or absent PR feedback, a Codex PR thumbs-up, `APPROVED` reviewDecision, or any other explicit external approval once local review-agent consensus and merge-readiness evidence are clean.
+- On Heddle (detect `.agents/skills/heddle-permanent-docs/SKILL.md`, `docs/DEV_DOCUMENTATION_ARCHIVE.md`, or `changelog/unreleased/README.md`), do not start scoped quality review, implementation-stage PM review, autoreview, or completeness until permanent-document disposition and any required permanent-doc capture are recorded per `heddle-permanent-docs`. Do not open a PR until that disposition is still true, claimed paths are present for path-bearing dispositions, and the PR body includes the Permanent documentation section—unless the operator explicitly waives permanent docs with disclosure. Non-Heddle repos are unchanged unless a repo-local `*-permanent-docs` skill exists.
 
 ## Scope Contract
 
@@ -255,6 +256,20 @@ If an existing plan phase requires deployment, promotion, merge-dependent valida
 
 If a phase exposes a broader product problem, classify it. Fix it only if it is a plan prerequisite or a regression from this diff.
 
+### 3b. Permanent-document disposition (Heddle / repo-local permanent-docs)
+
+After PR-reviewable implementation stabilizes and **before** Self Scope Audit and the first scoped quality review:
+
+1. If the worktree is Heddle (or another repo with a local permanent-docs skill), load `.agents/skills/heddle-permanent-docs/SKILL.md` (or the local equivalent).
+2. Record exactly one disposition: `none` | `patch <paths>` | `new-record <path>` | `ADR <path>` | `deferred-to-final-plan-slice` (deferred must name final slice/issue and interim source of truth).
+3. Capture any required permanent docs into the candidate now so scoped review, PM, autoreview, and completeness all see them.
+4. Reject hollow stubs (empty templates, TODO bodies, “see plan” only) for `patch` / `new-record` / `ADR`.
+5. When a delivery ledger exists: `delivery record permanentDocs --status pass|skip|gap --summary "disposition=..."`.
+6. For in-flight authorized plans that lack a disposition phase, record disposition externally (ledger + later PR body); do not mutate the authorized plan solely to inject the phase.
+7. Include disposition, paths, and hollow-doc notes in every subsequent review packet.
+
+Final pre-PR step is **assertion only** (disposition still accurate; claimed paths present; changelog fragment/exemption intact). If permanent docs change materially after a review pass, rerun targeted review/completeness—do not treat final verification as doc-quality review. Plan archive and CCore packages remain post-merge and non-blocking.
+
 ### 4. Self Scope Audit
 
 Before reviewer subagent review, inspect the diff against the plan:
@@ -276,6 +291,7 @@ The review prompt must include:
 
 - the plan path,
 - the base branch or comparison range,
+- the permanent-document disposition and claimed paths when the Heddle/local permanent-docs gate applies,
 - the changed files,
 - the scope contract,
 - instructions to classify every finding using `IN_PLAN`, `PLAN_PREREQUISITE`, `REGRESSION_FROM_THIS_DIFF`, `OUT_OF_SCOPE_FOLLOW_UP`, or `QUESTION`,
@@ -462,6 +478,7 @@ Immediately before PR creation, after the final scoped commit and any rebase:
 3. Confirm every PR-reviewable plan phase/progress item is complete and the registered Doct source/version reflects the current plan.
 4. Fetch/recompare the target base after the final commit; safely rebase when required and rerun checks invalidated by changed content identity.
 5. Search changed files in the committed range for unresolved release/PR placeholders including `PR #TBD`, `TODO-PR`, and `CHANGELOG_PLACEHOLDER`; stop with exact file/line and remediation command on a hit.
+6. When the Heddle/local permanent-docs gate applies: disposition is recorded; for `patch` / `new-record` / `ADR` every claimed path appears in the candidate; `deferred-to-final-plan-slice` names final slice/issue; no false `graduated-plan/...` retrieval claim without a verified receipt; PR body will include the Permanent documentation section—or an explicit operator waiver is disclosed.
 
 ## Commit, Push, and PR
 
@@ -485,6 +502,7 @@ The PR body must include:
 - implementation-stage PM review verdict, artifact/notes location, any plan/Doct updates, and any PM-triggered rerun requirements,
 - reviewer-subagent pre-PR review verdict and artifact path, or explicit waived/not-run status,
 - visible completeness-review verdict/artifact for a Herdr delivery run, or explicit operator waiver,
+- **Permanent documentation** section when the Heddle/local permanent-docs gate applies (disposition, paths/reason/final slice, changelog fragment, plan source retained, archive post-merge only)—or explicit waiver disclosure,
 - base freshness and mergeability/rebase status before PR creation,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - known residual risks,
@@ -502,6 +520,7 @@ The run state can be marked complete only when all of these are true:
 
 - Final verification for the touched surfaces has passed after the latest code change, or the Verification Convergence Budget disposition applies: targeted verification is green, every residual failure is classified inherited or infra/cosmetic with evidence, and the classification is disclosed in the PR body. In the draft-PR disposition the run state does not complete — it is blocked-on-operator with the ship/keep-fixing question until the operator answers.
 - Runtime-native scoped quality review, implementation-stage PM review, and the reviewer-subagent pre-PR gate all agree by substance that the current diff has no unresolved blocking in-scope findings; skipped/waived gates are recorded truthfully.
+- When the Heddle/local permanent-docs gate applies, permanent-document disposition is satisfied or explicitly waived with disclosure, and the PR body Permanent documentation section matches the candidate.
 - For a Herdr delivery run, the visible `xai/grok-4.5:high` completeness reviewer returned `VERDICT: COMPLETE` against the current plan/live worktree and `delivery completion-review --accept` recorded a current artifact, or an explicit operator waiver is disclosed. Do not treat a hidden autoreview subagent verdict as a substitute.
 - All actionable PR feedback already present in the latest snapshot has been addressed.
 - If PR feedback required code changes, the applicable review agents have rerun over the current PR diff and cleared any in-scope findings.
