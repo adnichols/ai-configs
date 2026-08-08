@@ -215,7 +215,9 @@ Debug logging is off by default. Enable it in `~/.pi/agent/pi-vcc-config.json`:
 
 When enabled, each compaction writes detailed info to `/tmp/pi-vcc-debug.json` — message counts, cut boundary, summary preview, sections.
 
-Continuation rollout checks are read-only/no-network:
+Continuation rollout checks are read-only/no-network. They live in the
+ai-configs repository's top-level `scripts/` directory (not the package's own
+`scripts/`), so run them from the ai-configs repo root:
 
 ```bash
 bash scripts/verify-pi-vcc-install.sh
