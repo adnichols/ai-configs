@@ -98,7 +98,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
@@ -3357,6 +3357,8 @@ install_pi_npm_packages() {
         "@tmustier/pi-raw-paste"
         "@pi-kaush/pi-inline-skill-identifier"
         "@howaboua/pi-explore-subagents"
+        "pi-deepinfra"
+        "pi-updater"
         "pi-extensible-workflows"
     )
     local deprecated_npm_packages=(
@@ -3375,7 +3377,6 @@ install_pi_npm_packages() {
         "pi-powerline-footer"
         "@fnnm/pi-ast-grep"
         "pi-service-tier"
-        "pi-updater"
     )
     local deprecated_git_packages=(
         "git:github.com/adnichols/pi-codex-conversion"

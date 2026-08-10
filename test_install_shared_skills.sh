@@ -893,8 +893,7 @@ test_pi_install_removes_retired_packages() {
     "npm:@ff-labs/pi-fff",
     "npm:pi-side-agents",
     "npm:@fnnm/pi-ast-grep",
-    "npm:pi-service-tier",
-    "npm:pi-updater"
+    "npm:pi-service-tier"
   ]
 }
 JSON
@@ -912,7 +911,6 @@ JSON
   assert_file_contains "$output_file" 'Removing deprecated Pi package pi-side-agents' || return 1
   assert_file_contains "$output_file" 'Removing deprecated Pi package @fnnm/pi-ast-grep' || return 1
   assert_file_contains "$output_file" 'Removing deprecated Pi package pi-service-tier' || return 1
-  assert_file_contains "$output_file" 'Removing deprecated Pi package pi-updater' || return 1
   assert_file_not_contains "$settings_path" 'pi-codex-goal' || return 1
   assert_file_not_contains "$settings_path" 'piCodexGoal' || return 1
   assert_file_not_contains "$settings_path" '@howaboua/pi-codex-conversion' || return 1
@@ -921,7 +919,6 @@ JSON
   assert_file_not_contains "$settings_path" 'pi-side-agents' || return 1
   assert_file_not_contains "$settings_path" '@fnnm/pi-ast-grep' || return 1
   assert_file_not_contains "$settings_path" 'pi-service-tier' || return 1
-  assert_file_not_contains "$settings_path" 'pi-updater' || return 1
 }
 
 test_pi_install_replaces_gpt_config_packages() {

@@ -56,6 +56,8 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@tmustier/pi-raw-paste"
   "npm:@pi-kaush/pi-inline-skill-identifier"
   "npm:@howaboua/pi-explore-subagents"
+  "npm:pi-deepinfra"
+  "npm:pi-updater"
   "npm:pi-extensible-workflows"
 )
 
@@ -538,12 +540,6 @@ if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-service-tier'; then
   note_failure "retired pi-service-tier package is still registered"
 else
   echo "  pi-service-tier registration: absent"
-fi
-
-if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'pi-updater'; then
-  note_failure "retired pi-updater package is still registered"
-else
-  echo "  pi-updater registration: absent"
 fi
 
 PI_VCC_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-vcc' || true)"
