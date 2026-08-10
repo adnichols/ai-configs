@@ -786,7 +786,6 @@ plugins:
   enabled:
   - disk-cleanup
   - herdr-agent-state
-  - orca-status
   - pi-tmux-event-bridge
   - pi_rpc_discord
   disabled:

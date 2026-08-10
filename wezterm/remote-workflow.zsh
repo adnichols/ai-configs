@@ -16,6 +16,11 @@ _ai_configs_herdr_wezterm() {
   fi
 }
 
+# The Kitty workflow may have defined these names as aliases earlier in .zshrc.
+# Remove them before declaring functions because zsh expands aliases while parsing
+# the name() function syntax.
+unalias herdr-mbp herdr-dever herdr-mbp14 2>/dev/null
+
 herdr-mbp() { _ai_configs_herdr_wezterm mbp; }
 herdr-dever() { _ai_configs_herdr_wezterm dever; }
 herdr-mbp14() { _ai_configs_herdr_wezterm mbp14; }

@@ -99,3 +99,6 @@ channel = "preview"
 [theme]
 name = "catppuccin"
 auto_switch = false
+
+[experimental]
+kitty_graphics = true

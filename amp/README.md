@@ -11,7 +11,6 @@ Canonical Amp CLI config tracked by ai-configs.
 
 Not managed (left alone on install):
 
-- `~/.config/amp/plugins/orca-agent-status.ts` (Orca-owned)
 - `~/.local/share/amp/**` (runtime state, secrets, threads)
 - Amp model-provider subscriptions (ChatGPT / SuperGrok OAuth links)
 

@@ -10,6 +10,8 @@ const ALLOWED_MODELS = new Set([
 	"synthetic/hf:moonshotai/Kimi-K3",
 	"fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
 	"fireworks/accounts/fireworks/models/kimi-k3",
+	"deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731",
+	"deepinfra/zai-org/GLM-5.2",
 ]);
 
 type ModelLike = { provider: string; id: string };
@@ -29,7 +31,7 @@ async function installAllowlist(ctx: { modelRegistry: unknown }) {
 	if (!runtime || !collection) {
 		throw new Error("Pi model runtime is unavailable; cannot install the model allowlist");
 	}
-	if (collection.__aiConfigsModelAllowlistVersion === 1) return;
+	if (collection.__aiConfigsModelAllowlistVersion === 2) return;
 
 	const getModels = collection.getModels.bind(collection);
 	const getModel = collection.getModel.bind(collection);
@@ -43,7 +45,7 @@ async function installAllowlist(ctx: { modelRegistry: unknown }) {
 	};
 	collection.getAvailable = async (provider?: string, options?: unknown) =>
 		(await getAvailable(provider, options)).filter((model: ModelLike) => isAllowed(model));
-	collection.__aiConfigsModelAllowlistVersion = 1;
+	collection.__aiConfigsModelAllowlistVersion = 2;
 
 	// Rebuild model and availability snapshots through Pi's public refresh API.
 	await registry.refresh({ allowNetwork: false });

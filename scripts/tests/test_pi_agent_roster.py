@@ -72,6 +72,8 @@ class PiAgentRosterTest(unittest.TestCase):
             "synthetic/hf:moonshotai/Kimi-K3",
             "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
             "fireworks/accounts/fireworks/models/kimi-k3",
+            "deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731",
+            "deepinfra/zai-org/GLM-5.2",
         ):
             self.assertIn(f'"{model}"', allowlist)
         for excluded in (
@@ -100,6 +102,8 @@ class PiAgentRosterTest(unittest.TestCase):
         for unscoped_model in (
             "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
             "fireworks/accounts/fireworks/models/kimi-k3",
+            "deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731",
+            "deepinfra/zai-org/GLM-5.2",
         ):
             self.assertNotIn(unscoped_model, install_script)
 

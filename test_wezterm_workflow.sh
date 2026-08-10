@@ -121,7 +121,9 @@ cat > "$FAKE_BIN/kitten" <<'SH'
 printf '%s\n' "$*" > "$HERDR_LAUNCH_LOG"
 SH
 chmod +x "$FAKE_BIN/wezterm" "$FAKE_BIN/kitten"
-PATH="$FAKE_BIN:$PATH" HERDR_LAUNCH_LOG="$TMP_ROOT/launch.log" zsh -fc "source '$REPO_ROOT/wezterm/remote-workflow.zsh'; herdr-mbp14"
+PATH="$FAKE_BIN:$PATH" zsh -fc "alias herdr-mbp='kitten ssh mbp'; alias herdr-dever='kitten ssh dever'; source '$REPO_ROOT/wezterm/remote-workflow.zsh'; whence -w herdr-mbp herdr-dever" \
+  | grep -Fxq $'herdr-mbp: function\nherdr-dever: function'
+env -u KITTY_WINDOW_ID PATH="$FAKE_BIN:$PATH" HERDR_LAUNCH_LOG="$TMP_ROOT/launch.log" zsh -fc "source '$REPO_ROOT/wezterm/remote-workflow.zsh'; herdr-mbp14"
 rg -q '^start --always-new-process -- ssh mbp14 -t ~/.local/bin/herdr-kitty$' "$TMP_ROOT/launch.log"
 PATH="$FAKE_BIN:$PATH" KITTY_WINDOW_ID=1 HERDR_LAUNCH_LOG="$TMP_ROOT/launch.log" zsh -fc "source '$REPO_ROOT/wezterm/remote-workflow.zsh'; herdr-dever"
 rg -q '^ssh dever -t ~/.local/bin/herdr-kitty$' "$TMP_ROOT/launch.log"
