@@ -34,28 +34,52 @@ HERDR_WORKTREES = Path.home() / ".herdr" / "worktrees"
 PLAN_REVIEW_AGENT = "planner"
 PLAN_REVIEW_MODEL = "openai-codex/gpt-5.6-sol"
 PLAN_REVIEW_REASONING = "medium"
+# Dual-plan hydrate trial: launch starts on Luna xhigh; planner profile is the executor.
+HYDRATE_PROFILE_NAME = "luna-xhigh"
+HYDRATE_PROTOCOL_VERSION = "dual-plan-hydrate-v1"
+HYDRATE_EARLY_PHASES = frozenset(
+    {
+        "authorized",
+        "hydrate-launched",
+        "hydrate-verified",
+        "executor-armed",
+        "failed-transition",
+    }
+)
+HYDRATE_EXECUTOR_PHASES = frozenset({"executor-transitioned", "executor-verified"})
+HYDRATE_RECEIPT_FILENAME = "hydrate-transition.json"
+HYDRATE_RECEIPT_VERSION = "dual-plan-hydrate-v1"
 IMPLEMENTATION_PROFILES = {
+    "luna-xhigh": {
+        "provider": "openai-codex",
+        "model": "gpt-5.6-luna",
+        "reasoningLevel": "xhigh",
+        "label": "GPT-5.6 Luna at xhigh reasoning",
+    },
     "terra-high": {
         "provider": "openai-codex",
         "model": "gpt-5.6-terra",
         "reasoningLevel": "high",
         "label": "GPT-5.6 Terra at high reasoning",
     },
+    # Retained only so existing ledgers and explicit legacy overrides can be
+    # read; new planner reviews must choose Luna or Terra.
     "sol-medium": {
         "provider": "openai-codex",
         "model": "gpt-5.6-sol",
         "reasoningLevel": "medium",
-        "label": "GPT-5.6 Sol at medium reasoning",
+        "label": "GPT-5.6 Sol at medium reasoning (legacy)",
     },
 }
 # Old profile names resolve to the current normal profile. New plan-review
-# records must use a current profile name.
+# records must use a current planner profile.
 IMPLEMENTATION_PROFILE_ALIASES = {
-    "deepseek-flash": "terra-high",
-    "luna-max": "terra-high",
+    "deepseek-flash": "luna-xhigh",
+    "luna-max": "luna-xhigh",
 }
-DEFAULT_IMPLEMENTATION_PROFILE = "terra-high"
-LEGACY_IMPLEMENTATION_PROFILE = "sol-medium"
+PLANNER_IMPLEMENTATION_PROFILES = frozenset({"luna-xhigh", "terra-high"})
+DEFAULT_IMPLEMENTATION_PROFILE = "luna-xhigh"
+LEGACY_IMPLEMENTATION_PROFILE = "luna-xhigh"
 
 STAGES = [
     "INTAKE",
@@ -102,6 +126,8 @@ RECOMMENDED_EVIDENCE = {
     ],
     "planPm": ["PLAN_PM_REVIEW", "EXECUTION_READY", "IMPLEMENTING"],
     "planTech": ["PLAN_TECH_REVIEW", "EXECUTION_READY", "IMPLEMENTING"],
+    # Dual-plan trial: operator + agentic companion fingerprint sync (opt-in when agenticPlan is set).
+    "planSync": ["PLAN_TECH_REVIEW", "EXECUTION_READY", "IMPLEMENTING"],
     "implementation": ["IMPLEMENTING", "SCOPED_REVIEW", "IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN"],
     "scopedReview": ["SCOPED_REVIEW", "AUTOREVIEW", "PR_OPEN"],
     "implPm": ["IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
@@ -475,6 +501,12 @@ def empty_evidence() -> dict[str, Any]:
             "planSha256": None,
         }
     )
+    out["planSync"].update(
+        {
+            "operatorPlanSha256": None,
+            "agenticPlanSha256": None,
+        }
+    )
     return out
 
 
@@ -498,6 +530,7 @@ def new_ledger(
         "issue": issue,
         "slug": slug,
         "plan": plan,
+        "agenticPlan": None,
         "doctUrl": doct_url,
         "prUrl": pr_url,
         "worktree": str(root),
@@ -609,12 +642,11 @@ def refresh_git_fields(ledger: dict[str, Any], root: Path) -> None:
     ledger["worktree"] = str(root)
 
 
-def resolve_plan_path(ledger: dict[str, Any], root: Path) -> Path | None:
-    """Return the recorded plan path when it is a readable file inside the worktree."""
-    raw_plan = ledger.get("plan")
-    if not isinstance(raw_plan, str) or not raw_plan.strip():
+def resolve_worktree_file(raw: str | None, root: Path) -> Path | None:
+    """Return a readable file path inside the worktree, or None when unavailable."""
+    if not isinstance(raw, str) or not raw.strip():
         return None
-    candidate = Path(raw_plan).expanduser()
+    candidate = Path(raw).expanduser()
     if not candidate.is_absolute():
         candidate = root / candidate
     try:
@@ -627,12 +659,84 @@ def resolve_plan_path(ledger: dict[str, Any], root: Path) -> Path | None:
     return candidate
 
 
+def resolve_plan_path(ledger: dict[str, Any], root: Path) -> Path | None:
+    """Return the recorded operator plan path when it is a readable file inside the worktree."""
+    raw_plan = ledger.get("plan")
+    if not isinstance(raw_plan, str):
+        return None
+    return resolve_worktree_file(raw_plan, root)
+
+
+def derive_agentic_companion_relpath(operator_plan: str) -> str:
+    """Return the derived agentic companion path beside an operator plan.
+
+    Convention: thoughts/plans/<slug>.html → thoughts/plans/<slug>.agentic.html
+    (Markdoc: <slug>.markdoc → <slug>.agentic.markdoc). Already-agentic paths
+    are returned unchanged.
+    """
+    path = Path(operator_plan)
+    suffixes = path.suffixes
+    if len(suffixes) >= 2 and suffixes[-2].lower() == ".agentic":
+        return str(path)
+    if not path.suffix:
+        return str(path.with_name(f"{path.name}.agentic.html"))
+    return str(path.with_name(f"{path.stem}.agentic{path.suffix}"))
+
+
+def expected_agentic_plan_relpath(ledger: dict[str, Any]) -> str | None:
+    """Return the recorded or derived agentic companion relative/path string."""
+    raw = ledger.get("agenticPlan")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    operator = ledger.get("plan")
+    if isinstance(operator, str) and operator.strip():
+        return derive_agentic_companion_relpath(operator.strip())
+    return None
+
+
+def resolve_agentic_plan_path(ledger: dict[str, Any], root: Path) -> Path | None:
+    """Return the agentic companion when it is a readable file inside the worktree."""
+    return resolve_worktree_file(expected_agentic_plan_relpath(ledger), root)
+
+
 def plan_sha256(ledger: dict[str, Any], root: Path) -> str | None:
-    """Return the recorded plan's current content hash, or None when unavailable."""
+    """Return the recorded operator plan's current content hash, or None when unavailable."""
     candidate = resolve_plan_path(ledger, root)
     if candidate is None:
         return None
     return hashlib.sha256(candidate.read_bytes()).hexdigest()
+
+
+def agentic_plan_sha256(ledger: dict[str, Any], root: Path) -> str | None:
+    """Return the agentic companion's current content hash, or None when unavailable."""
+    candidate = resolve_agentic_plan_path(ledger, root)
+    if candidate is None:
+        return None
+    return hashlib.sha256(candidate.read_bytes()).hexdigest()
+
+
+def operator_and_agentic_plan_sha256_pair(
+    ledger: dict[str, Any], root: Path
+) -> tuple[str | None, str | None]:
+    """Return (operatorPlanSha256, agenticPlanSha256) for dual-plan fingerprinting."""
+    return plan_sha256(ledger, root), agentic_plan_sha256(ledger, root)
+
+
+def agentic_companion_problem(ledger: dict[str, Any], root: Path) -> str | None:
+    """Return a problem string when an operator plan is set but its companion is missing."""
+    operator = resolve_plan_path(ledger, root)
+    if operator is None:
+        return None
+    expected = expected_agentic_plan_relpath(ledger)
+    if expected is None:
+        return None
+    if resolve_agentic_plan_path(ledger, root) is not None:
+        return None
+    return (
+        f"agentic companion missing at {expected} "
+        "(derive beside the operator plan as <slug>.agentic<html|markdoc>, "
+        "or set with delivery set --agentic-plan <path>)"
+    )
 
 
 _UNTITLED_PLAN_TITLES = {
@@ -887,6 +991,64 @@ def plan_title_problem(ledger: dict[str, Any], root: Path) -> str | None:
     return None
 
 
+def dual_plan_mode(ledger: dict[str, Any]) -> bool:
+    """True when this ledger opted into operator+agentic dual-plan sync."""
+    raw = ledger.get("agenticPlan")
+    return isinstance(raw, str) and bool(raw.strip())
+
+
+def plan_sync_problem(ledger: dict[str, Any], root: Path) -> str | None:
+    """Explain why dual-plan sync blocks EXECUTION_READY when agenticPlan is set.
+
+    Legacy single-plan ledgers (no agenticPlan) are unaffected.
+    """
+    if not dual_plan_mode(ledger):
+        return None
+    companion = agentic_companion_problem(ledger, root)
+    if companion:
+        return companion
+    evidence = ledger.get("evidence") or {}
+    sync = evidence.get("planSync") or {}
+    if sync.get("status") != "pass":
+        return (
+            "dual-plan mode requires planSync=pass binding current operator and agentic "
+            "fingerprints (delivery record planSync --status pass --summary '...')"
+        )
+    operator_hash, agentic_hash = operator_and_agentic_plan_sha256_pair(ledger, root)
+    if operator_hash is None:
+        return "the recorded operator plan is missing, outside this worktree, or unreadable"
+    if agentic_hash is None:
+        return "the recorded agentic companion is missing, outside this worktree, or unreadable"
+    if sync.get("operatorPlanSha256") != operator_hash:
+        return "the operator plan changed after the recorded planSync pass"
+    if sync.get("agenticPlanSha256") != agentic_hash:
+        return "the agentic companion changed after the recorded planSync pass"
+    return None
+
+
+def reset_plan_sync(ledger: dict[str, Any], reason: str) -> None:
+    sync = ledger.setdefault("evidence", {}).setdefault(
+        "planSync",
+        {
+            "status": "pending",
+            "artifact": None,
+            "summary": None,
+            "updatedAt": None,
+            "operatorPlanSha256": None,
+            "agenticPlanSha256": None,
+        },
+    )
+    sync.update(
+        {
+            "status": "pending",
+            "operatorPlanSha256": None,
+            "agenticPlanSha256": None,
+            "updatedAt": utc_now(),
+            "summary": reason,
+        }
+    )
+
+
 def plan_readiness_request_problem(ledger: dict[str, Any], root: Path) -> str | None:
     """Explain why readiness review cannot begin for the current plan revision."""
     evidence = ledger.get("evidence") or {}
@@ -945,8 +1107,8 @@ def selected_implementation_profile(ledger: dict[str, Any]) -> dict[str, str]:
     review = (ledger.get("evidence") or {}).get("planTech") or {}
     profile_name = review.get("implementationProfile")
     if not is_known_implementation_profile(profile_name):
-        # Ledgers created before validation-based routing remain on Sol medium rather
-        # than silently moving an already-reviewed implementation to a cheaper model.
+        # New or incomplete readiness records default to Luna xhigh. Existing explicit
+        # Sol-medium records remain readable through the legacy profile above.
         profile_name = LEGACY_IMPLEMENTATION_PROFILE
     return implementation_profile_spec(str(profile_name))
 
@@ -969,7 +1131,64 @@ def runtime_profile(model_ref: str, reasoning_level: str, *, profile: str = "man
     }
 
 
+def hydrate_protocol_active(ledger: dict[str, Any]) -> bool:
+    proto = ledger.get("hydrateProtocol") or {}
+    return dual_plan_mode(ledger) and proto.get("status") == "active"
+
+
+def ensure_hydrate_protocol(ledger: dict[str, Any], *, executor: dict[str, str]) -> None:
+    """Authorize the Luna hydrate → executor pair for dual-plan ledgers."""
+    if not dual_plan_mode(ledger):
+        return
+    hydrate = implementation_profile_spec(HYDRATE_PROFILE_NAME)
+    proto = ledger.setdefault("hydrateProtocol", {})
+    phase = str(proto.get("phase") or "authorized")
+    if phase not in HYDRATE_EARLY_PHASES | HYDRATE_EXECUTOR_PHASES:
+        phase = "authorized"
+    proto.update(
+        {
+            "status": "active",
+            "phase": phase,
+            "version": HYDRATE_PROTOCOL_VERSION,
+            "hydrateProfile": hydrate["profile"],
+            "hydrateProvider": hydrate["provider"],
+            "hydrateModel": hydrate["model"],
+            "hydrateModelRef": hydrate["modelRef"],
+            "hydrateReasoningLevel": hydrate["reasoningLevel"],
+            "executorProfile": executor["profile"],
+            "executorProvider": executor["provider"],
+            "executorModel": executor["model"],
+            "executorModelRef": executor["modelRef"],
+            "executorReasoningLevel": executor["reasoningLevel"],
+        }
+    )
+
+
+def set_hydrate_protocol_phase(ledger: dict[str, Any], phase: str, *, detail: str | None = None) -> None:
+    proto = ledger.setdefault("hydrateProtocol", {})
+    if proto.get("status") != "active":
+        die("hydrate protocol is not active on this ledger")
+    if phase not in HYDRATE_EARLY_PHASES | HYDRATE_EXECUTOR_PHASES:
+        die(f"unknown hydrate protocol phase {phase!r}")
+    proto["phase"] = phase
+    proto["updatedAt"] = utc_now()
+    if detail:
+        proto["detail"] = detail
+    append_history(ledger, "hydrate_protocol", f"phase={phase}" + (f" ({detail})" if detail else ""))
+
+
 def approved_implementation_profile(ledger: dict[str, Any]) -> dict[str, str]:
+    """Return the live-required runtime: hydrate early, executor after transition."""
+    proto = ledger.get("hydrateProtocol") or {}
+    if hydrate_protocol_active(ledger):
+        phase = str(proto.get("phase") or "authorized")
+        if phase in HYDRATE_EXECUTOR_PHASES:
+            return runtime_profile(
+                str(proto["executorModelRef"]),
+                str(proto["executorReasoningLevel"]),
+                profile=str(proto.get("executorProfile") or "manual"),
+            )
+        return implementation_profile_spec(HYDRATE_PROFILE_NAME)
     approval = ledger.get("implementationApproval") or {}
     model_ref = approval.get("model")
     reasoning = approval.get("reasoningLevel")
@@ -1123,6 +1342,123 @@ def implementation_profile_problem(
     return None
 
 
+def hydrate_protocol_entry_problem(ledger: dict[str, Any]) -> str | None:
+    """Block IMPLEMENTING until dual-plan hydrate has transitioned to the executor."""
+    if not hydrate_protocol_active(ledger):
+        return None
+    phase = str((ledger.get("hydrateProtocol") or {}).get("phase") or "")
+    if phase in {"executor-transitioned", "executor-verified"}:
+        return None
+    if phase == "failed-transition":
+        return (
+            "hydrate protocol is in failed-transition; recover to the authorized "
+            "hydrate or executor runtime, ensure a valid hydrate-transition receipt, "
+            "and re-verify"
+        )
+    return (
+        "dual-plan hydrate protocol has not reached executor-verified "
+        f"(current phase={phase or 'missing'}; complete Luna hydrate, transition via "
+        "delivery-hydrate prewalk, then re-run delivery verify-implementation-profile)"
+    )
+
+
+def hydrate_receipt_path(root: Path) -> Path:
+    override = (os.environ.get("DELIVERY_HYDRATE_RECEIPT") or "").strip()
+    if override:
+        return Path(override)
+    return root / ".delivery" / HYDRATE_RECEIPT_FILENAME
+
+
+def read_hydrate_transition_receipt(root: Path) -> dict[str, Any] | None:
+    path = hydrate_receipt_path(root)
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def prewalk_into_spec_for_executor(executor: dict[str, str]) -> str:
+    """Map delivery executor profile to a prewalk --prewalk-into target."""
+    profile = str(executor.get("profile") or "")
+    if profile == "terra-high":
+        return "terra"
+    model_ref = str(executor.get("modelRef") or "")
+    reasoning = str(executor.get("reasoningLevel") or "")
+    if model_ref and reasoning:
+        return f"{model_ref}:{reasoning}"
+    return model_ref or "terra"
+
+
+def hydrate_transition_receipt_problem(
+    ledger: dict[str, Any], root: Path, *, for_executor: bool
+) -> str | None:
+    """Require a prewalk-written receipt before accepting executor-verified."""
+    if not for_executor or not hydrate_protocol_active(ledger):
+        return None
+    proto = ledger.get("hydrateProtocol") or {}
+    receipt = read_hydrate_transition_receipt(root)
+    if not receipt:
+        return (
+            f"missing hydrate transition receipt at {hydrate_receipt_path(root)}; "
+            "arm delivery-hydrate prewalk so the first edit/write writes the receipt"
+        )
+    if str(receipt.get("version") or "") != HYDRATE_RECEIPT_VERSION:
+        return (
+            f"hydrate transition receipt version must be {HYDRATE_RECEIPT_VERSION} "
+            f"(got {receipt.get('version')!r})"
+        )
+    if receipt.get("checklistInjected") is not True:
+        return "hydrate transition receipt must record checklistInjected=true"
+    trigger_tool = str(receipt.get("triggerTool") or "")
+    if trigger_tool not in {"edit", "write"}:
+        return "hydrate transition receipt must record a successful edit or write triggerTool"
+    to = receipt.get("to") if isinstance(receipt.get("to"), dict) else {}
+    executor_provider = str(proto.get("executorProvider") or "")
+    executor_model = str(proto.get("executorModel") or "")
+    to_provider = str(to.get("provider") or "")
+    to_model = str(to.get("model") or "")
+    same_model = receipt.get("sameModel") is True
+    hydrate_provider = str(proto.get("hydrateProvider") or "")
+    hydrate_model = str(proto.get("hydrateModel") or "")
+    if same_model:
+        if hydrate_provider != executor_provider or hydrate_model != executor_model:
+            return (
+                "hydrate transition receipt claims sameModel but hydrate and executor "
+                "runtimes differ; expected a real model switch receipt"
+            )
+    elif to_provider != executor_provider or to_model != executor_model:
+        return (
+            "hydrate transition receipt target does not match authorized executor "
+            f"{executor_provider}/{executor_model} (got {to_provider}/{to_model})"
+        )
+    return None
+
+
+def record_hydrate_transition_receipt(ledger: dict[str, Any], root: Path) -> None:
+    receipt = read_hydrate_transition_receipt(root)
+    if not receipt:
+        return
+    proto = ledger.setdefault("hydrateProtocol", {})
+    to = receipt.get("to") if isinstance(receipt.get("to"), dict) else {}
+    path = hydrate_receipt_path(root)
+    try:
+        path_display = str(path.resolve().relative_to(root.resolve()))
+    except ValueError:
+        path_display = str(path)
+    proto["transitionReceipt"] = {
+        "at": receipt.get("at"),
+        "sameModel": receipt.get("sameModel") is True,
+        "checklistInjected": receipt.get("checklistInjected") is True,
+        "triggerTool": receipt.get("triggerTool"),
+        "toProvider": to.get("provider"),
+        "toModel": to.get("model"),
+        "path": path_display,
+    }
+
+
 def implementation_run_started(ledger: dict[str, Any]) -> bool:
     history = ledger.get("history") if isinstance(ledger.get("history"), list) else []
     if any(
@@ -1201,7 +1537,11 @@ def stage_transition_problem(ledger: dict[str, Any], root: Path, stage: str) -> 
     if stage == "EXECUTION_READY":
         if is_omp_lite(ledger):
             return plan_readiness_request_problem(ledger, root)
-        return plan_readiness_request_problem(ledger, root) or plan_technical_review_problem(ledger, root)
+        return (
+            plan_readiness_request_problem(ledger, root)
+            or plan_technical_review_problem(ledger, root)
+            or plan_sync_problem(ledger, root)
+        )
     if stage == "IMPLEMENTING":
         readiness_problem = plan_readiness_request_problem(ledger, root)
         if readiness_problem:
@@ -1210,12 +1550,26 @@ def stage_transition_problem(ledger: dict[str, Any], root: Path, stage: str) -> 
             return None
         return (
             plan_technical_review_problem(ledger, root)
+            or plan_sync_problem(ledger, root)
             or implementation_approval_problem(ledger, root)
+            or hydrate_protocol_entry_problem(ledger)
             or implementation_profile_problem(ledger, root, check_runtime=True)
         )
     if is_omp_lite(ledger):
         return omp_lite_delivery_problem(ledger, root, stage)
     return terminal_stage_problem(ledger, root, stage)
+
+
+def reset_hydrate_protocol(ledger: dict[str, Any], reason: str) -> None:
+    if "hydrateProtocol" not in ledger and not dual_plan_mode(ledger):
+        return
+    ledger["hydrateProtocol"] = {
+        "status": "pending",
+        "phase": None,
+        "version": HYDRATE_PROTOCOL_VERSION,
+        "reason": reason,
+        "updatedAt": utc_now(),
+    }
 
 
 def reset_implementation_approval(ledger: dict[str, Any], reason: str) -> None:
@@ -1236,6 +1590,7 @@ def reset_implementation_approval(ledger: dict[str, Any], reason: str) -> None:
             "reason": reason,
         }
     )
+    reset_hydrate_protocol(ledger, reason)
 
 
 def reset_implementation_profile(ledger: dict[str, Any], reason: str) -> None:
@@ -1850,6 +2205,10 @@ def cmd_init(args: argparse.Namespace) -> int:
             f"cannot initialize at {stage}: {transition_problem}. "
             "Create the ledger at INTAKE and advance through delivery's guarded steps."
         )
+    if args.plan and not ledger.get("agenticPlan"):
+        derived = derive_agentic_companion_relpath(args.plan)
+        if resolve_worktree_file(derived, root) is not None:
+            ledger["agenticPlan"] = derived
     write_json(path, ledger, force_replace=args.force)
     maybe_herdr_label(ledger)
     write_json(path, ledger)
@@ -1898,6 +2257,22 @@ def cmd_show(args: argparse.Namespace) -> int:
     print(f"issue:     {ledger.get('issue')}")
     print(f"slug:      {ledger.get('slug')}")
     print(f"plan:      {ledger.get('plan')}")
+    print(f"agentic:   {ledger.get('agenticPlan') or expected_agentic_plan_relpath(ledger)}")
+    operator_hash, agentic_hash = operator_and_agentic_plan_sha256_pair(ledger, root)
+    if operator_hash or agentic_hash:
+        print(f"planSha:   {operator_hash or '(unavailable)'}")
+        print(f"agenticSha:{agentic_hash or '(unavailable)'}")
+    companion_problem = agentic_companion_problem(ledger, root)
+    if companion_problem:
+        print(f"agentic!:  {companion_problem}")
+    proto = ledger.get("hydrateProtocol") or {}
+    if proto.get("status") == "active":
+        print(
+            f"hydrate:   phase={proto.get('phase')} "
+            f"{proto.get('hydrateModelRef')}@{proto.get('hydrateReasoningLevel')} → "
+            f"{proto.get('executorProfile')} / {proto.get('executorModelRef')}@"
+            f"{proto.get('executorReasoningLevel')}"
+        )
     print(f"runtime:   {ledger.get('runtime')}")
     print(f"profile:   {ledger.get('workflowProfile')}")
     print(f"branch:    {ledger.get('branch')}")
@@ -2075,6 +2450,7 @@ def implementation_agent_name(ledger: dict[str, Any]) -> str:
 
 def implementation_agent_prompt(ledger: dict[str, Any], root: Path) -> str:
     plan = str(ledger.get("plan") or "(missing plan)")
+    agentic = str(ledger.get("agenticPlan") or expected_agentic_plan_relpath(ledger) or "(none)")
     selected = approved_implementation_profile(ledger)
     approval = ledger.get("implementationApproval") or {}
     rationale = str(
@@ -2082,6 +2458,34 @@ def implementation_agent_prompt(ledger: dict[str, Any], root: Path) -> str:
         or ((ledger.get("evidence") or {}).get("planTech") or {}).get("implementationRationale")
         or "legacy reviewed plan retained on Sol medium"
     )
+    if hydrate_protocol_active(ledger):
+        proto = ledger.get("hydrateProtocol") or {}
+        executor_for_prewalk = runtime_profile(
+            str(proto.get("executorModelRef") or ""),
+            str(proto.get("executorReasoningLevel") or ""),
+            profile=str(proto.get("executorProfile") or "manual"),
+        )
+        prewalk_into = prewalk_into_spec_for_executor(executor_for_prewalk)
+        return f"""You are the dedicated dual-plan hydrate → executor agent for this delivery run.
+
+Worktree: {root}
+Operator plan: {plan}
+Agentic companion: {agentic}
+Hydrate protocol: {proto.get('version')} phase={proto.get('phase')}
+Hydrate runtime (launch): {proto.get('hydrateModelRef')} at {proto.get('hydrateReasoningLevel')} reasoning
+Authorized executor: {proto.get('executorProfile')} / {proto.get('executorModelRef')} at {proto.get('executorReasoningLevel')} reasoning
+Executor selection rationale: {rationale}
+
+Do this now:
+1. Read the operator plan for product contract and the agentic companion for files/tests/verify detail. Read `.delivery/AGENT_BRIEF.md` when present.
+2. Run `delivery show` and `delivery verify-implementation-profile` (retires the planning owner tab; advances hydrate-verified when this pane matches the hydrate runtime).
+3. Hydrate this session from the agentic plan (delivery-hydrate prewalk should already be armed with `--delivery-hydrate --prewalk-into {prewalk_into}` targeting the authorized executor). Materialize 5–9 execution todos, note remaining risks/verification, and continue. Do not reopen product decisions; revoke readiness if the contract contradicts the repo.
+4. Under D1-A, the hydrate model may perform the first successful edit/write; prewalk then transitions in-session to the authorized executor and writes `.delivery/hydrate-transition.json`. After the live runtime matches the executor, run `delivery verify-implementation-profile` again to reach executor-verified (receipt required; do not use `adopt-current-runtime` as the happy path).
+5. Run `delivery stage IMPLEMENTING` only after executor-verified.
+6. Execute `/skill:run-plan {plan}` through implementation, verification, reviews, completeness, and PR readiness.
+
+Do not treat `adopt-current-runtime` as the happy-path switch; that remains for out-of-pair manual overrides only. Do not re-plan beyond the reviewed dual-plan contract."""
+
     return f"""You are the dedicated implementation agent for this delivery run.
 
 Worktree: {root}
@@ -2096,7 +2500,7 @@ Do this now:
 3. Run `delivery stage IMPLEMENTING` from this pinned Pi runtime.
 4. Execute `/skill:run-plan {plan}` through implementation, verification, Terra code review, the visible Grok completeness review, and PR readiness.
 
-GPT-5.6 Terra at high reasoning is the normal implementation profile when deterministic tests strongly validate the result. Sol medium is recommended when meaningful correctness is hard to validate or depends materially on critical technical judgment. The recommendation is not a prohibition: if this recorded implementation pane is deliberately switched to another model, record it with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` before code work.
+GPT-5.6 Luna at xhigh reasoning is the normal implementation profile. Use GPT-5.6 Terra at high reasoning when correctness depends materially on technical judgment beyond the available deterministic tests. The recommendation is not a prohibition: if this recorded implementation pane is deliberately switched to another model, record it with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` before code work.
 
 Do not re-plan beyond the reviewed contract. The planning agent must not implement; you own all code, tests, fixes, Git, and PR work from this point."""
 
@@ -2110,6 +2514,7 @@ def active_implementation_launch(
     problem = (
         plan_readiness_request_problem(current, root)
         or plan_technical_review_problem(current, root)
+        or plan_sync_problem(current, root)
         or implementation_approval_problem(current, root)
     )
     if problem:
@@ -2167,20 +2572,36 @@ def launch_implementation_agent(
     caller = caller_tab_id()
 
     herdr = require_herdr()
+    start_extra = [
+        "--",
+        "--provider",
+        selected["provider"],
+        "--model",
+        selected["model"],
+        "--thinking",
+        selected["reasoningLevel"],
+    ]
+    if hydrate_protocol_active(ledger):
+        # Launch on Luna hydrate; arm delivery-hydrate prewalk into the authorized executor.
+        proto = ledger.get("hydrateProtocol") or {}
+        executor = runtime_profile(
+            str(proto.get("executorModelRef") or selected["modelRef"]),
+            str(proto.get("executorReasoningLevel") or selected["reasoningLevel"]),
+            profile=str(proto.get("executorProfile") or "manual"),
+        )
+        start_extra.extend(
+            [
+                "--delivery-hydrate",
+                "--prewalk-into",
+                prewalk_into_spec_for_executor(executor),
+            ]
+        )
     started = start_agent_on_pane(
         root=root,
         agent_name=reviewer_name,
         pane_id=str(implementation_pane),
         timeout_ms=int(args.timeout_ms),
-        extra_args=[
-            "--",
-            "--provider",
-            selected["provider"],
-            "--model",
-            selected["model"],
-            "--thinking",
-            selected["reasoningLevel"],
-        ],
+        extra_args=start_extra,
     )
     reconciled = False
     if started.returncode != 0:
@@ -2265,6 +2686,8 @@ def launch_implementation_agent(
         die(f"could not prompt dedicated implementation agent: {(requested.stderr or requested.stdout).strip()}")
 
     profile.update({"status": "ready", "promptedAt": utc_now(), "reason": None})
+    if hydrate_protocol_active(current):
+        set_hydrate_protocol_phase(current, "hydrate-launched", detail="dedicated hydrate agent ready")
     # New owner is implementation. Do not self-close the planning caller tab here.
     prior_tab = source_tab or (current.get("workspaceOwner") or {}).get("tabId")
     if prior_tab and str(prior_tab) != str(implementation_tab):
@@ -2329,6 +2752,9 @@ def approve_implementation_locked(
     review_problem = plan_technical_review_problem(ledger, root)
     if review_problem:
         die(f"cannot approve implementation: {review_problem}")
+    sync_problem = plan_sync_problem(ledger, root)
+    if sync_problem:
+        die(f"cannot approve implementation: {sync_problem}")
     planner_selected = selected_implementation_profile(ledger)
     requested_model = args.model or planner_selected["modelRef"]
     requested_reasoning = args.reasoning_level or planner_selected["reasoningLevel"]
@@ -2344,6 +2770,9 @@ def approve_implementation_locked(
     else:
         selected = planner_selected
         selection_source = "planner"
+    if dual_plan_mode(ledger):
+        # Planner/manual selection is the executor; launch runtime is always Luna hydrate.
+        ensure_hydrate_protocol(ledger, executor=selected)
     fingerprint = plan_sha256(ledger, root)
     if fingerprint is None:
         die("cannot approve implementation: recorded plan is missing, outside this worktree, or unreadable")
@@ -2366,10 +2795,17 @@ def approve_implementation_locked(
     )
     reset_implementation_profile(ledger, "implementation authorized; implementation agent launch pending")
     authorization_actor = "workflow authorized" if args.source == "workflow" else "operator approved"
+    if dual_plan_mode(ledger):
+        launch_label = (
+            f"{selection_source} executor {selected['profile']} via "
+            f"{HYDRATE_PROFILE_NAME} hydrate"
+        )
+    else:
+        launch_label = f"{selection_source} {selected['profile']} implementation"
     append_history(
         ledger,
         "implementation_approval",
-        f"{authorization_actor} {selection_source} {selected['profile']} implementation",
+        f"{authorization_actor} {launch_label}",
         source=args.source,
         planSha256=fingerprint,
         profile=selected["profile"],
@@ -2380,10 +2816,7 @@ def approve_implementation_locked(
     )
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
-    print(
-        "implementation authorization recorded; launching "
-        f"{selection_source} {selected['profile']} implementation agent"
-    )
+    print(f"implementation authorization recorded; launching {launch_label} agent")
     return launch_implementation_agent(path, ledger, root, args)
 
 
@@ -2405,6 +2838,7 @@ def start_implementation_locked(
     problem = (
         plan_readiness_request_problem(ledger, root)
         or plan_technical_review_problem(ledger, root)
+        or plan_sync_problem(ledger, root)
         or implementation_approval_problem(ledger, root)
     )
     if problem:
@@ -2478,14 +2912,90 @@ def cmd_verify_implementation_profile(args: argparse.Namespace) -> int:
     if args.adopt_current_runtime:
         adopt_current_implementation_runtime(path, ledger, root, args.reason or "")
         ledger = load_json(path)
+    if hydrate_protocol_active(ledger):
+        proto = ledger.get("hydrateProtocol") or {}
+        provider = (os.environ.get("PI_PROVIDER") or "").strip()
+        model = (os.environ.get("PI_MODEL") or "").strip()
+        reasoning = (os.environ.get("PI_REASONING_LEVEL") or "").strip()
+        live_ref = f"{provider}/{model}" if provider and model else ""
+        phase = str(proto.get("phase") or "authorized")
+        hydrate_ref = str(proto.get("hydrateModelRef") or "")
+        hydrate_reason = str(proto.get("hydrateReasoningLevel") or "")
+        executor_ref = str(proto.get("executorModelRef") or "")
+        executor_reason = str(proto.get("executorReasoningLevel") or "")
+        profile = ledger.setdefault("implementationProfile", {})
+        executor_phase = phase in {"hydrate-verified", "executor-armed", "executor-transitioned", "executor-verified"}
+        hydrate_phase = phase in {"authorized", "hydrate-launched", "failed-transition"}
+        if executor_phase and live_ref == executor_ref and reasoning == executor_reason:
+            receipt_problem = hydrate_transition_receipt_problem(ledger, root, for_executor=True)
+            if receipt_problem:
+                die(f"cannot reach executor-verified: {receipt_problem}")
+            record_hydrate_transition_receipt(ledger, root)
+            if phase in {"hydrate-verified", "executor-armed", "executor-transitioned", "failed-transition"}:
+                set_hydrate_protocol_phase(
+                    ledger,
+                    "executor-verified",
+                    detail="live runtime matches authorized executor with hydrate receipt",
+                )
+            elif phase in {"authorized", "hydrate-launched"}:
+                die(
+                    "executor runtime observed before hydrate-verified; "
+                    "verify on the Luna hydrate runtime first"
+                )
+            executor = runtime_profile(
+                executor_ref,
+                executor_reason,
+                profile=str(proto.get("executorProfile") or "manual"),
+            )
+            profile.update(
+                {
+                    "profile": executor["profile"],
+                    "provider": executor["provider"],
+                    "model": executor["model"],
+                    "modelRef": executor["modelRef"],
+                    "reasoningLevel": executor["reasoningLevel"],
+                }
+            )
+        elif hydrate_phase and live_ref == hydrate_ref and reasoning == hydrate_reason:
+            set_hydrate_protocol_phase(ledger, "hydrate-verified", detail="live runtime matches hydrate")
+            # Keep recorded launch identity on the hydrate runtime until executor transition.
+            hydrate = implementation_profile_spec(HYDRATE_PROFILE_NAME)
+            profile.update(
+                {
+                    "profile": hydrate["profile"],
+                    "provider": hydrate["provider"],
+                    "model": hydrate["model"],
+                    "modelRef": hydrate["modelRef"],
+                    "reasoningLevel": hydrate["reasoningLevel"],
+                }
+            )
+        elif live_ref:
+            set_hydrate_protocol_phase(
+                ledger,
+                "failed-transition",
+                detail=f"live runtime {live_ref}@{reasoning} is outside authorized hydrate/executor pair",
+            )
+            write_json(path, ledger)
+            die(
+                "hydrate protocol failed-transition: live runtime is neither the authorized "
+                f"hydrate ({hydrate_ref}) nor executor ({executor_ref})"
+            )
     problem = (
         plan_readiness_request_problem(ledger, root)
         or plan_technical_review_problem(ledger, root)
+        or plan_sync_problem(ledger, root)
         or implementation_approval_problem(ledger, root)
         or implementation_profile_problem(ledger, root, check_runtime=True)
     )
     if problem:
         die(f"implementation profile invalid: {problem}")
+    if hydrate_protocol_active(ledger):
+        phase = str((ledger.get("hydrateProtocol") or {}).get("phase") or "")
+        if phase not in {"hydrate-verified", "executor-armed", "executor-transitioned", "executor-verified"}:
+            die(
+                "dual-plan hydrate protocol must reach hydrate-verified "
+                "(or executor-verified after transition) before continuing"
+            )
     # New owner retires previous owner tabs (planning handoff) from the impl pane.
     retire_pending_tabs(ledger, caller_tab=caller_tab_id())
     profile = ledger.get("implementationProfile") or {}
@@ -2501,9 +3011,13 @@ def cmd_verify_implementation_profile(args: argparse.Namespace) -> int:
     refresh_git_fields(ledger, root)
     write_json(path, ledger)
     selected = approved_implementation_profile(ledger)
+    proto = ledger.get("hydrateProtocol") or {}
+    extra = ""
+    if hydrate_protocol_active(ledger):
+        extra = f" (hydrate phase={proto.get('phase')})"
     print(
         f"implementation profile verified: {selected['profile']} / "
-        f"{selected['modelRef']} / {selected['reasoningLevel']}"
+        f"{selected['modelRef']} / {selected['reasoningLevel']}{extra}"
     )
     return 0
 
@@ -2575,8 +3089,10 @@ def cmd_set(args: argparse.Namespace) -> int:
             changes.append(f"plan: {prev!r} -> {plan!r}")
             reset_plan_readiness_request(ledger, "recorded plan path changed")
             reset_plan_technical_review(ledger, "recorded plan path changed")
+            reset_plan_sync(ledger, "recorded plan path changed")
             reset_implementation_approval(ledger, "recorded plan path changed")
             reset_implementation_profile(ledger, "recorded plan path changed")
+            reset_hydrate_protocol(ledger, "recorded plan path changed")
         ledger["plan"] = plan
         title_problem = plan_title_problem(ledger, root)
         if title_problem:
@@ -2592,6 +3108,26 @@ def cmd_set(args: argparse.Namespace) -> int:
                     labels = ledger.setdefault("labels", {})
                     if isinstance(labels, dict):
                         labels["planContentTitle"] = canonical
+        # When the operator plan changes and no explicit agentic path is set,
+        # adopt the derived companion path if that file already exists.
+        if plan and not (isinstance(ledger.get("agenticPlan"), str) and str(ledger.get("agenticPlan")).strip()):
+            derived = derive_agentic_companion_relpath(plan)
+            if resolve_worktree_file(derived, root) is not None:
+                ledger["agenticPlan"] = derived
+                changes.append(f"agenticPlan: None -> {derived!r} (derived)")
+                reset_plan_sync(ledger, "agentic companion auto-derived")
+
+    if getattr(args, "agentic_plan", None) is not None:
+        agentic = (args.agentic_plan or "").strip() or None
+        prev = ledger.get("agenticPlan")
+        if prev != agentic:
+            changes.append(f"agenticPlan: {prev!r} -> {agentic!r}")
+            reset_plan_technical_review(ledger, "recorded agentic plan path changed")
+            reset_plan_sync(ledger, "recorded agentic plan path changed")
+            reset_implementation_approval(ledger, "recorded agentic plan path changed")
+            reset_implementation_profile(ledger, "recorded agentic plan path changed")
+            reset_hydrate_protocol(ledger, "recorded agentic plan path changed")
+        ledger["agenticPlan"] = agentic
 
     if getattr(args, "doct_title", None) is not None:
         doct_title = (args.doct_title or "").strip() or None
@@ -2654,6 +3190,7 @@ def cmd_set(args: argparse.Namespace) -> int:
             args.clear_issue,
             args.issue is not None,
             args.plan is not None,
+            getattr(args, "agentic_plan", None) is not None,
             args.doct_url is not None,
             getattr(args, "doct_title", None) is not None,
             args.pr_url is not None,
@@ -2662,7 +3199,10 @@ def cmd_set(args: argparse.Namespace) -> int:
             args.retarget_id,
         ]
     ):
-        die("nothing to set; pass --issue, --plan, --doct-url, --doct-title, --pr-url, --slug, --id, and/or --retarget-id")
+        die(
+            "nothing to set; pass --issue, --plan, --agentic-plan, --doct-url, "
+            "--doct-title, --pr-url, --slug, --id, and/or --retarget-id"
+        )
 
     if changes:
         append_history(ledger, "set", "; ".join(changes))
@@ -2703,10 +3243,10 @@ def cmd_record(args: argparse.Namespace) -> int:
                 die(f"planTech=pass requires reasoning level {PLAN_REVIEW_REASONING}")
             if args.verdict != "PLAN_EXECUTION_READY":
                 die("planTech=pass requires verdict PLAN_EXECUTION_READY")
-            if args.implementation_profile not in IMPLEMENTATION_PROFILES:
+            if args.implementation_profile not in PLANNER_IMPLEMENTATION_PROFILES:
                 die(
-                    "planTech=pass requires --implementation-profile; choose from: "
-                    + ", ".join(sorted(IMPLEMENTATION_PROFILES))
+                    "planTech=pass requires a current planner implementation profile; choose from: "
+                    + ", ".join(sorted(PLANNER_IMPLEMENTATION_PROFILES))
                 )
             if not str(args.implementation_rationale or "").strip():
                 die("planTech=pass requires --implementation-rationale for the profile decision")
@@ -2804,6 +3344,49 @@ def cmd_record(args: argparse.Namespace) -> int:
                 "updatedAt": now,
             }
         )
+    elif key == "planSync":
+        if status == "pass":
+            if not dual_plan_mode(ledger):
+                die(
+                    "planSync=pass requires ledger.agenticPlan; "
+                    "set the companion with delivery set --agentic-plan <path>"
+                )
+            companion = agentic_companion_problem(ledger, root)
+            if companion:
+                die(f"cannot record planSync=pass: {companion}")
+            operator_hash, agentic_hash = operator_and_agentic_plan_sha256_pair(ledger, root)
+            if operator_hash is None or agentic_hash is None:
+                die(
+                    "cannot record planSync=pass: both operator and agentic plans must be "
+                    "readable files inside the worktree"
+                )
+            ev = ledger.setdefault("evidence", {}).setdefault(
+                "planSync",
+                {
+                    "status": "pending",
+                    "artifact": None,
+                    "summary": None,
+                    "updatedAt": None,
+                    "operatorPlanSha256": None,
+                    "agenticPlanSha256": None,
+                },
+            )
+            ev.update(
+                {
+                    "status": "pass",
+                    "artifact": args.artifact,
+                    "summary": args.summary,
+                    "updatedAt": now,
+                    "operatorPlanSha256": operator_hash,
+                    "agenticPlanSha256": agentic_hash,
+                }
+            )
+        else:
+            reset_plan_sync(ledger, args.summary or f"planSync={status}")
+            ev = ledger["evidence"]["planSync"]
+            ev["status"] = status
+            if args.artifact is not None:
+                ev["artifact"] = args.artifact
     else:
         ev = ledger.setdefault("evidence", {}).setdefault(
             key,
@@ -2821,6 +3404,7 @@ def cmd_record(args: argparse.Namespace) -> int:
                 die("cannot record planReadinessRequest=pass: recorded plan is missing, outside this worktree, or unreadable")
             if status == "pass":
                 reset_plan_technical_review(ledger, "fresh execution-ready review request")
+                reset_plan_sync(ledger, "fresh execution-ready review request")
                 reset_implementation_approval(ledger, "fresh execution-ready review request")
                 reset_implementation_profile(ledger, "fresh execution-ready review request")
 
@@ -2832,8 +3416,10 @@ def cmd_record(args: argparse.Namespace) -> int:
         if ledger.get("plan") != args.plan:
             reset_plan_readiness_request(ledger, "recorded plan path changed")
             reset_plan_technical_review(ledger, "recorded plan path changed")
+            reset_plan_sync(ledger, "recorded plan path changed")
             reset_implementation_approval(ledger, "recorded plan path changed")
             reset_implementation_profile(ledger, "recorded plan path changed")
+            reset_hydrate_protocol(ledger, "recorded plan path changed")
         ledger["plan"] = args.plan
         title_problem = plan_title_problem(ledger, root)
         if title_problem:
@@ -3573,6 +4159,13 @@ def build_advisories(
     if not ledger.get("plan") and stage not in {"INTAKE", "DONE"}:
         add("PLAN_PATH", "No plan path recorded yet (delivery record plan via --plan on record/init).", "info")
 
+    companion_problem = agentic_companion_problem(ledger, root)
+    if companion_problem:
+        add(
+            "AGENTIC_COMPANION",
+            companion_problem,
+            "warn" if stage in {"PLAN_TECH_REVIEW", "EXECUTION_READY", "IMPLEMENTING"} else "info",
+        )
     if stage in {"REFLECT", "DONE", "MERGE_READY", "PR_OPEN", "BLOCKED"} and not ledger.get(
         "lastReflectionAt"
     ):
@@ -3922,8 +4515,8 @@ def agent_start_prompt(
     else:
         route = (
             "3. Continue from the current state's recommended next step using existing worker skills\n"
-            "   (reviewed-html-plan / dev-plan → Sol-medium profile decision → GPT-5.6 Terra at high "
-            "or Sol implementation → Terra autoreview → Grok completeness → PR).\n"
+            "   (reviewed-html-plan / dev-plan → Luna-xhigh/Terra-high profile decision → GPT-5.6 Luna at xhigh "
+            "or Terra high for judgment-heavy work → Terra autoreview → Grok completeness → PR).\n"
             "   During `PLAN_BROWSER_REVIEW`, integrate ordinary feedback but wait for Doct's explicit\n"
             "   `Request execution-ready review` action before PM or technical readiness review.\n"
             "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
@@ -4647,7 +5240,7 @@ def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
     return f"""# Delivery agent brief
 
 Generated: {utc_now()}  
-Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization, independent Sol-medium plan review, a recorded single-writer implementation handoff, and completeness evidence are explicit boundaries. The recommended model may be overridden manually with a recorded reason.
+Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization, independent Sol-medium plan review, a recorded single-writer implementation handoff, and completeness evidence are explicit boundaries. Luna xhigh is the default implementation profile; Terra high is for judgment-heavy correctness, and unresolved consequential choices may escalate to Oracle. The recommended model may be overridden manually with a recorded reason.
 
 ## This worktree
 
@@ -4671,11 +5264,11 @@ Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization
 Keep this worktree moving through:
 
 ```text
-plan ↔ Sol-medium planner decision → GPT-5.6 Terra at high by default or Sol medium for hard-to-validate work → Terra autoreview → Grok completeness → PR
+plan ↔ Sol-medium planner decision → GPT-5.6 Luna at xhigh by default or Terra high for judgment-heavy work → Terra autoreview → Grok completeness → PR
 ```
 
 You are the planning/driving agent through reviewed-plan readiness. Use existing worker skills for real work.
-The `delivery` CLI is the scoreboard + navigator, not the implementer. The Sol-medium planner selects the implementation profile. Entering `EXECUTION_READY` automatically authorizes and launches that dedicated agent; the planning agent then stops without another routine approval pause.
+The `delivery` CLI is the scoreboard + navigator, not the implementer. The read-only Sol-medium planner selects Luna xhigh by default or Terra high for judgment-heavy implementation. Escalate unresolved consequential choices to Oracle rather than selecting Sol for implementation. Entering `EXECUTION_READY` automatically authorizes and launches that dedicated agent; the planning agent then stops without another routine approval pause.
 
 ## Do this first
 
@@ -4703,9 +5296,8 @@ While the stage is `PLAN_BROWSER_REVIEW`:
   `PLAN_PM_REVIEW`. `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW`
   reject a missing request record. `EXECUTION_READY` additionally requires a
   current independent planner artifact from `openai-codex/gpt-5.6-sol` at medium
-  with `VERDICT: PLAN_EXECUTION_READY`. The same review should select `terra-high`
-  by default, and `sol-medium` when meaningful correctness is hard to validate or depends
-  materially on critical technical judgment.
+  with `VERDICT: PLAN_EXECUTION_READY`. The same review should select `luna-xhigh`
+  by default, and `terra-high` when correctness depends materially on technical judgment.
   These are authorization boundaries.
 
 ## Automatic execution-ready handoff
@@ -4775,7 +5367,7 @@ delivery bootstrap --refresh                    # rewrite this brief
 ## Soft quality inserts (recommended, never required)
 
 - `delivery record planReadinessRequest --status pass --summary "Doct execution-ready review request"`
-- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY --implementation-profile terra-high|sol-medium --implementation-rationale "..."`
+- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY --implementation-profile luna-xhigh|terra-high --implementation-rationale "..."`
 - `delivery record completionEval --status pass|gap --summary "..."`
 - `delivery record customerImpact --status pass --summary "..." --promised "..." --observed "..."`
 - `delivery record adversarialQa --status pass|na --summary "..."`
@@ -4800,11 +5392,11 @@ Skip only if there is truly nothing process-shaped to capture; prefer a short ho
 ## Rules of the road
 
 - Do **not** reimplement run-plan / reviewed-html-plan / autoreview inside ad-hoc prose.
-- Do **not** hard-block the operator on advisory delivery evidence. Enforce explicit readiness, Sol-medium plan review, one recorded implementation pane/runtime, and completeness boundaries. Recommend models, but allow deliberate manual model/reasoning choices when recorded with a reason.
+- Do **not** hard-block the operator on advisory delivery evidence. Enforce explicit readiness, Sol-medium plan review, one recorded implementation pane/runtime, and completeness boundaries. Recommend Luna xhigh by default or Terra high for judgment-heavy work; allow deliberate manual model/reasoning choices when recorded with a reason.
 - Do **not** require a Linear issue to start; attach it when it exists.
 - Treat generic browser feedback as plan iteration, not an implied execution-ready review request.
 - `execution-ready` requires the current independent Sol-medium planner verdict and automatically authorizes the exact reviewed plan for implementation in delivery-managed Herdr runs.
-- Entering `EXECUTION_READY` launches the dedicated implementation agent selected by the Sol-medium planner. The planning agent must not implement; the new agent verifies its profile before code work and continues through PR creation.
+- Entering `EXECUTION_READY` launches the dedicated implementation agent selected by the Sol-medium planner: Luna xhigh by default, Terra high when correctness is judgment-heavy. The planning agent must not implement; unresolved consequential choices escalate to Oracle rather than routing code writing through Sol; the new agent verifies its profile before code work and continues through PR creation.
 - If material feedback arrives after readiness but before implementation, invalidate approval and launch evidence, then return to browser review.
 - Prefer keeping the ledger honest over perfect process compliance.
 - If truly stuck on a human decision: `delivery blocker "..." --mark-blocked` and report the decision needed.
@@ -5084,7 +5676,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Remove the issue key from the ledger",
     )
-    p_set.add_argument("--plan", help="Plan path")
+    p_set.add_argument("--plan", help="Operator plan path (Doct-reviewed)")
+    p_set.add_argument(
+        "--agentic-plan",
+        help="Derived agentic companion path (defaults to <slug>.agentic.<ext> beside --plan)",
+    )
     p_set.add_argument("--doct-url", help="Doct plan URL")
     p_set.add_argument("--doct-title", help="Doct document/tree title from documents get; must match plan content title")
     p_set.add_argument("--pr-url", help="PR URL")
@@ -5113,15 +5709,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_rec.add_argument("--verdict", help="Verdict token for structured review evidence")
     p_rec.add_argument(
         "--implementation-profile",
-        choices=tuple(sorted(IMPLEMENTATION_PROFILES)),
+        choices=tuple(sorted(PLANNER_IMPLEMENTATION_PROFILES)),
         help=(
-            "Planner-selected implementation profile: terra-high by default; "
-            "sol-medium when meaningful correctness is hard to validate or technically critical"
+            "Planner-selected implementation profile: luna-xhigh by default; "
+            "terra-high when correctness depends materially on technical judgment"
         ),
     )
     p_rec.add_argument(
         "--implementation-rationale",
-        help="Why the Sol-medium planner selected this implementation profile",
+        help="Why the Sol-medium readiness planner selected this Luna/Terra implementation profile",
     )
     p_rec.add_argument("--gap", action="append", default=[], help="Gap string (repeatable)")
     p_rec.add_argument("--promised", action="append", default=[], help="customerImpact promised item")

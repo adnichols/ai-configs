@@ -159,8 +159,9 @@ in this skill.
    limit, and record the current request/evidence. Do not enter
    `IMPLEMENTING` until the CLI accepts `EXECUTION_READY`.
 5. Implement directly in the driving OMP session, whose configured default is
-   `openai-codex/gpt-5.6-terra:high`. Run implementation, scoped review, and
-   PM outcome review there; run the configured OMP `@reviewer` pre-PR review
+   `openai-codex/gpt-5.6-luna:xhigh`. Run implementation, scoped review, and
+   PM outcome review there; use `openai-codex/gpt-5.6-terra:high` when correctness
+   depends materially on technical judgment; run the configured OMP `@reviewer` pre-PR review
    and verification; record each result with `delivery record`.
 6. At `COMPLETENESS_REVIEW`, run
    `delivery completion-review --prepare --reviewer-identity
@@ -229,10 +230,10 @@ delivery record planTech --status pass \
   --summary "independent Sol medium review" --reviewer planner \
   --model openai-codex/gpt-5.6-sol --reasoning-level medium \
   --verdict PLAN_EXECUTION_READY \
-  --implementation-profile terra-high \
-  --implementation-rationale "deterministic tests strongly validate the changed behavior"
-# Use --implementation-profile sol-medium instead when meaningful correctness is
-# hard to validate or depends materially on critical technical judgment.
+  --implementation-profile luna-xhigh \
+  --implementation-rationale "deterministic tests support the default Luna implementation"
+# Use --implementation-profile terra-high instead when correctness depends materially
+# on technical judgment beyond the available deterministic tests.
 # Entering EXECUTION_READY automatically authorizes the reviewed plan and launches
 # a dedicated Herdr Pi agent on the planner-selected profile.
 delivery stage EXECUTION_READY
@@ -344,7 +345,7 @@ delivery record planReadinessRequest --status pass \
 delivery stage PLAN_PM_REVIEW
 ```
 
-This is an authorization boundary: `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW` reject a missing or stale `planReadinessRequest=pass` record. `EXECUTION_READY` additionally requires a current `PLAN_EXECUTION_READY` artifact from the independent `planner` subagent with model `openai-codex/gpt-5.6-sol` and medium reasoning. That planner also chooses `terra-high` when deterministic tests strongly validate the implementation, or `sol-medium` when meaningful correctness is hard to validate or depends materially on critical technical judgment, and records a concise rationale. Both records are tied to the current plan content, so a changed plan requires a fresh explicit request and fresh Sol-medium review. Other delivery evidence remains advisory.
+This is an authorization boundary: `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW` reject a missing or stale `planReadinessRequest=pass` record. `EXECUTION_READY` additionally requires a current `PLAN_EXECUTION_READY` artifact from the independent `planner` subagent with model `openai-codex/gpt-5.6-sol` and medium reasoning. That planner chooses `luna-xhigh` by default, or `terra-high` when correctness depends materially on technical judgment beyond the available deterministic tests, and records a concise rationale. Both records are tied to the current plan content, so a changed plan requires a fresh explicit request and fresh Sol-medium review. When `agenticPlan` is set (dual-plan trial), `EXECUTION_READY` also requires a current `planSync=pass` binding operator and agentic fingerprints; missing/stale companions fail closed. Other delivery evidence remains advisory.
 
 After each meaningful step:
 
@@ -363,6 +364,8 @@ Oracle cannot authorize product-changing expansion, replace Doct or operator dec
 
 `EXECUTION_READY` is the automatic handoff from reviewed planning to implementation. In a Herdr delivery run, entering this stage records workflow authorization for the exact reviewed plan, creates a labeled **implementation owner** tab, starts the planner-selected implementation runtime, claims ledger `workspaceOwner` for that tab, and prompts it to continue through implementation, verification, bounded reviews, completeness review, and PR creation. The planning agent stops after the handoff; it does not ask for another routine approval. The planning tab is enqueued for retirement and is closed when the implementation agent runs `delivery verify-implementation-profile` (never self-closed mid-launch). Workspace chrome follows `workspaceOwner`, not ambient `HERDR_TAB_ID`. Failed `agent start` attempts close their shell tabs immediately.
 
+On the **opt-in dual-plan hydrate trial** (`agenticPlan` set), that owner tab launches on Luna xhigh with `--delivery-hydrate --prewalk-into <executor>` rather than cold-starting the executor alone. Generic `/prewalk` outside delivery remains a separate named workflow and does not arm delivery.
+
 ```bash
 delivery stage EXECUTION_READY
 # In the automatically launched implementation agent:
@@ -373,7 +376,7 @@ delivery stage IMPLEMENTING
 
 Use `delivery stage EXECUTION_READY --hold` only for a deliberate operator-requested pause or a known external dependency. `approve-implementation` remains a compatibility/manual-override command after a hold; a deliberate model/reasoning override must include `--override-reason`.
 
-The CLI rejects readiness-review stages without a current explicit readiness request and rejects `EXECUTION_READY` without the Sol-medium planner verdict. Before `IMPLEMENTING`, it requires current workflow authorization, implementation-agent launch evidence, the exact plan fingerprint, the recorded Herdr pane, and a matching live Pi runtime. `start-implementation` retries a failed launch; when Herdr reports the expected Pi agent after a start race, delivery reconciles that live agent instead of leaving a false `start-failed` record. An exclusive per-worktree launch lease plus ledger revisions rejects concurrent launches and stale writers.
+The CLI rejects readiness-review stages without a current explicit readiness request and rejects `EXECUTION_READY` without the Sol-medium planner verdict. When `agenticPlan` is set, it also rejects without current `planSync=pass`, authorizes a Luna xhigh **hydrate** launch with the planner-selected **executor** pair (`luna-xhigh` or `terra-high`), arms delivery-owned prewalk (`--delivery-hydrate`), and advances `hydrateProtocol` through `delivery verify-implementation-profile` (hydrate-verified → executor-verified). Executor-verified requires a real `.delivery/hydrate-transition.json` receipt from the first edit/write transition (not prompt-only adoption). Before `IMPLEMENTING`, it requires current workflow authorization, implementation-agent launch evidence, the exact plan fingerprint, **executor-verified** (dual-plan) or matching live Pi runtime (legacy), the recorded Herdr pane, and a matching live Pi runtime. Legacy Pi Full (no `agenticPlan`) and OMP Lite remain unchanged. `start-implementation` retries a failed launch; when Herdr reports the expected Pi agent after a start race, delivery reconciles that live agent instead of leaving a false `start-failed` record. An exclusive per-worktree launch lease plus ledger revisions rejects concurrent launches and stale writers.
 
 If material browser feedback changes the contract before implementation begins, update the plan, revoke the authorization, and return to browser review:
 

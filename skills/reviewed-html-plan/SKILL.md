@@ -1,13 +1,22 @@
 ---
 name: reviewed-html-plan
-description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`. For browser-reviewed plans, integrate comments but wait for an explicit execution-ready review request before PM and independent Sol-medium planner readiness review. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
+description: Create and gate execution-ready HTML development plans through Doct plan registration via `doct-agent plans` on `https://doct.nodaste.com`. For browser-reviewed plans, integrate comments but wait for an explicit execution-ready review request before PM and independent planner readiness review. Use this whenever the user asks for the plan review process, a reviewed HTML plan, a pre-execution plan gate, or wants a plan created from a description and registered in Doct for browser feedback before implementation.
 ---
 
 # Reviewed HTML Plan Workflow
 
-Use this skill when the user wants the planning and review process completed before implementation starts. The output is a single reviewed HTML plan that is registered in Doct through `doct-agent plans` on `https://doct.nodaste.com` and either marked execution-ready or explicitly blocked on a product/scope decision.
+Use this skill when the user wants the planning and review process completed before implementation starts. The default output is a Doct-reviewed **operator** HTML plan on `https://doct.nodaste.com`. For the opt-in dual-plan hydrate trial, also derive a local **agentic companion** (`thoughts/plans/<slug>.agentic.html`) that carries agent-only file/test/verify detail with shared AC/BDD/phase IDs; Doct browser review stays on the operator plan only. Register the operator plan through `doct-agent plans` and either mark it execution-ready or explicitly block on a product/scope decision.
 
-The planning agent stops before product-code execution and may edit only the plan artifact. In a Pi Full delivery run, its final `EXECUTION_READY` transition launches a separate dedicated implementation agent. In OMP Lite, the current OMP session remains the implementation owner and the transition records authorization without a handoff. In planning-only use, no implementation starts.
+The planning agent stops before product-code execution and may edit only the plan artifact(s). In a Pi Full delivery run, its final `EXECUTION_READY` transition launches a separate dedicated implementation agent. In OMP Lite, the current OMP session remains the implementation owner and the transition records authorization without a handoff. In planning-only use, no implementation starts.
+
+### Dual-plan trial (opt-in)
+
+When using the dual-plan hydrate trial:
+
+1. Author the operator plan without agent-only file lists, RED contracts, or verify recipes in the Doct-facing body.
+2. Derive `thoughts/plans/<slug>.agentic.html` (or `.agentic.markdoc`) beside it under this skill’s guidance — do not dual-hand-author a second product story.
+3. Record `delivery set --agentic-plan <path>` (auto-derived when the companion file already exists).
+4. Before `EXECUTION_READY`, record `delivery record planSync --status pass` so both fingerprints are bound; delivery rejects readiness when the companion is missing/stale or sync is absent.
 
 ## Required companion skills
 
@@ -144,7 +153,7 @@ After material PM edits, ensure the review URL still points at the latest plan a
 
 An earlier Oracle consultation does not satisfy, skip, or modify this gate. Oracle answers a bounded decision question; the `planner` independently evaluates the whole current plan for execution readiness and selects the implementation profile.
 
-After the explicit execution-ready request and PM pass, run exactly one Pi `planner` subagent before execution and keep it read-only. The checked-in planner frontmatter pins `openai-codex/gpt-5.6-sol` at medium reasoning, so this independent pass happens regardless of the model that authored the plan or started delivery. Do not pass a model or thinking override. The planner also selects the implementation profile: choose `terra-high` by default when deterministic tests can strongly validate the changed behavior; choose `sol-medium` when meaningful correctness is hard to validate before merge or depends materially on critical technical judgment. The same planner is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
+After the explicit execution-ready request and PM pass, run exactly one Pi `planner` subagent before execution and keep it read-only. The checked-in planner frontmatter pins `openai-codex/gpt-5.6-sol` at medium reasoning, so this independent pass happens regardless of the model that authored the plan or started delivery. Do not pass a model or thinking override. The planner also selects the implementation profile: choose `luna-xhigh` by default; choose `terra-high` when correctness depends materially on technical judgment beyond the available deterministic tests. If a consequential choice remains unresolved, escalate to Oracle rather than routing code writing through Sol. The same planner is used at every risk level; high-risk plans receive a more focused review packet, not a second external review leg:
 
 - For data loss, auth/security, concurrency/locking, migrations/persistence, release-blocking CI behavior, release-risk, or another P1/P2 risk surface, give the reviewer a compact readiness packet with named files/surfaces, the exact risk question, relevant plan excerpts, verification expectations, and outcome limits.
 - For lower-risk plans, retain the same bounded readiness packet without broadening into a second opinion.
@@ -161,12 +170,12 @@ delivery record planTech --status pass \
   --summary "independent Sol medium plan-readiness review" \
   --reviewer planner --model openai-codex/gpt-5.6-sol \
   --reasoning-level medium --verdict PLAN_EXECUTION_READY \
-  --implementation-profile terra-high|sol-medium \
-  --implementation-rationale "why the normal Terra profile applies, or why Sol is warranted"
+  --implementation-profile luna-xhigh|terra-high \
+  --implementation-rationale "why the default Luna profile applies, or why Terra is warranted"
 delivery stage EXECUTION_READY
 ```
 
-`delivery` fingerprints the current plan and validates the artifact, reviewer identity, model, reasoning level, verdict, optional profile selection, and selection rationale. New reviews should always record the profile decision. Legacy reviews without these fields remain on Sol medium rather than being silently moved to a new profile. Any plan edit or fresh readiness request invalidates the prior review.
+`delivery` fingerprints the current plan and validates the artifact, reviewer identity, model, reasoning level, verdict, optional profile selection, and selection rationale. New reviews should always record the profile decision. Legacy reviews without these fields remain on the legacy recorded runtime rather than being silently moved to a new profile. Any plan edit or fresh readiness request invalidates the prior review.
 
 #### Reviewer packet
 
@@ -191,7 +200,7 @@ For the single plan-review pass, stay limited to readiness concerns, including a
 - whether `What's new` is missing, late, vague, or duplicative/restated; it must be present immediately after product-owner context and before goal, with a behavior-focused headline, one-sentence product promise, concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees; it does not restate goal, rationale, phases, or acceptance criteria; instruct the reviewer not to return an execution-ready verdict until the canonical section is distinct and correctly placed,
 - whether the plan has executable phases,
 - whether acceptance criteria and verification are testable,
-- whether deterministic tests exercise enough of the meaningful behavior to use `terra-high`; otherwise require `sol-medium`, especially for critical technical work where correctness depends on judgment, environment behavior, concurrency, persistence, security, or another result that cannot be confidently established by pre-merge tests,
+- whether deterministic tests exercise enough of the meaningful behavior to use the default `luna-xhigh`; require `terra-high` when correctness depends materially on technical judgment, environment behavior, concurrency, persistence, security, or another result that cannot be confidently established by pre-merge tests; escalate unresolved consequential choices to Oracle rather than using Sol for implementation,
 - whether scope and non-goals prevent expansion,
 - whether unresolved product questions remain,
 - whether the plan has enough file/surface specificity for implementation,
@@ -214,11 +223,11 @@ VERDICT: PLAN_EXECUTION_READY
 VERDICT: PLAN_NEEDS_REVISION
 VERDICT: BLOCKED_BY_PRODUCT_QUESTION
 VERDICT: REVIEW_INCOMPLETE_RERUN_NEEDED
-IMPLEMENTATION_PROFILE: terra-high|sol-medium
+IMPLEMENTATION_PROFILE: luna-xhigh|terra-high
 IMPLEMENTATION_RATIONALE: <one concise evidence-based sentence>
 ```
 
-Require the implementation profile and rationale with a ready verdict. Use `terra-high` when the planned deterministic tests strongly exercise the meaningful behavior. Use `sol-medium` when they do not, or when critical correctness depends materially on technical judgment beyond the available test evidence.
+Require the implementation profile and rationale with a ready verdict. Use `luna-xhigh` by default. Use `terra-high` when critical correctness depends materially on technical judgment beyond the available test evidence. Escalate unresolved consequential choices to Oracle; do not select Sol as the implementation profile.
 
 Normalize fuzzy reviewer output by substance, but never normalize empty, tool-only, provider-error, or incomplete-coverage output into a ready verdict. Treat a review as ready only when it finds no blocking readiness gaps and all required slices are complete.
 

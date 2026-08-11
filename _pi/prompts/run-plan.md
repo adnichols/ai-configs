@@ -17,6 +17,6 @@ Supervision is opt-in. Do **not** launch a supervisor for `/run-plan` unless the
 
 ## Model routing for this wrapper
 
-Keep GPT-5.6 Sol medium as the normal `/run-plan` parent and code-writing route.
+Keep GPT-5.6 Luna xhigh as the normal `/run-plan` parent and code-writing route. Use GPT-5.6 Terra high when correctness depends materially on technical judgment; unresolved consequential choices can escalate to Oracle rather than routing implementation through Sol.
 
 Perform implementation directly in the driving session with native repository tools. Prefer direct targeted inspection before editing; use `scout` only for bounded read-only discovery when broad isolated evidence gathering materially helps. Do not delegate code edits, test changes, fixes, verification, or repository management to a subagent or developer persona.

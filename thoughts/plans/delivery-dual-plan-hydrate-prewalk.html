@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Delivery Dual-Plan Hydrate Prewalk Cutover</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#111827; --text:#e5e7eb; --muted:#a7b0c2; --border:#2c364f; --accent:#7dd3fc; --good:#34d399; --warn:#fbbf24; --danger:#f87171; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at top left,rgba(125,211,252,.12),transparent 30rem),var(--bg); color:var(--text); font:16px/1.58 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1100px,calc(100% - 32px)); margin:auto; padding:32px 0 72px; }
+    header,section,article { background:rgba(17,24,39,.88); border:1px solid var(--border); border-radius:18px; padding:22px; margin:16px 0; }
+    header { background:linear-gradient(135deg,rgba(125,211,252,.14),rgba(167,139,250,.12)); }
+    h1,h2,h3 { color:#f8fafc; line-height:1.2; } h1 { margin:0 0 10px; font-size:clamp(1.8rem,4vw,2.4rem); } h2 { margin:0 0 12px; } h3 { color:var(--accent); }
+    a { color:var(--accent); } .muted { color:var(--muted); } .good { color:var(--good); } .status { display:inline-flex; border:1px solid rgba(251,191,36,.55); border-radius:999px; padding:5px 10px; color:var(--warn); background:rgba(15,23,42,.76); font-weight:700; }
+    code,pre { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; } code { background:#0f172a; border:1px solid var(--border); border-radius:6px; padding:.06rem .28rem; } pre { overflow:auto; background:#0f172a; border:1px solid var(--border); border-radius:12px; padding:16px; }
+    table { width:100%; border-collapse:collapse; margin:12px 0; } th,td { border:1px solid var(--border); padding:10px 12px; vertical-align:top; } th { background:rgba(125,211,252,.1); text-align:left; }
+    .toc { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:8px 16px; } .toc a { color:var(--muted); text-decoration:none; } .toc a:hover { color:var(--accent); }
+    .decision { border:1px solid rgba(251,191,36,.45); background:rgba(251,191,36,.08); border-radius:14px; padding:14px 16px; margin:12px 0; }
+    .decision h3 { color:var(--warn); margin-top:0; }
+    .phase { border-color:#355378; }
+    .checklist { list-style:none; padding-left:0; } .checklist li { margin:7px 0; } .checklist input { accent-color:var(--accent); }
+  </style>
+</head>
+<body>
+<main>
+  <header id="summary">
+    <div class="status">Policy-updated — readiness refresh required before another execution handoff</div>
+    <h1>Delivery Dual-Plan Hydrate Prewalk Cutover</h1>
+    <p class="muted">Split Doct-reviewed operator plans from derived agentic plans, sync them at readiness, and replace the Pi Full cold-start impl handoff with an authorized Luna hydrate → prewalk executor protocol — while keeping post-impl review and completeness.</p>
+    <p><strong>Request:</strong> put the dual-plan + hydrate/prewalk adjustment together and try it out as an opt-in Pi Full trial.</p>
+  </header>
+
+  <section id="contents"><h2>Contents</h2><nav class="toc">
+    <a href="#product-context">Product-owner context</a>
+    <a href="#whats-new">What’s new</a>
+    <a href="#goal">Goal</a>
+    <a href="#decision-attention">Decision attention</a>
+    <a href="#progress">Progress</a>
+    <a href="#why">Why this exists</a>
+    <a href="#authority">Authority and inputs</a>
+    <a href="#reality">Current implementation reality</a>
+    <a href="#alignment">Product intent alignment</a>
+    <a href="#decisions">Locked decisions</a>
+    <a href="#contract-inventory">Contract inventory</a>
+    <a href="#acceptance">Acceptance criteria</a>
+    <a href="#bdd">BDD scenarios</a>
+    <a href="#coverage">Test coverage matrix</a>
+    <a href="#phases">Execution phases</a>
+    <a href="#verification">Verification strategy</a>
+    <a href="#order">Delivery order</a>
+    <a href="#non-goals">Non-goals</a>
+    <a href="#post-merge">Post-merge delivery / operations</a>
+    <a href="#resume">Resume instructions</a>
+    <a href="#review-record">Review record</a>
+    <a href="#deviations">Decisions / deviations log</a>
+  </nav></section>
+
+  <section id="product-context">
+    <h2>Product-owner context</h2>
+    <p><strong>Situation:</strong> Delivery’s reviewed HTML plans are one document asked to serve two audiences. Operators review product intent, decisions, and acceptance in Doct. Agents also need files, RED contracts, verify recipes, and resume detail. At implementation cutover, Pi Full starts a <em>new</em> session pinned to Luna/Terra and asks it to re-read the plan — without prewalk’s commit → todo → continue → checklist framing.</p>
+    <p><strong>Why now:</strong> Live review of the delivery cutover showed three material gaps: (1) new-tab plan handoff is not same-thread continuity, (2) delivery does not inject prewalk’s behavioral framing, and (3) the single plan overloads human review. The proposed dual-plan + hydrate/prewalk shape addresses all three.</p>
+    <p><strong>Key conclusion:</strong> This is an <strong>operator/agent workflow product defect</strong> in ai-configs delivery tooling, not a stale-test problem and not an external customer app bug.</p>
+    <table id="impact-table"><tr><th>Dimension</th><th>Impact</th></tr>
+      <tr><td>Customers</td><td>Internal operators and coding agents get clearer plans and a stronger plan→code cutover. No external end-customer product behavior changes.</td></tr>
+      <tr><td>Runtime product behavior</td><td>Opt-in Pi Full runs use dual plans + Luna hydrate → executor prewalk. Default legacy Pi Full and OMP Lite remain unchanged until a later cutover decision.</td></tr>
+      <tr><td>Security / permissions</td><td>No change to auth boundaries. Fail closed on dual-plan sync drift, unauthorized runtimes, or failed transitions.</td></tr>
+      <tr><td>Testing / release confidence</td><td>New CLI/protocol tests prove fingerprints, two-phase profiles, transition receipts, and skill doctrine. Existing Pi Full and OMP Lite regression tests remain required.</td></tr>
+      <tr><td>Deployment / migration</td><td>No service deployment. Existing ledgers without the trial flag keep today’s single-profile handoff. No forced migration of historical plans.</td></tr>
+    </table>
+    <p><strong>UI-impact triage:</strong> <code>text-only</code> / workflow guidance. Doct operator plans become leaner; agentic companions are local artifacts (not browser-reviewed). Herdr labels and delivery CLI text change. No hosted application UI.</p>
+  </section>
+
+  <section id="whats-new">
+    <h2>What’s new</h2>
+    <p><strong>Behavior promise:</strong> On the opt-in Pi Full trial path, operators review a plain-language plan in Doct; agents execute from a derived agentic twin kept in sync at readiness; implementation starts on Luna xhigh by default, hydrates that twin into todos + continuation framing, then switches in-session to the authorized executor — with completeness still after implementation.</p>
+    <table><tr><th>Audience-visible change</th><th>Before</th><th>After (trial path)</th></tr>
+      <tr><td>Operator reviewing in Doct</td><td>One dense HTML plan mixes product story with file/test machinery.</td><td>Operator plan stays human-facing; agent-only detail lives in a derived companion outside Doct comments.</td></tr>
+      <tr><td>Implementation cutover</td><td>New tab cold-starts on a single pinned model and re-reads the plan.</td><td>Dedicated Luna hydrate tab loads the agentic plan, materializes todos, arms continue/checklist, then transitions to the authorized executor in the same session.</td></tr>
+      <tr><td>Observable result</td><td>Profile honesty is one runtime for the whole impl agent.</td><td>Ledger authorizes an explicit hydrate→executor pair and records transition state; post-impl review/completeness unchanged.</td></tr>
+    </table>
+    <p>Preserved guarantees: delivery remains explicit opt-in; OMP Lite same-session path unchanged; Doct remains the only browser-review surface for operator plans; completeness and autoreview remain after implementation.</p>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Ship an <strong>opt-in Pi Full trial</strong> that (1) authors an operator plan + derived agentic companion, (2) gates execution readiness on sync of both fingerprints, (3) launches a dedicated Luna xhigh hydrate owner that applies a delivery-owned prewalk variant, then (4) continues through today’s implementation reviews and completeness — without rewriting OMP Lite or forcing all Pi Full runs onto the new path yet.</p>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <p>Oracle disposition on cutover shape: <strong>accepted</strong> — dedicated Luna hydrate tab with a pre-authorized two-phase hydrate→executor contract (not <code>adopt-current-runtime</code>).</p>
+    <p><strong>No open product decisions.</strong> D1 and D2 locked below from the trial request (“put this plan together and try it out”) plus recommended options. Remaining uncertainty is technical (transition-receipt wiring) and fails closed in Phase 4 tests.</p>
+
+    <div class="decision" id="decision-d1-mutation-boundary">
+      <h3>Locked — D1: Hydrator mutation boundary = D1-A</h3>
+      <p>Hydrator may perform the first successful <code>edit</code>/<code>write</code> (current prewalk trigger); executor inherits the thread afterward. Ledger must state the hydrator owns the trigger edit. Chosen for smallest trialable protocol change; reversible later if a before-mutation switch is preferred.</p>
+    </div>
+
+    <div class="decision" id="decision-d2-executor-set">
+      <h3>Locked — D2: Trial executor profile set = D2-A</h3>
+      <p>Readiness selects <code>luna-xhigh</code> by default and may select <code>terra-high</code> when correctness depends materially on technical judgment. Unresolved consequential choices escalate to Oracle rather than routing implementation through Sol.</p>
+    </div>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="checklist">
+      <li><label><input type="checkbox" checked /> P1 — Dual-plan artifact contract and fingerprints</label></li>
+      <li><label><input type="checkbox" checked /> P2 — Planning/readiness sync gate</label></li>
+      <li><label><input type="checkbox" checked /> P3 — Two-phase hydrate→executor ledger and launch</label></li>
+      <li><label><input type="checkbox" /> P4 — Delivery-owned prewalk/hydrate protocol</label></li>
+      <li><label><input type="checkbox" /> P5 — Skill and guidance cutover for opt-in trial</label></li>
+      <li><label><input type="checkbox" /> P6 — CLI/tests and golden-path verification</label></li>
+    </ul>
+    <p>Only these executable phases carry checkboxes. Post-merge observation is non-blocking and outside this plan.</p>
+  </section>
+
+  <section id="why">
+    <h2>Why this exists</h2>
+    <p>Delivery already solved <em>ownership</em> handoff (planning tab → dedicated impl tab) and <em>profile pinning</em>. It did not solve (a) human vs agent plan audiences, (b) same-thread hydrate→executor framing, or (c) truthful accounting for an expected mid-impl model transition. Prewalk already solved framing inside one session; this plan composes those strengths without pretending today’s cold-start is the same thing.</p>
+  </section>
+
+  <section id="authority">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li><strong>Source request:</strong> operator plan + agentic plan + readiness sync + Luna hydrate with prewalk continuation + keep review/completeness; “put this plan together and try it out.”</li>
+      <li><strong>Repo guidance:</strong> root <code>AGENTS.md</code> (ai-configs stays on <code>main</code>; delivery is explicit opt-in; driving agent owns implementation; Pi Full uses Sol medium planner readiness).</li>
+      <li><strong>Product intent:</strong> no <code>thoughts/specs/product_intent.md</code>; conversation + product-principles + delivery/prewalk source are governing inputs.</li>
+      <li><strong>Oracle:</strong> hydrate cutover consultation recommending Option A + two-phase pre-authorized pair; disposition <code>accepted</code>.</li>
+      <li><strong>Plan authority:</strong> this HTML file is the implementation contract; Doct is the review-state surface.</li>
+    </ul>
+  </section>
+
+  <section id="reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>skills/reviewed-html-plan/SKILL.md</code> + <code>planning-workflow</code> produce one Doct-reviewed HTML plan that mixes PO context with phase/file/test machinery.</li>
+      <li><code>skills/delivery-run/scripts/delivery</code> fingerprints <code>ledger.plan</code> only; <code>IMPLEMENTATION_PROFILES</code> distinguish current planner profiles (<code>luna-xhigh</code>, <code>terra-high</code>) from the retained legacy Sol profile; <code>verify-implementation-profile</code> requires live runtime == selected profile; <code>adopt-current-runtime</code> is a manual override at <code>EXECUTION_READY</code>.</li>
+      <li><code>launch_implementation_agent</code> / <code>implementation_agent_prompt</code> start a new Herdr Pi tab, instruct read plan + verify + <code>/skill:run-plan</code>, and retire the planning tab on verify.</li>
+      <li><code>_pi/packages/pi-prewalk/extensions/prewalk.ts</code> arms plan/continue/checklist steers; todo-gates; switches on first successful <code>edit</code>/<code>write</code>; strips plan/continue custom messages after disarm; keeps checklist; early-disarms without checklist when models are equal.</li>
+      <li>Delivery skill explicitly treats prewalk as a separate named workflow, not part of the delivery cycle.</li>
+      <li>Tests live primarily in <code>skills/delivery-run/tests/test_delivery_cli.sh</code>.</li>
+    </ul>
+  </section>
+
+  <section id="alignment">
+    <h2>Product intent alignment</h2>
+    <p>Golden path: author operator plan → derive agentic twin → Doct review on operator plan only → readiness sync-checks both → opt-in Pi Full launches Luna hydrate owner → todos + continuation framing → authorized executor transition → run-plan through reviews/completeness/PR. Defaults stay safe: legacy path unchanged unless the trial flag/profile is selected. Sync drift and unauthorized runtimes fail closed with agent-legible next commands. Hydration must not silently reopen product decisions.</p>
+  </section>
+
+  <section id="decisions">
+    <h2>Locked decisions</h2>
+    <ul>
+      <li><strong>Dual artifacts:</strong> Operator plan = Doct-reviewed HTML/Markdoc. Agentic plan = derived local companion (not browser-reviewed). Shared stable IDs for AC/BDD/phases.</li>
+      <li><strong>Derivation, not peer dual-authoring:</strong> Operator edits flow down; agentic-only detail is additive annotation. Readiness rejects orphan agentic scope and uncovered operator obligations.</li>
+      <li><strong>Cutover shape (Oracle accepted):</strong> Dedicated new Herdr tab for hydrate owner; planning tab still retires after hydrate verify; OMP Lite unchanged.</li>
+      <li><strong>Two-phase authorization:</strong> Ledger records exact hydrate runtime + exact executor runtime up front. Expected transition is not <code>adopt-current-runtime</code>.</li>
+      <li><strong>Hydrate runtime for trial:</strong> Pin <code>openai-codex/gpt-5.6-luna</code> at <code>xhigh</code>. The planner may select <code>openai-codex/gpt-5.6-terra</code> at <code>high</code> when correctness depends materially on technical judgment; unresolved consequential choices escalate to Oracle.</li>
+      <li><strong>Planner profile meaning:</strong> Independent Sol planner’s <code>luna-xhigh</code>/<code>terra-high</code> recommendation selects the <strong>executor</strong>, not the hydrate launch model.</li>
+      <li><strong>Same-model case:</strong> If hydrate and executor resolve equally, still advance protocol phases and inject executor checklist (do not copy prewalk’s silent early disarm).</li>
+      <li><strong>Hydrate authority:</strong> Hydration reconstructs execution state (orientation, todos, risks, continuation). Material contract contradictions revoke readiness; hydration must not invent product decisions.</li>
+      <li><strong>Rollout:</strong> Opt-in Pi Full trial only. Default Pi Full remains today’s single-profile launch until a later explicit cutover plan.</li>
+      <li><strong>Post-impl gates:</strong> Scoped review, PM outcome, autoreview, completeness, verify, PR remain required on the trial path as they are for Pi Full today.</li>
+      <li><strong>D1:</strong> D1-A — hydrator owns first successful edit/write trigger; executor continues after switch.</li>
+      <li><strong>D2:</strong> D2-A — trial executor defaults to <code>luna-xhigh</code>; use <code>terra-high</code> for judgment-heavy correctness; Sol is not a new implementation profile.</li>
+    </ul>
+  </section>
+
+  <section id="contract-inventory">
+    <h2>Contract and distributed-integration inventory</h2>
+    <p><strong>Coverage declaration:</strong> exhaustive for the opt-in trial family across delivery CLI, reviewed-html-plan / planning-workflow guidance, run-plan verify instructions, and the delivery-owned prewalk/hydrate protocol. Source of truth for runtime/transition gates is the delivery CLI parser + ledger schema; skills are consumers; prewalk extension is the in-session transition mechanism (or a delivery-specific fork/wrapper called out in Phase 4).</p>
+    <table>
+      <tr><th>Source of truth</th><th>Producers / sites</th><th>Consumers / proof</th><th>Reconciliation</th></tr>
+      <tr><td>Operator plan path + SHA-256</td><td>reviewed-html-plan authoring; <code>delivery set --plan</code></td><td>Doct register/update; planTech fingerprint; hydrate prompt</td><td>Single operator artifact; Doct is review state only</td></tr>
+      <tr><td>Agentic companion path + SHA-256</td><td>derivation step during planning</td><td>readiness sync gate; hydrate prompt; IMPLEMENTING</td><td>Must pair with operator hash; stale companion fails closed</td></tr>
+      <tr><td>Sync evidence record</td><td>planning agent + delivery record</td><td><code>EXECUTION_READY</code> / planTech</td><td>Shared ID coverage + no orphan agentic scope</td></tr>
+      <tr><td>Two-phase profile pair</td><td>planTech + implementationApproval</td><td>launch, verify-hydrate, transition receipt, verify-executor, run-plan</td><td>Immutable after authorize; outside-pair runtimes need explicit override reason</td></tr>
+      <tr><td>Transition state machine</td><td>delivery ledger + prewalk/protocol extension</td><td>show/check, IMPLEMENTING gate, recovery commands</td><td>Failed transition has actionable state; no silent Luna continuation after failed switch</td></tr>
+      <tr><td>Prewalk steer messages</td><td>delivery-owned hydrate protocol</td><td>hydrate session framing</td><td>Adapted nudges: materialize todos from agentic plan (not “write a plan from scratch”)</td></tr>
+    </table>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance criteria</h2>
+    <ul>
+      <li id="ac-1"><strong>AC1:</strong> Opt-in trial can author an operator plan without agent-only file/test machinery in the Doct-facing body, and a derived agentic companion that carries that machinery with shared IDs.</li>
+      <li id="ac-2"><strong>AC2:</strong> <code>EXECUTION_READY</code> on the trial path rejects missing/stale agentic companion, fingerprint mismatch, or failed sync coverage.</li>
+      <li id="ac-3"><strong>AC3:</strong> Trial launch starts Luna xhigh hydrate owner with both plan paths; after hydrate verify, planning tab retires as today.</li>
+      <li id="ac-4"><strong>AC4:</strong> Hydrate materializes 5–9 execution todos from the agentic plan and arms continue + executor checklist framing without reopening product decisions.</li>
+      <li id="ac-5"><strong>AC5:</strong> Authorized executor transition is recorded as protocol state (not manual adopt); live runtime after transition matches the authorized executor; same-model pairs still inject checklist.</li>
+      <li id="ac-6"><strong>AC6:</strong> Legacy Pi Full (no trial flag) and OMP Lite behavior remain regression-green.</li>
+      <li id="ac-7"><strong>AC7:</strong> Post-impl autoreview/completeness requirements remain documented and enforced on the trial path.</li>
+    </ul>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-sync-pass">
+      <h3>BDD1 — Sync pass</h3>
+      <p>Given paired operator and agentic plans with matching shared IDs and current hashes,<br />
+      When readiness records sync pass and the Sol planner returns PLAN_EXECUTION_READY with an executor profile,<br />
+      Then <code>delivery stage EXECUTION_READY</code> authorizes the hydrate→executor pair and launches the Luna hydrate tab.</p>
+    </article>
+    <article id="bdd-sync-fail">
+      <h3>BDD2 — Sync fail closed</h3>
+      <p>Given an agentic companion missing an operator AC ID or with a stale hash,<br />
+      When the agent attempts <code>EXECUTION_READY</code>,<br />
+      Then delivery rejects with an agent-legible fix command and does not launch implementation.</p>
+    </article>
+    <article id="bdd-hydrate-transition">
+      <h3>BDD3 — Hydrate then executor</h3>
+      <p>Given an authorized trial launch on Luna xhigh with executor terra-high,<br />
+      When hydrate completes todos and the D1-selected mutation/transition boundary fires successfully,<br />
+      Then ledger reaches executor-verified and subsequent code work runs on terra-high with checklist framing present.</p>
+    </article>
+    <article id="bdd-transition-fail">
+      <h3>BDD4 — Transition failure</h3>
+      <p>Given hydrate armed for an executor but the model switch fails,<br />
+      When verify/transition checks run,<br />
+      Then ledger records failed-transition (not silent Luna continuation) and emits a recovery command.</p>
+    </article>
+    <article id="bdd-legacy">
+      <h3>BDD5 — Legacy path untouched</h3>
+      <p>Given a Pi Full ledger without the trial flag,<br />
+      When EXECUTION_READY launches implementation,<br />
+      Then today’s single-profile launch + verify-implementation-profile contract still holds.</p>
+    </article>
+    <article id="bdd-no-replan">
+      <h3>BDD6 — Hydrate must not replan product intent</h3>
+      <p>Given a locked operator decision in the operator plan,<br />
+      When hydrate finds an apparent contradiction in the repo,<br />
+      Then it revokes/blocks readiness rather than silently changing product intent.</p>
+    </article>
+  </section>
+
+  <section id="coverage">
+    <h2>Test coverage matrix</h2>
+    <table>
+      <tr><th>AC / BDD</th><th>Layer</th><th>Primary suite / proof</th></tr>
+      <tr><td>AC1, AC2, BDD1, BDD2</td><td>CLI unit/integration</td><td><code>skills/delivery-run/tests/test_delivery_cli.sh</code> dual-plan fingerprint + sync gate cases</td></tr>
+      <tr><td>AC3–AC5, BDD3, BDD4</td><td>CLI + protocol tests</td><td>fake-Herdr launch/verify + transition-state assertions; prewalk/protocol unit coverage for same-model checklist</td></tr>
+      <tr><td>AC6, BDD5</td><td>Regression</td><td>Existing Pi Full + OMP Lite delivery CLI tests remain green</td></tr>
+      <tr><td>AC7</td><td>Doctrine + CLI</td><td>Skill wording tests + completeness stage still required on trial path</td></tr>
+      <tr><td>BDD6</td><td>Skill contract + CLI</td><td>Hydrate prompt/doctrine asserts revoke-on-contradiction; optional CLI helper for revoke reason</td></tr>
+    </table>
+  </section>
+
+  <section id="phases">
+    <h2>Execution phases</h2>
+
+    <article class="phase" id="phase-p1">
+      <h3>P1 — Dual-plan artifact contract and fingerprints</h3>
+      <h4>End State</h4>
+      <p>Canonical paths and hashing exist for operator plan + derived agentic companion; shared ID rules are documented and testable.</p>
+      <h4>Tests first</h4>
+      <p>Add failing tests for companion path resolution, SHA-256 pair helpers, and “missing companion” detection in delivery.</p>
+      <h4>Work</h4>
+      <ul>
+        <li>Define companion path convention, e.g. <code>thoughts/plans/&lt;slug&gt;.agentic.html</code> (or Markdoc equivalent) beside the operator plan.</li>
+        <li>Specify operator-only vs agentic-only section inventory.</li>
+        <li>Extend ledger fields for <code>agenticPlan</code>, <code>operatorPlanSha256</code>, <code>agenticPlanSha256</code>, <code>planSync</code>.</li>
+        <li>Companion authorship: derived by the planning agent under updated <code>reviewed-html-plan</code> / planning-workflow guidance (not a separate CLI generator and not dual-hand-authored).</li>
+      </ul>
+      <h4>Expected files</h4>
+      <p><code>skills/delivery-run/scripts/delivery</code>, <code>skills/delivery-run/tests/test_delivery_cli.sh</code>, planning skill docs (minimal contract text).</p>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None. Path convention technical default: <code>.agentic.html</code> unless Markdoc becomes the repo default.</p>
+      <h4>Verify</h4>
+      <pre>bash skills/delivery-run/tests/test_delivery_cli.sh</pre>
+    </article>
+
+    <article class="phase" id="phase-p2">
+      <h3>P2 — Planning/readiness sync gate</h3>
+      <h4>End State</h4>
+      <p>reviewed-html-plan / planning-workflow instruct dual authorship; delivery rejects EXECUTION_READY without current sync pass binding both fingerprints.</p>
+      <h4>Tests first</h4>
+      <p>Failing CLI tests for sync pass/fail; doctrine wording tests for operator-vs-agentic split.</p>
+      <h4>Work</h4>
+      <ul>
+        <li>Update <code>skills/reviewed-html-plan/SKILL.md</code>, <code>skills/planning-workflow</code> consumers / repo AGENTS notes as needed.</li>
+        <li>Wire <code>delivery record planSync</code> (or equivalent) and bind into planTech / EXECUTION_READY checks.</li>
+        <li>Ensure Doct registration still targets only the operator plan.</li>
+      </ul>
+      <h4>Expected files</h4>
+      <p><code>skills/reviewed-html-plan/SKILL.md</code>, <code>skills/delivery-run/SKILL.md</code>, <code>skills/delivery-run/scripts/delivery</code>, tests.</p>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None.</p>
+      <h4>Verify</h4>
+      <pre>bash skills/delivery-run/tests/test_delivery_cli.sh
+rg -n "agentic|planSync|operator plan" skills/reviewed-html-plan/SKILL.md skills/delivery-run/SKILL.md</pre>
+    </article>
+
+    <article class="phase" id="phase-p3">
+      <h3>P3 — Two-phase hydrate→executor ledger and launch</h3>
+      <h4>End State</h4>
+      <p>Trial ledgers authorize hydrate=<code>openai-codex/gpt-5.6-luna:xhigh</code> + executor from the Luna/Terra set; launch prompt targets hydrate; verify is two-phase; planning tab retires after hydrate-verified.</p>
+      <h4>Tests first</h4>
+      <p>Failing tests for pair authorization, launch on Luna, reject executor-only verify before transition, reject adopt as the happy path.</p>
+      <h4>Work</h4>
+      <ul>
+        <li>Replace singular trial profile fields with explicit hydrate/executor pair + transition states: authorized → hydrate-launched → hydrate-verified → executor-armed → executor-transitioned → executor-verified (plus failed-transition).</li>
+        <li>Rewrite <code>implementation_agent_prompt</code> for hydrate: read operator+agentic plans, hydrate, todos, arm protocol; do not start run-plan code phases until executor-verified (except D1-A trigger edit if selected).</li>
+        <li>Keep <code>adopt-current-runtime</code> only for true out-of-pair overrides.</li>
+      </ul>
+      <h4>Expected files</h4>
+      <p><code>skills/delivery-run/scripts/delivery</code>, <code>skills/delivery-run/SKILL.md</code>, <code>skills/run-plan/SKILL.md</code>, tests.</p>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None. D2-A defaults the executor to Luna and permits Terra for judgment-heavy correctness; D1-A allows hydrate verify to precede or include the trigger mutation as documented in the protocol.</p>
+      <h4>Verify</h4>
+      <pre>bash skills/delivery-run/tests/test_delivery_cli.sh</pre>
+    </article>
+
+    <article class="phase" id="phase-p4">
+      <h3>P4 — Delivery-owned prewalk/hydrate protocol</h3>
+      <h4>End State</h4>
+      <p>A delivery-owned hydrate protocol (wrapper or extension change) adapts prewalk steers: commit/todos from agentic plan; continue; checklist after transition; same-model checklist preserved; transition receipts writable to delivery ledger.</p>
+      <h4>Tests first</h4>
+      <p>Unit tests for adapted prompts, same-model checklist, and transition receipt shape; CLI tests that IMPLEMENTING requires executor-verified.</p>
+      <h4>Work</h4>
+      <ul>
+        <li>Do not silently reuse stock “write a complete plan from scratch” nudge; replace with agentic-plan hydration instructions.</li>
+        <li>Implement D1-selected trigger boundary.</li>
+        <li>Emit/observe transition receipts strong enough that prompt-only “please adopt yourself” is not accepted as equivalent evidence.</li>
+      </ul>
+      <h4>Expected files</h4>
+      <p><code>_pi/packages/pi-prewalk/</code> and/or a delivery-specific protocol module under <code>skills/delivery-run/</code> or <code>_pi/packages/</code>; install wiring; tests.</p>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None. D1-A selected: switch on first successful edit/write after todos.</p>
+      <h4>Verify</h4>
+      <pre>bash skills/delivery-run/tests/test_delivery_cli.sh
+# plus any new prewalk/protocol unit test command introduced in this phase</pre>
+    </article>
+
+    <article class="phase" id="phase-p5">
+      <h3>P5 — Skill and guidance cutover for opt-in trial</h3>
+      <h4>End State</h4>
+      <p>Agents can discover and arm the trial path without arming it accidentally; AGENTS/delivery/run-plan/reviewed-html-plan wording agree; prewalk remains a separate generic tool for non-delivery use.</p>
+      <h4>Tests first</h4>
+      <p>Doctrine wording tests: trial is opt-in; legacy path wording preserved; hydrate must not replan.</p>
+      <h4>Work</h4>
+      <ul>
+        <li>Update <code>skills/delivery-run/SKILL.md</code>, <code>skills/run-plan/SKILL.md</code>, <code>AGENTS.md</code> / <code>_pi</code> prompts as needed.</li>
+        <li>Document how to try a run end-to-end.</li>
+      </ul>
+      <h4>Expected files</h4>
+      <p>Skill/prompt/AGENTS surfaces listed above; wording tests in <code>test_delivery_cli.sh</code>.</p>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None.</p>
+      <h4>Verify</h4>
+      <pre>bash skills/delivery-run/tests/test_delivery_cli.sh
+rg -n "hydrate|agentic plan|two-phase|opt-in" skills/delivery-run/SKILL.md skills/run-plan/SKILL.md AGENTS.md</pre>
+    </article>
+
+    <article class="phase" id="phase-p6">
+      <h3>P6 — CLI/tests and golden-path verification</h3>
+      <h4>End State</h4>
+      <p>Full AC/BDD matrix green; legacy regressions green; trial dry-run/scripted path demonstrates sync → hydrate launch → transition → executor-verified.</p>
+      <h4>Tests first</h4>
+      <p>Already added in prior phases; this phase closes gaps and runs the full suite.</p>
+      <h4>Work</h4>
+      <ul>
+        <li>Fill any remaining BDD cases.</li>
+        <li>Add a documented trial recipe (commands only; no mandatory live Herdr dependency in CI — fake-Herdr for automation).</li>
+        <li>Confirm completeness/autoreview doctrine still required after executor-verified.</li>
+      </ul>
+      <h4>Expected files</h4>
+      <p>Tests + short trial recipe in skill or plan-adjacent validation note if needed.</p>
+      <h4>Open questions / decision dependencies</h4>
+      <p>None.</p>
+      <h4>Verify</h4>
+      <pre>bash skills/delivery-run/tests/test_delivery_cli.sh</pre>
+    </article>
+  </section>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ul>
+      <li><strong>Primary:</strong> <code>bash skills/delivery-run/tests/test_delivery_cli.sh</code></li>
+      <li><strong>Doctrine:</strong> ripgrep assertions already used in that suite for skill wording.</li>
+      <li><strong>Residual risk:</strong> Live Herdr + real <code>pi.setModel</code> transition receipt may need one manual opt-in smoke after merge; CI uses fake-Herdr. If receipts cannot be observed automatically, Phase 4 must fail closed rather than accept prompt-only evidence.</li>
+      <li><strong>Not examined until smoke:</strong> cost/latency of Luna hydrate on large agentic plans; qualitative rediscovery reduction vs legacy cold-start (capture in delivery reflect after first real trial).</li>
+    </ul>
+  </section>
+
+  <section id="order">
+    <h2>Delivery order</h2>
+    <p>P1 → P2 → P3 → P4 → P5 → P6. P4 may spike early against a feature flag once P3 state names exist, but cannot merge without P1/P2 fingerprints. After PR merge, run one real opt-in delivery smoke on a throwaway feature (post-merge, non-blocking).</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Replacing OMP Lite or forcing all Pi Full runs onto hydrate in this slice.</li>
+      <li>Making agentic companions Doct-commentable.</li>
+      <li>Adding Kimi K3 or making Luna optional rather than the default executor in this trial.</li>
+      <li>Removing completeness, autoreview, or PM outcome.</li>
+      <li>Generic prewalk redesign for non-delivery sessions beyond what’s required for the delivery-owned protocol.</li>
+    </ul>
+  </section>
+
+  <section id="post-merge">
+    <h2>Post-merge delivery / operations</h2>
+    <p><strong>Non-blocking.</strong> After merge: one operator-armed delivery run on a small internal change to measure rediscovery/first-pass errors vs legacy; capture <code>delivery reflect</code> notes. No deployment gate. Owner: implementing agent / Aaron. Pending smoke must not block PR creation.</p>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions</h2>
+    <p>Read this plan fully. D1-A and D2-A are locked; D2-A now means Luna xhigh by default with Terra high for judgment-heavy correctness. Identify the first unchecked Progress item and continue phase-by-phase. Do not implement until explicit execution-ready review completes (Doct <strong>Request execution-ready review</strong> or a direct operator instruction).</p>
+  </section>
+
+  <section id="review-record">
+    <h2>Review record</h2>
+    <ul>
+      <li>Oracle hydrate-cutover consultation: Option A + two-phase pair — disposition <code>accepted</code>.</li>
+      <li>D1-A / D2-A locked 2026-08-11 from trial continuation (recommended options).</li>
+      <li>PM readiness: pass — operator/agent split, golden-path trial opt-in, fail-closed sync/transition, post-impl gates preserved; no product Decision Required left open.</li>
+      <li>Policy-refresh plan readiness: <code>PLAN_NEEDS_REVISION</code>; the stale Sol selection was replaced with the current Luna/Terra policy, but the refresh identified follow-up gaps in shared-ID coverage, transition-state coverage, failed-switch receipt semantics, opt-in boundary tests, and the executable prewalk unit-test command. Artifact: <code>thoughts/validation/delivery-dual-plan-hydrate-prewalk-plan-review.md</code>.</li>
+    </ul>
+  </section>
+
+  <section id="deviations">
+    <h2>Decisions / deviations log</h2>
+    <ul>
+      <li>2026-08-11 — Locked dedicated Luna hydrate tab + two-phase authorization per Oracle; opted for trial/opt-in rather than default replacement.</li>
+      <li>2026-08-11 — Updated D2-A: Luna xhigh is the default executor; Terra high is the judgment-heavy alternative; unresolved consequential choices escalate to Oracle.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

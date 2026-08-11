@@ -899,7 +899,7 @@ test_readiness_review_requires_explicit_request() {
   code=$?
   set -e
   [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "requires --implementation-profile" || return 1
+  printf '%s' "$out" | rg -q "current planner implementation profile" || return 1
 
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/plan-review.md --summary "independent Sol medium plan review" \
@@ -1052,8 +1052,8 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary "independent Sol medium plan review" \
     --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
-    --verdict PLAN_EXECUTION_READY --implementation-profile sol-medium \
-    --implementation-rationale "critical correctness is difficult to validate fully before merge" >/dev/null
+    --verdict PLAN_EXECUTION_READY --implementation-profile luna-xhigh \
+    --implementation-rationale "Luna xhigh is the default implementation profile" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" bootstrap --refresh >/dev/null
   rg -q "Automatic execution-ready handoff" "$repo/.delivery/AGENT_BRIEF.md" || return 1
@@ -1097,8 +1097,8 @@ d=json.load(open(sys.argv[1]))
 review=d["evidence"]["planTech"]
 approval=d["implementationApproval"]
 profile=d["implementationProfile"]
-assert review["implementationProfile"] == "sol-medium"
-assert "difficult to validate" in review["implementationRationale"]
+assert review["implementationProfile"] == "luna-xhigh"
+assert "default implementation" in review["implementationRationale"]
 assert approval["status"] == "approved"
 assert approval["source"] == "chat"
 assert approval["profile"] == "manual"
@@ -1220,10 +1220,10 @@ assert d["implementationProfile"]["status"] == "pending"
 PY
 }
 
-test_normal_work_routes_to_terra_high() {
-  local repo="$TMP_ROOT/terra-implementation-repo"
-  local fake_bin="$TMP_ROOT/fake-herdr-terra"
-  local herdr_log="$TMP_ROOT/fake-herdr-terra.log"
+test_normal_work_routes_to_luna_xhigh() {
+  local repo="$TMP_ROOT/luna-implementation-repo"
+  local fake_bin="$TMP_ROOT/fake-herdr-luna"
+  local herdr_log="$TMP_ROOT/fake-herdr-luna.log"
   make_repo "$repo"
   mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation" "$fake_bin"
   printf '<article data-plan>testable implementation</article>\n' >"$repo/thoughts/plans/x.html"
@@ -1244,14 +1244,14 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary "testable work" --reviewer planner \
     --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
-    --implementation-profile terra-high \
-    --implementation-rationale "deterministic unit and integration tests exercise the changed behavior" >/dev/null
+    --implementation-profile luna-xhigh \
+    --implementation-rationale "deterministic tests support the default Luna implementation" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
 
   PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-deep HERDR_PANE_ID=w-deep:p1 \
     "$DELIVERY" --cwd "$repo" approve-implementation --source chat \
-    --summary "Operator approved the planner-selected Terra implementation profile" >/dev/null
-  rg -q "agent start implementation-.* --kind pi --pane w-deep:p2 --timeout 60000 -- --provider openai-codex --model gpt-5.6-terra --thinking high" "$herdr_log" || return 1
+    --summary "Operator approved the planner-selected Luna implementation profile" >/dev/null
+  rg -q "agent start implementation-.* --kind pi --pane w-deep:p2 --timeout 60000 -- --provider openai-codex --model gpt-5.6-luna --thinking xhigh" "$herdr_log" || return 1
 
   python3 - "$repo/.delivery/ledger.json" <<'PY'
 import json,sys
@@ -1259,15 +1259,15 @@ d=json.load(open(sys.argv[1]))
 review=d["evidence"]["planTech"]
 approval=d["implementationApproval"]
 profile=d["implementationProfile"]
-assert review["implementationProfile"] == "terra-high"
-assert "deterministic" in review["implementationRationale"]
-assert approval["profile"] == "terra-high"
-assert approval["model"] == "openai-codex/gpt-5.6-terra"
-assert approval["reasoningLevel"] == "high"
-assert profile["profile"] == "terra-high"
+assert review["implementationProfile"] == "luna-xhigh"
+assert "default Luna" in review["implementationRationale"]
+assert approval["profile"] == "luna-xhigh"
+assert approval["model"] == "openai-codex/gpt-5.6-luna"
+assert approval["reasoningLevel"] == "xhigh"
+assert profile["profile"] == "luna-xhigh"
 assert profile["provider"] == "openai-codex"
-assert profile["model"] == "gpt-5.6-terra"
-assert profile["reasoningLevel"] == "high"
+assert profile["model"] == "gpt-5.6-luna"
+assert profile["reasoningLevel"] == "xhigh"
 PY
 
   set +e
@@ -1691,17 +1691,23 @@ test_skill_doctrine_wording() {
   rg -q "approve-implementation" "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "plan-reviewer-execution-ready" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "openai-codex/gpt-5.6-sol" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q "agentic companion|planSync" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q "planSync" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "delivery-hydrate|hydrate-transition" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "delivery-hydrate|hydrate-transition" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q 'subagent_type.*planner|`planner` subagent' "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "reasoning-level medium --verdict PLAN_EXECUTION_READY" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "Automatic execution-ready handoff" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "verify-implementation-profile" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "start-implementation" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q '"luna-xhigh"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q '"terra-high"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q '"provider": "openai-codex"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q '"model": "gpt-5.6-luna"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q '"model": "gpt-5.6-terra"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   ! rg -q 'deepseek-v4-flash' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q '"sol-medium"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
-  rg -q 'DEFAULT_IMPLEMENTATION_PROFILE = "terra-high"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
+  rg -q 'DEFAULT_IMPLEMENTATION_PROFILE = "luna-xhigh"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "COMPLETENESS_REVIEW" "$ROOT/skills/delivery-run/SKILL.md" || return 1
   rg -q "xai/grok-4.5:high" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "completion-review" "$ROOT/_pi/prompts/delivery:run.md" || return 1
@@ -1946,7 +1952,7 @@ assert (d["runtime"], d["workflowProfile"]) == ("pi", "pi-full"), d
 assert any(x.get("type") == "runtime_backfill" for x in d["history"]), d["history"]
 PY
 
-  out="$(env -u OMPCODE -u PI_CODING_AGENT_DIR DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$ambiguous_repo" init --issue NOD-NO-MARKER 2>&1)"
+  out="$(env -u OMPCODE -u PI_CODING_AGENT_DIR -u PI_MODEL -u PI_PROVIDER -u PI_SESSION_ID -u PI_REASONING_LEVEL DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$ambiguous_repo" init --issue NOD-NO-MARKER 2>&1)"
   code=$?
   set -e
   [[ "$code" -ne 0 ]] || return 1
@@ -2110,6 +2116,264 @@ PY
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage DONE >/dev/null
 }
 
+test_dual_plan_companion_path_and_fingerprints() {
+  local repo="$TMP_ROOT/dual-plan-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<html><title>Op</title><h1>Op</h1><p id="ac-1">AC1</p></html>\n' >"$repo/thoughts/plans/demo.html"
+  # Missing companion: helpers report the derived path and a problem.
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --slug demo --plan thoughts/plans/demo.html >/dev/null
+  python3 - "$DELIVERY" "$repo" <<'PY' || exit 1
+import runpy, sys
+from pathlib import Path
+delivery, root_s = sys.argv[1:3]
+root = Path(root_s)
+m = runpy.run_path(delivery)
+assert m["derive_agentic_companion_relpath"]("thoughts/plans/demo.html") == "thoughts/plans/demo.agentic.html"
+assert m["derive_agentic_companion_relpath"]("thoughts/plans/demo.markdoc") == "thoughts/plans/demo.agentic.markdoc"
+assert m["derive_agentic_companion_relpath"]("thoughts/plans/demo.agentic.html") == "thoughts/plans/demo.agentic.html"
+ledger = {"plan": "thoughts/plans/demo.html", "agenticPlan": None}
+assert m["expected_agentic_plan_relpath"](ledger) == "thoughts/plans/demo.agentic.html"
+assert m["resolve_agentic_plan_path"](ledger, root) is None
+problem = m["agentic_companion_problem"](ledger, root)
+assert problem and "demo.agentic.html" in problem
+op, ag = m["operator_and_agentic_plan_sha256_pair"](ledger, root)
+assert op and ag is None
+PY
+  show="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" show)"
+  printf '%s' "$show" | rg -q "agentic!:.*demo.agentic.html" || return 1
+
+  # Create companion and set explicitly; hashes pair and problem clears.
+  printf '<html><title>Agentic</title><h1>Agentic</h1><p id="ac-1">AC1 files</p></html>\n' \
+    >"$repo/thoughts/plans/demo.agentic.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" set --agentic-plan thoughts/plans/demo.agentic.html >/dev/null
+  python3 - "$DELIVERY" "$repo" <<'PY' || exit 1
+import json, runpy, sys
+from pathlib import Path
+delivery, root_s = sys.argv[1:3]
+root = Path(root_s)
+m = runpy.run_path(delivery)
+ledger = json.load(open(root / ".delivery" / "ledger.json"))
+assert ledger.get("agenticPlan") == "thoughts/plans/demo.agentic.html"
+assert m["resolve_agentic_plan_path"](ledger, root) is not None
+assert m["agentic_companion_problem"](ledger, root) is None
+op, ag = m["operator_and_agentic_plan_sha256_pair"](ledger, root)
+assert op and ag and op != ag
+PY
+  show="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" show)"
+  printf '%s' "$show" | rg -q "agentic:   thoughts/plans/demo.agentic.html" || return 1
+  printf '%s' "$show" | rg -q "agenticSha:" || return 1
+
+  # Auto-derive on set --plan when companion already exists and agenticPlan cleared.
+  python3 - "$repo" <<'PY'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1]) / ".delivery" / "ledger.json"
+d = json.load(open(path)); d["agenticPlan"] = None; json.dump(d, open(path, "w"), indent=2)
+PY
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" set --plan thoughts/plans/demo.html >/dev/null
+  python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("agenticPlan")=="thoughts/plans/demo.agentic.html"' \
+    "$repo/.delivery/ledger.json" || return 1
+}
+
+test_dual_plan_sync_gate_blocks_execution_ready() {
+  local repo="$TMP_ROOT/dual-plan-sync-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans" "$repo/thoughts/validation"
+  printf '<html><title>Op</title><h1>Op</h1></html>\n' >"$repo/thoughts/plans/sync.html"
+  printf '<html><title>Ag</title><h1>Ag</h1></html>\n' >"$repo/thoughts/plans/sync.agentic.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --runtime pi --slug sync \
+    --plan thoughts/plans/sync.html >/dev/null
+  # init should auto-set agenticPlan when companion exists
+  python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("agenticPlan")=="thoughts/plans/sync.agentic.html"' \
+    "$repo/.delivery/ledger.json" || return 1
+
+  # Without planSync, EXECUTION_READY fails even with readiness+planTech.
+  printf 'ready\n' >"$repo/thoughts/validation/sync-plan-review.md"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass \
+    --summary "explicit" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
+    --artifact thoughts/validation/sync-plan-review.md \
+    --summary "ok" --reviewer planner --model openai-codex/gpt-5.6-sol \
+    --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --implementation-profile terra-high \
+    --implementation-rationale "deterministic tests cover the changed CLI behavior" >/dev/null
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY --hold 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "planSync=pass" || return 1
+
+  # planSync pass unlocks the dual-plan gate (hold avoids Herdr launch).
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planSync --status pass \
+    --summary "operator and agentic IDs cover AC1" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY --hold >/dev/null
+  [[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["stage"])' "$repo/.delivery/ledger.json")" == "EXECUTION_READY" ]] || return 1
+
+  # Stale agentic companion invalidates sync for further protected transitions.
+  printf '\nchanged\n' >>"$repo/thoughts/plans/sync.agentic.html"
+  set +e
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING 2>&1)"
+  code=$?
+  set -e
+  [[ "$code" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "agentic companion changed after the recorded planSync pass|planSync=pass" || return 1
+
+  # Legacy path without agenticPlan still reaches EXECUTION_READY --hold without planSync.
+  local legacy="$TMP_ROOT/dual-plan-legacy-repo"
+  make_repo "$legacy"
+  mkdir -p "$legacy/thoughts/plans" "$legacy/thoughts/validation"
+  printf '<html><title>Solo</title><h1>Solo</h1></html>\n' >"$legacy/thoughts/plans/solo.html"
+  printf 'ready\n' >"$legacy/thoughts/validation/solo-plan-review.md"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$legacy" init --runtime pi --slug solo \
+    --plan thoughts/plans/solo.html >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$legacy" record planReadinessRequest --status pass \
+    --summary "explicit" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$legacy" record planTech --status pass \
+    --artifact thoughts/validation/solo-plan-review.md \
+    --summary "ok" --reviewer planner --model openai-codex/gpt-5.6-sol \
+    --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --implementation-profile terra-high \
+    --implementation-rationale "deterministic tests cover the changed CLI behavior" >/dev/null
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$legacy" stage EXECUTION_READY --hold >/dev/null
+}
+
+test_dual_plan_hydrate_protocol_phases() {
+  local repo="$TMP_ROOT/dual-plan-hydrate-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<html><title>Op</title><h1>Op</h1></html>\n' >"$repo/thoughts/plans/h.html"
+  printf '<html><title>Ag</title><h1>Ag</h1></html>\n' >"$repo/thoughts/plans/h.agentic.html"
+  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --runtime pi --slug hydrate \
+    --plan thoughts/plans/h.html >/dev/null
+  python3 - "$DELIVERY" "$repo" <<'PY' || exit 1
+import argparse, copy, json, os, runpy, sys
+from pathlib import Path
+delivery, root_s = sys.argv[1:3]
+root = Path(root_s)
+m = runpy.run_path(delivery)
+ledger = json.load(open(root / ".delivery" / "ledger.json"))
+# Pretend planner selected terra-high as executor.
+ledger.setdefault("evidence", {})["planTech"] = {
+    "status": "pass",
+    "implementationProfile": "terra-high",
+    "implementationRationale": "tests cover CLI",
+}
+executor = m["selected_implementation_profile"](ledger)
+m["ensure_hydrate_protocol"](ledger, executor=executor)
+assert ledger["hydrateProtocol"]["status"] == "active"
+assert ledger["hydrateProtocol"]["phase"] == "authorized"
+assert ledger["hydrateProtocol"]["hydrateProfile"] == "luna-xhigh"
+assert ledger["hydrateProtocol"]["executorProfile"] == "terra-high"
+# Launch-time required runtime is hydrate Luna, not the executor.
+selected = m["approved_implementation_profile"](ledger)
+assert selected["profile"] == "luna-xhigh"
+assert selected["model"] == "gpt-5.6-luna"
+assert m["hydrate_protocol_entry_problem"](ledger)
+m["set_hydrate_protocol_phase"](ledger, "hydrate-launched")
+assert m["hydrate_protocol_entry_problem"](ledger)
+m["set_hydrate_protocol_phase"](ledger, "hydrate-verified")
+assert m["hydrate_protocol_entry_problem"](ledger)  # IMPLEMENTING waits for executor-verified
+# After executor transition, approved runtime flips to terra-high.
+m["set_hydrate_protocol_phase"](ledger, "executor-verified")
+assert m["hydrate_protocol_entry_problem"](ledger) is None
+selected = m["approved_implementation_profile"](ledger)
+assert selected["profile"] == "terra-high"
+assert selected["model"] == "gpt-5.6-terra"
+prompt = m["implementation_agent_prompt"](ledger, root)
+assert "Agentic companion" in prompt
+assert "Hydrate runtime" in prompt
+assert "hydrate-transition.json" in prompt
+assert "--delivery-hydrate" in prompt
+assert "adopt-current-runtime" in prompt and "happy-path" in prompt
+assert m["prewalk_into_spec_for_executor"](selected) == "terra"
+# Receipt gate: executor-verified requires a valid prewalk receipt.
+receipt_path = m["hydrate_receipt_path"](root)
+assert m["hydrate_transition_receipt_problem"](ledger, root, for_executor=True)
+receipt_path.parent.mkdir(parents=True, exist_ok=True)
+receipt = {
+    "version": m["HYDRATE_RECEIPT_VERSION"],
+    "sameModel": False,
+    "checklistInjected": True,
+    "triggerTool": "edit",
+    "to": {"provider": "openai-codex", "model": "gpt-5.6-terra"},
+}
+receipt_path.write_text(json.dumps(receipt))
+assert m["hydrate_transition_receipt_problem"](ledger, root, for_executor=True) is None
+receipt["triggerTool"] = "read"
+receipt_path.write_text(json.dumps(receipt))
+assert "edit or write" in m["hydrate_transition_receipt_problem"](ledger, root, for_executor=True)
+receipt["triggerTool"] = "edit"
+receipt_path.write_text(json.dumps(receipt))
+m["record_hydrate_transition_receipt"](ledger, root)
+assert ledger["hydrateProtocol"]["transitionReceipt"]["checklistInjected"] is True
+
+# Exercise the real verifier for the same-model Luna hydrate -> Luna executor case.
+same_root = root / "same-model"
+(same_root / "thoughts/plans").mkdir(parents=True)
+(same_root / "thoughts/validation").mkdir(parents=True)
+(same_root / "thoughts/plans/h.html").write_text("<html><title>Op</title><h1>Op</h1></html>\n")
+(same_root / "thoughts/plans/h.agentic.html").write_text("<html><title>Ag</title><h1>Ag</h1></html>\n")
+same = copy.deepcopy(ledger)
+same["stage"] = "EXECUTION_READY"
+same["worktree"] = str(same_root)
+same["plan"] = "thoughts/plans/h.html"
+same["agenticPlan"] = "thoughts/plans/h.agentic.html"
+same["evidence"] = copy.deepcopy(same.get("evidence") or {})
+same["evidence"]["planReadinessRequest"] = {"status": "pass", "planSha256": None}
+same["evidence"]["planTech"] = {
+    "status": "pass", "artifact": "thoughts/validation/review.md", "reviewer": "planner",
+    "model": "openai-codex/gpt-5.6-sol", "reasoningLevel": "medium",
+    "verdict": "PLAN_EXECUTION_READY", "implementationProfile": "luna-xhigh",
+    "implementationRationale": "same-model verification test", "planSha256": None,
+}
+same["evidence"]["planSync"] = {"status": "pass", "operatorPlanSha256": None, "agenticPlanSha256": None}
+(same_root / "thoughts/validation/review.md").write_text("PLAN_EXECUTION_READY\n")
+plan_hash = m["plan_sha256"](same, same_root)
+agentic_hash = m["agentic_plan_sha256"](same, same_root)
+same["evidence"]["planReadinessRequest"]["planSha256"] = plan_hash
+same["evidence"]["planTech"]["planSha256"] = plan_hash
+same["evidence"]["planSync"].update({"operatorPlanSha256": plan_hash, "agenticPlanSha256": agentic_hash})
+same["implementationApproval"] = {
+    "status": "approved", "planSha256": plan_hash, "model": "openai-codex/gpt-5.6-luna",
+    "reasoningLevel": "xhigh", "profile": "luna-xhigh", "selectionSource": "planner",
+}
+same["implementationProfile"] = {
+    "status": "ready", "profile": "luna-xhigh", "provider": "openai-codex",
+    "model": "gpt-5.6-luna", "modelRef": "openai-codex/gpt-5.6-luna", "reasoningLevel": "xhigh",
+    "planSha256": plan_hash, "agentName": "same-model-agent", "paneId": "wSame:p1",
+}
+same_executor = m["implementation_profile_spec"]("luna-xhigh")
+m["ensure_hydrate_protocol"](same, executor=same_executor)
+m["set_hydrate_protocol_phase"](same, "hydrate-verified")
+same_receipt = {
+    "version": m["HYDRATE_RECEIPT_VERSION"], "sameModel": True, "checklistInjected": True,
+    "triggerTool": "edit", "to": {"provider": "openai-codex", "model": "gpt-5.6-luna"},
+}
+(same_root / ".delivery").mkdir(parents=True)
+(same_root / ".delivery/hydrate-transition.json").write_text(json.dumps(same_receipt))
+same["hydrateProtocol"]["transitionReceipt"] = same_receipt
+same_path = same_root / ".delivery/ledger.json"
+same_path.write_text(json.dumps(same, indent=2))
+assert same["evidence"]["planReadinessRequest"]["status"] == "pass", same["evidence"]
+assert m["plan_readiness_request_problem"](same, same_root) is None, same["evidence"]["planReadinessRequest"]
+os.environ.update({
+    "PI_PROVIDER": "openai-codex", "PI_MODEL": "gpt-5.6-luna", "PI_REASONING_LEVEL": "xhigh",
+    "HERDR_PANE_ID": "wSame:p1", "DELIVERY_SKIP_HERDR": "1",
+})
+os.environ.pop("DELIVERY_HYDRATE_RECEIPT", None)
+result = m["cmd_verify_implementation_profile"](argparse.Namespace(
+    cwd=str(same_root), ledger=str(same_path), adopt_current_runtime=False, reason=None,
+))
+assert result == 0
+verified = json.loads(same_path.read_text())
+assert verified["hydrateProtocol"]["phase"] == "executor-verified", verified["hydrateProtocol"]
+assert verified["implementationProfile"]["model"] == "gpt-5.6-luna", verified["implementationProfile"]
+json.dump(ledger, open(root / ".delivery" / "ledger.json", "w"), indent=2)
+PY
+}
+
 run_test test_workspace_owner_handoff_and_witness_close
 run_test test_plan_title_extraction_and_advisory
 run_test test_omp_runtime_profile_detection_and_legacy_backfill
@@ -2148,7 +2412,7 @@ run_test test_init_cannot_bypass_authorization_stages
 run_test test_bootstrap_cannot_bypass_authorization_stages
 run_test test_approval_cannot_bypass_readiness_request
 run_test test_held_execution_ready_requires_manual_authorization
-run_test test_normal_work_routes_to_terra_high
+run_test test_normal_work_routes_to_luna_xhigh
 run_test test_execution_ready_auto_starts_without_operator_approval
 run_test test_implementation_agent_launch_race_reconciles_live_agent
 run_test test_done_rejects_incomplete_implementation_run
@@ -2158,6 +2422,9 @@ run_test test_docs_use_labeled_tabs_not_pane_splits
 run_test test_operator_attention_reconciles_delivery_state
 run_test test_skill_doctrine_wording
 run_test test_delivery_skill_explicit_opt_in
+run_test test_dual_plan_companion_path_and_fingerprints
+run_test test_dual_plan_sync_gate_blocks_execution_ready
+run_test test_dual_plan_hydrate_protocol_phases
 
 printf '\n%d/%d passed\n' "$TESTS_PASSED" "$TESTS_RUN"
 if [[ "$TESTS_FAILED" -ne 0 ]]; then

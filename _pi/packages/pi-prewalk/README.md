@@ -43,11 +43,14 @@ User entries merge over package defaults by profile name. Set `defaultProfile` t
 ## Usage
 
 ```bash
-pi --prewalk                      # arm default profile (flash unless overridden)
+pi --prewalk                      # arm generic default profile (flash unless overridden)
 pi --prewalk-into terra           # arm named profile
 pi --prewalk-into sol:high        # profile with thinking override
 pi --prewalk-into openai-codex/gpt-5.6-terra:high   # ad-hoc model
+pi --delivery-hydrate --prewalk-into terra   # delivery dual-plan hydrate framing
 ```
+
+Generic prewalk keeps its independent Flash default. Delivery-owned `--delivery-hydrate` is pinned by the delivery ledger to Luna xhigh and uses an adapted hydrate nudge (materialize from the agentic plan; do not reopen product decisions), injects the executor checklist even when hydrate and executor resolve to the same model, and writes `.delivery/hydrate-transition.json` at the first successful `edit`/`write`.
 
 In-session:
 
@@ -57,6 +60,7 @@ In-session:
 /prewalk terra              # arm named profile
 /prewalk flash:medium       # profile + thinking override
 /prewalk default sol        # session default profile
+/prewalk delivery-hydrate terra   # delivery hydrate mode into terra
 /prewalk openai-codex/gpt-5.6-terra:high
 /prewalk status
 /prewalk off
@@ -72,4 +76,4 @@ Do not `pi install npm:pi-prewalk`; the installer removes that registration.
 
 ## Upstream
 
-Based on lukeramsden/pi-prewalk MIT. Local changes: named profiles, user config merge, baked DeepSeek Flash default, session default switching.
+Based on lukeramsden/pi-prewalk MIT. Local changes: named profiles, user config merge, baked DeepSeek Flash default, session default switching, delivery-hydrate mode + transition receipts.

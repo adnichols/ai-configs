@@ -47,8 +47,8 @@ class OmpAgentRosterTest(unittest.TestCase):
             "IMPLEMENTATION_PROFILE",
             "CWD",
             "REVIEW_ROOT",
+            "luna-xhigh",
             "terra-high",
-            "sol-medium",
         ):
             self.assertIn(required, body)
 
@@ -56,7 +56,7 @@ class OmpAgentRosterTest(unittest.TestCase):
         config = (OMP / "config.yml").read_text()
         metadata, body = split_frontmatter(AGENTS / "completeness.md")
 
-        self.assertIn("default: openai-codex/gpt-5.6-terra:high", config)
+        self.assertIn("default: openai-codex/gpt-5.6-luna:xhigh", config)
         self.assertIn("smol: openai-codex/gpt-5.6-luna:xhigh", config)
         self.assertIn("advisor: opencode-zen/deepseek-v4-flash:high", config)
         self.assertIn("Trouble: xai/grok-4.5:high", config)
@@ -87,7 +87,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "runtime: omp",
             "workflowProfile: omp-lite",
             "current OMP agent as owner",
-            "openai-codex/gpt-5.6-terra:high",
+            "openai-codex/gpt-5.6-luna:xhigh",
             "xai/grok-4.5:high",
             "exact seven-line envelope",
         ):

@@ -61,8 +61,107 @@ class PiPrewalkProfilesTest(unittest.TestCase):
             "profiles",
             "default ",
             "sessionDefaultProfile",
+            "delivery-hydrate",
+            "DELIVERY_HYDRATE_PROMPT",
+            "writeHydrateTransitionReceipt",
+            "syncDeliveryRuntimeEnvironment",
+            "hydrate-transition.json",
+            "checklistInjected",
         ):
             self.assertIn(needle, source)
+
+    def test_delivery_hydrate_prompt_differs_from_default_plan_nudge(self) -> None:
+        source = EXTENSION.read_text()
+        self.assertIn("hydrate this delivery implementation session", source)
+        self.assertIn("Do not reopen operator decisions", source)
+        self.assertIn("Stop and write the complete plan", source)
+        self.assertNotEqual(
+            source.find("DELIVERY_HYDRATE_PROMPT"),
+            source.find("PREWALK_PLAN_PROMPT"),
+        )
+
+    def test_write_hydrate_transition_receipt_via_node(self) -> None:
+        script = r"""
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { pathToFileURL } = require("url");
+
+async function main() {
+  const root = process.argv[1];
+  const ext = path.join(root, "_pi/packages/pi-prewalk/extensions/prewalk.ts");
+  let mod;
+  try {
+    const jitiPath = require.resolve("jiti", {
+      paths: [
+        path.join(process.env.HOME || "", ".pi/agent/npm/node_modules"),
+        path.join(root, "node_modules"),
+      ],
+    });
+    const jiti = require(jitiPath);
+    const load = jiti(__filename, { interopDefault: true });
+    mod = load(ext);
+  } catch (err) {
+    try {
+      mod = await import(pathToFileURL(ext).href);
+    } catch (err2) {
+      console.log("SKIP:" + String(err2 && err2.message ? err2.message : err2));
+      process.exit(0);
+    }
+  }
+  const { writeHydrateTransitionReceipt, hydrateReceiptPath, syncDeliveryRuntimeEnvironment } = mod;
+  if (typeof writeHydrateTransitionReceipt !== "function" || typeof syncDeliveryRuntimeEnvironment !== "function") {
+    throw new Error("hydrate helpers missing");
+  }
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "hydrate-receipt-"));
+  process.env.DELIVERY_HYDRATE_RECEIPT = path.join(tmp, "hydrate-transition.json");
+  const written = writeHydrateTransitionReceipt({
+    fromProvider: "openai-codex",
+    fromModel: "gpt-5.6-sol",
+    toProvider: "openai-codex",
+    toModel: "gpt-5.6-terra",
+    thinkingLevel: "high",
+    profileName: "terra",
+    triggerTool: "edit",
+    sameModel: false,
+    checklistInjected: true,
+    cwd: tmp,
+  });
+  const payload = JSON.parse(fs.readFileSync(written, "utf8"));
+  if (payload.version !== "dual-plan-hydrate-v1") throw new Error("bad version");
+  if (payload.checklistInjected !== true) throw new Error("checklistInjected");
+  if (payload.sameModel !== false) throw new Error("sameModel");
+  if (payload.to.model !== "gpt-5.6-terra") throw new Error("to.model");
+  if (hydrateReceiptPath(tmp) !== process.env.DELIVERY_HYDRATE_RECEIPT) {
+    throw new Error("hydrateReceiptPath override failed");
+  }
+  process.env.PI_PROVIDER = "old-provider";
+  process.env.PI_MODEL = "old-model";
+  process.env.PI_REASONING_LEVEL = "low";
+  syncDeliveryRuntimeEnvironment({ provider: "openai-codex", model: "gpt-5.6-terra", thinkingLevel: "high" });
+  if (process.env.PI_PROVIDER !== "openai-codex" || process.env.PI_MODEL !== "gpt-5.6-terra" || process.env.PI_REASONING_LEVEL !== "high") {
+    throw new Error("delivery runtime environment was not synchronized");
+  }
+  console.log("OK");
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+"""
+        proc = subprocess.run(
+            ["node", "-e", script, str(ROOT)],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        out = (proc.stdout or "") + (proc.stderr or "")
+        if "SKIP:" in out:
+            self.skipTest(f"node could not load prewalk.ts: {out.strip()}")
+        self.assertEqual(0, proc.returncode, out)
+        self.assertIn("OK", proc.stdout)
 
     def test_install_sh_vendors_prewalk_not_npm(self) -> None:
         install = (ROOT / "install.sh").read_text()

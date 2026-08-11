@@ -15,7 +15,7 @@ Execute a single plan document (spec + phases + progress) directly in this sessi
 
 ## Model routing
 
-Keep GPT-5.6 Sol medium as the normal direct-execution parent and code-writing route.
+Keep GPT-5.6 Luna xhigh as the normal direct-execution parent and code-writing route. Use GPT-5.6 Terra high when correctness depends materially on technical judgment beyond the available evidence.
 
 Use `scout` before implementation whenever target files or contracts are not already known. Each scout call must receive one evidence question; named allowed files/directories, commands, or authoritative sources; explicit exclusions; and a stop condition. Its authority is read-only: no edits, diagnosis, synthesis, or recommendations. It must return concise evidence with file:line, command-output, or source citations plus any concrete blocker directly to the driving session, create no artifact, and stop when the question is answered or blocked. The driving agent owns synthesis and implementation decisions.
 

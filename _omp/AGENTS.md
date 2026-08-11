@@ -61,11 +61,14 @@ operator explicitly asks for the delivery workflow.
 - OMP Lite keeps the driving OMP session as implementation owner after
   `EXECUTION_READY`; it does not launch a Pi implementation agent, require Pi
   model-profile verification, or use Pi slash commands.
-- OMP Lite's driving session uses `openai-codex/gpt-5.6-terra:high` for
-  implementation, scoped review, and PM outcome review. Use the configured
-  OMP `@planner` for bounded independent plan readiness and `@reviewer` for
-  material pre-PR review. The driving OMP session owns all edits, tests, Git
-  state, and fixes.
+- OMP Lite's driving session uses `openai-codex/gpt-5.6-luna:xhigh` by
+  default for implementation, scoped review, and PM outcome review. Use
+  `openai-codex/gpt-5.6-terra:high` when correctness depends materially on
+  technical judgment. Use the configured OMP `@planner` for bounded
+  independent plan readiness and `@reviewer` for material pre-PR review. The
+  driving OMP session owns all edits, tests, Git state, and fixes; unresolved
+  consequential choices escalate to Oracle rather than routing implementation
+  through Sol.
 - OMP completeness uses
   `@completeness` on `xai/grok-4.5:high`. First run
   `delivery completion-review --prepare --reviewer-identity

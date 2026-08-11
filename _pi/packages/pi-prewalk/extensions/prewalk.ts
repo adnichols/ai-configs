@@ -17,7 +17,7 @@
  *   /prewalk provider/id[:level] → ad-hoc model
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,6 +54,17 @@ Then, only once the plan above is complete, in the SAME reply, capture it as a t
 
 This is a checkpoint, not a final answer: do not end your turn on the plan alone — after recording the todo list, continue the task; do not stop here.`;
 
+const DELIVERY_HYDRATE_PROMPT = `Stop and hydrate this delivery implementation session in your NEXT reply — before further product exploration. Do not reopen operator decisions; the reviewed dual-plan contract is already locked.
+
+First, materialize execution state from the agentic companion (and operator plan for product boundaries):
+
+- Remaining work in order, with exact files, symbols, commands, and checks from the agentic plan.
+- Risks/edge cases still open and how each will be verified (specific commands/expected outputs). Never modify tests or verification assets to make checks pass.
+- What is already done, briefly, so work is not repeated.
+- If the repo contradicts the locked contract, stop and revoke readiness rather than inventing a product decision.
+
+Then, in the SAME reply, capture 5-9 code-changing/verifying todos only. After recording todos, continue — do not end the turn on hydration alone. Under D1-A, the first successful edit/write may happen on this hydrate model; the executor inherits the thread afterward.`;
+
 const PREWALK_CONTINUE_PROMPT = `Continue the task now — do not end your turn here.`;
 
 const PREWALK_CHECKLIST_PROMPT = `Before you consider this task finished, verify:
@@ -65,6 +76,7 @@ const PREWALK_CHECKLIST_PROMPT = `Before you consider this task finished, verify
 Do not claim the task is complete until you have done these three checks.`;
 
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+type PrewalkMode = "default" | "delivery-hydrate";
 
 interface PrewalkProfile {
 	label?: string;
@@ -87,6 +99,7 @@ interface ArmedPrewalk {
 	target: Model<Api>;
 	thinkingLevel?: ThinkingLevel;
 	profileName?: string;
+	mode: PrewalkMode;
 }
 
 const THINKING_LEVELS = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
@@ -191,6 +204,60 @@ function modelLabel(model: Model<Api>): string {
 
 function modelsAreEqual(a: Model<Api> | undefined, b: Model<Api>): boolean {
 	return a !== undefined && a.provider === b.provider && a.id === b.id;
+}
+
+/** Exported for unit tests / delivery receipt contract. */
+export function hydrateReceiptPath(cwd = process.cwd()): string {
+	const override = process.env.DELIVERY_HYDRATE_RECEIPT?.trim();
+	if (override) return override;
+	return join(cwd, ".delivery", "hydrate-transition.json");
+}
+
+/** Keep delivery's child CLI runtime probe aligned with an in-process Pi model switch. */
+export function syncDeliveryRuntimeEnvironment(input: {
+	provider: string;
+	model: string;
+	thinkingLevel?: string;
+}): void {
+	process.env.PI_PROVIDER = input.provider;
+	process.env.PI_MODEL = input.model;
+	if (input.thinkingLevel) process.env.PI_REASONING_LEVEL = input.thinkingLevel;
+}
+
+/** Exported for unit tests. */
+export function writeHydrateTransitionReceipt(input: {
+	fromProvider?: string;
+	fromModel?: string;
+	toProvider: string;
+	toModel: string;
+	thinkingLevel?: string;
+	profileName?: string;
+	triggerTool: string;
+	sameModel: boolean;
+	checklistInjected: boolean;
+	cwd?: string;
+}): string {
+	const path = hydrateReceiptPath(input.cwd);
+	mkdirSync(dirname(path), { recursive: true });
+	const payload = {
+		version: "dual-plan-hydrate-v1",
+		at: new Date().toISOString(),
+		from: {
+			provider: input.fromProvider ?? null,
+			model: input.fromModel ?? null,
+		},
+		to: {
+			provider: input.toProvider,
+			model: input.toModel,
+			thinkingLevel: input.thinkingLevel ?? null,
+		},
+		profileName: input.profileName ?? null,
+		triggerTool: input.triggerTool,
+		sameModel: input.sameModel,
+		checklistInjected: input.checklistInjected,
+	};
+	writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+	return path;
 }
 
 function totalCost(model: Model<Api>): number {
@@ -344,6 +411,7 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 	let continuePending = false;
 	let todoSeen = false;
 	let sessionDefaultProfile: string | undefined;
+	let sessionMode: PrewalkMode = "default";
 	let config = loadPrewalkConfig();
 
 	pi.registerFlag("prewalk", {
@@ -354,6 +422,12 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 	pi.registerFlag("prewalk-into", {
 		description: "Arm prewalk into a profile name or provider/id[:thinking]",
 		type: "string",
+	});
+	pi.registerFlag("delivery-hydrate", {
+		description:
+			"Use delivery dual-plan hydrate framing (agentic-plan todos + checklist even on same-model; write .delivery/hydrate-transition.json)",
+		type: "boolean",
+		default: false,
 	});
 
 	function reloadConfig(): LoadedConfig {
@@ -368,18 +442,32 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 		todoSeen = false;
 	}
 
+	function activeMode(): PrewalkMode {
+		if (armed?.mode) return armed.mode;
+		if (sessionMode === "delivery-hydrate") return "delivery-hydrate";
+		if (process.env.DELIVERY_HYDRATE?.trim() === "1") return "delivery-hydrate";
+		return "default";
+	}
+
 	function steerPlanNudge(): void {
+		const mode = activeMode();
 		pi.sendMessage(
 			{
 				customType: PREWALK_PLAN_MESSAGE_TYPE,
-				content: PREWALK_PLAN_PROMPT,
+				content: mode === "delivery-hydrate" ? DELIVERY_HYDRATE_PROMPT : PREWALK_PLAN_PROMPT,
 				display: false,
 			},
 			{ deliverAs: "steer" },
 		);
 	}
 
-	function arm(target: Model<Api>, thinkingLevel: ThinkingLevel | undefined, profileName: string | undefined, ctx: ExtensionContext): void {
+	function arm(
+		target: Model<Api>,
+		thinkingLevel: ThinkingLevel | undefined,
+		profileName: string | undefined,
+		ctx: ExtensionContext,
+		mode: PrewalkMode = activeMode(),
+	): void {
 		if (armed) {
 			ctx.ui.notify(
 				`Prewalk: already armed for ${modelLabel(armed.target)}, waiting for the first edit/write.`,
@@ -387,19 +475,24 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 			);
 			return;
 		}
-		armed = { target, thinkingLevel, profileName };
+		armed = { target, thinkingLevel, profileName, mode };
 		planInjected = true;
 		continuePending = true;
 		steerPlanNudge();
 		const profileSuffix = profileName ? ` (profile ${profileName})` : "";
 		const thinkingSuffix = thinkingLevel ? ` with ${thinkingLevel} thinking` : "";
+		const modeSuffix = mode === "delivery-hydrate" ? " [delivery-hydrate]" : "";
 		ctx.ui.notify(
-			`Prewalk: armed for ${modelLabel(target)}${thinkingSuffix}${profileSuffix} — will switch at the first edit/write once the todo list exists.`,
+			`Prewalk: armed for ${modelLabel(target)}${thinkingSuffix}${profileSuffix}${modeSuffix} — will switch at the first edit/write once the todo list exists.`,
 			"info",
 		);
 	}
 
-	async function armFromSpec(spec: string | undefined, ctx: ExtensionContext): Promise<void> {
+	async function armFromSpec(
+		spec: string | undefined,
+		ctx: ExtensionContext,
+		mode: PrewalkMode = activeMode(),
+	): Promise<void> {
 		reloadConfig();
 		const resolved = await resolveTarget(ctx, spec, config, sessionDefaultProfile);
 		if (resolved.error || !resolved.model) {
@@ -409,18 +502,25 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 		if (resolved.warning) {
 			ctx.ui.notify(`Prewalk: ${resolved.warning}`, "warning");
 		}
-		arm(resolved.model, resolved.thinkingLevel, resolved.profileName, ctx);
+		arm(resolved.model, resolved.thinkingLevel, resolved.profileName, ctx, mode);
 	}
 
 	pi.on("session_start", async (_event, ctx) => {
 		resetState();
 		sessionDefaultProfile = undefined;
+		sessionMode = pi.getFlag("delivery-hydrate") === true ? "delivery-hydrate" : "default";
+		if (process.env.DELIVERY_HYDRATE?.trim() === "1") {
+			sessionMode = "delivery-hydrate";
+		}
 		reloadConfig();
 		const into = pi.getFlag("prewalk-into");
-		const enabled = pi.getFlag("prewalk") === true || (typeof into === "string" && into.length > 0);
+		const enabled =
+			pi.getFlag("prewalk") === true ||
+			(typeof into === "string" && into.length > 0) ||
+			sessionMode === "delivery-hydrate";
 		if (!enabled) return;
 		const spec = typeof into === "string" && into.length > 0 ? into : undefined;
-		await armFromSpec(spec, ctx);
+		await armFromSpec(spec, ctx, sessionMode);
 	});
 
 	pi.registerCommand("prewalk", {
@@ -445,13 +545,21 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 			if (lower === "status") {
 				reloadConfig();
 				const activeDefault = sessionDefaultProfile ?? config.defaultProfile;
+				const mode = activeMode();
 				const armedText = armed
-					? `armed for ${modelLabel(armed.target)}${armed.thinkingLevel ? ` with ${armed.thinkingLevel} thinking` : ""}${armed.profileName ? ` (profile ${armed.profileName})` : ""} (todo seen: ${todoSeen})`
+					? `armed for ${modelLabel(armed.target)}${armed.thinkingLevel ? ` with ${armed.thinkingLevel} thinking` : ""}${armed.profileName ? ` (profile ${armed.profileName})` : ""}${armed.mode === "delivery-hydrate" ? " [delivery-hydrate]" : ""} (todo seen: ${todoSeen})`
 					: "not armed";
 				ctx.ui.notify(
-					`Prewalk: ${armedText}. Default profile: ${activeDefault}. Profiles: ${Object.keys(config.profiles).sort().join(", ") || "(none)"}.`,
+					`Prewalk: ${armedText}. Mode: ${mode}. Default profile: ${activeDefault}. Profiles: ${Object.keys(config.profiles).sort().join(", ") || "(none)"}.`,
 					"info",
 				);
+				return;
+			}
+
+			if (lower === "delivery-hydrate" || lower.startsWith("delivery-hydrate ")) {
+				sessionMode = "delivery-hydrate";
+				const rest = arg.slice("delivery-hydrate".length).trim();
+				await armFromSpec(rest.length > 0 ? rest : undefined, ctx, "delivery-hydrate");
 				return;
 			}
 
@@ -551,9 +659,55 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 		const target = armed.target;
 		const targetThinkingLevel = armed.thinkingLevel;
 		const profileName = armed.profileName;
-		if (modelsAreEqual(ctx.model as Model<Api> | undefined, target)) {
+		const mode = armed.mode;
+		const current = ctx.model as Model<Api> | undefined;
+		const sameModel = modelsAreEqual(current, target);
+
+		const injectChecklist = (): void => {
+			pi.sendMessage(
+				{
+					customType: PREWALK_CHECKLIST_MESSAGE_TYPE,
+					content: PREWALK_CHECKLIST_PROMPT,
+					display: false,
+				},
+				{ deliverAs: "steer" },
+			);
+		};
+
+		if (sameModel) {
 			armed = undefined;
 			continuePending = false;
+			if (mode === "delivery-hydrate") {
+				if (targetThinkingLevel) pi.setThinkingLevel(targetThinkingLevel);
+				syncDeliveryRuntimeEnvironment({
+					provider: target.provider,
+					model: target.id,
+					thinkingLevel: targetThinkingLevel,
+				});
+				injectChecklist();
+				try {
+					const receiptPath = writeHydrateTransitionReceipt({
+						fromProvider: current?.provider,
+						fromModel: current?.id,
+						toProvider: target.provider,
+						toModel: target.id,
+						thinkingLevel: targetThinkingLevel,
+						profileName,
+						triggerTool: action.toolName,
+						sameModel: true,
+						checklistInjected: true,
+					});
+					ctx.ui.notify(
+						`Prewalk: same-model delivery-hydrate transition after first ${action.toolName}; checklist injected; receipt ${receiptPath}.`,
+						"info",
+					);
+				} catch (err) {
+					ctx.ui.notify(
+						`Prewalk: same-model checklist injected, but failed to write hydrate receipt: ${String(err)}`,
+						"warning",
+					);
+				}
+			}
 			return;
 		}
 
@@ -562,6 +716,23 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 			ctx.ui.notify(`Prewalk: no API key for ${modelLabel(target)}; staying on current model.`, "warning");
 			armed = undefined;
 			continuePending = false;
+			if (mode === "delivery-hydrate") {
+				try {
+					writeHydrateTransitionReceipt({
+						fromProvider: current?.provider,
+						fromModel: current?.id,
+						toProvider: target.provider,
+						toModel: target.id,
+						thinkingLevel: targetThinkingLevel,
+						profileName,
+						triggerTool: action.toolName,
+						sameModel: false,
+						checklistInjected: false,
+					});
+				} catch {
+					/* best-effort failure receipt */
+				}
+			}
 			return;
 		}
 		if (targetThinkingLevel) {
@@ -569,17 +740,40 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 		}
 		armed = undefined;
 		const profileSuffix = profileName ? ` (profile ${profileName})` : "";
+		injectChecklist();
+		if (mode === "delivery-hydrate") {
+			syncDeliveryRuntimeEnvironment({
+				provider: target.provider,
+				model: target.id,
+				thinkingLevel: targetThinkingLevel,
+			});
+			try {
+				const receiptPath = writeHydrateTransitionReceipt({
+					fromProvider: current?.provider,
+					fromModel: current?.id,
+					toProvider: target.provider,
+					toModel: target.id,
+					thinkingLevel: targetThinkingLevel,
+					profileName,
+					triggerTool: action.toolName,
+					sameModel: false,
+					checklistInjected: true,
+				});
+				ctx.ui.notify(
+					`Prewalk: switched to ${modelLabel(target)}${targetThinkingLevel ? ` with ${targetThinkingLevel} thinking` : ""}${profileSuffix} after first ${action.toolName}; receipt ${receiptPath}.`,
+					"info",
+				);
+			} catch (err) {
+				ctx.ui.notify(
+					`Prewalk: switched to ${modelLabel(target)}${profileSuffix}, but failed to write hydrate receipt: ${String(err)}`,
+					"warning",
+				);
+			}
+			return;
+		}
 		ctx.ui.notify(
 			`Prewalk: switched to ${modelLabel(target)}${targetThinkingLevel ? ` with ${targetThinkingLevel} thinking` : ""}${profileSuffix} after first ${action.toolName} call.`,
 			"info",
-		);
-		pi.sendMessage(
-			{
-				customType: PREWALK_CHECKLIST_MESSAGE_TYPE,
-				content: PREWALK_CHECKLIST_PROMPT,
-				display: false,
-			},
-			{ deliverAs: "steer" },
 		);
 	});
 
