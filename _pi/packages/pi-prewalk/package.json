@@ -1,0 +1,36 @@
+{
+  "name": "@adnichols/pi-prewalk",
+  "private": true,
+  "version": "1.2.0-ai-configs.1",
+  "description": "Vendored pi-prewalk for ai-configs: plan-then-switch execution with named model/reasoning profiles",
+  "license": "MIT",
+  "author": "lukeramsden",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lukeramsden/pi-prewalk.git"
+  },
+  "homepage": "https://github.com/lukeramsden/pi-prewalk#readme",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi-coding-agent",
+    "prewalk",
+    "model-switching",
+    "planning"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  },
+  "files": [
+    "extensions",
+    "profiles.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}

@@ -98,7 +98,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, pi-prewalk, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, vendored pi-prewalk (named execution profiles) from the stable ~/.pi/agent/local-packages/ai-configs/pi-prewalk mirror, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
@@ -3343,6 +3343,95 @@ PY
     echo -e "    ${GREEN}✓ vendored pi-cursor-sdk installed from $stable_source${NC}"
 }
 
+# Mirror and register the vendored prewalk extension (named execution profiles).
+# No runtime npm deps — plain TypeScript loaded by Pi via jiti.
+install_vendored_pi_prewalk() {
+    local source="$REPO_ROOT/_pi/packages/pi-prewalk"
+    local pi_agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+    local stable_parent="$pi_agent_dir/local-packages/ai-configs"
+    local stable_source="$stable_parent/pi-prewalk"
+    local stage_path backup_path=""
+
+    [ -d "$source" ] || { echo "Error: vendored pi-prewalk source is missing: $source" >&2; return 1; }
+    [ -f "$source/package.json" ] || { echo "Error: vendored pi-prewalk source is missing package.json" >&2; return 1; }
+    [ -f "$source/profiles.json" ] || { echo "Error: vendored pi-prewalk source is missing profiles.json" >&2; return 1; }
+    [ -f "$source/extensions/prewalk.ts" ] || { echo "Error: vendored pi-prewalk source is missing extensions/prewalk.ts" >&2; return 1; }
+    [ ! -L "$source" ] || { echo "Error: vendored pi-prewalk source must not be a symlink" >&2; return 1; }
+    [ ! -e "$source/node_modules" ] || { echo "Error: vendored pi-prewalk must not contain node_modules" >&2; return 1; }
+    grep -Fq 'deepseek-ai/DeepSeek-V4-Flash-0731' "$source/profiles.json" || {
+        echo "Error: vendored pi-prewalk profiles.json must include the DeepSeek Flash default" >&2
+        return 1
+    }
+    grep -Fq 'defaultProfile' "$source/profiles.json" || {
+        echo "Error: vendored pi-prewalk profiles.json must declare defaultProfile" >&2
+        return 1
+    }
+
+    mkdir -p "$stable_parent"
+    stage_path="$(mktemp -d "$stable_parent/.pi-prewalk-stage.XXXXXX")"
+    if ! cp -R "$source/." "$stage_path/"; then
+        rm -rf "$stage_path"
+        echo "Error: unable to stage vendored pi-prewalk" >&2
+        return 1
+    fi
+
+    if [ -e "$stable_source" ]; then
+        backup_path="$(mktemp -d "$stable_parent/.pi-prewalk-backup.XXXXXX")"
+        rmdir "$backup_path"
+        mv "$stable_source" "$backup_path"
+    fi
+    if ! mv "$stage_path" "$stable_source"; then
+        [ -z "$backup_path" ] || mv "$backup_path" "$stable_source"
+        return 1
+    fi
+
+    if ! pi install "$stable_source" 2>/dev/null; then
+        rm -rf "$stable_source"
+        [ -z "$backup_path" ] || mv "$backup_path" "$stable_source"
+        echo "Error: Pi could not register vendored pi-prewalk" >&2
+        return 1
+    fi
+
+    if ! python3 - "$pi_agent_dir/settings.json" "$stable_source" <<'PY'
+import json, os, sys, tempfile
+from pathlib import Path
+
+settings, stable = map(Path, sys.argv[1:])
+stable = stable.resolve()
+registered_source = os.path.relpath(stable, settings.parent.resolve())
+try:
+    data = json.loads(settings.read_text()) if settings.exists() else {}
+except json.JSONDecodeError as exc:
+    raise SystemExit(f"settings.json is not valid JSON: {exc}")
+if not isinstance(data, dict):
+    raise SystemExit("settings.json must contain a JSON object")
+packages = data.get("packages", [])
+if not isinstance(packages, list):
+    packages = []
+def source_of(item):
+    return item.get("source") if isinstance(item, dict) else item if isinstance(item, str) else None
+# Replace npm:pi-prewalk and any previous local fork with the stable mirror only.
+data["packages"] = [
+    item for item in packages
+    if not (isinstance(source_of(item), str) and "pi-prewalk" in source_of(item))
+]
+data["packages"].append(registered_source)
+settings.parent.mkdir(parents=True, exist_ok=True)
+with tempfile.NamedTemporaryFile("w", dir=settings.parent, delete=False, encoding="utf-8") as handle:
+    json.dump(data, handle, indent=2)
+    handle.write("\n")
+    temporary = handle.name
+os.replace(temporary, settings)
+PY
+    then
+        echo "Error: unable to pin vendored pi-prewalk in Pi settings" >&2
+        return 1
+    fi
+
+    [ -z "$backup_path" ] || rm -rf "$backup_path"
+    echo -e "    ${GREEN}✓ vendored pi-prewalk installed from $stable_source${NC}"
+}
+
 # Install npm-based pi extensions
 install_pi_npm_packages() {
     echo ""
@@ -3363,7 +3452,6 @@ install_pi_npm_packages() {
         "@howaboua/pi-explore-subagents"
         "pi-deepinfra"
         "pi-updater"
-        "pi-prewalk"
         "pi-extensible-workflows"
     )
     local deprecated_npm_packages=(
@@ -3373,6 +3461,7 @@ install_pi_npm_packages() {
         "pi-subagents"
         "pi-mcp-adapter"
         "@sting8k/pi-vcc"
+        "pi-prewalk"
         "pi-cursor-sdk"
         "lsp-pi"
         "pi-multi-pass"
@@ -3444,6 +3533,10 @@ install_pi_npm_packages() {
         return 1
     fi
 
+    if ! install_vendored_pi_prewalk; then
+        return 1
+    fi
+
     echo -e "${GREEN}  ✓ npm-based extensions processed${NC}"
 
     # @howaboua/pi-explore-subagents launches no-session RPC children by
@@ -3459,13 +3552,6 @@ install_pi_npm_packages() {
     if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_subagents_review_isolation.py"; then
         echo -e "${RED}Error: pi-subagents cannot guarantee non-isolated reviewer/planner launches${NC}" >&2
         return 1
-    fi
-
-    # pi-prewalk switches execution to a fast/cheap model after a strong model
-    # commits to a plan. Default that execution target to DeepSeek Flash so an
-    # unqualified --prewalk / /prewalk implements on the managed execution model.
-    if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_prewalk_execution_target.py"; then
-        echo -e "${YELLOW}⚠ Failed to apply pi-prewalk DeepSeek Flash execution-default patch${NC}"
     fi
 
 }

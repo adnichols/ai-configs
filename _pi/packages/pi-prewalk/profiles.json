@@ -1,0 +1,29 @@
+{
+  "defaultProfile": "flash",
+  "profiles": {
+    "flash": {
+      "label": "DeepSeek Flash (cheap execution)",
+      "provider": "deepinfra",
+      "id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "thinkingLevel": "low"
+    },
+    "terra": {
+      "label": "GPT-5.6 Terra high",
+      "provider": "openai-codex",
+      "id": "gpt-5.6-terra",
+      "thinkingLevel": "high"
+    },
+    "glm": {
+      "label": "GLM-5.2 high (DeepInfra)",
+      "provider": "deepinfra",
+      "id": "zai-org/GLM-5.2",
+      "thinkingLevel": "high"
+    },
+    "luna": {
+      "label": "GPT-5.6 Luna xhigh",
+      "provider": "openai-codex",
+      "id": "gpt-5.6-luna",
+      "thinkingLevel": "xhigh"
+    }
+  }
+}

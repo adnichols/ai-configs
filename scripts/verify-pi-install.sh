@@ -15,6 +15,7 @@ PI_LIB_DIR="$PI_AGENT_DIR/lib"
 PI_WEB_SEARCH_PATH="$PI_ROOT_DIR/web-search.json"
 PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
 PI_CURSOR_SDK_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-cursor-sdk"
+PI_PREWALK_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-prewalk"
 PI_DEFAULT_PROVIDER="deepinfra"
 PI_DEFAULT_MODEL="deepseek-ai/DeepSeek-V4-Flash-0731"
 PI_DEFAULT_MODEL_VALUE="${PI_DEFAULT_PROVIDER}/${PI_DEFAULT_MODEL}"
@@ -59,7 +60,6 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@howaboua/pi-explore-subagents"
   "npm:pi-deepinfra"
   "npm:pi-updater"
-  "npm:pi-prewalk"
   "npm:pi-extensible-workflows"
 )
 
@@ -206,7 +206,7 @@ EXPECTED_REPO_EXTENSIONS="$(cd "$REPO_ROOT" && list_find_entries "_pi/extensions
 EXPECTED_REPO_LIBRARIES="$(cd "$REPO_ROOT" && list_find_entries "_pi/lib")"
 EXPECTED_REPO_AGENTS="$(cd "$REPO_ROOT" && list_find_entries "_pi/agents")"
 INSTALLED_REPO_AGENTS="$(list_find_entries "$PI_AGENT_DIR/agents")"
-EXPECTED_LOCAL_PACKAGES="$(printf '%s\n%s' "$PI_VCC_STABLE_PACKAGE" "$PI_CURSOR_SDK_STABLE_PACKAGE")"
+EXPECTED_LOCAL_PACKAGES="$(printf '%s\n%s\n%s' "$PI_VCC_STABLE_PACKAGE" "$PI_CURSOR_SDK_STABLE_PACKAGE" "$PI_PREWALK_STABLE_PACKAGE")"
 INSTALLED_REPO_EXTENSIONS="$(list_find_entries "$PI_EXT_DIR")"
 INSTALLED_REPO_LIBRARIES="$(list_find_entries "$PI_LIB_DIR")"
 INSTALLED_PI_PACKAGES=""
@@ -307,8 +307,37 @@ if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_ex
   note_failure "pi-explore-subagents is installed without complete Herdr child-environment isolation"
 fi
 
-if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_prewalk_execution_target.py" --check >/dev/null; then
-  note_failure "pi-prewalk is installed without the DeepSeek Flash execution default"
+if [ ! -f "$PI_PREWALK_STABLE_PACKAGE/package.json" ]; then
+  note_failure "vendored pi-prewalk mirror is missing package.json: $PI_PREWALK_STABLE_PACKAGE"
+elif [ "$(python3 - "$PI_PREWALK_STABLE_PACKAGE/package.json" <<'PY'
+import json, sys
+from pathlib import Path
+try:
+    print(json.loads(Path(sys.argv[1]).read_text()).get("name", ""))
+except Exception:
+    print("")
+PY
+)" != "@adnichols/pi-prewalk" ]; then
+  note_failure "vendored pi-prewalk mirror has an unexpected package name"
+elif ! grep -Fq 'deepseek-ai/DeepSeek-V4-Flash-0731' "$PI_PREWALK_STABLE_PACKAGE/profiles.json" 2>/dev/null; then
+  note_failure "vendored pi-prewalk profiles.json is missing the DeepSeek Flash default"
+elif ! grep -Fq 'defaultProfile' "$PI_PREWALK_STABLE_PACKAGE/profiles.json" 2>/dev/null; then
+  note_failure "vendored pi-prewalk profiles.json is missing defaultProfile"
+elif ! grep -Fq 'mergePrewalkConfigs' "$PI_PREWALK_STABLE_PACKAGE/extensions/prewalk.ts" 2>/dev/null; then
+  note_failure "vendored pi-prewalk extension is missing named-profile support"
+else
+  echo "  stable pi-prewalk mirror: present with named profiles"
+fi
+
+PI_PREWALK_REGISTERED="$(printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep 'pi-prewalk' || true)"
+PI_PREWALK_COUNT="$(printf '%s\n' "$PI_PREWALK_REGISTERED" | sed '/^$/d' | wc -l | tr -d ' ')"
+if [ "$PI_PREWALK_COUNT" != "1" ]; then
+  note_failure "expected exactly one registered pi-prewalk package, found $PI_PREWALK_COUNT"
+elif ! printf '%s\n' "$PI_PREWALK_REGISTERED" | grep -Fq "local-packages/ai-configs/pi-prewalk"; then
+  note_failure "registered pi-prewalk path is not the stable mirror: $PI_PREWALK_REGISTERED"
+fi
+if printf '%s\n' "$INSTALLED_PI_PACKAGES" | grep -Fq 'npm:pi-prewalk'; then
+  note_failure "npm:pi-prewalk is still registered; expected vendored local package only"
 fi
 
 if [ ! -f "$PI_CURSOR_SDK_STABLE_PACKAGE/package.json" ]; then

@@ -1,75 +1,30 @@
 #!/usr/bin/env python3
-"""Point the pi-prewalk default execution target at DeepInfra DeepSeek Flash.
+"""Obsolete: pi-prewalk is now vendored under _pi/packages/pi-prewalk.
 
-pi-prewalk is a one-way plan -> execute switch: a strong model commits to a
-plan and seeds the todo list, then the session hands mechanical implementation
-off to a fast/cheap model at the first edit/write. The upstream npm package
-defaults that execution target to `opencode/glm-5.2`. ai-configs sets the
-managed execution default to `deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731`, so
-this patch rewrites the package default so an unqualified `pi --prewalk` /
-`/prewalk` executes on DeepSeek Flash instead of GLM-5.2.
+Named execution profiles (including the DeepSeek Flash default) live in
+profiles.json. install.sh installs the stable local-packages mirror and no
+longer patches npm:pi-prewalk.
+
+This script remains only so older docs/callers fail closed with a clear message.
 """
 
 from __future__ import annotations
 
-import os
 import sys
-from pathlib import Path
-
-OLD = '''/**
- * Default target model when none is given (upstream's `@smol` role has no
- * analogue here). GLM-5.2 on opencode — a fast/cheap implementation model.
- * Falls back to the cheapest available model if this one has no configured key.
- */
-const DEFAULT_PREWALK_TARGET = { provider: "opencode", id: "glm-5.2" };'''
-
-NEW = '''/**
- * Default target model when none is given (upstream's `@smol` role has no
- * analogue here). DeepSeek V4 Flash on deepinfra — the ai-configs execution
- * default. Falls back to the cheapest available model if this one has no
- * configured key.
- */
-const DEFAULT_PREWALK_TARGET = { provider: "deepinfra", id: "deepseek-ai/DeepSeek-V4-Flash-0731" };'''
 
 
-def package_path(agent_dir: Path) -> Path:
-    return agent_dir / "npm" / "node_modules" / "pi-prewalk" / "extensions" / "prewalk.ts"
-
-
-def main(arguments: list[str]) -> int:
-    if arguments not in ([], ["--check"]):
-        print("usage: patch_pi_prewalk_execution_target.py [--check]", file=sys.stderr)
-        return 2
-    check_only = arguments == ["--check"]
-
-    agent_dir = Path(
-        os.environ.get("PI_CODING_AGENT_DIR", os.environ.get("PI_AGENT_DIR", Path.home() / ".pi" / "agent"))
-    ).expanduser()
-    target = package_path(agent_dir)
-    if not target.is_file():
-        print(f"pi-prewalk execution-target patch skipped: package not found at {target}")
+def main(argv: list[str]) -> int:
+    check = "--check" in argv
+    msg = (
+        "pi-prewalk is vendored at _pi/packages/pi-prewalk; "
+        "edit profiles.json / extensions/prewalk.ts there instead of patching npm"
+    )
+    if check:
+        print(f"pi-prewalk patch obsolete (ok): {msg}")
         return 0
-
-    source = target.read_text(encoding="utf-8")
-    if NEW in source:
-        print(f"pi-prewalk DeepSeek Flash execution default verified: {target}")
-        return 0
-    if check_only:
-        print(
-            f"pi-prewalk verification failed: DeepSeek Flash execution default is absent from {target}",
-            file=sys.stderr,
-        )
-        return 1
-    if OLD not in source:
-        print(
-            f"pi-prewalk patch refused: expected upstream DEFAULT_PREWALK_TARGET block not found in {target}",
-            file=sys.stderr,
-        )
-        return 1
-
-    target.write_text(source.replace(OLD, NEW, 1), encoding="utf-8")
-    print(f"patched pi-prewalk to execute on DeepSeek Flash by default: {target}")
-    return 0
+    print(msg, file=sys.stderr)
+    print("Run: ./install.sh --pi", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":
