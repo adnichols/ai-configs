@@ -40,6 +40,11 @@ or explicit scope.
 
 ## Delivery workflow routing
 
+- Delivery is **explicit opt-in only**. Never arm, spawn, bootstrap, or enter
+the delivery state machine for generic planning, implementation, PR, Linear,
+worktree, plan, or build requests, or when another named workflow such as
+prewalk is selected. Nothing about a request implies delivery unless the
+operator explicitly asks for the delivery workflow.
 - When the operator says "arm our delivery workflow", "start delivery",
   "delivery spawn", "run this through delivery", "resume delivery", or asks
   for the maintained plan-to-PR delivery cycle, MUST read

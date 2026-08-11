@@ -1716,6 +1716,21 @@ test_skill_doctrine_wording() {
   rg -qi "in-content plan title" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
 }
 
+test_delivery_skill_explicit_opt_in() {
+  rg -q "Explicit opt-in boundary" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "prewalk" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "do not bootstrap or initialize delivery" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q '"arm our delivery workflow"' "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "explicitly armed for this run" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "Do not initialize a delivery ledger" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "explicit opt-in only" "$ROOT/_omp/AGENTS.md" || return 1
+  rg -q "prewalk" "$ROOT/_omp/AGENTS.md" || return 1
+  rg -qi "never arm" "$ROOT/_omp/AGENTS.md" || return 1
+  rg -q "EXPLICIT OPT-IN ONLY" "$ROOT/AGENTS.md" || return 1
+  rg -q "the operator explicitly asked to" "$ROOT/_pi/prompts/cmd:start-linear-issue.md" || return 1
+  rg -q "Do \*\*not\*\* arm or initialize the delivery workflow" "$ROOT/_pi/prompts/cmd:start-linear-issue.md" || return 1
+}
+
 test_plan_title_extraction_and_advisory() {
   python3 - "$DELIVERY" <<'PY'
 import importlib.util, sys, tempfile
@@ -2142,6 +2157,7 @@ run_test test_implementation_agent_launch_failures_are_not_ready
 run_test test_docs_use_labeled_tabs_not_pane_splits
 run_test test_operator_attention_reconciles_delivery_state
 run_test test_skill_doctrine_wording
+run_test test_delivery_skill_explicit_opt_in
 
 printf '\n%d/%d passed\n' "$TESTS_PASSED" "$TESTS_RUN"
 if [[ "$TESTS_FAILED" -ne 0 ]]; then

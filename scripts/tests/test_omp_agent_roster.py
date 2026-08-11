@@ -93,6 +93,25 @@ class OmpAgentRosterTest(unittest.TestCase):
         ):
             self.assertIn(required, skill)
 
+    def test_delivery_workflow_is_explicit_opt_in_only(self):
+        guidance = (OMP / "AGENTS.md").read_text()
+        skill = DELIVERY_SKILL.read_text()
+        metadata, _ = split_frontmatter(DELIVERY_SKILL)
+        description = metadata.get("description", "")
+
+        # Negative: generic or unrelated requests must not arm delivery.
+        self.assertIn("explicit opt-in only", guidance)
+        self.assertIn("Never arm", guidance)
+        self.assertIn("prewalk", guidance)
+        self.assertIn("Do not trigger for generic planning", description)
+        self.assertIn("such as prewalk", description)
+        self.assertIn("do not bootstrap or initialize delivery", skill)
+
+        # Positive: explicit delivery requests and commands still activate.
+        self.assertIn('"arm our delivery workflow"', skill)
+        self.assertIn("start delivery", skill)
+        self.assertIn("delivery spawn", skill)
+
     def test_installer_deploys_complete_agent_roster(self):
         with tempfile.TemporaryDirectory() as temp:
             target = Path(temp) / "omp-agent"

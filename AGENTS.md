@@ -199,6 +199,9 @@ Pi now supports both:
 ```bash
 # Per-worktree delivery board / stage ledger (guidance, not gates)
 # Tracks plan <-> review -> run-plan -> autoreview -> PR without hard-blocking
+# Delivery is EXPLICIT OPT-IN ONLY: it arms only when you explicitly ask for the
+# delivery workflow or invoke a /delivery:* / /skill:delivery-run command. Generic
+# build/implement/plan/PR requests or other named workflows (e.g. prewalk) never arm it.
 # From any Pi session: create Herdr worktree + start delivery (plain language; no flags needed)
 /delivery:spawn <freeform request; Linear key optional in the text>
 delivery spawn -- "honest auto-sync status"

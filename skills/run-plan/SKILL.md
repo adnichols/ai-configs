@@ -159,7 +159,13 @@ Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: onl
 
 ### 0b. Delivery ledger and visible completeness review
 
-When the `delivery` CLI or `delivery-run` skill is available, keep the per-worktree ledger current as soft progress tracking. The implementation authorization remains mandatory before code work. In a `pi-full` Herdr delivery worktree, the visible labeled-tab Pi/Grok completeness review is mandatory before a local merge-readiness claim. In an `omp-lite` run, completeness review stays in the coordinating OMP session and uses request-bound packet acceptance. Other ledger evidence remains advisory.
+Use the delivery ledger only when delivery was explicitly armed for this run
+(an active `.delivery/ledger.json` created by an explicitly requested delivery
+command). Do not initialize a delivery ledger merely because the `delivery` CLI
+or `delivery-run` skill is available. A generic run-plan or other execution
+trigger does not arm delivery. When a ledger is active, keep it current as soft
+progress tracking. The implementation authorization remains mandatory before
+code work. In a `pi-full` Herdr delivery worktree, the visible labeled-tab Pi/Grok completeness review is mandatory before a local merge-readiness claim. In an `omp-lite` run, completeness review stays in the coordinating OMP session and uses request-bound packet acceptance. Other ledger evidence remains advisory.
 
 ```bash
 delivery init --plan <plan-path>                 # issue optional at start

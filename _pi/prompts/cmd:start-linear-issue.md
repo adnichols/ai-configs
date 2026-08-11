@@ -133,9 +133,13 @@ Create `WORKTREE_PATH/thoughts/linear/${ISSUE_LOWER}.md` and its parent director
 
 Do not change application code or any other repository file.
 
-## 7. Bootstrap delivery navigator (soft, best-effort)
+## 7. Bootstrap delivery navigator (soft, best-effort, explicit opt-in only)
 
-If the `delivery` CLI is available (`command -v delivery` or `~/.agents/skills/delivery-run/scripts/delivery`), initialize the per-worktree delivery ledger and agent brief so a newly spawned Herdr agent can navigate without prior chat context:
+Do **not** arm or initialize the delivery workflow for a generic
+`/cmd:start-linear-issue` request. Only when the operator explicitly asked to
+use the delivery workflow (or explicitly asked to arm/start delivery for this
+issue) does the following apply. In that case, if the `delivery` CLI is
+available (`command -v delivery` or `~/.agents/skills/delivery-run/scripts/delivery`), initialize the per-worktree delivery ledger and agent brief so a newly spawned Herdr agent can navigate without prior chat context. Otherwise, skip delivery bootstrap entirely and do not create a `.delivery/ledger.json`.
 
 ```bash
 DELIVERY_BIN="$(command -v delivery || true)"

@@ -1,12 +1,29 @@
 ---
 name: delivery-run
-description: Arm, spawn, bootstrap, resume, inspect, or complete the shared delivery workflow for OMP or Pi. Select the current runtime explicitly, use the durable delivery CLI and Herdr worktree, run the runtime-specific planning/review/implementation path through PR, and preserve board visibility and end-of-run reflections. Use for "arm our delivery workflow", "start delivery", delivery spawn/bootstrap/status/board/reflect, resuming delivery, or attaching a Linear issue later.
+description: Explicit opt-in for the shared delivery workflow for OMP or Pi. Use only when the operator explicitly asks to use, arm, start, spawn, bootstrap, resume, inspect, or complete the delivery workflow, or invokes a delivery-specific command such as delivery spawn/bootstrap/run/status/board/reflect, /delivery:*, or /skill:delivery-run. Do not trigger for generic planning, implementation, PR, Linear, worktree, autonomous-build, or continuation requests, or for another named workflow such as prewalk.
 ---
 
 # Delivery Run
 
-Use this skill to arm and operate the shared delivery state machine. Select the
-runtime before invoking it:
+## Explicit opt-in boundary
+
+Use this skill only after the operator explicitly requests the delivery workflow
+or invokes a delivery-specific command, for example "arm our delivery workflow",
+"start delivery", "run this through delivery", `delivery spawn`, `delivery
+bootstrap`, or a `/delivery:*` or `/skill:delivery-run` command. The presence of
+this skill, the `delivery` CLI, a Linear issue, a worktree, a plan, `run-plan`,
+or another execution workflow is not authorization to arm delivery. In
+particular, do not bootstrap or initialize delivery for generic
+build/implement/plan/PR requests or when the operator selects another named
+workflow such as prewalk.
+
+An existing `.delivery/ledger.json` may be inspected or continued only when the
+operator explicitly asks to inspect, resume, or continue that delivery run, or
+when the current agent was launched by an explicitly invoked delivery command.
+Never create a ledger merely because delivery tooling is available.
+
+After that activation condition is satisfied, select the runtime before
+operating the shared delivery state machine:
 
 - **OMP session:** use `runtime=omp`, `workflowProfile=omp-lite`, and the OMP
   path in this skill.
