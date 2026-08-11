@@ -15,9 +15,10 @@ PI_LIB_DIR="$PI_AGENT_DIR/lib"
 PI_WEB_SEARCH_PATH="$PI_ROOT_DIR/web-search.json"
 PI_VCC_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-vcc"
 PI_CURSOR_SDK_STABLE_PACKAGE="$PI_AGENT_DIR/local-packages/ai-configs/pi-cursor-sdk"
-PI_DEFAULT_PROVIDER="openai-codex"
-PI_DEFAULT_MODEL="gpt-5.6-terra"
+PI_DEFAULT_PROVIDER="deepinfra"
+PI_DEFAULT_MODEL="deepseek-ai/DeepSeek-V4-Flash-0731"
 PI_DEFAULT_MODEL_VALUE="${PI_DEFAULT_PROVIDER}/${PI_DEFAULT_MODEL}"
+PI_WEB_SEARCH_SUMMARY_MODEL="openai-codex/gpt-5.6-terra"
 VERIFY_SCOPE="full"
 CHECK_ONLY=false
 
@@ -58,6 +59,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@howaboua/pi-explore-subagents"
   "npm:pi-deepinfra"
   "npm:pi-updater"
+  "npm:pi-prewalk"
   "npm:pi-extensible-workflows"
 )
 
@@ -83,11 +85,13 @@ from pathlib import Path
 settings_path = Path(sys.argv[1])
 web_search_path = Path(sys.argv[2])
 
-DEFAULT_PROVIDER = "openai-codex"
-DEFAULT_MODEL = "gpt-5.6-terra"
+DEFAULT_PROVIDER = "deepinfra"
+DEFAULT_MODEL = "deepseek-ai/DeepSeek-V4-Flash-0731"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
+WEB_SEARCH_SUMMARY_MODEL = "openai-codex/gpt-5.6-terra"
 PICKER_ENABLED_MODELS = [
     f"{DEFAULT_MODEL_VALUE}:high",
+    "openai-codex/gpt-5.6-terra:high",
     "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
     "xai/grok-4.5:high",
@@ -120,7 +124,7 @@ else:
     web_search = {}
 if not isinstance(web_search, dict):
     raise SystemExit("web-search.json must be a JSON object")
-web_search["summaryModel"] = DEFAULT_MODEL_VALUE
+web_search["summaryModel"] = WEB_SEARCH_SUMMARY_MODEL
 web_search_path.parent.mkdir(parents=True, exist_ok=True)
 web_search_path.write_text(json.dumps(web_search, indent=2) + "\n")
 PY
@@ -303,6 +307,10 @@ if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_ex
   note_failure "pi-explore-subagents is installed without complete Herdr child-environment isolation"
 fi
 
+if ! PI_CODING_AGENT_DIR="$PI_AGENT_DIR" python3 "$REPO_ROOT/scripts/patch_pi_prewalk_execution_target.py" --check >/dev/null; then
+  note_failure "pi-prewalk is installed without the DeepSeek Flash execution default"
+fi
+
 if [ ! -f "$PI_CURSOR_SDK_STABLE_PACKAGE/package.json" ]; then
   note_failure "vendored pi-cursor-sdk mirror is missing package.json: $PI_CURSOR_SDK_STABLE_PACKAGE"
 elif [ "$(python3 - "$PI_CURSOR_SDK_STABLE_PACKAGE/package.json" <<'PY'
@@ -361,6 +369,7 @@ if not isinstance(enabled, list):
 else:
     expected_models = [
         f"{default_model_value}:high",
+        "openai-codex/gpt-5.6-terra:high",
         "openai-codex/gpt-5.6-luna:xhigh",
         "openai-codex/gpt-5.6-sol:medium",
         "xai/grok-4.5:high",
@@ -389,11 +398,11 @@ print("ok" if not errors else "; ".join(errors))
 PY
 )"
   if [ "$PI_MODEL_STATUS" = "ok" ]; then
-    echo "  Pi default model: $PI_DEFAULT_MODEL_VALUE"
-    echo "  Pi scoped reasoning: Terra high; Luna xhigh; Sol medium; xAI Grok high; Cursor Grok high; DeepSeek Flash high; Kimi K3 high"
+    echo "  Pi default execution model: $PI_DEFAULT_MODEL_VALUE"
+    echo "  Pi scoped reasoning: DeepSeek Flash high; Terra high; Luna xhigh; Sol medium; xAI Grok high; Cursor Grok high; Kimi K3 high"
     echo "  Pi Codex goal token budgets: disabled"
   else
-    note_failure "Pi default model settings are not GPT-5.6 Terra: $PI_MODEL_STATUS"
+    note_failure "Pi default execution model settings are not DeepSeek Flash: $PI_MODEL_STATUS"
   fi
 else
   note_failure "Pi settings file is missing: $PI_AGENT_DIR/settings.json"
@@ -457,7 +466,7 @@ PY
 fi
 
 if [ -f "$PI_WEB_SEARCH_PATH" ]; then
-  PI_WEB_SEARCH_STATUS="$(PI_DEFAULT_MODEL_VALUE="$PI_DEFAULT_MODEL_VALUE" python3 - "$PI_WEB_SEARCH_PATH" <<'PY'
+  PI_WEB_SEARCH_STATUS="$(PI_WEB_SEARCH_SUMMARY_MODEL="$PI_WEB_SEARCH_SUMMARY_MODEL" python3 - "$PI_WEB_SEARCH_PATH" <<'PY'
 import json
 import os
 import sys
@@ -466,12 +475,12 @@ from pathlib import Path
 path = Path(sys.argv[1])
 data = json.loads(path.read_text())
 summary = data.get("summaryModel")
-default_model_value = os.environ["PI_DEFAULT_MODEL_VALUE"]
-print("ok" if summary == default_model_value else repr(summary))
+expected = os.environ["PI_WEB_SEARCH_SUMMARY_MODEL"]
+print("ok" if summary == expected else repr(summary))
 PY
 )"
   if [ "$PI_WEB_SEARCH_STATUS" = "ok" ]; then
-    echo "  Pi web-search summary model: $PI_DEFAULT_MODEL_VALUE"
+    echo "  Pi web-search summary model: $PI_WEB_SEARCH_SUMMARY_MODEL"
   else
     note_failure "Pi web-search summaryModel is not local Codex GPT-5.6 Terra: $PI_WEB_SEARCH_STATUS"
   fi
@@ -480,10 +489,10 @@ else
 fi
 
 if command -v pi >/dev/null 2>&1; then
-  if pi --list-models "$PI_DEFAULT_MODEL_VALUE" 2>/dev/null | grep -Eq '^[[:space:]]*openai-codex[[:space:]]+gpt-5\.6-terra([[:space:]]|$)'; then
-    echo "  Pi reviewer GPT model route: $PI_DEFAULT_MODEL_VALUE"
+  if pi --list-models openai-codex 2>/dev/null | grep -Eq '^[[:space:]]*openai-codex[[:space:]]+gpt-5\.6-terra([[:space:]]|$)'; then
+    echo "  Pi reviewer GPT model route: $PI_WEB_SEARCH_SUMMARY_MODEL"
   else
-    note_failure "Pi cannot resolve reviewer GPT model route $PI_DEFAULT_MODEL_VALUE"
+    note_failure "Pi cannot resolve reviewer GPT model route $PI_WEB_SEARCH_SUMMARY_MODEL"
   fi
 
 fi

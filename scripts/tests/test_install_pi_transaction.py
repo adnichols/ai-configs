@@ -163,9 +163,10 @@ class InstallTransactionTest(unittest.TestCase):
             subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             configured_data=json.loads(settings.read_text())
             configured=configured_data['enabledModels']
-            self.assertEqual(configured_data['defaultProvider'],'openai-codex')
-            self.assertEqual(configured_data['defaultModel'],'gpt-5.6-terra')
+            self.assertEqual(configured_data['defaultProvider'],'deepinfra')
+            self.assertEqual(configured_data['defaultModel'],'deepseek-ai/DeepSeek-V4-Flash-0731')
             self.assertEqual(configured,[
+                'deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:high',
                 'openai-codex/gpt-5.6-terra:high',
                 'openai-codex/gpt-5.6-luna:xhigh',
                 'openai-codex/gpt-5.6-sol:medium',

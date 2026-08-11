@@ -98,7 +98,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, pi-prewalk, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
@@ -1855,11 +1855,15 @@ from pathlib import Path
 settings_path = Path(os.environ["PI_SETTINGS_PATH"])
 web_search_path = Path(os.environ["PI_WEB_SEARCH_PATH"])
 
-DEFAULT_PROVIDER = "openai-codex"
-DEFAULT_MODEL = "gpt-5.6-terra"
+DEFAULT_PROVIDER = "deepinfra"
+DEFAULT_MODEL = "deepseek-ai/DeepSeek-V4-Flash-0731"
 DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
+# Keep web-search summarization on a strong Codex route even when the driving
+# execution default is the fast DeepInfra DeepSeek Flash model.
+WEB_SEARCH_SUMMARY_MODEL = "openai-codex/gpt-5.6-terra"
 PICKER_ENABLED_MODELS = [
     f"{DEFAULT_MODEL_VALUE}:high",
+    "openai-codex/gpt-5.6-terra:high",
     "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
     "xai/grok-4.5:high",
@@ -1906,7 +1910,7 @@ if not isinstance(web_search, dict):
     raise SystemExit("web-search.json must be a JSON object")
 
 before_web_search = json.dumps(web_search, sort_keys=True)
-web_search["summaryModel"] = DEFAULT_MODEL_VALUE
+web_search["summaryModel"] = WEB_SEARCH_SUMMARY_MODEL
 if json.dumps(web_search, sort_keys=True) != before_web_search:
     web_search_path.parent.mkdir(parents=True, exist_ok=True)
     web_search_path.write_text(json.dumps(web_search, indent=2) + "\n")
@@ -3359,6 +3363,7 @@ install_pi_npm_packages() {
         "@howaboua/pi-explore-subagents"
         "pi-deepinfra"
         "pi-updater"
+        "pi-prewalk"
         "pi-extensible-workflows"
     )
     local deprecated_npm_packages=(
@@ -3454,6 +3459,13 @@ install_pi_npm_packages() {
     if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_subagents_review_isolation.py"; then
         echo -e "${RED}Error: pi-subagents cannot guarantee non-isolated reviewer/planner launches${NC}" >&2
         return 1
+    fi
+
+    # pi-prewalk switches execution to a fast/cheap model after a strong model
+    # commits to a plan. Default that execution target to DeepSeek Flash so an
+    # unqualified --prewalk / /prewalk implements on the managed execution model.
+    if ! PI_CODING_AGENT_DIR="$pi_agent_dir" python3 "$REPO_ROOT/scripts/patch_pi_prewalk_execution_target.py"; then
+        echo -e "${YELLOW}⚠ Failed to apply pi-prewalk DeepSeek Flash execution-default patch${NC}"
     fi
 
 }
