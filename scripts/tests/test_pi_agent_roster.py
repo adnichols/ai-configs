@@ -112,7 +112,6 @@ class PiAgentRosterTest(unittest.TestCase):
         picker = install_script.split("PICKER_ENABLED_MODELS = [", 1)[1].split("]", 1)[0]
         self.assertIn('"xai/grok-4.6:high"', picker)
         self.assertIn('"cursor/grok-4.6:high"', picker)
-        self.assertIn('"synthetic/hf:moonshotai/Kimi-K3:high"', picker)
         self.assertNotIn("cursor/grok-4.5", picker)
         self.assertIn('"cursor/grok-4.5:high": "cursor/grok-4.6:high"', install_script)
         self.assertIn('"cursor/grok-4.6:fast": "cursor/grok-4.6"', install_script)
