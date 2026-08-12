@@ -1871,6 +1871,7 @@ PICKER_ENABLED_MODELS = [
     "xai/grok-4.6:high",
     "cursor/grok-4.6:high",
     "opencode/deepseek-v4-flash:high",
+    "synthetic/hf:moonshotai/Kimi-K3:high",
 ]
 
 changed = []

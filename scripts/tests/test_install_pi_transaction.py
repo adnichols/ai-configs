@@ -173,6 +173,7 @@ class InstallTransactionTest(unittest.TestCase):
                 'xai/grok-4.6:high',
                 'cursor/grok-4.6:high',
                 'opencode/deepseek-v4-flash:high',
+                'synthetic/hf:moonshotai/Kimi-K3:high',
             ])
             installed_models=json.loads(models.read_text())['providers']
             self.assertNotIn('xai',installed_models)
@@ -281,6 +282,7 @@ class InstallTransactionTest(unittest.TestCase):
                 'xai/grok-4.6:high',
                 'cursor/grok-4.6:high',
                 'opencode/deepseek-v4-flash:high',
+                'synthetic/hf:moonshotai/Kimi-K3:high',
             ])
             installed_fast = json.loads(cursor_sdk.read_text())['fastDefaults']
             self.assertEqual(installed_fast['grok-4.6'], False)
