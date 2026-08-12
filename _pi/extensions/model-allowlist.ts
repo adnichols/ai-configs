@@ -5,6 +5,7 @@ const ALLOWED_MODELS = new Set([
 	"openai-codex/gpt-5.6-luna",
 	"openai-codex/gpt-5.6-sol",
 	"xai/grok-4.5",
+	"xai/grok-4.6",
 	"cursor/grok-4.5",
 	"opencode/deepseek-v4-flash",
 	"fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",

@@ -1866,7 +1866,7 @@ PICKER_ENABLED_MODELS = [
     "openai-codex/gpt-5.6-terra:high",
     "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
-    "xai/grok-4.5:high",
+    "xai/grok-4.6:high",
     "cursor/grok-4.5:high",
     "opencode/deepseek-v4-flash:high",
 ]
@@ -2097,7 +2097,7 @@ target_providers = updated_data.setdefault("providers", {})
 # Retire only exact model IDs previously managed by ai-configs. Display names
 # are not an ownership boundary: callers may keep custom CLI Proxy API models.
 RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini", "grok-4.5"}
-NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.5", "grok-4.3", "grok-build-0.1"}
+NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.6", "grok-4.5", "grok-4.3", "grok-build-0.1"}
 MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
     "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
     "grok-4.20-multi-agent-0309", "grok-3-mini", "grok-3-mini-fast",
