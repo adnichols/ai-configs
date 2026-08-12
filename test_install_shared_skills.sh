@@ -835,6 +835,10 @@ EOF
   assert_file_contains "$home/.pi/agent/agents/planner.md" 'independently review an existing plan' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'model: openai-codex/gpt-5.6-terra' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'reasoningEffort: low' || return 1
+  assert_file_contains "$home/.pi/agent/agents/imaging.md" 'name: imaging' || return 1
+  assert_file_contains "$home/.pi/agent/agents/imaging.md" 'model: openai-codex/gpt-5.6-luna' || return 1
+  assert_file_contains "$home/.pi/agent/agents/imaging.md" 'reasoningEffort: xhigh' || return 1
+  assert_file_contains "$home/.pi/agent/agents/imaging.md" 'thinking: xhigh' || return 1
   assert_file_contains "$home/.pi/agent/models.json" 'gemma4:latest' || return 1
   assert_file_not_contains "$home/.pi/agent/models.json" 'kimi-k2.5:cloud' || return 1
   assert_file_not_contains "$home/.pi/agent/models.json" '"grok"' || return 1
@@ -2008,6 +2012,8 @@ test_active_agent_configuration_has_no_kimi() {
   assert_file_contains _pi/agents/reviewer.md 'reasoningEffort: medium' || return 1
   assert_file_contains _pi/agents/scout.md 'model: openai-codex/gpt-5.6-terra' || return 1
   assert_file_contains _pi/agents/scout.md 'reasoningEffort: low' || return 1
+  assert_file_contains _pi/agents/imaging.md 'model: openai-codex/gpt-5.6-luna' || return 1
+  assert_file_contains _pi/agents/imaging.md 'reasoningEffort: xhigh' || return 1
   assert_file_contains _claude/agents/reviewer.md 'model: claude-sonnet-5' || return 1
   assert_file_contains _claude/agents/reviewer.md 'effort: high' || return 1
   assert_file_contains _claude/commands/dev:run.md 'repository-owned, read-only `reviewer` subagent (`claude-sonnet-5`, high effort)' || return 1

@@ -31,7 +31,7 @@ class InstallTransactionTest(unittest.TestCase):
         source={path.name for path in (ROOT/'_pi/agents').iterdir()}
         installed={path.name for path in (home/'.pi/agent/agents').iterdir()}
         self.assertEqual(source,installed)
-        self.assertEqual({'Explore.md','oracle.md','planner.md','reviewer.md','scout.md'},installed)
+        self.assertEqual({'Explore.md','imaging.md','oracle.md','planner.md','reviewer.md','scout.md'},installed)
     def metadata(self,path):
         value=path.stat();return (stat.S_IMODE(value.st_mode),value.st_atime_ns,value.st_mtime_ns)
     def symlinked_parents(self, home, kind):

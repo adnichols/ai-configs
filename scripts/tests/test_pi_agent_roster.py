@@ -5,12 +5,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / "_pi" / "agents"
-EXPECTED_FILES = {"Explore.md", "oracle.md", "planner.md", "reviewer.md", "scout.md"}
+EXPECTED_FILES = {"Explore.md", "imaging.md", "oracle.md", "planner.md", "reviewer.md", "scout.md"}
 EXPECTED_ROUTES = {
     "oracle": ("openai-codex/gpt-5.6-sol", "high"),
     "planner": ("openai-codex/gpt-5.6-sol", "medium"),
     "reviewer": ("openai-codex/gpt-5.6-terra", "medium"),
     "scout": ("openai-codex/gpt-5.6-terra", "low"),
+    "imaging": ("openai-codex/gpt-5.6-luna", "xhigh"),
 }
 RETIRED_PERSONAS = {
     "developer-high", "developer-mid", "developer-mm", "multi-reviewer", "plan-gpt",
@@ -54,6 +55,9 @@ class PiAgentRosterTest(unittest.TestCase):
             if name == "oracle":
                 self.assertEqual("high", metadata.get("thinking"))
                 self.assertEqual("fork", metadata.get("defaultContext"))
+            elif name == "imaging":
+                self.assertEqual("xhigh", metadata.get("thinking"))
+                self.assertNotIn("defaultContext", metadata)
             else:
                 self.assertNotIn("thinking", metadata)
                 self.assertNotIn("defaultContext", metadata)
@@ -130,9 +134,16 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("do not edit", bodies["oracle"])
         self.assertIn("driving agent", bodies["oracle"])
         self.assertIn("recommendation", bodies["oracle"])
+        self.assertIn("visual", bodies["imaging"])
+        self.assertIn("read-only", bodies["imaging"])
+        self.assertIn("do not guess", bodies["imaging"])
+        self.assertIn("image path", bodies["imaging"])
         oracle_metadata, _ = frontmatter(AGENTS / "oracle.md")
         self.assertEqual("none", oracle_metadata.get("isolation"))
         self.assertEqual("true", oracle_metadata.get("inherit_context"))
+        imaging_metadata, _ = frontmatter(AGENTS / "imaging.md")
+        self.assertEqual("none", imaging_metadata.get("isolation"))
+        self.assertNotIn("inherit_context", imaging_metadata)
 
     def test_oracle_is_proactively_available_inside_and_outside_workflows(self):
         doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
@@ -186,6 +197,31 @@ class PiAgentRosterTest(unittest.TestCase):
         ).read_text()
         self.assertNotRegex(fixture_prompt, r"(?i)\boracle\b")
         self.assertIn("decision-support workflow", fixture_prompt)
+
+    def test_imaging_is_proactively_available_for_non_vision_models(self):
+        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
+        self.assertIn("`imaging` subagent", doctrine)
+        self.assertIn("cannot see an image", doctrine)
+        self.assertIn("Do not wait for the operator to request it", doctrine)
+
+        metadata, body = frontmatter(AGENTS / "imaging.md")
+        self.assertIn("Use proactively", metadata.get("description", ""))
+        self.assertIn("openai-codex/gpt-5.6-luna", metadata.get("model", ""))
+        self.assertEqual("xhigh", metadata.get("thinking"))
+        self.assertEqual("xhigh", metadata.get("reasoningEffort"))
+        self.assertEqual("none", metadata.get("isolation"))
+        self.assertIn("Caller contract", body)
+        self.assertIn('subagent_type: "imaging"', body)
+        self.assertIn("pi-clipboard-", body)
+        self.assertIn("Need from driving agent", body)
+
+        catalog = (ROOT / "AGENTS.md").read_text()
+        self.assertIn("Exact Five-Agent Roster", catalog)
+        self.assertIn("`imaging`", catalog)
+        self.assertIn("Luna xhigh", catalog)
+
+        readme = (ROOT / "_pi" / "README.md").read_text()
+        self.assertIn("`imaging` — GPT-5.6 Luna xhigh", readme)
 
     def test_development_stays_in_driving_session(self):
         retired_claude_agents = {
@@ -304,7 +340,7 @@ class PiAgentRosterTest(unittest.TestCase):
             self.assertNotIn(token, reviewer)
 
     def test_pi_review_launches_omit_worktree_isolation(self):
-        for name in ("oracle", "reviewer", "planner"):
+        for name in ("oracle", "reviewer", "planner", "imaging"):
             metadata, _ = frontmatter(ROOT / "_pi" / "agents" / f"{name}.md")
             self.assertEqual("none", metadata.get("isolation"))
 

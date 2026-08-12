@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added a Pi `imaging` subagent on GPT-5.6 Luna xhigh so non-vision models can proactively hand screenshots and other visual input to a vision-capable analyst instead of guessing.
+
 - Vendored the `cobanov.herdr-ntfysh` Herdr plugin into `tools/herdr-ntfysh` (pinned upstream commit) with two added capabilities: notification titles now use the agent's human-readable session title (`agent get` name, else pane terminal title) instead of bare agent/pane IDs, and `HERDR_NTFY_BODY_LINES=N` appends the last N lines of the agent pane's recent output to the notification body. Both fail safe when the Herdr CLI is unreachable. `herdr/install.sh` now builds, links, and enables the vendored copy (replacing any upstream GitHub-managed install), and keeps the existing plugin config (`.env`) intact.
 
 - Permanent-document disposition in the shared pre-PR path: `run-plan` and `cmd-create-pr` hard-stop when a repo-local permanent-docs skill is present; `delivery-run` records recommended `permanentDocs` evidence and completeness prompt coverage; `cmd-graduate` stays generic with a pointer to local `*-permanent-docs`; `autoreview` accepts caller-supplied disposition in the packet baseline. Pairs with Heddle `heddle-permanent-docs`.

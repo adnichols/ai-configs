@@ -18,10 +18,11 @@ Request owner direction before destructive action, external coordination, or an 
 - Inspect the current state before acting. Preserve user-owned and unrelated work.
 - Respect established decisions unless current evidence invalidates them. Prefer the existing source of truth over duplicate paths or compatibility code without a concrete need.
 - Treat tests as evidence and verify the behavior users actually experience.
-- The driving agent owns development work directly. Do not delegate code edits, test writing, fixes, verification, or repository operations to subagents. Use subagents only for bounded read-only discovery, planning, decision support, or review.
+- The driving agent owns development work directly. Do not delegate code edits, test writing, fixes, verification, or repository operations to subagents. Use subagents only for bounded read-only discovery, planning, decision support, review, or visual analysis.
 - Before editing an exact contract that types cannot verify or behavior required across multiple production sites, load `integration-integrity`.
 - Before any index-mutating Git operation, load `safe-git-index`.
 - When targeted inspection leaves a consequential architecture, ownership, contract, schema, migration, decision-drift, or review-convergence choice unresolved, load `oracle-consultation` and invoke Oracle proactively before committing to a direction. Do not wait for the operator to request it.
+- When the current model cannot see an image or other visual input, invoke the `imaging` subagent proactively rather than guessing. Do not wait for the operator to request it.
 
 ## Communication
 
