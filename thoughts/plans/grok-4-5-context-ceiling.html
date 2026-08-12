@@ -333,6 +333,7 @@ pi --list-models grok
       <tr><td>2026-07-27</td><td>Provider-request scope boundary documented</td><td>Stored transcript may briefly exceed ceiling; guarantee is on outbound requests</td></tr>
       <tr><td>2026-07-28</td><td>Added <code>context_ceiling</code> compaction reason handshake</td><td>Reviewer: P0 compactions were cancellable by sub-80% <code>session_before_compact</code> logic</td></tr>
       <tr><td>2026-07-28</td><td>Canonical <code>estimateGrokProviderRequestTokens()</code></td><td>Reviewer: P4 JSON-length/4 estimator did not match gate semantics</td></tr>
+      <tr><td>2026-08-11</td><td>Revert Grok output cap</td><td>Operator: <code>maxTokens</code> is unrelated to the 200K cost-tier window; restore Pi default (16,384) so each reply keeps the default output budget. 200K/180K ceiling machinery unchanged.</td></tr>
     </table>
   </section>
 </main>

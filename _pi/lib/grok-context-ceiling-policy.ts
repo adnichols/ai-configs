@@ -9,7 +9,8 @@ export const GROK_CONTEXT_CEILING_MODEL_ID = "grok-4.5" as const;
 export const GROK_COMPACTION_TRIGGER_TOKENS = 180_000;
 export const GROK_CONTEXT_CEILING_TOKENS = 200_000;
 export const GROK_ADVERTISED_CONTEXT_WINDOW = 200_000;
-export const GROK_DEFAULT_MAX_TOKENS = 8_192;
+/** Pi's default max output tokens; the grok-4.5 model override no longer lowers it. */
+export const GROK_DEFAULT_MAX_TOKENS = 16_384;
 /** Matches Pi default compaction reserveTokens until P0 reads shared settings. */
 export const GROK_OUTPUT_RESERVATION_TOKENS = 16_384;
 

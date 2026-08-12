@@ -128,9 +128,10 @@
       "modelOverrides": {
         "grok-4.5": {
           "contextWindow": 200000,
-          "maxTokens": 8192
+          "maxTokens": 16384
         },
         "deepseek-v4-flash": {
+          "contextWindow": 400000,
           "thinkingLevelMap": {
             "off": null,
             "minimal": null,
@@ -146,6 +147,7 @@
     "deepinfra": {
       "modelOverrides": {
         "deepseek-ai/DeepSeek-V4-Flash-0731": {
+          "contextWindow": 400000,
           "thinkingLevelMap": {
             "off": "none",
             "minimal": null,
