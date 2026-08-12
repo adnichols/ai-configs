@@ -70,10 +70,10 @@ class PiAgentRosterTest(unittest.TestCase):
             "openai-codex/gpt-5.6-terra",
             "openai-codex/gpt-5.6-luna",
             "openai-codex/gpt-5.6-sol",
-            "xai/grok-4.5",
             "xai/grok-4.6",
-            "cursor/grok-4.5",
+            "cursor/grok-4.6",
             "opencode/deepseek-v4-flash",
+            "synthetic/hf:moonshotai/Kimi-K3",
             "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
             "fireworks/accounts/fireworks/models/kimi-k3",
             "deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731",
@@ -81,12 +81,15 @@ class PiAgentRosterTest(unittest.TestCase):
         ):
             self.assertIn(f'"{model}"', allowlist)
         for excluded in (
-            "synthetic/hf:moonshotai/Kimi-K3",
             "opencode/glm-5.2",
             "xai/grok-4.3",
+            "xai/grok-4.5",
             "xai/grok-build-0.1",
+            "cursor/grok-4.5",
             "cursor/grok-4.5:fast",
             "cursor/grok-4.5:slow",
+            "cursor/grok-4.6:fast",
+            "cursor/grok-4.6:slow",
             "cursor/composer-2.5",
             "opencode/deepseek-v4-pro",
         ):
@@ -99,12 +102,21 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("gpt-5.6-sol", managed_ids)
         self.assertIn("gpt-5.6-terra", managed_ids)
         self.assertNotIn("grok-4.5", managed_ids)
+        grok_46 = next(item for item in models["providers"]["xai"]["models"] if item["id"] == "grok-4.6")
+        self.assertEqual(200000, grok_46["contextWindow"])
+        self.assertEqual(200000, grok_46["maxTokens"])
         self.assertEqual({"grok-4.6"}, {item["id"] for item in models["providers"]["xai"]["models"]})
         self.assertNotIn("opencode-go", models["providers"])
         self.assertNotIn("fireworks", models["providers"])
         install_script = (ROOT / "install.sh").read_text()
-        self.assertIn('"xai/grok-4.6:high"', install_script)
-        self.assertIn('"cursor/grok-4.5:high"', install_script)
+        picker = install_script.split("PICKER_ENABLED_MODELS = [", 1)[1].split("]", 1)[0]
+        self.assertIn('"xai/grok-4.6:high"', picker)
+        self.assertIn('"cursor/grok-4.6:high"', picker)
+        self.assertNotIn("cursor/grok-4.5", picker)
+        self.assertIn('"cursor/grok-4.5:high": "cursor/grok-4.6:high"', install_script)
+        self.assertIn('"cursor/grok-4.6:fast": "cursor/grok-4.6"', install_script)
+        self.assertIn('"cursor/grok-4.6:slow": "cursor/grok-4.6"', install_script)
+        self.assertIn('fast_defaults["grok-4.6"] = False', install_script)
         for unscoped_model in (
             "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
             "fireworks/accounts/fireworks/models/kimi-k3",

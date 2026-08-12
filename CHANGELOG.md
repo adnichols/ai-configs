@@ -21,7 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Pointed every managed xAI Grok pin at `xai/grok-4.6`, including the Pi model cycle, completeness review, Amp ADN Alt, and OMP completeness. Cursor stays on `cursor/grok-4.5` because the live Cursor catalog does not expose `grok-4.6`.
+- Capped managed `xai/grok-4.6` at a 200k context window instead of the 500k catalog size, and pinned unsuffixed `cursor/grok-4.6` to plain (not Cursor Fast or the `:fast`/`:slow` aliases).
+
+- Pointed every managed xAI Grok pin at `xai/grok-4.6`, including the Pi model cycle, completeness review, Amp ADN Alt, and OMP completeness. Cursor now cycles `cursor/grok-4.6` because the live Cursor SDK catalog exposes it. `xai/grok-4.5` and `cursor/grok-4.5` are no longer allowlisted. Synthetic Kimi K3 (`synthetic/hf:moonshotai/Kimi-K3`) is allowlisted again for direct selection.
 
 - Centralized bounded Pi review-stack install, rollback, and verification surfaces in one validated manifest, with deterministic planner/reviewer transport probing and atomic private JSON receipts for local, transactional, and remote-host runs.
 - Added revision-checked blocking delivery-ledger writes, diagnostic completeness-response parsing, and install-receipt references that coexist in the delivery ledger.

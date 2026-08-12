@@ -1843,17 +1843,19 @@ configure_pi_model_defaults() {
     local pi_agent_dir="$2"
     local settings_path="$pi_agent_dir/settings.json"
     local web_search_path="$pi_root_dir/web-search.json"
+    local cursor_sdk_path="$pi_agent_dir/cursor-sdk.json"
 
     echo "  - Enforcing Pi local Codex defaults..."
 
     local status
-    status=$(PI_SETTINGS_PATH="$settings_path" PI_WEB_SEARCH_PATH="$web_search_path" python3 <<'PY'
+    status=$(PI_SETTINGS_PATH="$settings_path" PI_WEB_SEARCH_PATH="$web_search_path" PI_CURSOR_SDK_PATH="$cursor_sdk_path" python3 <<'PY'
 import json
 import os
 from pathlib import Path
 
 settings_path = Path(os.environ["PI_SETTINGS_PATH"])
 web_search_path = Path(os.environ["PI_WEB_SEARCH_PATH"])
+cursor_sdk_path = Path(os.environ["PI_CURSOR_SDK_PATH"])
 
 DEFAULT_PROVIDER = "deepinfra"
 DEFAULT_MODEL = "deepseek-ai/DeepSeek-V4-Flash-0731"
@@ -1867,7 +1869,7 @@ PICKER_ENABLED_MODELS = [
     "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
     "xai/grok-4.6:high",
-    "cursor/grok-4.5:high",
+    "cursor/grok-4.6:high",
     "opencode/deepseek-v4-flash:high",
 ]
 
@@ -1915,13 +1917,37 @@ if json.dumps(web_search, sort_keys=True) != before_web_search:
     web_search_path.write_text(json.dumps(web_search, indent=2) + "\n")
     changed.append("web-search")
 
+if cursor_sdk_path.exists():
+    cursor_sdk = json.loads(cursor_sdk_path.read_text())
+else:
+    cursor_sdk = {}
+if not isinstance(cursor_sdk, dict):
+    raise SystemExit("cursor-sdk.json must be a JSON object")
+
+before_cursor_sdk = json.dumps(cursor_sdk, sort_keys=True)
+fast_defaults = cursor_sdk.get("fastDefaults")
+if fast_defaults is None:
+    fast_defaults = {}
+    cursor_sdk["fastDefaults"] = fast_defaults
+elif not isinstance(fast_defaults, dict):
+    raise SystemExit("cursor-sdk.json fastDefaults must be an object when present")
+# Keep unsuffixed cursor/grok-4.6 plain. Cursor's catalog default variant is Fast.
+fast_defaults["grok-4.6"] = False
+for stale_key in ("grok-4.6:fast", "grok-4.6:slow"):
+    fast_defaults.pop(stale_key, None)
+
+if json.dumps(cursor_sdk, sort_keys=True) != before_cursor_sdk:
+    cursor_sdk_path.parent.mkdir(parents=True, exist_ok=True)
+    cursor_sdk_path.write_text(json.dumps(cursor_sdk, indent=2) + "\n")
+    changed.append("cursor-sdk")
+
 print(",".join(changed) if changed else "unchanged")
 PY
 )
     local config_status=$?
 
     if [ $config_status -ne 0 ]; then
-        echo "  - Unable to enforce Pi local Codex defaults (check $settings_path and $web_search_path manually)"
+        echo "  - Unable to enforce Pi local Codex defaults (check $settings_path, $web_search_path, and $cursor_sdk_path manually)"
         return
     fi
 
@@ -2116,6 +2142,10 @@ LEGACY_GROK_ROUTE_MIGRATIONS = {
     "openai-codex/grok-4.5": "xai/grok-4.6",
     "xai/grok-4.5": "xai/grok-4.6",
     "xai/grok-4.5:high": "xai/grok-4.6:high",
+    "cursor/grok-4.5": "cursor/grok-4.6",
+    "cursor/grok-4.5:high": "cursor/grok-4.6:high",
+    "cursor/grok-4.6:fast": "cursor/grok-4.6",
+    "cursor/grok-4.6:slow": "cursor/grok-4.6",
 }
 
 def is_managed_xai_proxy(provider):
@@ -2259,6 +2289,11 @@ for provider_id, source_provider in source_providers.items():
                     models_by_id[copied_model["id"]] = copied_model
                 elif provider_id == "openai-codex":
                     merge_source_wins(existing_model, source_model)
+                elif provider_id == "xai" and source_model["id"] == "grok-4.6":
+                    for field in ("contextWindow", "maxTokens"):
+                        if field in source_model:
+                            existing_model[field] = copy.deepcopy(source_model[field])
+                    merge_missing(existing_model, source_model)
                 else:
                     merge_missing(existing_model, source_model)
         elif key == "modelOverrides":

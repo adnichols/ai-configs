@@ -171,7 +171,7 @@ class InstallTransactionTest(unittest.TestCase):
                 'openai-codex/gpt-5.6-luna:xhigh',
                 'openai-codex/gpt-5.6-sol:medium',
                 'xai/grok-4.6:high',
-                'cursor/grok-4.5:high',
+                'cursor/grok-4.6:high',
                 'opencode/deepseek-v4-flash:high',
             ])
             installed_models=json.loads(models.read_text())['providers']
@@ -202,6 +202,90 @@ class InstallTransactionTest(unittest.TestCase):
             self.assertEqual(installed_policy.read_bytes(), policy_source.read_bytes())
             self.assertFalse((agent / 'extensions/grok-context-ceiling-policy.ts').exists())
             self.assertIn('../lib/grok-context-ceiling-policy', (agent / 'extensions/percentage-compaction.ts').read_text())
+
+    def extract_install_python(self, interior_marker):
+        script = (ROOT / 'install.sh').read_text()
+        at = script.index(interior_marker)
+        start = script.rindex("python3 <<'PY'", 0, at) + len("python3 <<'PY'\n")
+        return script[start:script.index('\nPY\n', start)]
+
+    def test_native_xai_grok_46_window_and_cursor_plain_fast_default(self):
+        with tempfile.TemporaryDirectory() as d:
+            home = Path(d)
+            root = home / '.pi'
+            agent = root / 'agent'
+            agent.mkdir(parents=True)
+            models = agent / 'models.json'
+            models.write_text(json.dumps({'providers': {
+                'xai': {
+                    'baseUrl': 'https://api.x.ai/v1',
+                    'api': 'xai-responses',
+                    'apiKey': 'caller-owned-native-xai-key',
+                    'models': [{
+                        'id': 'grok-4.6',
+                        'name': 'Grok 4.6',
+                        'contextWindow': 500000,
+                        'maxTokens': 500000,
+                    }],
+                },
+            }}))
+            settings = agent / 'settings.json'
+            settings.write_text(json.dumps({'enabledModels': ['cursor/grok-4.6:fast']}))
+            cursor_sdk = agent / 'cursor-sdk.json'
+            cursor_sdk.write_text(json.dumps({
+                'fastDefaults': {
+                    'grok-4.5': False,
+                    'grok-4.6': True,
+                    'grok-4.6:fast': True,
+                }
+            }))
+            merge = subprocess.run(
+                ['python3'],
+                cwd=ROOT,
+                env={
+                    **os.environ,
+                    'PI_MODELS_SOURCE': str(ROOT / '_pi/models.json'),
+                    'PI_MODELS_TARGET': str(models),
+                },
+                input=self.extract_install_python('provider_id == "xai" and source_model["id"] == "grok-4.6"'),
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(merge.returncode, 0, merge.stderr)
+            defaults = subprocess.run(
+                ['python3'],
+                cwd=ROOT,
+                env={
+                    **os.environ,
+                    'PI_SETTINGS_PATH': str(settings),
+                    'PI_WEB_SEARCH_PATH': str(root / 'web-search.json'),
+                    'PI_CURSOR_SDK_PATH': str(cursor_sdk),
+                },
+                input=self.extract_install_python('fast_defaults["grok-4.6"] = False'),
+                text=True,
+                capture_output=True,
+            )
+            self.assertEqual(defaults.returncode, 0, defaults.stderr)
+            grok = next(
+                model
+                for model in json.loads(models.read_text())['providers']['xai']['models']
+                if model['id'] == 'grok-4.6'
+            )
+            self.assertEqual(grok['contextWindow'], 200000)
+            self.assertEqual(grok['maxTokens'], 200000)
+            self.assertEqual(json.loads(settings.read_text())['enabledModels'], [
+                'deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:high',
+                'openai-codex/gpt-5.6-terra:high',
+                'openai-codex/gpt-5.6-luna:xhigh',
+                'openai-codex/gpt-5.6-sol:medium',
+                'xai/grok-4.6:high',
+                'cursor/grok-4.6:high',
+                'opencode/deepseek-v4-flash:high',
+            ])
+            installed_fast = json.loads(cursor_sdk.read_text())['fastDefaults']
+            self.assertEqual(installed_fast['grok-4.6'], False)
+            self.assertEqual(installed_fast['grok-4.5'], False)
+            self.assertNotIn('grok-4.6:fast', installed_fast)
 
     def test_malformed_settings_fail_before_any_bounded_install_mutation(self):
         with tempfile.TemporaryDirectory() as d:

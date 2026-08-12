@@ -95,7 +95,7 @@ PICKER_ENABLED_MODELS = [
     "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
     "xai/grok-4.6:high",
-    "cursor/grok-4.5:high",
+    "cursor/grok-4.6:high",
     "opencode/deepseek-v4-flash:high",
 ]
 
@@ -401,7 +401,7 @@ else:
         "openai-codex/gpt-5.6-luna:xhigh",
         "openai-codex/gpt-5.6-sol:medium",
         "xai/grok-4.6:high",
-        "cursor/grok-4.5:high",
+        "cursor/grok-4.6:high",
         "opencode/deepseek-v4-flash:high",
     ]
     if enabled != expected_models:
@@ -411,7 +411,7 @@ else:
         errors.append("enabledModels still contains retired GLM-5.2 Pi routes")
     if any(isinstance(model, str) and "gpt-5.3-codex-spark" in model for model in enabled):
         errors.append("enabledModels still contains gpt-5.3-codex-spark")
-    stale_grok_routes = {"openai-codex/grok-4.5", "grok/grok-4.5", "grok-4.5"}
+    stale_grok_routes = {"openai-codex/grok-4.5", "grok/grok-4.5", "grok-4.5", "xai/grok-4.5", "xai/grok-4.5:high", "cursor/grok-4.5", "cursor/grok-4.5:high"}
     if any(
         isinstance(model, str)
         and (model in stale_grok_routes or model.startswith("grok/") or model.startswith("grok-"))

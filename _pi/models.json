@@ -147,8 +147,8 @@
               }
             ]
           },
-          "contextWindow": 500000,
-          "maxTokens": 500000,
+          "contextWindow": 200000,
+          "maxTokens": 200000,
           "thinkingLevelMap": {
             "off": null,
             "minimal": null,
