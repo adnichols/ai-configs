@@ -3,10 +3,10 @@
  *
  * Ported from oh-my-pi / lukeramsden/pi-prewalk, with named execution profiles.
  *
- * Prewalk lets a strong model plan, then hands mechanical implementation to a
- * configured execution model + reasoning level. One-way switch, armed via
- * `--prewalk` / `--prewalk-into` or `/prewalk`, fires at first edit/write once
- * a todo list exists.
+ * Prewalk lets the current model plan as-is, then hands mechanical
+ * implementation to a configured execution model + reasoning level. One-way
+ * switch, armed via `--prewalk` / `--prewalk-into` or `/prewalk`, fires at
+ * first edit/write once a todo list exists.
  *
  * Profiles: package profiles.json + optional ~/.pi/agent/prewalk-profiles.json
  *   /prewalk              → default profile
@@ -37,7 +37,7 @@ const PREWALK_ACTION_TOOLS: Record<string, true> = {
 const HARDCODED_DEFAULT_TARGET = {
 	provider: "deepinfra",
 	id: "deepseek-ai/DeepSeek-V4-Flash-0731",
-	thinkingLevel: "low" as ThinkingLevel,
+	thinkingLevel: "max" as ThinkingLevel,
 };
 
 const PREWALK_PLAN_PROMPT = `Stop and write the complete plan in your NEXT reply — before any further exploration. You have already seen enough to commit to a plan; do not defer this.
@@ -475,6 +475,7 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 			);
 			return;
 		}
+		// Keep current model/thinking for planning; executor level applies only at switch.
 		armed = { target, thinkingLevel, profileName, mode };
 		planInjected = true;
 		continuePending = true;
@@ -677,8 +678,9 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 		if (sameModel) {
 			armed = undefined;
 			continuePending = false;
+			// Apply executor thinking even when the model is unchanged.
+			if (targetThinkingLevel) pi.setThinkingLevel(targetThinkingLevel);
 			if (mode === "delivery-hydrate") {
-				if (targetThinkingLevel) pi.setThinkingLevel(targetThinkingLevel);
 				syncDeliveryRuntimeEnvironment({
 					provider: target.provider,
 					model: target.id,
@@ -698,7 +700,7 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 						checklistInjected: true,
 					});
 					ctx.ui.notify(
-						`Prewalk: same-model delivery-hydrate transition after first ${action.toolName}; checklist injected; receipt ${receiptPath}.`,
+						`Prewalk: same-model delivery-hydrate transition after first ${action.toolName}${targetThinkingLevel ? ` with ${targetThinkingLevel} thinking` : ""}; checklist injected; receipt ${receiptPath}.`,
 						"info",
 					);
 				} catch (err) {
@@ -707,7 +709,12 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 						"warning",
 					);
 				}
+				return;
 			}
+			ctx.ui.notify(
+				`Prewalk: same-model transition after first ${action.toolName}${targetThinkingLevel ? `; thinking set to ${targetThinkingLevel}` : ""}${profileName ? ` (profile ${profileName})` : ""}.`,
+				"info",
+			);
 			return;
 		}
 

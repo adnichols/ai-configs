@@ -7,7 +7,6 @@ const ALLOWED_MODELS = new Set([
 	"xai/grok-4.5",
 	"cursor/grok-4.5",
 	"opencode/deepseek-v4-flash",
-	"synthetic/hf:moonshotai/Kimi-K3",
 	"fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
 	"fireworks/accounts/fireworks/models/kimi-k3",
 	"deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731",

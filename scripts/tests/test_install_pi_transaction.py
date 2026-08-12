@@ -173,11 +173,18 @@ class InstallTransactionTest(unittest.TestCase):
                 'xai/grok-4.5:high',
                 'cursor/grok-4.5:high',
                 'opencode/deepseek-v4-flash:high',
-                'synthetic/hf:moonshotai/Kimi-K3:high',
             ])
             installed_models=json.loads(models.read_text())['providers']
             self.assertNotIn('xai',installed_models)
             self.assertEqual(installed_models['opencode']['modelOverrides']['grok-4.5']['contextWindow'],200000)
+            self.assertEqual(
+                installed_models['opencode']['modelOverrides']['deepseek-v4-flash']['thinkingLevelMap']['max'],
+                'max',
+            )
+            self.assertEqual(
+                installed_models['deepinfra']['modelOverrides']['deepseek-ai/DeepSeek-V4-Flash-0731']['thinkingLevelMap']['max'],
+                'max',
+            )
             self.assertEqual(installed_models['cursor']['modelOverrides']['grok-4.5']['contextWindow'],256000)
             self.assertNotIn('grok-4.5',{model['id'] for model in installed_models['openai-codex']['models']})
             native_xai = {

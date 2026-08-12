@@ -2,7 +2,7 @@
 
 Vendored fork of [pi-prewalk](https://github.com/lukeramsden/pi-prewalk) for this repository.
 
-A strong model plans, then at the first `edit`/`write` (todo-gated) the session switches to a configured execution model and reasoning level.
+The current model plans as-is, then at the first `edit`/`write` (todo-gated) the session switches to a configured execution model and that profile's reasoning level (default Flash implementation uses **max** thinking).
 
 ## Why vendored
 
@@ -14,7 +14,7 @@ Built-in profiles live in `profiles.json`:
 
 | Profile | Model | Thinking |
 |---------|--------|----------|
-| `flash` (default) | `deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731` | `low` |
+| `flash` (default) | `deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731` | `max` |
 | `terra` | `openai-codex/gpt-5.6-terra` | `high` |
 | `glm` | `deepinfra/zai-org/GLM-5.2` | `high` |
 | `luna` | `openai-codex/gpt-5.6-luna` | `xhigh` |
@@ -66,7 +66,7 @@ In-session:
 /prewalk off
 ```
 
-Thinking levels: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`.
+Thinking levels: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. Arming does **not** change the current planning model or thinking level. The profile `thinkingLevel` applies only when the implementation switch fires.
 
 ## Install
 

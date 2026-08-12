@@ -45,6 +45,7 @@ class PiPrewalkProfilesTest(unittest.TestCase):
         flash = profiles["flash"]
         self.assertEqual("deepinfra", flash["provider"])
         self.assertEqual("deepseek-ai/DeepSeek-V4-Flash-0731", flash["id"])
+        self.assertEqual("max", flash["thinkingLevel"])
         glm = profiles["glm"]
         self.assertEqual("deepinfra", glm["provider"])
         self.assertEqual("zai-org/GLM-5.2", glm["id"])
@@ -67,8 +68,15 @@ class PiPrewalkProfilesTest(unittest.TestCase):
             "syncDeliveryRuntimeEnvironment",
             "hydrate-transition.json",
             "checklistInjected",
+            'thinkingLevel: "max" as ThinkingLevel',
         ):
             self.assertIn(needle, source)
+
+        self.assertNotIn("PREWALK_PLAN_THINKING_LEVEL", source)
+        self.assertNotIn(
+            "setThinkingLevel(PREWALK_PLAN_THINKING_LEVEL)",
+            source,
+        )
 
     def test_delivery_hydrate_prompt_differs_from_default_plan_nudge(self) -> None:
         source = EXTENSION.read_text()
