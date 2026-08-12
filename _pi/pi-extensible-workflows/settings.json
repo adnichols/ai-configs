@@ -6,7 +6,7 @@
     "luna-xhigh": "openai-codex/gpt-5.6-luna:xhigh",
     "scout": "openai-codex/gpt-5.6-terra:low",
     "reviewer": "openai-codex/gpt-5.6-terra:high",
-    "judge": "xai/grok-4.5:high",
+    "judge": "xai/grok-4.6:high",
     "oracle": "openai-codex/gpt-5.6-sol:high"
   }
 }

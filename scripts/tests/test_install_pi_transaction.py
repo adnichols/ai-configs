@@ -170,7 +170,7 @@ class InstallTransactionTest(unittest.TestCase):
                 'openai-codex/gpt-5.6-terra:high',
                 'openai-codex/gpt-5.6-luna:xhigh',
                 'openai-codex/gpt-5.6-sol:medium',
-                'xai/grok-4.5:high',
+                'xai/grok-4.6:high',
                 'cursor/grok-4.5:high',
                 'opencode/deepseek-v4-flash:high',
             ])

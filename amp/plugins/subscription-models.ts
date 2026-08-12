@@ -26,7 +26,7 @@ const MAIN_INSTRUCTIONS = [
   'Second-opinion tools:',
   '- Call adn_oracle (GPT-5.6 Sol high) for deeper analysis, architecture judgment,',
   '  subtle debugging, or independent review of a risky change.',
-  '- Call adn_alt (Grok 4.5 high) when you want a different frontier model\'s take,',
+  '- Call adn_alt (Grok 4.6 high) when you want a different frontier model\'s take,',
   '  a contrasting second opinion, or the user asks for Grok / an alternate view.',
   'Pass each tool a focused question plus the evidence it should weigh.',
   'Do not use either tool for routine edits, simple lookups, or work you can',
@@ -93,9 +93,9 @@ export default function (amp: PluginAPI) {
 
   const alt = amp.createAgent({
     name: 'adn-alt',
-    model: 'xai/grok-4.5',
+    model: 'xai/grok-4.6',
     instructions: [
-      'You are ADN Alt (Grok 4.5), an alternate-frontier second opinion.',
+      'You are ADN Alt (Grok 4.6), an alternate-frontier second opinion.',
       SECOND_OPINION_INSTRUCTIONS,
       'Prefer a contrasting angle from the main agent when evidence allows.',
     ].join(' '),
@@ -139,7 +139,7 @@ export default function (amp: PluginAPI) {
   amp.registerTool({
     name: 'adn_alt',
     description: [
-      'Ask ADN Alt (Grok 4.5, high reasoning) for an alternate-frontier second opinion.',
+      'Ask ADN Alt (Grok 4.6, high reasoning) for an alternate-frontier second opinion.',
       'Use when you want a contrasting take, or the user asks for Grok / an alt view.',
       'Pass a self-contained request with the question and relevant evidence.',
     ].join(' '),
@@ -197,7 +197,7 @@ export default function (amp: PluginAPI) {
   amp.registerAgentMode({
     key: 'adn-alt',
     label: 'ADN Alt',
-    description: 'Grok 4.5 high — direct alternate-frontier mode',
+    description: 'Grok 4.6 high — direct alternate-frontier mode',
     color: '#111827',
     agent: alt.definition,
   })

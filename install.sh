@@ -2113,7 +2113,9 @@ MANAGED_XAI_PROXY_HEADERS = {
 LEGACY_GROK_ROUTE_MIGRATIONS = {
     **{model_id: f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
     **{f"grok/{model_id}": f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
-    "openai-codex/grok-4.5": "xai/grok-4.5",
+    "openai-codex/grok-4.5": "xai/grok-4.6",
+    "xai/grok-4.5": "xai/grok-4.6",
+    "xai/grok-4.5:high": "xai/grok-4.6:high",
 }
 
 def is_managed_xai_proxy(provider):

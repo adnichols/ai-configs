@@ -34,7 +34,7 @@ modelRoles:
   # the driving session. Pin that session's default to the delivery runtime.
   default: openai-codex/gpt-5.6-luna:xhigh
   Oracle: openai-codex/gpt-5.6-sol:xhigh
-  Trouble: xai/grok-4.5:high
+  Trouble: xai/grok-4.6:high
 defaultThinkingLevel: auto
 compaction:
   thresholdPercent: 40

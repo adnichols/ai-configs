@@ -71,6 +71,7 @@ class PiAgentRosterTest(unittest.TestCase):
             "openai-codex/gpt-5.6-luna",
             "openai-codex/gpt-5.6-sol",
             "xai/grok-4.5",
+            "xai/grok-4.6",
             "cursor/grok-4.5",
             "opencode/deepseek-v4-flash",
             "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
@@ -98,10 +99,11 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("gpt-5.6-sol", managed_ids)
         self.assertIn("gpt-5.6-terra", managed_ids)
         self.assertNotIn("grok-4.5", managed_ids)
-        self.assertNotIn("xai", models["providers"])
+        self.assertEqual({"grok-4.6"}, {item["id"] for item in models["providers"]["xai"]["models"]})
         self.assertNotIn("opencode-go", models["providers"])
         self.assertNotIn("fireworks", models["providers"])
         install_script = (ROOT / "install.sh").read_text()
+        self.assertIn('"xai/grok-4.6:high"', install_script)
         self.assertIn('"cursor/grok-4.5:high"', install_script)
         for unscoped_model in (
             "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
