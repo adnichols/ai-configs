@@ -1,0 +1,12 @@
+# Compiled binary produced by the herdr build step
+/herdr-ntfysh
+
+# Local configuration and secrets
+.env
+
+# Local runtime state
+panes.json
+*.tmp
+
+# OS cruft
+.DS_Store

@@ -1,0 +1,29 @@
+id = "cobanov.herdr-ntfysh"
+name = "herdr ntfy notifier"
+version = "0.2.1"
+min_herdr_version = "0.7.0"
+description = "Push ntfy notifications when a herdr agent finishes or needs your input."
+platforms = ["linux", "macos"]
+
+# Compiled at install time. Produces a single self-contained binary in the
+# plugin root with no runtime dependencies (Go stdlib only).
+[[build]]
+command = ["go", "build", "-trimpath", "-ldflags=-s -w", "-o", "herdr-ntfysh", "."]
+
+# Fires whenever herdr reports an agent state transition. The binary decides
+# internally whether the new status warrants a push (default: done, blocked).
+[[events]]
+on = "pane.agent_status_changed"
+command = ["./herdr-ntfysh"]
+
+# Manual action: verify the ntfy server, topic and auth are reachable.
+[[actions]]
+id = "test"
+title = "ntfy: send test notification"
+command = ["./herdr-ntfysh", "--test"]
+
+# Manual action: print the resolved configuration with secrets redacted.
+[[actions]]
+id = "doctor"
+title = "ntfy: show resolved config"
+command = ["./herdr-ntfysh", "--doctor"]

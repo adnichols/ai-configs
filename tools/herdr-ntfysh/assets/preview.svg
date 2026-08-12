@@ -1,0 +1,41 @@
+<svg width="760" height="430" viewBox="0 0 760 430" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1e293b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <!-- phone screen -->
+  <rect x="0" y="0" width="760" height="430" rx="28" fill="url(#screen)"/>
+
+  <!-- status line -->
+  <text x="40" y="52" fill="#cbd5e1" font-size="15" font-weight="600">ntfy</text>
+  <text x="720" y="52" fill="#94a3b8" font-size="15" text-anchor="end">now</text>
+
+  <!-- card 1: done -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="78" width="680" height="140" rx="18" fill="#ffffff"/>
+  </g>
+  <circle cx="88" cy="126" r="24" fill="#16a34a"/>
+  <path d="M77 126 l8 8 l16 -17" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="132" y="120" fill="#0f172a" font-size="21" font-weight="700">Claude - done</text>
+  <text x="132" y="150" fill="#475569" font-size="17">tests green</text>
+  <text x="132" y="180" fill="#64748b" font-size="15">&#128205; api &#8250; main</text>
+  <text x="700" y="120" fill="#94a3b8" font-size="14" text-anchor="end">herdr-agents</text>
+
+  <!-- card 2: blocked -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="238" width="680" height="140" rx="18" fill="#ffffff"/>
+  </g>
+  <circle cx="88" cy="286" r="24" fill="#dc2626"/>
+  <rect x="84.5" y="272" width="7" height="20" rx="3.5" fill="#ffffff"/>
+  <circle cx="88" cy="300" r="4" fill="#ffffff"/>
+  <text x="132" y="280" fill="#0f172a" font-size="21" font-weight="700">Codex - needs input</text>
+  <text x="132" y="310" fill="#475569" font-size="17">awaiting approval to run migration</text>
+  <text x="132" y="340" fill="#64748b" font-size="15">&#128205; web &#8250; deploy</text>
+  <text x="700" y="280" fill="#94a3b8" font-size="14" text-anchor="end">herdr-agents</text>
+</svg>
