@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Allowlisted DeepInfra Kimi K3 (`deepinfra/moonshotai/Kimi-K3`) for direct selection. It stays outside the managed Pi `enabledModels` cycle.
+- Allowlisted DeepInfra Kimi K3 (`deepinfra/moonshotai/Kimi-K3`) for direct selection and upserted it into managed `models.json` so it appears in the Pi picker. It stays outside the managed Pi `enabledModels` cycle.
 
 - Added a Pi `imaging` subagent on GPT-5.6 Luna xhigh so non-vision models can proactively hand screenshots and other visual input to a vision-capable analyst instead of guessing.
 

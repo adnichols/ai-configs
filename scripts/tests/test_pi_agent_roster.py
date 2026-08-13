@@ -99,6 +99,8 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("getAvailable(provider, options)", allowlist)
         self.assertNotIn("forceRefreshAvailability", allowlist)
         models = json.loads((ROOT / "_pi" / "models.json").read_text())
+        deepinfra_ids = {item["id"] for item in models["providers"]["deepinfra"]["models"]}
+        self.assertIn("moonshotai/Kimi-K3", deepinfra_ids)
         managed_ids = {item["id"] for item in models["providers"]["openai-codex"]["models"]}
         self.assertIn("gpt-5.6-sol", managed_ids)
         self.assertIn("gpt-5.6-terra", managed_ids)

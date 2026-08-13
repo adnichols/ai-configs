@@ -185,6 +185,10 @@ class InstallTransactionTest(unittest.TestCase):
                 installed_models['deepinfra']['modelOverrides']['deepseek-ai/DeepSeek-V4-Flash-0731']['thinkingLevelMap']['max'],
                 'max',
             )
+            self.assertIn(
+                'moonshotai/Kimi-K3',
+                {model['id'] for model in installed_models['deepinfra'].get('models', [])},
+            )
             self.assertEqual(installed_models['cursor']['modelOverrides']['grok-4.5']['contextWindow'],256000)
             self.assertNotIn('grok-4.5',{model['id'] for model in installed_models['openai-codex']['models']})
             native_xai = {

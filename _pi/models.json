@@ -185,9 +185,48 @@
       }
     },
     "deepinfra": {
+      "models": [
+        {
+          "id": "moonshotai/Kimi-K3",
+          "name": "Kimi-K3",
+          "api": "openai-completions",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "off": "none",
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "xhigh": null,
+            "max": "max"
+          },
+          "input": ["text", "image"],
+          "cost": {
+            "input": 2.85,
+            "output": 14.25,
+            "cacheRead": 0.285,
+            "cacheWrite": 0
+          },
+          "contextWindow": 400000,
+          "maxTokens": 1048576
+        }
+      ],
       "modelOverrides": {
         "deepseek-ai/DeepSeek-V4-Flash-0731": {
           "contextWindow": 400000,
+          "thinkingLevelMap": {
+            "off": "none",
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "xhigh": null,
+            "max": "max"
+          }
+        },
+        "moonshotai/Kimi-K3": {
+          "contextWindow": 400000,
+          "reasoning": true,
           "thinkingLevelMap": {
             "off": "none",
             "minimal": null,
