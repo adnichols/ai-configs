@@ -17,9 +17,10 @@
  *   /prewalk provider/id[:level] → ad-hoc model
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -114,6 +115,68 @@ function packageRoot(): string {
 
 function agentDir(): string {
 	return process.env.PI_CODING_AGENT_DIR?.trim() || join(homedir(), ".pi", "agent");
+}
+
+const PREWALK_ARMED_DIRNAME = "prewalk-armed";
+
+/** Exported for delivery CLI contract tests. */
+export function prewalkArmedDir(): string {
+	const override = process.env.PREWALK_ARMED_DIR?.trim();
+	if (override) return override;
+	return join(homedir(), ".pi", PREWALK_ARMED_DIRNAME);
+}
+
+/** Exported for delivery CLI contract tests. */
+export function prewalkArmedMarkerPath(cwd = process.cwd()): string {
+	const digest = createHash("sha256").update(resolve(cwd)).digest("hex");
+	return join(prewalkArmedDir(), digest);
+}
+
+function deliveryLedgerPath(cwd = process.cwd()): string {
+	return join(resolve(cwd), ".delivery", "ledger.json");
+}
+
+function deliveryLedgerExists(cwd = process.cwd()): boolean {
+	return existsSync(deliveryLedgerPath(cwd));
+}
+
+export function writePrewalkArmedMarker(
+	cwd = process.cwd(),
+	mode: PrewalkMode = "default",
+): string {
+	const path = prewalkArmedMarkerPath(cwd);
+	mkdirSync(dirname(path), { recursive: true });
+	writeFileSync(
+		path,
+		`${JSON.stringify(
+			{
+				cwd: resolve(cwd),
+				pid: process.pid,
+				mode,
+				armedAt: new Date().toISOString(),
+			},
+			null,
+			2,
+		)}\n`,
+		"utf8",
+	);
+	return path;
+}
+
+export function clearPrewalkArmedMarker(cwd = process.cwd()): void {
+	const path = prewalkArmedMarkerPath(cwd);
+	if (!existsSync(path)) return;
+	try {
+		const raw = JSON.parse(readFileSync(path, "utf8")) as { pid?: unknown };
+		if (typeof raw.pid === "number" && raw.pid !== process.pid) return;
+	} catch {
+		/* stale or corrupt marker: still ours to clear if we can unlink */
+	}
+	try {
+		unlinkSync(path);
+	} catch {
+		/* best-effort */
+	}
 }
 
 function readJsonFile(path: string): PrewalkConfigFile | undefined {
@@ -442,6 +505,31 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 		todoSeen = false;
 	}
 
+	function refuseBecauseDeliveryArmed(ctx: ExtensionContext): boolean {
+		if (!deliveryLedgerExists()) return false;
+		ctx.ui.notify(
+			"Prewalk: refused — delivery is already armed in this worktree. /prewalk and delivery are mutually exclusive. Use /prewalk only after the ledger is gone, or keep delivery and do not arm prewalk.",
+			"error",
+		);
+		return true;
+	}
+
+	function markArmed(mode: PrewalkMode): void {
+		try {
+			writePrewalkArmedMarker(process.cwd(), mode);
+		} catch {
+			/* marker is advisory for delivery refuse; do not fail the arm */
+		}
+	}
+
+	function markDisarmed(): void {
+		try {
+			clearPrewalkArmedMarker();
+		} catch {
+			/* best-effort */
+		}
+	}
+
 	function activeMode(): PrewalkMode {
 		if (armed?.mode) return armed.mode;
 		if (sessionMode === "delivery-hydrate") return "delivery-hydrate";
@@ -479,6 +567,7 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 		armed = { target, thinkingLevel, profileName, mode };
 		planInjected = true;
 		continuePending = true;
+		markArmed(mode);
 		steerPlanNudge();
 		const profileSuffix = profileName ? ` (profile ${profileName})` : "";
 		const thinkingSuffix = thinkingLevel ? ` with ${thinkingLevel} thinking` : "";
@@ -520,6 +609,8 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 			(typeof into === "string" && into.length > 0) ||
 			sessionMode === "delivery-hydrate";
 		if (!enabled) return;
+		// Operator --prewalk refuses a live ledger. Delivery-owned --delivery-hydrate may arm.
+		if (sessionMode !== "delivery-hydrate" && refuseBecauseDeliveryArmed(ctx)) return;
 		const spec = typeof into === "string" && into.length > 0 ? into : undefined;
 		await armFromSpec(spec, ctx, sessionMode);
 	});
@@ -533,12 +624,14 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 
 			if (lower === "off" || lower === "disable") {
 				if (!armed) {
+					markDisarmed();
 					ctx.ui.notify("Prewalk: not armed.", "info");
 					return;
 				}
 				armed = undefined;
 				continuePending = false;
 				planInjected = false;
+				markDisarmed();
 				ctx.ui.notify("Prewalk: disarmed.", "info");
 				return;
 			}
@@ -558,6 +651,7 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 			}
 
 			if (lower === "delivery-hydrate" || lower.startsWith("delivery-hydrate ")) {
+				if (refuseBecauseDeliveryArmed(ctx)) return;
 				sessionMode = "delivery-hydrate";
 				const rest = arg.slice("delivery-hydrate".length).trim();
 				await armFromSpec(rest.length > 0 ? rest : undefined, ctx, "delivery-hydrate");
@@ -613,6 +707,7 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 				return;
 			}
 
+			if (refuseBecauseDeliveryArmed(ctx)) return;
 			await armFromSpec(arg.length > 0 ? arg : undefined, ctx);
 		},
 	});
@@ -678,6 +773,7 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 		if (sameModel) {
 			armed = undefined;
 			continuePending = false;
+			markDisarmed();
 			// Apply executor thinking even when the model is unchanged.
 			if (targetThinkingLevel) pi.setThinkingLevel(targetThinkingLevel);
 			if (mode === "delivery-hydrate") {
@@ -723,6 +819,7 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 			ctx.ui.notify(`Prewalk: no API key for ${modelLabel(target)}; staying on current model.`, "warning");
 			armed = undefined;
 			continuePending = false;
+			markDisarmed();
 			if (mode === "delivery-hydrate") {
 				try {
 					writeHydrateTransitionReceipt({
@@ -746,6 +843,7 @@ export default function prewalkExtension(pi: ExtensionAPI) {
 			pi.setThinkingLevel(targetThinkingLevel);
 		}
 		armed = undefined;
+		markDisarmed();
 		const profileSuffix = profileName ? ` (profile ${profileName})` : "";
 		injectChecklist();
 		if (mode === "delivery-hydrate") {

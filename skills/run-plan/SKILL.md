@@ -160,15 +160,27 @@ Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: onl
 ### 0b. Delivery ledger and visible completeness review
 
 Use the delivery ledger only when delivery was explicitly armed for this run
-(an active `.delivery/ledger.json` created by an explicitly requested delivery
-command). Do not initialize a delivery ledger merely because the `delivery` CLI
-or `delivery-run` skill is available. A generic run-plan or other execution
-trigger does not arm delivery. When a ledger is active, keep it current as soft
-progress tracking. The implementation authorization remains mandatory before
-code work. In a `pi-full` Herdr delivery worktree, the visible labeled-tab Pi/Grok completeness review is mandatory before a local merge-readiness claim. In an `omp-lite` run, completeness review stays in the coordinating OMP session and uses request-bound packet acceptance. Other ledger evidence remains advisory.
+(an active `.delivery/ledger.json` created by `/delivery`, `delivery arm`,
+`delivery spawn`, or the operator saying "arm our delivery workflow").
+Do not initialize a delivery ledger merely because the `delivery` CLI
+or `delivery-run` skill is available. A generic run-plan, `/prewalk`,
+`execute`, or other execution trigger does not arm delivery. Never run
+`delivery init`, `delivery bootstrap`, or `delivery arm` from this skill.
+If `/prewalk` is armed, implement in this session; prewalk and delivery
+are mutually exclusive.
+
+If no ledger exists, implement here. Prewalk may switch models at the
+first `edit`/`write`. Skip the rest of this subsection.
+
+When a ledger is already active, keep it current as soft progress tracking.
+The implementation authorization remains mandatory before code work. In a
+`pi-full` Herdr delivery worktree, the visible labeled-tab Pi/Grok completeness
+review is mandatory before a local merge-readiness claim. In an `omp-lite`
+run, completeness review stays in the coordinating OMP session and uses
+request-bound packet acceptance. Other ledger evidence remains advisory.
 
 ```bash
-delivery init --plan <plan-path>                 # issue optional at start
+# Only when `.delivery/ledger.json` already exists. Do not create one here.
 delivery set --issue <KEY> --retarget-id         # attach Linear later when it exists
 # Pi Full: this authorizes and launches the dedicated Herdr implementation agent.
 # OMP Lite: this records authorization and remains in the coordinating OMP session.
@@ -195,7 +207,7 @@ delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "...
 delivery check -v   # advisories only; always exit 0
 ```
 
-Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization is different: it stops pre-code execution. Pi Full additionally requires its independent Sol-medium plan review, Luna/Terra implementation-profile recommendation, automatic workflow authorization, dedicated-agent launch, recorded Herdr-pane identity, and live recorded-runtime evidence. A Pi Full model mismatch is recoverable: switch to the recorded model, or deliberately adopt the current model in the same implementation pane with `--adopt-current-runtime --reason`. Retry a failed Pi Full launch with `delivery start-implementation`; delivery first reconciles an expected live Pi agent in the recorded pane. OMP Lite has no dedicated-agent launch or implementation-profile requirement and intentionally plans and implements in one coordinating session. For any delivery run, a missing validated completeness result after implementation prevents a local merge-readiness claim unless the operator explicitly waives it: Pi Full uses the visible labeled-tab review; OMP Lite uses the exact request-bound acceptance envelope. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
+Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization is different: it stops pre-code execution **when a delivery ledger is already active**. When a ledger is already active, Pi Full additionally requires its independent Sol-medium plan review, Luna/Terra implementation-profile recommendation, automatic workflow authorization, dedicated-agent launch, recorded Herdr-pane identity, and live recorded-runtime evidence. A Pi Full model mismatch is recoverable: switch to the recorded model, or deliberately adopt the current model in the same implementation pane with `--adopt-current-runtime --reason`. Retry a failed Pi Full launch with `delivery start-implementation`; delivery first reconciles an expected live Pi agent in the recorded pane. OMP Lite has no dedicated-agent launch or implementation-profile requirement and intentionally plans and implements in one coordinating session. For any delivery run, a missing validated completeness result after implementation prevents a local merge-readiness claim unless the operator explicitly waives it: Pi Full uses the visible labeled-tab review; OMP Lite uses the exact request-bound acceptance envelope. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
 
 When the scoped run reaches local merge-readiness or a durable stop (DONE/blocked handoff), best-effort log a process reflection outside the worktree:
 

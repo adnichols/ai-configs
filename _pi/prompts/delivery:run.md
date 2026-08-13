@@ -5,7 +5,11 @@ argument-hint: '[issue-key | plan-path | plan-slug]'
 
 # /delivery:run
 
-Invoke the installed `delivery-run` skill with:
+This command does **not** arm delivery. If `.delivery/ledger.json` is missing,
+stop and tell the operator to `/delivery` or say "arm our delivery workflow".
+Do not run `delivery init` or `delivery bootstrap` to create a ledger.
+
+If a ledger already exists, invoke the installed `delivery-run` skill with:
 
 ```text
 $ARGUMENTS

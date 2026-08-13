@@ -1,21 +1,34 @@
 ---
 name: delivery-run
-description: Explicit opt-in for the shared delivery workflow for OMP or Pi. Use only when the operator explicitly asks to use, arm, start, spawn, bootstrap, resume, inspect, or complete the delivery workflow, or invokes a delivery-specific command such as delivery spawn/bootstrap/run/status/board/reflect, /delivery:*, or /skill:delivery-run. Do not trigger for generic planning, implementation, PR, Linear, worktree, autonomous-build, or continuation requests, or for another named workflow such as prewalk.
+description: Explicit opt-in for the shared delivery workflow for OMP or Pi. Use only when the operator says "arm our delivery workflow", invokes /delivery or delivery arm, invokes delivery spawn / /delivery:spawn, or asks to attach delivery for review/completeness/PR after a non-delivery implementation. Do not trigger for generic planning, implementation, execute, run-plan, PR, Linear, worktree, autonomous-build, or continuation requests, or for another named workflow such as prewalk.
 ---
 
 # Delivery Run
 
 ## Explicit opt-in boundary
 
-Use this skill only after the operator explicitly requests the delivery workflow
-or invokes a delivery-specific command, for example "arm our delivery workflow",
-"start delivery", "run this through delivery", `delivery spawn`, `delivery
-bootstrap`, or a `/delivery:*` or `/skill:delivery-run` command. The presence of
+Delivery has one operator entrypoint. Arm it only when the operator says
+"arm our delivery workflow", invokes `/delivery` or `delivery arm`, or
+invokes `delivery spawn` / `/delivery:spawn` (new-worktree form of the same
+arm). The same entrypoint also covers a late attach: after a non-delivery
+implementation, the operator may ask to use delivery for review, completeness,
+and PR — run `delivery arm --from existing-implementation` and do not launch
+an implementation pane.
+
+Do not treat "start delivery", "run this through delivery", `execute`,
+`/run-plan`, `/prewalk`, `/delivery:run`, `/delivery:bootstrap`, or
+`/skill:delivery-run` as authorization to create a ledger. Those commands
+operate a ledger that is already armed, or they are not delivery. The presence of
 this skill, the `delivery` CLI, a Linear issue, a worktree, a plan, `run-plan`,
 or another execution workflow is not authorization to arm delivery. In
 particular, do not bootstrap or initialize delivery for generic
 build/implement/plan/PR requests or when the operator selects another named
 workflow such as prewalk.
+
+`/prewalk` and delivery are mutually exclusive while both would be live.
+If prewalk is still armed, refuse to arm delivery. If a delivery ledger already
+exists, refuse `/prewalk`. After prewalk has switched and disarmed, a late
+delivery attach is allowed.
 
 An existing `.delivery/ledger.json` may be inspected or continued only when the
 operator explicitly asks to inspect, resume, or continue that delivery run, or
@@ -199,7 +212,13 @@ If guidance and checks/balances are right, agents should usually do the right th
 Installed as `delivery` (from `skills/delivery-run/scripts/delivery`).
 
 ```bash
+# Single operator entrypoint. Creates the ledger. Never call this from run-plan/prewalk.
+delivery arm [--plan thoughts/plans/foo.html] [--issue NOD-123] [--slug my-feature]
+# Late attach after a non-delivery implementation (review / completeness / PR only):
+delivery arm --from existing-implementation --plan thoughts/plans/foo.html
+
 # Linear/issue is optional at start — attach anytime later
+# `init` is a low-level test/internal helper. Agents arm with `delivery arm`.
 delivery init [--slug my-feature] [--plan thoughts/plans/foo.html] [--stage INTAKE]
 delivery init --issue NOD-123 --plan thoughts/plans/foo.html   # also fine when you already have one
 

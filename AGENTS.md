@@ -202,20 +202,26 @@ Pi now supports both:
 ```bash
 # Per-worktree delivery board / stage ledger (guidance, not gates)
 # Tracks plan <-> review -> run-plan -> autoreview -> PR without hard-blocking
-# Delivery is EXPLICIT OPT-IN ONLY: it arms only when you explicitly ask for the
-# delivery workflow or invoke a /delivery:* / /skill:delivery-run command. Generic
-# build/implement/plan/PR requests or other named workflows (e.g. prewalk) never arm it.
-# From any Pi session: create Herdr worktree + start delivery (plain language; no flags needed)
+# Delivery is EXPLICIT OPT-IN ONLY: it arms only when you say
+# "arm our delivery workflow", invoke /delivery or `delivery arm`, or
+# `delivery spawn` / /delivery:spawn. /prewalk and /run-plan never arm it.
+# If /prewalk is still armed, delivery will refuse. If a ledger exists, /prewalk refuses.
+# Single in-session arm (same worktree):
+/delivery
+/delivery --from existing-implementation   # late attach for review / completeness / PR
+delivery arm --plan thoughts/plans/foo.html
+delivery arm --from existing-implementation --plan thoughts/plans/foo.html
+# New worktree form of the same arm:
 /delivery:spawn <freeform request; Linear key optional in the text>
 delivery spawn -- "honest auto-sync status"
 delivery spawn -- "NOD-123 one login path"   # issue/slug inferred
 
-# Already inside a worktree: navigator brief only
+# Already armed: scoreboard / navigator only (do not create a ledger)
 /delivery:bootstrap [goal] [--issue KEY] [--slug SLUG]
 /delivery:run [issue|plan]
 /delivery:status
 /skill:delivery-run
-delivery bootstrap --slug my-feature --goal "..."
+delivery bootstrap --refresh
 delivery set --issue NOD-123 --retarget-id   # Linear optional; attach later
 delivery reflect --trigger end-of-run --friction "..." --improvement "..." --mark-done
 # reflections land in ~/.pi/DELIVERY_REFLECTIONS.md + delivery-reflections.jsonl (outside worktree)
@@ -257,8 +263,9 @@ unless it already satisfies that format.
 
 Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
-- `/delivery:run` / `/skill:delivery-run` keeps a per-worktree stage ledger and board for the plan ↔ review → run-plan → autoreview → PR cycle. Doctrine is guidance, not gates: `delivery check` advisories never hard-block continuation.
-- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan. In a delivery-managed Herdr run, `delivery stage EXECUTION_READY` automatically authorizes the exact reviewed plan and launches the dedicated recorded implementation pane without another routine approval pause. The Sol-medium readiness reviewer recommends GPT-5.6 Luna xhigh by default or GPT-5.6 Terra high when correctness depends materially on technical judgment, while an explicitly recorded manual model/reasoning choice remains allowed; unresolved consequential choices escalate to Oracle rather than routing implementation through Sol. Implementation then proceeds through implementation-stage PM review, the active-harness reviewer-subagent pre-PR review, a visible labeled-tab Pi/Grok 4.6 completeness-review loop to `COMPLETE`, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus.
+- `/delivery` / `delivery arm` / "arm our delivery workflow" is the only in-session way to create a delivery ledger. `/prewalk` and `/run-plan` do not enter that path. After a non-delivery implementation, the same arm with `--from existing-implementation` attaches at review without launching an impl pane.
+- `/delivery:run` / `/skill:delivery-run` keeps a per-worktree stage ledger and board for the plan ↔ review → run-plan → autoreview → PR cycle **after delivery is already armed**. Doctrine is guidance, not gates: `delivery check` advisories never hard-block continuation.
+- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan. It implements in the current session unless a delivery ledger already exists. In a delivery-managed Herdr run, `delivery stage EXECUTION_READY` automatically authorizes the exact reviewed plan and launches the dedicated recorded implementation pane without another routine approval pause. The Sol-medium readiness reviewer recommends GPT-5.6 Luna xhigh by default or GPT-5.6 Terra high when correctness depends materially on technical judgment, while an explicitly recorded manual model/reasoning choice remains allowed; unresolved consequential choices escalate to Oracle rather than routing implementation through Sol. Implementation then proceeds through implementation-stage PM review, the active-harness reviewer-subagent pre-PR review, a visible labeled-tab Pi/Grok 4.6 completeness-review loop to `COMPLETE`, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus.
 - `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM and independent Sol-medium planner-subagent plan review; it must register through `doct-agent plans register --title '<Plan Title>'` (required; match plan frontmatter/`<title>`/`<h1>`), follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
 - `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown plan publishing guidance, listener startup, readiness metadata, canonical URL rules, and comment mechanics; other planning skills should reference it instead of duplicating command recipes.
 - `/skill:dev-plan <task>` remains available for planning-only work.

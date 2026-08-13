@@ -45,14 +45,18 @@ the delivery state machine for generic planning, implementation, PR, Linear,
 worktree, plan, or build requests, or when another named workflow such as
 prewalk is selected. Nothing about a request implies delivery unless the
 operator explicitly asks for the delivery workflow.
-- When the operator says "arm our delivery workflow", "start delivery",
-  "delivery spawn", "run this through delivery", "resume delivery", or asks
-  for the maintained plan-to-PR delivery cycle, MUST read
-  `skill://delivery-run` before changing delivery state.
+- Arm delivery only when the operator says "arm our delivery workflow",
+  invokes `delivery arm` / `/delivery`, or invokes `delivery spawn`.
+  After a non-delivery implementation, the same arm with
+  `--from existing-implementation` attaches at review. Do not treat
+  "start delivery", "run this through delivery", `execute`, or `run-plan`
+  as authorization to create a ledger. `/prewalk` and delivery are mutually
+  exclusive while both would be live.
+- When that entrypoint is used, MUST read `skill://delivery-run` before
+  changing delivery state.
 - OMP MUST select `runtime=omp` and `workflowProfile=omp-lite`. From a parent
   session, use `delivery spawn --runtime omp -- "<operator ask>"`; inside the
-  target worktree, use
-  `delivery bootstrap --runtime omp --slug <slug> --goal "<operator ask>"`.
+  target worktree, use `delivery arm --runtime omp --slug <slug> --goal "<operator ask>"`.
   Never enter the Pi Full route merely because shared repository guidance also
   documents Pi.
 - The `delivery` CLI and `.delivery/ledger.json` are authoritative. Do not

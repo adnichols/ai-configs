@@ -7,11 +7,11 @@ description: Create and gate execution-ready HTML development plans through Doct
 
 Use this skill when the user wants the planning and review process completed before implementation starts. The default output is a Doct-reviewed **operator** HTML plan on `https://doct.nodaste.com`. For the opt-in dual-plan hydrate trial, also derive a local **agentic companion** (`thoughts/plans/<slug>.agentic.html`) that carries agent-only file/test/verify detail with shared AC/BDD/phase IDs; Doct browser review stays on the operator plan only. Register the operator plan through `doct-agent plans` and either mark it execution-ready or explicitly block on a product/scope decision.
 
-The planning agent stops before product-code execution and may edit only the plan artifact(s). In a Pi Full delivery run, its final `EXECUTION_READY` transition launches a separate dedicated implementation agent. In OMP Lite, the current OMP session remains the implementation owner and the transition records authorization without a handoff. In planning-only use, no implementation starts.
+The planning agent stops before product-code execution and may edit only the plan artifact(s). Planning-only is the default: do not create a delivery ledger, do not run `delivery init`/`bootstrap`/`arm`, and do not launch an implementation pane. When a delivery ledger is already active, a Pi Full `EXECUTION_READY` transition launches a separate dedicated implementation agent; in OMP Lite the current OMP session remains the implementation owner. Without a ledger, stop after the execution-ready plan.
 
 ### Dual-plan trial (opt-in)
 
-When using the dual-plan hydrate trial:
+When using the dual-plan hydrate trial **and a delivery ledger is already active**:
 
 1. Author the operator plan without agent-only file lists, RED contracts, or verify recipes in the Doct-facing body.
 2. Derive `thoughts/plans/<slug>.agentic.html` (or `.agentic.markdoc`) beside it under this skill’s guidance — do not dual-hand-author a second product story.

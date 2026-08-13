@@ -52,6 +52,14 @@ pi --delivery-hydrate --prewalk-into terra   # delivery dual-plan hydrate framin
 
 Generic prewalk keeps its independent Flash default. Delivery-owned `--delivery-hydrate` is pinned by the delivery ledger to Luna xhigh and uses an adapted hydrate nudge (materialize from the agentic plan; do not reopen product decisions), injects the executor checklist even when hydrate and executor resolve to the same model, and writes `.delivery/hydrate-transition.json` at the first successful `edit`/`write`.
 
+Operator `/prewalk` and delivery are mutually exclusive in the same worktree.
+If `.delivery/ledger.json` exists, `/prewalk` refuses (delivery-owned
+`--delivery-hydrate` at session start still works). While prewalk is armed it
+writes `~/.pi/prewalk-armed/<sha256(cwd)>` so `delivery arm` can refuse.
+`/prewalk off` or the first successful `edit`/`write` switch clears the marker.
+After prewalk has switched and disarmed, a late `delivery arm --from existing-implementation`
+is allowed.
+
 In-session:
 
 ```

@@ -621,6 +621,54 @@ def find_ledger_path(start: Path | None = None, explicit: str | None = None) -> 
     return root / LEDGER_REL
 
 
+PREWALK_ARMED_DIRNAME = "prewalk-armed"
+
+
+def prewalk_armed_dir() -> Path:
+    override = (os.environ.get("PREWALK_ARMED_DIR") or "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".pi" / PREWALK_ARMED_DIRNAME
+
+
+def prewalk_armed_marker_path(cwd: Path) -> Path:
+    digest = hashlib.sha256(str(cwd.resolve()).encode("utf-8")).hexdigest()
+    return prewalk_armed_dir() / digest
+
+
+def live_prewalk_arm(cwd: Path) -> dict[str, Any] | None:
+    path = prewalk_armed_marker_path(cwd)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    pid = data.get("pid")
+    if isinstance(pid, int) and pid > 0:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+            return None
+        except PermissionError:
+            pass
+    return data
+
+
+def refuse_if_prewalk_armed(cwd: Path) -> None:
+    if live_prewalk_arm(cwd):
+        die(
+            "prewalk is armed in this worktree; /prewalk off before arming delivery. "
+            "Delivery and prewalk are mutually exclusive."
+        )
+
+
 def append_history(ledger: dict[str, Any], event_type: str, detail: str, **extra: Any) -> None:
     entry = {"at": utc_now(), "type": event_type, "stage": ledger.get("stage"), "detail": detail}
     entry.update(extra)
@@ -2175,11 +2223,114 @@ def maybe_herdr_label(
         return
 
 
+def cmd_arm(args: argparse.Namespace) -> int:
+    """Single operator entrypoint to create or attach a delivery ledger."""
+    root = Path(args.cwd).resolve() if args.cwd else detect_repo_root()
+    refuse_if_prewalk_armed(root)
+    path = root / LEDGER_REL
+    from_existing = bool(getattr(args, "from_existing_implementation", False))
+    if path.exists() and not getattr(args, "force", False):
+        ledger = load_json(path)
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "armed": True,
+                        "created": False,
+                        "ledger": str(path),
+                        "stage": ledger.get("stage"),
+                        "attachedFrom": ledger.get("attachedFrom"),
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"delivery already armed: {path}")
+            print(f"stage: {ledger.get('stage')}")
+        return 0
+    if from_existing:
+        return arm_from_existing_implementation(args, root, path)
+    if not getattr(args, "stage", None):
+        args.stage = "INTAKE"
+    return cmd_bootstrap(args)
+
+
+def arm_from_existing_implementation(
+    args: argparse.Namespace, root: Path, path: Path
+) -> int:
+    stage = "SCOPED_REVIEW"
+    ledger_id = args.id or default_id(root, args.issue, args.slug)
+    ledger = new_ledger(
+        root=root,
+        ledger_id=ledger_id,
+        issue=args.issue,
+        plan=args.plan,
+        stage=stage,
+        doct_url=args.doct_url,
+        pr_url=args.pr_url,
+        slug=args.slug,
+    )
+    initialize_runtime_profile(
+        ledger,
+        runtime=getattr(args, "runtime", None),
+        workflow_profile=getattr(args, "workflow_profile", None),
+    )
+    ledger["attachedFrom"] = "existing-implementation"
+    evidence = ledger.setdefault("evidence", empty_evidence())
+    evidence["implementation"] = {
+        "status": "skip",
+        "artifact": None,
+        "summary": "attached from existing non-delivery implementation",
+        "updatedAt": utc_now(),
+    }
+    append_history(
+        ledger,
+        "attach",
+        "existing-implementation; starting at SCOPED_REVIEW",
+    )
+    if getattr(args, "goal", None):
+        goal = str(args.goal).strip()
+        if goal:
+            ledger["goal"] = goal
+    refresh_git_fields(ledger, root)
+    brief = render_agent_brief(ledger, path)
+    brief_path = path.parent / "AGENT_BRIEF.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    brief_path.write_text(brief + "\n", encoding="utf-8")
+    ledger["agentBrief"] = str(brief_path)
+    ledger["advisories"] = build_advisories(ledger, root)
+    maybe_herdr_label(ledger)
+    write_json(path, ledger, force_replace=bool(getattr(args, "force", False)))
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "armed": True,
+                    "created": True,
+                    "attachedFrom": "existing-implementation",
+                    "ledger": str(path),
+                    "brief": str(brief_path),
+                    "stage": ledger.get("stage"),
+                    "id": ledger.get("id"),
+                },
+                indent=2,
+            )
+        )
+    else:
+        print("delivery armed from existing implementation")
+        print(f"ledger: {path}")
+        print(f"brief:  {brief_path}")
+        print(f"stage:  {ledger.get('stage')}")
+        print("next:   review / completeness / PR (no implementation pane)")
+    return 0
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     root = Path(args.cwd).resolve() if args.cwd else detect_repo_root()
     path = root / LEDGER_REL
     if path.exists() and not args.force:
         die(f"ledger already exists: {path} (use --force to overwrite)")
+    refuse_if_prewalk_armed(root)
     stage = args.stage or "INTAKE"
     if stage not in STAGES:
         die(f"unknown stage {stage!r}; choose from: {', '.join(STAGES)}")
@@ -2405,7 +2556,13 @@ def cmd_stage(args: argparse.Namespace) -> int:
     print(f"{prev} -> {stage}")
     print(f"next: {STAGE_NEXT_SKILL.get(stage, 'n/a')}")
     skip_herdr = os.environ.get("DELIVERY_SKIP_HERDR", "").strip().lower() in {"1", "true", "yes"}
-    if stage == "EXECUTION_READY" and not is_omp_lite(ledger) and not getattr(args, "hold", False) and not skip_herdr:
+    if (
+        stage == "EXECUTION_READY"
+        and not is_omp_lite(ledger)
+        and not getattr(args, "hold", False)
+        and not skip_herdr
+        and ledger.get("attachedFrom") != "existing-implementation"
+    ):
         with implementation_launch_lock(root):
             path, current, root = load_ledger_for(args)
             auto_args = argparse.Namespace(
@@ -5044,8 +5201,8 @@ def cmd_reflect(args: argparse.Namespace) -> int:
         refresh_git_fields(ledger, root)
     elif not args.allow_untracked:
         die(
-            f"no ledger at {candidate}; pass --allow-untracked to log without one, "
-            "or run delivery bootstrap first"
+            f"no ledger at {candidate}; skip reflection unless delivery is already armed, "
+            "or pass --allow-untracked to log without a ledger. Do not bootstrap or init delivery."
         )
 
     if args.list:
@@ -5453,6 +5610,7 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
         created = True
 
     if created:
+        refuse_if_prewalk_armed(root)
         transition_problem = stage_transition_problem(ledger, root, str(ledger.get("stage")))
         if transition_problem:
             die(
@@ -5569,6 +5727,48 @@ def build_parser() -> argparse.ArgumentParser:
             default=argparse.SUPPRESS,
             help="JSON output",
         )
+
+    p_arm = sub.add_parser(
+        "arm",
+        help="Single operator entrypoint: create a ledger, or attach after a non-delivery implementation",
+    )
+    add_json_flag(p_arm)
+    p_arm.add_argument(
+        "--from",
+        dest="from_existing_implementation",
+        choices=("existing-implementation",),
+        help="Attach at SCOPED_REVIEW after a non-delivery implementation (review/completeness/PR only)",
+    )
+    p_arm.add_argument("--issue", help="Linear/issue key if known")
+    p_arm.add_argument("--slug", help="Feature slug when no issue yet")
+    p_arm.add_argument("--plan", help="Plan path if known")
+    p_arm.add_argument("--doct-url", help="Doct plan URL")
+    p_arm.add_argument("--pr-url", help="PR URL")
+    p_arm.add_argument("--goal", help="Short operator goal/ask for this worktree")
+    p_arm.add_argument("--stage", help="Stage to set on early arm (default INTAKE)")
+    p_arm.add_argument("--id", help="Explicit ledger id")
+    p_arm.add_argument(
+        "--retarget-id",
+        action="store_true",
+        help="Rebuild id from repo + issue/slug",
+    )
+    p_arm.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Ignored on arm; use bootstrap --refresh for an existing ledger",
+    )
+    p_arm.add_argument(
+        "--force",
+        action="store_true",
+        help="Recreate ledger from scratch (destructive to prior evidence)",
+    )
+    p_arm.add_argument("--runtime", choices=tuple(RUNTIME_PROFILES), help="Runtime owner: omp or pi")
+    p_arm.add_argument(
+        "--workflow-profile",
+        choices=tuple(RUNTIME_PROFILES.values()),
+        help="Runtime workflow profile",
+    )
+    p_arm.set_defaults(func=cmd_arm)
 
     p_init = sub.add_parser("init", help="Create a delivery ledger in the current worktree")
     add_json_flag(p_init)

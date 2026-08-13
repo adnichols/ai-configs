@@ -5,9 +5,13 @@ argument-hint: '[goal text] [--issue KEY] [--slug SLUG] [--plan PATH]'
 
 # /delivery:bootstrap
 
-You are likely a newly spawned agent in a Herdr worktree with little or no prior context. Bootstrap the delivery navigator, then continue the real work.
+This command does **not** arm delivery from a generic session. If `.delivery/ledger.json`
+is missing and the operator did not spawn or `/delivery` this worktree, stop.
+Do not invent a ledger for run-plan, prewalk, or execute.
 
-## 1. Bootstrap the ledger + agent brief
+You are likely a newly spawned agent in a Herdr worktree with little or no prior context. Refresh the delivery navigator, then continue the real work.
+
+## 1. Refresh the ledger + agent brief
 
 From the worktree root, run one of:
 

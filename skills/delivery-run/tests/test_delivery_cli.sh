@@ -46,6 +46,91 @@ make_repo() {
   git -C "$dir" checkout -q -b feature/nod-1-test
 }
 
+write_prewalk_marker() {
+  local cwd="$1" pid="$2" dir="$3"
+  python3 - "$cwd" "$pid" "$dir" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+cwd = Path(sys.argv[1]).resolve()
+pid = int(sys.argv[2])
+marker_dir = Path(sys.argv[3])
+marker_dir.mkdir(parents=True, exist_ok=True)
+digest = hashlib.sha256(str(cwd).encode("utf-8")).hexdigest()
+(marker_dir / digest).write_text(
+    json.dumps({"cwd": str(cwd), "pid": pid, "mode": "default"}) + "\n",
+    encoding="utf-8",
+)
+print(marker_dir / digest)
+PY
+}
+
+test_arm_is_single_entrypoint_and_late_join() {
+  local repo="$TMP_ROOT/arm-repo"
+  make_repo "$repo"
+  mkdir -p "$repo/thoughts/plans"
+  printf '<html><title>Arm</title><h1>Arm</h1></html>\n' >"$repo/thoughts/plans/a.html"
+  local out
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" --json arm --slug arm-demo --plan thoughts/plans/a.html)"
+  printf '%s' "$out" | rg -q '"created": true' || return 1
+  [[ -f "$repo/.delivery/ledger.json" ]] || return 1
+  python3 - "$repo/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["stage"]=="INTAKE"
+assert d["slug"]=="arm-demo"
+assert d.get("attachedFrom") is None
+PY
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" arm --slug arm-demo)"
+  printf '%s' "$out" | rg -q "delivery already armed" || return 1
+
+  local late="$TMP_ROOT/late-arm-repo"
+  make_repo "$late"
+  mkdir -p "$late/thoughts/plans"
+  printf '<html><title>Late</title><h1>Late</h1></html>\n' >"$late/thoughts/plans/l.html"
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$late" --json arm --from existing-implementation --slug late-demo --plan thoughts/plans/l.html)"
+  printf '%s' "$out" | rg -q '"attachedFrom": "existing-implementation"' || return 1
+  python3 - "$late/.delivery/ledger.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+assert d["stage"]=="SCOPED_REVIEW"
+assert d["attachedFrom"]=="existing-implementation"
+assert d["evidence"]["implementation"]["status"]=="skip"
+PY
+}
+
+test_arm_refuses_live_prewalk_and_ignores_stale() {
+  local repo="$TMP_ROOT/prewalk-refuse-repo"
+  local markers="$TMP_ROOT/prewalk-markers"
+  make_repo "$repo"
+  write_prewalk_marker "$repo" "$$" "$markers" >/dev/null
+  local out rc=0
+  out="$(PREWALK_ARMED_DIR="$markers" DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" arm --slug blocked 2>&1)" || rc=$?
+  [[ "$rc" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "prewalk is armed" || return 1
+  [[ ! -f "$repo/.delivery/ledger.json" ]] || return 1
+
+  rc=0
+  out="$(PREWALK_ARMED_DIR="$markers" DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --slug blocked 2>&1)" || rc=$?
+  [[ "$rc" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "prewalk is armed" || return 1
+
+  local stale="$TMP_ROOT/prewalk-stale-repo"
+  make_repo "$stale"
+  write_prewalk_marker "$stale" 999999999 "$markers" >/dev/null
+  PREWALK_ARMED_DIR="$markers" DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$stale" arm --slug stale-ok >/dev/null
+  [[ -f "$stale/.delivery/ledger.json" ]] || return 1
+}
+
+test_reflect_without_ledger_does_not_hint_bootstrap() {
+  local repo="$TMP_ROOT/reflect-noleger-repo"
+  make_repo "$repo"
+  local out rc=0
+  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" reflect --trigger end-of-run 2>&1)" || rc=$?
+  [[ "$rc" -ne 0 ]] || return 1
+  printf '%s' "$out" | rg -q "already armed|Do not bootstrap or init delivery" || return 1
+  ! printf '%s' "$out" | rg -q "run delivery bootstrap first" || return 1
+}
+
 test_init_creates_ledger() {
   local repo="$TMP_ROOT/init-repo"
   make_repo "$repo"
@@ -1735,6 +1820,13 @@ test_delivery_skill_explicit_opt_in() {
   rg -q "EXPLICIT OPT-IN ONLY" "$ROOT/AGENTS.md" || return 1
   rg -q "the operator explicitly asked to" "$ROOT/_pi/prompts/cmd:start-linear-issue.md" || return 1
   rg -q "Do \*\*not\*\* arm or initialize the delivery workflow" "$ROOT/_pi/prompts/cmd:start-linear-issue.md" || return 1
+  rg -q "delivery arm" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "mutually exclusive" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q -- "--from existing-implementation" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  rg -q "Never run" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  ! rg -q "delivery init --plan" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "This is the only in-session way to arm delivery" "$ROOT/_pi/prompts/delivery.md" || return 1
+  rg -q "does \*\*not\*\* arm delivery" "$ROOT/_pi/prompts/delivery:run.md" || return 1
 }
 
 test_plan_title_extraction_and_advisory() {
@@ -2379,6 +2471,9 @@ run_test test_plan_title_extraction_and_advisory
 run_test test_omp_runtime_profile_detection_and_legacy_backfill
 run_test test_omp_completion_review_uses_bound_envelope
 run_test test_omp_delivery_transitions_require_current_review_and_closeout_evidence
+run_test test_arm_is_single_entrypoint_and_late_join
+run_test test_arm_refuses_live_prewalk_and_ignores_stale
+run_test test_reflect_without_ledger_does_not_hint_bootstrap
 run_test test_init_creates_ledger
 run_test test_record_receipts_coexist_and_validate
 run_test test_unprotected_stage_moves_without_gates
