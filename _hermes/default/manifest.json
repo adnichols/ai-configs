@@ -57,9 +57,9 @@
       "sha256": "52720a5f858187c61c32eb2bd11556f1916c48f1f1f71912acfa9276d2e0189f"
     },
     {
-      "bytes": 1362,
+      "bytes": 1396,
       "path": "memories/USER.md",
-      "sha256": "a7beb931495575771d41a9a5ff1313cd9b15a776bee3bc5e3f7b0b52b1aca8c2"
+      "sha256": "60c6e9921babeb100a8ff2434a63c91aaf7e7be0902dd38b22d47186438e74d1"
     },
     {
       "bytes": 2462,
@@ -5032,9 +5032,9 @@
       "sha256": "bdf27c02052f06d3d44ca82efa3249aa408f8ac00ffb9ec6051061965d5fc5f1"
     },
     {
-      "bytes": 10266,
+      "bytes": 9877,
       "path": "skills/autonomous-ai-agents/doct-agent-cli/SKILL.md",
-      "sha256": "9d5763a9d8a33d4066e27069d812c7caa47179430e44ee86c08341981b7e0534"
+      "sha256": "ff28ee1fdf667977cb9ef7f93dc2af7fcd34b739d0f829fbbe44d98d19346176"
     },
     {
       "bytes": 2950,
@@ -5042,9 +5042,9 @@
       "sha256": "85c55be483b6bd281d8ed898217f85284fd6021a1e82871bd27a569a5b5fc39e"
     },
     {
-      "bytes": 14452,
+      "bytes": 14370,
       "path": "skills/autonomous-ai-agents/doct-agent-cli/references/doct-agent-commands.md",
-      "sha256": "74167240f944d392162d873209251207cab60d50aacab950de7c8d619f01b935"
+      "sha256": "a45f5137886f8663fd534bdcbf1ff613055e525d04e79d778cbd1e70e4aec94a"
     },
     {
       "bytes": 9378,
@@ -7497,9 +7497,9 @@
       "sha256": "0eb6aae48a76ad4c522b2b3100438236837d90584d6f3cc8496f08c372a6ab9a"
     },
     {
-      "bytes": 36529,
+      "bytes": 35414,
       "path": "skills/productivity/doct-document-ops/SKILL.md",
-      "sha256": "2cf903cbcadc724a7d32474bd5bb3e3838c6da36891a093fb9e4db36299c99b6"
+      "sha256": "2b7e4d446ba0947ba061bb87edeeeb759318cc238286ba4225b5e3bd1c033f63"
     },
     {
       "bytes": 3859,
@@ -7507,19 +7507,19 @@
       "sha256": "3a48bf631945eef50c9b5ddb67b1619bd24d6e1bab2263c16bf7c9130bb6d2ad"
     },
     {
-      "bytes": 22388,
+      "bytes": 21490,
       "path": "skills/productivity/doct-document-ops/references/doct-agent-commands.md",
-      "sha256": "c2585a95aa3815f50db0130db0d5c6e5844097e52bd3093fa5d72343fed016ce"
+      "sha256": "665eb55ad2cec92186a2f14d5cf65c2984a481da3876fb4a3cee14d15918eb39"
     },
     {
-      "bytes": 3254,
+      "bytes": 3246,
       "path": "skills/productivity/doct-document-ops/references/doct-launchd-until-archived-listener.md",
-      "sha256": "ba9dcb9a0131baac5f80732b4667f26a5f61c7b772f93baf4adc716b936d6c8c"
+      "sha256": "2a78af6fe4ac044a655b3928025ff47375d1200fe8bb87c0fa97a012a0f4657a"
     },
     {
-      "bytes": 3120,
+      "bytes": 3112,
       "path": "skills/productivity/doct-document-ops/references/doct-plan-comment-dispatcher-pattern.md",
-      "sha256": "d8dc88a4156b6552a4232822cac487f9ff7dc0e394aa1fd16c2984261939bd57"
+      "sha256": "bc44f7dbccbc4acfe874ba51649e9224dd58d712def56fb04da19b63a2905b67"
     },
     {
       "bytes": 2776,
@@ -7532,9 +7532,9 @@
       "sha256": "4dd7fc27aeea185aff9a615799519d9d289d8eabe15850208e264088472f8e94"
     },
     {
-      "bytes": 1513,
+      "bytes": 1502,
       "path": "skills/productivity/doct-document-ops/references/plan-format-listener-repair-pattern.md",
-      "sha256": "9e4e19b731d455daeee8de51a1d320131edce06de90fcf2c3b04ac4f510c4cf0"
+      "sha256": "c39cf9fd6a15a9a6004ca63884c5e8009f5ed8836b0ba2be817ff70fe9fdeacd"
     },
     {
       "bytes": 3353,
@@ -8392,9 +8392,9 @@
       "sha256": "55d5811c0b2d872dc59d87432720a113150dbbce2872524a36b3860a8967095d"
     },
     {
-      "bytes": 11297,
+      "bytes": 11271,
       "path": "skills/software-development/dev-plan/SKILL.md",
-      "sha256": "2b3ab6d2a38d31da26951972ead97d18822d49f3dd4171642b8a1fe84474491b"
+      "sha256": "95434850d54074b24fbaff0b79303fa645d9651c0eff2134a42569fae0616cc5"
     },
     {
       "bytes": 11410,
@@ -8412,9 +8412,9 @@
       "sha256": "14d42314746571421ff7ca90cbc2cb34b428a09a6d4424fa942bc2ff79e344f2"
     },
     {
-      "bytes": 4951,
+      "bytes": 4745,
       "path": "skills/software-development/html-artifact-review/SKILL.md",
-      "sha256": "80dacbbf2f5368fb9f6d66143fa854e320a1b2efedbfcd17fd6fd58283994761"
+      "sha256": "c990bcf00e19138a70934848a916420d771cd655e6f696cd0a75c006a86d11f4"
     },
     {
       "bytes": 2860,
@@ -8432,14 +8432,14 @@
       "sha256": "bba00c8c4a447d98405878d2419018bacf089be9d1f88820bac4160aadbfd890"
     },
     {
-      "bytes": 11272,
+      "bytes": 11210,
       "path": "skills/software-development/plan/SKILL.md",
-      "sha256": "63ff15a848fa3791c84c167063b4d25cc0f1cfe98271f38534271d93a68f9f6c"
+      "sha256": "903da0fac77ebb3ece3cc42ab5143d7438c25f195724335031bb0cfbb81aac80"
     },
     {
-      "bytes": 30672,
+      "bytes": 30627,
       "path": "skills/software-development/planning-workflow/SKILL.md",
-      "sha256": "800f6a9e77366fe5e682abe8c4c6646bf7fa3db12ac188759ede2fd13c2c9d73"
+      "sha256": "0f12dc0946a53653fc0be3d3bbf9ba704fa58c86c178e0d7681199490938b3d6"
     },
     {
       "bytes": 13172,
@@ -8452,14 +8452,14 @@
       "sha256": "7e6d34d9927d68375b26946df45f95b11ee4e69e69ec9d2d71fe8e304487ec70"
     },
     {
-      "bytes": 32706,
+      "bytes": 32628,
       "path": "skills/software-development/reviewed-html-plan/SKILL.md",
-      "sha256": "f0a4ce63f87a2a1982f3c3eeebc9e509378e005adb7d906745e95574e06d9e2c"
+      "sha256": "3d0953a3ebb8a0546626f7311c5eba26c47a3b0b21d5eac4cac8f3376d53548d"
     },
     {
-      "bytes": 80704,
+      "bytes": 80678,
       "path": "skills/software-development/run-plan/SKILL.md",
-      "sha256": "925aae5dcbb13931ae52695b3c20de720d5ab0c7d84cdd10c97937244b480ff4"
+      "sha256": "6ffed0b8806b7a15552eefc7c68aa6e2a6ae53c53dce4bfa6c454fc4d2b210c8"
     },
     {
       "bytes": 10841,
@@ -8482,9 +8482,9 @@
       "sha256": "4c01d41a0dffbe08eeab3c55250d66be0c9b2b418b4a176e492479407e1d6c7d"
     },
     {
-      "bytes": 25012,
+      "bytes": 24927,
       "path": "skills/software-development/writing-plans/SKILL.md",
-      "sha256": "c2d4b9ad50f56411bc73df5f0a87e481ffa75a405a1de7aeaa1aaadac02f19f9"
+      "sha256": "ba72d17960d8380cba9861d3ab750476a5bf764ef755694f3790256bbcffa94b"
     },
     {
       "bytes": 3795,
@@ -8492,7 +8492,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260812T145852Z",
+  "generated_at": "20260813T175854Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/code/ai-configs/_hermes/default"

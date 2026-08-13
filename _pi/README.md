@@ -291,7 +291,7 @@ Prompt templates:
 
 ## Reviewed-plan handoff
 
-Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-ready-PR execution: durable Pi goal tracking, implementation, implementation-stage PM review, reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html` or the repo-selected Markdoc source, and `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML/Markdoc/Markdown publishing guidance, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics.
+Use `/run-plan <plan>` after a reviewed plan is ready for full implementation-through-ready-PR execution: durable Pi goal tracking, implementation, implementation-stage PM review, reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed. Use `/dev:run <plan>` only for direct execution without the full PR lifecycle. For browser-reviewed plans, the active artifact is `thoughts/plans/<slug>.html`, and `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML publishing guidance, durable listener startup, readiness metadata, canonical URL rules, and comment mechanics. Do not produce Markdoc plans.
 
 Canonical browser-reviewed HTML plan flow:
 

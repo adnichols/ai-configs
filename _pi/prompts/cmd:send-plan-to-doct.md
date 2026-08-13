@@ -12,7 +12,7 @@ Register or publish a coding plan in Doct for: `$ARGUMENTS`
 - Prefer the `doct-document-ops` skill if it is available.
 - All doct operations go through the `doct-agent` CLI. Do not use `doct-cli`, raw REST, local `plan-review`, or helper scripts.
 - If `$ARGUMENTS` looks like a local file path, read that file **fully** before sending it.
-- If the plan is HTML or Markdoc, use `doct-agent plans register` against `https://doct.nodaste.com` by default.
+- Plan source is HTML. Use `doct-agent plans register` against `https://doct.nodaste.com` by default with `--source-format html`. Do not produce or register Markdoc plans.
 - If the user explicitly wants a legacy text/Markdown child document instead of plan review, only then use the document flow the installed `doct-agent onboard` currently supports.
 
 ## Plan registration flow
@@ -24,7 +24,7 @@ doct-agent auth status --all --json
 doct-agent context --base-url https://doct.nodaste.com --json
 ```
 
-2. Register reviewer-facing HTML plans:
+2. Register the reviewer-facing HTML plan:
 
 ```bash
 doct-agent plans register \
@@ -36,7 +36,7 @@ doct-agent plans register \
   --json
 ```
 
-For Markdoc plans, use `--source-format markdoc` and omit `--allow-untemplated` unless the CLI/template guidance says otherwise. `--title` is required and must match the plan content title (HTML `<title>`+`<h1>`, or Markdoc frontmatter `title:`).
+Plans are authored as HTML; use `--source-format html --allow-untemplated`. `--title` is required and must match the plan content title (HTML `<title>`+`<h1>`). Do not produce or register Markdoc plans.
 
 3. Parse the registration JSON and preserve:
 - canonical Doct URL (`reviewUrl` or `documentUrl` resolved against `https://doct.nodaste.com`)
@@ -61,6 +61,6 @@ For Markdoc plans, use `--source-format markdoc` and omit `--allow-untemplated` 
 
 ## Notes
 
-- `documents publish-plan` is legacy and current doct-agent onboarding says it fails closed with replacement guidance for plan-review publishing. Do not use it for reviewer-facing HTML/Markdoc plans.
+- `documents publish-plan` is legacy and current doct-agent onboarding says it fails closed with replacement guidance for plan-review publishing. Do not use it for reviewer-facing HTML plans.
 - The durable listener is part of registration completion. Do not ask the user to annotate the plan until it is running.
 - If auth is missing, run `doct-agent auth login --base-url https://doct.nodaste.com` first with an owner-approved enrollment code, or use `doct-agent auth import-pat --base-url <url> --token <doct_pat_v1_...>` when explicitly provided.

@@ -128,7 +128,7 @@ doct-agent documents delete (--id <id> | --path '<path>') [--workspace-id <wsid>
 doct-agent documents publish-plan --file /path/to/plan.md [--title '<title>'] [--parent-title 'Coding Plans'] [--workspace personal|<id-or-slug>] --json
 ```
 
-Current onboarding says `documents publish-plan` fails closed with replacement guidance for plan-review publishing. Prefer `doct-agent plans register` for HTML/Markdoc coding plans.
+Current onboarding says `documents publish-plan` fails closed with replacement guidance for plan-review publishing. Prefer `doct-agent plans register` for HTML coding plans. Do not produce or register Markdoc plans.
 
 ## Plans: register, update, and review HTML plans
 
@@ -151,16 +151,7 @@ doct-agent plans register \
 
 Use this as the default for handcrafted HTML plans. Omit `--allow-untemplated` only when using a Doct plan template/config that validates without it.
 
-### Register a Markdoc plan
-
-```bash
-doct-agent plans register \
-  --base-url https://doct.nodaste.com \
-  --file thoughts/plans/example.markdoc \
-  --source-format markdoc \
-  [--title 'Example Plan'] \
-  --json
-```
+Plans are HTML-only; there is no Markdoc plan source or `--source-format markdoc` registration path.
 
 ### Update a registered plan
 

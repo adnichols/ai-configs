@@ -1,6 +1,6 @@
 # Durable macOS Doct listener until archival
 
-Use this pattern when Aaron asks to keep a listener active for one existing Doct HTML/Markdoc document until that document is archived.
+Use this pattern when Aaron asks to keep a listener active for one existing Doct HTML document until that document is archived.
 
 ## Architecture
 

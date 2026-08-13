@@ -1,6 +1,6 @@
 # Durable Doct plan comment dispatcher pattern
 
-Use this reference when a Doct HTML/Markdoc plan listener exists but comments remain pending or the listener is not taking action.
+Use this reference when a Doct HTML plan listener exists but comments remain pending or the listener is not taking action.
 
 ## Failure mode
 

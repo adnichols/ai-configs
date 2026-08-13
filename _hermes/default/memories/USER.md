@@ -10,7 +10,7 @@ Aaron runs Nodaste; for calendar summaries, treat it as primary and ignore Workd
 §
 Signals: use ccore by default; check vault during transition. Notify-only/no auto-response. Discord briefs short; detail in Obsidian/doct; preserve doct permalinks. PR watcher alerts: Telegram primary, Discord audit/fallback.
 §
-Use pi coding workflow for coding in ~/code; create plans as Doct HTML/Markdoc with a comment listener.
+Use pi coding workflow for coding in ~/code; create plans as Doct HTML with a comment listener (HTML-only; do not produce Markdoc plans).
 §
 Priorities: C-Core, DocT, HUD; HUD should sit on C-Core, whose trust/reliability gates team use. For Doct sidebar/index bugs, file Linear when API evidence points to product bug.
 §

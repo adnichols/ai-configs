@@ -1,11 +1,11 @@
 ---
 name: html-artifact-review
-description: Evaluate, design, or extend Doct-backed HTML/Markdoc artifact review workflows where agents publish HTML documents/plans, users comment on DOM/text/image selections, and agents inspect queues, reply, ack, resolve, and update artifacts. Prefer Doct/doct-agent over the legacy local plan-review service unless explicitly requested.
+description: Evaluate, design, or extend Doct-backed HTML artifact review workflows where agents publish HTML documents/plans, users comment on DOM/text/image selections, and agents inspect queues, reply, ack, resolve, and update artifacts. Plans are HTML-only; do not produce Markdoc plans. Prefer Doct/doct-agent over the legacy local plan-review service unless explicitly requested.
 version: 2.0.0
 author: Hermes Agent
 metadata:
   hermes:
-    tags: [html, artifacts, review, comments, agents, hermes, doct, markdoc]
+    tags: [html, artifacts, review, comments, agents, hermes, doct]
     related_skills: [doct-document-ops, doct-agent-cli]
 ---
 
@@ -41,8 +41,7 @@ For reviewer-facing HTML plans or plan-like HTML documents, load `doct-document-
 
 ```bash
 doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --title '<Plan Title>' --json
-doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --title '<Plan Title>' --json
-doct-agent plans update --base-url https://doct.nodaste.com --id <document-id> --workspace-id <workspace-id> --file <source> --source-format <html|markdoc> --expected-version <version> --json
+doct-agent plans update --base-url https://doct.nodaste.com --id <document-id> --workspace-id <workspace-id> --file <source> --source-format html --expected-version <version> --json
 doct-agent plans queue list --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json
 doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json
 doct-agent plans reply --base-url https://doct.nodaste.com --document-id <document-id> --workspace-id <workspace-id> --thread-id <thread-id> --body "Updated the document." --json
@@ -52,10 +51,10 @@ doct-agent plans resolve --base-url https://doct.nodaste.com --workspace-id <wor
 
 For ordinary Doct text documents, load `doct-agent-cli` / `doct-document-ops` and use `documents create`, `documents replace-body`, `collab anchored`, and `collab comments` commands rather than registering them as coding plans.
 
-## HTML / Markdoc authoring rules
+## HTML authoring rules
 
-- Prefer repo-local `thoughts/plans/<slug>.markdoc` when the repo defines a Markdoc plan source; the generated/reviewed HTML is not the editable source.
-- For handcrafted HTML, use semantic HTML with stable `id` attributes on likely comment targets.
+- All reviewer-facing Doct plans are HTML (`thoughts/plans/<slug>.html`); do not produce or register Markdoc plans.
+- Use semantic HTML with stable `id` attributes on likely comment targets.
 - Use a dark-mode, full-width single-column reviewer layout unless the user asks otherwise.
 - Put a concise table of contents near the top for plan-like artifacts.
 - Keep active scripts, event handlers, forms, and untrusted embeds out of review artifacts.
@@ -64,7 +63,7 @@ For ordinary Doct text documents, load `doct-agent-cli` / `doct-document-ops` an
 ## Pitfalls
 
 - Do not describe “hosting HTML” as the hard part. The valuable substrate is anchored feedback plus reliable agent delivery and source updates.
-- Do not use `documents publish-plan` for current HTML/Markdoc planning; current onboarding says it fails closed with replacement guidance.
+- Do not use `documents publish-plan` for current HTML planning; current onboarding says it fails closed with replacement guidance.
 - Do not claim a plan/document is updated in Doct until `doct-agent plans update` or the relevant Doct document command returns successfully.
 - Do not process multiple claimed comments in parallel unless the worker is explicitly designed for that queue scope.
 - Do not fork a local plan-review workflow when Doct already provides the required registration, queue, reply, ack, resolve, lifecycle, and board surfaces.

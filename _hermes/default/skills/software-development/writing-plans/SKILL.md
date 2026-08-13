@@ -1,6 +1,6 @@
 ---
 name: writing-plans
-description: Use when creating or updating executable software plans. For Aaron-facing plan requests, create a Doct-registered HTML/Markdoc plan by default, start/verify the comment listener, and do not use Markdown/text docs unless explicitly requested or repo guidance forbids HTML.
+description: Use when creating or updating executable software plans. For Aaron-facing plan requests, create a Doct-registered HTML plan by default (HTML-only; do not produce Markdoc plans), start/verify the comment listener, and do not use Markdown/text docs unless explicitly requested or repo guidance forbids HTML.
 version: 2.0.0
 author: Hermes Agent
 license: MIT
@@ -14,25 +14,25 @@ metadata:
 
 Use this skill as the canonical source of truth for writing executable implementation plans across repos.
 
-## Aaron default: plans are Doct-registered HTML/Markdoc
+## Aaron default: plans are Doct-registered HTML
 
-When Aaron says “create a plan”, “post a plan”, “make a plan”, “publish a plan”, or otherwise asks for an implementation/development plan, the default artifact is a reviewer-facing HTML or Markdoc plan registered in Doct with `doct-agent plans`, not a Markdown/text Doct document and not a chat-only plan. This default applies even when the user does not explicitly say “HTML”.
+When Aaron says “create a plan”, “post a plan”, “make a plan”, “publish a plan”, or otherwise asks for an implementation/development plan, the default artifact is a reviewer-facing HTML plan registered in Doct with `doct-agent plans`, not a Markdoc plan, not a Markdown/text Doct document, and not a chat-only plan. This default applies even when the user does not explicitly say “HTML”.
 
-Only use a non-HTML/Markdoc plan when one of these is true:
+Only use a non-HTML plan when one of these is true:
 
 - Aaron explicitly asks for Markdown/text/no Doct/no comments;
 - an existing non-HTML plan path is supplied and the task is only to update that artifact;
-- repo-local guidance explicitly forbids Doct HTML/Markdoc plans for this workflow.
+- repo-local guidance explicitly forbids Doct HTML plans for this workflow.
 
 If repo-local guidance is absent or ambiguous, do not ask which format to use: create `thoughts/plans/<slug>.html` in a repo context, or a temporary handcrafted HTML source for standalone/non-repo planning, then register it through Doct. After registration, start or verify the Doct plan comment listener/queue watcher and report both the canonical Doct review URL and listener status.
 
-Repo-local planning guidance may refine the source path or choose Markdoc over handcrafted HTML, but it does not weaken the default that Aaron-facing plans must be browser-reviewable and commentable.
+Repo-local planning guidance may refine the source path, but it does not weaken the default that Aaron-facing plans must be browser-reviewable, commentable, and HTML.
 
 ## Boundaries
 
 - `plan mode` is for discovery only: inspect the codebase, validate assumptions, gather evidence, and identify ambiguities.
 - `dev:plan` (or equivalent plan-materialization step) writes the actual plan file once discovery has produced enough evidence to choose the correct readiness state: `execution-ready` when foundational decisions are resolved, or a single non-ready `research-ready` artifact when further research is the next handoff. Before that handoff point, the work remains `discovery`.
-- Default shared artifact for Aaron-facing plans is a Doct-registered HTML/Markdoc plan. Resolve the exact source path from repo-local guidance or an existing plan path supplied by the user. If local guidance does not define the active artifact and the user did not supply an existing plan path, use `thoughts/plans/<slug>.html` in a repo context or a temporary handcrafted HTML source for standalone planning. Do not ask which format to use unless Aaron explicitly requests a non-HTML format or repo guidance conflicts.
+- Default shared artifact for Aaron-facing plans is a Doct-registered HTML plan. Resolve the exact source path from repo-local guidance or an existing plan path supplied by the user. If local guidance does not define the active artifact and the user did not supply an existing plan path, use `thoughts/plans/<slug>.html` in a repo context or a temporary handcrafted HTML source for standalone planning. Do not ask which format to use unless Aaron explicitly requests a non-HTML format or repo guidance conflicts.
 - `dev:plan` ends when the plan artifact is written or updated; execution starts only after a separate explicit execution command or a new user instruction.
 - In Pi-style reviewed-plan workflows, keep the handoff explicit and prefer the repo's canonical workflow skill from repo-local guidance. For HTML plans, prefer Doct registration through `doct-agent plans` on `https://doct.nodaste.com`; do not assume a hidden fallback to Claude Code, a local `plan-review` service, or any other alternate review surface.
 - During plan writing, edit only the target plan artifact unless the repo's `AGENTS.md` explicitly allows another planning-side file.
@@ -56,7 +56,7 @@ If required repo guidance or product intent is missing, stop and ask the user or
 
 Always consider which additional skills are needed before writing the plan.
 
-- Load `doct-document-ops` before writing, registering, linking, updating, or monitoring any reviewer-facing `thoughts/plans/*.html` or `thoughts/plans/*.markdoc` artifact. Use its Doct-backed `doct-agent plans` instructions for reviewer-facing HTML/Markdoc plans, with `https://doct.nodaste.com` as the default registration endpoint.
+- Load `doct-document-ops` before writing, registering, linking, updating, or monitoring any reviewer-facing `thoughts/plans/*.html` artifact. Use its Doct-backed `doct-agent plans` instructions for reviewer-facing HTML plans, with `https://doct.nodaste.com` as the default registration endpoint.
 - Load `product-principles` for planning work that affects user/operator/agent workflows, defaults, onboarding, recovery behavior, error handling, architecture, or regression strategy. Use it to define the golden path, safe defaults, self-healing expectations, actionable error guidance, and a quick dissonance audit against repo guidance (`AGENTS.md`, product-intent docs, onboarding docs, config/status surfaces, and tests).
 - Load `tdd-test-writer` when phases will rely on tests-first delivery or when the RED-phase contract needs strengthening.
 - Load repo-recommended skills from `AGENTS.md` for the relevant surface or stack.
@@ -101,8 +101,8 @@ Write plans as execution artifacts, not brainstorming notes. A ready plan must b
 - Do not promote adjacent cleanup, optional follow-ups, broader parity not required by the source intent, or extra explicitness that does not materially change go/no-go confidence into required plan work unless source requirements or validated repo evidence show they are necessary for success.
 - Plan complete promised slices, not skeletons. Every claimed functional outcome must be connected, usable, and verifiable within its stated scope, without required stubs, TODO behavior, dead-end surfaces, missing producer/consumer wiring, fake success, or verification that bypasses the real implementation.
 - If the requested outcome cannot be completed safely in one change, resize it before implementation to a smaller independently useful complete slice. Independent future enhancements, scale work, optional hardening, and polish may remain out of scope; work required for the current slice to function as claimed may not.
-- When a plan is rendered or delivered as HTML/Markdoc, load `doct-document-ops` and use the standard reviewer layout by default: a dark-mode visual theme with explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, plus a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so reviewers can scan links without sacrificing plan body width. Do not use a permanent left sidebar/rail for navigation. Do not leave color mode or navigation layout to browser, OS, or agent-selected defaults.
-- When a plan is rendered, delivered, registered, or reviewed as HTML/Markdoc, delegate service details to `doct-document-ops`: register through `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc> --title '<Plan Title>'`, update through `doct-agent plans update`, share the canonical Doct URL, and process comments/actions through `doct-agent plans queue/agent/ack/resolve`.
+- When a plan is rendered or delivered as HTML, load `doct-document-ops` and use the standard reviewer layout by default: a dark-mode visual theme with explicit dark background, light foreground text, readable muted text, accessible link/accent colors, `color-scheme: dark`, plus a full-width single-column page. Put a concise table of contents near the top of the document, immediately after the title/status summary and before the main plan sections. Format the ToC as a horizontal section with responsive columns so reviewers can scan links without sacrificing plan body width. Do not use a permanent left sidebar/rail for navigation. Do not leave color mode or navigation layout to browser, OS, or agent-selected defaults.
+- When a plan is rendered, delivered, registered, or reviewed as HTML, delegate service details to `doct-document-ops`: register through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html --title '<Plan Title>'`, update through `doct-agent plans update`, share the canonical Doct URL, and process comments/actions through `doct-agent plans queue/agent/ack/resolve`.
 - Every user-facing HTML plan URL must be the canonical Doct URL from `https://doct.nodaste.com`; do not share local `plan-review`, loopback, or Tailscale service URLs unless the user explicitly requested a legacy local review service.
 
 ### Product-owner context contract

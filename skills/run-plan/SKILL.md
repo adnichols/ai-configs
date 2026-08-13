@@ -188,8 +188,6 @@ delivery stage EXECUTION_READY
 # Use `delivery stage EXECUTION_READY --hold` only for an explicit pause or real external dependency.
 # Pi Full only, in the newly launched implementation agent:
 delivery verify-implementation-profile
-# Dual-plan hydrate trial: after Luna hydrate + delivery-hydrate prewalk transition,
-# re-verify on the executor (requires `.delivery/hydrate-transition.json`).
 # If this recorded implementation pane was deliberately switched to another model:
 delivery verify-implementation-profile --adopt-current-runtime --reason "manual choice for this run"
 delivery stage IMPLEMENTING
@@ -238,7 +236,7 @@ Runtime state expectation: keep the task state and working notes current with th
 
 #### Registered Doct plan status alignment
 
-For a reviewed HTML/Markdoc plan, align Doct plan state before code edits. Resolve the Doct document/plan ID, workspace ID, canonical Doct URL, and current version from registration output, the explicit Doct review URL, or `doct-agent plans show --id <document-id> --json`; if the plan is not registered and repo guidance expects reviewed plans, register it through `doct-document-ops` with `doct-agent plans register --base-url https://doct.nodaste.com --source-format <html|markdoc> --title '<Plan Title>'` (title required; must match plan content title) before proceeding.
+For a reviewed HTML plan, align Doct plan state before code edits. Resolve the Doct document/plan ID, workspace ID, canonical Doct URL, and current version from registration output, the explicit Doct review URL, or `doct-agent plans show --id <document-id> --json`; if the plan is not registered and repo guidance expects reviewed plans, register it through `doct-document-ops` with `doct-agent plans register --base-url https://doct.nodaste.com --source-format html --title '<Plan Title>'` (title required; must match plan content title) before proceeding.
 
 Before implementation starts:
 
@@ -401,7 +399,7 @@ If the exact prompt template is unavailable in the current runtime, perform the 
 For PM review results:
 
 1. Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF` PM findings before continuing.
-2. If the PM review reshapes the plan, update the source plan with the correction, push the update to Doct for reviewed HTML/Markdoc plans, execute the added plan-required work, and rerun verification or scoped reviews invalidated by the change.
+2. If the PM review reshapes the plan, update the source plan with the correction, push the update to Doct for reviewed HTML plans, execute the added plan-required work, and rerun verification or scoped reviews invalidated by the change.
 3. Stop for user input on `QUESTION` findings that require a product or scope decision.
 4. Record true `OUT_OF_SCOPE_FOLLOW_UP` findings only with evidence and a tracking destination; do not let PM review broaden the PR beyond the plan contract.
 

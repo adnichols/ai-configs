@@ -6,7 +6,7 @@ Use this reference when a reviewer-facing plan was accidentally created as a pla
 
 For reviewer-facing implementation plans, the successful path is:
 
-1. Write semantic HTML or Markdoc source with stable section IDs.
+1. Write semantic HTML source with stable section IDs.
 2. Register it with `doct-agent plans register`, not `doct-agent documents create` or `documents replace-body`.
 3. Verify the artifact with `doct-agent plans show --id <document-id> --json`.
    - Evidence to look for: `documentId`, `workspaceId`, `documentVersionId`, render/html version IDs, and nonzero `anchorTargets`.

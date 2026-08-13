@@ -1,6 +1,6 @@
 ---
 name: doct-document-ops
-description: Interact with doct through the doct-agent CLI. Use when asked to open a doct URL, list doct workspaces or documents, view/create/edit doct documents, update metadata, rename/move/delete, add or inspect comments, create/register/update/monitor HTML, Markdoc, or Markdown coding plans in Doct, publish plans for browser review, or run read-only doct DB/log triage. For reviewer-facing plans, automatically activate the plan, process already-routed queue items, and start the returned durable comment listener without waiting for a separate request. Keep pre-execution listener ownership until execution moves the plan to `in_progress` (or an explicitly configured equivalent), restarting it when necessary; supervise it using the current host's real wake mechanism and state any limitation truthfully. Use text-document publishing only when Markdown/text is explicitly requested.
+description: Interact with doct through the doct-agent CLI. Use when asked to open a doct URL, list doct workspaces or documents, view/create/edit doct documents, update metadata, rename/move/delete, add or inspect comments, create/register/update/monitor HTML coding plans in Doct, publish plans for browser review, or run read-only doct DB/log triage. Doct plans are HTML-only — do not produce or register Markdoc plans. For reviewer-facing plans, automatically activate the plan, process already-routed queue items, and start the returned durable comment listener without waiting for a separate request. Keep pre-execution listener ownership until execution moves the plan to `in_progress` (or an explicitly configured equivalent), restarting it when necessary; supervise it using the current host's real wake mechanism and state any limitation truthfully. Use text-document publishing only when Markdown/text is explicitly requested.
 ---
 
 # Doct document operations
@@ -68,9 +68,8 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 | Surgical text edit | `doct-agent collab anchored <replace\|insert-before\|insert-after\|delete> --document-id <id> --selected-text '...' [--text '...']` |
 | Add a text-doc comment thread | `doct-agent collab comments add --document-id <id> --selected-text '...' --body '...'` |
 | List / reply / resolve text-doc comments | `doct-agent collab comments <list\|reply\|resolve\|unresolve> --document-id <id>` |
-| Initialize a plan source | `doct-agent plans init --output thoughts/plans/<plan>.markdoc [--template <template>] [--plan-config <file>] --json` |
+| Initialize a plan source | HTML plans are handcrafted (no `plans init` source scaffolding); author the semantic HTML directly |
 | Register an HTML plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --title '<Plan Title>' --json` |
-| Register a Markdoc plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --title '<Plan Title>' --json` |
 | Update a registered plan | `doct-agent plans update --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --source-format html --expected-version <version> --json` |
 | Show a registered plan | `doct-agent plans show --id <document-id> --json` |
 | Watch/sync a plan source file | `doct-agent plans watch --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --json` |
@@ -95,13 +94,13 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 
 If the user asks to **create, send, publish, copy, save, register, review, or monitor a coding/implementation plan in Doct**, prefer a browser-reviewable Doct plan artifact over a plain text document.
 
-- Use `doct-agent plans register` for reviewer-facing HTML and Markdoc plans.
-- Use HTML or Markdoc when the user wants browser comments, plan review, annotations, readiness feedback, or a durable listener.
-- Use Markdown/text documents only when the user explicitly asks for Markdown/text/no comments, supplies an existing Markdown plan that should stay Markdown-only, or repo guidance forbids HTML/Markdoc plans.
+- Use `doct-agent plans register` for all reviewer-facing plans; they are **HTML-only**. Do not produce or register Markdoc plans — write plan source as HTML.
+- Use HTML when the user wants browser comments, plan review, annotations, readiness feedback, or a durable listener.
+- Use Markdown/text documents only when the user explicitly asks for Markdown/text/no comments, supplies an existing Markdown plan that should stay Markdown-only, or repo guidance forbids HTML plans.
 - Do not use `doct-agent documents create`, `documents replace-body`, or `documents publish-plan` for a reviewer-facing implementation plan unless `doct-agent onboard` or the CLI explicitly directs a legacy fallback. Plain text docs are not the default plan review surface.
-- If you accidentally create a text doc for a reviewer-facing coding plan, register a replacement HTML/Markdoc plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement URL as canonical.
+- If you accidentally create a text doc for a reviewer-facing coding plan, register a replacement HTML plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement URL as canonical.
 
-For Aaron-facing development plans, default to a browser-reviewable HTML or Markdoc plan registered in Doct even when the prompt only says "create a plan" or "publish a plan." Use Markdown/text only when he explicitly asks for that non-reviewable format or repo guidance requires it.
+For Aaron-facing development plans, default to a browser-reviewable HTML plan registered in Doct even when the prompt only says "create a plan" or "publish a plan." Use Markdown/text only when he explicitly asks for that non-reviewable format or repo guidance requires it.
 
 ### PR and deployment boundary in plans
 
@@ -114,13 +113,12 @@ Doct registration, lifecycle, board columns, readiness metadata, and progress re
 
 ## Plan source formats
 
-Resolve the plan source format from repo guidance, the user's explicit request, or the existing plan path:
+All reviewer-facing Doct plans are **HTML**. Resolve the plan source format from repo guidance, the user's explicit request, or the existing plan path:
 
-- **Markdoc**: prefer `thoughts/plans/<slug>.markdoc` when repo guidance or Doct templates define Markdoc as the editable source. Keep Markdoc compact and template-compatible; preserve and follow any `sourceGuidance` returned by registration.
-- **Handcrafted HTML**: use `thoughts/plans/<slug>.html` for repos whose active plan artifact is HTML, for legacy/raw HTML plans, or when a reviewer-facing plan is needed and no Markdoc template is defined. The file must be real semantic HTML, not Markdown renamed as HTML.
+- **HTML**: use `thoughts/plans/<slug>.html` for every reviewer-facing plan. The file must be real semantic HTML, not Markdown renamed as HTML. Do not produce Markdoc plan sources or register them with `--source-format markdoc`.
 - **Markdown/text**: use `.md` only for explicit Markdown-only deliverables or non-reviewer-facing text documents. Publish with `documents create --kind text` or `documents replace-body`; do not promise browser plan-review comments on this surface.
 
-Use lowercase, digits, and hyphens for generated slugs. In a repo, prefer `thoughts/plans/<slug>.<html|markdoc|md>` unless repo-local instructions specify another path. For standalone planning, a temporary handcrafted HTML source is acceptable when a browser-reviewable Doct plan is requested.
+Use lowercase, digits, and hyphens for generated slugs. In a repo, prefer `thoughts/plans/<slug>.html`. For standalone planning, a temporary handcrafted HTML source is acceptable when a browser-reviewable Doct plan is requested.
 
 ## HTML plan authoring contract
 
@@ -147,13 +145,13 @@ Reviewer-friendly structure:
 Doct has **two** titles that reviewers see, and they must be the **same string**:
 
 1. **Doct document / tree title** — set by `doct-agent plans register --title` (and repairable with `documents update-metadata --title` / `documents rename --title`).
-2. **In-content plan title** — Markdoc YAML frontmatter `title:` (rendered into plan chrome / H1) or HTML `<title>` **and** top-level `<h1>`.
+2. **In-content plan title** — HTML `<title>` **and** top-level `<h1>`.
 
 Never leave one fixed and the other stale. Filename stem inference is not a title.
 
 **Failure modes to prevent:**
 
-- Browser-review draft showing **Untitled Plan** with **No section entries generated** (missing Markdoc frontmatter `title:` / section tags; Doct renders `frontmatter.title ?? "Untitled Plan"`).
+- Browser-review draft showing **Untitled Plan** with **No section entries generated** (missing HTML `<title>` / `<h1>`; Doct falls back to "Untitled Plan" when it cannot read the title).
 - Doct sidebar/document name saying one thing while the plan body H1/chrome says another (register `--title` drifted from content, or only one side was updated).
 
 ### Canonical title (one string, three places)
@@ -162,36 +160,30 @@ Pick one concise human title (issue key optional), for example `NOD-1285 — Sho
 
 | Surface | Where |
 |---------|--------|
-| Source content | Markdoc: YAML `title:`. HTML: both `<title>` and top-level `<h1>`. If Markdoc also has a leading `#` heading, it must match `title:`. |
+| Source content | HTML: both `<title>` and top-level `<h1>`. |
 | Register CLI | `doct-agent plans register ... --title '<Plan Title>'` sets the Doct document/tree title. |
 | Doct document metadata | Created from `--title` on register. After any retitle, confirm with `documents get --id <id> --json` and repair with `documents update-metadata --id <id> --title '<Plan Title>'` (and `documents rename` when the tree label must move). `plans update` syncs plan **body/source only** and does **not** accept `--title`. |
 
 ### Before every `plans register`
 
 1. Choose the canonical title.
-2. **Write it into the source first** (frontmatter and/or `<title>`+`<h1>`), not only the CLI flag.
-3. **Always** pass the same string as `--title '<Plan Title>'` on **register**. Do not rely on filename stem inference; it neither fixes Markdoc chrome nor guarantees document/content alignment.
+2. **Write it into the source first** (`<title>`+`<h1>`), not only the CLI flag.
+3. **Always** pass the same string as `--title '<Plan Title>'` on **register**. Do not rely on filename stem inference; it neither fixes Doct chrome nor guarantees document/content alignment.
 4. For later body-only edits use `plans update` **without** `--title`. If the human title itself changes, update source title(s), then repair Doct with `documents update-metadata --title` (and rename if needed). Re-register with `--title` only when creating a replacement document.
-5. **Markdoc** example:
+5. **HTML** must set **both** `<title>…</title>` and a visible top-level `<h1>…</h1>` to that same string, then pass `--title` on register. For example:
 
-```markdoc
----
-title: NOD-1285 — Show signed-in Heddle account identity
-status: browser-review-draft
-executionReady: false
-planId: account-detail-add
-templateId: default-execution-plan
-templateVersion: 1
-templateSchemaVersion: 1
-surfaces:
-  - src/app/...
----
-
-# NOD-1285 — Show signed-in Heddle account identity
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>NOD-1285 — Show signed-in Heddle account identity</title>
+</head>
+<body>
+  <h1>NOD-1285 — Show signed-in Heddle account identity</h1>
 ```
 
-   A leading `# Heading` alone is **not** enough for Markdoc browser review. Prefer `doct-agent plans init` or the repo's default-execution-plan template so `{% section id="..." title="..." %}` / `{% phase %}` tags populate the Contents TOC.
-6. **HTML** must set **both** `<title>…</title>` and a visible top-level `<h1>…</h1>` to that same string, then pass `--title` on register.
+   A leading `<h1>` alone is **not** enough for HTML browser review. Add stable `id` attributes on major sections and phases (see the HTML plan authoring contract above) so the Contents TOC and node/selector comments populate.
 7. **After registration or retitle**, verify alignment:
    - `documents get --id <id> --json` → `title` equals the canonical string
    - Plan source still has the same string in frontmatter / `<title>` / `<h1>`
@@ -204,7 +196,7 @@ surfaces:
 
 From the repo that owns the plan, register with `doct-agent plans register`.
 
-For HTML plans:
+For HTML plans (the only reviewer-facing plan format):
 
 ```bash
 doct-agent plans register \
@@ -216,18 +208,7 @@ doct-agent plans register \
   --json
 ```
 
-For Markdoc plans:
-
-```bash
-doct-agent plans register \
-  --base-url https://doct.nodaste.com \
-  --file thoughts/plans/<plan>.markdoc \
-  --source-format markdoc \
-  --title '<Plan Title>' \
-  --json
-```
-
-`--title '<Plan Title>'` is **required** on every registration (and should match Markdoc frontmatter `title:` / HTML `<title>`+`<h1>`). Add `--workspace <workspace-slug-or-id>`, `--workspace-id <id>`, `--path '<path>'`, or `--parent-id <id>` only when repo guidance or the user specifies a destination; otherwise use the CLI defaults for those fields. Use `--allow-untemplated` for handcrafted HTML plans. Do not use it for normal Markdoc template/config-backed plans unless the CLI or repo guidance says the plan is intentionally untemplated. Untemplated Markdoc still requires frontmatter `title:` and `--title`.
+`--title '<Plan Title>'` is **required** on every registration (and should match HTML `<title>`+`<h1>`). Add `--workspace <workspace-slug-or-id>`, `--workspace-id <id>`, `--path '<path>'`, or `--parent-id <id>` only when repo guidance or the user specifies a destination; otherwise use the CLI defaults for those fields. Use `--allow-untemplated` for handcrafted HTML plans. Do not register Markdoc plans or pass `--source-format markdoc`.
 
 Parse the JSON and preserve at least:
 
@@ -301,7 +282,7 @@ Use the exact `listenerInstructions.listenerCommand` returned by registration wh
 
 ## Publish Markdown/text plans
 
-Use this path only when the user explicitly asks for Markdown/text/no comments or repo guidance forbids HTML/Markdoc for the workflow.
+Use this path only when the user explicitly asks for Markdown/text/no comments or repo guidance forbids HTML for the workflow.
 
 Create a Markdown/text plan document with a minimal body first:
 
@@ -327,7 +308,7 @@ doct-agent documents replace-body \
 
 Use `documents publish-plan` only as a legacy fallback when the CLI explicitly directs you there for old Markdown/text-plan flows. Current `doct-agent onboard` says `documents publish-plan` fails closed with replacement guidance for plan-review publishing.
 
-Return the created/updated Doct URL, document id, workspace id, and status. State clearly that Markdown/text documents are not the reviewer-facing HTML/Markdoc plan-review surface.
+Return the created/updated Doct URL, document id, workspace id, and status. State clearly that Markdown/text documents are not the reviewer-facing HTML plan-review surface.
 
 ## Update a registered plan
 
@@ -338,8 +319,8 @@ doct-agent plans update \
   --base-url https://doct.nodaste.com \
   --id <document-id> \
   --workspace-id <workspace-id> \
-  --file thoughts/plans/<plan>.<html|markdoc> \
-  --source-format <html|markdoc> \
+  --file thoughts/plans/<plan>.html \
+  --source-format html \
   --expected-version <version-from-last-read-or-register> \
   --json
 ```
@@ -353,7 +334,7 @@ doct-agent plans watch \
   --base-url https://doct.nodaste.com \
   --id <document-id> \
   --workspace-id <workspace-id> \
-  --file thoughts/plans/<plan>.<html|markdoc> \
+  --file thoughts/plans/<plan>.html \
   --json
 ```
 

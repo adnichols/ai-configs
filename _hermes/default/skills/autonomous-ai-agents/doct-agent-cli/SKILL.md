@@ -1,17 +1,17 @@
 ---
 name: doct-agent-cli
-description: Use the current doct-agent CLI for Doct documents, comments, collaborative edits, and Doct-backed HTML/Markdoc plan registration. For Aaron-facing plan requests, use `doct-agent plans register` on `https://doct.nodaste.com`, start/verify the comment listener, and avoid text-doc plan publishing unless explicitly requested.
+description: Use the current doct-agent CLI for Doct documents, comments, collaborative edits, and Doct-backed HTML plan registration. Plans are HTML-only; do not produce or register Markdoc plans. For Aaron-facing plan requests, use `doct-agent plans register` on `https://doct.nodaste.com`, start/verify the comment listener, and avoid text-doc plan publishing unless explicitly requested.
 version: 2.0.0
 author: Hermes Agent
 metadata:
   hermes:
-    tags: [doct, cli, docs, collaboration, html-plans, markdoc]
+    tags: [doct, cli, docs, collaboration, html-plans]
     related_skills: [doct-document-ops]
 ---
 
 # doct-agent CLI
 
-Use this skill when the user wants work done **inside Doct itself**, asks for the `doct-agent` command, or wants a coding/HTML/Markdoc plan registered in Doct for review. This skill supersedes older notes that used `documents publish-plan` or the local `plan-review` service by default.
+Use this skill when the user wants work done **inside Doct itself**, asks for the `doct-agent` command, or wants a coding/HTML plan registered in Doct for review. This skill supersedes older notes that used `documents publish-plan` or the local `plan-review` service by default.
 
 ## Golden rule: doct-agent only
 
@@ -75,8 +75,7 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 | Add a text-doc comment thread | `doct-agent collab comments add --document-id <id> --selected-text '...' --body '...'` |
 | List / reply / resolve text-doc comments | `doct-agent collab comments <list\|reply\|resolve\|unresolve> --document-id <id>` |
 | Register an HTML plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.html --source-format html --allow-untemplated --title '<Plan Title>' --json` |
-| Register a Markdoc plan | `doct-agent plans register --base-url https://doct.nodaste.com --file thoughts/plans/<plan>.markdoc --source-format markdoc --title '<Plan Title>' --json` |
-| Update a registered plan | `doct-agent plans update --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.<html|markdoc> --source-format <html|markdoc> --expected-version <version> --json` |
+| Update a registered plan | `doct-agent plans update --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --source-format html --expected-version <version> --json` |
 | Show a registered plan | `doct-agent plans show --id <document-id> --json` |
 | Watch/sync a plan file | `doct-agent plans watch --id <document-id> --workspace-id <workspace-id> --file thoughts/plans/<plan>.html --json` |
 | Inspect plan queue | `doct-agent plans queue list --workspace-id <workspace-id> --document-id <document-id> --json` |
@@ -97,9 +96,9 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 
 ## Special default: coding and HTML plans
 
-If the user asks to **send, publish, copy, save, register, review, or create a coding/implementation plan in doct**, prefer Doct plan registration over text-document publishing. For Aaron-facing plans, this is a hard default: create/register an HTML or Markdoc plan and start/verify the plan comment listener unless Aaron explicitly asks for Markdown/text/no comments or repo guidance forbids HTML/Markdoc.
+If the user asks to **send, publish, copy, save, register, review, or create a coding/implementation plan in doct**, prefer Doct plan registration over text-document publishing. For Aaron-facing plans, this is a hard default: create/register an HTML plan and start/verify the plan comment listener unless Aaron explicitly asks for Markdown/text/no comments or repo guidance forbids HTML. Do not produce or register Markdoc plans.
 
-For HTML plans:
+For HTML plans (the only reviewer-facing plan format):
 
 ```bash
 doct-agent plans register \
@@ -113,20 +112,9 @@ doct-agent plans register \
 
 When publishing to Shared or a nested folder, verify nav-tree placement after registration. Do not rely on `--path` alone as proof that the document is visible in the left nav. Read back the document and confirm `workspaceId`, `path`, `status`, `parentId`, and the parent folder row from `documents list`; if the user asks where it lives, answer with the actual folder hierarchy and IDs from readback.
 
-For Markdoc plans:
+Do not use `documents publish-plan` as the plan-review path; current `doct-agent onboard` says `documents publish-plan` fails closed with replacement guidance for plan-review publishing.
 
-```bash
-doct-agent plans register \
-  --base-url https://doct.nodaste.com \
-  --file thoughts/plans/<plan>.markdoc \
-  --source-format markdoc \
-  --title '<Plan Title>' \
-  --json
-```
-
-Use `documents publish-plan` only as a legacy fallback when the CLI explicitly directs you there for old Markdown/text-plan flows. Current `doct-agent onboard` says `documents publish-plan` fails closed with replacement guidance for plan-review publishing.
-
-Do **not** use `doct-agent documents create` / `documents replace-body` for Aaron-facing implementation plans. That creates a plain text document, not the commentable plan-review artifact Aaron expects. If this mistake happens, register a replacement HTML/Markdoc plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement Doct URL.
+Do **not** use `doct-agent documents create` / `documents replace-body` for Aaron-facing implementation plans. That creates a plain text document, not the commentable plan-review artifact Aaron expects. If this mistake happens, register a replacement HTML plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement Doct URL.
 
 After registering a plan, inspect the plan queue once and start or verify the document-specific durable `plans listen` listener per `doct-document-ops` before final response. Long `plans agent next --wait` calls are diagnostic-only and are not a durable listener.
 

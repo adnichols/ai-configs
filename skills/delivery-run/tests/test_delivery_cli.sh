@@ -1776,10 +1776,12 @@ test_skill_doctrine_wording() {
   rg -q "approve-implementation" "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "plan-reviewer-execution-ready" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "openai-codex/gpt-5.6-sol" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
-  rg -q "agentic companion|planSync" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
-  rg -q "planSync" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q "delivery-hydrate|hydrate-transition" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q "delivery-hydrate|hydrate-transition" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "single Doct-reviewed" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  ! rg -q "agentic companion|planSync" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q "HTML-only" "$ROOT/skills/delivery-run/SKILL.md" || return 1
+  ! rg -q "delivery-hydrate|hydrate-transition" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  # dual-plan/agentic hydrate machinery remains latent (opt-in) in the CLI
+  rg -q "delivery-hydrate|hydrate-transition" "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q 'subagent_type.*planner|`planner` subagent' "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "reasoning-level medium --verdict PLAN_EXECUTION_READY" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "Automatic execution-ready handoff" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
@@ -1802,7 +1804,8 @@ test_skill_doctrine_wording() {
   rg -q "PLAN_TITLE" "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "Untitled Plan" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
   rg -q -- "--title" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
-  rg -q "YAML frontmatter" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
+  rg -q "<title>.*<h1>|HTML-only|do not produce" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
+  ! rg -q "YAML frontmatter|Markdoc.*title" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
   rg -q "Doct document / tree title" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
   rg -qi "in-content plan title" "$ROOT/skills/doct-document-ops/SKILL.md" || return 1
 }

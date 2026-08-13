@@ -35,7 +35,7 @@ Plan readiness rules:
 
 - If the work is ready to execute without inventing missing semantics, write `Status: execution-ready`.
 - If foundational questions still remain but the next safe handoff is more research, write `Status: research-ready` and make the next research action explicit.
-- If a foundational decision needs new user intent and the active artifact is an HTML/Markdoc plan with browser review, write a non-ready plan with a prominent `Decision Required` block so the user can decide through plan feedback. Include every viable option, a thorough explanation of each option's behavior/benefits/costs/risks/implementation and compatibility implications/reversibility, and the agent's recommendation with rationale, confidence, and evidence.
+- If a foundational decision needs new user intent and the active artifact is an HTML plan with browser review, write a non-ready plan with a prominent `Decision Required` block so the user can decide through plan feedback. Include every viable option, a thorough explanation of each option's behavior/benefits/costs/risks/implementation and compatibility implications/reversibility, and the agent's recommendation with rationale, confidence, and evidence.
 - If no browser-reviewed plan surface is available, ask exactly one targeted question directly and stop without writing the plan.
 
 Legacy bundles:
@@ -152,7 +152,7 @@ If the plan is rendered or delivered as HTML, use the standard reviewer layout: 
 `Open Questions / Decision Points` guidance:
 
 - Include this section only when the plan is non-ready.
-- In browser-reviewed HTML/Markdoc plans, render each product-shaping question as a prominent `Decision Required` block near the top under Decision Attention, with a stable ID and a table-of-contents link.
+- In browser-reviewed HTML plans, render each product-shaping question as a prominent `Decision Required` block near the top under Decision Attention, with a stable ID and a table-of-contents link.
 - Each block must include the exact question, why it blocks readiness, every viable option supported by current evidence, a thorough explanation of each option's resulting behavior, benefits, costs/risks, implementation and compatibility implications, and reversibility or migration consequences.
 - State the agent's recommended option, why it is preferred, confidence level, and supporting evidence. Tell the reviewer to select an option or leave a Doct comment with a custom decision.
 - Do not leave unresolved `Open Questions / Decision Points` in an `execution-ready` plan.

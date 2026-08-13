@@ -14,7 +14,7 @@ This workflow stops before product-code execution. It may edit the plan artifact
 Load and follow these skills when this workflow reaches their surface:
 
 - `planning-workflow` for the plan-writing contract and execution-readiness bar.
-- `doct-document-ops` for HTML/Markdoc plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, Markdown/text fallback publishing, and source sync/watch behavior.
+- `doct-document-ops` for HTML plan structure, dark-mode requirements, Doct registration, canonical Doct URLs, mandatory post-registration listener startup, plan updates, comment/action queue handling, claim/ack/resolve behavior, Markdown/text fallback publishing, and source sync/watch behavior.
 - `product-principles` for workflow, defaults, recovery, status, error handling, product-intent, and early-stage scope review.
 - In Pi, the `planner` subagent for the single independent read-only plan-review leg. Its checked-in frontmatter pins `openai-codex/gpt-5.6-sol` at medium reasoning. Do not pass a caller-side model or thinking override. Non-Pi harnesses use their configured planning persona only when it provides equivalent independent read-only review; a Pi delivery ledger cannot reach `EXECUTION_READY` without the fixed Sol-medium review evidence.
 - Domain skills required by the target repository guidance, stack, or plan surface.
@@ -79,7 +79,7 @@ If a prior reviewed plan exists, preserve truthful completed progress, stable ID
 Use `doct-document-ops` as the sole source for current Doct registration commands and service behavior.
 
 1. Confirm `doct-agent` auth/context for `https://doct.nodaste.com` as documented by `doct-document-ops`.
-2. Register the plan through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html --title '<Plan Title>'`, using `--allow-untemplated` for the handcrafted HTML plans this workflow normally produces. The title must match the plan file's `<title>` and top-level `<h1>` (or Markdoc frontmatter `title:` when the source is Markdoc). Never hand off a browser-review draft that shows **Untitled Plan**.
+2. Register the plan through `doct-agent plans register --base-url https://doct.nodaste.com --source-format html --title '<Plan Title>'`, using `--allow-untemplated` for the handcrafted HTML plans this workflow produces. The title must match the plan file's `<title>` and top-level `<h1>`. Never hand off a browser-review draft that shows **Untitled Plan**.
 3. Parse the registration JSON and preserve the returned Doct document/plan id, workspace id, canonical URL, current version, `sourceGuidance`, and full `listenerInstructions`.
 4. Follow the current `doct-document-ops` listener contract immediately, including startup claim processing, host-specific supervision, restart behavior, and pre-execution ownership. Do not duplicate or weaken that contract here. Leave the plan in its registration/default board column (normally `backlog`); implementation execution workflows own the transition to `in_progress`.
 5. Share the canonical Doct review URL only after the listener is running, or report a concrete listener-start blocker. Never show a loopback, local `plan-review`, Tailscale local-service URL, or relative path to the user unless they explicitly requested a legacy local reviewer.

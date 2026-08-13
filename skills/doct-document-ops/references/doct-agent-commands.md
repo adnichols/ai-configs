@@ -140,21 +140,13 @@ doct-agent documents delete (--id <id> | --path '<path>') [--workspace-id <wsid>
 doct-agent documents publish-plan --file /path/to/plan.md [--title '<title>'] [--parent-title 'Coding Plans'] [--workspace personal|<id-or-slug>] --json
 ```
 
-Current onboarding says `documents publish-plan` fails closed with replacement guidance for plan-review publishing. Prefer `doct-agent plans register` for HTML/Markdoc coding plans. Current registration responses may identify handcrafted HTML as a legacy/import source and recommend Markdoc templates for newly-authored reviewed plans; follow repo-local plan-format authority, but preserve and follow the returned `sourceGuidance`.
+Current onboarding says `documents publish-plan` fails closed with replacement guidance for plan-review publishing. Prefer `doct-agent plans register` for HTML coding plans. Do not produce Markdoc plan sources; all reviewer-facing plans are HTML.
 
 ## Plans: initialize, register, update, and review plans
 
-### Initialize a Markdoc plan source
+### Author the HTML plan source
 
-```bash
-doct-agent plans init \
-  --output thoughts/plans/example.markdoc \
-  [--template <template>] \
-  [--plan-config <file>] \
-  --json
-```
-
-Use this when the installed CLI/template configuration should create the source scaffold. Repo-local plan authority still decides whether the active source is Markdoc or legacy HTML.
+All reviewer-facing Doct plans are **HTML**. Author the semantic HTML plan directly at `thoughts/plans/<slug>.html` (no `plans init` source scaffold). Only  `plans init` with a Markdoc template would generate Markdoc; we do not produce Markdoc plans, so handcraft the HTML.
 
 ### Register an HTML plan
 
@@ -173,20 +165,7 @@ doct-agent plans register \
   --json
 ```
 
-Use this for repo-authorized handcrafted HTML plans. `--title` is required and must match the plan's `<title>` and top-level `<h1>`. Omit `--allow-untemplated` only when using a Doct plan template/config that validates without it. Preserve any returned `sourceGuidance`; the service may recommend Markdoc/templates for new reviewed plans even while accepting intentional HTML registrations.
-
-### Register a Markdoc plan
-
-```bash
-doct-agent plans register \
-  --base-url https://doct.nodaste.com \
-  --file thoughts/plans/example.markdoc \
-  --source-format markdoc \
-  --title 'Example Plan' \
-  --json
-```
-
-`--title` is required and must match non-empty YAML frontmatter `title:` in the Markdoc source. Doct browser-review chrome renders `frontmatter.title ?? "Untitled Plan"`; a leading `#` heading alone does not set the chrome title. Prefer template `{% section %}` / `{% phase %}` tags so the Contents TOC is not empty.
+Use this for repo-authorized handcrafted HTML plans. `--title` is required and must match the plan's `<title>` and top-level `<h1>`. Omit `--allow-untemplated` only when using a Doct plan template/config that validates without it. Preserve any returned `sourceGuidance`.
 
 ### Update a registered plan
 
