@@ -27,9 +27,9 @@
       "sha256": "e10bb71ecf4528732ef10e8905a6e0df16bba503124f3975614a906d2dfa72cc"
     },
     {
-      "bytes": 23042,
+      "bytes": 23163,
       "path": "cron/jobs.json",
-      "sha256": "eef791915fe290b2802c741409a8a9770f331334f9c15deda49aef37eb5cf63e"
+      "sha256": "61044edc1bf178a806d151a1f0b9d372c189c7fe9c5385127c58fcfed8db656e"
     },
     {
       "bytes": 508,
@@ -8492,7 +8492,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260809T182406Z",
+  "generated_at": "20260812T145852Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/code/ai-configs/_hermes/default"
