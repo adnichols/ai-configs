@@ -71,6 +71,7 @@ local fake_wezterm = {
 }
 local config = {}
 workflow.apply(config, fake_wezterm)
+assert(config.enable_kitty_keyboard == true)
 assert(config.use_fancy_tab_bar == false)
 assert(config.tab_max_width == 36)
 assert(events['format-tab-title'] ~= nil)

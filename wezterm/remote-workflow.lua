@@ -161,6 +161,9 @@ local function herdr_command(host)
 end
 
 function M.apply(config, wezterm)
+  -- Pi and OMP opt into the Kitty keyboard protocol to distinguish
+  -- Shift+Enter from Enter. Honor that negotiation across raw SSH sessions.
+  config.enable_kitty_keyboard = true
   config.use_fancy_tab_bar = false
   -- The retro bar defaults to 16 cells, which truncates `Herdr (mbp14-2)`
   -- before its working / blocked / done counters.
