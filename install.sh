@@ -98,7 +98,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, vendored pi-prewalk (named execution profiles) from the stable ~/.pi/agent/local-packages/ai-configs/pi-prewalk mirror, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, pi-clarify, vendored pi-prewalk (named execution profiles) from the stable ~/.pi/agent/local-packages/ai-configs/pi-prewalk mirror, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
@@ -1958,6 +1958,22 @@ PY
     fi
 }
 
+install_pi_clarify_config() {
+    local pi_source_dir="$1"
+    local pi_agent_dir="$2"
+    local source_path="$pi_source_dir/clarify.json"
+    local target_path="$pi_agent_dir/clarify.json"
+
+    if [ ! -f "$source_path" ]; then
+        echo "  - Skipping Pi /clarify model pin (missing $source_path)"
+        return
+    fi
+
+    mkdir -p "$pi_agent_dir"
+    cp "$source_path" "$target_path"
+    echo "  - Installed Pi /clarify model pin from _pi/clarify.json"
+}
+
 install_pi_agents_from_repo() {
     local pi_source_dir="$1"
     local pi_agents_dir="$2"
@@ -2485,6 +2501,7 @@ install_pi() {
 
     install_pi_models_from_repo "$pi_source_dir" "$pi_agent_dir"
     configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
+    install_pi_clarify_config "$pi_source_dir" "$pi_agent_dir"
     cleanup_pi_multi_codex_config "$pi_agent_dir"
 
     # Remove the configuration managed by the retired @tintinweb/pi-tasks
@@ -2530,6 +2547,7 @@ install_pi() {
     # Package installs/extensions can touch settings; finish by restoring the
     # repo-owned default model contract so obsolete multi-Codex routes cannot be reintroduced.
     configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
+    install_pi_clarify_config "$pi_source_dir" "$pi_agent_dir"
     cleanup_pi_multi_codex_config "$pi_agent_dir"
 }
 
@@ -3488,6 +3506,7 @@ install_pi_npm_packages() {
         "@howaboua/pi-explore-subagents"
         "pi-deepinfra"
         "pi-updater"
+        "pi-clarify"
         "pi-extensible-workflows"
     )
     local deprecated_npm_packages=(

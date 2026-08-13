@@ -60,6 +60,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@howaboua/pi-explore-subagents"
   "npm:pi-deepinfra"
   "npm:pi-updater"
+  "npm:pi-clarify"
   "npm:pi-extensible-workflows"
 )
 
@@ -433,6 +434,32 @@ PY
   fi
 else
   note_failure "Pi settings file is missing: $PI_AGENT_DIR/settings.json"
+fi
+
+if [ -f "$REPO_ROOT/_pi/clarify.json" ]; then
+  if [ ! -f "$PI_AGENT_DIR/clarify.json" ]; then
+    note_failure "Pi /clarify pin is missing: $PI_AGENT_DIR/clarify.json"
+  elif ! python3 - "$REPO_ROOT/_pi/clarify.json" "$PI_AGENT_DIR/clarify.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+source = json.loads(Path(sys.argv[1]).read_text())
+installed = json.loads(Path(sys.argv[2]).read_text())
+if not isinstance(source, dict) or not isinstance(installed, dict):
+    raise SystemExit("clarify.json must be a JSON object")
+if source.get("provider") != installed.get("provider") or source.get("model") != installed.get("model"):
+    raise SystemExit(
+        f"installed={installed.get('provider')}/{installed.get('model')}; "
+        f"expected={source.get('provider')}/{source.get('model')}"
+    )
+print("ok")
+PY
+  then
+    note_failure "Pi /clarify pin does not match _pi/clarify.json"
+  else
+    echo "  Pi /clarify pin matches _pi/clarify.json"
+  fi
 fi
 
 if [ -f "$PI_AGENT_DIR/models.json" ]; then

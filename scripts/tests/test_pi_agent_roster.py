@@ -125,6 +125,19 @@ class PiAgentRosterTest(unittest.TestCase):
         ):
             self.assertNotIn(unscoped_model, install_script)
 
+    def test_clarify_pin_is_managed_flash_and_installed(self):
+        pin = json.loads((ROOT / "_pi" / "clarify.json").read_text())
+        self.assertEqual("deepinfra", pin["provider"])
+        self.assertEqual("deepseek-ai/DeepSeek-V4-Flash-0731", pin["model"])
+        install_script = (ROOT / "install.sh").read_text()
+        self.assertIn("install_pi_clarify_config", install_script)
+        self.assertIn('"$pi_source_dir/clarify.json"', install_script)
+        npm_block = install_script.split("local npm_packages=(", 1)[1].split(")", 1)[0]
+        self.assertIn('"pi-clarify"', npm_block)
+        verify = (ROOT / "scripts" / "verify-pi-install.sh").read_text()
+        self.assertIn("npm:pi-clarify", verify)
+        self.assertIn("clarify.json", verify)
+
     def test_prompts_keep_generic_authority_and_stop_rules(self):
         bodies = {name: frontmatter(AGENTS / f"{name}.md")[1].lower() for name in EXPECTED_ROUTES}
         for name, body in bodies.items():
