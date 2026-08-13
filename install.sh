@@ -102,7 +102,7 @@ print_usage() {
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
-    echo "  - The tracked OMP config, guidance, and Oracle/planner/reviewer agents are installed locally whenever --tools or --all runs"
+    echo "  - The tracked OMP config, guidance, agents, and non-credential extensions are installed locally whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
     echo "  - The tracked WezTerm remote workflow is installed locally whenever --tools or --all runs"
     echo "  - Managed Amp settings/modes are streamed to mbp/dever/mbp14 whenever --tools or --all runs on macOS"

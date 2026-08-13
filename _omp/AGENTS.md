@@ -56,7 +56,9 @@ operator explicitly asks for the delivery workflow.
   changing delivery state.
 - OMP MUST select `runtime=omp` and `workflowProfile=omp-lite`. From a parent
   session, use `delivery spawn --runtime omp -- "<operator ask>"`; inside the
-  target worktree, use `delivery arm --runtime omp --slug <slug> --goal "<operator ask>"`.
+  target worktree, use `delivery arm --runtime omp --slug <slug> --goal "<goal>"`.
+  For an existing worktree, use `delivery bootstrap --runtime omp --slug <slug>
+  --goal "<goal>"`.
   Never enter the Pi Full route merely because shared repository guidance also
   documents Pi.
 - The `delivery` CLI and `.delivery/ledger.json` are authoritative. Do not
@@ -85,6 +87,10 @@ operator explicitly asks for the delivery workflow.
 - Reuse existing repository patterns. Make the smallest complete change that
   satisfies the request; do not add speculative compatibility layers,
   abstractions, retries, telemetry, or unrelated cleanup.
+- When installing repository-managed configuration on a remote host, Git is the
+  only transport: commit and push the change, install locally, then pull the
+  same branch in the remote ai-configs checkout and install from that checkout.
+  Never use tar, rsync, scp, or ad hoc copied source trees for this workflow.
 - Fix behavior at its source. Update affected callers, tests, documentation,
   and generated or synchronized artifacts when the changed contract requires
   them.

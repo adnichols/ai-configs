@@ -81,7 +81,7 @@ bash ~/ai-configs/install.sh --all ~
 - mirrors shared helper scripts into the runtime locations that need them
 - installs Pi to `~/.pi/agent/`
 - copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@juicesharp/rpiv-todo`
-- with `--tools` or `--all`, installs Oh My Pi configuration, cross-repository guidance, custom Oracle/reviewer agents, the canonical Herdr and Amp configuration, terminal-scoped Hammerspoon image-paste workflow, and managed Kitty screenshot/Herdr workflow locally; tracked Kitty/Herdr configuration is streamed to `mbp` and `dever`, while Amp is streamed to `mbp`, `dever`, and `mbp14`, without modifying remote ai-configs checkouts
+- with `--tools` or `--all`, installs Oh My Pi configuration, cross-repository guidance, custom agents, non-credential extensions, the canonical Herdr and Amp configuration, terminal-scoped Hammerspoon image-paste workflow, and managed Kitty screenshot/Herdr workflow locally; remote OMP deployment is a separate Git pull/install workflow
 - removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`
 - with `--update`, first runs `npx skills update -g -y` for globally installed skills tracked by skills.sh, then runs the normal ai-configs sync
@@ -105,10 +105,12 @@ Codex prompt files plus config templates. Global Codex prompt discovery is handl
 Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.
 
 ### `_omp/`
-Canonical Oh My Pi host configuration, custom agents, provider extensions, and
-delivery routing. The managed DeepInfra extension registers the `deepinfra`
-provider, dynamically discovers its model catalog, and provides the API-key
-login flow.
+Canonical Oh My Pi host configuration, custom agents, provider extensions,
+Herdr/Orca runtime integrations, and delivery routing. The managed DeepInfra
+extension registers the `deepinfra` provider, dynamically discovers its model
+catalog, and provides the API-key login flow. The Herdr and Orca extensions
+contain no credentials; they read host-local integration endpoints and tokens
+from the process environment.
 `config.yml` is installed to `~/.omp/agent/config.yml` with mode `0600`;
 `AGENTS.md`, custom agents, and extensions are installed alongside it. The OMP-discoverable
 DeepInfra requests use `DEEPINFRA_API_KEY` when present; otherwise authenticate
@@ -126,13 +128,24 @@ mode. Start from OMP with
 `delivery spawn --runtime omp -- "<goal>"`, or bootstrap the current worktree
 with `delivery bootstrap --runtime omp --slug <slug> --goal "<goal>"`.
 
-Run `bash _omp/install.sh` for an OMP-only local install. To install the tracked
-configuration and delivery workflow on a remote host without requiring a
-remote ai-configs checkout:
+Run `bash _omp/install.sh` for an OMP-only local install. Remote OMP
+installation always uses the existing `ai-configs` Git checkout as transport:
+commit and push the repository change, install locally, then pull and install
+from the checkout on each remote host. The remote helper refuses dirty
+checkouts and non-fast-forward pulls:
 
 ```bash
-tar -cf - _omp/config.yml _omp/AGENTS.md _omp/agents _omp/install.sh skills/delivery-run/SKILL.md skills/delivery-run/scripts/delivery | ssh dever 'tmp=$(mktemp -d); trap "rm -rf \"$tmp\"" EXIT; tar -xf - -C "$tmp"; OMP_CONFIG_TARGET="$HOME/.omp/agent" bash "$tmp/_omp/install.sh"'
+bash scripts/install-omp-remote-hosts.sh
 ```
+
+The helper defaults to `dever` and `mbp14`; override with `OMP_REMOTE_HOSTS`.
+Use `OMP_REMOTE_BRANCH` and `OMP_REMOTE_REPO_PATH` when the checkout differs
+from the local branch or the default `$HOME/code/ai-configs` path. It never
+copies source trees with tar, rsync, or scp, and never transfers `auth.json`,
+databases, sessions, blobs, or other credential/runtime state. Unmanaged
+active OMP command, system, model, agent, and extension entries on a
+destination are moved to a timestamped
+`~/.omp/agent.before-ai-configs/` backup before reconciliation.
 
 ### `amp/`
 Canonical Amp CLI settings and custom plugin modes from `plugins/subscription-models.ts`: `ADN Low` (Luna max), `ADN High` (Terra high), `adn_oracle` tool/mode (Sol high), and `adn_alt` tool/mode (Grok 4.6 high). Amp's built-in `low`/`medium`/`high`/`ultra` keys cannot be overwritten; these ADN modes sit beside them. `install.sh --tools` and `install.sh --all` install them to `~/.config/amp/`, preserve first-differing backups as `*.before-ai-configs`, and on macOS stream the bundle to `mbp`, `dever`, and `mbp14` (override with `AMP_REMOTE_HOSTS`). Model-provider subscriptions stay host-local credentials.

@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 OMP = ROOT / "_omp"
 AGENTS = OMP / "agents"
+EXTENSIONS = OMP / "extensions"
 DELIVERY_SKILL = ROOT / "skills" / "delivery-run" / "SKILL.md"
 DELIVERY_CLI = ROOT / "skills" / "delivery-run" / "scripts" / "delivery"
 
@@ -29,6 +30,18 @@ class OmpAgentRosterTest(unittest.TestCase):
         self.assertEqual(
             {"oracle.md", "planner.md", "reviewer.md", "completeness.md"},
             {path.name for path in AGENTS.glob("*.md")},
+        )
+
+    def test_source_extensions_capture_current_host_runtime(self):
+        self.assertEqual(
+            {
+                "deepinfra.ts",
+                "herdr-omp-agent-state.ts",
+                "orca-agent-status.ts",
+                "orca-prefill.ts",
+                "orca-titlebar-spinner.ts",
+            },
+            {path.name for path in EXTENSIONS.glob("*.ts")},
         )
 
     def test_planner_uses_omp_frontmatter_and_pi_runtime_profile(self):
@@ -117,10 +130,20 @@ class OmpAgentRosterTest(unittest.TestCase):
             target = Path(temp) / "omp-agent"
             env = os.environ.copy()
             env["OMP_CONFIG_TARGET"] = str(target)
+            env["OMP_CONFIG_PRUNE"] = "1"
             shared_target = Path(temp) / "agents-shared"
             bin_target = Path(temp) / "bin"
             env["OMP_SHARED_TARGET"] = str(shared_target)
             env["OMP_BIN_TARGET"] = str(bin_target)
+            stale_agents = target / "agents"
+            stale_agents.mkdir(parents=True)
+            (stale_agents / "legacy.md").write_text("legacy\n")
+            stale_extensions = target / "extensions"
+            stale_extensions.mkdir(parents=True)
+            (stale_extensions / "legacy.ts").write_text("legacy\n")
+            (target / "commands").mkdir(parents=True)
+            (target / "commands" / "legacy.md").write_text("legacy\n")
+            (target / "SYSTEM.md").write_text("legacy\n")
             subprocess.run(
                 ["bash", str(OMP / "install.sh")],
                 cwd=ROOT,
@@ -135,6 +158,21 @@ class OmpAgentRosterTest(unittest.TestCase):
                 {"oracle.md", "planner.md", "reviewer.md", "completeness.md"},
                 {path.name for path in installed.glob("*.md")},
             )
+            self.assertEqual(
+                {
+                    "deepinfra.ts",
+                    "herdr-omp-agent-state.ts",
+                    "orca-agent-status.ts",
+                    "orca-prefill.ts",
+                    "orca-titlebar-spinner.ts",
+                },
+                {path.name for path in (target / "extensions").glob("*.ts")},
+            )
+            self.assertFalse((target / "commands").exists())
+            self.assertFalse((target / "SYSTEM.md").exists())
+            backups = list((Path(f"{target}.before-ai-configs")).glob("*/**/*"))
+            self.assertTrue(any(path.name == "legacy.md" for path in backups))
+            self.assertTrue(any(path.name == "legacy.ts" for path in backups))
             self.assertEqual(
                 (AGENTS / "planner.md").read_text(),
                 (installed / "planner.md").read_text(),

@@ -20,7 +20,12 @@ SOURCE_AGENTS=(
 )
 SOURCE_EXTENSIONS=(
   "$SOURCE_DIR/extensions/deepinfra.ts"
+  "$SOURCE_DIR/extensions/herdr-omp-agent-state.ts"
+  "$SOURCE_DIR/extensions/orca-agent-status.ts"
+  "$SOURCE_DIR/extensions/orca-prefill.ts"
+  "$SOURCE_DIR/extensions/orca-titlebar-spinner.ts"
 )
+OMP_CONFIG_PRUNE="${OMP_CONFIG_PRUNE:-0}"
 
 for source in "$SOURCE_CONFIG" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "${SOURCE_AGENTS[@]}" "${SOURCE_EXTENSIONS[@]}"; do
   if [[ ! -f "$source" ]]; then
@@ -45,6 +50,52 @@ install_managed_file() {
   install -m "$mode" "$source" "$target"
   echo "Installed managed $label at $target"
 }
+
+preserve_unmanaged_tree_entries() {
+  local target_dir="$1"
+  local source_dir="$2"
+  local backup_root=""
+  local entry
+  local basename
+
+  [[ "$OMP_CONFIG_PRUNE" == "1" ]] || return 0
+  [[ -d "$target_dir" ]] || return 0
+
+  shopt -s nullglob dotglob
+  for entry in "$target_dir"/*; do
+    basename="$(basename -- "$entry")"
+    [[ "$basename" == *.before-ai-configs ]] && continue
+    [[ -e "$source_dir/$basename" || -L "$source_dir/$basename" ]] && continue
+
+    if [[ -z "$backup_root" ]]; then
+      backup_root="${TARGET_ROOT}.before-ai-configs/$(date -u +%Y%m%d-%H%M%S)-$$"
+      mkdir -p "$backup_root/$(basename -- "$target_dir")"
+    fi
+    mv -- "$entry" "$backup_root/$(basename -- "$target_dir")/$basename"
+    echo "Preserved unmanaged OMP entry at $backup_root/$(basename -- "$target_dir")/$basename"
+  done
+  shopt -u nullglob dotglob
+}
+
+preserve_unmanaged_path() {
+  local target="$1"
+  local backup_root
+
+  [[ "$OMP_CONFIG_PRUNE" == "1" ]] || return 0
+  [[ -e "$target" || -L "$target" ]] || return 0
+
+  backup_root="${TARGET_ROOT}.before-ai-configs/$(date -u +%Y%m%d-%H%M%S)-$$"
+  mkdir -p "$backup_root"
+  mv -- "$target" "$backup_root/$(basename -- "$target")"
+  echo "Preserved unmanaged OMP path at $backup_root/$(basename -- "$target")"
+}
+
+preserve_unmanaged_tree_entries "$TARGET_ROOT/agents" "$SOURCE_DIR/agents"
+preserve_unmanaged_tree_entries "$TARGET_ROOT/extensions" "$SOURCE_DIR/extensions"
+preserve_unmanaged_path "$TARGET_ROOT/commands"
+preserve_unmanaged_path "$TARGET_ROOT/skills"
+preserve_unmanaged_path "$TARGET_ROOT/SYSTEM.md"
+preserve_unmanaged_path "$TARGET_ROOT/models.yml"
 
 install_managed_file "$SOURCE_CONFIG" "$TARGET_CONFIG" 0600 "OMP config"
 install_managed_file "$SOURCE_GUIDANCE" "$TARGET_ROOT/AGENTS.md" 0644 "OMP guidance"
