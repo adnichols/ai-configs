@@ -1,5 +1,7 @@
 providers:
   {}
+extensions:
+  - ~/.omp/agent/extensions/deepinfra.ts
 symbolPreset: nerd
 theme:
   dark: titanium

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the tracked OMP config, guidance, and custom agents.
+# Installs the tracked OMP config, guidance, custom agents, and extensions.
 set -euo pipefail
 
 SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,8 +18,11 @@ SOURCE_AGENTS=(
   "$SOURCE_DIR/agents/reviewer.md"
   "$SOURCE_DIR/agents/completeness.md"
 )
+SOURCE_EXTENSIONS=(
+  "$SOURCE_DIR/extensions/deepinfra.ts"
+)
 
-for source in "$SOURCE_CONFIG" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "${SOURCE_AGENTS[@]}"; do
+for source in "$SOURCE_CONFIG" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "${SOURCE_AGENTS[@]}" "${SOURCE_EXTENSIONS[@]}"; do
   if [[ ! -f "$source" ]]; then
     echo "Missing managed OMP file at $source" >&2
     exit 1
@@ -47,6 +50,9 @@ install_managed_file "$SOURCE_CONFIG" "$TARGET_CONFIG" 0600 "OMP config"
 install_managed_file "$SOURCE_GUIDANCE" "$TARGET_ROOT/AGENTS.md" 0644 "OMP guidance"
 for source in "${SOURCE_AGENTS[@]}"; do
   install_managed_file "$source" "$TARGET_ROOT/agents/$(basename -- "$source")" 0644 "OMP agent"
+done
+for source in "${SOURCE_EXTENSIONS[@]}"; do
+  install_managed_file "$source" "$TARGET_ROOT/extensions/$(basename -- "$source")" 0644 "OMP extension"
 done
 
 install_managed_file "$SOURCE_DELIVERY_SKILL" "$SHARED_TARGET/skills/delivery-run/SKILL.md" 0644 "OMP delivery skill"

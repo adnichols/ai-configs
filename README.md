@@ -105,9 +105,14 @@ Codex prompt files plus config templates. Global Codex prompt discovery is handl
 Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.
 
 ### `_omp/`
-Canonical Oh My Pi host configuration, custom agents, and delivery routing.
+Canonical Oh My Pi host configuration, custom agents, provider extensions, and
+delivery routing. The managed DeepInfra extension registers the `deepinfra`
+provider, dynamically discovers its model catalog, and provides the API-key
+login flow.
 `config.yml` is installed to `~/.omp/agent/config.yml` with mode `0600`;
-`AGENTS.md` and custom agents are installed alongside it. The OMP-discoverable
+`AGENTS.md`, custom agents, and extensions are installed alongside it. The OMP-discoverable
+DeepInfra requests use `DEEPINFRA_API_KEY` when present; otherwise authenticate
+the provider through OMP's provider login flow.
 `delivery-run` skill is installed to
 `~/.agents/skills/delivery-run/SKILL.md`, and the `delivery` CLI is exposed
 through `~/.local/bin/delivery`. It preserves the first differing managed file as
