@@ -61,7 +61,7 @@ function printHelp() {
 	console.log(`Capture timestamped Cursor SDK event timelines for one local run.
 
 Usage:
-  CURSOR_API_KEY=... npm run debug:sdk-events -- [options]
+  CURSOR_API_KEY=... pnpm run debug:sdk-events -- [options]
   node scripts/debug-sdk-events.mjs [options]
 
 Options:

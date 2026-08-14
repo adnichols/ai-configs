@@ -136,7 +136,7 @@ describe("smoke CLI and package contracts", () => {
 		const source = `${entrypointSource}\n${runnerSource}`;
 		const help = run(process.execPath, ["scripts/cloud-runtime-smoke.mjs", "--help"]);
 		expect(help.status).toBe(0);
-		expect(help.stdout).toContain("npm run smoke:cloud");
+		expect(help.stdout).toContain("pnpm run smoke:cloud");
 		expect(help.stdout).toContain("--context-matrix");
 		expect(help.stdout).toContain("CURSOR_API_KEY");
 		expect(source).toContain('"--session-dir"');

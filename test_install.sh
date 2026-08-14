@@ -123,9 +123,9 @@ test_repository_structure() {
         return
     fi
     
-    # Claude intentionally has no repository-owned subagents.
-    if [[ -d "$SCRIPT_DIR/_claude/agents" ]]; then
-        test_fail "_claude/agents must be absent"
+    # Claude's only repository-owned subagent is the read-only reviewer.
+    if [[ ! -f "$SCRIPT_DIR/_claude/agents/reviewer.md" ]]; then
+        test_fail "_claude/agents/reviewer.md must exist"
         return
     fi
 
@@ -141,8 +141,8 @@ test_repository_structure() {
         return
     fi
 
-    if grep -Fq 'cp -r "$REPO_ROOT/_claude/agents"' "$SCRIPT_DIR/install.sh"; then
-        test_fail "Installer must not copy Claude subagents"
+    if ! grep -Fq 'cp -r "$REPO_ROOT/_claude/agents"' "$SCRIPT_DIR/install.sh"; then
+        test_fail "Installer must copy the Claude reviewer subagent"
         return
     fi
 

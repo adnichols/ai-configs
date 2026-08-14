@@ -55,7 +55,7 @@ INSTALL_SUMMARY_TRANSPORT_STATUS="not_run"
 INSTALL_SUMMARY_TRANSPORT_REASON=""
 
 # Non-interactive SSH sessions on macOS may not source login shell files, so
-# Homebrew's node/npm/npx can be installed but absent from PATH.
+# Homebrew's node/pnpm/npx can be installed but absent from PATH.
 for brew_bin in /opt/homebrew/bin /usr/local/bin; do
     if [ -d "$brew_bin" ] && [[ ":$PATH:" != *":$brew_bin:"* ]]; then
         PATH="$brew_bin:$PATH"
@@ -98,7 +98,7 @@ print_usage() {
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
     echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
-    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, pi-clarify, vendored pi-prewalk (named execution profiles) from the stable ~/.pi/agent/local-packages/ai-configs/pi-prewalk mirror, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
+    echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, @narumitw/pi-btw, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, pi-clarify, vendored pi-prewalk (named execution profiles) from the stable ~/.pi/agent/local-packages/ai-configs/pi-prewalk mirror, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
@@ -681,7 +681,7 @@ install_ltui() {
     local checkout_dir="$cache_root/ltui"
     local install_bin_dir="$HOME/.local/bin"
 
-    for required_cmd in git npm node; do
+    for required_cmd in git pnpm node; do
         if ! command -v "$required_cmd" >/dev/null 2>&1; then
             echo -e "${RED}Error: $required_cmd is required to install ltui${NC}"
             return 1
@@ -712,10 +712,12 @@ install_ltui() {
     fi
 
     echo "  - Installing dependencies..."
-    (cd "$checkout_dir" && npm ci)
+    # The standalone ltui repo has not adopted a pnpm lockfile yet, so install
+    # without --frozen-lockfile and let pnpm generate pnpm-lock.yaml in the cache.
+    (cd "$checkout_dir" && pnpm install)
 
     echo "  - Building ltui..."
-    (cd "$checkout_dir" && npm run build)
+    (cd "$checkout_dir" && pnpm run build)
 
     echo "  - Installing ltui into $install_bin_dir..."
     ln -sfn "$checkout_dir/bin/ltui" "$install_bin_dir/ltui"
@@ -2562,8 +2564,8 @@ preflight_pi_review_stack_contract() {
     if [ -d "$agent/npm/node_modules/@tintinweb/pi-subagents" ]; then
         cp -a "$agent/npm/node_modules/@tintinweb/pi-subagents" "$preflight_agent/npm/node_modules/@tintinweb/pi-subagents"
     elif [ "$allow_missing_transport" = true ]; then
-        if ! command -v npm >/dev/null 2>&1 ||
-           ! npm install --prefix "$preflight_agent/npm" --no-save --no-package-lock --ignore-scripts --silent @tintinweb/pi-subagents >/dev/null 2>&1; then
+        if ! command -v pnpm >/dev/null 2>&1 ||
+           ! pnpm add --dir "$preflight_agent/npm" --ignore-scripts --lockfile=false --silent @tintinweb/pi-subagents >/dev/null 2>&1; then
             rm -rf "$preflight_agent"
             INSTALL_SUMMARY_TRANSPORT_STATUS=fail
             INSTALL_SUMMARY_TRANSPORT_REASON="could not stage pi-subagents for the pre-install transport probe"
@@ -2660,6 +2662,9 @@ PY
                 mkdir -p "$(dirname "$destination")"
                 rm -rf "$destination"
                 cp -a "$REPO_ROOT/$source" "$destination"
+                if [[ "$source" == skills/* ]]; then
+                    write_skill_marker "$destination" "$source"
+                fi
                 ;;
             file)
                 mkdir -p "$(dirname "$destination")"
@@ -3320,7 +3325,7 @@ install_vendored_pi_cursor_sdk() {
 
     [ -d "$source" ] || { echo "Error: vendored pi-cursor-sdk source is missing: $source" >&2; return 1; }
     [ -f "$source/package.json" ] || { echo "Error: vendored pi-cursor-sdk source is missing package.json" >&2; return 1; }
-    [ -f "$source/package-lock.json" ] || { echo "Error: vendored pi-cursor-sdk source is missing package-lock.json" >&2; return 1; }
+    [ -f "$source/pnpm-lock.yaml" ] || { echo "Error: vendored pi-cursor-sdk source is missing pnpm-lock.yaml" >&2; return 1; }
     [ -f "$source/src/index.ts" ] || { echo "Error: vendored pi-cursor-sdk source is missing src/index.ts" >&2; return 1; }
     [ -f "$source/src/cursor-question-tool.ts" ] || { echo "Error: vendored pi-cursor-sdk source is missing cursor-question-tool.ts" >&2; return 1; }
     [ ! -L "$source" ] || { echo "Error: vendored pi-cursor-sdk source must not be a symlink" >&2; return 1; }
@@ -3332,7 +3337,7 @@ install_vendored_pi_cursor_sdk() {
 
     mkdir -p "$stable_parent"
     stage_path="$(mktemp -d "$stable_parent/.pi-cursor-sdk-stage.XXXXXX")"
-    if ! cp -R "$source/." "$stage_path/" || ! (cd "$stage_path" && npm ci --omit=dev --ignore-scripts); then
+    if ! cp -R "$source/." "$stage_path/" || ! (cd "$stage_path" && pnpm install --prod --ignore-scripts --frozen-lockfile); then
         rm -rf "$stage_path"
         echo "Error: unable to prepare vendored pi-cursor-sdk dependencies" >&2
         return 1
@@ -3494,6 +3499,7 @@ install_pi_npm_packages() {
         "@aliou/pi-processes"
         "@aliou/pi-synthetic"
         "@narumitw/pi-goal"
+        "@narumitw/pi-btw"
         "pi-web-access"
         "pi-no-soft-cursor"
         "@tmustier/pi-files-widget"
@@ -3527,10 +3533,10 @@ install_pi_npm_packages() {
         "git:github.com/adnichols/pi-codex-conversion"
     )
 
-    # Check if npm is available
-    if ! command -v npm &> /dev/null; then
-        echo -e "    ${YELLOW}⚠ npm not found in PATH${NC}"
-        echo "      Please install Node.js/npm to install pi extensions"
+    # Check if pnpm is available
+    if ! command -v pnpm &> /dev/null; then
+        echo -e "    ${YELLOW}⚠ pnpm not found in PATH${NC}"
+        echo "      Please install Node.js/pnpm to install pi extensions"
         return 1
     fi
 

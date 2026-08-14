@@ -190,6 +190,7 @@ npm-managed packages:
 - `@aliou/pi-processes`
 - `@aliou/pi-synthetic`
 - `@narumitw/pi-goal`
+- `@narumitw/pi-btw` — a `/btw` side-question command for Pi
 - `pi-web-access`
 - `pi-no-soft-cursor`
 - `@tmustier/pi-files-widget`
@@ -205,7 +206,7 @@ npm-managed packages:
 
 local path packages:
 - `~/.pi/agent/local-packages/ai-configs/pi-vcc` (a stable mirror synced from `./_pi/packages/pi-vcc`; install tests and worktrees must not register their transient checkout path)
-- `~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk` (a stable mirror synced from `./_pi/packages/pi-cursor-sdk`, with `npm ci --omit=dev` run after copying; source provenance is recorded in `VENDORED_FROM.md`)
+- `~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk` (a stable mirror synced from `./_pi/packages/pi-cursor-sdk`, with `pnpm install --prod --ignore-scripts --frozen-lockfile` run after copying; source provenance is recorded in `VENDORED_FROM.md`)
 
 Use Herdr to launch and manage visible interactive agent sessions.
 

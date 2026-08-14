@@ -36,12 +36,12 @@ const argv = process.argv.slice(2);
 const args = new Set(argv);
 
 function printHelp() {
-	const npmUsage = LOCAL_RESUME_SUITES.map((lane) => `  npm run ${lane.script}`).join("\n");
+	const pnpmUsage = LOCAL_RESUME_SUITES.map((lane) => `  pnpm run ${lane.script}`).join("\n");
 	const nodeUsage = LOCAL_RESUME_SUITES.map((lane) => `  node scripts/local-resume-smoke.mjs${lane.flag ? ` ${lane.flag}` : ""}`).join("\n");
 	console.log(`Live local Cursor resume smoke for pi-cursor-sdk.
 
 Usage:
-${npmUsage}
+${pnpmUsage}
 ${nodeUsage}
 
 Environment:

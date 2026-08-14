@@ -86,8 +86,8 @@ function printHelp() {
 	console.log(`Required live Cursor cloud release smoke for pi-cursor-sdk.
 
 Usage:
-  npm run smoke:cloud
-  npm run smoke:cloud:context
+  pnpm run smoke:cloud
+  pnpm run smoke:cloud:context
   node scripts/cloud-runtime-smoke.mjs [--context-matrix]
 
 The no-flag release gate creates and deletes one private throwaway GitHub repository and runs named lanes for cancel, explicit repo/startingRef branch reporting, direct push, missing branch failure, lifecycle delete, and account-conditional artifacts/raw usage. It requires current gh auth with private-repo create/push/delete access and Cursor Cloud access to that repository.

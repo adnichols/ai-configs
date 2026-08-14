@@ -95,8 +95,8 @@ if ! command -v git >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v npm >/dev/null 2>&1; then
-  echo "npm is required" >&2
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pnpm is required" >&2
   exit 1
 fi
 
@@ -122,7 +122,7 @@ REVIEWED_METADATA="$(read_reviewed_metadata)"
 REVIEWED_UPSTREAM_VERSION="$(printf '%s\n' "$REVIEWED_METADATA" | sed -n '1p')"
 REVIEWED_UPSTREAM_COMMIT="$(printf '%s\n' "$REVIEWED_METADATA" | sed -n '2p')"
 
-NPM_LATEST_VERSION="$(npm view @sting8k/pi-vcc version 2>/dev/null || true)"
+PNPM_LATEST_VERSION="$(pnpm view @sting8k/pi-vcc version 2>/dev/null || true)"
 UPSTREAM_HEAD="$(git ls-remote "$UPSTREAM_REPO_URL" refs/heads/master | awk '{print $1}')"
 
 printf 'pi-vcc upstream check\n'
@@ -130,7 +130,7 @@ printf 'vendored path: %s\n' "$VENDORED_DIR_REL"
 printf 'local package version: %s\n' "$LOCAL_PACKAGE_VERSION"
 printf 'reviewed upstream version: %s\n' "${REVIEWED_UPSTREAM_VERSION:-<missing from README>}"
 printf 'reviewed upstream commit: %s\n' "${REVIEWED_UPSTREAM_COMMIT:-<missing from README>}"
-printf 'npm latest version: %s\n' "${NPM_LATEST_VERSION:-<unavailable>}"
+printf 'pnpm latest version: %s\n' "${PNPM_LATEST_VERSION:-<unavailable>}"
 printf 'upstream master head: %s\n' "${UPSTREAM_HEAD:-<unavailable>}"
 
 STALE=0
@@ -139,13 +139,13 @@ if [ -z "$REVIEWED_UPSTREAM_VERSION" ] || [ -z "$REVIEWED_UPSTREAM_COMMIT" ]; th
   printf 'commit status: reviewed upstream metadata missing\n'
   STALE=1
 else
-  if [ -z "$NPM_LATEST_VERSION" ]; then
-    printf 'version status: unknown (npm latest unavailable)\n'
-  elif [ "$NPM_LATEST_VERSION" != "$REVIEWED_UPSTREAM_VERSION" ]; then
-    printf 'version status: RE-REVIEW REQUIRED (reviewed %s, npm latest %s)\n' "$REVIEWED_UPSTREAM_VERSION" "$NPM_LATEST_VERSION"
+  if [ -z "$PNPM_LATEST_VERSION" ]; then
+    printf 'version status: unknown (pnpm latest unavailable)\n'
+  elif [ "$PNPM_LATEST_VERSION" != "$REVIEWED_UPSTREAM_VERSION" ]; then
+    printf 'version status: RE-REVIEW REQUIRED (reviewed %s, pnpm latest %s)\n' "$REVIEWED_UPSTREAM_VERSION" "$PNPM_LATEST_VERSION"
     STALE=1
   else
-    printf 'version status: reviewed upstream version matches npm latest\n'
+    printf 'version status: reviewed upstream version matches pnpm latest\n'
   fi
 
   if [ -z "$UPSTREAM_HEAD" ]; then
@@ -181,7 +181,7 @@ import os, sys
 upstream = Path(sys.argv[1])
 vendored = Path(sys.argv[2])
 ignore_dirs = {'.git', 'node_modules'}
-ignore_files = {'package-lock.json'}
+ignore_files = {'package-lock.json', 'pnpm-lock.yaml'}
 
 def collect(root: Path):
     files = {}

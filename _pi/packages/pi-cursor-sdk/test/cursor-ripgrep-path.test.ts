@@ -60,7 +60,16 @@ describe("Cursor ripgrep path", () => {
 
 			// Nested only — no hoisted platform package beside @cursor/sdk.
 			const consumerRequire = createRequire(consumerModule);
-			expect(() => consumerRequire.resolve(`${platformPackage}/package.json`)).toThrow();
+			// Under pnpm, Vitest's ambient resolver may expose the platform package
+			// from the pnpm virtual store; the layout under test must still be the
+			// nested-only copy, not whatever the ambient resolver happens to see.
+			let ambientPlatformPackage: string | undefined;
+			try {
+				ambientPlatformPackage = consumerRequire.resolve(`${platformPackage}/package.json`);
+			} catch {
+				/* expected when not hoisted */
+			}
+			expect(ambientPlatformPackage).not.toBe(join(nestedPlatformDir, "package.json"));
 			expect(consumerRequire.resolve("@cursor/sdk")).toBe(realpathSync(join(sdkDir, "index.js")));
 
 			const resolved = resolveBundledCursorRipgrepPath(pathToFileURL(consumerModule));

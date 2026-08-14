@@ -13,8 +13,8 @@ function printHelp() {
 	console.log(`Refresh reviewable Cursor model fallback snapshots.
 
 Usage:
-  npm run check:cursor-snapshots
-  npm run refresh:cursor-snapshots -- --write [options]
+  pnpm run check:cursor-snapshots
+  pnpm run refresh:cursor-snapshots -- --write [options]
   node scripts/refresh-cursor-model-snapshots.mjs [options]
 
 Options:
@@ -121,7 +121,7 @@ function stableStringify(value) {
 }
 
 function formatFallbackModels(models, sdkVersion) {
-	return `import type { ModelListItem } from "@cursor/sdk";\n\n// Generated with @cursor/sdk@${sdkVersion} from ${models.length} Cursor models.\n// Refresh with: npm run refresh:cursor-snapshots -- --write\n// Do not add secrets; this file stores public model metadata only.\nexport const FALLBACK_MODEL_ITEMS = ${stableStringify(models)} satisfies ModelListItem[];\n`;
+	return `import type { ModelListItem } from "@cursor/sdk";\n\n// Generated with @cursor/sdk@${sdkVersion} from ${models.length} Cursor models.\n// Refresh with: pnpm run refresh:cursor-snapshots -- --write\n// Do not add secrets; this file stores public model metadata only.\nexport const FALLBACK_MODEL_ITEMS = ${stableStringify(models)} satisfies ModelListItem[];\n`;
 }
 
 function parseExistingContextWindows() {
@@ -167,7 +167,7 @@ function formatContextWindows(models, checkpointWindows, fallbackContextWindow) 
 	const date = new Date().toISOString().slice(0, 10);
 	const sorted = [...merged.entries()].sort(([a], [b]) => (a === "default" ? -1 : b === "default" ? 1 : a.localeCompare(b)));
 	const lines = sorted.map(([modelId, contextWindow]) => `\t${JSON.stringify(modelId)}: ${contextWindow},`);
-	return `// Generated from Cursor SDK checkpoint tokenDetails.maxTokens on ${date}.\n// Refresh with: npm run refresh:cursor-snapshots -- --write --context-windows ~/.pi/agent/cursor-sdk-context-windows.json\n// These are default/non-Max-mode SDK context windows for Cursor models that do not\n// expose a catalog \`context\` parameter. Do not replace them with Max Mode values\n// unless the Cursor SDK exposes an exact Max Mode model selection and the extension\n// uses that selection for matching pi model IDs.\nexport const BUNDLED_CONTEXT_WINDOWS = {\n${lines.join("\n")}\n} as const satisfies Record<string, number>;\n`;
+	return `// Generated from Cursor SDK checkpoint tokenDetails.maxTokens on ${date}.\n// Refresh with: pnpm run refresh:cursor-snapshots -- --write --context-windows ~/.pi/agent/cursor-sdk-context-windows.json\n// These are default/non-Max-mode SDK context windows for Cursor models that do not\n// expose a catalog \`context\` parameter. Do not replace them with Max Mode values\n// unless the Cursor SDK exposes an exact Max Mode model selection and the extension\n// uses that selection for matching pi model IDs.\nexport const BUNDLED_CONTEXT_WINDOWS = {\n${lines.join("\n")}\n} as const satisfies Record<string, number>;\n`;
 }
 
 const args = parseRefreshArgs(process.argv.slice(2));
@@ -193,7 +193,7 @@ console.log(`First models: ${models.slice(0, 8).map((model) => model.id).join(",
 
 if (args.check) {
 	if (!existsSync(FALLBACK_MODELS_PATH) || !readFileSync(FALLBACK_MODELS_PATH).equals(Buffer.from(fallbackSource))) {
-		fail(`${FALLBACK_MODELS_PATH} is stale; refresh it with: npm run refresh:cursor-snapshots -- --write`);
+		fail(`${FALLBACK_MODELS_PATH} is stale; refresh it with: pnpm run refresh:cursor-snapshots -- --write`);
 	}
 	console.log(`${FALLBACK_MODELS_PATH} is current (${models.length} models, @cursor/sdk@${sdkVersion}).`);
 } else if (args.write) {

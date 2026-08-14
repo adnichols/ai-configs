@@ -263,7 +263,7 @@ def command_verify(args):
                 if not same_tree(child, destination / child.name):
                     failures.append("installed parity %s" % (destination / child.name))
         elif kind == "exact-directory":
-            if not same_tree(source, destination):
+            if not same_tree(source, destination, ignore=(".ai-configs-managed.json",)):
                 failures.append("installed exact-directory parity %s" % destination)
         elif kind == "file":
             if item["id"] in {"helper-process-identity", "helper-review-supervisor"} and (not destination.is_file() or stat.S_IMODE(os.lstat(str(destination)).st_mode) & 0o500 != 0o500):
@@ -308,10 +308,15 @@ def command_verify(args):
     print("Pi review-stack manifest verification passed (%d surfaces)." % len(by_id))
 
 
-def same_tree(left, right):
+def same_tree(left, right, ignore=()):
     if not os.path.lexists(str(right)):
         return False
-    result = subprocess.run(["diff", "-qr", str(left), str(right)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    args = ["diff", "-qr"]
+    for name in ignore:
+        args.append("-x")
+        args.append(name)
+    args.extend([str(left), str(right)])
+    result = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return result.returncode == 0
 
 

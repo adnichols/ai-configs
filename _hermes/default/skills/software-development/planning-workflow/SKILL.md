@@ -115,7 +115,7 @@ Keep this complexity-aware. A lightweight plan must satisfy the contract with co
 
 ### What's new contract
 
-Immediately after Product-owner context and before Goal, every full implementation plan must include a standalone `What's new` section. Give it a behavior-focused headline and a one-sentence promise, then state the concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, rationale, phases, or acceptance criteria; a heading without a distinct product delta does not satisfy the contract. This adds no new lightweight-plan requirement: only work already exempt from a full execution plan is exempt from `What's new`.
+Immediately after Product-owner context and before Goal, every full implementation plan must include a standalone `What's new` section. Give it a behavior-focused headline and a one-sentence product promise, then state the concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, rationale, phases, or acceptance criteria; a heading without a distinct product delta does not satisfy the contract. This adds no new lightweight-plan requirement: only work already exempt from a full execution plan is exempt from `What's new`.
 
 ### Conditional planning evidence checkpoint
 

@@ -1,0 +1,33 @@
+---
+description: Arm the delivery workflow for this worktree (single entrypoint)
+argument-hint: '[--from existing-implementation] [plan-path]'
+---
+
+# /delivery
+
+This is the only in-session way to arm delivery. The prewalk tool, `run-plan`,
+`execute`, and generic implementation never create a ledger.
+
+1. If prewalk is still armed, stop. They are mutually exclusive. Tell the
+   operator to turn prewalk off first, or keep prewalk and do not arm delivery.
+2. If `.delivery/ledger.json` already exists, delivery is already armed.
+   Continue from `delivery show`. Do not create a second ledger.
+3. If the operator is attaching after a non-delivery implementation (review,
+   completeness, and PR only):
+
+```bash
+delivery arm --from existing-implementation --plan <plan-path>
+```
+
+   Do not launch an implementation pane. Start at review.
+
+4. Otherwise (early arm):
+
+```bash
+delivery arm --plan <plan-path>
+```
+
+Parse `--from existing-implementation` and a plan path out of `$ARGUMENTS`.
+Then load `skills/delivery-run/SKILL.md` and continue from the recommended next step.
+
+`delivery spawn` is the new-worktree form of this same arm.

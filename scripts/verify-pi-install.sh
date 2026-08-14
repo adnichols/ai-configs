@@ -52,6 +52,7 @@ EXPECTED_NPM_PACKAGES=(
   "npm:@aliou/pi-processes"
   "npm:@aliou/pi-synthetic"
   "npm:@narumitw/pi-goal"
+  "npm:@narumitw/pi-btw"
   "npm:pi-web-access"
   "npm:pi-no-soft-cursor"
   "npm:@tmustier/pi-files-widget"

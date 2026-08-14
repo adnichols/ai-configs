@@ -56,7 +56,7 @@ function printHelp() {
 	console.log(`Capture raw Cursor SDK onDelta/onStep payloads through pi's provider path.
 
 Usage:
-  CURSOR_API_KEY=... npm run debug:provider-events -- [options]
+  CURSOR_API_KEY=... pnpm run debug:provider-events -- [options]
   node scripts/debug-provider-events.mjs [options]
 
 Options:

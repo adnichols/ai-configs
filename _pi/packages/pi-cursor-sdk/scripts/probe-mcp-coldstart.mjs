@@ -33,7 +33,7 @@ function printHelp() {
 	console.log(`Measure Cursor SDK first-send MCP cold-start timing.
 
 Usage:
-  CURSOR_API_KEY=... npm run debug:mcp-coldstart
+  CURSOR_API_KEY=... pnpm run debug:mcp-coldstart
   node scripts/probe-mcp-coldstart.mjs [options]
 
 Options:

@@ -28,7 +28,7 @@ function printHelp() {
 
 Usage:
   node scripts/visual-tui-smoke.mjs --label LABEL --prompt PROMPT [options]
-  npm run smoke:visual -- --label LABEL --prompt PROMPT [options]
+  pnpm run smoke:visual -- --label LABEL --prompt PROMPT [options]
 
 Required:
   --label LABEL                 Artifact filename prefix. Sanitized for paths.
@@ -75,19 +75,19 @@ Artifacts written:
   <label>.manifest.json         Agent-readable artifact index for this run.
 
 Prerequisites:
-  - pi, node, tmux, and npm-installed dev dependencies on PATH / in node_modules.
+  - pi, node, tmux, and pnpm-installed dev dependencies on PATH / in node_modules.
   - The runner resolves pi/tmux from the parent PATH, uses process.execPath for node, and seals pi-shim PATH for prereq checks and tmux.
   - For automatic PNG capture, install a Playwright browser once when needed:
       npx playwright install chromium
   - In the pi agent harness, --no-screenshot plus agent_browser on the generated HTML is also acceptable.
 
 Examples:
-  npm run smoke:visual -- \\
+  pnpm run smoke:visual -- \\
     --label read-package \\
     --prompt 'Read ./package.json using the read/file tool, then answer with the package name.' \\
     --out-dir /tmp/pi-cursor-sdk-visual-review
 
-  npm run smoke:visual -- \\
+  pnpm run smoke:visual -- \\
     --label after-shell-success \\
     --ext /path/to/pi-cursor-sdk \\
     --cwd /path/to/test-workspace \\

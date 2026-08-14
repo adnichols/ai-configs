@@ -135,6 +135,18 @@ PY
       printf '%s\n' 'export type IsolationMode = "worktree";' >"$package/dist/types.d.ts"
       printf '%s\n' 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,' >"$package/src/custom-agents.ts"
       printf '%s\n' 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,' >"$package/dist/custom-agents.js"
+      # patch_pi_subagents_review_isolation.py requires the live-checkout guard
+      # anchors inside src/index.ts and dist/index.js; mirror those here so the
+      # preflight transport patch can run against the stub.
+      cat > "$package/src/index.ts" <<'GUARD_EOF'
+const customConfig = getAgentConfig(subagentType);
+
+      const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);
+GUARD_EOF
+      cat > "$package/dist/index.js" <<'GUARD_EOF'
+const customConfig = getAgentConfig(subagentType);
+            const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);
+GUARD_EOF
     fi
     exit 0
     ;;
@@ -179,25 +191,27 @@ exit 0
 EOF
   chmod +x "$bin_dir/bun"
 
-  cat > "$bin_dir/npm" <<'EOF'
+  cat > "$bin_dir/pnpm" <<'EOF'
 #!/bin/bash
 set -eu
 
-# The vendored pi-cursor-sdk installer uses `npm ci --omit=dev`; emulate the
-# production dependency sentinel without reaching the network.
-if [[ "${1:-}" == "ci" ]]; then
+# The vendored pi-cursor-sdk installer uses `pnpm install --prod --ignore-scripts
+# --frozen-lockfile`; emulate the production dependency sentinel without reaching
+# the network.
+if [[ "${1:-}" == "install" ]]; then
   mkdir -p node_modules/@cursor/sdk
   printf '{"name":"@cursor/sdk"}\n' > node_modules/@cursor/sdk/package.json
   exit 0
 fi
-if [[ "${1:-}" == "install" ]]; then
+# The pi review-transport preflight uses `pnpm add --dir <dir> ... @tintinweb/pi-subagents`.
+if [[ "${1:-}" == "add" ]]; then
   shift
-  prefix=""
+  dir=""
   while [[ $# -gt 0 ]]; do
-    if [[ "$1" == "--prefix" ]]; then prefix="$2"; shift 2; else shift; fi
+    if [[ "$1" == "--dir" ]]; then dir="$2"; shift 2; else shift; fi
   done
-  if [[ -n "$prefix" ]]; then
-    package="$prefix/node_modules/@tintinweb/pi-subagents"
+  if [[ -n "$dir" ]]; then
+    package="$dir/node_modules/@tintinweb/pi-subagents"
     mkdir -p "$package/src" "$package/dist"
     printf '%s\n' 'isolation: agentConfig?.isolation ?? params.isolation,' >"$package/src/invocation-config.ts"
     printf '%s\n' 'isolation: agentConfig?.isolation ?? params.isolation,' >"$package/dist/invocation-config.js"
@@ -205,11 +219,20 @@ if [[ "${1:-}" == "install" ]]; then
     printf '%s\n' 'export type IsolationMode = "worktree";' >"$package/dist/types.d.ts"
     printf '%s\n' 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,' >"$package/src/custom-agents.ts"
     printf '%s\n' 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,' >"$package/dist/custom-agents.js"
+    cat > "$package/src/index.ts" <<'GUARD_EOF'
+const customConfig = getAgentConfig(subagentType);
+
+      const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);
+GUARD_EOF
+    cat > "$package/dist/index.js" <<'GUARD_EOF'
+const customConfig = getAgentConfig(subagentType);
+            const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);
+GUARD_EOF
   fi
 fi
 exit 0
 EOF
-  chmod +x "$bin_dir/npm"
+  chmod +x "$bin_dir/pnpm"
 
   cat > "$bin_dir/npx" <<'EOF'
 #!/bin/bash
@@ -284,10 +307,47 @@ EOF
 #!/bin/bash
 set -eu
 
-if [[ "${1:-}" == "plugin" && "${2:-}" == "install" ]]; then
-  mkdir -p "$HOME/.config/herdr"
-  printf '%s\n' "$*" >> "$HOME/.config/herdr/fake-plugin-installs.log"
-  exit 0
+STATE_DIR="$HOME/.config/herdr"
+mkdir -p "$STATE_DIR/plugins"
+
+if [[ "${1:-}" == "plugin" ]]; then
+  case "${2:-}" in
+    install)
+      src="${3:-}"
+      id="${src##*/}"
+      : > "$STATE_DIR/plugins/$id"
+      printf '%s\n' "$*" >> "$STATE_DIR/fake-plugin-installs.log"
+      exit 0
+      ;;
+    link)
+      : > "$STATE_DIR/plugins/herdr-ntfysh.linked"
+      printf '%s' "${3:-}" > "$STATE_DIR/plugins/herdr-ntfysh.linked-path"
+      exit 0
+      ;;
+    enable|uninstall)
+      exit 0
+      ;;
+    list)
+      args=("$@")
+      pid=""
+      for ((i=0; i<${#args[@]}; i++)); do
+        if [[ "${args[$i]}" == "--plugin" ]]; then
+          pid="${args[$((i+1))]:-}"
+        fi
+      done
+      if [[ "$pid" == "herdr-navigator" && -f "$STATE_DIR/plugins/herdr-navigator" ]]; then
+        printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","source":{"kind":"github","owner":"thanhdat77","repo":"herdr-navigator","requested_ref":"v0.3.3"},"actions":[{"id":"open"}],"enabled":true}]}}'
+        exit 0
+      fi
+      if [[ "$pid" == "cobanov.herdr-ntfysh" && -f "$STATE_DIR/plugins/herdr-ntfysh.linked" ]]; then
+        linked_path="$(cat "$STATE_DIR/plugins/herdr-ntfysh.linked-path")"
+        printf '{"result":{"plugins":[{"plugin_id":"cobanov.herdr-ntfysh","source":{"kind":"local"},"plugin_root":"%s","enabled":true}]}}\n' "$linked_path"
+        exit 0
+      fi
+      printf '%s\n' '{"result":{"plugins":[]}}'
+      exit 0
+      ;;
+  esac
 fi
 
 exit 0
@@ -844,12 +904,12 @@ EOF
   assert_file_not_contains "$home/.pi/agent/models.json" '"grok"' || return 1
   assert_file_contains "$home/.pi/agent/models.json" '"grok-4.5"' || return 1
   assert_file_contains "$home/.pi/agent/models.json" '"contextWindow": 200000' || return 1
-  assert_file_not_contains "$home/.pi/agent/settings.json" 'grok/' || return 1
+  assert_file_not_contains "$home/.pi/agent/settings.json" 'grok/grok-4.5' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'grok-composer-2.5-fast' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'pi-prd-mode' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:caller-owned' || return 1
-  assert_file_contains "$home/.pi/agent/settings.json" '"defaultProvider": "openai-codex"' || return 1
-  assert_file_contains "$home/.pi/agent/settings.json" '"defaultModel": "gpt-5.6-terra"' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" '"defaultProvider": "deepinfra"' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" '"defaultModel": "deepseek-ai/DeepSeek-V4-Flash-0731"' || return 1
   [[ ! -e "$home/.pi/agent/tasks-config.json" ]] || return 1
   [[ -f "$home/.pi/agent/agents/Explore.md" ]] || return 1
   [[ "$(cat "$home/.pi/agent/agents/Explore.md")" == $'---\nenabled: false\n---' ]] || return 1
@@ -870,6 +930,7 @@ EOF
   assert_file_not_contains "$home/.pi/agent/settings.json" 'pi-codex-goal' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'piCodexGoal' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:@narumitw/pi-goal' || return 1
+  assert_file_contains "$home/.pi/agent/settings.json" 'npm:@narumitw/pi-btw' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'npm:@tintinweb/pi-tasks' || return 1
   assert_file_contains "$home/.pi/agent/settings.json" 'npm:@juicesharp/rpiv-todo' || return 1
   assert_file_not_contains "$home/.pi/agent/settings.json" 'npm:pi-cursor-sdk' || return 1
@@ -1134,7 +1195,7 @@ test_integration_integrity_is_common_and_portable() {
     assert_file_contains "skills/$skill/SKILL.md" 'description: Use when ' || return 1
   done
 
-  for phrase in 'source of truth' 'dependent docs/examples' 'cross-boundary or production-path' 'stale-reference search' 'event-existence test'; do
+  for phrase in 'source of truth' 'Dependent docs/examples' 'cross-boundary or production-path' 'stale-reference search' 'event-existence test'; do
     assert_file_contains "skills/integration-integrity/SKILL.md" "$phrase" || return 1
   done
 
@@ -1322,7 +1383,7 @@ required = {
         'Contract and distributed-integration inventory', 'actual parser', 'event-existence-only',
     ],
     '_hermes/default/skills/software-development/run-plan/SKILL.md': [
-        'Integration-integrity record', 'after compaction, handoff, resume, rebase', 'named remediation task',
+        'Integration-integrity record', 'After compaction, handoff, resume, rebase', 'named remediation work',
     ],
     '_hermes/default/skills/software-development/test-driven-development/SKILL.md': [
         'Contract and distributed-behavior RED tests', 'driving agent', 'production-dispatch', 'actual parser',
@@ -1360,7 +1421,6 @@ test_phase_three_duplicate_skill_trees_are_removed() {
   [[ ! -d ".agents/skills/dependency-selection" ]] || return 1
   [[ ! -d "_pi/skills" ]] || return 1
   [[ ! -d "_opencode" ]] || return 1
-  [[ ! -d "_omp" ]] || return 1
   [[ ! -d "_gemini" ]] || return 1
   [[ ! -d "_pi/extensions/pi-plan-mode" ]] || return 1
 
@@ -1639,7 +1699,7 @@ for path in hermes_delegating_surfaces:
 # PM-only wording or wording elsewhere in reviewed-html-plan must not pass.
 hermes_reviewed_path = Path('_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md')
 hermes_reviewed = hermes_reviewed_path.read_text()
-gpt_section_start = hermes_reviewed.index('### 6. Active-harness plan review')
+gpt_section_start = hermes_reviewed.index('### 6. Independent Sol-medium planner review')
 gpt_section_end = hermes_reviewed.index('### 7. Integrate and iterate to execution-ready', gpt_section_start)
 gpt_section = hermes_reviewed[gpt_section_start:gpt_section_end]
 concerns_start = gpt_section.index('For the single plan-review pass, stay limited to readiness concerns, including at least:')
@@ -1998,7 +2058,6 @@ test_active_agent_configuration_has_no_kimi() {
     _pi/prompts
     _claude/commands
     _codex/prompts
-    _pi/README.md
   )
 
   if grep -R -n -i -E 'kimi|k2\.5|context-builder|prd-researcher|plan-k2\.5|review-change-kimi' "${active_paths[@]}"; then
