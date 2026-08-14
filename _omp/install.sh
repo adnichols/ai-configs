@@ -24,6 +24,7 @@ SOURCE_EXTENSIONS=(
   "$SOURCE_DIR/extensions/orca-agent-status.ts"
   "$SOURCE_DIR/extensions/orca-prefill.ts"
   "$SOURCE_DIR/extensions/orca-titlebar-spinner.ts"
+  "$SOURCE_DIR/extensions/thinking-shortcuts.ts"
 )
 OMP_CONFIG_PRUNE="${OMP_CONFIG_PRUNE:-0}"
 

@@ -18,6 +18,8 @@ OMP_CONFIG_TARGET="$TARGET_ROOT" bash "$REPO_ROOT/_omp/install.sh" >/dev/null
 
 cmp -s "$REPO_ROOT/_omp/config.yml" "$TARGET_ROOT/config.yml"
 grep -q '^  - ~/.omp/agent/extensions/deepinfra.ts$' "$TARGET_ROOT/config.yml"
+grep -q '^  - ~/.omp/agent/extensions/thinking-shortcuts.ts$' "$TARGET_ROOT/config.yml"
+grep -q '^  - claude$' "$TARGET_ROOT/config.yml"
 cmp -s "$REPO_ROOT/_omp/AGENTS.md" "$TARGET_ROOT/AGENTS.md"
 cmp -s "$REPO_ROOT/_omp/agents/oracle.md" "$TARGET_ROOT/agents/oracle.md"
 cmp -s "$REPO_ROOT/_omp/agents/reviewer.md" "$TARGET_ROOT/agents/reviewer.md"
@@ -26,6 +28,7 @@ cmp -s "$REPO_ROOT/_omp/extensions/herdr-omp-agent-state.ts" "$TARGET_ROOT/exten
 cmp -s "$REPO_ROOT/_omp/extensions/orca-agent-status.ts" "$TARGET_ROOT/extensions/orca-agent-status.ts"
 cmp -s "$REPO_ROOT/_omp/extensions/orca-prefill.ts" "$TARGET_ROOT/extensions/orca-prefill.ts"
 cmp -s "$REPO_ROOT/_omp/extensions/orca-titlebar-spinner.ts" "$TARGET_ROOT/extensions/orca-titlebar-spinner.ts"
+cmp -s "$REPO_ROOT/_omp/extensions/thinking-shortcuts.ts" "$TARGET_ROOT/extensions/thinking-shortcuts.ts"
 grep -q '^model: "@Oracle"$' "$TARGET_ROOT/agents/oracle.md"
 grep -q '^model: "@reviewer"$' "$TARGET_ROOT/agents/reviewer.md"
 ! grep -q '^thinking-level:' "$TARGET_ROOT/agents/oracle.md"

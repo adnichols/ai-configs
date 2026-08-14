@@ -1,7 +1,10 @@
 providers:
   {}
+disabledProviders:
+  - claude
 extensions:
   - ~/.omp/agent/extensions/deepinfra.ts
+  - ~/.omp/agent/extensions/thinking-shortcuts.ts
 symbolPreset: nerd
 theme:
   dark: titanium
