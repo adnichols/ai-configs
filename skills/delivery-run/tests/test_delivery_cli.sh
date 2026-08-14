@@ -250,10 +250,10 @@ test_completion_review_dry_run_uses_tab_create() {
   python3 -c 'import json,sys
 from pathlib import Path
 p=json.loads(sys.argv[1])
-assert p["model"]=="xai/grok-4.6:high", p
+assert p["model"]=="xai/grok-4.5:high", p
 assert p["sourcePane"]=="w1:p1", p
 assert p["reviewerName"].startswith("completeness-"), p
-assert p["startCommand"][-2:]==["--model", "xai/grok-4.6:high"], p
+assert p["startCommand"][-2:]==["--model", "xai/grok-4.5:high"], p
 cmd=p["tabCreateCommand"]
 assert cmd[:7]==["herdr", "tab", "create", "--workspace", "w1", "--cwd", str(Path(sys.argv[2]).resolve())], p
 assert cmd[7]=="--label" and cmd[8].startswith("complete · ") and cmd[9]=="--no-focus", p
@@ -1796,7 +1796,7 @@ test_skill_doctrine_wording() {
   rg -q '"sol-medium"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q 'DEFAULT_IMPLEMENTATION_PROFILE = "luna-xhigh"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "COMPLETENESS_REVIEW" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q "xai/grok-4.6:high" "$ROOT/skills/run-plan/SKILL.md" || return 1
+  rg -q "xai/grok-4.5:high" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "completion-review" "$ROOT/_pi/prompts/delivery:run.md" || return 1
   rg -q "automatically authorizes the exact reviewed plan" "$ROOT/_pi/prompts/dev:reviewed-html-plan.md" || return 1
   rg -q 'delivery stage EXECUTION_READY' "$ROOT/_pi/prompts/delivery:run.md" || return 1

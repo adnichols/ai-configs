@@ -45,9 +45,9 @@ Amp does **not** let plugins overwrite built-in mode keys (`low`, `medium`, `hig
 | `ADN Low` | main mode | `openai/gpt-5.6-luna` | `max` |
 | `ADN High` | main mode | `openai/gpt-5.6-terra` | `high` |
 | `adn_oracle` | tool (second opinion) | `openai/gpt-5.6-sol` | `high` |
-| `adn_alt` | tool (second opinion) | `xai/grok-4.6` | `high` |
+| `adn_alt` | tool (second opinion) | `xai/grok-4.5` | `high` |
 | `ADN Oracle` | optional direct mode | `openai/gpt-5.6-sol` | `high` |
-| `ADN Alt` | optional direct mode | `xai/grok-4.6` | `high` |
+| `ADN Alt` | optional direct mode | `xai/grok-4.5` | `high` |
 
 Intended use:
 

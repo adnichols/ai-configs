@@ -179,7 +179,7 @@ in this skill.
 6. At `COMPLETENESS_REVIEW`, run
    `delivery completion-review --prepare --reviewer-identity
    omp-completeness-grok-4.5-high`. Give the emitted packet to
-   `@completeness`, pinned to `xai/grok-4.6:high`; it must write its result to
+   `@completeness`, pinned to `xai/grok-4.5:high`; it must write its result to
    the exact packet artifact using the exact seven-line envelope. Accept only
    with the emitted `acceptCommand`. On `INCOMPLETE`, fix the findings and
    prepare a fresh request.
@@ -200,7 +200,7 @@ for the current exact next-step and evidence contract.
 - `delivery check` always exits 0, even when evidence is missing.
 - A broken optional integration such as Herdr labels must never force the operator to disable the whole workflow. Explicit readiness and completeness boundaries fail closed and report a retry command. Pi Full additionally enforces its plan-review and implementation-profile boundaries.
 - Runtime-specific worker skills remain authoritative: OMP uses the configured `@planner`, `@reviewer`, and Grok-high `@completeness` contracts plus direct Terra-high driving-session implementation; Pi Full uses `reviewed-html-plan`, `run-plan`, `autoreview`, PM review, and its visible Grok reviewer.
-- Completeness is the exception to advisory quality evidence. OMP Lite requires a fresh accepted `@completeness` envelope from `xai/grok-4.6:high`; Pi Full requires a fresh accepted labeled-tab Grok 4.6 `COMPLETE` verdict unless the operator explicitly waives it. `delivery stage MERGE_READY` rejects missing or stale evidence.
+- Completeness is the exception to advisory quality evidence. OMP Lite requires a fresh accepted `@completeness` envelope from `xai/grok-4.5:high`; Pi Full requires a fresh accepted labeled-tab Grok 4.5 `COMPLETE` verdict unless the operator explicitly waives it. `delivery stage MERGE_READY` rejects missing or stale evidence.
 - Firmness is limited to explicit readiness authorization, the selected runtime/profile, and runtime-specific completion evidence; the rest of the ledger optimizes for visibility, resumability, and honest status.
 - Pi Full implementation runs cannot enter `DONE` until current implementation, scoped review, PM outcome, pre-PR review, completeness, verification, PR, customer-impact/completion, and adversarial-QA disposition evidence is recorded. OMP Lite cannot enter `PR_OPEN` or `MERGE_READY` without `implPm`, `autoreview`, and a current accepted request-bound completeness artifact, and cannot enter `DONE` without those plus `verify`, `pr`, and `prUrl`. Planning-only runs that never entered `IMPLEMENTING` may still finish without a PR.
 - Planning readiness has a three-cycle convergence budget. Every `planTech=gap` consumes one cycle; after three gaps, stop with a blocker or explicit operator decision rather than launching another ordinary review.
@@ -267,7 +267,7 @@ delivery verify-implementation-profile
 delivery verify-implementation-profile --adopt-current-runtime \
   --reason "manual choice for this run"
 delivery stage IMPLEMENTING --note "starting run-plan"
-# Opens a visible labeled Herdr tab running Pi on xai/grok-4.6:high.
+# Opens a visible labeled Herdr tab running Pi on xai/grok-4.5:high.
 delivery completion-review
 # After the driving agent fixes its findings, ask that same named reviewer again in its existing tab.
 delivery completion-review --rerun
@@ -414,7 +414,7 @@ A fresh explicit **Request execution-ready review** action and fresh readiness r
 | `SCOPED_REVIEW` | run-plan scoped quality review |
 | `IMPL_PM_OUTCOME` | `/dev:pm-review <plan> implementation` |
 | `AUTOREVIEW` | `$autoreview` |
-| `COMPLETENESS_REVIEW` | visible labeled-tab Pi/Grok 4.6 reviewer; resolve feedback and rereview until `COMPLETE` |
+| `COMPLETENESS_REVIEW` | visible labeled-tab Pi/Grok 4.5 reviewer; resolve feedback and rereview until `COMPLETE` |
 | `VERIFY_FRESHNESS` | final verify + base freshness inside run-plan |
 | `PR_OPEN` | run-plan / `$cmd-create-pr` |
 | `MERGE_READY` | run-plan local merge-readiness |
@@ -497,7 +497,7 @@ Prefer process-shaped notes (friction, retries, unclear guidance, handoff gaps),
 3. After a worker skill finishes, `delivery record` what happened and `delivery check -v`.
 4. Treat check advisories as a to-do list, not a red light.
 5. Do not stop the operator solely because recommended evidence is `pending` or `gap`, except that a Herdr delivery run cannot claim local merge readiness without a validated visible `completion-review --accept` result or an explicit operator waiver.
-6. At `COMPLETENESS_REVIEW`, run `delivery completion-review`; while the witness tab is live, read the labeled Grok 4.6 tab, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture the artifact and retire the witness tab. After accept, the artifact is authoritative—do not require the closed TUI.
+6. At `COMPLETENESS_REVIEW`, run `delivery completion-review`; while the witness tab is live, read the labeled Grok 4.5 tab, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture the artifact and retire the witness tab. After accept, the artifact is authoritative—do not require the closed TUI.
 7. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
 8. Treat execution-ready as automatic implementation authorization for a delivery-managed run: `delivery stage EXECUTION_READY` launches the recommended profile on a new owner tab and the planning agent stops. Do not wait for another routine approval. Use `--hold` only when the operator explicitly requests a pause or a real external dependency blocks execution; invalidate authorization and launch evidence if material feedback changes the plan. After handoff, do not keep or inspect the planning tab—use the plan path, ledger, and validation artifacts.
 9. The implementation agent must run `delivery verify-implementation-profile` before entering `IMPLEMENTING`; the stage gate independently checks the live Pi provider/model/reasoning environment.

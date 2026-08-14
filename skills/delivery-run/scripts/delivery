@@ -3599,7 +3599,7 @@ def cmd_record(args: argparse.Namespace) -> int:
     return 0
 
 
-COMPLETENESS_REVIEW_MODEL = "xai/grok-4.6:high"
+COMPLETENESS_REVIEW_MODEL = "xai/grok-4.5:high"
 
 
 def completeness_reviewer_name(ledger: dict[str, Any]) -> str:
@@ -4075,8 +4075,8 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
             "acceptedAt": utc_now(),
         }
         ev = ledger.setdefault("evidence", {}).setdefault("completenessReview", {})
-        ev.update({"status": "pass", "artifact": artifact_rel, "summary": "Visible Grok 4.6 reviewer returned COMPLETE", "updatedAt": utc_now()})
-        append_history(ledger, "completeness_review", "visible Grok 4.6 review accepted", agent=reviewer_name, paneId=str(reviewer_pane), artifact=artifact_rel)
+        ev.update({"status": "pass", "artifact": artifact_rel, "summary": "Visible Grok 4.5 reviewer returned COMPLETE", "updatedAt": utc_now()})
+        append_history(ledger, "completeness_review", "visible Grok 4.5 review accepted", agent=reviewer_name, paneId=str(reviewer_pane), artifact=artifact_rel)
         if witness_tab:
             enqueue_tab_retire(ledger, str(witness_tab), "completeness-accepted")
             retire_pending_tabs(ledger, caller_tab=caller_tab_id())
@@ -4177,7 +4177,7 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
     append_history(
         ledger,
         "completeness_review",
-        "visible Grok 4.6 review requested",
+        "visible Grok 4.5 review requested",
         agent=reviewer_name,
         paneId=str(reviewer_pane),
         tabId=agent_tab["tabId"],
@@ -4664,7 +4664,7 @@ def agent_start_prompt(
             "   Never launch Pi or hand implementation to another agent. At completeness, run "
             "`delivery completion-review --prepare --reviewer-identity "
             "omp-completeness-grok-4.5-high`, send its packet to `@completeness` "
-            "(xai/grok-4.6:high), write the exact response artifact, then run "
+            "(xai/grok-4.5:high), write the exact response artifact, then run "
             "`delivery completion-review --accept`.\n"
             "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
             "5. Reflection and adversarial QA are optional and never gate OMP completion.\n"
@@ -5338,7 +5338,7 @@ implementation to another process. The ledger is the shared scoreboard, not the 
 
 At `COMPLETENESS_REVIEW`, run `delivery completion-review --prepare
 --reviewer-identity omp-completeness-grok-4.5-high`. Send the emitted packet unchanged
-to `@completeness` on `xai/grok-4.6:high`. Write its exact seven-line response envelope
+to `@completeness` on `xai/grok-4.5:high`. Write its exact seven-line response envelope
 to the packet's artifact path, then run `delivery completion-review --accept --response-id <id>`.
 Fix an `INCOMPLETE` result and prepare a fresh request; never reuse a response ID.
 

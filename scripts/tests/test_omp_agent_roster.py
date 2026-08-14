@@ -72,9 +72,9 @@ class OmpAgentRosterTest(unittest.TestCase):
         self.assertIn("default: openai-codex/gpt-5.6-luna:xhigh", config)
         self.assertIn("smol: openai-codex/gpt-5.6-luna:xhigh", config)
         self.assertIn("advisor: opencode-zen/deepseek-v4-flash:high", config)
-        self.assertIn("Trouble: xai/grok-4.6:high", config)
+        self.assertIn("Trouble: xai/grok-4.5:high", config)
         self.assertEqual("completeness", metadata.get("name"))
-        self.assertEqual("xai/grok-4.6:high", metadata.get("model"))
+        self.assertEqual("xai/grok-4.5:high", metadata.get("model"))
         self.assertIn("request-bound artifact", metadata.get("description", ""))
         self.assertIn("requiredEnvelope", body)
 
@@ -90,7 +90,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "workflowProfile=omp-lite",
             "completion-review --prepare",
             "@completeness",
-            "xai/grok-4.6:high",
+            "xai/grok-4.5:high",
             "acceptCommand",
         ):
             self.assertIn(required, guidance)
@@ -101,7 +101,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "workflowProfile: omp-lite",
             "current OMP agent as owner",
             "openai-codex/gpt-5.6-luna:xhigh",
-            "xai/grok-4.6:high",
+            "xai/grok-4.5:high",
             "exact seven-line envelope",
         ):
             self.assertIn(required, skill)

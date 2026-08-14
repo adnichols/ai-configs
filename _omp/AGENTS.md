@@ -76,7 +76,7 @@ operator explicitly asks for the delivery workflow.
   consequential choices escalate to Oracle rather than routing implementation
   through Sol.
 - OMP completeness uses
-  `@completeness` on `xai/grok-4.6:high`. First run
+  `@completeness` on `xai/grok-4.5:high`. First run
   `delivery completion-review --prepare --reviewer-identity
   omp-completeness-grok-4.5-high`, then give its emitted packet to that agent.
   Accept only with the emitted `acceptCommand`; never substitute the Pi/Grok

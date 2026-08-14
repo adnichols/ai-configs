@@ -151,7 +151,7 @@ destination are moved to a timestamped
 `~/.omp/agent.before-ai-configs/` backup before reconciliation.
 
 ### `amp/`
-Canonical Amp CLI settings and custom plugin modes from `plugins/subscription-models.ts`: `ADN Low` (Luna max), `ADN High` (Terra high), `adn_oracle` tool/mode (Sol high), and `adn_alt` tool/mode (Grok 4.6 high). Amp's built-in `low`/`medium`/`high`/`ultra` keys cannot be overwritten; these ADN modes sit beside them. `install.sh --tools` and `install.sh --all` install them to `~/.config/amp/`, preserve first-differing backups as `*.before-ai-configs`, and on macOS stream the bundle to `mbp`, `dever`, and `mbp14` (override with `AMP_REMOTE_HOSTS`). Model-provider subscriptions stay host-local credentials.
+Canonical Amp CLI settings and custom plugin modes from `plugins/subscription-models.ts`: `ADN Low` (Luna max), `ADN High` (Terra high), `adn_oracle` tool/mode (Sol high), and `adn_alt` tool/mode (Grok 4.5 high). Amp's built-in `low`/`medium`/`high`/`ultra` keys cannot be overwritten; these ADN modes sit beside them. `install.sh --tools` and `install.sh --all` install them to `~/.config/amp/`, preserve first-differing backups as `*.before-ai-configs`, and on macOS stream the bundle to `mbp`, `dever`, and `mbp14` (override with `AMP_REMOTE_HOSTS`). Model-provider subscriptions stay host-local credentials.
 
 Run `bash amp/install.sh` for an Amp-only local install.
 

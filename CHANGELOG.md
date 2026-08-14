@@ -23,9 +23,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Capped managed `xai/grok-4.6` at a 200k context window instead of the 500k catalog size, and pinned unsuffixed `cursor/grok-4.6` to plain (not Cursor Fast or the `:fast`/`:slow` aliases).
+- Capped managed `xai/grok-4.5` at a 200k context window instead of the 500k catalog size, and pinned unsuffixed `cursor/grok-4.5` to plain (not Cursor Fast or the `:fast`/`:slow` aliases).
 
-- Pointed every managed xAI Grok pin at `xai/grok-4.6`, including the Pi model cycle, completeness review, Amp ADN Alt, and OMP completeness. Cursor now cycles `cursor/grok-4.6` because the live Cursor SDK catalog exposes it. `xai/grok-4.5` and `cursor/grok-4.5` are no longer allowlisted. Synthetic Kimi K3 (`synthetic/hf:moonshotai/Kimi-K3`) is allowlisted again for direct selection.
+- Pointed every managed xAI Grok pin at `xai/grok-4.5`, including the Pi model cycle, completeness review, Amp ADN Alt, and OMP completeness. Cursor cycles `cursor/grok-4.5`; both routes are allowlisted. Synthetic Kimi K3 (`synthetic/hf:moonshotai/Kimi-K3`) is allowlisted again for direct selection.
 - Pinned Pi `/clarify` (`pi-clarify`) to DeepInfra DeepSeek V4 Flash via `_pi/clarify.json`, and install that package plus the pin on `install.sh --pi`.
 
 - Centralized bounded Pi review-stack install, rollback, and verification surfaces in one validated manifest, with deterministic planner/reviewer transport probing and atomic private JSON receipts for local, transactional, and remote-host runs.

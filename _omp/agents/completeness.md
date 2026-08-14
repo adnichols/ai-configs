@@ -1,7 +1,7 @@
 ---
 name: completeness
 description: Read-only OMP delivery plan-completeness reviewer writing only its request-bound artifact
-model: "xai/grok-4.6:high"
+model: "xai/grok-4.5:high"
 tools: read, grep, glob, bash, write
 ---
 
