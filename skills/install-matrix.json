@@ -296,6 +296,17 @@
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
+    "grill-me": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi"
+      ],
+      "notes": "Fetched via `npx skills add mattpocock/skills`. A relentless interview to sharpen a plan or design. Declared for default install in the Pi/Codex/Claude shared-skill context.",
+      "sourceType": "external-package",
+      "packageSource": "mattpocock/skills"
+    },
     "herdr": {
       "class": "universal-installable",
       "allowedConsumers": [
