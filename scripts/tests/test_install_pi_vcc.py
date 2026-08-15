@@ -17,7 +17,8 @@ def make_package(path: Path, marker: str) -> Path:
     (path / "src/core").mkdir(parents=True)
     (path / "package.json").write_text(json.dumps({"name": "@test/pi-vcc"}) + "\n")
     (path / "index.ts").write_text("export default function extension() {}\n")
-    (path / "src/core/coordinator.ts").write_text(f"export const marker = {marker!r};\n")
+    (path / "src/hooks").mkdir(parents=True, exist_ok=True)
+    (path / "src/hooks/before-compact.ts").write_text(f"export const marker = {marker!r};\n")
     (path / "src/core/custom-message-classifier.ts").write_text("export const classifier = true;\n")
     return path
 
@@ -282,7 +283,8 @@ class InstallPiVccTest(unittest.TestCase):
                     source = stable.parent
                     (source / "package.json").write_text("{}\n")
                     (source / "src/core").mkdir(parents=True)
-                    (source / "src/core/coordinator.ts").write_text("export const marker = 'ancestor';\n")
+                    (source / "src/hooks").mkdir(parents=True, exist_ok=True)
+                    (source / "src/hooks/before-compact.ts").write_text("export const marker = 'ancestor';\n")
                 else:
                     source = root / "stable-alias"
                     source.symlink_to(stable, target_is_directory=True)

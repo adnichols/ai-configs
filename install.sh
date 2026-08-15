@@ -3083,7 +3083,7 @@ install_scoped_pi_vcc_package() (
 
     [ -d "$source_input" ] || { echo "Error: pi-vcc package source is not a directory: $source_input" >&2; exit 1; }
     [ -f "$source_input/package.json" ] || { echo "Error: pi-vcc package source is missing package.json: $source_input" >&2; exit 1; }
-    [ -f "$source_input/src/core/coordinator.ts" ] || { echo "Error: pi-vcc package source is missing src/core/coordinator.ts: $source_input" >&2; exit 1; }
+    [ -f "$source_input/src/hooks/before-compact.ts" ] || { echo "Error: pi-vcc package source is missing src/hooks/before-compact.ts: $source_input" >&2; exit 1; }
 
     source_abs="$(python3 - "$source_input" <<'PY'
 import os, sys

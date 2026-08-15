@@ -16,7 +16,8 @@ def make_package(path: Path, marker: str = "candidate") -> Path:
     (path / "src/core").mkdir(parents=True)
     (path / "package.json").write_text(json.dumps({"name": "@test/pi-vcc"}) + "\n")
     (path / "index.ts").write_text("export default function extension() {}\n")
-    (path / "src/core/coordinator.ts").write_text(f"export const marker = {marker!r};\n")
+    (path / "src/hooks").mkdir(parents=True, exist_ok=True)
+    (path / "src/hooks/before-compact.ts").write_text(f"export const marker = {marker!r};\n")
     (path / "src/core/custom-message-classifier.ts").write_text("export const classifier = true;\n")
     return path
 
@@ -88,12 +89,12 @@ class VerifyPiVccInstallTest(unittest.TestCase):
             package = make_package(root / "candidate")
             env, _agent = fake_environment(root)
             first = json.loads(self.run_verify(env, "--source-only", "--expected-package", package, "--json", check=True).stdout)
-            coordinator = package / "src/core/coordinator.ts"
-            coordinator.write_text("export const marker = 'changed';\n")
+            hook = package / "src/hooks/before-compact.ts"
+            hook.write_text("export const marker = 'changed';\n")
             second = json.loads(self.run_verify(env, "--source-only", "--expected-package", package, "--json", check=True).stdout)
             self.assertNotEqual(first["sourcePackageHash"], second["sourcePackageHash"])
             before_mode = second["sourcePackageHash"]
-            coordinator.chmod(stat.S_IMODE(coordinator.stat().st_mode) ^ stat.S_IXUSR)
+            hook.chmod(stat.S_IMODE(hook.stat().st_mode) ^ stat.S_IXUSR)
             third = json.loads(self.run_verify(env, "--source-only", "--expected-package", package, "--json", check=True).stdout)
             self.assertNotEqual(before_mode, third["sourcePackageHash"])
 

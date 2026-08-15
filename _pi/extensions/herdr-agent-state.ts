@@ -5,8 +5,6 @@
 // add custom hooks/plugins beside this file instead of editing it.
 // HERDR_INTEGRATION_ID=pi
 // HERDR_INTEGRATION_VERSION=8
-// Pi-vcc continuation entries also count as working until their durable terminal
-// outcome is recorded, so compaction/recovery work never appears idle.
 // Background processes count as working by default. Set
 // HERDR_PI_BACKGROUND_PROCESS_MODE=none|finite|all to override, and use
 // HERDR_PI_BACKGROUND_PROCESS_IGNORE for comma/newline-separated literal
@@ -138,35 +136,6 @@ type TrackedProcess = {
   alertOnSuccess?: boolean;
   alertOnFailure?: boolean;
 };
-
-const vccContinuationEntryTypes = new Set([
-  "pi-vcc-continuation-request",
-  "pi-vcc-continuation-snapshot",
-  "pi-vcc-continuation-outcome",
-]);
-const vccTerminalStates = new Set(["settled", "superseded", "failed_loudly"]);
-
-function vccContinuationSnapshot(entry: any): { transactionId: string; state: string } | undefined {
-  if (entry?.type !== "custom" || !vccContinuationEntryTypes.has(entry?.customType)) {
-    return undefined;
-  }
-
-  const data = entry?.data;
-  const snapshot = data?.snapshot;
-  if (
-    data?.protocol !== "pi-vcc-continuation" ||
-    !Number.isInteger(data?.version) ||
-    snapshot?.protocol !== "pi-vcc-continuation" ||
-    !Number.isInteger(snapshot?.version) ||
-    typeof snapshot?.transactionId !== "string" ||
-    snapshot.transactionId.length === 0 ||
-    typeof snapshot?.state !== "string"
-  ) {
-    return undefined;
-  }
-
-  return { transactionId: snapshot.transactionId, state: snapshot.state };
-}
 
 const liveProcessStatuses = new Set<ProcessStatus>(["running", "terminating", "terminate_timeout"]);
 
@@ -591,7 +560,6 @@ export default function (pi) {
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   const subagentIds = new Set<string>();
   const processIds = new Map<string, TrackedProcess>();
-  const vccContinuationIds = new Set<string>();
   const wrappedUis = new WeakSet<object>();
   const blockingUiMethods = ["select", "confirm", "input", "editor", "custom"];
 
@@ -646,37 +614,8 @@ export default function (pi) {
     blockedCount = 0;
     blockedMessage = undefined;
     clearFailureState();
-    vccContinuationIds.clear();
     lastState = undefined;
     lastMessage = undefined;
-  }
-
-  function observeVccContinuationEntry(entry: any): void {
-    const snapshot = vccContinuationSnapshot(entry);
-    if (!snapshot) {
-      return;
-    }
-    if (vccTerminalStates.has(snapshot.state)) {
-      vccContinuationIds.delete(snapshot.transactionId);
-      return;
-    }
-    vccContinuationIds.add(snapshot.transactionId);
-  }
-
-  function restoreVccContinuations(ctx: any): void {
-    vccContinuationIds.clear();
-    try {
-      const entries = ctx?.sessionManager?.getBranch?.();
-      if (!Array.isArray(entries)) {
-        return;
-      }
-      for (const entry of entries) {
-        observeVccContinuationEntry(entry);
-      }
-    } catch {
-      // Session-entry reconstruction is a reporting aid. A future entry_appended
-      // event will restore VCC ownership if the branch is unavailable here.
-    }
   }
 
   function managerBlockingSubagentsRunning(): boolean | undefined {
@@ -724,7 +663,7 @@ export default function (pi) {
     if (operatorWait) {
       return { state: "blocked" as const, message: operatorWait.message };
     }
-    if (agentActive || retryHoldActive || vccContinuationIds.size > 0) {
+    if (agentActive || retryHoldActive) {
       return { state: "working" as const, message: undefined };
     }
     if (subagentWorkActive()) {
@@ -894,7 +833,6 @@ export default function (pi) {
     processIds.clear();
     rootSession = true;
     currentCtx = ctx;
-    restoreVccContinuations(ctx);
     wrapBlockingUi(ctx);
     updateSessionRef(ctx);
     void reportSession(event?.reason);
@@ -1050,7 +988,6 @@ export default function (pi) {
       currentCtx = ctx;
       wrapBlockingUi(ctx);
     }
-    observeVccContinuationEntry(event?.entry);
     publishState();
   });
 

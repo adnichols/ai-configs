@@ -1,66 +1,34 @@
 import { describe, expect, it } from "bun:test";
-import { createContinuationTransaction, transitionContinuation } from "../src/core/continuation";
-import { continuationMessageDetailsFor } from "../src/core/continuation-protocol";
-import {
-  MODEL_DRIVING_CUSTOM_MESSAGE_TYPES,
-  STATUS_ONLY_CUSTOM_MESSAGE_TYPES,
-  classifyCustomMessageIntent,
-} from "../src/core/custom-message-classifier";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { isLegacyContinuationMessage, LEGACY_CONTINUATION_MESSAGE_TYPE } from "../src/core/custom-message-classifier";
+import { loadAllMessages } from "../src/core/load-messages";
 
-const submitted = () => transitionContinuation(createContinuationTransaction({
-  transactionId: "tx-classifier",
-  origin: "compact_context",
-  reason: "compacted",
-  attemptId: "attempt-classifier",
-  resumePolicy: "active",
-  createdAt: 10,
-  deadlineMs: 15_000,
-}), {
-  type: "submitted",
-  at: 20,
-  acceptanceDeadlineAt: 15_020,
-}).snapshot;
+describe("legacy continuation classifier", () => {
+	it("recognizes historical continuation messages", () => {
+		expect(isLegacyContinuationMessage({ customType: LEGACY_CONTINUATION_MESSAGE_TYPE })).toBe(true);
+	});
 
-describe("custom-message intent classifier", () => {
-  it("classifies only the transaction-matching continuation as continuation", () => {
-    const snapshot = submitted();
-    expect(classifyCustomMessageIntent({
-      role: "custom",
-      customType: "pi-vcc-continuation",
-      details: continuationMessageDetailsFor(snapshot),
-    }, snapshot)).toBe("continuation");
-    expect(classifyCustomMessageIntent({
-      role: "custom",
-      customType: "pi-vcc-continuation",
-      details: { ...continuationMessageDetailsFor(snapshot), submissionCount: 99 },
-    }, snapshot)).toBe("independent");
-  });
+	it("does not create a runtime action for unrelated custom messages", () => {
+		expect(isLegacyContinuationMessage({ customType: "vcc-recall" })).toBe(false);
+		expect(isLegacyContinuationMessage(undefined)).toBe(false);
+	});
 
-  it("keeps only explicit and allowlisted status messages neutral", () => {
-    const snapshot = submitted();
-    for (const customType of STATUS_ONLY_CUSTOM_MESSAGE_TYPES) {
-      expect(classifyCustomMessageIntent({ role: "custom", customType }, snapshot)).toBe("status");
-    }
-    expect(classifyCustomMessageIntent({
-      role: "custom",
-      customType: "subagent-heartbeat",
-      details: { piVccInputIntent: "status" },
-    }, snapshot)).toBe("status");
-  });
-
-  it("fails closed for model-driving, explicit replacement, and unknown messages", () => {
-    const snapshot = submitted();
-    for (const customType of MODEL_DRIVING_CUSTOM_MESSAGE_TYPES) {
-      expect(classifyCustomMessageIntent({ role: "custom", customType }, snapshot)).toBe("independent");
-    }
-    for (const piVccInputIntent of ["independent", "replace-continuation"]) {
-      expect(classifyCustomMessageIntent({
-        role: "custom",
-        customType: "producer",
-        details: { piVccInputIntent },
-      }, snapshot)).toBe("independent");
-    }
-    expect(classifyCustomMessageIntent({ role: "custom", customType: "unknown" }, snapshot)).toBe("independent");
-    expect(classifyCustomMessageIntent({ role: "custom", customType: "ad-process:update", details: { piVccInputIntent: "independent" } }, snapshot)).toBe("independent");
-  });
+	it("keeps historical records searchable while labeling them as inert", () => {
+		const dir = mkdtempSync(join(tmpdir(), "pi-vcc-legacy-"));
+		const sessionFile = join(dir, "session.jsonl");
+		try {
+			writeFileSync(sessionFile, `${JSON.stringify({
+				type: "message",
+				message: { role: "custom", customType: LEGACY_CONTINUATION_MESSAGE_TYPE, content: "old continuation" },
+			})}\n`);
+			const loaded = loadAllMessages(sessionFile, false);
+			expect(loaded.rawMessages).toHaveLength(1);
+			expect(loaded.rendered[0]).toMatchObject({ role: "legacy_continuation" });
+			expect(loaded.rendered[0]?.summary).toContain("old continuation");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
 });

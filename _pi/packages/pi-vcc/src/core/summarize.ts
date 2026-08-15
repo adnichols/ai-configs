@@ -1,4 +1,4 @@
-import type { CompactionIntent, FileOps, PiMessage } from "../types";
+import type { CompactionFocus, FileOps, PiMessage } from "../types";
 import { normalize } from "./normalize";
 import { filterNoise } from "./filter-noise";
 import { pruneForSummary } from "./prune";
@@ -11,7 +11,7 @@ export interface CompileInput {
   messages: PiMessage[];
   previousSummary?: string;
   fileOps?: FileOps;
-  compactionIntent?: CompactionIntent;
+  compactionFocus?: CompactionFocus;
 }
 
 const HEADER_NAMES = ["Session Goal", "Compaction Intent", "Files And Changes", "Outstanding Context", "User Preferences"];
@@ -159,7 +159,7 @@ const mergePrevious = (prev: string, fresh: string): string => {
 export const compile = (input: CompileInput): string => {
   const normalizedBlocks = filterNoise(normalize(input.messages));
   const blocks = pruneForSummary(normalizedBlocks);
-  const data = buildSections({ blocks, compactionIntent: input.compactionIntent });
+  const data = buildSections({ blocks, compactionFocus: input.compactionFocus });
   const fresh = formatSummary(data);
   const merged = input.previousSummary ? mergePrevious(input.previousSummary, fresh) : fresh;
   if (!merged) return "";
