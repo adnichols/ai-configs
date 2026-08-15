@@ -13,6 +13,8 @@ Questions, discussion, review feedback, and descriptions of desired behavior do 
 
 Request owner direction before destructive action, external coordination, or an expansion that changes product behavior, public contracts, persistence formats, ownership, or release behavior. Focused inspection and verification needed to understand or protect existing behavior are not product-scope expansion, but they must remain within authorized systems and data.
 
+PR authority is repository-bound. Authorization to implement a plan, push a branch, or create a PR applies only to the current task repository and its owner-approved integration remote. Never create, reopen, update, comment on, or otherwise coordinate a pull request against a third-party repository from a fork unless the request owner explicitly authorizes that exact third-party repository and action. A local checkout, fork remote, authenticated account, cross-repository dependency, or workflow instruction that normally makes PR creation mandatory does not imply this permission. Keep third-party changes local or downstream and ask the owner before any upstream interaction.
+
 ## Working principles
 
 - Inspect the current state before acting. Preserve user-owned and unrelated work.

@@ -59,7 +59,7 @@ package_identity() {
 [ -d "$source_package" ] || { echo "expected package missing: $source_package" >&2; exit 1; }
 [ ! -L "$source_package" ] || { echo "expected package must not be a symlink: $source_package" >&2; exit 1; }
 [ -f "$source_package/package.json" ] || { echo "expected package.json missing: $source_package/package.json" >&2; exit 1; }
-[ -f "$source_package/src/core/coordinator.ts" ] || { echo "expected coordinator missing: $source_package/src/core/coordinator.ts" >&2; exit 1; }
+[ -f "$source_package/src/hooks/before-compact.ts" ] || { echo "expected before-compact hook missing: $source_package/src/hooks/before-compact.ts" >&2; exit 1; }
 [ -f "$source_package/src/core/custom-message-classifier.ts" ] || { echo "expected custom-message classifier missing: $source_package/src/core/custom-message-classifier.ts" >&2; exit 1; }
 [ ! -e "$source_package/node_modules" ] && [ ! -L "$source_package/node_modules" ] || {
   echo "expected package node_modules must be absent: $source_package/node_modules" >&2
@@ -71,8 +71,11 @@ source_extension_hash="$(hash_file "$source_extension")"
 
 if [ "$source_only" -eq 1 ]; then
   bash -n "$0"
-  bun --check "$source_package/src/core/coordinator.ts" >/dev/null
-  [ ! -f "$source_package/index.ts" ] || bun --check "$source_package/index.ts" >/dev/null
+  # The source package intentionally has peer dependencies that are supplied by
+  # Pi at install/runtime. The standalone extension is syntax-checked here;
+  # candidate package registration, hook callbacks, and native-retention behavior
+  # are exercised by the deterministic candidate-contract harness. That harness
+  # imports the installed Pi module surface but does not claim real lifecycle dispatch.
   bun --check "$source_extension" >/dev/null
   if [ "$json_output" -eq 1 ]; then
     python3 - "$source_package" "$source_hash" <<'PY'

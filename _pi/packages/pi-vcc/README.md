@@ -8,26 +8,16 @@ Vendored into `ai-configs` from `sting8k/pi-vcc` so this repo can ship a pinned 
 - Reviewed upstream commit: `45e93e85d30da774c7b20212f192cae40b5beef4`
 - License: MIT
 - Local changes and selective uptake:
-  - `/pi-vcc` carries the `__PI_VCC_MANUAL_BYPASS__` marker directly in-source so repo-managed auto-compaction and manual compaction both use pi-vcc without global patching
-  - the compaction hook keeps the repo-local agent-only fallback tail and shifts the cut backward so a live `toolResult` never outlives its matching assistant tool call; if the kept tail would contain an orphaned tool result, pi-vcc reports a no-cut classification instead of forcing an unsafe cut
-  - no-cut paths record diagnostic classifications such as `tiny_session`, `post_compaction_tail_too_short`, and `active_turn_no_safe_cut` for hook debugging and future extension status surfaces
-  - continuation protocol version 2 writes phase-specific timing/epoch evidence while dual-reading immutable version-1 history; durable matching top-level `custom_message` persistence or matching continuation `message_start` is the acceptance boundary, and the first later assistant/tool lifecycle reconciles that durable boundary before classifying progress
-  - continuation transactions use a strict privacy allowlist in `~/.pi/logs/pi-vcc.jsonl`; records distinguish created, waiting, submitted, consumed, progressed, stalled, settled, superseded, retrying, and failed without preserve/message/tool content or raw tool IDs
-  - when pi-vcc interrupts active work, one process-wide package coordinator persists the request, submits with `deliverAs: "steer"`, gives queued work a full 15-second acceptance budget, tracks 60-second idle/15-minute tool-stall windows, records acceptance-expiry retry intent, uses host idle readiness for dropped idle sends while preserving settlement gating during active runs, applies the 1s/2s backoff, and retains ownership while stalled
-  - session replacement through reload, new, resume, or fork releases the old process lease during the old runner's shutdown; new/resume/fork attempt to terminalize old-session work, but a persistence failure is logged and surfaced without retaining stale lease/listener/timer ownership, so every replacement runner can still register exactly one functional coordinator, handler, command, and tool set
-  - reload reconstruction derives V1 and V2 tool-call correlation from durable assistant calls minus durable results; when Pi has reduced the pending count before persisting a parallel batch's results, the unmatched IDs remain non-authoritative candidates until a matching live update/completion disambiguates the still-running call, while unrelated activity stalls fail-closed
-  - the continuation audit requires every settled transaction to have exactly one runtime-matching durable delivery across all retry submission ordinals; failed attempts without durable delivery remain retryable, while zero delivery and cross-retry duplicate delivery fail the audit
-  - package continuation authority is coordinator-only; `PI_VCC_CONTINUATION_AUTHORITY` accepts only `coordinator`, and rollback requires restoring/reinstalling an archived package release rather than a runtime switch that could strand requests
-  - the percentage-compaction extension owns only compaction timing and attempt intent (`active`/`none`); it has no legacy authority switch, copied wire publisher, or direct-send continuation timers. The package coordinator is the sole continuation authority and the sole loud-failure notifier
-  - `compact_context` always means active maintenance and has no `resumePolicy` argument. `/compact-now` and plain `/pi-vcc` are terminal; successful `/pi-vcc <follow-up>` sends exactly one direct user message without coordinator duplication
-  - runtime intent maps once at the details/request boundary: `active→active`, `none→terminal`. V1 histories remain readable (`compact_context` auto→active); every V2 auto payload and non-compact-context V1 auto is invalid persistence
+  - released Pi owns threshold/overflow recovery; this package only supplies deterministic summary content through `session_before_compact`
+  - ordinary compaction uses Pi’s native token-bounded `preparation.messagesToSummarize`, `turnPrefixMessages`, and `firstKeptEntryId`, preserving the newest raw conversation verbatim
+  - the explicit `/pi-vcc keep:N` form remains available as an idle-only manual user-turn cut; it is not the default retention policy
+  - `compact_context` records one in-memory semantic request during a run and calls released Pi’s existing `ctx.compact()` only after `agent_settled` reports the session idle
+  - compaction never sends a synthetic continuation message or starts another provider turn; the next genuine user request continues from compacted history
+  - Escape, compaction cancellation, session replacement, and shutdown discard pending maintenance, which is never persisted or rehydrated
+  - historical `pi-vcc-continuation` custom messages remain classifiable for recall but are inert and never exposed to the model as executable user work
   - scoped `./install.sh --pi-vcc` transactionally swaps the stable package mirror, settings registration, and live `percentage-compaction.ts` extension as one unit with injected-failpoint rollback
-  - high-value upstream `0.3.18` uptake is intentionally selective: TUI-safe wrapping, `bashExecution` normalization/search/report correctness fixes, keep-token parsing, compaction reason/willRetry metadata, and overflow retry fallback; upstream commit extraction is intentionally skipped/deferred because commit details remain available through transcript and recall
-  - upstream `0.4.0` uptake is intentionally deferred while stabilizing the vendored fork; installer output suppresses the stale-upstream notice by default unless `PI_VCC_SHOW_UPSTREAM_STALE=1` is set
-  - this vendored copy preserves redaction, including compressed bash command redaction, even though upstream removed `src/core/redact.ts`
-  - this vendored copy intentionally does **not** append the upstream `vcc_recall` reminder note to every summary; this repo keeps the pre-existing summary output contract while still stripping older injected note lines during merge
-  - this vendored copy intentionally skips upstream active-lineage recall, settings scaffold, compact-all sentinel/orphan recovery, broad summary-quality churn, peer dependency range changes, tool-error omission, and binary demo assets
-  - local tests and harnesses cover the repo-specific compaction safety contract and package-wide verification flow
+  - the package preserves deterministic extraction, redaction, recall, TUI-safe wrapping, and the selected upstream 0.3.18 fixes; continuation workflow machinery is intentionally removed
+  - local tests cover settled-run lifecycle behavior, installed-Pi module import compatibility, deterministic candidate callback contracts, native retention, legacy inertness, and source/installed installation parity
 
 Algorithmic conversation compactor for [Pi](https://github.com/badlogic/pi-mono). No LLM calls — produces a brief transcript via extraction and formatting.
 
@@ -70,17 +60,17 @@ Measured on real session JSONLs under `~/.pi/agent/sessions` (chars = rendered m
 - **Regex search** — `vcc_recall` supports regex patterns (`hook|inject`, `fail.*build`) and OR-ranked multi-word queries
 - **Result ranking** — search results ranked by term relevance, rare terms weighted higher than common ones
 - **`/pi-vcc-recall`** — slash command to search history directly, results shown as collapsible message and auto-fed to agent as context
-- **Fallback cut** — still works when Pi core returns nothing to summarize
+- **Native retention** — follows Pi’s token-bounded preparation and keeps explicit `keep:N` as an opt-in override
 - **TUI-safe wrapping** — wraps long compiled summary lines so Pi's terminal UI stays readable
 - **Redaction** — strips passwords, API keys, secrets, with redaction preserved as the final compiled-output safety transform
 - **`/pi-vcc`** — manual compaction on demand
 
 ## Install
 
-From this repo, use the top-level installer rather than registering this worktree path directly:
+From this repo, use the scoped top-level installer rather than registering this worktree path directly:
 
 ```bash
-./install.sh --pi
+./install.sh --pi-vcc
 ```
 
 The installer syncs this package into the durable mirror `~/.pi/agent/local-packages/ai-configs/pi-vcc` and registers that path with Pi. This avoids leaving global Pi pointed at deleted e2e/worktree checkouts.
@@ -95,13 +85,15 @@ pi -e https://github.com/sting8k/pi-vcc
 
 ## Usage
 
-Once installed, pi-vcc registers a `session_before_compact` hook.
+Once installed, pi-vcc registers a `session_before_compact` hook and the `compact_context` tool.
 
-- When Pi triggers a compaction, pi-vcc supplies the summary.
-- To trigger compaction manually, run `/pi-vcc`.
+- During an active run, `compact_context` records semantic maintenance without interrupting tools or responses. After the run fully settles, pi-vcc compacts while idle and starts no continuation turn.
+- `/pi-vcc [keep:N] [focus text]` is idle-only. Trailing text guides what the summary should preserve; it is not submitted as a follow-up prompt.
+- Pi’s released native threshold/overflow recovery remains authoritative for urgent context pressure during a long active run.
 - To search older history after compaction, use `vcc_recall`.
-- To search and feed results to agent yourself, run `/pi-vcc-recall <query> [page:N]`.
+- To search and feed results to the agent yourself, run `/pi-vcc-recall <query> [page:N]`.
   - Tip: type `/recall` and Pi will autocomplete to `/pi-vcc-recall`.
+- Pressing Escape clears pending maintenance or cancels active summary work and leaves no continuation queue, timer, or provider request behind.
 
 ### Compacted message structure
 
@@ -215,18 +207,21 @@ Debug logging is off by default. Enable it in `~/.pi/agent/pi-vcc-config.json`:
 
 When enabled, each compaction writes detailed info to `/tmp/pi-vcc-debug.json` — message counts, cut boundary, summary preview, sections.
 
-Continuation rollout checks are read-only/no-network. They live in the
+Safe-boundary rollout checks are read-only/no-network. They live in the
 ai-configs repository's top-level `scripts/` directory (not the package's own
 `scripts/`), so run them from the ai-configs repo root:
 
 ```bash
 bash scripts/verify-pi-vcc-install.sh
-bash scripts/run-pi-vcc-continuation-soak.sh --candidate source --compactions 20 --fault-matrix all
+# Candidate-contract harness: imports the selected package/extension against the
+# installed Pi module surface, then exercises callbacks with a synthetic context.
+# It does not claim real Pi lifecycle dispatch.
 bun scripts/pi-vcc-real-host-integration.ts --candidate source --cases all --session-mode file-backed --provider deterministic-fake
-python3 scripts/audit-pi-vcc-continuations.py --require-terminal --since 24h --sessions ~/.pi/agent/sessions --log ~/.pi/logs/pi-vcc.jsonl
 ```
 
-The soak executes the selected source or installed candidate modules in an isolated Pi directory and records the no-provider host-faithful boundary explicitly; it never silently substitutes source for an installed candidate.
+The integration runner exercises the registered boundary-request extension surface,
+checks native-retention and legacy-inert source contracts, and never silently
+substitutes the source package for an installed candidate.
 
 ## Related Work
 

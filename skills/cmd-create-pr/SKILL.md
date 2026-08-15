@@ -7,6 +7,10 @@ description: Create a GitHub pull request from the current branch using gh CLI. 
 
 Create a GitHub PR for the current branch using `gh`.
 
+## Authority boundary
+
+PR authority is repository-bound. This skill may create a PR only for the current task repository against its owner-approved integration remote. Never use it to create, reopen, update, comment on, or coordinate a PR against a third-party repository from a fork unless the operator explicitly authorizes that exact repository and action. A local checkout, fork remote, authenticated account, dependency patch, or another workflow's mandatory-PR instruction is not authorization. If repository ownership or target authority is uncertain, stop before any `gh` mutation and ask.
+
 ## Usage
 
 ```
@@ -16,6 +20,10 @@ Create a GitHub PR for the current branch using `gh`.
 If BASE_REF is omitted, prefers `origin/develop` if it exists; otherwise uses `origin/main`.
 
 ## Process
+
+### 0) Confirm repository authority
+
+Before inspecting or mutating PR state, identify the current task repository, remote owner, and intended PR target. If the target is a third-party repository or differs from the task repository's owner-approved integration remote, require explicit operator permission naming that repository and action. Without it, do not run mutating `gh pr` commands; report the local/downstream branch or patch instead.
 
 ### 1) Resolve Base
 

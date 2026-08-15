@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pi VCC — Extension-Only Settled-Run Compaction</title>
+  <style>
+    :root { color-scheme:dark; --bg:#071018; --panel:#101a27; --panel2:#162337; --text:#edf4ff; --muted:#aab8cd; --accent:#6edbe7; --accent2:#b69cff; --ok:#64dba0; --warn:#f4c95d; --danger:#ff8585; --border:#2b3d56; --code:#030a12; }
+    * { box-sizing:border-box; } html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.62 Inter,ui-sans-serif,system-ui,sans-serif; }
+    main { width:min(1320px,calc(100vw - 44px)); margin:auto; padding:36px 0 72px; }
+    header,section,article { background:var(--panel); border:1px solid var(--border); border-radius:18px; margin:16px 0; padding:24px; }
+    h1,h2,h3 { line-height:1.2; margin:0 0 12px; } h1 { font-size:clamp(2rem,5vw,3.7rem); } h3 { margin-top:22px; }
+    p { margin:0 0 12px; } a { color:var(--accent); } .muted { color:var(--muted); }
+    code,pre { background:var(--code); color:#d9fbe8; border-radius:9px; } code { padding:.14em .35em; } pre { padding:14px; overflow:auto; border:1px solid var(--border); white-space:pre-wrap; }
+    ul,ol { padding-left:1.4rem; } li { margin:.38rem 0; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; } th,td { border:1px solid var(--border); padding:10px; vertical-align:top; } th { background:var(--panel2); text-align:left; }
+    .badge { display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:5px 11px; margin:0 8px 8px 0; color:var(--accent); }
+    .toc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; } .toc-card,.callout { background:var(--panel2); border:1px solid var(--border); border-radius:14px; padding:14px; }
+    .toc-card a,.toc-card strong { display:block; margin:5px 0; } .phase { border-left:5px solid var(--accent2); } .criteria { border-left:5px solid var(--ok); } .attention { border-left:5px solid var(--warn); } .risk { border-left:5px solid var(--danger); }
+    .progress label { display:block; padding:6px 0; }
+  </style>
+</head>
+<body><main>
+<header id="title">
+  <p><span class="badge">Implementation plan</span><span class="badge">Status: execution ready</span><span class="badge">Single repository</span><span class="badge">No Pi changes</span></p>
+  <h1>Pi VCC — Extension-Only Settled-Run Compaction</h1>
+  <p class="muted">Remove synthetic continuation entirely. Record semantic compaction intent during a run, compact only after Pi reports the run settled and idle, and let the next genuine user request continue from the compacted context.</p>
+</header>
+
+<section id="toc"><h2>Contents</h2><div class="toc-grid">
+  <div class="toc-card"><strong>Outcome</strong><a href="#product-context">Product-owner context</a><a href="#whats-new">What’s new</a><a href="#goal">Goal</a><a href="#decision-attention">Decision Attention</a></div>
+  <div class="toc-card"><strong>Contract</strong><a href="#reality">Current reality</a><a href="#locked-decisions">Locked decisions</a><a href="#inventory">Integration inventory</a><a href="#acceptance">Acceptance criteria</a></div>
+  <div class="toc-card"><strong>Behavior</strong><a href="#bdd">BDD scenarios</a><a href="#test-matrix">Test matrix</a><a href="#verification">Verification</a><a href="#risks">Risks</a></div>
+  <div class="toc-card"><strong>Execution</strong><a href="#progress">Progress</a><a href="#phase-p1">P1 lifecycle</a><a href="#phase-p2">P2 deletion</a><a href="#phase-p3">P3 install proof</a></div>
+  <div class="toc-card"><strong>Handoff</strong><a href="#resume">Resume</a><a href="#delivery">Delivery order</a><a href="#non-goals">Non-goals</a><a href="#decisions">Decisions / Deviations</a></div>
+</div></section>
+
+<section id="product-context">
+  <h2>Product-owner context</h2>
+  <p><strong>Situation.</strong> pi-vcc previously kept work moving after compaction by aborting the current run and injecting hidden continuation messages. Those queued messages could survive Escape and make Pi appear impossible to stop.</p>
+  <p><strong>Why now.</strong> The upstream/fork approach is explicitly rejected. The replacement must work entirely inside ai-configs using only released Pi extension APIs and must never publish or require a third-party Pi change.</p>
+  <p><strong>Key conclusion.</strong> Released Pi cannot let an extension replace the live context inside an active run. Therefore the safe extension-only behavior is to finish the current run normally, compact after <code>agent_settled</code>, and wait for genuine user input. Automatic same-run restart is deliberately removed.</p>
+  <table><thead><tr><th>Impact</th><th>Result</th></tr></thead><tbody>
+    <tr><td>Customers</td><td>Escape becomes final because there is no hidden continuation queue.</td></tr>
+    <tr><td>Runtime product behavior</td><td><code>compact_context</code> requests maintenance after the current run instead of interrupting and restarting it. The next user request sees the compacted context.</td></tr>
+    <tr><td>Security / permissions</td><td>No change. No external repository action or new authority is required.</td></tr>
+    <tr><td>Testing / release confidence</td><td>Tests prove idle-only compaction, zero synthetic messages, zero extra provider calls, abort quiescence, native retention, and installed parity.</td></tr>
+    <tr><td>Deployment / migration</td><td>No Pi installation change and no session migration. Historical continuation records remain inert and recallable.</td></tr>
+  </tbody></table>
+  <p><strong>UI impact: text-only interaction guidance.</strong> Tool and status messages change from “continue in the same run” to “compact after this run settles.”</p>
+</section>
+
+<section id="whats-new">
+  <h2>What’s new — compaction waits until nothing is running</h2>
+  <p><strong>Promise:</strong> pi-vcc will never manufacture another turn to recover from compaction.</p>
+  <table><thead><tr><th>Before</th><th>After</th></tr></thead><tbody>
+    <tr><td>Compaction aborts an active run and persists or queues a continuation.</td><td>The active run finishes normally; the extension compacts only after <code>agent_settled</code>.</td></tr>
+    <tr><td>Escape may cancel one activity while queued work starts another.</td><td>Abort clears pending maintenance; no follow-up, custom trigger, timer, or provider call remains.</td></tr>
+    <tr><td>The implementation depends on a new Pi boundary API.</td><td>The implementation uses only released <code>ctx.compact()</code> while idle and existing lifecycle events.</td></tr>
+  </tbody></table>
+  <p><strong>Preserved guarantees:</strong> deterministic LLM-free summaries, native token-bounded recent-tail retention, explicit <code>keep:N</code>, historical recall, and Pi-owned overflow recovery.</p>
+</section>
+
+<section id="goal"><h2>Goal</h2><p>Ship a single-repository pi-vcc implementation that performs semantic maintenance only after a settled run, creates no executable continuation state, requires no Pi fork or patch, and leaves Escape with nothing to drain.</p></section>
+
+<section id="decision-attention" class="attention"><h2>Decision Attention / low-confidence areas</h2>
+  <p><strong>No product decision required.</strong> The operator selected the extension-only tradeoff: no same-run context replacement and no third-party Pi change.</p>
+  <p><strong>Implementation caution.</strong> <code>ctx.compact()</code> is aborting when called during streaming. Production code must invoke it only from <code>agent_settled</code> after confirming idle state. Tests must reject calls from <code>turn_end</code>, tool execution, or active streaming.</p>
+</section>
+
+<section id="why"><h2>Why this plan exists</h2><p>The earlier architecture optimized for automatic continuation after compaction. That requirement caused the queue, persistence, retry, and rehydration machinery responsible for post-Escape activity. This plan changes the contract: context maintenance may happen automatically, but task execution restarts only on genuine user input.</p></section>
+
+<section id="authority"><h2>Authority and inputs</h2><ul>
+  <li>Released Pi <code>ExtensionContext</code> exposes <code>ctx.compact()</code>, <code>ctx.isIdle()</code>, <code>ctx.signal</code>, and lifecycle events including <code>agent_settled</code>.</li>
+  <li>Released <code>AgentSession.compact()</code> calls <code>abort()</code> first, so it is safe for this design only after the run is idle.</li>
+  <li>Released Pi owns threshold and overflow recovery after <code>agent_end</code>; pi-vcc can customize <code>session_before_compact</code> without taking ownership of retries.</li>
+  <li>The current ai-configs branch already removed the old coordinator but incorrectly depends on <code>requestCompactionAtTurnBoundary</code>; this plan removes that dependency.</li>
+  <li>Repository authority guidance forbids third-party PR interaction without exact operator permission.</li>
+</ul></section>
+
+<section id="reality"><h2>Current implementation reality</h2><ol>
+  <li><code>percentage-compaction.ts</code> calls a fork-only <code>ctx.requestCompactionAtTurnBoundary()</code>.</li>
+  <li>The pi-vcc hook already uses native <code>CompactionPreparation</code> for ordinary retention and retains custom cutting only for explicit <code>keep:N</code>.</li>
+  <li>The continuation coordinator and most active continuation machinery have already been deleted on the current branch.</li>
+  <li>Historical continuation records are classified for recall but do not need runtime rehydration.</li>
+  <li>The deterministic candidate harness previously carried a misleading real-host name. It imports the selected candidate against the installed Pi module surface but manually dispatches callbacks; it must be treated as candidate-contract proof, not real lifecycle proof.</li>
+</ol></section>
+
+<section id="product-alignment"><h2>Product intent alignment</h2><ul>
+  <li><strong>Golden path:</strong> the agent finishes its response; maintenance runs while idle; the user continues normally.</li>
+  <li><strong>Safe default:</strong> no extension-generated turn and no hidden work queue.</li>
+  <li><strong>Self-healing:</strong> Pi’s native threshold/overflow path remains responsible for urgent recovery.</li>
+  <li><strong>Fail closed:</strong> abort, shutdown, session replacement, or compaction cancellation clears pending maintenance.</li>
+  <li><strong>Actionable status:</strong> messages state whether compaction was queued for settled idle time, completed, skipped because another compaction already satisfied it, or cancelled by abort.</li>
+</ul></section>
+
+<section id="locked-decisions"><h2>Locked decisions</h2><ol>
+  <li><strong>No Pi changes.</strong> Do not edit, patch, build, install, push, or open PRs for a Pi checkout.</li>
+  <li><strong>No synthetic continuation.</strong> Do not use <code>sendMessage</code>, <code>sendUserMessage</code>, <code>followUp</code>, <code>triggerTurn</code>, timers, persisted transactions, or rehydration to resume after compaction.</li>
+  <li><strong>Pending intent only.</strong> <code>compact_context</code> stores one coalesced in-memory request with reason/boundary/preserve data.</li>
+  <li><strong>Settled-run execution.</strong> Consume the request from <code>agent_settled</code> only when <code>ctx.isIdle()</code> and no abort was observed.</li>
+  <li><strong>Abort is terminal.</strong> An assistant <code>stopReason: "aborted"</code>, aborted compaction signal, shutdown, or session replacement clears the request and schedules nothing.</li>
+  <li><strong>Native compaction satisfies pending intent.</strong> A successful Pi-owned <code>session_compact</code> clears the pending request so <code>agent_settled</code> does not compact twice.</li>
+  <li><strong>Native retention by default.</strong> Use Pi’s preparation and <code>firstKeptEntryId</code>; custom user-turn cutting remains explicit <code>keep:N</code> only.</li>
+  <li><strong>No custom hard-backstop orchestration.</strong> Soft/strong nudges may remain, but urgent threshold/overflow handling stays with released Pi.</li>
+  <li><strong>Historical records are inert.</strong> Keep only classification/recall compatibility; no executable legacy path survives.</li>
+</ol></section>
+
+<section id="inventory"><h2>Contract and distributed-integration inventory</h2><table><thead><tr><th>Contract</th><th>Producers</th><th>Consumers</th><th>Required proof</th></tr></thead><tbody>
+  <tr><td>Pending semantic maintenance</td><td><code>compact_context</code>, active <code>/compact-now</code></td><td><code>agent_settled</code></td><td>One coalesced request; no compaction while streaming; exactly one idle compaction.</td></tr>
+  <tr><td>Abort clearing</td><td>aborted assistant turn, compaction signal, shutdown/session switch</td><td>pending-request state</td><td>Advance timers/microtasks and observe no compaction, custom message, provider call, or queue entry.</td></tr>
+  <tr><td>Native compaction satisfaction</td><td>Pi threshold/overflow/manual compaction</td><td>pending-request state</td><td>Successful <code>session_compact</code> clears pending intent and prevents a duplicate idle compaction.</td></tr>
+  <tr><td>Summary retention</td><td>Pi <code>CompactionPreparation</code></td><td>pi-vcc hook</td><td>Exact recent tail and complete tool pairs remain; explicit <code>keep:N</code> is the only custom cut.</td></tr>
+  <tr><td>No continuation authority</td><td>source, install package, live extension</td><td>session/provider runtime</td><td>Stale-reference search and actual registered extension proof show no sender, timer, retry, or fork API.</td></tr>
+  <tr><td>Repository authority</td><td>APPEND_SYSTEM, AGENTS, PR workflows</td><td>installed agent guidance</td><td>Guidance consistency check says third-party PRs require exact permission.</td></tr>
+</tbody></table>
+<p><strong>Integration integrity:</strong> both exact contract and distributed behavior. Coverage is exhaustive by production family. Reconciliation completes after source search, tests, install verification, and registered-extension proof.</p></section>
+
+<section id="acceptance" class="criteria"><h2>Acceptance criteria</h2><ol>
+  <li id="ac-1"><strong>AC-1 Released Pi only.</strong> Production and verification compile/run against the installed released Pi API with no fork-only symbol.</li>
+  <li id="ac-2"><strong>AC-2 No interruption.</strong> Calling <code>compact_context</code> does not abort the active response or sibling tools.</li>
+  <li id="ac-3"><strong>AC-3 Idle-only compaction.</strong> A pending request invokes <code>ctx.compact()</code> once after <code>agent_settled</code> and only when idle.</li>
+  <li id="ac-4"><strong>AC-4 No automatic continuation.</strong> Compaction creates no provider request, custom continuation message, follow-up, or triggered turn.</li>
+  <li id="ac-5"><strong>AC-5 Escape terminality.</strong> Abort before settlement or during compaction leaves the session quiescent until genuine user input.</li>
+  <li id="ac-6"><strong>AC-6 No duplicate maintenance.</strong> Pi-owned compaction clears a pending semantic request and prevents a second compaction at settlement.</li>
+  <li id="ac-7"><strong>AC-7 Native retention.</strong> Ordinary compaction preserves Pi’s token-bounded recent tail and complete tool pairs.</li>
+  <li id="ac-8"><strong>AC-8 Explicit override.</strong> <code>/pi-vcc keep:N</code> remains supported and is the only custom cut.</li>
+  <li id="ac-9"><strong>AC-9 Legacy inertness.</strong> Historical continuation entries remain recallable but cannot schedule runtime work.</li>
+  <li id="ac-10"><strong>AC-10 Install parity.</strong> Source, stable package mirror, live extension, and settings registration agree; source and installed candidate-contract cases pass. Real Pi lifecycle dispatch is not claimed by this harness.</li>
+  <li id="ac-11"><strong>AC-11 Authority guard.</strong> Repository guidance explicitly blocks third-party fork PR interaction without exact operator permission.</li>
+</ol></section>
+
+<section id="bdd"><h2>BDD scenarios</h2>
+  <article id="bdd-1"><h3>BDD-1 — semantic request during tool work</h3><p><strong>Given</strong> the model calls <code>compact_context</code> alongside or before other tools, <strong>when</strong> the tool turn completes, <strong>then</strong> the run continues normally and no compaction starts while streaming.</p></article>
+  <article id="bdd-2"><h3>BDD-2 — settled idle maintenance</h3><p><strong>Given</strong> a pending request and a normally completed run, <strong>when</strong> <code>agent_settled</code> fires, <strong>then</strong> one manual compaction starts with semantic instructions and no agent turn follows.</p></article>
+  <article id="bdd-3"><h3>BDD-3 — Escape before settlement</h3><p><strong>Given</strong> a pending request, <strong>when</strong> the active assistant response is aborted, <strong>then</strong> settlement clears the request and never calls <code>ctx.compact()</code>.</p></article>
+  <article id="bdd-4"><h3>BDD-4 — Escape during idle compaction</h3><p><strong>Given</strong> settled-run compaction is running, <strong>when</strong> Escape cancels it, <strong>then</strong> no retry, message, timer, or provider call appears afterward.</p></article>
+  <article id="bdd-5"><h3>BDD-5 — native compaction wins</h3><p><strong>Given</strong> semantic intent is pending and Pi performs threshold or overflow compaction first, <strong>when</strong> <code>session_compact</code> fires, <strong>then</strong> the intent is satisfied and settlement does not compact again.</p></article>
+  <article id="bdd-6"><h3>BDD-6 — recent context survives</h3><p><strong>Given</strong> multiple recent conversational and tool turns within <code>keepRecentTokens</code>, <strong>when</strong> pi-vcc summarizes, <strong>then</strong> they remain verbatim and paired.</p></article>
+  <article id="bdd-7"><h3>BDD-7 — next genuine request</h3><p><strong>Given</strong> settled-run compaction completed, <strong>when</strong> the user later submits a real prompt, <strong>then</strong> that prompt starts the only new provider turn using the compacted session.</p></article>
+  <article id="bdd-8"><h3>BDD-8 — legacy session reload</h3><p><strong>Given</strong> old continuation records, <strong>when</strong> the session loads, <strong>then</strong> no coordinator, timer, send, or provider work is created.</p></article>
+</section>
+
+<section id="progress" class="progress"><h2>Progress</h2>
+  <label><input type="checkbox" checked disabled /> P1 — Implement and test settled-run compaction lifecycle</label>
+  <label><input type="checkbox" checked disabled /> P2 — Remove fork dependency and all remaining continuation assumptions</label>
+  <label><input type="checkbox" checked disabled /> P3 — Reconcile installer, documentation, and source/installed proof</label>
+</section>
+
+<section id="phase-p1" class="phase"><h2>P1 — Settled-run lifecycle</h2>
+  <h3>End State</h3><p>The extension records one semantic maintenance request, never compacts while streaming, clears on abort, and compacts once after a normal settled run.</p>
+  <h3>Tests first</h3><ul><li>Rewrite percentage-extension tests around pending intent, <code>agent_settled</code>, aborted turns, native compaction satisfaction, coalescing, and no provider/message side effects.</li><li>Prove <code>compact-now</code> compacts immediately only when idle and otherwise records pending intent.</li></ul>
+  <h3>Expected files</h3><p><code>_pi/extensions/percentage-compaction.ts</code>; <code>scripts/percentage-compaction.test.ts</code>.</p>
+  <h3>Work</h3><ol><li>Replace fork-only requests with a small in-memory pending-request state.</li><li>Track aborted turns from lifecycle events and clear state on shutdown/session replacement.</li><li>Invoke <code>ctx.compact()</code> only from <code>agent_settled</code> when idle.</li><li>Clear pending state on successful native <code>session_compact</code> and on compaction-signal abort.</li><li>Update tool/command/status wording to describe settled-run maintenance honestly.</li></ol>
+  <h3>Open questions / decision dependencies</h3><p>None.</p>
+  <h3>Verify</h3><pre><code>bun test scripts/percentage-compaction.test.ts</code></pre>
+</section>
+
+<section id="phase-p2" class="phase"><h2>P2 — Remove fork and continuation assumptions</h2>
+  <h3>End State</h3><p>ai-configs references only released Pi APIs and contains no executable continuation sender, coordinator, retry, or fork dependency.</p>
+  <h3>Tests first</h3><ul><li>Add compile/source-contract failures for <code>requestCompactionAtTurnBoundary</code>, continuation send/trigger APIs, and active legacy runtime symbols.</li><li>Keep hook tests for native retention, split-turn pairing, explicit <code>keep:N</code>, and legacy classification.</li></ul>
+  <h3>Expected files</h3><p><code>_pi/packages/pi-vcc</code> source/tests; compile tests; deterministic candidate-contract integration; any stale scripts or docs discovered by exhaustive search.</p>
+  <h3>Work</h3><ol><li>Delete all fork-only type/method assumptions from production and deterministic host fixtures.</li><li>Retain native-preparation summary behavior and explicit <code>keep:N</code>.</li><li>Keep historical classification/recall compatibility but no runtime execution.</li><li>Make stale-reference assertions reject synthetic continuation and Pi-fork APIs.</li></ol>
+  <h3>Open questions / decision dependencies</h3><p>None.</p>
+  <h3>Verify</h3><pre><code>bun test _pi/packages/pi-vcc/tests/*.test.ts
+rg -n -S 'requestCompactionAtTurnBoundary|ContinuationCoordinator|continuationFacade|triggerTurn|deliverAs.*followUp' _pi/packages/pi-vcc _pi/extensions/percentage-compaction.ts scripts install.sh</code></pre>
+</section>
+
+<section id="phase-p3" class="phase"><h2>P3 — Install, docs, and candidate-contract proof</h2>
+  <h3>End State</h3><p>The scoped installer deploys the extension-only package, documentation states the tradeoff, and source plus installed tests prove no hidden continuation.</p>
+  <h3>Tests first</h3><ul><li>Update installer/verifier tests for source/stable/live parity and installed-Pi module import compatibility.</li><li>Rewrite deterministic candidate-contract cases to exercise settled-run callbacks, abort clearing, native retention, explicit keep, and legacy inertness without claiming real Pi lifecycle dispatch.</li></ul>
+  <h3>Expected files</h3><p><code>install.sh</code>; <code>scripts/verify-pi-vcc-install.sh</code>; installer/verifier tests; <code>scripts/pi-vcc-real-host-integration.ts</code>; <code>_pi/packages/pi-vcc/README.md</code>; repository authority guidance.</p>
+  <h3>Work</h3><ol><li>Remove any Pi-fork prerequisite from validation and docs.</li><li>Verify source/stable/live hashes and exact-one registration.</li><li>Install only ai-configs-managed pi-vcc surfaces; do not modify Pi.</li><li>Run source and installed deterministic cases and a final stale-reference search.</li><li>Do not push or mutate any PR unless separately authorized.</li></ol>
+  <h3>Open questions / decision dependencies</h3><p>None.</p>
+  <h3>Verify</h3><pre><code>python3 -m unittest scripts.tests.test_install_pi_vcc scripts.tests.test_verify_pi_vcc_install scripts.tests.test_pi_vcc_validation_cli
+bash scripts/verify-pi-vcc-install.sh --source-only
+bun scripts/pi-vcc-real-host-integration.ts --candidate source --cases all --session-mode file-backed --provider deterministic-fake
+bash ./install.sh --pi-vcc
+bash scripts/verify-pi-vcc-install.sh
+bun scripts/pi-vcc-real-host-integration.ts --candidate installed --cases all --session-mode file-backed --provider deterministic-fake
+git diff --check</code></pre>
+</section>
+
+<section id="test-matrix"><h2>Test coverage matrix</h2><table><thead><tr><th>Acceptance / BDD</th><th>Layer</th><th>Evidence</th></tr></thead><tbody>
+  <tr><td>AC-1–4 / BDD-1,2,7</td><td>Extension unit + deterministic candidate-contract harness</td><td>No fork symbol, no active compaction, one idle compaction, and no synthetic message in manually dispatched callbacks. Real lifecycle dispatch is residual risk, not claimed proof.</td></tr>
+  <tr><td>AC-5 / BDD-3,4</td><td>Lifecycle and fake-time regression</td><td>Abort clears pending work and remains quiescent after timers/microtasks.</td></tr>
+  <tr><td>AC-6 / BDD-5</td><td>Native compaction event integration</td><td>One compaction entry and no duplicate settled-run call.</td></tr>
+  <tr><td>AC-7,8 / BDD-6</td><td>pi-vcc hook tests</td><td>Native recent tail, paired tool results, and explicit keep override.</td></tr>
+  <tr><td>AC-9 / BDD-8</td><td>Reload/classifier/recall tests</td><td>Historical entries are labeled but inert.</td></tr>
+  <tr><td>AC-10,11</td><td>Installer + guidance consistency</td><td>Source/stable/live parity and repository-bound PR rule.</td></tr>
+</tbody></table></section>
+
+<section id="verification"><h2>Verification strategy</h2><ol>
+  <li><strong>RED:</strong> tests fail because the current extension calls the fork-only boundary API and claims same-run continuation.</li>
+  <li><strong>Lifecycle GREEN:</strong> registered events prove pending intent, idle-only compaction, native-compaction satisfaction, and abort clearing.</li>
+  <li><strong>Negative proof:</strong> source search and runtime traces prove no continuation sender, follow-up, trigger, timer, or extra provider request.</li>
+  <li><strong>Retention proof:</strong> actual pi-vcc hook uses native preparation and preserves complete recent tool turns.</li>
+  <li><strong>Installed proof:</strong> scoped install changes only ai-configs-managed surfaces and passes deterministic cases against released Pi.</li>
+</ol><p><strong>Residual risk / not examined:</strong> a single active run can still grow until Pi’s native overflow recovery intervenes because extension-only semantic maintenance cannot replace live context between provider turns. The deterministic candidate harness manually dispatches registered callbacks and does not prove Pi extension-loader or real lifecycle dispatch behavior. These are explicit limits of the no-Pi-change scope and must not be represented as tested host guarantees.</p></section>
+
+<section id="risks" class="risk"><h2>Risks and mitigations</h2><table><thead><tr><th>Risk</th><th>Mitigation</th></tr></thead><tbody>
+  <tr><td>A long tool loop exceeds context before settlement.</td><td>Keep Pi’s native overflow recovery enabled; document that semantic requests are deferred maintenance, not live-loop context replacement.</td></tr>
+  <tr><td>Pending semantic intent causes duplicate compaction after Pi already compacted.</td><td>Clear pending state on successful <code>session_compact</code> and test the exact event order.</td></tr>
+  <tr><td>Abort is not observable at settlement.</td><td>Track assistant <code>stopReason: "aborted"</code> from <code>turn_end</code>/<code>agent_end</code> and clear on compaction signal abort.</td></tr>
+  <tr><td>User submits input while maintenance starts.</td><td>Start from <code>agent_settled</code>; <code>ctx.compact()</code> enters Pi’s existing compaction state before external input can start. Add deterministic overlap coverage where the harness permits.</td></tr>
+  <tr><td>Old continuation code remains dormant but executable.</td><td>Use negative source-contract tests and delete active compatibility paths rather than feature-flagging them.</td></tr>
+</tbody></table></section>
+
+<section id="resume"><h2>Resume instructions</h2><ol>
+  <li>Read this plan fully and continue from the first unchecked Progress item.</li>
+  <li>Work only in <code>/home/anichols/code/ai-configs</code>. Do not modify or interact with a Pi repository, fork, branch, or PR.</li>
+  <li>Use released Pi declarations/source only as read-only evidence.</li>
+  <li>Write failing tests before each production slice, then implement the smallest behavior that makes them pass.</li>
+  <li>After each phase, update its one Progress checkbox and append material deviations below.</li>
+  <li>Do not push or mutate any PR without a separate explicit instruction.</li>
+</ol></section>
+
+<section id="delivery"><h2>Delivery order</h2><p><strong>Single ai-configs change:</strong> P1 lifecycle, P2 deletion/contracts, then P3 install/docs/proof. There is no Pi patch, fork build, or upstream contribution.</p><p><strong>PR boundary:</strong> local source, tests, docs, installer, and deterministic installed proof. PR mutation is outside this execution unless separately authorized.</p></section>
+
+<section id="non-goals"><h2>Non-goals</h2><ul>
+  <li>No Pi source, fork, patch-package, vendored host patch, or upstream PR.</li>
+  <li>No automatic same-run restart after semantic compaction.</li>
+  <li>No custom provider-turn hook or monkey patch.</li>
+  <li>No continuation queue, coordinator, persistence, retry timers, or hidden messages.</li>
+  <li>No selective tool-output compression beyond Pi’s native preparation.</li>
+</ul></section>
+
+<section id="decisions"><h2>Decisions / Deviations log</h2><ul>
+  <li><strong>2026-08-15 — Superseded design.</strong> The prior two-repository same-run boundary design is rejected. No Pi fork or upstream change is permitted.</li>
+  <li><strong>2026-08-15 — Extension-only contract.</strong> Semantic intent is recorded during the run and consumed only after <code>agent_settled</code>; the next genuine user request resumes from compacted history.</li>
+  <li><strong>2026-08-15 — Continuation prohibition.</strong> No synthetic message, triggered turn, persisted transaction, timer, or rehydration may restart work after compaction.</li>
+  <li><strong>2026-08-15 — Native recovery.</strong> Threshold/overflow urgency remains Pi-owned. The extension does not attempt live-loop context replacement.</li>
+  <li><strong>2026-08-15 — PR authority correction.</strong> Repository guidance now requires explicit operator permission naming any third-party repository and PR action.</li>
+  <li><strong>2026-08-15 — P1 complete.</strong> The extension now coalesces semantic intent, compacts only from <code>agent_settled</code> while idle, clears on abort/native compaction/session replacement, and leaves hard-threshold urgency to native Pi. Twelve lifecycle tests pass.</li>
+  <li><strong>2026-08-15 — P2 complete.</strong> Removed the fork-only API from production and deterministic candidate fixtures. <code>/pi-vcc</code> is idle-only, trailing text is summary focus rather than a follow-up prompt, and a negative source contract rejects fork/continuation send APIs. Fifty-five focused tests and seven source candidate-contract cases pass.</li>
+  <li><strong>2026-08-15 — P3 complete.</strong> Updated package and Pi configuration documentation, installed only the ai-configs-managed pi-vcc package/extension, verified exact-one registration and matching hashes, and passed seven source plus seven installed candidate-contract cases. The harness imports installed Pi modules but manually dispatches callbacks; it does not prove real lifecycle dispatch. No Pi source, fork, branch, or PR was touched.</li>
+  <li><strong>2026-08-15 — Warning copy simplified.</strong> The percentage warning now reports only <code>Context is at N%.</code>; the warning level already conveys urgency, so repeated architecture/explanation text was removed.</li>
+  <li><strong>2026-08-15 — Review correction.</strong> Reclassified <code>scripts/pi-vcc-real-host-integration.ts</code> as a deterministic candidate-contract harness. It imports source/installed candidates against the installed Pi module surface and proves callback semantics, but it does not load them through Pi’s extension loader or prove real lifecycle dispatch.</li>
+</ul></section>
+</main></body></html>

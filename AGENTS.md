@@ -149,6 +149,7 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
 
 ## Git & Review Workflow  <!-- PROJECT-SPECIFIC -->
 
+- **Third-party PR prohibition:** PR authority is repository-bound. Never create, reopen, update, comment on, review, or otherwise coordinate a pull request against a third-party repository from a fork unless the operator explicitly authorizes that exact repository and action. Permission to implement, run a plan, push the current repository, or create its normal PR does not extend to sibling checkouts, dependency repositories, upstream projects, or personal forks. Existing remotes, authentication, fork ownership, or a workflow's mandatory-PR step do not imply permission. Keep required third-party changes as local/downstream patches and stop for operator direction before any upstream interaction.
 - **Branch protection rules:** Keep protected integration branches subject to the repository’s required checks. The GitHub repository settings are the enforcement point for merge-method restrictions.
 - **PR merge method:** Prefer squash-merging pull requests into the target branch. Keep intermediate commits available for review; do not rewrite branch history solely to produce one commit before opening a PR. Preserve the PR title and body as the final commit metadata when squash-merging.
 - **Commit style:** TODO (e.g., Conventional Commits)

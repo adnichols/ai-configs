@@ -1,908 +1,158 @@
-import { mkdtemp, rm } from "fs/promises";
-import { join } from "path";
-import { tmpdir } from "os";
-import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
-import {
-  assistantAborted,
-  assistantText,
-  assistantWithToolCall,
-  toolResult,
-  userMsg,
-} from "./fixtures";
+import { describe, expect, it } from "bun:test";
+import { getLastCompactionStats, getLastNoCutClassification, registerBeforeCompactHook } from "../src/hooks/before-compact";
+import { PI_VCC_COMPACT_INSTRUCTION } from "../src/core/compact-args";
 
-mock.module("@earendil-works/pi-coding-agent", () => ({
-  convertToLlm: (messages: any[]) => messages,
-  estimateTokens: (message: any) => {
-    const content = message?.content;
-    if (typeof content === "string") return Math.ceil(content.length / 4);
-    if (!Array.isArray(content)) return 0;
-    const chars = content.reduce((sum: number, part: any) => {
-      if (typeof part?.text === "string") return sum + part.text.length;
-      if (typeof part?.thinking === "string") return sum + part.thinking.length;
-      if (part?.type === "toolCall") {
-        return sum + String(part.name ?? "").length + JSON.stringify(part.arguments ?? "").length;
-      }
-      return sum;
-    }, 0);
-    return Math.ceil(chars / 4);
-  },
-}));
-
-mock.module("typebox", () => ({
-  Type: {
-    Object: () => ({}),
-    Optional: (schema: unknown) => schema,
-    String: () => ({}),
-    Array: () => ({}),
-    Number: () => ({}),
-  },
-}));
-
-let previousPiVccLogPath: string | undefined;
-let piVccLogTestDir: string | undefined;
-
-beforeAll(async () => {
-  previousPiVccLogPath = process.env.PI_VCC_LOG_PATH;
-  piVccLogTestDir = await mkdtemp(join(tmpdir(), "pi-vcc-log-test-"));
-  process.env.PI_VCC_LOG_PATH = join(piVccLogTestDir, "pi-vcc.jsonl");
+const messageEntry = (id: string, message: any) => ({
+	type: "message",
+	id,
+	parentId: null,
+	timestamp: new Date().toISOString(),
+	message,
 });
 
-afterAll(async () => {
-  if (previousPiVccLogPath === undefined) delete process.env.PI_VCC_LOG_PATH;
-  else process.env.PI_VCC_LOG_PATH = previousPiVccLogPath;
-  if (piVccLogTestDir) await rm(piVccLogTestDir, { recursive: true, force: true });
+const user = (text: string) => ({ role: "user", content: text, timestamp: Date.now() });
+const assistant = (text: string, stopReason = "stop") => ({
+	role: "assistant",
+	content: [{ type: "text", text }],
+	stopReason,
+	provider: "faux",
+	model: "faux-1",
+	api: "faux",
+	usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2 },
+	timestamp: Date.now(),
+});
+const toolCall = (id: string) => ({
+	role: "assistant",
+	content: [{ type: "toolCall", id, name: "bash", arguments: { command: "echo ok" } }],
+	stopReason: "toolUse",
+	provider: "faux",
+	model: "faux-1",
+	api: "faux",
+	usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2 },
+	timestamp: Date.now(),
+});
+const toolResult = (id: string) => ({
+	role: "toolResult",
+	toolCallId: id,
+	toolName: "bash",
+	content: [{ type: "text", text: "ok" }],
+	isError: false,
+	timestamp: Date.now(),
 });
 
-const getRegisteredHandlers = async (
-  isIdle: boolean | (() => boolean) = true,
-  sendMessageImpl?: (message: any, options: any) => void,
-) => {
-  const { registerBeforeCompactHook } = await import("../src/hooks/before-compact");
-  const handlers: Record<string, Array<(event: any, ctx?: any) => any>> = {};
-  const sentUserMessages: Array<{ content: string; options: any }> = [];
-  const sentMessages: Array<{ message: any; options: any }> = [];
-  const ctx = { isIdle: () => (typeof isIdle === "function" ? isIdle() : isIdle) };
+const preparation = (overrides: Record<string, unknown> = {}) => ({
+	firstKeptEntryId: "kept-user",
+	messagesToSummarize: [user("old request"), assistant("old answer")],
+	turnPrefixMessages: [],
+	isSplitTurn: false,
+	tokensBefore: 500,
+	previousSummary: undefined,
+	fileOps: { read: new Set<string>(), written: new Set<string>(), edited: new Set<string>() },
+	settings: { enabled: true, reserveTokens: 100, keepRecentTokens: 200 },
+	...overrides,
+});
 
-  const pi = {
-    on: (eventName: string, callback: (event: any, ctx?: any) => any) => {
-      handlers[eventName] ??= [];
-      handlers[eventName].push(callback);
-    },
-    sendUserMessage: (content: string, options: any) => {
-      sentUserMessages.push({ content, options });
-    },
-    sendMessage: (message: any, options: any) => {
-      if (sendMessageImpl) return sendMessageImpl(message, options);
-      sentMessages.push({ message, options });
-    },
-  } as any;
-  registerBeforeCompactHook(pi, {
-    authority: "coordinator",
-    request: (_input: any, _ctx: any) => {
-      const details = _input;
-      try {
-        pi.sendMessage({
-          customType: "pi-vcc-continuation",
-          content: "Pi-vcc compacted the active in-flight conversation. Continue and use vcc_recall if needed.",
-          display: false,
-          details,
-        }, { triggerTurn: true, deliverAs: "steer" });
-      } catch {}
-      return details;
-    },
-  } as any);
-
-  return { handlers, sentUserMessages, sentMessages, ctx };
+const register = () => {
+	const handlers: Record<string, (event: any, ctx?: any) => any> = {};
+	registerBeforeCompactHook({
+		on: (name: string, handler: any) => {
+			handlers[name] = handler;
+		},
+	} as any);
+	return handlers;
 };
 
-const getBeforeCompactHandler = async () => {
-  const { handlers } = await getRegisteredHandlers();
-  const handler = handlers.session_before_compact?.[0];
-  if (!handler) throw new Error("session_before_compact handler was not registered");
-  return handler;
-};
-
-const messageEntry = (id: string, message: any) => ({ id, type: "message", message });
-
-const basePreparation = {
-  previousSummary: undefined,
-  tokensBefore: 1234,
-  fileOps: {
-    read: [],
-    written: [],
-    edited: [],
-  },
-};
-
-const compactableEntries = () => [
-  messageEntry("1", userMsg("Investigate the compaction bug")),
-  messageEntry("2", assistantText("I found the hook.")),
-  messageEntry("3", userMsg("Follow-up request")),
-  messageEntry("4", assistantText("Working on it.")),
-];
-
-const compactionEntry = (id: string, firstKeptEntryId: string) => ({ id, type: "compaction", firstKeptEntryId });
-
-const delay = (ms = 75) => new Promise((resolve) => setTimeout(resolve, ms));
-
-describe("before-compact cut policy", () => {
-  it("falls back to compacting long agent-only tails", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("Investigate the compaction bug")),
-        messageEntry("2", assistantText("I found the hook.")),
-        messageEntry("3", assistantWithToolCall("Read", { path: "a.ts" }, "tc_a")),
-        messageEntry("4", toolResult("Read", "hook source", false, "tc_a")),
-        messageEntry("5", assistantText("The cut policy only keeps a last user boundary.")),
-        messageEntry("6", assistantWithToolCall("Read", { path: "b.ts" }, "tc_b")),
-        messageEntry("7", toolResult("Read", "test source", false, "tc_b")),
-        messageEntry("8", assistantText("We should keep a recent non-user tail instead.")),
-      ],
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.firstKeptEntryId).toBe("5");
-    expect(result.compaction.summary).toContain("Investigate the compaction bug");
-    expect(result.compaction.summary).toContain("I found the hook.");
-  });
-
-  it("falls back to compacting long post-compaction agent-only tails", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("Old request")),
-        messageEntry("2", assistantText("Old answer")),
-        compactionEntry("c1", "3"),
-        messageEntry("3", assistantText("Kept prior summary boundary.")),
-        messageEntry("4", assistantWithToolCall("Read", { path: "a.ts" }, "tc_a")),
-        messageEntry("5", toolResult("Read", "hook source", false, "tc_a")),
-        messageEntry("6", assistantText("Interpreted hook source.")),
-        messageEntry("7", assistantWithToolCall("Read", { path: "b.ts" }, "tc_b")),
-        messageEntry("8", toolResult("Read", "test source", false, "tc_b")),
-        messageEntry("9", assistantText("Ready to patch.")),
-      ],
-      reason: "threshold",
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.firstKeptEntryId).toBe("6");
-    expect(result.compaction.summary).toContain("Kept prior summary boundary.");
-    expect(result.compaction.summary).toContain('Read "a.ts"');
-  });
-
-  it("token-bounds a repeated compaction inside the same agent-only turn", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: {
-        ...basePreparation,
-        settings: { keepRecentTokens: 120 },
-      },
-      branchEntries: [
-        messageEntry("1", userMsg("Original long-running goal")),
-        messageEntry("2", assistantText("Initial progress")),
-        compactionEntry("c1", "3"),
-        messageEntry("3", assistantText(`Prior retained work ${"P".repeat(1_200)}`)),
-        messageEntry("4", assistantWithToolCall("Read", { path: "large-a.log" }, "tc_a")),
-        messageEntry("5", toolResult("Read", `large result A ${"A".repeat(1_200)}`, false, "tc_a")),
-        messageEntry("6", assistantText(`interpreted large result A ${"I".repeat(1_200)}`)),
-        messageEntry("7", assistantWithToolCall("Read", { path: "recent-b.log" }, "tc_b")),
-        messageEntry("8", toolResult("Read", `recent result B ${"B".repeat(200)}`, false, "tc_b")),
-        messageEntry("9", assistantText("Continue from the recent result.")),
-      ],
-      reason: "threshold",
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.firstKeptEntryId).toBe("7");
-    const { getLastCompactionStats } = await import("../src/hooks/before-compact");
-    expect(getLastCompactionStats()?.keptTokensEst).toBeLessThanOrEqual(120);
-  });
-
-  it("keeps the matching assistant tool call live when fallback would start at a tool result", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("Investigate the compaction bug")),
-        messageEntry("2", assistantText("I found the hook.")),
-        messageEntry("3", assistantWithToolCall("Read", { path: "a.ts" }, "tc_a")),
-        messageEntry("4", toolResult("Read", "hook source", false, "tc_a")),
-        messageEntry("5", assistantWithToolCall("Read", { path: "b.ts" }, "tc_b")),
-        messageEntry("6", toolResult("Read", "test source", false, "tc_b")),
-        messageEntry("7", assistantText("The fallback should keep the pair intact.")),
-      ],
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.firstKeptEntryId).toBe("3");
-  });
-
-  it("does not cut when a fallback boundary would orphan a tool result without a matching call", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("Investigate the compaction bug")),
-        messageEntry("2", assistantText("I found the hook.")),
-        messageEntry("3", assistantText("More analysis.")),
-        messageEntry("4", assistantText("More setup.")),
-        messageEntry("5", toolResult("Read", "orphaned source", false, "tc_missing")),
-        messageEntry("6", assistantWithToolCall("Read", { path: "b.ts" }, "tc_b")),
-        messageEntry("7", toolResult("Read", "test source", false, "tc_b")),
-        messageEntry("8", assistantText("The fallback cannot safely keep an orphaned tool result.")),
-      ],
-      customInstructions: "__PI_VCC_MANUAL_BYPASS__",
-    });
-
-    expect(result).toEqual({ cancel: true });
-  });
-
-  it("still prefers the latest user boundary when one exists", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("First request")),
-        messageEntry("2", assistantText("Handled the first request.")),
-        messageEntry("3", userMsg("Follow-up request")),
-        messageEntry("4", assistantWithToolCall("Read", { path: "followup.ts" }, "tc_followup")),
-        messageEntry("5", toolResult("Read", "followup source", false, "tc_followup")),
-        messageEntry("6", assistantText("Working on the follow-up.")),
-      ],
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.firstKeptEntryId).toBe("3");
-    expect(result.compaction.summary).toContain("First request");
-    expect(result.compaction.summary).not.toContain("Follow-up request");
-  });
-
-  it("splits an oversized latest user turn to keep a token-bounded tail", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: {
-        ...basePreparation,
-        settings: { keepRecentTokens: 120 },
-      },
-      branchEntries: [
-        messageEntry("1", userMsg("Earlier completed request")),
-        messageEntry("2", assistantText("Earlier completed response")),
-        messageEntry("3", userMsg(`Continue the active goal. ${"G".repeat(1_200)}`)),
-        messageEntry("4", assistantWithToolCall("Read", { path: "large-a.log" }, "tc_a")),
-        messageEntry("5", toolResult("Read", `large result A ${"A".repeat(1_200)}`, false, "tc_a")),
-        messageEntry("6", assistantText(`interpreted large result A ${"I".repeat(1_200)}`)),
-        messageEntry("7", assistantWithToolCall("Read", { path: "recent-b.log" }, "tc_b")),
-        messageEntry("8", toolResult("Read", `recent result B ${"B".repeat(200)}`, false, "tc_b")),
-        messageEntry("9", assistantText("Continue from the recent result.")),
-      ],
-      reason: "threshold",
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.firstKeptEntryId).toBe("7");
-    expect(result.compaction.summary).toContain("large result A");
-    expect(result.compaction.summary).not.toContain("recent result B");
-    const { getLastCompactionStats } = await import("../src/hooks/before-compact");
-    expect(getLastCompactionStats()?.keptTokensEst).toBeLessThanOrEqual(120);
-  });
-
-  it("splits an oversized turn when its user message is the first live entry", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: {
-        ...basePreparation,
-        settings: { keepRecentTokens: 120 },
-      },
-      branchEntries: [
-        messageEntry("1", userMsg(`Continue the active goal. ${"G".repeat(1_200)}`)),
-        messageEntry("2", assistantWithToolCall("Read", { path: "large-a.log" }, "tc_a")),
-        messageEntry("3", toolResult("Read", `large result A ${"A".repeat(1_200)}`, false, "tc_a")),
-        messageEntry("4", assistantText(`interpreted large result A ${"I".repeat(1_200)}`)),
-        messageEntry("5", assistantWithToolCall("Read", { path: "recent-b.log" }, "tc_b")),
-        messageEntry("6", toolResult("Read", `recent result B ${"B".repeat(200)}`, false, "tc_b")),
-        messageEntry("7", assistantText("Continue from the recent result.")),
-      ],
-      reason: "threshold",
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.firstKeptEntryId).toBe("5");
-    const { getLastCompactionStats } = await import("../src/hooks/before-compact");
-    expect(getLastCompactionStats()?.keptTokensEst).toBeLessThanOrEqual(120);
-  });
-
-  it("cuts after a completed oversized tool pair instead of pulling its call over budget", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: {
-        ...basePreparation,
-        settings: { keepRecentTokens: 65 },
-      },
-      branchEntries: [
-        messageEntry("1", userMsg("Earlier request")),
-        messageEntry("2", assistantText("Earlier response")),
-        messageEntry("3", userMsg(`Continue the active goal. ${"G".repeat(1_200)}`)),
-        messageEntry("4", assistantWithToolCall("Write", { path: "large.txt", content: "W".repeat(4_000) }, "tc_large")),
-        messageEntry("5", toolResult("Write", "Wrote large.txt", false, "tc_large")),
-        messageEntry("6", assistantText("The large write completed; continue with the next step.")),
-      ],
-      reason: "threshold",
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.firstKeptEntryId).toBe("6");
-    const { getLastCompactionStats } = await import("../src/hooks/before-compact");
-    expect(getLastCompactionStats()?.keptTokensEst).toBeLessThanOrEqual(65);
-  });
-
-  it("honors an explicit keep boundary even when that turn exceeds the token budget", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: {
-        ...basePreparation,
-        settings: { keepRecentTokens: 65 },
-      },
-      branchEntries: [
-        messageEntry("1", userMsg("Earlier request")),
-        messageEntry("2", assistantText("Earlier response")),
-        messageEntry("3", userMsg(`Keep this full turn. ${"K".repeat(1_200)}`)),
-        messageEntry("4", assistantText(`Large active response ${"R".repeat(1_200)}`)),
-      ],
-      customInstructions: "__PI_VCC_MANUAL_BYPASS__\nkeep:1",
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.firstKeptEntryId).toBe("3");
-  });
-});
-
-describe("package load marker", () => {
-  it("marks pi-vcc as loaded for repo-managed compaction guards", async () => {
-    const { default: registerPiVcc, PI_VCC_LOAD_MARKER } = await import("../index");
-    delete (globalThis as any)[PI_VCC_LOAD_MARKER];
-
-    registerPiVcc({
-      on: () => {},
-      registerCommand: () => {},
-      registerTool: () => {},
-      appendEntry: () => {},
-      events: { on: () => () => {}, emit: () => {} },
-    } as any);
-
-    expect((globalThis as any)[PI_VCC_LOAD_MARKER]).toMatchObject({
-      protocol: "pi-vcc-continuation",
-      version: 2,
-      status: "active",
-    });
-    (globalThis as any)[PI_VCC_LOAD_MARKER].coordinator.dispose();
-    delete (globalThis as any)[PI_VCC_LOAD_MARKER];
-  });
-});
-
-describe("compaction intent and overflow fallback", () => {
-  it("parses marker plus JSON intent into summary and details", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","reason":"done","boundary":"subtask_complete","preserve":"keep tests","attemptId":"attempt-1","transactionId":"transaction-1","resumeIntent":"active"}',
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.summary).toContain("[Compaction Intent]");
-    expect(result.compaction.summary).toContain("reason=done");
-    expect(result.compaction.summary).toContain("preserve=keep tests");
-    expect(result.compaction.details.compactionIntent).toEqual({
-      source: "compact_context",
-      reason: "done",
-      boundary: "subtask_complete",
-      preserve: "keep tests",
-      attemptId: "attempt-1",
-      transactionId: "transaction-1",
-      resumeIntent: "active",
-    });
-    expect(result.compaction.details.compactionResumeIntent).toBe("active");
-    expect(result.compaction.details.continuationAttemptId).toBe("attempt-1");
-    expect(result.compaction.details.continuationTransactionId).toBe("transaction-1");
-    expect(result.compaction.details.continuationResumePolicy).toBe("active");
-  });
-
-  it("ignores malformed marker JSON payload but keeps marker behavior", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context"',
-    });
-
-    expect(result.cancel).toBeUndefined();
-    expect(result.compaction.summary).not.toContain("[Compaction Intent]");
-    expect(result.compaction.details.compactionIntent).toBeUndefined();
-  });
-
-  it("lets core retry overflow compaction when pi-vcc cannot form a cut", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: [messageEntry("1", userMsg("too small"))],
-      reason: "overflow",
-      willRetry: true,
-    });
-
-    expect(result).toBeUndefined();
-  });
-
-  it("classifies tiny no-cut sessions for diagnosis", async () => {
-    const { registerBeforeCompactHook, getLastNoCutClassification } = await import("../src/hooks/before-compact");
-    const handlers: Record<string, Array<(event: any) => any>> = {};
-    registerBeforeCompactHook({
-      on: (eventName: string, callback: (event: any) => any) => {
-        handlers[eventName] ??= [];
-        handlers[eventName].push(callback);
-      },
-      sendMessage: () => {},
-    } as any);
-
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: [messageEntry("1", userMsg("too small"))],
-      reason: "overflow",
-      willRetry: true,
-    });
-
-    expect(result).toBeUndefined();
-    expect(getLastNoCutClassification()).toMatchObject({
-      reason: "tiny_session",
-      liveMessageCount: 1,
-      hadPreviousCompaction: false,
-      activeTurnInferred: false,
-      compactionReason: "overflow",
-      willRetry: true,
-    });
-  });
-
-  it("classifies post-compaction tails that are too short", async () => {
-    const { registerBeforeCompactHook, getLastNoCutClassification } = await import("../src/hooks/before-compact");
-    const handlers: Record<string, Array<(event: any) => any>> = {};
-    registerBeforeCompactHook({
-      on: (eventName: string, callback: (event: any) => any) => {
-        handlers[eventName] ??= [];
-        handlers[eventName].push(callback);
-      },
-      sendMessage: () => {},
-    } as any);
-
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("old")),
-        messageEntry("2", assistantText("old response")),
-        compactionEntry("c1", "3"),
-        messageEntry("3", assistantText("kept tail")),
-        messageEntry("4", assistantText("short tail")),
-      ],
-      reason: "threshold",
-    });
-
-    expect(result).toBeUndefined();
-    expect(getLastNoCutClassification()).toMatchObject({
-      reason: "post_compaction_tail_too_short",
-      liveMessageCount: 2,
-      hadPreviousCompaction: true,
-      latestLiveRole: "assistant",
-      compactionReason: "threshold",
-    });
-  });
-
-  it("classifies active-turn no-safe-cut cancellations", async () => {
-    const { registerBeforeCompactHook, getLastNoCutClassification } = await import("../src/hooks/before-compact");
-    const handlers: Record<string, Array<(event: any) => any>> = {};
-    registerBeforeCompactHook({
-      on: (eventName: string, callback: (event: any) => any) => {
-        handlers[eventName] ??= [];
-        handlers[eventName].push(callback);
-      },
-      sendMessage: () => {},
-    } as any);
-
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("old")),
-        messageEntry("2", assistantWithToolCall("Read", { path: "a.ts" }, "tc_a")),
-        messageEntry("3", toolResult("Read", "source", false, "tc_a")),
-      ],
-      customInstructions: "__PI_VCC_MANUAL_BYPASS__\nkeep:2",
-    });
-
-    expect(result).toEqual({ cancel: true });
-    expect(getLastNoCutClassification()).toMatchObject({
-      reason: "active_turn_no_safe_cut",
-      liveMessageCount: 3,
-      hadPreviousCompaction: false,
-      latestLiveRole: "toolResult",
-      activeTurnInferred: true,
-    });
-  });
-
-  it("lets the hard backstop fall back when pi-vcc cannot form a cut", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: [messageEntry("1", userMsg("too small"))],
-      reason: "threshold",
-    });
-
-    expect(result).toBeUndefined();
-  });
-
-  it("cancels instead of ignoring trailing keep after manual JSON-like instructions", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\npreserve {"ticket":"ADN"} keep:2',
-    });
-
-    expect(result).toEqual({ cancel: true });
-  });
-
-  it("cancels instead of falling back when explicit keep would keep all user turns", async () => {
-    const handler = await getBeforeCompactHandler();
-    const result = handler({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-      customInstructions: "__PI_VCC_MANUAL_BYPASS__\nkeep:2",
-    });
-
-    expect(result).toEqual({ cancel: true });
-  });
-});
-
-describe("active compaction continuation", () => {
-  it("logs session compactions for central observability", async () => {
-    const logPath = process.env.PI_VCC_LOG_PATH;
-    if (!logPath) throw new Error("PI_VCC_LOG_PATH test override was not configured");
-    const beforeLog = Bun.file(logPath);
-    const before = await beforeLog.exists() ? await beforeLog.text() : "";
-    const { handlers, ctx } = await getRegisteredHandlers();
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: {
-        id: "test-compaction-id",
-        details: {
-          compactor: "pi-vcc",
-          version: 1,
-          sections: ["Session Goal"],
-          sourceMessageCount: 5,
-          previousSummaryUsed: false,
-          interruptedInFlightTurn: false,
-          requiresContinuation: false,
-          reason: "manual",
-          willRetry: false,
-        },
-      },
-      fromExtension: true,
-      reason: "manual",
-      willRetry: false,
-    }, ctx);
-
-    const after = await Bun.file(logPath).text();
-    const appended = after.slice(before.length).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
-    expect(appended.some((entry) => entry.event === "session_compact" && entry.compactionEntryId === "test-compaction-id")).toBe(true);
-  });
-
-  it("resumes the agent after compacting an in-flight turn", async () => {
-    const { handlers, sentUserMessages, sentMessages, ctx } = await getRegisteredHandlers();
-
-    handlers.agent_start[0]({ type: "agent_start" });
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-    });
-
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(true);
-    expect(result.compaction.details.requiresContinuation).toBe(true);
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { details: result.compaction.details },
-      fromExtension: true,
-    }, ctx);
-    await delay();
-
-    expect(sentUserMessages).toHaveLength(0);
-    expect(sentMessages).toHaveLength(1);
-    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
-    expect(sentMessages[0].message.display).toBe(false);
-    expect(sentMessages[0].message.content).toContain("Pi-vcc compacted the active in-flight conversation.");
-    expect(sentMessages[0].message.content).toContain("vcc_recall");
-    expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
-  });
-
-  it("infers an in-flight turn when compaction follows a tool result", async () => {
-    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
-
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("Initial work")),
-        messageEntry("2", assistantText("Finished that step.")),
-        messageEntry("3", assistantWithToolCall("Read", { path: "a.ts" }, "tc_a")),
-        messageEntry("4", toolResult("Read", "a source", false, "tc_a")),
-        messageEntry("5", assistantWithToolCall("Bash", { command: "npm test" }, "tc_b")),
-        messageEntry("6", toolResult("Bash", "tests passed", false, "tc_b")),
-      ],
-    });
-
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(true);
-    expect(result.compaction.details.requiresContinuation).toBe(true);
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { details: result.compaction.details },
-      fromExtension: true,
-    }, ctx);
-    await delay();
-
-    expect(sentMessages).toHaveLength(1);
-    expect(sentMessages[0].message.content).toContain("Pi-vcc compacted the active in-flight conversation.");
-    expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
-  });
-
-  // Regression coverage for the 2026-08-07 production failure: the
-  // percentage-compaction hard backstop aborts the in-flight request to
-  // compact, which persists an empty aborted assistant tombstone as the last
-  // branch entry. The abort's agent_end has already cleared the active-turn
-  // flag by the time compaction runs, so branch inference is the only
-  // detection leg left — and it must look through the tombstone to the
-  // trailing tool result, or the workstream stalls until a manual "continue".
-  it("infers an in-flight turn when an abort tombstone masks the trailing tool result", async () => {
-    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
-
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("Initial work")),
-        messageEntry("2", assistantText("Finished that step.")),
-        messageEntry("3", assistantWithToolCall("Bash", { command: "npm test" }, "tc_b")),
-        messageEntry("4", toolResult("Bash", "tests passed", false, "tc_b")),
-        // Hard-backstop interrupt persisted this tombstone before compacting.
-        messageEntry("5", assistantAborted()),
-      ],
-    });
-
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(true);
-    expect(result.compaction.details.requiresContinuation).toBe(true);
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { details: result.compaction.details },
-      fromExtension: true,
-    }, ctx);
-    await delay();
-
-    expect(sentMessages).toHaveLength(1);
-    expect(sentMessages[0].message.content).toContain("Pi-vcc compacted the active in-flight conversation.");
-    expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
-  });
-
-  it("does not infer an in-flight turn when an abort tombstone follows a completed response", async () => {
-    const { handlers } = await getRegisteredHandlers();
-
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: [
-        messageEntry("1", userMsg("Initial work")),
-        messageEntry("2", assistantText("Finished that step.")),
-        messageEntry("3", userMsg("One more thing")),
-        messageEntry("4", assistantText("Done with that too.")),
-        // User pressed escape at an idle boundary; nothing is in flight.
-        messageEntry("5", assistantAborted()),
-      ],
-    });
-
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(false);
-    expect(result.compaction.details.requiresContinuation).toBe(false);
-  });
-
-  it("queues continuation even when Pi never reports idle", async () => {
-    const { handlers, sentMessages, ctx } = await getRegisteredHandlers(false);
-
-    handlers.agent_start[0]({ type: "agent_start" });
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-    });
-
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(true);
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { details: result.compaction.details },
-      fromExtension: true,
-    }, ctx);
-    await delay();
-
-    expect(sentMessages).toHaveLength(1);
-    expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
-  });
-
-  it("does not claim delivery when coordinator submission throws synchronously", async () => {
-    const sentMessages: Array<{ message: any; options: any }> = [];
-    let attempts = 0;
-    const { handlers, ctx } = await getRegisteredHandlers(true, (message, options) => {
-      attempts += 1;
-      if (attempts === 1) throw new Error("session not ready");
-      sentMessages.push({ message, options });
-    });
-
-    handlers.agent_start[0]({ type: "agent_start" });
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-    });
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { details: result.compaction.details },
-      fromExtension: true,
-    }, ctx);
-    await delay(200);
-
-    expect(attempts).toBe(1);
-    expect(sentMessages).toHaveLength(0);
-  });
-
-  it("does not prompt after the assistant has finished the turn", async () => {
-    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
-
-    handlers.agent_start[0]({ type: "agent_start" });
-    handlers.message_end[0]({ type: "message_end", message: assistantText("Done.") });
-
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-    });
-
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(false);
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { details: result.compaction.details },
-      fromExtension: true,
-    }, ctx);
-    await delay();
-
-    expect(sentMessages).toHaveLength(0);
-  });
-
-  it("does not prompt after ordinary idle compaction", async () => {
-    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
-
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-    });
-
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(false);
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { details: result.compaction.details },
-      fromExtension: true,
-    }, ctx);
-    await delay();
-
-    expect(sentMessages).toHaveLength(0);
-  });
-
-  it("resumes an active compact_context boundary after the compacting turn has stopped", async () => {
-    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"subtask_complete","resumeIntent":"active","attemptId":"compact-context-1","requestId":"compact-context-request"}',
-      reason: "manual",
-    });
-
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(false);
-    expect(result.compaction.details.compactionIntent).toMatchObject({
-      source: "compact_context",
-      resumeIntent: "active",
-    });
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { id: "compact-context-entry", details: result.compaction.details },
-      fromExtension: true,
-      reason: "manual",
-      willRetry: false,
-    }, ctx);
-    await delay();
-
-    // Compaction may leave Agent.activeRun populated after ctx.isIdle() flips.
-    // Do not submit until the following full settlement has passed.
-    expect(sentMessages).toHaveLength(0);
-    handlers.agent_settled[0]({ type: "agent_settled" }, ctx);
-    await delay();
-
-    expect(sentMessages).toHaveLength(1);
-    expect(sentMessages[0].message.customType).toBe("pi-vcc-continuation");
-    expect(sentMessages[0].message.details).toMatchObject({
-      initiator: "compact_context",
-      attemptId: "compact-context-1",
-      compactionId: "compact-context-entry",
-      requestId: "compact-context-request",
-      resumePolicy: "active",
-    });
-    expect(sentMessages[0].options).toEqual({ triggerTurn: true, deliverAs: "steer" });
-  });
-
-  it("discards a deferred active compact_context request when the session shuts down", async () => {
-    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-      customInstructions: '__PI_VCC_MANUAL_BYPASS__\n{"source":"compact_context","boundary":"subtask_complete","resumeIntent":"active","attemptId":"shutdown-compact-context","requestId":"shutdown-compact-context-request"}',
-      reason: "manual",
-    });
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { id: "shutdown-compact-context-entry", details: result.compaction.details },
-      reason: "manual",
-      willRetry: false,
-    }, ctx);
-    handlers.session_shutdown[0]({ type: "session_shutdown", reason: "new" }, ctx);
-    await delay(125);
-
-    expect(sentMessages).toHaveLength(0);
-  });
-
-  it("does not send a continuation when core will retry the interrupted turn", async () => {
-    const { handlers, sentMessages, ctx } = await getRegisteredHandlers();
-
-    handlers.agent_start[0]({ type: "agent_start" });
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-    });
-
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(true);
-    expect(result.compaction.details.requiresContinuation).toBe(true);
-
-    handlers.session_compact[0]({
-      type: "session_compact",
-      compactionEntry: { details: result.compaction.details },
-      fromExtension: true,
-      willRetry: true,
-    }, ctx);
-    await delay();
-
-    expect(sentMessages).toHaveLength(0);
-  });
-
-  it("preserves active-turn state after canceled compaction", async () => {
-    const { handlers } = await getRegisteredHandlers();
-
-    handlers.agent_start[0]({ type: "agent_start" });
-    const canceled = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: [messageEntry("1", userMsg("too small"))],
-      customInstructions: "__PI_VCC_MANUAL_BYPASS__",
-    });
-    expect(canceled).toEqual({ cancel: true });
-
-    const result = handlers.session_before_compact[0]({
-      preparation: basePreparation,
-      branchEntries: compactableEntries(),
-    });
-    expect(result.compaction.details.interruptedInFlightTurn).toBe(true);
-    expect(result.compaction.details.requiresContinuation).toBe(true);
-  });
+describe("pi-vcc before-compact hook", () => {
+	it("uses the host preparation and keeps the native retained entry", async () => {
+		const handlers = register();
+		const result = await handlers.session_before_compact({
+			preparation: preparation(),
+			branchEntries: [
+				messageEntry("old-user", user("old request")),
+				messageEntry("old-assistant", assistant("old answer")),
+				messageEntry("kept-user", user("new request")),
+				messageEntry("kept-assistant", assistant("new answer")),
+			],
+			reason: "threshold",
+			willRetry: false,
+		});
+
+		expect(result?.compaction.firstKeptEntryId).toBe("kept-user");
+		expect(result?.compaction.summary).toContain("old request");
+		expect(getLastCompactionStats()).toMatchObject({ summarized: 2, kept: 2 });
+		expect(getLastNoCutClassification()).toBeNull();
+	});
+
+	it("includes a native split-turn prefix while preserving the host cut", async () => {
+		const handlers = register();
+		const result = await handlers.session_before_compact({
+			preparation: preparation({
+			messagesToSummarize: [user("old request")],
+			turnPrefixMessages: [toolCall("tc-1")],
+			firstKeptEntryId: "kept-result",
+			isSplitTurn: true,
+			}),
+			branchEntries: [
+				messageEntry("old-user", user("old request")),
+				messageEntry("prefix-call", toolCall("tc-1")),
+				messageEntry("kept-result", toolResult("tc-1")),
+			],
+			reason: "threshold",
+		});
+
+		expect(result?.compaction.firstKeptEntryId).toBe("kept-result");
+		expect(result?.compaction.details.sourceMessageCount).toBe(2);
+	});
+
+	it("uses an explicit keep:N cut only when requested", async () => {
+		const handlers = register();
+		const entries = [
+			messageEntry("u1", user("first")),
+			messageEntry("a1", assistant("first answer")),
+			messageEntry("u2", user("second")),
+			messageEntry("a2", assistant("second answer")),
+			messageEntry("u3", user("third")),
+			messageEntry("a3", assistant("third answer")),
+		];
+		const result = await handlers.session_before_compact({
+			preparation: preparation({ messagesToSummarize: [user("host native prefix")] }),
+			branchEntries: entries,
+			customInstructions: `${PI_VCC_COMPACT_INSTRUCTION}\nkeep:1`,
+			reason: "manual",
+		});
+
+		expect(result?.compaction.firstKeptEntryId).toBe("u3");
+		expect(result?.compaction.summary).toContain("second answer");
+	});
+
+	it("records semantic focus without creating continuation metadata", async () => {
+		const handlers = register();
+		const result = await handlers.session_before_compact({
+			preparation: preparation(),
+			branchEntries: [
+				messageEntry("old-user", user("old request")),
+				messageEntry("old-assistant", assistant("old answer")),
+				messageEntry("kept-user", user("new request")),
+			],
+			customInstructions: `${PI_VCC_COMPACT_INSTRUCTION}\n${JSON.stringify({ source: "compact_context", boundary: "after_test_loop", preserve: "keep test failures" })}`,
+			reason: "manual",
+		});
+
+		expect(result?.compaction.summary).toContain("[Compaction Intent]");
+		expect(result?.compaction.details).toMatchObject({ compactor: "pi-vcc", version: 2 });
+		expect(Object.keys(result?.compaction.details ?? {})).not.toContain("transactionId");
+	});
+
+	it("cancels an explicit keep request when it cannot form a safe cut", async () => {
+		const handlers = register();
+		const result = await handlers.session_before_compact({
+			preparation: preparation(),
+			branchEntries: [messageEntry("only", user("one message"))],
+			customInstructions: `${PI_VCC_COMPACT_INSTRUCTION}\nkeep:1`,
+			reason: "manual",
+		});
+
+		expect(result).toEqual({ cancel: true });
+		expect(getLastNoCutClassification()?.reason).toBe("tiny_session");
+	});
 });
