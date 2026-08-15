@@ -6,7 +6,14 @@ TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
 TARGET_ROOT="$TMP_ROOT/home/.omp/agent"
-mkdir -p "$TARGET_ROOT/agents" "$TARGET_ROOT/extensions"
+FAKE_BIN="$TMP_ROOT/bin"
+PLUGIN_LOG="$TMP_ROOT/omp-plugin.log"
+mkdir -p "$FAKE_BIN" "$TARGET_ROOT/agents" "$TARGET_ROOT/extensions"
+cat > "$FAKE_BIN/omp" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$OMP_PLUGIN_LOG"
+EOF
+chmod +x "$FAKE_BIN/omp"
 printf 'old-config\n' > "$TARGET_ROOT/config.yml"
 printf 'old-guidance\n' > "$TARGET_ROOT/AGENTS.md"
 printf 'old-oracle\n' > "$TARGET_ROOT/agents/oracle.md"
@@ -14,7 +21,8 @@ printf 'old-deepinfra\n' > "$TARGET_ROOT/extensions/deepinfra.ts"
 printf 'user-owned\n' > "$TARGET_ROOT/agents/custom.md"
 printf 'user-owned\n' > "$TARGET_ROOT/extensions/custom.ts"
 
-OMP_CONFIG_TARGET="$TARGET_ROOT" bash "$REPO_ROOT/_omp/install.sh" >/dev/null
+OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
+  bash "$REPO_ROOT/_omp/install.sh" >/dev/null
 
 cmp -s "$REPO_ROOT/_omp/config.yml" "$TARGET_ROOT/config.yml"
 grep -q '^  - ~/.omp/agent/extensions/deepinfra.ts$' "$TARGET_ROOT/config.yml"
@@ -39,10 +47,13 @@ grep -q 'old-oracle' "$TARGET_ROOT/agents/oracle.md.before-ai-configs"
 grep -q 'old-deepinfra' "$TARGET_ROOT/extensions/deepinfra.ts.before-ai-configs"
 grep -q 'user-owned' "$TARGET_ROOT/agents/custom.md"
 grep -q 'user-owned' "$TARGET_ROOT/extensions/custom.ts"
+grep -q '^plugin install @dietrichgebert/ponytail$' "$PLUGIN_LOG"
 
-OMP_CONFIG_TARGET="$TARGET_ROOT" bash "$REPO_ROOT/_omp/install.sh" >/dev/null
+OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
+  bash "$REPO_ROOT/_omp/install.sh" >/dev/null
 grep -q 'old-config' "$TARGET_ROOT/config.yml.before-ai-configs"
 grep -q 'old-guidance' "$TARGET_ROOT/AGENTS.md.before-ai-configs"
 grep -q 'old-oracle' "$TARGET_ROOT/agents/oracle.md.before-ai-configs"
+[[ "$(wc -l < "$PLUGIN_LOG")" -eq 2 ]]
 
 printf 'OMP config installer tests passed.\n'

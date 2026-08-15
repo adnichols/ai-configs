@@ -40,6 +40,7 @@ class OmpAgentRosterTest(unittest.TestCase):
                 "orca-agent-status.ts",
                 "orca-prefill.ts",
                 "orca-titlebar-spinner.ts",
+                "thinking-shortcuts.ts",
             },
             {path.name for path in EXTENSIONS.glob("*.ts")},
         )
@@ -133,6 +134,12 @@ class OmpAgentRosterTest(unittest.TestCase):
             env["OMP_CONFIG_PRUNE"] = "1"
             shared_target = Path(temp) / "agents-shared"
             bin_target = Path(temp) / "bin"
+            fake_omp_bin = Path(temp) / "fake-bin"
+            fake_omp_bin.mkdir()
+            fake_omp = fake_omp_bin / "omp"
+            fake_omp.write_text("#!/bin/sh\nexit 0\n")
+            fake_omp.chmod(0o755)
+            env["PATH"] = f"{fake_omp_bin}{os.pathsep}{env['PATH']}"
             env["OMP_SHARED_TARGET"] = str(shared_target)
             env["OMP_BIN_TARGET"] = str(bin_target)
             stale_agents = target / "agents"
@@ -165,6 +172,7 @@ class OmpAgentRosterTest(unittest.TestCase):
                     "orca-agent-status.ts",
                     "orca-prefill.ts",
                     "orca-titlebar-spinner.ts",
+                    "thinking-shortcuts.ts",
                 },
                 {path.name for path in (target / "extensions").glob("*.ts")},
             )

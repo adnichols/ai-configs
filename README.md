@@ -122,6 +122,8 @@ skills, commands, hooks, settings, prompts, or other capability data from
 `~/.agents/skills/delivery-run/SKILL.md`, and the `delivery` CLI is exposed
 through `~/.local/bin/delivery`. It preserves the first differing managed file as
 `<name>.before-ai-configs`.
+The OMP installer also refreshes the managed Ponytail plugin from
+`@dietrichgebert/ponytail` when `omp` is available.
 
 OMP delivery uses the persisted `omp-lite` profile: normal-mode planning,
 same-session Terra-high implementation/scoped/PM review, bounded OMP

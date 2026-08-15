@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the tracked OMP config, guidance, custom agents, and extensions.
+# Installs the tracked OMP config, guidance, custom agents, extensions, and plugins.
 set -euo pipefail
 
 SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,6 +27,9 @@ SOURCE_EXTENSIONS=(
   "$SOURCE_DIR/extensions/thinking-shortcuts.ts"
 )
 OMP_CONFIG_PRUNE="${OMP_CONFIG_PRUNE:-0}"
+OMP_PLUGINS=(
+  "@dietrichgebert/ponytail"
+)
 
 for source in "$SOURCE_CONFIG" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "${SOURCE_AGENTS[@]}" "${SOURCE_EXTENSIONS[@]}"; do
   if [[ ! -f "$source" ]]; then
@@ -50,6 +53,21 @@ install_managed_file() {
   fi
   install -m "$mode" "$source" "$target"
   echo "Installed managed $label at $target"
+}
+
+install_omp_plugins() {
+  if ! command -v omp >/dev/null 2>&1; then
+    echo "OMP not found in PATH; skipping managed OMP plugins"
+    return 0
+  fi
+
+  for plugin in "${OMP_PLUGINS[@]}"; do
+    echo "Installing managed OMP plugin $plugin..."
+    if ! omp plugin install "$plugin"; then
+      echo "Failed to install OMP plugin $plugin" >&2
+      return 1
+    fi
+  done
 }
 
 preserve_unmanaged_tree_entries() {
@@ -112,3 +130,4 @@ install_managed_file "$SOURCE_DELIVERY_CLI" "$SHARED_TARGET/scripts/delivery" 07
 mkdir -p "$BIN_TARGET"
 ln -sfn "$SHARED_TARGET/scripts/delivery" "$BIN_TARGET/delivery"
 echo "Installed delivery command at $BIN_TARGET/delivery"
+install_omp_plugins

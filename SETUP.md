@@ -33,7 +33,12 @@ bash ~/ai-configs/install.sh --skills
 bash ~/ai-configs/install.sh --tools
 ```
 
-`--tools` installs `ltui` from the standalone `Nodaste-Lab/ltui` repository and installs or updates managed Herdr plugins, currently `persiyanov/herdr-reviewr`. Herdr plugins are refreshed from upstream on each run; the step warns and skips when `herdr` is unavailable. Use `LTUI_REPO_URL` and `LTUI_REF` to test or pin a different ltui checkout/ref.
+`--tools` installs `ltui` from the standalone `Nodaste-Lab/ltui` repository,
+installs or updates the managed OMP Ponytail plugin when `omp` is available,
+and installs or updates managed Herdr plugins, currently
+`persiyanov/herdr-reviewr`. Herdr plugins are refreshed from upstream on each
+run; the step warns and skips when `herdr` is unavailable. Use
+`LTUI_REPO_URL` and `LTUI_REF` to test or pin a different ltui checkout/ref.
 
 ## Global install
 
