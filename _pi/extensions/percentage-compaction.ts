@@ -23,6 +23,14 @@ export const PI_VCC_LOAD_MARKER = "__ADN_PI_VCC_LOADED__";
 type NudgeBand = "soft" | "strong";
 type Boundary = "subtask_complete" | "before_topic_switch" | "after_test_loop" | "manual_recovery";
 
+type PendingCompaction = {
+	customInstructions: string;
+	source: "tool" | "command";
+	reason: string;
+	boundary?: Boundary;
+	preserve?: string;
+};
+
 const isPiVccLoaded = () => Boolean((globalThis as any)[PI_VCC_LOAD_MARKER]);
 
 const notifyMissingPiVcc = (ctx: ExtensionContext) => {
@@ -46,11 +54,13 @@ const resolveGrokUsageTokens = (usage: { percent: number; contextWindow: number;
 
 export default function (pi: ExtensionAPI) {
 	let runtimeActive = true;
-	let lastAutoCompactionPercent: number | undefined;
+	let pendingCompaction: PendingCompaction | undefined;
+	let runAborted = false;
 	let lastNudgePercentBand: NudgeBand | undefined;
+	let lastHardBackstopPercent: number | undefined;
 	let activeModelProvider: string | undefined;
 	let activeModelId: string | undefined;
-	let lastGrokAutoCompactionTokens: number | undefined;
+	let lastGrokBackstopTokens: number | undefined;
 
 	const activeGrokIdentity = () => ({ provider: activeModelProvider, modelId: activeModelId });
 	const isActiveGrokModel = (ctx: ExtensionContext) =>
@@ -60,30 +70,33 @@ export default function (pi: ExtensionAPI) {
 			modelId: ctx.model?.id,
 		});
 
-	const resetThresholdLatches = () => {
-		lastAutoCompactionPercent = undefined;
-		lastNudgePercentBand = undefined;
-		lastGrokAutoCompactionTokens = undefined;
+	const clearPendingCompaction = () => {
+		pendingCompaction = undefined;
 	};
 
-	const requestBoundaryCompaction = (
-		ctx: ExtensionContext,
-		reason: "manual" | "threshold",
-		customInstructions?: string,
-	): boolean => {
+	const resetThresholdLatches = () => {
+		lastNudgePercentBand = undefined;
+		lastHardBackstopPercent = undefined;
+		lastGrokBackstopTokens = undefined;
+	};
+
+	const queueSettledCompaction = (ctx: ExtensionContext, request: PendingCompaction): boolean => {
 		if (!runtimeActive || !isPiVccLoaded() || ctx.signal?.aborted) {
 			if (!isPiVccLoaded()) notifyMissingPiVcc(ctx);
 			return false;
 		}
-		return ctx.requestCompactionAtTurnBoundary({ reason, customInstructions });
+		// Coalesce to the newest semantic request. There is one in-memory intent,
+		// never a queue and never persisted work to rehydrate after Escape/reload.
+		pendingCompaction = request;
+		return true;
 	};
 
 	const sendModelNudge = (ctx: ExtensionContext, usagePercent: number, band: NudgeBand) => {
 		if (lastNudgePercentBand === band) return;
 		const currentPercent = Math.floor(usagePercent);
 		const content = band === "strong"
-			? `Context is at ${currentPercent}% (strong nudge band ${COMPACTION_STRONG_NUDGE_PERCENT}-${HARD_AUTO_COMPACTION_PERCENT - 1}%). Use compact_context at a safe semantic boundary; ${HARD_AUTO_COMPACTION_PERCENT}% is the automatic backstop.`
-			: `Context is at ${currentPercent}% (soft nudge band ${COMPACTION_NUDGE_PERCENT}-${COMPACTION_STRONG_NUDGE_PERCENT - 1}%). Use compact_context after a subtask resolves, before switching topics, or after a test/debug loop has been interpreted.`;
+			? `Context is at ${currentPercent}% (strong nudge band ${COMPACTION_STRONG_NUDGE_PERCENT}-${HARD_AUTO_COMPACTION_PERCENT - 1}%). Use compact_context at a safe semantic boundary; pi-vcc will compact after the current run settles, while native Pi owns urgent overflow recovery.`
+			: `Context is at ${currentPercent}% (soft nudge band ${COMPACTION_NUDGE_PERCENT}-${COMPACTION_STRONG_NUDGE_PERCENT - 1}%). Use compact_context after a subtask resolves; it records idle maintenance and never starts a continuation turn.`;
 		lastNudgePercentBand = band;
 		ctx.ui.notify(content, band === "strong" ? "warning" : "info");
 	};
@@ -91,10 +104,11 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "compact_context",
 		label: "Compact Context",
-		description: "Request pi-vcc semantic-boundary compaction after the current tool turn completes.",
-		promptSnippet: "Queue semantic-boundary context compaction with pi-vcc",
+		description: "Request pi-vcc compaction after the current agent run fully settles.",
+		promptSnippet: "Queue settled-run semantic compaction with pi-vcc",
 		promptGuidelines: [
 			"Use compact_context after a subtask resolves, before switching topics, after a test/debug loop has been interpreted, or when context is becoming noisy.",
+			"The request does not interrupt or restart the active run; pi-vcc compacts only after the run settles and the next genuine user request continues from compacted history.",
 			"Do not use compact_context mid-tool-chain or while critical raw failure evidence has not been summarized.",
 		],
 		parameters: {
@@ -119,13 +133,19 @@ export default function (pi: ExtensionAPI) {
 				boundary,
 				...(preserve ? { preserve } : {}),
 			})}`;
-			const accepted = requestBoundaryCompaction(ctx, "manual", customInstructions);
+			const accepted = queueSettledCompaction(ctx, {
+				customInstructions,
+				source: "tool",
+				reason,
+				boundary,
+				preserve,
+			});
 			return {
 				content: [{
 					type: "text",
 					text: accepted
-						? "compact_context accepted. Pi-vcc will compact at the next safe turn boundary without starting a second run."
-						: "compact_context could not be accepted because the agent is idle, stopping, or pi-vcc is unavailable.",
+						? "compact_context accepted. Pi-vcc will compact after the current run settles; it will not interrupt or start a continuation turn."
+						: "compact_context could not be accepted because the run is stopping or pi-vcc is unavailable.",
 				}],
 				details: { accepted, reason, boundary, preserve, toolCallId },
 			};
@@ -133,12 +153,22 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("compact-now", {
-		description: "Trigger compaction immediately when idle, or request it at the active turn boundary",
+		description: "Compact immediately when idle, otherwise compact after the current run settles",
 		handler: async (args, ctx: ExtensionContext) => {
-			const customInstructions = args.trim();
+			const instructions = args.trim();
 			if (!ctx.isIdle()) {
-				const accepted = requestBoundaryCompaction(ctx, "manual", customInstructions || undefined);
-				ctx.ui.notify(accepted ? "Compaction requested for the current turn boundary" : "Compaction request rejected", accepted ? "info" : "warning");
+				const customInstructions = instructions
+					? `${PI_VCC_MANUAL_BYPASS_MARKER}\n${instructions}`
+					: PI_VCC_MANUAL_BYPASS_MARKER;
+				const accepted = queueSettledCompaction(ctx, {
+					customInstructions,
+					source: "command",
+					reason: instructions || "manual settled-run compaction",
+				});
+				ctx.ui.notify(
+					accepted ? "Compaction queued for after the current run settles" : "Compaction request rejected",
+					accepted ? "info" : "warning",
+				);
 				return;
 			}
 			if (!isPiVccLoaded()) {
@@ -146,7 +176,7 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 			ctx.compact({
-				customInstructions: customInstructions ? `${PI_VCC_MANUAL_BYPASS_MARKER}\n${customInstructions}` : PI_VCC_MANUAL_BYPASS_MARKER,
+				customInstructions: instructions ? `${PI_VCC_MANUAL_BYPASS_MARKER}\n${instructions}` : PI_VCC_MANUAL_BYPASS_MARKER,
 				onComplete: () => ctx.ui.notify("Compaction complete", "info"),
 				onError: (err) => ctx.ui.notify(`Compaction failed: ${err.message}`, "warning"),
 			});
@@ -154,7 +184,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("compact-status", {
-		description: "Show current context usage and semantic compaction status",
+		description: "Show current context usage and settled-run compaction status",
 		handler: async (_args, ctx: ExtensionContext) => {
 			const usage = ctx.getContextUsage();
 			if (!usage || usage.percent === null) {
@@ -164,13 +194,13 @@ export default function (pi: ExtensionAPI) {
 			if (isActiveGrokModel(ctx)) {
 				const tokens = resolveGrokUsageTokens(usage);
 				ctx.ui.notify(
-					`Context: ${tokens.toLocaleString()} / ${GROK_ADVERTISED_CONTEXT_WINDOW.toLocaleString()} tokens (${Math.floor(usage.percent)}%). ${formatGrokThresholdStatus()}`,
+					`Context: ${tokens.toLocaleString()} / ${GROK_ADVERTISED_CONTEXT_WINDOW.toLocaleString()} tokens (${Math.floor(usage.percent)}%). ${formatGrokThresholdStatus()} Semantic requests compact after settlement; native Pi owns urgent recovery.`,
 					"info",
 				);
 				return;
 			}
 			ctx.ui.notify(
-				`Context: ${Math.floor(usage.percent)}% of ${(contextWindowFor(ctx) ?? usage.contextWindow).toLocaleString()} tokens (nudges: ${COMPACTION_NUDGE_PERCENT}/${COMPACTION_STRONG_NUDGE_PERCENT}%, hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`,
+				`Context: ${Math.floor(usage.percent)}% of ${(contextWindowFor(ctx) ?? usage.contextWindow).toLocaleString()} tokens (nudges: ${COMPACTION_NUDGE_PERCENT}/${COMPACTION_STRONG_NUDGE_PERCENT}%; semantic compaction runs after settlement; native Pi owns overflow recovery)`,
 				"info",
 			);
 		},
@@ -184,13 +214,26 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("agent_start", () => {
-		// A new user run may legitimately add enough context to need another request.
-		lastAutoCompactionPercent = undefined;
-		lastNudgePercentBand = undefined;
+		// Pending intent must never leak into a later user run. Under the normal
+		// path agent_settled already consumed it before another run can start.
+		clearPendingCompaction();
+		runAborted = false;
+		resetThresholdLatches();
 	});
 
-	pi.on("turn_end", async (_event: TurnEndEvent, ctx: ExtensionContext) => {
-		if (!runtimeActive || ctx.signal?.aborted) return;
+	pi.on("turn_end", async (event: TurnEndEvent, ctx: ExtensionContext) => {
+		if (!runtimeActive) return;
+		if (event.message.role === "assistant" && event.message.stopReason === "aborted") {
+			runAborted = true;
+			clearPendingCompaction();
+			return;
+		}
+		if (ctx.signal?.aborted) {
+			runAborted = true;
+			clearPendingCompaction();
+			return;
+		}
+
 		const usage = ctx.getContextUsage();
 		const usagePercent = usage?.percent;
 		if (usagePercent === undefined || usagePercent === null) return;
@@ -198,37 +241,28 @@ export default function (pi: ExtensionAPI) {
 		if (isActiveGrokModel(ctx)) {
 			const tokens = resolveGrokUsageTokens(usage);
 			if (tokens < Math.floor((COMPACTION_NUDGE_PERCENT / 100) * GROK_ADVERTISED_CONTEXT_WINDOW)) {
-				lastGrokAutoCompactionTokens = undefined;
-				lastAutoCompactionPercent = undefined;
+				lastGrokBackstopTokens = undefined;
 				lastNudgePercentBand = undefined;
 				return;
 			}
-			if (grokCompactionTriggerReached(tokens) && tokens !== lastGrokAutoCompactionTokens) {
-				if (requestBoundaryCompaction(ctx, "threshold")) {
-					lastGrokAutoCompactionTokens = tokens;
-					ctx.ui.notify(
-						`Auto-compaction requested at ${tokens.toLocaleString()} tokens (trigger: ${GROK_COMPACTION_TRIGGER_TOKENS.toLocaleString()})`,
-						"warning",
-					);
-				}
+			if (grokCompactionTriggerReached(tokens) && tokens !== lastGrokBackstopTokens) {
+				lastGrokBackstopTokens = tokens;
+				ctx.ui.notify(
+					`Context reached ${tokens.toLocaleString()} tokens (configured trigger: ${GROK_COMPACTION_TRIGGER_TOKENS.toLocaleString()}). Native Pi owns urgent threshold/overflow recovery; pi-vcc will not create a continuation turn.`,
+					"warning",
+				);
 			}
 			return;
 		}
 
 		if (usagePercent < COMPACTION_NUDGE_PERCENT) {
-			lastAutoCompactionPercent = undefined;
-			lastNudgePercentBand = undefined;
+			resetThresholdLatches();
 			return;
 		}
 		if (usagePercent >= HARD_AUTO_COMPACTION_PERCENT) {
-			if (lastAutoCompactionPercent === usagePercent) return;
-			if (requestBoundaryCompaction(ctx, "threshold")) {
-				lastAutoCompactionPercent = usagePercent;
-				ctx.ui.notify(
-					`Auto-compaction requested at ${Math.floor(usagePercent)}% (hard backstop: ${HARD_AUTO_COMPACTION_PERCENT}%)`,
-					"warning",
-				);
-			}
+			if (lastHardBackstopPercent === usagePercent) return;
+			lastHardBackstopPercent = usagePercent;
+			ctx.ui.notify(`Context is at ${Math.floor(usagePercent)}%.`, "warning");
 			return;
 		}
 		if (usagePercent >= COMPACTION_STRONG_NUDGE_PERCENT) {
@@ -238,22 +272,62 @@ export default function (pi: ExtensionAPI) {
 		sendModelNudge(ctx, usagePercent, "soft");
 	});
 
+	pi.on("agent_settled", async (_event, ctx: ExtensionContext) => {
+		if (!runtimeActive || runAborted) {
+			clearPendingCompaction();
+			runAborted = false;
+			return;
+		}
+		const request = pendingCompaction;
+		clearPendingCompaction();
+		if (!request) return;
+		if (!isPiVccLoaded()) {
+			notifyMissingPiVcc(ctx);
+			return;
+		}
+		if (!ctx.isIdle() || ctx.signal?.aborted) {
+			ctx.ui.notify("Skipped queued compaction because the session did not settle cleanly", "warning");
+			return;
+		}
+
+		ctx.compact({
+			customInstructions: request.customInstructions,
+			onComplete: () => {
+				ctx.ui.notify("Settled-run compaction complete; the next genuine user request will use compacted context", "info");
+			},
+			onError: (err) => {
+				ctx.ui.notify(`Settled-run compaction stopped: ${err.message}. No continuation was queued.`, "warning");
+			},
+		});
+	});
+
+	pi.on("session_compact", () => {
+		// Native threshold/overflow/manual compaction already satisfied any
+		// semantic maintenance request. Never compact twice at settlement.
+		clearPendingCompaction();
+	});
+
 	pi.on("session_before_compact", async (event: SessionBeforeCompactEvent, ctx: ExtensionContext) => {
+		event.signal?.addEventListener("abort", () => {
+			clearPendingCompaction();
+		}, { once: true });
 		if (!isPiVccLoaded()) {
 			notifyMissingPiVcc(ctx);
 			return { cancel: true };
 		}
-		// The pi-vcc hook owns summary construction. This extension only requests
-		// the boundary; it must never turn threshold maintenance into an aborting
-		// fallback or a second agent run.
-		if (event.customInstructions?.startsWith(PI_VCC_MANUAL_BYPASS_MARKER)) return;
 		return;
 	});
 
+	const discardRuntimeIntent = () => {
+		clearPendingCompaction();
+		runAborted = true;
+	};
+
+	pi.on("session_before_switch", discardRuntimeIntent);
+	pi.on("session_before_fork", discardRuntimeIntent);
 	pi.on("session_shutdown", async () => {
 		runtimeActive = false;
-		lastAutoCompactionPercent = undefined;
-		lastNudgePercentBand = undefined;
-		lastGrokAutoCompactionTokens = undefined;
+		discardRuntimeIntent();
+		resetThresholdLatches();
 	});
 }

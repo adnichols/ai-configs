@@ -1,3 +1,6 @@
+// Candidate contract harness: imports source/installed candidates against the
+// installed Pi module surface, then exercises registered callbacks with a
+// deterministic synthetic context. It does not claim real Pi lifecycle dispatch.
 import { mock } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,7 +28,7 @@ if (!(["source", "installed"] as string[]).includes(candidateName) || cases !== 
 }
 
 const requestedArtifactsDir = values.get("--artifacts-dir");
-const root = requestedArtifactsDir ? resolve(requestedArtifactsDir) : mkdtempSync(join(tmpdir(), "pi-vcc-real-host-"));
+const root = requestedArtifactsDir ? resolve(requestedArtifactsDir) : mkdtempSync(join(tmpdir(), "pi-vcc-candidate-contract-"));
 if (existsSync(root)) {
   if (!statSync(root).isDirectory() || readdirSync(root).length !== 0) {
     throw new Error(`--artifacts-dir must be nonexistent or an empty directory: ${root}`);
@@ -34,7 +37,7 @@ if (existsSync(root)) {
   mkdirSync(root, { recursive: true });
 }
 const artifactRoot = realpathSync(root);
-console.log(`pi-vcc real-host artifacts: ${artifactRoot}`);
+console.log(`pi-vcc candidate-contract artifacts: ${artifactRoot}`);
 
 const candidate = resolve(candidateName === "source"
   ? "_pi/packages/pi-vcc"
@@ -44,7 +47,7 @@ const extension = resolve(candidateName === "source"
   : process.env.PI_VCC_INSTALLED_EXTENSION ?? join(process.env.HOME ?? "", ".pi/agent/extensions/percentage-compaction.ts"));
 
 if (!existsSync(join(candidate, "package.json")) || !existsSync(join(candidate, "src/hooks/before-compact.ts"))) {
-  throw new Error(`candidate package is not a safe-boundary pi-vcc package: ${candidate}`);
+  throw new Error(`candidate package is not an extension-only pi-vcc package: ${candidate}`);
 }
 if (!existsSync(join(candidate, "src/core/custom-message-classifier.ts"))) {
   throw new Error(`candidate package is missing the legacy classifier: ${candidate}`);
@@ -57,7 +60,7 @@ if (candidateName === "installed" && extension.replaceAll("\\", "/").includes("/
 }
 
 const piExecutable = Bun.which("pi");
-if (!piExecutable) throw new Error("Pi executable is required for real-host integration");
+if (!piExecutable) throw new Error("Pi executable is required to resolve the installed extension API module");
 const runtimeRoot = dirname(dirname(realpathSync(piExecutable)));
 const codingAgentModule = await import(pathToFileURL(join(runtimeRoot, "dist/index.js")).href);
 const typeboxModule = await import(pathToFileURL(join(runtimeRoot, "node_modules/typebox/build/index.mjs")).href);
@@ -88,22 +91,23 @@ const loadMarker = extensionModule.PI_VCC_LOAD_MARKER as string;
 const hardBackstop = extensionModule.HARD_AUTO_COMPACTION_PERCENT as number;
 const marker = extensionModule.PI_VCC_MANUAL_BYPASS_MARKER as string;
 
-const runExtensionCase = async (name: string, signal?: AbortSignal) => {
+const runExtensionCase = async (name: string) => {
   const handlers: Record<string, any> = {};
   const tools: Record<string, any> = {};
-  const requests: any[] = [];
   const compactions: any[] = [];
   const notifications: any[] = [];
+  const customMessages: any[] = [];
+  const controller = new AbortController();
+  let idle = false;
   const ctx: any = {
     mode: "rpc",
     hasUI: false,
     cwd: process.cwd(),
     model: undefined,
-    signal,
-    isIdle: () => false,
+    signal: controller.signal,
+    isIdle: () => idle,
     ui: { notify: (message: string, level: string) => notifications.push({ message, level }) },
     getContextUsage: () => ({ percent: hardBackstop, contextWindow: 200_000, tokens: 160_000 }),
-    requestCompactionAtTurnBoundary: (request: any) => { requests.push(request); return true; },
     compact: (request: any) => compactions.push(request ?? {}),
   };
   (globalThis as any)[loadMarker] = { status: "active" };
@@ -111,31 +115,55 @@ const runExtensionCase = async (name: string, signal?: AbortSignal) => {
     on: (event: string, handler: any) => { handlers[event] = handler; },
     registerTool: (tool: any) => { tools[tool.name] = tool; },
     registerCommand: () => {},
+    sendMessage: (message: any, options: any) => customMessages.push({ message, options }),
   });
 
-  if (name === "safe-boundary") {
-    await tools.compact_context.execute("case", { reason: "integration", boundary: "after_test_loop" }, signal, undefined, ctx);
-    if (requests.length !== 1 || requests[0].reason !== "manual" || !requests[0].customInstructions.includes(marker)) {
-      throw new Error("compact_context did not produce one semantic boundary request");
+  if (name === "settled-run") {
+    const result = await tools.compact_context.execute(
+      "case",
+      { reason: "integration", boundary: "after_test_loop", preserve: "keep integration evidence" },
+      controller.signal,
+      undefined,
+      ctx,
+    );
+    if (!result.details.accepted || compactions.length !== 0) throw new Error("compact_context did not record idle maintenance safely");
+    await handlers.turn_end({ message: { role: "assistant", stopReason: "stop" } }, ctx);
+    if (compactions.length !== 0) throw new Error("semantic maintenance compacted before settlement");
+    idle = true;
+    await handlers.agent_settled({}, ctx);
+    if (compactions.length !== 1 || !compactions[0].customInstructions.includes(marker)) {
+      throw new Error("settled semantic maintenance did not compact exactly once");
     }
   } else if (name === "escape-terminal") {
+    await tools.compact_context.execute("case", { reason: "integration", boundary: "after_test_loop" }, controller.signal, undefined, ctx);
+    await handlers.turn_end({ message: { role: "assistant", stopReason: "aborted" } }, ctx);
+    idle = true;
+    await handlers.agent_settled({}, ctx);
+    if (compactions.length !== 0) throw new Error("aborted runtime retained compaction work");
+  } else if (name === "native-satisfies-pending") {
+    await tools.compact_context.execute("case", { reason: "integration", boundary: "after_test_loop" }, controller.signal, undefined, ctx);
+    await handlers.session_compact({ compactionEntry: { details: {} } }, ctx);
+    idle = true;
+    await handlers.agent_settled({}, ctx);
+    if (compactions.length !== 0) throw new Error("native compaction did not satisfy pending semantic maintenance");
+  } else if (name === "native-threshold") {
     await handlers.turn_end({ message: { role: "assistant", stopReason: "toolUse" } }, ctx);
-    if (requests.length !== 0 || compactions.length !== 0) throw new Error("aborted runtime requested compaction work");
+    if (compactions.length !== 0 || !notifications.some((item) => item.level === "warning" && item.message === `Context is at ${hardBackstop}%.`)) {
+      throw new Error("threshold path did not remain a concise warning without compaction work");
+    }
   } else {
-    await handlers.turn_end({ message: { role: "assistant", stopReason: "toolUse" } }, ctx);
-    if (requests.length !== 1 || requests[0].reason !== "threshold") throw new Error(`${name} did not request one boundary compaction`);
+    throw new Error(`unknown extension case: ${name}`);
   }
 
-  return { name, requests: requests.length, compactions: compactions.length, notifications };
+  if (customMessages.length !== 0) throw new Error(`${name} emitted a synthetic continuation message`);
+  return { name, compactions: compactions.length, customMessages: customMessages.length, notifications };
 };
 
-const abortController = new AbortController();
-abortController.abort();
 const extensionResults = [
-  await runExtensionCase("safe-boundary"),
-  await runExtensionCase("native-retention"),
-  await runExtensionCase("overflow-retry"),
-  await runExtensionCase("escape-terminal", abortController.signal),
+  await runExtensionCase("settled-run"),
+  await runExtensionCase("escape-terminal"),
+  await runExtensionCase("native-satisfies-pending"),
+  await runExtensionCase("native-threshold"),
 ];
 
 const messageEntry = (id: string, message: any) => ({ type: "message", id, parentId: null, timestamp: new Date().toISOString(), message });
@@ -228,6 +256,6 @@ const packageResults = [
   { name: "package-explicit-keep", firstKeptEntryId: explicitKeepResult.compaction.firstKeptEntryId },
 ];
 const results = [...extensionResults, ...packageResults];
-writeFileSync(join(artifactRoot, "sessions", "safe-boundary.jsonl"), `${JSON.stringify({ type: "integration", results })}\n`);
-writeFileSync(join(artifactRoot, "logs", "pi-vcc.jsonl"), `${JSON.stringify({ event: "safe_boundary_integration", candidate: candidateName, results })}\n`);
-console.log(`pi-vcc real-host integration: PASS candidate=${candidateName} cases=${results.length}`);
+writeFileSync(join(artifactRoot, "sessions", "settled-run.jsonl"), `${JSON.stringify({ type: "integration", results })}\n`);
+writeFileSync(join(artifactRoot, "logs", "pi-vcc.jsonl"), `${JSON.stringify({ event: "settled_run_integration", candidate: candidateName, results })}\n`);
+console.log(`pi-vcc candidate-contract integration: PASS candidate=${candidateName} cases=${results.length}`);

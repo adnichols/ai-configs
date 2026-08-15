@@ -73,8 +73,9 @@ if [ "$source_only" -eq 1 ]; then
   bash -n "$0"
   # The source package intentionally has peer dependencies that are supplied by
   # Pi at install/runtime. The standalone extension is syntax-checked here;
-  # package registration, hook loading, and native-retention behavior are
-  # exercised against the selected candidate by the real-host integration.
+  # candidate package registration, hook callbacks, and native-retention behavior
+  # are exercised by the deterministic candidate-contract harness. That harness
+  # imports the installed Pi module surface but does not claim real lifecycle dispatch.
   bun --check "$source_extension" >/dev/null
   if [ "$json_output" -eq 1 ]; then
     python3 - "$source_package" "$source_hash" <<'PY'

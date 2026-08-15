@@ -7,6 +7,10 @@ argument-hint: '[BASE_REF]'
 
 Create a GitHub PR for the current branch using `gh`.
 
+## Authority boundary
+
+PR authority is repository-bound. Create a PR only for the current task repository against its owner-approved integration remote. Never create, reopen, update, comment on, or coordinate a PR against a third-party repository from a fork without explicit operator permission naming that repository and action. Fork remotes, authentication, dependency work, and mandatory-PR workflow language do not imply permission. If ownership or target authority is uncertain, stop before any mutating `gh pr` command and ask.
+
 ## Input
 
 Optional `BASE_REF`: `$ARGUMENTS`.
@@ -14,6 +18,10 @@ Optional `BASE_REF`: `$ARGUMENTS`.
 If omitted, prefer `origin/develop` if it exists; otherwise use `origin/main`.
 
 ## Process
+
+### 0) Confirm repository authority
+
+Identify the current task repository, remote owner, and intended PR target. If the target is a third-party repository or differs from the task repository's owner-approved integration remote, require explicit operator permission naming that repository and action. Without it, report the local/downstream branch or patch and stop.
 
 ### 1) Resolve Base
 

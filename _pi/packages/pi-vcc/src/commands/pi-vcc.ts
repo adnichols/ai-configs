@@ -9,13 +9,15 @@ export const registerPiVccCommand = (pi: ExtensionAPI) => {
 	pi.registerCommand("pi-vcc", {
 		description: "Compact conversation with pi-vcc structured summary",
 		handler: async (args, ctx) => {
-			const { followUpPrompt, keepUserTurns } = parseKeepAndPrompt(args);
-			const customInstructions = buildPiVccCustomInstructions(keepUserTurns);
+			const { followUpPrompt: focusPrompt, keepUserTurns } = parseKeepAndPrompt(args);
+			const customInstructions = buildPiVccCustomInstructions(
+				keepUserTurns,
+				focusPrompt ? JSON.stringify({ source: "pi-vcc-command", preserve: focusPrompt }) : undefined,
+			);
 			if (!ctx.isIdle()) {
-				const accepted = ctx.requestCompactionAtTurnBoundary({ reason: "manual", customInstructions });
 				ctx.ui.notify(
-					accepted ? "Pi-vcc compaction requested for the current turn boundary" : "Pi-vcc compaction request rejected",
-					accepted ? "info" : "warning",
+					"/pi-vcc only runs while Pi is idle. Use compact_context to request settled-run maintenance without aborting the active response.",
+					"warning",
 				);
 				return;
 			}
@@ -31,13 +33,6 @@ export const registerPiVccCommand = (pi: ExtensionAPI) => {
 						);
 					} else {
 						ctx.ui.notify("Compacted with pi-vcc", "info");
-					}
-					if (followUpPrompt) {
-						try {
-							pi.sendUserMessage(followUpPrompt, { deliverAs: "steer" });
-						} catch (error) {
-							logPiVccError("manual_follow_up_failed", error);
-						}
 					}
 				},
 				onError: (error) => {

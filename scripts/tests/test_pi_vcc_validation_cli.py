@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-REAL_HOST = ROOT / "scripts/pi-vcc-real-host-integration.ts"
+CANDIDATE_CONTRACT = ROOT / "scripts/pi-vcc-real-host-integration.ts"
 
 
 class PiVccValidationCliTest(unittest.TestCase):
@@ -21,39 +21,39 @@ class PiVccValidationCliTest(unittest.TestCase):
         self.assertTrue(any((root / "sessions").rglob("*.jsonl")))
         self.assertTrue((root / "logs/pi-vcc.jsonl").is_file())
 
-    def host_command(self, artifacts: Path | None = None):
+    def candidate_contract_command(self, artifacts: Path | None = None):
         command = [
-            "bun", str(REAL_HOST), "--candidate", "source", "--cases", "all",
+            "bun", str(CANDIDATE_CONTRACT), "--candidate", "source", "--cases", "all",
             "--session-mode", "file-backed", "--provider", "deterministic-fake",
         ]
         if artifacts is not None:
             command.extend(["--artifacts-dir", str(artifacts)])
         return command
 
-    def test_real_host_accepts_existing_empty_artifacts_directory(self):
+    def test_candidate_contract_accepts_existing_empty_artifacts_directory(self):
         with tempfile.TemporaryDirectory() as directory:
-            artifacts = Path(directory) / "real-host"
+            artifacts = Path(directory) / "candidate-contract"
             artifacts.mkdir()
-            result = self.run_command(self.host_command(artifacts))
+            result = self.run_command(self.candidate_contract_command(artifacts))
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(str(artifacts.resolve()), result.stdout)
             self.assert_artifact_layout(artifacts)
 
-    def test_real_host_creates_nonexistent_artifacts_directory(self):
+    def test_candidate_contract_creates_nonexistent_artifacts_directory(self):
         with tempfile.TemporaryDirectory() as directory:
-            artifacts = Path(directory) / "nested/host"
-            result = self.run_command(self.host_command(artifacts))
+            artifacts = Path(directory) / "nested/candidate"
+            result = self.run_command(self.candidate_contract_command(artifacts))
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(str(artifacts.resolve()), result.stdout)
             self.assert_artifact_layout(artifacts)
 
-    def test_real_host_rejects_nonempty_artifacts_directory(self):
+    def test_candidate_contract_rejects_nonempty_artifacts_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             artifacts = Path(directory) / "artifacts"
             artifacts.mkdir()
             occupied = artifacts / "occupied"
             occupied.write_text("do not overwrite")
-            result = self.run_command(self.host_command(artifacts))
+            result = self.run_command(self.candidate_contract_command(artifacts))
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(occupied.read_text(), "do not overwrite")
 
@@ -62,7 +62,7 @@ class PiVccValidationCliTest(unittest.TestCase):
             artifacts = Path(directory) / "failure-artifacts"
             result = self.run_command(
                 [
-                    "bun", str(REAL_HOST), "--candidate", "installed", "--cases", "all",
+                    "bun", str(CANDIDATE_CONTRACT), "--candidate", "installed", "--cases", "all",
                     "--session-mode", "file-backed", "--provider", "deterministic-fake",
                     "--artifacts-dir", str(artifacts),
                 ],

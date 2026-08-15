@@ -11,6 +11,8 @@ When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
+PR authority is repository-bound. This workflow may create a PR only for the current task repository against its owner-approved integration remote. It must never create, reopen, update, comment on, or coordinate a PR against a third-party repository from a fork unless the operator explicitly authorizes that exact repository and action. If the plan depends on third-party source changes, keep them local/downstream, report the dependency, and stop for operator direction rather than treating the mandatory-PR step as upstream permission.
+
 The executable contract ends at the PR-reviewable slice. Deployment, promotion, merge-dependent smoke checks, production observation, and rollback execution are post-merge delivery/operations work. They may remain documented obligations, but they never block committing, pushing, or creating the PR and they do not keep the run-plan lifecycle open after local merge readiness is established.
 
 PR creation is not hostage to deployment. Never wait for preview, staging, canary, or production deployment evidence before opening the PR. Validate deployability pre-merge where practical through configuration checks, builds, dry runs, artifact inspection, or other non-deployment evidence, then disclose any pending post-merge delivery checks in the PR body.
@@ -32,6 +34,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 ## Non-Negotiable Rules
 
 - Do not implement if the request is plan-only, review-only, or investigation-only.
+- Never treat run-plan invocation, a fork remote, cross-repository dependency work, or normal PR authority as permission to interact with a third-party upstream PR. Exact operator permission naming the third-party repository and action is required.
 - Do not run destructive git commands unless the user explicitly requested them.
 - Do not let reviewer subagents edit files during review. Reviews are read-only.
 - Do not ask reviewers to review the whole product for open-ended problems.

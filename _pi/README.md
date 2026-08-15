@@ -145,25 +145,24 @@ This repo also ships `simple-multi-status.ts`, a lightweight multi-line status w
 - current context-window usage,
 - the current working directory.
 
-This repo also ships `percentage-compaction.ts`, which gives you percentage-based control over context compaction:
+This repo also ships `percentage-compaction.ts`, which provides semantic, extension-only context maintenance:
 
-- sends soft/strong model-visible nudges at 60%/75% so agents can choose a safe `compact_context` boundary,
-- uses an 80% hard backstop for automatic pi-vcc compaction,
-- interrupts long tool-driven agent runs at a turn boundary, then lets pi-vcc resume the agent after successful compaction,
-- if the hard backstop finds no safe compaction cut during an active turn, treats it as a recoverable skip, waits for pending tool results when needed, sends one bounded-retry continuation steer, and suppresses immediate same-percent no-cut retry loops,
-- `/compact-status` to check current context usage,
-- `/compact-now [instructions]` to trigger compaction manually,
-- gates pi's built-in auto-compaction so repo-managed pi-vcc handles hard-backstop compaction with no-cut recovery,
+- sends soft/strong model-visible nudges at 60%/75% so agents can call `compact_context` after a completed subtask or evidence loop,
+- records one in-memory semantic request and invokes released Pi's existing `ctx.compact()` only after `agent_settled` reports the session idle,
+- never interrupts an active run, sends a continuation message, schedules a retry timer, or starts another provider turn,
+- clears pending maintenance on Escape/abort, native compaction, session replacement, and shutdown,
+- treats 80% as a warning boundary while released Pi remains authoritative for threshold and overflow recovery,
+- provides `/compact-status` for context usage and `/compact-now [instructions]` for immediate idle compaction or settled-run maintenance when active,
 - cancels compaction instead of falling back to Pi's default compactor when pi-vcc is not loaded.
 
-To adjust nudge thresholds, edit `COMPACTION_NUDGE_PERCENT` / `COMPACTION_STRONG_NUDGE_PERCENT`; to adjust the automatic hard backstop, edit `HARD_AUTO_COMPACTION_PERCENT` in the extension file.
-To use with pi-vcc, run `./install.sh --pi`; `pi list` should show the stable mirror under `~/.pi/agent/local-packages/ai-configs/pi-vcc`.
+To adjust nudge and warning thresholds, edit `COMPACTION_NUDGE_PERCENT`, `COMPACTION_STRONG_NUDGE_PERCENT`, and `HARD_AUTO_COMPACTION_PERCENT` in the extension file.
+To install only these managed surfaces, run `./install.sh --pi-vcc`; `pi list` should show the stable mirror under `~/.pi/agent/local-packages/ai-configs/pi-vcc`.
 
-**Note:** With the vendored pi-vcc installed, no additional compaction configuration is needed. The extension proactively starts pi-vcc compaction at the configured hard-backstop percentage, and pi-vcc handles the actual algorithmic compaction when triggered. This repo now ships the `/pi-vcc` manual-bypass marker and the agent-only-tail fallback directly in the vendored package, so rerunning `./install.sh --pi` refreshes both behaviors without patching global npm files.
+**Note:** Native Pi auto-compaction/overflow recovery remains enabled and owns urgent recovery during a long active run. The vendored package supplies the deterministic `session_before_compact` summary, preserves Pi's native token-bounded recent tail by default, and keeps `/pi-vcc keep:N` as an explicit idle-only override. Rerunning `./install.sh --pi-vcc` refreshes the package and percentage extension without patching Pi or global npm files.
 
 ### Grok 4.5 context ceiling
 
-The exact `opencode/grok-4.5` model uses an absolute policy rather than the shared percentage backstop. The extension requests pi-vcc compaction at **180,000 tokens** and advertises a **200,000-token** context window. Other providers and Grok model IDs, including Pi's built-in `xai/grok-4.5`, retain the normal 60%/75%/80% percentage policy.
+The exact `opencode/grok-4.5` model uses an absolute warning policy rather than the shared percentage warning. At **180,000 tokens** the extension warns that released Pi owns urgent threshold/overflow recovery; it does not interrupt the run or manufacture a continuation. The advertised context window remains **200,000 tokens**. Other providers and Grok model IDs, including Pi's built-in `xai/grok-4.5`, retain the normal 60%/75%/80% nudge/warning policy.
 
 The 200K guarantee applies to the estimated **outbound provider request**: transformed messages, tool definitions, system prompt, and output reservation. It does not promise that the persisted session transcript can never briefly exceed 200K before Pi reaches its next dispatch boundary. A Pi runtime containing the matching pre-dispatch `context_ceiling` gate must compact and rebuild the request, or fail closed without calling Grok, whenever that estimate would be 200,000 tokens or more.
 
