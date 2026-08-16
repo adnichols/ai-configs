@@ -1,14 +1,18 @@
 -- Cmd+Shift+V uploads the current local clipboard image to both coding hosts
 -- only when a supported terminal application is focused. In every other app,
 -- the original key event is passed through unchanged.
+--
+-- Kitty and WezTerm are intentionally excluded: each already owns
+-- Cmd+Shift+V with a host-aware paste helper. Intercepting those apps caused
+-- the OS-level dual-host uploader to win, so the terminal-native path never
+-- ran and remote Pi sessions could end up with a local Mac clipboard path.
 local remoteImagePaste = os.getenv("HOME") .. "/.local/bin/remote-image-paste"
 local imagePasteRunning = false
 local terminalBundleIDs = {
   ["com.apple.Terminal"] = true,
   ["com.googlecode.iterm2"] = true,
   ["com.mitchellh.ghostty"] = true,
-  ["net.kovidgoyal.kitty"] = true,
-  ["org.wezfurlong.wezterm"] = true,
+  -- Kitty/WezTerm handle Cmd+Shift+V themselves (host-aware clipssh helpers).
 }
 
 local function frontmostTerminal()

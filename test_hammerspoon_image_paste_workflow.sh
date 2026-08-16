@@ -27,6 +27,15 @@ done
 [[ "$(grep -c '^-- END ai-configs remote image paste$' "$MAC_HOME/.hammerspoon/init.lua")" -eq 1 ]]
 grep -q 'com.mitchellh.ghostty' "$MAC_HOME/.hammerspoon/init.lua"
 grep -q 'return false' "$MAC_HOME/.hammerspoon/init.lua"
+# Kitty/WezTerm own Cmd+Shift+V; Hammerspoon must not steal those chords.
+if grep -q 'net.kovidgoyal.kitty' "$MAC_HOME/.hammerspoon/init.lua"; then
+  echo "Hammerspoon still intercepts Kitty Cmd+Shift+V" >&2
+  exit 1
+fi
+if grep -q 'org.wezfurlong.wezterm' "$MAC_HOME/.hammerspoon/init.lua"; then
+  echo "Hammerspoon still intercepts WezTerm Cmd+Shift+V" >&2
+  exit 1
+fi
 bash -n "$MAC_HOME/.local/bin/remote-image-paste" "$REPO_ROOT/hammerspoon/install.sh"
 
 if HOME="$TMP_ROOT/missing-pngpaste-home" \

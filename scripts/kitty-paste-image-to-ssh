@@ -13,6 +13,15 @@ fail() {
   exit 1
 }
 
+# GUI-launched Kitty often has a minimal PATH. Prefer common binary roots so
+# kitten/clipssh/pngpaste resolve even without an interactive shell profile.
+for bin_dir in "$HOME/.local/bin" /opt/homebrew/bin /usr/local/bin; do
+  if [ -d "$bin_dir" ] && [[ ":$PATH:" != *":$bin_dir:"* ]]; then
+    PATH="$bin_dir:$PATH"
+  fi
+done
+export PATH
+
 command -v kitten >/dev/null 2>&1 || fail "kitten is not on PATH"
 command -v python3 >/dev/null 2>&1 || fail "python3 is not on PATH"
 command -v pbpaste >/dev/null 2>&1 || fail "pbpaste is not on PATH"
@@ -29,24 +38,40 @@ else
   fail "clipssh was not found on PATH or next to this helper"
 fi
 
-parent_json="$(kitten @ ls --match state:overlay_parent 2>/dev/null)" || fail "could not inspect the parent Kitty pane"
+parent_err="$(mktemp "${TMPDIR:-/tmp}/kitty-paste-parent.XXXXXX")"
+parent_json="$(kitten @ ls --match state:overlay_parent 2>"$parent_err")" || {
+  detail="$(tr '\n' ' ' <"$parent_err" | sed 's/[[:space:]]*$//')"
+  rm -f "$parent_err"
+  if [ -n "$detail" ]; then
+    fail "could not inspect the parent Kitty pane ($detail)"
+  fi
+  fail "could not inspect the parent Kitty pane (is allow_remote_control enabled?)"
+}
+rm -f "$parent_err"
 
 host="${KITTY_PASTE_IMAGE_HOST:-}"
 
 if [ -z "$host" ]; then
 host="$(
   PARENT_JSON="$parent_json" python3 - <<'PY'
-import json, os, sys
+import json, os, re, sys
 from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
 data = json.loads(os.environ["PARENT_JSON"])
 windows = []
+os_window_titles = []
 for os_window in data:
+    title = os_window.get("wm_title") or os_window.get("title")
+    if title:
+        os_window_titles.append(str(title))
     for tab in os_window.get("tabs", []):
+        tab_title = tab.get("title")
+        if tab_title:
+            os_window_titles.append(str(tab_title))
         windows.extend(tab.get("windows", []))
 
-if not windows:
+if not windows and not os_window_titles:
     sys.exit(1)
 
 options_with_value = {
@@ -55,6 +80,8 @@ options_with_value = {
     "--config", "--cwd", "--env", "--hostname", "--identity-file",
     "--login-shell", "--option", "--port", "--remote-command", "--user",
 }
+
+KNOWN_HOSTS = ("dever", "mbp14-2", "mbp14", "mbp", "mba")
 
 def base(token):
     return PurePosixPath(token).name
@@ -95,6 +122,8 @@ def parse_ssh_args(args):
     return None
 
 def host_from_cmdline(cmdline):
+    if not cmdline:
+        return None
     names = [base(x) for x in cmdline]
     for i, name in enumerate(names):
         if name == "kitten" and i + 1 < len(names) and names[i + 1] == "ssh":
@@ -105,7 +134,7 @@ def host_from_cmdline(cmdline):
             host = parse_ssh_args(cmdline[i + 3:])
             if host:
                 return host
-        if name == "ssh":
+        if name in ("ssh", "mosh", "mosh-client"):
             host = parse_ssh_args(cmdline[i + 1:])
             if host:
                 return host
@@ -123,35 +152,78 @@ def host_from_title(title):
     if not title:
         return None
     t = title.lower()
-    if "dever" in t:
-        return "dever"
-    if "aarons-macbook-pro" in t or "aarons-mbp" in t or " mbp" in t or t == "mbp":
+    # Prefer longer aliases first so mbp14-2 wins over mbp.
+    for known in KNOWN_HOSTS:
+        if re.search(rf"(?<![a-z0-9]){re.escape(known)}(?![a-z0-9])", t):
+            return known
+    if "aarons-macbook-pro" in t or "aarons-mbp" in t:
         return "mbp"
     return None
 
-for window in windows:
-    for candidate in (
-        host_from_cmdline(window.get("cmdline") or []),
-        host_from_cwd(window.get("cwd")),
-        host_from_title(window.get("title")),
-    ):
+def host_from_window(window):
+    candidates = []
+    candidates.append(host_from_cmdline(window.get("cmdline") or []))
+    for proc in window.get("foreground_processes") or []:
+        candidates.append(host_from_cmdline(proc.get("cmdline") or []))
+    candidates.append(host_from_cwd(window.get("cwd")))
+    candidates.append(host_from_title(window.get("title")))
+    for candidate in candidates:
         if candidate:
-            print(candidate)
-            sys.exit(0)
+            return candidate
+    return None
+
+for window in windows:
+    host = host_from_window(window)
+    if host:
+        print(host)
+        sys.exit(0)
+
+for title in os_window_titles:
+    host = host_from_title(title)
+    if host:
+        print(host)
+        sys.exit(0)
 
 sys.exit(1)
 PY
-)" || fail "could not determine SSH host from parent pane"
+)" || fail "could not determine SSH host from parent pane (focus a dever/mbp kitten ssh tab)"
 fi
+
+# clipssh aliases are bare names (dever, mbp, ...). Strip a user@ prefix when
+# host detection returned user@host from cwd/URI parsing.
+case "$host" in
+  *@*)
+    host="${host##*@}"
+    host="${host%%:*}"
+    ;;
+esac
 
 [ -n "$host" ] || fail "could not determine SSH host"
 
-CLIPSSH_REMOTE_DIR='~/.cache/clipssh' "$clipssh_bin" "$host" >/dev/null || fail "could not upload the clipboard image to $host"
+clip_err="$(mktemp "${TMPDIR:-/tmp}/kitty-paste-clipssh.XXXXXX")"
+if ! CLIPSSH_REMOTE_DIR='~/.cache/clipssh' "$clipssh_bin" "$host" >"$clip_err" 2>&1; then
+  detail="$(tr '\n' ' ' <"$clip_err" | sed 's/[[:space:]]*$//')"
+  rm -f "$clip_err"
+  if [ -n "$detail" ]; then
+    fail "could not upload the clipboard image to $host ($detail)"
+  fi
+  fail "could not upload the clipboard image to $host"
+fi
+rm -f "$clip_err"
+
 remote_path="$(pbpaste)"
 
 case "$remote_path" in
   '~/.cache/clipssh/'*.png|/Users/*/.cache/clipssh/*.png|/home/*/.cache/clipssh/*.png) ;;
   *) fail "clipssh returned an unexpected remote path: $remote_path" ;;
+esac
+
+# Reject local Mac temp paths that Pi creates for local Ctrl+V image paste.
+# Those are not valid on remote hosts.
+case "$remote_path" in
+  /var/folders/*|*/pi-clipboard-*.png)
+    fail "refusing to paste a local Mac clipboard path into the remote pane: $remote_path"
+    ;;
 esac
 
 printf "%s" "$remote_path" | kitten @ send-text --match state:overlay_parent --bracketed-paste=disable --stdin

@@ -25,6 +25,8 @@ done
 [[ -x "$MAC_HOME/.local/bin/clipssh" ]]
 [[ -x "$MAC_HOME/.local/bin/kitty-paste-image-to-ssh" ]]
 [[ -f "$MAC_HOME/.config/kitty/ai-configs-remote-workflow.conf" ]]
+grep -q '^allow_remote_control yes$' "$MAC_HOME/.config/kitty/ai-configs-remote-workflow.conf"
+grep -q 'kitty-paste-image-to-ssh' "$MAC_HOME/.config/kitty/ai-configs-remote-workflow.conf"
 [[ -f "$MAC_HOME/.config/ai-configs/kitty-remote-workflow.zsh" ]]
 [[ "$(grep -c '^# BEGIN ai-configs kitty remote workflow$' "$MAC_HOME/.zshrc")" -eq 1 ]]
 [[ "$(grep -c '^# BEGIN ai-configs kitty remote workflow$' "$MAC_HOME/.config/kitty/kitty.conf")" -eq 1 ]]

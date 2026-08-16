@@ -22,9 +22,12 @@ kssh dever
 2. Focus the remote Kitty pane.
 3. Press `Cmd+Shift+V` (or `Control+Option+V`).
 
-The helper detects `mbp` or `dever` from the active SSH process/title, runs
-`clipssh`, uploads to `~/.cache/clipssh/` with mode `0600`, and inserts the
-remote pathname directly into the prompt.
+The helper detects `mbp`, `dever`, or `mbp14` from the active SSH process,
+foreground process, cwd URI, OS-window title, or tab title; runs `clipssh`;
+uploads to `~/.cache/clipssh/` with mode `0600`; and inserts the remote pathname
+directly into the prompt. Kitty enables `allow_remote_control` so the overlay
+can inspect the parent pane and inject text. Hammerspoon does not intercept this
+chord in Kitty.
 
 ## Notifications
 
