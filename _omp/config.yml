@@ -1,5 +1,5 @@
 providers:
-  {}
+  tts: xai
 disabledProviders:
   - claude
 extensions:
@@ -13,7 +13,7 @@ steeringMode: all
 followUpMode: all
 autocompleteMaxVisible: 20
 edit:
-  mode: apply_patch
+  mode: hashline
 bash:
   autoBackground:
     enabled: true
@@ -33,13 +33,8 @@ modelRoles:
   designer: openai-codex/gpt-5.6-terra:high
   commit: openai-codex/gpt-5.6-luna:xhigh
   tiny: openai-codex/gpt-5.6-luna:low
-  advisor: opencode-zen/deepseek-v4-flash:high
-  reviewer: openai-codex/gpt-5.6-terra:medium
-  # OMP Lite keeps implementation, scoped review, and PM outcome review in
-  # the driving session. Pin that session's default to the delivery runtime.
+  advisor: openai-codex/gpt-5.6-luna:xhigh
   default: openai-codex/gpt-5.6-luna:xhigh
-  Oracle: openai-codex/gpt-5.6-sol:xhigh
-  Trouble: xai/grok-4.5:high
 defaultThinkingLevel: auto
 compaction:
   thresholdPercent: 40
@@ -59,4 +54,7 @@ cycleOrder:
   - smol
   - default
   - slow
-  - Trouble
+advisor:
+  enabled: true
+dev:
+  autoqaConsent: granted
