@@ -10,3 +10,33 @@ providers:
         compat:
           supportsReasoningEffort: true
           omitReasoningEffort: false
+  cursor:
+    modelOverrides:
+      cursor-grok-4.5-high:
+        input: [text, image]
+      cursor-grok-4.5-high-fast:
+        input: [text, image]
+      cursor-grok-4.5-low:
+        input: [text, image]
+      cursor-grok-4.5-low-fast:
+        input: [text, image]
+      cursor-grok-4.5-medium:
+        input: [text, image]
+      cursor-grok-4.5-medium-fast:
+        input: [text, image]
+      cursor-grok-4.6-high:
+        input: [text, image]
+      cursor-grok-4.6-high-fast:
+        input: [text, image]
+      cursor-grok-4.6-low:
+        input: [text, image]
+      cursor-grok-4.6-low-fast:
+        input: [text, image]
+      cursor-grok-4.6-medium:
+        input: [text, image]
+      cursor-grok-4.6-medium-fast:
+        input: [text, image]
+      cursor-grok-4.6-xhigh:
+        input: [text, image]
+      cursor-grok-4.6-xhigh-fast:
+        input: [text, image]
