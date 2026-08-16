@@ -22,7 +22,7 @@ case "$1 $2" in
     grep -q '^rename_tab = \["prefix+comma", "prefix+<"\]$' "$HERDR_CONFIG_PATH"
     grep -q '^key = "prefix+t"$' "$HERDR_CONFIG_PATH"
     grep -q '^command = "herdr-navigator.open"$' "$HERDR_CONFIG_PATH"
-    grep -q '^key = "ctrl+b"$' "$HERDR_CONFIG_PATH"
+    grep -q '^key = "prefix+;"$' "$HERDR_CONFIG_PATH"
     grep -q '^command = "herdr-navigator.jump-back"$' "$HERDR_CONFIG_PATH"
     ! grep -q '^key = "prefix+<"$' "$HERDR_CONFIG_PATH"
     ! grep -q '^command = "fullerzz.sesh.open-picker"$' "$HERDR_CONFIG_PATH"

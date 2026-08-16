@@ -72,11 +72,10 @@ type = "plugin_action"
 command = "herdr-navigator.open"
 description = "open Herdr Navigator"
 
-# Jump Back is a separate plugin action (not automatic). Direct ctrl+b toggles
-# current/previous workspace; distinct from prefix+b (sidebar). README's prefix+l
-# conflicts with focus_pane_right here.
+# Jump Back is a separate plugin action (not automatic). The leader+semicolon
+# chord toggles the current/previous workspace; distinct from prefix+b (sidebar).
 [[keys.command]]
-key = "ctrl+b"
+key = "prefix+;"
 type = "plugin_action"
 command = "herdr-navigator.jump-back"
 description = "jump to previous workspace"
