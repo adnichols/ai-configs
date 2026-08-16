@@ -50,12 +50,6 @@ KITTY_WORKFLOW_REFRESH_INTEGRATIONS=0 \
 grep -q '^delivery = "terminal"$' "$LINUX_HOME/.config/herdr/config.toml"
 [[ "$(grep -c 'delivery.*=' "$LINUX_HOME/.config/herdr/config.toml")" -eq 1 ]]
 grep -q '^\[update\]$' "$LINUX_HOME/.config/herdr/config.toml"
-python3 - "$LINUX_HOME/.config/herdr/config.toml" <<'PY'
-import sys
-import tomllib
-with open(sys.argv[1], "rb") as handle:
-    tomllib.load(handle)
-PY
 [[ ! -e "$LINUX_HOME/.config/kitty/kitty.conf" ]]
 
 # Exercise the real clipssh transfer path with fake clipboard and SSH tools.

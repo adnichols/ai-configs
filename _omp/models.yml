@@ -1,0 +1,12 @@
+providers:
+  xai-oauth:
+    modelOverrides:
+      grok-4.6:
+        reasoning: true
+        thinking:
+          mode: effort
+          efforts: [low, medium, high, xhigh]
+          defaultLevel: high
+        compat:
+          supportsReasoningEffort: true
+          omitReasoningEffort: false

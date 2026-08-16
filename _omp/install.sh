@@ -6,6 +6,7 @@ SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_ROOT="${OMP_CONFIG_TARGET:-$HOME/.omp/agent}"
 TARGET_CONFIG="$TARGET_ROOT/config.yml"
 SOURCE_CONFIG="$SOURCE_DIR/config.yml"
+SOURCE_MODELS="$SOURCE_DIR/models.yml"
 SOURCE_GUIDANCE="$SOURCE_DIR/AGENTS.md"
 REPO_ROOT="$(cd -- "$SOURCE_DIR/.." && pwd)"
 SOURCE_DELIVERY_SKILL="$REPO_ROOT/skills/delivery-run/SKILL.md"
@@ -31,7 +32,7 @@ OMP_PLUGINS=(
   "@dietrichgebert/ponytail"
 )
 
-for source in "$SOURCE_CONFIG" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "${SOURCE_AGENTS[@]}" "${SOURCE_EXTENSIONS[@]}"; do
+for source in "$SOURCE_CONFIG" "$SOURCE_MODELS" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "${SOURCE_AGENTS[@]}" "${SOURCE_EXTENSIONS[@]}"; do
   if [[ ! -f "$source" ]]; then
     echo "Missing managed OMP file at $source" >&2
     exit 1
@@ -114,9 +115,13 @@ preserve_unmanaged_tree_entries "$TARGET_ROOT/extensions" "$SOURCE_DIR/extension
 preserve_unmanaged_path "$TARGET_ROOT/commands"
 preserve_unmanaged_path "$TARGET_ROOT/skills"
 preserve_unmanaged_path "$TARGET_ROOT/SYSTEM.md"
-preserve_unmanaged_path "$TARGET_ROOT/models.yml"
 
 install_managed_file "$SOURCE_CONFIG" "$TARGET_CONFIG" 0600 "OMP config"
+if [[ -e "$TARGET_ROOT/models.yml" || -L "$TARGET_ROOT/models.yml" ]]; then
+  echo "Preserved existing OMP models config at $TARGET_ROOT/models.yml"
+else
+  install_managed_file "$SOURCE_MODELS" "$TARGET_ROOT/models.yml" 0600 "OMP model overrides"
+fi
 install_managed_file "$SOURCE_GUIDANCE" "$TARGET_ROOT/AGENTS.md" 0644 "OMP guidance"
 for source in "${SOURCE_AGENTS[@]}"; do
   install_managed_file "$source" "$TARGET_ROOT/agents/$(basename -- "$source")" 0644 "OMP agent"

@@ -25,6 +25,7 @@ OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$P
   bash "$REPO_ROOT/_omp/install.sh" >/dev/null
 
 cmp -s "$REPO_ROOT/_omp/config.yml" "$TARGET_ROOT/config.yml"
+cmp -s "$REPO_ROOT/_omp/models.yml" "$TARGET_ROOT/models.yml"
 grep -q '^  - ~/.omp/agent/extensions/deepinfra.ts$' "$TARGET_ROOT/config.yml"
 grep -q '^  - ~/.omp/agent/extensions/thinking-shortcuts.ts$' "$TARGET_ROOT/config.yml"
 grep -q '^  - claude$' "$TARGET_ROOT/config.yml"
@@ -48,12 +49,18 @@ grep -q 'old-deepinfra' "$TARGET_ROOT/extensions/deepinfra.ts.before-ai-configs"
 grep -q 'user-owned' "$TARGET_ROOT/agents/custom.md"
 grep -q 'user-owned' "$TARGET_ROOT/extensions/custom.ts"
 grep -q '^plugin install @dietrichgebert/ponytail$' "$PLUGIN_LOG"
+cat >> "$TARGET_ROOT/models.yml" <<'EOF'
+  custom:
+    auth: none
+EOF
+cp "$TARGET_ROOT/models.yml" "$TMP_ROOT/user-models.yml"
 
 OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
   bash "$REPO_ROOT/_omp/install.sh" >/dev/null
 grep -q 'old-config' "$TARGET_ROOT/config.yml.before-ai-configs"
 grep -q 'old-guidance' "$TARGET_ROOT/AGENTS.md.before-ai-configs"
 grep -q 'old-oracle' "$TARGET_ROOT/agents/oracle.md.before-ai-configs"
+cmp -s "$TMP_ROOT/user-models.yml" "$TARGET_ROOT/models.yml"
 [[ "$(wc -l < "$PLUGIN_LOG")" -eq 2 ]]
 
 printf 'OMP config installer tests passed.\n'
