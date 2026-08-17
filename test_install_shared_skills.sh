@@ -756,6 +756,52 @@ test_execution_ready_route_is_installed_for_omp() {
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'Do not wait for another readiness request' || return 1
 }
 
+test_computer_use_routes_to_cua_driver() {
+  local home
+
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+skill = Path('skills/computer-use/SKILL.md')
+if not skill.is_file():
+    raise SystemExit('missing repo-owned computer-use source')
+text = skill.read_text()
+for phrase in [
+    'skill://cua-driver',
+    'cua-driver <tool-name>',
+    'Do not use Orca\'s computer-use CLI',
+    'Do not fall through to `orca`, `orca-dev`, or `orca-ide`',
+]:
+    if phrase not in text:
+        raise SystemExit(f'computer-use missing cua-driver contract: {phrase}')
+for forbidden in ['ORCA skills get computer-use', 'ORCA computer list-apps']:
+    if forbidden in text:
+        raise SystemExit(f'computer-use still documents Orca computer-use: {forbidden}')
+
+entry = json.loads(Path('skills/install-matrix.json').read_text())['installableSkills'].get('computer-use')
+if entry is None:
+    raise SystemExit('install matrix is missing computer-use')
+expected = {
+    'class': 'universal-installable',
+    'canonicalSource': 'skills/computer-use',
+    'sourceType': 'repo',
+    'allowedConsumers': ['codex', 'claude', 'pi'],
+}
+for key, value in expected.items():
+    if entry.get(key) != value:
+        raise SystemExit(f'computer-use matrix {key}={entry.get(key)!r}, expected {value!r}')
+PY
+
+  home="$(new_tmp_dir)"
+  mkdir -p "$home/.claude/skills"
+  run_installer "$home" --skills || return 1
+  cmp "skills/computer-use/SKILL.md" "$home/.agents/skills/computer-use/SKILL.md" || return 1
+  assert_file_contains "$home/.agents/skills/computer-use/.ai-configs-managed.json" '"source": "skills/computer-use"' || return 1
+  assert_symlink_target "$home/.claude/skills/computer-use" "$home/.agents/skills/computer-use" || return 1
+}
+
+
 test_project_local_central_skill_overrides_are_removed() {
   local home
   local target
@@ -2093,6 +2139,7 @@ main() {
   run_test test_single_surface_modes_reuse_shared_sync
   run_test test_pi_local_skills_are_consolidated_into_shared_agents_directory
   run_test test_execution_ready_route_is_installed_for_omp
+  run_test test_computer_use_routes_to_cua_driver
   run_test test_project_local_central_skill_overrides_are_removed
   run_test test_non_managed_retired_skill_is_preserved
   run_test test_failpoint_after_backup_keeps_destination_recoverable
