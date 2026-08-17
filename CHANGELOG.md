@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: reviewer is `xai-oauth/grok-4.6:medium`, thinking blocks hidden, personality pragmatic.
 - Synced managed OMP `config.yml` from this host: computer use on, bash auto-background off, AutoQA off, task effort off, Herdr worktree base, and GitHub/security tools on.
 - Trimmed managed OMP `AGENTS.md` to OMP-specific authority, agent routing, delivery activation, and secret-handling rules not already covered by OMP's default system prompt or this repository's own guidance.
 - Capped managed `xai/grok-4.5` at a 200k context window instead of the 500k catalog size, and pinned unsuffixed `cursor/grok-4.5` to plain (not Cursor Fast or the `:fast`/`:slow` aliases).
