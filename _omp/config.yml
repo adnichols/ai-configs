@@ -18,9 +18,9 @@ bash:
   autoBackground:
     enabled: false
 astGrep:
-  enabled: true
+  enabled: false
 computer:
-  enabled: true
+  enabled: false
 checkpoint:
   enabled: false
 plan:
@@ -68,8 +68,9 @@ task:
 worktree:
   base: ~/.herdr/worktrees
 github:
-  enabled: true
+  enabled: false
 security:
-  enabled: true
+  enabled: false
 hideThinkingBlock: true
 personality: pragmatic
+interruptMode: immediate
