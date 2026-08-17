@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -45,6 +46,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             {path.name for path in EXTENSIONS.glob("*.ts")},
         )
 
+
     def test_planner_uses_omp_frontmatter_and_pi_runtime_profile(self):
         metadata, body = split_frontmatter(AGENTS / "planner.md")
 
@@ -72,59 +74,51 @@ class OmpAgentRosterTest(unittest.TestCase):
 
         self.assertIn("default: openai-codex/gpt-5.6-luna:xhigh", config)
         self.assertIn("smol: openai-codex/gpt-5.6-luna:xhigh", config)
-        self.assertIn("advisor: opencode-zen/deepseek-v4-flash:high", config)
-        self.assertIn("Trouble: xai/grok-4.5:high", config)
+        self.assertIn("advisor: openai-codex/gpt-5.6-luna:xhigh", config)
+        self.assertIn("completeness: xai-oauth/grok-4.6:medium", config)
         self.assertEqual("completeness", metadata.get("name"))
         self.assertEqual("xai/grok-4.5:high", metadata.get("model"))
         self.assertIn("request-bound artifact", metadata.get("description", ""))
         self.assertIn("requiredEnvelope", body)
 
-    def test_omp_guidance_routes_delivery_phrases_to_omp_lite(self):
+    def test_omp_guidance_only_bootstraps_delivery_skill(self):
         guidance = (OMP / "AGENTS.md").read_text()
         skill = DELIVERY_SKILL.read_text()
+        metadata, _ = split_frontmatter(DELIVERY_SKILL)
 
         for required in (
-            "arm our delivery workflow",
+            "explicit opt-in only",
+            '"arm our delivery workflow"',
+            "invokes `/delivery` or `delivery arm`",
+            "`/delivery:spawn` or `delivery spawn`",
             "skill://delivery-run",
-            "delivery spawn --runtime omp",
-            "delivery bootstrap --runtime omp",
-            "workflowProfile=omp-lite",
-            "completion-review --prepare",
-            "@completeness",
-            "xai/grok-4.5:high",
-            "acceptCommand",
+            "authoritative for all workflow details",
         ):
             self.assertIn(required, guidance)
+
+        for workflow_detail in (
+            "workflowProfile=omp-lite",
+            "delivery bootstrap --runtime omp",
+            ".delivery/ledger.json",
+            "openai-codex/gpt-5.6-luna:xhigh",
+            "completion-review --prepare",
+            "acceptCommand",
+        ):
+            self.assertNotIn(workflow_detail, guidance)
+
+        self.assertIn("Do not trigger for generic planning", metadata.get("description", ""))
         for required in (
-            '"arm our delivery workflow"',
             "## OMP Lite path",
             "runtime: omp",
             "workflowProfile: omp-lite",
             "current OMP agent as owner",
+            "delivery bootstrap --runtime omp",
             "openai-codex/gpt-5.6-luna:xhigh",
             "xai/grok-4.5:high",
             "exact seven-line envelope",
+            "acceptCommand",
         ):
             self.assertIn(required, skill)
-
-    def test_delivery_workflow_is_explicit_opt_in_only(self):
-        guidance = (OMP / "AGENTS.md").read_text()
-        skill = DELIVERY_SKILL.read_text()
-        metadata, _ = split_frontmatter(DELIVERY_SKILL)
-        description = metadata.get("description", "")
-
-        # Negative: generic or unrelated requests must not arm delivery.
-        self.assertIn("explicit opt-in only", guidance)
-        self.assertIn("Never arm", guidance)
-        self.assertIn("prewalk", guidance)
-        self.assertIn("Do not trigger for generic planning", description)
-        self.assertIn("such as prewalk", description)
-        self.assertIn("do not bootstrap or initialize delivery", skill)
-
-        # Positive: explicit delivery requests and commands still activate.
-        self.assertIn('"arm our delivery workflow"', skill)
-        self.assertIn("start delivery", skill)
-        self.assertIn("delivery spawn", skill)
 
     def test_installer_deploys_complete_agent_roster(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -176,6 +170,11 @@ class OmpAgentRosterTest(unittest.TestCase):
                 },
                 {path.name for path in (target / "extensions").glob("*.ts")},
             )
+            self.assertEqual(
+                (OMP / "AGENTS.md").read_text(),
+                (target / "AGENTS.md").read_text(),
+            )
+            self.assertFalse((target / "APPEND_SYSTEM.md").exists())
             self.assertFalse((target / "commands").exists())
             self.assertFalse((target / "SYSTEM.md").exists())
             backups = list((Path(f"{target}.before-ai-configs")).glob("*/**/*"))
@@ -205,6 +204,62 @@ class OmpAgentRosterTest(unittest.TestCase):
                 (shared_target / "scripts" / "delivery").resolve(),
                 (bin_target / "delivery").resolve(),
             )
+
+    def test_omp_runtime_discovers_installed_guidance(self):
+        omp_cli = shutil.which("omp")
+        if not omp_cli:
+            self.skipTest("omp is not installed")
+        sdk_ts = Path(os.path.realpath(omp_cli)).resolve().parent.parent / "src" / "sdk.ts"
+        if not sdk_ts.is_file():
+            self.skipTest(f"OMP SDK source missing at {sdk_ts}")
+
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "omp-agent"
+            env = os.environ.copy()
+            env["OMP_CONFIG_TARGET"] = str(target)
+            shared_target = Path(temp) / "agents-shared"
+            bin_target = Path(temp) / "bin"
+            fake_omp_bin = Path(temp) / "fake-bin"
+            fake_omp_bin.mkdir()
+            fake_omp = fake_omp_bin / "omp"
+            fake_omp.write_text("#!/bin/sh\nexit 0\n")
+            fake_omp.chmod(0o755)
+            env["PATH"] = f"{fake_omp_bin}{os.pathsep}{env['PATH']}"
+            env["OMP_SHARED_TARGET"] = str(shared_target)
+            env["OMP_BIN_TARGET"] = str(bin_target)
+            env["PI_CODING_AGENT_DIR"] = str(target)
+            subprocess.run(
+                ["bash", str(OMP / "install.sh")],
+                cwd=ROOT,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            project = Path(temp) / "project"
+            project.mkdir()
+            expected = target / "AGENTS.md"
+            script = (
+                f"const {{ discoverContextFiles }} = await import({sdk_ts.as_posix()!r});"
+                f"const files = await discoverContextFiles({project.as_posix()!r});"
+                f"const expected = {str(expected)!r};"
+                "const match = files.find(file => file.path === expected);"
+                "if (!match) throw new Error('OMP did not discover installed AGENTS.md');"
+                "if (!match.content.includes('Delivery is **explicit opt-in only**')) "
+                "throw new Error('discovered file is not the managed OMP guidance');"
+                "process.stdout.write(match.path);"
+            )
+            discovered = subprocess.run(
+                ["bun", "-e", script],
+                cwd=ROOT,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+            self.assertEqual(str(expected), discovered)
+
+
 
 
 if __name__ == "__main__":

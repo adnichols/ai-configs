@@ -16,11 +16,11 @@ edit:
   mode: hashline
 bash:
   autoBackground:
-    enabled: true
+    enabled: false
 astGrep:
   enabled: true
 computer:
-  enabled: false
+  enabled: true
 checkpoint:
   enabled: false
 plan:
@@ -62,3 +62,12 @@ advisor:
   enabled: true
 dev:
   autoqaConsent: granted
+  autoqa: false
+task:
+  enableEffort: false
+worktree:
+  base: ~/.herdr/worktrees
+github:
+  enabled: true
+security:
+  enabled: true
