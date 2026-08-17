@@ -40,3 +40,9 @@ providers:
         input: [text, image]
       cursor-grok-4.6-xhigh-fast:
         input: [text, image]
+      kimi-k3-high:
+        input: [text, image]
+      kimi-k3-low:
+        input: [text, image]
+      kimi-k3-max:
+        input: [text, image]
