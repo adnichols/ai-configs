@@ -36,6 +36,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added revision-checked blocking delivery-ledger writes, diagnostic completeness-response parsing, and install-receipt references that coexist in the delivery ledger.
 - Strengthened run-plan strict-suite partitioning, bounded failure inventory, owned scratch, and final committed-candidate checks; replaced the universal Socratic questionnaire with conditional evidence in existing plan-review sections.
 
+### Removed
+
+- Removed leftover Gemini CLI surfaces: root `GEMINI.md`, `_claude/commands/review:change-gemini.md`, and `scripts/gemini-review.sh`.
+
 ## [Retire pi-side-agents] - 2026-07-16
 
 ### Removed
