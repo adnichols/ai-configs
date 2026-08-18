@@ -51,8 +51,8 @@ class OmpAgentRosterTest(unittest.TestCase):
         metadata, body = split_frontmatter(AGENTS / "planner.md")
 
         self.assertEqual("planner", metadata.get("name"))
-        self.assertEqual("openai-codex/gpt-5.6-sol", metadata.get("model"))
-        self.assertEqual("medium", metadata.get("thinking-level"))
+        self.assertEqual("@plan", metadata.get("model"))
+        self.assertNotIn("thinking-level", metadata)
         self.assertEqual("read, grep, glob, bash, write", metadata.get("tools"))
         for pi_only_key in ("mode", "reasoningEffort", "isolation"):
             self.assertNotIn(pi_only_key, metadata)
@@ -74,9 +74,10 @@ class OmpAgentRosterTest(unittest.TestCase):
 
         self.assertIn("default: xai-oauth/grok-4.6", config)
         self.assertIn("smol: openai-codex/gpt-5.6-luna:xhigh", config)
-        self.assertIn("advisor: xai-oauth/grok-4.6:high", config)
+        self.assertIn("advisor: xai-oauth/grok-4.6:medium", config)
         self.assertIn("Oracle: fireworks/kimi-k3:max", config)
-        self.assertIn("slow: openai-codex/gpt-5.6-sol:high", config)
+        self.assertIn("slow: cursor/kimi-k3-max:max", config)
+        self.assertIn("plan: xai-oauth/grok-4.6:high", config)
         self.assertIn("completeness: xai-oauth/grok-4.6:medium", config)
         self.assertEqual("completeness", metadata.get("name"))
         self.assertEqual("xai/grok-4.5:high", metadata.get("model"))

@@ -1,8 +1,7 @@
 ---
 name: planner
 description: Planning-only implementation-plan author and independent readiness reviewer
-model: openai-codex/gpt-5.6-sol
-thinking-level: medium
+model: "@plan"
 tools: read, grep, glob, bash, write
 ---
 

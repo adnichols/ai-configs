@@ -27,13 +27,13 @@ plan:
   enabled: false
 modelRoles:
   smol: openai-codex/gpt-5.6-luna:xhigh
-  slow: openai-codex/gpt-5.6-sol:high
+  slow: cursor/kimi-k3-max:max
   vision: openai-codex/gpt-5.6-terra:medium
-  plan: openai-codex/gpt-5.6-terra:high
+  plan: xai-oauth/grok-4.6:high
   designer: openai-codex/gpt-5.6-terra:high
   commit: openai-codex/gpt-5.6-luna:xhigh
   tiny: openai-codex/gpt-5.6-luna:low
-  advisor: xai-oauth/grok-4.6:high
+  advisor: xai-oauth/grok-4.6:medium
   Oracle: fireworks/kimi-k3:max
   reviewer: xai-oauth/grok-4.6:medium
   default: xai-oauth/grok-4.6
