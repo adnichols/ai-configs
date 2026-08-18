@@ -72,9 +72,11 @@ class OmpAgentRosterTest(unittest.TestCase):
         config = (OMP / "config.yml").read_text()
         metadata, body = split_frontmatter(AGENTS / "completeness.md")
 
-        self.assertIn("default: openai-codex/gpt-5.6-luna:xhigh", config)
+        self.assertIn("default: xai-oauth/grok-4.6", config)
         self.assertIn("smol: openai-codex/gpt-5.6-luna:xhigh", config)
-        self.assertIn("advisor: openai-codex/gpt-5.6-luna:xhigh", config)
+        self.assertIn("advisor: xai-oauth/grok-4.6:high", config)
+        self.assertIn("Oracle: fireworks/kimi-k3:max", config)
+        self.assertIn("slow: openai-codex/gpt-5.6-sol:high", config)
         self.assertIn("completeness: xai-oauth/grok-4.6:medium", config)
         self.assertEqual("completeness", metadata.get("name"))
         self.assertEqual("xai/grok-4.5:high", metadata.get("model"))
