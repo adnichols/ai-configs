@@ -198,6 +198,17 @@
       "notes": "Codex-only: orchestrates the full lifecycle from issue or plan intake through reviewed planning, scoped execution, verification, push, and ready-for-review PR creation.",
       "sourceType": "repo"
     },
+    "completeness": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi"
+      ],
+      "canonicalSource": "skills/completeness",
+      "notes": "OMP driver for request-bound @completeness review. Resolves skill://completeness so sessions do not fail looking for a missing skill.",
+      "sourceType": "repo"
+    },
     "computer-use": {
       "class": "universal-installable",
       "allowedConsumers": [

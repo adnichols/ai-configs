@@ -47,6 +47,9 @@ destructive-action, external-coordination, or third-party PR boundaries.
   invokes `/delivery:spawn` or `delivery spawn`.
 - Once explicitly invoked, MUST read `skill://delivery-run` before changing
   delivery state. The skill is authoritative for all workflow details.
+- For a completeness check, read `skill://completeness` and launch
+  `@completeness`. Do not invent a packet.
+
 
 ## Safety
 

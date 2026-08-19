@@ -1,3 +1,5 @@
+import json
+
 import os
 import shutil
 import subprocess
@@ -12,6 +14,8 @@ AGENTS = OMP / "agents"
 EXTENSIONS = OMP / "extensions"
 DELIVERY_SKILL = ROOT / "skills" / "delivery-run" / "SKILL.md"
 DELIVERY_CLI = ROOT / "skills" / "delivery-run" / "scripts" / "delivery"
+COMPLETENESS_SKILL = ROOT / "skills" / "completeness" / "SKILL.md"
+
 
 
 def split_frontmatter(path: Path) -> tuple[dict[str, str], str]:
@@ -85,6 +89,18 @@ class OmpAgentRosterTest(unittest.TestCase):
         self.assertIn("request-bound artifact", metadata.get("description", ""))
         self.assertIn("requiredEnvelope", body)
 
+
+    def test_completeness_skill_resolves_for_omp(self):
+        metadata, body = split_frontmatter(COMPLETENESS_SKILL)
+        matrix = json.loads((ROOT / "skills" / "install-matrix.json").read_text())
+
+        self.assertEqual("completeness", metadata.get("name"))
+        self.assertIn("skill://completeness", metadata.get("description", ""))
+        self.assertIn("@completeness", body)
+        self.assertIn("completion-review --prepare", body)
+        self.assertIn("requiredEnvelope", body)
+        self.assertIn("completeness", matrix["installableSkills"])
+
     def test_omp_guidance_only_bootstraps_delivery_skill(self):
         guidance = (OMP / "AGENTS.md").read_text()
         skill = DELIVERY_SKILL.read_text()
@@ -96,9 +112,11 @@ class OmpAgentRosterTest(unittest.TestCase):
             "invokes `/delivery` or `delivery arm`",
             "`/delivery:spawn` or `delivery spawn`",
             "skill://delivery-run",
+            "skill://completeness",
             "authoritative for all workflow details",
         ):
             self.assertIn(required, guidance)
+
 
         for workflow_detail in (
             "workflowProfile=omp-lite",

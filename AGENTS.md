@@ -276,8 +276,9 @@ Expected Pi reviewed-plan flow in this repo:
 Expected OMP delivery flow in this repo:
 - Read `skill://delivery-run`, select `runtime=omp` / `workflowProfile=omp-lite`, and keep `.delivery/ledger.json` as the shared authoritative scoreboard.
 - Use normal OMP mode for planning and same-session implementation. The driving OMP session uses `openai-codex/gpt-5.6-luna:xhigh` by default for implementation, scoped review, and PM outcome review; use `openai-codex/gpt-5.6-terra:high` when correctness depends materially on technical judgment. Unresolved consequential choices escalate to Oracle rather than routing implementation through Sol. Do not enable native plan mode, launch Pi, require a Pi implementation profile, or use Pi slash commands.
-- Use the configured OMP `@planner` and `@reviewer` contracts for readiness and autoreview, and `@completeness` on `xai/grok-4.5:high` for completeness. OMP completeness is accepted only through the request-bound envelope from `delivery completion-review --prepare`; no Pi/Grok witness tab is involved.
+- Use the configured OMP `@planner` and `@reviewer` contracts for readiness and autoreview, and `@completeness` on `xai/grok-4.5:high` for completeness. Load `skill://completeness` before launching that reviewer. OMP completeness is accepted only through the request-bound envelope from `delivery completion-review --prepare`; no Pi/Grok witness tab is involved.
 - OMP Lite renders only `PL:`, `I:`, `R:`, `PR:`, `D:`, and `B:` phase labels. It cannot enter PR stages without PM outcome, autoreview, and current completeness evidence, or enter `DONE` without final verification and PR evidence.
+
 
 Legacy external review commands remain explicit opt-in tools. They are not hidden fallbacks inside plan mode or execution.
 
@@ -341,8 +342,10 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 - `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, and run PM plus the independent Sol-medium planner-subagent plan review. Planning-only use stops at the execution-ready plan; a delivery-managed Herdr run automatically launches the dedicated implementation agent at `EXECUTION_READY`.
 - `/skill:delivery-run` — Per-worktree delivery stage ledger and board for plan ↔ review → run-plan → autoreview → PR. Guidance not gates; `delivery check` advisories never hard-block.
 - `/skill:autoreview` — Canonical bounded active-harness reviewer-subagent pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to mandatory PR creation instead of concluding or waiting for external approval.
+- `/skill:completeness` — OMP driver for `@completeness` request-bound plan-completeness review (`skill://completeness`).
 - `/skill:pre-pr-implementation-review` — Indefinite compatibility alias for `/skill:autoreview`; it preserves arguments and the same `OPEN_PR_READY` handoff semantics.
 - `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
+
 
 ### Configuration
 
