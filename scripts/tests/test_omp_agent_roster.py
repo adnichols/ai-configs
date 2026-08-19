@@ -79,7 +79,7 @@ class OmpAgentRosterTest(unittest.TestCase):
         self.assertIn("slow: cursor/kimi-k3-max:max", config)
         self.assertIn("plan: xai-oauth/grok-4.6:high", config)
         self.assertIn("completeness: xai-oauth/grok-4.6:medium", config)
-        self.assertIn("advisor: priority", config)
+        self.assertIn("advisor: none", config)
         self.assertEqual("completeness", metadata.get("name"))
         self.assertEqual("xai/grok-4.5:high", metadata.get("model"))
         self.assertIn("request-bound artifact", metadata.get("description", ""))

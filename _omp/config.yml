@@ -75,4 +75,4 @@ hideThinkingBlock: true
 personality: pragmatic
 interruptMode: immediate
 tier: 
-  advisor: priority
+  advisor: none
