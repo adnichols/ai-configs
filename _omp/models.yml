@@ -1,3 +1,4 @@
+---
 providers:
   xai-oauth:
     modelOverrides:
@@ -5,7 +6,11 @@ providers:
         reasoning: true
         thinking:
           mode: effort
-          efforts: [low, medium, high, xhigh]
+          efforts:
+          - low
+          - medium
+          - high
+          - xhigh
           defaultLevel: high
         compat:
           supportsReasoningEffort: true
@@ -13,36 +18,70 @@ providers:
   cursor:
     modelOverrides:
       cursor-grok-4.5-high:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.5-high-fast:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.5-low:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.5-low-fast:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.5-medium:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.5-medium-fast:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.6-high:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.6-high-fast:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.6-low:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.6-low-fast:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.6-medium:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.6-medium-fast:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.6-xhigh:
-        input: [text, image]
+        input:
+        - text
+        - image
       cursor-grok-4.6-xhigh-fast:
-        input: [text, image]
+        input:
+        - text
+        - image
       kimi-k3-high:
-        input: [text, image]
+        input:
+        - text
+        - image
       kimi-k3-low:
-        input: [text, image]
+        input:
+        - text
+        - image
       kimi-k3-max:
-        input: [text, image]
+        input:
+        - text
+        - image

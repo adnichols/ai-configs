@@ -206,7 +206,7 @@ Linear responsive table guidance from the 2026-06-28 deterministic GM review is 
 
 Granola public-API CLI migration details from the 2026-06-28 rebuild are captured in `references/gm-granola-cli-migration-2026-06-28.md`; use it when adjusting `/gm` transcript sync, source links, or troubleshooting `granola-cli` auth/API shape.
 
-Durable comment-listener history is captured in `references/gm-durable-comment-maintainer.md`, but the old `plan-review agent next --wait` pattern is legacy. Current Doct handling uses `doct-agent plans queue list`, `doct-agent plans agent next`, `doct-agent plans reply`, `doct-agent plans ack`, and `doct-agent plans resolve` against `https://doct.nodaste.com`. Cron mode should stay quiet-by-default and drain/process only the Doct plan/document it owns. The migration/pitfall notes in `references/gm-doct-publish-listener-migration-2026-07-03.md` cover Doct listener idle timeouts, nested `listenerInstructions` normalization, Doct update versioning, same-date dry-run overwrite hazards, and cleaning up legacy review tasks/duplicate documents.
+Durable comment-listener history is captured in `references/gm-durable-comment-maintainer.md`, but it is historical only. Good Morning publishing must not start a Doct comment listener, register listener ownership, or launch a maintainer. If Aaron explicitly asks to process comments on a specific briefing, inspect and drain that document's queue interactively with `doct-agent plans queue list` / `plans agent next`; do not make the listener persistent. The migration/pitfall notes in `references/gm-doct-publish-listener-migration-2026-07-03.md` remain useful for Doct update versioning, same-date dry-run overwrite hazards, and duplicate-document cleanup.
 
 Cron timeout recovery should recover the already-created artifact instead of rerunning the full collection pipeline, but registration now goes through Doct. If the scheduled GM run times out after creating `adn_vault/DailyGM/YYYY-MM-DD-gm.html` but before final delivery, recover the existing artifact: register/update it with `doct-agent plans register` / `doct-agent plans update`, preserve the returned Doct document id/workspace id/canonical URL/version, inspect the Doct queue once, create/verify the Todoist review task, then report the exact Doct URL and task ID.
 
@@ -225,29 +225,8 @@ Required delivery flow:
    If updating an already-registered same-day artifact, prefer `doct-agent plans update --base-url https://doct.nodaste.com --id <document-id> --workspace-id 759bfae3-44f1-4ce5-9bff-9077d9933a21 --file adn_vault/DailyGM/YYYY-MM-DD-gm.html --source-format html --expected-version <version> --json`. For `<version>`, use the integer `version` from `doct-agent documents get --base-url https://doct.nodaste.com --id <document-id> --json`; do not use UUID-like `htmlVersionId` values from `plans show`. Cron reruns/retries for the same date should update the active same-day document instead of registering duplicates. If a same-day GM document is registered outside the `Good Morning` folder, move it with `doct-agent documents move --base-url https://doct.nodaste.com --id <document-id> --workspace-id 759bfae3-44f1-4ce5-9bff-9077d9933a21 --new-parent-id <good-morning-folder-id> --json` before finalizing.
 5. Share only the canonical Doct URL returned by the command. If the response gives a relative URL, resolve it against `https://doct.nodaste.com` without reconstructing IDs from memory. Never share loopback, Tailscale, or local `plan-review` URLs for the default GM flow.
 6. Inspect pending Doct work once with `doct-agent plans queue list --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json`.
-7. **Interactive mode:** claim one item at a time with `doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json`; update the HTML artifact; push with `doct-agent plans update`; then `reply`, `ack`, and `resolve` with the returned thread/claim ids.
-8. **Cron mode:** do **not** start a long-lived passive listener from the daily cron. Use a quiet-by-default maintainer/drain loop that owns the specific Doct document id and stays silent when no comments/actions are pending.
-
-### Cron-mode ownership registry
-
-When running from a scheduled cron job, after successful Doct registration, record maintainer ownership in `/Users/anichols/.hermes/state/gm-plan-maintainer/active-plans.json`. Create parent directories if needed. Keep this file as JSON with an `active_plans` array. Upsert an item containing:
-- `document_id` / `plan_id` — exactly as returned by Doct registration
-- `workspace_id` — exactly as returned or resolved from Doct
-- `current_version` — latest source/version value when returned
-- `parent_id` — the Doct `Good Morning` folder id in the Personal workspace
-- `workspace_name` — `Personal`
-- `folder_title` — `Good Morning`
-- `folder_path` — `good-morning`
-- `review_url` — canonical Doct URL
-- `source_path` and `plan_path` — absolute path to the HTML artifact
-- `created_by_job_id` — the cron job ID
-- `created_by_job_name` — the cron job name
-- `routine` — `good_morning`
-- `date` — local YYYY-MM-DD
-- `registered_at` — ISO timestamp
-- `status` — `active`
-
-This registry is the ownership source for the Doct comment/action maintainer; do not list unrelated plans/documents.
+7. Do not automatically start a comment listener in either interactive or cron mode. Do not write the briefing into `~/.hermes/state/gm-plan-maintainer/active-plans.json`.
+8. If Aaron explicitly asks to process comments on one briefing, claim one item at a time with `doct-agent plans agent next --base-url https://doct.nodaste.com --workspace-id <workspace-id> --document-id <document-id> --json`; update the HTML artifact; push with `doct-agent plans update`; then `reply`, `ack`, and `resolve` with the returned thread/claim ids. Stop when the requested queue work is complete.
 
 ### Cron-mode Todoist review task
 

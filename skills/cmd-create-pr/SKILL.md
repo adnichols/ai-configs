@@ -42,10 +42,12 @@ git rev-parse --verify "${base_ref}^{commit}"
 
 ```bash
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-gh pr list --head "$BRANCH" --json number,title,url --limit 1
+EXISTING_NUMBER="$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty')"
 ```
 
-If a PR already exists, report the URL and STOP.
+If `$EXISTING_NUMBER` is set, keep it and continue. Do not create a
+second PR. Still run title, candidate, disposition, and squash. Step 6
+updates that PR (body / `gh pr ready`) instead of `gh pr create`.
 
 ### 3) Prepare Title and Evidence
 
@@ -104,7 +106,38 @@ When the repo has `.agents/skills/heddle-permanent-docs/SKILL.md`, `docs/DEV_DOC
 
 Do not require CCore archive package creation or plan-source deletion. Changelog fragment rules remain the separate existing gate.
 
-### 5) Create PR
+### 5) Squash to one commit
+
+GitHub merge-button squash is not a substitute. Reviewers read the branch.
+Before `gh pr create`, `gh pr ready`, or any push that publishes the PR
+head, the range `${base_ref}..HEAD` MUST be exactly one commit.
+
+Resolve `$GIT_WL` first via `skill://safe-git-index`. Soft-reset and
+commit mutate the index; never run raw `git reset --soft` or `git commit`.
+
+```bash
+COUNT="$(git rev-list --count "${base_ref}..HEAD")"
+if [[ "$COUNT" -gt 1 ]]; then
+  MERGE_BASE="$(git merge-base "$base_ref" HEAD)"
+  "$GIT_WL" reset --soft "$MERGE_BASE"
+  "$GIT_WL" commit -m "$TITLE"
+  # If this branch already has a remote, publish with force-with-lease.
+  # Never force-push main or develop.
+  git push --force-with-lease origin "$BRANCH"
+fi
+```
+
+The squash commit subject is `$TITLE` from step 3 (Linear-titled when
+Linear-backed). Do not keep a stack of fixup/rebase/clippy commits on
+the PR branch.
+
+After a squash, commit-bound certification or review receipts that name
+the old HEAD are stale. Name the new HEAD in the PR body. Same tree as
+the old tip is not enough to keep claiming the old SHA.
+
+### 6) Create or update PR
+
+If `$EXISTING_NUMBER` is empty, create:
 
 ```bash
 BASE_NAME="${base_ref#origin/}"
@@ -133,6 +166,7 @@ gh pr create \
 - (links / caveats)"
 ```
 
-After creation, print the PR URL.
-
-Note: squash-vs-merge is typically configured at merge time; `gh pr create` does not enforce squash on its own.
+If `$EXISTING_NUMBER` is set, do not create. Update that PR's body (and
+title if step 3 changed it) with `gh pr edit "$EXISTING_NUMBER"`. If the
+operator asked for ready, run `gh pr ready "$EXISTING_NUMBER"` after
+squash and push. Print the URL either way.

@@ -3,7 +3,7 @@
     {
       "id": "1e1312756e9e",
       "name": "daily-hermes-agent-functional-merge-review",
-      "prompt": "Review the GitHub repository NousResearch/hermes-agent once per day and post a succinct summary of material functional changes/improvements merged in the last 24 hours.\n\nUse live GitHub data (gh/git) and inspect enough detail to distinguish real functional changes from noise. Exclude docs-only changes, generated site output, deploy artifacts, pure metadata/version bumps, formatting-only churn, and CI-only changes unless they materially affect developer/release behavior.\n\nOutput requirements:\n- Provide only the summary, with no surrounding explanation about methodology.\n- Do NOT include PR numbers, commit hashes, links, or exhaustive change lists.\n- Group related work into a short bullet list of material functional changes and improvements.\n- Focus on user-facing behavior, runtime/tooling capabilities, reliability/security/data-integrity fixes, integrations/platform support, and developer workflow improvements.\n- Keep it concise: aim for 3\u20138 bullets, one sentence each.\n- If there were no material functional changes, output exactly: \"No material functional changes merged in the last 24 hours.\"",
+      "prompt": "Review the GitHub repository NousResearch/hermes-agent once per day and post a succinct summary of material functional changes/improvements merged in the last 24 hours.\n\nUse live GitHub data (gh/git) and inspect enough detail to distinguish real functional changes from noise. Exclude docs-only changes, generated site output, deploy artifacts, pure metadata/version bumps, formatting-only churn, and CI-only changes unless they materially affect developer/release behavior.\n\nOutput requirements:\n- Provide only the summary, with no surrounding explanation about methodology.\n- Do NOT include PR numbers, commit hashes, links, or exhaustive change lists.\n- Group related work into a short bullet list of material functional changes and improvements.\n- Focus on user-facing behavior, runtime/tooling capabilities, reliability/security/data-integrity fixes, integrations/platform support, and developer workflow improvements.\n- Keep it concise: aim for 3–8 bullets, one sentence each.\n- If there were no material functional changes, output exactly: \"No material functional changes merged in the last 24 hours.\"",
       "skills": [
         "github-functional-merge-review"
       ],
@@ -20,15 +20,15 @@
       "schedule_display": "0 8 * * *",
       "repeat": {
         "times": null,
-        "completed": 99
+        "completed": 126
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-04-15T22:28:26.681323-06:00",
-      "next_run_at": "2026-07-24T08:00:00-06:00",
-      "last_run_at": "2026-07-23T08:01:51.224872-06:00",
+      "next_run_at": "2026-08-20T08:00:00-06:00",
+      "last_run_at": "2026-08-19T08:02:06.920179-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -42,7 +42,7 @@
     {
       "id": "039f96dcecfc",
       "name": "Daily Good Morning Doct Plan + Todoist Review",
-      "prompt": "Script-only deterministic Good Morning cron. Runs ~/.hermes/scripts/gm_deterministic_cron.py from /Users/anichols/Obsidian. The script builds Aaron's daily Good Morning HTML report, publishes/updates it as a Doct plan document via doct-agent, registers ownership in ~/.hermes/state/gm-plan-maintainer/active-plans.json for the durable Doct comment listener, creates/reuses the Todoist review task, and prints the concise Discord summary with the canonical Doct URL. Do not schedule nested cron jobs from this run.",
+      "prompt": "Script-only deterministic Good Morning cron. Runs ~/.hermes/scripts/gm_deterministic_cron.py from /Users/anichols/Obsidian. The script builds Aaron's daily Good Morning HTML report, publishes/updates it as a Doct plan document via doct-agent, creates/reuses the Todoist review task, and prints the concise Discord summary with the canonical Doct URL. It must not register listener ownership or start a Doct comment listener. Do not schedule nested cron jobs from this run.",
       "skills": [],
       "skill": null,
       "model": null,
@@ -59,15 +59,15 @@
       "schedule_display": "0 6 * * *",
       "repeat": {
         "times": null,
-        "completed": 37
+        "completed": 64
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-06-21T08:26:26.329217-06:00",
-      "next_run_at": "2026-07-24T06:00:00-06:00",
-      "last_run_at": "2026-07-23T06:05:20.867805-06:00",
+      "next_run_at": "2026-08-20T06:00:00-06:00",
+      "last_run_at": "2026-08-19T06:05:50.333468-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -80,50 +80,9 @@
       },
       "enabled_toolsets": null,
       "workdir": "/Users/anichols/Obsidian",
-      "fire_claim": null
-    },
-    {
-      "id": "544dbd1c6d84",
-      "name": "Good Morning Doct plan comment listener supervisor",
-      "prompt": "Quiet script-only supervisor for Good Morning Doct plan comment listeners. The script reads ~/.hermes/state/gm-plan-maintainer/active-plans.json and starts/restarts ~/.hermes/scripts/gm_plan_comment_listener.py only for active Good Morning Doct documents owned by the daily GM workflow. It stays quiet when nothing needs attention; stdout is reserved for real supervisor errors.",
-      "skills": [],
-      "skill": null,
-      "model": null,
-      "provider": null,
-      "base_url": null,
-      "script": "gm_plan_comment_supervisor.py",
-      "no_agent": true,
-      "context_from": null,
-      "schedule": {
-        "kind": "interval",
-        "minutes": 1,
-        "display": "every 1m"
-      },
-      "schedule_display": "every 1m",
-      "repeat": {
-        "times": null,
-        "completed": 20214
-      },
-      "enabled": false,
-      "state": "paused",
-      "paused_at": "2026-08-12T08:43:16.333762-06:00",
-      "paused_reason": "Disabled temporarily: Good Morning plans should not leave persistent comment listeners running.",
-      "created_at": "2026-06-21T09:41:11.831912-06:00",
-      "next_run_at": "2026-07-23T11:33:11.165347-06:00",
-      "last_run_at": "2026-07-23T11:32:11.165347-06:00",
-      "last_status": "ok",
-      "last_error": null,
-      "last_delivery_error": null,
-      "deliver": "local",
-      "origin": {
-        "platform": "discord",
-        "chat_id": "1518260650021748898",
-        "chat_name": "adn_core / #chief-cos / create a cron job that runs every morning at 6am to run my good morning routi...",
-        "thread_id": "1518260650021748898"
-      },
-      "enabled_toolsets": null,
-      "workdir": "/Users/anichols/Obsidian",
-      "fire_claim": null
+      "fire_claim": null,
+      "monitor_script": null,
+      "monitor_url": null
     },
     {
       "id": "8ae87f95f2e3",
@@ -147,15 +106,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 2032
+        "completed": 5178
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-02T16:59:27.696134-06:00",
-      "next_run_at": "2026-07-23T11:33:59.477123-06:00",
-      "last_run_at": "2026-07-23T11:23:59.477123-06:00",
+      "next_run_at": "2026-08-19T08:12:50.525964-06:00",
+      "last_run_at": "2026-08-19T08:02:50.525964-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -192,15 +151,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 1944
+        "completed": 5136
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-04T07:48:06.775694-06:00",
-      "next_run_at": "2026-07-23T11:38:53.018936-06:00",
-      "last_run_at": "2026-07-23T11:28:53.018936-06:00",
+      "next_run_at": "2026-08-19T08:16:45.783292-06:00",
+      "last_run_at": "2026-08-19T08:06:45.783292-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -214,57 +173,6 @@
       },
       "enabled_toolsets": null,
       "workdir": "/Users/anichols/code/doct",
-      "fire_claim": null
-    },
-    {
-      "id": "6716382d2436",
-      "name": "Heddle PR local-review supervisor",
-      "prompt": "You are the recurring supervisor for Aaron's Heddle PR local-review loop. Run every tick until Aaron explicitly tells us to stop/remove this cron.\n\nMission: monitor https://github.com/Nodaste-Lab/heddle/pulls for open PRs. For every open PR, keep it moving until local autoreview for the current head is clean, required checks pass, and no actionable PR feedback already present remains. When actionable feedback, merge conflicts, or failing checks exist, start or continue a herdr worktree session under heddle and use pi to address it and run the repo's `/skill:autoreview` before updating the PR. Hermes is supervisor only: do not directly edit code, tests, docs, commits, or pushes yourself except state files under ~/.hermes/state and necessary herdr/pi orchestration. All development work happens inside pi in the herdr worktree.\n\nImportant paths and state:\n- Repo: /Users/anichols/code/heddle, GitHub repo Nodaste-Lab/heddle, base usually develop.\n- Supervisor state: ~/.hermes/state/heddle_pr_local_review_supervisor.json. Read it first; update it after launching/nudging sessions so later ticks can resume.\n- Historical sessions below are obsolete. Do not reuse their Codex-specific paths or feedback; discover current worktree state from GitHub and Herdr.\n  - PR #355 https://github.com/Nodaste-Lab/heddle/pull/355 branch nod-1192-fix-lab2-same-profile-multi-tenant-switch-e2e, worktree /Users/anichols/.herdr/worktrees/heddle/pr-355-local-review, herdr workspace w3H, pane w3H:p1. Historical feedback omitted; inspect the live PR instead.\n  - PR #356 https://github.com/Nodaste-Lab/heddle/pull/356 branch aaron/nod-1193-clerk-audit-e2e-fix, worktree /Users/anichols/.herdr/worktrees/heddle/pr-356-local-review, herdr workspace w3J, pane w3J:p1. Historical feedback omitted; inspect the live PR instead.\n\nCross-host single-owner guard:\n- Before any mutating/orchestration action on a PR \u2014 creating/opening/nudging herdr/pi or launching a new pi session, or otherwise moving that PR forward \u2014 acquire/renew the GitHub-backed lease with `~/.hermes/scripts/github_pr_agent_claim.py acquire --repo Nodaste-Lab/heddle --pr <number> --head <headRefOid> --ttl-minutes 90 --purpose heddle-pr-local-review --check-active-sessions --scan-hosts local,dever`.\n- The helper now inspects GitHub lease state plus active local/remote pi/herdr/tmux/process evidence. If the command exits 2 or reports `blocked`, `lost_race`, or `blocked_active_session`, another host/agent or a non-Hermes-managed session may already be acting on the PR. Do not launch, nudge, request review, edit, commit, push, or otherwise supervise that PR on this tick. Record/emit at most a concise blocked-by-owner/session status; otherwise stay quiet.\n- For diagnosis only, inspect active sessions with `~/.hermes/scripts/github_pr_agent_claim.py scan --repo Nodaste-Lab/heddle --pr <number> --hosts local,dever`. Treat scanner findings as evidence; treat the lease as the authority once established.\n- Renew the lease on every tick before continuing an already-running local pane. Release it only after the PR is merged/closed or after current-head local-review evidence is clean and no local pi work remains, using `~/.hermes/scripts/github_pr_agent_claim.py release --repo Nodaste-Lab/heddle --pr <number> --purpose heddle-pr-local-review`.\n- Local state, herdr workspaces, panes, and prior comments do not grant permission to run concurrently with another active lease owner or active-session conflict.\n\nTick procedure:\n1. Load repo and state context. `gh auth status` must work; if it fails, report the blocker. Use `gh pr list/view/api` for live PR state. Do not rely only on prior state.\n2. List open PRs for Nodaste-Lab/heddle with number/title/url/headRefName/headRefOid/baseRefName/isDraft/mergeStateStatus/reviewDecision/updatedAt/statusCheckRollup. Inspect existing PR review comments and PR comments for actionable current-head feedback, and inspect checks and mergeability. Current-head feedback must match the current PR head where GitHub supplies that relationship. Do not request an external Codex review or treat a Codex reaction as a completion requirement. If feedback provenance is unclear, preserve it as an uncertain actionable item for the pi session to inspect rather than fabricating a clean result.\n3. For each open PR:\n   - If the local autoreview evidence for the current head is clean, merge state is clean, required checks pass, and no actionable current PR feedback remains, mark that PR complete/green in state and emit a short completion note only once.\n   - If the current head lacks local autoreview evidence, has actionable feedback, merge conflicts, or failing checks, ensure a herdr worktree session exists for this PR. Use `herdr worktree create/open --cwd /Users/anichols/code/heddle --branch <headRefName> --base origin/<headRefName> --path /Users/anichols/.herdr/worktrees/heddle/pr-<number>-local-review --label heddle-pr<number>-local-review --no-focus --json`. Fetch origin first. If the worktree already exists, open/reuse it; never create duplicate sessions for the same PR/head.\n   - Launch pi in the worktree pane if no pi session is running. Use a login shell and explicit model: `zsh -l -c 'cd <worktree> && pi --provider openai-codex --model gpt-5.6-sol --name heddle-pr<number>-local-review \"<prompt>\"'`.\n   - The pi prompt must start with `/skill:autoreview` and include the PR URL, head branch, current head sha, base branch, actionable PR feedback summary, and this required workflow: inspect PR/diff/repo docs; run/use the pre-PR implementation review skill; address in-scope feedback and any other in-scope issues found; run relevant validation; commit and push to origin/<headRefName>; record fresh local autoreview evidence for the new head; continue until local review, checks, mergeability, and existing PR feedback are clean; leave exact blocker summary if blocked.\n   - If pi is already running, read its herdr pane tail and agent status. If it is idle/done but has not pushed or recorded fresh local autoreview evidence and there is no blocker, nudge it to continue from the current state with the same requirements. Do not hand-edit the repo. If it reports a blocker, verify enough of the blocker via pane output/GitHub state and report succinctly.\n4. Monitor existing pi sessions: use herdr workspace/pane list/read. Pane IDs can change; resolve by label/worktree path from state before acting. Do not trust stale IDs blindly. Do not broad-kill or clean up processes. Do not use rm -rf.\n5. After pi pushes a new head, update state with the new head sha and ensure it records fresh local autoreview evidence. Repeat on later ticks until current-head local review, checks, mergeability, and existing PR feedback are clean.\n6. Keep output quiet-by-default: if nothing changed and no blocker/completion, final response should be a one-line quiet status or empty-ish brief. If you launched/nudged a session, requested review, found feedback, saw completion, or hit a blocker, report the PR number, action, pane/worktree, and next watch condition.\n\nSafety/authority boundaries:\n- Aaron explicitly authorized PR feedback remediation for this repo, but Hermes must remain supervisor-only. Use pi inside herdr for code changes.\n- Preserve unrelated local changes. Do not reset/discard force-push unless pi has explicit, evidence-backed reason and it is scoped to that PR branch.\n- Do not merge PRs unless Aaron separately asks. The success condition here is clean local autoreview evidence, passing required checks, mergeability, no actionable current PR feedback, and updated PRs.\n- Use official GitHub/Git/herdr/pi outputs as evidence. Never invent tool results.",
-      "skills": [
-        "herdr",
-        "pi-coding-workflow",
-        "pi-workflow-orchestration",
-        "github-pr-workflow"
-      ],
-      "skill": "herdr",
-      "model": null,
-      "provider": null,
-      "provider_snapshot": "openai-codex",
-      "model_snapshot": "gpt-5.6-sol",
-      "base_url": null,
-      "script": null,
-      "no_agent": false,
-      "context_from": null,
-      "schedule": {
-        "kind": "interval",
-        "minutes": 10,
-        "display": "every 10m"
-      },
-      "schedule_display": "every 10m",
-      "repeat": {
-        "times": null,
-        "completed": 74
-      },
-      "enabled": false,
-      "state": "paused",
-      "paused_at": "2026-07-07T18:14:16.610550-06:00",
-      "paused_reason": null,
-      "created_at": "2026-07-04T10:51:10.731891-06:00",
-      "next_run_at": "2026-07-07T18:17:13.261058-06:00",
-      "last_run_at": "2026-07-07T18:07:13.261058-06:00",
-      "last_status": "ok",
-      "last_error": null,
-      "last_delivery_error": null,
-      "deliver": "origin",
-      "origin": {
-        "platform": "discord",
-        "chat_id": "1523006943525081249",
-        "chat_name": "adn_core / #chief-cos / I would like you to monitor for new heddle PRs at https://github.com/Nodaste-...",
-        "thread_id": "1523006943525081249",
-        "user_id": "977568101770088490"
-      },
-      "enabled_toolsets": null,
-      "workdir": "/Users/anichols/code/heddle",
       "fire_claim": null
     },
     {
@@ -291,15 +199,15 @@
       "schedule_display": "15 6 * * *",
       "repeat": {
         "times": null,
-        "completed": 5
+        "completed": 32
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-18T08:27:07.978454-06:00",
-      "next_run_at": "2026-07-24T06:15:00-06:00",
-      "last_run_at": "2026-07-23T06:16:09.366212-06:00",
+      "next_run_at": "2026-08-20T06:15:00-06:00",
+      "last_run_at": "2026-08-19T06:16:38.779614-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -338,15 +246,15 @@
       "schedule_display": "0 5 * * *",
       "repeat": {
         "times": null,
-        "completed": 3
+        "completed": 31
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-20T05:00:00-06:00",
-      "next_run_at": "2026-07-24T05:00:00-06:00",
-      "last_run_at": "2026-07-23T05:00:54.671012-06:00",
+      "next_run_at": "2026-08-20T05:00:00-06:00",
+      "last_run_at": "2026-08-19T05:01:22.938524-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -357,5 +265,5 @@
       "fire_claim": null
     }
   ],
-  "updated_at": "2026-07-23T11:32:11.166370-06:00"
+  "updated_at": "2026-08-19T08:06:45.783660-06:00"
 }

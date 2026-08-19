@@ -236,7 +236,7 @@ The closing ready verdict that marks a plan `execution-ready` must come from the
 - The independent ready verdict must not be followed by any later non-pass review, and should post-date the last material plan edit. If you edit the plan after the independent pass, re-review.
 - Record reviews truthfully in the `review-record` section with the real reviewer identity. Do not relabel a self-review as a planner-subagent review to satisfy the gate — actually run the independent Sol-medium planner.
 
-This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the code review runs through the active harness's `reviewer` subagent, and the PM/reviewer gates and Doct review state are the enforcement surface.
+This workflow enforces the gate through the reviewer loop and truthful Doct plan state/metadata. Do not claim a local mechanical validator exists unless the target repo actually provides one; in repos without such a validator, the PM/reviewer gates and Doct review state are the enforcement surface.
 
 Stop and report a convergence blocker if:
 

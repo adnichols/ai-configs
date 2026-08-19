@@ -78,6 +78,7 @@ terminal:
   singularity_image: docker://nikolaik/python-nodejs:python3.11-nodejs20
   modal_image: nikolaik/python-nodejs:python3.11-nodejs20
   daytona_image: nikolaik/python-nodejs:python3.11-nodejs20
+  vercel_runtime: node24
   container_cpu: 1
   container_memory: 5120
   container_disk: 51200
@@ -87,12 +88,12 @@ terminal:
   docker_extra_args: []
   docker_run_as_host_user: false
   persistent_shell: true
-  vercel_runtime: node24
   lifetime_seconds: 300
 web:
   backend: exa
   search_backend: ''
   extract_backend: ''
+  use_gateway: false
 browser:
   inactivity_timeout: 120
   command_timeout: 30
@@ -111,6 +112,7 @@ browser:
     rewrite_loopback_urls: false
     loopback_host_alias: host.docker.internal
   cloud_provider: local
+  use_gateway: false
 checkpoints:
   enabled: true
   max_snapshots: 50
@@ -118,8 +120,8 @@ checkpoints:
   max_file_size_mb: 10
   auto_prune: false
   retention_days: 7
-  delete_orphans: true
   min_interval_hours: 24
+  delete_orphans: true
 file_read_max_chars: 100000
 mcp_discovery_timeout: 1.5
 tool_output:
@@ -147,17 +149,6 @@ compression:
   abort_on_summary_failure: false
   codex_gpt55_autoraise: false
   in_place: false
-kanban:
-  dispatch_in_gateway: '[REDACTED: managed outside ai-configs]'
-  dispatch_interval_seconds: '[REDACTED: managed outside ai-configs]'
-  failure_limit: 2
-  worker_log_rotate_bytes: 2097152
-  worker_log_backup_count: 1
-  orchestrator_profile: ''
-  default_assignee: ''
-  auto_decompose: true
-  auto_decompose_per_tick: 3
-  dispatch_stale_timeout_seconds: '[REDACTED: managed outside ai-configs]'
 prompt_caching:
   cache_ttl: 5m
 openrouter:
@@ -371,6 +362,7 @@ tts:
     device: cpu
   piper:
     voice: en_US-lessac-medium
+  use_gateway: false
 stt:
   enabled: true
   provider: local
@@ -561,6 +553,17 @@ cron:
     nas_jwks_url: ''
   wrap_response: true
   script_timeout_seconds: 900
+kanban:
+  dispatch_in_gateway: '[REDACTED: managed outside ai-configs]'
+  dispatch_interval_seconds: '[REDACTED: managed outside ai-configs]'
+  failure_limit: 2
+  worker_log_rotate_bytes: 2097152
+  worker_log_backup_count: 1
+  orchestrator_profile: ''
+  default_assignee: ''
+  auto_decompose: true
+  auto_decompose_per_tick: 3
+  dispatch_stale_timeout_seconds: '[REDACTED: managed outside ai-configs]'
 code_execution:
   mode: project
   timeout: 300
@@ -720,6 +723,46 @@ custom_providers:
 - name: Local (localhost:8318)
   base_url: http://localhost:8318/v1
   model: gpt-5.6-sol
+  models:
+  - gpt-5.4
+  - gpt-image-2
+  - grok-imagine-video
+  - gpt-5.3-codex-spark
+  - grok-4.20-0309-reasoning
+  - grok-4.20-multi-agent-0309
+  - claude-opus-5
+  - claude-opus-4-5-20251101
+  - claude-sonnet-4-20250514
+  - grok-4.3
+  - gpt-5.5
+  - gpt-5.6-luna
+  - codex-auto-review
+  - grok-build-0.1
+  - grok-imagine-image
+  - grok-imagine-video-1.5-preview
+  - claude-3-7-sonnet-20250219
+  - claude-haiku-4-5-20251001
+  - claude-sonnet-4-5-20250929
+  - claude-opus-4-1-20250805
+  - claude-opus-4-20250514
+  - grok-3-mini-fast
+  - grok-imagine-image-quality
+  - claude-sonnet-4-6
+  - claude-opus-4-6
+  - claude-opus-4-8
+  - claude-3-5-haiku-20241022
+  - grok-4.6
+  - gpt-5.4-mini
+  - claude-opus-4-7
+  - gpt-5.6-sol
+  - grok-4.5
+  - grok-4.20-0309-non-reasoning
+  - claude-sonnet-5
+  - gpt-5.6-terra
+  - gpt-image-1.5
+  - grok-3-mini
+  - grok-composer-2.5-fast
+  - claude-fable-5
 platforms:
   webhook:
     enabled: true
@@ -795,3 +838,103 @@ known_plugin_toolsets:
   cli:
   - pi_rpc
   - pi_tmux
+  telegram:
+  - a2a
+  - pi_rpc
+  - pi_tmux
+  discord:
+  - a2a
+  - pi_rpc
+  - pi_tmux
+image_gen:
+  provider: xai
+  use_gateway: false
+  model: grok-imagine-image
+  xai:
+    storage:
+      enabled: false
+known_builtin_toolsets:
+  cli:
+  - bfl
+  - browser
+  - clarify
+  - code_execution
+  - computer_use
+  - context_engine
+  - cronjob
+  - delegation
+  - discord
+  - discord_admin
+  - file
+  - homeassistant
+  - image_gen
+  - memory
+  - session_search
+  - skills
+  - spotify
+  - stt
+  - terminal
+  - todo
+  - tts
+  - video
+  - video_gen
+  - vision
+  - web
+  - x_search
+  - yuanbao
+  telegram:
+  - bfl
+  - browser
+  - clarify
+  - code_execution
+  - computer_use
+  - context_engine
+  - cronjob
+  - delegation
+  - discord
+  - discord_admin
+  - file
+  - homeassistant
+  - image_gen
+  - memory
+  - session_search
+  - skills
+  - spotify
+  - stt
+  - terminal
+  - todo
+  - tts
+  - video
+  - video_gen
+  - vision
+  - web
+  - x_search
+  - yuanbao
+  discord:
+  - bfl
+  - browser
+  - clarify
+  - code_execution
+  - computer_use
+  - context_engine
+  - cronjob
+  - delegation
+  - discord
+  - discord_admin
+  - file
+  - homeassistant
+  - image_gen
+  - memory
+  - session_search
+  - skills
+  - spotify
+  - stt
+  - terminal
+  - todo
+  - tts
+  - video
+  - video_gen
+  - vision
+  - web
+  - x_search
+  - yuanbao

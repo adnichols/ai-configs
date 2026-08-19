@@ -1,31 +1,31 @@
-providers:
+providers: 
   tts: xai
-disabledProviders:
+disabledProviders: 
   - claude
-extensions:
+extensions: 
   - ~/.omp/agent/extensions/deepinfra.ts
   - ~/.omp/agent/extensions/thinking-shortcuts.ts
 symbolPreset: nerd
-theme:
+theme: 
   dark: titanium
 setupVersion: 1
 steeringMode: all
 followUpMode: all
 autocompleteMaxVisible: 20
-edit:
+edit: 
   mode: hashline
-bash:
-  autoBackground:
+bash: 
+  autoBackground: 
     enabled: false
-astGrep:
+astGrep: 
   enabled: false
-computer:
+computer: 
   enabled: false
-checkpoint:
+checkpoint: 
   enabled: false
-plan:
+plan: 
   enabled: false
-modelRoles:
+modelRoles: 
   smol: openai-codex/gpt-5.6-luna:xhigh
   slow: cursor/kimi-k3-max:max
   vision: openai-codex/gpt-5.6-terra:medium
@@ -36,41 +36,43 @@ modelRoles:
   advisor: xai-oauth/grok-4.6:medium
   Oracle: fireworks/kimi-k3:max
   reviewer: xai-oauth/grok-4.6:medium
-  default: xai-oauth/grok-4.6
+  default: xai-oauth/grok-4.6:medium
   cursork3: cursor/kimi-k3-high:high
   completeness: xai-oauth/grok-4.6:medium
 defaultThinkingLevel: auto
-compaction:
+compaction: 
   thresholdPercent: 40
   idleEnabled: true
   idleThresholdTokens: 200000
-startup:
+startup: 
   quiet: true
   showSplash: false
-lsp:
+lsp: 
   enabled: false
-commands:
+commands: 
   enableClaudeUser: false
   enableClaudeProject: false
   enableOpencodeUser: false
   enableOpencodeProject: false
-cycleOrder:
+cycleOrder: 
   - smol
   - default
   - slow
-advisor:
+advisor: 
   enabled: true
-dev:
+dev: 
   autoqaConsent: granted
   autoqa: false
-task:
+task: 
   enableEffort: false
-worktree:
+worktree: 
   base: ~/.herdr/worktrees
-github:
+github: 
   enabled: false
-security:
+security: 
   enabled: false
 hideThinkingBlock: true
 personality: pragmatic
 interruptMode: immediate
+tier: 
+  advisor: priority
