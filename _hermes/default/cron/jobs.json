@@ -3,7 +3,7 @@
     {
       "id": "1e1312756e9e",
       "name": "daily-hermes-agent-functional-merge-review",
-      "prompt": "Review the GitHub repository NousResearch/hermes-agent once per day and post a succinct summary of material functional changes/improvements merged in the last 24 hours.\n\nUse live GitHub data (gh/git) and inspect enough detail to distinguish real functional changes from noise. Exclude docs-only changes, generated site output, deploy artifacts, pure metadata/version bumps, formatting-only churn, and CI-only changes unless they materially affect developer/release behavior.\n\nOutput requirements:\n- Provide only the summary, with no surrounding explanation about methodology.\n- Do NOT include PR numbers, commit hashes, links, or exhaustive change lists.\n- Group related work into a short bullet list of material functional changes and improvements.\n- Focus on user-facing behavior, runtime/tooling capabilities, reliability/security/data-integrity fixes, integrations/platform support, and developer workflow improvements.\n- Keep it concise: aim for 3–8 bullets, one sentence each.\n- If there were no material functional changes, output exactly: \"No material functional changes merged in the last 24 hours.\"",
+      "prompt": "Review the GitHub repository NousResearch/hermes-agent once per day and post a succinct summary of material functional changes/improvements merged in the last 24 hours.\n\nUse live GitHub data (gh/git) and inspect enough detail to distinguish real functional changes from noise. Exclude docs-only changes, generated site output, deploy artifacts, pure metadata/version bumps, formatting-only churn, and CI-only changes unless they materially affect developer/release behavior.\n\nOutput requirements:\n- Provide only the summary, with no surrounding explanation about methodology.\n- Do NOT include PR numbers, commit hashes, links, or exhaustive change lists.\n- Group related work into a short bullet list of material functional changes and improvements.\n- Focus on user-facing behavior, runtime/tooling capabilities, reliability/security/data-integrity fixes, integrations/platform support, and developer workflow improvements.\n- Keep it concise: aim for 3\u20138 bullets, one sentence each.\n- If there were no material functional changes, output exactly: \"No material functional changes merged in the last 24 hours.\"",
       "skills": [
         "github-functional-merge-review"
       ],
@@ -59,15 +59,15 @@
       "schedule_display": "0 6 * * *",
       "repeat": {
         "times": null,
-        "completed": 64
+        "completed": 65
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-06-21T08:26:26.329217-06:00",
-      "next_run_at": "2026-08-20T06:00:00-06:00",
-      "last_run_at": "2026-08-19T06:05:50.333468-06:00",
+      "next_run_at": "2026-08-21T06:00:00-06:00",
+      "last_run_at": "2026-08-20T06:09:07.947006-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -106,15 +106,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 5178
+        "completed": 5300
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-02T16:59:27.696134-06:00",
-      "next_run_at": "2026-08-19T08:12:50.525964-06:00",
-      "last_run_at": "2026-08-19T08:02:50.525964-06:00",
+      "next_run_at": "2026-08-20T06:49:27.279169-06:00",
+      "last_run_at": "2026-08-20T06:29:04.968891-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -151,15 +151,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 5136
+        "completed": 5258
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-04T07:48:06.775694-06:00",
-      "next_run_at": "2026-08-19T08:16:45.783292-06:00",
-      "last_run_at": "2026-08-19T08:06:45.783292-06:00",
+      "next_run_at": "2026-08-20T06:42:31.101500-06:00",
+      "last_run_at": "2026-08-20T06:32:31.101500-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -199,15 +199,15 @@
       "schedule_display": "15 6 * * *",
       "repeat": {
         "times": null,
-        "completed": 32
+        "completed": 33
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-18T08:27:07.978454-06:00",
-      "next_run_at": "2026-08-20T06:15:00-06:00",
-      "last_run_at": "2026-08-19T06:16:38.779614-06:00",
+      "next_run_at": "2026-08-21T06:15:00-06:00",
+      "last_run_at": "2026-08-20T06:16:41.835459-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -246,15 +246,15 @@
       "schedule_display": "0 5 * * *",
       "repeat": {
         "times": null,
-        "completed": 31
+        "completed": 32
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-20T05:00:00-06:00",
-      "next_run_at": "2026-08-20T05:00:00-06:00",
-      "last_run_at": "2026-08-19T05:01:22.938524-06:00",
+      "next_run_at": "2026-08-21T05:00:00-06:00",
+      "last_run_at": "2026-08-20T05:06:04.998082-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -265,5 +265,5 @@
       "fire_claim": null
     }
   ],
-  "updated_at": "2026-08-19T08:06:45.783660-06:00"
+  "updated_at": "2026-08-20T06:39:27.279701-06:00"
 }

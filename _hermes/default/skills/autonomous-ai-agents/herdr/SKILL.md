@@ -7,9 +7,9 @@ description: "Control and troubleshoot Herdr, the terminal workspace manager for
 
 Herdr is a terminal workspace manager and runtime for coding agents. It organizes terminals into workspaces, tabs, and panes, detects supported agents, and exposes the running session through the `herdr` CLI.
 
-Prefer the agent-native commands introduced in current Herdr releases. Use `herdr agent ...` for supported coding agents and `herdr pane ...` for generic terminals, processes, layout, and raw output.
+Prefer the agent-native commands. Use `herdr agent ...` for supported coding agents and `herdr pane ...` for generic terminals, processes, layout, and raw output.
 
-The installed binary is the syntax authority. Read [references/cli.md](references/cli.md) when the task needs broad command discovery, lifecycle/configuration commands, or a complete command-group map.
+The installed binary is the syntax authority. Read [references/cli.md](references/cli.md) when the task needs broad command discovery, lifecycle/configuration commands, or a complete command-group map. `herdr --skill` dumps upstream's inside-pane skill; keep this repo override, which allows a reachable socket from outside a managed pane.
 
 ## Establish current context
 
@@ -48,11 +48,13 @@ Public handles resemble:
 - pane: `w1:p1`
 - terminal: `term_...`
 
-Suffixes may contain letters or multiple characters. Parse IDs from JSON responses; never derive them from display order or examples. Closed handles are not reused, and moving a pane across workspaces can assign a new pane ID. Re-read mutation responses and refresh state before later actions.
+Suffixes may contain letters or multiple characters. Parse IDs from JSON responses; never derive them from display order or examples. Closed handles are not reused. After `pane move`, continue with `.result.move_result.pane.pane_id` or the live agent name; `.result.move_result.previous_pane_id` is not a general target. Re-read mutation responses and refresh state before later actions.
+
+Creation responses expose the next IDs: `workspace create` returns `.result.workspace`, `.result.tab`, and `.result.root_pane`. `tab create` returns `.result.tab` and `.result.root_pane`. `pane split` returns `.result.pane`.
 
 ## Prefer the agent control surface
 
-`herdr agent` targets a unique agent name or a pane ID currently hosting an agent. It provides readiness-aware start, prompting, settled-state waits, transcript reads, focus, attach, rename, and detection diagnostics.
+`herdr agent` targets a unique agent name or a pane ID currently hosting an agent. It does not accept terminal IDs or bare kind labels. Names must match `[a-z][a-z0-9_-]{0,31}` and be unique among live agents. A name follows the current pane occupant and is cleared when that agent exits, is released, or is replaced.
 
 Discover agents and inspect one:
 
@@ -64,13 +66,26 @@ herdr agent read <target> --source recent-unwrapped --lines 120
 
 Agent states are `idle`, `working`, `blocked`, `done`, and `unknown`:
 
-- `idle`: waiting, and the result is considered seen.
-- `done`: waiting after unseen completion.
-- `blocked`: needs input or intervention.
+- `idle`: ready for input, and the tab has been seen in the focused Herdr UI.
+- `done`: the same underlying idle state after unseen background work finishes.
+- `blocked`: Herdr recognized an approval or question UI.
 - `working`: actively processing.
-- `unknown`: no reliable supported-agent state is available.
+- `unknown`: an agent is present but Herdr cannot classify it confidently; it does not prove completion.
 
-Treat `idle` and `done` as settled. Focus and visibility can turn `done` into `idle`, so do not require only one of them unless the task specifically depends on attention state.
+Focusing the tab, or targeting the pane/agent with a focus command, marks it seen. CLI reads do not. Treat `idle` and `done` as settled. Do not require only one of them unless the task depends on attention state.
+
+### Signal workflow-owned operator waits
+
+Use the installed `herdr-operator-attention` helper when an authorized workflow needs human action outside Pi's own blocking UI, such as a password prompt on a shell pane or an execution-stage approval pause:
+
+```bash
+herdr-operator-attention set --pane <pane-id> --kind password --message "Enter password to continue"
+# run the interactive wait; always clear in finally/trap
+herdr-operator-attention clear --pane <pane-id>
+herdr-operator-attention status --pane <pane-id>
+```
+
+The helper writes a per-pane marker under `${HERDR_OPERATOR_WAIT_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/herdr-operator-wait}` for Pi's authoritative reporter and best-effort calls `pane report-agent` for shell-only panes. It uses fixed source `workflow:operator-attention` and agent `operator-wait`. Herdr CLI/socket failures do not fail the helper after marker I/O succeeds; marker write/delete failures remain non-zero. Prefer Pi's normal `ctx.ui` input/confirm methods when the interaction already lives inside Pi because the integration reports those blocks automatically.
 
 ### Start a supported agent
 
@@ -91,23 +106,23 @@ herdr pane list --workspace <workspace-id>
 herdr pane layout --pane <pane-id>
 ```
 
-Split wide panes right and narrow/tall panes down. Keep user focus in place for background work:
+Split wide panes right and narrow/tall panes down. Avoid repeated same-direction splits that create unusable columns or rows. Keep user focus in place and preserve the intended working directory:
 
 ```bash
-herdr pane split --current --direction right --no-focus
+herdr pane split --current --direction right --cwd "$PWD" --no-focus
 # or, outside managed context:
-herdr pane split <pane-id> --direction right --no-focus
+herdr pane split <pane-id> --direction right --cwd <path> --no-focus
 ```
 
-Read `result.pane.pane_id` from the JSON response. Then use the readiness-aware launcher rather than manually typing the executable:
+Read `result.pane.pane_id` from the JSON response. The pane must be at its interactive shell prompt, with the shell in the foreground. Then use the readiness-aware launcher rather than typing the executable:
 
 ```bash
 herdr agent start reviewer --kind codex --pane <new-pane-id> --timeout 30000
 ```
 
-Supported kinds are listed by `herdr agent` and `herdr agent start --help`. The current release includes Pi, Claude, Codex, Gemini, Cursor, Devin, OpenCode, Copilot, Hermes, and other integrated agents.
+Supported kinds are listed by `herdr agent` and `herdr agent start --help`. Pass agent-specific argv only after `--` and only when the user requests them.
 
-`agent start` requires an existing pane at an interactive shell prompt. Success means the expected agent was detected in that same terminal and is ready for input. Pass agent-specific argv only after `--` and only when the user requests them.
+`agent start` returns only after Herdr detects the expected agent in that same pane and considers it ready. If the agent is blocked during startup, the command returns `agent_not_ready` immediately but keeps the name available for `agent read` and `agent send-keys`. Wait until idle before prompting.
 
 ### Prompt and wait
 
@@ -116,18 +131,22 @@ Submit the task with the agent-native prompt command:
 ```bash
 herdr agent prompt reviewer \
   "Review the current diff and report only actionable findings." \
-  --wait --until idle --until done --until blocked --timeout 120000
+  --wait --timeout 120000
 ```
 
-Without explicit `--until`, `--wait` matches `idle`, `done`, or `blocked`. Always use a reasonable timeout for automated coordination.
+`agent prompt` honors live bracketed-paste mode and sends text plus encoded Enter. If the agent is already blocked, submission is rejected with `agent_blocked` before any input is sent. Inspect the blocked UI and ask the user before answering it.
 
-Before prompting an existing target, inspect it. If it is already `working`, a prompt wait can match completion of the active turn rather than a newly submitted turn. Avoid sending new work to a working agent unless that behavior is intentional.
+`--wait` matches the first settled `idle`, `done`, or `blocked` state. Do not repeat those defaults with `--until`. Use `--until` only for a state-specific wait. Always pass a timeout for automated coordination.
+
+A prompt sent from a non-working state must produce an observed lifecycle change within five seconds or Herdr returns `agent_prompt_stalled`. This wait tracks lifecycle state, not a conversational turn. If the target is already `working`, completion of the active turn may satisfy it. Avoid sending new work to a working agent unless that behavior is intentional.
 
 Wait without submitting:
 
 ```bash
-herdr agent wait <target> --until idle --until done --until blocked --timeout 120000
+herdr agent wait <target> --timeout 120000
 ```
+
+Use `--until blocked` (or another single state) only when that is the workflow.
 
 After a wait, inspect state and read the transcript:
 
@@ -136,7 +155,16 @@ herdr agent get <target>
 herdr agent read <target> --source recent-unwrapped --lines 120
 ```
 
-If a wait times out, read the transcript before deciding whether the agent is still working, blocked, misdetected, or awaiting input.
+If a wait fails or returns `blocked`, inspect `agent get` and `agent read` before sending more input. Use logical keys for interactive agent UI:
+
+```bash
+herdr agent send-keys <target> esc
+herdr agent send-keys <target> ctrl+c
+```
+
+Herdr validates all keys before writing any bytes.
+
+If increasing `--lines` does not reveal more of a completed response, the pane is probably on the terminal alternate screen; those rows do not enter Herdr host scrollback. As a fallback, ask the agent to write its complete response as Markdown in a temp directory and reply with only the file path, then read the file. Do not request file output in the initial prompt.
 
 ### Follow up, diagnose, and attach
 
@@ -182,7 +210,7 @@ herdr pane wait-output <pane-id> --match "test result" --timeout 120000
 herdr pane read <pane-id> --source recent-unwrapped --lines 120
 ```
 
-`pane wait-output` searches the selected snapshot immediately, including existing output, and then polls. Literal matching uses `--match`; Rust regex matching uses `--regex`.
+`pane run` atomically sends command text and Enter. `pane wait-output` searches the selected snapshot immediately, including existing output, and then polls. Literal matching uses `--match`; Rust regex matching uses `--regex`.
 
 Choose the read source intentionally:
 
@@ -212,8 +240,19 @@ Examples:
 ```bash
 herdr tab create --workspace <workspace-id> --label logs --no-focus
 herdr workspace create --cwd /path/to/project --label api --no-focus
-herdr worktree create --cwd /path/to/repo --branch feature/name --no-focus --json
+herdr worktree create --cwd /path/to/repo --branch feature/name --no-focus
 ```
+
+After creating or opening a delivery worktree, best-effort bootstrap the delivery navigator so a newly spawned agent can continue without prior chat context:
+
+```bash
+# Linear optional at start
+delivery --cwd <worktree-path> bootstrap --slug <feature-slug> --goal "<operator ask>"
+# or with issue:
+delivery --cwd <worktree-path> bootstrap --issue NOD-123 --goal "..."
+```
+
+Then prompt the worktree agent with `/delivery:bootstrap` or: read `.delivery/AGENT_BRIEF.md`, run `delivery show && delivery check -v`, continue from the recommended next step. If `delivery` is unavailable, skip without failing the Herdr operation.
 
 Parse every returned workspace, tab, pane, and worktree handle. Do not predict them.
 
@@ -228,3 +267,4 @@ Parse every returned workspace, tab, pane, and worktree handle. Do not predict t
 - Never run `herdr server stop`, `herdr session stop`, or `herdr session delete` without explicit intent to stop that scope and its processes.
 - Treat plugin install/uninstall/enable/disable/action invocation and integration install/uninstall as state-changing operations.
 - Use named test sessions for experiments that need isolation; do not kill the main Herdr process.
+- CLI server errors are JSON on stderr with exit status 1. CLI syntax errors exit with status 2.

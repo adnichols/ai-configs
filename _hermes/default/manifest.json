@@ -27,9 +27,9 @@
       "sha256": "4e48d67fd6a3012877ec667b6249be62de7c74a86c6a6907a133cd3ef655969f"
     },
     {
-      "bytes": 12053,
+      "bytes": 12057,
       "path": "cron/jobs.json",
-      "sha256": "c3e7d855161373fbffb7817badedd6bdc5df34b80649bd35b821ad9a588bde45"
+      "sha256": "ef8faaacc48479ac10132eaf87ba3c61ac40ab4179c2f8e753ee3e3c059fe9d6"
     },
     {
       "bytes": 508,
@@ -112,9 +112,9 @@
       "sha256": "715d6388066009d9b354ebcc23a3736e38c86704ef1bde69e253aa81bd207b59"
     },
     {
-      "bytes": 1385,
+      "bytes": 1386,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "94f48b9cc8024c9b1ac73db36bcd9f93d013a22f9ca5af106c53f64063af59b9"
+      "sha256": "57e616d11abad7f186829e0d467c2ab1903566715444b1ed22eac0941cd7a04e"
     },
     {
       "bytes": 2280,
@@ -5052,14 +5052,14 @@
       "sha256": "a45f5137886f8663fd534bdcbf1ff613055e525d04e79d778cbd1e70e4aec94a"
     },
     {
-      "bytes": 9378,
+      "bytes": 13092,
       "path": "skills/autonomous-ai-agents/herdr/SKILL.md",
-      "sha256": "cc6da48a37c74ddd2681b62d7506df8d62c00e38c9c254ff0c95287802eea25f"
+      "sha256": "c5ecf62aa24c9002c106ce3acabe6f993b3b68e57223a6204dd628bdb0360114"
     },
     {
-      "bytes": 11397,
+      "bytes": 13452,
       "path": "skills/autonomous-ai-agents/herdr/references/cli.md",
-      "sha256": "ffc5a307bc17d41edc2618c21665c706c81140dfd5ecd654a89bc0ec630f72bf"
+      "sha256": "ee71bdf7eae24fb4d20a4c9e57878dd6d8439cec731fc17247b02a026e95fa2a"
     },
     {
       "bytes": 29691,
@@ -8567,7 +8567,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260819T140956Z",
+  "generated_at": "20260820T123930Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/.hermes"

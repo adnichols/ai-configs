@@ -1,15 +1,18 @@
 # Herdr CLI map
 
-This map was verified against `herdr 0.7.5-preview.2026-07-21-0f10e1453a7f` (protocol 17). The installed binary remains authoritative because preview releases can change syntax.
+This map was verified against `herdr 0.8.2-preview.2026-08-19-b5c4a0176e91` (protocol 20). The installed binary remains authoritative because preview releases can change syntax.
 
 Refresh discovery with:
 
 ```bash
 herdr --version
 herdr --help
+herdr --skill
 herdr <group>
 herdr <group> <command> --help
 ```
+
+`herdr --skill` prints upstream's inside-pane skill (`Requires HERDR_ENV=1`). This repo's skill overrides that gate when the socket is reachable.
 
 Do not run bare `herdr`; it launches or attaches the TUI. Do not omit arguments from nested mutating commands merely to discover syntax.
 
@@ -20,7 +23,9 @@ Do not run bare `herdr`; it launches or attaches the TUI. Do not omit arguments 
 | `herdr` | Launch or attach to the persistent TUI session. |
 | `herdr --session <name> ...` | Target or create a named persistent session; place before the command group. |
 | `herdr --remote <ssh-target> [--session <name>]` | Attach through SSH to a remote Herdr server. |
+| `herdr --remote-keybindings <local\|server>` | Keybindings for `--remote` app attach (default: `local`). |
 | `herdr --no-session` | Run monolithically without server/client persistence. |
+| `herdr --skill` | Print the upstream agent skill and exit. |
 | `herdr status [server\|client]` | Show client/server versions, protocol compatibility, socket, channel, and restart state. |
 | `herdr update [--handoff]` | Download and install the latest version; optional live handoff. |
 | `herdr channel show` | Print the configured update channel. |
@@ -30,6 +35,9 @@ Do not run bare `herdr`; it launches or attaches the TUI. Do not omit arguments 
 | `herdr server` | Run a headless server. |
 | `herdr server reload-config` | Reload the running server's `config.toml`. |
 | `herdr server stop` | Stop the running server and its pane processes. Destructive. |
+| `herdr server agent-manifests [--json]` | Show active agent detection manifests. |
+| `herdr server update-agent-manifests` | Fetch and reload agent detection manifests. |
+| `herdr server reload-agent-manifests` | Reload local agent detection manifest overrides. |
 
 Configuration defaults to `~/.config/herdr/config.toml`; `HERDR_CONFIG_PATH` overrides it. Logs default to `~/.config/herdr/herdr.log` plus client/server logs.
 
@@ -49,7 +57,7 @@ herdr config reset-keys
 
 ## Agent commands
 
-Targets accept a unique agent name or a pane ID that currently hosts an agent.
+Targets accept a unique agent name or a pane ID that currently hosts an agent. Names must match `[a-z][a-z0-9_-]{0,31}`.
 
 ```text
 herdr agent list
@@ -71,7 +79,9 @@ States: `idle`, `working`, `blocked`, `done`, `unknown`.
 Important semantics:
 
 - `agent start` launches a supported interactive agent in an existing pane at a shell prompt and waits for detection/readiness. Default timeout is 30 seconds; maximum is 300 seconds.
-- `agent prompt --wait` waits for a state observed after submission. Default settled matches are `idle`, `done`, or `blocked`; repeat `--until` to override.
+- Blocked startup returns `agent_not_ready` immediately; the name stays available for `agent read` and `agent send-keys`.
+- `agent prompt` rejects an already-blocked agent with `agent_blocked` before sending input.
+- `agent prompt --wait` waits for a state observed after submission. Default settled matches are `idle`, `done`, or `blocked`; do not repeat those defaults with `--until`.
 - Starting from a non-working state, prompt wait requires a state change within 5 seconds or reports `agent_prompt_stalled`. A shorter explicit timeout reports `timeout`.
 - If the target is already working, prompt wait may match that active turn's completion; it does not track conversational turn IDs.
 - `agent wait` also defaults to `idle`, `done`, or `blocked`. Without `--timeout`, it waits indefinitely.
@@ -82,7 +92,7 @@ Verified agent kinds:
 
 ```text
 pi claude codex gemini cursor devin agy cline omp mastracode opencode
-copilot kimi kiro droid amp grok hermes kilo qodercli maki
+copilot kimi kiro droid amp grok hermes kilo qodercli qwen maki
 ```
 
 ## Pane commands
@@ -100,7 +110,8 @@ herdr pane resize --direction left|right|up|down [--amount FLOAT] [--pane ID|--c
 herdr pane zoom [<pane_id>|--pane ID|--current] [--toggle|--on|--off]
 herdr pane rename <pane_id> <label>|--clear
 herdr pane read <pane_id> [--source visible|recent|recent-unwrapped] [--lines N] [--format text|ansi] [--ansi]
-herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--focus|--no-focus]
+herdr pane input [<pane_id>|--pane ID|--current] --right-click herdr|pane
+herdr pane split [<pane_id>|--pane ID|--current] --direction right|down [--ratio FLOAT] [--cwd PATH] [--env KEY=VALUE] [--right-click herdr|pane] [--focus|--no-focus]
 herdr pane swap --direction left|right|up|down [--pane ID|--current]
 herdr pane swap --source-pane ID --target-pane ID
 herdr pane move <pane_id> --tab <tab_id> --split right|down [--target-pane ID] [--ratio FLOAT] [--focus|--no-focus]
@@ -112,6 +123,8 @@ herdr pane send-keys <pane_id> <key> [key ...]
 herdr pane wait-output <pane_id> (--match TEXT | --regex PATTERN) [--source visible|recent|recent-unwrapped] [--lines N] [--timeout MS] [--raw]
 herdr pane run <pane_id> <command>
 ```
+
+After `pane move`, continue with `.result.move_result.pane.pane_id`. `--lines` cannot recover rows that left a terminal alternate screen.
 
 Integration/reporting commands, normally called by hooks or plugins:
 
@@ -174,13 +187,13 @@ herdr tab close <tab_id>
 ```
 
 ```text
-herdr worktree list [--workspace ID | --cwd PATH] [--json]
-herdr worktree create [--workspace ID | --cwd PATH] [--branch NAME] [--base REF] [--path PATH] [--label TEXT] [--focus|--no-focus] [--json]
-herdr worktree open [--workspace ID | --cwd PATH] (--path PATH | --branch NAME) [--label TEXT] [--focus|--no-focus] [--json]
-herdr worktree remove --workspace ID [--force] [--json]
+herdr worktree list [--workspace ID | --cwd PATH]
+herdr worktree create [--workspace ID | --cwd PATH] [--branch NAME] [--base REF] [--path PATH] [--label TEXT] [--focus|--no-focus]
+herdr worktree open [--workspace ID | --cwd PATH] (--path PATH | --branch NAME) [--label TEXT] [--focus|--no-focus]
+herdr worktree remove --workspace ID [--force]
 ```
 
-Create commands can execute with defaults. Use group help rather than probing them without arguments.
+Create commands can execute with defaults. Use group help rather than probing them without arguments. Most control commands return JSON; do not add undocumented `--json` flags to discover that.
 
 ## Sessions
 
@@ -213,7 +226,7 @@ Install/uninstall kinds in this release:
 
 ```text
 pi omp claude codex copilot devin droid kimi opencode kilo hermes
-qodercli cursor mastracode
+qodercli qwen cursor mastracode antigravity-cli grok
 ```
 
 Integration install/uninstall writes hooks or plugins into the target agent's configuration. `status` is non-mutating.
@@ -253,3 +266,4 @@ Older skills and scripts may use forms that changed in the current CLI.
 | `pane run <pane> "codex"`, wait for prompt, then `pane run` task | `herdr agent start <name> --kind codex --pane <pane>`, then `herdr agent prompt <name> <task>`. |
 | Numeric/compacting IDs such as `1`, `1:1`, `1-1` | Opaque stable public handles such as `w1`, `w1:t1`, `w1:p1`. Parse responses. |
 | Gate all use on `HERDR_ENV=1` | Use the reachable socket from inside or outside; environment variables only identify managed caller context. |
+| Repeat `--until idle --until done --until blocked` on every `--wait` | Omit `--until` unless the wait is for a specific non-default state. |
