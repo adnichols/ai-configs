@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: `smol` is `xai-oauth/grok-4.6:medium`, `reviewer` is `cursor/kimi-k3-high:high`.
+
 - Pointed the managed OMP `planner` agent at the `@plan` role instead of a hardcoded Sol-medium model.
 - Synced managed OMP `config.yml` from this host: `slow` is `cursor/kimi-k3-max:max`, `plan` is `xai-oauth/grok-4.6:high`, advisor is `xai-oauth/grok-4.6:medium`.
 - Synced managed OMP `config.yml` from this host: default is `xai-oauth/grok-4.6`, advisor is `xai-oauth/grok-4.6:high`, Oracle is `fireworks/kimi-k3:max`, slow is `openai-codex/gpt-5.6-sol:high`.

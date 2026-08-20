@@ -26,7 +26,7 @@ checkpoint:
 plan: 
   enabled: false
 modelRoles: 
-  smol: openai-codex/gpt-5.6-luna:xhigh
+  smol: xai-oauth/grok-4.6:medium
   slow: cursor/kimi-k3-max:max
   vision: openai-codex/gpt-5.6-terra:medium
   plan: xai-oauth/grok-4.6:high
@@ -35,7 +35,7 @@ modelRoles:
   tiny: openai-codex/gpt-5.6-luna:low
   advisor: xai-oauth/grok-4.6:medium
   Oracle: fireworks/kimi-k3:max
-  reviewer: xai-oauth/grok-4.6:medium
+  reviewer: cursor/kimi-k3-high:high
   default: xai-oauth/grok-4.6:medium
   cursork3: cursor/kimi-k3-high:high
   completeness: xai-oauth/grok-4.6:medium
