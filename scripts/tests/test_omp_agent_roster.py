@@ -64,11 +64,12 @@ class OmpAgentRosterTest(unittest.TestCase):
         for required in (
             "planning-only",
             "PLAN_EXECUTION_READY",
-            "IMPLEMENTATION_PROFILE",
+            "IMPLEMENTATION:",
             "CWD",
             "REVIEW_ROOT",
-            "luna-xhigh",
+            "driving-default",
             "terra-high",
+            "xai-oauth/grok-4.6:medium",
         ):
             self.assertIn(required, body)
 
@@ -123,7 +124,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "workflowProfile=omp-lite",
             "delivery bootstrap --runtime omp",
             ".delivery/ledger.json",
-            "openai-codex/gpt-5.6-luna:xhigh",
+            "xai-oauth/grok-4.6:medium",
             "completion-review --prepare",
             "acceptCommand",
         ):
@@ -136,7 +137,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "workflowProfile: omp-lite",
             "current OMP agent as owner",
             "delivery bootstrap --runtime omp",
-            "openai-codex/gpt-5.6-luna:xhigh",
+            "xai-oauth/grok-4.6:medium",
             "xai/grok-4.5:high",
             "exact seven-line envelope",
             "acceptCommand",

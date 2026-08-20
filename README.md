@@ -126,7 +126,7 @@ The OMP installer also refreshes the managed Ponytail plugin from
 `@dietrichgebert/ponytail` when `omp` is available.
 
 OMP delivery uses the persisted `omp-lite` profile: normal-mode planning,
-same-session Terra-high implementation/scoped/PM review, bounded OMP
+same-session `xai-oauth/grok-4.6:medium` implementation/scoped/PM review, bounded OMP
 planner/reviewer agents, Grok-high request-bound completeness acceptance,
 verification, and PR handoff. It never launches Pi or enables OMP native plan
 mode. Start from OMP with
