@@ -148,9 +148,6 @@ Decision Attention must appear near the top of every non-trivial plan, immediate
 
 Legacy heading aliases may be preserved in historical plans, but new plans should use canonical headings unless the repo explicitly says otherwise.
 
-## Conditional planning evidence checkpoint
-
-When exact-contract, distributed-behavior, or material-uncertainty triggers apply, put consumer/sibling inventory, moving-ground checks, falsification and production-path proof, residual risk (`Not examined:`), and expansion disposition in the existing contract, acceptance/BDD, verification, Decision Attention, and Decisions / Deviations sections. Lightweight or single-site plans are not forced to repeat eight labels, and a questionnaire never substitutes for triggered evidence.
 
 ## TDD + BDD rules
 

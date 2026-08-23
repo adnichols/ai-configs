@@ -113,18 +113,6 @@ Keep this complexity-aware. A lightweight plan must satisfy the contract with co
 
 Immediately after Product-owner context and before Goal, every full implementation plan must include a standalone `What's new` section. Give it a behavior-focused headline and a one-sentence promise, then state the concrete audience-visible changes, before/after workflow, observable result, and preserved guarantees. It must not restate Goal, rationale, phases, or acceptance criteria; a heading without a distinct product delta does not satisfy the contract. This adds no new lightweight-plan requirement: only work already exempt from a full execution plan is exempt from `What's new`.
 
-### Conditional planning evidence checkpoint
-
-Require the useful evidence where reviewers act on it when the plan changes an exact contract, distributes behavior across multiple sites, or carries material product/implementation uncertainty:
-
-- **First hour** belongs in Product-owner context and acceptance/BDD when rollout behavior changes.
-- **Consumers** and **Siblings** belong in the Contract and distributed-integration inventory, backed by the source search used to find them.
-- **Moving ground** belongs in resume/rebase instructions and must be rechecked when the base changes.
-- **Falsification** and **Proof** belong in acceptance criteria, BDD scenarios, the test coverage matrix, and phase `### Verify` items. A helper-only path is not customer/system proof.
-- **Untested** belongs in Verification strategy as explicit residual risk and must feed the implementation review's `Not examined:` disclosure.
-- **Expansion disposition** belongs in Decision Attention and the append-only Decisions / Deviations log, distinguishing outcome protection from product-changing expansion.
-
-A lightweight or single-site plan is not forced to repeat these labels. A dedicated questionnaire is never accepted as a substitute for the triggered contract inventory, production-path proof, residual-risk disclosure, or deviation record.
 
 Required sections for new plans unless repo-local overrides say otherwise:
 

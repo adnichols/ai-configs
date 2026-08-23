@@ -1,5 +1,5 @@
 {
-  "file_count": 1713,
+  "file_count": 1727,
   "files": [
     {
       "bytes": 819,
@@ -29,7 +29,7 @@
     {
       "bytes": 12057,
       "path": "cron/jobs.json",
-      "sha256": "ef8faaacc48479ac10132eaf87ba3c61ac40ab4179c2f8e753ee3e3c059fe9d6"
+      "sha256": "26c24d73f2261b5c60040ea94755bee57e5ac3a893cb2575963f5022baab57bb"
     },
     {
       "bytes": 508,
@@ -114,7 +114,7 @@
     {
       "bytes": 1386,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "57e616d11abad7f186829e0d467c2ab1903566715444b1ed22eac0941cd7a04e"
+      "sha256": "29051dbb68f6dcc9e1b70f8014fabb309a93acdb99eca5d52e284cc2c8f20493"
     },
     {
       "bytes": 2280,
@@ -4967,9 +4967,9 @@
       "sha256": "b3b8b24ea583ccf4875cc9156dd8fb3765ef13950a1f0ccc845800479a949860"
     },
     {
-      "bytes": 3734,
+      "bytes": 3877,
       "path": "skills/.bundled_manifest",
-      "sha256": "18f4390343c00e0ac2ee573a7e48b5a3905a432c2a2dab98d2ac8a612dd19d96"
+      "sha256": "28b8289618e4243ff91df26089514d334b201cddccae83afe09c8284e5d607e0"
     },
     {
       "bytes": 152,
@@ -5032,9 +5032,9 @@
       "sha256": "3ed457c2b8d5d9c33ab3817cea9753cbcf7f165105eb9da488633a624216d51f"
     },
     {
-      "bytes": 16461,
+      "bytes": 18603,
       "path": "skills/autonomous-ai-agents/computer-use/SKILL.md",
-      "sha256": "03b2b58f6d60ec78505c388151891edec229b15abec16ed24ee69224aa74c139"
+      "sha256": "89e2eddc61cf893784279f27448f75ef214aa5cbd96ef2441a28df0ed7dab2f9"
     },
     {
       "bytes": 9877,
@@ -6757,9 +6757,9 @@
       "sha256": "87ddc0578d9bcbc80addb34ca045e4263689873ce02b1b73e3d57275ec6315c6"
     },
     {
-      "bytes": 10313,
+      "bytes": 11949,
       "path": "skills/github/github-auth/SKILL.md",
-      "sha256": "982dd59b556e11e1000e1bf444f4460d3b58cf73df1cf330ae36e09955d3b881"
+      "sha256": "83d908a495c34477a88e7a11bdba80179483e71d070278d23323586cc0883ff0"
     },
     {
       "bytes": 2556,
@@ -7507,6 +7507,61 @@
       "sha256": "0eb6aae48a76ad4c522b2b3100438236837d90584d6f3cc8496f08c372a6ab9a"
     },
     {
+      "bytes": 11697,
+      "path": "skills/productivity/box/SKILL.md",
+      "sha256": "e9672412333de4feff348e6dc387d9022d32005247360347a10a7131fb87eb13"
+    },
+    {
+      "bytes": 2025,
+      "path": "skills/productivity/box/references/bulk-operations.md",
+      "sha256": "873a14840a01048004ca0dfa9fd3eb6015a9b4d5d5ed00c4701ac9235280e331"
+    },
+    {
+      "bytes": 7515,
+      "path": "skills/productivity/box/references/cli-guide.md",
+      "sha256": "a94496da79df7aceb8d92bf285069cd3b80034649da62ce23eb076e2da39ae7e"
+    },
+    {
+      "bytes": 4767,
+      "path": "skills/productivity/box/references/content-workflows.md",
+      "sha256": "703bc320272cc93d93d67330ab1c082f88985b1e0095117099c4693683d042ad"
+    },
+    {
+      "bytes": 6189,
+      "path": "skills/productivity/box/references/hubs.md",
+      "sha256": "61909fa5e550f6cd51c8d2c069a95e01f79f28c24a5780fe16e63e3b1eee890a"
+    },
+    {
+      "bytes": 6569,
+      "path": "skills/productivity/box/references/oauth-setup.md",
+      "sha256": "6506cef6a6e44c5b5f8e483642595feb2ca2b93799ebd5e60ba9f08ddd8459a5"
+    },
+    {
+      "bytes": 2227,
+      "path": "skills/productivity/box/references/rest-api.md",
+      "sha256": "3afe53c5bcfda288f3727de3ff1fa05773e24b7fdd964373280831218bb6b5d2"
+    },
+    {
+      "bytes": 5727,
+      "path": "skills/productivity/box/references/sdk-development.md",
+      "sha256": "96886f989937399fa80d1841be2c99eb006f180bc1f8538c628f23a4c584cb8c"
+    },
+    {
+      "bytes": 10746,
+      "path": "skills/productivity/box/references/search-and-ai.md",
+      "sha256": "6bfca0afc9cd35d5312261f0c5947b9387d5ec100473f4739cda9d432e040e1a"
+    },
+    {
+      "bytes": 2970,
+      "path": "skills/productivity/box/references/troubleshooting.md",
+      "sha256": "a7c394e219a429ff3b04e76a1cbe5a97ce71ae6a2a7eed1eea7888d2eeb8b922"
+    },
+    {
+      "bytes": 2276,
+      "path": "skills/productivity/box/references/webhooks-and-events.md",
+      "sha256": "5c1382adf41d8b3cecfd922f815ed85b10740d826924cf33def5250da934c6c5"
+    },
+    {
       "bytes": 35414,
       "path": "skills/productivity/doct-document-ops/SKILL.md",
       "sha256": "2b7e4d446ba0947ba061bb87edeeeb759318cc238286ba4225b5e3bd1c033f63"
@@ -7927,9 +7982,14 @@
       "sha256": "b87bf2102fed13d2c7c64759fa153f24f5e43a0afcf6f8ec5e13def92a6642ef"
     },
     {
-      "bytes": 6816,
+      "bytes": 4827,
+      "path": "skills/productivity/session-librarian/SKILL.md",
+      "sha256": "9da2d0ba82b771ae83560965ffaa910db01e76bba8c1d914133a0d8c6957f2ba"
+    },
+    {
+      "bytes": 6953,
       "path": "skills/productivity/teams-meeting-pipeline/SKILL.md",
-      "sha256": "0c0868dbc1efebe559b8584d4a52d5a29b4719867b6068177fdeb0cf9372843d"
+      "sha256": "2ffe32a3a55fb81a98da10fe0d87cfc10d9d3ef68ec38ff4df6922fb51d88325"
     },
     {
       "bytes": 2932,
@@ -8060,6 +8120,16 @@
       "bytes": 4272,
       "path": "skills/research/arxiv/scripts/search_arxiv.py",
       "sha256": "68f0bcc09ef1f59ecd9be8a7693e47239fd99b19d62cecb80a92b8c476cca371"
+    },
+    {
+      "bytes": 5152,
+      "path": "skills/research/blocked-page-recovery/SKILL.md",
+      "sha256": "1a7a44534277c3ce367cb9a9dde07b1aa0925d3e5e8cb4e887307568b7a46052"
+    },
+    {
+      "bytes": 8481,
+      "path": "skills/research/blocked-page-recovery/scripts/recover_page.py",
+      "sha256": "22b996996ae2bf252b31cfd2636231f08936729a381dce7ba8bfa4afb8ffe8c6"
     },
     {
       "bytes": 5111,
@@ -8447,9 +8517,9 @@
       "sha256": "55d5811c0b2d872dc59d87432720a113150dbbce2872524a36b3860a8967095d"
     },
     {
-      "bytes": 11271,
+      "bytes": 10885,
       "path": "skills/software-development/dev-plan/SKILL.md",
-      "sha256": "95434850d54074b24fbaff0b79303fa645d9651c0eff2134a42569fae0616cc5"
+      "sha256": "6925e39740fe001d15b5b305fc1a287e0d2d54c481a3e4d2783071692dc8ea75"
     },
     {
       "bytes": 6324,
@@ -8512,9 +8582,9 @@
       "sha256": "903da0fac77ebb3ece3cc42ab5143d7438c25f195724335031bb0cfbb81aac80"
     },
     {
-      "bytes": 30627,
+      "bytes": 29217,
       "path": "skills/software-development/planning-workflow/SKILL.md",
-      "sha256": "0f12dc0946a53653fc0be3d3bbf9ba704fa58c86c178e0d7681199490938b3d6"
+      "sha256": "b2a84e491053433985d41b633ec10e3963dbe4f69c336c81511b8a785683959e"
     },
     {
       "bytes": 13347,
@@ -8527,9 +8597,9 @@
       "sha256": "7e6d34d9927d68375b26946df45f95b11ee4e69e69ec9d2d71fe8e304487ec70"
     },
     {
-      "bytes": 32628,
+      "bytes": 32039,
       "path": "skills/software-development/reviewed-html-plan/SKILL.md",
-      "sha256": "3d0953a3ebb8a0546626f7311c5eba26c47a3b0b21d5eac4cac8f3376d53548d"
+      "sha256": "5899cff2fe1075165addc41635899f2494ad9935f84deed677ef36430a0c38b2"
     },
     {
       "bytes": 80678,
@@ -8557,9 +8627,9 @@
       "sha256": "4c01d41a0dffbe08eeab3c55250d66be0c9b2b418b4a176e492479407e1d6c7d"
     },
     {
-      "bytes": 24927,
+      "bytes": 24346,
       "path": "skills/software-development/writing-plans/SKILL.md",
-      "sha256": "ba72d17960d8380cba9861d3ab750476a5bf764ef755694f3790256bbcffa94b"
+      "sha256": "6d9eb397de15df494f4b4c71054af6227ccb6aa2dddfd6a5f625640f903d6358"
     },
     {
       "bytes": 3795,
@@ -8567,7 +8637,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260820T123930Z",
+  "generated_at": "20260823T172059Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/.hermes"

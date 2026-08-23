@@ -43,7 +43,6 @@
       <a href="#resume">Resume instructions</a>
       <a href="#product-intent">Product intent alignment</a>
       <a href="#locked-decisions">Locked decisions</a>
-      <a href="#socratic">Socratic plan questions</a>
       <a href="#inventory">Contract inventory</a>
       <a href="#acceptance">Acceptance criteria and BDD</a>
       <a href="#phases">Execution phases</a>
@@ -169,19 +168,6 @@
     </ol>
   </section>
 
-  <section id="socratic">
-    <h2>Socratic plan questions</h2>
-    <ol>
-      <li><strong>First hour:</strong> After update, selecting Grok 4.5 shows a 200K window, compaction begins near 180K during long sessions, and hitting the ceiling stops with an explicit recovery message instead of a provider overflow error.</li>
-      <li><strong>Consumers:</strong> Policy module → extension triggers/status, Pi dispatch gate, model registry, installer, real-host recorder. Verified by unit tests plus faux-provider integration.</li>
-      <li><strong>Siblings:</strong> Other Grok IDs and providers are intentionally untouched; regression tests prove percentage policy unchanged for a non-Grok model at the same absolute token count.</li>
-      <li><strong>Moving ground:</strong> Rebase against <code>main</code>; re-run installer and real-host scenarios if <code>percentage-compaction.ts</code>, Pi extension API, or model registry behavior changed upstream.</li>
-      <li><strong>Falsification:</strong> Wrong if any recorded Grok provider request ≥200K or if compaction does not initiate by 180K; caught by <code>grok-4-5-ceiling</code> real-host scenario.</li>
-      <li><strong>Proof:</strong> Real-host run with provider call recorder on a faux 500K Grok model proves customer-visible outcome: requests stay below 200K under growth, tool-result jump, continuation, no-safe-cut, and compaction-error cases.</li>
-      <li><strong>Untested:</strong> Production OpenCode Grok latency/cost and post-merge operator restart; residual risk until installed Pi with P0 is validated on target hosts.</li>
-      <li><strong>Expansion log:</strong> None beyond protecting existing non-Grok compaction behavior and documenting the provider-request vs stored-transcript distinction.</li>
-    </ol>
-  </section>
 
   <section id="inventory">
     <h2>Contract and distributed-integration inventory</h2>

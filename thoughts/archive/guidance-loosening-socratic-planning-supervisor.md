@@ -1,6 +1,6 @@
 # Plan: Loosen agent guidance, Socratic planning, supervisor counterweight
 
-**Status:** EXECUTION_READY — Pi review consensus (gpt-5.6-sol high, 6 rounds, 2026-07-23). Execution not yet started.
+**Status:** SUPERSEDED — archived after the planning format was removed on 2026-08-23.
 **Date:** 2026-07-23
 **Motivation:** The heddle 0.2.48–0.2.51 regression chain. Every escaped regression lived one hop outside a declared scope boundary. Post-incident audit found the guidance stack's prohibitions acted as *attention* barriers, not just *action* barriers, for a literal-minded executing model. The correction: fewer rules, a Socratic planning format, a trajectory-guarding supervisor, and rigor relocated into tests.
 

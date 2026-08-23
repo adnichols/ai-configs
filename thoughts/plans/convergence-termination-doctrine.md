@@ -16,7 +16,7 @@ Design constraint carried over from Jul 23: **bound effort and mutation — neve
 ## Non-goals
 
 - No re-tightening of scope or attention doctrine; the Jul 23 loosening is untouched.
-- No change to plan schema v2, Socratic questions, or the PASS/"Not examined:" grammar.
+- No change to plan schema v2 or the PASS/"Not examined:" grammar.
 - Heddle harness code fixes (strict-suite contention, visual tolerance) are follow-up issues in heddle, not part of this guidance change.
 
 ---
