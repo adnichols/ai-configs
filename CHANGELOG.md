@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: `smol` is `deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:max`, `plan` and `Oracle` are `cursor/kimi-k3-max:max`, advisor is `xai-oauth/grok-4.6:high`.
+
 - Synced managed OMP `config.yml` from this host: `ask.enabled` is false.
 
 - Synced managed OMP `config.yml` from this host: advisor is `cursor/kimi-k3-high:high`; setupVersion 2; composer shape claude; status line powerline-thin; spelling and emoji autocomplete off; openai/anthropic tiers none.
