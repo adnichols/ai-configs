@@ -87,3 +87,5 @@ spelling:
   autocorrect: false
   typoDetection: false
 emojiAutocomplete: false
+ask: 
+  enabled: false
