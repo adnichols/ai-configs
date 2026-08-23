@@ -8,7 +8,7 @@ extensions:
 symbolPreset: nerd
 theme: 
   dark: titanium
-setupVersion: 1
+setupVersion: 2
 steeringMode: all
 followUpMode: all
 autocompleteMaxVisible: 20
@@ -33,7 +33,7 @@ modelRoles:
   designer: openai-codex/gpt-5.6-terra:high
   commit: openai-codex/gpt-5.6-luna:xhigh
   tiny: openai-codex/gpt-5.6-luna:low
-  advisor: xai-oauth/grok-4.6:medium
+  advisor: cursor/kimi-k3-high:high
   Oracle: fireworks/kimi-k3:max
   reviewer: cursor/kimi-k3-high:high
   default: xai-oauth/grok-4.6:medium
@@ -76,3 +76,14 @@ personality: pragmatic
 interruptMode: immediate
 tier: 
   advisor: none
+  openai: none
+  anthropic: none
+composer: 
+  shape: claude
+statusLine: 
+  separator: powerline-thin
+spelling: 
+  autocomplete: false
+  autocorrect: false
+  typoDetection: false
+emojiAutocomplete: false

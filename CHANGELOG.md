@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: advisor is `cursor/kimi-k3-high:high`; setupVersion 2; composer shape claude; status line powerline-thin; spelling and emoji autocomplete off; openai/anthropic tiers none.
+
 - Pointed OMP Lite implementation doctrine at the configured default `xai-oauth/grok-4.6:medium` instead of Luna xhigh. The OMP planner no longer selects a Pi `luna-xhigh` implementation profile.
 
 - Synced managed OMP `config.yml` from this host: `smol` is `xai-oauth/grok-4.6:medium`, `reviewer` is `cursor/kimi-k3-high:high`.

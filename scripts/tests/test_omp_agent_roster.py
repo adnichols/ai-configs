@@ -79,7 +79,7 @@ class OmpAgentRosterTest(unittest.TestCase):
 
         self.assertIn("default: xai-oauth/grok-4.6:medium", config)
         self.assertIn("smol: xai-oauth/grok-4.6:medium", config)
-        self.assertIn("advisor: xai-oauth/grok-4.6:medium", config)
+        self.assertIn("advisor: cursor/kimi-k3-high:high", config)
         self.assertIn("Oracle: fireworks/kimi-k3:max", config)
         self.assertIn("slow: cursor/kimi-k3-max:max", config)
         self.assertIn("plan: xai-oauth/grok-4.6:high", config)
