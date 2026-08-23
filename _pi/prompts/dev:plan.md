@@ -108,7 +108,7 @@ Write (or update) `plan_path` with:
 - Product-owner context near the top, before implementation history and technical detail. For non-trivial plans, use a scannable impact table or equivalent structured block that explains the plain-language situation for a reader with no issue/Linear context, why the work is needed now, the unmistakable conclusion (runtime/customer defect versus stale test or operational evidence), and separate impact on Customers, Runtime product behavior, Security / permissions, Testing / release confidence, and Deployment / migration. Lightweight plans must use at least concise labeled prose; say `No change` or `Not applicable` for unaffected dimensions.
 - Apply the canonical `planning-workflow` `What's new` contract after Product-owner context and before Goal; a heading or surrounding-section restatement is insufficient.
 - Apply the canonical `planning-workflow` integration-integrity planning contract: when triggered, load `integration-integrity` and include its Contract and distributed-integration inventory; do not add an empty inventory when no trigger applies.
-- Apply its conditional planning-evidence checkpoint: triggered consumer/sibling evidence, moving-ground checks, falsification and production-path proof, residual risk, and expansion disposition belong in existing review sections. Do not require a standalone Socratic questionnaire.
+- Apply its conditional planning-evidence checkpoint: triggered consumer/sibling evidence, moving-ground checks, falsification and production-path proof, residual risk, and expansion disposition belong in existing review sections.
 - Goal / Non-goals
 - Current State (Validated)
 - Proposed Approach

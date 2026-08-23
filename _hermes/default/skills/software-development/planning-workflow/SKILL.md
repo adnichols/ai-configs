@@ -119,7 +119,7 @@ Immediately after Product-owner context and before Goal, every full implementati
 
 ### Conditional planning evidence checkpoint
 
-Do not require a standalone Socratic questionnaire or eight-answer prose block. Require the useful evidence where reviewers act on it when the plan changes an exact contract, distributes behavior across multiple sites, or carries material product/implementation uncertainty:
+Require the useful evidence where reviewers act on it when the plan changes an exact contract, distributes behavior across multiple sites, or carries material product/implementation uncertainty:
 
 - **First hour** belongs in Product-owner context and acceptance/BDD when rollout behavior changes.
 - **Consumers** and **Siblings** belong in the Contract and distributed-integration inventory, backed by the source search used to find them.

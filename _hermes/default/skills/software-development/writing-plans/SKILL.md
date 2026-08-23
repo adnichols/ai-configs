@@ -150,7 +150,7 @@ Legacy heading aliases may be preserved in historical plans, but new plans shoul
 
 ## Conditional planning evidence checkpoint
 
-Do not require a standalone Socratic questionnaire. When exact-contract, distributed-behavior, or material-uncertainty triggers apply, put consumer/sibling inventory, moving-ground checks, falsification and production-path proof, residual risk (`Not examined:`), and expansion disposition in the existing contract, acceptance/BDD, verification, Decision Attention, and Decisions / Deviations sections. Lightweight or single-site plans are not forced to repeat eight labels, and a questionnaire never substitutes for triggered evidence.
+When exact-contract, distributed-behavior, or material-uncertainty triggers apply, put consumer/sibling inventory, moving-ground checks, falsification and production-path proof, residual risk (`Not examined:`), and expansion disposition in the existing contract, acceptance/BDD, verification, Decision Attention, and Decisions / Deviations sections. Lightweight or single-site plans are not forced to repeat eight labels, and a questionnaire never substitutes for triggered evidence.
 
 ## TDD + BDD rules
 
