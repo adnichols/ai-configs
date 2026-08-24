@@ -318,16 +318,29 @@
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
+    "grilling": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/grilling",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; frontier-based decision interview used by grill-me, grill-with-docs, and wayfinder.",
+      "sourceType": "repo"
+    },
     "grill-me": {
       "class": "universal-installable",
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "cursor"
       ],
-      "notes": "Fetched via `npx skills add mattpocock/skills`. A relentless interview to sharpen a plan or design. Declared for default install in the Pi/Codex/Claude shared-skill context.",
-      "sourceType": "external-package",
-      "packageSource": "mattpocock/skills"
+      "canonicalSource": "skills/grill-me",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; user-invoked wrapper that loads grilling.",
+      "sourceType": "repo"
     },
     "herdr": {
       "class": "universal-installable",

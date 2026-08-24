@@ -385,7 +385,8 @@ seed_phase_two_home() {
     "$home/.agents/skills/omp-review-partner" \
     "$home/.claude/skills/linear" \
     "$home/.claude/skills/algorithmic-art" \
-    "$home/.config/opencode/skills"
+    "$home/.config/opencode/skills" \
+    "$home/.cursor/skills/web-design-guidelines"
 
   printf 'external\n' > "$home/.agents/skills/external-skill/SKILL.md"
   printf 'foreign-linear\n' > "$home/.agents/skills/linear/SKILL.md"
@@ -399,6 +400,7 @@ seed_phase_two_home() {
   ln -s "$home/.agents/skills/omp-review-partner" "$home/.claude/skills/omp-review-partner"
   ln -s "$home/.agents/skills/omp-review-partner" "$home/.config/opencode/skills/omp-review-partner"
   printf 'old-claude-linear\n' > "$home/.claude/skills/linear/SKILL.md"
+  printf 'foreign-cursor-web-design\n' > "$home/.cursor/skills/web-design-guidelines/SKILL.md"
   ln -s "$home/.agents/skills/$old_skill" "$home/.claude/skills/$old_skill"
   ln -s "$home/.agents/skills/$old_skill" "$home/.pi/agent/skills/$old_skill"
 
@@ -494,6 +496,7 @@ assert_shared_skill_install_state() {
   local backup_dir
   local claude_backup_dir
   local skill
+  local matt_skill
   # Split the retired skill name so stale-name greps can still guard active surfaces.
   local old_skill="scoped""-plan-run"
   local retired_skills=(
@@ -507,6 +510,10 @@ assert_shared_skill_install_state() {
     review-change
     review-change-integrate
     herdr-reviewers
+  )
+  local matt_skills=(
+    grill-me
+    grilling
   )
 
   [[ -d "$home/.agents/skills" ]] || return 1
@@ -578,6 +585,12 @@ assert_shared_skill_install_state() {
   assert_symlink_target "$home/.claude/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
   assert_symlink_target "$home/.claude/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
   assert_symlink_target "$home/.claude/skills/herdr" "$home/.agents/skills/herdr" || return 1
+  for matt_skill in "${matt_skills[@]}"; do
+    assert_symlink_target "$home/.cursor/skills/$matt_skill" "$home/.agents/skills/$matt_skill" || return 1
+  done
+  assert_file_contains "$home/.cursor/skills/web-design-guidelines/SKILL.md" 'foreign-cursor-web-design' || return 1
+  [[ ! -e "$home/.cursor/skills/run-plan" ]] || return 1
+
 
   [[ ! -e "$home/.claude/skills/cmd-debug" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/linear" ]] || return 1
