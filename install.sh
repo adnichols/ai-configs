@@ -1421,6 +1421,7 @@ remove_consumer_skill_entry() {
     local skill_name="$3"
     local source_rel="$4"
     local shared_skills_dir="$5"
+    local preserve_foreign="${6:-false}"
     local entry_path="$consumer_dir/$skill_name"
     local shared_target="$shared_skills_dir/$skill_name"
     local previous_path
@@ -1430,10 +1431,15 @@ remove_consumer_skill_entry() {
         return 0
     fi
 
+    if [ "$preserve_foreign" = true ]; then
+        return 0
+    fi
+
     if consumer_entry_is_repo_managed "$entry_path" "$shared_target" "$source_rel"; then
         rm -rf "$entry_path"
         return 0
     fi
+
 
     backup_path="$(backup_existing_consumer_entry "$entry_path" "$consumer" "$skill_name")"
     previous_path="$consumer_dir/.${skill_name}.previous.$$"
@@ -1453,7 +1459,8 @@ remove_consumer_skill_entry() {
 sync_consumer_skill_links() {
     local consumer="$1"
     local consumer_dir="$2"
-    shift 2
+    local preserve_foreign="${3:-false}"
+    shift 3
 
     if consumer_is_forced "$consumer" "$@"; then
         mkdir -p "$consumer_dir"
@@ -1469,7 +1476,7 @@ sync_consumer_skill_links() {
         if consumer_allows_skill "$consumer" "$allowed_consumers" "$default_install"; then
             ensure_consumer_skill_link "$consumer" "$consumer_dir" "$skill_name" "$source_rel" "$HOME/.agents/skills"
         else
-            remove_consumer_skill_entry "$consumer" "$consumer_dir" "$skill_name" "$source_rel" "$HOME/.agents/skills"
+            remove_consumer_skill_entry "$consumer" "$consumer_dir" "$skill_name" "$source_rel" "$HOME/.agents/skills" "$preserve_foreign"
         fi
     done < <(iterate_installable_skills)
 }
@@ -1581,7 +1588,8 @@ sync_shared_skills() {
     cleanup_deprecated_shared_skills
     cleanup_optional_profile_shared_skills
 
-    sync_consumer_skill_links "claude" "$HOME/.claude/skills" "$@"
+    sync_consumer_skill_links "claude" "$HOME/.claude/skills" false "$@"
+    sync_consumer_skill_links "cursor" "$HOME/.cursor/skills" true cursor "$@"
     consolidate_pi_local_skills "$HOME/.pi/agent/skills"
 
     echo -e "${GREEN}✓ Shared skills synced successfully${NC}"

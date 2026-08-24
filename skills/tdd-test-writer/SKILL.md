@@ -34,6 +34,8 @@ Keep the test as close as practical to the observable entry point. Unit tests re
 - **External deterministic boundary:** When an external service sits between components, prove the actual request/response or serialized boundary with the supported deterministic fake, capture, or fixture. Do not require an impossible in-process round trip.
 
 If none of these triggers applies, keep the RED test lightweight and local. Do not fabricate integration coverage merely because this skill was loaded.
+For concrete good/bad behavior-test examples, read `references/tests.md`. When a boundary may need a fake, read `references/mocking.md`; prefer a real test dependency and mock only genuine system boundaries.
+
 
 ### 3. Author and verify RED
 

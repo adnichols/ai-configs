@@ -512,8 +512,19 @@ assert_shared_skill_install_state() {
     herdr-reviewers
   )
   local matt_skills=(
+    codebase-design
+    domain-modeling
     grill-me
+    grill-with-docs
     grilling
+    improve-codebase-architecture
+    prototype
+    research
+    setup-matt-pocock-skills
+    to-spec
+    to-tickets
+    triage
+    wayfinder
   )
 
   [[ -d "$home/.agents/skills" ]] || return 1

@@ -198,6 +198,18 @@
       "notes": "Codex-only: orchestrates the full lifecycle from issue or plan intake through reviewed planning, scoped execution, verification, push, and ready-for-review PR creation.",
       "sourceType": "repo"
     },
+    "codebase-design": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/codebase-design",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; deep-module vocabulary and interface-design examples used by architecture workflows.",
+      "sourceType": "repo"
+    },
     "completeness": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -307,6 +319,18 @@
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
     },
+    "domain-modeling": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/domain-modeling",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; maintains configured domain glossaries and durable architectural decisions.",
+      "sourceType": "repo"
+    },
     "frontend-design": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -317,6 +341,18 @@
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
       "packageSource": "anthropics/skills"
+    },
+    "grill-with-docs": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/grill-with-docs",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; combines grilling with inline domain documentation.",
+      "sourceType": "repo"
     },
     "grilling": {
       "class": "universal-installable",
@@ -351,6 +387,18 @@
       ],
       "canonicalSource": "skills/herdr",
       "notes": "Repo-owned override of the upstream Herdr control skill. Allows Codex and Claude to control a reachable Herdr session from outside a managed pane instead of treating `HERDR_ENV=1` as a hard prerequisite.",
+      "sourceType": "repo"
+    },
+    "improve-codebase-architecture": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/improve-codebase-architecture",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; produces visual deepening-opportunity reports and guided follow-up.",
       "sourceType": "repo"
     },
     "integration-integrity": {
@@ -506,6 +554,18 @@
       "notes": "Existing canonical skill retained.",
       "sourceType": "repo"
     },
+    "prototype": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/prototype",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; throwaway logic and UI prototypes supporting wayfinder decisions.",
+      "sourceType": "repo"
+    },
     "autoreview": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
@@ -535,6 +595,18 @@
       ],
       "canonicalSource": "skills/repo-agents-bootstrap",
       "notes": "Canonical shared repo bootstrap guidance.",
+      "sourceType": "repo"
+    },
+    "research": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/research",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; primary-source research support for wayfinder decision tickets.",
       "sourceType": "repo"
     },
     "reviewed-html-plan": {
@@ -572,6 +644,18 @@
         "_pi/skills/sentry-cli"
       ],
       "notes": "Repo-owned local skill retained in ai-configs.",
+      "sourceType": "repo"
+    },
+    "setup-matt-pocock-skills": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/setup-matt-pocock-skills",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; configures per-repository tracker and domain-document conventions.",
       "sourceType": "repo"
     },
     "run-plan": {
@@ -670,6 +754,42 @@
       "notes": "Repo-owned direct TDD RED-phase authorship guidance; the driving agent writes and runs tests without test-authoring delegation.",
       "sourceType": "repo"
     },
+    "to-spec": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/to-spec",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; publishes synthesized specifications to the configured issue tracker.",
+      "sourceType": "repo"
+    },
+    "to-tickets": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/to-tickets",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; publishes tracer-bullet tickets with explicit blocking edges.",
+      "sourceType": "repo"
+    },
+    "triage": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/triage",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; triages configured local or remote issue trackers.",
+      "sourceType": "repo"
+    },
     "telemetry": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -744,6 +864,18 @@
       "sourceType": "repo",
       "defaultInstall": false,
       "profile": "ops-browser"
+    },
+    "wayfinder": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "cursor"
+      ],
+      "canonicalSource": "skills/wayfinder",
+      "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; maps multi-session work as decision tickets on the configured tracker.",
+      "sourceType": "repo"
     },
     "web-artifacts-builder": {
       "class": "universal-installable",
