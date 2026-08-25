@@ -171,6 +171,78 @@ class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
             self.assertEqual("none", payload["profiles"]["reviewer"]["effectiveIsolation"])
             self.assertEqual("openai-codex/gpt-5.6-sol", payload["profiles"]["planner"]["model"])
 
+    def test_accepts_current_off_veto_package(self):
+        with tempfile.TemporaryDirectory() as temp:
+            agent_dir = Path(temp)
+            package = agent_dir / "npm/node_modules/@tintinweb/pi-subagents"
+            requested = "const requested = agentConfig?.isolation ?? params.isolation;\n"
+            files = {
+                "src/types.ts": 'export type IsolationMode = "worktree" | "off";\n',
+                "dist/types.d.ts": 'export type IsolationMode = "worktree" | "off";\n',
+                "src/custom-agents.ts": 'if (val === "off" || val === "none" || val === "no" || val === false) return "off";\n',
+                "dist/custom-agents.js": 'if (val === "off" || val === "none" || val === "no" || val === false)\n        return "off";\n',
+                "src/invocation-config.ts": requested,
+                "dist/invocation-config.js": requested,
+                "src/index.ts": (
+                    "const customConfig = getAgentConfig(subagentType);\n\n"
+                    "      const resolvedConfig = resolveAgentInvocationConfig(customConfig, params, {\n"
+                ),
+                "dist/index.js": (
+                    "const customConfig = getAgentConfig(subagentType);\n"
+                    "            const resolvedConfig = resolveAgentInvocationConfig(customConfig, params, {\n"
+                ),
+            }
+            for relative, content in files.items():
+                target = package / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content)
+
+            env = {**os.environ, "PI_CODING_AGENT_DIR": str(agent_dir)}
+            for _ in range(2):
+                result = subprocess.run(
+                    ["python3", str(PATCH)],
+                    env=env,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(0, result.returncode, result.stderr)
+
+            self.assertIn(
+                'IsolationMode = "worktree" | "off"',
+                (package / "src/types.ts").read_text(),
+            )
+            self.assertNotIn(
+                'IsolationMode = "worktree" | "none"',
+                (package / "src/types.ts").read_text(),
+            )
+            self.assertIn(
+                "ai-configs live-checkout agent guard",
+                (package / "src/index.ts").read_text(),
+            )
+            self.assertIn(
+                "ai-configs live-checkout agent guard",
+                (package / "dist/index.js").read_text(),
+            )
+            agents = agent_dir / "agents"
+            agents.mkdir()
+            (agents / "planner.md").write_text(
+                "---\nname: planner\nmodel: openai-codex/gpt-5.6-sol\nreasoningEffort: medium\nisolation: none\n---\n"
+            )
+            (agents / "reviewer.md").write_text(
+                "---\nname: reviewer\nmodel: openai-codex/gpt-5.6-terra\nreasoningEffort: medium\nisolation: none\n---\n"
+            )
+            probe = subprocess.run(
+                ["python3", str(PROBE), "--agent-dir", str(agent_dir), "--json"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(0, probe.returncode, probe.stderr)
+            payload = __import__("json").loads(probe.stdout)
+            self.assertEqual("pass", payload["status"])
+            self.assertEqual("agent-first", payload["transportPrecedence"])
+
     def test_probe_fails_closed_on_incompatible_effective_isolation(self):
         with tempfile.TemporaryDirectory() as temp:
             agent_dir = Path(temp)

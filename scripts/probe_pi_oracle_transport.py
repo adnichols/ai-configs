@@ -37,8 +37,8 @@ def transport_precedence(package: Path) -> str:
         package / "src/invocation-config.ts",
         package / "dist/invocation-config.js",
     )
-    agent_first = "isolation: agentConfig?.isolation ?? params.isolation,"
-    caller_first = "isolation: params.isolation ?? agentConfig?.isolation,"
+    agent_first = "agentConfig?.isolation ?? params.isolation"
+    caller_first = "params.isolation ?? agentConfig?.isolation"
     inherit_agent_first = "inheritContext: agentConfig?.inheritContext ?? params.inherit_context"
     found = []
     inherit_ok = False

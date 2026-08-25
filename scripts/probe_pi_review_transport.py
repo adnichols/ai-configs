@@ -33,8 +33,8 @@ def resolve(args):
     target = Path(args.target_checkout).expanduser().resolve() if args.target_checkout else Path.cwd().resolve()
     package = agent_dir / "npm/node_modules/@tintinweb/pi-subagents"
     precedence_files = (package / "src/invocation-config.ts", package / "dist/invocation-config.js")
-    agent_first = "isolation: agentConfig?.isolation ?? params.isolation,"
-    caller_first = "isolation: params.isolation ?? agentConfig?.isolation,"
+    agent_first = "agentConfig?.isolation ?? params.isolation"
+    caller_first = "params.isolation ?? agentConfig?.isolation"
     precedence = []
     for path in precedence_files:
         if not path.is_file():

@@ -12,9 +12,25 @@ import sys
 from pathlib import Path
 
 PACKAGE = Path("npm/node_modules/@tintinweb/pi-subagents")
-REQUIRED_PRECEDENCE = {
-    "src/invocation-config.ts": "isolation: agentConfig?.isolation ?? params.isolation,",
-    "dist/invocation-config.js": "isolation: agentConfig?.isolation ?? params.isolation,",
+AGENT_FIRST_ISOLATION = "agentConfig?.isolation ?? params.isolation"
+CALLER_FIRST_ISOLATION = "params.isolation ?? agentConfig?.isolation"
+ALREADY_AUTHORITATIVE = {
+    "src/types.ts": (
+        'IsolationMode = "worktree" | "none"',
+        'IsolationMode = "worktree" | "off"',
+    ),
+    "dist/types.d.ts": (
+        'IsolationMode = "worktree" | "none"',
+        'IsolationMode = "worktree" | "off"',
+    ),
+    "src/custom-agents.ts": (
+        'fm.isolation === "worktree" || fm.isolation === "none"',
+        'val === "off" || val === "none"',
+    ),
+    "dist/custom-agents.js": (
+        'fm.isolation === "worktree" || fm.isolation === "none"',
+        'val === "off" || val === "none"',
+    ),
 }
 REPLACEMENTS = {
     "src/types.ts": (
@@ -38,8 +54,9 @@ REPLACEMENTS = {
 # Tool-description guidance that trains callers away from worktree isolation on
 # isolation:none personas (oracle/reviewer/planner).
 LIVE_CHECKOUT_GUARD_MARKER = "ai-configs live-checkout agent guard"
-SRC_GUARD_ANCHOR = "const customConfig = getAgentConfig(subagentType);\n\n      const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);"
-SRC_GUARD_REPLACEMENT = """const customConfig = getAgentConfig(subagentType);
+
+GET_AGENT_CONFIG = "const customConfig = getAgentConfig(subagentType);"
+SRC_GUARD_INSERT = """const customConfig = getAgentConfig(subagentType);
 
       // ai-configs live-checkout agent guard
       // Strip caller overrides that fight isolation:none / inherited-context personas.
@@ -55,10 +72,8 @@ SRC_GUARD_REPLACEMENT = """const customConfig = getAgentConfig(subagentType);
       if (subagentType === "oracle" && params.thinking && params.thinking !== "high") {
         delete (params as { thinking?: unknown }).thinking;
       }
-
-      const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);"""
-DIST_GUARD_ANCHOR = "const customConfig = getAgentConfig(subagentType);\n            const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);"
-DIST_GUARD_REPLACEMENT = """const customConfig = getAgentConfig(subagentType);
+"""
+DIST_GUARD_INSERT = """const customConfig = getAgentConfig(subagentType);
             // ai-configs live-checkout agent guard
             // Strip caller overrides that fight isolation:none / inherited-context personas.
             // Do not hard-error: models otherwise retry-loop with the same bad args.
@@ -73,7 +88,7 @@ DIST_GUARD_REPLACEMENT = """const customConfig = getAgentConfig(subagentType);
             if (subagentType === "oracle" && params.thinking && params.thinking !== "high") {
                 delete params.thinking;
             }
-            const resolvedConfig = resolveAgentInvocationConfig(customConfig, params);"""
+"""
 
 DESCRIPTION_REPLACEMENTS = {
     'isolation: "worktree" runs the agent in an isolated git worktree; changes land on a branch.': (
@@ -117,6 +132,14 @@ def apply_description_patches(source: str) -> tuple[str, int]:
         count += 1
     return updated, count
 
+def has_agent_first_isolation(source: str) -> bool:
+    return AGENT_FIRST_ISOLATION in source and CALLER_FIRST_ISOLATION not in source
+
+
+def already_authoritative(relative: str, source: str) -> bool:
+    return any(marker in source for marker in ALREADY_AUTHORITATIVE[relative])
+
+
 
 def main() -> int:
     agent_dir = Path(
@@ -130,9 +153,11 @@ def main() -> int:
         )
         return 1
 
-    for relative, required in REQUIRED_PRECEDENCE.items():
+    for relative in ("src/invocation-config.ts", "dist/invocation-config.js"):
         target = package / relative
-        if not target.is_file() or required not in target.read_text(encoding="utf-8"):
+        if not target.is_file() or not has_agent_first_isolation(
+            target.read_text(encoding="utf-8")
+        ):
             print(
                 f"pi-subagents patch refused: agent-config isolation precedence missing in {target}",
                 file=sys.stderr,
@@ -146,7 +171,7 @@ def main() -> int:
             print(f"pi-subagents patch refused: missing {target}", file=sys.stderr)
             return 1
         source = target.read_text(encoding="utf-8")
-        if new in source:
+        if new in source or already_authoritative(relative, source):
             continue
         if old not in source:
             print(
@@ -155,6 +180,7 @@ def main() -> int:
             )
             return 1
         updates.append((target, source.replace(old, new, 1)))
+
 
     description_targets = []
     for relative in ("src/index.ts", "dist/index.js"):
@@ -166,16 +192,18 @@ def main() -> int:
         patched, count = apply_description_patches(source)
 
         if LIVE_CHECKOUT_GUARD_MARKER not in patched:
-            anchor = SRC_GUARD_ANCHOR if relative.startswith("src/") else DIST_GUARD_ANCHOR
-            replacement = SRC_GUARD_REPLACEMENT if relative.startswith("src/") else DIST_GUARD_REPLACEMENT
-            if anchor not in patched:
+            replacement = (
+                SRC_GUARD_INSERT if relative.startswith("src/") else DIST_GUARD_INSERT
+            )
+            if GET_AGENT_CONFIG not in patched:
                 print(
                     f"pi-subagents patch refused: live-checkout guard anchor missing in {target}",
                     file=sys.stderr,
                 )
                 return 1
-            patched = patched.replace(anchor, replacement, 1)
+            patched = patched.replace(GET_AGENT_CONFIG, replacement, 1)
             count += 1
+
 
         if count:
             description_targets.append((target, patched, count))
