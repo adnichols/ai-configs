@@ -231,7 +231,7 @@ delivery board
 delivery check -v
 
 # Full reviewed-plan implementation through ready PR:
-# implementation, PM review, applicable pre-PR review, base freshness,
+# implementation, PM review, autoreview, completeness, base freshness,
 # PR creation, local merge-readiness consensus, and safe auto-rebase
 /run-plan <thoughts/plans/<plan>.html | plan-slug>
 /skill:run-plan <thoughts/plans/<plan>.html | plan-slug>
@@ -341,10 +341,10 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 **Reviews:**
 - `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, and run PM plus the independent Sol-medium planner-subagent plan review. Planning-only use stops at the execution-ready plan; a delivery-managed Herdr run automatically launches the dedicated implementation agent at `EXECUTION_READY`.
 - `/skill:delivery-run` — Per-worktree delivery stage ledger and board for plan ↔ review → run-plan → autoreview → PR. Guidance not gates; `delivery check` advisories never hard-block.
-- `/skill:autoreview` — Canonical bounded active-harness reviewer-subagent pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to mandatory PR creation instead of concluding or waiting for external approval.
-- `/skill:completeness` — OMP driver for `@completeness` request-bound plan-completeness review (`skill://completeness`).
+- `/skill:autoreview` — Canonical bounded active-harness reviewer-subagent pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to completeness then PR creation instead of concluding or waiting for external approval.
+- `/skill:completeness` — OMP driver for `@completeness` request-bound plan-completeness review (`skill://completeness`). Required after autoreview and before a run-plan PR.
 - `/skill:pre-pr-implementation-review` — Indefinite compatibility alias for `/skill:autoreview`; it preserves arguments and the same `OPEN_PR_READY` handoff semantics.
-- `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, applicable pre-PR review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
+- `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, pre-PR autoreview, completeness review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
 
 
 ### Configuration

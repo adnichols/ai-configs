@@ -15,4 +15,4 @@ The accepted argument shapes remain unchanged: no arguments, a plan path, a base
 
 Do not recurse into `pre-pr-implementation-review`, and do not redefine or duplicate reviewer routing, severities, scope labels, convergence limits, artifacts, verification rules, or fix policy here. The canonical `autoreview` skill owns the full Codex and applicable Claude Code workflow for Codex and Pi.
 
-Preserve the canonical result exactly. In particular, when called from `run-plan`, a passing gate remains `OPEN_PR_READY` and hands control back to the caller for final verification, base freshness, commit, push, PR creation, and local merge-readiness checking.
+Preserve the canonical result exactly. In particular, when called from `run-plan`, a passing gate remains `OPEN_PR_READY` and hands control back to the caller for completeness review, final verification, base freshness, commit, push, PR creation, and local merge-readiness checking.
