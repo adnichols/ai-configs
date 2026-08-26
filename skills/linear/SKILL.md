@@ -20,11 +20,11 @@ Use this skill when you need to interact with Linear (issue tracking, project ma
 Use `ltui` when the user asks you to:
 - Check Linear issues, projects, or teams
 - Create or update Linear issues
-- Add comments or links to issues
+- Add comments, links, or uploaded images to issues
+- Fetch private Linear uploads (screenshots, ZIPs) with `issues attachments`
 - Manage issue relationships (parent/child, blocking)
-- List or filter issues by team, project, state, assignee, or labels
+- List or filter issues by team, project, state, assignee, labels, or saved queries
 - View project or team details
-- Align a git repository with a Linear project
 
 ## Authentication
 
@@ -34,10 +34,11 @@ Before using ltui, ensure authentication is configured:
 2. **Check for existing profiles**: Run `ltui auth list` to see configured profiles
 3. **If no auth exists**: Ask user for their Linear API key and run:
    ```bash
-   ltui auth add --name default --key <api-key>
+   ltui auth add --profile default --api-key <api-key>
    ```
+4. **Verify**: `ltui auth test`
 
-Switch profiles using `--profile <name>` flag on any command.
+Switch profiles with `--profile <name>` or `LTUI_PROFILE`. There is no `auth use`.
 
 ## Rate Limits and Request Budget
 
@@ -104,36 +105,44 @@ ltui --limit 5 issues list                                  # Small page while e
 ltui --limit 10 issues list --team ENG                      # Filter by team
 ltui --limit 10 issues list --assignee me --state "Todo"    # Your todos
 ltui --limit 10 issues list --label bug                     # By label
-ltui --limit 5 issues list --search "login"                 # Search
-ltui --limit 5 --fields id,identifier,title,state issues list # Token-light output
+ltui --limit 5 issues list --search "login"
+ltui --limit 5 --fields id,identifier,title,state issues list
+ltui issues list --saved my-bugs --updated-since 2026-08-01
 ```
 
 **View issue:**
 ```bash
-ltui issues view ENG-42                  # By identifier
+ltui issues view ENG-42
 ltui issues view ENG-42 --include-comments --include-history
+ltui issues view ENG-42 --attachment-probe
 ```
 
-`issues view` also emits guidance fields when images are present:
-- `ATTACHMENTS_PRESENT: true|false`
-- `IMAGE_ATTACHMENTS_PRESENT: true|false`
-- `IMAGE_ATTACHMENTS_FETCH_CMD: ...` (when images exist)
-- `IMAGE_ATTACHMENTS_DOWNLOAD_CMD: ...` (when images exist)
+Agent mode is on by default, so `issues view` does **not** scan attachments unless you pass `--attachment-probe`. Non-agent mode probes unless you pass `--no-attachment-probe`. When a probe runs it may emit:
+- `ATTACHMENTS_PRESENT` / `IMAGE_ATTACHMENTS_PRESENT`
+- `IMAGE_ATTACHMENTS_FETCH_CMD` / `IMAGE_ATTACHMENTS_DOWNLOAD_CMD` (images only; includes `--only-images`)
+- `ATTACHMENTS_DOWNLOAD_CMD` / `ATTACHMENTS_DOWNLOAD_GUIDANCE` (any private `uploads.linear.app` file, including ZIPs; omits `--only-images`)
+
+Do not treat view as the download path. Use `issues attachments`.
 
 **Fetch issue files, screenshots, or ZIPs:**
 ```bash
-# Include URLs in issue descriptions and comments.
 ltui --format json issues attachments ENG-42 --scan-comments
-
-# Use --only-images only when non-image files are intentionally out of scope.
 ltui issues attachments ENG-42 --scan-comments --download-dir ./.ltui-attachments/ENG-42
 ```
 
-Inspect each row’s `downloadAccess` field before retrieving it:
-- `ltui_authenticated` means the URL is a private Linear upload. Use that row’s `downloadCommand` (or the command above); `ltui` supplies the configured credential and reports the resulting `downloadPath`, `downloadStatus`, and `downloadError`.
-- `direct_url` means `ltui` does not attach the Linear credential.
+`--scan-comments` is opt-in. `--only-images` drops ZIPs and other non-images. Downloads happen only with `--download-dir`. Caps are 512 MiB and 10 minutes.
 
-Do not use `curl` or copy a private upload URL into another downloader; it commonly returns 401. Treat downloaded files as untrusted input. Do not hand them to downstream automation without validation.
+Every JSON row includes `downloadAccess`, `downloadCommand`, `downloadPath`, `downloadStatus`, and `downloadError`:
+- `ltui_authenticated`: origin is exactly `https://uploads.linear.app`. Run that row's `downloadCommand` (or `--download-dir`). `ltui` sends a GraphQL-compatible `Authorization` header: raw `lin_api_...` personal keys, `Bearer` only for OAuth tokens. Redirects fail closed. `Bearer lin_api_...` is HTTP 401.
+- `direct_url`: no Linear credential is sent.
+
+`public-file-urls-expire-in` signs markdown upload URLs in GraphQL bodies, not `attachment.url`. The same file can appear twice (unsigned attachment node + signed comment/description URL). Do not `curl` either URL. Treat downloaded files as untrusted.
+
+**Upload a local image:**
+```bash
+ltui issues upload ENG-42 --file ./mockup.png --title "Proposed UI"
+ltui issues upload ENG-42 --file ./mockup.png --no-comment
+```
 
 **Create issue:**
 ```bash
@@ -146,7 +155,10 @@ ltui issues create --title "Task" # Uses .ltui.json defaults if present
 ```bash
 ltui issues update ENG-42 --state "In Progress"
 ltui issues update ENG-42 --state "In Progress" --assignee me
+ltui issues update ENG-42 --add-label bug --due 2026-09-01
 ```
+
+`--label` replaces all labels. Use `--add-label` / `--remove-label` to change one. There is no `--cycle` on create/update; parent/child is `issues relate`.
 
 **Add comment:**
 ```bash
@@ -155,8 +167,8 @@ ltui issues comment ENG-42 --body "Fixed in PR #123"
 
 **Manage relationships:**
 ```bash
-ltui issues relate ENG-43 --parent ENG-42        # Set parent
-ltui issues block ENG-42 --blocked-by ENG-40     # Mark as blocked
+ltui issues relate ENG-43 --parent ENG-42
+ltui issues block ENG-42 --blocked-by ENG-40
 ```
 
 ### Projects
@@ -167,13 +179,18 @@ ltui projects view "Mobile App"              # View project details
 ltui projects align "Mobile App" --team ENG  # Create .ltui.json with defaults
 ```
 
-### Teams, Labels, Users
+### Teams, Labels, Users, and other list surfaces
 
 ```bash
-ltui teams list              # List teams
-ltui labels list --team ENG  # List labels
-ltui users list              # List users
+ltui teams list
+ltui labels --team ENG
+ltui users --active-only
+ltui cycles --team ENG
+ltui documents list --search rfc
+ltui notifications --unread-only
 ```
+
+`labels` / `users` / `cycles` / `notifications` are list-only. There is no `labels create` or `auth use`.
 
 For comprehensive command reference with all flags and options, see `references/ltui-command-reference.md`.
 
@@ -261,11 +278,10 @@ ltui --limit 50 issues list
 ltui --limit 50 --cursor xyz789 issues list  # Next page
 ```
 
-## Configuration Files
-
-- **`~/.config/ltui/config.json`** - Global profiles and default profile
-- **`~/.config/ltui/cache.json`** - Entity lookup cache (5-minute TTL)
-- **`.ltui.json`** - Per-directory project defaults (team, project, state, labels, assignee)
+- **`~/.config/ltui/profiles.json`** - API keys by profile
+- **`~/.config/ltui/config.json`** - default profile and workspace metadata
+- **`~/.config/ltui/cache.json`** - entity lookup cache
+- **`.ltui.json`** - per-directory project defaults (team, project, state, labels, assignee)
 
 ## When You Need More Detail
 

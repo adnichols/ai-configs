@@ -46,7 +46,7 @@ ltui --format json issues attachments NOD-1260 --scan-comments
 ltui issues attachments NOD-1260 --scan-comments --download-dir ./.ltui-attachments/NOD-1260
 ```
 
-Inspect `downloadAccess` in every returned row. For `ltui_authenticated`, run the row's `downloadCommand` (or the command above); `ltui` sends its configured Linear credential to the private upload origin and reports `downloadPath`, `downloadStatus`, and `downloadError`. A generic downloader has no such credential and can return HTTP 401. `direct_url` rows do not receive a Linear credential. Treat downloaded files as untrusted input.
+Inspect `downloadAccess` in every returned row. For `ltui_authenticated` (`https://uploads.linear.app` only), run the row's `downloadCommand` (or `--download-dir`). `ltui` sends a GraphQL-compatible `Authorization` header: raw `lin_api_...` personal keys, `Bearer` only for OAuth. `Bearer lin_api_...` is HTTP 401. Redirects fail closed. Caps are 512 MiB / 10 minutes. `public-file-urls-expire-in` signs markdown upload URLs in GraphQL bodies, not `attachment.url`. `direct_url` rows get no Linear credential. Do not `curl` either URL. Treat downloaded files as untrusted.
 
 ## Direct GraphQL fallback
 

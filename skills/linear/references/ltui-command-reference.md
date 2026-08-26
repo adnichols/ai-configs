@@ -15,12 +15,15 @@ Global options such as `--format`, `--fields`, `--limit`, `--cursor`, `--profile
 ltui issues list [options]
 
 Options:
-  --team <key>           Filter by team key (e.g., ENG, PROD)
-  --project <name|id>    Filter by project name or ID
-  --state <name|id>      Filter by state name or ID (repeatable)
-  --assignee <email|id>  Filter by assignee (use "me" for yourself)
-  --label <name>         Filter by label (can be used multiple times)
-  --search <query>       Search issues by text
+  --team <key-or-id>        Team key or id
+  --project <key-or-id>     Project key or id
+  --state <name-or-id>      State name or id (repeatable)
+  --assignee <me|email|id>  Assignee
+  --label <name-or-id>      Label (repeatable)
+  --search <query>          Search issues by text
+  --updated-since <iso>     Updated since ISO timestamp
+  --created-since <iso>     Created since ISO timestamp
+  --saved <name>            Apply a saved query
 ```
 
 **Examples:**
@@ -55,7 +58,7 @@ ltui issues list --team ENG --state "Todo" --assignee me
 ltui --limit 10 issues list
 
 # Get specific fields only
-ltui --fields id,key,title,state issues list
+ltui --fields id,identifier,title,state issues list
 ltui --format json --show-rate-limit --fields id,identifier,title issues list
 
 # Pagination
@@ -99,10 +102,11 @@ ltui issues attachments ENG-42 --scan-comments --download-dir ./.ltui-attachment
 
 Every row includes `downloadAccess`, `downloadCommand`, `downloadPath`, `downloadStatus`, and `downloadError`.
 
-- `downloadAccess: ltui_authenticated` identifies a private `https://uploads.linear.app` file. Run its `downloadCommand`; `ltui` sends the configured Linear credential only to that exact origin and rejects authenticated redirects.
+- `downloadAccess: ltui_authenticated` is only `https://uploads.linear.app`. Run `downloadCommand`. `ltui` sends GraphQL-compatible `Authorization`: raw `lin_api_...` personal keys, `Bearer` only for OAuth. Redirects fail closed. `Bearer lin_api_...` is HTTP 401.
 - `downloadAccess: direct_url` means no Linear credential is sent.
+- `public-file-urls-expire-in` signs markdown upload URLs in GraphQL bodies, not `attachment.url`. Caps: 512 MiB / 10 minutes.
 
-Do not use a generic downloader for `ltui_authenticated` URLs: it can fail with HTTP 401. Downloaded files are untrusted input. Validate them before using them in downstream tooling or automation.
+Do not use a generic downloader for `ltui_authenticated` URLs. Downloaded files are untrusted input.
 
 ### `ltui issues view`
 
@@ -116,11 +120,12 @@ Arguments:
   <identifier>         Issue identifier (e.g., ENG-42) or ID
 
 Options:
-  --include-comments         Include comments
-  --include-history          Include history
-  --no-attachment-probe      Skip default attachment/comment scan for image guidance
-  --max-description-chars <n> Max description chars (default: 4000)
-  --max-comment-chars <n>     Max comment chars (default: 500)
+  --include-comments           Include comments
+  --include-history            Include history
+  --attachment-probe           Probe attachments (off in default agent mode)
+  --no-attachment-probe        Skip the probe
+  --max-description-chars <n>  Max description chars (default: 4000)
+  --max-comment-chars <n>      Max comment chars (default: 500)
 ```
 
 **Examples:**
@@ -148,15 +153,12 @@ Required (unless defaults in .ltui.json):
   --title <text>            Issue title
 
 Optional:
-  --project <name|id>       Project name or ID
-  --description <text|@file> Issue description (use @file to read from file)
-  --state <name|id>         State name or ID
-  --assignee <email|id>     Assignee email or ID (use "me" for yourself)
-  --label <name>            Label name (can be used multiple times)
-  --priority <0-4>          Priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)
-  --estimate <n>            Estimate in points
-  --parent <identifier>     Parent issue identifier
-  --cycle <name|id>         Cycle name or ID
+  --project <key-or-id>          Project key or id
+  --description <text-or-@path>  Description text or @path
+  --state <name-or-id>           State name or id
+  --assignee <me|email|id>       Assignee
+  --label <name-or-id>           Label (repeatable)
+  --priority <0-4>               Priority (0=None, 1=Urgent, 2=High, 3=Normal, 4=Low)
 ```
 
 **Examples:**
@@ -177,14 +179,13 @@ ltui issues create \
   --assignee me \
   --label bug \
   --label high-priority \
-  --priority 1 \
-  --estimate 3
+  --priority 1
 
 # Description from file
 ltui issues create --title "Feature spec" --description @spec.md
 
-# With parent issue
-ltui issues create --team ENG --title "Subtask" --parent ENG-42
+# Parent/child is a separate command
+ltui issues relate ENG-43 --parent ENG-42
 ```
 
 ### `ltui issues update`
@@ -199,15 +200,18 @@ Arguments:
   <identifier>              Issue identifier (e.g., ENG-42) or ID
 
 Options:
-  --title <text>            Update title
-  --description <text|@file> Update description
-  --state <name|id>         Update state
-  --assignee <email|id>     Update assignee (use "me" or "unassigned")
-  --label <name>            Set labels (replaces all, can be used multiple times)
-  --priority <0-4>          Update priority
-  --estimate <n>            Update estimate
-  --project <name|id>       Move to different project
-  --cycle <name|id>         Move to different cycle
+  --team <key>                   Team key override
+  --project <key-or-id>          Project key or id
+  --title <title>                Updated title
+  --description <text-or-@path>  Description text or @path
+  --state <name-or-id>           State name or id
+  --label <name-or-id>           Replace all labels (repeatable)
+  --add-label <name-or-id>       Add labels
+  --remove-label <name-or-id>    Remove labels
+  --assignee <me|email|id>       Assignee
+  --priority <0-4>               Priority
+  --estimate <number>            Estimate
+  --due <iso>                    Due date ISO string
 ```
 
 **Examples:**
@@ -250,10 +254,7 @@ Arguments:
   <identifier>         Issue identifier (e.g., ENG-42) or ID
 
 Required:
-  --body <text|@file>  Comment text (use @file to read from file)
-
-Options:
-  (none; use global options before the command path)
+  --body <text-or-@path>  Comment text or @path
 ```
 
 **Examples:**
@@ -268,6 +269,34 @@ ltui issues comment ENG-42 --body @comment.md
 ltui issues comment ENG-42 --body "Line 1
 Line 2
 Line 3"
+```
+
+
+### `ltui issues upload`
+
+Upload a local image to Linear and attach it to an issue.
+
+**Options:**
+```bash
+ltui issues upload <issue-id-or-key> [options]
+
+Arguments:
+  <issue-id-or-key>   Issue identifier or id
+
+Required:
+  --file <path>              Local image file
+
+Optional:
+  --title <title>            Attachment title
+  --alt <text>               Alt text
+  --content-type <type>      Content type
+  --no-comment               Skip the default comment
+```
+
+**Examples:**
+```bash
+ltui issues upload ENG-42 --file ./mockup.png --title "Proposed UI"
+ltui issues upload ENG-42 --file ./mockup.png --no-comment
 ```
 
 ### `ltui issues link`
@@ -285,7 +314,9 @@ Required:
   --url <url>         URL to link
 
 Optional:
-  --title <text>      Link title (defaults to URL)
+  --title <title>     Link title
+  --branch <branch>   Branch name
+  --commit <sha>      Commit SHA
 ```
 
 **Examples:**
@@ -311,10 +342,7 @@ Arguments:
   <identifier>        Child issue identifier (e.g., ENG-43)
 
 Required:
-  --parent <id>       Parent issue identifier (e.g., ENG-42)
-
-Options:
-  (none; use global options before the command path)
+  --parent <parent-id-or-key>  Parent issue identifier
 ```
 
 **Examples:**
@@ -335,10 +363,7 @@ Arguments:
   <identifier>          Issue identifier (e.g., ENG-42)
 
 Required:
-  --blocked-by <id>     Issue that blocks this one (e.g., ENG-40)
-
-Options:
-  (none; use global options before the command path)
+  --blocked-by <other-id-or-key>  Issue that blocks this one
 ```
 
 **Examples:**
@@ -353,15 +378,15 @@ Manage saved queries for frequently used filters.
 
 **Subcommands:**
 ```bash
-ltui issues saved add <name> [filter-options]
+ltui issues saved add --name <name> [filter-options]
 ltui issues saved list
-ltui issues saved remove <name>
+ltui issues saved remove --name <name>
 ```
 
 **Examples:**
 ```bash
 # Save a query
-ltui issues saved add my-bugs \
+ltui issues saved add --name my-bugs \
   --assignee me \
   --label bug \
   --state "Todo"
@@ -373,7 +398,7 @@ ltui issues list --saved my-bugs
 ltui issues saved list
 
 # Remove saved query
-ltui issues saved remove my-bugs
+ltui issues saved remove --name my-bugs
 ```
 
 ## Projects Commands
@@ -387,7 +412,8 @@ List all projects.
 ltui projects list [options]
 
 Options:
-  --team <key>         Filter by team
+  --team <key-or-id>   Filter by team
+  --state <state>      Filter by state
 ```
 
 **Examples:**
@@ -441,11 +467,11 @@ Arguments:
   <name|id>             Project name or ID
 
 Options:
-  --team <key>          Default team
-  --state <name|id>     Default state for new issues
-  --assignee <email|id> Default assignee for new issues
-  --label <name>        Default labels (can be used multiple times)
-  --profile <name>      Profile to use for this project
+  --profile <name>           Profile to use in this directory
+  --team <key-or-id>         Team key to set
+  --state <name>             Default issue state
+  --label <name>             Default labels (repeatable)
+  --assignee <me|email|id>   Default assignee
 ```
 
 **Examples:**
@@ -506,115 +532,64 @@ ltui --format detail teams view ENG
 
 ## Labels Commands
 
-### `ltui labels list`
+### `ltui labels`
 
-List all labels.
+List labels. There is no `labels create`.
 
 **Options:**
 ```bash
-ltui labels list [options]
+ltui labels [options]
 
 Options:
-  --team <key>         Filter by team
+  --team <key-or-id>   Filter by team
 ```
 
 **Examples:**
 ```bash
-# All labels
-ltui labels list
-
-# Team-specific labels
-ltui labels list --team ENG
-
-# Human-readable
-ltui --format table labels list
-```
-
-### `ltui labels create`
-
-Create a new label.
-
-**Options:**
-```bash
-ltui labels create [options]
-
-Required:
-  --name <text>        Label name
-
-Optional:
-  --color <hex>        Hex color code (e.g., #FF5733)
-  --description <text> Label description
-  --team <key>         Team to create label for
-```
-
-**Examples:**
-```bash
-# Basic label
-ltui labels create --name "needs-review"
-
-# With color
-ltui labels create --name "needs-review" --color "#FF5733"
-
-# Team-specific label
-ltui labels create --name "backend" --color "#0066CC" --team ENG
-
-# With description
-ltui labels create --name "critical" --color "#FF0000" --description "Critical priority issues"
+ltui labels
+ltui labels --team ENG
+ltui --format table labels --team ENG
 ```
 
 ## Users Commands
 
-### `ltui users list`
+### `ltui users`
 
-List users in the workspace.
+List users in the workspace. There is no `--search`.
 
 **Options:**
 ```bash
-ltui users list [options]
+ltui users [options]
 
 Options:
-  --search <text>      Search users by name or email
+  --active-only        Only include active users
 ```
 
 **Examples:**
 ```bash
-# All users
-ltui users list
-
-# Search users
-ltui users list --search alice
-
-# Human-readable
-ltui --format table users list
+ltui users
+ltui users --active-only
+ltui --format table users
 ```
 
 ## Cycles Commands
 
-### `ltui cycles list`
+### `ltui cycles`
 
-List cycles for a team.
+List cycles. `--team` is optional. There is no `--current`.
 
 **Options:**
 ```bash
-ltui cycles list [options]
+ltui cycles [options]
 
-Required:
-  --team <key>         Team key (e.g., ENG)
-
-Optional:
-  --current            Only show current cycle
+Options:
+  --team <key-or-id>   Filter by team
 ```
 
 **Examples:**
 ```bash
-# All cycles for team
-ltui cycles list --team ENG
-
-# Current cycle only
-ltui cycles list --team ENG --current
-
-# Human-readable
-ltui --format table cycles list --team ENG
+ltui cycles --team ENG
+ltui --format table cycles --team ENG
 ```
 
 ## Documents Commands
@@ -628,7 +603,8 @@ List documents.
 ltui documents list [options]
 
 Options:
-  (none; use global options before the command path)
+  --project <key-or-id>  Filter by project
+  --search <term>        Search document content
 ```
 
 ### `ltui documents view`
@@ -640,10 +616,10 @@ View document details.
 ltui documents view <id> [options]
 
 Arguments:
-  <id>                Document ID
+  <id>                     Document id
 
 Options:
-  (none; use global options before the command path)
+  --max-content-chars <n>  Maximum content characters (default: 4000)
 ```
 
 ## Roadmaps Commands
@@ -652,65 +628,33 @@ Options:
 
 List roadmaps.
 
-**Options:**
-```bash
-ltui roadmaps list [options]
-
-Options:
-  (none; use global options before the command path)
-```
-
 ### `ltui roadmaps view`
 
-View roadmap details.
-
-**Options:**
 ```bash
-ltui roadmaps view <id> [options]
-
-Arguments:
-  <id>                Roadmap ID
-
-Options:
-  (none; use global options before the command path)
+ltui roadmaps view <id>
 ```
 
 ## Milestones Commands
 
 ### `ltui milestones list`
 
-List milestones.
-
-**Options:**
 ```bash
 ltui milestones list [options]
 
 Options:
-  (none; use global options before the command path)
+  --project <id-or-key>  Filter by project
 ```
 
 ### `ltui milestones view`
 
-View milestone details.
-
-**Options:**
 ```bash
-ltui milestones view <id> [options]
-
-Arguments:
-  <id>                Milestone ID
-
-Options:
-  (none; use global options before the command path)
+ltui milestones view <id>
 ```
 
 ## Notifications Commands
 
 ### `ltui notifications`
 
-List notifications.
-
-**Options:**
 ```bash
 ltui notifications [options]
 
@@ -724,84 +668,58 @@ Options:
 
 List configured authentication profiles.
 
-**Options:**
-```bash
-ltui auth list
-```
-
-**Example output:**
-```
-PROFILES:
-default (active)
-work
-```
-
 ### `ltui auth add`
 
-Add a new authentication profile.
+Add or update a profile. The first added profile becomes the default. There is no `--set-default` or `auth use`.
 
 **Options:**
 ```bash
 ltui auth add [options]
 
-Required:
-  --name <name>        Profile name
-  --key <api-key>      Linear API key
-
-Optional:
-  --set-default        Make this the default profile
+Options:
+  --profile <name>     Profile name
+  --workspace <slug>   Workspace slug
+  --api-key <key>      API key (optional; otherwise LINEAR_API_KEY)
 ```
 
 **Examples:**
 ```bash
-# Add profile
-ltui auth add --name default --key lin_api_...
-
-# Add and set as default
-ltui auth add --name work --key lin_api_... --set-default
+ltui auth add --profile default --api-key lin_api_...
+ltui auth add --profile work --workspace work-workspace --api-key lin_api_...
 ```
 
 ### `ltui auth remove`
 
-Remove an authentication profile.
-
-**Options:**
 ```bash
-ltui auth remove <name>
-
-Arguments:
-  <name>              Profile name to remove
+ltui auth remove --profile work
 ```
 
-**Examples:**
+### `ltui auth test`
+
 ```bash
-ltui auth remove work
+ltui auth test
+ltui auth test --profile work
 ```
 
-### `ltui auth use`
+## Cache Commands
 
-Set the default profile.
-
-**Options:**
 ```bash
-ltui auth use <name>
-
-Arguments:
-  <name>              Profile name to set as default
-```
-
-**Examples:**
-```bash
-ltui auth use work
+ltui cache clear
+ltui cache clear --bucket <name>
 ```
 
 ## Global Flags
 
-All commands support these global flags:
+Put these before the subcommand:
 
-- `--profile <name>` - Use a specific profile instead of default
-- `--format <fmt>` - Output format: `tsv`, `table`, `detail`, `json`
-- `--help` - Show help for the command
+- `--profile <name>`
+- `--format <fmt>` (`tsv`, `table`, `detail`, `json`; default `tsv`)
+- `--fields <fields>`
+- `--limit <n>`
+- `--cursor <cursor>`
+- `--show-rate-limit`
+- `--agent` / `--no-agent` (agent mode defaults on)
+- `--help`
 
 ## Output Parsing Details
 
@@ -821,44 +739,32 @@ id: abc123-def-456
 key: ENG-42
 title: Fix login bug
 state: In Progress
-DESCRIPTION_START
-Users cannot login with email addresses
-containing special characters.
-DESCRIPTION_END
-COMMENTS_START
-COMMENT_1
-id: comment-123
-user: alice@example.com
-body: I've identified the issue in the validation regex
-createdAt: 2025-11-15T10:30:00Z
-COMMENT_2
-id: comment-124
-user: bob@example.com
-body: Thanks! I'll test the fix
-createdAt: 2025-11-15T11:15:00Z
-COMMENTS_END
 ```
-- Look for explicit block markers: `DESCRIPTION_START/END`, `COMMENTS_START/END`
 - Fields are `key: value` pairs
-- Comments have `COMMENT_N` markers
+- Look for explicit block markers such as `DESCRIPTION_START/END`
 
 ### JSON Format
 ```json
 {"meta":{"cursorNext":"","cursorPrev":"","count":1},"rows":[{"id":"abc123","key":"ENG","identifier":"ENG-42"}]}
 ```
 - JSON is emitted as a single envelope object for list commands: `{ meta, rows }`
-- Standard JSON parsing
 
 ## Configuration File Formats
 
 ### `~/.config/ltui/config.json`
 ```json
 {
+  "defaultProfile": "default",
   "profiles": {
-    "default": {"apiKey": "lin_api_..."},
-    "work": {"apiKey": "lin_api_..."}
-  },
-  "defaultProfile": "default"
+    "default": {"workspace": "nodaste", "keyRef": "default"}
+  }
+}
+```
+
+### `~/.config/ltui/profiles.json`
+```json
+{
+  "default": {"apiKey": "lin_api_..."}
 }
 ```
 
@@ -866,12 +772,10 @@ COMMENTS_END
 ```json
 {
   "profile": "default",
-  "team": "ENG",
-  "project": "Mobile App",
-  "defaults": {
-    "state": "Todo",
-    "assignee": "me",
-    "labels": ["backend"]
-  }
+  "teamKey": "ENG",
+  "projectId": "uuid-or-slug",
+  "defaultIssueState": "Todo",
+  "defaultLabels": ["backend"],
+  "defaultAssignee": "me"
 }
 ```
