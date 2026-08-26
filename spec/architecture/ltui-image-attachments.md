@@ -94,8 +94,8 @@ The image probe pages through issue attachments until an image is found or the a
 ## Configuration
 
 Implemented defaults in standalone `ltui/src/commands/issues.ts`:
-- download timeout: `30_000` ms
-- maximum download size: `100 * 1024 * 1024` bytes
+- download timeout: `10 * 60_000` ms
+- maximum download size: `512 * 1024 * 1024` bytes
 
 ## Security
 
@@ -103,7 +103,7 @@ Implemented defaults in standalone `ltui/src/commands/issues.ts`:
 - Existing symlink targets are refused during overwrite/write selection.
 - Filenames are sanitized before writing.
 - Large downloads are capped with a byte-limit transform.
-- Only the exact origin `https://uploads.linear.app` receives a normalized `Bearer <api-key>` header; HTTP, lookalike hosts, and alternate ports receive no Linear credential.
+- Only the exact origin `https://uploads.linear.app` receives a GraphQL-compatible `Authorization` header: raw `lin_api_...` personal keys, `Bearer` only for OAuth tokens. HTTP, lookalike hosts, and alternate ports receive no Linear credential. `public-file-urls-expire-in` does not sign `attachment.url`.
 - Authenticated downloads set `redirect: "error"`, so credentials cannot follow a redirect to another origin.
 - Downloaded files should be treated as untrusted input by downstream tooling.
 
