@@ -1,90 +1,97 @@
-providers: 
+providers:
   tts: xai
-disabledProviders: 
+disabledProviders:
   - claude
-extensions: 
+extensions:
   - ~/.omp/agent/extensions/deepinfra.ts
   - ~/.omp/agent/extensions/thinking-shortcuts.ts
 symbolPreset: nerd
-theme: 
+theme:
   dark: titanium
 setupVersion: 2
 steeringMode: all
 followUpMode: all
 autocompleteMaxVisible: 20
-edit: 
+edit:
   mode: hashline
-bash: 
-  autoBackground: 
+bash:
+  autoBackground:
     enabled: false
-astGrep: 
+astGrep:
   enabled: false
-computer: 
+computer:
   enabled: false
-checkpoint: 
+checkpoint:
   enabled: false
-plan: 
+plan:
   enabled: false
-modelRoles: 
+modelRoles:
   smol: deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:max
   slow: openai-codex/gpt-5.6-sol:high
-  vision: openai-codex/gpt-5.6-terra:medium
-  plan: openai-codex/gpt-5.6-sol:xhigh
-  designer: openai-codex/gpt-5.6-terra:high
-  commit: openai-codex/gpt-5.6-luna:xhigh
-  tiny: openai-codex/gpt-5.6-luna:low
+  vision: openai-codex/gpt-5.6-sol:medium
+  plan: openai-codex/gpt-5.6-sol:high
+  designer: openai-codex/gpt-5.6-sol:high
+  commit: openai-codex/gpt-5.6-sol:medium
+  tiny: deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:low
   advisor: xai-oauth/grok-4.6:high
   Oracle: cursor/kimi-k3-max:max
-  reviewer: xai-oauth/grok-4.6:xhigh
+  reviewer: xai-oauth/grok-4.6:high
   default: xai-oauth/grok-4.6:medium
   completeness: xai-oauth/grok-4.6:high
 defaultThinkingLevel: auto
-compaction: 
+compaction:
   thresholdPercent: 40
   idleEnabled: true
   idleThresholdTokens: 200000
-startup: 
+startup:
   quiet: true
   showSplash: false
-lsp: 
+lsp:
   enabled: false
-commands: 
+commands:
   enableClaudeUser: false
   enableClaudeProject: false
   enableOpencodeUser: false
   enableOpencodeProject: false
-cycleOrder: 
+cycleOrder:
   - smol
   - default
   - slow
-advisor: 
+  - Oracle
+advisor:
   enabled: true
-dev: 
+dev:
   autoqaConsent: granted
   autoqa: false
-task: 
+task:
   enableEffort: false
-worktree: 
+worktree:
   base: ~/.herdr/worktrees
-github: 
+github:
   enabled: false
-security: 
+security:
   enabled: false
 hideThinkingBlock: true
 personality: pragmatic
 interruptMode: immediate
-tier: 
+tier:
   advisor: none
   openai: none
   anthropic: none
-composer: 
+composer:
   shape: claude
-statusLine: 
+statusLine:
   separator: powerline-thin
-spelling: 
+spelling:
   autocomplete: false
   autocorrect: false
   typoDetection: false
 emojiAutocomplete: false
-ask: 
+ask:
   enabled: false
+retry:
+  fallbackChains:
+    Oracle:
+      - openai-codex/gpt-5.6-sol
+    advisor:
+      - cursor/cursor-grok-4.6
