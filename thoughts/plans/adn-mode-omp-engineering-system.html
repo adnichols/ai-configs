@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ADN Mode for OMP — Pstack-Inspired Agentic Engineering System</title>
+  <style>
+    :root { color-scheme: dark; --bg:#08111f; --panel:#111d30; --panel2:#17263d; --text:#e8eef8; --muted:#a9b7cc; --border:#314662; --accent:#7dd3fc; --accent2:#c4b5fd; --good:#34d399; --warn:#fbbf24; --bad:#fb7185; --code:#0b1627; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:radial-gradient(circle at top left,rgba(125,211,252,.13),transparent 36rem),var(--bg); color:var(--text); font:16px/1.58 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { width:min(1240px,calc(100% - 32px)); margin:auto; padding:30px 0 72px; }
+    header,section,article { background:rgba(17,29,48,.92); border:1px solid var(--border); border-radius:18px; padding:22px; margin:16px 0; }
+    header { background:linear-gradient(135deg,rgba(125,211,252,.14),rgba(196,181,253,.11)); }
+    h1,h2,h3,h4 { line-height:1.2; color:#f8fafc; }
+    h1 { margin:0 0 10px; font-size:clamp(2rem,5vw,3.15rem); }
+    h2 { margin-top:0; }
+    h3 { color:var(--accent); margin:20px 0 8px; }
+    h4 { color:var(--accent2); margin:16px 0 6px; }
+    a { color:var(--accent); }
+    code,pre { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; }
+    code { background:var(--code); border:1px solid var(--border); border-radius:6px; padding:.06rem .28rem; }
+    pre { overflow:auto; white-space:pre-wrap; background:var(--code); border:1px solid var(--border); border-radius:12px; padding:15px; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th,td { border:1px solid var(--border); padding:10px 12px; vertical-align:top; text-align:left; }
+    th { background:rgba(125,211,252,.11); }
+    ul,ol { padding-left:1.35rem; }
+    li { margin:.32rem 0; }
+    .muted { color:var(--muted); }
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .pill { border:1px solid var(--border); border-radius:999px; padding:5px 10px; color:var(--muted); background:rgba(11,22,39,.8); font-size:.9rem; }
+    .pill.good { color:var(--good); }
+    .pill.warn { color:var(--warn); }
+    .toc { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px 24px; }
+    .toc a { display:block; text-decoration:none; padding:3px 0; color:var(--muted); }
+    .toc a:hover { color:var(--text); }
+    .callout { border-left:4px solid var(--accent); background:rgba(125,211,252,.08); padding:12px 15px; border-radius:10px; }
+    .warning { border-left:4px solid var(--warn); background:rgba(251,191,36,.08); padding:12px 15px; border-radius:10px; }
+    .danger { border-left:4px solid var(--bad); background:rgba(251,113,133,.08); padding:12px 15px; border-radius:10px; }
+    .phase { border-left:4px solid var(--accent2); }
+    .check { list-style:none; padding-left:0; }
+    .check input { margin-right:.55rem; }
+    .compact td,.compact th { padding:7px 9px; }
+    @media (max-width:760px) { main { width:min(100% - 20px,1240px); padding-top:16px; } header,section,article { padding:16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header id="title">
+    <h1>ADN Mode for OMP — Pstack-Inspired Agentic Engineering System</h1>
+    <p class="muted">Build a complete OMP-native engineering mode from the useful principles, playbooks, councils, verification discipline, and writing standards reviewed in pstack, while preserving OMP role routing and the current planning/delivery workflows until evidence supports replacement.</p>
+    <div class="pills" id="status">
+      <span class="pill good">Status: execution-ready</span>
+      <span class="pill">UI impact: text-only</span>
+      <span class="pill">Implementation: live OMP + narrow ai-configs cleanup</span>
+      <span class="pill">Upstream baseline: cursor/plugins@46756f8</span>
+    </div>
+  </header>
+
+  <section id="toc">
+    <h2>Table of contents</h2>
+    <div class="toc">
+      <div><strong>Context</strong><a href="#product-owner-context">Product-owner context</a><a href="#whats-new">What’s new</a><a href="#goal">Goal</a><a href="#decision-attention">Decision Attention</a><a href="#why">Why this plan exists</a></div>
+      <div><strong>Contract</strong><a href="#authority-inputs">Authority and inputs</a><a href="#current-reality">Current reality</a><a href="#product-intent">Product intent alignment</a><a href="#ui-impact">UI impact</a><a href="#integration-inventory">Integration inventory</a></div>
+      <div><strong>Design</strong><a href="#locked-decisions">Locked decisions</a><a href="#skill-audit">Existing skill audit</a><a href="#adn-inventory">ADN inventory</a><a href="#acceptance">Acceptance criteria</a><a href="#bdd">BDD scenarios</a></div>
+      <div><strong>Execution</strong><a href="#coverage">Test coverage matrix</a><a href="#progress">Progress</a><a href="#resume">Resume instructions</a><a href="#phase-p1">P1</a><a href="#phase-p2">P2</a><a href="#phase-p3">P3</a><a href="#phase-p4">P4</a></div>
+      <div><strong>Completion</strong><a href="#phase-p5">P5</a><a href="#phase-p6">P6</a><a href="#phase-p7">P7</a><a href="#phase-p8">P8</a><a href="#verification">Verification strategy</a><a href="#delivery-order">Delivery order</a></div>
+      <div><strong>Boundaries</strong><a href="#rollback">Rollback</a><a href="#post-merge">Post-merge / operations</a><a href="#non-goals">Non-goals</a><a href="#review-record">Review record</a><a href="#decisions-log">Decisions / Deviations</a></div>
+    </div>
+  </section>
+
+  <section id="product-owner-context">
+    <h2>Product-owner context</h2>
+    <p>OMP currently has strong specialist roles and rigorous planning, review, and delivery workflows, but it lacks one coherent opt-in mode that applies those capabilities to everyday investigations, bug fixes, features, refactors, prototypes, performance work, autonomous runs, and shipping. The operator reviewed pstack because its central router, explicit playbooks, model-diverse councils, real-artifact verification, and concise engineering principles offer a stronger default for agentic development than assembling those behaviors manually each time.</p>
+    <p><strong>Why now:</strong> a 21-day audit of 36 ai-configs OMP sessions found 3,603 tool calls, 52 compactions, 24 operator aborts, repeated review loops, recurring manual role/model changes, repeated multi-host rollout work, and only modest structured delegation. The evidence supports a system that keeps correctness first while lowering operator intervention, protecting context, and making parallel work reviewable.</p>
+    <p><strong>Key conclusion:</strong> this is an operator-facing agent-workflow change, not an application-runtime defect. It adds an OMP-native engineering mode and a complete experimental skill set. It retains current plan, delivery, and completeness workflows. Ponytail is the only immediate retirement; <code>autoreview</code> remains until a ten-change comparison supports a replacement decision.</p>
+    <table>
+      <thead><tr><th>Impact dimension</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>Customers</td><td>No direct customer-facing change is part of this ADN implementation. ADN never infers customer messages or customer-facing system changes; an exact explicit request or preauthorization can bring the named action/environment/audience into scope subject to higher authority.</td></tr>
+        <tr><td>Runtime product behavior</td><td>OMP gains an opt-in sticky <code>/adn-mode</code>, role-backed architecture and review councils, playbook routing, principle reminders, and live setup/audit support.</td></tr>
+        <tr><td>Security / permissions</td><td>ADN performs authorized in-scope repository, GitHub, ticket, internal communication, merge, and history-rewrite actions. Destructive data operations pause unless the exact operation and scope were explicitly preauthorized. Credential/permission changes and deletion of work not proven merged or abandoned still pause. Customer messages, deployments, and third-party repository actions are default-excluded—not absolute prohibitions—and require an exact explicit request; third-party work must name the repository and action.</td></tr>
+        <tr><td>Testing / release confidence</td><td>Adds deterministic manifest/config/extension tests, full playbook-routing evals, live OMP smoke tests, and a blinded ten-change comparison of current and ADN review.</td></tr>
+        <tr><td>Deployment / migration</td><td>No environment deployment. The system is authored into live OMP/Agent Skills paths. A later user-requested capture into ai-configs remains separate, except Ponytail removal from the ai-configs OMP installer is included now to prevent reinstallation.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="whats-new">
+    <h2>What’s new — one rigorous OMP mode from request to proof</h2>
+    <div class="callout"><strong>Promise:</strong> after the operator invokes <code>/adn-mode</code>, OMP will choose a named playbook, apply the relevant engineering principles, route work through semantic roles, verify the real artifact, and remain active for that session without requiring the operator to restate the workflow.</div>
+    <ul>
+      <li><strong>Before:</strong> the operator chooses individual skills, reviewers, plans, and verification approaches; model-role changes and parallel investigation are often assembled manually.</li>
+      <li><strong>After:</strong> ADN selects the playbook and ownership shape, automatically invokes required skills, uses the Grok/Kimi councils when warranted, and records evidence in a consistent form.</li>
+      <li><strong>Observable result:</strong> the operator can invoke one command, inspect visible playbook todos and principle-driven decisions, and receive a verified outcome or a truthful blocker.</li>
+      <li><strong>Preserved guarantees:</strong> Delivery stays explicit opt-in, completeness stays request-bound, repository rules still constrain ownership and authority, and no deployment, customer message, customer-facing system change, or third-party repository action becomes implicitly authorized. Exact explicit authorization can bring the named action into scope.</li>
+    </ul>
+  </section>
+
+  <section id="goal">
+    <h2>Goal</h2>
+    <p>Install a complete, attributed, OMP-native ADN engineering system into the live OMP and Agent Skills directories; make it sticky, role-routed, testable, and reversible; retain current OMP workflows during evaluation; remove Ponytail cleanly; and produce enough aggregate evidence over ten representative changes to decide whether ADN review should replace <code>autoreview</code>.</p>
+  </section>
+
+  <section id="decision-attention">
+    <h2>Decision Attention / Low-confidence Areas</h2>
+    <div class="warning"><strong>No product decision required.</strong> The operator completed a six-round design interview and explicitly requested execution-readiness review. All product-shaping choices are locked below.</div>
+    <ul>
+      <li><strong>Extension behavior:</strong> OMP documents the required command, custom-entry persistence, <code>before_agent_start</code> injection, branch/tree reconstruction, and compaction events. The implementation must still prove the exact sticky-state behavior against OMP v18.0.6.</li>
+      <li><strong>Review replacement:</strong> the outcome is intentionally unknown until the ten-change trial. <code>INCONCLUSIVE</code> is an accepted truthful result and must include exact manual experiments.</li>
+      <li><strong>Shared skill visibility:</strong> ADN skills may be visible to other harnesses through <code>~/.agents/skills</code>. This plan does not refactor those harnesses or claim parity there.</li>
+    </ul>
+  </section>
+
+  <section id="why">
+    <h2>Why this plan exists</h2>
+    <p>The current system already contains useful pieces: OMP semantic model roles, named planner/reviewer/oracle/completeness agents, task fan-out, a todo tool, direct TDD guidance, product principles, integration-integrity checks, Doct-reviewed plans, and a delivery ledger. The missing layer is a cohesive opt-in router and common engineering doctrine for ordinary work. Copying pstack wholesale would preserve Cursor assumptions that OMP does not share. Rebuilding every current workflow would duplicate stronger local guarantees. The selected design translates behavior, reuses proven OMP capabilities, and keeps replacement decisions evidence-based.</p>
+    <p>The transcript audit also separates product problems from habits. Multi-host rollout already has a script and should not become prose. Skill parity belongs in tests. Repeated manual scout decomposition should become <code>how</code>/<code>swarm</code> routing without removing Scout. Role changes need <code>setup-adn</code>. Transcript mining needs an aggregate-only audit. External skill adoption needs one provenance-aware workflow.</p>
+  </section>
+
+  <section id="authority-inputs">
+    <h2>Authority and inputs</h2>
+    <ul>
+      <li>The operator’s confirmed design contract from this conversation, including dynamic implementation ownership and the automatic/explicit trigger matrix that were omitted from the first summary but remain locked requirements.</li>
+      <li>Pstack skill tree and README at <a href="https://github.com/cursor/plugins/tree/46756f89270d7e7dcb8c28c90fd0f957ade4ce2c/pstack">cursor/plugins@46756f89270d7e7dcb8c28c90fd0f957ade4ce2c</a>. This is the reviewed baseline immediately before the later <code>make-bot-ui</code> addition.</li>
+      <li>Pstack’s MIT license; substantial derived wording or structure must retain attribution and the pinned upstream revision.</li>
+      <li>OMP v18.0.6 runtime documentation for skills, extension commands/events/state, configuration precedence, role-backed agent discovery, and task execution.</li>
+      <li>Live OMP state under <code>~/.omp/agent</code>, shared skills under <code>~/.agents/skills</code>, and the current ai-configs OMP installer/test.</li>
+      <li>Transcript audit: 36 sessions from 2026-08-05 through 2026-08-24, 128 operator prompts, 3,603 tool calls, and 20 observed skill reads/explicit invocations in the 21-day window.</li>
+    </ul>
+  </section>
+
+  <section id="current-reality">
+    <h2>Current implementation reality</h2>
+    <ul>
+      <li><code>~/.omp/agent/config.yml</code> maps <code>reviewer</code> to <code>xai-oauth/grok-4.6:high</code> and <code>Oracle</code> to <code>cursor/kimi-k3-max:max</code>; it has no ADN council roles.</li>
+      <li><code>~/.omp/agent/agents/</code> contains planner, reviewer, oracle, and completeness agents. OMP user agent files can reference <code>@role</code> aliases and are rediscovered before task launch.</li>
+      <li><code>~/.omp/agent/extensions/</code> is an auto-discovered native extension root. OMP extensions can register slash commands, append persistent custom entries, inject a hidden message before each agent start, and rebuild state across branch/tree/session events.</li>
+      <li><code>~/.agents/skills</code> is the shared one-level Agent Skills root. OMP discovers name/description metadata and resolves bodies through <code>skill://name</code>.</li>
+      <li>The ai-configs <code>_omp/install.sh</code> installs <code>@dietrichgebert/ponytail</code>, and <code>test_omp_config_install.sh</code> asserts that installation. Both must change together.</li>
+      <li>OMP exposes effective <code>modelRoles</code> through a JSON envelope whose record is <code>.value</code>; resolution layers defaults/global/project/<code>PI_CONFIG_FILES</code>/<code>--config</code>/runtime while <code>config set</code> writes the global active profile. ADN must resolve one profile, use a neutral cwd with overlays cleared, merge/write the whole global record under a lock, and verify prior values; nested role writes are unsupported.</li>
+      <li>There is no product-intent document in this repository. The product intent for this plan is derived from root guidance, the confirmed operator contract, current OMP behavior, and the transcript audit.</li>
+    </ul>
+  </section>
+
+  <section id="product-intent">
+    <h2>Product intent alignment</h2>
+    <p>The product is reliable agent configuration. The golden path is one explicit ADN activation followed by autonomous, evidence-backed engineering with minimal operator intervention. Safe routine work proceeds. High-risk or ambiguous actions stop only at the locked boundaries. Missing roles, skills, or verification surfaces should be diagnosed and reconciled by setup or the active playbook rather than exported as tribal knowledge. Status must distinguish installed, active, verified, inconclusive, and blocked states truthfully.</p>
+  </section>
+
+  <section id="ui-impact">
+    <h2>UI impact</h2>
+    <p><strong>UI impact: text-only.</strong> The visible surfaces are the <code>/adn-mode</code> command, activation/deactivation notifications, playbook todos, agent-legible errors, setup/audit output, and final principle-to-decision lines. There is no graphical application UI change.</p>
+    <table class="compact">
+      <thead><tr><th>Surface</th><th>Current</th><th>Target</th></tr></thead>
+      <tbody>
+        <tr><td>Activation</td><td>No central mode.</td><td><code>/adn-mode &lt;request&gt;</code> activates the session; <code>/adn-mode off</code> disables it.</td></tr>
+        <tr><td>Routing</td><td>Operator or agent chooses skills ad hoc.</td><td>Visible playbook and todo steps, with explicit skip reasons.</td></tr>
+        <tr><td>Errors</td><td>Missing role/skill behavior varies.</td><td>State what failed, what setup tried, why it stopped, and the exact next action.</td></tr>
+        <tr><td>Final reply</td><td>Workflow-dependent.</td><td>Outcome, proof, remaining limits, and every applied principle mapped to its concrete decision.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="integration-inventory">
+    <h2>Contract and distributed-integration inventory</h2>
+    <p><strong>Trigger: both exact contract and distributed behavior.</strong> The manifest is the only desired-state source. Mutable OMP config and deployed links are consumers, never authorities. Every row below is represented in <code>manifest.json</code> and reconciled by one validator.</p>
+    <table class="compact">
+      <thead><tr><th>Contract</th><th>Source / producer</th><th>Consumers and precedence</th><th>Required proof</th></tr></thead>
+      <tbody>
+        <tr><td>Bundle/version/upstream pin</td><td><code>manifest.json</code>; setup writes transaction generation</td><td>All skills, agents, extension, scripts, reports</td><td>Schema, checksum, license, attribution, and pinned-source disposition tests</td></tr>
+        <tr><td>Profile and agent root</td><td>Setup CLI: explicit <code>--profile NAME</code>, else inherited <code>OMP_PROFILE</code>, else default from <code>omp config path</code>; test-only <code>--agent-root PATH</code> clears <code>OMP_PROFILE</code>/<code>PI_PROFILE</code> and sets <code>PI_CODING_AGENT_DIR</code></td><td>Every config subprocess, generated extension wrapper, transaction, audit root, and evaluator</td><td>Neutral-cwd path parity, inherited-profile escape test, temp-root isolation, named-profile tests</td></tr>
+        <tr><td>Role aliases/models</td><td>Manifest role map; setup reads <code>.value</code>, merges three keys, and writes the whole record through OMP’s locked writer</td><td>Global active-profile config only; project/overlay config is never copied. ADN serializes its own writers; external config/settings mutation is an explicit quiescence precondition because OMP CLI has no public compare-and-swap record API.</td><td>Setup lock, before/after fingerprints, prior-owned receipt, full-record parity, real task markers, and a test that documents rather than overclaims the external-writer boundary</td></tr>
+        <tr><td>Agent names/verdicts</td><td>Manifest rows plus canonical agent files</td><td>OMP user-agent discovery; project <code>.omp/agents</code> and plugin agents can shadow user agents</td><td>Collision scan plus real task output containing manifest version, agent name, role alias, and verdict vocabulary</td></tr>
+        <tr><td>Sticky state</td><td><code>dev.adn.mode.state.v1</code>: <code>{schemaVersion:1,sessionId,generation,enabled}</code></td><td>Latest matching entry on current branch; <code>session_start</code>, <code>session_switch(new|resume)</code>, branch/tree restore, <code>before_agent_start</code></td><td>Event harness and live activate/casual/compact/branch/tree/off/new/resume scenario; no conversation field accepted</td></tr>
+        <tr><td>Hidden reminder</td><td>Extension emits static <code>dev.adn.mode.reminder.v1</code> content with manifest version and <code>display:false</code></td><td>Current turn only; router distinguishes casual from non-trivial work</td><td>Captured ExtensionAPI call plus live activation marker</td></tr>
+        <tr><td>Skill/playbook names and source dispositions</td><td>Manifest rows keyed by every skill, adapter, playbook, pstack support asset, source path/SHA, trigger, dependency, adaptation, failure, and proof</td><td>OMP name-first skill precedence: project/native/configured/plugin sources can shadow shared links</td><td>Exhaustive manifest validation, higher-precedence collision scan, and real <code>skill://name</code> provenance-marker reads generated from the full manifest</td></tr>
+        <tr><td>Extension command/module</td><td>Manifest owns the immutable canonical module; setup owns a generated profile-local wrapper plus <code>&lt;agent-root&gt;/adn/generation.json</code></td><td>Wrapper passes resolved root/generation to the canonical module; project/user/configured/plugin load order can replace a command</td><td>Two-profile generation independence, collision scan, and live command response with manifest version/generation</td></tr>
+        <tr><td>Setup/rollback transaction</td><td><code>&lt;agent-root&gt;/adn/transactions/&lt;id&gt;.json</code>, written atomically under the ADN setup lock</td><td>Apply, check, activation repair, rollback, live dry-run; every mutating command returns its own explicit transaction ID</td><td>Pre-image/backup, installed fingerprint, prior role values, drift-safe rollback, second apply no-op, and snapshot comparison using the captured full-install receipt</td></tr>
+        <tr><td>Authority order</td><td>System/runtime constraints &gt; explicit operator request &gt; repository guidance not explicitly overridden &gt; ADN defaults</td><td>Router, ownership selector, shipping/autonomy playbooks, error formatter</td><td>Same nominal action permitted and forbidden by repository fixtures; actionable pause/exclusion packets</td></tr>
+        <tr><td>Formal workflow handoff</td><td>Manifest playbook route rows and six threshold fixtures</td><td>Existing reviewed-html-plan/run-plan, Delivery, completeness, integration-integrity, safe-index, and PR skills</td><td>Direct task remains direct with no ledger; formal trigger invokes the existing entry point and never arms Delivery implicitly</td></tr>
+        <tr><td>ai-configs reinstall interaction</td><td><code>_omp/install.sh</code> remains authoritative for repo-managed <code>config.yml</code> and removes Ponytail only</td><td>Routine reinstall preserves linked files but can remove live-only ADN role keys</td><td>Installer test, expected role-drift detection, then <code>setup-adn apply</code> or loaded activation repair restores only owned roles</td></tr>
+        <tr><td>Audit privacy</td><td>Versioned allowlist schema; streaming projection from OMP session JSONL under the resolved agent root</td><td>Actual-window/monthly reports and trial aggregates</td><td>Sentinel tests prove raw messages, tool args/results, JSONL lines, diffs, and reviewer bodies never reach files or stdout/stderr</td></tr>
+        <tr><td>Review candidate/trial state</td><td>Immutable candidate bundle fingerprints and atomic per-pair ledger</td><td>Current <code>autoreview</code>, ADN Interrogate, adjudicator, disposition report</td><td>Both arms echo the same packet/diff hashes; fresh contexts, blinding, state-machine, distribution, privacy, and decision-table validation</td></tr>
+        <tr><td>Verification-skill decision</td><td>Manifest-backed project-local coverage record</td><td>Create/maintain skills and real-surface driver</td><td>Positive and negative create/maintain cases, real launch, observable assertion, and cleanup</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Reconciliation rule:</strong> validation fails if any declared consumer, higher-precedence collision site, manifest row, or proving scenario is missing. File existence alone never proves the runtime producer.</p>
+  </section>
+
+  <section id="locked-decisions">
+    <h2>Locked decisions</h2>
+    <ol>
+      <li><strong>Translation:</strong> ADN is OMP-native. Pstack supplies behavior and vocabulary, not Cursor runtime assumptions.</li>
+      <li><strong>Priority:</strong> correctness, agentic development, and low operator reliance precede speed or raw fan-out.</li>
+      <li><strong>Activation:</strong> explicit once, then sticky for the current session; new sessions are inactive. Casual turns preserve state but do not run routing or automatic skills.</li>
+      <li><strong>Authority precedence:</strong> system/runtime constraints win, then the explicit operator request, then repository guidance not explicitly overridden by that request, then ADN defaults. ADN proceeds with authorized in-scope local, repository, GitHub, ticket, internal communication, merge, and history-rewrite actions. Destructive data operations pause only when the exact operation and scope were not explicitly preauthorized; matching preauthorization proceeds without another stop. Credential/permission changes and deletion of work not proven merged or abandoned remain pause classes. Customer messages, deployments, customer-facing instance/system changes, and third-party repository actions are default-excluded but become eligible when the operator explicitly names the action and scope; third-party authority must name the exact repository and action.</li>
+      <li><strong>Implementation ownership:</strong> every code playbook records an ownership decision. The parent keeps tiny surgical fixes. One implementation owner handles coherent non-trivial changes where repository rules permit. Parallel writers receive disjoint surfaces. Repository-specific ownership rules override ADN defaults.</li>
+      <li><strong>Architecture:</strong> skip Architect for a local implementation detail that does not cross a meaningful boundary; use singular <code>architect-grok</code> for bounded precedent-backed design; run both architect agents for novel, contested, ownership-moving, public API/schema/persistence/concurrency/module-boundary, or expensive-to-reverse choices.</li>
+      <li><strong>Cross-judging:</strong> Arena uses both architects independently. Interrogate uses the existing Grok reviewer plus a Kimi reviewer.</li>
+      <li><strong>Models:</strong> architect Grok = Grok 4.6 high; architect Kimi = Kimi K3 Max max; Kimi reviewer = Kimi K3 Max high; existing reviewer remains Grok 4.6 high.</li>
+      <li><strong>Principles:</strong> all 21 remain directly invocable and indexed inline. Laziness Protocol replaces Ponytail immediately. Final replies name every applied principle and the decision it changed.</li>
+      <li><strong>Automatic triggers inside active ADN:</strong> only on non-trivial work, select one direct playbook, apply relevant principles, run <code>how</code> for uncertainty, apply the Architect threshold, use the <code>tdd</code> adapter when a cheap behavior gate exists, verify the real surface, apply <code>no-comments</code>/<code>unslop</code>/<code>technical-writing</code>, and load <code>typescript-best-practices</code> on TypeScript surfaces.</li>
+      <li><strong>Explicit-only operational skills:</strong> <code>arena</code>, <code>swarm</code>, <code>interrogate</code>, <code>recall</code>, <code>reflect</code>, <code>automate-me</code>, <code>adopt-skill</code>, <code>bro</code>, <code>show-me-your-work</code>, <code>setup-adn</code>, and <code>adn-audit</code>. <code>why</code>, <code>teach</code>, and <code>blast-radius</code> are playbook-routed unless directly named by the operator. <code>figure-it-out</code> is the active-router fallback. Outside active ADN, no router runs silently and any named skill remains directly invocable.</li>
+      <li><strong>Explicit-only playbooks:</strong> Babysit, Shipping, Autonomous run, Orchestrate, Autopilot full, Autopilot stack, Session pickup, Pause safely, Worktree cleanup, and Opening a PR require operator wording that names the outcome. Multi-phase plan is also selected by any of the six formal thresholds and only adapts into the existing reviewed-plan/run-plan flow.</li>
+      <li><strong>Verification-skill threshold:</strong> first use an existing repeatable real-surface command, otherwise a one-off real smoke. Create a project-local verification skill only when current acceptance needs repeatable multi-step proof no existing command supplies, or the same uncovered path appears in two distinct recorded tasks. Maintain one only when the changed production surface is already in its declared coverage and its driver no longer proves that surface. Otherwise record “no skill created/changed” and the smoke evidence.</li>
+      <li><strong>Self-healing boundary:</strong> a loaded <code>/adn-mode</code> command may reconcile deterministic drift in roles, shared skill links, agent links, and its generated profile-local wrapper, then retry. It cannot bootstrap a command missing at process start; that state fails with <code>bun ~/.agents/adn/scripts/setup-adn.ts apply</code>. Ambiguous collisions and post-install user drift fail closed. ADN serializes its own writers; setup/rollback require no concurrent external <code>omp config</code> or interactive settings mutation because v18.0.6 exposes no public atomic compare-and-swap for the whole record.</li>
+      <li><strong>Comments:</strong> remove narration. Keep required API docs and short non-obvious reasons, constraints, or invariants.</li>
+      <li><strong>Existing workflows and formal-plan threshold:</strong> retain planning, delivery, completeness, integration integrity, and safe Git index behavior. Route to the existing reviewed-plan/run-plan path for multi-PR or cross-repository work; expensive schema, persistence, or public-API migration; work expected to exceed one agent session; unattended work requiring an audit trail; work spanning several production subsystems; or an explicit plan/delivery request. Bounded investigations, bugs, features, refactors, and prototypes stay direct and never arm Delivery implicitly. Evaluate only the implementation-review gate.</li>
+      <li><strong>Installation:</strong> author into live OMP/Agent paths first. A later broad capture into ai-configs is separate. The narrow Ponytail installer/test removal is included now.</li>
+      <li><strong>Review replacement:</strong> ten blinded changes; no automatic winner. Report <code>INCONCLUSIVE</code> with structured discriminating experiments when evidence does not support a judgment.</li>
+    </ol>
+  </section>
+
+  <section id="skill-audit">
+    <h2>Existing skill audit and disposition</h2>
+    <p>The ai-configs registry contained 80 installable skills: 60 repository-sourced and 20 package-sourced. Seventeen repository skills were loaded in the audited window; explicit operator language also invoked research and grilling surfaces. Three weeks of non-use is not sufficient evidence to delete episodic or other-consumer skills.</p>
+    <table class="compact">
+      <thead><tr><th>Disposition</th><th>Skills / evidence</th><th>Decision</th></tr></thead>
+      <tbody>
+        <tr><td>Observed active</td><td><code>autoreview</code>, <code>completeness</code>, <code>delivery-run</code>, <code>dev-plan</code>, <code>doct-document-ops</code>, <code>grilling</code>, <code>herdr</code>, <code>integration-integrity</code>, <code>oracle-consultation</code>, <code>plan-reviewer-execution-ready</code>, <code>planning-workflow</code>, <code>product-principles</code>, <code>reviewed-html-plan</code>, <code>run-plan</code>, <code>safe-git-index</code>, <code>tdd-test-writer</code>, <code>zero-tech-debt</code></td><td>Retain. Only <code>autoreview</code> enters the comparison trial.</td></tr>
+        <tr><td>Compatibility with live callers</td><td><code>pre-pr-implementation-review</code>, <code>plan-reviewer-execution-ready</code>, <code>claude-code-review</code>, <code>codex-review-partner</code></td><td>Do not delete in an OMP-only effort; callers and disabled-extension tests still reference them.</td></tr>
+        <tr><td>Optional / episodic</td><td>macOS pack, browser/CDP profile, <code>virsh</code>, handoff skills, Linear, Sentry, dependency selection, UI/design, domain, research, ticket/spec, and architecture skills</td><td>Retain. Lack of ai-configs usage does not indicate obsolescence.</td></tr>
+        <tr><td>Immediate retirement</td><td><code>@dietrichgebert/ponytail</code> OMP plugin</td><td>Remove after Laziness Protocol is installed in the same phase; update ai-configs installer and its assertion.</td></tr>
+        <tr><td>No other OMP deletion</td><td>All remaining current OMP agents and workflows</td><td>Retain until ADN proves a replacement. Do not refactor other harnesses in this effort.</td></tr>
+      </tbody>
+    </table>
+    <h3>Manual work mapped to the target system</h3>
+    <table class="compact">
+      <thead><tr><th>Observed activity</th><th>Replacement</th></tr></thead>
+      <tbody>
+        <tr><td>Hand-editing role/model mappings</td><td><code>setup-adn</code> plus role-backed agents</td></tr>
+        <tr><td>Repeated custom scout decomposition</td><td><code>how</code> and <code>swarm</code>, retaining Scout</td></tr>
+        <tr><td>Transcript-grounded post-hoc review</td><td><code>recall</code>, <code>reflect</code>, and aggregate-only <code>adn-audit</code></td></tr>
+        <tr><td>External skill vendoring and provenance</td><td><code>adopt-skill</code></td></tr>
+        <tr><td>Multi-host capture/install</td><td>Keep deterministic script-backed rollout; no new prose workflow</td></tr>
+        <tr><td>Cross-consumer parity checks</td><td>Deterministic tests when later captured; no standalone skill</td></tr>
+        <tr><td>Review loops and false-positive churn</td><td>Bounded dual-model <code>interrogate</code> trial with measured replacement criteria</td></tr>
+        <tr><td>Context compactions</td><td>Guard Context Window, decision trails, pause/pickup playbooks, and summarized subagent output</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="adn-inventory">
+    <h2>ADN implementation inventory</h2>
+    <h3>Live canonical bundle and manifest schema</h3>
+    <ul>
+      <li><code>~/.agents/adn/manifest.json</code>: exhaustive versioned inventory. Every row carries <code>id</code>, <code>kind</code>, pinned source path/SHA, trigger class, required roles/tools/skills, OMP adapter or explicit exclusion, retained/replaced behavior, failure behavior, runtime marker, proving test/eval, target path, and checksum.</li>
+      <li><code>~/.agents/adn/LICENSE.pstack</code> and <code>PROVENANCE.md</code>: MIT text, reviewed commit, translation policy, and local deviations.</li>
+      <li><code>~/.agents/adn/skills/*</code>: canonical skill directories linked one level into <code>~/.agents/skills</code>. <code>principle-laziness-protocol</code> is linked in P1 before Ponytail removal.</li>
+      <li><code>~/.agents/adn/agents/*</code> and <code>extensions/adn-mode.ts</code>: immutable canonical OMP assets. Agents are linked into the resolved profile; setup generates a tiny profile-local extension wrapper that passes that profile’s root and generation to the canonical module.</li>
+      <li><code>~/.agents/adn/tests/*</code>, <code>scripts/*</code>, and <code>evaluations/*</code>: one manifest-driven verification/evidence surface.</li>
+    </ul>
+    <h3>Pstack agents, runtime assets, and external assumptions</h3>
+    <table class="compact">
+      <thead><tr><th>Pinned asset</th><th>OMP disposition</th><th>Failure / proof</th></tr></thead>
+      <tbody>
+        <tr><td><code>agents/poteto-agent.md</code></td><td>Replace with the per-playbook ownership decision and OMP <code>task</code> owner; no dedicated implementation persona because repository rules may require the driver.</td><td>Ownership fixtures and real disjoint-write packet.</td></tr>
+        <tr><td><code>agents/comment-sicko.md</code></td><td>Replace with the existing read-only <code>reviewer</code> under a comment-only rubric; parent accepts/dismisses and edits.</td><td>Reviewer marker plus narration/API-doc/why-comment eval.</td></tr>
+        <tr><td>Role config rule and model files</td><td>Replace with three manifest-owned <code>modelRoles</code> and role-backed OMP agents; existing reviewer reused.</td><td>Role transaction and real task markers.</td></tr>
+        <tr><td>Cursor <code>/create-skill</code></td><td>Use existing <code>skill-creator</code>.</td><td>Adoption/creation fixture; unavailable skill is an actionable blocker.</td></tr>
+        <tr><td>Cursor <code>/loop</code></td><td>Use current turn loop for bounded work; use Herdr only for explicitly durable orchestration.</td><td>Autonomous/orchestrate packets state which path ran.</td></tr>
+        <tr><td><code>deslop</code>, <code>control-ui</code>, <code>control-cli</code></td><td><code>unslop</code>; browser/playwright/computer-use for UI; actual CLI/TUI process through OMP runtime tools.</td><td>Real-surface marker or explicit unsupported-surface blocker.</td></tr>
+        <tr><td><code>scripts/orch</code>, <code>watch-pr</code>, <code>check-plan.mjs</code></td><td>Task/Hub/Herdr; existing GitHub/PR process; existing reviewed-html-plan/run-plan checks. Do not copy the scripts.</td><td>Orchestrate, babysit/shipping, and formal-handoff live packets.</td></tr>
+        <tr><td>Graphite/cloud-worker mechanics</td><td>Replace with generic Git/GitHub and disjoint OMP task ownership; no stacked-PR assumption.</td><td>Playbook source tests reject Graphite/cloud flags.</td></tr>
+        <tr><td>Benny automation</td><td>Explicitly excluded.</td><td>Manifest exclusion test.</td></tr>
+      </tbody>
+    </table>
+    <h3>Operational skills and adapters</h3>
+    <table class="compact">
+      <thead><tr><th>Name / pinned source</th><th>Trigger</th><th>OMP dependency and retained behavior</th><th>Failure / proof</th></tr></thead>
+      <tbody>
+        <tr><td><code>adn-mode</code> ← <code>poteto-mode</code></td><td>Explicit activation; automatic thereafter on non-trivial turns</td><td>Parent router, exact playbook table, ownership decision, principles, authority, final mapping</td><td>No fit → Figure It Out; routing + live dispatch markers</td></tr>
+        <tr><td><code>setup-adn</code> ← <code>setup-pstack</code></td><td>Explicit; activation repair when command is already loaded</td><td>Manifest, OMP config CLI, profile root, transaction journal</td><td>Collision/drift fails closed; external config writers are a documented quiescence precondition; temp/live apply-check-rollback</td></tr>
+        <tr><td><code>adn-audit</code> (local)</td><td>Explicit and P7/P8 routed</td><td>Streaming OMP JSONL projection and allowlisted reports</td><td>Unknown schema/malformed record sanitized failure; sentinel privacy tests</td></tr>
+        <tr><td><code>adopt-skill</code> (local + authoring)</td><td>Explicit</td><td><code>librarian</code>/<code>skill-creator</code>, license/pin/manifest update; never auto-refresh</td><td>Missing provenance/license blocks; adoption tests and marker read</td></tr>
+        <tr><td><code>how</code></td><td>Automatic for uncertain non-trivial work; direct by name</td><td>Bounded Scout evidence slices, parent explanation, optional reviewer critique when contested</td><td>Unresolved evidence labeled; subsystem walkthrough eval</td></tr>
+        <tr><td><code>why</code></td><td>Playbook-routed or direct</td><td>Parallel available-source adapters: Git history, Linear, Doct/docs, Slack, infra, Sentry, analytics; parent synthesis</td><td>Unavailable category is explicitly skipped, never fabricated; seven-category fixture</td></tr>
+        <tr><td><code>recall</code></td><td>Explicit</td><td>Resolved session root plus shared record; summarize in memory, persist no raw transcript</td><td>Unknown schema fails sanitized; explicit recall packet</td></tr>
+        <tr><td><code>blast-radius</code></td><td>Playbook-routed or direct</td><td>Scout callsite/contract slices plus one real safety proof</td><td>No runnable proof → blocker; callsite + smoke eval</td></tr>
+        <tr><td><code>architect</code></td><td>Automatic threshold or direct</td><td>Skip, <code>architect-grok</code>, or both architects; parent synthesis</td><td>Unavailable required role blocks; three threshold packets</td></tr>
+        <tr><td><code>arena</code></td><td>Explicit</td><td>Both architects receive identical prompt independently; parent cross-judges</td><td>Missing arm invalidates result; marker/fingerprint packet</td></tr>
+        <tr><td><code>swarm</code></td><td>Explicit</td><td>OMP Task fan-out across disjoint slices; parent aggregates</td><td>Overlapping writes prohibited; disjointness fixture/live packet</td></tr>
+        <tr><td><code>interrogate</code></td><td>Explicit and P7 arm</td><td>Existing reviewer + <code>reviewer-kimi</code> independently; parent dispositions findings</td><td>Missing arm invalid; same-bundle hash and role markers</td></tr>
+        <tr><td><code>automate-me</code></td><td>Explicit</td><td>Explicit transcript evidence plus <code>skill-creator</code>; drafts a separate mode, never edits ADN silently</td><td>No evidence → no draft; provenance/privacy fixture</td></tr>
+        <tr><td><code>reflect</code></td><td>Explicit</td><td>Current task evidence plus <code>skill-creator</code>; structural lesson over prose</td><td>No demonstrated lesson → no edit; reflection eval</td></tr>
+        <tr><td><code>teach</code></td><td>Playbook-routed or direct</td><td>Runs How + Why, parent builds one layered explanation</td><td>Unavailable evidence categories shown; composition eval</td></tr>
+        <tr><td><code>no-comments</code></td><td>Automatic code cleanup or direct</td><td>Existing reviewer with comment-only rubric, parent fixes accepted findings</td><td>Reviewer outage → parent deterministic pass; real diff + writing eval</td></tr>
+        <tr><td><code>figure-it-out</code></td><td>Active-router fallback or direct</td><td>Architect threshold, explicit auditable steps, real proof</td><td>No executable playbook → truthful blocker; no-fit fixture</td></tr>
+        <tr><td><code>show-me-your-work</code></td><td>Explicit</td><td>Append-only local TSV decision trail with artifact references, no raw transcript</td><td>Unwritable path blocks; schema/resume test</td></tr>
+        <tr><td><code>create-verification-skill</code></td><td>Automatic only at locked threshold; direct by name</td><td>Project <code>.agents/skills/verify-&lt;slug&gt;</code>, feature map, real driver, cleanup</td><td>Below threshold records no-op; positive/negative/real-launch tests</td></tr>
+        <tr><td><code>maintain-verification-skill</code></td><td>Automatic only for declared covered surface; direct by name</td><td>Update existing feature map/driver only after current driver fails on changed real surface</td><td>Uncovered surface remains untouched; positive/negative tests</td></tr>
+        <tr><td><code>unslop</code></td><td>Automatic final prose pass or direct</td><td>Parent removes AI tells without changing meaning</td><td>Semantic drift fails eval; before/after writing packet</td></tr>
+        <tr><td><code>bro</code></td><td>Explicit</td><td>Parent restates the last answer plainly</td><td>No workflow side effects; direct packet</td></tr>
+        <tr><td><code>technical-writing</code></td><td>Automatic on docs/PR/commit prose or direct</td><td>Diátaxis/Google/STE/Global-English rules; reuse document-format skills only when requested</td><td>Meaning and required format preserved; writing eval</td></tr>
+        <tr><td><code>typescript-best-practices</code></td><td>Automatic on TypeScript or direct</td><td>Type-system discipline and repository TypeScript conventions</td><td>Non-TS no-op; TS boundary eval</td></tr>
+        <tr><td><code>poteto-mode</code> adapter</td><td>Direct only</td><td>Deprecation notice then same-turn <code>adn-mode</code> route</td><td>Marker proves no recursive router</td></tr>
+        <tr><td><code>setup-pstack</code> adapter</td><td>Direct only</td><td>Deprecation notice then <code>setup-adn</code></td><td>No upstream mutation; adapter test</td></tr>
+        <tr><td><code>tdd</code> adapter</td><td>Automatic cheap path or direct</td><td>Existing <code>tdd-test-writer</code>; no cloned RED doctrine</td><td>No cheap behavior gate → explicit skip; adapter test</td></tr>
+      </tbody>
+    </table>
+    <h3>Twenty-one principle skills</h3>
+    <p><code>principle-laziness-protocol</code>, <code>principle-foundational-thinking</code>, <code>principle-redesign-from-first-principles</code>, <code>principle-subtract-before-you-add</code>, <code>principle-minimize-reader-load</code>, <code>principle-outcome-oriented-execution</code>, <code>principle-experience-first</code>, <code>principle-exhaust-the-design-space</code>, <code>principle-build-the-lever</code>, <code>principle-model-the-domain</code>, <code>principle-boundary-discipline</code>, <code>principle-type-system-discipline</code>, <code>principle-make-operations-idempotent</code>, <code>principle-migrate-callers-then-delete-legacy-apis</code>, <code>principle-separate-before-serializing-shared-state</code>, <code>principle-prove-it-works</code>, <code>principle-fix-root-causes</code>, <code>principle-sequence-verifiable-units</code>, <code>principle-guard-the-context-window</code>, <code>principle-never-block-on-the-human</code>, and <code>principle-encode-lessons-in-structure</code>.</p>
+    <h3>Playbook routing and formal-workflow precedence</h3>
+    <p>Outside active ADN, only an explicit <code>/adn-mode &lt;request&gt;</code> selects a playbook. Inside active ADN, the first twelve rows are automatic for matching non-trivial work. “Explicit” means the operator’s request names the outcome; the router never infers a ship, autonomous, cleanup, or PR action from ordinary implementation. Every playbook copies its OMP-native steps verbatim into visible todos and records skipped steps.</p>
+    <table class="compact">
+      <thead><tr><th>Playbook</th><th>Eligibility</th><th>Required route / handoff</th></tr></thead>
+      <tbody>
+        <tr><td>Investigation</td><td>Automatic/direct</td><td>Read-only How; Why when rationale matters; cited evidence; no edits.</td></tr>
+        <tr><td>Bug fix</td><td>Automatic/direct</td><td>Reproduce, TDD when cheap, root cause, smallest fix, real smoke, writing cleanup.</td></tr>
+        <tr><td>Perf issue</td><td>Automatic/direct</td><td>Measured baseline, runtime evidence, one change, after-measurement.</td></tr>
+        <tr><td>Hillclimb</td><td>Automatic/direct</td><td>One metric/target, hypothesis loop, accept only measured wins, verifiable units.</td></tr>
+        <tr><td>Runtime forensics</td><td>Automatic/direct</td><td>Instrument live symptom; no source-only diagnosis; real runtime proof.</td></tr>
+        <tr><td>Trace forensics</td><td>Automatic/direct</td><td>Inspect supplied trace/profile artifact; preserve artifact fingerprint.</td></tr>
+        <tr><td>Feature</td><td>Automatic/direct</td><td>Name data shape, Architect threshold, behavior gate, implement, real smoke.</td></tr>
+        <tr><td>Refactoring</td><td>Automatic/direct</td><td>Lock behavior, blast radius, clean cutover, prove invariant unchanged.</td></tr>
+        <tr><td>Prototype</td><td>Automatic/direct</td><td>Use existing prototype skill; compare only when decision needs alternatives; discardable result.</td></tr>
+        <tr><td>Visual parity</td><td>Automatic/direct</td><td>Use design + browser/computer surface, baseline screenshot, measured comparison.</td></tr>
+        <tr><td>Authoring a skill</td><td>Automatic/direct</td><td>Use <code>skill-creator</code>; source/provenance/trigger eval; adopt-skill for external source.</td></tr>
+        <tr><td>Eval</td><td>Automatic/direct</td><td>Immutable blinded packets, exact metric, independent arms, aggregate report.</td></tr>
+        <tr><td>Babysit</td><td>Explicit</td><td>Existing PR/GitHub checks; resolve current blockers only; no inferred merge.</td></tr>
+        <tr><td>Shipping</td><td>Explicit</td><td>Current autoreview/completeness/PR contracts first; generic Git/GitHub; merge only within authority.</td></tr>
+        <tr><td>Autonomous run</td><td>Explicit</td><td>Direct bounded work or formal threshold handoff; current session loop, no implicit Delivery.</td></tr>
+        <tr><td>Orchestrate</td><td>Explicit</td><td>Herdr/Task durable coordinator; formal reviewed plan required; no shared writer.</td></tr>
+        <tr><td>Autopilot full</td><td>Explicit</td><td>Independent disjoint PR candidates; existing plan/PR gates per candidate.</td></tr>
+        <tr><td>Autopilot stack</td><td>Explicit</td><td>Linear dependent sequence with one owner per unit; generic Git, no Graphite assumption.</td></tr>
+        <tr><td>Session pickup</td><td>Explicit</td><td>Read handoff/session state, validate working tree, resume first incomplete substage.</td></tr>
+        <tr><td>Pause safely</td><td>Explicit</td><td>Create current handoff through existing skill; record exact blocker/next command.</td></tr>
+        <tr><td>Multi-phase plan</td><td>Six thresholds or explicit</td><td>Adapter only: invoke existing reviewed-html-plan/run-plan path; do not author a parallel plan format or arm Delivery.</td></tr>
+        <tr><td>Worktree cleanup</td><td>Explicit</td><td>Use Git evidence; delete only proven merged/abandoned work; otherwise the unproven-work deletion pause applies.</td></tr>
+        <tr><td>Opening a PR</td><td>Explicit</td><td>Use the existing create-PR skill after required review/completeness. Third-party repository work requires exact explicit repository-and-action authorization.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="acceptance">
+    <h2>Acceptance criteria</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Observable criterion</th></tr></thead>
+      <tbody>
+        <tr id="ac-1"><td>AC1</td><td><code>setup-adn</code> resolves one profile/root, installs/reconciles the declared bundle, and records an atomic transaction; a second run changes nothing; unrelated OMP config/files survive.</td></tr>
+        <tr id="ac-2"><td>AC2</td><td><code>/adn-mode</code> activates only the current session, ignores casual turns, survives compaction/branch/tree/resume, disables cleanly, and resets on <code>session_switch reason=new</code>.</td></tr>
+        <tr id="ac-3"><td>AC3</td><td>Resolved runtime markers prove the exact Grok/Kimi roles for singular, council, Arena, and Interrogate routes; higher-precedence collisions fail closed.</td></tr>
+        <tr id="ac-4"><td>AC4</td><td>The manifest contains every declared skill, adapter, principle, playbook, agent/support disposition, dependency, source pin, failure behavior, proof, and provenance asset with no stale reference.</td></tr>
+        <tr id="ac-5"><td>AC5</td><td>Exhaustive fixtures and bounded live dispatch cover every automatic, explicit, routed, fallback, playbook, workflow-handoff, Architect, verification, TypeScript, casual, and outside-ADN route.</td></tr>
+        <tr id="ac-6"><td>AC6</td><td>Every code playbook records dynamic ownership; a live fan-out packet rejects shared writes and repository guidance overrides ADN defaults.</td></tr>
+        <tr id="ac-7"><td>AC7</td><td>Authority fixtures honor system/operator/repository/ADN precedence. Allowed actions and exactly preauthorized destructive-data operations proceed. Unapproved destructive data, credential/permission, and unproven-work deletion pauses are actionable. Customer-facing/deployment/third-party actions remain default-excluded but proceed when an exact request supplies the required scope; third-party fixtures require repository plus action.</td></tr>
+        <tr id="ac-8"><td>AC8</td><td>Production-path code contains no narration; retained comments are API docs or non-obvious why/constraints. Final replies map each applied principle to its decision.</td></tr>
+        <tr id="ac-9"><td>AC9</td><td>Existing plan/delivery/completeness/safe-index workflows remain usable; all six formal triggers hand off; a direct task leaves Delivery unarmed.</td></tr>
+        <tr id="ac-10"><td>AC10</td><td>Laziness is discoverable before Ponytail uninstall; Ponytail is absent live and cannot return through ai-configs.</td></tr>
+        <tr id="ac-11"><td>AC11</td><td>Stable live packets <code>INV-01</code>, <code>BUG-01</code>, <code>FEAT-01</code>, and <code>REF-01</code> complete end to end through real repository/CLI surfaces with artifact fingerprints and cleanup.</td></tr>
+        <tr id="ac-12"><td>AC12</td><td>Ten immutable blinded candidate bundles in the locked 3/3/2/2 mix reach <code>valid</code> with identical per-arm packet/diff hashes, independent contexts, adjudication, and privacy-safe aggregate records.</td></tr>
+        <tr id="ac-13"><td>AC13</td><td>Rollback by transaction restores/removes only unchanged ADN post-images and prior owned-role values; drift fails closed. Live rollback is dry-run only. Ponytail remains absent; evidence survives.</td></tr>
+        <tr id="ac-14"><td>AC14</td><td>Substantial pstack-derived material carries MIT attribution and pin <code>46756f89270d7e7dcb8c28c90fd0f957ade4ce2c</code>; <code>adopt-skill</code> never silently refreshes it.</td></tr>
+        <tr id="ac-15"><td>AC15</td><td>A loaded activation repairs deterministic owned drift and retries. Missing-at-start command, collision, or user drift fails with the exact recovery command. Setup/rollback serialize ADN writers and state the no-external-config-writer precondition without claiming unsupported CAS safety.</td></tr>
+        <tr id="ac-16"><td>AC16</td><td>Aggregate audit/trial/report serialization is allowlist-only; sentinel raw messages, tool payloads/results, diffs, reviewer bodies, malformed lines, and secrets appear in neither aggregate files nor stdout/stderr. Named arm-private artifacts follow the explicit private retention contract and never copy raw transcript bodies.</td></tr>
+        <tr id="ac-17"><td>AC17</td><td><code>adopt-skill</code> records source, pin, license, translation, checksum, and tests; later upstream changes produce an explicit available-update result, never an automatic mutation.</td></tr>
+        <tr id="ac-18"><td>AC18</td><td>Create/do-not-create and maintain/do-not-maintain verification decisions follow the locked table; any generated driver launches the real surface, asserts output, and cleans temporary artifacts.</td></tr>
+        <tr id="ac-19"><td>AC19</td><td>P8 emits a truthful install-bounded actual-window report that cannot recommend deletion from non-use alone, plus an owner/due/command/path/failure monthly 21-day handoff without claiming an OS schedule.</td></tr>
+        <tr id="ac-20"><td>AC20</td><td>Routine ai-configs reinstall leaves linked assets but may remove live-only role keys; ADN detects the expected drift and restores only its three role entries before final validation.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bdd">
+    <h2>BDD scenarios</h2>
+    <article id="bdd-activate"><h3>BDD1 — Explicit activation becomes sticky without hijacking casual chat</h3><p><strong>Given</strong> a new inactive session, <strong>when</strong> <code>/adn-mode</code> runs, <strong>then</strong> the current and later non-trivial requests route through ADN; casual turns retain state without routing.</p></article>
+    <article id="bdd-restore"><h3>BDD2 — Qualified state survives context operations</h3><p><strong>Given</strong> state type <code>dev.adn.mode.state.v1</code>, current session ID, and install generation, <strong>when</strong> OMP compacts, branches, navigates, or resumes, <strong>then</strong> the latest matching enabled/disabled entry wins and no conversation content is persisted.</p></article>
+    <article id="bdd-new-session"><h3>BDD3 — New sessions are inactive</h3><p><strong>Given</strong> an active module, <strong>when</strong> OMP emits <code>session_switch reason=new</code>, <strong>then</strong> module state resets before the next turn; <code>reason=resume</code> reconstructs only the resumed branch.</p></article>
+    <article id="bdd-architect"><h3>BDD4 — Architecture scales to the decision</h3><p><strong>Given</strong> local, precedent-backed, and novel/costly decisions, <strong>when</strong> ADN assesses them, <strong>then</strong> it respectively skips, uses Grok singularly, or runs Grok and Kimi independently.</p></article>
+    <article id="bdd-review"><h3>BDD5 — Review is independent and model-diverse</h3><p><strong>Given</strong> one immutable bundle, <strong>when</strong> Interrogate runs, <strong>then</strong> Grok and Kimi reviewers use fresh contexts, echo the same hashes, and the parent dispositions every finding.</p></article>
+    <article id="bdd-routing"><h3>BDD6 — Every declared route is deterministic</h3><p><strong>Given</strong> the manifest-generated fixture set, <strong>when</strong> classification runs, <strong>then</strong> every skill, adapter, and playbook has one expected eligibility, precedence, handoff, todo sequence, and failure result.</p></article>
+    <article id="bdd-auto-explicit"><h3>BDD7 — Trigger classes do not blur</h3><p><strong>Given</strong> active ADN, <strong>when</strong> a non-trivial request arrives, <strong>then</strong> only automatic skills fire; named explicit skills/playbooks require operator wording; routed helpers fire only from their playbook; Figure It Out handles no-fit; outside ADN no router takes control.</p></article>
+    <article id="bdd-ownership"><h3>BDD8 — Ownership matches work and repository</h3><p><strong>Given</strong> tiny, coherent, independent, and repo-parent-only cases, <strong>when</strong> ownership is chosen, <strong>then</strong> the parent, one owner, disjoint agents, and parent respectively own writes; overlapping targets are rejected.</p></article>
+    <article id="bdd-authority"><h3>BDD9 — Authority precedence and explicit overrides are executable</h3><p><strong>Given</strong> the same nominal action under default, exact preauthorization, permitting repository guidance, and forbidding higher authority, <strong>when</strong> ADN evaluates it, <strong>then</strong> it respectively pauses/default-excludes, proceeds, proceeds, or stops. A destructive-data operation with matching operation-and-scope preauthorization does not pause again. Customer-facing, deployment, and third-party actions require exact explicit scope; third-party scope includes repository and action.</p></article>
+    <article id="bdd-comments"><h3>BDD10 — Code explains itself</h3><p><strong>Given</strong> a production-path diff, <strong>when</strong> No Comments and writing cleanup run, <strong>then</strong> narration is removed while API docs and non-obvious reasons remain, and the final answer maps principles to decisions.</p></article>
+    <article id="bdd-setup"><h3>BDD11 — Setup is profile-aware, transactional, and idempotent</h3><p><strong>Given</strong> unrelated config plus colliding prior owned values, <strong>when</strong> setup runs twice under one resolved profile, <strong>then</strong> it journals pre/post images, preserves unrelated state, converges once, and reports no second change.</p></article>
+    <article id="bdd-pony"><h3>BDD12 — Ponytail cannot return</h3><p><strong>Given</strong> the live Laziness marker resolves, <strong>when</strong> Ponytail is uninstalled and ai-configs reinstall runs, <strong>then</strong> Ponytail stays absent; expected ADN role drift is reconciled afterward.</p></article>
+    <article id="bdd-existing"><h3>BDD13 — Existing formal workflows remain explicit</h3><p><strong>Given</strong> a bounded task and each formal threshold, <strong>when</strong> routing runs on the production path, <strong>then</strong> the task remains direct with no Delivery ledger or hands off to the existing reviewed-plan/run-plan entry point without arming Delivery.</p></article>
+    <article id="bdd-verify"><h3>BDD14 — Verification skill decisions are bounded</h3><p><strong>Given</strong> existing-command, one-off-smoke, repeated-gap, covered-drift, and uncovered-surface cases, <strong>when</strong> proof is selected, <strong>then</strong> ADN respectively reuses, records no skill, creates, maintains, or leaves untouched and proves any driver on the real surface.</p></article>
+    <article id="bdd-trial"><h3>BDD15 — Review replacement follows a locked table</h3><p><strong>Given</strong> ten valid pairs, <strong>when</strong> findings are adjudicated, <strong>then</strong> replace, retain, compose/narrow, or <code>INCONCLUSIVE</code> follows the predeclared coverage/friction table; invalid/outage pairs rerun and never count.</p></article>
+    <article id="bdd-rollback"><h3>BDD16 — Rollback refuses to overwrite drift</h3><p><strong>Given</strong> a transaction, <strong>when</strong> current targets match recorded ADN post-images, <strong>then</strong> prior images/role values restore; any mismatch names the target and safe next command without mutation. Old session entries remain inert because generations differ.</p></article>
+    <article id="bdd-reconcile"><h3>BDD17 — Activation healing is bounded</h3><p><strong>Given</strong> a loaded command, deterministic owned drift, and the declared no-external-config-writer precondition, <strong>when</strong> activation preflights, <strong>then</strong> it reconciles and retries; a missing-at-start command or collision fails with the exact recovery action, and any detected before/after config mismatch fails without claiming every external race is detectable.</p></article>
+    <article id="bdd-live"><h3>BDD18 — Four live packets prove production dispatch</h3><p><strong>Given</strong> <code>INV-01</code>, <code>BUG-01</code>, <code>FEAT-01</code>, and <code>REF-01</code>, <strong>when</strong> active ADN executes them, <strong>then</strong> each records selected playbook, runtime markers, ownership, actual CLI/repository outcome, artifact hashes, and cleanup; diagnostic output cannot count.</p></article>
+    <article id="bdd-privacy"><h3>BDD19 — Aggregate output cannot leak source records</h3><p><strong>Given</strong> sentinel user/assistant/tool/secret/malformed records, <strong>when</strong> audit or trial aggregate serialization succeeds or errors, <strong>then</strong> only allowlisted counters/metadata are emitted and sentinels/forbidden keys occur in neither aggregate files nor stdout/stderr; raw transcript bodies are never copied into private arm evidence.</p></article>
+    <article id="bdd-adopt"><h3>BDD20 — Skill adoption is pinned, not silently refreshed</h3><p><strong>Given</strong> an adopted upstream skill, <strong>when</strong> upstream later changes, <strong>then</strong> ADN reports an available change while installed source/checksum remain pinned until explicit adoption.</p></article>
+    <article id="bdd-audit"><h3>BDD21 — Adoption reporting states its observation limit</h3><p><strong>Given</strong> install timestamp and covered sessions, <strong>when</strong> P8 reports, <strong>then</strong> exact bounds/duration/profile/root/coverage/errors/limitations appear, short-window non-use cannot justify deletion, and a durable monthly handoff names owner, due date, command, path, and failure action.</p></article>
+    <article id="bdd-reinstall"><h3>BDD22 — ai-configs reinstall converges through ADN</h3><p><strong>Given</strong> a live-only ADN role map, <strong>when</strong> ai-configs rewrites managed config, <strong>then</strong> setup detects only the missing owned entries, restores them under its lock, and final live markers still resolve.</p></article>
+  </section>
+
+  <section id="coverage">
+    <h2>Test coverage matrix</h2>
+    <table class="compact">
+      <thead><tr><th>Acceptance / scenarios</th><th>Deterministic evidence</th><th>Required production evidence</th></tr></thead>
+      <tbody>
+        <tr><td>AC1, AC13, AC15 / BDD11, BDD16–17</td><td><code>setup-integration.test.ts</code>: profile/root, JSON <code>.value</code>, lock/recheck, transactions, prior roles, drift refusal, generation invalidation</td><td>Isolated apply/check/rollback/snapshot plus live apply/check and live rollback dry-run</td></tr>
+        <tr><td>AC2 / BDD1–3</td><td><code>adn-mode-extension.test.ts</code>: exact schemas and all lifecycle events</td><td>Real TUI activate/casual/compact/branch/tree/off/new/resume marker packet</td></tr>
+        <tr><td>AC3–5 / BDD4–7</td><td>Manifest source-disposition table, all-row routing fixtures, collision fixtures, source-reference checks</td><td>Full-manifest skill marker reads, task-role markers, selected playbook/todos/skips, council/review markers</td></tr>
+        <tr><td>AC6–7 / BDD8–9</td><td>Ownership/disjointness and authority-precedence fixtures</td><td>Disjoint fan-out plus allowed, default-excluded, paused, exactly preauthorized destructive-data, explicitly authorized customer/deployment, and exact-repository third-party packets</td></tr>
+        <tr><td>AC8 / BDD10</td><td><code>writing-policy.test.ts</code></td><td>Production task diff and final-answer evidence from BUG/FEAT packets</td></tr>
+        <tr><td>AC9 / BDD13</td><td>Six threshold and bounded counterexample fixtures</td><td>DIRECT-01 no-ledger task and FORMAL-01 existing-workflow handoff</td></tr>
+        <tr><td>AC10, AC20 / BDD12, BDD22</td><td><code>test_omp_config_install.sh</code> and expected-drift fixture</td><td>Laziness marker, uninstall/plugin query, reinstall, role repair, final role markers</td></tr>
+        <tr><td>AC11 / BDD18</td><td>Packet schema/validator and immutable fixture fingerprints</td><td>INV-01, BUG-01, FEAT-01, REF-01 actual repository/CLI outcomes and cleanup</td></tr>
+        <tr><td>AC12 / BDD5, BDD15</td><td><code>review-trial.test.ts</code>: bundle/state/blinding/distribution/privacy/decision table</td><td>Ten <code>valid</code> pairs with both arm hashes and adjudication evidence</td></tr>
+        <tr><td>AC14, AC17 / BDD20</td><td><code>adoption.test.ts</code>: provenance/license/pin/no-refresh</td><td>One pinned candidate adoption and later-update check with unchanged installed hash</td></tr>
+        <tr><td>AC16 / BDD19</td><td><code>audit.test.ts</code>: schema versions, all sentinels, malformed/error paths, recursive forbidden-key scan</td><td>Actual-window dry run/report through the same serializer</td></tr>
+        <tr><td>AC18 / BDD14</td><td><code>verification-skill.test.ts</code>: five decision cases, feature map, cleanup</td><td>One generated-or-maintained driver launches and proves a real packet surface; a negative no-change case is recorded</td></tr>
+        <tr><td>AC19 / BDD21</td><td><code>adoption-report.test.ts</code>: bounds, limitations, no-delete rule, handoff schema</td><td>Install-bounded report plus durable monthly handoff artifact</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="progress">
+    <h2>Progress</h2>
+    <ul class="check">
+      <li><input type="checkbox" disabled />P1 — Establish the live ADN bundle, tests, provenance, and Ponytail cutover.</li>
+      <li><input type="checkbox" disabled />P2 — Add role-backed councils and the sticky OMP extension.</li>
+      <li><input type="checkbox" disabled />P3 — Author the complete principle and operational skill set.</li>
+      <li><input type="checkbox" disabled />P4 — Implement all playbooks, adapters, and routing/ownership semantics.</li>
+      <li><input type="checkbox" disabled />P5 — Build setup, audit, adoption, verification, and evaluation tooling.</li>
+      <li><input type="checkbox" disabled />P6 — Install live, run full acceptance, and prove rollback.</li>
+      <li><input type="checkbox" disabled />P7 — Complete the ten-change blinded review trial.</li>
+      <li><input type="checkbox" disabled />P8 — Decide review disposition and publish the first aggregate adoption audit.</li>
+    </ul>
+  </section>
+
+  <section id="resume">
+    <h2>Resume instructions (agent)</h2>
+    <p>This planning/review session must not implement or arm Delivery. After the operator invokes the existing authorized plan-execution flow, read this plan, repository guidance, Doct state, and pinned pstack baseline; then continue from the first unchecked phase. Validate the phase-local ledger before acting: setup/live-smoke transactions for P5–P6, per-candidate trial state for P7, and decision/adoption/monthly-handoff state for P8. Completed substages are immutable and must not be overwritten; continue at the first incomplete valid substage.</p>
+    <p>The ai-configs driver owns repository edits under current guidance. Read-only councils remain allowed. Every config operation uses one resolved profile/root and the neutral-cwd setup contract. Preserve unrelated live state. ADN never arms Delivery implicitly; an already explicitly armed ledger remains authoritative. Full live capture into ai-configs, remote rollout, deployments, customer-facing actions, third-party actions, and other-harness refactors remain outside this plan execution unless the operator separately provides the exact authorization required by the authority contract.</p>
+  </section>
+
+  <article class="phase" id="phase-p1">
+    <h2>P1 — Establish the live ADN bundle, provenance, Laziness link, and Ponytail cutover</h2>
+    <h3>End State</h3>
+    <p>The manifest schema and P1 assets are valid, Laziness resolves through OMP before Ponytail is removed, and ai-configs no longer installs Ponytail. Later-phase assets remain scheduled rather than falsely required by the P1 gate.</p>
+    <h3>Tests first</h3>
+    <p>Create phase-aware manifest tests. <code>--through p1</code> must RED on missing/duplicate P1 assets, bad pin/license, bad Laziness marker/link, or Ponytail references and then pass. Full <code>--all</code> completeness is not a P1 gate; each later phase advances the same test through its owned rows.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>~/.agents/adn/manifest.json</code>, <code>LICENSE.pstack</code>, <code>PROVENANCE.md</code></li>
+      <li><code>~/.agents/adn/tests/manifest.test.ts</code> and manifest fixtures/helpers</li>
+      <li><code>~/.agents/adn/skills/principle-laziness-protocol/SKILL.md</code> and link <code>~/.agents/skills/principle-laziness-protocol</code></li>
+      <li><code>_omp/install.sh</code> and <code>test_omp_config_install.sh</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Define the exhaustive manifest row schema, phases, canonical names, runtime markers, source dispositions, targets, and checksums from the inventories in this plan.</li>
+      <li>Record pin <code>46756f89270d7e7dcb8c28c90fd0f957ade4ce2c</code>, upstream URL, review date, MIT text, post-pin-change rule, and OMP adaptation policy.</li>
+      <li>Author Laziness, create its one-level shared link, and prove <code>skill://principle-laziness-protocol</code> returns the manifest marker.</li>
+      <li>Remove <code>@dietrichgebert/ponytail</code> from the ai-configs managed-plugin list and replace the positive test with a negative assertion.</li>
+      <li>If live plugin inventory contains Ponytail, run <code>omp plugin uninstall @dietrichgebert/ponytail</code> only after the Laziness marker passes; preserve every other plugin.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3><p>None. Post-pin <code>make-bot-ui</code> remains excluded.</p>
+    <h3>Verify</h3>
+    <pre><code>bun test ~/.agents/adn/tests/manifest.test.ts -- --through p1
+bash test_omp_config_install.sh
+omp -p --no-session --max-time 5m "Read skill://principle-laziness-protocol and return only its ADN manifest marker."
+omp plugin list --json
+# Laziness marker matches; no installed/enabled Ponytail entry exists.</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p2">
+    <h2>P2 — Add role-backed councils, config transaction core, and sticky OMP extension</h2>
+    <h3>End State</h3>
+    <p>One resolved profile contains the three exact role mappings and agents; the extension owns a versioned session/generation schema and handles every OMP lifecycle event, including new/resume switches.</p>
+    <h3>Tests first</h3>
+    <p>RED covers JSON-envelope <code>.value</code> extraction, neutral-cwd profile resolution, inherited-profile isolation for <code>--agent-root</code>, whole-record merge, ADN-writer lock, pre/post mismatch handling, external-writer precondition, prior owned values, two-profile generations, collision scans, exact state/reminder schemas, enabled/disabled latest-entry wins, <code>session_switch(new|resume)</code>, start/branch/tree, compaction, request forwarding, direct skill statelessness, and conversation-field rejection.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>~/.agents/adn/agents/architect-grok.md</code>, <code>architect-kimi.md</code>, <code>reviewer-kimi.md</code></li>
+      <li>Immutable <code>~/.agents/adn/extensions/adn-mode.ts</code>; generated <code>&lt;agent-root&gt;/extensions/adn-mode.ts</code> wrapper and <code>&lt;agent-root&gt;/adn/generation.json</code></li>
+      <li><code>~/.agents/adn/scripts/config-state.ts</code>, transaction schema/helpers</li>
+      <li><code>~/.agents/adn/tests/adn-mode-extension.test.ts</code>, <code>agents.test.ts</code>, <code>config-state.test.ts</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Resolve the profile once. Run <code>omp [--profile NAME] config path/get/set</code> from an empty temporary cwd with <code>PI_CONFIG_FILES</code> cleared and no <code>--config</code>. Explicit <code>--agent-root</code> clears inherited <code>OMP_PROFILE</code>/<code>PI_PROFILE</code>, sets <code>PI_CODING_AGENT_DIR</code>, and must resolve exactly to that root. Parse <code>get ... --json</code> at <code>.value</code>.</li>
+      <li>Under atomic <code>mkdir &lt;agent-root&gt;/adn/setup.lock</code>, require no concurrent external <code>omp config</code>/settings mutation, read/fingerprint the global record, merge the three exact owned mappings, re-read before write, write through <code>omp config set modelRoles</code>, and verify the post-record. This lock serializes ADN writers only; the plan intentionally does not promise unsupported external-writer CAS. Journal prior owned values and the post-image.</li>
+      <li>Write separate read-only architecture and Kimi-review prompts with manifest marker, role alias, and verdict vocabulary. Scan project/plugin agent collisions before linking; a collision blocks rather than being shadowed.</li>
+      <li>Setup creates profile-local <code>&lt;agent-root&gt;/adn/generation.json</code> atomically and journals it, then generates a profile-local extension wrapper that imports the immutable canonical module and passes resolved root/generation. Persist only <code>dev.adn.mode.state.v1</code> with <code>{schemaVersion:1,sessionId,generation,enabled}</code>; latest matching current-session/current-generation branch entry wins. Test two profiles independently.</li>
+      <li>On <code>session_start</code> reconstruct; on <code>session_switch reason=new</code> reset false; on <code>reason=resume</code>, branch, or tree reconstruct. Emit static hidden <code>dev.adn.mode.reminder.v1</code> with <code>display:false</code> and manifest marker. Forward activation arguments as a user request that loads <code>skill://adn-mode</code>; direct skill invocation remains stateless.</li>
+      <li>Check project/user/configured/plugin extension command collisions. Loaded activation returns manifest version/generation. If the command is absent at startup, the only recovery is setup; do not claim in-command bootstrap.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3><p>None. Any documented v18.0.6 deviation must update the manifest contract and test in this phase before proceeding.</p>
+    <h3>Verify</h3>
+    <pre><code>bun ~/.agents/adn/scripts/config-state.ts apply-roles
+bun test ~/.agents/adn/tests/config-state.test.ts ~/.agents/adn/tests/adn-mode-extension.test.ts ~/.agents/adn/tests/agents.test.ts
+bun test ~/.agents/adn/tests/manifest.test.ts -- --through p2
+omp config get modelRoles --json
+omp -p --no-session --max-time 5m "Use task to ask architect-grok, architect-kimi, reviewer, and reviewer-kimi for manifest marker, agent name, role alias, and model family only."
+# Real TUI: activate, casual, compact, branch/tree, off, /new, resume; capture exact markers.</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p3">
+    <h2>P3 — Author the complete principle and operational skill set</h2>
+    <h3>End State</h3>
+    <p>All 21 principles and all 27 operational/adapter rows exist, resolve through the intended manifest-owned producer, and implement the source/dependency/failure dispositions above without Cursor-only assumptions.</p>
+    <h3>Tests first</h3>
+    <p>RED covers every manifest row’s frontmatter, trigger class, source path/SHA, dependencies, adaptation/exclusion, failure contract, runtime marker, attribution, direct name, forbidden Cursor/Graphite/cloud fields, principle index parity, authority order, ownership, writing, and adapters.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>~/.agents/adn/skills/&lt;operational-or-adapter&gt;/SKILL.md</code> and <code>principle-*/SKILL.md</code></li>
+      <li><code>~/.agents/adn/tests/skills.test.ts</code>, <code>writing-policy.test.ts</code>, <code>authority.test.ts</code>, <code>live-skill-markers.ts</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Translate each table row from its pinned source, retaining the named outcome and replacing only the declared runtime dependency. Add no undeclared persona or fallback.</li>
+      <li>Reference existing shared skills for skill creation, TDD, planning, verification surfaces, Git/PR, delivery, and completeness; do not clone or edit their cross-harness contracts.</li>
+      <li>Implement the exact How/Why/Teach evidence adapters, role calls, no-comments reviewer fallback, verification decision table, and explicit-only visibility rules. Missing required sources/roles fail as specified.</li>
+      <li>Generate the full <code>--skills</code> include list from the manifest, not a hand-written glob. Scan higher-precedence project/native/configured/plugin skill collisions, then read every resolved skill and require its unique ADN marker.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3><p>None. Shared visibility is accepted; other harness behavior remains out of scope.</p>
+    <h3>Verify</h3>
+    <pre><code>bun test ~/.agents/adn/tests/manifest.test.ts -- --through p3
+bun test ~/.agents/adn/tests/skills.test.ts ~/.agents/adn/tests/writing-policy.test.ts ~/.agents/adn/tests/authority.test.ts
+bun ~/.agents/adn/tests/live-skill-markers.ts --skills-from-manifest --fail-on-shadow</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p4">
+    <h2>P4 — Implement all playbooks, adapters, and routing/ownership semantics</h2>
+    <h3>End State</h3>
+    <p>All 23 keyed playbooks have OMP-native verbatim todo steps, exact eligibility and formal-workflow precedence, deterministic fixture coverage, and production dispatch packets ready for P6.</p>
+    <h3>Tests first</h3>
+    <p>Generate at least one positive and one counterexample from every manifest playbook/skill row. RED requires one route, expected todos/skips, outside/active/direct behavior, explicit wording, routed caller, fallback, six formal thresholds, no implicit Delivery, Architect threshold, authority precedence, dynamic ownership, and disjoint writes.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>~/.agents/adn/skills/adn-mode/playbooks/*.md</code> for the 23 named rows</li>
+      <li><code>~/.agents/adn/tests/fixtures/playbook-routing.json</code>, <code>playbook-contract.test.ts</code>, <code>routing-eval.ts</code></li>
+    </ul>
+    <h3>Work</h3>
+    <ol>
+      <li>Translate every pinned playbook step, replacing only its row’s declared Graphite/cloud/worker/control dependency. Store source-step IDs so tests prove no prescribed behavior was silently dropped.</li>
+      <li>Make Multi-phase plan a thin handoff to existing reviewed-html-plan/run-plan. Explicit Delivery wording may invoke Delivery; no other route does. Opening a PR uses the existing PR skill and its prerequisites.</li>
+      <li>Record ownership before writes. Reject fan-out whose normalized target sets overlap. Apply authority order to the same nominal action under permitting/forbidding repo fixtures.</li>
+      <li>Keep diagnostic classification pure. It proves exhaustive policy; it cannot satisfy any P6 live criterion.</li>
+      <li>Materialize stable P6 packet definitions: <code>INV-01</code> inspects OMP whole-record role semantics in ai-configs; <code>BUG-01</code> fixes a generated Bun CLI path-normalization defect; <code>FEAT-01</code> adds <code>--json</code> to a generated Bun CLI; <code>REF-01</code> deduplicates a generated config parser with unchanged CLI output; <code>DIRECT-01</code> reuses BUG-01 and asserts no ledger; <code>FORMAL-01</code> requests a disposable reviewed HTML plan and stops after the existing handoff. Each packet declares source/template hash, initial state, exact request, real command/surface, expected artifacts/outcome, evidence path, and cleanup.</li>
+    </ol>
+    <h3>Open questions / decision dependencies</h3><p>None. Benny and post-pin playbooks remain excluded.</p>
+    <h3>Verify</h3>
+    <pre><code>bun test ~/.agents/adn/tests/playbook-contract.test.ts
+bun ~/.agents/adn/tests/routing-eval.ts --all --model @default --require-manifest-coverage
+bun test ~/.agents/adn/tests/manifest.test.ts -- --through p4
+# Provider failures are blockers/reruns, never routing passes.</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p5">
+    <h2>P5 — Build transactional setup, privacy-safe audit, adoption, verification, and trial tooling</h2>
+    <h3>End State</h3>
+    <p>Setup has exact apply/check/rollback semantics; aggregate serialization is leak-resistant; adoption and verification decisions are deterministic; ten replay candidates and four live packets are registered; P5/P6/P7/P8 substages are resumable.</p>
+    <h3>Tests first</h3>
+    <p>Use temporary roots and synthetic sessions. RED covers profile/root resolution, JSON envelope, lock/recheck, atomic journal, role collisions/prior values, apply/check/rollback/drift, private atomic output, sentinel leakage on success/error, adoption no-refresh, verification positive/negative paths, candidate bundle hashes, fresh-arm independence, trial state transitions, distribution, adjudication, and decision table.</p>
+    <h3>Expected files</h3>
+    <ul>
+      <li><code>~/.agents/adn/scripts/setup-adn.ts</code>, <code>validate-adn.ts</code>, <code>audit-adn.ts</code>, <code>candidate-bundle.ts</code>, <code>trial-ledger.ts</code>, <code>run-review-arm.ts</code>, <code>adjudicate-pair.ts</code></li>
+      <li><code>~/.agents/adn/tests/setup-integration.test.ts</code>, <code>audit.test.ts</code>, <code>adoption.test.ts</code>, <code>verification-skill.test.ts</code>, <code>review-trial.test.ts</code>, <code>adoption-report.test.ts</code>, and <code>fixtures/locked-candidates.json</code></li>
+      <li><code>&lt;agent-root&gt;/adn/transactions/</code>, <code>evaluations/private/</code>, aggregate <code>evaluations/</code>, and <code>operations/monthly-audit.json</code></li>
+    </ul>
+    <h3>Setup and rollback contract</h3>
+    <ul>
+      <li>CLI is <code>setup-adn.ts apply|check|rollback [--profile NAME | --agent-root PATH] [--transaction ID] [--result PATH] [--dry-run]</code>. Explicit <code>--profile</code> wins; otherwise use <code>OMP_PROFILE</code>, else default from <code>omp config path</code>. <code>--agent-root</code> is mutually exclusive/test-only, clears <code>OMP_PROFILE</code>/<code>PI_PROFILE</code>, sets <code>PI_CODING_AGENT_DIR</code>, and asserts resolved-path equality. Every mutating command writes sanitized result JSON containing its explicit <code>transactionId</code>; there is no <code>latest</code> selector.</li>
+      <li>Clear <code>PI_CONFIG_FILES</code>, pass no <code>--config</code>, and use the same empty cwd. Acquire the ADN directory lock and require no concurrent external OMP config/settings mutation. The lock serializes ADN setup/activation/rollback only; because OMP’s public CLI exposes no CAS whole-record merge, external concurrency is outside the guarantee and is stated in check/apply output. Detected before/after mismatch fails closed.</li>
+      <li>Journal schema/version, explicit transaction ID, UTC time, profile/root, profile-local generation, each owned target kind/path/pre-image or absence/backup/installed fingerprint, and prior/post values for each owned role key. Write journal/temp files atomically with private permissions.</li>
+      <li>Rollback uses only the caller-supplied transaction ID. It restores/removes a target only if current fingerprint equals the recorded post-image and restores an owned role to its exact prior value/absence under the same quiescence precondition. Drift names target and exact safe command. Removing the profile-local wrapper/generation makes old entries inert; another profile is unaffected.</li>
+    </ul>
+    <h3>Audit serialization contract</h3>
+    <p>Discover <code>&lt;agent-root&gt;/sessions/**.jsonl</code>. Version-3 input uses top-level <code>type</code>/<code>timestamp</code>, session <code>id/cwd</code>, and user <code>message.role/content[].text</code>. An explicit operator invocation is a user text match for <code>(^|\s)/(skill:)?([a-z0-9-]+)(?=\s|$)</code>. Assistant <code>message.content[].toolCall</code> reads whose <code>arguments.path</code> equals <code>skill://&lt;name&gt;</code>, and <code>customType=tool_execution_start</code>, are classified as assistant reads and never counted as operator invocation. Unknown versions fail by declared class; unknown non-content event types increment skipped counts. Malformed records report agent-root-relative path, record number, and error class, never source text or substring.</p>
+    <p>Allowlisted report fields are <code>schemaVersion</code>, generated/window/install timestamps, duration, profile, agent-root ID, workspace ID/hash, session/record/skipped/error counts, skill/category identifiers and counts, compaction/abort/review-cycle counters, artifact IDs/hashes, and observation limitations. Forbidden everywhere in aggregate files/stdout/stderr: prompts/messages, transcript lines, content text, tool arguments/results, diffs, raw reviewer output, secret-like values, and copied paths beyond sanitized record location. Stream and project immediately; write parent mode <code>0700</code>, files <code>0600</code>, temp+rename atomically; run the same recursive allowlist validator before every report commit.</p>
+    <h3>Verification and adoption contract</h3>
+    <p>Generated verification lives at <code>&lt;repo&gt;/.agents/skills/verify-&lt;slug&gt;/</code> with <code>SKILL.md</code>, <code>feature-map.json</code>, and the smallest real driver. Create/maintain follows locked decision 13, records coverage/task IDs, launches the actual program, asserts an observable result, and removes temporary artifacts. Adoption records source URL/revision/license/checksum/translation/test and reports later upstream drift without mutation.</p>
+    <h3>Locked trial candidates and state</h3>
+    <table class="compact">
+      <thead><tr><th>ID/category/source</th><th>Immutable replay source</th></tr></thead>
+      <tbody>
+        <tr><td>B01 bug/replay</td><td><code>f346967</code> from parent: current pi-subagents isolation off-veto fix</td></tr>
+        <tr><td>B02 bug/replay</td><td><code>65dc88b</code> from parent: missing OMP completeness skill resolution fix</td></tr>
+        <tr><td>B03 bug/replay</td><td><code>d25ec2e</code> from parent: Herdr previous-pane shortcut fix</td></tr>
+        <tr><td>F01 feature/replay</td><td><code>8c2b192</code> from parent: computer-use/cua-driver routing</td></tr>
+        <tr><td>F02 feature/replay</td><td><code>c6e76f2</code> from parent: OMP thinking shortcuts</td></tr>
+        <tr><td>F03 feature/replay</td><td><code>3fcd91c</code> from parent: standup collector and WezTerm behavior</td></tr>
+        <tr><td>R01 refactor/replay</td><td><code>bd28508</code> from parent: remove Gemini CLI surfaces</td></tr>
+        <tr><td>R02 refactor/replay</td><td><code>e9bdf94</code> from parent: communication-guidance refactor</td></tr>
+        <tr><td>P01 plan/replay</td><td><code>thoughts/plans/pi-vcc-safe-boundary-compaction.html</code> at <code>598677a</code> plus parent-to-commit diff</td></tr>
+        <tr><td>P02 plan/replay</td><td><code>thoughts/plans/minimal-cross-runtime-delivery-workflow.html</code> at <code>1c244cb</code> plus parent-to-commit diff</td></tr>
+      </tbody>
+    </table>
+    <p>For each ID, canonical bundle bytes contain normalized intent, scope, base/commit identity, plan bytes when applicable, verification contract, and <code>git diff --binary --full-index BASE COMMIT</code>; record <code>diff_fingerprint</code> and whole <code>packet_fingerprint</code>. Raw candidate packets/diffs and reviewer responses may exist only under <code>&lt;agent-root&gt;/adn/evaluations/private/&lt;id&gt;/</code> (directory <code>0700</code>, files <code>0600</code>), never on stdout or in aggregate files; raw transcript bodies are never copied there. Retain private evidence through P8, then purge it 30 days after the decision with <code>audit-adn.ts review-trial purge-private --before DATE</code>; aggregate reports retain hashes. State is atomic and monotonic: <code>registered → current_complete → adn_complete → adjudicated → valid</code>. Completed stages are immutable; outages/mismatches rerun only the current stage. <code>trial-ledger.ts next --format command</code> prints the exact next shell-safe command.</p>
+    <h3>Verify</h3>
+    <pre><code>bun test ~/.agents/adn/tests
+TMP_ROOT="$(mktemp -d)/agent"
+RESULT="$(mktemp)"
+env OMP_PROFILE=named-profile bun ~/.agents/adn/scripts/setup-adn.ts apply --agent-root "$TMP_ROOT" --result "$RESULT"
+bun ~/.agents/adn/scripts/setup-adn.ts check --agent-root "$TMP_ROOT"
+TX="$(bun -e 'console.log((await Bun.file(process.argv[1]).json()).transactionId)' "$RESULT")"
+bun ~/.agents/adn/scripts/setup-adn.ts rollback --agent-root "$TMP_ROOT" --transaction "$TX"
+bun ~/.agents/adn/scripts/validate-adn.ts rollback --agent-root "$TMP_ROOT" --transaction "$TX"
+bun ~/.agents/adn/scripts/candidate-bundle.ts register --manifest ~/.agents/adn/tests/fixtures/locked-candidates.json --all
+bun ~/.agents/adn/scripts/trial-ledger.ts validate --require-state registered --count 10 --distribution bug=3,feature=3,refactor=2,plan=2
+bun ~/.agents/adn/scripts/audit-adn.ts --workspace /Users/anichols/code/ai-configs --window 21d --dry-run
+bun test ~/.agents/adn/tests/manifest.test.ts -- --all</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p6">
+    <h2>P6 — Install live, prove runtime resolution, execute live packets, and dry-run rollback</h2>
+    <h3>End State</h3>
+    <p>The live profile resolves manifest-owned producers, sticky state and councils work, four task classes and both workflow-coexistence packets run through real surfaces, expected ai-configs role drift self-repairs, and rollback is proven isolated plus dry-run live.</p>
+    <h3>Tests first</h3>
+    <p>Run all deterministic tests in an isolated root. Capture live pre-install profile/root, role record, collision inventory, target fingerprints, and plugin list. Any undeclared collision or diff blocks apply.</p>
+    <h3>Expected evidence</h3>
+    <p><code>&lt;agent-root&gt;/adn/evaluations/live-smoke.jsonl</code> stores allowlisted packet ID, manifest/generation/role/playbook/ownership/surface markers, artifact hashes, outcome, cleanup, and artifact references only. Provider/tool outages are blocker records with exact rerun packets and cannot pass.</p>
+    <h3>Work</h3>
+    <ol>
+      <li>Run live <code>check</code>, <code>apply</code>, second <code>apply</code>, and <code>check</code>; reload OMP. Require every resolved skill/agent/extension marker and fail on shadowing.</li>
+      <li>Execute the real TUI activation packet: activation/request, casual turn, non-trivial later turn, compact, branch/tree navigation, off, new, resume. Require state/generation markers and no casual router marker.</li>
+      <li>Run Architect skip/singular/council, Arena, Interrogate, authority allowed/pause/excluded, and disjoint-write packets with expected role/ownership markers.</li>
+      <li>Prepare and run <code>INV-01</code>, <code>BUG-01</code>, <code>FEAT-01</code>, and <code>REF-01</code> exactly from their P4 packet files. The generated Bun repos must run their real CLI/tests and be cleaned. Diagnostic classification or a summary cannot satisfy AC11.</li>
+      <li>Run <code>DIRECT-01</code> and assert no <code>.delivery/ledger.json</code>. Run <code>FORMAL-01</code> through active ADN to the existing reviewed-html-plan entry point, record its Doct URL/handoff marker, assert Delivery remains unarmed, then archive the disposable plan as cleanup; do not implement it.</li>
+      <li>Run <code>bash test_omp_config_install.sh</code> and the normal ai-configs OMP installer. Prove Ponytail absent and linked ADN assets intact. Expect the repo-managed config to remove live-only role keys; require setup check to report exactly those owned drifts, apply to restore them, and rerun all role markers.</li>
+      <li>Exercise isolated apply/check/rollback and snapshot parity. Resolve the live transaction and run rollback <code>--dry-run</code> only; do not claim live restoration.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>bun test ~/.agents/adn/tests
+LIVE_RESULT="$(mktemp)"
+bun ~/.agents/adn/scripts/setup-adn.ts check
+bun ~/.agents/adn/scripts/setup-adn.ts apply --result "$LIVE_RESULT"
+FULL_INSTALL_TX="$(bun -e 'console.log((await Bun.file(process.argv[1]).json()).transactionId)' "$LIVE_RESULT")"
+bun ~/.agents/adn/scripts/setup-adn.ts apply
+bun ~/.agents/adn/scripts/validate-adn.ts live --require-all-markers
+bun ~/.agents/adn/scripts/live-packets.ts run --ids INV-01,BUG-01,FEAT-01,REF-01,DIRECT-01,FORMAL-01
+bash test_omp_config_install.sh
+./_omp/install.sh
+bun ~/.agents/adn/scripts/setup-adn.ts check --expect-owned-role-drift
+bun ~/.agents/adn/scripts/setup-adn.ts apply
+bun ~/.agents/adn/scripts/validate-adn.ts live --require-all-markers
+bun ~/.agents/adn/scripts/setup-adn.ts rollback --transaction "$FULL_INSTALL_TX" --dry-run
+bun ~/.agents/adn/scripts/validate-adn.ts live-smokes --require-cleanup</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p7">
+    <h2>P7 — Complete the ten-candidate blinded review trial</h2>
+    <h3>End State</h3>
+    <p>All locked replay bundles reach <code>valid</code> with two fresh-context arms, matching hashes, de-identified evidence adjudication, privacy validation, and resumable immutable state.</p>
+    <h3>Tests first</h3>
+    <p>Validate registration, state transitions, category/source mix, canonical hashes, arm/context uniqueness, private permissions, aggregate privacy, A/B randomization, normalization/deduplication, confirmation evidence, failed-stage rerun, and exact-next-command behavior before B01.</p>
+    <h3>Exact per-candidate execution</h3>
+    <ol>
+      <li><code>trial-ledger.ts next --format command</code> returns one shell-safe command for the first incomplete stage. At <code>registered</code>, it returns <code>run-review-arm.ts run --id ID --arm current</code>; that command creates its own disposable worktree, launches fresh <code>omp -p --no-session</code> with <code>skill://autoreview</code>, captures private output, validates echoed packet/diff hashes and context ID, then atomically advances to <code>current_complete</code>.</li>
+      <li>At <code>current_complete</code>, Next returns the same runner with <code>--arm adn</code>; it creates a separate worktree/context, loads <code>skill://interrogate</code> against the identical packet, validates hashes/context/role markers, and advances to <code>adn_complete</code>. Neither arm receives peer output, identity, or score.</li>
+      <li>At <code>adn_complete</code>, Next returns <code>adjudicate-pair.ts run --id ID --blind</code>. The command randomizes outputs to A/B, launches a fresh adjudication context with de-identified normalized claims plus implementation/verification evidence, confirms/rejects and deduplicates by contract/path/location/claim, validates structured output, then records labels only after confirmation and advances to <code>adjudicated</code>.</li>
+      <li>At <code>adjudicated</code>, Next returns <code>trial-ledger.ts finalize --id ID</code>; it validates hashes, independence, distribution, evidence, privacy, private permissions, and cleanup state before advancing to <code>valid</code>. A failed command leaves state unchanged and Next returns the exact same rerun. Completed stages refuse overwrite.</li>
+      <li><code>trial-ledger.ts run-all</code> repeatedly executes the same state-specific commands, stops on the first failure without advancing, and exits success only when all ten are valid; <code>next --format command</code> remains the exact single-stage rerun surface.</li>
+      <li>Raw candidate diff/packet/reviewer responses remain only in the named private directory through P8; aggregate JSONL stores allowlisted metadata/hashes. Raw transcript bodies are never copied. Disposable worktrees are removed after each arm; private artifacts follow the P8+30-day purge rule.</li>
+    </ol>
+    <h3>Verify</h3>
+    <pre><code>bun ~/.agents/adn/scripts/trial-ledger.ts run-all
+bun ~/.agents/adn/scripts/trial-ledger.ts validate --distribution bug=3,feature=3,refactor=2,plan=2 --require-state valid --count 10
+bun ~/.agents/adn/scripts/audit-adn.ts review-trial report --validate-privacy
+bun ~/.agents/adn/scripts/trial-ledger.ts next --format command
+# Expected: empty output and success.</code></pre>
+  </article>
+
+  <article class="phase" id="phase-p8">
+    <h2>P8 — Apply the locked review decision and publish the first adoption audit</h2>
+    <h3>End State</h3>
+    <p>One deterministic disposition is recorded, the short actual-window report states its limits, and later 21-day audit ownership is durable without pretending an OS scheduler was installed.</p>
+    <h3>Decision table</h3>
+    <p>First require all ten valid candidates and the locked 3/3/2/2 mix across at least five present source families: OMP config/extension, skills/prompts, installer/shell tooling, terminal integration, and reviewed workflows. If a replay cannot reproduce its verification contract or these families are not covered, the result is <code>INCONCLUSIVE</code>. Otherwise evaluate the rows in order: replace, compose/narrow, retain.</p>
+    <table class="compact">
+      <thead><tr><th>Disposition</th><th>Required evidence</th></tr></thead>
+      <tbody>
+        <tr><td>Replace</td><td>Every confirmed material finding caught by current is also caught by ADN; ADN has no additional confirmed material miss; and the operator-friction tuple <code>(operator corrections, required operator decisions, rereview cycles, false positives)</code> is lexicographically lower. Only then route the existing implementation-review gate to ADN.</td></tr>
+        <tr><td>Compose/narrow</td><td>Each arm catches a confirmed material class the other misses; record the exact class predicate and route only that class through ADN in addition to the retained current gate.</td></tr>
+        <tr><td>Retain</td><td>ADN has a confirmed material regression or current-only material finding without an ADN-only complementary class, or coverage is equal while friction is not lower. Keep <code>autoreview</code>.</td></tr>
+        <tr><td><code>INCONCLUSIVE</code></td><td>Representativeness/verification reproduction fails, confirmation is tied/uncertain, measurements are incompatible, or another claim is unsupported. Invalid/provider-failed pairs rerun and never create an inconclusive result.</td></tr>
+      </tbody>
+    </table>
+    <p>Each inconclusive experiment record must name the unresolved claim, stable candidate/setup, exact command, evidence to collect, discriminating expected outcomes, and result path. “Try more examples” is invalid.</p>
+    <h3>Adoption report contract</h3>
+    <p>Setup state supplies installation UTC and transaction ID. Report exact <code>window_start</code>, <code>window_end</code>, duration, profile/root ID, transcript coverage, skipped/error counts, and <code>observation_limitations</code>; derive filename from canonical bounds. The first short window may recommend retain/optional/further-observation only. Delete/merge/deprecate or remove compatibility aliases only after a separate rolling 21-day report plus source-search caller inventory and migration proof.</p>
+    <p>Create <code>&lt;agent-root&gt;/adn/operations/monthly-audit.json</code> with owner <code>ai-configs maintainer</code>, next due UTC = report end + 30 days, exact command <code>bun ~/.agents/adn/scripts/audit-adn.ts --workspace /Users/anichols/code/ai-configs --window 21d --report adoption</code>, output root, and failure action. This is a handoff, not an OS scheduler.</p>
+    <h3>Tests first</h3>
+    <p>Cover every table row, lexicographic friction, material-finding set inclusion, invalid/outage behavior, structured experiments, install-bounded fields, short-window no-delete rule, and handoff schema.</p>
+    <h3>Verify</h3>
+    <pre><code>bun test ~/.agents/adn/tests/review-decision.test.ts ~/.agents/adn/tests/adoption-report.test.ts
+bun ~/.agents/adn/scripts/audit-adn.ts review-trial decide
+bun ~/.agents/adn/scripts/audit-adn.ts --workspace /Users/anichols/code/ai-configs --since-install --report adoption
+bun ~/.agents/adn/scripts/validate-adn.ts operations --require-monthly-handoff</code></pre>
+  </article>
+
+  <section id="verification">
+    <h2>Verification strategy</h2>
+    <ol>
+      <li><strong>Deterministic first:</strong> manifest, paths, references, frontmatter, config preservation, extension event state, setup/rollback, installer cutover, audit schema, and routing fixture contracts.</li>
+      <li><strong>Model behavior second:</strong> every playbook classification, authority/counterexample fixtures, ownership decisions, comment policy, and principle reporting. Separate provider failures from behavioral failures.</li>
+      <li><strong>Real OMP third:</strong> role launches, councils, sticky TUI state, existing workflow coexistence, and four end-to-end task classes.</li>
+      <li><strong>Longitudinal evidence last:</strong> ten blinded review pairs followed by a truthful actual-window adoption report. Schedule rolling 21-day audits monthly; do not block the trial decision on 21 elapsed days.</li>
+      <li><strong>Semantic coherence:</strong> inspect the manifest, router, principles, playbooks, agents, extension, setup, evals, and ai-configs cutover as one system so role names, authority, ownership, triggers, and evidence mean the same thing everywhere.</li>
+    </ol>
+    <p>No new third-party runtime dependency is planned. Use Bun/TypeScript, OMP’s public extension and CLI surfaces, and existing Agent Skills discovery. If implementation finds that a new dependency is materially better than these built-ins, load dependency-selection and obtain a separate approval before adding it.</p>
+  </section>
+
+  <section id="delivery-order">
+    <h2>Delivery order</h2>
+    <ol>
+      <li>Make the manifest, tests, provenance, and Laziness replacement real before deleting Ponytail.</li>
+      <li>Establish model roles and sticky session semantics before authoring workflows that depend on them.</li>
+      <li>Author the complete principle/skill set, then the playbooks and routing evals.</li>
+      <li>Build setup/audit/adoption/verification tooling against the now-stable manifest.</li>
+      <li>Apply live and prove the full system plus rollback.</li>
+      <li>Run ten real review comparisons without changing the current gate.</li>
+      <li>Decide review disposition and publish the first adoption audit.</li>
+    </ol>
+    <p><strong>Reviewable boundary:</strong> the ai-configs change contains only Ponytail installer/test removal. The full ADN live configuration is reviewable through its manifest, tests, checksums, and evidence but remains outside the repository until the operator separately requests capture. That separate capture is not required to start the live trial once ai-configs no longer reinstalls Ponytail.</p>
+  </section>
+
+  <section id="rollback">
+    <h2>Rollback</h2>
+    <ul>
+      <li>Rollback is <code>setup-adn.ts rollback --transaction ID [--profile NAME | --agent-root PATH] [--dry-run]</code>. The caller must use the explicit receipt from the intended apply; <code>latest</code> is unsupported. It takes the ADN lock and requires quiescent external config writers.</li>
+      <li>The journal records absence/pre-image, backup, installed fingerprint, and exact prior owned-role presence/value. A target restores/removes only if current fingerprint matches the ADN post-image; drift fails closed without mutation.</li>
+      <li>Removing the generated profile wrapper and <code>&lt;agent-root&gt;/adn/generation.json</code> makes append-only custom entries inert only for that profile. Reinstall creates a new generation; other profiles remain valid.</li>
+      <li>Live execution dry-runs the captured full-install transaction even after later repair transactions; isolated execution proves apply/check/rollback/snapshot parity. Evidence and backups survive unless separately deleted.</li>
+      <li>Ponytail remains absent. Reinstalling it is a separate explicit choice; reverting the ai-configs cutover knowingly restores future installation.</li>
+    </ul>
+  </section>
+
+  <section id="post-merge">
+    <h2>Post-merge delivery / operations</h2>
+    <p>No deployment is part of this plan. After the narrow ai-configs change is committed/pushed under the repository’s normal workflow, remote hosts receive it only through the existing Git pull and installer process. Full live ADN capture and remote distribution occur only after the operator separately requests them. Pending capture or remote rollout does not block local ADN implementation, review-trial work, plan readiness, or the ai-configs reviewable boundary.</p>
+    <p><strong>Ongoing audit:</strong> P8 records, but does not install, the monthly operations handoff. The ai-configs maintainer runs the exact rolling-21-day command at the recorded due date; failure leaves the prior report authoritative and records the sanitized rerun action. This never blocks installation or trial disposition.</p>
+  </section>
+
+  <section id="non-goals">
+    <h2>Non-goals</h2>
+    <ul>
+      <li>Implementing ADN in this planning session.</li>
+      <li>Refactoring Pi, Codex, Claude, Cursor, Hermes, macOS, or optional-profile agents/skills.</li>
+      <li>Deleting shared skills because they were unused in a 21-day ai-configs window.</li>
+      <li>Replacing planning, Delivery, completeness, integration integrity, safe Git index handling, Scout, or Oracle.</li>
+      <li>Replacing <code>autoreview</code> before ten valid blinded comparisons.</li>
+      <li>Porting Cursor cloud workers, Graphite mechanics, Plan Mode, Benny, or vendor-specific model files.</li>
+      <li>Adding the post-baseline <code>make-bot-ui</code> skill.</li>
+      <li>Automatically capturing the complete live ADN state into ai-configs or emitting a capture command.</li>
+      <li>Performing customer messages, deployments, customer-facing instance/system changes, or third-party repository actions as part of this ADN implementation. This is a current-plan boundary, not a permanent ADN prohibition; future exact explicit requests can authorize the named action/scope, with third-party requests naming repository and action.</li>
+    </ul>
+  </section>
+
+  <section id="review-record">
+    <h2>Review record</h2>
+    <ul>
+      <li><strong>Browser review:</strong> registered at <a href="https://doct.nodaste.com/d/P5GE3UV0RR-IGD5ROyD-PA">Doct plan 3f9184dd-4574-451f-8818-3e513b20fe3c</a>; lifecycle active, startup queue empty, and the OMP wake listener running.</li>
+      <li><strong>Execution-ready request:</strong> direct operator instruction in this conversation.</li>
+      <li><strong>PM review:</strong> READY after the initial corrective cycle, exact-contract rereview, and the final authority-feedback rereview. The latest pass confirmed default exclusion is not permanent prohibition, exact destructive-data preauthorization proceeds without another pause, higher authority still wins, and this implementation’s external-action boundary remains unchanged.</li>
+      <li><strong>Independent OMP planner review:</strong> three focused passes through configured <code>planner → @plan → openai-codex/gpt-5.6-sol:high</code> cover architecture, skills/playbooks, and setup/audit/trial operations. After bounded remediation all returned <code>PLAN_EXECUTION_READY</code>; the post-comment authority-contract pass also returned <code>PLAN_EXECUTION_READY</code>. Recommendation remains <code>IMPLEMENTATION: terra-high</code>.</li>
+      <li><strong>Readiness artifact:</strong> <code>thoughts/validation/adn-mode-omp-engineering-system-plan-review.md</code>.</li>
+      <li><strong>Doct readiness metadata:</strong> <code>executionReady=true</code> after final authority-feedback synchronization.</li>
+    </ul>
+  </section>
+
+  <section id="decisions-log">
+    <h2>Decisions / Deviations log</h2>
+    <ul>
+      <li><strong>2026-08-26 — Audit baseline.</strong> Reviewed pstack, 80 registered ai-configs skills, OMP role/config surfaces, and 36 recent transcripts.</li>
+      <li><strong>2026-08-26 — OMP-native translation.</strong> Chose behavioral coverage and semantic roles over file-for-file Cursor parity.</li>
+      <li><strong>2026-08-26 — Broad authority.</strong> Locked narrow default pauses/exclusions with explicit operator authority taking precedence where higher constraints permit.</li>
+      <li><strong>2026-08-26 — Council design.</strong> Locked Grok/Kimi architect council, dual reviewer panel, singular Grok preference, and exact thinking levels.</li>
+      <li><strong>2026-08-26 — Cohesive principles.</strong> Chose all 21 pstack-consistent leaf skills, full principle reporting, no narrating comments, and immediate Ponytail removal.</li>
+      <li><strong>2026-08-26 — Live-first installation.</strong> Chose live OMP/Agent paths, separate future ai-configs capture, and a narrow present ai-configs Ponytail cutover.</li>
+      <li><strong>2026-08-26 — Evidence before review replacement.</strong> Locked the 3/3/2/2 ten-change blinded trial and truthful <code>INCONCLUSIVE</code> path.</li>
+      <li><strong>2026-08-26 — Upstream pin.</strong> Pinned the reviewed tree to <code>46756f89270d7e7dcb8c28c90fd0f957ade4ce2c</code>; later pstack additions require explicit adoption.</li>
+      <li><strong>2026-08-26 — PM review remediation.</strong> Integrated all ten product/outcome blockers from the independent Grok reviewer; targeted rereview returned <code>PM_VERDICT: READY</code> with no new blocker.</li>
+      <li><strong>2026-08-26 — Planner remediation.</strong> Added exhaustive source/trigger/playbook dispositions, runtime collision markers, exact profile/generation/receipt contracts, setup rollback and privacy schemas, fixed replay candidates, executable trial state, and deterministic review/audit disposition.</li>
+      <li><strong>2026-08-26 — OMP config concurrency boundary.</strong> v18.0.6 lacks a public atomic whole-record compare-and-swap; ADN serializes its own writers, requires external config writers to be quiescent during setup/rollback, and explicitly does not claim undetectable race safety.</li>
+      <li><strong>2026-08-27 — Authority feedback.</strong> Clarified that exact preauthorization bypasses the destructive-data pause and that customer-facing, deployment, and third-party actions are default-excluded rather than permanently forbidden; exact explicit scope is required, including repository and action for third-party work.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
