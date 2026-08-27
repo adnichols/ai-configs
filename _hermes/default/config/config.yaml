@@ -1,7 +1,7 @@
 model:
-  default: gpt-5.6-sol
-  provider: custom:local-(localhost:8318)
-  base_url: http://localhost:8318/v1
+  default: deepseekv4flash0831
+  provider: deepinfra
+  base_url: https://api.deepinfra.com/v1/openai
   api_key: ''
 fallback_providers: []
 toolsets:
@@ -26,7 +26,7 @@ agent:
   image_input_mode: auto
   disabled_toolsets: []
   verbose: false
-  reasoning_effort: medium
+  reasoning_effort: xhigh
   personalities:
     helpful: You are a helpful, friendly AI assistant.
     concise: You are a concise assistant. Keep responses brief and to the point.
@@ -827,6 +827,7 @@ platforms:
             '
 plugins:
   enabled:
+  - moshi-hooks
   - disk-cleanup
   - herdr-agent-state
   - pi-tmux-event-bridge

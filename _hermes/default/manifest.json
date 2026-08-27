@@ -1,5 +1,5 @@
 {
-  "file_count": 1727,
+  "file_count": 1729,
   "files": [
     {
       "bytes": 819,
@@ -22,14 +22,14 @@
       "sha256": "a93c32a9b5cde349a0983140281f1054228aa9958894c8c152fba4055bd0182e"
     },
     {
-      "bytes": 22445,
+      "bytes": 22459,
       "path": "config/config.yaml",
-      "sha256": "4e48d67fd6a3012877ec667b6249be62de7c74a86c6a6907a133cd3ef655969f"
+      "sha256": "65813bdecdff60321d59268836085e8c3fe7612926571d17328176c4227433c0"
     },
     {
-      "bytes": 12057,
+      "bytes": 12502,
       "path": "cron/jobs.json",
-      "sha256": "26c24d73f2261b5c60040ea94755bee57e5ac3a893cb2575963f5022baab57bb"
+      "sha256": "089db25848e94d9f7310ab60c360ffb8f550fa5c2b5eab4fc62d76f6a63865f0"
     },
     {
       "bytes": 508,
@@ -72,6 +72,16 @@
       "sha256": "e1c775a6d6ccad2f8e6e0566a0aa61aeef9b8141f59d8a742a77c6951a261170"
     },
     {
+      "bytes": 5124,
+      "path": "plugins/moshi-hooks/__init__.py",
+      "sha256": "4859ec1dbc93872fd6e6dd8ddf9aa3916a3548305fd841cce592815e53ca777b"
+    },
+    {
+      "bytes": 91,
+      "path": "plugins/moshi-hooks/plugin.yaml",
+      "sha256": "2d73da8bc4717ff1b2a9a3dbef8e99555c28e573324ee2f39bbb64bed220b2d6"
+    },
+    {
       "bytes": 41289,
       "path": "plugins/pi-tmux-event-bridge/__init__.py",
       "sha256": "d44b81bb7fac3b4302abe04e571175f3dcb911780de0de37cda3371d6a42ba1f"
@@ -112,9 +122,9 @@
       "sha256": "715d6388066009d9b354ebcc23a3736e38c86704ef1bde69e253aa81bd207b59"
     },
     {
-      "bytes": 1386,
+      "bytes": 1385,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "29051dbb68f6dcc9e1b70f8014fabb309a93acdb99eca5d52e284cc2c8f20493"
+      "sha256": "4dc823c561492656ff685955f9b49f6bd3780c7bcb89c622fbe3783a15677fbf"
     },
     {
       "bytes": 2280,
@@ -8637,8 +8647,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260826T132520Z",
+  "generated_at": "20260827T171831Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/Users/anichols/code/ai-configs/_hermes/default"
+  "source_home": "/Users/anichols/.hermes"
 }
