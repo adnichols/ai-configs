@@ -1,5 +1,5 @@
 {
-  "file_count": 1729,
+  "file_count": 1732,
   "files": [
     {
       "bytes": 819,
@@ -22,14 +22,14 @@
       "sha256": "a93c32a9b5cde349a0983140281f1054228aa9958894c8c152fba4055bd0182e"
     },
     {
-      "bytes": 22459,
+      "bytes": 22474,
       "path": "config/config.yaml",
-      "sha256": "65813bdecdff60321d59268836085e8c3fe7612926571d17328176c4227433c0"
+      "sha256": "bdc1a6ab1c33aa446966f9193b7e628ffc942e7f3dfa60b4211194ac65bc42ad"
     },
     {
       "bytes": 12502,
       "path": "cron/jobs.json",
-      "sha256": "089db25848e94d9f7310ab60c360ffb8f550fa5c2b5eab4fc62d76f6a63865f0"
+      "sha256": "521cdcb0093c4e9f8724b8e3e043b3278951c3cc7a91478a82cbba93879fde01"
     },
     {
       "bytes": 508,
@@ -124,7 +124,7 @@
     {
       "bytes": 1385,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "4dc823c561492656ff685955f9b49f6bd3780c7bcb89c622fbe3783a15677fbf"
+      "sha256": "f4425f3121079314d513e1a63e710684f1bbab99e73f7b7dc889c7eab5576bea"
     },
     {
       "bytes": 2280,
@@ -4982,6 +4982,11 @@
       "sha256": "28b8289618e4243ff91df26089514d334b201cddccae83afe09c8284e5d607e0"
     },
     {
+      "bytes": 1233,
+      "path": "skills/.curator_ledger.jsonl",
+      "sha256": "b41fee9380beadd42714a0123bbcc0fd40bc5468acae5c3115fcb8703ee6ea76"
+    },
+    {
       "bytes": 152,
       "path": "skills/apple/DESCRIPTION.md",
       "sha256": "0e4d2474859827a53d94fbfa316e059ddc45ab35665d8f3d685e2d7833fa1483"
@@ -6655,6 +6660,16 @@
       "bytes": 5285,
       "path": "skills/data-science/jupyter-live-kernel/SKILL.md",
       "sha256": "d93c4b4f50e66c0c074d49e43e28bf5ab87531eaa48884d0083568db827f5869"
+    },
+    {
+      "bytes": 6765,
+      "path": "skills/devops/hermes-config-sync-ai-configs/SKILL.md",
+      "sha256": "4375a7299611cd0cc825d117d04cda49ea598e18db3d2261838292a21ffb2a3a"
+    },
+    {
+      "bytes": 3432,
+      "path": "skills/devops/hermes-config-sync-ai-configs/references/2026-08-model-deepseekv4flash0831.md",
+      "sha256": "dae35cef58f1a59d594c123be647c7388905a8315e03a669e02577221f77ee22"
     },
     {
       "bytes": 4559,
@@ -8647,7 +8662,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260827T171831Z",
+  "generated_at": "20260827T173609Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/.hermes"

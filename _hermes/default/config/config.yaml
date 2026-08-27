@@ -1,5 +1,5 @@
 model:
-  default: deepseekv4flash0831
+  default: deepseek-ai/DeepSeek-V4-Flash-0731
   provider: deepinfra
   base_url: https://api.deepinfra.com/v1/openai
   api_key: ''
