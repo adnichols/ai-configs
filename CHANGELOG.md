@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: default is `xai-oauth/grok-4.6:high`. Captured `architect-grok`, `architect-kimi`, and `reviewer-kimi` roles from this host.
 - Synced managed OMP `config.yml` from this host: `vision`/`plan`/`designer` are `openai-codex/gpt-5.6-sol` (medium/high/high), `commit` is `openai-codex/gpt-5.6-sol:medium`, `tiny` is `deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:low`, `reviewer` is `xai-oauth/grok-4.6:high`. Cycle includes Oracle; retry fallbacks are Oracle→Sol and advisor→`cursor/cursor-grok-4.6`.
 
 - Synced managed OMP `config.yml` from this host: `slow` is `openai-codex/gpt-5.6-sol:high`, `plan` is `openai-codex/gpt-5.6-sol:xhigh`, `reviewer` is `xai-oauth/grok-4.6:xhigh`, `completeness` is `xai-oauth/grok-4.6:high`. Dropped unused `cursork3` role.

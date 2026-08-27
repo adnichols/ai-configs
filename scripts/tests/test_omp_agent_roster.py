@@ -69,7 +69,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "REVIEW_ROOT",
             "driving-default",
             "terra-high",
-            "xai-oauth/grok-4.6:medium",
+            "xai-oauth/grok-4.6:high",
         ):
             self.assertIn(required, body)
 
@@ -77,7 +77,7 @@ class OmpAgentRosterTest(unittest.TestCase):
         config = (OMP / "config.yml").read_text()
         metadata, body = split_frontmatter(AGENTS / "completeness.md")
 
-        self.assertIn("default: xai-oauth/grok-4.6:medium", config)
+        self.assertIn("default: xai-oauth/grok-4.6:high", config)
         self.assertIn("smol: deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:max", config)
         self.assertIn("advisor: xai-oauth/grok-4.6:high", config)
         self.assertIn("Oracle: cursor/kimi-k3-max:max", config)
@@ -124,7 +124,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "workflowProfile=omp-lite",
             "delivery bootstrap --runtime omp",
             ".delivery/ledger.json",
-            "xai-oauth/grok-4.6:medium",
+            "xai-oauth/grok-4.6:high",
             "completion-review --prepare",
             "acceptCommand",
         ):
@@ -137,7 +137,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "workflowProfile: omp-lite",
             "current OMP agent as owner",
             "delivery bootstrap --runtime omp",
-            "xai-oauth/grok-4.6:medium",
+            "xai-oauth/grok-4.6:high",
             "xai/grok-4.5:high",
             "exact seven-line envelope",
             "acceptCommand",
@@ -180,7 +180,15 @@ class OmpAgentRosterTest(unittest.TestCase):
 
             installed = target / "agents"
             self.assertEqual(
-                {"oracle.md", "planner.md", "reviewer.md", "completeness.md"},
+                {
+                    "oracle.md",
+                    "planner.md",
+                    "reviewer.md",
+                    "completeness.md",
+                    "architect-grok.md",
+                    "architect-kimi.md",
+                    "reviewer-kimi.md",
+                },
                 {path.name for path in installed.glob("*.md")},
             )
             self.assertEqual(
@@ -191,6 +199,8 @@ class OmpAgentRosterTest(unittest.TestCase):
                     "orca-prefill.ts",
                     "orca-titlebar-spinner.ts",
                     "thinking-shortcuts.ts",
+                    "adn-mode.ts",
+                    "adn-mode.generated.ts",
                 },
                 {path.name for path in (target / "extensions").glob("*.ts")},
             )

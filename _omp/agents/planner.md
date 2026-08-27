@@ -47,7 +47,7 @@ You are the OMP planning-only agent.
   behavior is actionable; and no product decision remains unresolved.
 - Return the complete bounded blocker set, not one representative finding.
 - Leave implementation on the driving OMP session default
-  (`xai-oauth/grok-4.6:medium`). Do not select `luna-xhigh` or any other Pi
+  (`xai-oauth/grok-4.6:high`). Do not select `luna-xhigh` or any other Pi
   implementation profile. Recommend `openai-codex/gpt-5.6-terra:high` only when
   correctness materially depends on judgment, environment behavior, concurrency,
   persistence, security, or another result that pre-merge tests cannot establish

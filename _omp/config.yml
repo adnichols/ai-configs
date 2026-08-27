@@ -36,8 +36,11 @@ modelRoles:
   advisor: xai-oauth/grok-4.6:high
   Oracle: cursor/kimi-k3-max:max
   reviewer: xai-oauth/grok-4.6:high
-  default: xai-oauth/grok-4.6:medium
+  default: xai-oauth/grok-4.6:high
   completeness: xai-oauth/grok-4.6:high
+  architect-grok: xai-oauth/grok-4.6:high
+  architect-kimi: cursor/kimi-k3-max:max
+  reviewer-kimi: cursor/kimi-k3-max:high
 defaultThinkingLevel: auto
 compaction:
   thresholdPercent: 40
