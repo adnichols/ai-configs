@@ -1,0 +1,11 @@
+{
+  "id": "FORMAL-01",
+  "playbook": "multi-phase-plan",
+  "source": "p4-packet",
+  "sourceHash": "formal-01-v1",
+  "request": "Register a disposable reviewed HTML plan and stop after the existing handoff",
+  "surface": "doct-agent plans register",
+  "artifacts": ["evaluations/live-smoke.jsonl"],
+  "cleanup": "doct-agent plans delete",
+  "expected": "registered then deleted; Delivery unarmed"
+}

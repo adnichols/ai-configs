@@ -20,6 +20,7 @@ And global/home resources where those tools expect them:
 - `~/.codex/`
 - `~/.pi/agent/`
 - `~/.agents/skills/`
+- `~/.agents/adn/`
 
 Shared skill inventory is declared in `skills/install-matrix.json`; default repo-owned payloads are copied from `skills/`, and default package-backed payloads are fetched via `npx skills`. Optional-profile skills are recorded in the matrix with `defaultInstall: false` and are not placed in `~/.agents/skills` by default.
 
@@ -66,6 +67,7 @@ Examples:
 - `_claude/` is repo source, `.claude/` is installed runtime
 - `_codex/` is repo source, while Codex installs globally under `~/.codex/`
 - `_pi/` is repo source, while Pi installs globally under `~/.pi/agent/`
+- `_adn/` is repo source, while ADN installs globally under `~/.agents/adn`
 
 Shared helper scripts live in repo-level `scripts/` and are copied into runtime locations by `install.sh`.
 
@@ -75,7 +77,7 @@ After install, sanity check the surfaces you care about:
 
 ```bash
 ls .claude 2>/dev/null
-ls ~/.codex ~/.pi/agent ~/.agents/skills 2>/dev/null
+ls ~/.codex ~/.pi/agent ~/.agents/skills ~/.agents/adn 2>/dev/null
 ```
 
 ## Troubleshooting

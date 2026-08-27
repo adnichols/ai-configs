@@ -1,0 +1,11 @@
+{
+  "id": "INV-01",
+  "playbook": "investigation",
+  "source": "p4-packet",
+  "sourceHash": "inv-01-v1",
+  "request": "Inspect OMP whole-record role semantics in ai-configs",
+  "surface": "omp config get modelRoles --json",
+  "artifacts": ["evaluations/live-smoke.jsonl"],
+  "cleanup": "none",
+  "expected": "value envelope with architect-grok, architect-kimi, reviewer-kimi"
+}

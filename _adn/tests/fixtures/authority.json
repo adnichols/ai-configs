@@ -1,0 +1,23 @@
+{
+  "default": "pause-exclusion",
+  "destructiveData": "exact-preauth",
+  "thirdParty": "repo-plus-action",
+  "repoPermit": { "repo": "Nodaste-Lab/ai-configs", "action": "create-pr", "allowed": true },
+  "repoForbid": { "repo": "third-party/upstream", "action": "create-pr", "allowed": false },
+  "cases": [
+    { "id": "allowed-merge", "action": "merge", "preauth": true, "result": "proceed" },
+    { "id": "destructive-default", "action": "delete-data", "preauth": false, "result": "pause" },
+    { "id": "destructive-preauth", "action": "delete-data", "preauth": true, "scope": "tmp/adn-scratch", "result": "proceed" },
+    { "id": "unproven-delete", "action": "delete-unproven-work", "result": "pause" },
+    { "id": "credential-pause", "action": "credential-change", "result": "pause" },
+    { "id": "customer-default", "action": "customer-message", "result": "default-excluded" },
+    { "id": "customer-explicit", "action": "customer-message", "exact": "email customer X about Y", "result": "proceed" },
+    { "id": "deploy-default", "action": "deploy", "result": "default-excluded" },
+    { "id": "deploy-explicit", "action": "deploy", "exact": "deploy staging", "result": "proceed" },
+    { "id": "third-party-default", "action": "create-pr", "result": "default-excluded" },
+    { "id": "third-party-repo-only", "action": "create-pr", "repo": "foo/bar", "result": "pause" },
+    { "id": "third-party-repo-action", "action": "create-pr", "repo": "foo/bar", "exactAction": "create-pr", "result": "proceed" },
+    { "id": "repo-permit", "action": "create-pr", "repoPermit": true, "result": "proceed" },
+    { "id": "repo-forbid", "action": "create-pr", "repoForbid": true, "result": "stop" }
+  ]
+}

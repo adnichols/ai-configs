@@ -1,0 +1,11 @@
+{
+  "id": "BUG-01",
+  "playbook": "bug-fix",
+  "source": "p4-packet",
+  "sourceHash": "bug-01-v1",
+  "request": "Fix generated Bun CLI path-normalization defect",
+  "surface": "bun cli.ts",
+  "artifacts": ["evaluations/live-smoke.jsonl"],
+  "cleanup": "rm temp dir",
+  "expected": "normalized path output"
+}

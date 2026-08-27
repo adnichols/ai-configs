@@ -1,0 +1,11 @@
+{
+  "id": "DIRECT-01",
+  "playbook": "bug-fix",
+  "source": "p4-packet",
+  "sourceHash": "direct-01-v1",
+  "request": "Reuse BUG-01 and assert Delivery stays unarmed",
+  "surface": "bun cli.ts in temp cwd",
+  "artifacts": ["evaluations/live-smoke.jsonl"],
+  "cleanup": "rm temp dir",
+  "expected": "no .delivery/ledger.json"
+}

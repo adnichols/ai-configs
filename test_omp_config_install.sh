@@ -6,10 +6,12 @@ TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
 TARGET_ROOT="$TMP_ROOT/home/.omp/agent"
+SHARED_TARGET="$TMP_ROOT/home/.agents"
+BIN_TARGET="$TMP_ROOT/home/.local/bin"
 FAKE_BIN="$TMP_ROOT/bin"
 PLUGIN_LOG="$TMP_ROOT/omp-plugin.log"
 touch "$PLUGIN_LOG"
-mkdir -p "$FAKE_BIN" "$TARGET_ROOT/agents" "$TARGET_ROOT/extensions"
+mkdir -p "$FAKE_BIN" "$TARGET_ROOT/agents" "$TARGET_ROOT/extensions" "$SHARED_TARGET/skills" "$BIN_TARGET"
 cat > "$FAKE_BIN/omp" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$OMP_PLUGIN_LOG"
@@ -22,7 +24,8 @@ printf 'old-deepinfra\n' > "$TARGET_ROOT/extensions/deepinfra.ts"
 printf 'user-owned\n' > "$TARGET_ROOT/agents/custom.md"
 printf 'user-owned\n' > "$TARGET_ROOT/extensions/custom.ts"
 
-OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
+OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_SHARED_TARGET="$SHARED_TARGET" OMP_BIN_TARGET="$BIN_TARGET" \
+  OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
   bash "$REPO_ROOT/_omp/install.sh" >/dev/null
 
 cmp -s "$REPO_ROOT/_omp/config.yml" "$TARGET_ROOT/config.yml"
@@ -61,13 +64,23 @@ if grep -qi 'ponytail' "$PLUGIN_LOG"; then
   cat "$PLUGIN_LOG" >&2
   exit 1
 fi
+cmp -s "$REPO_ROOT/_adn/manifest.json" "$SHARED_TARGET/adn/manifest.json"
+cmp -s "$REPO_ROOT/_adn/agents/architect-grok.md" "$TARGET_ROOT/agents/architect-grok.md"
+cmp -s "$REPO_ROOT/_adn/agents/architect-kimi.md" "$TARGET_ROOT/agents/architect-kimi.md"
+cmp -s "$REPO_ROOT/_adn/agents/reviewer-kimi.md" "$TARGET_ROOT/agents/reviewer-kimi.md"
+test -f "$TARGET_ROOT/extensions/adn-mode.ts"
+test -f "$TARGET_ROOT/extensions/adn-mode.generated.ts"
+test -f "$TARGET_ROOT/modelRoles.json"
+grep -q '"architect-grok": "xai-oauth/grok-4.6:high"' "$TARGET_ROOT/modelRoles.json"
+test -L "$TARGET_ROOT/skills/principle-laziness-protocol"
 cat >> "$TARGET_ROOT/models.yml" <<'EOF'
   custom:
     auth: none
 EOF
 cp "$TARGET_ROOT/models.yml" "$TMP_ROOT/user-models.yml"
 
-OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
+OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_SHARED_TARGET="$SHARED_TARGET" OMP_BIN_TARGET="$BIN_TARGET" \
+  OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
   bash "$REPO_ROOT/_omp/install.sh" >/dev/null
 grep -q 'old-config' "$TARGET_ROOT/config.yml.before-ai-configs"
 grep -q 'old-guidance' "$TARGET_ROOT/AGENTS.md.before-ai-configs"

@@ -1,0 +1,11 @@
+{
+  "id": "REF-01",
+  "playbook": "refactoring",
+  "source": "p4-packet",
+  "sourceHash": "ref-01-v1",
+  "request": "Deduplicate a generated config parser with unchanged CLI output",
+  "surface": "bun cli.ts",
+  "artifacts": ["evaluations/live-smoke.jsonl"],
+  "cleanup": "rm temp dir",
+  "expected": "identical CLI output"
+}

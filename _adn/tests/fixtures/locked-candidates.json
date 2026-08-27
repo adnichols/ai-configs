@@ -1,0 +1,16 @@
+{
+  "distribution": { "bug": 3, "feature": 3, "refactor": 2, "plan": 2 },
+  "repo": "/Users/anichols/code/ai-configs",
+  "candidates": [
+    {"id":"B01","category":"bug","source":"replay","commit":"f34696787a9502ed4d32bbcc65577b2ad24562f0","parent":"a9fde3b","intent":"pi-subagents isolation off-veto"},
+    {"id":"B02","category":"bug","source":"replay","commit":"65dc88b4ebb9b7415c302ebe4ec75bc080fcc1ba","parent":"c50232f","intent":"completeness skill resolution"},
+    {"id":"B03","category":"bug","source":"replay","commit":"d25ec2ee6539852ed7321370af5c35680c837ff5","parent":"bd28508","intent":"Herdr previous-pane shortcut"},
+    {"id":"F01","category":"feature","source":"replay","commit":"8c2b19233b1cf7eee843067c11e5afb627c98de5","parent":"a5f211b","intent":"computer-use cua-driver routing"},
+    {"id":"F02","category":"feature","source":"replay","commit":"c6e76f2245e31fc879ac16bcf0eb6fd3339831a1","parent":"f3036e0","intent":"OMP thinking shortcuts"},
+    {"id":"F03","category":"feature","source":"replay","commit":"3fcd91cfb9693f7db7a8153301cda15c2304ecc5","parent":"4d2468f","intent":"standup collector WezTerm"},
+    {"id":"R01","category":"refactor","source":"replay","commit":"bd285081c3113b89acfd141145ddc7f24c730bf2","parent":"8c2b192","intent":"remove Gemini CLI surfaces"},
+    {"id":"R02","category":"refactor","source":"replay","commit":"e9bdf943167b3bfd9ad0874061e509412df148d7","parent":"1d2983b","intent":"communication-guidance refactor"},
+    {"id":"P01","category":"plan","source":"replay","commit":"598677a16c07c16ea9c32d60520c22df0841e15c","parent":"c9bf082","intent":"pi-vcc-safe-boundary-compaction","plan":"thoughts/plans/pi-vcc-safe-boundary-compaction.html"},
+    {"id":"P02","category":"plan","source":"replay","commit":"1c244cb177f9cc955bcd5a14b16e706f15bf2dbf","parent":"a72be26","intent":"minimal-cross-runtime-delivery-workflow","plan":"thoughts/plans/minimal-cross-runtime-delivery-workflow.html"}
+  ]
+}

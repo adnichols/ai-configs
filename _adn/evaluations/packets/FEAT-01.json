@@ -1,0 +1,11 @@
+{
+  "id": "FEAT-01",
+  "playbook": "feature",
+  "source": "p4-packet",
+  "sourceHash": "feat-01-v1",
+  "request": "Add --json to a generated Bun CLI",
+  "surface": "bun cli.ts --json",
+  "artifacts": ["evaluations/live-smoke.jsonl"],
+  "cleanup": "rm temp dir",
+  "expected": "JSON stdout"
+}

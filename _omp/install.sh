@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the tracked OMP config, guidance, custom agents, extensions, and plugins.
+# Installs the tracked OMP config, guidance, custom agents, extensions, plugins, and ADN.
 set -euo pipefail
 
 SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,14 +27,21 @@ SOURCE_EXTENSIONS=(
   "$SOURCE_DIR/extensions/orca-titlebar-spinner.ts"
   "$SOURCE_DIR/extensions/thinking-shortcuts.ts"
 )
+SOURCE_ADN="$REPO_ROOT/_adn"
+SOURCE_ADN_MANIFEST="$SOURCE_ADN/manifest.json"
+SOURCE_ADN_SETUP="$SOURCE_ADN/scripts/setup-adn.ts"
 OMP_CONFIG_PRUNE="${OMP_CONFIG_PRUNE:-0}"
 
-for source in "$SOURCE_CONFIG" "$SOURCE_MODELS" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "${SOURCE_AGENTS[@]}" "${SOURCE_EXTENSIONS[@]}"; do
+for source in "$SOURCE_CONFIG" "$SOURCE_MODELS" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "$SOURCE_ADN_MANIFEST" "$SOURCE_ADN_SETUP" "${SOURCE_AGENTS[@]}" "${SOURCE_EXTENSIONS[@]}"; do
   if [[ ! -f "$source" ]]; then
     echo "Missing managed OMP file at $source" >&2
     exit 1
   fi
 done
+if [[ ! -d "$SOURCE_ADN" ]]; then
+  echo "Missing captured ADN source at $SOURCE_ADN" >&2
+  exit 1
+fi
 
 install_managed_file() {
   local source="$1"
@@ -55,6 +62,30 @@ install_managed_file() {
 
 install_omp_plugins() {
   echo "No managed OMP plugins"
+}
+
+install_adn() {
+  local dest="$SHARED_TARGET/adn"
+  if ! command -v rsync >/dev/null 2>&1; then
+    echo "rsync is required to install ADN" >&2
+    exit 1
+  fi
+  mkdir -p "$dest"
+  rsync -a --delete --exclude locks --exclude '.DS_Store' --exclude '*.log' "$SOURCE_ADN/" "$dest/"
+  echo "Installed managed ADN source at $dest"
+  if [[ "${ADN_SKIP_APPLY:-0}" == "1" ]]; then
+    echo "Skipped ADN apply (ADN_SKIP_APPLY=1)"
+    return
+  fi
+  if ! command -v bun >/dev/null 2>&1; then
+    echo "bun is required to apply ADN into the OMP agent profile" >&2
+    exit 1
+  fi
+  if [[ -n "${OMP_CONFIG_TARGET:-}" ]]; then
+    ADN_ROOT="$dest" bun "$dest/scripts/setup-adn.ts" apply --agent-root "$TARGET_ROOT"
+  else
+    ADN_ROOT="$dest" bun "$dest/scripts/setup-adn.ts" apply
+  fi
 }
 
 preserve_unmanaged_tree_entries() {
@@ -122,3 +153,4 @@ mkdir -p "$BIN_TARGET"
 ln -sfn "$SHARED_TARGET/scripts/delivery" "$BIN_TARGET/delivery"
 echo "Installed delivery command at $BIN_TARGET/delivery"
 install_omp_plugins
+install_adn
