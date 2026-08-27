@@ -1,0 +1,13 @@
+{
+  "artifact": "/Users/anichols/code/ai-configs/thoughts/validation/adn-mode-omp-engineering-system-completeness.md",
+  "requiredEnvelope": [
+    "COMPLETENESS_REVIEW_RESPONSE_ID: 1fd9cc56-959e-4d5b-ba76-294edd6f584b",
+    "REVIEWER_IDENTITY: omp-completeness-grok-4.5-high",
+    "PLAN_SHA256: dd5a8424281d0c5aa5c57956d7447e42f9f58ce3ca8099df478874df924dbc58",
+    "WORKTREE_FINGERPRINT: 288c0df9f4614c58bd752ddfa5bacbb3dd1b26df0e66bcc11aa133cd37e0325b",
+    "PLAN: thoughts/plans/adn-mode-omp-engineering-system.html",
+    "VERDICT: COMPLETE|INCOMPLETE",
+    "ROUND: 7-standalone"
+  ],
+  "requiredIncompleteVerdict": "INCOMPLETE"
+}

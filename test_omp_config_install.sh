@@ -8,6 +8,7 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 TARGET_ROOT="$TMP_ROOT/home/.omp/agent"
 FAKE_BIN="$TMP_ROOT/bin"
 PLUGIN_LOG="$TMP_ROOT/omp-plugin.log"
+touch "$PLUGIN_LOG"
 mkdir -p "$FAKE_BIN" "$TARGET_ROOT/agents" "$TARGET_ROOT/extensions"
 cat > "$FAKE_BIN/omp" <<'EOF'
 #!/usr/bin/env bash
@@ -51,7 +52,15 @@ grep -q 'old-oracle' "$TARGET_ROOT/agents/oracle.md.before-ai-configs"
 grep -q 'old-deepinfra' "$TARGET_ROOT/extensions/deepinfra.ts.before-ai-configs"
 grep -q 'user-owned' "$TARGET_ROOT/agents/custom.md"
 grep -q 'user-owned' "$TARGET_ROOT/extensions/custom.ts"
-grep -q '^plugin install @dietrichgebert/ponytail$' "$PLUGIN_LOG"
+if grep -q '@dietrichgebert/ponytail' "$REPO_ROOT/_omp/install.sh"; then
+  printf 'installer still references ponytail\n' >&2
+  exit 1
+fi
+if grep -qi 'ponytail' "$PLUGIN_LOG"; then
+  printf 'plugin log still mentions ponytail\n' >&2
+  cat "$PLUGIN_LOG" >&2
+  exit 1
+fi
 cat >> "$TARGET_ROOT/models.yml" <<'EOF'
   custom:
     auth: none
@@ -64,6 +73,10 @@ grep -q 'old-config' "$TARGET_ROOT/config.yml.before-ai-configs"
 grep -q 'old-guidance' "$TARGET_ROOT/AGENTS.md.before-ai-configs"
 grep -q 'old-oracle' "$TARGET_ROOT/agents/oracle.md.before-ai-configs"
 cmp -s "$TMP_ROOT/user-models.yml" "$TARGET_ROOT/models.yml"
-[[ "$(wc -l < "$PLUGIN_LOG")" -eq 2 ]]
+if [[ -s "$PLUGIN_LOG" ]]; then
+  printf 'expected empty plugin log\n' >&2
+  cat "$PLUGIN_LOG" >&2
+  exit 1
+fi
 
 printf 'OMP config installer tests passed.\n'
