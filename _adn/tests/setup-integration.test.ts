@@ -46,14 +46,18 @@ describe.skipIf(!RUN)("setup-adn", () => {
     try {
       mkdirSync(join(root, "extensions"), { recursive: true });
       mkdirSync(join(root, "adn"), { recursive: true });
+      mkdirSync(join(root, "skills"), { recursive: true });
       writeFileSync(join(root, "extensions", "adn-mode.ts"), "leftover\n");
       writeFileSync(join(root, "extensions", "adn-mode.generated.ts"), "leftover\n");
       writeFileSync(join(root, "adn", "generation.json"), "{}\n");
+      writeFileSync(join(root, "skills", "adn-audit"), "leftover\n");
       const apply = spawnSync("bun", [SCRIPT, "apply", "--agent-root", root], { encoding: "utf8" });
       expect(apply.status).toBe(0);
       expect(existsSync(join(root, "extensions", "adn-mode.ts"))).toBe(false);
       expect(existsSync(join(root, "extensions", "adn-mode.generated.ts"))).toBe(false);
       expect(existsSync(join(root, "adn", "generation.json"))).toBe(false);
+      expect(existsSync(join(root, "skills", "adn-audit"))).toBe(false);
+      expect(existsSync(join(root, "skills", "audit-adn"))).toBe(true);
       const check = spawnSync("bun", [SCRIPT, "check", "--agent-root", root], { encoding: "utf8" });
       expect(check.status).toBe(0);
     } finally {

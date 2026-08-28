@@ -7,6 +7,12 @@ import { ADN_ROLES, applyRoleMerge, resolveProfile } from "./config-state.ts";
 const SKILLS = join(ADN_ROOT, "skills");
 const AGENTS = join(ADN_ROOT, "agents");
 const RETIRED = ["extensions/adn-mode.ts", "extensions/adn-mode.generated.ts", "adn/generation.json"];
+const RETIRED_SKILLS = ["adn-audit"];
+
+function skillRootFor(root: string) {
+  const live = !process.argv.includes("--agent-root");
+  return live ? join(process.env.HOME ?? "", ".agents", "skills") : join(root, "skills");
+}
 
 function resultPath(flags: Record<string, string | boolean>, id: string, root: string) {
   return flag(flags, "result") ?? join(root, "adn", "transactions", `${id}.result.json`);
@@ -17,14 +23,15 @@ function journalPath(root: string, id: string) {
 }
 
 function ownedTargets(root: string) {
-  const live = !process.argv.includes("--agent-root");
-  const skillRoot = live ? join(process.env.HOME ?? "", ".agents", "skills") : join(root, "skills");
+  const skillRoot = skillRootFor(root);
   const skillLinks = existsSync(SKILLS)
-    ? readdirSync(SKILLS).map((name) => ({
-        kind: "skill",
-        src: join(SKILLS, name),
-        dest: join(skillRoot, name),
-      }))
+    ? readdirSync(SKILLS)
+        .filter((name) => existsSync(join(SKILLS, name, "SKILL.md")))
+        .map((name) => ({
+          kind: "skill",
+          src: join(SKILLS, name),
+          dest: join(skillRoot, name),
+        }))
     : [];
   return [
     ...readdirSync(AGENTS).map((name) => ({
@@ -44,8 +51,8 @@ function fingerprint(path: string): string | null {
 
 function retireLeftovers(root: string) {
   const records = [];
-  for (const rel of RETIRED) {
-    const dest = join(root, rel);
+  const retired = [...RETIRED.map((rel) => join(root, rel)), ...RETIRED_SKILLS.map((name) => join(skillRootFor(root), name))];
+  for (const dest of retired) {
     if (!existsSync(dest)) continue;
     const pre = fingerprint(dest);
     rmSync(dest, { recursive: true, force: true });
@@ -82,8 +89,7 @@ function checkTargets(root: string) {
   for (const t of ownedTargets(root)) {
     if (!existsSync(t.dest) && !("skipped" in t)) drift.push({ target: t.dest, reason: "missing" });
   }
-  for (const rel of RETIRED) {
-    const dest = join(root, rel);
+  for (const dest of [...RETIRED.map((rel) => join(root, rel)), ...RETIRED_SKILLS.map((name) => join(skillRootFor(root), name))]) {
     if (existsSync(dest)) drift.push({ target: dest, reason: "retired" });
   }
   const isolated = process.argv.includes("--agent-root");

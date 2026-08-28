@@ -63,7 +63,7 @@ const PRINCIPLE_IDS = [
 const OPERATIONAL_IDS = [
   "adn-mode",
   "setup-adn",
-  "adn-audit",
+  "audit-adn",
   "adopt-skill",
   "how",
   "why",
