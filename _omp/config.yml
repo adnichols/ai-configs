@@ -43,9 +43,11 @@ modelRoles:
   reviewer-kimi: cursor/kimi-k3-max:high
 defaultThinkingLevel: auto
 compaction:
-  thresholdPercent: 40
+  thresholdPercent: -1
   idleEnabled: true
-  idleThresholdTokens: 200000
+  idleThresholdTokens: 100000
+  thresholdTokens: 200000
+  idleTimeoutSeconds: 60
 startup:
   quiet: true
   showSplash: false

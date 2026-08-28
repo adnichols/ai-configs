@@ -15,64 +15,109 @@ providers:
         compat:
           supportsReasoningEffort: true
           omitReasoningEffort: false
+        contextWindow: 200000
+      grok-4.5:
+        contextWindow: 200000
+      grok-4.3:
+        contextWindow: 200000
+      grok-4.20-0309-non-reasoning:
+        contextWindow: 200000
+      grok-4.20-0309-reasoning:
+        contextWindow: 200000
+      grok-4.20-multi-agent-0309:
+        contextWindow: 200000
+      grok-build:
+        contextWindow: 200000
+      grok-build-0.1:
+        contextWindow: 200000
+  xai:
+    modelOverrides:
+      grok-4.5:
+        contextWindow: 200000
+      grok-4.6:
+        contextWindow: 200000
   cursor:
     modelOverrides:
       cursor-grok-4.5-high:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.5-high-fast:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.5-low:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.5-low-fast:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.5-medium:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.5-medium-fast:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.6-high:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.6-high-fast:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.6-low:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.6-low-fast:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.6-medium:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.6-medium-fast:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.6-xhigh:
         input:
         - text
         - image
+        contextWindow: 200000
       cursor-grok-4.6-xhigh-fast:
         input:
         - text
         - image
+        contextWindow: 200000
+      cursor-grok-4.5:
+        contextWindow: 200000
+      cursor-grok-4.5-fast:
+        contextWindow: 200000
+      cursor-grok-4.6:
+        contextWindow: 200000
+      cursor-grok-4.6-fast:
+        contextWindow: 200000
+      grok-code-fast-1:
+        contextWindow: 200000
       kimi-k3-high:
         input:
         - text
