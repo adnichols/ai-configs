@@ -105,24 +105,6 @@
       "excluded": true
     },
     {
-      "requiredRoles": [],
-      "requiredTools": [],
-      "requiredSkills": [],
-      "ompAdapter": "omp-extension",
-      "retainedBehavior": "translated-from-pstack",
-      "failureBehavior": "fail-closed",
-      "provingTest": "tests/manifest.test.ts",
-      "checksum": "babd1aae820db26c737845633d34229f79d88aa570eae4092724ef04dd76847e",
-      "sourceSha": "local",
-      "triggerClass": "activation",
-      "sourcePath": "local",
-      "targetPath": "extensions/adn-mode.ts",
-      "runtimeMarker": "ADN_RUNTIME_MARKER:extension-adn-mode:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
-      "id": "extension-adn-mode",
-      "kind": "extension",
-      "phase": 2
-    },
-    {
       "requiredRoles": [
         "architect-grok"
       ],
@@ -550,7 +532,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "ffcedd6b24a777d980b1f811fa0b894274984516ee2aac9376f1c5875b926b5f",
+      "checksum": "c7dd5fbe299a0a8a37e23633eedd61c992075d594c3c155644cf291c40ee7072",
       "sourceSha": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
       "triggerClass": "explicit-then-automatic",
       "sourcePath": "pstack/skills/poteto-mode/SKILL.md",
@@ -568,7 +550,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "9df7cdf9f9152f03903fa28607f91409372b45a323cb282bdedff44a8c858d3a",
+      "checksum": "c3025c86abb279b3be7c541f299bffa73ba0f1190754ba983657ac121fe9fe60",
       "sourceSha": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
       "triggerClass": "explicit",
       "sourcePath": "pstack/skills/setup-pstack/SKILL.md",

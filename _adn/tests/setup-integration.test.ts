@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -26,13 +26,36 @@ describe.skipIf(!RUN)("setup-adn", () => {
       expect(apply.status).toBe(0);
       const tx = JSON.parse(readFileSync(result, "utf8")).transactionId;
       expect(tx).toBeTruthy();
-      expect(existsSync(join(root, "extensions", "adn-mode.ts"))).toBe(true);
+      expect(existsSync(join(root, "agents", "architect-grok.md"))).toBe(true);
+      expect(existsSync(join(root, "extensions", "adn-mode.ts"))).toBe(false);
+      expect(existsSync(join(root, "extensions", "adn-mode.generated.ts"))).toBe(false);
+      expect(existsSync(join(root, "adn", "generation.json"))).toBe(false);
       const check = spawnSync("bun", [SCRIPT, "check", "--agent-root", root], { encoding: "utf8" });
       expect(check.status).toBe(0);
       const rb = spawnSync("bun", [SCRIPT, "rollback", "--agent-root", root, "--transaction", tx], { encoding: "utf8" });
       expect(rb.status).toBe(0);
       const validate = spawnSync("bun", [VALIDATE, "rollback", "--agent-root", root, "--transaction", tx], { encoding: "utf8" });
       expect(validate.status).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("apply deletes leftover adn-mode wrappers", () => {
+    const root = mkdtempSync(join(tmpdir(), "adn-setup-retire-"));
+    try {
+      mkdirSync(join(root, "extensions"), { recursive: true });
+      mkdirSync(join(root, "adn"), { recursive: true });
+      writeFileSync(join(root, "extensions", "adn-mode.ts"), "leftover\n");
+      writeFileSync(join(root, "extensions", "adn-mode.generated.ts"), "leftover\n");
+      writeFileSync(join(root, "adn", "generation.json"), "{}\n");
+      const apply = spawnSync("bun", [SCRIPT, "apply", "--agent-root", root], { encoding: "utf8" });
+      expect(apply.status).toBe(0);
+      expect(existsSync(join(root, "extensions", "adn-mode.ts"))).toBe(false);
+      expect(existsSync(join(root, "extensions", "adn-mode.generated.ts"))).toBe(false);
+      expect(existsSync(join(root, "adn", "generation.json"))).toBe(false);
+      const check = spawnSync("bun", [SCRIPT, "check", "--agent-root", root], { encoding: "utf8" });
+      expect(check.status).toBe(0);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

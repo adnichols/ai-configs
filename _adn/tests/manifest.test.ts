@@ -189,7 +189,7 @@ describe("ADN manifest", () => {
     for (const id of [...P1_IDS, ...PRINCIPLE_IDS, ...OPERATIONAL_IDS, ...PLAYBOOK_IDS, ...AGENT_IDS]) {
       expect(ids).toContain(id);
     }
-    expect(ids).toContain("extension-adn-mode");
+    expect(ids).not.toContain("extension-adn-mode");
     expect(ids).toContain("exclusion-benny");
     expect(ids).not.toContain("make-bot-ui");
 

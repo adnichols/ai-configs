@@ -32,14 +32,14 @@ if (cmd === "live" || cmd === "live-smokes") {
   const missing: string[] = [];
   const files = [
     join(homedir(), ".agents/adn/skills/principle-laziness-protocol/SKILL.md"),
-    join(root, "extensions/adn-mode.ts"),
+    join(homedir(), ".agents/adn/skills/adn-mode/SKILL.md"),
     join(root, "agents/architect-grok.md"),
     join(root, "agents/architect-kimi.md"),
     join(root, "agents/reviewer-kimi.md"),
   ];
   for (const path of files) {
     if (!existsSync(path)) missing.push(path);
-    else if (!readFileSync(path, "utf8").includes("ADN_RUNTIME_MARKER:") && !readFileSync(path, "utf8").includes("attach")) {
+    else if (!readFileSync(path, "utf8").includes("ADN_RUNTIME_MARKER:")) {
       missing.push(`marker:${path}`);
     }
   }

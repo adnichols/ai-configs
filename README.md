@@ -109,11 +109,10 @@ Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensio
 ### `_adn/`
 Canonical ADN source tree for the OMP engineering system. `_omp/install.sh`
 copies it to `~/.agents/adn`, excluding runtime locks and logs, then runs
-`bun ~/.agents/adn/scripts/setup-adn.ts apply` so owned roles, the `adn-mode`
-extension wrappers, and skill links land in the OMP agent profile. Isolated
-installer tests set `OMP_CONFIG_TARGET` and apply with `--agent-root` so they
-never write live `omp config` state. Set `ADN_SKIP_APPLY=1` to copy the tree
-without applying it.
+`bun ~/.agents/adn/scripts/setup-adn.ts apply` so owned roles and skill links
+land in the OMP agent profile. Isolated installer tests set `OMP_CONFIG_TARGET`
+and apply with `--agent-root` so they never write live `omp config` state. Set
+`ADN_SKIP_APPLY=1` to copy the tree without applying it.
 
 ### `_omp/`
 Canonical Oh My Pi host configuration, custom agents, provider extensions,

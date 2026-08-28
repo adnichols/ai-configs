@@ -1,12 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { ADN_ROOT, OWNED_ROLES, atomicWrite, fileSha, flag, parseArgs, sha256, withDirLock } from "./lib.ts";
+import { ADN_ROOT, OWNED_ROLES, atomicWrite, fileSha, flag, parseArgs, withDirLock } from "./lib.ts";
 import { ADN_ROLES, applyRoleMerge, resolveProfile } from "./config-state.ts";
 
 const SKILLS = join(ADN_ROOT, "skills");
 const AGENTS = join(ADN_ROOT, "agents");
-const EXT = join(ADN_ROOT, "extensions", "adn-mode.ts");
+const RETIRED = ["extensions/adn-mode.ts", "extensions/adn-mode.generated.ts", "adn/generation.json"];
 
 function resultPath(flags: Record<string, string | boolean>, id: string, root: string) {
   return flag(flags, "result") ?? join(root, "adn", "transactions", `${id}.result.json`);
@@ -27,9 +27,6 @@ function ownedTargets(root: string) {
       }))
     : [];
   return [
-    { kind: "generation", src: EXT, dest: join(root, "adn", "generation.json") },
-    { kind: "wrapper", src: EXT, dest: join(root, "extensions", "adn-mode.ts") },
-    { kind: "wrapper", src: EXT, dest: join(root, "extensions", "adn-mode.generated.ts") },
     ...readdirSync(AGENTS).map((name) => ({
       kind: "agent",
       src: join(AGENTS, name),
@@ -45,6 +42,18 @@ function fingerprint(path: string): string | null {
   return fileSha(path);
 }
 
+function retireLeftovers(root: string) {
+  const records = [];
+  for (const rel of RETIRED) {
+    const dest = join(root, rel);
+    if (!existsSync(dest)) continue;
+    const pre = fingerprint(dest);
+    rmSync(dest, { recursive: true, force: true });
+    records.push({ kind: "retire", src: dest, dest, pre, post: null });
+  }
+  return records;
+}
+
 function applyTargets(root: string) {
   const targets = ownedTargets(root);
   const records = [];
@@ -57,18 +66,12 @@ function applyTargets(root: string) {
         continue;
       }
       symlinkSync(t.src, t.dest);
-    } else if (t.kind === "generation") {
-      atomicWrite(t.dest, JSON.stringify({ generation: 1, root, pin: "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c" }, null, 2) + "\n");
-    } else if (t.kind === "wrapper") {
-      atomicWrite(
-        t.dest,
-        `import { attach } from ${JSON.stringify(EXT)};\nimport generation from "../adn/generation.json" with { type: "json" };\nexport default function (pi) { attach(pi, generation); }\nexport * from ${JSON.stringify(EXT)};\n`,
-      );
     } else {
       cpSync(t.src, t.dest);
     }
     records.push({ ...t, pre, post: fingerprint(t.dest) });
   }
+  records.push(...retireLeftovers(root));
   const isolated = process.argv.includes("--agent-root");
   const roles = applyRoleMerge(isolated ? { agentRoot: root } : {});
   return { targets: records, roles: roles.roles };
@@ -78,6 +81,10 @@ function checkTargets(root: string) {
   const drift = [];
   for (const t of ownedTargets(root)) {
     if (!existsSync(t.dest) && !("skipped" in t)) drift.push({ target: t.dest, reason: "missing" });
+  }
+  for (const rel of RETIRED) {
+    const dest = join(root, rel);
+    if (existsSync(dest)) drift.push({ target: dest, reason: "retired" });
   }
   const isolated = process.argv.includes("--agent-root");
   const store = join(root, "modelRoles.json");
@@ -108,6 +115,7 @@ function flagProcessExpect() {
 function rollback(root: string, tx: string) {
   const journal = JSON.parse(readFileSync(journalPath(root, tx), "utf8"));
   for (const t of journal.targets) {
+    if (t.kind === "retire") continue;
     const now = fingerprint(t.dest);
     if (now !== t.post) throw new Error(`fail-closed: drift ${t.dest}`);
     if (t.pre == null) rmSync(t.dest, { recursive: true, force: true });

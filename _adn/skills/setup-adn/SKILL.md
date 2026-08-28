@@ -1,6 +1,6 @@
 ---
-name: setup-pstack
-description: Configure which models pstack uses per role. Detects your available models and writes an always-applied rule that overrides the skill defaults. Use for /setup-pstack, "configure pstack models", or changing pstack's model choices.
+name: setup-adn
+description: Configure which models ADN uses per role. Detects your available models and writes an always-applied rule that overrides the skill defaults. Use for /setup-adn, /setup-pstack, "configure pstack models", or changing ADN model choices.
 ---
 
 ADN_RUNTIME_MARKER:setup-adn:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c

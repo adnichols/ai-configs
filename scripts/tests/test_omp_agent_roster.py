@@ -199,8 +199,6 @@ class OmpAgentRosterTest(unittest.TestCase):
                     "orca-prefill.ts",
                     "orca-titlebar-spinner.ts",
                     "thinking-shortcuts.ts",
-                    "adn-mode.ts",
-                    "adn-mode.generated.ts",
                 },
                 {path.name for path in (target / "extensions").glob("*.ts")},
             )
