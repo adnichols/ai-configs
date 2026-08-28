@@ -22,6 +22,15 @@ function journalPath(root: string, id: string) {
   return join(root, "adn", "transactions", `${id}.json`);
 }
 
+function present(path: string) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function ownedTargets(root: string) {
   const skillRoot = skillRootFor(root);
   const skillLinks = existsSync(SKILLS)
@@ -44,7 +53,7 @@ function ownedTargets(root: string) {
 }
 
 function fingerprint(path: string): string | null {
-  if (!existsSync(path)) return null;
+  if (!present(path)) return null;
   if (lstatSync(path).isSymbolicLink()) return `link:${path}`;
   return fileSha(path);
 }
@@ -53,7 +62,7 @@ function retireLeftovers(root: string) {
   const records = [];
   const retired = [...RETIRED.map((rel) => join(root, rel)), ...RETIRED_SKILLS.map((name) => join(skillRootFor(root), name))];
   for (const dest of retired) {
-    if (!existsSync(dest)) continue;
+    if (!present(dest)) continue;
     const pre = fingerprint(dest);
     rmSync(dest, { recursive: true, force: true });
     records.push({ kind: "retire", src: dest, dest, pre, post: null });
@@ -90,7 +99,7 @@ function checkTargets(root: string) {
     if (!existsSync(t.dest) && !("skipped" in t)) drift.push({ target: t.dest, reason: "missing" });
   }
   for (const dest of [...RETIRED.map((rel) => join(root, rel)), ...RETIRED_SKILLS.map((name) => join(skillRootFor(root), name))]) {
-    if (existsSync(dest)) drift.push({ target: dest, reason: "retired" });
+    if (present(dest)) drift.push({ target: dest, reason: "retired" });
   }
   const isolated = process.argv.includes("--agent-root");
   const store = join(root, "modelRoles.json");

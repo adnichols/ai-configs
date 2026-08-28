@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -50,13 +50,13 @@ describe.skipIf(!RUN)("setup-adn", () => {
       writeFileSync(join(root, "extensions", "adn-mode.ts"), "leftover\n");
       writeFileSync(join(root, "extensions", "adn-mode.generated.ts"), "leftover\n");
       writeFileSync(join(root, "adn", "generation.json"), "{}\n");
-      writeFileSync(join(root, "skills", "adn-audit"), "leftover\n");
+      symlinkSync(join(root, "missing-adn-audit"), join(root, "skills", "adn-audit"));
       const apply = spawnSync("bun", [SCRIPT, "apply", "--agent-root", root], { encoding: "utf8" });
       expect(apply.status).toBe(0);
       expect(existsSync(join(root, "extensions", "adn-mode.ts"))).toBe(false);
       expect(existsSync(join(root, "extensions", "adn-mode.generated.ts"))).toBe(false);
       expect(existsSync(join(root, "adn", "generation.json"))).toBe(false);
-      expect(existsSync(join(root, "skills", "adn-audit"))).toBe(false);
+      expect(() => lstatSync(join(root, "skills", "adn-audit"))).toThrow();
       expect(existsSync(join(root, "skills", "audit-adn"))).toBe(true);
       const check = spawnSync("bun", [SCRIPT, "check", "--agent-root", root], { encoding: "utf8" });
       expect(check.status).toBe(0);
