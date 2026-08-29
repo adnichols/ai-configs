@@ -100,7 +100,7 @@ Cursor has no role-backed ADN agents. Use Cursor's native subagent types and map
 - Pre-PR review: `subagent_type: "reviewer"` with the `reviewer-kimi` model.
 - General investigation or synthesis: `subagent_type: "generalPurpose"` with the `judgment and prose` model.
 
-The manifest pins `xai-oauth/grok-4.6:high` for the Grok role and `cursor/kimi-k3-max:max/high` for the Kimi roles. Use `/setup-adn` to translate those to your local Cursor model slugs. The default code model is `grok-4.6-fast-xhigh` and the default prose and judgment model is `kimi-k3-max`.
+The manifest pins `xai-oauth/grok-4.6:high` for the Grok role and `cursor/kimi-k3-max:max/high` for the Kimi roles. Use `/setup-adn` to translate those to your local Cursor model slugs. The default code model is `grok-4.6:high` and the default prose and judgment model is `kimi-k3-max`.
 
 Run subagents synchronously unless the task is intentionally fire-and-forget. Cursor's background notification channel drops directives; only use background with the end-turn-to-receive pattern.
 

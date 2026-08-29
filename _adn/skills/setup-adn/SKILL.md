@@ -38,24 +38,24 @@ alwaysApply: true
 ---
 # pstack model configuration. One line per role. Delete a line to fall back to the skill default.
 # `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model`). Alias entries in a panel list still count toward its fan-out.
-feature, refactoring: grok-4.6-fast-xhigh
+feature, refactoring: grok-4.6:high
 bug-fix: gpt-5.6-sol-max
 perf-issue: gpt-5.6-sol-max
 hillclimb: gpt-5.6-sol-max
 judgment and prose: kimi-k3-max
 hardest tasks: kimi-k3-max
-how explorer: grok-4.6-fast-xhigh
+how explorer: grok-4.6:high
 how explainer: kimi-k3-max
-how critics: kimi-k3-max, gpt-5.6-sol-max, grok-4.6-fast-xhigh, claude-opus-5-thinking-xhigh
-why investigators: grok-4.6-fast-xhigh
+how critics: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, claude-opus-5-thinking-xhigh
+why investigators: grok-4.6:high
 why synthesizer: kimi-k3-max
 reflect tooling: gpt-5.6-sol-max
 reflect judgment, divergent, synthesizer: kimi-k3-max
-arena runners: kimi-k3-max, gpt-5.6-sol-max, grok-4.6-fast-xhigh, claude-opus-5-thinking-xhigh
-arena cross-judge pool: kimi-k3-max, gpt-5.6-sol-max, grok-4.6-fast-xhigh, claude-opus-5-thinking-xhigh
-swarm workers: grok-4.6-fast-xhigh
-architect runners: kimi-k3-max, gpt-5.6-sol-max, grok-4.6-fast-xhigh, claude-opus-5-thinking-xhigh
-interrogate reviewers: kimi-k3-max, gpt-5.6-sol-max, grok-4.6-fast-xhigh, claude-opus-5-thinking-xhigh
+arena runners: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, claude-opus-5-thinking-xhigh
+arena cross-judge pool: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, claude-opus-5-thinking-xhigh
+swarm workers: grok-4.6:high
+architect runners: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, claude-opus-5-thinking-xhigh
+interrogate reviewers: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, claude-opus-5-thinking-xhigh
 ```
 
 ### 6. Confirm
