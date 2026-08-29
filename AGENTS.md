@@ -33,6 +33,7 @@ Imaging launch contract (Pi): call `Agent` with only `subagent_type: "imaging"`,
 
 - Claude's driving session performs discovery, planning, implementation, testing, documentation, and repository management directly with native tools.
 - The sole repository-owned Claude subagent is `_claude/agents/reviewer.md`: a read-only `claude-sonnet-5` reviewer at `high` effort. Commands may invoke it only for bounded plan or code review; they must not delegate implementation, testing, fixes, or repository management.
+- Devin's driving session likewise implements directly with native tools. Its repository-owned custom subagent profiles live in `_devin/agents/` and install to `~/.config/devin/agents/`: `reviewer` and `planner` (sonnet), `oracle` and `completeness` (opus). Invoke them by profile name via `run_subagent` only for bounded planning, decision support, or read-only review. The shared delivery ledger supports only the `omp`/`pi` runtimes; Devin sessions use `run-plan` with the standalone `completeness` packet instead of arming delivery.
 - Required code reviews run through the active harness's configured `reviewer` subagent. In a Herdr delivery run, additionally require the visible labeled-tab Pi completeness reviewer on `xai/grok-4.5:high` to return `COMPLETE` against the plan before local merge readiness; it is a read-only plan-completeness loop, not a substitute for the code-review gate. Do not make Codex or Claude Code a required review transport.
 - On Cursor Grok or Composer parents, launch required reviewers with `run_in_background: true` and join via `get_subagent_result` (`wait: true`). The vendored `pi-cursor-sdk` bridge also forces background for `Agent` on those models.
 - Codex driving agents likewise implement authorized changes directly with their native repository tools.
@@ -110,12 +111,12 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
   - This is intentionally contradictory to branch-first guidance you may see in shared/global instructions. For `ai-configs`, the repo rule wins: stay on `main` unless the user explicitly asks otherwise.
 
 - **Testing & Validation**
-  - Primary test command(s): `TODO` (e.g., `npm test`, `pytest`, `cargo test`).
+  - Primary test command(s): `cd _adn && bun test` and `cd _adn && bun tests/routing-eval.ts`.
   - Additional checks (fill in as relevant):
-    - Lint: `TODO` (e.g., `npm run lint`)
-    - Typecheck: `TODO`
-    - Build: `TODO`
-    - Security / SAST: `TODO`
+    - Lint: `bun test` covers `_adn` contract tests; no standalone linter.
+    - Typecheck: `bun` runs TypeScript tests directly.
+    - Build: not required for ADN skill text.
+    - Security / SAST: TODO
   - Before committing behavior changes, run the primary tests and any required additional checks for the touched area.
 
 - **Task Lists & Plans**

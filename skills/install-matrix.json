@@ -6,7 +6,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
@@ -19,7 +20,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/appkit-interop",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -32,7 +34,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
@@ -45,7 +48,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/build-run-debug",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`, with Pi-safe wording for optional Codex integration. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -58,7 +62,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/brave-cdp",
       "notes": "Brave-first shared CDP skill for attaching to Aaron's existing browser session, with Chromium-family fallback support and a dedicated automation-profile launcher script. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -71,7 +76,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
@@ -84,7 +90,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/ccore_DONOTUSE",
       "notes": "Repo-owned local skill retained in ai-configs.",
@@ -95,7 +102,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/chrome-cdp",
       "notes": "Shared CDP skill for attaching to an existing Chrome session over the DevTools Protocol without launching a separate browser instance. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -127,7 +135,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/cmd-create-handoff",
       "legacySources": [
@@ -141,7 +150,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/cmd-create-pr",
       "legacySources": [
@@ -155,7 +165,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/cmd-graduate",
       "legacySources": [
@@ -169,7 +180,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/cmd-resume-handoff",
       "legacySources": [
@@ -204,7 +216,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/codebase-design",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; deep-module vocabulary and interface-design examples used by architecture workflows.",
@@ -215,7 +228,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/completeness",
       "notes": "OMP driver for request-bound @completeness review. Resolves skill://completeness so sessions do not fail looking for a missing skill.",
@@ -226,7 +240,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/computer-use",
       "notes": "Compatibility route that sends desktop GUI work to cua-driver instead of Orca computer-use.",
@@ -248,7 +263,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/dependency-selection",
       "legacySources": [
@@ -262,7 +278,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/design-skill",
       "notes": "Repo-owned copy captured from ~/.agents/skills/design-skill after the previous arjunkshah/design-skill upstream became unavailable to non-interactive installers.",
@@ -272,7 +289,8 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [
         "codex",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/dev-plan",
       "legacySources": [
@@ -286,7 +304,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
@@ -299,7 +318,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/doct-document-ops",
       "legacySources": [
@@ -313,7 +333,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
@@ -325,7 +346,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/domain-modeling",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; maintains configured domain glossaries and durable architectural decisions.",
@@ -336,7 +358,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
@@ -348,7 +371,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/grill-with-docs",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; combines grilling with inline domain documentation.",
@@ -360,7 +384,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/grilling",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; frontier-based decision interview used by grill-me, grill-with-docs, and wayfinder.",
@@ -372,7 +397,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/grill-me",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; user-invoked wrapper that loads grilling.",
@@ -383,7 +409,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/herdr",
       "notes": "Repo-owned override of the upstream Herdr control skill. Allows Codex and Claude to control a reachable Herdr session from outside a managed pane instead of treating `HERDR_ENV=1` as a hard prerequisite.",
@@ -395,7 +422,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/improve-codebase-architecture",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; produces visual deepening-opportunity reports and guided follow-up.",
@@ -406,7 +434,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/integration-integrity",
       "notes": "Conditional exact-contract and distributed-production integration procedure.",
@@ -417,7 +446,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
@@ -430,7 +460,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/linear",
       "legacySources": [
@@ -444,7 +475,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/liquid-glass",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -457,7 +489,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
@@ -466,7 +499,8 @@
     "oracle-consultation": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/oracle-consultation",
       "notes": "Conditional proactive Oracle caller contract for consequential unresolved choices.",
@@ -477,7 +511,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/packaging-notarization",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -490,7 +525,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
@@ -501,7 +537,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/planning-workflow",
       "notes": "Canonical shared planning doctrine.",
@@ -511,7 +548,8 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [
         "codex",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/plan-reviewer-execution-ready",
       "notes": "Compatibility route for Doct's requestedSkill=plan-reviewer-execution-ready dispatch; delegates unchanged plan and claim context to reviewed-html-plan at its explicit execution-readiness gate.",
@@ -522,7 +560,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add lackeyjb/playwright-skill`.",
       "sourceType": "external-package",
@@ -533,7 +572,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
@@ -544,7 +584,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/product-principles",
       "legacySources": [
@@ -560,7 +601,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/prototype",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; throwaway logic and UI prototypes supporting wayfinder decisions.",
@@ -570,7 +612,8 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [
         "codex",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/autoreview",
       "notes": "Canonical bounded pre-PR implementation review policy using the active-harness reviewer subagent, concrete behavioral evidence, constrained fixes, release freeze discipline, and OPEN_PR_READY handoff.",
@@ -580,7 +623,8 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [
         "codex",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/pre-pr-implementation-review",
       "notes": "Indefinite compatibility alias for autoreview; installed for Pi and Codex so existing prompts and automation continue to preserve arguments and OPEN_PR_READY semantics without duplicating policy.",
@@ -591,7 +635,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/repo-agents-bootstrap",
       "notes": "Canonical shared repo bootstrap guidance.",
@@ -603,7 +648,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/research",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; primary-source research support for wayfinder decision tickets.",
@@ -613,7 +659,8 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [
         "codex",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/reviewed-html-plan",
       "notes": "Creates and gates HTML plans through Doct browser feedback, PM review, and an independent Pi planner-subagent review pinned to GPT-5.6 Sol medium; that planner selects GPT-5.6 Luna xhigh by default or GPT-5.6 Terra high when correctness depends materially on technical judgment, and delivery launches the selected dedicated agent.",
@@ -624,7 +671,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add jeffallan/claude-skills`. Optional profile: rust; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
@@ -637,7 +685,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/sentry-cli",
       "legacySources": [
@@ -652,7 +701,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/setup-matt-pocock-skills",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; configures per-repository tracker and domain-document conventions.",
@@ -663,7 +713,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/run-plan",
       "notes": "Codex/Claude/Pi: executes existing plans through durable goal-backed bounded implementation, runtime-native scoped reviews with one targeted rereview after fixes, active-harness reviewer-subagent pre-PR review with no unresolved blocking in-scope P1/P2 findings, verification, push, mandatory PR creation, and post-PR monitoring without reviewer-driven scope expansion.",
@@ -674,7 +725,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/safe-git-index",
       "notes": "Conditional protected Git index mutation and lock recovery procedure.",
@@ -685,7 +737,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/signing-entitlements",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -698,7 +751,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
@@ -709,7 +763,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
@@ -722,7 +777,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/swiftpm-macos",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -735,7 +791,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/swiftui-patterns",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`, with Pi-safe wording for optional Codex integration. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -748,7 +805,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/tdd-test-writer",
       "notes": "Repo-owned direct TDD RED-phase authorship guidance; the driving agent writes and runs tests without test-authoring delegation.",
@@ -760,7 +818,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/to-spec",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; publishes synthesized specifications to the configured issue tracker.",
@@ -772,7 +831,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/to-tickets",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; publishes tracer-bullet tickets with explicit blocking edges.",
@@ -784,7 +844,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/triage",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; triages configured local or remote issue trackers.",
@@ -795,7 +856,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/telemetry",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -808,7 +870,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/test-triage",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -821,7 +884,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
@@ -834,7 +898,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add vercel-labs/agent-skills`.",
       "sourceType": "external-package",
@@ -845,7 +910,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/view-refactor",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -857,7 +923,8 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [
         "codex",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/virsh",
       "notes": "Portable virsh/libvirt workflow notes for VM inspection and storage discovery; installed for Pi only. Optional profile: ops-browser; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -871,7 +938,8 @@
         "codex",
         "claude",
         "pi",
-        "cursor"
+        "cursor",
+        "devin"
       ],
       "canonicalSource": "skills/wayfinder",
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; maps multi-session work as decision tickets on the configured tracker.",
@@ -882,7 +950,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`. Optional profile: creative-content; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
       "sourceType": "external-package",
@@ -895,7 +964,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add vercel-labs/agent-skills`.",
       "sourceType": "external-package",
@@ -906,7 +976,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
@@ -917,7 +988,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/macos/window-management",
       "notes": "Vendored from `openai/plugins` `plugins/build-macos-apps`. Optional profile: macos; not installed into default Pi/Codex shared-skill context unless explicitly requested.",
@@ -930,7 +1002,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "notes": "Fetched via `npx skills add anthropics/skills`.",
       "sourceType": "external-package",
@@ -952,7 +1025,8 @@
       "allowedConsumers": [
         "codex",
         "claude",
-        "pi"
+        "pi",
+        "devin"
       ],
       "canonicalSource": "skills/zero-tech-debt",
       "notes": "Repo-owned skill for reworking changes from the intended product end state and removing dead compatibility complexity.",
@@ -960,7 +1034,7 @@
     }
   },
   "skillProfiles": {
-    "default": "Installed by default into ~/.agents/skills and exposed to Pi, Codex, and compatible consumers.",
+    "default": "Installed by default into ~/.agents/skills and exposed to Pi, Codex, Devin, and compatible consumers.",
     "creative-content": "Optional creative, branding, communications, and artifact-generation skills.",
     "macos": "Optional macOS SwiftUI/AppKit/build/signing/testing skills.",
     "rust": "Optional Rust-specific engineering skills.",

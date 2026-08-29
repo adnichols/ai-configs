@@ -112,7 +112,7 @@ GitHub merge-button squash is not a substitute. Reviewers read the branch.
 Before `gh pr create`, `gh pr ready`, or any push that publishes the PR
 head, the range `${base_ref}..HEAD` MUST be exactly one commit.
 
-Resolve `$GIT_WL` first via `skill://safe-git-index`. Soft-reset and
+Resolve `$GIT_WL` first by loading the `safe-git-index` skill. Soft-reset and
 commit mutate the index; never run raw `git reset --soft` or `git commit`.
 
 ```bash

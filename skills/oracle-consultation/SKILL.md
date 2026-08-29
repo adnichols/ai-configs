@@ -9,7 +9,7 @@ Use Oracle proactively once targeted evidence leaves a real consequential choice
 
 Do not use Oracle for routine discovery, mechanical edits, ordinary factual lookups with one authoritative source, test execution, or a review already covered by the required reviewer or planner.
 
-## Launch contract
+## Launch contract (Pi)
 
 Call `Agent` with only:
 
@@ -18,6 +18,16 @@ Call `Agent` with only:
 - one bounded decision `prompt`
 
 Omit caller-side `model`, `thinking`, `reasoningEffort`, `inherit_context`, and `isolation`. Checked-in Oracle frontmatter pins Sol high, inherited/forked context, and the live checkout. Setting `inherit_context: false` or `isolation: "worktree"` is a workflow violation.
+
+## Launch contract (Devin)
+
+Call `run_subagent` with only:
+
+- `profile: "oracle"` (the repository-owned profile at `~/.config/devin/agents/oracle.md`; it pins its own model)
+- a short `title`
+- one bounded decision `task`
+
+Devin subagents do not inherit the parent's conversation, so the packet below must be fully self-contained. Run the consultation in the foreground, or in the background and join via `read_subagent` with `block: true`.
 
 ## Decision packet
 

@@ -792,7 +792,7 @@ if not skill.is_file():
     raise SystemExit('missing repo-owned computer-use source')
 text = skill.read_text()
 for phrase in [
-    'skill://cua-driver',
+    'follow the `cua-driver`',
     'cua-driver <tool-name>',
     'Do not use Orca\'s computer-use CLI',
     'Do not fall through to `orca`, `orca-dev`, or `orca-ide`',
@@ -810,7 +810,7 @@ expected = {
     'class': 'universal-installable',
     'canonicalSource': 'skills/computer-use',
     'sourceType': 'repo',
-    'allowedConsumers': ['codex', 'claude', 'pi'],
+    'allowedConsumers': ['codex', 'claude', 'pi', 'devin'],
 }
 for key, value in expected.items():
     if entry.get(key) != value:
@@ -1413,7 +1413,7 @@ expected = {
     'class': 'universal-installable',
     'canonicalSource': 'skills/tdd-test-writer',
     'sourceType': 'repo',
-    'allowedConsumers': ['codex', 'claude', 'pi'],
+    'allowedConsumers': ['codex', 'claude', 'pi', 'devin'],
 }
 for key, value in expected.items():
     if entry.get(key) != value:
@@ -1820,8 +1820,8 @@ missing_codex = [
     and 'codex' not in meta.get('allowedConsumers', [])
 ]
 oracle = matrix.get('oracle-consultation', {})
-if oracle.get('class') != 'consumer-specific-installable' or oracle.get('allowedConsumers') != ['pi']:
-    raise SystemExit('oracle-consultation must remain explicitly Pi-only')
+if oracle.get('class') != 'consumer-specific-installable' or oracle.get('allowedConsumers') != ['pi', 'devin']:
+    raise SystemExit('oracle-consultation must remain explicitly Pi+Devin only')
 if missing_codex:
     raise SystemExit(f"Pi skills missing Codex parity: {missing_codex}")
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Structure
 
-This is a Claude Code, Codex, and Pi configuration repository containing:
+This is a Claude Code, Codex, Devin, and Pi configuration repository containing:
 
 ### Configuration Directories (Source of Truth)
 - **_claude/**: Claude Code configuration
@@ -14,6 +14,10 @@ This is a Claude Code, Codex, and Pi configuration repository containing:
   - `prompts/` - Codex prompts
   - `config.toml` - Reference-only Codex configuration template
   - `mcp-servers.toml` - Reference-only MCP server definitions
+- **_devin/**: Devin CLI global configuration
+  - `AGENTS.md` - Global cross-repo guidance installed to `~/.config/devin/AGENTS.md`
+  - `agents/` - Custom subagent profiles (oracle, planner, reviewer, completeness) installed to `~/.config/devin/agents/`
+  - `install.sh` - Managed installer with `.before-ai-configs` backups; never touches CLI-owned `config.json`
 - **scripts/**: Shared helper scripts fanned out into installed runtime locations
 
 ### Installation Scripts
@@ -30,11 +34,14 @@ bash /path/to/ai-configs/install.sh --claude
 # Sync global Codex prompts/scripts
 bash /path/to/ai-configs/install.sh --codex
 
+# Install Devin CLI global guidance and subagent profiles
+bash /path/to/ai-configs/install.sh --devin
+
 # Install everything
 bash /path/to/ai-configs/install.sh --all
 ```
 
-This copies the appropriate project configuration to `.claude/`. Codex uses global resources under `~/.codex/`, and Pi uses global resources under `~/.pi/agent/`.
+This copies the appropriate project configuration to `.claude/`. Codex uses global resources under `~/.codex/`, Devin uses global resources under `~/.config/devin/`, and Pi uses global resources under `~/.pi/agent/`. Devin discovers the shared skills in `~/.agents/skills/` directly (like Codex), so no per-skill links are installed for it.
 
 ## Updating
 

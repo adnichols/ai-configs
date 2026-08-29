@@ -17,6 +17,7 @@ ai-configs/
 ├── _adn/         # ADN source config for the OMP engineering system
 ├── _claude/      # Claude source config
 ├── _codex/       # Codex source config
+├── _devin/       # Devin CLI global guidance + custom subagent profiles
 ├── _pi/          # Pi source config
 ├── _omp/         # Oh My Pi source config and custom agents
 ├── amp/          # Canonical Amp settings + custom plugin modes installer
@@ -55,6 +56,7 @@ Single-surface installs:
 ```bash
 bash ~/ai-configs/install.sh --claude
 bash ~/ai-configs/install.sh --codex
+bash ~/ai-configs/install.sh --devin
 bash ~/ai-configs/install.sh --pi
 bash ~/ai-configs/install.sh --skills
 bash ~/ai-configs/install.sh --tools
@@ -80,6 +82,7 @@ bash ~/ai-configs/install.sh --all ~
 - mirrors Codex prompts into `~/.codex/prompts`
 - keeps Codex prompt availability aligned with Pi, using Pi-delegating wrappers for Pi-only multi-model/subagent commands
 - refreshes Codex-discoverable shared skills in `~/.agents/skills`
+- with `--devin` or `--all`, installs Devin CLI global guidance to `~/.config/devin/AGENTS.md` and the oracle/planner/reviewer/completeness custom subagent profiles to `~/.config/devin/agents/`, pruning dangling skill links with backup; Devin discovers shared skills directly from `~/.agents/skills`, so no per-skill links are installed
 - mirrors shared helper scripts into the runtime locations that need them
 - installs Pi to `~/.pi/agent/`
 - copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@juicesharp/rpiv-todo`
@@ -102,6 +105,22 @@ Claude commands, default settings, and the read-only `reviewer` subagent. The in
 
 ### `_codex/`
 Codex prompt files plus config templates. Global Codex prompt discovery is handled by the installer.
+
+### `_devin/`
+Canonical Devin CLI global configuration: cross-repository guidance installed
+to `~/.config/devin/AGENTS.md` and the custom subagent profiles `oracle`,
+`planner`, `reviewer`, and `completeness` installed to `~/.config/devin/agents/`
+(`reviewer`/`planner` pin `sonnet`; `oracle`/`completeness` pin `opus`).
+`_devin/install.sh` preserves the first differing managed file as
+`<name>.before-ai-configs`, never touches CLI-owned `config.json`, and prunes
+dangling links in `~/.config/devin/skills/` into a timestamped backup root.
+Devin discovers the shared skills in `~/.agents/skills/` directly, so the
+installer does not link skills into `~/.config/devin/skills/`. Run
+`bash _devin/install.sh` for a Devin-only install, or `install.sh --devin` to
+also refresh shared skills. Isolated installer tests set `DEVIN_CONFIG_TARGET`.
+The shared delivery ledger supports only the `omp`/`pi` runtimes; Devin
+sessions run plan execution through `run-plan` with the standalone
+`completeness` packet instead of arming delivery.
 
 ### `_pi/`
 Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.

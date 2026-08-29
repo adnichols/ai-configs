@@ -13,8 +13,8 @@ description: >-
 
 # Computer Use
 
-This skill is a routing name. Immediately load and follow `skill://cua-driver`
-with the same task, app, and arguments. Do not use Orca's computer-use CLI.
+This skill is a routing name. Immediately load and follow the `cua-driver`
+skill with the same task, app, and arguments. Do not use Orca's computer-use CLI.
 
 Default transport is the `cua-driver` CLI:
 
@@ -23,5 +23,5 @@ cua-driver <tool-name> '<JSON-args>'
 ```
 
 If the cua-driver skill pack is missing, run `cua-driver skills install` and
-then follow `skill://cua-driver`. If the binary is missing, report that and
+then follow the `cua-driver` skill. If the binary is missing, report that and
 stop. Do not fall through to `orca`, `orca-dev`, or `orca-ide`.
