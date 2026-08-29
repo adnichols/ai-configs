@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Vendored the `cobanov.herdr-ntfysh` Herdr plugin into `tools/herdr-ntfysh` (pinned upstream commit) with two added capabilities: notification titles now use the agent's human-readable session title (`agent get` name, else pane terminal title) instead of bare agent/pane IDs, and `HERDR_NTFY_BODY_LINES=N` appends the last N lines of the agent pane's recent output to the notification body. Both fail safe when the Herdr CLI is unreachable. `herdr/install.sh` now builds, links, and enables the vendored copy (replacing any upstream GitHub-managed install), and keeps the existing plugin config (`.env`) intact.
 
 - Permanent-document disposition in the shared pre-PR path: `run-plan` and `cmd-create-pr` hard-stop when a repo-local permanent-docs skill is present; `delivery-run` records recommended `permanentDocs` evidence and completeness prompt coverage; `cmd-graduate` stays generic with a pointer to local `*-permanent-docs`; `autoreview` accepts caller-supplied disposition in the packet baseline. Pairs with Heddle `heddle-permanent-docs`.
-- Tracked Amp CLI config under `amp/` (`settings.json` + `plugins/subscription-models.ts` ADN/Grok modes), with local install via `amp/install.sh` / `install.sh --tools` and macOS remote streaming to `mbp`/`dever`/`mbp14`.
+- Tracked Amp CLI config under `amp/` (`settings.json` + `plugins/subscription-models.ts` ADN/Grok modes), with local install via `amp/install.sh` / `install.sh --tools` and macOS remote streaming to `mbp`/`dever`/`thump`.
 
 ### Fixed
 
@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Restored Herdr Option/Alt+`[` / `]` tab switching over mosh by having Kitty inject complete xterm modifyOtherKeys sequences (`CSI 27;3;91/93 ~`). Bare `ESC [` / `ESC ]` never complete as alt-bracket events in Herdr's legacy framer, and Kitty `send_key` does not survive mosh.
 
 ### Changed
+
+- Renamed remote host `mbp14` to `thump` in WezTerm/Kitty paste helpers, Amp/OMP remote defaults, clipssh aliases, and docs.
 
 - Synced managed OMP `config.yml` from this host: default is `xai-oauth/grok-4.6:high`. Captured `architect-grok`, `architect-kimi`, and `reviewer-kimi` roles from this host.
 - Synced managed OMP `config.yml` from this host: `vision`/`plan`/`designer` are `openai-codex/gpt-5.6-sol` (medium/high/high), `commit` is `openai-codex/gpt-5.6-sol:medium`, `tiny` is `deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:low`, `reviewer` is `xai-oauth/grok-4.6:high`. Cycle includes Oracle; retry fallbacks are Oracle→Sol and advisor→`cursor/cursor-grok-4.6`.

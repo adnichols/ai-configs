@@ -107,7 +107,7 @@ print_usage() {
     echo "  - The tracked OMP config, guidance, agents, and non-credential extensions are installed locally whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
     echo "  - The tracked WezTerm remote workflow is installed locally whenever --tools or --all runs"
-    echo "  - Managed Amp settings/modes are streamed to mbp/dever/mbp14 whenever --tools or --all runs on macOS"
+    echo "  - Managed Amp settings/modes are streamed to mbp/dever/thump whenever --tools or --all runs on macOS"
     echo "  - Managed Herdr plugins are refreshed from their upstream repositories whenever --tools or --all runs"
     echo "  - The installer removes positively identified managed deprecated skill entries; ambiguous Gemini, OpenCode, and Pi plan-mode files are preserved for explicit host cleanup"
     echo "  - Use --update to run 'npx skills update -g -y' for skills installed through skills.sh before the normal sync"

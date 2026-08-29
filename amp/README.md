@@ -31,9 +31,9 @@ bash ./install.sh --tools
 Override remote targets:
 
 ```bash
-AMP_REMOTE_HOSTS="dever mbp14" bash ./install.sh --tools
+AMP_REMOTE_HOSTS="dever thump" bash ./install.sh --tools
 # or
-AMP_REMOTE_HOSTS="dever mbp14" bash scripts/install-amp-remote-hosts.sh
+AMP_REMOTE_HOSTS="dever thump" bash scripts/install-amp-remote-hosts.sh
 ```
 
 ## ADN modes and second opinions

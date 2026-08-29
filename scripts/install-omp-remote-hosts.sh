@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-REMOTE_HOSTS="${OMP_REMOTE_HOSTS:-dever mbp14}"
+REMOTE_HOSTS="${OMP_REMOTE_HOSTS:-dever thump}"
 REMOTE_BRANCH="${OMP_REMOTE_BRANCH:-$(git -C "$REPO_ROOT" branch --show-current)}"
 REMOTE_REPO_PATH="${OMP_REMOTE_REPO_PATH:-}"
 STRICT="${OMP_CONFIG_STRICT_REMOTE:-1}"

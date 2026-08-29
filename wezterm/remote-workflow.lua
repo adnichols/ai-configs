@@ -7,7 +7,7 @@ local M = {}
 local HOST_COLORS = {
   mbp = { background = '#3B2E5A', active_background = '#594382', foreground = '#F0EAF7' },
   dever = { background = '#1E3A5F', active_background = '#2A5185', foreground = '#E6EDF3' },
-  mbp14 = { background = '#244436', active_background = '#32604D', foreground = '#E6F2EA' },
+  thump = { background = '#244436', active_background = '#32604D', foreground = '#E6F2EA' },
   ['mbp14-2'] = { background = '#244436', active_background = '#32604D', foreground = '#E6F2EA' },
 }
 
@@ -174,7 +174,7 @@ function M.apply(config, wezterm)
 
   append_launch_menu(config, { label = 'Herdr · mbp', args = herdr_command('mbp') })
   append_launch_menu(config, { label = 'Herdr · dever', args = herdr_command('dever') })
-  append_launch_menu(config, { label = 'Herdr · mbp14', args = herdr_command('mbp14') })
+  append_launch_menu(config, { label = 'Herdr · thump', args = herdr_command('thump') })
 
   append_key(config, {
     key = '1', mods = 'CMD|SHIFT',
@@ -186,7 +186,7 @@ function M.apply(config, wezterm)
   })
   append_key(config, {
     key = '3', mods = 'CMD|SHIFT',
-    action = wezterm.action.SpawnCommandInNewWindow { args = herdr_command('mbp14') },
+    action = wezterm.action.SpawnCommandInNewWindow { args = herdr_command('thump') },
   })
   append_key(config, {
     key = '[', mods = 'OPT', action = wezterm.action.SendString '\x1b[27;3;91~',
@@ -201,7 +201,7 @@ function M.apply(config, wezterm)
       if not host then
         window:toast_notification(
           'WezTerm image paste',
-          'Focus a Herdr or SSH pane for mbp, dever, or mbp14 before pasting an image.',
+          'Focus a Herdr or SSH pane for mbp, dever, or thump before pasting an image.',
           nil,
           5000
         )

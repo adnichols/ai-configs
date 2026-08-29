@@ -170,7 +170,7 @@ checkouts and non-fast-forward pulls:
 bash scripts/install-omp-remote-hosts.sh
 ```
 
-The helper defaults to `dever` and `mbp14`; override with `OMP_REMOTE_HOSTS`.
+The helper defaults to `dever` and `thump`; override with `OMP_REMOTE_HOSTS`.
 Use `OMP_REMOTE_BRANCH` and `OMP_REMOTE_REPO_PATH` when the checkout differs
 from the local branch or the default `$HOME/code/ai-configs` path. It never
 copies source trees with tar, rsync, or scp, and never transfers `auth.json`,
@@ -180,22 +180,22 @@ destination are moved to a timestamped
 `~/.omp/agent.before-ai-configs/` backup before reconciliation.
 
 ### `amp/`
-Canonical Amp CLI settings and custom plugin modes from `plugins/subscription-models.ts`: `ADN Low` (Luna max), `ADN High` (Terra high), `adn_oracle` tool/mode (Sol high), and `adn_alt` tool/mode (Grok 4.5 high). Amp's built-in `low`/`medium`/`high`/`ultra` keys cannot be overwritten; these ADN modes sit beside them. `install.sh --tools` and `install.sh --all` install them to `~/.config/amp/`, preserve first-differing backups as `*.before-ai-configs`, and on macOS stream the bundle to `mbp`, `dever`, and `mbp14` (override with `AMP_REMOTE_HOSTS`). Model-provider subscriptions stay host-local credentials.
+Canonical Amp CLI settings and custom plugin modes from `plugins/subscription-models.ts`: `ADN Low` (Luna max), `ADN High` (Terra high), `adn_oracle` tool/mode (Sol high), and `adn_alt` tool/mode (Grok 4.5 high). Amp's built-in `low`/`medium`/`high`/`ultra` keys cannot be overwritten; these ADN modes sit beside them. `install.sh --tools` and `install.sh --all` install them to `~/.config/amp/`, preserve first-differing backups as `*.before-ai-configs`, and on macOS stream the bundle to `mbp`, `dever`, and `thump` (override with `AMP_REMOTE_HOSTS`). Model-provider subscriptions stay host-local credentials.
 
 Run `bash amp/install.sh` for an Amp-only local install.
 
 ### `herdr/`
-Canonical host-independent Herdr configuration plus its installer. `install.sh --tools` and `install.sh --all` install it to `~/.config/herdr/config.toml`, preserving the first differing local file as `config.toml.before-ai-configs`. The same configuration validates on the current Herdr versions on `mbp`, `dever`, `mbp14`, and `mba`; it intentionally standardizes theme and UI preferences across hosts.
+Canonical host-independent Herdr configuration plus its installer. `install.sh --tools` and `install.sh --all` install it to `~/.config/herdr/config.toml`, preserving the first differing local file as `config.toml.before-ai-configs`. The same configuration validates on the current Herdr versions on `mbp`, `dever`, `thump`, and `mba`; it intentionally standardizes theme and UI preferences across hosts.
 
 Run `bash herdr/install.sh` for a Herdr-only local install. From macOS, the normal tools workflow also streams it to the configured Kitty remote hosts. Override those targets when needed, for example:
 
 ```bash
-KITTY_REMOTE_HOSTS="mbp14 mba" bash ./install.sh --tools
+KITTY_REMOTE_HOSTS="thump mba" bash ./install.sh --tools
 ```
 
 ### `wezterm/`
 
-Canonical WezTerm remote-development configuration. `install.sh --tools` and `--all` install a narrowly composed Lua module into `~/.config/wezterm/` and add its loader to a compatible user-owned `~/.wezterm.lua`; the installer refuses to guess when that root config does not have exactly one `return config`. It renders each Herdr tab with a solid host-colored background — **mbp** purple, **dever** blue, and **mbp14** green — while preserving live working / blocked / done counts from the existing `herdr-kitty-status` terminal-title contract. It also enables the Kitty keyboard protocol so Pi and OMP receive a distinct `Shift+Enter` over SSH, and adds the `herdr-mbp`, `herdr-dever`, and `herdr-mbp14` shell functions, launch-menu entries, `Cmd+Shift+1/2/3` host shortcuts, and `Cmd+Shift+V` image upload/path insertion for the focused supported remote pane. The WezTerm workflow is local-only; it does not alter Kitty or stream WezTerm files to remote hosts.
+Canonical WezTerm remote-development configuration. `install.sh --tools` and `--all` install a narrowly composed Lua module into `~/.config/wezterm/` and add its loader to a compatible user-owned `~/.wezterm.lua`; the installer refuses to guess when that root config does not have exactly one `return config`. It renders each Herdr tab with a solid host-colored background — **mbp** purple, **dever** blue, and **thump** green — while preserving live working / blocked / done counts from the existing `herdr-kitty-status` terminal-title contract. It also enables the Kitty keyboard protocol so Pi and OMP receive a distinct `Shift+Enter` over SSH, and adds the `herdr-mbp`, `herdr-dever`, and `herdr-thump` shell functions, launch-menu entries, `Cmd+Shift+1/2/3` host shortcuts, and `Cmd+Shift+V` image upload/path insertion for the focused supported remote pane. The WezTerm workflow is local-only; it does not alter Kitty or stream WezTerm files to remote hosts.
 
 Run `bash wezterm/install.sh` for a WezTerm-only local install.
 

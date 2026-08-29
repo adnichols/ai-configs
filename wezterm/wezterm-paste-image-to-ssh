@@ -30,8 +30,8 @@ while (($#)); do
 done
 
 case "$host" in
-  mbp|dever|mbp14|mbp14-2) ;;
-  *) fail 'host must be mbp, dever, mbp14, or mbp14-2' ;;
+  mbp|dever|thump|mbp14-2) ;;
+  *) fail 'host must be mbp, dever, thump, or mbp14-2' ;;
 esac
 [[ "$pane_id" =~ ^[0-9]+$ ]] || fail 'pane ID must be numeric'
 

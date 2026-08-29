@@ -19,15 +19,15 @@ _ai_configs_herdr_wezterm() {
 # The Kitty workflow may have defined these names as aliases earlier in .zshrc.
 # Remove them before declaring functions because zsh expands aliases while parsing
 # the name() function syntax.
-unalias herdr-mbp herdr-dever herdr-mbp14 2>/dev/null
+unalias herdr-mbp herdr-dever herdr-thump herdr-mbp14 2>/dev/null
 
 herdr-mbp() { _ai_configs_herdr_wezterm mbp; }
 herdr-dever() { _ai_configs_herdr_wezterm dever; }
-herdr-mbp14() { _ai_configs_herdr_wezterm mbp14; }
+herdr-thump() { _ai_configs_herdr_wezterm thump; }
 
 wezterm-remote-help() {
   print -P '%F{cyan}WezTerm remote workflow%f'
-  print -P '  %F{green}herdr-mbp%f / %F{green}herdr-dever%f / %F{green}herdr-mbp14%f  open Herdr in a new WezTerm window'
-  print -P '  %F{yellow}Cmd+Shift+1/2/3%f                         open mbp/dever/mbp14 directly'
+  print -P '  %F{green}herdr-mbp%f / %F{green}herdr-dever%f / %F{green}herdr-thump%f  open Herdr in a new WezTerm window'
+  print -P '  %F{yellow}Cmd+Shift+1/2/3%f                         open mbp/dever/thump directly'
   print -P '  %F{yellow}Cmd+Shift+V%f                             upload a clipboard image and paste its remote path'
 }

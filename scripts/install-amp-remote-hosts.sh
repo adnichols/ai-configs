@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-REMOTE_HOSTS="${AMP_REMOTE_HOSTS:-${KITTY_REMOTE_HOSTS:-mbp dever mbp14}}"
+REMOTE_HOSTS="${AMP_REMOTE_HOSTS:-${KITTY_REMOTE_HOSTS:-mbp dever thump}}"
 STRICT="${AMP_CONFIG_STRICT_REMOTE:-${KITTY_WORKFLOW_STRICT_REMOTE:-0}}"
 
 while (($#)); do

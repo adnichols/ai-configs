@@ -123,7 +123,16 @@ upsert_managed_block "$HOME/.zshrc" "wezterm remote workflow" \
 
 ensure_clipssh_alias mbp anichols@mbp
 ensure_clipssh_alias dever anichols@dever
-ensure_clipssh_alias mbp14 anichols@mbp14
+ensure_clipssh_alias thump anichols@thump
 ensure_clipssh_alias mbp14-2 anichols@mbp14-2
+if [[ -f "$HOME/.clipssh/aliases" ]]; then
+  python3 - "$HOME/.clipssh/aliases" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+lines = [line for line in path.read_text().splitlines() if not line.startswith("mbp14=")]
+path.write_text(("\n".join(lines) + "\n") if lines else "")
+PY
+fi
 
 echo "WezTerm remote workflow installed locally."

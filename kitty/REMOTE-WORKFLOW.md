@@ -22,7 +22,7 @@ kssh dever
 2. Focus the remote Kitty pane.
 3. Press `Cmd+Shift+V` (or `Control+Option+V`).
 
-The helper detects `mbp`, `dever`, or `mbp14` from the active SSH process,
+The helper detects `mbp`, `dever`, or `thump` from the active SSH process,
 foreground process, cwd URI, OS-window title, or tab title; runs `clipssh`;
 uploads to `~/.cache/clipssh/` with mode `0600`; and inserts the remote pathname
 directly into the prompt. Kitty enables `allow_remote_control` so the overlay

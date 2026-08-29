@@ -81,7 +81,7 @@ options_with_value = {
     "--login-shell", "--option", "--port", "--remote-command", "--user",
 }
 
-KNOWN_HOSTS = ("dever", "mbp14-2", "mbp14", "mbp", "mba")
+KNOWN_HOSTS = ("dever", "mbp14-2", "thump", "mbp", "mba")
 
 def base(token):
     return PurePosixPath(token).name

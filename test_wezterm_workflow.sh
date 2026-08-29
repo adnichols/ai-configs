@@ -104,8 +104,8 @@ SH
 chmod +x "$FAKE_BIN/clipssh" "$FAKE_BIN/pbpaste" "$FAKE_BIN/wezterm"
 
 PATH="$FAKE_BIN:$PATH" CLIPSSH_LOG="$TMP_ROOT/clipssh.log" WEZTERM_LOG="$TMP_ROOT/wezterm.log" \
-  bash "$REPO_ROOT/wezterm/wezterm-paste-image-to-ssh" --host mbp14 --pane-id 42
-[[ "$(<"$TMP_ROOT/clipssh.log")" == 'mbp14' ]]
+  bash "$REPO_ROOT/wezterm/wezterm-paste-image-to-ssh" --host thump --pane-id 42
+[[ "$(<"$TMP_ROOT/clipssh.log")" == 'thump' ]]
 rg -q '^cli send-text --pane-id 42 --no-paste$' "$TMP_ROOT/wezterm.log"
 
 if PATH="$FAKE_BIN:$PATH" bash "$REPO_ROOT/wezterm/wezterm-paste-image-to-ssh" --host invalid --pane-id 42 >/dev/null 2>&1; then
@@ -124,8 +124,8 @@ SH
 chmod +x "$FAKE_BIN/wezterm" "$FAKE_BIN/kitten"
 PATH="$FAKE_BIN:$PATH" zsh -fc "alias herdr-mbp='kitten ssh mbp'; alias herdr-dever='kitten ssh dever'; source '$REPO_ROOT/wezterm/remote-workflow.zsh'; whence -w herdr-mbp herdr-dever" \
   | grep -Fxq $'herdr-mbp: function\nherdr-dever: function'
-env -u KITTY_WINDOW_ID PATH="$FAKE_BIN:$PATH" HERDR_LAUNCH_LOG="$TMP_ROOT/launch.log" zsh -fc "source '$REPO_ROOT/wezterm/remote-workflow.zsh'; herdr-mbp14"
-rg -q '^start --always-new-process -- ssh mbp14 -t ~/.local/bin/herdr-kitty$' "$TMP_ROOT/launch.log"
+env -u KITTY_WINDOW_ID PATH="$FAKE_BIN:$PATH" HERDR_LAUNCH_LOG="$TMP_ROOT/launch.log" zsh -fc "source '$REPO_ROOT/wezterm/remote-workflow.zsh'; herdr-thump"
+rg -q '^start --always-new-process -- ssh thump -t ~/.local/bin/herdr-kitty$' "$TMP_ROOT/launch.log"
 PATH="$FAKE_BIN:$PATH" KITTY_WINDOW_ID=1 HERDR_LAUNCH_LOG="$TMP_ROOT/launch.log" zsh -fc "source '$REPO_ROOT/wezterm/remote-workflow.zsh'; herdr-dever"
 rg -q '^ssh dever -t ~/.local/bin/herdr-kitty$' "$TMP_ROOT/launch.log"
 
