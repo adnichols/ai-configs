@@ -19,4 +19,7 @@ ADN_RUNTIME_MARKER:playbook-worktree-cleanup:46756f89270d7e7dcb8c28c90fd0f957ade
 
 This is the one playbook that deletes user state with no code review to catch a slip, so the gates above are the review.
 
+<!-- source-step:worktree-cleanup:7 -->
+7. No PR. End cleanly.
+
 **Reply:** `df -h /` before and after with space reclaimed, the worktrees pruned, and a one-line reason for each held back (in-use by which chat, or uncommitted work).

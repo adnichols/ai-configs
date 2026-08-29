@@ -23,4 +23,7 @@ ADN_RUNTIME_MARKER:playbook-autopilot-stack:46756f89270d7e7dcb8c28c90fd0f957ade4
 
 **Choosing between the autopilots.** Autopilot-full when the PRs are independent and landing authority is granted. Autopilot-stack when the operator wants review before landing, the work is sequenced or coupled, or merge authority is withheld.
 
+<!-- source-step:autopilot-stack:9 -->
+9. Run **Opening a PR** (`playbooks/opening-a-pr.md`).
+
 **Reply:** links to the stack root and tip, a one-line verdict summary per link, and anything parked or excluded with the reason.

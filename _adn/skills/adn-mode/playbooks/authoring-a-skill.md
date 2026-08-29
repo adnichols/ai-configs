@@ -11,7 +11,7 @@ ADN_RUNTIME_MARKER:playbook-authoring-a-skill:46756f89270d7e7dcb8c28c90fd0f957ad
 <!-- source-step:authoring-a-skill:3 -->
 3. Test cases if structural; skip if subjective.
 <!-- source-step:authoring-a-skill:4 -->
-4. Run **Opening a PR**.
+4. Run **Opening a PR** (`playbooks/opening-a-pr.md`).
 
 When in doubt, delete; prose earns its keep by changing a decision. Tell it to do the thing and skip the reason. Explain only when the rule is confusing without one. Match tone to scope. Point at structural sources (types, READMEs, config); hardcoded details go stale (the **encode-lessons-in-structure** principle skill). Delegate to other skills by path; don't restate. A workflow you keep hitting but isn't captured → propose a new skill.
 

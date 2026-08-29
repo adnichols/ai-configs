@@ -17,4 +17,7 @@ A pickup is inheritance. The prior agent already paid the cost of reading the co
 <!-- source-step:session-pickup:5 -->
 5. Verify the inherited claims against the original goal on the real artifact (the **principle-prove-it-works** skill). A passing prior self-report is not the proof.
 
+<!-- source-step:session-pickup:6 -->
+6. No PR. End cleanly.
+
 **Reply:** where the prior agent stopped, what you inherited vs redid (ideally nothing redone), the resume point, and the outcome.

@@ -19,4 +19,7 @@ ADN_RUNTIME_MARKER:playbook-autopilot-full:46756f89270d7e7dcb8c28c90fd0f957ade4c
 <!-- source-step:autopilot-full:7 -->
 7. **Stand down instantly on the operator's stop.** Her hold or stand-down reaches every owner as a zero-writes order immediately. Owners hold their briefs until she releases them.
 
+<!-- source-step:autopilot-full:8 -->
+8. Run **Opening a PR** (`playbooks/opening-a-pr.md`).
+
 **Reply:** the queue with each PR's owner, state, and head SHA; each verdict and the swarm that produced it; what merged and what each owner took next; countersigns granted and why; open operator gates; where the collected decision trails live.

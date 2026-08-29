@@ -15,4 +15,7 @@ ADN_RUNTIME_MARKER:playbook-visual-parity:46756f89270d7e7dcb8c28c90fd0f957ade4ce
 <!-- source-step:visual-parity:5 -->
 5. Run **Opening a PR** per component or per safe batch.
 
+<!-- source-step:visual-parity:6 -->
+6. Run **Opening a PR** (`playbooks/opening-a-pr.md`).
+
 **Reply:** components migrated, the diff result for each, the baseline harness location, what's left.

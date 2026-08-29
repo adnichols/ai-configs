@@ -33,4 +33,7 @@ Evals test how a change affects agent behavior before promoting it: a new skill 
 <!-- source-step:eval:7 -->
 7. **Read every candidate output yourself** end to end. Compare to the judge's verdict. Disagreement means a model is biased or the rubric is ambiguous. Synthesize.
 
+<!-- source-step:eval:8 -->
+8. No PR. End cleanly.
+
 **Reply:** variant under test, rubric, per-candidate notes, judge's verdict, your synthesis, and a recommendation for whether to promote the variant.

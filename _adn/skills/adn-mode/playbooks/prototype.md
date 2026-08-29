@@ -19,4 +19,7 @@ The one playbook where the Laziness Protocol's "smallest change" and the verific
 <!-- source-step:prototype:6 -->
 6. Present alternatives, tradeoffs, and a recommendation. The output is the decision plus the throwaway artifact, not shippable code. Hand the chosen direction to **Feature** (or `architect` for the shape) for the real build.
 
+<!-- source-step:prototype:7 -->
+7. No PR. End cleanly.
+
 **Reply:** the variants explored, the evidence (screenshots for a visual decision, the observed output or timing for a behavioral one), tradeoffs, your recommendation, and the scratch path. Say plainly that the prototype is throwaway.

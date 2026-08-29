@@ -17,4 +17,7 @@ Read-only requests: "how does X work?", "why was Y built this way?", "are we sur
 
 No PR, no babysit, no `architect` unless the investigation precedes a code change. If it does, hand back to the user and re-route to Bug fix or Feature.
 
+<!-- source-step:investigation:5 -->
+5. No PR. End cleanly.
+
 **Reply:** the investigation output. For "are we sure?" answers, include your real judgment with reasons. Push back if the premise is wrong (see Autonomy).

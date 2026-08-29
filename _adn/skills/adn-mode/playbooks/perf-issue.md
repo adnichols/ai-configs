@@ -25,7 +25,7 @@ ADN_RUNTIME_MARKER:playbook-perf-issue:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
 <!-- source-step:perf-issue:5 -->
 5. Cite the measurement in the PR.
 <!-- source-step:perf-issue:6 -->
-6. Run **Opening a PR**.
+6. Run **Opening a PR** (`playbooks/opening-a-pr.md`).
 
 For sustained improvement against a metric rather than a one-off fix, use the Hillclimb playbook (`playbooks/hillclimb.md`).
 

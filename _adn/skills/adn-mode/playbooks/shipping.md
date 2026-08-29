@@ -28,4 +28,7 @@ This is the half after `playbooks/babysit.md`. Babysit makes a stack mergeable. 
 <!-- source-step:shipping:9 -->
 9. **Stop at the ceiling.** When the verified run is merged, report what landed, what the next unverified PR is, and what verifying it would take. Extending the run is a new pass through step 1, not a judgment call you make at 3am.
 
+<!-- source-step:shipping:10 -->
+10. No PR. End cleanly.
+
 **Reply:** the verified run and its ceiling, each PR's verdict and who produced it, what you armed and how you confirmed it, what landed, and what the next gap needs.

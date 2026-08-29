@@ -18,4 +18,7 @@ ADN_RUNTIME_MARKER:playbook-autonomous-run:46756f89270d7e7dcb8c28c90fd0f957ade4c
 <!-- source-step:autonomous-run:6 -->
 6. Stop when the predicate is met. A plateau is not a stop, so keep going and pivot your approach to push past it. Surface a genuine dead end rather than spinning, and never relax the predicate to declare victory.
 
+<!-- source-step:autonomous-run:7 -->
+7. Run **Opening a PR** (`playbooks/opening-a-pr.md`).
+
 **Reply:** the exit condition, iterations run, what landed, what was discarded, final predicate state.

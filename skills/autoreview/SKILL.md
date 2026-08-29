@@ -79,6 +79,10 @@ Prefer the smallest correct fix at the existing ownership boundary. A review fin
 
 This governor cannot hide a concrete current-path regression covered by the valid-input or shared primitive protections above. When the correct in-scope fix cannot remain within the same ownership boundary, use the stop-before protocol and report the trigger, required expansion, affected contract, and smallest decision needed from the user.
 
+## Stakes-scaled fast path
+
+For small, reversible, low-stakes work (comment sweeps, doc nits, narrowly scoped refactors), run one reviewer pass. Rereview only if the fix introduces or exposes a new concrete blocker. Mark the artifact `fast-path: true` and record the reason. The ordinary three-cycle budget is for work where a regression would matter.
+
 ## Review loop
 
 ### 1. Prepare the review packet
@@ -132,6 +136,7 @@ Use the native subagent mechanism for the current harness:
 - **Pi:** invoke the repository-owned `reviewer` via `Agent`; it is `openai-codex/gpt-5.6-terra` at medium reasoning effort.
 - **Claude Code:** invoke the repository-owned `reviewer` subagent; it is `claude-sonnet-5` at high effort.
 - **OpenCode:** invoke the configured `reviewer` subagent; it is `cliproxyapi/gpt-5.6-terra` at medium reasoning effort.
+- **Devin:** invoke the repository-owned `reviewer` custom subagent profile (`~/.config/devin/agents/reviewer.md`) via `run_subagent`; it pins its own model. Run it in the foreground, or in the background and join via `read_subagent` with `block: true`.
 
 #### Candidate visibility contract (mandatory)
 

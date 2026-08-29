@@ -28,4 +28,7 @@ Core discipline: one change, one measurement, keep or revert. Never stack untest
 <!-- source-step:hillclimb:8 -->
 8. Run **Opening a PR** with the accepted commits stacked in the order they landed, so the metric's climb reads top to bottom.
 
+<!-- source-step:hillclimb:9 -->
+9. Run **Opening a PR** (`playbooks/opening-a-pr.md`).
+
 **Reply:** the metric and target, baseline to final with the percent delta, iterations run (kept vs reverted), each accepted fix on one line, the `decision.tsv` path, and the best idea you would try next if pushed further.

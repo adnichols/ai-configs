@@ -15,4 +15,7 @@ ADN_RUNTIME_MARKER:playbook-runtime-forensics:46756f89270d7e7dcb8c28c90fd0f957ad
 <!-- source-step:runtime-forensics:5 -->
 5. Throughput checkpoint stays one line: `throughput checkpoint: n/a, read-only forensics`.
 
+<!-- source-step:runtime-forensics:6 -->
+6. No PR. End cleanly.
+
 **Reply:** the signal captured, the reduced finding, how you proved the mechanism, the source location, artifact paths. No fix unless asked; hand back to Bug fix or Perf once the cause is known.

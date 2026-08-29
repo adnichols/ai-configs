@@ -9,7 +9,7 @@ ADN_RUNTIME_MARKER:playbook-multi-phase-plan:46756f89270d7e7dcb8c28c90fd0f957ade
 <!-- source-step:multi-phase-plan:2 -->
 2. Settle open questions by prototype before you write. For a question about layout, timing, behavior, or whether an API works, run `playbooks/prototype.md`. Keep the branch, the SHA, and the screenshots for Appendix A. Ask the operator only about a product or preference call that no run can settle. Give options (the **never-block-on-the-human** principle skill).
 <!-- source-step:multi-phase-plan:3 -->
-3. Explore in subagents with `subagent_type: "poteto-agent"` and an explicit model per the Subagents section (the **guard-the-context-window** principle skill). Each returns file pointers, conventions, test commands, and entry points. No inlined dumps.
+3. Explore in subagents with the subagent type and model the **Subagents** section names for your harness (the **guard-the-context-window** principle skill). Each returns file pointers, conventions, test commands, and entry points. No inlined dumps.
 <!-- source-step:multi-phase-plan:4 -->
 4. Copy the skeleton below into the plan file and fill every placeholder. Unless the operator names a path, write the file under the agent store's `docs/`. Keep every heading and every sub-block in the order shown. One section per PR. One PR is one change with its own evidence (the **sequence-verifiable-units** principle skill). Name the execution playbook in **How to read this**. Pick between `playbooks/autopilot-full.md` and `playbooks/autopilot-stack.md` per the rule at the end of `playbooks/autopilot-stack.md`. A standing program takes `playbooks/orchestrate.md`.
 <!-- source-step:multi-phase-plan:5 -->
@@ -160,5 +160,8 @@ Each live lane runs on its own cloud VM at the PR head. Drive through `control-u
 
 <Docs to read before editing. Which PRs get `pstack/skills/how/SKILL.md` and `pstack/skills/interrogate/SKILL.md`. The trail per `pstack/skills/show-me-your-work/SKILL.md`.>
 ````
+
+<!-- source-step:multi-phase-plan:8 -->
+8. No PR. End cleanly.
 
 **Reply:** the plan path, the PR ids with their dependencies and the review-gated set, what the prototypes proved and what stays unproven, and the check script's output.

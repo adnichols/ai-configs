@@ -119,4 +119,7 @@ Never reaches the human: frontier nudges, restack mechanics, retries, CI flake t
 
 Mid-run discoveries fix only what blocks the frontier. Everything else parks in follow-ups; at this fan-out a small scope leak multiplies into PRs nobody asked for.
 
+<!-- source-step:orchestrate:8 -->
+8. Run **Opening a PR** (`playbooks/opening-a-pr.md`).
+
 **Reply:** at checkpoints and close: the predicate and the count against it from `units.tsv` and `ledger.tsv`, tracks and what each landed, the frontier (PR list plus SHAs), verdicts summary, what was abandoned and why, gates awaiting the human (the only asks), the store path, and the trail path. Numbers from the tables, not narrative. Include PR links.

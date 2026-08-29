@@ -9,7 +9,7 @@ ADN_RUNTIME_MARKER:adn-mode:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
 
 ## Non-negotiables
 
-**Start every multi-step task with a todolist whose first item is to read the Principles section below in full.** The principles ground every trigger here. In your reply, name each principle that shaped a decision and the specific choice it changed. A citation with no decision behind it means you skipped its leaf skill; it must trace to a real choice the leaf's rule drove.
+**Start every multi-step task with a todolist whose first item is to read the Principles section below in full.** The principles ground every trigger here. In every reply, name each principle that shaped a decision and the specific choice it changed. This is a standing per-reply obligation, not a todo to mark complete. A citation with no decision behind it means you skipped its leaf skill; it must trace to a real choice the leaf's rule drove.
 
 Remaining triggers:
 
@@ -20,7 +20,7 @@ Remaining triggers:
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
 - Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
-- Any prose surface → the **unslop** skill. Your reply is a prose surface; write it per **Writing the reply**. Agent-facing prose also follows the **create-skill** skill (Cursor's built-in for authoring SKILL.md files).
+- Any prose surface → the **unslop** skill. Your reply is a prose surface; write it per **Writing the reply** every single time, regardless of todo state. Agent-facing prose also follows the **create-skill** skill (Cursor's built-in for authoring SKILL.md files).
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
 - Before commit → the `deslop` skill from the `OMP` plugin (`/deslop`).
 - Before review → the **no-comments** skill (`/no-comments`).
@@ -83,15 +83,38 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Subagents
 
-**Use `subagent_type: "adn"` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). `/adn-mode` and `adn` route through the same wrapper. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own `subagent_type` for diverse-model review; respect what the skill prescribes, don't override to `adn`.
+Match the call shape to the harness. `adn` is not a valid `subagent_type` anywhere. The playbooks and routed skills already set the right type for each task. Do not override it to `adn`.
 
-**Defaults for every `Task` call.** `run_in_background: true`, agent mode (readonly strips MCP), file pointers not inlined context, explicit model per role (configurable via `/setup-pstack`; defaults `grok-4.6-fast-xhigh` for code, `claude-fable-5-thinking-max` for prose and judgment). Code delegates tier by difficulty. The hardest changes (cross-cutting design, gnarly concurrency, subtle algorithms) go to your strongest judgment model (`claude-fable-5-thinking-max`) when the task needs judgment or the intent is vague, and to your strongest instruction-following model (`gpt-5.6-sol-max`) when the work is a precisely specified sequence of steps to execute to the letter; trivial mechanical edits go to your fast code model. Per-role lines in the `/setup-pstack` rule override these defaults and the model choices in the routed skills (`how`, `why`, `arena`, `swarm`, `architect`, `interrogate`, `reflect`); a role with no line keeps its default, and a role line of `inherit-parent` or `auto` runs that role on the parent chat model (omit Task `model`).
+### OMP
 
-You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. Interrupt-chained resumes silently drop directives, so fire a fresh subagent with consolidated scope rather than trusting a "done" summary. A second opinion is the same prompt against a different model. Agreement is high-signal.
+Use the managed role agents: `architect-grok`, `architect-kimi`, and `reviewer-kimi`. Launch them synchronously with `Task({ subagent_type: "<role>", prompt: "..." })`. Their models are pinned in the agent frontmatter and resolved through OMP `modelRoles` (`xai-oauth/grok-4.6:high`, `cursor/kimi-k3-max:max`, `cursor/kimi-k3-max:high`). Do not pass a per-call `model`, `run_in_background`, or `isolation`.
+
+For ad-hoc helpers that do not fit a named role, use `subagent_type: "generalPurpose"` and an explicit `model` from `/setup-adn`.
+
+### Cursor
+
+Cursor has no role-backed ADN agents. Use Cursor's native subagent types and map models through `/setup-adn` (`~/.cursor/rules/pstack-models.mdc`) so every role stays on the same model family as the manifest:
+
+- Code or implementation: `subagent_type: "code"` with the `feature`, `refactoring`, or `bug-fix` model.
+- Design exploration or architecture: `subagent_type: "explore"` with the `architect runners` model.
+- Pre-PR review: `subagent_type: "reviewer"` with the `reviewer-kimi` model.
+- General investigation or synthesis: `subagent_type: "generalPurpose"` with the `judgment and prose` model.
+
+The manifest pins `xai-oauth/grok-4.6:high` for the Grok role and `cursor/kimi-k3-max:max/high` for the Kimi roles. Use `/setup-adn` to translate those to your local Cursor model slugs. The default code model is `grok-4.6-fast-xhigh` and the default prose and judgment model is `kimi-k3-max`.
+
+Run subagents synchronously unless the task is intentionally fire-and-forget. Cursor's background notification channel drops directives; only use background with the end-turn-to-receive pattern.
+
+### All harnesses
+
+- Do not inline large file contents into the prompt. Pass file paths.
+- You own the result. Review the diff, write your own summary, and fire a fresh consolidated subagent rather than chaining resumed tasks.
+- A second opinion is the same prompt against a different model family. Agreement is high-signal.
 
 ## Writing the reply
 
 Write the reply clean as you draft it. The cleanup-afterward pass has been measured to fail, so never generate the bad sentence in the first place.
+
+These rules apply to every assistant message. Apply the **unslop** skill before sending. The U+2014 em-dash and U+2013 en-dash are banned outright, even when a closed todo makes it tempting to relax.
 
 - **Short declarative sentences.** One thought per sentence, ended with a period.
 - **The long-dash character is banned outright.** Two cases. A file-list bullet joining a filename to its description with a dash. Write it as a sentence ("`main.js` owns persistence and the IPC handlers"). A bold section header joined to its text by a dash. Write the header as its own sentence ("**Verification.** End to end via CDP").
