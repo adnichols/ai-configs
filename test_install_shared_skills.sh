@@ -586,6 +586,11 @@ assert_shared_skill_install_state() {
     assert_file_not_contains "$home/.agents/fake-npx-skills.log" $'ogulcancelik/herdr\therdr' || return 1
   fi
 
+  [[ -f "$home/.agents/skills/luvus/SKILL.md" ]] || return 1
+  assert_file_contains "$home/.agents/skills/luvus/SKILL.md" 'Do not run bare `luvus`' || return 1
+  [[ -f "$home/.agents/skills/luvus/.ai-configs-managed.json" ]] || return 1
+  assert_file_contains "$home/.agents/skills/luvus/.ai-configs-managed.json" '"source": "skills/luvus"' || return 1
+
   [[ -d "$home/.claude/skills/custom-local" ]] || return 1
 
   claude_backup_dir="$(find_consumer_backup_dir "$home" claude linear)"
@@ -596,6 +601,7 @@ assert_shared_skill_install_state() {
   assert_symlink_target "$home/.claude/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
   assert_symlink_target "$home/.claude/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
   assert_symlink_target "$home/.claude/skills/herdr" "$home/.agents/skills/herdr" || return 1
+  assert_symlink_target "$home/.claude/skills/luvus" "$home/.agents/skills/luvus" || return 1
   for matt_skill in "${matt_skills[@]}"; do
     assert_symlink_target "$home/.cursor/skills/$matt_skill" "$home/.agents/skills/$matt_skill" || return 1
   done

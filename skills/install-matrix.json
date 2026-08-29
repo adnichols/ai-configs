@@ -484,6 +484,18 @@
       "defaultInstall": false,
       "profile": "macos"
     },
+    "luvus": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "canonicalSource": "skills/luvus",
+      "notes": "Repo-owned override of the bundled Luvus control skill (`luvus skill show`). Teaches Codex, Claude, Pi, and Devin to drive a reachable Luvus session for agentic handoffs from inside or outside a managed pane.",
+      "sourceType": "repo"
+    },
     "mcp-builder": {
       "class": "universal-installable",
       "allowedConsumers": [

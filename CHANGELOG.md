@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added a repo-owned `luvus` skill so Codex, Claude, Pi, and Devin can drive Luvus agent panes from inside or outside a managed session.
+
 - Switched managed OMP compaction to an absolute 200k-token threshold (`thresholdPercent: -1`, `thresholdTokens: 200000`), idle compact at 100k after 60s, and pinned Grok `contextWindow` to 200000.
 - Allowlisted DeepInfra Kimi K3 (`deepinfra/moonshotai/Kimi-K3`) for direct selection and upserted it into managed `models.json` so it appears in the Pi picker. It stays outside the managed Pi `enabledModels` cycle.
 
