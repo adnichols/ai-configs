@@ -1266,7 +1266,7 @@ test_integration_integrity_is_common_and_portable() {
   assert_file_not_contains "APPEND_SYSTEM.md" 'After changing a shared contract' || return 1
   assert_file_not_contains "APPEND_SYSTEM.md" 'event-existence test' || return 1
 
-  for skill in integration-integrity safe-git-index oracle-consultation; do
+  for skill in integration-integrity safe-git-index oracle-consultation adversarial-fix-review; do
     [[ -f "$home/.agents/skills/$skill/SKILL.md" ]] || return 1
     assert_file_contains "skills/$skill/SKILL.md" 'description: Use when ' || return 1
   done
@@ -1919,6 +1919,7 @@ test_phase_four_validation_proves_final_alignment() {
   [[ -f "$home/.agents/skills/integration-integrity/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/safe-git-index/SKILL.md" ]] || return 1
   [[ -f "$home/.agents/skills/oracle-consultation/SKILL.md" ]] || return 1
+  [[ -f "$home/.agents/skills/adversarial-fix-review/SKILL.md" ]] || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'name: plan-reviewer-execution-ready' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" '/skill:reviewed-html-plan <same plan and event context, unchanged>' || return 1
   assert_file_contains "$home/.agents/skills/plan-reviewer-execution-ready/SKILL.md" 'Do not wait for another readiness request' || return 1

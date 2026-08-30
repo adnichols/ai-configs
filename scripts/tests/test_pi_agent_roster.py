@@ -435,6 +435,36 @@ class PiAgentRosterTest(unittest.TestCase):
         for required in ("$HOME/.local/bin/git-with-index-lock", "$HOME/.agents/scripts/git-with-index-lock", "lsof", "Never silently fall back"):
             self.assertIn(required, bodies["safe-git-index"])
 
+
+    def test_adversarial_fix_review_is_adn_mode_gated(self):
+        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
+        self.assertNotIn("adversarial-fix-review", doctrine)
+
+        omp = (ROOT / "_omp" / "AGENTS.md").read_text()
+        self.assertNotIn("adversarial-fix-review", omp)
+
+        adn = (ROOT / "_adn" / "skills" / "adn-mode" / "SKILL.md").read_text()
+        self.assertIn("**adversarial-fix-review**", adn)
+        bug = (ROOT / "_adn" / "skills" / "adn-mode" / "playbooks" / "bug-fix.md").read_text()
+        self.assertIn("Run **adversarial-fix-review**", bug)
+
+        skill = ROOT / "skills" / "adversarial-fix-review" / "SKILL.md"
+        metadata, body = frontmatter(skill)
+        self.assertTrue(metadata["description"].startswith("Use when "))
+        self.assertEqual("true", metadata.get("disable-model-invocation"))
+        for required in (
+            "NOT PROVEN",
+            "UNNECESSARY",
+            "reviewer-kimi",
+            "Do not use **interrogate**",
+            "The implementer's summary",
+        ):
+            self.assertIn(required, body)
+
+        matrix = json.loads((ROOT / "skills" / "install-matrix.json").read_text())["installableSkills"]
+        self.assertEqual("universal-installable", matrix["adversarial-fix-review"]["class"])
+
+
     def test_claude_has_only_the_read_only_reviewer_subagent(self):
         agents = ROOT / "_claude" / "agents"
         self.assertEqual({"reviewer.md"}, {path.name for path in agents.glob("*.md")})

@@ -36,4 +36,4 @@ After these sections, attach videos or screenshots when they prove a claim. Do n
 <!-- source-step:opening-a-pr:8 -->
 **Babysit.** Opening a PR does not start a babysit. Post the URL and keep building. Finish the phase or stack first. Run a separate babysit pass only when the user asks for one after the whole stack exists. A babysit for each new PR stalls the build and spends checks on commits that later waves restart. Push back when feedback drifts from intent.
 
-A subagent that opens a PR runs `interrogate`, `/deslop`, and `/no-comments`. It returns the URL and does not babysit. Return to the parent.
+A subagent that opens a PR runs `interrogate`, `/deslop`, and `/no-comments`. If the PR claims a bug is fixed or a change is necessary, it also runs `adversarial-fix-review` first. It returns the URL and does not babysit. Return to the parent.

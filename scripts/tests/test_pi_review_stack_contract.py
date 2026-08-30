@@ -28,6 +28,7 @@ class PiReviewStackContractTest(unittest.TestCase):
             "pi-readme", "pi-append-system", "pi-extension-removals",
             "skill-autoreview", "skill-claude-code-review", "skill-codex-review-partner",
             "skill-delivery-run", "skill-integration-integrity", "skill-oracle-consultation",
+            "skill-adversarial-fix-review",
             "skill-pre-pr-implementation-review", "skill-reviewed-html-plan", "skill-run-plan", "skill-safe-git-index",
             "script-review-orchestration", "script-git-with-index-lock", "script-ensure-git-with-index-lock", "script-delivery",
             "link-git-with-index-lock", "link-ensure-git-with-index-lock", "link-delivery",

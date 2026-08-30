@@ -1,6 +1,18 @@
 {
   "version": 3,
   "installableSkills": {
+    "adversarial-fix-review": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "canonicalSource": "skills/adversarial-fix-review",
+      "notes": "Second-model necessity review for claimed fixes. Independent reviewer must prove the bug still exists, the change is necessary, and the fix works, without treating the implementer's summary as evidence.",
+      "sourceType": "repo"
+    },
     "algorithmic-art": {
       "class": "universal-installable",
       "allowedConsumers": [
