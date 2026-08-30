@@ -27,6 +27,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: `Oracle` is `openai-codex/gpt-5.6-sol:xhigh`. Retry fallbacks now cover Oracle, advisor, architect-kimi, reviewer-kimi, architect-grok, completeness, reviewer, default, smol, and slow.
+
 - Renamed remote host `mbp14` to `thump` in WezTerm/Kitty paste helpers, Amp/OMP remote defaults, clipssh aliases, and docs.
 
 - Synced managed OMP `config.yml` from this host: default is `xai-oauth/grok-4.6:high`. Captured `architect-grok`, `architect-kimi`, and `reviewer-kimi` roles from this host.
