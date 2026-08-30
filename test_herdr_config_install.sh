@@ -35,9 +35,6 @@ case "$1 $2" in
           ready)
             printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","enabled":true,"actions":[{"id":"open"}],"source":{"kind":"github","owner":"thanhdat77","repo":"herdr-navigator","requested_ref":"v0.3.6"}}]}}'
             ;;
-          stale-ref)
-            printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","enabled":true,"actions":[{"id":"open"}],"source":{"kind":"github","owner":"thanhdat77","repo":"herdr-navigator","requested_ref":"v0.3.3"}}]}}'
-            ;;
           wrong-source)
             printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","enabled":true,"actions":[{"id":"open"}],"source":{"kind":"github","owner":"other","repo":"navigator","requested_ref":"v9.9.9"}}]}}'
             ;;
@@ -139,18 +136,6 @@ grep -q '^onboarding = true$' "$TARGET.before-ai-configs"
 [[ "$(grep -c '^plugin enable cobanov.herdr-ntfysh$' "$CALLS")" -eq 1 ]]
 [[ "$(grep -c '^plugin list --plugin cobanov.herdr-ntfysh --json$' "$CALLS")" -eq 3 ]]
 
-printf 'stale-ref\n' > "$TMP_ROOT/navigator-installed"
-HERDR_BIN="$FAKE_HERDR" \
-HERDR_TEST_CALLS="$CALLS" \
-HERDR_TEST_PLUGIN_STATE="$TMP_ROOT/navigator-installed" \
-HERDR_TEST_NTFY_STATE="$TMP_ROOT/ntfy-installed" \
-HERDR_TEST_NTFY_PLUGIN_PATH="$REPO_ROOT/tools/herdr-ntfysh" \
-HERDR_NTFY_SKIP_BUILD=1 \
-HERDR_CONFIG_TARGET="$TARGET" \
-  bash "$REPO_ROOT/herdr/install.sh" >/dev/null
-[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.6 --yes$' "$CALLS")" -eq 2 ]]
-[[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 2 ]]
-
 printf 'wrong-source\n' > "$TMP_ROOT/navigator-installed"
 if HERDR_BIN="$FAKE_HERDR" \
   HERDR_TEST_CALLS="$CALLS" \
@@ -160,9 +145,10 @@ if HERDR_BIN="$FAKE_HERDR" \
   echo 'Expected mismatched Herdr Navigator source to fail safely.' >&2
   exit 1
 fi
-grep -q 'different source' "$TMP_ROOT/wrong-source.err"
-[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.6 --yes$' "$CALLS")" -eq 2 ]]
-[[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 2 ]]
+grep -q 'different source or requested ref' "$TMP_ROOT/wrong-source.err"
+[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.6 --yes$' "$CALLS")" -eq 1 ]]
+[[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 1 ]]
+
 
 
 # Replace an upstream GitHub-managed ntfysh (matching the machine's current

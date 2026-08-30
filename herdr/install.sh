@@ -60,10 +60,9 @@ if (
     source.get("kind") != "github"
     or source.get("owner") != owner
     or source.get("repo") != repo
+    or source.get("requested_ref") != requested_ref
 ):
     print("wrong-source")
-elif source.get("requested_ref") != requested_ref:
-    print("stale-ref")
 elif not any(action.get("id") == "open" for action in plugin.get("actions", [])):
     print("missing-open-action")
 elif plugin.get("enabled") is True:
@@ -86,13 +85,13 @@ ensure_navigator_plugin() {
     ready)
       return 0
       ;;
-    missing|stale-ref)
+    missing)
       "$herdr_bin" plugin install "$NAVIGATOR_PLUGIN_SOURCE" --ref "$NAVIGATOR_PLUGIN_REF" --yes
       ;;
     disabled)
       ;;
     wrong-source)
-      echo "Refusing to replace $NAVIGATOR_PLUGIN_ID: the installed plugin has a different source." >&2
+      echo "Refusing to replace $NAVIGATOR_PLUGIN_ID: the installed plugin has a different source or requested ref." >&2
       return 1
       ;;
     missing-open-action)
