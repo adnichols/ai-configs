@@ -169,4 +169,36 @@ gh pr create \
 If `$EXISTING_NUMBER` is set, do not create. Update that PR's body (and
 title if step 3 changed it) with `gh pr edit "$EXISTING_NUMBER"`. If the
 operator asked for ready, run `gh pr ready "$EXISTING_NUMBER"` after
-squash and push. Print the URL either way.
+squash and push. Print the URL either way. Then report the session
+closeout in step 7. A URL with no gate report is incomplete.
+
+### 7) Session closeout
+
+The operator needs to see which reviews actually ran when the PR URL
+appears. Do not stop at the link.
+
+If this session is the delivery run that owns `.delivery/ledger.json`
+(armed or resumed here, or launched by delivery) and `delivery show`
+matches the branch and PR URL just printed, copy evidence statuses
+from that output. Otherwise ignore the file and use this session's
+artifacts. Unknown is `not-run`. Never report pass, waived, or
+COMPLETE without evidence.
+
+Use this structure:
+
+```markdown
+PR: <url>
+
+### Gates completed
+- Implementation-stage PM: pass, waived, or not-run
+- Autoreview: pass, waived, or not-run. Artifact and reviewer model if present.
+- Completeness: COMPLETE, waived, or not-run. Artifact if present.
+- Verification: commands and result, or not-run
+- Base freshness: current, rebased, or not-run
+- Permanent docs: the recorded disposition, n/a, or not-run
+- PR snapshot: mergeability result, or not-run
+```
+
+Include every row. `not-run` is a valid value. An ad-hoc PR that skipped
+run-plan still uses this list with `not-run` rows. Do not invent a
+run-plan table or relabel skipped gates as pass.
