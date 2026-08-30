@@ -336,7 +336,7 @@ if [[ "${1:-}" == "plugin" ]]; then
         fi
       done
       if [[ "$pid" == "herdr-navigator" && -f "$STATE_DIR/plugins/herdr-navigator" ]]; then
-        printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","source":{"kind":"github","owner":"thanhdat77","repo":"herdr-navigator","requested_ref":"v0.3.3"},"actions":[{"id":"open"}],"enabled":true}]}}'
+        printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","source":{"kind":"github","owner":"thanhdat77","repo":"herdr-navigator","requested_ref":"v0.3.6"},"actions":[{"id":"open"}],"enabled":true}]}}'
         exit 0
       fi
       if [[ "$pid" == "cobanov.herdr-ntfysh" && -f "$STATE_DIR/plugins/herdr-ntfysh.linked" ]]; then

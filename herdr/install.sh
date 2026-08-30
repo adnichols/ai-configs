@@ -9,7 +9,7 @@ NAVIGATOR_PLUGIN_ID="herdr-navigator"
 NAVIGATOR_PLUGIN_OWNER="thanhdat77"
 NAVIGATOR_PLUGIN_REPO="herdr-navigator"
 NAVIGATOR_PLUGIN_SOURCE="$NAVIGATOR_PLUGIN_OWNER/$NAVIGATOR_PLUGIN_REPO"
-NAVIGATOR_PLUGIN_REF="v0.3.3"
+NAVIGATOR_PLUGIN_REF="v0.3.6"
 NTFY_PLUGIN_ID="cobanov.herdr-ntfysh"
 # The vendored copy lives in-repo; herdr links it directly from the checkout.
 NTFY_PLUGIN_PATH="$(cd -- "$SOURCE_DIR/../tools/herdr-ntfysh" && pwd)"
@@ -60,9 +60,10 @@ if (
     source.get("kind") != "github"
     or source.get("owner") != owner
     or source.get("repo") != repo
-    or source.get("requested_ref") != requested_ref
 ):
     print("wrong-source")
+elif source.get("requested_ref") != requested_ref:
+    print("stale-ref")
 elif not any(action.get("id") == "open" for action in plugin.get("actions", [])):
     print("missing-open-action")
 elif plugin.get("enabled") is True:
@@ -85,13 +86,13 @@ ensure_navigator_plugin() {
     ready)
       return 0
       ;;
-    missing)
+    missing|stale-ref)
       "$herdr_bin" plugin install "$NAVIGATOR_PLUGIN_SOURCE" --ref "$NAVIGATOR_PLUGIN_REF" --yes
       ;;
     disabled)
       ;;
     wrong-source)
-      echo "Refusing to replace $NAVIGATOR_PLUGIN_ID: the installed plugin has a different source or requested ref." >&2
+      echo "Refusing to replace $NAVIGATOR_PLUGIN_ID: the installed plugin has a different source." >&2
       return 1
       ;;
     missing-open-action)

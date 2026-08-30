@@ -25,13 +25,17 @@ case "$1 $2" in
     grep -q '^last_pane = "prefix+;"$' "$HERDR_CONFIG_PATH"
     ! grep -q '^command = "herdr-navigator.jump-back"$' "$HERDR_CONFIG_PATH"
     ! grep -q '^key = "prefix+<"$' "$HERDR_CONFIG_PATH"
-    ! grep -q '^command = "fullerzz.sesh.open-picker"$' "$HERDR_CONFIG_PATH"
+    ! grep -q 'fullerzz.sesh' "$HERDR_CONFIG_PATH"
+    grep -q '^command = "persiyanov.reviewr.toggle"$' "$HERDR_CONFIG_PATH"
     ;;
   "plugin list")
     case "$4" in
       "herdr-navigator")
         case "$(cat "$HERDR_TEST_PLUGIN_STATE" 2>/dev/null || true)" in
           ready)
+            printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","enabled":true,"actions":[{"id":"open"}],"source":{"kind":"github","owner":"thanhdat77","repo":"herdr-navigator","requested_ref":"v0.3.6"}}]}}'
+            ;;
+          stale-ref)
             printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","enabled":true,"actions":[{"id":"open"}],"source":{"kind":"github","owner":"thanhdat77","repo":"herdr-navigator","requested_ref":"v0.3.3"}}]}}'
             ;;
           wrong-source)
@@ -63,7 +67,7 @@ case "$1 $2" in
   "plugin install")
     [[ "$3" == "thanhdat77/herdr-navigator" ]]
     [[ "$4" == "--ref" ]]
-    [[ "$5" == "v0.3.3" ]]
+    [[ "$5" == "v0.3.6" ]]
     [[ "$6" == "--yes" ]]
     printf 'ready\n' > "$HERDR_TEST_PLUGIN_STATE"
     ;;
@@ -110,7 +114,7 @@ cmp -s "$REPO_ROOT/herdr/config.toml" "$TARGET"
 grep -q '^onboarding = true$' "$TARGET.before-ai-configs"
 [[ "$(grep -c '^config check$' "$CALLS")" -eq 2 ]]
 [[ "$(grep -c '^plugin list --plugin herdr-navigator --json$' "$CALLS")" -eq 3 ]]
-[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.3 --yes$' "$CALLS")" -eq 1 ]]
+[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.6 --yes$' "$CALLS")" -eq 1 ]]
 [[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 1 ]]
 [[ "$(grep -c '^server reload-config$' "$CALLS")" -eq 1 ]]
 # First run installs the vendored ntfysh: one link, one enable, one state query + one verify query.
@@ -128,12 +132,24 @@ HERDR_CONFIG_TARGET="$TARGET" \
   bash "$REPO_ROOT/herdr/install.sh" >/dev/null
 
 grep -q '^onboarding = true$' "$TARGET.before-ai-configs"
-[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.3 --yes$' "$CALLS")" -eq 1 ]]
+[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.6 --yes$' "$CALLS")" -eq 1 ]]
 [[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 1 ]]
 # Second run is a no-op for ntfysh (already linked and enabled).
 [[ "$(grep -c '^plugin link ' "$CALLS")" -eq 1 ]]
 [[ "$(grep -c '^plugin enable cobanov.herdr-ntfysh$' "$CALLS")" -eq 1 ]]
 [[ "$(grep -c '^plugin list --plugin cobanov.herdr-ntfysh --json$' "$CALLS")" -eq 3 ]]
+
+printf 'stale-ref\n' > "$TMP_ROOT/navigator-installed"
+HERDR_BIN="$FAKE_HERDR" \
+HERDR_TEST_CALLS="$CALLS" \
+HERDR_TEST_PLUGIN_STATE="$TMP_ROOT/navigator-installed" \
+HERDR_TEST_NTFY_STATE="$TMP_ROOT/ntfy-installed" \
+HERDR_TEST_NTFY_PLUGIN_PATH="$REPO_ROOT/tools/herdr-ntfysh" \
+HERDR_NTFY_SKIP_BUILD=1 \
+HERDR_CONFIG_TARGET="$TARGET" \
+  bash "$REPO_ROOT/herdr/install.sh" >/dev/null
+[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.6 --yes$' "$CALLS")" -eq 2 ]]
+[[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 2 ]]
 
 printf 'wrong-source\n' > "$TMP_ROOT/navigator-installed"
 if HERDR_BIN="$FAKE_HERDR" \
@@ -144,9 +160,10 @@ if HERDR_BIN="$FAKE_HERDR" \
   echo 'Expected mismatched Herdr Navigator source to fail safely.' >&2
   exit 1
 fi
-grep -q 'different source or requested ref' "$TMP_ROOT/wrong-source.err"
-[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.3 --yes$' "$CALLS")" -eq 1 ]]
-[[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 1 ]]
+grep -q 'different source' "$TMP_ROOT/wrong-source.err"
+[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.6 --yes$' "$CALLS")" -eq 2 ]]
+[[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 2 ]]
+
 
 # Replace an upstream GitHub-managed ntfysh (matching the machine's current
 # state) with the vendored copy: uninstall, build (skipped here), link, enable.

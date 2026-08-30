@@ -73,18 +73,10 @@ type = "plugin_action"
 command = "herdr-navigator.open"
 description = "open Herdr Navigator"
 
-
 [[keys.command]]
 key = "prefix+shift+f"
 type = "plugin_action"
 command = "persiyanov.reviewr.toggle"
-
-[[keys.command]]
-key = "prefix+shift+b"
-type = "plugin_action"
-command = "fullerzz.sesh.last"
-description = "switch to previous Sesh workspace"
-# Note: fullerzz.sesh is currently disabled, so this binding is inert until enabled.
 
 [update]
 channel = "preview"
