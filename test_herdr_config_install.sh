@@ -35,6 +35,9 @@ case "$1 $2" in
           ready)
             printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","enabled":true,"actions":[{"id":"open"}],"source":{"kind":"github","owner":"thanhdat77","repo":"herdr-navigator","requested_ref":"v0.3.6"}}]}}'
             ;;
+          wrong-ref)
+            printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","enabled":true,"actions":[{"id":"open"}],"source":{"kind":"github","owner":"thanhdat77","repo":"herdr-navigator","requested_ref":"v0.3.5"}}]}}'
+            ;;
           wrong-source)
             printf '%s\n' '{"result":{"plugins":[{"plugin_id":"herdr-navigator","enabled":true,"actions":[{"id":"open"}],"source":{"kind":"github","owner":"other","repo":"navigator","requested_ref":"v9.9.9"}}]}}'
             ;;
@@ -136,6 +139,19 @@ grep -q '^onboarding = true$' "$TARGET.before-ai-configs"
 [[ "$(grep -c '^plugin enable cobanov.herdr-ntfysh$' "$CALLS")" -eq 1 ]]
 [[ "$(grep -c '^plugin list --plugin cobanov.herdr-ntfysh --json$' "$CALLS")" -eq 3 ]]
 
+printf 'wrong-ref\n' > "$TMP_ROOT/navigator-installed"
+if HERDR_BIN="$FAKE_HERDR" \
+  HERDR_TEST_CALLS="$CALLS" \
+  HERDR_TEST_PLUGIN_STATE="$TMP_ROOT/navigator-installed" \
+  HERDR_CONFIG_TARGET="$TARGET" \
+    bash "$REPO_ROOT/herdr/install.sh" >"$TMP_ROOT/wrong-ref.out" 2>"$TMP_ROOT/wrong-ref.err"; then
+  echo 'Expected mismatched Herdr Navigator requested ref to fail safely.' >&2
+  exit 1
+fi
+grep -q 'different source or requested ref' "$TMP_ROOT/wrong-ref.err"
+[[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.6 --yes$' "$CALLS")" -eq 1 ]]
+[[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 1 ]]
+
 printf 'wrong-source\n' > "$TMP_ROOT/navigator-installed"
 if HERDR_BIN="$FAKE_HERDR" \
   HERDR_TEST_CALLS="$CALLS" \
@@ -148,8 +164,6 @@ fi
 grep -q 'different source or requested ref' "$TMP_ROOT/wrong-source.err"
 [[ "$(grep -c '^plugin install thanhdat77/herdr-navigator --ref v0.3.6 --yes$' "$CALLS")" -eq 1 ]]
 [[ "$(grep -c '^plugin enable herdr-navigator$' "$CALLS")" -eq 1 ]]
-
-
 
 # Replace an upstream GitHub-managed ntfysh (matching the machine's current
 # state) with the vendored copy: uninstall, build (skipped here), link, enable.
