@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: `statusLine.preset` is `default`, `statusLine.sessionAccent` is false.
+
 - Synced managed OMP `config.yml` from this host: `advisor` is `openai-codex/gpt-5.6-sol:high`, with retry fallback `xai-oauth/grok-4.6`.
 
 - Synced managed OMP `config.yml` from this host: `Oracle` is `openai-codex/gpt-5.6-sol:xhigh`. Retry fallbacks now cover Oracle, advisor, architect-kimi, reviewer-kimi, architect-grok, completeness, reviewer, default, smol, and slow.

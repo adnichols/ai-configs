@@ -87,6 +87,8 @@ composer:
   shape: claude
 statusLine:
   separator: powerline-thin
+  preset: default
+  sessionAccent: false
 spelling:
   autocomplete: false
   autocorrect: false
