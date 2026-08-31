@@ -11,6 +11,8 @@ Prefer the agent-native commands. Use `herdr agent ...` for supported coding age
 
 The installed binary is the syntax authority. Read [references/cli.md](references/cli.md) when the task needs broad command discovery, lifecycle/configuration commands, or a complete command-group map. `herdr --skill` dumps upstream's inside-pane skill; keep this repo override, which allows a reachable socket from outside a managed pane.
 
+When the request transfers live work to another agent, load `skill://herdr-agent-handoff` before creating or opening any destination session, worktree, workspace, tab, or pane. The handoff skill owns the default new-session-plus-new-worktree topology, same-host and remote routing, runtime and model fidelity, context transfer, callback availability, and ownership change. This skill remains the CLI and resource-control authority.
+
 ## Establish current context
 
 Start with non-mutating discovery:

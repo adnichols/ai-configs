@@ -428,6 +428,18 @@
       "notes": "Repo-owned override of the upstream Herdr control skill. Allows Codex and Claude to control a reachable Herdr session from outside a managed pane instead of treating `HERDR_ENV=1` as a hard prerequisite.",
       "sourceType": "repo"
     },
+    "herdr-agent-handoff": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "canonicalSource": "skills/herdr-agent-handoff",
+      "notes": "Live Herdr agent transfer workflow. Defaults to a new same-host named session and worktree, preserves the source runtime and active model, supports an explicit remote destination, and leaves the source agent available for context.",
+      "sourceType": "repo"
+    },
     "improve-codebase-architecture": {
       "class": "universal-installable",
       "allowedConsumers": [
