@@ -18,6 +18,7 @@ When the work isn't trivial, build the tool that does it instead of doing it by 
 - When you fan work out to subagents, write the lever as a skill they all read: the recipe, the verification contract, and the do-not-touch fences in one artifact, so every delegate inherits the same hardened version instead of re-explaining it per prompt and watching each one drift. Keep it outside the delegates' write scope so they can't quietly edit the contract.
 - Applying this principle produces a file. If you cited it and there is no codemod, script, generator, or delegate skill in the diff, you didn't apply it.
 - Commit the lever when the work outlives the session, so the next run reruns it instead of redoing it.
+- A lever is a committed script, codemod, generator, or skill a reviewer reruns with `bash` or the native tools. Silent `Path.write_text` or prelude `write()` of tracked files from the OMP eval kernel is not a lever.
 
 **Balance:** The bar is triviality, not repetition. A one-off still earns a lever when the lever is what makes the work checkable. Per the [Laziness Protocol](../principle-laziness-protocol/SKILL.md), build the smallest script that does or proves the job, never a framework.
 

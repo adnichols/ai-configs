@@ -5,6 +5,7 @@ disabledProviders:
 extensions:
   - ~/.omp/agent/extensions/deepinfra.ts
   - ~/.omp/agent/extensions/thinking-shortcuts.ts
+  - ~/.omp/agent/extensions/eval-no-file-writes.ts
 symbolPreset: nerd
 theme:
   dark: titanium

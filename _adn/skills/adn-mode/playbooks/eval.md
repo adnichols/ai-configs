@@ -3,6 +3,7 @@ ADN_RUNTIME_MARKER:playbook-eval:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
 ### Eval
 
 **You own the experiment design. Plan, blind, run, synthesize.**
+This playbook is a blind skill A/B test. It is not the OMP `eval` kernel tool.
 
 Evals test how a change affects agent behavior before promoting it: a new skill variant, a structural change, a prompt tweak. The failure mode is the observer effect. An agent that knows it's being evaluated behaves differently, so candidates must run blind.
 

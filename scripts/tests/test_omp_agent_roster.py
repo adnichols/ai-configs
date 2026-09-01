@@ -46,6 +46,7 @@ class OmpAgentRosterTest(unittest.TestCase):
                 "orca-prefill.ts",
                 "orca-titlebar-spinner.ts",
                 "thinking-shortcuts.ts",
+                "eval-no-file-writes.ts",
             },
             {path.name for path in EXTENSIONS.glob("*.ts")},
         )
@@ -199,6 +200,7 @@ class OmpAgentRosterTest(unittest.TestCase):
                     "orca-prefill.ts",
                     "orca-titlebar-spinner.ts",
                     "thinking-shortcuts.ts",
+                    "eval-no-file-writes.ts",
                 },
                 {path.name for path in (target / "extensions").glob("*.ts")},
             )
