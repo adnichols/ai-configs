@@ -51,6 +51,16 @@ destructive-action, external-coordination, or third-party PR boundaries.
   `@completeness`. Do not invent a packet.
 
 
+## Tool routing
+
+- `eval` is scratch analysis in a persistent kernel: counts, parses, probes,
+  in-memory transforms. Never use it to create or patch tracked files
+  (`Path.write_text`, prelude `write()`, `Bun.write` to a repo path).
+- `edit` for surgical edits to existing files. `write` for new files. `bash`
+  to run a committed lever.
+- The adn-mode **Eval** playbook (blind skill A/B tests) is not the `eval`
+  tool.
+
 ## Safety
 
 - Do not expose secrets, credentials, private keys, or sensitive user data in

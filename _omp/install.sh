@@ -26,6 +26,7 @@ SOURCE_EXTENSIONS=(
   "$SOURCE_DIR/extensions/orca-prefill.ts"
   "$SOURCE_DIR/extensions/orca-titlebar-spinner.ts"
   "$SOURCE_DIR/extensions/thinking-shortcuts.ts"
+  "$SOURCE_DIR/extensions/eval-no-file-writes.ts"
 )
 SOURCE_ADN="$REPO_ROOT/_adn"
 SOURCE_ADN_MANIFEST="$SOURCE_ADN/manifest.json"
