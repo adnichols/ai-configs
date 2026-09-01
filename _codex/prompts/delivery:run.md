@@ -5,8 +5,10 @@ argument-hint: '[issue-key | plan-path | plan-slug]'
 
 # /delivery:run
 
-This command does **not** arm delivery. If `.delivery/ledger.json` is missing,
-stop and tell the operator to arm delivery ("arm our delivery workflow").
+This command does **not** arm delivery. If `.delivery/ledger.json` is missing
+and the operator asked for completeness, PM review, or pre-PR after
+implementation, late-attach with `delivery arm --from existing-implementation`
+and continue. Otherwise tell them to `/delivery` or `delivery arm`. Do not require a spoken phrase.
 Do not run `delivery init` or `delivery bootstrap` to create a ledger.
 
 If a ledger already exists, load the installed `delivery-run` skill
@@ -24,4 +26,4 @@ Keep the per-worktree delivery ledger current while calling existing worker skil
 - missing recommended evidence is recorded as gap/pending and work may continue
 - the ledger's recorded runtime profile governs implementation-pane launch and completeness; follow it exactly and record any deliberate model/reasoning override with a reason
 
-Do not claim local merge readiness for a Herdr delivery worktree until the profile's current completeness evidence is accepted or the operator explicitly waives it. Reflect at the end.
+Completeness is on-request. Do not block local merge readiness on a missing completeness artifact. Reflect at the end.

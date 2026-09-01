@@ -34,7 +34,7 @@ Imaging launch contract (Pi): call `Agent` with only `subagent_type: "imaging"`,
 - Claude's driving session performs discovery, planning, implementation, testing, documentation, and repository management directly with native tools.
 - The sole repository-owned Claude subagent is `_claude/agents/reviewer.md`: a read-only `claude-sonnet-5` reviewer at `high` effort. Commands may invoke it only for bounded plan or code review; they must not delegate implementation, testing, fixes, or repository management.
 - Devin's driving session likewise implements directly with native tools. Its repository-owned custom subagent profiles live in `_devin/agents/` and install to `~/.config/devin/agents/`: `reviewer` and `planner` (sonnet), `oracle` and `completeness` (opus). Invoke them by profile name via `run_subagent` only for bounded planning, decision support, or read-only review. The shared delivery ledger supports only the `omp`/`pi` runtimes; Devin sessions use `run-plan` with the standalone `completeness` packet instead of arming delivery.
-- Required code reviews run through the active harness's configured `reviewer` subagent. In a Herdr delivery run, additionally require the visible labeled-tab Pi completeness reviewer on `xai/grok-4.5:high` to return `COMPLETE` against the plan before local merge readiness; it is a read-only plan-completeness loop, not a substitute for the code-review gate. Do not make Codex or Claude Code a required review transport.
+- Required code reviews run through the active harness's configured `reviewer` subagent. Completeness is an on-request plan walk, not a merge-readiness gate. Do not make Codex or Claude Code a required review transport.
 - On Cursor Grok or Composer parents, launch required reviewers with `run_in_background: true` and join via `get_subagent_result` (`wait: true`). The vendored `pi-cursor-sdk` bridge also forces background for `Agent` on those models.
 - Codex driving agents likewise implement authorized changes directly with their native repository tools.
 
@@ -88,7 +88,7 @@ Many of the Codex prompts in this repo assume that application repositories defi
   - After completing a listed sub-task or step, immediately change its checkbox from `[ ]` to `[x]` in the same file.
   - Verify that the change is reflected in the file (do not batch updates at the end).
   - Keep any “Relevant Files” or similar sections accurate as files are created or modified.
-  - Exception: delivery-managed HTML implementation plans keep phase progress in the delivery/coverage ledger during implementation, then synchronize truthful source-plan and Doct checkboxes once immediately before completeness review. This preserves the reviewed-plan hash; material plan changes still require a fresh readiness cycle.
+  - Exception: delivery-managed HTML implementation plans keep phase progress in the delivery/coverage ledger during implementation, then synchronize truthful source-plan and Doct checkboxes once immediately before PR. This preserves the reviewed-plan hash; material plan changes still require a fresh readiness cycle.
 - Prefer repository-specific guidance for tools, security, and performance; this central file is only a baseline.
 
 Projects should copy this section into their own `AGENTS.md` and adjust details (branch naming, test commands, security expectations) to match local norms.
@@ -124,7 +124,7 @@ These rules apply to fidelity-oriented workflows (PRDs/specs → tasks → imple
     - After completing a listed sub-task or step, immediately change its checkbox from `[ ]` to `[x]` in the same file.
     - Verify that the change is present in the file (avoid batching updates at the end).
     - Keep any “Relevant Files” / “Changed Files” sections accurate as files are created or modified.
-    - Exception: delivery-managed HTML implementation plans keep phase progress in the delivery/coverage ledger during implementation, then synchronize truthful source-plan and Doct checkboxes once immediately before completeness review. This preserves the reviewed-plan hash; material plan changes still require a fresh readiness cycle.
+    - Exception: delivery-managed HTML implementation plans keep phase progress in the delivery/coverage ledger during implementation, then synchronize truthful source-plan and Doct checkboxes once immediately before PR. This preserves the reviewed-plan hash; material plan changes still require a fresh readiness cycle.
   - For BDD/TDD execution plans:
     - Review for concrete in-scope failures; you are not required to widen the change for speculative risks, unrelated architecture work, or polish.
     - Use one implementation review plus one targeted rereview after fixes by default. Allow a third round only for a new concrete blocker introduced or exposed by the fix. Before reporting review non-convergence, require exactly one bounded, read-only, advisory consultation through the harness's configured consultation surface for the fixed candidate branch/diff whether or not a PR exists; in Pi this is the repository-owned `oracle` subagent. Only if authorized, run one scope-bound `REVIEW_ESCAPE` adversarial reviewer-pair pass plus the existing single pass-after-fixes allowance. Do not consult repeatedly or review until clean.
@@ -203,9 +203,11 @@ Pi now supports both:
 ```bash
 # Per-worktree delivery board / stage ledger (guidance, not gates)
 # Tracks plan <-> review -> run-plan -> autoreview -> PR without hard-blocking
-# Delivery is EXPLICIT OPT-IN ONLY: it arms only when you say
-# "arm our delivery workflow", invoke /delivery or `delivery arm`, or
-# `delivery spawn` / /delivery:spawn. /prewalk and /run-plan never arm it.
+# Delivery is EXPLICIT OPT-IN ONLY for a full cycle: /delivery, `delivery arm`,
+# `delivery spawn` / /delivery:spawn, or "arm our delivery workflow". That
+# phrase is one trigger, not a required recitation. After implementation, a
+# request to run completeness, PM review, or pre-PR late-attaches silently.
+# /prewalk and /run-plan never arm it.
 # If /prewalk is still armed, delivery will refuse. If a ledger exists, /prewalk refuses.
 # Single in-session arm (same worktree):
 /delivery
@@ -230,7 +232,7 @@ delivery board
 delivery check -v
 
 # Full reviewed-plan implementation through ready PR:
-# implementation, PM review, autoreview, completeness, base freshness,
+# implementation, PM review, autoreview, base freshness,
 # PR creation, local merge-readiness consensus, and safe auto-rebase
 /run-plan <thoughts/plans/<plan>.html | plan-slug>
 /skill:run-plan <thoughts/plans/<plan>.html | plan-slug>
@@ -264,9 +266,9 @@ unless it already satisfies that format.
 
 Expected Pi reviewed-plan flow in this repo:
 - Active browser-reviewed plans are semantic HTML files under `thoughts/plans/<slug>.html`; do not create Markdown companions for that flow.
-- `/delivery` / `delivery arm` / "arm our delivery workflow" is the only in-session way to create a delivery ledger. `/prewalk` and `/run-plan` do not enter that path. After a non-delivery implementation, the same arm with `--from existing-implementation` attaches at review without launching an impl pane.
+- `/delivery` / `delivery arm` / "arm our delivery workflow" arms a full delivery cycle. `/prewalk` and `/run-plan` do not enter that path. After a non-delivery implementation, a request to run completeness, PM review, or pre-PR is late-attach authorization: run `delivery arm --from existing-implementation` silently and do not ask the operator to recite a phrase.
 - `/delivery:run` / `/skill:delivery-run` keeps a per-worktree stage ledger and board for the plan ↔ review → run-plan → autoreview → PR cycle **after delivery is already armed**. Doctrine is guidance, not gates: `delivery check` advisories never hard-block continuation.
-- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan. It implements in the current session unless a delivery ledger already exists. In a delivery-managed Herdr run, `delivery stage EXECUTION_READY` automatically authorizes the exact reviewed plan and launches the dedicated recorded implementation pane without another routine approval pause. The Sol-medium readiness reviewer recommends GPT-5.6 Luna xhigh by default or GPT-5.6 Terra high when correctness depends materially on technical judgment, while an explicitly recorded manual model/reasoning choice remains allowed; unresolved consequential choices escalate to Oracle rather than routing implementation through Sol. Implementation then proceeds through implementation-stage PM review, the active-harness reviewer-subagent pre-PR review, a visible labeled-tab Pi/Grok 4.5 completeness-review loop to `COMPLETE`, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus.
+- `/run-plan <plan>` / `/skill:run-plan <plan>` is the full implementation-through-ready-PR workflow for an existing execution-ready reviewed plan. It implements in the current session unless a delivery ledger already exists. Completeness is on-request, not a required gate. In a delivery-managed Herdr run, `delivery stage EXECUTION_READY` automatically authorizes the exact reviewed plan and launches the dedicated recorded implementation pane without another routine approval pause. The Sol-medium readiness reviewer recommends GPT-5.6 Luna xhigh by default or GPT-5.6 Terra high when correctness depends materially on technical judgment, while an explicitly recorded manual model/reasoning choice remains allowed; unresolved consequential choices escalate to Oracle rather than routing implementation through Sol. Implementation then proceeds through implementation-stage PM review, the active-harness reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, and local merge-readiness consensus.
 - `/dev:reviewed-html-plan <task | plan>` / `/skill:reviewed-html-plan <task | plan>` is the browser-reviewed HTML pre-execution gate for Doct plan feedback plus PM and independent Sol-medium planner-subagent plan review; it must register through `doct-agent plans register --title '<Plan Title>'` (required; match plan frontmatter/`<title>`/`<h1>`), follow returned `listenerInstructions`, and start the durable queue-backed listener before browser-review handoff.
 - `skills/doct-document-ops/SKILL.md` is the sole source for concrete Doct plan commands, HTML plan publishing guidance, listener startup, readiness metadata, canonical URL rules, and comment mechanics; other planning skills should reference it instead of duplicating command recipes. Doct plans are HTML-only — do not produce or register Markdoc plans.
 - `/skill:dev-plan <task>` remains available for planning-only work.
@@ -275,8 +277,8 @@ Expected Pi reviewed-plan flow in this repo:
 Expected OMP delivery flow in this repo:
 - Read `skill://delivery-run`, select `runtime=omp` / `workflowProfile=omp-lite`, and keep `.delivery/ledger.json` as the shared authoritative scoreboard.
 - Use normal OMP mode for planning and same-session implementation. The driving OMP session uses `xai-oauth/grok-4.6:high` by default for implementation, scoped review, and PM outcome review; use `openai-codex/gpt-5.6-terra:high` when correctness depends materially on technical judgment. Unresolved consequential choices escalate to Oracle rather than routing implementation through Sol. Do not enable native plan mode, launch Pi, require a Pi implementation profile, or use Pi slash commands.
-- Use the configured OMP `@planner` and `@reviewer` contracts for readiness and autoreview, and `@completeness` on `xai/grok-4.5:high` for completeness. Load `skill://completeness` before launching that reviewer. OMP completeness is accepted only through the request-bound envelope from `delivery completion-review --prepare`; no Pi/Grok witness tab is involved.
-- OMP Lite renders only `PL:`, `I:`, `R:`, `PR:`, `D:`, and `B:` phase labels. It cannot enter PR stages without PM outcome, autoreview, and current completeness evidence, or enter `DONE` without final verification and PR evidence.
+- Use the configured OMP `@planner` and `@reviewer` contracts for readiness and autoreview. Load `skill://completeness` only when the operator asks for a plan walk. OMP completeness, when requested, is accepted only through the request-bound envelope from `delivery completion-review --prepare`; no Pi/Grok witness tab is involved.
+- OMP Lite renders only `PL:`, `I:`, `R:`, `PR:`, `D:`, and `B:` phase labels. It cannot enter PR stages without PM outcome and autoreview, or enter `DONE` without final verification and PR evidence. Completeness is on-request and does not block those stages.
 
 
 Legacy external review commands remain explicit opt-in tools. They are not hidden fallbacks inside plan mode or execution.
@@ -340,10 +342,10 @@ This repository includes Pi-specific prompt templates under `_pi/prompts/`, pi-s
 **Reviews:**
 - `/skill:reviewed-html-plan` — Create/register browser-reviewed HTML plans in Doct, start the returned durable listener, process Doct plan feedback, and run PM plus the independent Sol-medium planner-subagent plan review. Planning-only use stops at the execution-ready plan; a delivery-managed Herdr run automatically launches the dedicated implementation agent at `EXECUTION_READY`.
 - `/skill:delivery-run` — Per-worktree delivery stage ledger and board for plan ↔ review → run-plan → autoreview → PR. Guidance not gates; `delivery check` advisories never hard-block.
-- `/skill:autoreview` — Canonical bounded active-harness reviewer-subagent pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to completeness then PR creation instead of concluding or waiting for external approval.
-- `/skill:completeness` — OMP driver for `@completeness` request-bound plan-completeness review (`skill://completeness`). Required after autoreview and before a run-plan PR.
+- `/skill:autoreview` — Canonical bounded active-harness reviewer-subagent pre-PR implementation review with one targeted rereview after fixes; a third round is reserved for a new blocker introduced or exposed by the fix. Inside `run-plan` it returns `OPEN_PR_READY` and hands back to PR creation instead of concluding or waiting for external approval.
+- `/skill:completeness` — OMP driver for `@completeness` request-bound plan-completeness review (`skill://completeness`). Use only when the operator asks for a plan walk. Not required after autoreview or before a run-plan PR.
 - `/skill:pre-pr-implementation-review` — Indefinite compatibility alias for `/skill:autoreview`; it preserves arguments and the same `OPEN_PR_READY` handoff semantics.
-- `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, pre-PR autoreview, completeness review, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
+- `/skill:run-plan` — Execute an explicit plan through implementation, implementation-stage PM review, pre-PR autoreview, base freshness, verification, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed.
 
 
 ### Configuration

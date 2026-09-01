@@ -80,12 +80,12 @@ class OmpAgentRosterTest(unittest.TestCase):
         self.assertIn("default: xai-oauth/grok-4.6:high", config)
         self.assertIn("smol: deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:max", config)
         self.assertIn("advisor: xai-oauth/grok-4.6:high", config)
-        self.assertIn("Oracle: cursor/kimi-k3-max:max", config)
+        self.assertIn("Oracle: openai-codex/gpt-5.6-sol:xhigh", config)
         self.assertIn("slow: openai-codex/gpt-5.6-sol:high", config)
         self.assertIn("plan: openai-codex/gpt-5.6-sol:high", config)
         self.assertIn("completeness: xai-oauth/grok-4.6:high", config)
         self.assertIn("reviewer: xai-oauth/grok-4.6:high", config)
-        self.assertIn("advisor: none", config)
+        self.assertNotIn("advisor: none", config.split("tier:", 1)[0])
         self.assertEqual("completeness", metadata.get("name"))
         self.assertEqual("xai/grok-4.5:high", metadata.get("model"))
         self.assertIn("request-bound artifact", metadata.get("description", ""))
@@ -116,6 +116,8 @@ class OmpAgentRosterTest(unittest.TestCase):
             "skill://delivery-run",
             "skill://completeness",
             "authoritative for all workflow details",
+            "late-attach authorization",
+            "Do not refuse",
         ):
             self.assertIn(required, guidance)
 

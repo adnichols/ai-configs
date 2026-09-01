@@ -33,7 +33,7 @@ modelRoles:
   designer: openai-codex/gpt-5.6-sol:high
   commit: openai-codex/gpt-5.6-sol:medium
   tiny: deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:low
-  advisor: openai-codex/gpt-5.6-sol:high
+  advisor: xai-oauth/grok-4.6:high
   Oracle: openai-codex/gpt-5.6-sol:xhigh
   reviewer: xai-oauth/grok-4.6:high
   default: xai-oauth/grok-4.6:high

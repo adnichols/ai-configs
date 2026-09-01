@@ -2,8 +2,7 @@
 """Delivery stage ledger CLI.
 
 Guidance, not gates: recommended checks produce advisories and never block
-continuation. Explicit readiness review, entering implementation, and a
-validated visible completeness review before local merge readiness are the
+continuation. Explicit readiness review and entering implementation are the
 exceptions.
 """
 
@@ -1539,9 +1538,6 @@ def terminal_stage_problem(ledger: dict[str, Any], root: Path, stage: str) -> st
         missing.append("adversarialQa")
     if not ledger.get("prUrl"):
         missing.append("prUrl")
-    completeness_problem = completeness_review_problem(ledger, root)
-    if completeness_problem:
-        missing.append(f"completenessReview ({completeness_problem})")
     if missing:
         return "missing required delivery evidence: " + ", ".join(missing)
     return None
@@ -1563,9 +1559,6 @@ def omp_lite_delivery_problem(ledger: dict[str, Any], root: Path, stage: str) ->
         key for key in required_pass
         if (evidence.get(key) or {}).get("status") != "pass"
     ]
-    completeness_problem = completeness_review_problem(ledger, root)
-    if completeness_problem:
-        missing.append(f"completenessReview ({completeness_problem})")
     if stage == "DONE" and not ledger.get("prUrl"):
         missing.append("prUrl")
     if missing:
@@ -2505,22 +2498,12 @@ def cmd_stage(args: argparse.Namespace) -> int:
         if is_omp_lite(ledger) and stage in {"PR_OPEN", "MERGE_READY", "DONE"}:
             die(
                 f"cannot enter {stage}: {transition_problem}. "
-                "Run `delivery check -v`, record the missing OMP review or closeout evidence, "
-                "and use `delivery completion-review --prepare` for missing or stale completeness."
+                "Run `delivery check -v` and record the missing OMP review or closeout evidence."
             )
         die(
             f"cannot enter {stage}: {transition_problem}. "
             "Continue processing ordinary feedback in PLAN_BROWSER_REVIEW."
         )
-    if stage == "MERGE_READY":
-        completeness_problem = completeness_review_problem(ledger, root)
-        if completeness_problem:
-            die(
-                "cannot enter MERGE_READY: "
-                f"{completeness_problem}. Run `delivery completion-review`, fix in-plan findings, "
-                "then run `delivery completion-review --accept` after `VERDICT: COMPLETE`; only a "
-                "direct operator waiver may use `delivery completion-review --waive --summary \"...\"`."
-            )
     prev = ledger.get("stage")
     ledger["stage"] = stage
     refresh_git_fields(ledger, root)
@@ -4207,10 +4190,6 @@ def cmd_blocker(args: argparse.Namespace) -> int:
             transition_problem = stage_transition_problem(ledger, root, args.stage)
             if transition_problem:
                 die(f"cannot restore {args.stage}: {transition_problem}")
-            if args.stage == "MERGE_READY":
-                completeness_problem = completeness_review_problem(ledger, root)
-                if completeness_problem:
-                    die(f"cannot restore MERGE_READY: {completeness_problem}")
             previous = ledger["stage"]
             ledger["stage"] = args.stage
             append_history(ledger, "stage", f"{previous} -> {args.stage}")
@@ -5336,15 +5315,19 @@ implementation to another process. The ledger is the shared scoreboard, not the 
 
 ## OMP completeness
 
-At `COMPLETENESS_REVIEW`, run `delivery completion-review --prepare
---reviewer-identity omp-completeness-grok-4.5-high`. Send the emitted packet unchanged
-to `@completeness` on `xai/grok-4.5:high`. Write its exact seven-line response envelope
-to the packet's artifact path, then run `delivery completion-review --accept --response-id <id>`.
-Fix an `INCOMPLETE` result and prepare a fresh request; never reuse a response ID.
+Only if the operator asked for a plan walk: at `COMPLETENESS_REVIEW`, run
+`delivery completion-review --prepare --reviewer-identity
+omp-completeness-grok-4.5-high`. Send the emitted packet unchanged to
+`@completeness` on `xai/grok-4.5:high`. Write its exact seven-line response
+envelope to the packet's artifact path, then run
+`delivery completion-review --accept --response-id <id>`. Fix an `INCOMPLETE`
+result and prepare a fresh request; never reuse a response ID. Skip this
+section when they did not ask.
 
-PM outcome review, autoreview, current completeness evidence, final verification, and PR
-evidence remain required. Reflection and adversarial QA are optional and never gate OMP
-completion or change the visible OMP phase.
+PM outcome review, autoreview, final verification, and PR evidence remain
+required. Completeness is on-request and never gates OMP completion.
+Reflection and adversarial QA are optional and never gate OMP completion or
+change the visible OMP phase.
 
 ## Current advisories
 
