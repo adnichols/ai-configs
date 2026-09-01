@@ -437,7 +437,7 @@
         "devin"
       ],
       "canonicalSource": "skills/herdr-agent-handoff",
-      "notes": "Live Herdr agent transfer workflow. Defaults to a new same-host named session and worktree, preserves the source runtime and active model, supports an explicit remote destination, and leaves the source agent available for context.",
+      "notes": "Live Herdr agent transfer workflow. Defaults to a new worktree in the current same-host session, preserves the source runtime and active model, supports an explicit remote destination or named session only when asked, and leaves the source agent available for context.",
       "sourceType": "repo"
     },
     "improve-codebase-architecture": {

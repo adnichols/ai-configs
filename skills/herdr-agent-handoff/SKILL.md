@@ -1,10 +1,11 @@
 ---
 name: herdr-agent-handoff
 description: >-
-  Transfer live coding work to a new agent in a new Herdr session and a new Git
-  worktree. Use whenever the operator asks to move, hand off, send, delegate,
-  or continue current work in another Herdr agent and checkout. Default to a
-  new same-host Herdr session plus worktree. Support a remote destination only
+  Transfer live coding work to a new agent in a new Git worktree in the
+  current Herdr session. Use whenever the operator asks to move, hand off,
+  send, delegate, or continue current work in another Herdr agent and checkout.
+  Default to a new worktree in the current same-host session. Create a new
+  named session only when the operator asks. Support a remote destination only
   when the operator specifies one. Preserve the source runtime and active model,
   give the receiver a callback path, verify acceptance, and leave the source
   agent available for context. This is a live agent transfer, not a handoff
@@ -14,7 +15,7 @@ description: >-
 
 # Hand off work to a Herdr agent
 
-Move ownership, not only files. A completed handoff has a new Herdr session, a new Git worktree, and a live destination agent that accepted the task. The source agent stops implementing after acceptance but stays available for context questions.
+Move ownership, not only files. A completed handoff has a new Git worktree in the current Herdr session and a live destination agent that accepted the task. The source agent stops implementing after acceptance but stays available for context questions.
 
 Use the `herdr` skill as the authority for current CLI syntax and returned JSON fields.
 
@@ -22,15 +23,15 @@ Use the `herdr` skill as the authority for current CLI syntax and returned JSON 
 
 Unless the operator says otherwise:
 
-- Create a new named Herdr session on the source host.
+- Stay in the current Herdr session on the source host.
 - Create a new Git worktree in that session.
 - Start a new agent in the worktree's root pane.
 - Use the same agent kind, active fully qualified model, and separate reasoning level as the source agent.
 - Keep the source agent alive and addressable until the destination agent says that it no longer needs source context.
 
-Do not reuse the source session or checkout. Do not create only a worktree and then continue the transferred work from the source agent.
+Do not reuse the source checkout. Do not create a new named session unless the operator asks for one. Do not create only a worktree and then continue the transferred work from the source agent.
 
-If the operator specifies a remote host, create both the Herdr session and the worktree on that host. Without an explicit remote host, use the local host. Paths in remote commands refer to the destination host.
+If the operator specifies a remote host, create the worktree on that host in that host's current session unless they also name a session. Without an explicit remote host, use the local host. Paths in remote commands refer to the destination host.
 
 ## Record the source before mutation
 
@@ -102,16 +103,22 @@ Build one reusable `<destination-herdr>` prefix and apply it unchanged to every 
 For the default same-host transfer, `<destination-herdr>` is:
 
 ```bash
-herdr --session <new-session>
+herdr
+```
+
+Use `--session` only when the operator asked for a named session:
+
+```bash
+herdr --session <named-session>
 ```
 
 For an operator-specified remote transfer, `<destination-herdr>` is:
 
 ```bash
-herdr --remote <destination-ssh-target> --session <new-session>
+herdr --remote <destination-ssh-target>
 ```
 
-Always create a new destination session name. The `--remote` and `--session` selectors are global selectors before the command group. The `--session` selector creates or targets that named persistent Herdr session. Do not omit either selector from later destination discovery, creation, start, prompt, wait, get, read, or pane commands.
+Add `--session <named-session>` on the remote prefix only when the operator named one. Do not invent a destination session name. `--remote` and `--session` are global selectors before the command group. Include whichever selectors the destination uses on every later destination discovery, creation, start, prompt, wait, get, read, or pane command. Omit `--session` when staying in the current or default session.
 
 Begin destination discovery through the same prefix:
 
@@ -244,7 +251,7 @@ herdr --remote <source-ssh-target> --session <source-session> \
 Use this first prompt. Fill in only source-selected context. Do not require a file:
 
 ```text
-You will own this task in a new Herdr session and Git worktree.
+You will own this task in a new Git worktree in this Herdr session.
 
 Source callback:
 - Host or SSH target: <source-host-or-target>
@@ -308,7 +315,7 @@ Do not close the source session as cleanup immediately after transfer.
 
 A shell-only worktree is not a handoff. Report `HANDOFF_INCOMPLETE` and the failed step if any of these operations fail:
 
-- destination session creation or selection;
+- operator-requested destination session creation or selection;
 - worktree creation;
 - source Git-state capture;
 - exact source commit availability on the destination host;
