@@ -7,6 +7,12 @@ description: Execute an existing implementation plan persistently through code c
 
 Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates, active-harness reviewer-subagent pre-PR review gate, and runtime-specific plan-completeness review, while preventing reviewer-driven scope creep.
 
+## ADN execution discipline
+
+On OMP, load the installed `adn-mode` skill before any other run-plan step and keep it active through closeout. `run-plan` owns the lifecycle, plan scope, runtime routing, review budgets, and PR closeout. `adn-mode` owns the applicable principles, playbook discipline, implementation style, and reply discipline. If the contracts conflict, follow `run-plan` for lifecycle and scope. Follow `adn-mode` for how the work is performed.
+
+Do not load or emulate `adn-mode` on another harness. ADN is the OMP adaptation of poteto mode. Non-OMP runtimes continue with their native run-plan contracts.
+
 When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before applying runtime-specific instructions. `omp / omp-lite` keeps implementation, scoped review, and PM outcome review in the current `xai-oauth/grok-4.6:high` OMP session; use `openai-codex/gpt-5.6-terra:high` when correctness depends materially on technical judgment. It uses the request-bound `@completeness` envelope from `xai/grok-4.5:high`, produced by `delivery completion-review --prepare`; it does not require a dedicated Pi pane, Pi model-profile verification, Pi slash commands, or a Grok tab. `pi / pi-full` retains the dedicated implementation pane, planner-selected profile, and visible labeled-tab Grok completeness loop. Never convert an existing ledger between profiles.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.

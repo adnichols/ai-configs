@@ -7,8 +7,10 @@ const ADN_MODE = join(ROOT, "skills", "adn-mode");
 const SKILL = join(ADN_MODE, "SKILL.md");
 const PLAY = join(ADN_MODE, "playbooks");
 const REFERENCES = join(ADN_MODE, "references");
+const RUN_PLAN = join(ROOT, "..", "skills", "run-plan", "SKILL.md");
 
 const skill = readFileSync(SKILL, "utf8");
+const runPlan = readFileSync(RUN_PLAN, "utf8");
 
 function markdownFiles(dir: string): string[] {
   return readdirSync(dir)
@@ -28,6 +30,12 @@ describe("adn-mode contract", () => {
   test("adn-mode points to the right setup skill", () => {
     expect(skill).not.toContain("/setup-pstack");
     expect(skill).toContain("/setup-adn");
+  });
+
+  test("run-plan automatically activates adn-mode on OMP only", () => {
+    expect(runPlan).toContain("On OMP, load the installed `adn-mode` skill before any other run-plan step");
+    expect(runPlan).toContain("keep it active through closeout");
+    expect(runPlan).toContain("Do not load or emulate `adn-mode` on another harness");
   });
 
   test("adn-mode files contain no em-dashes or en-dashes", () => {
