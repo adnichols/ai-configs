@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Removed Pi's always-on `APPEND_SYSTEM.md`. Conditional procedures stay in skills. `cmd-create-pr` now loads for any `gh pr` create, update, comment, or similar mutating PR action, including forks. Install removes leftover `~/.pi/agent/APPEND_SYSTEM.md`.
+
 - Synced managed OMP `config.yml` from this host: `statusLine.preset` is `default`, `statusLine.sessionAccent` is false.
 
 - Synced managed OMP `config.yml` from this host: `advisor` is `openai-codex/gpt-5.6-sol:high`, with retry fallback `xai-oauth/grok-4.6`.

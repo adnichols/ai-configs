@@ -124,7 +124,6 @@ def main() -> int:
     # Explicitly forbid naming Oracle in the operator text already; reinforce
     # autonomy without mentioning the subagent.
     append_bits = [
-        str(ROOT / "APPEND_SYSTEM.md"),
         "Project-local AGENTS.md in the checkout is authoritative for this fixture.",
         "Host Pi agents from the installed agent directory are available.",
     ]
@@ -150,8 +149,6 @@ def main() -> int:
         append_bits[0],
         "--append-system-prompt",
         append_bits[1],
-        "--append-system-prompt",
-        append_bits[2],
         "--skill",
         str(ROOT / "skills/oracle-consultation"),
         # Keep tools needed for Agent + inspection; avoid unrelated extensions noise.

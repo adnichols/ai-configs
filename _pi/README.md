@@ -47,7 +47,6 @@ Installed layout:
 └── ...
 
 ~/.pi/agent/
-├── APPEND_SYSTEM.md
 ├── README.md
 ├── models.json
 ├── prompts/
@@ -66,9 +65,7 @@ Installed layout:
     └── grok-context-ceiling-policy.ts
 ```
 
-The installer renders the repo-root `APPEND_SYSTEM.md` into `~/.pi/agent/APPEND_SYSTEM.md` through `scripts/render_pi_append_system.py`. It replaces `{{AI_CONFIGS_VERSION}}` with `YYYY-MM-DD+<git-sha>` and appends `-dirty` only when the doctrine file differs from that commit, so behavior reports can be tied back to repository history. Installation fails outside a Git checkout, when the doctrine is untracked, or if the template token is missing, duplicated, or remains unresolved.
-
-The doctrine is request-type-first: questions, explanations, inspection, research, diagnosis, review, planning discussion, and status requests remain read-only unless the user separately authorizes a change. Persistence instructions increase effort only within the already-authorized scope.
+Pi does not install an always-on `APPEND_SYSTEM.md`. Older copies under `~/.pi/agent/APPEND_SYSTEM.md` are removed on install. Conditional procedures load through skills; `cmd-create-pr` covers any `gh pr` create, update, comment, or similar mutating PR action, including forks.
 
 The bounded review-stack route is `./install.sh --pi-review-stack`. Its source of truth is `scripts/pi-review-stack-managed-surfaces.json`; install, rollback, and scoped verification expand that same manifest. The route probes effective planner/reviewer isolation, model, reasoning, and target-checkout handling without a model call. Add `--summary-json <path>` for an atomic private install-summary-v1 receipt, or use `scripts/install-pi-transactionally.sh --summary-json <path>` when rollback evidence is required.
 
@@ -354,10 +351,9 @@ Skills:
 
 - Pi global resources live under `~/.pi/agent/`, not `~/.pi/`.
 - Repo-managed extensions live in `~/.pi/agent/extensions/`; package-managed installs are reported by `pi list`.
-- `~/.pi/agent/APPEND_SYSTEM.md` is rendered from the repo-root `APPEND_SYSTEM.md` with its install date and source Git SHA recorded on the `Doctrine-Version` line. The prompt keeps only always-on authority, ownership, and communication rules; conditional implementation procedures load through skills.
 - Project-local Pi resources can also live under `.pi/prompts/`, `.pi/skills/`, `.pi/agents/`, and `.pi/extensions/`.
 - Pi natively auto-discovers both `~/.agents/skills/` and `~/.pi/agent/skills/`; this repo uses `~/.agents/skills/` as the only skill runtime location so OMP and Pi discover the same skills. During skill sync, valid Pi-local skills are promoted into `~/.agents/skills/`, conflicts are backed up in favor of the shared copy, and stale or dangling Pi-local entries are removed. Repo-owned skill payloads come from `skills/`, while package-backed entries are fetched per `skills/install-matrix.json`. Skills marked `defaultInstall: false` stay in the inventory but are backed out of default discovery to reduce session context.
-- `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`. The global `oracle` and `imaging` agents are available to ordinary Pi sessions and delivery workflows. APPEND_SYSTEM tells driving agents to load `oracle-consultation` proactively for consequential unresolved choices and to invoke `imaging` when the current model cannot see visual input; `/consult:oracle <decision>` is the explicit Oracle shortcut.
+- `@tintinweb/pi-subagents`-compatible agent definitions install to `~/.pi/agent/agents/`. The global `oracle` and `imaging` agents are available to ordinary Pi sessions and delivery workflows. Load `oracle-consultation` proactively for consequential unresolved choices and invoke `imaging` when the current model cannot see visual input; `/consult:oracle <decision>` is the explicit Oracle shortcut.
 - `_pi/agents/Explore.md` is only an `enabled: false` override for tintinweb's bundled `Explore` persona; it does not define a repository-owned Explore persona. It does not affect the separately installed `@howaboua/pi-explore-subagents` extension or its `explore_subagent` tool, which remains the intended isolated-discovery path.
 - For delivery and plan-driven execution, GPT-5.6 Luna xhigh in the driving session is the default repository-owned Pi GPT code-writing route. Use GPT-5.6 Terra high when correctness depends materially on technical judgment; unresolved consequential choices can escalate to Oracle. Perform implementation, test changes, fixes, and repository management directly with native tools. Prefer direct targeted reads for discovery; use `explore_subagent` only as a bounded read-only exception when broad discovery materially benefits from isolated context. Never route code-writing through a subagent or persona.
 

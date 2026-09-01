@@ -173,11 +173,6 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertNotIn("inherit_context", imaging_metadata)
 
     def test_oracle_is_proactively_available_inside_and_outside_workflows(self):
-        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
-        self.assertIn("load `oracle-consultation`", doctrine)
-        self.assertIn("invoke Oracle proactively", doctrine)
-        self.assertIn("Do not wait for the operator to request it", doctrine)
-
         consultation = ROOT / "skills" / "oracle-consultation" / "SKILL.md"
         self.assertTrue(consultation.is_file())
         metadata, consultation_body = frontmatter(consultation)
@@ -226,11 +221,6 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("decision-support workflow", fixture_prompt)
 
     def test_imaging_is_proactively_available_for_non_vision_models(self):
-        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
-        self.assertIn("`imaging` subagent", doctrine)
-        self.assertIn("cannot see an image", doctrine)
-        self.assertIn("Do not wait for the operator to request it", doctrine)
-
         metadata, body = frontmatter(AGENTS / "imaging.md")
         self.assertIn("Use proactively", metadata.get("description", ""))
         self.assertIn("openai-codex/gpt-5.6-luna", metadata.get("model", ""))
@@ -258,9 +248,9 @@ class PiAgentRosterTest(unittest.TestCase):
         }
         self.assertTrue(all(not path.exists() for path in retired_claude_agents))
 
-        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text().lower()
-        self.assertIn("driving agent owns development work directly", doctrine)
-        self.assertIn("do not delegate code edits", doctrine)
+        catalog = (ROOT / "AGENTS.md").read_text().lower()
+        self.assertIn("the driving agent performs code changes", catalog)
+        self.assertIn("do not route code-writing, tests, fixes, or repository operations through any pi persona", catalog)
 
         surfaces = [
             ROOT / "_pi" / "prompts",
@@ -290,9 +280,9 @@ class PiAgentRosterTest(unittest.TestCase):
         }
         self.assertTrue(all(not path.exists() for path in retired_claude_agents))
 
-        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text().lower()
-        self.assertIn("driving agent owns development work directly", doctrine)
-        self.assertIn("do not delegate code edits", doctrine)
+        catalog = (ROOT / "AGENTS.md").read_text().lower()
+        self.assertIn("the driving agent performs code changes", catalog)
+        self.assertIn("do not route code-writing, tests, fixes, or repository operations through any pi persona", catalog)
 
         surfaces = [
             ROOT / "_pi" / "prompts",
@@ -406,20 +396,16 @@ class PiAgentRosterTest(unittest.TestCase):
         readme = (ROOT / "_pi" / "README.md").read_text()
         self.assertIn("`oracle`, `planner`, and `reviewer` declare `isolation: none`", readme)
 
-    def test_append_system_uses_progressive_disclosure(self):
-        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
-        self.assertLess(len(doctrine.split()), 600)
-        for skill in ("integration-integrity", "safe-git-index", "oracle-consultation"):
-            self.assertIn(f"`{skill}`", doctrine)
-        for moved_detail in (
-            "ENSURE=",
-            "openai-codex/gpt-5.6-sol",
-            "Cursor Grok",
-            "get_subagent_result",
-            "TARGET_CHECKOUT",
-        ):
-            self.assertNotIn(moved_detail, doctrine)
+    def test_cmd_create_pr_description_matches_adhoc_gh_pr(self):
+        metadata, body = frontmatter(ROOT / "skills" / "cmd-create-pr" / "SKILL.md")
+        description = metadata["description"].lower()
+        self.assertIn("gh pr", description)
+        for token in ("create", "update", "comment", "fork"):
+            self.assertIn(token, description)
+        self.assertIn("PR authority is repository-bound", body)
 
+    def test_conditional_doctrine_lives_in_skills(self):
+        self.assertFalse((ROOT / "APPEND_SYSTEM.md").exists())
         matrix = json.loads((ROOT / "skills" / "install-matrix.json").read_text())["installableSkills"]
         bodies = {}
         for skill in ("integration-integrity", "safe-git-index", "oracle-consultation"):
@@ -437,9 +423,6 @@ class PiAgentRosterTest(unittest.TestCase):
 
 
     def test_adversarial_fix_review_is_adn_mode_gated(self):
-        doctrine = (ROOT / "APPEND_SYSTEM.md").read_text()
-        self.assertNotIn("adversarial-fix-review", doctrine)
-
         omp = (ROOT / "_omp" / "AGENTS.md").read_text()
         self.assertNotIn("adversarial-fix-review", omp)
 

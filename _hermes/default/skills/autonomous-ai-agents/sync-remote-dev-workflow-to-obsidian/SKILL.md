@@ -97,7 +97,6 @@ rsync -az <host>:~/code/ai-configs/_pi/extensions/ "$BASE/extensions"
 rsync -az <host>:~/code/ai-configs/_pi/packages/ "$BASE/packages"
 scp <host>:~/code/ai-configs/_pi/README.md "$BASE/README.remote.md"
 
-scp <host>:~/.pi/agent/APPEND_SYSTEM.md "$BASE/runtime-APPEND_SYSTEM.md"
 scp <host>:~/.pi/agent/mcp.json "$BASE/runtime-mcp.json"
 scp <host>:~/.pi/agent/models.json "$BASE/runtime-models.json"
 scp <host>:~/.pi/agent/multi-pass.json "$BASE/runtime-multi-pass.json"
@@ -121,7 +120,6 @@ rt = base/"runtime-config"
 rt.mkdir(exist_ok=True)
 
 for src_name, dst_name in {
-    "runtime-APPEND_SYSTEM.md":"APPEND_SYSTEM.md",
     "runtime-mcp.json":"mcp.json",
     "runtime-models.json":"models.json",
     "runtime-multi-pass.json":"multi-pass.json",

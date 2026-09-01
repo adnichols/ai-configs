@@ -1701,19 +1701,14 @@ install_codex() {
 }
 
 
-# Install shared appended system guidance for Pi with traceable repo metadata.
-install_pi_append_system_file() {
+# Older installs wrote always-on Pi doctrine here. Skills now own that guidance.
+remove_pi_append_system_file() {
     local agent_target="$1"
-    local append_system_source="$REPO_ROOT/APPEND_SYSTEM.md"
     local append_system_target="$agent_target/APPEND_SYSTEM.md"
 
-    if [ -f "$append_system_source" ]; then
-        local version
-        version="$(python3 "$REPO_ROOT/scripts/render_pi_append_system.py" \
-            --repo "$REPO_ROOT" \
-            --source "$append_system_source" \
-            --target "$append_system_target")" || return 1
-        echo "  - Installed APPEND_SYSTEM.md (${version})"
+    if [ -e "$append_system_target" ] || [ -L "$append_system_target" ]; then
+        rm -f "$append_system_target"
+        echo "  - Removed leftover APPEND_SYSTEM.md"
     fi
 }
 
@@ -2536,7 +2531,7 @@ install_pi() {
         cp "$pi_source_dir/README.md" "$pi_agent_dir/README.md"
     fi
 
-    install_pi_append_system_file "$pi_agent_dir"
+    remove_pi_append_system_file "$pi_agent_dir"
 
     if [ "$is_update" = true ]; then
         echo -e "${GREEN}✓ Pi update complete${NC}"
@@ -2689,9 +2684,7 @@ PY
                 ;;
             file)
                 mkdir -p "$(dirname "$destination")"
-                if [ "$id" = "pi-append-system" ]; then
-                    install_pi_append_system_file "$agent"
-                elif [ "$mode" = "preserve" ]; then
+                if [ "$mode" = "preserve" ]; then
                     cp -a "$REPO_ROOT/$source" "$destination"
                 else
                     install -m "$mode" "$REPO_ROOT/$source" "$destination"

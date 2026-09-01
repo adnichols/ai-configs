@@ -1,6 +1,6 @@
 ---
 name: cmd-create-pr
-description: Create a GitHub pull request from the current branch using gh CLI. Use when ready to submit code for review.
+description: Use when running any gh pr create, reopen, update, comment, or similar mutating PR action, including forks.
 ---
 
 # Create Pull Request

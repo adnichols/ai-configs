@@ -1174,80 +1174,26 @@ JSON
   assert_file_not_contains "$settings_path" 'pi-interactive-shell' || return 1
 }
 
-test_pi_doctrine_renderer_tracks_exact_git_state() {
-  local repo non_git source target commit expected
-  repo="$(new_tmp_dir)/repo"
-  non_git="$(new_tmp_dir)/non-git"
-  source="$repo/APPEND_SYSTEM.md"
-  target="$repo/rendered.md"
-  mkdir -p "$repo" "$non_git"
-
-  printf 'Doctrine-Version: {{AI_CONFIGS_VERSION}}\n' > "$source"
-  printf 'unrelated\n' > "$repo/unrelated.txt"
-  git -C "$repo" init -q
-  git -C "$repo" config user.name 'ai-configs test'
-  git -C "$repo" config user.email 'ai-configs-test@example.invalid'
-  git -C "$repo" add APPEND_SYSTEM.md unrelated.txt
-  git -C "$repo" commit -q -m 'test doctrine source'
-  commit="$(git -C "$repo" rev-parse --short=8 HEAD)"
-  expected="2026-07-13+$commit"
-
-  python3 scripts/render_pi_append_system.py --repo "$repo" --source "$source" --target "$target" --date 2026-07-13 >/dev/null || return 1
-  [[ "$(head -n 1 "$target")" == "Doctrine-Version: $expected" ]] || return 1
-
-  printf 'changed unrelated\n' > "$repo/unrelated.txt"
-  python3 scripts/render_pi_append_system.py --repo "$repo" --source "$source" --target "$target" --date 2026-07-13 >/dev/null || return 1
-  [[ "$(head -n 1 "$target")" == "Doctrine-Version: $expected" ]] || return 1
-
-  printf '\nchanged doctrine\n' >> "$source"
-  python3 scripts/render_pi_append_system.py --repo "$repo" --source "$source" --target "$target" --date 2026-07-13 >/dev/null || return 1
-  [[ "$(head -n 1 "$target")" == "Doctrine-Version: $expected-dirty" ]] || return 1
-
-  git -C "$repo" update-index --assume-unchanged APPEND_SYSTEM.md
-  python3 scripts/render_pi_append_system.py --repo "$repo" --source "$source" --target "$target" --date 2026-07-13 >/dev/null || return 1
-  [[ "$(head -n 1 "$target")" == "Doctrine-Version: $expected-dirty" ]] || return 1
-  git -C "$repo" update-index --no-assume-unchanged APPEND_SYSTEM.md
-
-  git -C "$repo" update-index --skip-worktree APPEND_SYSTEM.md
-  python3 scripts/render_pi_append_system.py --repo "$repo" --source "$source" --target "$target" --date 2026-07-13 >/dev/null || return 1
-  [[ "$(head -n 1 "$target")" == "Doctrine-Version: $expected-dirty" ]] || return 1
-  git -C "$repo" update-index --no-skip-worktree APPEND_SYSTEM.md
-
-  printf 'Doctrine-Version: {{AI_CONFIGS_VERSION}}\n' > "$non_git/APPEND_SYSTEM.md"
-  if python3 scripts/render_pi_append_system.py --repo "$non_git" --source "$non_git/APPEND_SYSTEM.md" --target "$non_git/rendered.md" --date 2026-07-13 >/dev/null 2>&1; then
-    return 1
-  fi
-}
-
-test_pi_interaction_doctrine_is_versioned_and_read_only_by_default() {
-  local home output_file installed_doctrine expected_version
+test_pi_install_removes_leftover_append_system() {
+  local home output_file leftover
   home="$(new_tmp_dir)"
   output_file="$home/pi-install.log"
-  installed_doctrine="$home/.pi/agent/APPEND_SYSTEM.md"
+  leftover="$home/.pi/agent/APPEND_SYSTEM.md"
+  mkdir -p "$(dirname "$leftover")"
+  printf 'stale doctrine\n' > "$leftover"
 
   run_installer_capture "$home" "$output_file" --pi || {
     cat "$output_file" >&2
     return 1
   }
 
-  [[ -f "$installed_doctrine" ]] || return 1
-  expected_version="$(date +%F)+$(git rev-parse --short=8 HEAD)"
-  if ! git diff --quiet HEAD -- APPEND_SYSTEM.md; then
-    expected_version="$expected_version-dirty"
-  fi
-  [[ "$(head -n 1 "$installed_doctrine")" == "Doctrine-Version: $expected_version" ]] || return 1
-  assert_file_not_contains "$installed_doctrine" '{{AI_CONFIGS_VERSION}}' || return 1
-  assert_file_contains "$installed_doctrine" 'do not authorize implementation' || return 1
-  assert_file_contains "$installed_doctrine" 'Do not edit files, run state-changing commands, create execution todos' || return 1
-  assert_file_contains "$installed_doctrine" 'increases persistence only within that scope' || return 1
-
-  assert_file_contains "APPEND_SYSTEM.md" 'Doctrine-Version: {{AI_CONFIGS_VERSION}}' || return 1
-  assert_file_not_contains "APPEND_SYSTEM.md" 'assume they want you to act' || return 1
+  [[ ! -e "$leftover" ]] || return 1
+  assert_file_contains "$output_file" 'Removed leftover APPEND_SYSTEM.md' || return 1
+  [[ ! -e "APPEND_SYSTEM.md" ]] || return 1
+  [[ ! -e "scripts/render_pi_append_system.py" ]] || return 1
   [[ ! -e "_pi/extensions/todo.ts" ]] || return 1
   assert_file_contains "_pi/README.md" 'Task tracking is provided exclusively' || return 1
   assert_file_contains "AGENTS.md" 'Interaction authority boundary' || return 1
-  assert_file_contains "README.md" 'request-type-first' || return 1
-  assert_file_contains "_pi/README.md" 'request-type-first' || return 1
 }
 
 test_integration_integrity_is_common_and_portable() {
@@ -1261,10 +1207,8 @@ test_integration_integrity_is_common_and_portable() {
     return 1
   }
 
-  assert_file_contains "APPEND_SYSTEM.md" 'load `integration-integrity`' || return 1
-  assert_file_contains "$installed_doctrine" 'load `integration-integrity`' || return 1
-  assert_file_not_contains "APPEND_SYSTEM.md" 'After changing a shared contract' || return 1
-  assert_file_not_contains "APPEND_SYSTEM.md" 'event-existence test' || return 1
+  [[ ! -e "$installed_doctrine" ]] || return 1
+  [[ ! -e "APPEND_SYSTEM.md" ]] || return 1
 
   for skill in integration-integrity safe-git-index oracle-consultation adversarial-fix-review; do
     [[ -f "$home/.agents/skills/$skill/SKILL.md" ]] || return 1
@@ -2123,8 +2067,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "$hermes_run_plan" 'Run exactly one bounded, static inspection with the active harness' || return 1
   assert_file_not_contains "$hermes_run_plan" 'claude-code-review' || return 1
   assert_file_contains "_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md" "active harness's \`reviewer\` subagent" || return 1
-  assert_file_not_contains "APPEND_SYSTEM.md" 'For required implementation/code review' || return 1
-  assert_file_not_contains "APPEND_SYSTEM.md" 'GPT-5.6 Sol at medium reasoning effort' || return 1
+  [[ ! -e "APPEND_SYSTEM.md" ]] || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'active-harness reviewer' || return 1
   assert_file_contains "skills/reviewed-html-plan/SKILL.md" 'planner` subagent' || return 1
 }
@@ -2183,8 +2126,7 @@ main() {
   run_test test_pi_install_replaces_gpt_config_packages
   run_test test_verify_pi_install_reports_stale_goal_package
   run_test test_pi_install_removes_retired_interactive_shell_when_pi_list_fails
-  run_test test_pi_doctrine_renderer_tracks_exact_git_state
-  run_test test_pi_interaction_doctrine_is_versioned_and_read_only_by_default
+  run_test test_pi_install_removes_leftover_append_system
   run_test test_integration_integrity_is_common_and_portable
   run_test test_integration_integrity_materializes_across_workflows
   run_test test_tdd_test_writer_is_direct_and_distributed

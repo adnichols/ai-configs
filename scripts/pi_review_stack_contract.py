@@ -269,10 +269,7 @@ def command_verify(args):
             if item["id"] in {"helper-process-identity", "helper-review-supervisor"} and (not destination.is_file() or stat.S_IMODE(os.lstat(str(destination)).st_mode) & 0o500 != 0o500):
                 failures.append("installed review helper must be owner-readable and executable: %s" % destination)
                 continue
-            if item["id"] == "pi-append-system":
-                if not valid_append_system(repo_root, source, destination):
-                    failures.append("installed rendered APPEND_SYSTEM.md")
-            elif not destination.is_file() or source.read_bytes() != destination.read_bytes():
+            if not destination.is_file() or source.read_bytes() != destination.read_bytes():
                 if item["id"] == "script-review-orchestration":
                     failures.append("installed review runtime parity %s" % destination)
                 else:
@@ -318,25 +315,6 @@ def same_tree(left, right, ignore=()):
     args.extend([str(left), str(right)])
     result = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return result.returncode == 0
-
-
-def valid_append_system(repo_root, source, destination):
-    if not destination.is_file():
-        return False
-    source_text = source.read_text(encoding="utf-8")
-    installed = destination.read_text(encoding="utf-8")
-    token = "{{AI_CONFIGS_VERSION}}"
-    if source_text.count(token) != 1 or token in installed:
-        return False
-    prefix, suffix = source_text.split(token)
-    if not installed.startswith(prefix) or not installed.endswith(suffix):
-        return False
-    version = installed[len(prefix):len(installed) - len(suffix) if suffix else None]
-    commit = subprocess.run(["git", "-C", str(repo_root), "rev-parse", "--short=8", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
-    relative = source.resolve().relative_to(repo_root).as_posix()
-    committed = subprocess.run(["git", "-C", str(repo_root), "show", "HEAD:" + relative], check=True, capture_output=True).stdout
-    dirty = source.read_bytes() != committed
-    return re.fullmatch(r"\d{4}-\d{2}-\d{2}\+%s%s" % (re.escape(commit), "-dirty" if dirty else ""), version) is not None
 
 
 def valid_model_merge(source, destination, settings_path):
