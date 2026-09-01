@@ -51,17 +51,22 @@ profile already pins them.
 
 - Delivery is **explicit opt-in only**. Do not arm, spawn, bootstrap, or enter
   it for generic planning, implementation, PR, Linear, worktree, plan, or
-  build requests. Enter only when the operator says
+  build requests. Enter a full cycle when the operator says
   "arm our delivery workflow", invokes `/delivery` or `delivery arm`, or
-  invokes `/delivery:spawn` or `delivery spawn`.
+  invokes `/delivery:spawn` or `delivery spawn`. After a non-delivery
+  implementation, a request to run completeness, PM review, or pre-PR is
+  late-attach authorization in a supported harness; do that paperwork
+  silently and do not require a spoken phrase.
 - The shared delivery ledger currently supports only the `omp` and `pi`
   runtimes. Do not arm or spawn a delivery ledger from a Devin session; if
-  the operator asks, explain the limitation and offer `run-plan` with its
-  standalone completeness gate instead.
+  the operator asks, explain the limitation and offer `run-plan` instead.
+  If they also asked for a completeness check, run the standalone packet
+  form. Do not refuse the completeness check itself.
 - Once delivery is explicitly invoked in a supported harness, the operator
-  must run it there. In Devin, use the `run-plan` skill for plan execution
-  and the `completeness` skill (standalone packet form) for the
-  plan-completeness gate; do not invent a packet.
+  must run it there. In Devin, use the `run-plan` skill for plan execution.
+  Completeness is on-request: if asked, use the `completeness` skill
+  (standalone packet form) and do not invent a packet. Do not ask the
+  operator to recite a delivery trigger phrase.
 
 ## Safety
 

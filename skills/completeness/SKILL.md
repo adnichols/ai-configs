@@ -1,14 +1,19 @@
 ---
 name: completeness
-description: Run plan-completeness review through the active harness's completeness reviewer. Use when the operator asks for a completeness check or completeness review, after autoreview on run-plan, or before opening a PR or claiming merge readiness that needs a request-bound completeness artifact.
+description: Run skill://completeness as an on-request plan walk through the active harness's completeness reviewer. Use only when the operator asks for a completeness check or plan walk. Do not run this automatically after autoreview, before a PR, or as merge-readiness.
 ---
 
 # Completeness
 
 Driver skill for the active harness's independent plan-completeness reviewer.
-Do not review the change yourself. Do not invent envelope fields.
+Do not review the change yourself. Do not invent envelope fields. When the
+operator asks for completeness, run it. Do not refuse. Do not ask them to
+arm delivery or recite a trigger phrase.
 
-`run-plan` must run this gate after autoreview and before PR creation, unless the operator explicitly instructs opening the PR regardless of review status. Do not open a PR on `OPEN_PR_READY` alone. An explicit override opens the PR immediately; disclose the missing or non-COMPLETE completeness state and do not claim merge readiness.
+This is not a run-plan or delivery gate. Autoreview `OPEN_PR_READY` is
+permission to continue to verification and PR. Do not block PR creation or
+merge readiness on a missing completeness artifact. When the operator asks
+for a plan walk, run this skill and follow its packet contract.
 
 ## Stakes-scaled fast path
 
@@ -31,9 +36,12 @@ must be exactly `packet.requiredEnvelope` (`VERDICT` may be `COMPLETE` or
 On `INCOMPLETE`, fix in-plan findings and prepare a fresh request. Do not
 reuse a stale, replayed, or incomplete artifact.
 
-Do not arm delivery just to run this skill. Delivery ledgers support only
-the `omp` and `pi` runtimes; a Devin session always uses the standalone form
-below.
+If no ledger exists and this is after implementation, a request for
+completeness, PM review, or pre-PR is late-attach authorization. Run
+`delivery arm --from existing-implementation` silently and use the packet
+path above. Do not ask them to recite a phrase. Otherwise run standalone.
+Delivery ledgers support only the `omp` and `pi` runtimes. A Devin session
+always uses the standalone form below.
 
 ## Standalone (no ledger)
 

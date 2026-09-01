@@ -5,8 +5,10 @@ argument-hint: '[issue-key | plan-path | plan-slug]'
 
 # /delivery:run
 
-This command does **not** arm delivery. If `.delivery/ledger.json` is missing,
-stop and tell the operator to `/delivery` or say "arm our delivery workflow".
+This command does **not** arm delivery. If `.delivery/ledger.json` is missing
+and the operator asked for completeness, PM review, or pre-PR after
+implementation, late-attach with `delivery arm --from existing-implementation`
+and continue. Otherwise tell them to `/delivery` or `delivery arm`. Do not require a spoken phrase.
 Do not run `delivery init` or `delivery bootstrap` to create a ledger.
 
 If a ledger already exists, invoke the installed `delivery-run` skill with:
@@ -24,4 +26,4 @@ Keep the per-worktree delivery ledger current while calling existing worker skil
 - missing recommended evidence is recorded as gap/pending and work may continue
 - in `PLAN_BROWSER_REVIEW`, generic feedback only updates the plan; wait for Doct's explicit **Request execution-ready review** action (`agentRoute.requestedSkill: "plan-reviewer-execution-ready"`) before PM or technical plan review, then record `planReadinessRequest=pass`. Run the independent `planner` subagent with its checked-in `openai-codex/gpt-5.6-sol` medium profile. It returns `PLAN_EXECUTION_READY` plus an implementation choice: `luna-xhigh` by default, or `terra-high` when correctness depends materially on technical judgment. Escalate unresolved consequential choices to Oracle rather than routing implementation through Sol. Record the artifact, profile, and rationale with `delivery record planTech ...`. `delivery` binds both records to the current plan and refuses `EXECUTION_READY` without them.
 - after the explicit readiness request and clean PM/Sol reviews, run `delivery stage EXECUTION_READY`. In Herdr that transition automatically authorizes the exact reviewed plan, launches and prompts a dedicated Pi agent using the planner recommendation—normally `openai-codex/gpt-5.6-luna` xhigh, or `openai-codex/gpt-5.6-terra` high when correctness is judgment-heavy—and continues toward PR creation without another routine approval pause. The planning agent must not implement. Use `--hold` only for an explicit operator-requested pause or real external dependency. The new agent runs `delivery verify-implementation-profile`, enters `IMPLEMENTING`, and invokes run-plan. If the recorded implementation pane was deliberately switched to another model, record that choice with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."`. These readiness, review, handoff, and implementation-profile requirements are the exceptions to delivery's otherwise advisory evidence.
-- before local merge readiness in a Herdr delivery worktree, set `COMPLETENESS_REVIEW`, run `delivery completion-review`, read the visible labeled Pi tab on `xai/grok-4.5:high`, fix in-plan findings, and run `delivery completion-review --rerun` until `VERDICT: COMPLETE`. After that verdict, run `delivery completion-review --accept` to capture the artifact and validate the plan/worktree fingerprint. This visible plan-completeness loop complements, not replaces, `$autoreview`.
+- completeness is on-request: only if the operator asked for a plan walk, set `COMPLETENESS_REVIEW`, run `delivery completion-review`, read the visible labeled Pi tab on `xai/grok-4.5:high`, and `--accept` after `VERDICT: COMPLETE`. Do not block merge readiness on a missing walk. This complements, not replaces, `$autoreview`.

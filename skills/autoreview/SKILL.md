@@ -1,6 +1,6 @@
 ---
 name: autoreview
-description: Run a bounded pre-PR implementation review with the active harness's configured reviewer subagent, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, or inside run-plan; inside run-plan this gate hands back to completeness then PR creation rather than waiting for external approval.
+description: Run a bounded pre-PR implementation review with the active harness's configured reviewer subagent, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, or inside run-plan; inside run-plan this gate hands back to PR creation rather than waiting for external approval.
 ---
 
 # Autoreview
@@ -11,7 +11,7 @@ The gate passes when the active harness's configured reviewer subagent finds no 
 
 **Explicit operator override:** PR creation and a clean review verdict are separate decisions. If the operator explicitly instructs the agent to open, create, or publish the PR regardless of review status or coverage, obey immediately and do not delay PR creation for another review attempt, missing reviewer coverage, an unusable review artifact, or unresolved review findings. Preserve the requested draft/ready state. Record the override and disclose the actual review status, incomplete coverage, infrastructure failures, and known unresolved findings in the PR body; never relabel the gate as clean or claim merge readiness.
 
-When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review; completeness is still required before PR creation unless the operator already instructed opening the PR regardless, and base freshness may still be pending until final verification and the scoped commit make a safe rebase possible. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement to the `run-plan` caller so it can run completeness unless already overridden, rerun final verification if needed, complete base freshness safely, commit, push, open the PR, inspect the current PR snapshot for actionable feedback/mergeability, and complete once local merge-readiness consensus is proven. Do not tell the caller to wait for a bot or human approval after local review-agent consensus is clean.
+When invoked from `run-plan`, a passing result means `OPEN_PR_READY`, not `DONE`. It is only a handoff after the caller has satisfied run-plan's implementation-stage PM review. Completeness is not required before PR creation. Base freshness may still be pending until final verification and the scoped commit make a safe rebase possible. Return the final gate status, artifact path, target branch/base context, caller-reported base freshness status or pending status, and any known rebase-triggered rerun requirement to the `run-plan` caller so it can rerun final verification if needed, complete base freshness safely, commit, push, open the PR, inspect current PR feedback, and prove local merge-readiness.
 
 ## Inputs
 
@@ -360,4 +360,4 @@ The final summary must include:
 - artifact path,
 - reviewer-result capture status and any infrastructure failure or operator waiver,
 - any remaining non-blocking out-of-scope follow-ups with evidence and tracking destination,
-- `Next step: OPEN_PR_READY` when invoked from `run-plan`, so the caller continues to completeness review, final verification, commit, push, PR creation, and local merge-readiness checking instead of concluding or waiting for external approval.
+- `Next step: OPEN_PR_READY` when invoked from `run-plan`, so the caller continues to final verification, commit, push, PR creation, and local merge-readiness checking instead of concluding or waiting for external approval.

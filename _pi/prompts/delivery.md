@@ -5,8 +5,11 @@ argument-hint: '[--from existing-implementation] [plan-path]'
 
 # /delivery
 
-This is the only in-session way to arm delivery. `/prewalk`, `/run-plan`,
-`execute`, and generic implementation never create a ledger.
+This is the in-session command to arm delivery. `/prewalk`, `/run-plan`,
+`execute`, and generic implementation never create a ledger. After a
+non-delivery implementation, a request to run completeness, PM review, or
+pre-PR is late-attach authorization even when they did not invoke this
+command by name. Do the arm below. Do not ask them to recite a phrase.
 
 1. If `/prewalk` is still armed, stop. They are mutually exclusive. Tell the
    operator to `/prewalk off` first, or keep prewalk and do not arm delivery.
