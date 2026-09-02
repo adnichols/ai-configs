@@ -1,110 +1,93 @@
 # Root AGENTS.md Template
 
-Use this as a starting point for `<repo>/AGENTS.md`. Replace bracketed placeholders.
+Baseline for `<repo>/AGENTS.md`. Replace bracketed placeholders. Keep the file
+pointer-first: it answers "what would make an agent fail here that it cannot
+learn from the code?" and routes everything else. Target under 200 lines; if a
+section grows past that, move detail into a deep doc and link it.
 
-## 1) Purpose and scope
+## 1) Header and precedence
 
-- State that this file is the authoritative repo-specific guide for coding agents.
-- Clarify precedence if `.cursorrules` or other rule files diverge.
+- Name this file the canonical instruction file. Note that `CLAUDE.md` and
+  `GEMINI.md` import it and must be edited here, not in the pointers.
+- State precedence: the nested `AGENTS.md` closest to the edited files wins;
+  explicit user instructions override everything.
+- Note any legacy rule files (`.cursorrules`, checked-in copies) this file
+  supersedes.
 
 ## 2) Repo reality checks
 
-- Secrets policy (`.env*`, encryption, commit restrictions).
+- Secrets policy (`.env*`, encrypted env files, commit restrictions).
 - Local vs production safety boundaries.
-- Any "never do" commands specific to the repo.
+- Repo-specific "never do" commands.
 
-## 3) Build / lint / test commands
+## 3) Hard boundaries (Always / Ask first / Never)
 
-Provide copy-paste-ready commands:
+- Always: invariants every change must hold (checked-file updates, doc-link
+  upkeep, gate execution before the stated point of completion).
+- Ask first: irreversible or spec/config-level changes (schema, API contracts,
+  ADR-governed documents, new dependencies, new top-level directories).
+- Never: hard violations (commit secrets, bypass named boundaries, disable
+  gates, restate derivable content in this file).
 
-- install/dev/build
-- lint/format
-- unit test full suite + single-file + single-test pattern
-- e2e and/or contract tests
+## 4) Where to work
 
-## 4) Quality gates
+- Task-to-path table: each functional area, its owning path, and its nested
+  `AGENTS.md` when it has one. This is the highest-value section; put it
+  early. Names here and names in code are the same strings.
 
-Define the exact gate order (example):
+## 5) Commands
 
-1. lint
-2. unit
-3. build
-4. e2e
-5. contract (if relevant)
+- Only commands that exist today, copy-paste-ready, with install/dev/build,
+  lint/format, full + single-test invocations, and the structure/quality gate.
+- One canonical gate command (for example `pnpm quality:gates` or
+  `node scripts/check-structure.mjs`) and the moment it must run.
+- If commands live in workspaces, say so once and defer to each workspace's
+  nested `AGENTS.md`; never duplicate workspace scripts at root.
 
-Include one canonical command if available (for example `pnpm quality:gates`).
+## 6) Engineering rules
 
-## 5) Plan execution mode
+- Only non-obvious, repo-specific rules. Each marked `Enforced:` (lint/tool),
+  `Checked:` (structure gate), or `Advisory:` (review judgment).
+- A rule without an enforcement designation does not ship.
 
-Codify the planning and execution boundaries:
+## 7) Workflow routing (pointers, one line each)
 
-- `plan mode` is for read-only discovery and research.
-- `dev:plan` is the plan-materialization step and may write the plan artifact only.
-- The repo's canonical execution workflow executes the plan with the repo's real quality gates.
-- If the repo uses Pi-style reviewed-plan handoff, codify it explicitly and name the canonical continuation. In this repo that is `/run-plan <plan>` after review integration for full lifecycle execution through PR creation and monitoring, with `/dev:run <plan>` reserved for direct execution-only handoff.
-- Keep alternate reviewers such as Claude Code explicit and manual; do not describe them as hidden fallbacks inside plan mode or execution.
+- Plan methodology: the shared `planning-workflow` skill. Never restate its
+  ready bar, review economics, or plan contract here.
+- Plan boundary: discovery mode is read-only; the plan-materialization step
+  (for example `dev:plan`) writes the plan artifact only; the repo's canonical
+  execution workflow executes the plan; reviewed-plan handoff stays explicit
+  with no hidden fallback reviewers.
+- Readiness: only `execution-ready` plans hand off to execution; unresolved
+  `low-confidence` foundational decisions stay in discovery or in one
+  non-ready `research-ready` artifact with the exact next research action.
+- Product intent: path to the repo's product-intent file; plans align to it or
+  log a deviation.
+- Discovery ledger: destination for documented out-of-scope low-risk findings
+  (for example `thoughts/discoveries/<topic>.md`).
+- Integration-integrity: load `integration-integrity` before changing exact
+  untyped contracts or behavior distributed across production sites.
+- Optional repo-local planning overrides file (for example
+  `thoughts/plans/AGENTS.md`): link it when it exists.
+- Testing doctrine: name the expectation (tests-first where practical, the
+  required scenarios, the `test coverage matrix` for non-trivial plans) and
+  point to where the full doctrine lives.
+- Skill-routing hints: which skills to load for likely surfaces (frontend,
+  Rust, browser automation, MCP, data tooling).
 
-Add the shared fail-closed ready bar:
+## 8) Commits and handoff
 
-- only `execution-ready` plans can hand off to execution
-- unresolved `low-confidence` foundational decisions stay in read-only discovery or move into a single non-ready `research-ready` plan artifact with the exact next research action
-- only `execution-ready` plans should continue into review/execution commands; `research-ready` artifacts should send the agent to the recorded next research action and then back through `dev:plan`
+- Commit messages carry rationale, not only what changed.
+- Delivery evidence to return: changed files, gate summary, residual risks.
+- Phase progress and resumable handoff notes live in the plan artifact, not
+  here.
 
-Tell agents to load the shared `planning-workflow` skill for plan creation and regeneration.
+## 9) Environment notes (only when non-obvious)
 
-If the repo needs additional planning rules beyond the shared skill, reference the optional local overrides file (for example `thoughts/plans/AGENTS.md`). Keep that file additive rather than duplicating the full planning doctrine.
+- Worktree env-file sync. Local dependency bootstrap. Toolchain pins that
+  differ from the machine default. Otherwise omit.
 
-Codify the quality-gated loop:
+## 10) Rule governance
 
-- implement one complete promised slice
-- run one scoped review for concrete current-path failures
-- fix in-scope blockers and run one targeted rereview of the findings and resulting edits
-- allow a third review only for a new blocker introduced or exposed by the fix; after that budget, assign a stable, distinct `REVIEW_ESCAPE` family+scope identifier and use exactly one bounded, read-only, advisory consultation through the configured consult/council surface, whether or not a PR exists; it has no edit, fix, or implementation authority
-- never rename, reword, or reconsult the same family+scope; each materially separate later family+scope may receive its own one consultation before or after PR creation
-- record one disposition: verified reject/reclassify; authorized bounded pass; revert/narrow/defer; or user/product/scope decision; report specifically unresolved evidence or any path current authority cannot complete; do not reset the budget or review until clean
-- do not expand the change for speculative future scale, ideal architecture, unrelated defects, or polish
-- only then move to the next phase
-
-Require the repo guidance to name the canonical discovery-ledger destination explicitly so documented out-of-scope low-risk findings always have a durable home.
-
-Require non-trivial ready plans to include a `test coverage matrix` that maps acceptance criteria and scenarios to intended tests and verify commands.
-
-Codify the execution feedback loop: substantive review misses must reassess the original test scope and plan, and repeated or cross-surface misses must trigger a scope/product decision or resize instead of automatic scope expansion.
-
-Require phase-level progress updates and resumable handoff notes.
-
-Codify a concise **Integration integrity** dispatcher for every authorized change, build, implementation, or fix—not only plan execution:
-
-- Require agents to load `integration-integrity` before changing exact contracts that types cannot fully verify or behavior required across multiple production sites.
-- Keep repo-local guidance limited to domain-specific sources of truth, searches, commands, and any stricter local rule. Do not duplicate the shared record or verification procedure.
-
-Require a product-intent source-of-truth file at `thoughts/specs/product_intent.md`.
-
-- If missing, create it before plan execution.
-- Treat plan updates that conflict with product intent as blocking until resolved.
-
-Require tests-first behavior for plan phases where practical and call out expected RED->GREEN evidence in handoffs.
-
-List repo-specific skill-routing hints for common work surfaces (for example frontend, React/Next, Rust, MCP, browser automation, data tooling).
-
-## 6) Commit and handoff rules
-
-- Commit messages capture rationale, not only what changed.
-- Require push before marking work complete (unless user asks otherwise).
-- Include what evidence should be returned (changed files + gate summary + residual risks).
-
-## 7) Style and architecture guardrails
-
-- Formatter/linter authority.
-- Import/type conventions.
-- Error-handling expectations.
-- Where to look for subsystem docs before non-trivial edits.
-
-## 8) Worktree and environment notes
-
-- Worktree env file sync steps.
-- Any bootstrapping commands for local dependencies.
-
-## 9) Fast triage commands (optional)
-
-Useful quick commands for diagnostics, status, and targeted tests.
+- Rules enter this file after an observed repeated agent mistake.
+- Rules leave when lint, scripts, or CI start enforcing them.

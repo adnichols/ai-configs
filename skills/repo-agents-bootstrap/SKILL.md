@@ -7,12 +7,14 @@ description: Bootstrap or refactor repository AGENTS guidance so repo-specific r
 
 ## Overview
 
-Create one required repo guidance layer and one optional override layer:
+The bootstrap produces four layers:
 
-1. Root `AGENTS.md` for repository-specific commands, safety rails, and quality gates.
-2. Optional planning overrides file (usually `thoughts/plans/AGENTS.md`) only when the repo needs planning rules beyond the shared `planning-workflow` skill.
+1. **Root `AGENTS.md`**: short, pointer-first, only content an agent cannot derive or guess. Target under 200 lines. Evidence: developer-written, non-inferable context is the only kind measured to help agents; restated overview content raises inference cost without raising success (ETH Zurich, arXiv:2602.11988), and vendors cap or truncate instruction files (Claude Code targets <200 lines per file, Codex hard-caps combined docs at 32 KiB). Deep content routes to deep docs, not the root file.
+2. **Instruction-file topology**: one canonical `AGENTS.md` plus thin `CLAUDE.md`/`GEMINI.md` pointer files containing `@AGENTS.md`; skip `.github/copilot-instructions.md` (shadows `AGENTS.md` for first-match resolvers like Zed) and `llms.txt` (no repo harness consumes it). Nested `AGENTS.md` per functional area: the file closest to the edited file wins.
+3. **Structure-convention layer** (for example `docs/repo-structure.md`): the task-to-path map, naming vocabulary sourced from the spec/domain corpus, file budgets, import discipline, and a machine-checked concept map — plus a committed zero-dependency structure-check lever that fails CI when the map lies.
+4. **Optional planning overrides file** (usually `thoughts/plans/AGENTS.md`) only when the repo needs planning rules beyond the shared `planning-workflow` skill.
 
-The shared planning doctrine now lives in the `planning-workflow` skill. This bootstrap skill makes each repo point to that shared doctrine while recording repo-specific reality: real commands, real quality gates, required docs, domain skill hints, and any explicit local deviations.
+The shared planning doctrine lives in the `planning-workflow` skill. This bootstrap skill makes each repo point to that shared doctrine while recording repo-specific reality: real commands, real quality gates, required docs, domain skill hints, and any explicit local deviations.
 
 ## Modes
 
@@ -28,7 +30,13 @@ For mature repos (like doct/ccore), start in `audit_only` and present a delta pl
 
 Capture these behaviors as defaults:
 
-- Shared planning doctrine lives in the `planning-workflow` skill, not duplicated into every repo.
+- Shared planning doctrine lives in the `planning-workflow` skill, not duplicated into any repo file. Root `AGENTS.md` points at doctrine; it never restates it (ready bars, review budgets, REVIEW_ESCAPE mechanics, and plan-section contracts stay in the skills that own them).
+- The root `AGENTS.md` is short and specific: unguessable commands, non-obvious invariants, hard boundaries framed as Always / Ask first / Never, and a task-to-path map. It excludes architecture overviews, derivable conventions, and anything a linter or script enforces.
+- Instruction-file topology is part of bootstrap: canonical `AGENTS.md`; `CLAUDE.md` and `GEMINI.md` as one-line `@AGENTS.md` imports; no `.github/copilot-instructions.md`; no `llms.txt`; nested `AGENTS.md` per functional area.
+- Structure conventions are a first-class bootstrap deliverable, not an afterthought: where-to-work map, domain-vocabulary naming, file budgets, import discipline, machine-checked concept map.
+- Every convention names its enforcement (lint rule, script, CI gate) or is explicitly marked advisory. Bootstrap commits a runnable structure-check lever the day guidance lands, not later.
+- Product intent lives in the repo's canonical spec-corpus location. Default to `thoughts/specs/product_intent.md` only when the repo has no existing spec corpus; a repo with `spec/` (or equivalent) keeps intent with the corpus and root `AGENTS.md` names the real path. Never fragment an existing corpus.
+- Root-file governance: add a rule only after an observed repeated agent mistake; delete rules that tooling now enforces.
 - `plan mode` is discovery-only and read-only.
 - `dev:plan` is the plan-materialization step: it may write the plan artifact, but must not change code or other repo files.
 - `dev:plan` must fail closed on `low-confidence` foundational decisions: it only hands off an `execution-ready` plan when those decisions are resolved, and otherwise asks the user or writes exactly one non-ready `research-ready` plan artifact with the exact next research action.
@@ -46,7 +54,7 @@ Capture these behaviors as defaults:
 - Commit and push discipline with rationale, not just code diffs.
 - Test-first posture: define behavior before implementation wherever practical.
 - Keep planning depth `complexity-aware`: simple tasks stay lightweight, while non-trivial ready plans need complete contracts plus a `test coverage matrix` strong enough to catch partial implementations.
-- Product-intent anchored planning: every active plan must trace back to `thoughts/specs/product_intent.md`.
+- Product-intent anchored planning: every active plan must trace back to the repo's declared product-intent file, named in root `AGENTS.md`; default `thoughts/specs/product_intent.md` only for repos without an existing spec corpus.
 - Validate `### Verify` commands against real repo/package/target names before execution.
 - Make multi-surface parity expectations explicit when phases span HTTP/CLI/MCP/UI or similar interfaces.
 - Update stale fixtures/tests when locked contracts, payloads, schemas, or evidence sources change.
@@ -71,8 +79,11 @@ Use the `tdd-test-writer` skill when available to harden the RED-phase contract.
 
 Bootstrap repos around these responsibilities:
 
-- Shared planning doctrine -> `planning-workflow` skill
-- Repo-specific execution truth -> root `AGENTS.md`
+- Shared process doctrine (plan contracts, ready bars, review budgets, integration-integrity mechanics) -> skills (`planning-workflow`, `integration-integrity`, `tdd-test-writer`)
+- Repo-specific execution truth (commands, gates, boundaries, routing) -> root `AGENTS.md` (short, pointer-first)
+- Instruction-file bridges -> one-line `CLAUDE.md` / `GEMINI.md` pointer files
+- Area-specific rules and commands -> nested `AGENTS.md` (closest wins)
+- Structure conventions and the checked concept map -> structure doc (for example `docs/repo-structure.md`) + structure-check script
 - Optional repo-local planning deviations -> `thoughts/plans/AGENTS.md`
 - Read-only research/discovery -> `plan mode`
 - Plan materialization -> `dev:plan`
@@ -95,12 +106,13 @@ Do not make a repo-local planning overrides file the default source of truth whe
 - Detect repo surfaces and likely skill-routing hints (frontend, React/Next, Rust, browser automation, MCP, etc.).
 
 Also detect whether a repo-local planning overrides file already exists (for example `thoughts/plans/AGENTS.md`).
-Also detect whether `thoughts/specs/product_intent.md` exists.
+Detect the repo's canonical spec or documentation corpus (for example `spec/`, `docs/specs/`): product intent lives with the corpus when one exists.
+Detect existing instruction files and bridges: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, nested `AGENTS.md` files, symlinks, any `llms.txt`. Conflicting or shadowing files (`copilot-instructions.md` preceding `AGENTS.md` for first-match resolvers, checked-in copies duplicating the canonical file) are recorded as alignment gaps, never silently kept.
 
-If `product_intent.md` is missing:
+If a product-intent file is missing:
 
 - mark it as a `critical` alignment gap,
-- create it from `references/product_intent_template.md`,
+- create it from `references/product_intent_template.md` at the repo's canonical spec-corpus location (default `thoughts/specs/product_intent.md` only when no spec corpus exists),
 - block bootstrap completion until the file exists.
 
 ### 2) Gather historical delivery patterns (optional but recommended)
@@ -139,7 +151,11 @@ Also check repo guidance for:
 - explicit mention of the shared planning skill,
 - clear plan-mode versus `dev:plan` boundary,
 - repo-specific skill-routing hints,
-- product-intent path and required supporting docs.
+- product-intent path matching the repo's canonical spec corpus,
+- root file size within target (doctrine restatement is the usual cause of bloat),
+- instruction-file topology: bridges present and pointing at the canonical file, no shadowing duplicates, nested `AGENTS.md` where functional areas have their own rules,
+- a structure layer: task-to-path map, naming-vocabulary rule, file budget, import discipline, and every convention naming enforcement or marked advisory,
+- a committed structure-check lever that runs green today.
 
 Produce a short gap matrix (count + file examples) and then propose migration policy:
 
@@ -151,25 +167,35 @@ Produce a short gap matrix (count + file examples) and then propose migration po
 
 Use `references/root_agents_template.md` as the base. Keep it repository-specific and executable.
 
-Required outcomes:
+Required outcomes (each a short section; the whole file targets under 200 lines):
 
-- Safety rails and repo reality checks (secrets, encrypted env files, production constraints).
-- Canonical command set with copy-paste-ready commands.
-- Explicit quality gates and ordering.
-- Planning boundary rules:
-  - `plan mode` is read-only discovery
-  - `dev:plan` writes the plan only
-  - reviewed-plan handoff stays explicit and does not rely on hidden fallback reviewers
-  - the repo's canonical execution workflow executes the plan
-- Instruction to use the shared `planning-workflow` skill for plan creation.
-- Instruction to map the canonical semantics of the `What's new` contract and after-Product-owner-context/before-Goal order into any repo-local plan template and validator so local tooling enforces behavior, not only a heading.
-- The shared fail-closed ready bar: only `execution-ready` plans hand off to implementation, while unresolved `low-confidence` decisions stay in discovery or move into a single `research-ready` artifact.
-- The shared expectation that non-trivial ready plans include a `test coverage matrix`.
-- The shared execution feedback loop: substantive review misses reassess the `original test scope` and original plan, and repeated or cross-surface misses widen coverage before phase advance.
+- Safety rails and repo reality checks (secrets, encrypted env files, production constraints), framed as Always / Ask first / Never.
+- Canonical command set: only commands that exist today, copy-paste-ready, near the top. Quality gates named with order and one canonical gate command; gate doctrine stays in the workflow skills.
+- Where-to-work map: task-to-path table naming each functional area and its nested `AGENTS.md`. Routing is the highest-value root-file content, so it goes early.
+- Workflow routing as one-line pointers: the shared `planning-workflow` skill owns plan methodology; `plan mode` is read-only discovery and the plan-materialization step (for example `dev:plan`) writes the plan artifact only; only `execution-ready` plans hand off, while unresolved `low-confidence` decisions stay in discovery or one `research-ready` artifact; reviewed-plan handoff stays explicit with no hidden fallback reviewers; the repo's canonical execution workflow executes the plan; load `integration-integrity` before changing exact untyped contracts or behavior distributed across production sites.
+- Product-intent pointer: the repo's declared product-intent path; plans align or log a deviation.
+- `### Verify` commands validated against real repo/package/target names before execution, and stale fixtures updated when locked contracts change (state the rule in one line; the mechanics stay in the shared skill).
 - The repo's discovery-ledger destination for documented out-of-scope low-risk items (for example `thoughts/discoveries/<plan-or-feature>.md`).
-- A concise integration-integrity dispatcher: require agents to load `integration-integrity` before changing exact non-type-checked contracts or behavior distributed across production sites. Keep detailed record and verification mechanics in that skill instead of duplicating them in repo guidance.
+- Engineering rules that are non-obvious and specific to this repo, each marked `Enforced:` (tooling), `Checked:` (structure gate), or `Advisory:` (review judgment). A rule without an enforcement designation does not ship.
 - Repo-specific skill-routing hints for likely work surfaces.
-- Any repo-specific rules that override stale rule files.
+- Rule governance: rules enter after observed repeated mistakes; tooling-enforced rules leave.
+
+Forbidden in the root file (route these instead):
+
+- Restated `planning-workflow` doctrine: ready-bar internals, review/rereview budgets, REVIEW_ESCAPE mechanics, plan-section contracts, TDD/BDD phase rules. Point in one line; restating forks the doctrine.
+- Architecture overviews and file-by-file descriptions a reader can derive from the tree (measured unhelpful: arXiv:2602.11988).
+- Anything the formatter, linter, or structure gate enforces.
+- Non-trivial ready plans and `test coverage matrix` expectations: one pointer line to the shared skill, never the full contract.
+- Repo-local plan templates and validators map the canonical semantics of the `planning-workflow` contracts (the `What's new` section and its after-Product-owner-context/before-Goal order) into their own surfaces without restating the full contract in the root file.
+
+### 3b) Create the instruction-file topology and structure layer
+
+Deliver every time, with content scaled to the repo:
+
+- Bridges: `CLAUDE.md` and `GEMINI.md`, each containing exactly `@AGENTS.md` as its first content line (harness-specific additions below it only when needed). Do not create `.github/copilot-instructions.md` (shadows `AGENTS.md` for first-match resolvers like Zed) or `llms.txt` (a website-docs convention; no repo harness auto-reads it). Remove or replace checked-in copies of the canonical file.
+- Nested `AGENTS.md` policy: any functional area with its own commands or rules carries a short `AGENTS.md` of its own (closest to the edited file wins); the root where-to-work map links each one.
+- Structure contract (for example `docs/repo-structure.md`), sized to the repo: target layout, concept/ownership map, naming vocabulary sourced from the spec or domain corpus, file budgets, import discipline (barrels, deep imports, direction rules), per-area test layout, and an enforcement matrix (rule -> mechanism -> active date).
+- Structure-check lever: a committed, zero-dependency script (for example `scripts/check-structure.mjs`) validating bridge files, concept-map paths and spec links, nested-guide presence, budgets, and area hermeticity where applicable. It must run green on delivery day, before any package manager is installed. Tool-based enforcement (boundary lint, cycle detection) may activate later; the lever covers today.
 
 ### 4) Add repo-local planning overrides only when needed
 
@@ -193,12 +219,16 @@ Migration rule for legacy repos:
 
 Before finalizing, verify:
 
-- Root `AGENTS.md` commands are real and current.
+- Root `AGENTS.md` commands are real and current (run the structure gate; spot-run one workspace command where one exists).
+- Root `AGENTS.md` sits within the length target and contains no restated shared doctrine.
 - Root `AGENTS.md` tells agents to use the shared planning skill and names local planning inputs.
 - Root `AGENTS.md` names the discovery-ledger destination used for documented out-of-scope low-risk findings.
+- Product intent sits in the repo's canonical spec-corpus location, and root `AGENTS.md` points at it.
+- Bridge files exist, are one-line imports of the canonical file, and no shadowing or duplicated instruction files remain.
+- Every root rule names its enforcement or is marked advisory, and the structure-check lever runs green from a clean checkout.
 - Any repo-local planning overrides reference real quality gates from root `AGENTS.md`.
-- TDD + BDD requirements are explicit and testable.
-- No contradictory guidance between root `AGENTS.md`, optional planning overrides, and the shared planning workflow.
+- TDD + BDD requirements are explicit and testable in the skills and plan templates the repo points at.
+- No contradictory guidance between root `AGENTS.md`, nested `AGENTS.md` files, optional planning overrides, and the shared planning workflow.
 
 ### 6) Deliver with change rationale
 
@@ -212,21 +242,23 @@ When presenting updates:
 
 For a bootstrap/refactor request, produce:
 
-1. Updated root `AGENTS.md`.
-2. Optional updated planning overrides file (`thoughts/plans/AGENTS.md` or repo equivalent) only when the repo needs local deviations.
-3. `thoughts/specs/product_intent.md` present (new or updated).
-4. Short rationale mapping each major rule to observed delivery behavior.
-5. Optional first-pass migration notes for existing plans.
+1. Updated root `AGENTS.md` (pointer-first, within the length target).
+2. Instruction-file topology: `CLAUDE.md` and `GEMINI.md` pointer files; removals or replacements of shadowing/duplicated instruction files noted explicitly.
+3. Structure contract doc plus committed structure-check lever, running green on delivery day.
+4. Optional updated planning overrides file (`thoughts/plans/AGENTS.md` or repo equivalent) only when the repo needs local deviations.
+5. Product-intent file present (new or updated) at the repo's canonical spec-corpus location.
+6. Short rationale mapping each major rule to observed delivery behavior or cited evidence.
+7. Optional first-pass migration notes for existing plans.
 
 For `audit_only`, produce instead:
 
-1. Alignment scorecard (root AGENTS + plan corpus).
+1. Alignment scorecard (root AGENTS + plan corpus + instruction-file topology + structure layer).
 2. Misalignment list ordered by impact (`critical`, `important`, `nice-to-have`).
 3. Proposed minimal patch set (no broad rewrite).
-4. Adoption policy for existing plans (what must change now vs later).
+4. Adoption policy for existing plans and guidance (what must change now vs later).
 
 ## Resources
 
 - `references/root_agents_template.md` - baseline structure for repo-root `AGENTS.md`.
 - `references/plan_agents_template.md` - optional template for repo-local planning overrides.
-- `references/product_intent_template.md` - baseline structure for `thoughts/specs/product_intent.md`.
+- `references/product_intent_template.md` - baseline structure for the repo's product-intent file (`thoughts/specs/product_intent.md` only when the repo has no existing spec corpus).
