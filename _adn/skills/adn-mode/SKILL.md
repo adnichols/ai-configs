@@ -89,7 +89,7 @@ Match the call shape to the harness. `adn` is not a valid `subagent_type` anywhe
 
 ### OMP
 
-Use the managed role agents: `architect-grok`, `architect-kimi`, and `reviewer-kimi`. Launch them synchronously with `Task({ subagent_type: "<role>", prompt: "..." })`. Their models are pinned in the agent frontmatter and resolved through OMP `modelRoles` (`xai-oauth/grok-4.6:high`, `cursor/kimi-k3-max:max`, `cursor/kimi-k3-max:high`). Do not pass a per-call `model`, `run_in_background`, or `isolation`.
+Use the managed role agents: `architect-grok`, `architect-kimi`, and `reviewer-kimi`. Launch them synchronously with `Task({ subagent_type: "<role>", prompt: "..." })`. Their models are pinned in the agent frontmatter and resolved through OMP `modelRoles` (`cursor/cursor-grok-4.6:high`, `cursor/kimi-k3-max:max`, `cursor/kimi-k3-max:high`). Do not pass a per-call `model`, `run_in_background`, or `isolation`.
 
 For ad-hoc helpers that do not fit a named role, use `subagent_type: "generalPurpose"` and an explicit `model` from `/setup-adn`.
 
@@ -102,7 +102,7 @@ Cursor has no role-backed ADN agents. Use Cursor's native subagent types and map
 - Pre-PR review: `subagent_type: "reviewer"` with the `reviewer-kimi` model.
 - General investigation or synthesis: `subagent_type: "generalPurpose"` with the `judgment and prose` model.
 
-The manifest pins `xai-oauth/grok-4.6:high` for the Grok role and `cursor/kimi-k3-max:max/high` for the Kimi roles. Use `/setup-adn` to translate those to your local Cursor model slugs. The default code model is `grok-4.6:high` and the default prose and judgment model is `kimi-k3-max`.
+The manifest pins `cursor/cursor-grok-4.6:high` for the Grok role and `cursor/kimi-k3-max:max/high` for the Kimi roles. Use `/setup-adn` to translate those to your local Cursor model slugs. The default code model is `grok-4.6:high` and the default prose and judgment model is `kimi-k3-max`.
 
 Run subagents synchronously unless the task is intentionally fire-and-forget. Cursor's background notification channel drops directives; only use background with the end-turn-to-receive pattern.
 

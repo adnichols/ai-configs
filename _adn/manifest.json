@@ -8,7 +8,7 @@
     "reviewDate": "2026-08-26"
   },
   "roles": {
-    "architect-grok": "xai-oauth/grok-4.6:high",
+    "architect-grok": "cursor/cursor-grok-4.6:high",
     "architect-kimi": "cursor/kimi-k3-max:max",
     "reviewer-kimi": "cursor/kimi-k3-max:high"
   },
@@ -532,7 +532,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "9317a49fe300c2de83a53f4875401d3887ceb484329f6623ed4f2bf149963122",
+      "checksum": "0baf4dcc7e630f9dbfa0de28be6b8254a8f6588f06ec46e456c6853b08ee6a27",
       "sourceSha": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
       "triggerClass": "explicit-then-automatic",
       "sourcePath": "pstack/skills/poteto-mode/SKILL.md",

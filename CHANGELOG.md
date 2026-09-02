@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: `slow` is `openai-codex/gpt-5.6-sol:high`, `architect-grok` is `cursor/cursor-grok-4.6:high`. Retry fallbacks match live (Synthetic Kimi for the Kimi roles, `xai-oauth/grok-4.6` for architect-grok and reviewer, Cursor Grok for completeness and default). `extendedContext` is false.
+
 - Synced managed OMP `config.yml` from this host: `slow` is `synthetic/hf:moonshotai/Kimi-K3:max`, `plan` is `synthetic/hf:moonshotai/Kimi-K3:high`, `advisor` is `xai-oauth/grok-4.6:high`, `reviewer` is `cursor/cursor-grok-4.6:high`. Retry fallbacks: Oracle drops `cursor/kimi-k3-max`; reviewer falls back to `xai-oauth/grok-4.6` then Synthetic Kimi; slow falls back to Fireworks Kimi; advisor falls back to `cursor/cursor-grok-4.6`; plan falls back to Sol.
 
 - Removed Pi's always-on `APPEND_SYSTEM.md`. Conditional procedures stay in skills. `cmd-create-pr` now loads for any `gh pr` create, update, comment, or similar mutating PR action, including forks. Install removes leftover `~/.pi/agent/APPEND_SYSTEM.md`.

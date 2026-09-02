@@ -35,7 +35,7 @@ describe.skipIf(!RUN)("config-state", () => {
     const next = mergeRoles({ reviewer: "keep", default: "xai" }, ADN_ROLES);
     expect(next.reviewer).toBe("keep");
     expect(next.default).toBe("xai");
-    expect(next["architect-grok"]).toBe("xai-oauth/grok-4.6:high");
+    expect(next["architect-grok"]).toBe("cursor/cursor-grok-4.6:high");
     expect(next["architect-kimi"]).toBe("cursor/kimi-k3-max:max");
     expect(next["reviewer-kimi"]).toBe("cursor/kimi-k3-max:high");
   });

@@ -74,7 +74,7 @@ test ! -e "$TARGET_ROOT/extensions/adn-mode.ts"
 test ! -e "$TARGET_ROOT/extensions/adn-mode.generated.ts"
 test ! -e "$TARGET_ROOT/adn/generation.json"
 test -f "$TARGET_ROOT/modelRoles.json"
-grep -q '"architect-grok": "xai-oauth/grok-4.6:high"' "$TARGET_ROOT/modelRoles.json"
+grep -q '"architect-grok": "cursor/cursor-grok-4.6:high"' "$TARGET_ROOT/modelRoles.json"
 test -L "$TARGET_ROOT/skills/principle-laziness-protocol"
 cat >> "$TARGET_ROOT/models.yml" <<'EOF'
   custom:

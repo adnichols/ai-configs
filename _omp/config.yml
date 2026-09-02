@@ -28,7 +28,7 @@ plan:
   enabled: false
 modelRoles:
   smol: deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:max
-  slow: synthetic/hf:moonshotai/Kimi-K3:max
+  slow: openai-codex/gpt-5.6-sol:high
   vision: openai-codex/gpt-5.6-sol:medium
   plan: synthetic/hf:moonshotai/Kimi-K3:high
   designer: openai-codex/gpt-5.6-sol:high
@@ -39,7 +39,7 @@ modelRoles:
   reviewer: cursor/cursor-grok-4.6:high
   default: xai-oauth/grok-4.6:high
   completeness: xai-oauth/grok-4.6:high
-  architect-grok: xai-oauth/grok-4.6:high
+  architect-grok: cursor/cursor-grok-4.6:high
   architect-kimi: cursor/kimi-k3-max:max
   reviewer-kimi: cursor/kimi-k3-max:high
 defaultThinkingLevel: auto
@@ -99,29 +99,16 @@ ask:
   enabled: false
 retry:
   fallbackChains:
-    Oracle:
-      - synthetic/hf:moonshotai/Kimi-K3
-      - fireworks/kimi-k3
     architect-kimi:
       - synthetic/hf:moonshotai/Kimi-K3
-      - fireworks/kimi-k3
     reviewer-kimi:
       - synthetic/hf:moonshotai/Kimi-K3
-      - fireworks/kimi-k3
     architect-grok:
-      - cursor/cursor-grok-4.6
+      - xai-oauth/grok-4.6
     completeness:
       - cursor/cursor-grok-4.6
     reviewer:
       - xai-oauth/grok-4.6
-      - synthetic/hf:moonshotai/Kimi-K3
     default:
       - cursor/cursor-grok-4.6
-    smol:
-      - fireworks/deepseek-v4-flash-0731
-    slow:
-      - fireworks/kimi-k3
-    advisor:
-      - cursor/cursor-grok-4.6
-    plan:
-      - openai-codex/gpt-5.6-sol
+extendedContext: false

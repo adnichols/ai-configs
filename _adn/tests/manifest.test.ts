@@ -180,7 +180,7 @@ describe("ADN manifest", () => {
     expect(manifest.upstream.pin).toBe(PIN);
     expect(manifest.upstream.license).toBe("MIT");
     expect(manifest.upstream.url).toContain("cursor/plugins");
-    expect(manifest.roles["architect-grok"]).toBe("xai-oauth/grok-4.6:high");
+    expect(manifest.roles["architect-grok"]).toBe("cursor/cursor-grok-4.6:high");
     expect(manifest.roles["architect-kimi"]).toBe("cursor/kimi-k3-max:max");
     expect(manifest.roles["reviewer-kimi"]).toBe("cursor/kimi-k3-max:high");
 

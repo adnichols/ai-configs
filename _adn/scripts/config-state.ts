@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 export const ADN_ROLES = {
-  "architect-grok": "xai-oauth/grok-4.6:high",
+  "architect-grok": "cursor/cursor-grok-4.6:high",
   "architect-kimi": "cursor/kimi-k3-max:max",
   "reviewer-kimi": "cursor/kimi-k3-max:high",
 } as const;
