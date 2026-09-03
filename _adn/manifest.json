@@ -532,7 +532,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "0baf4dcc7e630f9dbfa0de28be6b8254a8f6588f06ec46e456c6853b08ee6a27",
+      "checksum": "e8869aa10f31b08d82df3c12af93a83cad1afd2dd00ea16dbbda20b3213f482b",
       "sourceSha": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
       "triggerClass": "explicit-then-automatic",
       "sourcePath": "pstack/skills/poteto-mode/SKILL.md",

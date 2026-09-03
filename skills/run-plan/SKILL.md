@@ -13,6 +13,8 @@ On OMP, load the installed `adn-mode` skill before any other run-plan step and k
 
 Do not load or emulate `adn-mode` on another harness. ADN is the OMP adaptation of poteto mode. Non-OMP runtimes continue with their native run-plan contracts.
 
+On OMP, implementation `task` workers MUST set `model: "@default"`. Named agents (`scout`, `reviewer`, `completeness`, `architect-*`) keep frontmatter models. If a child tool-loops or reports production bugs instead of finishing, `hub cancel` and respawn with that pin.
+
 When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before applying runtime-specific instructions. `omp / omp-lite` keeps implementation, scoped review, and PM outcome review in the current `xai-oauth/grok-4.6:high` OMP session; use `openai-codex/gpt-5.6-terra:high` when correctness depends materially on technical judgment. It does not require a dedicated Pi pane, Pi model-profile verification, Pi slash commands, or a Grok tab. `pi / pi-full` retains the dedicated implementation pane and planner-selected profile. Completeness is on-request, not part of this default path. Never convert an existing ledger between profiles.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.

@@ -38,6 +38,13 @@ describe("adn-mode contract", () => {
     expect(runPlan).toContain("Do not load or emulate `adn-mode` on another harness");
   });
 
+  test("OMP implementation workers pin model @default on the task tool", () => {
+    expect(skill).toContain("Use the OMP `task` tool");
+    expect(skill).toContain('model: "@default"');
+    expect(skill).not.toContain('Task({ subagent_type: "<role>"');
+    expect(runPlan).toContain("implementation `task` workers MUST set `model: \"@default\"`");
+  });
+
   test("adn-mode files contain no em-dashes or en-dashes", () => {
     const files = [SKILL, ...markdownFiles(PLAY), ...markdownFiles(REFERENCES)];
     for (const path of files) {

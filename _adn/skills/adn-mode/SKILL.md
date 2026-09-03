@@ -89,9 +89,13 @@ Match the call shape to the harness. `adn` is not a valid `subagent_type` anywhe
 
 ### OMP
 
-Use the managed role agents: `architect-grok`, `architect-kimi`, and `reviewer-kimi`. Launch them synchronously with `Task({ subagent_type: "<role>", prompt: "..." })`. Their models are pinned in the agent frontmatter and resolved through OMP `modelRoles` (`cursor/cursor-grok-4.6:high`, `cursor/kimi-k3-max:max`, `cursor/kimi-k3-max:high`). Do not pass a per-call `model`, `run_in_background`, or `isolation`.
+Use the OMP `task` tool. Do not call Cursor `Task({ subagent_type })`.
 
-For ad-hoc helpers that do not fit a named role, use `subagent_type: "generalPurpose"` and an explicit `model` from `/setup-adn`.
+Named role agents are `architect-grok`, `architect-kimi`, `reviewer-kimi`, `scout`, `reviewer`, `completeness`, `oracle`, and `planner`. Launch them with `agent: "<role>"`. Their models are pinned in agent frontmatter and `modelRoles`. Do not pass a per-call `model` on a named role.
+
+Implementation slices (edits, tests, multi-file code) that are not a named role omit `agent` so the spawn-policy default `task` runs. Those calls MUST set `model: "@default"`. Omitting `model` inherits the parent runtime model, including a temporary Fireworks or DeepInfra pick. Parent `/model` does not retarget a running child.
+
+If a child tool-loops or reports production bugs instead of finishing, `hub cancel` that job and respawn with `model: "@default"`. Do not keep messaging it.
 
 ### Cursor
 
