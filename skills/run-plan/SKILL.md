@@ -442,7 +442,7 @@ delivery stage COMPLETENESS_REVIEW
 delivery completion-review
 ```
 
-`delivery completion-review` creates a short-lived labeled **witness** tab in the same Herdr workspace (not the workspace owner), starts a new interactive Pi on that tab's root pane in the same live worktree with `--model xai/grok-4.5:high`, and sends its full visible review prompt. The reviewer may read the plan, current diff, status, and validation artifacts but must not edit files or execute verification. Workspace ownership stays on the implementation tab; after `--accept` or `--waive`, delivery closes the witness tab. Closed TUIs are not evidence—use the written completeness artifact and ledger thereafter.
+`delivery completion-review` creates a short-lived labeled **witness** tab in the same Herdr workspace (not the workspace owner), starts a new interactive Pi on that tab's root pane in the same live worktree with `--model xai/grok-4.6:high`, and sends its full visible review prompt. The reviewer may read the plan, current diff, status, and validation artifacts but must not edit files or execute verification. Workspace ownership stays on the implementation tab; after `--accept` or `--waive`, delivery closes the witness tab. Closed TUIs are not evidence—use the written completeness artifact and ledger thereafter.
 
 While the completeness tab is live, the driving agent must read its verdict. For every `FINDINGS_TO_RESOLVE` item that is `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`, make the smallest in-scope correction, run invalidated verification, and request the same named reviewer's next round:
 

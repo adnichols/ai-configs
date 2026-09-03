@@ -3582,7 +3582,7 @@ def cmd_record(args: argparse.Namespace) -> int:
     return 0
 
 
-COMPLETENESS_REVIEW_MODEL = "xai/grok-4.5:high"
+COMPLETENESS_REVIEW_MODEL = "xai/grok-4.6:high"
 
 
 def completeness_reviewer_name(ledger: dict[str, Any]) -> str:
@@ -4058,8 +4058,8 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
             "acceptedAt": utc_now(),
         }
         ev = ledger.setdefault("evidence", {}).setdefault("completenessReview", {})
-        ev.update({"status": "pass", "artifact": artifact_rel, "summary": "Visible Grok 4.5 reviewer returned COMPLETE", "updatedAt": utc_now()})
-        append_history(ledger, "completeness_review", "visible Grok 4.5 review accepted", agent=reviewer_name, paneId=str(reviewer_pane), artifact=artifact_rel)
+        ev.update({"status": "pass", "artifact": artifact_rel, "summary": "Visible Grok 4.6 reviewer returned COMPLETE", "updatedAt": utc_now()})
+        append_history(ledger, "completeness_review", "visible Grok 4.6 review accepted", agent=reviewer_name, paneId=str(reviewer_pane), artifact=artifact_rel)
         if witness_tab:
             enqueue_tab_retire(ledger, str(witness_tab), "completeness-accepted")
             retire_pending_tabs(ledger, caller_tab=caller_tab_id())
@@ -4160,7 +4160,7 @@ def cmd_completion_review(args: argparse.Namespace) -> int:
     append_history(
         ledger,
         "completeness_review",
-        "visible Grok 4.5 review requested",
+        "visible Grok 4.6 review requested",
         agent=reviewer_name,
         paneId=str(reviewer_pane),
         tabId=agent_tab["tabId"],

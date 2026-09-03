@@ -127,8 +127,8 @@
     "xai": {
       "models": [
         {
-          "id": "grok-4.5",
-          "name": "Grok 4.5",
+          "id": "grok-4.6",
+          "name": "Grok 4.6",
           "api": "openai-responses",
           "reasoning": true,
           "input": ["text", "image"],

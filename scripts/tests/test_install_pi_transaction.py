@@ -128,7 +128,7 @@ class InstallTransactionTest(unittest.TestCase):
             pi.chmod(0o755)
             models = agent / 'models.json'
             managed_xai_ids = [
-                'grok-4.5', 'grok-4.3', 'grok-build-0.1',
+                'grok-4.6', 'grok-4.5', 'grok-4.3', 'grok-build-0.1',
                 'grok-4.20-0309-reasoning', 'grok-4.20-0309-non-reasoning',
                 'grok-4.20-multi-agent-0309', 'grok-3-mini', 'grok-3-mini-fast',
                 'grok-composer-2.5-fast', 'grok-imagine-image',
@@ -170,8 +170,8 @@ class InstallTransactionTest(unittest.TestCase):
                 'openai-codex/gpt-5.6-terra:high',
                 'openai-codex/gpt-5.6-luna:xhigh',
                 'openai-codex/gpt-5.6-sol:medium',
-                'xai/grok-4.5:high',
-                'cursor/grok-4.5:high',
+                'xai/grok-4.6:high',
+                'cursor/grok-4.6:high',
                 'opencode/deepseek-v4-flash:high',
             ])
             installed_models=json.loads(models.read_text())['providers']
@@ -213,7 +213,7 @@ class InstallTransactionTest(unittest.TestCase):
         start = script.rindex("python3 <<'PY'", 0, at) + len("python3 <<'PY'\n")
         return script[start:script.index('\nPY\n', start)]
 
-    def test_native_xai_grok_45_window_and_cursor_plain_fast_default(self):
+    def test_native_xai_grok_46_window_and_cursor_plain_fast_default(self):
         with tempfile.TemporaryDirectory() as d:
             home = Path(d)
             root = home / '.pi'
@@ -226,20 +226,21 @@ class InstallTransactionTest(unittest.TestCase):
                     'api': 'xai-responses',
                     'apiKey': 'caller-owned-native-xai-key',
                     'models': [{
-                        'id': 'grok-4.5',
-                        'name': 'Grok 4.5',
+                        'id': 'grok-4.6',
+                        'name': 'Grok 4.6',
                         'contextWindow': 500000,
                         'maxTokens': 500000,
                     }],
                 },
             }}))
             settings = agent / 'settings.json'
-            settings.write_text(json.dumps({'enabledModels': ['cursor/grok-4.5:fast']}))
+            settings.write_text(json.dumps({'enabledModels': ['cursor/grok-4.6:fast']}))
             cursor_sdk = agent / 'cursor-sdk.json'
             cursor_sdk.write_text(json.dumps({
                 'fastDefaults': {
-                    'grok-4.3': True,
-                    'grok-4.5:fast': True,
+                    'grok-4.5': False,
+                    'grok-4.6': True,
+                    'grok-4.6:fast': True,
                 }
             }))
             merge = subprocess.run(
@@ -250,7 +251,7 @@ class InstallTransactionTest(unittest.TestCase):
                     'PI_MODELS_SOURCE': str(ROOT / '_pi/models.json'),
                     'PI_MODELS_TARGET': str(models),
                 },
-                input=self.extract_install_python('provider_id == "xai" and source_model["id"] == "grok-4.5"'),
+                input=self.extract_install_python('provider_id == "xai" and source_model["id"] == "grok-4.6"'),
                 text=True,
                 capture_output=True,
             )
@@ -264,7 +265,7 @@ class InstallTransactionTest(unittest.TestCase):
                     'PI_WEB_SEARCH_PATH': str(root / 'web-search.json'),
                     'PI_CURSOR_SDK_PATH': str(cursor_sdk),
                 },
-                input=self.extract_install_python('fast_defaults["grok-4.5"] = False'),
+                input=self.extract_install_python('fast_defaults["grok-4.6"] = False'),
                 text=True,
                 capture_output=True,
             )
@@ -272,7 +273,7 @@ class InstallTransactionTest(unittest.TestCase):
             grok = next(
                 model
                 for model in json.loads(models.read_text())['providers']['xai']['models']
-                if model['id'] == 'grok-4.5'
+                if model['id'] == 'grok-4.6'
             )
             self.assertEqual(grok['contextWindow'], 200000)
             self.assertEqual(grok['maxTokens'], 200000)
@@ -281,14 +282,14 @@ class InstallTransactionTest(unittest.TestCase):
                 'openai-codex/gpt-5.6-terra:high',
                 'openai-codex/gpt-5.6-luna:xhigh',
                 'openai-codex/gpt-5.6-sol:medium',
-                'xai/grok-4.5:high',
-                'cursor/grok-4.5:high',
+                'xai/grok-4.6:high',
+                'cursor/grok-4.6:high',
                 'opencode/deepseek-v4-flash:high',
             ])
             installed_fast = json.loads(cursor_sdk.read_text())['fastDefaults']
-            self.assertEqual(installed_fast['grok-4.3'], True)
+            self.assertEqual(installed_fast['grok-4.6'], False)
             self.assertEqual(installed_fast['grok-4.5'], False)
-            self.assertNotIn('grok-4.5:fast', installed_fast)
+            self.assertNotIn('grok-4.6:fast', installed_fast)
 
     def test_malformed_settings_fail_before_any_bounded_install_mutation(self):
         with tempfile.TemporaryDirectory() as d:

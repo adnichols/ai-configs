@@ -96,8 +96,8 @@ PICKER_ENABLED_MODELS = [
     "openai-codex/gpt-5.6-terra:high",
     "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
-    "xai/grok-4.5:high",
-    "cursor/grok-4.5:high",
+    "xai/grok-4.6:high",
+    "cursor/grok-4.6:high",
     "opencode/deepseek-v4-flash:high",
 ]
 
@@ -402,8 +402,8 @@ else:
         "openai-codex/gpt-5.6-terra:high",
         "openai-codex/gpt-5.6-luna:xhigh",
         "openai-codex/gpt-5.6-sol:medium",
-        "xai/grok-4.5:high",
-        "cursor/grok-4.5:high",
+        "xai/grok-4.6:high",
+        "cursor/grok-4.6:high",
         "opencode/deepseek-v4-flash:high",
     ]
     if enabled != expected_models:

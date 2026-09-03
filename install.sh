@@ -1886,8 +1886,8 @@ PICKER_ENABLED_MODELS = [
     "openai-codex/gpt-5.6-terra:high",
     "openai-codex/gpt-5.6-luna:xhigh",
     "openai-codex/gpt-5.6-sol:medium",
-    "xai/grok-4.5:high",
-    "cursor/grok-4.5:high",
+    "xai/grok-4.6:high",
+    "cursor/grok-4.6:high",
     "opencode/deepseek-v4-flash:high",
 ]
 
@@ -1949,9 +1949,9 @@ if fast_defaults is None:
     cursor_sdk["fastDefaults"] = fast_defaults
 elif not isinstance(fast_defaults, dict):
     raise SystemExit("cursor-sdk.json fastDefaults must be an object when present")
-# Keep unsuffixed cursor/grok-4.5 plain. Cursor's catalog default variant is Fast.
-fast_defaults["grok-4.5"] = False
-for stale_key in ("grok-4.5:fast", "grok-4.5:slow"):
+# Keep unsuffixed cursor/grok-4.6 plain. Cursor's catalog default variant is Fast.
+fast_defaults["grok-4.6"] = False
+for stale_key in ("grok-4.6:fast", "grok-4.6:slow"):
     fast_defaults.pop(stale_key, None)
 
 if json.dumps(cursor_sdk, sort_keys=True) != before_cursor_sdk:
@@ -2157,7 +2157,7 @@ target_providers = updated_data.setdefault("providers", {})
 # Retire only exact model IDs previously managed by ai-configs. Display names
 # are not an ownership boundary: callers may keep custom CLI Proxy API models.
 RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini", "grok-4.5"}
-NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.5", "grok-4.3", "grok-build-0.1"}
+NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.6", "grok-4.5", "grok-4.3", "grok-build-0.1"}
 MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
     "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
     "grok-4.20-multi-agent-0309", "grok-3-mini", "grok-3-mini-fast",
@@ -2173,9 +2173,13 @@ MANAGED_XAI_PROXY_HEADERS = {
 LEGACY_GROK_ROUTE_MIGRATIONS = {
     **{model_id: f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
     **{f"grok/{model_id}": f"xai/{model_id}" for model_id in NATIVE_XAI_GROK_MODEL_IDS},
-    "openai-codex/grok-4.5": "xai/grok-4.5",
-    "cursor/grok-4.5:fast": "cursor/grok-4.5",
-    "cursor/grok-4.5:slow": "cursor/grok-4.5",
+    "openai-codex/grok-4.5": "xai/grok-4.6",
+    "xai/grok-4.5": "xai/grok-4.6",
+    "xai/grok-4.5:high": "xai/grok-4.6:high",
+    "cursor/grok-4.5": "cursor/grok-4.6",
+    "cursor/grok-4.5:high": "cursor/grok-4.6:high",
+    "cursor/grok-4.6:fast": "cursor/grok-4.6",
+    "cursor/grok-4.6:slow": "cursor/grok-4.6",
 }
 
 def is_managed_xai_proxy(provider):
@@ -2319,7 +2323,7 @@ for provider_id, source_provider in source_providers.items():
                     models_by_id[copied_model["id"]] = copied_model
                 elif provider_id == "openai-codex":
                     merge_source_wins(existing_model, source_model)
-                elif provider_id == "xai" and source_model["id"] == "grok-4.5":
+                elif provider_id == "xai" and source_model["id"] == "grok-4.6":
                     for field in ("contextWindow", "maxTokens"):
                         if field in source_model:
                             existing_model[field] = copy.deepcopy(source_model[field])

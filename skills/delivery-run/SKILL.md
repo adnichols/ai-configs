@@ -269,7 +269,7 @@ delivery verify-implementation-profile
 delivery verify-implementation-profile --adopt-current-runtime \
   --reason "manual choice for this run"
 delivery stage IMPLEMENTING --note "starting run-plan"
-# Opens a visible labeled Herdr tab running Pi on xai/grok-4.5:high.
+# Opens a visible labeled Herdr tab running Pi on xai/grok-4.6:high.
 delivery completion-review
 # After the driving agent fixes its findings, ask that same named reviewer again in its existing tab.
 delivery completion-review --rerun
@@ -416,7 +416,7 @@ A fresh explicit **Request execution-ready review** action and fresh readiness r
 | `SCOPED_REVIEW` | run-plan scoped quality review |
 | `IMPL_PM_OUTCOME` | `/dev:pm-review <plan> implementation` |
 | `AUTOREVIEW` | `$autoreview` |
-| `COMPLETENESS_REVIEW` | visible labeled-tab Pi/Grok 4.5 reviewer; resolve feedback and rereview until `COMPLETE` |
+| `COMPLETENESS_REVIEW` | visible labeled-tab Pi/Grok 4.6 reviewer; resolve feedback and rereview until `COMPLETE` |
 | `VERIFY_FRESHNESS` | final verify + base freshness inside run-plan |
 | `PR_OPEN` | run-plan / `$cmd-create-pr` |
 | `MERGE_READY` | run-plan local merge-readiness |
@@ -499,7 +499,7 @@ Prefer process-shaped notes (friction, retries, unclear guidance, handoff gaps),
 3. After a worker skill finishes, `delivery record` what happened and `delivery check -v`.
 4. Treat check advisories as a to-do list, not a red light.
 5. Do not stop the operator solely because recommended evidence is `pending` or `gap`. Completeness is not a merge-readiness reject.
-6. If the operator asked for completeness, or the ledger is already at `COMPLETENESS_REVIEW`, run `delivery completion-review`; while the witness tab is live, read the labeled Grok 4.5 tab, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture the artifact and retire the witness tab. After accept, the artifact is authoritative—do not require the closed TUI. Otherwise skip this step.
+6. If the operator asked for completeness, or the ledger is already at `COMPLETENESS_REVIEW`, run `delivery completion-review`; while the witness tab is live, read the labeled Grok 4.6 tab, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture the artifact and retire the witness tab. After accept, the artifact is authoritative—do not require the closed TUI. Otherwise skip this step.
 7. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
 8. Treat execution-ready as automatic implementation authorization for a delivery-managed run: `delivery stage EXECUTION_READY` launches the recommended profile on a new owner tab and the planning agent stops. Do not wait for another routine approval. Use `--hold` only when the operator explicitly requests a pause or a real external dependency blocks execution; invalidate authorization and launch evidence if material feedback changes the plan. After handoff, do not keep or inspect the planning tab—use the plan path, ledger, and validation artifacts.
 9. The implementation agent must run `delivery verify-implementation-profile` before entering `IMPLEMENTING`; the stage gate independently checks the live Pi provider/model/reasoning environment.
