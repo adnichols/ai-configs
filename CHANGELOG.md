@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- OMP `adn-mode` and `run-plan` pin generic implementation `task` workers to `model: "@default"` so they do not inherit a temporary Fireworks or DeepInfra parent. Named roles keep frontmatter. Cancel and respawn if a child tool-loops.
+
 - Synced managed OMP `config.yml` from this host: `slow` is `openai-codex/gpt-5.6-sol:high`, `architect-grok` is `cursor/cursor-grok-4.6:high`. Retry fallbacks match live (Synthetic Kimi for the Kimi roles, `xai-oauth/grok-4.6` for architect-grok and reviewer, Cursor Grok for completeness and default). `extendedContext` is false.
 
 - Synced managed OMP `config.yml` from this host: `slow` is `synthetic/hf:moonshotai/Kimi-K3:max`, `plan` is `synthetic/hf:moonshotai/Kimi-K3:high`, `advisor` is `xai-oauth/grok-4.6:high`, `reviewer` is `cursor/cursor-grok-4.6:high`. Retry fallbacks: Oracle drops `cursor/kimi-k3-max`; reviewer falls back to `xai-oauth/grok-4.6` then Synthetic Kimi; slow falls back to Fireworks Kimi; advisor falls back to `cursor/cursor-grok-4.6`; plan falls back to Sol.
