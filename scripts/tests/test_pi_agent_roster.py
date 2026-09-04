@@ -65,39 +65,7 @@ class PiAgentRosterTest(unittest.TestCase):
             self.assertNotIn("defaultReads", metadata)
 
     def test_pi_model_scope_and_default_route(self):
-        allowlist = (ROOT / "_pi" / "extensions" / "model-allowlist.ts").read_text()
-        for model in (
-            "openai-codex/gpt-5.6-terra",
-            "openai-codex/gpt-5.6-luna",
-            "openai-codex/gpt-5.6-sol",
-            "xai/grok-4.6",
-            "cursor/grok-4.6",
-            "opencode/deepseek-v4-flash",
-            "synthetic/hf:moonshotai/Kimi-K3",
-            "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731",
-            "fireworks/accounts/fireworks/models/kimi-k3",
-            "deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731",
-            "deepinfra/zai-org/GLM-5.2",
-            "deepinfra/moonshotai/Kimi-K3",
-        ):
-            self.assertIn(f'"{model}"', allowlist)
-        for excluded in (
-            "opencode/glm-5.2",
-            "xai/grok-4.3",
-            "xai/grok-4.5",
-            "xai/grok-build-0.1",
-            "cursor/grok-4.5",
-            "cursor/grok-4.5:fast",
-            "cursor/grok-4.5:slow",
-            "cursor/grok-4.6:fast",
-            "cursor/grok-4.6:slow",
-            "cursor/composer-2.5",
-            "opencode/deepseek-v4-pro",
-        ):
-            self.assertNotIn(f'"{excluded}"', allowlist)
-        self.assertIn("await registry.refresh({ allowNetwork: false })", allowlist)
-        self.assertIn("getAvailable(provider, options)", allowlist)
-        self.assertNotIn("forceRefreshAvailability", allowlist)
+        self.assertFalse((ROOT / "_pi" / "extensions" / "model-allowlist.ts").exists())
         models = json.loads((ROOT / "_pi" / "models.json").read_text())
         deepinfra_ids = {item["id"] for item in models["providers"]["deepinfra"]["models"]}
         self.assertIn("moonshotai/Kimi-K3", deepinfra_ids)
@@ -112,10 +80,9 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertNotIn("opencode-go", models["providers"])
         self.assertNotIn("fireworks", models["providers"])
         install_script = (ROOT / "install.sh").read_text()
-        picker = install_script.split("PICKER_ENABLED_MODELS = [", 1)[1].split("]", 1)[0]
-        self.assertIn('"xai/grok-4.6:high"', picker)
-        self.assertIn('"cursor/grok-4.6:high"', picker)
-        self.assertNotIn("cursor/grok-4.5", picker)
+        self.assertIn("model-allowlist.ts", install_script)
+        self.assertNotIn("PICKER_ENABLED_MODELS", install_script)
+        self.assertIn('settings.pop("enabledModels", None)', install_script)
         self.assertIn('"cursor/grok-4.5:high": "cursor/grok-4.6:high"', install_script)
         self.assertIn('"cursor/grok-4.6:fast": "cursor/grok-4.6"', install_script)
         self.assertIn('"cursor/grok-4.6:slow": "cursor/grok-4.6"', install_script)
@@ -128,6 +95,10 @@ class PiAgentRosterTest(unittest.TestCase):
             "deepinfra/moonshotai/Kimi-K3",
         ):
             self.assertNotIn(unscoped_model, install_script)
+        verify_script = (ROOT / "scripts" / "verify-pi-install.sh").read_text()
+        self.assertNotIn("PICKER_ENABLED_MODELS", verify_script)
+        self.assertIn('settings.pop("enabledModels", None)', verify_script)
+        self.assertIn("retired model-allowlist extension is still installed", verify_script)
 
     def test_clarify_pin_is_managed_flash_and_installed(self):
         pin = json.loads((ROOT / "_pi" / "clarify.json").read_text())

@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added `adversarial-fix-review` so a claimed bug fix or "this change is necessary" handoff gets a second-model reviewer who must prove the claim from artifacts, not the implementer's brief. Wired from adn-mode and the bug-fix playbook, not from always-on Pi/OMP doctrine.
 - Switched managed OMP compaction to an absolute 200k-token threshold (`thresholdPercent: -1`, `thresholdTokens: 200000`), idle compact at 100k after 60s, and pinned Grok `contextWindow` to 200000.
-- Allowlisted DeepInfra Kimi K3 (`deepinfra/moonshotai/Kimi-K3`) for direct selection and upserted it into managed `models.json` so it appears in the Pi picker. It stays outside the managed Pi `enabledModels` cycle.
+- Upserted DeepInfra Kimi K3 (`deepinfra/moonshotai/Kimi-K3`) into managed `models.json` so it remains available in the Pi catalog.
 
 - Added a Pi `imaging` subagent on GPT-5.6 Luna xhigh so non-vision models can proactively hand screenshots and other visual input to a vision-capable analyst instead of guessing.
 
@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Switched the managed Pi `xai` and `cursor` Grok routes from `grok-4.5` to `grok-4.6` now that Pi ships `xai/grok-4.6` natively: the Pi model cycle pins `xai/grok-4.6:high` / `cursor/grok-4.6:high`, both are allowlisted, the Pi completeness reviewer runs on `xai/grok-4.6:high`, and install keeps unsuffixed `cursor/grok-4.6` plain (`fastDefaults.grok-4.6=false`) with the legacy `grok-4.5` routes migrated to `grok-4.6`. The managed `xai/grok-4.6` entry still advertises a 200k context window, and the `opencode/grok-4.5` context-ceiling policy is unchanged.
+- Switched the managed Pi `xai` and `cursor` Grok routes from `grok-4.5` to `grok-4.6` now that Pi ships `xai/grok-4.6` natively: the Pi completeness reviewer runs on `xai/grok-4.6:high`, and install keeps unsuffixed `cursor/grok-4.6` plain (`fastDefaults.grok-4.6=false`) with the legacy `grok-4.5` routes migrated to `grok-4.6`. The managed `xai/grok-4.6` entry still advertises a 200k context window, and the `opencode/grok-4.5` context-ceiling policy is unchanged.
 
 - OMP `adn-mode` and `run-plan` pin generic implementation `task` workers to `model: "@default"` so they do not inherit a temporary Fireworks or DeepInfra parent. Named roles keep frontmatter. Cancel and respawn if a child tool-loops.
 
@@ -80,6 +80,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Removed
 
 - Removed leftover Gemini CLI surfaces: root `GEMINI.md`, `_claude/commands/review:change-gemini.md`, and `scripts/gemini-review.sh`.
+- Retired the Pi model-picker allowlist: install no longer ships `model-allowlist.ts` and clears `enabledModels` so Pi shows the live catalog. The default execution route remains DeepSeek Flash.
 
 ## [Retire pi-side-agents] - 2026-07-16
 

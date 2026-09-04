@@ -18,6 +18,8 @@ class InstallTransactionTest(unittest.TestCase):
             'dist/custom-agents.js': 'isolation: fm.isolation === "worktree" ? "worktree" : undefined,\n',
             'src/invocation-config.ts': 'isolation: agentConfig?.isolation ?? params.isolation,\n',
             'dist/invocation-config.js': 'isolation: agentConfig?.isolation ?? params.isolation,\n',
+            'src/index.ts': 'const customConfig = getAgentConfig(subagentType);\n',
+            'dist/index.js': 'const customConfig = getAgentConfig(subagentType);\n',
         }
         for relative, content in files.items():
             target = package / relative
@@ -162,20 +164,12 @@ class InstallTransactionTest(unittest.TestCase):
             env=self.review_env(home, PATH=f'{bin_dir}:{os.environ["PATH"]}')
             subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             configured_data=json.loads(settings.read_text())
-            configured=configured_data['enabledModels']
+            self.assertNotIn('enabledModels', configured_data)
             self.assertEqual(configured_data['defaultProvider'],'deepinfra')
             self.assertEqual(configured_data['defaultModel'],'deepseek-ai/DeepSeek-V4-Flash-0731')
-            self.assertEqual(configured,[
-                'deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:high',
-                'openai-codex/gpt-5.6-terra:high',
-                'openai-codex/gpt-5.6-luna:xhigh',
-                'openai-codex/gpt-5.6-sol:medium',
-                'xai/grok-4.6:high',
-                'cursor/grok-4.6:high',
-                'opencode/deepseek-v4-flash:high',
-            ])
+            self.assertFalse((agent / 'extensions/model-allowlist.ts').exists())
             installed_models=json.loads(models.read_text())['providers']
-            self.assertNotIn('xai',installed_models)
+            self.assertEqual(installed_models['xai'], json.loads((ROOT / '_pi/models.json').read_text())['providers']['xai'])
             self.assertEqual(installed_models['opencode']['modelOverrides']['grok-4.5']['contextWindow'],200000)
             self.assertEqual(
                 installed_models['opencode']['modelOverrides']['deepseek-v4-flash']['thinkingLevelMap']['max'],
@@ -200,7 +194,13 @@ class InstallTransactionTest(unittest.TestCase):
             installed_models['xai'] = native_xai
             models.write_text(json.dumps({'providers': installed_models}))
             subprocess.run(['bash','install.sh','--pi'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
-            self.assertEqual(json.loads(models.read_text())['providers']['xai'],native_xai)
+            installed_xai=json.loads(models.read_text())['providers']['xai']
+            self.assertEqual(installed_xai['baseUrl'], native_xai['baseUrl'])
+            self.assertEqual(installed_xai['api'], native_xai['api'])
+            self.assertEqual(installed_xai['apiKey'], native_xai['apiKey'])
+            installed_xai_ids={model['id'] for model in installed_xai['models']}
+            self.assertIn('caller-owned-native-model', installed_xai_ids)
+            self.assertIn('grok-4.6', installed_xai_ids)
             policy_source = ROOT / '_pi/lib/grok-context-ceiling-policy.ts'
             installed_policy = agent / 'lib/grok-context-ceiling-policy.ts'
             self.assertEqual(installed_policy.read_bytes(), policy_source.read_bytes())
@@ -277,15 +277,7 @@ class InstallTransactionTest(unittest.TestCase):
             )
             self.assertEqual(grok['contextWindow'], 200000)
             self.assertEqual(grok['maxTokens'], 200000)
-            self.assertEqual(json.loads(settings.read_text())['enabledModels'], [
-                'deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:high',
-                'openai-codex/gpt-5.6-terra:high',
-                'openai-codex/gpt-5.6-luna:xhigh',
-                'openai-codex/gpt-5.6-sol:medium',
-                'xai/grok-4.6:high',
-                'cursor/grok-4.6:high',
-                'opencode/deepseek-v4-flash:high',
-            ])
+            self.assertNotIn('enabledModels', json.loads(settings.read_text()))
             installed_fast = json.loads(cursor_sdk.read_text())['fastDefaults']
             self.assertEqual(installed_fast['grok-4.6'], False)
             self.assertEqual(installed_fast['grok-4.5'], False)

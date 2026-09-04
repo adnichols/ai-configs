@@ -89,17 +89,7 @@ web_search_path = Path(sys.argv[2])
 
 DEFAULT_PROVIDER = "deepinfra"
 DEFAULT_MODEL = "deepseek-ai/DeepSeek-V4-Flash-0731"
-DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 WEB_SEARCH_SUMMARY_MODEL = "openai-codex/gpt-5.6-terra"
-PICKER_ENABLED_MODELS = [
-    f"{DEFAULT_MODEL_VALUE}:high",
-    "openai-codex/gpt-5.6-terra:high",
-    "openai-codex/gpt-5.6-luna:xhigh",
-    "openai-codex/gpt-5.6-sol:medium",
-    "xai/grok-4.6:high",
-    "cursor/grok-4.6:high",
-    "opencode/deepseek-v4-flash:high",
-]
 
 if settings_path.exists():
     settings = json.loads(settings_path.read_text())
@@ -115,7 +105,7 @@ settings.pop("piCodexGoal", None)
 models = settings.get("enabledModels")
 if models is not None and not isinstance(models, list):
     raise SystemExit("settings enabledModels must be a list when present")
-settings["enabledModels"] = PICKER_ENABLED_MODELS
+settings.pop("enabledModels", None)
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(settings, indent=2) + "\n")
 
@@ -243,6 +233,7 @@ for disabled_extension in claude-review codex-review; do
   if [ -e "$PI_EXT_DIR/$disabled_extension" ]; then note_failure "disabled Pi extension is still installed: $disabled_extension"; fi
 done
 if [ -e "$PI_EXT_DIR/grok-context-ceiling-policy.ts" ]; then note_failure "Grok policy helper must not be auto-loaded from extensions"; fi
+if [ -e "$PI_EXT_DIR/model-allowlist.ts" ]; then note_failure "retired model-allowlist extension is still installed"; fi
 
 print_section "1b) Repo-managed Pi libraries (copied outside extensions so Pi does not auto-load helpers)"
 print_list "expected: " "$EXPECTED_REPO_LIBRARIES"
@@ -393,21 +384,10 @@ if data.get("defaultModel") != default_model:
     errors.append(f"defaultModel={data.get('defaultModel')!r}")
 if "piCodexGoal" in data:
     errors.append("retired piCodexGoal settings remain")
-enabled = data.get("enabledModels", [])
-if not isinstance(enabled, list):
+enabled = data.get("enabledModels")
+if enabled is not None and not isinstance(enabled, list):
     errors.append("enabledModels is not a list")
-else:
-    expected_models = [
-        f"{default_model_value}:high",
-        "openai-codex/gpt-5.6-terra:high",
-        "openai-codex/gpt-5.6-luna:xhigh",
-        "openai-codex/gpt-5.6-sol:medium",
-        "xai/grok-4.6:high",
-        "cursor/grok-4.6:high",
-        "opencode/deepseek-v4-flash:high",
-    ]
-    if enabled != expected_models:
-        errors.append(f"enabledModels={enabled!r}; expected exactly {expected_models!r}")
+elif isinstance(enabled, list):
     retired_scoped = re.compile(r"^(?:glm-5\.2|opencode/glm-5\.2)$")
     if any(isinstance(model, str) and retired_scoped.fullmatch(model) for model in enabled):
         errors.append("enabledModels still contains retired GLM-5.2 Pi routes")
@@ -428,7 +408,6 @@ PY
 )"
   if [ "$PI_MODEL_STATUS" = "ok" ]; then
     echo "  Pi default execution model: $PI_DEFAULT_MODEL_VALUE"
-    echo "  Pi scoped reasoning: DeepSeek Flash high; Terra high; Luna xhigh; Sol medium; xAI Grok high; Cursor Grok high; Kimi K3 high"
     echo "  Pi Codex goal token budgets: disabled"
   else
     note_failure "Pi default execution model settings are not DeepSeek Flash: $PI_MODEL_STATUS"

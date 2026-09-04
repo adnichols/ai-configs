@@ -47,7 +47,7 @@ DEPRECATED_SHARED_SKILLS=(
 # package-managed @juicesharp/rpiv-todo extension.
 # Pi auto-loads every TypeScript file in extensions/, so helpers must never remain
 # there after they move to a managed non-extension library path.
-RETIRED_PI_EXTENSIONS=(aoe-status pi-prd-mode questionnaire.ts todo.ts grok-context-ceiling-policy.ts)
+RETIRED_PI_EXTENSIONS=(aoe-status pi-prd-mode questionnaire.ts todo.ts grok-context-ceiling-policy.ts model-allowlist.ts)
 DISABLED_PI_EXTENSIONS=(claude-review codex-review)
 SUMMARY_JSON=""
 INSTALL_SUMMARY_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -1877,19 +1877,9 @@ cursor_sdk_path = Path(os.environ["PI_CURSOR_SDK_PATH"])
 
 DEFAULT_PROVIDER = "deepinfra"
 DEFAULT_MODEL = "deepseek-ai/DeepSeek-V4-Flash-0731"
-DEFAULT_MODEL_VALUE = f"{DEFAULT_PROVIDER}/{DEFAULT_MODEL}"
 # Keep web-search summarization on a strong Codex route even when the driving
 # execution default is the fast DeepInfra DeepSeek Flash model.
 WEB_SEARCH_SUMMARY_MODEL = "openai-codex/gpt-5.6-terra"
-PICKER_ENABLED_MODELS = [
-    f"{DEFAULT_MODEL_VALUE}:high",
-    "openai-codex/gpt-5.6-terra:high",
-    "openai-codex/gpt-5.6-luna:xhigh",
-    "openai-codex/gpt-5.6-sol:medium",
-    "xai/grok-4.6:high",
-    "cursor/grok-4.6:high",
-    "opencode/deepseek-v4-flash:high",
-]
 
 changed = []
 
@@ -1910,11 +1900,11 @@ settings["gptConfig"] = {
     "showFooter": True,
 }
 settings.pop("piCodexGoal", None)
-
+# Pi shows the live catalog when enabledModels is absent.
 models = settings.get("enabledModels")
 if models is not None and not isinstance(models, list):
     raise SystemExit("settings enabledModels must be a list when present")
-settings["enabledModels"] = PICKER_ENABLED_MODELS
+settings.pop("enabledModels", None)
 
 if json.dumps(settings, sort_keys=True) != before_settings:
     settings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2000,6 +1990,32 @@ install_pi_agents_from_repo() {
     mkdir -p "$pi_agents_dir"
     if [ -d "$pi_source_dir/agents" ]; then
         cp -r "$pi_source_dir/agents/." "$pi_agents_dir/"
+    fi
+}
+
+# Deploy the pi-extensible-workflows extension config (modelAliases settings
+# plus workflow role definitions) from the repo into ~/.pi/agent so all hosts
+# converge on the repo-owned aliases and roles. The npm package provides the
+# extension itself; this repo owns its settings.json and roles/. The repo
+# settings.json is authoritative, so an existing live copy is overwritten.
+install_pi_workflow_config() {
+    local pi_source_dir="$1"
+    local pi_agent_dir="$2"
+    local src_dir="$pi_source_dir/pi-extensible-workflows"
+    local target_dir="$pi_agent_dir/pi-extensible-workflows"
+
+    if [ ! -d "$src_dir" ]; then
+        return
+    fi
+
+    mkdir -p "$target_dir"
+    echo "  - Installing pi-extensible-workflows config (settings.json + roles)..."
+    if [ -f "$src_dir/settings.json" ]; then
+        cp "$src_dir/settings.json" "$target_dir/settings.json"
+    fi
+    if [ -d "$src_dir/roles" ]; then
+        rm -rf "$target_dir/roles"
+        cp -r "$src_dir/roles" "$target_dir/roles"
     fi
 }
 
@@ -2520,6 +2536,7 @@ install_pi() {
     install_pi_models_from_repo "$pi_source_dir" "$pi_agent_dir"
     configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
     install_pi_clarify_config "$pi_source_dir" "$pi_agent_dir"
+    install_pi_workflow_config "$pi_source_dir" "$pi_agent_dir"
     cleanup_pi_multi_codex_config "$pi_agent_dir"
 
     # Remove the configuration managed by the retired @tintinweb/pi-tasks
