@@ -1,0 +1,17 @@
+{
+  "enabledModels": [
+    "deepinfra/zai-org/GLM-5.3",
+    "synthetic/hf:moonshotai/Kimi-K3",
+    "synthetic/hf:zai-org/GLM-5.3-Flash",
+    "openai-codex/gpt-5.6-sol",
+    "cursor/grok-4.6",
+    "cursor/composer-2-5",
+    "cursor/fable-5-1@300k",
+    "deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731"
+  ],
+  "defaultProvider": "deepinfra",
+  "defaultModel": "deepseek-ai/DeepSeek-V4-Flash-0731",
+  "defaultThinkingLevel": "high",
+  "capturedOn": "Aarons-MacBook-Pro",
+  "capturedAt": "2026-09-04T13:55:58Z"
+}
