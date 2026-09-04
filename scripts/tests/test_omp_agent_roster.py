@@ -93,6 +93,14 @@ class OmpAgentRosterTest(unittest.TestCase):
         self.assertIn("request-bound artifact", metadata.get("description", ""))
         self.assertIn("requiredEnvelope", body)
 
+    def test_omp_eval_backends_are_disabled(self):
+        config = (OMP / "config.yml").read_text()
+        guidance = (OMP / "AGENTS.md").read_text()
+
+        self.assertIn("eval:\n  py: false\n  js: false", config)
+        self.assertIn("`eval` backends are disabled", guidance)
+        self.assertNotIn("`eval` is scratch analysis", guidance)
+
 
     def test_completeness_skill_resolves_for_omp(self):
         metadata, body = split_frontmatter(COMPLETENESS_SKILL)

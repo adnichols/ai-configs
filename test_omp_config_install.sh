@@ -34,6 +34,11 @@ grep -q '^  - ~/.omp/agent/extensions/deepinfra.ts$' "$TARGET_ROOT/config.yml"
 grep -q '^  - ~/.omp/agent/extensions/thinking-shortcuts.ts$' "$TARGET_ROOT/config.yml"
 grep -q '^  - ~/.omp/agent/extensions/eval-no-file-writes.ts$' "$TARGET_ROOT/config.yml"
 grep -q '^  - claude$' "$TARGET_ROOT/config.yml"
+grep -q '^eval:$' "$TARGET_ROOT/config.yml"
+grep -A2 '^eval:$' "$TARGET_ROOT/config.yml" | grep -q '^  py: false$'
+grep -A2 '^eval:$' "$TARGET_ROOT/config.yml" | grep -q '^  js: false$'
+grep -q '`eval` backends are disabled' "$TARGET_ROOT/AGENTS.md"
+
 cmp -s "$REPO_ROOT/_omp/AGENTS.md" "$TARGET_ROOT/AGENTS.md"
 cmp -s "$REPO_ROOT/_omp/agents/oracle.md" "$TARGET_ROOT/agents/oracle.md"
 cmp -s "$REPO_ROOT/_omp/agents/reviewer.md" "$TARGET_ROOT/agents/reviewer.md"

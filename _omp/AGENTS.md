@@ -57,11 +57,9 @@ destructive-action, external-coordination, or third-party PR boundaries.
 
 ## Tool routing
 
-- `eval` is scratch analysis in a persistent kernel: counts, parses, probes,
-  in-memory transforms. Never use it to create or patch tracked files
-  (`Path.write_text`, prelude `write()`, `Bun.write` to a repo path).
-- `edit` for surgical edits to existing files. `write` for new files. `bash`
-  to run a committed lever.
+- `eval` backends are disabled. Do not call `eval`. Use `read`, `grep`, and
+  `bash` for inspection; `edit` for existing files; `write` for new files;
+  `bash` for a committed lever.
 - The adn-mode **Eval** playbook (blind skill A/B tests) is not the `eval`
   tool.
 

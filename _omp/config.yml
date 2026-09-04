@@ -22,6 +22,9 @@ astGrep:
   enabled: false
 computer:
   enabled: false
+eval:
+  py: false
+  js: false
 checkpoint:
   enabled: false
 plan:
