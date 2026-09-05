@@ -38,6 +38,8 @@ grep -q '^eval:$' "$TARGET_ROOT/config.yml"
 grep -A2 '^eval:$' "$TARGET_ROOT/config.yml" | grep -q '^  py: false$'
 grep -A2 '^eval:$' "$TARGET_ROOT/config.yml" | grep -q '^  js: false$'
 grep -q '`eval` backends are disabled' "$TARGET_ROOT/AGENTS.md"
+grep -q '^advisor:$' "$TARGET_ROOT/config.yml"
+grep -A1 '^advisor:$' "$TARGET_ROOT/config.yml" | grep -q '^  enabled: false$'
 
 cmp -s "$REPO_ROOT/_omp/AGENTS.md" "$TARGET_ROOT/AGENTS.md"
 cmp -s "$REPO_ROOT/_omp/agents/oracle.md" "$TARGET_ROOT/agents/oracle.md"

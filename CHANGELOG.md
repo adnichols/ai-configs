@@ -28,6 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: `advisor.enabled` is false.
+
 - Switched the managed Pi `xai` and `cursor` Grok routes from `grok-4.5` to `grok-4.6` now that Pi ships `xai/grok-4.6` natively: the Pi completeness reviewer runs on `xai/grok-4.6:high`, and install keeps unsuffixed `cursor/grok-4.6` plain (`fastDefaults.grok-4.6=false`) with the legacy `grok-4.5` routes migrated to `grok-4.6`. The managed `xai/grok-4.6` entry still advertises a 200k context window, and the `opencode/grok-4.5` context-ceiling policy is unchanged.
 
 - OMP `adn-mode` and `run-plan` pin generic implementation `task` workers to `model: "@default"` so they do not inherit a temporary Fireworks or DeepInfra parent. Named roles keep frontmatter. Cancel and respawn if a child tool-loops.

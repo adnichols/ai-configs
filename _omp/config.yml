@@ -68,7 +68,7 @@ cycleOrder:
   - slow
   - Oracle
 advisor:
-  enabled: true
+  enabled: false
 dev:
   autoqaConsent: granted
   autoqa: false
