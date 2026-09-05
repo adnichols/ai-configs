@@ -30,7 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Synced managed OMP `config.yml` from this host: `advisor.enabled` is false.
+- Synced managed OMP `config.yml` from this host: dropped `gpt-6-astra` from OMP roles — `slow` is `openai-codex/gpt-5.6-sol:high`, `Oracle` is `openai-codex/gpt-5.6-sol:high`.
 - Synced managed OMP `config.yml` from this host: `slow` is `openai-codex/gpt-6-astra:medium`, `Oracle` is `openai-codex/gpt-6-astra:high`. `designer` stays `openai-codex/gpt-5.6-sol:high` (the local `devin/claude-fable-5-1:medium` value was a one-host project override and is not captured). `prewalk.enabled` is false.
 
 

@@ -31,14 +31,14 @@ plan:
   enabled: false
 modelRoles:
   smol: deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:max
-  slow: openai-codex/gpt-6-astra:medium
+  slow: openai-codex/gpt-5.6-sol:high
   vision: openai-codex/gpt-5.6-sol:medium
   plan: synthetic/hf:moonshotai/Kimi-K3:high
   designer: openai-codex/gpt-5.6-sol:high
   commit: openai-codex/gpt-5.6-sol:medium
   tiny: deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:low
   advisor: xai-oauth/grok-4.6:high
-  Oracle: openai-codex/gpt-6-astra:high
+  Oracle: openai-codex/gpt-5.6-sol:high
   reviewer: cursor/cursor-grok-4.6:high
   default: xai-oauth/grok-4.6:high
   completeness: xai-oauth/grok-4.6:high
