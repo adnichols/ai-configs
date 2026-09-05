@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added a Pi `imaging` subagent on GPT-5.6 Luna xhigh so non-vision models can proactively hand screenshots and other visual input to a vision-capable analyst instead of guessing.
 
+- Added a Pi-adapted `adn-mode` (`_pi/skills/adn-mode/SKILL.md`) installed into `~/.pi/agent/skills/adn-mode`, where Pi's skill precedence shadows the shared `~/.agents/skills` copy for Pi sessions only. Same doctrine as the shared/OMP version; the subagent contract uses Pi's `Agent` tool and Pi model routes (`xai/grok-4.6:high` for the Grok role and default code, `synthetic/hf:moonshotai/Kimi-K3:max|high` for the Kimi architect/reviewer roles, DeepSeek Flash for cheap bulk work). The shared ADN playbooks/references payload is assembled underneath it at install time, and skill sync keeps repo-owned `_pi/skills` entries Pi-local instead of promoting them into `~/.agents/skills`.
+
 - Vendored the `cobanov.herdr-ntfysh` Herdr plugin into `tools/herdr-ntfysh` (pinned upstream commit) with two added capabilities: notification titles now use the agent's human-readable session title (`agent get` name, else pane terminal title) instead of bare agent/pane IDs, and `HERDR_NTFY_BODY_LINES=N` appends the last N lines of the agent pane's recent output to the notification body. Both fail safe when the Herdr CLI is unreachable. `herdr/install.sh` now builds, links, and enables the vendored copy (replacing any upstream GitHub-managed install), and keeps the existing plugin config (`.env`) intact.
 
 - Permanent-document disposition in the shared pre-PR path: `run-plan` and `cmd-create-pr` hard-stop when a repo-local permanent-docs skill is present; `delivery-run` records recommended `permanentDocs` evidence and completeness prompt coverage; `cmd-graduate` stays generic with a pointer to local `*-permanent-docs`; `autoreview` accepts caller-supplied disposition in the packet baseline. Pairs with Heddle `heddle-permanent-docs`.
@@ -85,6 +87,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Removed leftover Gemini CLI surfaces: root `GEMINI.md`, `_claude/commands/review:change-gemini.md`, and `scripts/gemini-review.sh`.
 - Retired the Pi model-picker allowlist: install no longer ships `model-allowlist.ts` and clears `enabledModels` so Pi shows the live catalog. The default execution route remains DeepSeek Flash.
+- Retired the ai-configs code built around Pi workflows now that Pi sessions run adn-mode: the repo-owned `pi-extensible-workflows` settings/roles (`_pi/pi-extensible-workflows/`), the Heddle release workflow and prompts (`_pi/workflows/`, `_pi/prompts/heddle:*`), and the evidence-closed investigation prompt (`_pi/prompts/investigate.md`). The `pi-extensible-workflows` npm package stays installed with plugin defaults. `install.sh --pi` removes stale live copies from `~/.pi/agent` with a timestamped backup under `~/.pi/agent/extension-backups/`.
 
 ## [Retire pi-side-agents] - 2026-07-16
 

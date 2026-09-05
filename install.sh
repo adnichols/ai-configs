@@ -1515,6 +1515,15 @@ consolidate_pi_local_skills() {
 
     for entry_path in "${entries[@]}"; do
         skill_name="$(basename "$entry_path")"
+
+        # Repo-managed Pi-local skills (_pi/skills/) intentionally shadow the
+        # shared copy for Pi only (for example the Pi-adapted adn-mode). Leave
+        # them in place; consolidation only promotes unmanaged Pi-local entries.
+        if [ -d "$REPO_ROOT/_pi/skills/$skill_name" ]; then
+            echo "    - Kept repo-managed Pi-local skill: $skill_name"
+            continue
+        fi
+
         shared_target="$shared_skills_dir/$skill_name"
 
         if [ -e "$shared_target" ] || [ -L "$shared_target" ]; then
@@ -1611,7 +1620,7 @@ sync_shared_skills() {
     echo "  Default shared skills now live in ~/.agents/skills"
     echo "  Repo-owned payloads come from skills/; package-backed payloads are fetched per skills/install-matrix.json"
     echo "  Optional-profile skills remain declared in the matrix but are backed out of default discovery"
-    echo "  Pi-local skill entries are promoted into ~/.agents/skills and removed from ~/.pi/agent/skills"
+    echo "  Unmanaged Pi-local skill entries are promoted into ~/.agents/skills and removed from ~/.pi/agent/skills; repo-owned _pi/skills entries stay Pi-local"
 }
 
 update_installed_skills_from_skills_sh() {
@@ -1993,30 +2002,85 @@ install_pi_agents_from_repo() {
     fi
 }
 
-# Deploy the pi-extensible-workflows extension config (modelAliases settings
-# plus workflow role definitions) from the repo into ~/.pi/agent so all hosts
-# converge on the repo-owned aliases and roles. The npm package provides the
-# extension itself; this repo owns its settings.json and roles/. The repo
-# settings.json is authoritative, so an existing live copy is overwritten.
-install_pi_workflow_config() {
-    local pi_source_dir="$1"
-    local pi_agent_dir="$2"
-    local src_dir="$pi_source_dir/pi-extensible-workflows"
-    local target_dir="$pi_agent_dir/pi-extensible-workflows"
+# Remove the retired ai-configs pi-extensible-workflows configuration
+# (repo-owned modelAliases settings plus evidence-* workflow roles) and the
+# repo-owned workflow scripts. The pi-extensible-workflows npm package itself
+# stays installed; only the ai-configs-developed code on top of it is retired
+# now that Pi sessions run adn-mode instead of workflow roles. Live copies are
+# moved to a timestamped backup under ~/.pi/agent/extension-backups/ before
+# removal. Plugin state files (for example changelog-state.json) are kept.
+cleanup_pi_workflow_config() {
+    local pi_agent_dir="$1"
+    local config_dir="$pi_agent_dir/pi-extensible-workflows"
+    local workflows_dir="$pi_agent_dir/workflows"
+    local backup_root=""
+    local entry rel
+    local stale=()
 
-    if [ ! -d "$src_dir" ]; then
+    if [ -f "$config_dir/settings.json" ]; then
+        stale+=("$config_dir/settings.json")
+    fi
+    if [ -d "$config_dir/roles" ]; then
+        stale+=("$config_dir/roles")
+    fi
+    for entry in "$workflows_dir/heddle-release.js" "$workflows_dir/evidence-closed-investigation.js"; do
+        if [ -f "$entry" ]; then
+            stale+=("$entry")
+        fi
+    done
+
+    if [ "${#stale[@]}" -eq 0 ]; then
         return
     fi
 
-    mkdir -p "$target_dir"
-    echo "  - Installing pi-extensible-workflows config (settings.json + roles)..."
-    if [ -f "$src_dir/settings.json" ]; then
-        cp "$src_dir/settings.json" "$target_dir/settings.json"
+    backup_root="$pi_agent_dir/extension-backups/retired-pi-workflows-$(date -u +%Y%m%d-%H%M%S)-$$"
+    echo "  - Removing retired ai-configs Pi workflow code (backup: $backup_root)..."
+    for entry in "${stale[@]}"; do
+        rel="${entry#"$pi_agent_dir"/}"
+        mkdir -p "$backup_root/$(dirname "$rel")"
+        mv "$entry" "$backup_root/$rel"
+        echo "    - Retired $rel"
+    done
+}
+
+# Install repo-owned Pi-local skills from _pi/skills into ~/.pi/agent/skills.
+# Pi loads ~/.pi/agent/skills before ~/.agents/skills, so a Pi-local skill
+# shadows a same-named shared skill for Pi only; other harnesses keep the
+# shared copy. When a same-named skill exists under _adn/skills, the ADN
+# payload (playbooks, references, scripts) is copied first and the _pi/skills
+# entry overlays its own files on top, so _pi/skills/adn-mode/SKILL.md can
+# carry the Pi-adapted harness contract and model names while the shared ADN
+# doctrine stays single-sourced.
+install_pi_skills_from_repo() {
+    local pi_source_dir="$1"
+    local pi_agent_dir="$2"
+    local skills_src="$pi_source_dir/skills"
+    local skills_target="$pi_agent_dir/skills"
+    local entry name dest adn_src
+
+    if [ ! -d "$skills_src" ]; then
+        return
     fi
-    if [ -d "$src_dir/roles" ]; then
-        rm -rf "$target_dir/roles"
-        cp -r "$src_dir/roles" "$target_dir/roles"
-    fi
+
+    echo "  - Installing Pi-local skills (Pi shadows same-named shared skills)..."
+    mkdir -p "$skills_target"
+    shopt -s nullglob
+    for entry in "$skills_src"/*; do
+        if [ ! -d "$entry" ]; then
+            continue
+        fi
+        name="$(basename "$entry")"
+        dest="$skills_target/$name"
+        rm -rf "$dest"
+        mkdir -p "$dest"
+        adn_src="$REPO_ROOT/_adn/skills/$name"
+        if [ -d "$adn_src" ]; then
+            cp -R "$adn_src/." "$dest/"
+        fi
+        cp -R "$entry/." "$dest/"
+        echo "    - Installed Pi-local skill: $name"
+    done
+    shopt -u nullglob
 }
 
 cleanup_pi_multi_codex_config() {
@@ -2470,11 +2534,14 @@ install_pi() {
     fi
 
     # Shared installable skills are discovered via ~/.agents/skills.
-    echo "  - Shared installable skills are discovered via ~/.agents/skills; Pi-local skill entries are consolidated there during skill sync."
+    echo "  - Shared installable skills are discovered via ~/.agents/skills; unmanaged Pi-local skill entries are consolidated there during skill sync, while repo-owned _pi/skills entries stay Pi-local."
 
     # Install planning and read-only subagent definitions for @tintinweb/pi-subagents.
     echo "  - Installing Pi planning/read-only subagents..."
     install_pi_agents_from_repo "$pi_source_dir" "$pi_agents_dir"
+
+    # Install repo-owned Pi-local skills (for example the Pi-adapted adn-mode).
+    install_pi_skills_from_repo "$pi_source_dir" "$pi_agent_dir"
 
     # Install extensions.
     echo "  - Installing Pi extensions..."
@@ -2536,7 +2603,7 @@ install_pi() {
     install_pi_models_from_repo "$pi_source_dir" "$pi_agent_dir"
     configure_pi_model_defaults "$pi_root_dir" "$pi_agent_dir"
     install_pi_clarify_config "$pi_source_dir" "$pi_agent_dir"
-    install_pi_workflow_config "$pi_source_dir" "$pi_agent_dir"
+    cleanup_pi_workflow_config "$pi_agent_dir"
     cleanup_pi_multi_codex_config "$pi_agent_dir"
 
     # Remove the configuration managed by the retired @tintinweb/pi-tasks

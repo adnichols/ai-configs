@@ -6,9 +6,12 @@ This directory contains Pi-specific resources:
 - `agents/` — @tintinweb/pi-subagents-compatible agent definitions
 - `extensions/` — Pi runtime extensions and utility integrations
 - `lib/` — shared import-only TypeScript modules used by extensions; never auto-loaded as extensions
+- `skills/` — repo-owned Pi-local skills installed into `~/.pi/agent/skills/`; Pi loads that directory before `~/.agents/skills`, so a same-named entry shadows the shared skill for Pi only. When a same-named skill exists under `_adn/skills/`, the installer copies the ADN payload (playbooks, references, scripts) first and overlays the `_pi/skills/` files on top — `_pi/skills/adn-mode/SKILL.md` is the Pi-adapted adn-mode (Pi `Agent` tool contract, Pi model routes) and stays Pi-local; unlike unmanaged Pi-local entries it is never promoted into `~/.agents/skills` by skill sync.
 - `models.json` — managed custom model entries merged into Pi's global `models.json`
 
 Repo-owned default Pi/Codex shared skills live in the repo-level `skills/` tree, and `skills/install-matrix.json` also inventories package-backed and optional-profile shared skills fetched via `npx skills`. The installed default shared runtime location remains `~/.agents/skills`.
+
+The retired ai-configs `pi-extensible-workflows` configuration (repo-owned `settings.json` model aliases, `evidence-*` workflow roles, the `heddle:release` prompts and workflow script, and the `investigate` evidence-workflow prompt) is no longer installed. `install.sh --pi` removes any stale live copies from `~/.pi/agent` with a timestamped backup under `~/.pi/agent/extension-backups/`. The `pi-extensible-workflows` npm package itself stays installed; Pi sessions use adn-mode instead of the repo-owned workflow roles.
 
 
 ## Installation
@@ -197,7 +200,7 @@ npm-managed packages:
 - `pi-updater` — codex-style auto-updater for Pi; checks pi and extension packages on startup and prompts to install updates
 - `pi-clarify` — `/clarify` prompt rewriter; install copies `_pi/clarify.json` so rewrites use DeepInfra DeepSeek V4 Flash with thinking off
 - `pi-prewalk` (vendored) — lets a strong model commit to a plan, then hands mechanical implementation off to a configured execution profile (model + thinking level) at the first `edit`/`write` (todo-gated one-way switch). Arm with `--prewalk`, `--prewalk-into <profile|model>`, `/prewalk`, `/prewalk terra`, or `/prewalk profiles`. Source: `_pi/packages/pi-prewalk`; user overrides: `~/.pi/agent/prewalk-profiles.json`.
-- `pi-extensible-workflows` — multi-agent workflow orchestration (`workflow` tool, parallel/pipeline, checkpoints, worktrees)
+- `pi-extensible-workflows` — multi-agent workflow orchestration (`workflow` tool, parallel/pipeline, checkpoints, worktrees). Installed with plugin defaults only; ai-configs no longer ships custom settings or roles for it
 - `pi-cursor-sdk` — Cursor SDK-backed provider extension; requires Node.js 22.19+ and a Cursor SDK API key. ai-configs vendors its reviewed fork and installs production dependencies into a stable local mirror. Its interactive `cursor_ask_question` bridge is disabled by default; set `PI_CURSOR_ASK_QUESTION=1` for an explicit one-run opt-in.
 
 local path packages:
