@@ -34,7 +34,7 @@ modelRoles:
   slow: openai-codex/gpt-6-astra:medium
   vision: openai-codex/gpt-5.6-sol:medium
   plan: synthetic/hf:moonshotai/Kimi-K3:high
-  designer: openai-codex/gpt-5.6-sol:high
+  designer: devin/claude-fable-5-1:medium
   commit: openai-codex/gpt-5.6-sol:medium
   tiny: deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731:low
   advisor: xai-oauth/grok-4.6:high
@@ -116,4 +116,4 @@ retry:
       - cursor/cursor-grok-4.6
 extendedContext: false
 prewalk:
-  enabled: true
+  enabled: false
