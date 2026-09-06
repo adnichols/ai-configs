@@ -65,14 +65,16 @@ class OmpAgentRosterTest(unittest.TestCase):
         for required in (
             "planning-only",
             "PLAN_EXECUTION_READY",
-            "IMPLEMENTATION:",
             "CWD",
             "REVIEW_ROOT",
-            "driving-default",
-            "terra-high",
             "xai-oauth/grok-4.6:high",
         ):
             self.assertIn(required, body)
+        # Planner never recommends a model: implementation stays on the driving
+        # OMP session default (xai-oauth/grok-4.6:high). Terra is not used as a
+        # planner or executor pick.
+        self.assertNotIn("terra-high", body)
+        self.assertNotIn("IMPLEMENTATION:", body)
 
     def test_omp_delivery_model_routing_is_pinned(self):
         config = (OMP / "config.yml").read_text()
