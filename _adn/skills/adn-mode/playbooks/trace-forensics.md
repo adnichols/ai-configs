@@ -17,9 +17,9 @@ Distinct from **Runtime forensics**, which instruments the live process. Here th
 <!-- source-step:trace-forensics:5 -->
 5. Confirm against a paired capture when you have one. Diff a before and after artifact so the attribution is the real regression, not background noise. Without one, mark the finding as the strongest hypothesis the artifact supports, not a confirmed cause.
 <!-- source-step:trace-forensics:6 -->
-6. Hand back a cited diagnosis, no fix unless asked. Route to Bug fix or Perf issue once the cause is known. Throughput checkpoint stays one line: `throughput checkpoint: n/a, read-only forensics`.
+6. Hand back a cited diagnosis, no fix unless asked. Route to Bug fix or Perf issue once the cause is known.
 
-<!-- source-step:trace-forensics:7 -->
-7. No PR. End cleanly.
+<!-- source-step:trace-forensics:6 -->
+6. No PR. End cleanly.
 
 **Reply:** the artifact and format, the reduced finding, the source location, the artifact paths, and whether a paired capture confirmed it.

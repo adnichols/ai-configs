@@ -12,10 +12,8 @@ ADN_RUNTIME_MARKER:playbook-runtime-forensics:46756f89270d7e7dcb8c28c90fd0f957ad
 3. Prove the mechanism before believing it. Inject instrumentation via CDP eval on the running process, or hotfix the live code without reloading, to confirm the hypothesis cheaply. A plausible-but-unconfirmed cause can be wrong while the real one sits one layer over.
 <!-- source-step:runtime-forensics:4 -->
 4. Map the finding back to source: file, symbol, the line that allocates or schedules.
-<!-- source-step:runtime-forensics:5 -->
-5. Throughput checkpoint stays one line: `throughput checkpoint: n/a, read-only forensics`.
 
-<!-- source-step:runtime-forensics:6 -->
-6. No PR. End cleanly.
+<!-- source-step:runtime-forensics:5 -->
+5. No PR. End cleanly.
 
 **Reply:** the signal captured, the reduced finding, how you proved the mechanism, the source location, artifact paths. No fix unless asked; hand back to Bug fix or Perf once the cause is known.
