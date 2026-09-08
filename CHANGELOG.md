@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added ADN Architecture principle `principle-modes-not-exceptions`. Lab, test, CI, and production differences are a designed operating mode parsed at the edge, not hostname or env ifs in product code. Wired into shared and Pi `adn-mode`.
+
 - Added a repo-owned `luvus` skill so Codex, Claude, Pi, and Devin can drive Luvus agent panes from inside or outside a managed session.
 
 - Added `adversarial-fix-review` so a claimed bug fix or "this change is necessary" handoff gets a second-model reviewer who must prove the claim from artifacts, not the implementer's brief. Wired from adn-mode and the bug-fix playbook, not from always-on Pi/OMP doctrine.

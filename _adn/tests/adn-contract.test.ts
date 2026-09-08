@@ -32,6 +32,11 @@ describe("adn-mode contract", () => {
     expect(skill).toContain("/setup-adn");
   });
 
+  test("adn-mode lists modes-not-exceptions as architecture doctrine", () => {
+    expect(skill).toContain("principle-modes-not-exceptions");
+    expect(skill).toContain("Modes Not Exceptions");
+  });
+
   test("run-plan automatically activates adn-mode on OMP only", () => {
     expect(runPlan).toContain("On OMP, load the installed `adn-mode` skill before any other run-plan step");
     expect(runPlan).toContain("keep it active through closeout");

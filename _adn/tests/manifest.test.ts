@@ -47,6 +47,7 @@ const PRINCIPLE_IDS = [
   "principle-exhaust-the-design-space",
   "principle-build-the-lever",
   "principle-model-the-domain",
+  "principle-modes-not-exceptions",
   "principle-boundary-discipline",
   "principle-type-system-discipline",
   "principle-make-operations-idempotent",
