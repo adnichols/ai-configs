@@ -1,0 +1,718 @@
+#!/usr/bin/env python3
+"""Tests for the canonical Claude interactive tmux review launcher."""
+
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import textwrap
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+LAUNCHER = ROOT / "skills/claude-code-review/scripts/claude_interactive_review.py"
+GUARDRAIL = ROOT / "skills/claude-code-review/scripts/check_no_direct_claude_review_launches.py"
+FAKE_CLAUDE = ROOT / "skills/claude-code-review/tests/fixtures/fake_claude.py"
+
+
+def run_cmd(args: list[str], *, env: dict[str, str] | None = None, cwd: Path | None = None, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+    merged = os.environ.copy()
+    if env:
+        merged.update(env)
+    return subprocess.run(args, cwd=str(cwd or ROOT), env=merged, text=True, capture_output=True, timeout=timeout)
+
+
+class LauncherTestCase(unittest.TestCase):
+    def make_fake_env(self, tmp: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
+        fake_bin = tmp / "bin"
+        fake_home = tmp / "home"
+        zdotdir = tmp / "zdotdir"
+        fake_bin.mkdir()
+        fake_home.mkdir()
+        zdotdir.mkdir()
+        claude = fake_bin / "claude"
+        claude.write_text(f"#!/usr/bin/env bash\nexec {sys.executable!r} {str(FAKE_CLAUDE)!r} \"$@\"\n", encoding="utf-8")
+        claude.chmod(0o755)
+        zshenv = zdotdir / ".zshenv"
+        zshenv.write_text(f"export PATH={fake_bin}:$PATH\n", encoding="utf-8")
+        env = {
+            "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+            "HOME": str(fake_home),
+            "ZDOTDIR": str(zdotdir),
+        }
+        if extra:
+            env.update(extra)
+        return env
+
+    def launcher_args(self, tmp: Path, *, sentinel: str = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345", timeout: int = 8) -> tuple[list[str], Path]:
+        prompt = tmp / "prompt.md"
+        output = tmp / "review.md"
+        prompt.write_text("Read-only review. Return VERDICT: PASS_SCOPED and one sentence.", encoding="utf-8")
+        args = [
+            sys.executable,
+            str(LAUNCHER),
+            "--cwd",
+            str(ROOT),
+            "--prompt-file",
+            str(prompt),
+            "--output",
+            str(output),
+            "--review-name",
+            "fake-review",
+            "--timeout-seconds",
+            str(timeout),
+        ]
+        if sentinel:
+            args.extend(["--sentinel", sentinel])
+        return args, output
+
+    def test_fake_interactive_success_outputs_answer_and_tears_down(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            argv_file = tmp / "claude-argv.jsonl"
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_ARGV_FILE": str(argv_file)}), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("VERDICT: PASS_SCOPED"), text)
+            self.assertIn("model=claude-sonnet-5", text)
+            self.assertIn("effort=xhigh", text)
+            argv_entries = [json.loads(line) for line in argv_file.read_text(encoding="utf-8").splitlines()]
+            self.assertTrue(any(entry[:4] == ["--model", "claude-sonnet-5", "--effort", "xhigh"] and "--session-id" in entry for entry in argv_entries), argv_entries)
+            socket_line = next(line for line in text.splitlines() if line.startswith("socket="))
+            socket = socket_line.split("=", 1)[1]
+            tmux_probe = run_cmd(["tmux", "-L", socket, "list-sessions"], timeout=5)
+            self.assertNotEqual(tmux_probe.returncode, 0, "successful review leaked private tmux server")
+
+    def test_hard_limit_examples_in_submitted_prompt_do_not_block_valid_review(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            prompt = Path(args[args.index("--prompt-file") + 1])
+            prompt.write_text(textwrap.dedent("""
+                Review the launcher behavior for these provider-output examples:
+                - You've hit your session limit
+                - You've hit your weekly rate limit
+                Return VERDICT: PASS_SCOPED and one sentence.
+            """).strip(), encoding="utf-8")
+            proc = run_cmd(args, env=self.make_fake_env(tmp), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("VERDICT: PASS_SCOPED\nFake Claude review body"), text)
+            self.assertIn("CLAUDE_REVIEW_LAUNCHER_METADATA", text)
+            self.assertIn("model=claude-sonnet-5", text)
+            self.assertIn("effort=xhigh", text)
+            self.assertIn("clear_boundary=", text)
+            self.assertIn("claude_session_id=", text)
+            self.assertIn("session_record=", text)
+
+    def test_generated_answer_quoting_hard_limit_examples_completes(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_QUOTED_HARD_LIMITS": "1"}), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("VERDICT: PASS_SCOPED\nFake Claude review body quoting provider examples:"), text)
+            self.assertIn("- You've hit your session limit", text)
+            self.assertIn("- You've hit your weekly rate limit", text)
+            self.assertIn("CLAUDE_REVIEW_LAUNCHER_METADATA", text)
+            self.assertIn("model=claude-sonnet-5", text)
+            self.assertIn("effort=xhigh", text)
+            self.assertIn("clear_boundary=", text)
+            self.assertIn("claude_session_id=", text)
+            self.assertIn("session_record=", text)
+
+    def test_omitted_sentinel_generates_nonce_sentinel(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp, sentinel="")
+            proc = run_cmd(args, env=self.make_fake_env(tmp), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            self.assertIn("Fake Claude review body", output.read_text(encoding="utf-8"))
+
+    def test_invalid_sentinel_rejected_before_tmux_launch(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp, sentinel="DONE")
+            proc = run_cmd(args, env=self.make_fake_env(tmp), timeout=15)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("CLAUDE_REVIEW_INVALID_SENTINEL", output.read_text(encoding="utf-8"))
+
+    def test_claude_discovery_uses_login_shell_path(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            env = self.make_fake_env(tmp)
+            fake_bin = str(tmp / "bin")
+            env["PATH"] = os.pathsep.join(part for part in env["PATH"].split(os.pathsep) if part != fake_bin)
+            proc = run_cmd(args, env=env, timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            self.assertIn("Fake Claude review body", output.read_text(encoding="utf-8"))
+
+    def test_login_shell_does_not_source_interactive_zshrc(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            env = self.make_fake_env(tmp)
+            (tmp / "zdotdir" / ".zshrc").write_text("export FAKE_CLAUDE_AUTH=0\n", encoding="utf-8")
+            proc = run_cmd(args, env=env, timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            self.assertIn("Fake Claude review body", output.read_text(encoding="utf-8"))
+
+    def test_non_posix_configured_login_shell_fails_clearly(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            unsupported_shell = tmp / "tcsh"
+            unsupported_shell.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+            unsupported_shell.chmod(0o755)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"SHELL": str(unsupported_shell)}), timeout=15)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("CLAUDE_REVIEW_UNSUPPORTED_LOGIN_SHELL", output.read_text(encoding="utf-8"))
+
+    def test_prompt_cleared_tui_output_succeeds_before_baseline(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_NO_ECHO": "1"}), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("Fake Claude review body", text)
+            self.assertIn("clear_boundary=persisted Claude session JSONL after visible completion sentinel before baseline", text)
+
+    def test_long_alternate_screen_review_recovers_full_answer_from_session_jsonl(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_LONG_ALT_SCREEN": "1"}), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("VERDICT: PLAN_NEEDS_REVISION", text)
+            self.assertIn("Detailed review line 001", text)
+            self.assertIn("Detailed review line 100", text)
+            self.assertIn("clear_boundary=persisted Claude session JSONL", text)
+            self.assertIn("session_record=", text)
+            transcript_path = Path(next(line for line in text.splitlines() if line.startswith("transcript=")).split("=", 1)[1])
+            transcript = transcript_path.read_text(encoding="utf-8")
+            self.assertIn("CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345", transcript)
+            self.assertNotIn("CLAUDE_REVIEW_ANSWER_START_", transcript)
+            self.assertNotIn("VERDICT: PLAN_NEEDS_REVISION", transcript)
+
+    def test_inherited_claude_config_dir_is_removed_before_tui_launch(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {
+                "CLAUDE_CONFIG_DIR": "/stale/harness/profile",
+                "FAKE_CLAUDE_REJECT_CONFIG_DIR": "1",
+            }), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            self.assertIn("Fake Claude review body", output.read_text(encoding="utf-8"))
+
+    def test_tui_not_logged_in_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_NOT_LOGGED_IN": "1"}), timeout=20)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("CLAUDE_AUTH_UNAVAILABLE_IN_TUI", output.read_text(encoding="utf-8"))
+
+    def test_session_limit_after_submit_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_SESSION_LIMIT": "1"}), timeout=30)
+            self.assertEqual(proc.returncode, 25, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("CLAUDE_SESSION_LIMIT_IN_TUI", text)
+            self.assertIn("session/rate limit after submit", text)
+
+    def test_usage_banner_after_submit_allows_review_to_complete(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_USAGE_BANNER": "1"}), timeout=30)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertTrue(text.startswith("VERDICT: PASS_SCOPED\nFake Claude review body"), text)
+            self.assertIn("CLAUDE_REVIEW_LAUNCHER_METADATA", text)
+            self.assertIn("model=claude-sonnet-5", text)
+            self.assertIn("effort=xhigh", text)
+            self.assertIn("clear_boundary=", text)
+            transcript_path = Path(next(line for line in text.splitlines() if line.startswith("transcript=")).split("=", 1)[1])
+            transcript = transcript_path.read_text(encoding="utf-8")
+            self.assertIn("You've used 75% of your weekly limit · resets 3am (America/Denver)", transcript)
+
+    def test_composed_prompt_forbids_reviewer_verification_execution(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as td:
+            prompt = Path(td) / "prompt.md"
+            prompt.write_text("Review the current diff.", encoding="utf-8")
+            composed = module.compose_prompt(prompt, "ANSWER_MARKER", "FINAL_SENTINEL")
+        self.assertIn("Do not run or invoke tests, test suites, builds, linters, typechecks", composed)
+        self.assertIn("the calling/coordinating agent exclusively owns test and verification execution", composed)
+        self.assertIn("Read-only inspection commands such as git diff, rg, and file reads are allowed", composed)
+
+    def test_weekly_usage_limit_banner_is_not_session_limit(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        banners = [
+            "You've used 75% of your weekly limit · resets 3am (America/Denver)",
+            "You've used 1% of your weekly limit · resets 11pm (America/Denver)",
+            "You've used 50% of your weekly limit · resets 9:30am (America/Denver)",
+            "You've used 99% of your weekly limit · resets 12am (America/Denver)",
+            "Extended: Fable 5 is included in your weekly limit. If you hit your limit, you can continue on Fable 5 with usage credits.",
+            "We're extending Claude Fable 5 access on all paid plans, as well as keeping Claude Code’s weekly rate limits 50% higher, through July 19.",
+        ]
+        for banner in banners:
+            with self.subTest(banner=banner):
+                module.check_tui_unavailable(banner)
+
+    def test_explicit_hard_limit_language_is_session_limit(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        messages = [
+            "You've hit your session limit · resets 11:30am (America/Denver)",
+            "You've reached your weekly limit.",
+            "You've hit your weekly rate limit · resets 3am (America/Denver)",
+            "You have exceeded the usage limit.",
+            "Rate limit exceeded.",
+            "Limit reached.",
+        ]
+        for message in messages:
+            with self.subTest(message=message), self.assertRaises(module.LauncherError) as raised:
+                module.check_tui_unavailable(message)
+            self.assertEqual(raised.exception.code, "CLAUDE_SESSION_LIMIT_IN_TUI")
+            self.assertEqual(raised.exception.exit_code, 25)
+
+    def test_post_submit_generated_output_excludes_visible_or_collapsed_prompt(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        marker = "CLAUDE_REVIEW_ANSWER_START_deadbeef"
+        sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
+        visible = (
+            "❯ You've hit your session limit\n"
+            f"Claude review launcher emission protocol\n{marker}\n<review text here>\n{sentinel}\n"
+            f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}\n"
+            "⎿  You've hit your weekly rate limit · resets 3am"
+        )
+        partial_visible = (
+            "❯ You've hit your session limit\n"
+            f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}\n"
+            "⎿  You've hit your weekly rate limit · resets 3am"
+        )
+        collapsed = "❯ [Pasted text #1 +28 lines]\n⎿  You've hit your session limit · resets 11:30am"
+        cleared = "Claude Code\n⎿  You've hit your session limit · resets 11:30am\n❯"
+        generated_answer = f"{marker}\nVERDICT: PASS_SCOPED\nReview\n{sentinel}"
+        self.assertEqual(
+            module.post_submit_generated_output(visible, marker, sentinel).strip(),
+            "⎿  You've hit your weekly rate limit · resets 3am",
+        )
+        self.assertEqual(
+            module.post_submit_generated_output(partial_visible, marker, sentinel).strip(),
+            "⎿  You've hit your weekly rate limit · resets 3am",
+        )
+        self.assertEqual(
+            module.post_submit_generated_output(collapsed, marker, sentinel).strip(),
+            "⎿  You've hit your session limit · resets 11:30am",
+        )
+        self.assertEqual(module.post_submit_generated_output(cleared, marker, sentinel), cleared)
+        self.assertEqual(module.post_submit_generated_output(generated_answer, marker, sentinel), generated_answer)
+        generated_answer_with_boundary = f"{generated_answer}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        self.assertEqual(module.post_submit_generated_output(generated_answer_with_boundary, marker, sentinel), "")
+
+    def test_availability_check_region_retains_pre_marker_and_excludes_answer_body(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        marker = "CLAUDE_REVIEW_ANSWER_START_deadbeef"
+        pre_marker_limit = "⎿  You've hit your session limit · resets 11:30am"
+        answer_body_limits = (
+            "VERDICT: PASS_SCOPED\n"
+            "Review quotes You've hit your session limit and You've hit your weekly rate limit."
+        )
+
+        pre_marker_region = module.availability_check_region(f"{pre_marker_limit}\n{marker}\n{answer_body_limits}", marker)
+        self.assertEqual(pre_marker_region, pre_marker_limit + "\n")
+        with self.assertRaises(module.LauncherError) as raised:
+            module.check_tui_unavailable(pre_marker_region, after_submit=True)
+        self.assertEqual(raised.exception.code, "CLAUDE_SESSION_LIMIT_IN_TUI")
+        self.assertEqual(raised.exception.exit_code, 25)
+
+        answer_only_region = module.availability_check_region(f"{marker}\n{answer_body_limits}", marker)
+        self.assertEqual(answer_only_region, "")
+        module.check_tui_unavailable(answer_only_region, after_submit=True)
+
+    def test_collapsed_paste_can_establish_prompt_baseline(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        self.assertTrue(module.prompt_visible_or_collapsed("Claude\n❯ [Pasted text #1 +28 lines]", 0, 0, 1, 2))
+        self.assertFalse(module.prompt_visible_or_collapsed("Claude\n❯ ", 0, 0, 1, 2))
+
+    def test_prompt_template_is_not_review_answer(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        self.assertTrue(module.answer_is_prompt_template("<review text here>"))
+        self.assertTrue(module.answer_is_prompt_template("Claude review launcher emission protocol\nVERDICT: PASS_SCOPED"))
+        self.assertFalse(module.answer_is_prompt_template("VERDICT: PASS_SCOPED\nNo issues found."))
+
+    def test_tui_not_ready_does_not_succeed(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp, timeout=3)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_NO_READY": "1"}), timeout=20)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("CLAUDE_TUI_NOT_READY", output.read_text(encoding="utf-8"))
+
+    def test_answer_before_post_submit_baseline_fails_boundary_uncertain(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            args, output = self.launcher_args(tmp)
+            proc = run_cmd(args, env=self.make_fake_env(tmp, {"FAKE_CLAUDE_BOUNDARY_UNCERTAIN": "1"}), timeout=20)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("CLAUDE_TUI_BOUNDARY_UNCERTAIN", output.read_text(encoding="utf-8"))
+
+    def test_baseline_mismatch_without_occurrence_diff_is_uncertain(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        marker = "CLAUDE_REVIEW_ANSWER_START_deadbeef"
+        sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
+        self.assertIsNone(module.suffix_after_baseline("old prompt", "unrelated later text", marker, sentinel))
+
+    def test_launcher_pins_claude_code_to_sonnet_5_extra_high(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        self.assertEqual(module.CLAUDE_REVIEW_MODEL, "claude-sonnet-5")
+        self.assertEqual(module.CLAUDE_REVIEW_EFFORT, "xhigh")
+
+    def test_prompt_cleared_answer_extraction_rejects_visible_prompt(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        marker = "CLAUDE_REVIEW_ANSWER_START_deadbeef"
+        sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
+        visible_prompt = f"Claude review launcher emission protocol\n{marker}\n<review text here>\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        cleared_answer = f"Claude Code\n{marker}\nVERDICT: PASS_SCOPED\nPrompt cleared answer\n{sentinel}\n❯"
+        visible_prompt_then_answer = (
+            f"Claude review launcher emission protocol\n{marker}\n<review text here>\n{sentinel}\n"
+            f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}\n"
+            f"● {marker}\nVERDICT: PASS_SCOPED\nReal answer\n{sentinel}\n"
+            f"CLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        )
+        self.assertIsNone(module.extract_prompt_cleared_answer(visible_prompt, marker, sentinel))
+        self.assertIn("Prompt cleared answer", module.extract_prompt_cleared_answer(cleared_answer, marker, sentinel))
+        answer = module.extract_answer(visible_prompt_then_answer, marker, sentinel)
+        self.assertIn("Real answer", answer)
+        self.assertNotIn("CLAUDE_REVIEW_FINAL_SENTINEL", answer)
+
+    def test_markerless_sentinel_answer_extraction_accepts_nonempty_review_without_universal_verdict(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
+        markerless_answer = f"Review body\nVERDICT: PLAN_NEEDS_REVISION\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        visible_template = f"Claude review launcher emission protocol\n<review text here>\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        no_verdict = f"## Findings\nNo blocking issues.\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        empty_answer = f"{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"
+        self.assertIn("PLAN_NEEDS_REVISION", module.extract_prompt_cleared_answer(markerless_answer, "missing-marker", sentinel))
+        self.assertIsNone(module.extract_prompt_cleared_answer(visible_template, "missing-marker", sentinel))
+        self.assertIn("No blocking issues", module.extract_prompt_cleared_answer(no_verdict, "missing-marker", sentinel))
+        self.assertIsNone(module.extract_prompt_cleared_answer(empty_answer, "missing-marker", sentinel))
+
+    def test_session_jsonl_recovery_reads_only_assistant_answer_region(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            cwd = tmp / "repo"
+            cwd.mkdir()
+            session_id = "11111111-2222-4333-8444-555555555555"
+            marker = "CLAUDE_REVIEW_ANSWER_START_deadbeef"
+            sentinel = "CLAUDE_REVIEW_DONE_TEST_SENTINEL_12345"
+            record = module.claude_session_record(cwd, session_id)
+            record.parent.mkdir(parents=True)
+            entries = [
+                {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": f"prompt {marker} template {sentinel}"}]}},
+                {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": f"{marker}\n## Findings\nLong valid review\n{sentinel}\nCLAUDE_REVIEW_FINAL_SENTINEL:{sentinel}"}]}},
+            ]
+            record.write_text("\n".join(json.dumps(entry) for entry in entries) + "\n", encoding="utf-8")
+            recovered = module.recover_session_answer(cwd, session_id, marker, sentinel)
+            self.assertIsNotNone(recovered)
+            assert recovered
+            self.assertEqual(recovered[0], "## Findings\nLong valid review")
+            self.assertEqual(recovered[1], record)
+
+    def test_signal_cleanup_kills_the_exact_private_tmux_server(self) -> None:
+        spec = importlib.util.spec_from_file_location("launcher_under_test", LAUNCHER)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        handlers: dict[int, object] = {}
+        calls: list[tuple[str, list[str], bool]] = []
+        original_signal = module.signal.signal
+        original_tmux = module.tmux
+        try:
+            module.signal.signal = lambda signum, handler: handlers.__setitem__(signum, handler)
+            module.tmux = lambda socket, args, check=True: calls.append((socket, args, check))
+            module.install_signal_cleanup("exact-private-socket")
+            with self.assertRaises(SystemExit) as raised:
+                handlers[module.signal.SIGTERM](module.signal.SIGTERM, None)
+            self.assertEqual(raised.exception.code, 128 + module.signal.SIGTERM)
+            self.assertEqual(calls, [("exact-private-socket", ["kill-server"], False)])
+        finally:
+            module.signal.signal = original_signal
+            module.tmux = original_tmux
+
+    def test_smoke_success_tears_down(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            output = tmp / "smoke.txt"
+            proc = run_cmd([
+                sys.executable,
+                str(LAUNCHER),
+                "--smoke",
+                "--cwd",
+                str(ROOT),
+                "--output",
+                str(output),
+                "--review-name",
+                "fake-smoke",
+                "--timeout-seconds",
+                "8",
+            ], env=self.make_fake_env(tmp), timeout=25)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("CLAUDE_REVIEW_SMOKE_READY", text)
+            self.assertIn("model=claude-sonnet-5", text)
+            self.assertIn("effort=xhigh", text)
+            socket = next(line for line in text.splitlines() if line.startswith("socket=")).split("=", 1)[1]
+            self.assertNotEqual(run_cmd(["tmux", "-L", socket, "list-sessions"], timeout=5).returncode, 0)
+
+
+class GuardrailTestCase(unittest.TestCase):
+    def run_guardrail(self, root: Path) -> subprocess.CompletedProcess[str]:
+        return run_cmd([sys.executable, str(GUARDRAIL), "--root", str(root)], timeout=20)
+
+    def test_guardrail_allows_benign_prose_paths_and_constants(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            path = root / "review-doc.md"
+            path.write_text(textwrap.dedent("""
+                This mentions skills/claude-code-review and claude_interactive_review.py.
+                The marker CLAUDE_REVIEW_DONE_X and slug claude-plan-nod636 are prose.
+                We want interactive Claude review reliability.
+            """), encoding="utf-8")
+            proc = self.run_guardrail(root)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_guardrail_rejects_direct_launcher_from_pi_surfaces(self) -> None:
+        bad_lines = [
+            'python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" --smoke',
+            "process({ action: 'start', command: 'python3 /tmp/claude_interactive_review.py' })",
+            "interactive_shell({ command: 'python3 /tmp/claude_interactive_review.py' })",
+            "/tmp/claude_interactive_review.py --smoke",
+        ]
+        for line in bad_lines:
+            with self.subTest(line=line), tempfile.TemporaryDirectory() as td:
+                root = Path(td) / "_pi" / "prompts"
+                root.mkdir(parents=True)
+                (root / "review:change-claude-code.md").write_text(line + "\n", encoding="utf-8")
+                proc = self.run_guardrail(Path(td))
+                self.assertNotEqual(proc.returncode, 0, proc.stdout)
+
+    def test_guardrail_allows_canonical_launcher_for_non_pi_consumers(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "skills" / "claude-code-review"
+            root.mkdir(parents=True)
+            (root / "SKILL.md").write_text(
+                'python3 "$HOME/.agents/skills/claude-code-review/scripts/claude_interactive_review.py" --smoke\n',
+                encoding="utf-8",
+            )
+            proc = self.run_guardrail(Path(td))
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_guardrail_rejects_direct_transport_candidates(self) -> None:
+        bad_lines = [
+            "claude -p prompt",
+            "claude --print prompt",
+            "cat prompt | claude",
+            "claude < prompt.txt",
+            "claude --future-noninteractive x",
+            "interactive_shell({ command: 'claude hello' })",
+            "process({ command: 'claude hello' })",
+            "os.execvp('claude', ['claude', '--permission-mode', 'bypassPermissions'])",
+            "cd repo && zsh -ilc 'claude'",
+            "Review command: tmux new-window -n review 'claude'",
+            "REVIEW_CMD=claude --dangerously-skip-permissions prompt",
+            "cmd=claude prompt",
+            "RUN_CLAUDE=claude prompt",
+            'cmd="claude prompt"',
+        ]
+        for line in bad_lines:
+            with self.subTest(line=line), tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                (root / "review.md").write_text(line + "\n", encoding="utf-8")
+                proc = self.run_guardrail(root)
+                self.assertNotEqual(proc.returncode, 0, proc.stdout)
+                self.assertIn("CLAUDE_DIRECT_REVIEW_LAUNCHES_FOUND", proc.stdout)
+
+    def test_guardrail_rejects_multiline_python_argv_candidates(self) -> None:
+        bad_blocks = [
+            'cmd = ["claude", "-p", prompt]\nsubprocess.run(cmd)\n',
+            'RUN_CLAUDE = ["claude", "--print", prompt]\n',
+            'subprocess.run([\n    "claude",\n    "-p",\n    prompt,\n])\n',
+            'os.execvp("claude", [\n    "claude",\n    "--permission-mode",\n    "bypassPermissions",\n])\n',
+        ]
+        for block in bad_blocks:
+            with self.subTest(block=block), tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                (root / "review.py").write_text(block, encoding="utf-8")
+                proc = self.run_guardrail(root)
+                self.assertNotEqual(proc.returncode, 0, proc.stdout)
+                self.assertIn("CLAUDE_DIRECT_REVIEW_LAUNCHES_FOUND", proc.stdout)
+
+    def test_guardrail_allows_marked_forbidden_examples(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "review.md").write_text("claude -p prompt  # [FORBIDDEN-EXAMPLE]\n", encoding="utf-8")
+            self.assertEqual(self.run_guardrail(root).returncode, 0)
+
+    def test_guardrail_rejects_previous_line_forbidden_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "review.md").write_text("# [FORBIDDEN-EXAMPLE]\nclaude -p prompt\n", encoding="utf-8")
+            self.assertNotEqual(self.run_guardrail(root).returncode, 0)
+
+    def test_guardrail_self_and_tests_exemptions_are_path_scoped(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            exempt = root / "skills/claude-code-review/tests/sample.md"
+            exempt.parent.mkdir(parents=True)
+            exempt.write_text("claude -p prompt\n", encoding="utf-8")
+            non_exempt = root / "other/review/sample.md"
+            non_exempt.parent.mkdir(parents=True)
+            non_exempt.write_text("claude -p prompt\n", encoding="utf-8")
+            proc = self.run_guardrail(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn(str(non_exempt), proc.stdout)
+            self.assertNotIn(str(exempt), proc.stdout)
+
+    def test_guardrail_scans_plan_artifacts_when_explicitly_rooted(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            plan = root / "thoughts/plans/review-plan.html"
+            plan.parent.mkdir(parents=True)
+            plan.write_text("claude -p prompt\n", encoding="utf-8")
+            proc = self.run_guardrail(root)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn(str(plan), proc.stdout)
+
+
+class RealClaudeTestCase(unittest.TestCase):
+    def test_real_smoke(self) -> None:
+        if os.environ.get("RUN_REAL_CLAUDE_SMOKE") != "1":
+            self.skipTest("RUN_REAL_CLAUDE_SMOKE not set")
+        with tempfile.TemporaryDirectory() as td:
+            output = Path(td) / "real-smoke.txt"
+            proc = run_cmd([
+                sys.executable,
+                str(LAUNCHER),
+                "--smoke",
+                "--cwd",
+                str(ROOT),
+                "--output",
+                str(output),
+                "--review-name",
+                "real-smoke",
+                "--timeout-seconds",
+                "120",
+            ], timeout=300)
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            self.assertIn("CLAUDE_REVIEW_SMOKE_READY", output.read_text(encoding="utf-8"))
+
+    def test_real_e2e_review(self) -> None:
+        if os.environ.get("RUN_REAL_CLAUDE_E2E") != "1":
+            self.skipTest("RUN_REAL_CLAUDE_E2E not set")
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            prompt = tmp / "prompt.md"
+            output = tmp / "real-review.md"
+            prompt.write_text("Read-only smoke review. Return exactly: VERDICT: PASS_SCOPED followed by one short sentence.", encoding="utf-8")
+            proc = run_cmd([
+                sys.executable,
+                str(LAUNCHER),
+                "--cwd",
+                str(ROOT),
+                "--prompt-file",
+                str(prompt),
+                "--output",
+                str(output),
+                "--review-name",
+                "real-e2e-review",
+                "--timeout-seconds",
+                "300",
+            ], timeout=660)
+            text = output.read_text(encoding="utf-8") if output.exists() else ""
+            if proc.returncode == 25 and "CLAUDE_SESSION_LIMIT_IN_TUI" in text:
+                self.skipTest("real Claude session/rate limit is active")
+            self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+            self.assertIn("VERDICT: PASS_SCOPED", text)
+            self.assertIn("clear_boundary=", text)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--real-smoke", action="store_true")
+    parser.add_argument("--real-e2e-review", action="store_true")
+    args, remaining = parser.parse_known_args()
+    if args.real_smoke:
+        os.environ["RUN_REAL_CLAUDE_SMOKE"] = "1"
+    if args.real_e2e_review:
+        os.environ["RUN_REAL_CLAUDE_E2E"] = "1"
+    unittest.main(argv=[sys.argv[0], *remaining])
+    return 0
+
+
+if __name__ == "__main__":
+    main()

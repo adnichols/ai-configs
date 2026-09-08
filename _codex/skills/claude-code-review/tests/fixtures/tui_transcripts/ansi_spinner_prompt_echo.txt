@@ -1,0 +1,9 @@
+\u001b[32mClaude Code fake\u001b[0m
+❯ Review this plan
+CLAUDE_REVIEW_ANSWER_START_deadbeef
+Return sentinel CLAUDE_REVIEW_DONE_TEST_SENTINEL_123
+✻ Cooking…
+CLAUDE_REVIEW_ANSWER_START_deadbeef
+VERDICT: PASS_SCOPED
+ANSI-stripped answer
+CLAUDE_REVIEW_DONE_TEST_SENTINEL_123

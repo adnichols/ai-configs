@@ -1,0 +1,285 @@
+{
+  "version": 1,
+  "skills": {
+    "adn-mode": {
+      "source": "_adn/skills/adn-mode",
+      "profile": "default"
+    },
+    "adopt-skill": {
+      "source": "_adn/skills/adopt-skill",
+      "profile": "default"
+    },
+    "adversarial-fix-review": {
+      "source": "skills/adversarial-fix-review",
+      "profile": "default"
+    },
+    "architect": {
+      "source": "_adn/skills/architect",
+      "profile": "default"
+    },
+    "arena": {
+      "source": "_adn/skills/arena",
+      "profile": "default"
+    },
+    "audit-adn": {
+      "source": "_adn/skills/audit-adn",
+      "profile": "default"
+    },
+    "automate-me": {
+      "source": "_adn/skills/automate-me",
+      "profile": "default"
+    },
+    "autoreview": {
+      "source": "skills/autoreview",
+      "profile": "default"
+    },
+    "blast-radius": {
+      "source": "_adn/skills/blast-radius",
+      "profile": "default"
+    },
+    "bro": {
+      "source": "_adn/skills/bro",
+      "profile": "default"
+    },
+    "build-run-debug": {
+      "source": "skills/macos/build-run-debug",
+      "profile": "macos"
+    },
+    "ccore": {
+      "source": "skills/ccore_DONOTUSE",
+      "profile": "default"
+    },
+    "claude-code-review": {
+      "source": "skills/claude-code-review",
+      "profile": "default"
+    },
+    "codex-full-build": {
+      "source": "skills/codex-full-build",
+      "profile": "default"
+    },
+    "codex-review-partner": {
+      "source": "skills/codex-review-partner",
+      "profile": "default"
+    },
+    "completeness": {
+      "source": "skills/completeness",
+      "profile": "default"
+    },
+    "create-verification-skill": {
+      "source": "_adn/skills/create-verification-skill",
+      "profile": "default"
+    },
+    "delivery-run": {
+      "source": "skills/delivery-run",
+      "profile": "default"
+    },
+    "doct-document-ops": {
+      "source": "skills/doct-document-ops",
+      "profile": "default"
+    },
+    "figure-it-out": {
+      "source": "_adn/skills/figure-it-out",
+      "profile": "default"
+    },
+    "herdr": {
+      "source": "skills/herdr",
+      "profile": "default"
+    },
+    "herdr-agent-handoff": {
+      "source": "skills/herdr-agent-handoff",
+      "profile": "default"
+    },
+    "how": {
+      "source": "_adn/skills/how",
+      "profile": "default"
+    },
+    "interrogate": {
+      "source": "_adn/skills/interrogate",
+      "profile": "default"
+    },
+    "linear": {
+      "source": "skills/linear",
+      "profile": "default"
+    },
+    "luvus": {
+      "source": "skills/luvus",
+      "profile": "default"
+    },
+    "maintain-verification-skill": {
+      "source": "_adn/skills/maintain-verification-skill",
+      "profile": "default"
+    },
+    "no-comments": {
+      "source": "_adn/skills/no-comments",
+      "profile": "default"
+    },
+    "oracle-consultation": {
+      "source": "skills/oracle-consultation",
+      "profile": "default"
+    },
+    "planning-workflow": {
+      "source": "skills/planning-workflow",
+      "profile": "default"
+    },
+    "poteto-mode": {
+      "source": "_adn/skills/poteto-mode",
+      "profile": "default"
+    },
+    "pre-pr-implementation-review": {
+      "source": "skills/pre-pr-implementation-review",
+      "profile": "default"
+    },
+    "principle-boundary-discipline": {
+      "source": "_adn/skills/principle-boundary-discipline",
+      "profile": "default"
+    },
+    "principle-build-the-lever": {
+      "source": "_adn/skills/principle-build-the-lever",
+      "profile": "default"
+    },
+    "principle-encode-lessons-in-structure": {
+      "source": "_adn/skills/principle-encode-lessons-in-structure",
+      "profile": "default"
+    },
+    "principle-exhaust-the-design-space": {
+      "source": "_adn/skills/principle-exhaust-the-design-space",
+      "profile": "default"
+    },
+    "principle-experience-first": {
+      "source": "_adn/skills/principle-experience-first",
+      "profile": "default"
+    },
+    "principle-fix-root-causes": {
+      "source": "_adn/skills/principle-fix-root-causes",
+      "profile": "default"
+    },
+    "principle-foundational-thinking": {
+      "source": "_adn/skills/principle-foundational-thinking",
+      "profile": "default"
+    },
+    "principle-guard-the-context-window": {
+      "source": "_adn/skills/principle-guard-the-context-window",
+      "profile": "default"
+    },
+    "principle-laziness-protocol": {
+      "source": "_adn/skills/principle-laziness-protocol",
+      "profile": "default"
+    },
+    "principle-make-operations-idempotent": {
+      "source": "_adn/skills/principle-make-operations-idempotent",
+      "profile": "default"
+    },
+    "principle-migrate-callers-then-delete-legacy-apis": {
+      "source": "_adn/skills/principle-migrate-callers-then-delete-legacy-apis",
+      "profile": "default"
+    },
+    "principle-minimize-reader-load": {
+      "source": "_adn/skills/principle-minimize-reader-load",
+      "profile": "default"
+    },
+    "principle-model-the-domain": {
+      "source": "_adn/skills/principle-model-the-domain",
+      "profile": "default"
+    },
+    "principle-never-block-on-the-human": {
+      "source": "_adn/skills/principle-never-block-on-the-human",
+      "profile": "default"
+    },
+    "principle-outcome-oriented-execution": {
+      "source": "_adn/skills/principle-outcome-oriented-execution",
+      "profile": "default"
+    },
+    "principle-prove-it-works": {
+      "source": "_adn/skills/principle-prove-it-works",
+      "profile": "default"
+    },
+    "principle-redesign-from-first-principles": {
+      "source": "_adn/skills/principle-redesign-from-first-principles",
+      "profile": "default"
+    },
+    "principle-separate-before-serializing-shared-state": {
+      "source": "_adn/skills/principle-separate-before-serializing-shared-state",
+      "profile": "default"
+    },
+    "principle-sequence-verifiable-units": {
+      "source": "_adn/skills/principle-sequence-verifiable-units",
+      "profile": "default"
+    },
+    "principle-subtract-before-you-add": {
+      "source": "_adn/skills/principle-subtract-before-you-add",
+      "profile": "default"
+    },
+    "principle-type-system-discipline": {
+      "source": "_adn/skills/principle-type-system-discipline",
+      "profile": "default"
+    },
+    "recall": {
+      "source": "_adn/skills/recall",
+      "profile": "default"
+    },
+    "reflect": {
+      "source": "_adn/skills/reflect",
+      "profile": "default"
+    },
+    "repo-agents-bootstrap": {
+      "source": "skills/repo-agents-bootstrap",
+      "profile": "default"
+    },
+    "reviewed-html-plan": {
+      "source": "skills/reviewed-html-plan",
+      "profile": "default"
+    },
+    "run-plan": {
+      "source": "skills/run-plan",
+      "profile": "default"
+    },
+    "setup-adn": {
+      "source": "_adn/skills/setup-adn",
+      "profile": "default"
+    },
+    "setup-pstack": {
+      "source": "_adn/skills/setup-pstack",
+      "profile": "default"
+    },
+    "show-me-your-work": {
+      "source": "_adn/skills/show-me-your-work",
+      "profile": "default"
+    },
+    "supervise": {
+      "source": "skills/supervise",
+      "profile": "default"
+    },
+    "swarm": {
+      "source": "_adn/skills/swarm",
+      "profile": "default"
+    },
+    "swiftui-patterns": {
+      "source": "skills/macos/swiftui-patterns",
+      "profile": "macos"
+    },
+    "tdd": {
+      "source": "_adn/skills/tdd",
+      "profile": "default"
+    },
+    "teach": {
+      "source": "_adn/skills/teach",
+      "profile": "default"
+    },
+    "technical-writing": {
+      "source": "_adn/skills/technical-writing",
+      "profile": "default"
+    },
+    "typescript-best-practices": {
+      "source": "_adn/skills/typescript-best-practices",
+      "profile": "default"
+    },
+    "unslop": {
+      "source": "_adn/skills/unslop",
+      "profile": "default"
+    },
+    "why": {
+      "source": "_adn/skills/why",
+      "profile": "default"
+    }
+  }
+}

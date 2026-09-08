@@ -1704,6 +1704,9 @@ install_codex() {
     rm -rf "$global_codex_dir/scripts"
     cp -r "$REPO_ROOT/scripts" "$global_codex_dir/"
 
+    echo "  - Installing Codex-only skills and shared-skill exclusions..."
+    python3 "$REPO_ROOT/_codex/install-skills.py" --home "$HOME" --codex-home "${CODEX_HOME:-$HOME/.codex}"
+
     echo -e "${GREEN}✓ Codex global resource sync complete${NC}"
     echo ""
     echo "Codex account, model, and MCP settings remain in ~/.codex/config.toml"

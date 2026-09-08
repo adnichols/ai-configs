@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""Latch operator-required attention for Herdr panes.
+
+The marker file is authoritative for Pi-owned panes. Herdr CLI reporting is
+best-effort and supplies the same blocked state for shell-only panes.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+SOURCE = "workflow:operator-attention"
+AGENT = "operator-wait"
+KINDS = ("approval", "blocker", "password", "generic")
+
+
+def marker_dir() -> Path:
+    override = os.environ.get("HERDR_OPERATOR_WAIT_DIR")
+    if override:
+        return Path(override).expanduser()
+    state_home = os.environ.get("XDG_STATE_HOME")
+    if state_home:
+        return Path(state_home).expanduser() / "herdr-operator-wait"
+    return Path.home() / ".local" / "state" / "herdr-operator-wait"
+
+
+def marker_path(pane_id: str) -> Path:
+    digest = hashlib.sha256(pane_id.encode("utf-8")).hexdigest()
+    return marker_dir() / f"{digest}.json"
+
+
+def read_marker(path: Path) -> dict[str, Any] | None:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def write_marker(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(value, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_name, path)
+    except Exception:
+        try:
+            os.unlink(temp_name)
+        except OSError:
+            pass
+        raise
+
+
+def best_effort_herdr(args: list[str]) -> None:
+    binary = shutil.which("herdr")
+    if not binary:
+        return
+    try:
+        subprocess.run(
+            [binary, *args],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def require_pane(args: argparse.Namespace, parser: argparse.ArgumentParser) -> str:
+    pane = (args.pane or os.environ.get("HERDR_PANE_ID") or "").strip()
+    if not pane:
+        parser.error("--pane is required when HERDR_PANE_ID is not set")
+    return pane
+
+
+def cmd_set(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    pane = require_pane(args, parser)
+    message = (args.message or "").strip()
+    if not message:
+        parser.error("--message is required and cannot be empty")
+    path = marker_path(pane)
+    previous = read_marker(path)
+    changed = not (
+        previous
+        and previous.get("paneId") == pane
+        and previous.get("message") == message
+    )
+    value = {
+        "paneId": pane,
+        "message": message,
+        "setAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "kind": args.kind,
+        "notifyOnSet": not args.no_notify,
+    }
+    try:
+        write_marker(path, value)
+    except OSError as error:
+        print(f"cannot write operator-attention marker {path}: {error}", file=sys.stderr)
+        return 1
+
+    best_effort_herdr([
+        "pane", "report-agent", pane,
+        "--source", SOURCE,
+        "--agent", AGENT,
+        "--state", "blocked",
+        "--message", message,
+    ])
+    if changed and not args.no_notify:
+        best_effort_herdr([
+            "notification", "show", "Operator action required",
+            "--body", message,
+            "--sound", "request",
+        ])
+    return 0
+
+
+def cmd_clear(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    pane = require_pane(args, parser)
+    path = marker_path(pane)
+    try:
+        if path.exists():
+            path.unlink()
+    except OSError as error:
+        print(f"cannot delete operator-attention marker {path}: {error}", file=sys.stderr)
+        return 1
+
+    best_effort_herdr([
+        "pane", "release-agent", pane,
+        "--source", SOURCE,
+        "--agent", AGENT,
+    ])
+    return 0
+
+
+def cmd_status(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    pane = require_pane(args, parser)
+    value = read_marker(marker_path(pane))
+    if not value or value.get("paneId") != pane:
+        print(json.dumps({"active": False}, separators=(",", ":")))
+        return 0
+    print(json.dumps({"active": True, **value}, sort_keys=True))
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="herdr-operator-attention")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    set_parser = sub.add_parser("set")
+    set_parser.add_argument("--pane")
+    set_parser.add_argument("--message", required=True)
+    set_parser.add_argument("--kind", choices=KINDS, default="generic")
+    set_parser.add_argument("--no-notify", action="store_true")
+
+    clear_parser = sub.add_parser("clear")
+    clear_parser.add_argument("--pane")
+
+    status_parser = sub.add_parser("status")
+    status_parser.add_argument("--pane")
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.command == "set":
+        return cmd_set(args, parser)
+    if args.command == "clear":
+        return cmd_clear(args, parser)
+    if args.command == "status":
+        return cmd_status(args, parser)
+    parser.error(f"unknown subcommand: {args.command}")
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
