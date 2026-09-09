@@ -36,6 +36,18 @@ providers:
         contextWindow: 200000
       grok-4.6:
         contextWindow: 200000
+  openai-codex:
+    modelOverrides:
+      gpt-6-astra:
+        thinking:
+          mode: effort
+          efforts:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
+          defaultLevel: low
   cursor:
     modelOverrides:
       cursor-grok-4.5-high:

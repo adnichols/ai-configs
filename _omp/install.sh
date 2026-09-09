@@ -135,11 +135,7 @@ preserve_unmanaged_path "$TARGET_ROOT/skills"
 preserve_unmanaged_path "$TARGET_ROOT/SYSTEM.md"
 
 install_managed_file "$SOURCE_CONFIG" "$TARGET_CONFIG" 0600 "OMP config"
-if [[ -e "$TARGET_ROOT/models.yml" || -L "$TARGET_ROOT/models.yml" ]]; then
-  echo "Preserved existing OMP models config at $TARGET_ROOT/models.yml"
-else
-  install_managed_file "$SOURCE_MODELS" "$TARGET_ROOT/models.yml" 0600 "OMP model overrides"
-fi
+install_managed_file "$SOURCE_MODELS" "$TARGET_ROOT/models.yml" 0600 "OMP model overrides"
 install_managed_file "$SOURCE_GUIDANCE" "$TARGET_ROOT/AGENTS.md" 0644 "OMP guidance"
 for source in "${SOURCE_AGENTS[@]}"; do
   install_managed_file "$source" "$TARGET_ROOT/agents/$(basename -- "$source")" 0644 "OMP agent"

@@ -30,6 +30,7 @@ OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_SHARED_TARGET="$SHARED_TARGET" OMP_BIN_TARG
 
 cmp -s "$REPO_ROOT/_omp/config.yml" "$TARGET_ROOT/config.yml"
 cmp -s "$REPO_ROOT/_omp/models.yml" "$TARGET_ROOT/models.yml"
+grep -A12 'gpt-6-astra:' "$TARGET_ROOT/models.yml" | grep -q 'defaultLevel: low'
 grep -q '^  - ~/.omp/agent/extensions/deepinfra.ts$' "$TARGET_ROOT/config.yml"
 grep -q '^  - ~/.omp/agent/extensions/thinking-shortcuts.ts$' "$TARGET_ROOT/config.yml"
 grep -q '^  - ~/.omp/agent/extensions/eval-no-file-writes.ts$' "$TARGET_ROOT/config.yml"
@@ -87,7 +88,6 @@ cat >> "$TARGET_ROOT/models.yml" <<'EOF'
   custom:
     auth: none
 EOF
-cp "$TARGET_ROOT/models.yml" "$TMP_ROOT/user-models.yml"
 
 OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_SHARED_TARGET="$SHARED_TARGET" OMP_BIN_TARGET="$BIN_TARGET" \
   OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
@@ -95,7 +95,8 @@ OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_SHARED_TARGET="$SHARED_TARGET" OMP_BIN_TARG
 grep -q 'old-config' "$TARGET_ROOT/config.yml.before-ai-configs"
 grep -q 'old-guidance' "$TARGET_ROOT/AGENTS.md.before-ai-configs"
 grep -q 'old-oracle' "$TARGET_ROOT/agents/oracle.md.before-ai-configs"
-cmp -s "$TMP_ROOT/user-models.yml" "$TARGET_ROOT/models.yml"
+cmp -s "$REPO_ROOT/_omp/models.yml" "$TARGET_ROOT/models.yml"
+grep -q 'custom:' "$TARGET_ROOT/models.yml.before-ai-configs"
 if [[ -s "$PLUGIN_LOG" ]]; then
   printf 'expected empty plugin log\n' >&2
   cat "$PLUGIN_LOG" >&2
