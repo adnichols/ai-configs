@@ -37,7 +37,7 @@ modelRoles:
   designer: synthetic/hf:moonshotai/Kimi-K3:high
   commit: openai-codex/gpt-5.6-luna:auto
   tiny: openai-codex/gpt-5.6-luna:auto
-  advisor: devin/claude-fable-5-1:medium
+  advisor: openai-codex/gpt-5.6-sol:medium
   Oracle: openai-codex/gpt-6-astra:medium
   reviewer: cursor/cursor-grok-4.6:high
   default: xai-oauth/grok-4.6:high
@@ -116,7 +116,7 @@ retry:
     default:
       - cursor/cursor-grok-4.6
     advisor:
-      - openai-codex/gpt-5.6-sol
+      - xai-oauth/grok-4.6
 extendedContext: false
 prewalk:
   enabled: false
