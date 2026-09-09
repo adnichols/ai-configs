@@ -6,6 +6,7 @@ Shared configuration repo for:
 - Codex
 - Pi (`_pi`)
 - Oh My Pi (`_omp`)
+- Firstmate (`_firstmate`)
 - ADN (`_adn`)
 
 It packages prompt/command surfaces, agent definitions, shared skills, helper scripts, and install tooling in one place.
@@ -20,6 +21,7 @@ ai-configs/
 ├── _devin/       # Devin CLI global guidance + custom subagent profiles
 ├── _pi/          # Pi source config
 ├── _omp/         # Oh My Pi source config and custom agents
+├── _firstmate/   # Firstmate crew-dispatch, crew-harness, and captain files
 ├── amp/          # Canonical Amp settings + custom plugin modes installer
 ├── herdr/        # Canonical cross-host Herdr configuration and installer
 ├── hammerspoon/  # Terminal-scoped macOS image-paste configuration
@@ -57,10 +59,13 @@ Single-surface installs:
 bash ~/ai-configs/install.sh --claude
 bash ~/ai-configs/install.sh --codex
 bash ~/ai-configs/install.sh --devin
+bash ~/ai-configs/install.sh --firstmate
 bash ~/ai-configs/install.sh --pi
 bash ~/ai-configs/install.sh --skills
 bash ~/ai-configs/install.sh --tools
 ```
+
+Dest for Firstmate is `FIRSTMATE_HOME`, else `FM_HOME`, else `~/code/firstmate`, and the dest must already be a Firstmate home (`bin/fm-spawn.sh`).
 
 Update skills installed through skills.sh before running the normal installer sync:
 

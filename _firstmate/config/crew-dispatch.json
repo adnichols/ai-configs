@@ -1,0 +1,20 @@
+{
+  "rules": [
+    {
+      "when": "The task is a trivial mechanical edit such as a rote rename, formatting sweep, targeted typo fix, or simple file gathering.",
+      "use": { "harness": "omp", "model": "xai-oauth/grok-4.6", "effort": "low" },
+      "why": "Cheap and fast when the work is narrow and unambiguous."
+    },
+    {
+      "when": "The task depends on fresh news, current events, live public facts, or recent market and product changes.",
+      "use": { "harness": "grok", "effort": "high" },
+      "why": "Grok is the preferred dispatch when current web-connected context is central."
+    },
+    {
+      "when": "The task is a big or ambiguous multi-file feature, a risky refactor, investigation, design, or work that requires holding many moving parts in mind.",
+      "use": { "harness": "omp", "model": "xai-oauth/grok-4.6", "effort": "high" },
+      "why": "ADN feature default is grok-4.6 at high. Do not use xhigh as a Firstmate effort fallback."
+    }
+  ],
+  "default": { "harness": "omp", "model": "xai-oauth/grok-4.6", "effort": "high" }
+}

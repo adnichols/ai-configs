@@ -73,12 +73,13 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 print_usage() {
-    echo "Usage: $0 [--claude|--codex|--devin|--pi|--pi-vcc|--pi-review-stack|--tools|--skills|--all] [--update] [target-directory]"
+    echo "Usage: $0 [--claude|--codex|--devin|--firstmate|--pi|--pi-vcc|--pi-review-stack|--tools|--skills|--all] [--update] [target-directory]"
     echo ""
     echo "Options:"
     echo "  --claude    Install Claude Code configuration and refresh shared skills for Claude"
     echo "  --codex     Sync global Codex prompts/scripts and refresh shared skills for Codex"
     echo "  --devin     Install Devin CLI global guidance and custom subagent profiles, then refresh shared skills"
+    echo "  --firstmate Install managed Firstmate config into an existing Firstmate home"
     echo "  --pi        Install Pi prompt templates, read-only/planning subagents, and extensions, then refresh shared skills"
     echo "  --pi-vcc [package-source]  Transactionally install only pi-vcc (repo package by default)"
     echo "  --pi-review-stack  Mutation-bounded Pi config plus maintained review and conditional safety skills; no packages/global cleanup"
@@ -118,6 +119,7 @@ print_usage() {
     echo "  $0 --claude                      # Install Claude to current directory"
     echo "  $0 --codex                       # Sync global Codex resources"
     echo "  $0 --devin                       # Install Devin CLI global guidance and subagent profiles, then refresh shared skills"
+    echo "  $0 --firstmate                   # Install managed Firstmate config into an existing Firstmate home"
     echo "  $0 --pi                          # Install Pi prompt templates, read-only/planning subagents, extensions, and refresh shared skills"
     echo "  $0 --pi-vcc                     # Transactionally install only the vendored pi-vcc package"
     echo "  $0 --pi-vcc /path/to/pi-vcc     # Install or roll back from an explicit preserved package"
@@ -135,7 +137,7 @@ write_install_summary_on_exit() {
     case "$INSTALL_MODE" in
         --pi-review-stack) summary_mode="pi-review-stack" ;;
         --pi) summary_mode="pi" ;;
-        --devin) summary_mode="devin" ;;
+        --devin|--firstmate) summary_mode="${INSTALL_MODE#--}" ;;
         --tools) summary_mode="tools" ;;
         --skills) summary_mode="skills" ;;
         *) summary_mode="all" ;;
@@ -594,6 +596,8 @@ install_tools() {
     echo ""
     install_omp_config
     echo ""
+    install_firstmate_config
+    echo ""
     install_herdr_plugins
     echo ""
     install_ltui
@@ -603,6 +607,12 @@ install_omp_config() {
     echo "Installing managed Oh My Pi configuration..."
     bash "$REPO_ROOT/_omp/install.sh"
     echo -e "${GREEN}✓ Managed Oh My Pi configuration installed${NC}"
+}
+
+install_firstmate_config() {
+    echo "Installing managed Firstmate configuration..."
+    bash "$REPO_ROOT/_firstmate/install.sh"
+    echo -e "${GREEN}✓ Managed Firstmate configuration installed${NC}"
 }
 
 install_devin_config() {
@@ -3735,7 +3745,7 @@ if [ "${1:-}" = "--pi-vcc" ]; then
 else
     while [ "$#" -gt 0 ]; do
         case "$1" in
-            --claude|--codex|--devin|--pi|--pi-review-stack|--tools|--skills|--all|--default)
+            --claude|--codex|--devin|--firstmate|--pi|--pi-review-stack|--tools|--skills|--all|--default)
                 INSTALL_MODE="$1"
                 shift
                 ;;
@@ -3822,6 +3832,9 @@ case "$INSTALL_MODE" in
         install_devin_config
         echo ""
         sync_shared_skills
+        ;;
+    --firstmate)
+        install_firstmate_config
         ;;
     --pi)
         install_pi
