@@ -277,9 +277,9 @@
       "sha256": "1f9f6cb186257086fdc7fbac945830f0985325828363af9cf628a7ee4026528c"
     },
     {
-      "bytes": 7010,
+      "bytes": 6886,
       "path": "profiles/nerd/skills/autonomous-ai-agents/sync-remote-dev-workflow-to-obsidian/SKILL.md",
-      "sha256": "bd0dccdeef0f77f13446bab53e7a4afbe340ed9b4157733e89dab0e9003cc668"
+      "sha256": "c8ae0775d60148b00c8a5575a1cd9e0abc45593ddcc2b2cc007113ca0b42c183"
     },
     {
       "bytes": 6031,
@@ -5052,9 +5052,9 @@
       "sha256": "89e2eddc61cf893784279f27448f75ef214aa5cbd96ef2441a28df0ed7dab2f9"
     },
     {
-      "bytes": 9877,
+      "bytes": 9726,
       "path": "skills/autonomous-ai-agents/doct-agent-cli/SKILL.md",
-      "sha256": "ff28ee1fdf667977cb9ef7f93dc2af7fcd34b739d0f829fbbe44d98d19346176"
+      "sha256": "eae542203e3a50f72f509c4e5ef368c1221c03ec533ab044c26feff3c7cdab11"
     },
     {
       "bytes": 2950,
@@ -5132,9 +5132,9 @@
       "sha256": "1f9f6cb186257086fdc7fbac945830f0985325828363af9cf628a7ee4026528c"
     },
     {
-      "bytes": 7010,
+      "bytes": 6886,
       "path": "skills/autonomous-ai-agents/sync-remote-dev-workflow-to-obsidian/SKILL.md",
-      "sha256": "bd0dccdeef0f77f13446bab53e7a4afbe340ed9b4157733e89dab0e9003cc668"
+      "sha256": "c8ae0775d60148b00c8a5575a1cd9e0abc45593ddcc2b2cc007113ca0b42c183"
     },
     {
       "bytes": 8049,
@@ -7587,9 +7587,9 @@
       "sha256": "5c1382adf41d8b3cecfd922f815ed85b10740d826924cf33def5250da934c6c5"
     },
     {
-      "bytes": 35414,
+      "bytes": 35404,
       "path": "skills/productivity/doct-document-ops/SKILL.md",
-      "sha256": "2b7e4d446ba0947ba061bb87edeeeb759318cc238286ba4225b5e3bd1c033f63"
+      "sha256": "87f90083a0100936fb87d65d867fb7a99be96bd006ba93ea5277bcc469f9d1ee"
     },
     {
       "bytes": 3859,
@@ -8542,9 +8542,9 @@
       "sha256": "55d5811c0b2d872dc59d87432720a113150dbbce2872524a36b3860a8967095d"
     },
     {
-      "bytes": 10885,
+      "bytes": 10744,
       "path": "skills/software-development/dev-plan/SKILL.md",
-      "sha256": "6925e39740fe001d15b5b305fc1a287e0d2d54c481a3e4d2783071692dc8ea75"
+      "sha256": "b2204e2d93292e9032c00e5184427ab36a7f7c368b1933bfa94bc9e61e50b4a6"
     },
     {
       "bytes": 6324,
@@ -8602,14 +8602,14 @@
       "sha256": "bba00c8c4a447d98405878d2419018bacf089be9d1f88820bac4160aadbfd890"
     },
     {
-      "bytes": 11210,
+      "bytes": 10602,
       "path": "skills/software-development/plan/SKILL.md",
-      "sha256": "903da0fac77ebb3ece3cc42ab5143d7438c25f195724335031bb0cfbb81aac80"
+      "sha256": "6f996422dbdcef920e22ac84135a7af82be98e91348b2ead19726f94537f2b74"
     },
     {
-      "bytes": 29217,
+      "bytes": 29241,
       "path": "skills/software-development/planning-workflow/SKILL.md",
-      "sha256": "b2a84e491053433985d41b633ec10e3963dbe4f69c336c81511b8a785683959e"
+      "sha256": "de44701c1454d3d31b0c8d1bef048a2b39e279e26f399de66f8ab29b8069299a"
     },
     {
       "bytes": 13347,
@@ -8627,9 +8627,9 @@
       "sha256": "5899cff2fe1075165addc41635899f2494ad9935f84deed677ef36430a0c38b2"
     },
     {
-      "bytes": 80678,
+      "bytes": 79863,
       "path": "skills/software-development/run-plan/SKILL.md",
-      "sha256": "6ffed0b8806b7a15552eefc7c68aa6e2a6ae53c53dce4bfa6c454fc4d2b210c8"
+      "sha256": "59a745a67246a01b6bdc3f9cd43d092e509c78e28f9786619728b3a3ec2f630f"
     },
     {
       "bytes": 10841,
@@ -8652,9 +8652,9 @@
       "sha256": "4c01d41a0dffbe08eeab3c55250d66be0c9b2b418b4a176e492479407e1d6c7d"
     },
     {
-      "bytes": 24346,
+      "bytes": 23387,
       "path": "skills/software-development/writing-plans/SKILL.md",
-      "sha256": "6d9eb397de15df494f4b4c71054af6227ccb6aa2dddfd6a5f625640f903d6358"
+      "sha256": "45a62d9d9759a0718a0b8a4f7d80fd1f00ac12de8817477368256d815f6f1834"
     },
     {
       "bytes": 3795,
@@ -8662,8 +8662,8 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260827T173609Z",
+  "generated_at": "20260909T170702Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/Users/anichols/.hermes"
+  "source_home": "/Users/anichols/code/ai-configs/_hermes/default"
 }

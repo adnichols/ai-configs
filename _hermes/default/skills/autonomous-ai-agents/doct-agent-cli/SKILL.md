@@ -1,6 +1,6 @@
 ---
 name: doct-agent-cli
-description: Use the current doct-agent CLI for Doct documents, comments, collaborative edits, and Doct-backed HTML plan registration. Plans are HTML-only; do not produce or register Markdoc plans. For Aaron-facing plan requests, use `doct-agent plans register` on `https://doct.nodaste.com`, start/verify the comment listener, and avoid text-doc plan publishing unless explicitly requested.
+description: Use the current doct-agent CLI for Doct documents, comments, collaborative edits, and Doct-backed HTML plan registration. Plans are HTML-only; do not produce or register Markdoc plans. Register a plan only when the user explicitly asks to send, publish, register, or review it in Doct.
 version: 2.0.0
 author: Hermes Agent
 metadata:
@@ -96,7 +96,7 @@ Accept any of: a full doct URL, document id, workspace + path/title, or register
 
 ## Special default: coding and HTML plans
 
-If the user asks to **send, publish, copy, save, register, review, or create a coding/implementation plan in doct**, prefer Doct plan registration over text-document publishing. For Aaron-facing plans, this is a hard default: create/register an HTML plan and start/verify the plan comment listener unless Aaron explicitly asks for Markdown/text/no comments or repo guidance forbids HTML. Do not produce or register Markdoc plans.
+If the user asks to **send, publish, copy, save, register, review, or create a coding/implementation plan in doct**, prefer Doct plan registration over text-document publishing. Do not register a plan because the user only said "create a plan". Keep the local file local unless they explicitly asked for Doct. Do not produce or register Markdoc plans.
 
 For HTML plans (the only reviewer-facing plan format):
 
@@ -114,7 +114,7 @@ When publishing to Shared or a nested folder, verify nav-tree placement after re
 
 Do not use `documents publish-plan` as the plan-review path; current `doct-agent onboard` says `documents publish-plan` fails closed with replacement guidance for plan-review publishing.
 
-Do **not** use `doct-agent documents create` / `documents replace-body` for Aaron-facing implementation plans. That creates a plain text document, not the commentable plan-review artifact Aaron expects. If this mistake happens, register a replacement HTML plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement Doct URL.
+Do **not** use `doct-agent documents create` / `documents replace-body` for a reviewer-facing implementation plan the user asked to put in Doct. That creates a plain text document, not the commentable plan-review artifact. If this mistake happens, register a replacement HTML plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement Doct URL.
 
 After registering a plan, inspect the plan queue once and start or verify the document-specific durable `plans listen` listener per `doct-document-ops` before final response. Long `plans agent next --wait` calls are diagnostic-only and are not a durable listener.
 

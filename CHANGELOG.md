@@ -34,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: `smol` is DeepSeek V4 Flash high, `vision` and `advisor` are `synthetic/hf:zai-org/GLM-5.3-Flash` (auto/high), `commit` and `tiny` are `openai-codex/gpt-5.6-luna:auto`, `Oracle` is `openai-codex/gpt-6-astra:medium`, and `task` is `xai-oauth/grok-4.6:medium`.
+- Default planning stays local. Do not register a plan in Doct unless the user explicitly asks to send, publish, register, or review it there, or invokes `reviewed-html-plan` / `send-plan-to-doct`.
 - Pinned OMP `openai-codex/gpt-6-astra` thinking `defaultLevel` to `low`. Selecting unsuffixed Astra no longer falls through to High under `defaultThinkingLevel: auto`. `_omp/install.sh` now installs managed `models.yml` on every run so remotes pick up the pin.
 - Synced managed OMP `config.yml` from this host: dropped `gpt-6-astra` from OMP roles — `slow` is `openai-codex/gpt-5.6-sol:high`, `Oracle` is `openai-codex/gpt-5.6-sol:high`.
 - Synced managed OMP `config.yml` from this host: `slow` is `openai-codex/gpt-6-astra:medium`, `Oracle` is `openai-codex/gpt-6-astra:high`. `designer` stays `openai-codex/gpt-5.6-sol:high` (the local `devin/claude-fable-5-1:medium` value was a one-host project override and is not captured). `prewalk.enabled` is false.

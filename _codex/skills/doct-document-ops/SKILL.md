@@ -107,7 +107,7 @@ If the user asks to **create, send, publish, copy, save, register, review, or mo
 - Do not use `doct-agent documents create`, `documents replace-body`, or `documents publish-plan` for a reviewer-facing implementation plan unless `doct-agent onboard` or the CLI explicitly directs a legacy fallback. Plain text docs are not the default plan review surface.
 - If you accidentally create a text doc for a reviewer-facing coding plan, register a replacement HTML plan with `doct-agent plans register`, start/verify the plan comment listener, and report the replacement URL as canonical.
 
-For Aaron-facing development plans, default to a browser-reviewable HTML plan registered in Doct even when the prompt only says "create a plan" or "publish a plan." Use Markdown/text only when he explicitly asks for that non-reviewable format or repo guidance requires it.
+Do not register a plan in Doct because the user said "create a plan" or "write a plan". Keep the local plan file local. Register only when they explicitly ask to send, publish, register, or review it in Doct, or invoke `reviewed-html-plan` / `send-plan-to-doct`.
 
 ### PR and deployment boundary in plans
 
