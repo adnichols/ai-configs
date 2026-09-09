@@ -103,6 +103,11 @@ class OmpAgentRosterTest(unittest.TestCase):
         self.assertIn("`eval` backends are disabled", guidance)
         self.assertNotIn("`eval` is scratch analysis", guidance)
 
+    def test_omp_guidance_forbids_mannered_prose(self):
+        guidance = (OMP / "AGENTS.md").read_text()
+        self.assertIn("When a literal phrase is available, use it", guidance)
+        self.assertIn("a dial worth turning", guidance)
+
 
     def test_completeness_skill_resolves_for_omp(self):
         metadata, body = split_frontmatter(COMPLETENESS_SKILL)

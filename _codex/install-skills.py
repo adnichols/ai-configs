@@ -75,7 +75,15 @@ def install(home, codex):
             temp.write_text(body)
             temp.chmod(0o600)
             temp.replace(path)
-    return {'installed': len(selected), 'codex_home': str(codex), 'shared_paths_disabled': len(paths)}
+    agents_src = ROOT / 'AGENTS.md'
+    agents_dest = codex / 'AGENTS.md'
+    agents_body = agents_src.read_text()
+    if not agents_dest.exists() or agents_dest.read_text() != agents_body:
+        temp = agents_dest.with_suffix(agents_dest.suffix + '.tmp')
+        temp.write_text(agents_body)
+        temp.chmod(0o600)
+        temp.replace(agents_dest)
+    return {'installed': len(selected), 'codex_home': str(codex), 'shared_paths_disabled': len(paths), 'agents': str(agents_dest)}
 
 
 if __name__ == '__main__':

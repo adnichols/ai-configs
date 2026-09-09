@@ -5,6 +5,7 @@ This directory is the repository source for Codex prompts and reference snippets
 ## Contents
 
 - `prompts/` — Codex prompt files
+- `AGENTS.md` — always-on writing guidance installed to `~/.codex/AGENTS.md`
 - `skills/` — parallel Codex skill payloads, including ADN's supporting resources
 - `skill-overrides.json` — source provenance and optional-profile selection
 - `install-skills.py` — isolated skill installation and Codex-only shared-skill exclusions

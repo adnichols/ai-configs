@@ -130,6 +130,7 @@ These rules apply to every assistant message. Apply the **unslop** skill before 
 - **Terse is not an excuse to drop content.** Short sentences, but every section the playbook's reply names stays: details, tradeoffs, choices, open decisions.
 - **Frame impact for the consumer and the maintainer.** Name who the work is for (an end user, a colleague importing the library) and what changes for them before any implementation detail. Then what the next engineer who owns this code inherits. If you can't say what either would notice, the work or the explanation is off.
 - **Never fabricate a link, citation, or transcript reference.** Link only artifacts you produced or read this session.
+- **No mannered prose.** Metaphor and flourish used in place of a direct statement. Write "a parameter worth varying", not "a dial worth turning". Write "this still matters", not "this earns its keep". When a literal phrase is available, use it.
 
 Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. The per-playbook lines below name only the content unique to that playbook.
 
