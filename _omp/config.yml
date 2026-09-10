@@ -70,7 +70,7 @@ cycleOrder:
   - slow
   - Oracle
 advisor:
-  enabled: false
+  enabled: true
 dev:
   autoqaConsent: granted
   autoqa: false
@@ -121,3 +121,5 @@ retry:
 extendedContext: false
 prewalk:
   enabled: false
+todo:
+  enabled: true

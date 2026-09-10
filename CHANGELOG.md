@@ -34,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: `advisor.enabled` is true, `todo.enabled` is true.
+
 - Synced managed OMP `config.yml` from this host: bash auto-background on with `direnv: auto`, ast-grep on, idle compact off, LSP on.
 
 - Synced managed OMP `config.yml` from this host: `advisor` is `openai-codex/gpt-5.6-sol:medium` with retry fallback `xai-oauth/grok-4.6`.
