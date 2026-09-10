@@ -136,6 +136,10 @@ copies it to `~/.agents/adn`, excluding runtime locks and logs, then runs
 land in the OMP agent profile. Isolated installer tests set `OMP_CONFIG_TARGET`
 and apply with `--agent-root` so they never write live `omp config` state. Set
 `ADN_SKIP_APPLY=1` to copy the tree without applying it.
+It also backup-then-installs `_adn/pstack-models.mdc` to
+`${CURSOR_RULES_TARGET:-$HOME/.cursor/rules}/pstack-models.mdc`, preserving the
+first differing dest as `pstack-models.mdc.before-ai-configs`. That Cursor rule
+install still runs when `ADN_SKIP_APPLY=1`.
 
 ### `_omp/`
 Canonical Oh My Pi host configuration, custom agents, provider extensions,

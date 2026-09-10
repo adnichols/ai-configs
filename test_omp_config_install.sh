@@ -10,8 +10,12 @@ SHARED_TARGET="$TMP_ROOT/home/.agents"
 BIN_TARGET="$TMP_ROOT/home/.local/bin"
 FAKE_BIN="$TMP_ROOT/bin"
 PLUGIN_LOG="$TMP_ROOT/omp-plugin.log"
+CURSOR_RULES_TARGET="$TMP_ROOT/cursor-rules"
+OLD_PSTACK="$TMP_ROOT/old-pstack-models.mdc"
 touch "$PLUGIN_LOG"
-mkdir -p "$FAKE_BIN" "$TARGET_ROOT/agents" "$TARGET_ROOT/extensions" "$SHARED_TARGET/skills" "$BIN_TARGET"
+mkdir -p "$FAKE_BIN" "$TARGET_ROOT/agents" "$TARGET_ROOT/extensions" "$SHARED_TARGET/skills" "$BIN_TARGET" "$CURSOR_RULES_TARGET"
+printf 'old-pstack\n' > "$CURSOR_RULES_TARGET/pstack-models.mdc"
+printf 'old-pstack\n' > "$OLD_PSTACK"
 cat > "$FAKE_BIN/omp" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$OMP_PLUGIN_LOG"
@@ -25,7 +29,7 @@ printf 'user-owned\n' > "$TARGET_ROOT/agents/custom.md"
 printf 'user-owned\n' > "$TARGET_ROOT/extensions/custom.ts"
 
 OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_SHARED_TARGET="$SHARED_TARGET" OMP_BIN_TARGET="$BIN_TARGET" \
-  OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
+  CURSOR_RULES_TARGET="$CURSOR_RULES_TARGET" OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
   bash "$REPO_ROOT/_omp/install.sh" >/dev/null
 
 cmp -s "$REPO_ROOT/_omp/config.yml" "$TARGET_ROOT/config.yml"
@@ -84,19 +88,23 @@ test ! -e "$TARGET_ROOT/adn/generation.json"
 test -f "$TARGET_ROOT/modelRoles.json"
 grep -q '"architect-grok": "cursor/cursor-grok-4.6:high"' "$TARGET_ROOT/modelRoles.json"
 test -L "$TARGET_ROOT/skills/principle-laziness-protocol"
+cmp -s "$REPO_ROOT/_adn/pstack-models.mdc" "$CURSOR_RULES_TARGET/pstack-models.mdc"
+cmp -s "$OLD_PSTACK" "$CURSOR_RULES_TARGET/pstack-models.mdc.before-ai-configs"
 cat >> "$TARGET_ROOT/models.yml" <<'EOF'
   custom:
     auth: none
 EOF
 
 OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_SHARED_TARGET="$SHARED_TARGET" OMP_BIN_TARGET="$BIN_TARGET" \
-  OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
+  CURSOR_RULES_TARGET="$CURSOR_RULES_TARGET" OMP_PLUGIN_LOG="$PLUGIN_LOG" PATH="$FAKE_BIN:$PATH" \
   bash "$REPO_ROOT/_omp/install.sh" >/dev/null
 grep -q 'old-config' "$TARGET_ROOT/config.yml.before-ai-configs"
 grep -q 'old-guidance' "$TARGET_ROOT/AGENTS.md.before-ai-configs"
 grep -q 'old-oracle' "$TARGET_ROOT/agents/oracle.md.before-ai-configs"
 cmp -s "$REPO_ROOT/_omp/models.yml" "$TARGET_ROOT/models.yml"
 grep -q 'custom:' "$TARGET_ROOT/models.yml.before-ai-configs"
+cmp -s "$REPO_ROOT/_adn/pstack-models.mdc" "$CURSOR_RULES_TARGET/pstack-models.mdc"
+cmp -s "$OLD_PSTACK" "$CURSOR_RULES_TARGET/pstack-models.mdc.before-ai-configs"
 if [[ -s "$PLUGIN_LOG" ]]; then
   printf 'expected empty plugin log\n' >&2
   cat "$PLUGIN_LOG" >&2

@@ -31,9 +31,10 @@ SOURCE_EXTENSIONS=(
 SOURCE_ADN="$REPO_ROOT/_adn"
 SOURCE_ADN_MANIFEST="$SOURCE_ADN/manifest.json"
 SOURCE_ADN_SETUP="$SOURCE_ADN/scripts/setup-adn.ts"
+SOURCE_ADN_PSTACK="$SOURCE_ADN/pstack-models.mdc"
 OMP_CONFIG_PRUNE="${OMP_CONFIG_PRUNE:-0}"
 
-for source in "$SOURCE_CONFIG" "$SOURCE_MODELS" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "$SOURCE_ADN_MANIFEST" "$SOURCE_ADN_SETUP" "${SOURCE_AGENTS[@]}" "${SOURCE_EXTENSIONS[@]}"; do
+for source in "$SOURCE_CONFIG" "$SOURCE_MODELS" "$SOURCE_GUIDANCE" "$SOURCE_DELIVERY_SKILL" "$SOURCE_DELIVERY_CLI" "$SOURCE_ADN_MANIFEST" "$SOURCE_ADN_SETUP" "$SOURCE_ADN_PSTACK" "${SOURCE_AGENTS[@]}" "${SOURCE_EXTENSIONS[@]}"; do
   if [[ ! -f "$source" ]]; then
     echo "Missing managed OMP file at $source" >&2
     exit 1
@@ -74,6 +75,7 @@ install_adn() {
   mkdir -p "$dest"
   rsync -a --delete --exclude locks --exclude '.DS_Store' --exclude '*.log' "$SOURCE_ADN/" "$dest/"
   echo "Installed managed ADN source at $dest"
+  install_managed_file "$SOURCE_ADN_PSTACK" "${CURSOR_RULES_TARGET:-$HOME/.cursor/rules}/pstack-models.mdc" 0644 "pstack-models.mdc"
   if [[ "${ADN_SKIP_APPLY:-0}" == "1" ]]; then
     echo "Skipped ADN apply (ADN_SKIP_APPLY=1)"
     return
