@@ -17,9 +17,10 @@ edit:
   mode: hashline
 bash:
   autoBackground:
-    enabled: false
+    enabled: true
+  direnv: auto
 astGrep:
-  enabled: false
+  enabled: true
 computer:
   enabled: false
 eval:
@@ -49,7 +50,7 @@ modelRoles:
 defaultThinkingLevel: auto
 compaction:
   thresholdPercent: -1
-  idleEnabled: true
+  idleEnabled: false
   idleThresholdTokens: 100000
   thresholdTokens: 200000
   idleTimeoutSeconds: 60
@@ -57,7 +58,7 @@ startup:
   quiet: true
   showSplash: false
 lsp:
-  enabled: false
+  enabled: true
 commands:
   enableClaudeUser: false
   enableClaudeProject: false
