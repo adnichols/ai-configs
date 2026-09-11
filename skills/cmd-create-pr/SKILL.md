@@ -135,6 +135,30 @@ After a squash, commit-bound certification or review receipts that name
 the old HEAD are stale. Name the new HEAD in the PR body. Same tree as
 the old tip is not enough to keep claiming the old SHA.
 
+### 5b) Pre-PR implementation review (required)
+
+Before `gh pr create`, `gh pr ready`, or any push that publishes the PR head,
+the scoped change MUST have a passing autoreview for the current HEAD. Load
+`skill://autoreview` and run it against `${base_ref}...HEAD` (or the resolved
+comparison range), including any uncommitted working-tree changes that will
+ship in the PR.
+
+A prior autoreview artifact satisfies this gate only when it names the current
+HEAD (post-squash, post-rebase) and reports no unresolved in-scope P1/P2
+findings. A squash or rebase after the review invalidates it — rerun.
+
+If autoreview returns `FINDINGS_TO_RESOLVE`, fix or disposition every blocking
+finding before continuing. If it returns `REVIEW_ESCAPE`, `BLOCKED_BY_QUESTION`,
+or `REVIEW_INFRASTRUCTURE_FAILURE`, stop and report the blocker; do not open
+the PR.
+
+**Explicit operator override:** if the operator explicitly instructs the agent
+to open, create, or publish the PR regardless of review status, obey
+immediately. Record the override and disclose the actual review status,
+incomplete coverage, infrastructure failures, and known unresolved findings in
+the PR body; never relabel the gate as clean or claim merge readiness.
+
+
 ### 6) Create or update PR
 
 If `$EXISTING_NUMBER` is empty, create:
@@ -191,7 +215,7 @@ PR: <url>
 
 ### Gates completed
 - Implementation-stage PM: pass, waived, or not-run
-- Autoreview: pass, waived, or not-run. Artifact and reviewer model if present.
+- Autoreview: pass, waived, or operator-override. Artifact and reviewer model if present. `not-run` is only valid when the operator explicitly overrode the gate.
 - Completeness: COMPLETE, waived, or not-run. Artifact if present.
 - Verification: commands and result, or not-run
 - Base freshness: current, rebased, or not-run
