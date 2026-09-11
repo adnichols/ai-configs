@@ -223,6 +223,10 @@ PR: <url>
 - PR snapshot: mergeability result, or not-run
 ```
 
-Include every row. `not-run` is a valid value. An ad-hoc PR that skipped
-run-plan still uses this list with `not-run` rows. Do not invent a
-run-plan table or relabel skipped gates as pass.
+Include every row. `not-run` is a valid value for Implementation-stage PM,
+Completeness, Verification, Base freshness, Permanent docs, and PR snapshot.
+Autoreview is the exception: it must be `pass`, `waived`, or
+`operator-override`; `not-run` means step 5b was skipped and the PR should not
+have been created. An ad-hoc PR that skipped run-plan still uses this list
+with `not-run` rows for the non-autoreview gates. Do not invent a run-plan
+table or relabel skipped gates as pass.
