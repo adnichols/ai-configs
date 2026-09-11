@@ -31,14 +31,14 @@ checkpoint:
 plan:
   enabled: false
 modelRoles:
-  smol: openai-codex/gpt-5.6-luna:high
+  smol: synthetic/hf:zai-org/GLM-5.3-Flash:max
   slow: openai-codex/gpt-5.6-sol:high
-  vision: synthetic/hf:zai-org/GLM-5.3-Flash:auto
+  vision: openai-codex/gpt-5.6-luna:xhigh
   plan: synthetic/hf:moonshotai/Kimi-K3:high
   designer: synthetic/hf:moonshotai/Kimi-K3:high
-  commit: openai-codex/gpt-5.6-luna:auto
-  tiny: openai-codex/gpt-5.6-luna:auto
-  advisor: openai-codex/gpt-5.6-sol:medium
+  commit: openai-codex/gpt-5.6-luna:xhigh
+  tiny: openai-codex/gpt-5.6-luna:low
+  advisor: synthetic/hf:moonshotai/Kimi-K3:high
   Oracle: openai-codex/gpt-6-astra:medium
   reviewer: cursor/cursor-grok-4.6:high
   default: xai-oauth/grok-4.6:high
@@ -117,7 +117,7 @@ retry:
     default:
       - cursor/cursor-grok-4.6
     advisor:
-      - xai-oauth/grok-4.6
+      - openai-codex/gpt-5.6-sol
 extendedContext: false
 prewalk:
   enabled: false

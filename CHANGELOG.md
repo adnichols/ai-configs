@@ -34,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Synced managed OMP `config.yml` from this host: `smol` is `synthetic/hf:zai-org/GLM-5.3-Flash:max`, `vision` is `openai-codex/gpt-5.6-luna:xhigh`, `commit` is `openai-codex/gpt-5.6-luna:xhigh`, `tiny` is `openai-codex/gpt-5.6-luna:low`, `advisor` is `synthetic/hf:moonshotai/Kimi-K3:high` with retry fallback `openai-codex/gpt-5.6-sol`.
+
 - Synced managed OMP `config.yml` from this host: `advisor.enabled` is true, `todo.enabled` is true.
 
 - Synced managed OMP `config.yml` from this host: bash auto-background on with `direnv: auto`, ast-grep on, idle compact off, LSP on.
