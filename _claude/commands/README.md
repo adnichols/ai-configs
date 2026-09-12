@@ -97,9 +97,7 @@ All commands use consistent:
 
 ## Claude Execution Model
 
-The driving session performs discovery, planning, implementation, testing, documentation, and ordinary review directly. The repository-owned `reviewer` subagent is the only exception: it may perform bounded, read-only plan and code reviews at `claude-sonnet-5` high effort.
-
-When policy requires an independent Claude review, use this `reviewer` subagent rather than an external Codex or Claude session or a required Herdr workflow.
+The driving session performs discovery, planning, implementation, testing, documentation, and review directly. The repository no longer ships a Claude reviewer subagent; do not delegate review to subagents, external Codex or Claude sessions, or a required Herdr workflow.
 
 ## Best Practices
 

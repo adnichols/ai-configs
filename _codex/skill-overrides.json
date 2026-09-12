@@ -49,10 +49,6 @@
       "source": "skills/ccore_DONOTUSE",
       "profile": "default"
     },
-    "claude-code-review": {
-      "source": "skills/claude-code-review",
-      "profile": "default"
-    },
     "codex-full-build": {
       "source": "skills/codex-full-build",
       "profile": "default"

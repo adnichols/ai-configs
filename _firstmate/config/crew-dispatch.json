@@ -12,9 +12,9 @@
     },
     {
       "when": "The task is a big or ambiguous multi-file feature, a risky refactor, investigation, design, or work that requires holding many moving parts in mind.",
-      "use": { "harness": "omp", "model": "xai-oauth/grok-4.6", "effort": "high" },
-      "why": "ADN feature default is grok-4.6 at high. Do not use xhigh as a Firstmate effort fallback."
+      "use": { "harness": "omp", "model": "devin/swe-2", "effort": "high" },
+      "why": "ADN feature default is devin/swe-2 at high. Do not use xhigh as a Firstmate effort fallback."
     }
   ],
-  "default": { "harness": "omp", "model": "xai-oauth/grok-4.6", "effort": "high" }
+  "default": { "harness": "omp", "model": "devin/swe-2", "effort": "high" }
 }

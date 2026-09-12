@@ -2,7 +2,7 @@
 
 ## Status
 
-Experimental default for Pi required Codex and Claude reviews. The former repo-owned Pi review extensions are disabled and retained under `_pi/disabled-extensions/` for rollback and comparison.
+Superseded — removed 2026-09-12. The Claude reviewer setup (skills, prompts, reviewer subagent, and the `claude-review` Pi extension) was removed entirely; Pi reviews run through the repository-owned Pi `reviewer` subagent and Codex acts only as the Firstmate supervisor. The body below is retained as historical evidence of the transport design.
 
 ## Why
 
@@ -109,4 +109,4 @@ Herdr keeps an interrupted, failed, blocked, or still-actionable reviewer and it
 
 ## Rollback
 
-The disabled extension source remains under `_pi/disabled-extensions/claude-review` and `_pi/disabled-extensions/codex-review`. Restoring it requires an explicit decision, moving it back under `_pi/extensions/`, removing it from `DISABLED_PI_EXTENSIONS`, reinstalling Pi configuration, and updating the review skills/doctrine back to the managed-tool transport.
+The `claude-review` extension source was deleted with the rest of the Claude reviewer setup. The `codex-review` extension source remains under `_pi/disabled-extensions/codex-review`. Restoring it requires an explicit decision, moving it back under `_pi/extensions/`, removing it from `DISABLED_PI_EXTENSIONS`, reinstalling Pi configuration, and updating the review skills/doctrine back to the managed-tool transport.

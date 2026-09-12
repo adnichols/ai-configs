@@ -24,9 +24,9 @@ End-to-end autonomous flow:
 ## Requirements
 
 - The driving agent MUST perform code changes and repository management directly
-- Perform ordinary code review directly in the driving session; use the read-only `reviewer` subagent when an independent review is required
+- Perform code review directly in the driving session
 - Run the planning command directly
-- Do not delegate discovery, planning, implementation, fixes, tests, verification, documentation, or repository operations to Claude subagents; `reviewer` may perform only bounded read-only review
+- Do not delegate discovery, planning, implementation, fixes, tests, verification, documentation, or repository operations to subagents
 
 ## Inputs
 
@@ -65,7 +65,6 @@ git rev-parse --verify "${base_ref}^{commit}"
 Your responsibilities:
 - Use native repository tools for investigation, code changes, tests, verification, and repository operations
 - Keep discovery, planning, implementation, review, and verification context in this session instead of delegating it
-- Use the read-only `reviewer` subagent only when policy requires an independent review leg
 - Coordinate the flow continuously between phases
 - Ask the user only for a genuinely unresolved decision
 

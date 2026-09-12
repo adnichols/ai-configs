@@ -43,8 +43,9 @@ USAGE:
     ./sync-claude-config.sh [OPTIONS]
 
 DESCRIPTION:
-    Syncs agents/ and commands/ directories from ~/.claude to the current repository's
-    .claude directory. Also copies settings.template.json to settings.local.json.
+    Syncs commands/ from ~/.claude to the current repository's .claude directory,
+    plus agents/ when it exists. Also copies settings.template.json to
+    settings.local.json.
 
 OPTIONS:
     --dry-run           Preview changes without applying them
@@ -103,11 +104,9 @@ check_prerequisites() {
         exit 1
     fi
 
-    # Check if required source directories exist
+    # Check if required source directories exist. The repo no longer ships a
+    # managed Claude agents tree, so agents/ is optional.
     local missing_dirs=()
-    if [[ ! -d "$HOME/.claude/agents" ]]; then
-        missing_dirs+=("agents")
-    fi
     if [[ ! -d "$HOME/.claude/commands" ]]; then
         missing_dirs+=("commands")
     fi
@@ -217,10 +216,11 @@ main() {
     check_prerequisites
     create_target_structure
 
-    # Sync directories
-    sync_directory "$HOME/.claude/agents" ".claude/agents" "agents"
+    # Sync directories (agents/ is optional; the repo no longer ships one)
+    if [[ -d "$HOME/.claude/agents" ]]; then
+        sync_directory "$HOME/.claude/agents" ".claude/agents" "agents"
+    fi
     sync_directory "$HOME/.claude/commands" ".claude/commands" "commands"
-
     # Handle settings
     handle_settings
 

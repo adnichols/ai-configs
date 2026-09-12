@@ -373,6 +373,8 @@ seed_phase_two_home() {
     review-change
     review-change-integrate
     herdr-reviewers
+    claude-code-review
+    claude-review-partner
   )
 
   mkdir -p \
@@ -510,6 +512,8 @@ assert_shared_skill_install_state() {
     review-change
     review-change-integrate
     herdr-reviewers
+    claude-code-review
+    claude-review-partner
   )
   local matt_skills=(
     codebase-design
@@ -1785,8 +1789,6 @@ pi_delegated = [
     'cmd:feeling-lucky-pr.md',
     'cmd:feeling-lucky-pr-os.md',
     'prd:clarify-round.md',
-    'review:change-claude-code.md',
-    'review:change-opus.md',
     'review:plan.md',
     'review:plan-adversarial.md',
     'review:prd.md',
@@ -2093,10 +2095,9 @@ test_active_agent_configuration_has_no_kimi() {
   assert_file_contains _pi/agents/scout.md 'reasoningEffort: low' || return 1
   assert_file_contains _pi/agents/imaging.md 'model: openai-codex/gpt-5.6-luna' || return 1
   assert_file_contains _pi/agents/imaging.md 'reasoningEffort: xhigh' || return 1
-  assert_file_contains _claude/agents/reviewer.md 'model: claude-sonnet-5' || return 1
-  assert_file_contains _claude/agents/reviewer.md 'effort: high' || return 1
-  assert_file_contains _claude/commands/dev:run.md 'repository-owned, read-only `reviewer` subagent (`claude-sonnet-5`, high effort)' || return 1
-  assert_file_contains _claude/commands/cmd:execute-plan.md 'one read-only `reviewer` subagent pass after each phase' || return 1
+  [[ ! -e _claude/agents/reviewer.md ]] || return 1
+  assert_file_not_contains _claude/commands/dev:run.md 'reviewer` subagent' || return 1
+  assert_file_not_contains _claude/commands/cmd:execute-plan.md 'reviewer` subagent' || return 1
 }
 
 test_herdr_agent_handoff_contract() {

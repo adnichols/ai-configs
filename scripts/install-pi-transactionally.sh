@@ -62,11 +62,19 @@ done < <(python3 "$CONTRACT" list --manifest "$MANIFEST" --repo-root "$ROOT" --s
 
 PATHS=(.pi)
 while IFS=$'\t' read -r _id _kind _source _destination _mode _preserve boundary _target _entries; do
-  found=false
+  covered=false
+  next_paths=()
   for existing in "${PATHS[@]}"; do
-    [[ "$boundary" == "$existing" || "$boundary" == "$existing"/* ]] && found=true
+    if [[ "$boundary" == "$existing" || "$boundary" == "$existing"/* ]]; then
+      covered=true
+    elif [[ "$existing" == "$boundary"/* ]]; then
+      continue
+    fi
+    next_paths+=("$existing")
   done
-  [[ "$found" == true ]] || PATHS+=("$boundary")
+  if [[ "$covered" == false ]]; then
+    PATHS=("${next_paths[@]}" "$boundary")
+  fi
 done < <(python3 "$CONTRACT" list --manifest "$MANIFEST" --repo-root "$ROOT" --scope pi-review-stack)
 
 for rel in "${PATHS[@]}"; do

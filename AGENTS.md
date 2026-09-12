@@ -31,8 +31,7 @@ Imaging launch contract (Pi): call `Agent` with only `subagent_type: "imaging"`,
 
 ## Claude and Codex Execution Model
 
-- Claude's driving session performs discovery, planning, implementation, testing, documentation, and repository management directly with native tools.
-- The sole repository-owned Claude subagent is `_claude/agents/reviewer.md`: a read-only `claude-sonnet-5` reviewer at `high` effort. Commands may invoke it only for bounded plan or code review; they must not delegate implementation, testing, fixes, or repository management.
+- Claude's driving session performs discovery, planning, implementation, testing, documentation, review, and repository management directly with native tools. The repository no longer ships a Claude subagent.
 - Devin's driving session likewise implements directly with native tools. Its repository-owned custom subagent profiles live in `_devin/agents/` and install to `~/.config/devin/agents/`: `reviewer` and `planner` (sonnet), `oracle` and `completeness` (opus). Invoke them by profile name via `run_subagent` only for bounded planning, decision support, or read-only review. The shared delivery ledger supports only the `omp`/`pi` runtimes; Devin sessions use `run-plan` with the standalone `completeness` packet instead of arming delivery.
 - Required code reviews run through the active harness's configured `reviewer` subagent. Completeness is an on-request plan walk, not a merge-readiness gate. Do not make Codex or Claude Code a required review transport.
 - On Cursor Grok or Composer parents, launch required reviewers with `run_in_background: true` and join via `get_subagent_result` (`wait: true`). The vendored `pi-cursor-sdk` bridge also forces background for `Agent` on those models.
@@ -58,7 +57,7 @@ When agents run within Codex, they MUST prioritize native Codex tools over MCP s
 ## Review Safeguards
 
 - `reviewer` (GPT-5.6 Terra medium; `_pi/agents/reviewer.md`) is the repository-owned read-only Pi material-review persona.
-- Claude uses its repository-owned `reviewer` subagent (`claude-sonnet-5`, high effort) for independent plan and code reviews.
+- Claude performs independent plan and code reviews in its driving session; no Claude reviewer subagent exists.
 - Repository and worktree management remain in the driving session; no reviewer subagent may own state-changing work.
 
 ## Fidelity & Execution House Rules (Template for Project Repos)

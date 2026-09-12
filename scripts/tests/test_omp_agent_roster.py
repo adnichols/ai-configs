@@ -72,6 +72,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             self.assertIn(required, body)
         # Planner never recommends a model: implementation stays on the driving
         # OMP session default (devin/swe-2:high). Terra is not used as a
+        # planner or executor pick.
         self.assertNotIn("terra-high", body)
         self.assertNotIn("IMPLEMENTATION:", body)
 
@@ -145,6 +146,8 @@ class OmpAgentRosterTest(unittest.TestCase):
             "delivery bootstrap --runtime omp",
             ".delivery/ledger.json",
             "xai-oauth/grok-4.6:high",
+            "devin/swe-2:high",
+            "completion-review --prepare",
             "acceptCommand",
         ):
             self.assertNotIn(workflow_detail, guidance)
@@ -157,6 +160,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "current OMP agent as owner",
             "delivery bootstrap --runtime omp",
             "devin/swe-2:high",
+            "xai/grok-4.5:high",
             "exact seven-line envelope",
             "acceptCommand",
         ):
