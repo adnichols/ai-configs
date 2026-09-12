@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Synced managed OMP `config.yml` from this host: `plan` is `openai-codex/gpt-5.6-sol:high`, `advisor` is `devin/swe-2:high` with retry fallback `openai-codex/gpt-5.6-sol`.
+- Synced managed OMP `config.yml` from this host: `default` is `devin/swe-2:high`; removed the `default` (`cursor/cursor-grok-4.6`) and `advisor` (`openai-codex/gpt-5.6-sol`) retry fallback chains. Updated OMP delivery doctrine (AGENTS.md, README, run-plan, delivery-run, planner agent) and the pinned routing test to the new default.
 
 - Synced managed OMP `config.yml` from this host: `smol` is `synthetic/hf:zai-org/GLM-5.3-Flash:max`, `vision` is `openai-codex/gpt-5.6-luna:xhigh`, `commit` is `openai-codex/gpt-5.6-luna:xhigh`, `tiny` is `openai-codex/gpt-5.6-luna:low`, `advisor` is `synthetic/hf:moonshotai/Kimi-K3:high` with retry fallback `openai-codex/gpt-5.6-sol`.
 
