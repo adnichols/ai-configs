@@ -123,9 +123,9 @@ test_repository_structure() {
         return
     fi
     
-    # Claude's only repository-owned subagent is the read-only reviewer.
-    if [[ ! -f "$SCRIPT_DIR/_claude/agents/reviewer.md" ]]; then
-        test_fail "_claude/agents/reviewer.md must exist"
+    # The repository no longer ships a Claude reviewer subagent.
+    if [[ -f "$SCRIPT_DIR/_claude/agents/reviewer.md" ]]; then
+        test_fail "_claude/agents/reviewer.md must be removed"
         return
     fi
 
@@ -141,8 +141,8 @@ test_repository_structure() {
         return
     fi
 
-    if ! grep -Fq 'cp -r "$REPO_ROOT/_claude/agents"' "$SCRIPT_DIR/install.sh"; then
-        test_fail "Installer must copy the Claude reviewer subagent"
+    if grep -Fq 'cp -r "$REPO_ROOT/_claude/agents"' "$SCRIPT_DIR/install.sh"; then
+        test_fail "Installer must not reinstall a Claude reviewer subagent"
         return
     fi
 

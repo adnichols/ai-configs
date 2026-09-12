@@ -26,7 +26,8 @@ class PiReviewStackContractTest(unittest.TestCase):
         required = {
             "pi-prompts", "pi-extensions", "pi-libraries", "pi-agents", "pi-models", "pi-settings",
             "pi-readme", "pi-append-system", "pi-extension-removals",
-            "skill-autoreview", "skill-claude-code-review", "skill-codex-review-partner",
+            "shared-skill-removals", "pi-prompt-removals",
+            "skill-autoreview", "skill-codex-review-partner",
             "skill-delivery-run", "skill-integration-integrity", "skill-oracle-consultation",
             "skill-adversarial-fix-review",
             "skill-pre-pr-implementation-review", "skill-reviewed-html-plan", "skill-run-plan", "skill-safe-git-index",

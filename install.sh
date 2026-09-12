@@ -42,6 +42,8 @@ DEPRECATED_SHARED_SKILLS=(
     review-change
     review-change-integrate
     herdr-reviewers
+    claude-code-review
+    claude-review-partner
 )
 # Retire the legacy, session-detail-backed todo extension in favor of the
 # package-managed @juicesharp/rpiv-todo extension.
@@ -518,11 +520,11 @@ install_claude() {
         mkdir -p "$target"
     fi
 
-    # Preserve one read-only review subagent while removing any retired Claude
-    # personas. The driving session remains the only implementation authority.
-    echo "  - Installing managed Claude reviewer..."
+    # Remove any previously installed managed Claude subagents. The repository
+    # no longer ships a Claude reviewer; the driving session is the only
+    # implementation and review authority.
+    echo "  - Removing managed Claude subagents..."
     rm -rf "$target/agents"
-    cp -r "$REPO_ROOT/_claude/agents" "$target/"
 
     # Update commands (remove first to ensure clean state)
     if [ -d "$target/commands" ]; then

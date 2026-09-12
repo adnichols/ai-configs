@@ -5,7 +5,6 @@ This directory is the repository source for Claude Code commands and settings.
 ## Contents
 
 - `commands/` — Claude slash commands executed by the driving session
-- `agents/reviewer.md` — read-only review subagent (`claude-sonnet-5`, high effort)
 - `settings.local.json` — default Claude project settings template
 - `../scripts/` — shared helper scripts installed into `.claude/scripts`
 
@@ -21,7 +20,6 @@ Re-run `install.sh` to refresh an existing installation. The installer preserves
 ## Notes
 
 - Repo source lives under `_claude/`; installed runtime files live under `.claude/` in target projects.
-- The installer replaces `.claude/agents/` with the single managed read-only `reviewer` subagent and removes retired personas.
-- Slash commands must keep discovery, planning, implementation, testing, and documentation in the driving Claude session. Independent plan and code reviews use the active-harness `reviewer` subagent, not a required external Herdr session.
-- Shared helper scripts are maintained once in the repo-level `scripts/` directory and copied into `.claude/scripts` by the installer.
+- The installer removes any previously installed managed `.claude/agents/` subagents; the repository no longer ships a Claude reviewer.
+- Slash commands must keep discovery, planning, implementation, testing, review, and documentation in the driving Claude session.
 - `CLAUDE.md` is repo documentation, not an installed runtime file.

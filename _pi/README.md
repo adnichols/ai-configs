@@ -133,7 +133,7 @@ Install no longer ships `model-allowlist.ts` and clears `enabledModels`, so Pi s
 
 The managed `herdr-agent-state.ts` integration reports **interactive Pi TUI** lifecycle state directly to Herdr; RPC, JSON, and print-mode Pi runs never claim the inherited terminal pane. It treats `agent_settled` as the foreground-idle boundary, preserves same-session Herdr authority across Pi `/reload`, `/new`, `/resume`, and `/fork`, and releases it only when Pi quits. It forwards Pi's session-start provenance when Pi provides it so Herdr can re-anchor a replacement runtime, retries a report when a socket closes before acknowledging it, and, by default, keeps the pane working while any tracked `process` job remains live except known passive listeners, monitors, dev servers, and watchers. Configure the policy with `HERDR_PI_BACKGROUND_PROCESS_MODE=none|finite|all`; extend the passive ignore list with comma- or newline-separated literal name/command fragments in `HERDR_PI_BACKGROUND_PROCESS_IGNORE`. Doct `plans listen` and blocking `plans agent next --wait` commands are ignored explicitly. The shared-skills install also places `herdr-operator-attention` in `~/.agents/scripts` and `~/.local/bin`; workflow-owned human waits write a per-pane marker that this integration honors above working/idle while retaining `herdr:pi` authority, and shell-only panes receive a best-effort fixed-source `report-agent` signal. Run `node tests/test_herdr_agent_state.mjs` for the lifecycle, reload, process-policy, and operator-wait latch contract test.
 
-The repo-owned `claude-review` and `codex-review` Pi extensions are temporarily disabled and retained under `_pi/disabled-extensions/` for comparison and possible rollback. `install.sh --pi` removes any stale installed copies from `~/.pi/agent/extensions/`, so the `claude_review` and `codex_review` tools are unavailable after a fresh Pi session starts.
+The repo-owned `codex-review` Pi extension is temporarily disabled and retained under `_pi/disabled-extensions/` for comparison and possible rollback. `install.sh --pi` removes any stale installed copies from `~/.pi/agent/extensions/`, so the `codex_review` tool is unavailable after a fresh Pi session starts. The `claude-review` extension and the Claude reviewer skills were removed entirely; no Pi workflow calls Claude for review.
 
 Required Pi plan and code reviews use the repository-owned `reviewer` Pi subagent (`openai-codex/gpt-5.6-terra`, medium reasoning). The coordinating Pi session gives it a bounded, read-only review packet and captures its result in the normal review artifact. A Herdr delivery run also opens a visible adjacent Pi session on `xai/grok-4.6:high` for the separate plan-completeness loop: the driving agent addresses its in-plan findings and requests rereview until it returns `COMPLETE`. That visible reviewer is read-only and does not replace the active-harness code-review gate. Separate Codex or Claude Code sessions remain unnecessary.
 
@@ -260,8 +260,6 @@ Callers must supply the artifact or allowed surfaces, specialized lens, output d
 - `cmd-resume-handoff`
 - `review-plan`
 - `review-plan-adversarial`
-- `review-change-opus` — compatibility pointer to `/review:change-claude-code`; no provider-specific Pi subagent
-- `review-change-claude-code` — compatibility alias that runs the repository-owned Pi `reviewer` subagent; it does not open a Claude Code or Herdr review session
 - `autoreview` — runnable independently or automatically from `run-plan` before PR creation; it is not a terminal replacement for PM review, base freshness, opening the PR, or proving local merge readiness
 - `pre-pr-implementation-review` — indefinite compatibility alias for `autoreview`; it preserves arguments and the `OPEN_PR_READY` handoff without duplicating the canonical policy
 
@@ -281,8 +279,6 @@ Prompt templates:
 /review:plan-adversarial thoughts/plans/my-plan.html
 /review:prd thoughts/plans/prd-my-feature.md
 /review:change thoughts/plans/my-plan.html
-/review:change-opus thoughts/plans/my-plan.html
-/review:change-claude-code thoughts/plans/my-plan.html
 /skill:autoreview thoughts/plans/my-plan.html
 /run-plan thoughts/plans/my-plan.html
 /dev:plan-from-prd thoughts/plans/prd-my-feature.md
@@ -318,7 +314,6 @@ Use `/dev:pm-review <plan> implementation` after execution when you want a corre
 - `/run-plan` is the full lifecycle reviewed-plan continuation through durable Pi goal tracking, PM review, reviewer-subagent pre-PR review, base freshness, PR creation, current PR feedback snapshot, local merge-readiness consensus, and safe auto-rebase when needed; `/dev:run` remains the direct execution-only path with one shared `reviewer` pass after each phase.
 - `/skill:autoreview` can be run independently before opening a PR and is also invoked automatically by `run-plan` after scoped implementation reviews. In a scoped run, a clean reviewer-subagent verdict with no unresolved blocking in-scope P1/P2 findings means `OPEN_PR_READY`; plan-required, verification-required, or regression-caused P3 findings remain blocking. The runner must then rerun final verification if needed, confirm base freshness, commit, push, open the PR, and prove local merge readiness without waiting for external approval. `/skill:pre-pr-implementation-review` remains supported indefinitely as a thin argument-preserving compatibility alias.
 - In Pi, `/cmd:execute-plan` starts a fresh session and launches the selected execution flow from clean context.
-- `/review:change-claude-code` remains available as a compatibility alias; it is not an automatic planning-mode fallback. It runs the repository-owned Pi `reviewer` subagent with the same bounded, read-only packet and never creates a Herdr tab or starts an external Claude Code reviewer.
 
 Use `/dev:plan-from-prd <prd>` after a reviewed PRD delta is ready to become an execution plan.
 

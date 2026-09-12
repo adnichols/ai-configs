@@ -423,21 +423,15 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertEqual("universal-installable", matrix["adversarial-fix-review"]["class"])
 
 
-    def test_claude_has_only_the_read_only_reviewer_subagent(self):
+    def test_claude_reviewer_subagent_is_removed(self):
         agents = ROOT / "_claude" / "agents"
-        self.assertEqual({"reviewer.md"}, {path.name for path in agents.glob("*.md")})
-        metadata, body = frontmatter(agents / "reviewer.md")
-        self.assertEqual("reviewer", metadata.get("name"))
-        self.assertEqual("claude-sonnet-5", metadata.get("model"))
-        self.assertEqual("high", metadata.get("effort"))
-        self.assertEqual("Read, Grep, Glob", metadata.get("tools"))
-        self.assertIn("read-only", body.lower())
-        self.assertIn("do not edit files", body.lower())
-        self.assertIn("do not run tests", body.lower())
+        self.assertFalse((agents / "reviewer.md").exists())
+        if agents.is_dir():
+            self.assertEqual([], [path.name for path in agents.glob("*.md")])
 
         installer = (ROOT / "install.sh").read_text()
         self.assertIn('rm -rf "$target/agents"', installer)
-        self.assertIn('cp -r "$REPO_ROOT/_claude/agents" "$target/"', installer)
+        self.assertNotIn('cp -r "$REPO_ROOT/_claude/agents"', installer)
 
     def test_scout_caller_packets_are_bounded_and_evidence_only(self):
         prompts = {

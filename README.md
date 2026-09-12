@@ -105,7 +105,7 @@ For the bounded Pi review stack, `install.sh --pi-review-stack` derives every ma
 ## Key directories
 
 ### `_claude/`
-Claude commands, default settings, and the read-only `reviewer` subagent. The installer installs `_claude/agents/reviewer.md`, which uses `claude-sonnet-5` at high effort for bounded plan and code review only.
+Claude commands and default settings. The repository no longer ships a Claude reviewer subagent; the installer removes any previously installed managed `.claude/agents/` copies.
 
 ### `_codex/`
 Codex prompt files plus config templates. Global Codex prompt discovery is handled by the installer.

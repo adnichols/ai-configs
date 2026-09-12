@@ -20,7 +20,6 @@ HTML plans are first-class inputs. If the argument is a slug, resolve it through
 - Do not perform the review directly in the primary agent.
 - Do not rely on a nonexistent `subagent(...)` runner or slash-command chaining.
 - This command is review-only. Do not integrate or clean up review comments here.
-- Do not trigger or imply an automatic fallback to `/review:change-claude-code`; Claude Code review remains a separate explicit opt-in command.
 
 ## Review Execution
 
