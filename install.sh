@@ -526,6 +526,16 @@ install_claude() {
     echo "  - Removing managed Claude subagents..."
     rm -rf "$target/agents"
 
+    # Remove the retired user-level managed reviewer. Only delete the copy that
+    # still carries the managed signature so a user-modified agent survives.
+    local user_reviewer="$HOME/.claude/agents/reviewer.md"
+    if [ -f "$user_reviewer" ] \
+        && grep -q '^name: reviewer$' "$user_reviewer" \
+        && grep -q '^model: claude-sonnet-5$' "$user_reviewer"; then
+        rm -f "$user_reviewer"
+        echo "  - Removed retired managed Claude reviewer at $user_reviewer"
+    fi
+
     # Update commands (remove first to ensure clean state)
     if [ -d "$target/commands" ]; then
         # Check for legacy subdirectories
