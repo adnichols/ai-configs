@@ -1,6 +1,6 @@
 ---
 name: verified-build
-description: "Codex-only lab workflow for bug fixes, feature changes, and live product exploration. Use when Codex should claim a shared lab, establish current behavior, send confirmed build work to OMP in a Herdr worktree, validate the exact PR head in the lab, and record screenshots and video. Do not invoke from OMP or for changes that have no user-facing behavior to exercise."
+description: "Codex-only lab workflow for bug fixes, feature changes, and live product exploration. Use when Codex should preview UI changes for approval when possible, claim a shared lab, send confirmed build work to OMP, validate the exact PR head, and publish visual evidence. Do not invoke from OMP or for changes that have no user-facing behavior to exercise."
 ---
 
 # Verified build
@@ -19,6 +19,18 @@ Choose one mode without asking when the request is clear:
 
 If a request mixes exploration and authorized fixes, explore first. Route each confirmed failure through `BUG_FIX`. Do not treat an unexpected result as a defect until a clean retry rules out operator error, stale state, and an unsubmitted action.
 
+## Preview UI changes before build
+
+For a build mode that changes UI, try to produce a visual prototype before starting OMP. This preview is preferred, not mandatory. Failure to produce it must not by itself block the build.
+
+1. Perform only the read-only discovery needed to understand the current UI and design question. Reuse supplied references and the real app shell, components, density, and representative data when available.
+2. Load the `prototype` skill. Use one faithful proposal when the requested direction is specific. Use its variant process when meaningful design choices remain. Keep prototype code throwaway and separate from the OMP implementation worktree.
+3. Show full-UI screenshots of the proposed result for the known affected states. For a workflow change, also provide a runnable or clickable prototype and a short walkthrough video when practical. If video is unavailable, provide an ordered screenshot storyboard.
+4. Ask the operator to approve or revise the proposal. When approved, record the selected prototype version, approval, screenshots, video or prototype URL, and observable behavior in a prototype note. Copy that note into `run.md` when the build run begins. These become the target for OMP and later lab validation.
+5. If the prototype cannot be produced after a bounded attempt, record `PROTOTYPE_UNAVAILABLE` in the prototype note, explain why, and continue with written acceptance criteria. If the operator asks to skip or proceed without approval, record `PROTOTYPE_SKIPPED` and continue. Never claim approval that was not given.
+
+Do not start OMP while an available prototype is awaiting operator review. Do not keep a lab claim open while waiting for feedback. Release any claim used only to inspect the current UI, then reclaim a lab for the build run after approval or a recorded skip.
+
 ## Prepare the run
 
 1. Read the repository guidance, lab/deploy instructions, and any project-local `verify-*` skill. Load the app-appropriate verification skill and the `herdr` skill. Load `safe-git-index` when Git mutations are needed.
@@ -26,7 +38,7 @@ If a request mixes exploration and authorized fixes, explore first. Route each c
 3. Use the repository's existing lab claim or lease mechanism. Record the lab, claim identity, owner, expiry, and release procedure. If the lab is already claimed, use another authorized lab or stop. Never invent a lock by convention.
 4. Verify which source SHA the lab serves. The baseline must match the intended base SHA. If it does not, deploy the intended base only when the request authorizes lab deployment. Otherwise stop with the mismatch.
 5. Create one run directory in the repository's existing evidence area. If none exists, use `artifacts/verified-build/<run-id>/` and keep it uncommitted unless repo policy says otherwise.
-6. Start `run.md` with the mode, user request, desired references, lab URL, claim details, baseline deployment identity, browser/client profile, fixture identifiers, visual coverage matrix, and cleanup obligations.
+6. Start `run.md` with the mode, user request, desired references, prototype status and approval record, lab URL, claim details, baseline deployment identity, browser/client profile, fixture identifiers, visual coverage matrix, and cleanup obligations.
 
 Do not expose credentials, session cookies, API keys, personal data, or unrelated customer data in evidence. Use disposable records or a repo-defined QA account. Only remove data created by this run.
 
@@ -66,7 +78,7 @@ Prompt OMP to use ADN mode and include:
 - mode, requested outcome, and non-goals;
 - exact baseline SHA and lab deployment identity;
 - clean reproduction steps and raw evidence paths;
-- desired image or prototype paths when present;
+- the approved prototype, approval record, or recorded prototype skip, plus its image, video, or URL paths when present;
 - the visual coverage matrix and baseline image paths, with a requirement to report any additional affected UI surface or state found during implementation;
 - observable acceptance criteria, including persistence and cross-client behavior;
 - applicable repo guidance and project verification skill paths;
@@ -89,13 +101,15 @@ After OMP reports a locally verified PR:
 6. Record `flow.webm` or `flow.mp4` from a clean start through the changed behavior and its persisted result. Use the selected verification skill's recorder. For web flows, a small Playwright test with video enabled is acceptable when it exercises the real lab and authenticated user path.
 7. Check the requested outcome, the reproduced failure path, any directly affected guardrail, persistence after reload, and required cross-tab or cross-client updates. Do not substitute unit tests, DOM state, or a final screenshot for the user flow.
 
+When an approved prototype exists, compare the candidate against that exact version and record any difference. A material difference requires operator approval or another OMP revision. When no prototype exists, validate against the recorded written acceptance criteria.
+
 If validation fails, retry once from a clean state. For a confirmed candidate failure, add the exact candidate SHA, steps, expected result, actual result, and evidence paths to `run.md`, then send that packet to the same OMP agent. OMP updates the same PR. Repeat exact-head deployment and validation after each new SHA.
 
 Stop and ask the user when the same failure survives two materially different fixes, the required fix expands product scope, the lab claim is lost, the environment cannot prove which build is running, or safe validation would destroy data. Record infrastructure failures as `BLOCKED`, not product failures.
 
 ## Add visual evidence to the PR
 
-After the exact PR head passes lab validation, update the PR through the repository's existing PR evidence process. Load `cmd-create-pr` before Codex performs a PR mutation. Add a visual evidence table with one row per surface and state, containing the surface, state, baseline image, candidate image, and a short description of the result. Embed the images or use stable links that every PR reviewer can open. Local filesystem paths do not count as PR evidence.
+After the exact PR head passes lab validation, update the PR through the repository's existing PR evidence process. Load `cmd-create-pr` before Codex performs a PR mutation. Add a visual evidence table with one row per surface and state, containing the surface, state, baseline image, candidate image, and a short description of the result. Include the approved prototype screenshots and walkthrough video when they exist, clearly labeled as design references rather than build evidence. Embed the images or use stable links that every PR reviewer can open. Local filesystem paths do not count as PR evidence.
 
 Do not call the PR ready for verification until every visual coverage row appears in the PR and every linked image exists. Keep the full UI visible in each image. If an applicable state cannot be produced safely, name it and the reason in the PR, record the run as `BLOCKED`, and do not silently omit it.
 
