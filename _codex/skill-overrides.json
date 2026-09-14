@@ -273,6 +273,10 @@
       "source": "_adn/skills/unslop",
       "profile": "default"
     },
+    "verfied-build": {
+      "source": "_codex/skills/verfied-build",
+      "profile": "default"
+    },
     "why": {
       "source": "_adn/skills/why",
       "profile": "default"
