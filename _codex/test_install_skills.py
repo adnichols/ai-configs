@@ -47,6 +47,15 @@ class SkillInstallation(unittest.TestCase):
                 self.assertEqual(hashlib.sha256((codex / path).read_bytes()).hexdigest(), digest)
             installer.install(home, codex)
             self.assertEqual(first, (codex / 'config.toml').read_bytes())
+            with_hooks = first.decode().replace(
+                installer.END,
+                '[hooks.state]\nkept = "yes"\n' + installer.END,
+            )
+            (codex / 'config.toml').write_text(with_hooks)
+            installer.install(home, codex)
+            preserved = (codex / 'config.toml').read_text()
+            self.assertEqual(tomllib.loads(preserved)['hooks']['state']['kept'], 'yes')
+            self.assertLess(preserved.index('[hooks.state]'), preserved.index(installer.BEGIN))
 
     def test_unmanaged_collision_does_not_modify_config(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -12,6 +12,16 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parent
 BEGIN, END = '# BEGIN ai-configs Codex skill overrides', '# END ai-configs Codex skill overrides'
+SKILL_ENTRY = re.compile(r'\n*\[\[skills\.config\]\]\npath = [^\n]+\nenabled = (?:true|false)\n?')
+
+
+def remove_managed_skill_entries(original):
+    match = re.search(re.escape(BEGIN) + r'(.*?)' + re.escape(END) + r'\n?', original, flags=re.S)
+    if match is None:
+        return original.rstrip()
+    foreign = SKILL_ENTRY.sub('', match.group(1)).strip()
+    parts = [original[:match.start()].rstrip(), foreign, original[match.end():].strip()]
+    return '\n\n'.join(part for part in parts if part)
 
 
 def install(home, codex):
@@ -24,7 +34,7 @@ def install(home, codex):
     tomllib.loads(original)
     if original.count(BEGIN) != original.count(END) or original.count(BEGIN) > 1:
         raise ValueError('Malformed managed config block; refusing to rewrite it')
-    retained = re.sub(re.escape(BEGIN) + r'.*?' + re.escape(END) + r'\n?', '', original, flags=re.S).rstrip()
+    retained = remove_managed_skill_entries(original)
     for name in selected:
         dest = codex / 'skills' / name
         if not (ROOT / 'skills' / name / 'SKILL.md').is_file():
