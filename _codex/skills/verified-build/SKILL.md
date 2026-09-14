@@ -57,6 +57,8 @@ For exploration:
 
 Use Herdr to create a dedicated worktree from the exact recorded base SHA, then start one OMP agent in that worktree. One workstream is the default. Split work only when evidence proves distinct independently mergeable root causes or an existing PR already owns a dependency.
 
+Launch OMP with its existing model, reasoning, and fallback configuration. Omit model, provider, reasoning, and fallback overrides. Do not edit OMP's model configuration or instruct OMP to change it unless the operator explicitly authorizes that change in the current request. Requesting ADN mode does not authorize a model change.
+
 Prompt OMP to use ADN mode and include:
 
 - mode, requested outcome, and non-goals;
