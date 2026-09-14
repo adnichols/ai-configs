@@ -1,9 +1,9 @@
 ---
-name: verfied-build
+name: verified-build
 description: "Codex-only lab workflow for bug fixes, feature changes, and live product exploration. Use when Codex should claim a shared lab, establish current behavior, send confirmed build work to OMP in a Herdr worktree, validate the exact PR head in the lab, and record screenshots and video. Do not invoke from OMP or for changes that have no user-facing behavior to exercise."
 ---
 
-# Verfied build
+# Verified build
 
 Codex owns the lab, test design, evidence, and final verdict. OMP owns planning, product code, tests, review, Git history, and the pull request. Codex may inspect source and the PR to diagnose a result, but it does not edit the implementation.
 
@@ -25,7 +25,7 @@ If a request mixes exploration and authorized fixes, explore first. Route each c
 2. Resolve the target lab, repository, base branch, authenticated browser or client profile, and evidence location from repo guidance. Ask only for a missing value that cannot be discovered and changes the run.
 3. Use the repository's existing lab claim or lease mechanism. Record the lab, claim identity, owner, expiry, and release procedure. If the lab is already claimed, use another authorized lab or stop. Never invent a lock by convention.
 4. Verify which source SHA the lab serves. The baseline must match the intended base SHA. If it does not, deploy the intended base only when the request authorizes lab deployment. Otherwise stop with the mismatch.
-5. Create one run directory in the repository's existing evidence area. If none exists, use `artifacts/verfied-build/<run-id>/` and keep it uncommitted unless repo policy says otherwise.
+5. Create one run directory in the repository's existing evidence area. If none exists, use `artifacts/verified-build/<run-id>/` and keep it uncommitted unless repo policy says otherwise.
 6. Start `run.md` with the mode, user request, desired references, lab URL, claim details, baseline deployment identity, browser/client profile, fixture identifiers, and cleanup obligations.
 
 Do not expose credentials, session cookies, API keys, personal data, or unrelated customer data in evidence. Use disposable records or a repo-defined QA account. Only remove data created by this run.

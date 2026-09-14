@@ -19,6 +19,10 @@ class SkillInstallation(unittest.TestCase):
             codex.mkdir()
             original = 'model = "user-choice"\n[mcp_servers.example]\ncommand = "unchanged"\n\n[[skills.config]]\npath = "/custom/SKILL.md"\nenabled = false\n'
             (codex / 'config.toml').write_text(original)
+            stale = codex / 'skills/verfied-build'
+            stale.mkdir(parents=True)
+            (stale / 'SKILL.md').write_text('misspelled old copy')
+            (codex / 'ai-configs-skills.json').write_text('{"skills":["verfied-build"],"files":{}}')
             shared = home / '.agents/skills/adn-mode'
             target = home / '.agents/adn/skills/adn-mode'
             target.mkdir(parents=True)
@@ -38,8 +42,9 @@ class SkillInstallation(unittest.TestCase):
             self.assertEqual((target / 'SKILL.md').read_text(), 'shared original')
             self.assertTrue(shared.is_symlink())
             self.assertFalse((codex / 'skills/build-run-debug').exists())
-            self.assertTrue((codex / 'skills/verfied-build/SKILL.md').exists())
-            self.assertFalse((home / '.agents/skills/verfied-build').exists())
+            self.assertTrue((codex / 'skills/verified-build/SKILL.md').exists())
+            self.assertFalse((codex / 'skills/verfied-build').exists())
+            self.assertFalse((home / '.agents/skills/verified-build').exists())
             self.assertGreater(result['installed'], 0)
             self.assertEqual(len(list(codex.glob('config.toml.before-skills-*'))), 1)
             state = json.loads((codex / 'ai-configs-skills.json').read_text())
