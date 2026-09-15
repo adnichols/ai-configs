@@ -576,10 +576,7 @@ assert_shared_skill_install_state() {
     assert_file_not_contains "$home/.agents/fake-npx-skills.log" 'algorithmic-art' || return 1
   fi
 
-  [[ -f "$home/.agents/skills/design-skill/SKILL.md" ]] || return 1
-  assert_file_contains "$home/.agents/skills/design-skill/SKILL.md" 'name: design' || return 1
-  [[ -f "$home/.agents/skills/design-skill/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/design-skill/.ai-configs-managed.json" '"source": "skills/design-skill"' || return 1
+  [[ ! -e "$home/.agents/skills/design-skill/SKILL.md" ]] || return 1
 
   [[ -f "$home/.agents/skills/herdr/SKILL.md" ]] || return 1
   assert_file_contains "$home/.agents/skills/herdr/SKILL.md" 'Do not gate use on `HERDR_ENV=1`' || return 1
@@ -590,10 +587,7 @@ assert_shared_skill_install_state() {
     assert_file_not_contains "$home/.agents/fake-npx-skills.log" $'ogulcancelik/herdr\therdr' || return 1
   fi
 
-  [[ -f "$home/.agents/skills/luvus/SKILL.md" ]] || return 1
-  assert_file_contains "$home/.agents/skills/luvus/SKILL.md" 'Do not run bare `luvus`' || return 1
-  [[ -f "$home/.agents/skills/luvus/.ai-configs-managed.json" ]] || return 1
-  assert_file_contains "$home/.agents/skills/luvus/.ai-configs-managed.json" '"source": "skills/luvus"' || return 1
+  [[ ! -e "$home/.agents/skills/luvus/SKILL.md" ]] || return 1
 
   [[ -d "$home/.claude/skills/custom-local" ]] || return 1
 
@@ -603,9 +597,9 @@ assert_shared_skill_install_state() {
 
   assert_symlink_target "$home/.claude/skills/linear" "$home/.agents/skills/linear" || return 1
   assert_symlink_target "$home/.claude/skills/run-plan" "$home/.agents/skills/run-plan" || return 1
-  assert_symlink_target "$home/.claude/skills/design-skill" "$home/.agents/skills/design-skill" || return 1
+  [[ ! -e "$home/.claude/skills/design-skill" ]] || return 1
   assert_symlink_target "$home/.claude/skills/herdr" "$home/.agents/skills/herdr" || return 1
-  assert_symlink_target "$home/.claude/skills/luvus" "$home/.agents/skills/luvus" || return 1
+  [[ ! -e "$home/.claude/skills/luvus" ]] || return 1
   for matt_skill in "${matt_skills[@]}"; do
     assert_symlink_target "$home/.cursor/skills/$matt_skill" "$home/.agents/skills/$matt_skill" || return 1
   done
@@ -623,7 +617,7 @@ run_installer() {
   shift
   local fake_bin
   fake_bin="$(create_fake_tool_bin "$home")"
-  HOME="$home" PATH="$fake_bin:$PATH" bash "$INSTALLER" "$@"
+  HOME="$home" CODEX_HOME="$home/.codex" PATH="$fake_bin:$PATH" bash "$INSTALLER" "$@"
 }
 
 run_installer_capture() {
@@ -632,7 +626,7 @@ run_installer_capture() {
   shift 2
   local fake_bin
   fake_bin="$(create_fake_tool_bin "$home")"
-  HOME="$home" PATH="$fake_bin:$PATH" bash "$INSTALLER" "$@" >"$output_file" 2>&1
+  HOME="$home" CODEX_HOME="$home/.codex" PATH="$fake_bin:$PATH" bash "$INSTALLER" "$@" >"$output_file" 2>&1
 }
 
 test_skills_mode_installs_additively_and_is_idempotent() {
@@ -1197,7 +1191,7 @@ test_pi_install_removes_leftover_append_system() {
   [[ ! -e "scripts/render_pi_append_system.py" ]] || return 1
   [[ ! -e "_pi/extensions/todo.ts" ]] || return 1
   assert_file_contains "_pi/README.md" 'Task tracking is provided exclusively' || return 1
-  assert_file_contains "AGENTS.md" 'Interaction authority boundary' || return 1
+  assert_file_contains "AGENTS.md" '.agents/skills/ai-configs-runtime-config/SKILL.md' || return 1
 }
 
 test_integration_integrity_is_common_and_portable() {
@@ -1426,7 +1420,7 @@ PY
 }
 
 test_phase_three_docs_use_canonical_shared_skill_paths() {
-  assert_file_contains "AGENTS.md" '"skills": ["skills"]' || return 1
+  assert_file_contains ".agents/skills/ai-configs-installation/SKILL.md" '"skills": ["skills"]' || return 1
   assert_file_not_contains "AGENTS.md" '"skills": [".agents/skills", "opencode/skills"]' || return 1
   assert_file_contains "README.md" 'skills/install-matrix.json' || return 1
   assert_file_contains "_pi/README.md" 'skills/install-matrix.json' || return 1
@@ -1451,7 +1445,7 @@ test_phase_three_duplicate_skill_trees_are_removed() {
   [[ ! -d "skills/algorithmic-art" ]] || return 1
   [[ ! -d "skills/brand-guidelines" ]] || return 1
   [[ ! -d "skills/canvas-design" ]] || return 1
-  [[ -d "skills/design-skill" ]] || return 1
+  [[ ! -f "skills/design-skill/SKILL.md" ]] || return 1
   [[ ! -d "skills/doc-coauthoring" ]] || return 1
   [[ ! -d "skills/docx" ]] || return 1
   [[ ! -d "skills/frontend-design" ]] || return 1
@@ -1542,11 +1536,15 @@ prompt_impact_phrases = {
     'Deployment / migration': ['deployment / migration', 'deployment or migration'],
 }
 for path in prompt_and_workflow_surfaces:
+    if path == Path('_codex/prompts/dev:plan.md'):
+        if 'planning-workflow' not in path.read_text():
+            raise SystemExit('Codex plan prompt must load the planning workflow')
+        path = Path('_codex/skills/planning-workflow/references/plan-structure.md')
     lowered = path.read_text().lower()
     for phrase in ['product-owner context', 'needed now', 'stale test']:
         if phrase not in lowered:
             raise SystemExit(f'{path} missing product-owner prompt contract: {phrase}')
-    if 'must use' not in lowered or 'concise labeled prose' not in lowered:
+    if ('must use' not in lowered and 'must satisfy' not in lowered) or 'concise labeled prose' not in lowered:
         raise SystemExit(f'{path} must require concise product-owner context for lightweight plans')
     for label, alternatives in prompt_impact_phrases.items():
         if not any(phrase in lowered for phrase in alternatives):
@@ -1629,6 +1627,10 @@ authoring_surfaces = [
     Path('_claude/commands/cmd:start-linear-issue-branch.md'),
 ]
 for path in authoring_surfaces:
+    if path == Path('_codex/prompts/dev:plan.md'):
+        if 'planning-workflow' not in path.read_text():
+            raise SystemExit('Codex plan prompt must load the planning workflow')
+        continue
     lowered = path.read_text().lower()
     if "what's new" not in lowered or 'planning-workflow' not in lowered:
         raise SystemExit(f'{path} must delegate active authoring to the canonical What\'s new contract')
@@ -1781,7 +1783,11 @@ if missing_codex:
 
 pi_prompts = {path.name for path in Path('_pi/prompts').glob('*.md')}
 codex_prompts = {path.name for path in Path('_codex/prompts').glob('*.md') if path.name != 'README.md'}
-missing_prompts = sorted(pi_prompts - codex_prompts)
+retired_codex = {'cmd:debug.md', 'dev:debug.md', 'dev:run.md', 'delivery.md',
+                 'delivery:bootstrap.md', 'delivery:run.md', 'delivery:spawn.md', 'delivery:status.md'}
+missing_prompts = sorted(pi_prompts - codex_prompts - retired_codex)
+if codex_prompts & retired_codex:
+    raise SystemExit('Retired Codex prompts remain discoverable')
 if missing_prompts:
     raise SystemExit(f"Pi prompts missing Codex parity: {missing_prompts}")
 
@@ -1789,7 +1795,6 @@ pi_delegated = [
     'cmd:feeling-lucky-pr.md',
     'cmd:feeling-lucky-pr-os.md',
     'prd:clarify-round.md',
-    'review:plan.md',
     'review:plan-adversarial.md',
     'review:prd.md',
 ]
@@ -1797,6 +1802,10 @@ for prompt in pi_delegated:
     text = Path('_codex/prompts', prompt).read_text()
     if 'pi -p --approve' not in text:
         raise SystemExit(f"Codex prompt {prompt} must delegate to Pi")
+
+native_plan_review = Path('_codex/prompts/review:plan.md').read_text()
+if 'pi -p --approve' in native_plan_review or 'independent native' not in native_plan_review:
+    raise SystemExit('Codex local plan review must use a native independent reviewer')
 
 codex_specific_prompts = {
     'cmd:debug.md',
@@ -1910,7 +1919,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
   local prompt
   local hermes_run_plan
 
-  for prompt in _codex/prompts/dev:run.md _pi/prompts/dev:run.md; do
+  for prompt in _pi/prompts/dev:run.md; do
     assert_file_contains "$prompt" 'Read-only review of phase N' || return 1
     assert_file_contains "$prompt" 'After three total rounds, the ordinary local review budget is exhausted.' || return 1
     assert_file_contains "$prompt" "whether or not a PR exists" || return 1
@@ -1939,8 +1948,8 @@ test_review_guidance_is_bounded_and_scope_safe() {
 
   assert_file_contains "_pi/prompts/dev:run.md" 'Use the existing read-only `reviewer` for the adversarial pass at every risk level' || return 1
   assert_file_not_contains "_pi/prompts/dev:run.md" 'claude-code-review' || return 1
-  assert_file_contains "_codex/prompts/dev:run.md" 'Use the active-harness read-only `reviewer` subagent as the sole adversarial leg' || return 1
-  assert_file_not_contains "_codex/prompts/dev:run.md" 'claude-code-review' || return 1
+  [[ ! -f "_codex/prompts/dev:run.md" ]] || return 1
+  assert_file_contains "_codex/skills/run-plan/SKILL.md" 'skip publication steps 6–7' || return 1
 
   assert_file_contains "skills/planning-workflow/SKILL.md" 'Plan complete promised slices, not skeletons.' || return 1
   assert_file_contains "skills/run-plan/SKILL.md" 'Complete the PR-reviewable promised slice before claiming local merge readiness' || return 1
@@ -1998,7 +2007,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_not_contains "_hermes/default/skills/software-development/run-plan/SKILL.md" 'pre-pr-implementation-review' || return 1
   assert_file_contains "_hermes/default/cron/jobs.json" '/skill:autoreview' || return 1
   assert_file_not_contains "_hermes/default/cron/jobs.json" '/skill:pre-pr-implementation-review' || return 1
-  assert_file_contains "AGENTS.md" '/skill:autoreview thoughts/plans/<plan>.html' || return 1
+  assert_file_contains ".agents/skills/ai-configs-planning/SKILL.md" 'one implementation review plus one targeted rereview' || return 1
   assert_file_contains "_pi/README.md" '/skill:autoreview thoughts/plans/my-plan.html' || return 1
   assert_file_contains "skills/run-plan/SKILL.md" 'Run a third total review cycle only when' || return 1
   assert_file_contains "skills/run-plan/SKILL.md" 'When the ordinary three-cycle budget is exhausted, route the stable `REVIEW_ESCAPE` failure-family/scope identifier through the one-per-family consultation section before reporting convergence.' || return 1
@@ -2018,8 +2027,8 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_contains "skills/run-plan/SKILL.md" 'If disposition evidence cannot be verified or its stated path cannot be completed within current authority, report that specific unresolved blocker' || return 1
   assert_file_not_contains "skills/run-plan/SKILL.md" 'repeat consultation until clean' || return 1
   assert_file_not_contains "skills/run-plan/SKILL.md" 'loop until every reviewer is clean' || return 1
-  assert_file_contains "AGENTS.md" 'exactly one bounded, read-only, advisory external consultation' || return 1
-  assert_file_contains "AGENTS.md" 'whether or not a PR exists' || return 1
+  assert_file_contains ".agents/skills/ai-configs-planning/SKILL.md" 'exactly one bounded, read-only, advisory external consultation' || return 1
+  assert_file_contains ".agents/skills/ai-configs-planning/SKILL.md" 'with or without a PR' || return 1
   for prompt in skills/repo-agents-bootstrap/SKILL.md skills/repo-agents-bootstrap/references/root_agents_template.md; do
     assert_file_contains "$prompt" 'whether or not a PR exists' || return 1
     assert_file_contains "$prompt" 'configured consult/council surface' || return 1
@@ -2109,6 +2118,14 @@ test_hermes_config_sync_preserves_cron_runtime_state() {
 }
 
 main() {
+  if [[ "$#" -gt 0 ]]; then
+    for selected_test in "$@"; do
+      [[ "$selected_test" == test_* ]] && declare -F "$selected_test" >/dev/null || return 2
+      run_test "$selected_test"
+    done
+    [[ "$TESTS_FAILED" -eq 0 ]]
+    return
+  fi
   run_test test_skills_mode_installs_additively_and_is_idempotent
   run_test test_skills_mode_does_not_update_skills_sh_by_default
   run_test test_update_modifier_runs_skills_sh_update_before_sync

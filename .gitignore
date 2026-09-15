@@ -3,7 +3,12 @@
 
 # Local runtime / generated config trees
 .agent/
-.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/ai-configs-installation/
+!.agents/skills/ai-configs-runtime-config/
+!.agents/skills/ai-configs-planning/
 .claude/
 .codex
 .codex/

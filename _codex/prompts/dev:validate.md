@@ -131,7 +131,7 @@ Evidence:
 
 ### 5. User Engagement
 
-When validation reveals issues that require user input, use `question` before finalizing the report.
+When validation reveals a missing decision that requires user input, ask a concise question using the available native question tool or chat.
 
 Always engage the user when:
 

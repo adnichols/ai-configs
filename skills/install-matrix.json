@@ -266,18 +266,6 @@
       "notes": "Promoted from the repo-local .agents skill tree.",
       "sourceType": "repo"
     },
-    "design-skill": {
-      "class": "universal-installable",
-      "allowedConsumers": [
-        "codex",
-        "claude",
-        "pi",
-        "devin"
-      ],
-      "canonicalSource": "skills/design-skill",
-      "notes": "Repo-owned copy captured from ~/.agents/skills/design-skill after the previous arjunkshah/design-skill upstream became unavailable to non-interactive installers.",
-      "sourceType": "repo"
-    },
     "dev-plan": {
       "class": "consumer-specific-installable",
       "allowedConsumers": [
@@ -488,18 +476,6 @@
       "sourceType": "repo",
       "defaultInstall": false,
       "profile": "macos"
-    },
-    "luvus": {
-      "class": "universal-installable",
-      "allowedConsumers": [
-        "codex",
-        "claude",
-        "pi",
-        "devin"
-      ],
-      "canonicalSource": "skills/luvus",
-      "notes": "Repo-owned override of the bundled Luvus control skill (`luvus skill show`). Teaches Codex, Claude, Pi, and Devin to drive a reachable Luvus session for agentic handoffs from inside or outside a managed pane.",
-      "sourceType": "repo"
     },
     "mcp-builder": {
       "class": "universal-installable",

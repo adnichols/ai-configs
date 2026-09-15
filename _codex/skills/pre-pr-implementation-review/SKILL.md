@@ -1,6 +1,6 @@
 ---
 name: pre-pr-implementation-review
-description: Indefinite compatibility alias for autoreview. Use when an existing prompt, operator, or automation invokes the former pre-PR review skill name; preserve all arguments and OPEN_PR_READY handoff semantics by immediately following the canonical autoreview policy.
+description: "Compatibility alias for autoreview. Use when this former name is invoked."
 ---
 
 Read [the Codex runtime contract](../adn-mode/references/codex-runtime.md) before executing this skill.

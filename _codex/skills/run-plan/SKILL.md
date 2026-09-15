@@ -1,13 +1,17 @@
 ---
 name: run-plan
-description: Execute an existing implementation plan persistently through code changes, bounded scoped quality reviews, active-harness pre-PR review, verification, commit, push, PR creation, and local merge-readiness consensus without expanding beyond the plan's stated scope.
+description: "Execute an existing plan through verification, review, and authorized PR creation."
 ---
 
 Read [the Codex runtime contract](../adn-mode/references/codex-runtime.md) before executing this skill.
 
 # Execute a plan in Codex
 
-Use this skill when the user requests execution of an existing plan through verification and PR creation. Read the plan and repository instructions first. Preserve locked scope, acceptance criteria, exclusions, and required evidence. `adn-mode` supplies engineering discipline; this skill owns lifecycle and review budget.
+Use this skill for execution of an existing plan. Read the plan and repository instructions first. Preserve locked scope, acceptance criteria, exclusions, and required evidence. `adn-mode` supplies engineering discipline; this skill owns lifecycle and review budget.
+
+Resolve the completion boundary from the request. An execution-only request completes after implementation, required review, and local verification; skip publication steps 6–7. Explicit invocation for the full run-plan lifecycle includes its PR workflow, subject to repository authority. A caller's narrower boundary always wins. Never infer merge or deployment permission.
+
+Continue through the authorized outcome without pausing at phase boundaries. Run required checks once, rerunning affected checks after relevant edits or failures. Investigate repeated failures by cause rather than repeating an unchanged full suite. Ask only when missing information changes scope, behavior, authority, or an irreversible action.
 
 Do not create or convert an OMP/Pi delivery ledger. An existing ledger is evidence of another runtime's ownership; inspect it and avoid concurrent implementation. Continue the requested Codex work only when ownership is clear. Use task notes or the client's task list. Create a Codex goal only when explicitly requested.
 

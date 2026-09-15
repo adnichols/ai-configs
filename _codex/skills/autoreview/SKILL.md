@@ -1,6 +1,6 @@
 ---
 name: autoreview
-description: Run a bounded pre-PR implementation review with the active harness's configured reviewer subagent, fix or disposition blocking findings, and stop instead of entering non-converging review loops. Use this before opening pull requests, after an implementation is complete, or inside run-plan; inside run-plan this gate hands back to PR creation rather than waiting for external approval.
+description: "Review completed implementation for material issues before a PR or when explicitly requested."
 ---
 
 Read [the Codex runtime contract](../adn-mode/references/codex-runtime.md) before executing this skill.

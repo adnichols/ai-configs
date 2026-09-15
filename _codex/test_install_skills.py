@@ -12,6 +12,47 @@ spec.loader.exec_module(installer)
 
 
 class SkillInstallation(unittest.TestCase):
+    def test_retired_skill_is_backed_up_and_modified_skill_is_preserved(self):
+        for modified in (False, True):
+            with self.subTest(modified=modified), tempfile.TemporaryDirectory() as tmp:
+                home = Path(tmp)
+                codex = home / '.codex'
+                old = codex / 'skills/luvus/SKILL.md'
+                old.parent.mkdir(parents=True)
+                old.write_text('original')
+                state = {'skills': ['luvus'], 'files': {
+                    'skills/luvus/SKILL.md': hashlib.sha256(old.read_bytes()).hexdigest()}}
+                (codex / 'ai-configs-skills.json').write_text(json.dumps(state))
+                if modified:
+                    old.write_text('user edit')
+                result = installer.install(home, codex)
+                if modified:
+                    self.assertEqual(old.read_text(), 'user edit')
+                    self.assertEqual(result['preserved_retired_skills'], ['luvus'])
+                else:
+                    self.assertFalse(old.exists())
+                    self.assertEqual((Path(result['retired_backup']) / 'luvus/SKILL.md').read_text(), 'original')
+    def test_catalog_exclusions_preserve_shared_and_system_skills(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            codex = home / '.codex'
+            names = ['.codex/skills/.system/skill-creator', '.agents/skills/skill-creator',
+                     '.agents/skills/template', '.agents/skills/vercel-react-best-practices',
+                     '.codex/skills/vercel-react-best-practices', '.codex/skills/custom-system-only']
+            for name in names:
+                path = home / name
+                path.mkdir(parents=True)
+                (path / 'SKILL.md').write_text(name)
+            installer.install(home, codex)
+            rows = tomllib.loads((codex / 'config.toml').read_text())['skills']['config']
+            disabled = {r['path'] for r in rows if not r['enabled']}
+            self.assertIn(str(home / '.agents/skills/skill-creator/SKILL.md'), disabled)
+            self.assertIn(str(home / '.agents/skills/template/SKILL.md'), disabled)
+            self.assertIn(str(codex / 'skills/vercel-react-best-practices/SKILL.md'), disabled)
+            self.assertNotIn(str(codex / 'skills/.system/skill-creator/SKILL.md'), disabled)
+            for name in names:
+                self.assertEqual((home / name / 'SKILL.md').read_text(), name)
+
     def test_isolated_install_preserves_shared_files_and_user_config(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
@@ -43,7 +84,8 @@ class SkillInstallation(unittest.TestCase):
             self.assertTrue(shared.is_symlink())
             self.assertFalse((codex / 'skills/build-run-debug').exists())
             self.assertTrue((codex / 'skills/verified-build/SKILL.md').exists())
-            self.assertFalse((codex / 'skills/verfied-build').exists())
+            self.assertEqual((codex / 'skills/verfied-build/SKILL.md').read_text(), 'misspelled old copy')
+            self.assertEqual(result['preserved_retired_skills'], ['verfied-build'])
             self.assertFalse((home / '.agents/skills/verified-build').exists())
             self.assertGreater(result['installed'], 0)
             self.assertEqual(len(list(codex.glob('config.toml.before-skills-*'))), 1)

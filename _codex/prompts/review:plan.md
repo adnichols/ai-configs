@@ -1,22 +1,8 @@
 ---
-description: Delegate blocker-focused GPT plan review to Pi
+description: Review a local plan for concrete readiness blockers using native Codex
 argument-hint: '<existing-plan-path | plan slug | legacy inputs>'
 ---
 
-# Pi-Delegated Plan Review
+Review $ARGUMENTS using planning-workflow and a bounded independent native planner/reviewer. Name the exact plan, scope, evidence, read-only authority, and readiness question in the review packet. Do not launch Pi or require an external review transport.
 
-Codex exposes `/review:plan` for parity with Pi. The canonical workflow runs the repository-owned GPT plan reviewer through Pi, so do not reimplement the review locally in Codex.
-
-Run from the same repository/worktree:
-
-```bash
-pi -p --approve "/review:plan $ARGUMENTS"
-```
-
-After Pi exits:
-
-1. Inspect the annotated plan file and any summary Pi produced.
-2. Confirm `[REVIEW:GPT]` comments were inserted when findings exist.
-3. Report readiness and direct the user to `/review:change-integrate <plan>` when comments need integration.
-
-If `pi` or the GPT reviewer subagent is unavailable, stop with a tooling blocker instead of substituting a Codex-only plan review.
+Report concrete blockers with file references and distinguish optional improvements. Keep the plan local; do not publish to Doct, implement it, or modify the plan unless the user requested annotations or edits. Do not self-certify independent readiness if the reviewer is unavailable; report that limitation.

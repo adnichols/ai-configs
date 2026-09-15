@@ -1,6 +1,6 @@
 ---
 name: swiftui-patterns
-description: Best practices and example-driven guidance for building native macOS SwiftUI scenes and components, including windows, commands, toolbars, settings, split views, inspectors, menu bar extras, and keyboard-driven workflows. Use when creating or refactoring macOS SwiftUI UI, choosing scene types, wiring menus or settings, or needing desktop-specific component patterns and examples.
+description: "Design or refactor macOS SwiftUI scenes, windows, menus, settings, and components."
 ---
 
 ## Codex execution

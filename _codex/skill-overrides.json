@@ -1,6 +1,10 @@
 {
   "version": 1,
   "skills": {
+    "computer-use": {
+      "source": "skills/computer-use",
+      "profile": "default"
+    },
     "adn-mode": {
       "source": "_adn/skills/adn-mode",
       "profile": "default"
@@ -95,10 +99,6 @@
     },
     "linear": {
       "source": "skills/linear",
-      "profile": "default"
-    },
-    "luvus": {
-      "source": "skills/luvus",
       "profile": "default"
     },
     "maintain-verification-skill": {

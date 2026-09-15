@@ -26,8 +26,8 @@ Re-run `install.sh` to refresh an existing installation.
 
 - Repo source lives under `_codex/`; installed runtime files live under `~/.codex/` for global Codex resources.
 - Shared helper scripts are maintained once in the repo-level `scripts/` directory and copied into `~/.codex/scripts` by the installer.
-- Prompt files are mirrored to `~/.codex/prompts` because Codex discovers global prompts there.
-- Codex prompt availability tracks Pi prompt availability; Pi-only multi-model/subagent commands are installed as Codex wrappers that delegate to `pi -p --approve` from the same worktree.
+- Prompt files are synchronized to `~/.codex/prompts` with ownership hashes and recoverable backups; custom files are preserved.
+- Core Codex planning and execution use native workflows. Explicit legacy external-review commands remain opt-in; they are not fallback transports. Retired delivery/debug/execution aliases are not mirrored from Pi.
 - The installer does not create project `.codex/` directories.
 - The installer preserves account, model, MCP, and unrelated configuration. It maintains a marked `skills.config` block in the Codex config to disable shared counterparts of the parallel skills. It backs up the config before changing it.
 - Existing legacy generated project `.codex` files from this repo are removed during install so they cannot override global settings.
@@ -59,6 +59,22 @@ Codex mirrors the core reviewed-plan flow used in Pi:
 Canonical continuation after a reviewed plan is ready:
 
 - `/run-plan <plan>` for full lifecycle execution through PR creation and monitoring
-- `/dev:run <plan>` for direct execution-only handoff
+- `/cmd:execute-plan <plan>` for execution through local verification without publication
 
 Plan review and execution use the maintained `reviewed-html-plan` and `run-plan` workflows directly. Optional-profile skills in `skills/install-matrix.json` are not installed into the default Codex discovery surface.
+
+## Discovery and retirement
+
+Codex uses its bundled system skill-creator when installed; the shared author remains available to other runtimes. The empty shared template is disabled in Codex. When the shared React performance skill exists, its older Codex duplicate is disabled. These exclusions preserve the underlying shared and system files.
+
+Description reductions and conditional planning/Doct references apply only to the Codex copies. Shared descriptions and PSTack principle skills retain their existing behavior. Luvus and the Tailwind-specific design skill are retired from managed installations.
+
+For a scoped local refresh without external package updates:
+
+```bash
+python3 _codex/install-skills.py
+python3 _codex/install-prompts.py --destination "$HOME/.codex/prompts"
+bash install.sh --retire-skills design-skill luvus
+```
+
+The prompt migration hashes in `prompt-provenance.json` identify old managed files; edited or unknown files remain untouched. Review reported preserved collisions rather than deleting them. Restart Codex to observe the new catalog.

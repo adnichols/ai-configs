@@ -1,6 +1,6 @@
 ---
 name: build-run-debug
-description: Build, run, and debug local macOS apps and desktop executables using shell-first Xcode and Swift workflows. Use when asked to build a Mac app, launch it, diagnose compiler or linker failures, inspect startup problems, or debug desktop-only runtime issues.
+description: "Build, launch, or diagnose local macOS apps and desktop executables."
 ---
 
 ## Codex execution

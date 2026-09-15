@@ -229,7 +229,7 @@ For Added:
 
 ## Collaborative Divergence Resolution
 
-When divergences are found, use **`question`** proactively to determine the right approach.
+Ask the user only when a divergence creates a missing scope or product decision that repository evidence cannot resolve.
 
 ### Initial Triage Question
 

@@ -1,6 +1,6 @@
 ---
 name: completeness
-description: Run skill://completeness as an on-request plan walk through the active harness's completeness reviewer. Use only when the operator asks for a completeness check or plan walk. Do not run this automatically after autoreview, before a PR, or as merge-readiness.
+description: "Walk a plan for missing work when the user requests completeness or a plan walk."
 ---
 
 Read [the Codex runtime contract](../adn-mode/references/codex-runtime.md) before executing this skill.

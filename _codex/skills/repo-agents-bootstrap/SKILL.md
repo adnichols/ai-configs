@@ -1,6 +1,6 @@
 ---
 name: repo-agents-bootstrap
-description: Bootstrap or refactor repository AGENTS guidance so repo-specific rules are local while shared planning doctrine stays centralized in the planning workflow skill. Use when creating/updating `AGENTS.md`, optionally adding repo-local planning overrides, codifying plan-mode versus `dev:plan` boundaries, or aligning repos to the shared TDD/BDD planning and execution model.
+description: "Create or refactor repository AGENTS.md and its local guidance."
 ---
 
 ## Codex execution

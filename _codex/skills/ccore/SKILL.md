@@ -1,6 +1,6 @@
 ---
 name: ccore
-description: C-Core local-first knowledge graph CLI guide. Use when working with the `ccore` command or `ccore-node` to inspect spaces, documents, ingest runs, graph links, artifacts, resumable work/session state, sync/sharing, or ranked query flows, and when you need the current `ccore` command reference.
+description: "Use the ccore CLI for knowledge-graph queries, documents, ingestion, sync, and session state."
 ---
 
 ## Codex execution

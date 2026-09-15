@@ -28,6 +28,8 @@ AI_CONFIGS_REPO_NAME='ai-configs'
 AI_CONFIGS_REPO_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
 CENTRAL_ONLY_PROJECT_SKILLS=(ccore todoist-cli brave-cdp chrome-cdp)
 DEPRECATED_SHARED_SKILLS=(
+    design-skill
+    luvus
     agent-browser
     scoped-plan-run
     html-plan-reviewer
@@ -472,31 +474,7 @@ sync_codex_prompts() {
     local label="$2"
     local mode="${3:-merge}"
 
-    if [ "$mode" = "replace" ] && [ -d "$destination" ]; then
-        echo "  - Resetting $label at $destination"
-        rm -rf "$destination"
-    fi
-
-    mkdir -p "$destination"
-
-    echo "  - Syncing Codex prompts into $label ($destination)"
-
-    local legacy_dirs=(cmd doc prd spec simplify)
-    for legacy_dir in "${legacy_dirs[@]}"; do
-        if [ -d "$destination/$legacy_dir" ]; then
-            echo "    - Removing legacy subdirectory $legacy_dir/"
-            rm -rf "$destination/$legacy_dir"
-        fi
-    done
-
-    if [ -d "$destination/_lib" ]; then
-        rm -rf "$destination/_lib"
-    fi
-
-    for prompt in "$REPO_ROOT"/_codex/prompts/*.md; do
-        [ -e "$prompt" ] || continue
-        cp "$prompt" "$destination/"
-    done
+    python3 "$REPO_ROOT/_codex/install-prompts.py" --destination "$destination"
 }
 
 install_claude() {
@@ -1354,6 +1332,8 @@ cleanup_deprecated_shared_skills() {
 
         for path in \
             "$HOME/.claude/skills/$skill_name" \
+            "$HOME/.cursor/skills/$skill_name" \
+            "$HOME/.config/devin/skills/$skill_name" \
             "$HOME/.config/opencode/skills/$skill_name" \
             "$HOME/.pi/agent/skills/$skill_name"; do
             if [ ! -e "$path" ] && [ ! -L "$path" ]; then
@@ -3742,6 +3722,18 @@ install_pi_npm_packages() {
 
 # Argument parsing. The scoped pi-vcc mode intentionally accepts no other
 # installer options or target directory so it cannot fan out into unrelated work.
+if [ "${1:-}" = "--retire-skills" ]; then
+    shift
+    for name in "$@"; do
+        case " ${DEPRECATED_SHARED_SKILLS[*]} " in
+            *" $name "*) ;;
+            *) echo "Not a retired managed skill: $name" >&2; exit 1 ;;
+        esac
+    done
+    if [ "$#" -gt 0 ]; then DEPRECATED_SHARED_SKILLS=("$@"); fi
+    cleanup_deprecated_shared_skills
+    exit 0
+fi
 if [ "${1:-}" = "--pi-vcc" ]; then
     INSTALL_MODE="--pi-vcc"
     shift

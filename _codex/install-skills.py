@@ -42,6 +42,17 @@ def install(home, codex):
         if (dest.exists() or dest.is_symlink()) and name not in previous['skills']:
             raise ValueError(f'Unmanaged Codex skill collision: {dest}')
     paths = set()
+    # Prefer Codex's maintained author and omit the empty shared scaffold.
+    exclusions = ['template']
+    if (codex / 'skills/.system/skill-creator/SKILL.md').is_file():
+        exclusions.append('skill-creator')
+    for name in exclusions:
+        shared = home / '.agents/skills' / name / 'SKILL.md'
+        paths.update([str(shared), str(shared.resolve())])
+    shared_react = home / '.agents/skills/vercel-react-best-practices/SKILL.md'
+    if shared_react.is_file():
+        duplicate = codex / 'skills/vercel-react-best-practices/SKILL.md'
+        paths.update([str(duplicate), str(duplicate.resolve())])
     for name in selected:
         shared = home / '.agents/skills' / name / 'SKILL.md'
         paths.update([str(shared), str(shared.resolve())])
@@ -73,12 +84,25 @@ def install(home, codex):
         for path in dest.rglob('*'):
             if path.is_file():
                 files[str(path.relative_to(codex))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    retired_backup = None
+    preserved = []
     for name in set(previous['skills']) - selected.keys():
+        if Path(name).name != name or name in ('.', '..'):
+            raise ValueError(f'Invalid managed skill name: {name}')
         stale = codex / 'skills' / name
         if stale.is_symlink():
-            stale.unlink()
+            preserved.append(name)
         elif stale.exists():
-            shutil.rmtree(stale)
+            actual = {str(p.relative_to(codex)): hashlib.sha256(p.read_bytes()).hexdigest()
+                      for p in stale.rglob('*') if p.is_file()}
+            expected = {p: h for p, h in previous.get('files', {}).items()
+                        if p.startswith(f'skills/{name}/')}
+            if not expected or actual != expected or any(p.is_symlink() for p in stale.rglob('*')):
+                preserved.append(name)
+                continue
+            if retired_backup is None:
+                retired_backup = Path(tempfile.mkdtemp(prefix='skills-retired-', dir=codex))
+            shutil.move(str(stale), str(retired_backup / name))
     for path, body in [(config, updated), (state_path, json.dumps({'skills': sorted(selected), 'files': files}, indent=2) + '\n')]:
         if not path.exists() or path.read_text() != body:
             temp = path.with_suffix(path.suffix + '.tmp')
@@ -93,7 +117,9 @@ def install(home, codex):
         temp.write_text(agents_body)
         temp.chmod(0o600)
         temp.replace(agents_dest)
-    return {'installed': len(selected), 'codex_home': str(codex), 'shared_paths_disabled': len(paths), 'agents': str(agents_dest)}
+    return {'installed': len(selected), 'codex_home': str(codex), 'shared_paths_disabled': len(paths),
+            'agents': str(agents_dest), 'preserved_retired_skills': preserved,
+            'retired_backup': str(retired_backup) if retired_backup else None}
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 ---
 name: recall
-description: "Reconstruct your recent working context from your own chat history, live state, and the shared record (user reports, prior fixes, incidents), then hand back a tight current-state brief. Use for 'recall my work on X', 'catch me up', 'what have I been working on', 'where did I leave off', before starting or resuming work."
+description: "Reconstruct recent work from authorized history and current artifacts."
 ---
 
 Read [the Codex runtime contract](../adn-mode/references/codex-runtime.md) before executing this skill.

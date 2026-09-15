@@ -1,6 +1,6 @@
 ---
 name: herdr
-description: "Control and troubleshoot Herdr, the terminal workspace manager for coding agents. Use whenever the user explicitly mentions Herdr or asks to inspect, start, prompt, wait for, read, attach to, rename, or coordinate Herdr agents, panes, tabs, workspaces, worktrees, sessions, integrations, plugins, or runtime state. The CLI works from inside or outside a managed pane when its socket is reachable; HERDR_ENV is context, not a prerequisite. Do not use merely because parallel work might be useful."
+description: "Operate or troubleshoot Herdr agents, panes, workspaces, and sessions."
 ---
 
 ## Codex execution
@@ -259,7 +259,7 @@ delivery --cwd <worktree-path> bootstrap --slug <feature-slug> --goal "<operator
 delivery --cwd <worktree-path> bootstrap --issue NOD-123 --goal "..."
 ```
 
-Then prompt the worktree agent with `/delivery:bootstrap` or: read `.delivery/AGENT_BRIEF.md`, run `delivery show && delivery check -v`, continue from the recommended next step. If `delivery` is unavailable, skip without failing the Herdr operation.
+Then give the worktree agent the requested task, repository, and completion boundary. Do not arm a delivery workflow. An existing OMP/Pi ledger is read-only evidence unless the user explicitly requests administration of that runtime.
 
 Parse every returned workspace, tab, pane, and worktree handle. Do not predict them.
 
