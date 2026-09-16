@@ -562,6 +562,11 @@ assert_shared_skill_install_state() {
   [[ ! -e "$home/.claude/skills/$old_skill" ]] || return 1
   [[ ! -e "$home/.pi/agent/skills/$old_skill" ]] || return 1
   [[ ! -e "$home/.agents/skills/omp-review-partner" ]] || return 1
+
+  [[ -f "$home/.agents/skills/ava/SKILL.md" ]] || return 1
+  [[ -f "$home/.agents/skills/ava/.ai-configs-managed.json" ]] || return 1
+  cmp -s "skills/ava/SKILL.md" "$home/.agents/skills/ava/SKILL.md" || return 1
+  assert_file_contains "$home/.agents/skills/ava/.ai-configs-managed.json" '"source": "skills/ava"' || return 1
   [[ ! -e "$home/.claude/skills/omp-review-partner" ]] || return 1
   [[ ! -e "$home/.config/opencode/skills/omp-review-partner" ]] || return 1
   assert_file_not_contains "$home/.agents/.skill-lock.json" "$old_skill" || return 1

@@ -41,6 +41,18 @@
       "defaultInstall": false,
       "profile": "macos"
     },
+    "ava": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "canonicalSource": "skills/ava",
+      "notes": "Cross-harness Ava CLI command selection, document workflows, collaboration, and administration guidance. Kept byte-identical to the skill embedded in the Ava CLI.",
+      "sourceType": "repo"
+    },
     "brand-guidelines": {
       "class": "universal-installable",
       "allowedConsumers": [
