@@ -26,6 +26,20 @@ This is a Codex-only instruction policy, not a runtime access control.
   restriction in the current conversation, naming the model and intended use.
   This rule does not change the model of the Codex session itself.
 
+## Wrangler authentication
+
+- Never run `wrangler login` on the operator's behalf, or use computer-use,
+  browser automation, or another agent to authorize Wrangler for them.
+- Before declaring Wrangler authentication blocked, try a login shell and
+  other existing invocation paths, including the project's pinned Wrangler.
+  Check credential-directory and environment differences without exposing
+  secrets. Do not assume one invocation's authentication failure means the
+  operator must log in again.
+- If existing authorization still cannot be used, report the failed checks
+  and tell the operator that their manual `wrangler login` is required. Stop
+  the blocked action; do not start login, alter account scope, overwrite or
+  delete credentials, or retry authorization automatically.
+
 ## Writing
 
 - Do not substitute metaphor or flourish for a direct statement. Write "a
