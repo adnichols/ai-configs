@@ -460,6 +460,13 @@
       "defaultInstall": false,
       "profile": "creative-content"
     },
+    "lab-manager": {
+      "class": "universal-installable",
+      "allowedConsumers": ["codex", "claude", "pi", "devin"],
+      "canonicalSource": "skills/lab-manager",
+      "notes": "Self-contained CCore lab lifecycle and advisory ownership accounting. Default lab deployment needs no Google or Postmark provider secrets.",
+      "sourceType": "repo"
+    },
     "linear": {
       "class": "universal-installable",
       "allowedConsumers": [
