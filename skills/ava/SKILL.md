@@ -102,11 +102,12 @@ ava document register \
 The response calls the document ID `plan_id`. Verify the registered draft:
 
 ```bash
+ava document plan-source "$plan_id" --space "$space_id" --json
 ava document render "$plan_id" --space "$space_id" --json
 ava document status "$plan_id" --space "$space_id" --json
 ```
 
-Require the rendered HTML to contain the requested content and inspect `warnings`. The CLI does not expose the stored canonical HTML source, so do not claim byte-for-byte source verification.
+Compare the returned `source` field with the intended HTML. Also require the rendered HTML to contain the requested content and inspect `warnings`.
 
 To publish:
 
@@ -119,10 +120,11 @@ ava document submit "$plan_id" \
   --json
 
 ava document status "$plan_id" --space "$space_id" --json
+ava document plan-source "$plan_id" --space "$space_id" --json
 ava document render "$plan_id" --space "$space_id" --json
 ```
 
-Require `standing: published`, `lifecycle: active`, the submit revision, the expected rendered content, and understood or empty warnings.
+Require `standing: published`, `lifecycle: active`, the submit revision, exact canonical source, the expected rendered content, and understood or empty warnings.
 
 ## Collaboration and administration
 
