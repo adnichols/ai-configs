@@ -73,6 +73,10 @@ Use Herdr to create a dedicated worktree from the exact recorded base SHA, then 
 
 Launch OMP with its existing model, reasoning, and fallback configuration. Omit model, provider, reasoning, and fallback overrides. Do not edit OMP's model configuration or instruct OMP to change it unless the operator explicitly authorizes that change in the current request. Requesting ADN mode does not authorize a model change.
 
+Before sending work, check OMP's active provider/model against the external-agent restrictions in the applicable Codex instructions, including aliases and reasoning variants. Read live runtime status with `herdr agent read` or another authoritative runtime source and record the observed model and evidence in `run.md`. Launching without overrides does not prove compliance; neither the parent Codex model nor availability in a model picker authorizes an OMP model.
+
+Repeat this check after launch, resume, restart, or an observed model/fallback change, and before each follow-up work assignment. If the model is unknown, obtain runtime evidence before dispatch. If it is prohibited, withhold work; interrupt an active worker owned by this run and report the model and policy mismatch as `BLOCKED`. Preserve its context and configuration. Quota exhaustion, provider errors, and requests to continue autonomously do not authorize a substitute model or fallback edit. Apply only explicitly authorized exceptions for their stated use; an Oracle exception does not permit an implementation worker.
+
 Prompt OMP to use ADN mode and include:
 
 - mode, requested outcome, and non-goals;
