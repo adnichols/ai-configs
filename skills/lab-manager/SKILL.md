@@ -10,10 +10,15 @@ Run from the intended CCore checkout. Read its `AGENTS.md` and
 the HTTP client or provisioning resources manually. The default manager is
 `https://labs.keramos.tech`. This skill has no other skill dependencies.
 
-Use the existing human Cloudflare Access session or already-configured fleet
-Access environment. The CLI handles authentication and idempotency. Wrangler
-authentication remains separate and is used for product deployment. Never
-print credentials or create replacement credentials to work around an error.
+The CLI defaults to browser-free fleet authentication using existing Wrangler
+authorization for the Labs account. A disposable remote runtime attaches the
+existing Access token from Cloudflare Secrets Store internally; secret values
+are never returned to the host. No cloudflared or browser approval is needed.
+Already-configured CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET remain
+supported. Human Access authentication is opt-in with CCORE_LABS_AUTH=human.
+Never print credentials, run wrangler login, or authorize Wrangler by browser
+on the operator's behalf. Try a login shell and the checkout's installed
+Wrangler first; report a genuine authentication blocker to the operator.
 
 ## Choose and claim
 
