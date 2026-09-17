@@ -29,13 +29,13 @@ For a build mode that changes UI, try to produce a visual prototype before start
 4. Ask the operator to approve or revise the proposal. When approved, record the selected prototype version, approval, screenshots, video or prototype URL, and observable behavior in a prototype note. Copy that note into `run.md` when the build run begins. These become the target for OMP and later lab validation.
 5. If the prototype cannot be produced after a bounded attempt, record `PROTOTYPE_UNAVAILABLE` in the prototype note, explain why, and continue with written acceptance criteria. If the operator asks to skip or proceed without approval, record `PROTOTYPE_SKIPPED` and continue. Never claim approval that was not given.
 
-Do not start OMP while an available prototype is awaiting operator review. Do not keep a lab claim open while waiting for feedback. Release any claim used only to inspect the current UI, then reclaim a lab for the build run after approval or a recorded skip.
+Do not start OMP while an available prototype is awaiting operator review. Keep any lab claim open while waiting for feedback, including claims used to inspect the current UI. Reuse that claim for the build run after approval or a recorded skip.
 
 ## Prepare the run
 
 1. Read the repository guidance, lab/deploy instructions, and any project-local `verify-*` skill. Load the app-appropriate verification skill and the `herdr` skill. Load `safe-git-index` when Git mutations are needed.
 2. Resolve the target lab, repository, base branch, authenticated browser or client profile, and evidence location from repo guidance. Ask only for a missing value that cannot be discovered and changes the run.
-3. Use the repository's existing lab claim or lease mechanism. Record the lab, claim identity, owner, expiry, and release procedure. If the lab is already claimed, use another authorized lab or stop. Never invent a lock by convention.
+3. Use the repository's existing lab claim or lease mechanism. Record the lab, claim identity, owner, owning host/worktree, expiry if applicable, and release procedure. For CCore labs, load `lab-manager`; its claims do not expire. Keep the claim through review and handoff. For expiring leases, arrange supported renewal through review; report any retention limit rather than promising a reservation that will lapse. If the lab is already claimed, use another authorized lab or stop. Never invent a lock by convention.
 4. Verify which source SHA the lab serves. The baseline must match the intended base SHA. If it does not, deploy the intended base only when the request authorizes lab deployment. Otherwise stop with the mismatch.
 5. Create one run directory in the repository's existing evidence area. If none exists, use `artifacts/verified-build/<run-id>/` and keep it uncommitted unless repo policy says otherwise.
 6. Start `run.md` with the mode, user request, desired references, prototype status and approval record, lab URL, claim details, baseline deployment identity, browser/client profile, fixture identifiers, visual coverage matrix, and cleanup obligations.
@@ -65,7 +65,7 @@ For exploration:
 
 1. Convert the supplied product description into a short checklist of observable scenarios.
 2. Exercise every scenario in the live lab. Record `PASS`, `FAIL`, `SKIP`, or `BLOCKED`, with steps, expected state, actual state, and a screenshot.
-3. Retry failures once from a clean state. Restore or remove only this run's fixtures, release the claim, and finish with the findings. Do not open a PR.
+3. Retry failures once from a clean state. Keep the claim and review fixtures available when handing off the findings. Remove only this run's fixtures during agreed cleanup. Do not open a PR.
 
 ## Send confirmed build work to OMP
 
@@ -122,7 +122,7 @@ Do not call the PR ready for verification until every visual coverage row appear
 Before finishing, make `run.md` contain:
 
 - mode and requested outcome;
-- lab claim and release status;
+- lab URL, claim identity, owner, owning host/worktree, retention or renewal details, and release status;
 - baseline and candidate deployment identities;
 - PR URL and exact validated head SHA, for build modes;
 - scenario steps, expected result, actual result, and verdict;
@@ -132,4 +132,8 @@ Before finishing, make `run.md` contain:
 - fixture cleanup performed and anything intentionally left in the lab; and
 - open blockers or follow-ups that were not added to the PR.
 
-Finish only when the evidence files exist, the manifest points to them, and the PR contains the complete visual evidence table with reviewer-accessible images. A build result is `VALIDATED` only when the exact current PR head passed in the claimed lab. Otherwise report `NOT_REPRODUCED`, `BLOCKED`, or `FAILED_VALIDATION` truthfully. Release only the claim created by this run, using the recorded procedure. Do not merge the PR.
+Finish only when the evidence files exist, the manifest points to them, and the PR contains the complete visual evidence table with reviewer-accessible images. A build result is `VALIDATED` only when the exact current PR head passed in the claimed lab. Otherwise report `NOT_REPRODUCED`, `BLOCKED`, or `FAILED_VALIDATION` truthfully. Keep the lab claimed and the validated deployment and review fixtures available for the operator. Report the retained claim and cleanup requirements in the final handoff. Agent completion, successful validation, a blocker, or waiting for feedback does not authorize release. Do not merge the PR.
+
+## Release during agreed cleanup
+
+Release only this work's claim, using the recorded procedure, after all PRs using the lab have merged and the operator has explicitly agreed the work is complete. Merge alone or acceptance before merge is insufficient. For exploration or work without a PR, wait for the operator's explicit completion and cleanup agreement. An explicit operator instruction to abandon the work and release its lab also authorizes cleanup without merge. Until then, preserve the claim even if the agent stops or the work is idle. Record the agreement and merge status before release, and verify and record the release result. Never infer that an old claim is unused.

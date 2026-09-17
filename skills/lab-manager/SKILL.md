@@ -65,8 +65,20 @@ not only a dry-run or a successful infrastructure provision.
 
 ## Explicit cleanup
 
-Release only this work's claim when the user accepts the work or asks for
-worktree cleanup, before deleting the worktree. Multiple PRs do not end a claim:
+Keep the lab claimed through agent completion, validation, review handoff,
+feedback waits, and idle or blocked work. Preserve the deployment and fixtures
+needed for review. Prefer leaving a claim in place over releasing it early.
+Include the lab URL, claim ID, owning host/worktree, related PRs, and pending
+cleanup in the handoff.
+
+Release only this work's claim during cleanup after all PRs using the lab have
+merged and the operator has explicitly agreed the work is complete. Merge alone
+or acceptance before merge is insufficient. For work without a PR, wait for
+explicit completion and cleanup agreement. An explicit instruction to abandon
+the work and release its lab also authorizes cleanup without merge. A generic
+worktree cleanup request does not authorize releasing a lab still awaiting review;
+preserve the claim and its recorded identity. Verify the release conditions
+before running:
 
 ```sh
 pnpm --filter @ccore/lab-manager run lab -- release --host <recorded-host> --worktree <recorded-worktree>
