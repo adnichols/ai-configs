@@ -905,6 +905,18 @@
       "defaultInstall": false,
       "profile": "creative-content"
     },
+    "typesafe-ai": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "notes": "Fetched via `npx skills add typesafe-ai/skills`. TypeSafe System One modeling, including Jev: typed Choice, Score, and Noul questions that return structured decisions and calibrated probabilities for code to consume.",
+      "sourceType": "external-package",
+      "packageSource": "typesafe-ai/skills"
+    },
     "vercel-react-best-practices": {
       "class": "universal-installable",
       "allowedConsumers": [
