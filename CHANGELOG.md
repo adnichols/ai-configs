@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added the shared `typesafe-ai` skill (external package `typesafe-ai/skills`) so Codex, Claude, Pi, and Devin get TypeSafe's System One guidance — typed Choice, Score, and Noul questions answered by Jev — instead of prompting an LLM and parsing generated text. It joins the default shared install rather than an optional profile.
+
 - Added ADN Architecture principle `principle-modes-not-exceptions`. Lab, test, CI, and production differences are a designed operating mode parsed at the edge, not hostname or env ifs in product code. Wired into shared and Pi `adn-mode`.
 
 - Always-on writing rule against mannered prose: metaphor and flourish used in place of a direct statement. Catalogued as unslop rule 32, installed into Codex `~/.codex/AGENTS.md`, and added to managed OMP `AGENTS.md` plus ADN/Pi `adn-mode` reply checklists.
