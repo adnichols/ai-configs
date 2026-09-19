@@ -109,6 +109,7 @@ print_usage() {
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
     echo "  - The tracked Herdr and Amp configs are installed locally whenever --tools or --all runs"
     echo "  - The tracked OMP config, guidance, agents, and non-credential extensions are installed locally whenever --tools or --all runs"
+    echo "  - The tracked Paseo daemon config and skills are installed locally and streamed to mbp/dever/thump whenever --tools or --all runs"
     echo "  - Kitty/Herdr remote workflow files are streamed to mbp/dever whenever --tools or --all runs on macOS"
     echo "  - The tracked WezTerm remote workflow is installed locally whenever --tools or --all runs"
     echo "  - Managed Amp settings/modes are streamed to mbp/dever/thump whenever --tools or --all runs on macOS"
@@ -584,6 +585,8 @@ install_tools() {
     echo ""
     install_omp_config
     echo ""
+    install_paseo_config
+    echo ""
     install_herdr_plugins
     echo ""
     install_ltui
@@ -593,6 +596,18 @@ install_omp_config() {
     echo "Installing managed Oh My Pi configuration..."
     bash "$REPO_ROOT/_omp/install.sh"
     echo -e "${GREEN}✓ Managed Oh My Pi configuration installed${NC}"
+}
+
+install_paseo_config() {
+    echo "Installing managed Paseo configuration..."
+    bash "$REPO_ROOT/_paseo/install.sh"
+
+    # Stream the tracked bundle to the other Paseo hosts without relying on
+    # their ai-configs checkouts being clean or current. The local host is
+    # skipped inside the helper; offline hosts warn rather than block.
+    bash "$REPO_ROOT/scripts/install-paseo-remote-hosts.sh"
+
+    echo -e "${GREEN}✓ Managed Paseo configuration processed${NC}"
 }
 
 install_devin_config() {

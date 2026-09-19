@@ -45,4 +45,4 @@ Imaging launch contract (Pi): call `Agent` with only `subagent_type: "imaging"`,
 
 ## Runtime-specific configuration
 
-Read `_pi/README.md` for Pi installation and legacy delivery operations, `_omp/AGENTS.md` for OMP, `_devin/AGENTS.md` for Devin, and `_codex/README.md` for Codex. These files describe their respective runtimes; they do not authorize switching the active runtime.
+Read `_pi/README.md` for Pi installation and legacy delivery operations, `_omp/AGENTS.md` for OMP, `_devin/AGENTS.md` for Devin, `_codex/README.md` for Codex, and `_paseo/README.md` for the managed Paseo daemon config and skills. These files describe their respective runtimes; they do not authorize switching the active runtime.

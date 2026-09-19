@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Added a managed Paseo runtime surface under `_paseo/`: the daemon config deep-merges into `~/.paseo/config.json` (agent profiles merge by name, unmanaged keys preserved, first differing file backed up), `agents.providers.omp.additionalModels` pins `devin/swe-2` as the default model, and `agents.skills.selection` is set to `custom`/empty so the daemon stops reverting repo-owned `paseo*` skills at startup. `_paseo/skills/` holds the tuned skill copies installed to `~/.agents`, `~/.claude`, and `~/.codex` skills roots. `install.sh --tools`/`--all` installs locally and streams the bundle to `mbp`/`dever`/`thump` via `scripts/install-paseo-remote-hosts.sh`.
+
 - Added the shared `typesafe-ai` skill (external package `typesafe-ai/skills`) so Codex, Claude, Pi, and Devin get TypeSafe's System One guidance — typed Choice, Score, and Noul questions answered by Jev — instead of prompting an LLM and parsing generated text. It joins the default shared install rather than an optional profile.
 
 - Added ADN Architecture principle `principle-modes-not-exceptions`. Lab, test, CI, and production differences are a designed operating mode parsed at the edge, not hostname or env ifs in product code. Wired into shared and Pi `adn-mode`.

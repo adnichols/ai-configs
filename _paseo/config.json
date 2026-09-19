@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "daemon": {
+    "listen": "127.0.0.1:6767",
+    "agentProfiles": [
+      {
+        "id": "agent_profile_mu7vvhit_orwich6ub7c",
+        "name": "omp",
+        "provider": "omp",
+        "model": "devin/swe-2",
+        "modeId": "full",
+        "thinkingOptionId": "high",
+        "notes": "General purpose agent to use for adn mode, verified build, and other general processes"
+      },
+      {
+        "id": "agent_profile_mu7vwngt_6yfivyfu7y3",
+        "name": "Devin",
+        "provider": "devin",
+        "model": "swe-2-high",
+        "modeId": "bypass",
+        "featureValues": {
+          "auto_accept": true
+        },
+        "notes": "Use for faster general purpose coding but does not have all the models for adn mode - can orchestrate omp effectively though and works well for this"
+      }
+    ],
+    "cors": {
+      "allowedOrigins": [
+        "https://app.paseo.sh"
+      ]
+    },
+    "relay": {
+      "enabled": false
+    }
+  },
+  "app": {
+    "baseUrl": "https://app.paseo.sh"
+  },
+  "agents": {
+    "providers": {
+      "omp": {
+        "enabled": true,
+        "additionalModels": [
+          {
+            "id": "devin/swe-2",
+            "label": "SWE-2",
+            "isDefault": true
+          }
+        ]
+      },
+      "opencode": {
+        "enabled": false
+      },
+      "copilot": {
+        "enabled": false
+      },
+      "claude": {
+        "enabled": false
+      },
+      "devin": {
+        "extends": "acp",
+        "label": "Devin CLI",
+        "description": "Cognition's Devin for Terminal via Agent Client Protocol",
+        "command": [
+          "devin",
+          "acp"
+        ],
+        "env": {}
+      },
+      "cursor": {
+        "extends": "acp",
+        "label": "Cursor",
+        "description": "Cursor's coding agent",
+        "command": [
+          "cursor-agent",
+          "acp"
+        ],
+        "env": {}
+      },
+      "grok": {
+        "extends": "acp",
+        "label": "Grok",
+        "description": "xAI's Grok Build agentic coding CLI with plan mode and parallel subagents. Requires a SuperGrok or X Premium+ subscription.",
+        "command": [
+          "grok",
+          "agent",
+          "stdio"
+        ],
+        "env": {}
+      }
+    },
+    "skills": {
+      "selection": {
+        "mode": "custom",
+        "skills": []
+      }
+    }
+  },
+  "features": {
+    "dictation": {
+      "enabled": false
+    },
+    "voiceMode": {
+      "enabled": false
+    }
+  }
+}

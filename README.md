@@ -187,6 +187,13 @@ Canonical Amp CLI settings and custom plugin modes from `plugins/subscription-mo
 
 Run `bash amp/install.sh` for an Amp-only local install.
 
+### `_paseo/`
+Canonical Paseo daemon configuration and repo-managed Paseo skills. `install.sh --tools` and `install.sh --all` deep-merge `config.json` into `~/.paseo/config.json` (managed keys win; `daemon.agentProfiles` merges by name so locally added profiles survive; the first differing file is preserved as `config.json.before-ai-configs`), then run `paseo reload` when a daemon is reachable. The managed config carries the `omp` and `Devin` agent profiles, the ACP provider definitions (`devin`, `cursor`, `grok`), disabled built-ins (`claude`, `copilot`, `opencode`), and `agents.providers.omp.additionalModels` marking `devin/swe-2` as the default model so the picker stops landing on the first catalog entry.
+
+`_paseo/skills/` holds the repo-owned copies of the `paseo*` skills. The managed config sets `agents.skills.selection` to `custom` with an empty list because the daemon rewrites bundled skill files from its npm package at startup — tuned copies under the same names would be reverted. The installer instead owns the `paseo*` directories in `~/.agents/skills`, `~/.claude/skills`, and `~/.codex/skills`, backing up the first differing directory as `<name>.before-ai-configs`. Tune the skills by editing `_paseo/skills/`; the daemon's skills UI will show drift if it offers to reinstall the bundle — decline, or rerun the installer.
+
+Run `bash _paseo/install.sh` for a Paseo-only local install. The normal tools workflow also streams the bundle to `mbp`, `dever`, and `thump` over SSH (the local host is skipped; override with `PASEO_REMOTE_HOSTS`, skip with `PASEO_CONFIG_SKIP_REMOTE=1`, fail hard with `PASEO_CONFIG_STRICT_REMOTE=1`).
+
 ### `herdr/`
 Canonical host-independent Herdr configuration plus its installer. `install.sh --tools` and `install.sh --all` install it to `~/.config/herdr/config.toml`, preserving the first differing local file as `config.toml.before-ai-configs`. The same configuration validates on the current Herdr versions on `mbp`, `dever`, `thump`, and `mba`; it intentionally standardizes theme and UI preferences across hosts.
 
