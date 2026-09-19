@@ -35,6 +35,7 @@ run_install
 test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['relay']['enabled']")" = "False"
 test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['agentProfiles'][0]['name']")" = "omp"
 test "$(json_get "$PASEO_HOME/config.json" "d['agents']['providers']['omp']['additionalModels'][0]['isDefault']")" = "True"
+test "$(json_get "$PASEO_HOME/config.json" "d['agents']['providers']['omp']['additionalModels'][0]['id']")" = "@default"
 test "$(json_get "$PASEO_HOME/config.json" "d['agents']['skills']['selection']['mode']")" = "custom"
 # Unmanaged keys preserved
 test "$(json_get "$PASEO_HOME/config.json" "d['auth']['token']")" = "keep-me"
@@ -43,7 +44,6 @@ test "$(json_get "$PASEO_HOME/config.json" "d['agents']['providers']['myprovider
 test "$(stat -c '%a' "$PASEO_HOME/config.json")" = "600"
 # First differing config backed up
 grep -q 'keep-me' "$PASEO_HOME/config.json.before-ai-configs"
-
 # Skills installed to every runtime root, tuned content wins, marker and
 # stale files removed
 for root in "$SKILLS_A" "$SKILLS_B" "$SKILLS_C"; do

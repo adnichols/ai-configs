@@ -35,7 +35,7 @@ modelRoles:
   slow: openai-codex/gpt-5.6-sol:high
   vision: openai-codex/gpt-5.6-luna:xhigh
   plan: openai-codex/gpt-5.6-sol:high
-  designer: synthetic/hf:moonshotai/Kimi-K3:high
+  designer: openai-codex/gpt-5.6-sol:xhigh
   commit: openai-codex/gpt-5.6-luna:xhigh
   tiny: openai-codex/gpt-5.6-luna:low
   advisor: devin/swe-2:high
@@ -44,8 +44,8 @@ modelRoles:
   default: devin/swe-2:high
   completeness: xai-oauth/grok-4.6:high
   architect-grok: cursor/cursor-grok-4.6:high
-  architect-kimi: cursor/kimi-k3-max:max
-  reviewer-kimi: cursor/kimi-k3-max:high
+  architect-kimi: devin/swe-2:max
+  reviewer-kimi: devin/swe-2:max
   task: xai-oauth/grok-4.6:medium
 defaultThinkingLevel: auto
 compaction:
@@ -104,10 +104,6 @@ ask:
   enabled: false
 retry:
   fallbackChains:
-    architect-kimi:
-      - synthetic/hf:moonshotai/Kimi-K3
-    reviewer-kimi:
-      - synthetic/hf:moonshotai/Kimi-K3
     architect-grok:
       - xai-oauth/grok-4.6
     completeness:

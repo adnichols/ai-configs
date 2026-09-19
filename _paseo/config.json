@@ -42,8 +42,8 @@
         "enabled": true,
         "additionalModels": [
           {
-            "id": "devin/swe-2",
-            "label": "SWE-2",
+            "id": "@default",
+            "label": "Default (OMP modelRoles.default)",
             "isDefault": true
           }
         ]
