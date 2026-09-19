@@ -78,6 +78,13 @@ git log --oneline "${base_ref}...HEAD"
 git diff --stat "${base_ref}...HEAD"
 ```
 
+When screenshots, videos, or other review media belong in the PR, publish them as GitHub PR attachments by default:
+
+- Keep the source media local and untracked. Do not commit it to the PR branch, a dedicated evidence branch, a tag, or Git LFS merely to obtain a reviewer-visible URL.
+- Prefer repeated `--attach` flags on `gh pr create`, `gh pr edit`, or `gh pr comment` when the installed GitHub CLI supports them. A body or comment may reference the local image path; `gh` rewrites it to the uploaded attachment URL. Put a local video reference in its own paragraph so GitHub renders the player.
+- If the installed `gh` lacks `--attach`, upload through an authenticated GitHub PR editor or comment. A repository-defined non-Git artifact host is also acceptable when it is the established process.
+- Verify every image renders and every video opens from the PR. If required media cannot be uploaded, report that blocker instead of creating a Git-backed evidence branch. Use repository storage only when the operator explicitly requests it.
+
 ### 4) Final Committed-Candidate Check
 
 Run this after the final scoped commit and any rebase, not only against unstaged files:
