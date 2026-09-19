@@ -1,6 +1,6 @@
 ---
 name: verified-build
-description: "Codex-only lab workflow for bug fixes, feature changes, and live product exploration. Use when Codex should preview UI changes for approval when possible, claim a shared lab, send confirmed build work to OMP, validate the exact PR head, and publish visual evidence. Do not invoke from OMP or for changes that have no user-facing behavior to exercise."
+description: "Codex-only lab workflow for bug fixes, feature changes, and live product exploration. Use when Codex should publish clickable UI prototypes on demos.keramos.tech for approval, claim a shared lab, send confirmed build work to OMP, validate the exact PR head, and publish visual evidence. Do not invoke from OMP or for changes that have no user-facing behavior to exercise."
 ---
 
 # Verified build
@@ -19,17 +19,32 @@ Choose one mode without asking when the request is clear:
 
 If a request mixes exploration and authorized fixes, explore first. Route each confirmed failure through `BUG_FIX`. Do not treat an unexpected result as a defect until a clean retry rules out operator error, stale state, and an unsubmitted action.
 
+## Run from a dedicated worktree
+
+Never run this workflow in the operator's primary repository checkout. Before any step that reads or writes repository files — prototype staging, evidence capture, `run.md`, research or plan notes, commits, rebases, deploys — establish the run checkout: a Codex-owned worktree of the target repository under `~/.codex/worktrees/`, created at the intended base SHA (the default branch head when the base is not yet known). Reuse an existing Codex-owned worktree only when it is clean and on the intended base; otherwise create a fresh one. Run every subsequent command with the run checkout as the working directory. When the run produces reviewable commits, create a branch in the worktree; a detached HEAD suffices for lab-only runs. Keep uncommitted evidence in the worktree until the run finishes, then record its path in `run.md`.
+
 ## Preview UI changes before build
 
-For a build mode that changes UI, try to produce a visual prototype before starting OMP. This preview is preferred, not mandatory. Failure to produce it must not by itself block the build.
+For a build mode that changes UI, produce a clickable prototype before starting OMP and publish it on Cloudflare at a unique hostname under `demos.keramos.tech`. The same hosting requirement applies to prototype-only requests. Localhost URLs, downloadable HTML, screenshots alone, and workers.dev URLs do not satisfy prototype delivery. An explicit operator skip is the only exception.
 
 1. Perform only the read-only discovery needed to understand the current UI and design question. Reuse supplied references and the real app shell, components, density, and representative data when available.
-2. Load the `prototype` skill. Use one faithful proposal when the requested direction is specific. Use its variant process when meaningful design choices remain. Keep prototype code throwaway and separate from the OMP implementation worktree.
-3. Show full-UI screenshots of the proposed result for the known affected states. For a workflow change, also provide a runnable or clickable prototype and a short walkthrough video when practical. If video is unavailable, provide an ordered screenshot storyboard.
+2. Load the `prototype` skill. Use one faithful proposal when the requested direction is specific. Use its variant process when meaningful design choices remain. Keep prototype code throwaway and separate from the OMP implementation worktree; stage it in the run checkout or a scratch directory outside the primary checkout.
+3. Publish the clickable prototype using the demo hosting procedure below. Show full-UI screenshots of the proposed result for the known affected states and return the HTTPS demo URL. For a workflow change, also provide a short walkthrough video when practical. If video is unavailable, provide an ordered screenshot storyboard.
 4. Ask the operator to approve or revise the proposal. When approved, record the selected prototype version, approval, screenshots, video or prototype URL, and observable behavior in a prototype note. Copy that note into `run.md` when the build run begins. These become the target for OMP and later lab validation.
-5. If the prototype cannot be produced after a bounded attempt, record `PROTOTYPE_UNAVAILABLE` in the prototype note, explain why, and continue with written acceptance criteria. If the operator asks to skip or proceed without approval, record `PROTOTYPE_SKIPPED` and continue. Never claim approval that was not given.
+5. If the prototype cannot be produced or its demo URL cannot be deployed and verified after a bounded attempt, record `PROTOTYPE_UNAVAILABLE` with the reason. Finish the independent discovery and written acceptance criteria, then report the blocker; do not start the UI build or claim the prototype is delivered. If the operator explicitly asks to skip or proceed without it, record `PROTOTYPE_SKIPPED` and continue. Never claim approval that was not given.
 
 Do not start OMP while an available prototype is awaiting operator review. Keep any lab claim open while waiting for feedback, including claims used to inspect the current UI. Reuse that claim for the build run after approval or a recorded skip.
+
+## Publish clickable prototypes on Cloudflare
+
+A request to generate or review UI prototypes with this skill includes publishing their disposable demo artifacts. This standing operator preference authorizes that demo publication only; it does not authorize production or product-lab deployment.
+
+- Use the Nodaste Labs account `e6d3e575b97001f8ad1a7e98e497afa5`. Load `wrangler`; confirm account and domain ownership before deployment. Keep demo configuration separate from product deployables.
+- Choose a unique run name such as `<feature>-<YYYYMMDD>-<random-8-hex>`. Publish at `https://<run-name>.demos.keramos.tech` using a Cloudflare custom domain. Use a new name for a new proposal; reuse only this run's hostname for corrections. Never replace another demo or the parent domain.
+- Reuse existing demo hosting when it can preserve other demos; otherwise prefer Workers Static Assets for an HTML/JS prototype. Stage an explicit allowlist of public prototype files, screenshots, and walkthrough media. Keep credentials, session state, internal run logs, claim-owner details, and unrelated records out of uploaded assets. Use invented or disposable representative data; keep prototype mutations in memory or an isolated demo store.
+- Preserve existing Cloudflare Access protection; verify through an authorized login when required and mention that requirement with the returned URL. Open the hosted HTTPS URL in a fresh browser. Exercise its main interactions, direct state/variant links, reload behavior, responsive forms, and linked screenshots/media. Verify the custom domain serves this prototype; a successful upload or workers.dev response alone is insufficient.
+- Record the unique name, account, public URL, deployment version, public asset manifest, and browser verification in the prototype note and `run.md`. Return the clickable demo URL in the final response and use its stable media URLs for approved prototype references in a PR.
+- Release any product-lab claim after baseline capture. Keep the published demo available for review; remove it only when the operator requests cleanup. Demo hosting remains required even when no implementation or PR is authorized.
 
 ## Prepare the run
 
@@ -37,7 +52,7 @@ Do not start OMP while an available prototype is awaiting operator review. Keep 
 2. Resolve the target lab, repository, base branch, authenticated browser or client profile, and evidence location from repo guidance. Ask only for a missing value that cannot be discovered and changes the run.
 3. Use the repository's existing lab claim or lease mechanism. Record the lab, claim identity, owner, owning host/worktree, expiry if applicable, and release procedure. For CCore labs, load `lab-manager`; its claims do not expire. Keep the claim through review and handoff. For expiring leases, arrange supported renewal through review; report any retention limit rather than promising a reservation that will lapse. If the lab is already claimed, use another authorized lab or stop. Never invent a lock by convention.
 4. Verify which source SHA the lab serves. The baseline must match the intended base SHA. If it does not, deploy the intended base only when the request authorizes lab deployment. Otherwise stop with the mismatch.
-5. Create one run directory in the repository's existing evidence area. If none exists, use `artifacts/verified-build/<run-id>/`. Keep screenshot and video evidence untracked and out of every Git ref. A repository-defined external artifact store is acceptable, but a source branch, dedicated evidence branch, tag, or Git LFS is not a substitute for PR attachments unless the operator explicitly requests repository storage.
+5. Create one run directory in the run checkout's evidence area. If none exists, use `artifacts/verified-build/<run-id>/`. Keep screenshot and video evidence untracked and out of every Git ref. A repository-defined external artifact store is acceptable, but a source branch, dedicated evidence branch, tag, or Git LFS is not a substitute for PR attachments unless the operator explicitly requests repository storage. When repository storage is explicitly required, commit and push from the run checkout — never from the operator's primary checkout.
 6. Start `run.md` with the mode, user request, desired references, prototype status and approval record, lab URL, claim details, baseline deployment identity, browser/client profile, fixture identifiers, visual coverage matrix, and cleanup obligations.
 
 Do not expose credentials, session cookies, API keys, personal data, or unrelated customer data in evidence. Use disposable records or a repo-defined QA account. Only remove data created by this run.
@@ -69,7 +84,7 @@ For exploration:
 
 ## Send confirmed build work to OMP
 
-Use Herdr to create a dedicated worktree from the exact recorded base SHA, then start one OMP agent in that worktree. One workstream is the default. Split work only when evidence proves distinct independently mergeable root causes or an existing PR already owns a dependency.
+Use Herdr to create a dedicated worktree from the exact recorded base SHA, then start one OMP agent in that worktree. This OMP worktree is separate from the run checkout; never point OMP at the operator's primary checkout or the run checkout. One workstream is the default. Split work only when evidence proves distinct independently mergeable root causes or an existing PR already owns a dependency.
 
 Launch OMP with its existing model, reasoning, and fallback configuration. Omit model, provider, reasoning, and fallback overrides. Do not edit OMP's model configuration or instruct OMP to change it unless the operator explicitly authorizes that change in the current request. Requesting ADN mode does not authorize a model change.
 
@@ -99,7 +114,7 @@ After OMP reports a locally verified PR:
 
 1. Confirm the PR diff and exact head SHA. Reject stale receipts or unrelated commits.
 2. Confirm the lab claim is still valid.
-3. Build and deploy that exact head with the repository's documented lab command. Use a separate Codex-owned lab checkout when deployment can modify the OMP worktree. Record deployment output and independently verify the lab is serving the candidate identity.
+3. Build and deploy that exact head with the repository's documented lab command from the run checkout. The run checkout is the Codex-owned lab checkout; the operator's primary checkout is never a deploy source. Record deployment output and independently verify the lab is serving the candidate identity.
 4. Recreate the baseline scenario with equivalent fixtures, account, viewport, and starting state.
 5. Capture a candidate image for every visual coverage row at the same viewport and meaningful point as its baseline image. Add states discovered from the PR diff or OMP's receipt. For a new state with no direct baseline equivalent, use the closest pre-change entry state and label the comparison.
 6. Record `flow.webm` or `flow.mp4` from a clean start through the changed behavior and its persisted result. Use the selected verification skill's recorder. For web flows, a small Playwright test with video enabled is acceptable when it exercises the real lab and authenticated user path.
@@ -126,6 +141,7 @@ Do not call the PR ready for verification until every visual coverage row appear
 Before finishing, make `run.md` contain:
 
 - mode and requested outcome;
+- hosted prototype URL, unique demo name, deployment version, verification result, and approval or explicit skip when a UI preview applies;
 - lab URL, claim identity, owner, owning host/worktree, retention or renewal details, and release status;
 - baseline and candidate deployment identities;
 - PR URL and exact validated head SHA, for build modes;
@@ -136,7 +152,7 @@ Before finishing, make `run.md` contain:
 - fixture cleanup performed and anything intentionally left in the lab; and
 - open blockers or follow-ups that were not added to the PR.
 
-Finish only when the evidence files exist, the manifest points to them, and the PR contains the complete visual evidence table with reviewer-accessible images. A build result is `VALIDATED` only when the exact current PR head passed in the claimed lab. Otherwise report `NOT_REPRODUCED`, `BLOCKED`, or `FAILED_VALIDATION` truthfully. Keep the lab claimed and the validated deployment and review fixtures available for the operator. Report the retained claim and cleanup requirements in the final handoff. Agent completion, successful validation, a blocker, or waiting for feedback does not authorize release. Do not merge the PR.
+For a prototype-only request, finish after the public demo passes browser verification and its evidence is recorded; approval may remain pending and no PR is required. For a build run, finish only when the evidence files exist, the manifest points to them, and the PR contains the complete visual evidence table with reviewer-accessible images. A build result is `VALIDATED` only when the exact current PR head passed in the claimed lab. Otherwise report `NOT_REPRODUCED`, `BLOCKED`, or `FAILED_VALIDATION` truthfully. Keep the lab claimed and the validated deployment and review fixtures available for the operator. Report the retained claim and cleanup requirements in the final handoff. Agent completion, successful validation, a blocker, or waiting for feedback does not authorize release. Do not merge the PR.
 
 ## Release during agreed cleanup
 
