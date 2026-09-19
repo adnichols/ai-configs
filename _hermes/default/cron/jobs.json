@@ -20,17 +20,17 @@
       "schedule_display": "0 8 * * *",
       "repeat": {
         "times": null,
-        "completed": 134
+        "completed": 149
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-04-15T22:28:26.681323-06:00",
-      "next_run_at": "2026-08-28T08:00:00-06:00",
-      "last_run_at": "2026-08-27T08:00:05.630284-06:00",
+      "next_run_at": "2026-09-13T08:00:00-06:00",
+      "last_run_at": "2026-09-12T08:00:12.923455-06:00",
       "last_status": "error",
-      "last_error": "RuntimeError: Cron job 'daily-hermes-agent-functional-merge-review' has no model configured (job.model=None, HERMES_MODEL='', config.yaml model.default missing or empty). Set a per-job model via `hermes cron edit 1e1312756e9e --model <name>` or set a default with `hermes model <name>`.",
+      "last_error": "RuntimeError: HTTP 402: inference prohibited, you have reached user-set limit. More details: https://deepinfra.com/dash/billing",
       "last_delivery_error": null,
       "deliver": "origin",
       "origin": null,
@@ -38,7 +38,7 @@
         "terminal"
       ],
       "fire_claim": null,
-      "failure_streak": 2
+      "failure_streak": 5
     },
     {
       "id": "039f96dcecfc",
@@ -60,17 +60,17 @@
       "schedule_display": "0 6 * * *",
       "repeat": {
         "times": null,
-        "completed": 72
+        "completed": 88
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-06-21T08:26:26.329217-06:00",
-      "next_run_at": "2026-08-28T06:00:00-06:00",
-      "last_run_at": "2026-08-27T06:04:03.762081-06:00",
-      "last_status": "ok",
-      "last_error": null,
+      "next_run_at": "2026-09-13T06:00:00-06:00",
+      "last_run_at": "2026-09-12T06:02:51.056292-06:00",
+      "last_status": "error",
+      "last_error": "Script exited with code 1\nstdout:\nDaily GM completed with phase errors for 2026-09-12.\n- calendar: {\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"NOT_AUTHORIZED\",\n    \"message\": \"Calendar access not granted. Enable Full Access (not Add Only) in System Settings > Privacy & Security > Calendars (Options… button) for the responsible app (often \\\"osascript\\\" and/or your terminal).\"\n  }\n}\n- cross_block: [CROSS-CALENDAR AUDIT FAILED] accli failed for Calendar: {\n  \"ok\": false,\n  \"error\": {\n    \"code\": \"NOT_AUTHORIZED\",\n    \"message\": \"Calendar access not granted. Enable Full Access (not Add Only) in System Settings > Privacy & Security > Calendars (Options… button) for the responsible app (often \\\"osascript\\\" and/or your terminal).\"\n  }\n}\nArtifact: /Users/anichols/Obsidian/adn_vault/DailyGM/2026-09-12-gm.html",
       "last_delivery_error": null,
       "deliver": "discord:1492535022811480126",
       "origin": {
@@ -84,7 +84,7 @@
       "fire_claim": null,
       "monitor_script": null,
       "monitor_url": null,
-      "failure_streak": 0
+      "failure_streak": 3
     },
     {
       "id": "8ae87f95f2e3",
@@ -108,15 +108,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 6241
+        "completed": 8378
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-02T16:59:27.696134-06:00",
-      "next_run_at": "2026-08-27T11:37:42.864754-06:00",
-      "last_run_at": "2026-08-27T11:27:42.864754-06:00",
+      "next_run_at": "2026-09-12T15:26:37.908826-06:00",
+      "last_run_at": "2026-09-12T15:16:37.908826-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -130,7 +130,13 @@
       "enabled_toolsets": null,
       "workdir": null,
       "fire_claim": null,
-      "failure_streak": 0
+      "failure_streak": 0,
+      "last_dispatch": {
+        "scheduled_at": "2026-09-12T15:16:18.667793-06:00",
+        "dispatched_at": "2026-09-12T15:16:35.225707-06:00",
+        "lateness_seconds": 16.6,
+        "kind": "on_time"
+      }
     },
     {
       "id": "c11abc7a3ad6",
@@ -154,15 +160,15 @@
       "schedule_display": "every 10m",
       "repeat": {
         "times": null,
-        "completed": 6199
+        "completed": 8387
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-04T07:48:06.775694-06:00",
-      "next_run_at": "2026-08-27T11:45:41.324091-06:00",
-      "last_run_at": "2026-08-27T11:35:41.324091-06:00",
+      "next_run_at": "2026-09-12T15:31:37.726984-06:00",
+      "last_run_at": "2026-09-12T15:21:37.726984-06:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -177,7 +183,13 @@
       "enabled_toolsets": null,
       "workdir": "/Users/anichols/code/doct",
       "fire_claim": null,
-      "failure_streak": 0
+      "failure_streak": 0,
+      "last_dispatch": {
+        "scheduled_at": "2026-09-12T15:21:19.682386-06:00",
+        "dispatched_at": "2026-09-12T15:21:36.115374-06:00",
+        "lateness_seconds": 16.4,
+        "kind": "on_time"
+      }
     },
     {
       "id": "ff812b6b3074",
@@ -203,17 +215,17 @@
       "schedule_display": "15 6 * * *",
       "repeat": {
         "times": null,
-        "completed": 40
+        "completed": 56
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-18T08:27:07.978454-06:00",
-      "next_run_at": "2026-08-28T06:15:00-06:00",
-      "last_run_at": "2026-08-27T06:16:03.529164-06:00",
-      "last_status": "ok",
-      "last_error": null,
+      "next_run_at": "2026-09-13T06:15:00-06:00",
+      "last_run_at": "2026-09-12T06:16:03.038644-06:00",
+      "last_status": "error",
+      "last_error": "RuntimeError: HTTP 429: All credentials for model gpt-5.6-terra are cooling down via provider codex",
       "last_delivery_error": null,
       "deliver": "discord:1492535022811480126",
       "origin": {
@@ -229,7 +241,7 @@
       ],
       "workdir": "/Users/anichols/Obsidian",
       "fire_claim": null,
-      "failure_streak": 0
+      "failure_streak": 3
     },
     {
       "id": "a91c0d7e4b22",
@@ -251,25 +263,25 @@
       "schedule_display": "0 5 * * *",
       "repeat": {
         "times": null,
-        "completed": 39
+        "completed": 55
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-07-20T05:00:00-06:00",
-      "next_run_at": "2026-08-28T05:00:00-06:00",
-      "last_run_at": "2026-08-27T05:01:01.025560-06:00",
-      "last_status": "ok",
-      "last_error": null,
+      "next_run_at": "2026-09-13T05:00:00-06:00",
+      "last_run_at": "2026-09-12T05:01:06.722244-06:00",
+      "last_status": "error",
+      "last_error": "Script exited with code 1\nstderr:\npi analytics collector: publish_failed: ccore doc list failed: GET Hub-profile catalog before login: request: error sending request for url (http://127.0.0.1:8787/v1/system/hub-profiles): client error (Connect): tcp connect error: Connection refused (os error 61)\n\nRecovery guidance:\n  Summary: The command failed before it could produce a scenario-specific recovery path.\n  Next steps:\n    1. Check the local node with `ccore health` and inspect identity/config context with `ccore identity --json`.\n    2. Retry a read-only status/list command first so you can tell whether the failure is broad or isolated to one workflow.\n  Cautions:\n    - Keep recovery steps conservative until you have evidence that a workflow-specific repair is required.\n  Escalate with: capture the full error output, the command arguments without secrets, and whether the failure reproduces on a read-only command",
       "last_delivery_error": null,
       "deliver": "local",
       "origin": null,
       "enabled_toolsets": null,
       "workdir": null,
       "fire_claim": null,
-      "failure_streak": 0
+      "failure_streak": 3
     }
   ],
-  "updated_at": "2026-08-27T11:35:41.324355-06:00"
+  "updated_at": "2026-09-12T15:21:37.727299-06:00"
 }

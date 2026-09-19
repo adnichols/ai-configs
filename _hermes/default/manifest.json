@@ -1,5 +1,5 @@
 {
-  "file_count": 1732,
+  "file_count": 1850,
   "files": [
     {
       "bytes": 819,
@@ -22,14 +22,14 @@
       "sha256": "a93c32a9b5cde349a0983140281f1054228aa9958894c8c152fba4055bd0182e"
     },
     {
-      "bytes": 22474,
+      "bytes": 22678,
       "path": "config/config.yaml",
-      "sha256": "bdc1a6ab1c33aa446966f9193b7e628ffc942e7f3dfa60b4211194ac65bc42ad"
+      "sha256": "38b3610880534cd45ab7584854eede09870fea8d1c33effb109833e51df4a108"
     },
     {
-      "bytes": 12502,
+      "bytes": 14673,
       "path": "cron/jobs.json",
-      "sha256": "521cdcb0093c4e9f8724b8e3e043b3278951c3cc7a91478a82cbba93879fde01"
+      "sha256": "bb9131841a011328d7d448e393b3b130085ed02ca131e5c2dbf3f6f07a61f9b0"
     },
     {
       "bytes": 508,
@@ -82,6 +82,16 @@
       "sha256": "2d73da8bc4717ff1b2a9a3dbef8e99555c28e573324ee2f39bbb64bed220b2d6"
     },
     {
+      "bytes": 5727,
+      "path": "plugins/orca-status/__init__.py",
+      "sha256": "f68ca9984209dc7534391cbad5ec30abc1fe905d150420d822739964533f48e2"
+    },
+    {
+      "bytes": 412,
+      "path": "plugins/orca-status/plugin.yaml",
+      "sha256": "b63ef58a00e0d7cc9da08f8e154c0ebf8230b4d96f7faf4102274c508d2655c1"
+    },
+    {
       "bytes": 41289,
       "path": "plugins/pi-tmux-event-bridge/__init__.py",
       "sha256": "d44b81bb7fac3b4302abe04e571175f3dcb911780de0de37cda3371d6a42ba1f"
@@ -112,19 +122,19 @@
       "sha256": "fca7f4149f9458d3cc060e717ed9530a43dc06e2f9df128006c37373065d96f3"
     },
     {
-      "bytes": 513,
+      "bytes": 667,
       "path": "profiles/nerd/SOUL.md",
-      "sha256": "2765a846e1bb371d78d3b93b403dfb0f8d1ba1a9895edb5f608367abfe81194d"
+      "sha256": "36c1f5a2e92cd1d018311eaf4c8f1e8886672eae78212e033c681d0e3d5d506f"
     },
     {
-      "bytes": 13999,
+      "bytes": 13570,
       "path": "profiles/nerd/config/config.yaml",
-      "sha256": "715d6388066009d9b354ebcc23a3736e38c86704ef1bde69e253aa81bd207b59"
+      "sha256": "d0478762404f772e49337210766ce43049d26742400a405b8408b23b756298b1"
     },
     {
-      "bytes": 1385,
+      "bytes": 1386,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "f4425f3121079314d513e1a63e710684f1bbab99e73f7b7dc889c7eab5576bea"
+      "sha256": "c9da90cb3ee693c39ef5707b88548df47c56410ff64db5eeb8c6decbbb6f1bff"
     },
     {
       "bytes": 2280,
@@ -152,9 +162,9 @@
       "sha256": "705710794a2a2285705394c669a94841a5c0ca456a2e8962fe49bdfa5fefb5a7"
     },
     {
-      "bytes": 3421,
+      "bytes": 2727,
       "path": "profiles/nerd/skills/.bundled_manifest",
-      "sha256": "dcf695fe01b5e99a0c1d7c89bcb720f28eb0baa4984f3207a7e3643606ba557b"
+      "sha256": "14f72ac268ee78730474a221b0ece43213ee8ccc1fd1b279914fde875ebc63f9"
     },
     {
       "bytes": 152,
@@ -162,9 +172,9 @@
       "sha256": "0e4d2474859827a53d94fbfa316e059ddc45ab35665d8f3d685e2d7833fa1483"
     },
     {
-      "bytes": 2169,
+      "bytes": 2394,
       "path": "profiles/nerd/skills/apple/apple-notes/SKILL.md",
-      "sha256": "c652e01e47938b8ac21c97873e0a14f5f3a773b554bd10737fbfdcc5e5c28d23"
+      "sha256": "1ba042cb17e3aca06a68415526e926ada464bf873c8592c3326125cd72cb397f"
     },
     {
       "bytes": 3606,
@@ -205,6 +215,11 @@
       "bytes": 5816,
       "path": "profiles/nerd/skills/autonomous-ai-agents/codex/SKILL.md",
       "sha256": "bff5dccc28b0adef48c54560e1706e67510172bd77669680f4c14473510dfc63"
+    },
+    {
+      "bytes": 15819,
+      "path": "profiles/nerd/skills/autonomous-ai-agents/computer-use/SKILL.md",
+      "sha256": "e3d11184959bd06106fa73f315dfde9721502e9542621d62c398024de27eb4cd"
     },
     {
       "bytes": 5131,
@@ -287,11 +302,6 @@
       "sha256": "ecf8683bc5377089f9b68cf7df74160e6b8dfb05e19db4ab95432cd407bd399b"
     },
     {
-      "bytes": 11179,
-      "path": "profiles/nerd/skills/computer-use/SKILL.md",
-      "sha256": "33fdce112f142cd3ec1978b53720099b706b3b51e1781d37c3b4f30f32ebdddd"
-    },
-    {
       "bytes": 116,
       "path": "profiles/nerd/skills/creative/DESCRIPTION.md",
       "sha256": "e890a87ac49fed98df4e1fc72fb9c548dd2ba66efa9f15dd1ba65935a1a60eed"
@@ -317,9 +327,9 @@
       "sha256": "a182ea6fd86e9a1a3e1d8e3281e0274b7cd33ef7b15c10bd12064ad4d75fbfae"
     },
     {
-      "bytes": 14864,
+      "bytes": 15011,
       "path": "profiles/nerd/skills/creative/ascii-video/SKILL.md",
-      "sha256": "1d4f84e0eacc0d8adfaee62e0f2ab947dd79302ebbf55d5cd07d94a92c92cb95"
+      "sha256": "3bd3f39985a52954e2693866608bd8105f4dc0efbca5b6baa3045c2b641bda26"
     },
     {
       "bytes": 33004,
@@ -1127,9 +1137,9 @@
       "sha256": "2e193b9868a4d7de2171414650ec5e1c89dd132b93eea25fd06a0e00bd841ea8"
     },
     {
-      "bytes": 7023,
+      "bytes": 8477,
       "path": "profiles/nerd/skills/creative/design-md/SKILL.md",
-      "sha256": "38ed14bc712a413fdd2514ea9acf6864ffb64fcbaffe6b5cc608021a75ff89fa"
+      "sha256": "7ed56bba40ffc9573fa51b33b2424f37fb5f774e9ecb7e76e737797afd0b62ae"
     },
     {
       "bytes": 2566,
@@ -1177,9 +1187,9 @@
       "sha256": "a30f3ec6105d5b23bc5ec28e8e2809e9ceed49f1fd816570d5b5656d0aa65819"
     },
     {
-      "bytes": 12023,
+      "bytes": 12150,
       "path": "profiles/nerd/skills/creative/manim-video/SKILL.md",
-      "sha256": "3459a6af999f0c9bfd61eb867836c8de90b33253493eb1b6aa4118d82fd320f4"
+      "sha256": "467376469fc2043e2674a843509f8eea52660791e76fb2e142074ecd4abc7e69"
     },
     {
       "bytes": 7205,
@@ -1262,9 +1272,9 @@
       "sha256": "8251be0e41fbe1bd0a903ac93b38beb2b64375696fd0cd23bb73dd2ef8f8054f"
     },
     {
-      "bytes": 27494,
+      "bytes": 27534,
       "path": "profiles/nerd/skills/creative/p5js/SKILL.md",
-      "sha256": "6a9722e2633ecdb3736e304f56c646258c5e777fd2c15a59c0d2b3ffa91b665a"
+      "sha256": "3b39b75303e082af69b3f4e2deab7a55b27d60293eff6a561fb627188194a33e"
     },
     {
       "bytes": 10456,
@@ -1677,9 +1687,9 @@
       "sha256": "c643ff8657341b39284dbe1c70442b4ac746f5702d8457759376d4165d6879e5"
     },
     {
-      "bytes": 10206,
+      "bytes": 10963,
       "path": "profiles/nerd/skills/creative/songwriting-and-ai-music/SKILL.md",
-      "sha256": "093dfa88e5b3596a35463a516733d014c202d14b49643724dea65e9c09c970b1"
+      "sha256": "5dbf92dc336e9b17be45c35c92a5bb307e4655e39a86617f07b7654678f92583"
     },
     {
       "bytes": 15429,
@@ -1822,6 +1832,11 @@
       "sha256": "806c5f0fe2d4d0df8da91f720032bb6524b4dbecf6b4532aee9b3a7914401c89"
     },
     {
+      "bytes": 9073,
+      "path": "profiles/nerd/skills/devops/sdlc-review/SKILL.md",
+      "sha256": "ce90e8a3e145cce69c62880dc85921700110879f9290952d6cec28218503155f"
+    },
+    {
       "bytes": 6836,
       "path": "profiles/nerd/skills/devops/webhook-subscriptions/SKILL.md",
       "sha256": "dfb4ddad9b7911dbbd72d33029c33235c39e2af5947fd35738094752eaed64a8"
@@ -1832,21 +1847,6 @@
       "sha256": "76d976d69859292bdb3fcb53b72971094be994a2034c8de0c0484b1324028cd1"
     },
     {
-      "bytes": 6270,
-      "path": "profiles/nerd/skills/dogfood/SKILL.md",
-      "sha256": "36b1a710c61727c2be3c43ba20d68605cfed199afc90e27bde9746f4b80b91dd"
-    },
-    {
-      "bytes": 3682,
-      "path": "profiles/nerd/skills/dogfood/references/issue-taxonomy.md",
-      "sha256": "b90546fab5b59494ebea35b957ccc1d98bab8eaeaaa3529a142b15ea96df2b31"
-    },
-    {
-      "bytes": 1528,
-      "path": "profiles/nerd/skills/dogfood/templates/dogfood-report-template.md",
-      "sha256": "6db9127715d3d1482542e48dd2d71fcb25238e614b1e5739ec193fa143962a26"
-    },
-    {
       "bytes": 1142,
       "path": "profiles/nerd/skills/domain/DESCRIPTION.md",
       "sha256": "b3a30c554bb5c0f8447ca785be95d48e602ba0b9cab18e8605cbdde6fec2df45"
@@ -1855,6 +1855,11 @@
       "bytes": 101,
       "path": "profiles/nerd/skills/email/DESCRIPTION.md",
       "sha256": "2c40e123f597ebbb4db9edf5fe8e5d63a1aacf8f00b59eca1b5af0748062ac24"
+    },
+    {
+      "bytes": 4057,
+      "path": "profiles/nerd/skills/email/email-inbox-triage/SKILL.md",
+      "sha256": "cd57ccc9d563b5186012b41d6bbf52e96c2837c5b8e79d524e8e5e6a44af6021"
     },
     {
       "bytes": 7272,
@@ -1900,11 +1905,6 @@
       "bytes": 167,
       "path": "profiles/nerd/skills/github/DESCRIPTION.md",
       "sha256": "51c160e23661890049042988073695110b1c1c88d00389f1abf05f5842b19ca4"
-    },
-    {
-      "bytes": 3628,
-      "path": "profiles/nerd/skills/github/codebase-inspection/SKILL.md",
-      "sha256": "87ddc0578d9bcbc80addb34ca045e4263689873ce02b1b73e3d57275ec6315c6"
     },
     {
       "bytes": 8818,
@@ -2072,9 +2072,9 @@
       "sha256": "84b4c86e75f082882188bff3591eca78d222c0b337ef421a762e1a36139b66eb"
     },
     {
-      "bytes": 3384,
+      "bytes": 3538,
       "path": "profiles/nerd/skills/media/youtube-content/SKILL.md",
-      "sha256": "03cba418b10c64a316124fd9c0cde640bfe87da86f30df8136b8498003eafed8"
+      "sha256": "52349e30ac74a3c2693c43588e9392a53236526b4b7d92769a64045a9782308e"
     },
     {
       "bytes": 1259,
@@ -2557,9 +2557,9 @@
       "sha256": "fb28a609372460b2788d3b7dbc551985d24d4042057971f4d6345144d2d78caa"
     },
     {
-      "bytes": 2935,
+      "bytes": 3092,
       "path": "profiles/nerd/skills/note-taking/obsidian/SKILL.md",
-      "sha256": "b3f669a8a14611c48f512f751eb0873f958b8bee3d944760fb8aaf269a2c4f55"
+      "sha256": "7aea4e8f89f94ab2876d79898d10a5d4cdab31390c53f72ad6934b071179f826"
     },
     {
       "bytes": 5019,
@@ -2587,9 +2587,64 @@
       "sha256": "827387ab9fe5d77759301095c5e790ed55666eeef95f7cd6801f8fc2b29a3c3a"
     },
     {
-      "bytes": 11334,
+      "bytes": 11314,
       "path": "profiles/nerd/skills/productivity/airtable/SKILL.md",
-      "sha256": "016198b563b8f8c4441b002bce8ad0e0865f2f39f1da22476beb7a7daed482aa"
+      "sha256": "28253f1e20c4d250725eb7f475c886952a4c6a1ef43ef6900c2dc0e75ebb40e6"
+    },
+    {
+      "bytes": 11697,
+      "path": "profiles/nerd/skills/productivity/box/SKILL.md",
+      "sha256": "e9672412333de4feff348e6dc387d9022d32005247360347a10a7131fb87eb13"
+    },
+    {
+      "bytes": 2025,
+      "path": "profiles/nerd/skills/productivity/box/references/bulk-operations.md",
+      "sha256": "873a14840a01048004ca0dfa9fd3eb6015a9b4d5d5ed00c4701ac9235280e331"
+    },
+    {
+      "bytes": 7515,
+      "path": "profiles/nerd/skills/productivity/box/references/cli-guide.md",
+      "sha256": "a94496da79df7aceb8d92bf285069cd3b80034649da62ce23eb076e2da39ae7e"
+    },
+    {
+      "bytes": 4767,
+      "path": "profiles/nerd/skills/productivity/box/references/content-workflows.md",
+      "sha256": "703bc320272cc93d93d67330ab1c082f88985b1e0095117099c4693683d042ad"
+    },
+    {
+      "bytes": 6189,
+      "path": "profiles/nerd/skills/productivity/box/references/hubs.md",
+      "sha256": "61909fa5e550f6cd51c8d2c069a95e01f79f28c24a5780fe16e63e3b1eee890a"
+    },
+    {
+      "bytes": 6569,
+      "path": "profiles/nerd/skills/productivity/box/references/oauth-setup.md",
+      "sha256": "6506cef6a6e44c5b5f8e483642595feb2ca2b93799ebd5e60ba9f08ddd8459a5"
+    },
+    {
+      "bytes": 2227,
+      "path": "profiles/nerd/skills/productivity/box/references/rest-api.md",
+      "sha256": "3afe53c5bcfda288f3727de3ff1fa05773e24b7fdd964373280831218bb6b5d2"
+    },
+    {
+      "bytes": 5727,
+      "path": "profiles/nerd/skills/productivity/box/references/sdk-development.md",
+      "sha256": "96886f989937399fa80d1841be2c99eb006f180bc1f8538c628f23a4c584cb8c"
+    },
+    {
+      "bytes": 10746,
+      "path": "profiles/nerd/skills/productivity/box/references/search-and-ai.md",
+      "sha256": "6bfca0afc9cd35d5312261f0c5947b9387d5ec100473f4739cda9d432e040e1a"
+    },
+    {
+      "bytes": 2970,
+      "path": "profiles/nerd/skills/productivity/box/references/troubleshooting.md",
+      "sha256": "a7c394e219a429ff3b04e76a1cbe5a97ce71ae6a2a7eed1eea7888d2eeb8b922"
+    },
+    {
+      "bytes": 2276,
+      "path": "profiles/nerd/skills/productivity/box/references/webhooks-and-events.md",
+      "sha256": "5c1382adf41d8b3cecfd922f815ed85b10740d826924cf33def5250da934c6c5"
     },
     {
       "bytes": 12375,
@@ -2597,14 +2652,84 @@
       "sha256": "426bdfc81d34c8ebfcb5251378ed59f86a1eb832c311c3691f8221cc8d8ade73"
     },
     {
+      "bytes": 3910,
+      "path": "profiles/nerd/skills/productivity/document-to-action-items/SKILL.md",
+      "sha256": "8a7556754aca2a7d04d38847131fb4db8d6705fa2106fcb154279e26117b41ee"
+    },
+    {
+      "bytes": 1070,
+      "path": "profiles/nerd/skills/productivity/docx/LICENSE",
+      "sha256": "8aa3c7717d57a68490c31eef4b57b6887e892f0566ff866078ebd76113d357e2"
+    },
+    {
+      "bytes": 10395,
+      "path": "profiles/nerd/skills/productivity/docx/SKILL.md",
+      "sha256": "9678b14d5e7841d588b969f6a4696cd46bcc46c3e4ac1479edc7656a051aa5ff"
+    },
+    {
+      "bytes": 3997,
+      "path": "profiles/nerd/skills/productivity/docx/references/revisions-and-comments.md",
+      "sha256": "cd861f6e9ea77767b1a5e2ec3f48dd620b0664811d8f204c59c61571b408e9ba"
+    },
+    {
+      "bytes": 10655,
+      "path": "profiles/nerd/skills/productivity/docx/scripts/docx_comments.py",
+      "sha256": "6687c2f8b8e4cdd2ea9d70da668417e8c26f30dead2b1a4b7bda07e34fbf67cf"
+    },
+    {
+      "bytes": 3364,
+      "path": "profiles/nerd/skills/productivity/docx/scripts/docx_common.py",
+      "sha256": "5f915ce8138d19344f80b218b3e81aac8332dc6b560774a6f2a9757f4fc2eaea"
+    },
+    {
+      "bytes": 6387,
+      "path": "profiles/nerd/skills/productivity/docx/scripts/docx_create.py",
+      "sha256": "8391869c97ab804374dddadff4fbebc060120c0b973d06133f84487cc2c442d5"
+    },
+    {
+      "bytes": 8619,
+      "path": "profiles/nerd/skills/productivity/docx/scripts/docx_edit.py",
+      "sha256": "00feef0a58a318406077020a017dd0b2673daaef93e0bda81fa9437b237180ff"
+    },
+    {
+      "bytes": 5405,
+      "path": "profiles/nerd/skills/productivity/docx/scripts/docx_read.py",
+      "sha256": "4760617eea1b17d648f7a46f6718c22ec4a76a359e8f0ee9f6ffe921df9129de"
+    },
+    {
+      "bytes": 4571,
+      "path": "profiles/nerd/skills/productivity/docx/scripts/docx_revisions.py",
+      "sha256": "0b835b76b86a1a7bf607c7724a09a71af788cacec48058ae99b04dba6950b938"
+    },
+    {
+      "bytes": 2482,
+      "path": "profiles/nerd/skills/productivity/docx/scripts/docx_template.py",
+      "sha256": "aed1b1db212b72995bd47a28e6c9928a4d02d7596615f1dadf12cd43a4f34219"
+    },
+    {
+      "bytes": 6200,
+      "path": "profiles/nerd/skills/productivity/docx/scripts/docx_validate.py",
+      "sha256": "64d4197ac4aa555384efaefa1cc392a863e2d05489acc04776c33ab1a591d024"
+    },
+    {
+      "bytes": 21267,
+      "path": "profiles/nerd/skills/productivity/docx/tests/test_docx_skill.py",
+      "sha256": "a6e5ef3595d2168b15a655c366dcebbcc3e2ced73a0e2e5f741c626148c8566d"
+    },
+    {
       "bytes": 3353,
       "path": "profiles/nerd/skills/productivity/event-schedule-verification/SKILL.md",
       "sha256": "145552fc47b6960d2f4275511bdaafe07865281f8018272384bca391a4f8039a"
     },
     {
-      "bytes": 13411,
+      "bytes": 13670,
       "path": "profiles/nerd/skills/productivity/google-workspace/SKILL.md",
-      "sha256": "014a4818ee1b363d11fafa2353bcea4fd4f8e0c0802322708023d3cd2e3f43b6"
+      "sha256": "5bdca0d898744fbf4d66df611116b5c776b1297b964fbcfd86b3004c20e46fd7"
+    },
+    {
+      "bytes": 3217,
+      "path": "profiles/nerd/skills/productivity/google-workspace/references/daily-brief.md",
+      "sha256": "d4b78bad4121fea470dfe1aa92b2fc0ae2368af6ffbdd0b29ef40c7c8f99067c"
     },
     {
       "bytes": 2150,
@@ -2612,24 +2737,24 @@
       "sha256": "340b78000fba67b9c5373978185446eb549a474870decf8c439edb03b3883bc5"
     },
     {
-      "bytes": 1630,
+      "bytes": 1636,
       "path": "profiles/nerd/skills/productivity/google-workspace/scripts/_hermes_home.py",
-      "sha256": "a8861702cefda8684e1bec353044dafc0c52dbdd85cf02bc21454126b596baf5"
+      "sha256": "4d0f4393059688353bf8a3cca8118f08548edbae6f3c6ed477ff9f2d1205cff0"
     },
     {
-      "bytes": 43483,
+      "bytes": 43553,
       "path": "profiles/nerd/skills/productivity/google-workspace/scripts/google_api.py",
-      "sha256": "1e9997a0cdbc5668ea5caa0bd8cfa09e33bb467b9f5df8cf962bab5ff3b20543"
+      "sha256": "d3822ef5cbdfad1d280fb619b9d85f2bdc0f8d8756398eb0189a126e8a6fbf89"
     },
     {
-      "bytes": 3648,
+      "bytes": 4368,
       "path": "profiles/nerd/skills/productivity/google-workspace/scripts/gws_bridge.py",
-      "sha256": "e8b6d7f492d33e3643ff8a27712aef75f51d9c95ba6b4ec736f555337023bc81"
+      "sha256": "6bba56ab6d49ddab3cd16c2e189950633cbf1a9f4907cb7db5225ebe28313aee"
     },
     {
-      "bytes": 18743,
+      "bytes": 20231,
       "path": "profiles/nerd/skills/productivity/google-workspace/scripts/setup.py",
-      "sha256": "a38450fcd6bc17be68fc30dccc4829b22cc892dd7da400fd6bc57dc4391e1c29"
+      "sha256": "ace45d12de9bbc408f03b88e78b8d5ed2a37f36e992164bcbe9708c5ba49883d"
     },
     {
       "bytes": 8525,
@@ -2692,14 +2817,19 @@
       "sha256": "6c2a6b8a918f5c2c0aa2dab626cb6a5cde0f0f130258b1474ccd30662a9095cd"
     },
     {
-      "bytes": 6726,
+      "bytes": 6705,
       "path": "profiles/nerd/skills/productivity/maps/SKILL.md",
-      "sha256": "8c961ecf662838e3ff287570d343db8b1587ca7a6d565ec53eeab13f89407b29"
+      "sha256": "775ef9f79be9cd147bc81e0c4a4ef952230a04736a6082f44dbac78554ef89ab"
     },
     {
       "bytes": 46678,
       "path": "profiles/nerd/skills/productivity/maps/scripts/maps_client.py",
       "sha256": "94960e451d549766070c999f4979bd69ea956381b40c4d5b05bfa6c0501e7ffb"
+    },
+    {
+      "bytes": 3808,
+      "path": "profiles/nerd/skills/productivity/meeting-action-items/SKILL.md",
+      "sha256": "1902f782551da96ee1f9b34d6f13af627f06150a498d874b0cc2a75d06d35aa8"
     },
     {
       "bytes": 1414,
@@ -2757,6 +2887,111 @@
       "sha256": "f701600f92358079ce5469c0aae517a3d713031388299f35dfa3121d1ae926ca"
     },
     {
+      "bytes": 1070,
+      "path": "profiles/nerd/skills/productivity/pdf/LICENSE",
+      "sha256": "8aa3c7717d57a68490c31eef4b57b6887e892f0566ff866078ebd76113d357e2"
+    },
+    {
+      "bytes": 12489,
+      "path": "profiles/nerd/skills/productivity/pdf/SKILL.md",
+      "sha256": "c16b9c159a3a0b49353bfcd10c498b02aef3d319207b1019aa7dc8db129d06ab"
+    },
+    {
+      "bytes": 3950,
+      "path": "profiles/nerd/skills/productivity/pdf/references/forms.md",
+      "sha256": "471517e0b154fb765d04416f089b7e999103804b964a84675af49e2d53ee8da0"
+    },
+    {
+      "bytes": 1342,
+      "path": "profiles/nerd/skills/productivity/pdf/references/nano-pdf-editing.md",
+      "sha256": "2f0b15bd1ebbd45cf37ed257723ad63aa70b623b97f5242c886c14f8968cd773"
+    },
+    {
+      "bytes": 5612,
+      "path": "profiles/nerd/skills/productivity/pdf/references/ocr-extraction.md",
+      "sha256": "611f03bc3fdf7f29283bf609ee46362cef6bcbea91b965a74f37ddd8c513cd1e"
+    },
+    {
+      "bytes": 2614,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/_raster.py",
+      "sha256": "17ecfb8dd78b006e904d0f29e28172ce308a34588db99ec80b0f085d2a37b518"
+    },
+    {
+      "bytes": 3458,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/extract_marker.py",
+      "sha256": "a115ee1da5b88f7ab61c480ef9efb2b371350bed8f1cface7668898ba80aae38"
+    },
+    {
+      "bytes": 3671,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/extract_pymupdf.py",
+      "sha256": "784d233ee9849ce78cddc8253c87172c06a0b62c41aff7215fd97b77766babc8"
+    },
+    {
+      "bytes": 4562,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_create.py",
+      "sha256": "2a7a7c06c608e82cc11684bb67ff9cdb3bf8cbe6df38c6f4b1096dd2686f993c"
+    },
+    {
+      "bytes": 3887,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_fill_form.py",
+      "sha256": "d66d504d7f7fcb85c28881065c47dfbc6ac9b47294471531a7f013178c72a1ad"
+    },
+    {
+      "bytes": 7131,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_form_layout.py",
+      "sha256": "f654e386a8b1e5a26a1530b16d36177310dd48c6cb589ec6cf3dc1898a8ccdf9"
+    },
+    {
+      "bytes": 5988,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_make_form.py",
+      "sha256": "a194791f2d6504da9e629976620ac227a18a6ea14784d428c4cf4f57fafd6c3d"
+    },
+    {
+      "bytes": 1686,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_merge.py",
+      "sha256": "c1cf231f73b02790069227a4f711475b4b329c91e30e77826f24c05935674248"
+    },
+    {
+      "bytes": 4458,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_meta.py",
+      "sha256": "989c2564bb31d8b20abd53a4d7f86a603c930bd868e0201ad4cdec92d5487460"
+    },
+    {
+      "bytes": 3589,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_page_image.py",
+      "sha256": "40ad843fd50bd6bd91af1fd53de1cff1faf885921294afd304d0abf0fe93e4e2"
+    },
+    {
+      "bytes": 5895,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_read.py",
+      "sha256": "7d623cbbb6319f9f161dd769972250b08c426c291ed0af1a8304bec20437bfb2"
+    },
+    {
+      "bytes": 2679,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_secure.py",
+      "sha256": "65d0ba6733cb945e6147e4b46e0b6db0816096440b0f4fe24cc953307805e01b"
+    },
+    {
+      "bytes": 3045,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_split.py",
+      "sha256": "1e3d8f8e9aa8aa5445f8587e402e3bab65c785eb5b4aea120bc5b6216cb57cba"
+    },
+    {
+      "bytes": 5779,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_stamp.py",
+      "sha256": "e3bf6e29634be35ff99fee8a21a3e5f4f610298cb158942496d0949f0a941390"
+    },
+    {
+      "bytes": 1852,
+      "path": "profiles/nerd/skills/productivity/pdf/scripts/pdf_watermark.py",
+      "sha256": "d903977ee37194ad18bba205d2d96eefbbe6670519bcd8ae285f619645005ae2"
+    },
+    {
+      "bytes": 17433,
+      "path": "profiles/nerd/skills/productivity/pdf/tests/test_pdf_skill.py",
+      "sha256": "a2f6dd5be18f4c63a90fe4688d717145e74821d83afdd9e781adc815806a9119"
+    },
+    {
       "bytes": 3534,
       "path": "profiles/nerd/skills/productivity/petdex/SKILL.md",
       "sha256": "ca52cda72a9c49d60c4a3c2dbfa6c64c87e62562857b598599cc496b30116fd1"
@@ -2797,259 +3032,54 @@
       "sha256": "26fbc19820965f18ff69dff17adf9c6ff103fd5c8c0b71a4ac7019678c94255c"
     },
     {
-      "bytes": 1467,
-      "path": "profiles/nerd/skills/productivity/powerpoint/LICENSE.txt",
-      "sha256": "79f6d8f5b427252fa3b1c11ecdbdb6bf610b944f7530b4de78f770f38741cfaa"
+      "bytes": 1070,
+      "path": "profiles/nerd/skills/productivity/powerpoint/LICENSE",
+      "sha256": "8aa3c7717d57a68490c31eef4b57b6887e892f0566ff866078ebd76113d357e2"
     },
     {
-      "bytes": 9298,
+      "bytes": 10781,
       "path": "profiles/nerd/skills/productivity/powerpoint/SKILL.md",
-      "sha256": "bb2084f5da312eec50f8ab3b1cb0f6ad3a86f4933f521b273fdc4dd1d4f52ada"
+      "sha256": "b71d29d9809c4464d7f8d10afabf4f22f6a26c647cf7aacb6f9faf196ebe82f2"
     },
     {
-      "bytes": 6885,
-      "path": "profiles/nerd/skills/productivity/powerpoint/editing.md",
-      "sha256": "6cb47c3ab17e60b7de37e83131c409ef5a90a01bfb54e999905a9c9f7dd88e68"
+      "bytes": 8579,
+      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/pptx_create.py",
+      "sha256": "90e60c1fad8c5e7c209acf6ecdebee43c26609bbcf9a7dc063207ad8a3091485"
     },
     {
-      "bytes": 12819,
-      "path": "profiles/nerd/skills/productivity/powerpoint/pptxgenjs.md",
-      "sha256": "9539534d92b7170813b735a448750df3580390da2da6c52a02b687ed53ecba86"
+      "bytes": 17224,
+      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/pptx_edit.py",
+      "sha256": "feb5b09546f9f7fb5dfb4c9b2596b3acbaff9c021faf1985c42f618be0476f3f"
     },
     {
-      "bytes": 0,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/__init__.py",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "bytes": 3431,
+      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/pptx_from_template.py",
+      "sha256": "8537205a777ba541c826082a4395066881dfa63c3033151127b82a8fd82fdb8f"
     },
     {
-      "bytes": 6872,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/add_slide.py",
-      "sha256": "04233ba3932c6b8611677347891616456e243cc09b7f9769408b8c83d9acfe64"
+      "bytes": 4761,
+      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/pptx_read.py",
+      "sha256": "b2a6e246e40a6728e5e0e8bf2c4cbe4f788ab8c40bdb1b89e339571a34fdbc71"
     },
     {
-      "bytes": 9583,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/clean.py",
-      "sha256": "3e3966a17f488a1ddc7145f0b7ec9f25595afa1f3a427ab05e610f1a328feea9"
+      "bytes": 3536,
+      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/pptx_render.py",
+      "sha256": "49ebe77fa453b5fb21e0a39c0601187399c26f60a399726744277ee098f06dd7"
     },
     {
-      "bytes": 0,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/helpers/__init__.py",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "bytes": 19524,
+      "path": "profiles/nerd/skills/productivity/powerpoint/tests/test_powerpoint_skill.py",
+      "sha256": "da3262b8daa31ba2425845a8ce74adc033c89b8d2cf7b99f95a107f7e96b27f1"
     },
     {
-      "bytes": 5567,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/helpers/merge_runs.py",
-      "sha256": "7c40ed838b88639c51f9ffdcfd564b568f26832b78fe44008c0e01b742669ca7"
+      "bytes": 4400,
+      "path": "profiles/nerd/skills/productivity/product-price-monitor/SKILL.md",
+      "sha256": "b87bf2102fed13d2c7c64759fa153f24f5e43a0afcf6f8ec5e13def92a6642ef"
     },
     {
-      "bytes": 5754,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/helpers/simplify_redlines.py",
-      "sha256": "560cb55978a834c505406eb18e2c61f62f998fc7a2d8e9721b9c563b42597896"
-    },
-    {
-      "bytes": 4991,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/pack.py",
-      "sha256": "b1800987e568261a31f462df8e1303d386e9e6ccc11a75ef46e60cc528c20683"
-    },
-    {
-      "bytes": 74984,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chart.xsd",
-      "sha256": "41b93bd8857cc68b1e43be2806a872d736a9bdd6566900062d8fdb57d7bbb354"
-    },
-    {
-      "bytes": 6956,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chartDrawing.xsd",
-      "sha256": "3fd0586f2637b98bb9886f0e0b67d89e1cc987c2d158cc7deb5f5b9890ced412"
-    },
-    {
-      "bytes": 51302,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-diagram.xsd",
-      "sha256": "29b254ee0d10414a8504b5a08149c7baec35a60d5ff607d6b3f492aa36815f40"
-    },
-    {
-      "bytes": 624,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-lockedCanvas.xsd",
-      "sha256": "5cb76dabd8b97d1e9308a1700b90c20139be4d50792d21a7f09789f5cccd6026"
-    },
-    {
-      "bytes": 152039,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-main.xsd",
-      "sha256": "5375417f0f5394b8dd1a7035b9679151f19a6b65df309dec10cfb4a420cb00e9"
-    },
-    {
-      "bytes": 1231,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-picture.xsd",
-      "sha256": "5d389d42befbebd91945d620242347caecd3367f9a3a7cf8d97949507ae1f53c"
-    },
-    {
-      "bytes": 8862,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-spreadsheetDrawing.xsd",
-      "sha256": "b4532b6d258832953fbb3ee4c711f4fe25d3faf46a10644b2505f17010d01e88"
-    },
-    {
-      "bytes": 14795,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-wordprocessingDrawing.xsd",
-      "sha256": "bdad416b096b61d37b71603b2c949484f9070c830bdaeba93bf35e15c8900614"
-    },
-    {
-      "bytes": 83612,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/pml.xsd",
-      "sha256": "d173c3e5d61e42e2e3a97226c632fd2ab7cc481fc4e492365b87024ab546daff"
-    },
-    {
-      "bytes": 1269,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-additionalCharacteristics.xsd",
-      "sha256": "3c6709101c6aaa82888df5d8795c33f9e857196790eb320d9194e64be2b6bdd8"
-    },
-    {
-      "bytes": 7328,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-bibliography.xsd",
-      "sha256": "0b364451dc36a48dd6dae0f3b6ada05fd9b71e5208211f8ee5537d7e51a587e2"
-    },
-    {
-      "bytes": 6382,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-commonSimpleTypes.xsd",
-      "sha256": "e2abacbb9a55ce1365f8961bc1b1395bbc811e512b111000d8c333f98458dece"
-    },
-    {
-      "bytes": 1248,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlDataProperties.xsd",
-      "sha256": "0ef4bb354ff44b923564c4ddbdda5987919d220225129ec94614a618ceafc281"
-    },
-    {
-      "bytes": 880,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlSchemaProperties.xsd",
-      "sha256": "0d103b99a4a8652f8871552a69d42d2a3760ac6a5e3ef02d979c4273257ff6a4"
-    },
-    {
-      "bytes": 2608,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesCustom.xsd",
-      "sha256": "9c085407751b9061c1f996f6c39ce58451be22a8d334f09175f0e89e42736285"
-    },
-    {
-      "bytes": 3507,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd",
-      "sha256": "bc92e36ccd233722d4c5869bec71ddc7b12e2df56059942cce5a39065cc9c368"
-    },
-    {
-      "bytes": 7507,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesVariantTypes.xsd",
-      "sha256": "7b5b7413e2c895b1e148e82e292a117d53c7ec65b0696c992edca57b61b4a74b"
-    },
-    {
-      "bytes": 23313,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-math.xsd",
-      "sha256": "3213ef1631606250f5010b42cad7ef716f7c59426367798e33c374c0ec391d3a"
-    },
-    {
-      "bytes": 1367,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-relationshipReference.xsd",
-      "sha256": "12264f3c03d738311cd9237d212f1c07479e70f0cbe1ae725d29b36539aef637"
-    },
-    {
-      "bytes": 242277,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/sml.xsd",
-      "sha256": "beffeed56945c22a77440122c8bdc426f3fcbe7f3b12ea0976c770d1f8d54578"
-    },
-    {
-      "bytes": 26148,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-main.xsd",
-      "sha256": "f5ee623b08b6a66935e5aced2f5d8ad0fc71bf9e8e833cd490150c0fa94b8763"
-    },
-    {
-      "bytes": 25279,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-officeDrawing.xsd",
-      "sha256": "585bedc1313b40888dcc544cb74cd939a105ee674f3b1d3aa1cc6d34f70ff155"
-    },
-    {
-      "bytes": 535,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-presentationDrawing.xsd",
-      "sha256": "133c9f64a5c5d573b78d0a474122b22506d8eadb5e063f67cdbbb8fa2f161d0e"
-    },
-    {
-      "bytes": 5712,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-spreadsheetDrawing.xsd",
-      "sha256": "6bdeb169c3717eb01108853bd9fc5a3750fb1fa5b82abbdd854d49855a40f519"
-    },
-    {
-      "bytes": 4010,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-wordprocessingDrawing.xsd",
-      "sha256": "475dcae1e7d1ea46232db6f8481040c15e53a52a3c256831d3df204212b0e831"
-    },
-    {
-      "bytes": 171367,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/wml.xsd",
-      "sha256": "c2dd9f61f892deae6acd8d20771ea79b12018af25f3bf8d06639c8542d218cfd"
-    },
-    {
-      "bytes": 4646,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/xml.xsd",
-      "sha256": "a539aa2fb154fa50e0f5cc97e6ad7cbc66f8ec3e3746f61ec6a8b0d5d15ecdf2"
-    },
-    {
-      "bytes": 1963,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ecma/fourth-edition/opc-contentTypes.xsd",
-      "sha256": "9e0b7209fc69ab11987900404540969976000c5ebe4d4f58c43dc3842886bf3a"
-    },
-    {
-      "bytes": 2515,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ecma/fourth-edition/opc-coreProperties.xsd",
-      "sha256": "451958454e8588dfc7cd945981ada142ca06ff3307937f5700df059c2b307fa8"
-    },
-    {
-      "bytes": 2856,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ecma/fourth-edition/opc-digSig.xsd",
-      "sha256": "6de111e11403f7cd49027400755bae0ea1cabef2815f09bd40a24f0017613b24"
-    },
-    {
-      "bytes": 1344,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/ecma/fourth-edition/opc-relationships.xsd",
-      "sha256": "f565adfef5a502044abc3a9153e157edc25af78304d335994afb958874b15e26"
-    },
-    {
-      "bytes": 3127,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/mce/mc.xsd",
-      "sha256": "3a37e461ecf5a8670fdec34029703401f8728ab9c96ec1739a6ae58d55212413"
-    },
-    {
-      "bytes": 26549,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-2010.xsd",
-      "sha256": "568b26ee156cb9549aa439ca2158965f77b7c1602b7e0316f40ac6cf586e35f2"
-    },
-    {
-      "bytes": 3745,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-2012.xsd",
-      "sha256": "0fa75578a000439a7988ba0c59fdc69f774bbd416cbacc14d07125b3f686cb74"
-    },
-    {
-      "bytes": 901,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-2018.xsd",
-      "sha256": "be0ff793a22dd31384650c3a4da14c2fa8062751c2e97b0e5ee852bda13c60ad"
-    },
-    {
-      "bytes": 1778,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-cex-2018.xsd",
-      "sha256": "fddc2b880cabb9005aebbc7e783e53c19fec1c03df7d0e2f2076a33a0fdfd081"
-    },
-    {
-      "bytes": 1002,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-cid-2016.xsd",
-      "sha256": "127ca209fa73d7cb708449cb355c871867948a96e4a74f7bf5811ef62d17991d"
-    },
-    {
-      "bytes": 600,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-sdtdatahash-2020.xsd",
-      "sha256": "842e7163409c8d74f4d7088a8bc99500d80bc75332681a0980055b08f374a604"
-    },
-    {
-      "bytes": 745,
-      "path": "profiles/nerd/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-symex-2015.xsd",
-      "sha256": "16f6f8072249f431370723c2cd8974672e0d9c897e00e97dd918079df934871b"
-    },
-    {
-      "bytes": 6883,
+      "bytes": 7206,
       "path": "profiles/nerd/skills/productivity/teams-meeting-pipeline/SKILL.md",
-      "sha256": "5d3091690cf52058e6c87ccfe10688bfa44cb129db8a567a7be59a88035a128e"
+      "sha256": "ae1b08f044d7dfd9abb01c643cac3b69e4a3a1cbe7fd5782dd17785964cdc441"
     },
     {
       "bytes": 2932,
@@ -3060,6 +3090,66 @@
       "bytes": 4060,
       "path": "profiles/nerd/skills/productivity/todoist/SKILL.md",
       "sha256": "e837ec97b28547a9ede94fb36ec248161c4ee10bd436a33175ae43b2bd229a65"
+    },
+    {
+      "bytes": 3975,
+      "path": "profiles/nerd/skills/productivity/weekly-review-planning/SKILL.md",
+      "sha256": "a689257facb937cfca9bc5507dd9e729f287f0cd3f6abbf73448eb25f73fbaab"
+    },
+    {
+      "bytes": 1070,
+      "path": "profiles/nerd/skills/productivity/xlsx/LICENSE",
+      "sha256": "8aa3c7717d57a68490c31eef4b57b6887e892f0566ff866078ebd76113d357e2"
+    },
+    {
+      "bytes": 9655,
+      "path": "profiles/nerd/skills/productivity/xlsx/SKILL.md",
+      "sha256": "b302d7ac997843a757ab3c11513ea012889ebdae32f842edb44faa9a4485f19b"
+    },
+    {
+      "bytes": 3688,
+      "path": "profiles/nerd/skills/productivity/xlsx/references/restructuring.md",
+      "sha256": "cef18a6ce1835c0c95c447db57491ec9b84a75d6137e0002499eb626abc77626"
+    },
+    {
+      "bytes": 3446,
+      "path": "profiles/nerd/skills/productivity/xlsx/scripts/csv_to_xlsx.py",
+      "sha256": "c92331ed358a8ba762a67b408c594d4c12f19f571087a3605203fb68d8c8ca70"
+    },
+    {
+      "bytes": 9858,
+      "path": "profiles/nerd/skills/productivity/xlsx/scripts/xlsx_create.py",
+      "sha256": "29d797b1cdb6a51ed72e13aca5e891fc4d281825344f895719136ab360a4e92f"
+    },
+    {
+      "bytes": 10828,
+      "path": "profiles/nerd/skills/productivity/xlsx/scripts/xlsx_edit.py",
+      "sha256": "05e9c12fa66610bf53909691c6852a7ee38216a6ffd018c0e4ac2da173ae6bd4"
+    },
+    {
+      "bytes": 5806,
+      "path": "profiles/nerd/skills/productivity/xlsx/scripts/xlsx_read.py",
+      "sha256": "5f8dc99437e4b65d72cac4f99ef25d383b477926d5ae31e0e8aae6fa3266d935"
+    },
+    {
+      "bytes": 4173,
+      "path": "profiles/nerd/skills/productivity/xlsx/scripts/xlsx_recalc.py",
+      "sha256": "e61d8ab12a330a1efd4339bcc419a2a2793bd9a64b87f264580f732cae62dbfa"
+    },
+    {
+      "bytes": 13739,
+      "path": "profiles/nerd/skills/productivity/xlsx/scripts/xlsx_restructure.py",
+      "sha256": "062871f70d1c09d105f4aa4b1d3b420238b2997c8d52d1cfaa8e8cacdb1756db"
+    },
+    {
+      "bytes": 2367,
+      "path": "profiles/nerd/skills/productivity/xlsx/scripts/xlsx_to_csv.py",
+      "sha256": "1be6a866b20199e2b42e8937ad2ecfa2055c9877a34dac1b597bfa1d930720ea"
+    },
+    {
+      "bytes": 21956,
+      "path": "profiles/nerd/skills/productivity/xlsx/tests/test_xlsx_skill.py",
+      "sha256": "b842edca940a1daf30aa141d4240fe815c85e37638d6784e7b1c539fa1665797"
     },
     {
       "bytes": 20059,
@@ -3112,9 +3202,9 @@
       "sha256": "a7bc842330a491de5f73cd63e87521e53724d94d4f53949bfa2171beb8200e18"
     },
     {
-      "bytes": 10085,
+      "bytes": 10061,
       "path": "profiles/nerd/skills/research/arxiv/SKILL.md",
-      "sha256": "2a6073a1ad08823dbdf26be64440b54155298db38fdee52c7b0a5d1cd0cfb05d"
+      "sha256": "9b41877bcb64166dc2355a43aedd3198c3e5214af67f09e1d1b717a989d92f72"
     },
     {
       "bytes": 4272,
@@ -3127,9 +3217,39 @@
       "sha256": "b85be5a9b86b90287266dd142a0ae9740be926298fbcb772f56b8a4d6451bb12"
     },
     {
-      "bytes": 20129,
+      "bytes": 4619,
+      "path": "profiles/nerd/skills/research/competitor-news-monitor/SKILL.md",
+      "sha256": "d8fd2a3a26ff45455709595132a092825a48f6c9dd3bcc98b06c1a43eaa7fcca"
+    },
+    {
+      "bytes": 12652,
+      "path": "profiles/nerd/skills/research/grounded-citations/SKILL.md",
+      "sha256": "19fba3a4ceedf768af6851e094b268a66b62af750d4d0689c5d62d5d50c032b6"
+    },
+    {
+      "bytes": 2418,
+      "path": "profiles/nerd/skills/research/grounded-citations/references/citation-formats.md",
+      "sha256": "209312a46dd9516e44e78f617589f789e07d54660e347b6b3882e8ac60097d04"
+    },
+    {
+      "bytes": 3127,
+      "path": "profiles/nerd/skills/research/grounded-citations/references/grounding-rationale.md",
+      "sha256": "2835754857ea05a1c801e88a50d4c2b4cc6ebd52cc4cc1f5741dba05f5af73c1"
+    },
+    {
+      "bytes": 836,
+      "path": "profiles/nerd/skills/research/grounded-citations/scripts/_hermes_home.py",
+      "sha256": "4bfa31ce48ffaca3ae3fdd2ba5f093a2bedc34b057eec22a38f46e2d68b333d4"
+    },
+    {
+      "bytes": 25808,
+      "path": "profiles/nerd/skills/research/grounded-citations/scripts/sources.py",
+      "sha256": "a867ae6ba99166b4114bfef1c15b57036e286fe22c48534caec28cc8335bde0c"
+    },
+    {
+      "bytes": 20121,
       "path": "profiles/nerd/skills/research/llm-wiki/SKILL.md",
-      "sha256": "a37ae04745b04b8e9bbd8de37cdcbc2b2187ccafb68418e436a46ebb1e491ee5"
+      "sha256": "0229e37c1783fcac5b77cfb3242703666cf4aa472d2ae85b6bd5279756b515b6"
     },
     {
       "bytes": 2985,
@@ -3442,9 +3562,9 @@
       "sha256": "dbd7cabb99164fa6571ee0cd599099838260c72fce25a01d42ed68575065d3c8"
     },
     {
-      "bytes": 15518,
+      "bytes": 16345,
       "path": "profiles/nerd/skills/social-media/xurl/SKILL.md",
-      "sha256": "8b1899dc7188328a6589cd62ed594591c2d243c483bdfbd45c8a027f4e0332dd"
+      "sha256": "5457319ee337284b1152dc9f60146c72685ade489299afed08e0b46ca5a97080"
     },
     {
       "bytes": 13721,
@@ -3452,14 +3572,119 @@
       "sha256": "b9223418364cd51a7f2faa342c39edcc997701b77820bdbaa2f842560f1e3dd7"
     },
     {
+      "bytes": 3612,
+      "path": "profiles/nerd/skills/software-development/codebase-inspection/SKILL.md",
+      "sha256": "d62554263461919dff7d77c3c0c284c2190c894f312a84d7a770a030dab642dc"
+    },
+    {
       "bytes": 7910,
       "path": "profiles/nerd/skills/software-development/debugging-hermes-tui-commands/SKILL.md",
       "sha256": "55d5811c0b2d872dc59d87432720a113150dbbce2872524a36b3860a8967095d"
     },
     {
-      "bytes": 10651,
+      "bytes": 6324,
+      "path": "profiles/nerd/skills/software-development/dogfood/SKILL.md",
+      "sha256": "1b2793734493dbc624a1d1f1c0667cb510e191fa79b1c740d866706550190560"
+    },
+    {
+      "bytes": 3682,
+      "path": "profiles/nerd/skills/software-development/dogfood/references/issue-taxonomy.md",
+      "sha256": "b90546fab5b59494ebea35b957ccc1d98bab8eaeaaa3529a142b15ea96df2b31"
+    },
+    {
+      "bytes": 1528,
+      "path": "profiles/nerd/skills/software-development/dogfood/templates/dogfood-report-template.md",
+      "sha256": "6db9127715d3d1482542e48dd2d71fcb25238e614b1e5739ec193fa143962a26"
+    },
+    {
+      "bytes": 2446,
+      "path": "profiles/nerd/skills/software-development/github/SKILL.md",
+      "sha256": "9d70e7c842fe7db75b5a50526552a69862f5bcfc1e59aa93785241649a09d5a3"
+    },
+    {
+      "bytes": 11586,
+      "path": "profiles/nerd/skills/software-development/github/references/auth.md",
+      "sha256": "eba9d0edf896036718612bb557ec7a6432532a9395bd66277c3b7417d8960a37"
+    },
+    {
+      "bytes": 4879,
+      "path": "profiles/nerd/skills/software-development/github/references/ci-troubleshooting.md",
+      "sha256": "c72b2301e9b85c545c4960722dbd4c0d49c5d883e6d86438e932bd47b1d8eee0"
+    },
+    {
+      "bytes": 13295,
+      "path": "profiles/nerd/skills/software-development/github/references/code-review.md",
+      "sha256": "11ad06e6d49bcfc3433530b40f95b72f568cae0a2d7ca6e2450b22d3e0626d7b"
+    },
+    {
+      "bytes": 2417,
+      "path": "profiles/nerd/skills/software-development/github/references/conventional-commits.md",
+      "sha256": "2d71a3b701b08c2e5ed5248d17928eb11e27d7b357f9e2dca27caee9cc017aab"
+    },
+    {
+      "bytes": 6092,
+      "path": "profiles/nerd/skills/software-development/github/references/github-api-cheatsheet.md",
+      "sha256": "a9081d4a108b67b4edd3c92c73d823fd1730e37e23be6f069d9bd67dd3b32486"
+    },
+    {
+      "bytes": 5638,
+      "path": "profiles/nerd/skills/software-development/github/references/issue-to-pr.md",
+      "sha256": "9fc6de82f9b8e65a1611a5e3eee9f6f35cc9118a90a9df3de547cb65f2766dab"
+    },
+    {
+      "bytes": 8981,
+      "path": "profiles/nerd/skills/software-development/github/references/issues.md",
+      "sha256": "86cf4a98232ee6362cd7893e76bed6ed25c21eb660e878432c6df3286c02d6d8"
+    },
+    {
+      "bytes": 9708,
+      "path": "profiles/nerd/skills/software-development/github/references/pr-workflow.md",
+      "sha256": "0be42677bf500fe292c221468c2f9c48b4c8326dad508b8ef3287c010364adc8"
+    },
+    {
+      "bytes": 13378,
+      "path": "profiles/nerd/skills/software-development/github/references/repo-management.md",
+      "sha256": "c74500946263f6bdb4925d4de96aa09dcd49146c9e918bf73863f0b6186e0543"
+    },
+    {
+      "bytes": 2465,
+      "path": "profiles/nerd/skills/software-development/github/references/review-output-template.md",
+      "sha256": "4560662913e8f89d558c7ba4f34daf77a35a88367c2d480ad86de7085cbcaf34"
+    },
+    {
+      "bytes": 2556,
+      "path": "profiles/nerd/skills/software-development/github/scripts/gh-env.sh",
+      "sha256": "eb04179d859635b56cdd0da71da59cd5d94d7a69c9a856f9f562d1cd5cb9412f"
+    },
+    {
+      "bytes": 1788,
+      "path": "profiles/nerd/skills/software-development/github/scripts/git-credential-token.py",
+      "sha256": "4c0f3dfdc75df9043fe7b62b0807e7b4392c59ee81082d2fcc8d39b75c593efb"
+    },
+    {
+      "bytes": 469,
+      "path": "profiles/nerd/skills/software-development/github/templates/bug-report.md",
+      "sha256": "4b3144ccf47a85dcec889c7610d6b739a7ae6f19aa8d4709942112ef09e11a5b"
+    },
+    {
+      "bytes": 598,
+      "path": "profiles/nerd/skills/software-development/github/templates/feature-request.md",
+      "sha256": "43962f5a398b4badeeb94280299ba4511940ad0e32afcfce5f2a6e1afd21c7a8"
+    },
+    {
+      "bytes": 513,
+      "path": "profiles/nerd/skills/software-development/github/templates/pr-body-bugfix.md",
+      "sha256": "e8c31915b87dba0454d7520a3aa45ef8650fd0e50e48e277db855ff919e6251a"
+    },
+    {
+      "bytes": 580,
+      "path": "profiles/nerd/skills/software-development/github/templates/pr-body-feature.md",
+      "sha256": "875e815da6e0e3df2763a85c9c2a56a776461da39d4181a1487333c0bf5b9276"
+    },
+    {
+      "bytes": 14432,
       "path": "profiles/nerd/skills/software-development/hermes-agent-skill-authoring/SKILL.md",
-      "sha256": "7d3aa79739df5c17424869fe3c783ddeb5c340d6b4b30a993100f982b24eadd6"
+      "sha256": "3a274d5b42fa0a958f48bcc4eb0691712e0a1dcf3d7b99d09ec9029c4499ef3b"
     },
     {
       "bytes": 11474,
@@ -3467,9 +3692,14 @@
       "sha256": "14d42314746571421ff7ca90cbc2cb34b428a09a6d4424fa942bc2ff79e344f2"
     },
     {
-      "bytes": 10929,
+      "bytes": 6204,
+      "path": "profiles/nerd/skills/software-development/inspecting-hermes-desktop-dom/SKILL.md",
+      "sha256": "a78a5f8d277a1d6d39fccd5ecf1e76ce519a1ace831f06078dfcc91cb54a3399"
+    },
+    {
+      "bytes": 10894,
       "path": "profiles/nerd/skills/software-development/node-inspect-debugger/SKILL.md",
-      "sha256": "f2f72c0c9e67143effc8cb9871a242309813af72c61b8d62548ae275c86f2d08"
+      "sha256": "bc89942b76387834272b6bf3bbf99caad72400c41338ab0420a740b7abe77d02"
     },
     {
       "bytes": 3903,
@@ -3482,9 +3712,9 @@
       "sha256": "0256a75486160c61a95965270a8674a7f7f3b7594c5e5face18112152220c6d5"
     },
     {
-      "bytes": 13172,
+      "bytes": 13347,
       "path": "profiles/nerd/skills/software-development/python-debugpy/SKILL.md",
-      "sha256": "ce7e38367ea54fb86e32d41be2fb3682482b7e3d748316cb666b3d4e3ca51a40"
+      "sha256": "24258d93eb080e7bbf89a81ba3e614b09d5d09637cdceaafac487f4df07f3f53"
     },
     {
       "bytes": 8835,
@@ -3517,19 +3747,34 @@
       "sha256": "236e64e5ddc1089cf279016d6f2da60ce1c645bd323b4d5ef56bac7f649c922c"
     },
     {
+      "bytes": 137,
+      "path": "profiles/nerd/skills/web/DESCRIPTION.md",
+      "sha256": "1cee33fe7aaddc9d8ce9319f4452dc9a357952feba049810e392a8ecf67ea28e"
+    },
+    {
+      "bytes": 5156,
+      "path": "profiles/nerd/skills/web/blocked-page-recovery/SKILL.md",
+      "sha256": "7f7d321f177399ca928e11ab38942cfa76d6e931a82d887671c50661fb411d51"
+    },
+    {
+      "bytes": 8481,
+      "path": "profiles/nerd/skills/web/blocked-page-recovery/scripts/recover_page.py",
+      "sha256": "22b996996ae2bf252b31cfd2636231f08936729a381dce7ba8bfa4afb8ffe8c6"
+    },
+    {
       "bytes": 3795,
       "path": "profiles/nerd/skills/yuanbao/SKILL.md",
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     },
     {
-      "bytes": 513,
+      "bytes": 667,
       "path": "profiles/writing/SOUL.md",
-      "sha256": "2765a846e1bb371d78d3b93b403dfb0f8d1ba1a9895edb5f608367abfe81194d"
+      "sha256": "36c1f5a2e92cd1d018311eaf4c8f1e8886672eae78212e033c681d0e3d5d506f"
     },
     {
-      "bytes": 12392,
+      "bytes": 11786,
       "path": "profiles/writing/config/config.yaml",
-      "sha256": "c9d3864e4d625271493c5daaf945bb50905f7cf83107525be31c982183b10e65"
+      "sha256": "30b20488d8807db17de81352cb74e5fbf07de876e01bc62f4afb2a18031f8ca9"
     },
     {
       "bytes": 505,
@@ -3877,9 +4122,9 @@
       "sha256": "2803cd39805b989c465f5b6c1c1d1a4c825510fb5469d5f96eae9eb775b51f37"
     },
     {
-      "bytes": 3421,
+      "bytes": 2727,
       "path": "profiles/writing/skills/.bundled_manifest",
-      "sha256": "4eb28fcf205c8be4624334f389031d2323e276ff08ab14b5afd35dbfbf79c39b"
+      "sha256": "3170a9c54dc150750b55f76dc5912dfd227651650274a12cb08395960e4746e3"
     },
     {
       "bytes": 152,
@@ -3902,14 +4147,14 @@
       "sha256": "789708800868d54b15dc22e7c70504dd338e1cd9591589863c739c7bd3674fdb"
     },
     {
+      "bytes": 15819,
+      "path": "profiles/writing/skills/autonomous-ai-agents/computer-use/SKILL.md",
+      "sha256": "e3d11184959bd06106fa73f315dfde9721502e9542621d62c398024de27eb4cd"
+    },
+    {
       "bytes": 50687,
       "path": "profiles/writing/skills/autonomous-ai-agents/hermes-agent/SKILL.md",
       "sha256": "7ba8659bcd5ce34aad2b7d1f2f974d812a60f890d6d49b637e323000aec1f301"
-    },
-    {
-      "bytes": 11179,
-      "path": "profiles/writing/skills/computer-use/SKILL.md",
-      "sha256": "33fdce112f142cd3ec1978b53720099b706b3b51e1781d37c3b4f30f32ebdddd"
     },
     {
       "bytes": 116,
@@ -4102,9 +4347,9 @@
       "sha256": "a30f3ec6105d5b23bc5ec28e8e2809e9ceed49f1fd816570d5b5656d0aa65819"
     },
     {
-      "bytes": 12023,
+      "bytes": 12150,
       "path": "profiles/writing/skills/creative/manim-video/SKILL.md",
-      "sha256": "3459a6af999f0c9bfd61eb867836c8de90b33253493eb1b6aa4118d82fd320f4"
+      "sha256": "467376469fc2043e2674a843509f8eea52660791e76fb2e142074ecd4abc7e69"
     },
     {
       "bytes": 7205,
@@ -4192,24 +4437,14 @@
       "sha256": "8d0f1ec023ec3db00681f9d0a45df4879da7955f775c12eadc004ad2c261fe74"
     },
     {
+      "bytes": 9073,
+      "path": "profiles/writing/skills/devops/sdlc-review/SKILL.md",
+      "sha256": "ce90e8a3e145cce69c62880dc85921700110879f9290952d6cec28218503155f"
+    },
+    {
       "bytes": 159,
       "path": "profiles/writing/skills/diagramming/DESCRIPTION.md",
       "sha256": "76d976d69859292bdb3fcb53b72971094be994a2034c8de0c0484b1324028cd1"
-    },
-    {
-      "bytes": 6270,
-      "path": "profiles/writing/skills/dogfood/SKILL.md",
-      "sha256": "36b1a710c61727c2be3c43ba20d68605cfed199afc90e27bde9746f4b80b91dd"
-    },
-    {
-      "bytes": 3682,
-      "path": "profiles/writing/skills/dogfood/references/issue-taxonomy.md",
-      "sha256": "b90546fab5b59494ebea35b957ccc1d98bab8eaeaaa3529a142b15ea96df2b31"
-    },
-    {
-      "bytes": 1528,
-      "path": "profiles/writing/skills/dogfood/templates/dogfood-report-template.md",
-      "sha256": "6db9127715d3d1482542e48dd2d71fcb25238e614b1e5739ec193fa143962a26"
     },
     {
       "bytes": 1142,
@@ -4220,6 +4455,11 @@
       "bytes": 101,
       "path": "profiles/writing/skills/email/DESCRIPTION.md",
       "sha256": "2c40e123f597ebbb4db9edf5fe8e5d63a1aacf8f00b59eca1b5af0748062ac24"
+    },
+    {
+      "bytes": 4057,
+      "path": "profiles/writing/skills/email/email-inbox-triage/SKILL.md",
+      "sha256": "cd57ccc9d563b5186012b41d6bbf52e96c2837c5b8e79d524e8e5e6a44af6021"
     },
     {
       "bytes": 115,
@@ -4452,6 +4692,61 @@
       "sha256": "b5a494a45bfd430bfb3042ee0452a6b88c81481f147ce7fca2c29ed3e93c490a"
     },
     {
+      "bytes": 11697,
+      "path": "profiles/writing/skills/productivity/box/SKILL.md",
+      "sha256": "e9672412333de4feff348e6dc387d9022d32005247360347a10a7131fb87eb13"
+    },
+    {
+      "bytes": 2025,
+      "path": "profiles/writing/skills/productivity/box/references/bulk-operations.md",
+      "sha256": "873a14840a01048004ca0dfa9fd3eb6015a9b4d5d5ed00c4701ac9235280e331"
+    },
+    {
+      "bytes": 7515,
+      "path": "profiles/writing/skills/productivity/box/references/cli-guide.md",
+      "sha256": "a94496da79df7aceb8d92bf285069cd3b80034649da62ce23eb076e2da39ae7e"
+    },
+    {
+      "bytes": 4767,
+      "path": "profiles/writing/skills/productivity/box/references/content-workflows.md",
+      "sha256": "703bc320272cc93d93d67330ab1c082f88985b1e0095117099c4693683d042ad"
+    },
+    {
+      "bytes": 6189,
+      "path": "profiles/writing/skills/productivity/box/references/hubs.md",
+      "sha256": "61909fa5e550f6cd51c8d2c069a95e01f79f28c24a5780fe16e63e3b1eee890a"
+    },
+    {
+      "bytes": 6569,
+      "path": "profiles/writing/skills/productivity/box/references/oauth-setup.md",
+      "sha256": "6506cef6a6e44c5b5f8e483642595feb2ca2b93799ebd5e60ba9f08ddd8459a5"
+    },
+    {
+      "bytes": 2227,
+      "path": "profiles/writing/skills/productivity/box/references/rest-api.md",
+      "sha256": "3afe53c5bcfda288f3727de3ff1fa05773e24b7fdd964373280831218bb6b5d2"
+    },
+    {
+      "bytes": 5727,
+      "path": "profiles/writing/skills/productivity/box/references/sdk-development.md",
+      "sha256": "96886f989937399fa80d1841be2c99eb006f180bc1f8538c628f23a4c584cb8c"
+    },
+    {
+      "bytes": 10746,
+      "path": "profiles/writing/skills/productivity/box/references/search-and-ai.md",
+      "sha256": "6bfca0afc9cd35d5312261f0c5947b9387d5ec100473f4739cda9d432e040e1a"
+    },
+    {
+      "bytes": 2970,
+      "path": "profiles/writing/skills/productivity/box/references/troubleshooting.md",
+      "sha256": "a7c394e219a429ff3b04e76a1cbe5a97ce71ae6a2a7eed1eea7888d2eeb8b922"
+    },
+    {
+      "bytes": 2276,
+      "path": "profiles/writing/skills/productivity/box/references/webhooks-and-events.md",
+      "sha256": "5c1382adf41d8b3cecfd922f815ed85b10740d826924cf33def5250da934c6c5"
+    },
+    {
       "bytes": 7510,
       "path": "profiles/writing/skills/productivity/communication-tools/SKILL.md",
       "sha256": "a918dd72e35f090c2730af4441f7851185f0c909af9483b9909f3f6ef37dc841"
@@ -4472,9 +4767,79 @@
       "sha256": "9fea93b03b3e27d7568041e4037e6de59fc11c7b378c934de70bf0cc0f86268c"
     },
     {
-      "bytes": 13411,
+      "bytes": 3910,
+      "path": "profiles/writing/skills/productivity/document-to-action-items/SKILL.md",
+      "sha256": "8a7556754aca2a7d04d38847131fb4db8d6705fa2106fcb154279e26117b41ee"
+    },
+    {
+      "bytes": 1070,
+      "path": "profiles/writing/skills/productivity/docx/LICENSE",
+      "sha256": "8aa3c7717d57a68490c31eef4b57b6887e892f0566ff866078ebd76113d357e2"
+    },
+    {
+      "bytes": 10395,
+      "path": "profiles/writing/skills/productivity/docx/SKILL.md",
+      "sha256": "9678b14d5e7841d588b969f6a4696cd46bcc46c3e4ac1479edc7656a051aa5ff"
+    },
+    {
+      "bytes": 3997,
+      "path": "profiles/writing/skills/productivity/docx/references/revisions-and-comments.md",
+      "sha256": "cd861f6e9ea77767b1a5e2ec3f48dd620b0664811d8f204c59c61571b408e9ba"
+    },
+    {
+      "bytes": 10655,
+      "path": "profiles/writing/skills/productivity/docx/scripts/docx_comments.py",
+      "sha256": "6687c2f8b8e4cdd2ea9d70da668417e8c26f30dead2b1a4b7bda07e34fbf67cf"
+    },
+    {
+      "bytes": 3364,
+      "path": "profiles/writing/skills/productivity/docx/scripts/docx_common.py",
+      "sha256": "5f915ce8138d19344f80b218b3e81aac8332dc6b560774a6f2a9757f4fc2eaea"
+    },
+    {
+      "bytes": 6387,
+      "path": "profiles/writing/skills/productivity/docx/scripts/docx_create.py",
+      "sha256": "8391869c97ab804374dddadff4fbebc060120c0b973d06133f84487cc2c442d5"
+    },
+    {
+      "bytes": 8619,
+      "path": "profiles/writing/skills/productivity/docx/scripts/docx_edit.py",
+      "sha256": "00feef0a58a318406077020a017dd0b2673daaef93e0bda81fa9437b237180ff"
+    },
+    {
+      "bytes": 5405,
+      "path": "profiles/writing/skills/productivity/docx/scripts/docx_read.py",
+      "sha256": "4760617eea1b17d648f7a46f6718c22ec4a76a359e8f0ee9f6ffe921df9129de"
+    },
+    {
+      "bytes": 4571,
+      "path": "profiles/writing/skills/productivity/docx/scripts/docx_revisions.py",
+      "sha256": "0b835b76b86a1a7bf607c7724a09a71af788cacec48058ae99b04dba6950b938"
+    },
+    {
+      "bytes": 2482,
+      "path": "profiles/writing/skills/productivity/docx/scripts/docx_template.py",
+      "sha256": "aed1b1db212b72995bd47a28e6c9928a4d02d7596615f1dadf12cd43a4f34219"
+    },
+    {
+      "bytes": 6200,
+      "path": "profiles/writing/skills/productivity/docx/scripts/docx_validate.py",
+      "sha256": "64d4197ac4aa555384efaefa1cc392a863e2d05489acc04776c33ab1a591d024"
+    },
+    {
+      "bytes": 21267,
+      "path": "profiles/writing/skills/productivity/docx/tests/test_docx_skill.py",
+      "sha256": "a6e5ef3595d2168b15a655c366dcebbcc3e2ced73a0e2e5f741c626148c8566d"
+    },
+    {
+      "bytes": 13670,
       "path": "profiles/writing/skills/productivity/google-workspace/SKILL.md",
-      "sha256": "014a4818ee1b363d11fafa2353bcea4fd4f8e0c0802322708023d3cd2e3f43b6"
+      "sha256": "5bdca0d898744fbf4d66df611116b5c776b1297b964fbcfd86b3004c20e46fd7"
+    },
+    {
+      "bytes": 3217,
+      "path": "profiles/writing/skills/productivity/google-workspace/references/daily-brief.md",
+      "sha256": "d4b78bad4121fea470dfe1aa92b2fc0ae2368af6ffbdd0b29ef40c7c8f99067c"
     },
     {
       "bytes": 2150,
@@ -4482,29 +4847,29 @@
       "sha256": "340b78000fba67b9c5373978185446eb549a474870decf8c439edb03b3883bc5"
     },
     {
-      "bytes": 1630,
+      "bytes": 1636,
       "path": "profiles/writing/skills/productivity/google-workspace/scripts/_hermes_home.py",
-      "sha256": "a8861702cefda8684e1bec353044dafc0c52dbdd85cf02bc21454126b596baf5"
+      "sha256": "4d0f4393059688353bf8a3cca8118f08548edbae6f3c6ed477ff9f2d1205cff0"
     },
     {
-      "bytes": 43483,
+      "bytes": 43553,
       "path": "profiles/writing/skills/productivity/google-workspace/scripts/google_api.py",
-      "sha256": "1e9997a0cdbc5668ea5caa0bd8cfa09e33bb467b9f5df8cf962bab5ff3b20543"
+      "sha256": "d3822ef5cbdfad1d280fb619b9d85f2bdc0f8d8756398eb0189a126e8a6fbf89"
     },
     {
-      "bytes": 3648,
+      "bytes": 4368,
       "path": "profiles/writing/skills/productivity/google-workspace/scripts/gws_bridge.py",
-      "sha256": "e8b6d7f492d33e3643ff8a27712aef75f51d9c95ba6b4ec736f555337023bc81"
+      "sha256": "6bba56ab6d49ddab3cd16c2e189950633cbf1a9f4907cb7db5225ebe28313aee"
     },
     {
-      "bytes": 18743,
+      "bytes": 20231,
       "path": "profiles/writing/skills/productivity/google-workspace/scripts/setup.py",
-      "sha256": "a38450fcd6bc17be68fc30dccc4829b22cc892dd7da400fd6bc57dc4391e1c29"
+      "sha256": "ace45d12de9bbc408f03b88e78b8d5ed2a37f36e992164bcbe9708c5ba49883d"
     },
     {
-      "bytes": 6726,
+      "bytes": 6705,
       "path": "profiles/writing/skills/productivity/maps/SKILL.md",
-      "sha256": "8c961ecf662838e3ff287570d343db8b1587ca7a6d565ec53eeab13f89407b29"
+      "sha256": "775ef9f79be9cd147bc81e0c4a4ef952230a04736a6082f44dbac78554ef89ab"
     },
     {
       "bytes": 46678,
@@ -4512,9 +4877,119 @@
       "sha256": "94960e451d549766070c999f4979bd69ea956381b40c4d5b05bfa6c0501e7ffb"
     },
     {
+      "bytes": 3808,
+      "path": "profiles/writing/skills/productivity/meeting-action-items/SKILL.md",
+      "sha256": "1902f782551da96ee1f9b34d6f13af627f06150a498d874b0cc2a75d06d35aa8"
+    },
+    {
       "bytes": 147,
       "path": "profiles/writing/skills/productivity/ocr-and-documents/DESCRIPTION.md",
       "sha256": "0da2ba89cf066f7e554dc00fcfa05b2d10c300ec693394a9136d27ce3fc2d1e2"
+    },
+    {
+      "bytes": 1070,
+      "path": "profiles/writing/skills/productivity/pdf/LICENSE",
+      "sha256": "8aa3c7717d57a68490c31eef4b57b6887e892f0566ff866078ebd76113d357e2"
+    },
+    {
+      "bytes": 12489,
+      "path": "profiles/writing/skills/productivity/pdf/SKILL.md",
+      "sha256": "c16b9c159a3a0b49353bfcd10c498b02aef3d319207b1019aa7dc8db129d06ab"
+    },
+    {
+      "bytes": 3950,
+      "path": "profiles/writing/skills/productivity/pdf/references/forms.md",
+      "sha256": "471517e0b154fb765d04416f089b7e999103804b964a84675af49e2d53ee8da0"
+    },
+    {
+      "bytes": 1342,
+      "path": "profiles/writing/skills/productivity/pdf/references/nano-pdf-editing.md",
+      "sha256": "2f0b15bd1ebbd45cf37ed257723ad63aa70b623b97f5242c886c14f8968cd773"
+    },
+    {
+      "bytes": 5612,
+      "path": "profiles/writing/skills/productivity/pdf/references/ocr-extraction.md",
+      "sha256": "611f03bc3fdf7f29283bf609ee46362cef6bcbea91b965a74f37ddd8c513cd1e"
+    },
+    {
+      "bytes": 2614,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/_raster.py",
+      "sha256": "17ecfb8dd78b006e904d0f29e28172ce308a34588db99ec80b0f085d2a37b518"
+    },
+    {
+      "bytes": 3458,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/extract_marker.py",
+      "sha256": "a115ee1da5b88f7ab61c480ef9efb2b371350bed8f1cface7668898ba80aae38"
+    },
+    {
+      "bytes": 3671,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/extract_pymupdf.py",
+      "sha256": "784d233ee9849ce78cddc8253c87172c06a0b62c41aff7215fd97b77766babc8"
+    },
+    {
+      "bytes": 4562,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_create.py",
+      "sha256": "2a7a7c06c608e82cc11684bb67ff9cdb3bf8cbe6df38c6f4b1096dd2686f993c"
+    },
+    {
+      "bytes": 3887,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_fill_form.py",
+      "sha256": "d66d504d7f7fcb85c28881065c47dfbc6ac9b47294471531a7f013178c72a1ad"
+    },
+    {
+      "bytes": 7131,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_form_layout.py",
+      "sha256": "f654e386a8b1e5a26a1530b16d36177310dd48c6cb589ec6cf3dc1898a8ccdf9"
+    },
+    {
+      "bytes": 5988,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_make_form.py",
+      "sha256": "a194791f2d6504da9e629976620ac227a18a6ea14784d428c4cf4f57fafd6c3d"
+    },
+    {
+      "bytes": 1686,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_merge.py",
+      "sha256": "c1cf231f73b02790069227a4f711475b4b329c91e30e77826f24c05935674248"
+    },
+    {
+      "bytes": 4458,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_meta.py",
+      "sha256": "989c2564bb31d8b20abd53a4d7f86a603c930bd868e0201ad4cdec92d5487460"
+    },
+    {
+      "bytes": 3589,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_page_image.py",
+      "sha256": "40ad843fd50bd6bd91af1fd53de1cff1faf885921294afd304d0abf0fe93e4e2"
+    },
+    {
+      "bytes": 5895,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_read.py",
+      "sha256": "7d623cbbb6319f9f161dd769972250b08c426c291ed0af1a8304bec20437bfb2"
+    },
+    {
+      "bytes": 2679,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_secure.py",
+      "sha256": "65d0ba6733cb945e6147e4b46e0b6db0816096440b0f4fe24cc953307805e01b"
+    },
+    {
+      "bytes": 3045,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_split.py",
+      "sha256": "1e3d8f8e9aa8aa5445f8587e402e3bab65c785eb5b4aea120bc5b6216cb57cba"
+    },
+    {
+      "bytes": 5779,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_stamp.py",
+      "sha256": "e3bf6e29634be35ff99fee8a21a3e5f4f610298cb158942496d0949f0a941390"
+    },
+    {
+      "bytes": 1852,
+      "path": "profiles/writing/skills/productivity/pdf/scripts/pdf_watermark.py",
+      "sha256": "d903977ee37194ad18bba205d2d96eefbbe6670519bcd8ae285f619645005ae2"
+    },
+    {
+      "bytes": 17433,
+      "path": "profiles/writing/skills/productivity/pdf/tests/test_pdf_skill.py",
+      "sha256": "a2f6dd5be18f4c63a90fe4688d717145e74821d83afdd9e781adc815806a9119"
     },
     {
       "bytes": 3534,
@@ -4522,254 +4997,109 @@
       "sha256": "ca52cda72a9c49d60c4a3c2dbfa6c64c87e62562857b598599cc496b30116fd1"
     },
     {
-      "bytes": 1467,
-      "path": "profiles/writing/skills/productivity/powerpoint/LICENSE.txt",
-      "sha256": "79f6d8f5b427252fa3b1c11ecdbdb6bf610b944f7530b4de78f770f38741cfaa"
+      "bytes": 1070,
+      "path": "profiles/writing/skills/productivity/powerpoint/LICENSE",
+      "sha256": "8aa3c7717d57a68490c31eef4b57b6887e892f0566ff866078ebd76113d357e2"
     },
     {
-      "bytes": 9298,
+      "bytes": 10781,
       "path": "profiles/writing/skills/productivity/powerpoint/SKILL.md",
-      "sha256": "bb2084f5da312eec50f8ab3b1cb0f6ad3a86f4933f521b273fdc4dd1d4f52ada"
+      "sha256": "b71d29d9809c4464d7f8d10afabf4f22f6a26c647cf7aacb6f9faf196ebe82f2"
     },
     {
-      "bytes": 6885,
-      "path": "profiles/writing/skills/productivity/powerpoint/editing.md",
-      "sha256": "6cb47c3ab17e60b7de37e83131c409ef5a90a01bfb54e999905a9c9f7dd88e68"
+      "bytes": 8579,
+      "path": "profiles/writing/skills/productivity/powerpoint/scripts/pptx_create.py",
+      "sha256": "90e60c1fad8c5e7c209acf6ecdebee43c26609bbcf9a7dc063207ad8a3091485"
     },
     {
-      "bytes": 12819,
-      "path": "profiles/writing/skills/productivity/powerpoint/pptxgenjs.md",
-      "sha256": "9539534d92b7170813b735a448750df3580390da2da6c52a02b687ed53ecba86"
+      "bytes": 17224,
+      "path": "profiles/writing/skills/productivity/powerpoint/scripts/pptx_edit.py",
+      "sha256": "feb5b09546f9f7fb5dfb4c9b2596b3acbaff9c021faf1985c42f618be0476f3f"
     },
     {
-      "bytes": 0,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/__init__.py",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "bytes": 3431,
+      "path": "profiles/writing/skills/productivity/powerpoint/scripts/pptx_from_template.py",
+      "sha256": "8537205a777ba541c826082a4395066881dfa63c3033151127b82a8fd82fdb8f"
     },
     {
-      "bytes": 6872,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/add_slide.py",
-      "sha256": "04233ba3932c6b8611677347891616456e243cc09b7f9769408b8c83d9acfe64"
+      "bytes": 4761,
+      "path": "profiles/writing/skills/productivity/powerpoint/scripts/pptx_read.py",
+      "sha256": "b2a6e246e40a6728e5e0e8bf2c4cbe4f788ab8c40bdb1b89e339571a34fdbc71"
     },
     {
-      "bytes": 9583,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/clean.py",
-      "sha256": "3e3966a17f488a1ddc7145f0b7ec9f25595afa1f3a427ab05e610f1a328feea9"
+      "bytes": 3536,
+      "path": "profiles/writing/skills/productivity/powerpoint/scripts/pptx_render.py",
+      "sha256": "49ebe77fa453b5fb21e0a39c0601187399c26f60a399726744277ee098f06dd7"
     },
     {
-      "bytes": 0,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/helpers/__init__.py",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "bytes": 19524,
+      "path": "profiles/writing/skills/productivity/powerpoint/tests/test_powerpoint_skill.py",
+      "sha256": "da3262b8daa31ba2425845a8ce74adc033c89b8d2cf7b99f95a107f7e96b27f1"
     },
     {
-      "bytes": 5567,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/helpers/merge_runs.py",
-      "sha256": "7c40ed838b88639c51f9ffdcfd564b568f26832b78fe44008c0e01b742669ca7"
+      "bytes": 4400,
+      "path": "profiles/writing/skills/productivity/product-price-monitor/SKILL.md",
+      "sha256": "b87bf2102fed13d2c7c64759fa153f24f5e43a0afcf6f8ec5e13def92a6642ef"
     },
     {
-      "bytes": 5754,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/helpers/simplify_redlines.py",
-      "sha256": "560cb55978a834c505406eb18e2c61f62f998fc7a2d8e9721b9c563b42597896"
+      "bytes": 3975,
+      "path": "profiles/writing/skills/productivity/weekly-review-planning/SKILL.md",
+      "sha256": "a689257facb937cfca9bc5507dd9e729f287f0cd3f6abbf73448eb25f73fbaab"
     },
     {
-      "bytes": 4991,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/pack.py",
-      "sha256": "b1800987e568261a31f462df8e1303d386e9e6ccc11a75ef46e60cc528c20683"
+      "bytes": 1070,
+      "path": "profiles/writing/skills/productivity/xlsx/LICENSE",
+      "sha256": "8aa3c7717d57a68490c31eef4b57b6887e892f0566ff866078ebd76113d357e2"
     },
     {
-      "bytes": 74984,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chart.xsd",
-      "sha256": "41b93bd8857cc68b1e43be2806a872d736a9bdd6566900062d8fdb57d7bbb354"
+      "bytes": 9655,
+      "path": "profiles/writing/skills/productivity/xlsx/SKILL.md",
+      "sha256": "b302d7ac997843a757ab3c11513ea012889ebdae32f842edb44faa9a4485f19b"
     },
     {
-      "bytes": 6956,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chartDrawing.xsd",
-      "sha256": "3fd0586f2637b98bb9886f0e0b67d89e1cc987c2d158cc7deb5f5b9890ced412"
+      "bytes": 3688,
+      "path": "profiles/writing/skills/productivity/xlsx/references/restructuring.md",
+      "sha256": "cef18a6ce1835c0c95c447db57491ec9b84a75d6137e0002499eb626abc77626"
     },
     {
-      "bytes": 51302,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-diagram.xsd",
-      "sha256": "29b254ee0d10414a8504b5a08149c7baec35a60d5ff607d6b3f492aa36815f40"
+      "bytes": 3446,
+      "path": "profiles/writing/skills/productivity/xlsx/scripts/csv_to_xlsx.py",
+      "sha256": "c92331ed358a8ba762a67b408c594d4c12f19f571087a3605203fb68d8c8ca70"
     },
     {
-      "bytes": 624,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-lockedCanvas.xsd",
-      "sha256": "5cb76dabd8b97d1e9308a1700b90c20139be4d50792d21a7f09789f5cccd6026"
+      "bytes": 9858,
+      "path": "profiles/writing/skills/productivity/xlsx/scripts/xlsx_create.py",
+      "sha256": "29d797b1cdb6a51ed72e13aca5e891fc4d281825344f895719136ab360a4e92f"
     },
     {
-      "bytes": 152039,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-main.xsd",
-      "sha256": "5375417f0f5394b8dd1a7035b9679151f19a6b65df309dec10cfb4a420cb00e9"
+      "bytes": 10828,
+      "path": "profiles/writing/skills/productivity/xlsx/scripts/xlsx_edit.py",
+      "sha256": "05e9c12fa66610bf53909691c6852a7ee38216a6ffd018c0e4ac2da173ae6bd4"
     },
     {
-      "bytes": 1231,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-picture.xsd",
-      "sha256": "5d389d42befbebd91945d620242347caecd3367f9a3a7cf8d97949507ae1f53c"
+      "bytes": 5806,
+      "path": "profiles/writing/skills/productivity/xlsx/scripts/xlsx_read.py",
+      "sha256": "5f8dc99437e4b65d72cac4f99ef25d383b477926d5ae31e0e8aae6fa3266d935"
     },
     {
-      "bytes": 8862,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-spreadsheetDrawing.xsd",
-      "sha256": "b4532b6d258832953fbb3ee4c711f4fe25d3faf46a10644b2505f17010d01e88"
+      "bytes": 4173,
+      "path": "profiles/writing/skills/productivity/xlsx/scripts/xlsx_recalc.py",
+      "sha256": "e61d8ab12a330a1efd4339bcc419a2a2793bd9a64b87f264580f732cae62dbfa"
     },
     {
-      "bytes": 14795,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/dml-wordprocessingDrawing.xsd",
-      "sha256": "bdad416b096b61d37b71603b2c949484f9070c830bdaeba93bf35e15c8900614"
+      "bytes": 13739,
+      "path": "profiles/writing/skills/productivity/xlsx/scripts/xlsx_restructure.py",
+      "sha256": "062871f70d1c09d105f4aa4b1d3b420238b2997c8d52d1cfaa8e8cacdb1756db"
     },
     {
-      "bytes": 83612,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/pml.xsd",
-      "sha256": "d173c3e5d61e42e2e3a97226c632fd2ab7cc481fc4e492365b87024ab546daff"
+      "bytes": 2367,
+      "path": "profiles/writing/skills/productivity/xlsx/scripts/xlsx_to_csv.py",
+      "sha256": "1be6a866b20199e2b42e8937ad2ecfa2055c9877a34dac1b597bfa1d930720ea"
     },
     {
-      "bytes": 1269,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-additionalCharacteristics.xsd",
-      "sha256": "3c6709101c6aaa82888df5d8795c33f9e857196790eb320d9194e64be2b6bdd8"
-    },
-    {
-      "bytes": 7328,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-bibliography.xsd",
-      "sha256": "0b364451dc36a48dd6dae0f3b6ada05fd9b71e5208211f8ee5537d7e51a587e2"
-    },
-    {
-      "bytes": 6382,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-commonSimpleTypes.xsd",
-      "sha256": "e2abacbb9a55ce1365f8961bc1b1395bbc811e512b111000d8c333f98458dece"
-    },
-    {
-      "bytes": 1248,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlDataProperties.xsd",
-      "sha256": "0ef4bb354ff44b923564c4ddbdda5987919d220225129ec94614a618ceafc281"
-    },
-    {
-      "bytes": 880,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlSchemaProperties.xsd",
-      "sha256": "0d103b99a4a8652f8871552a69d42d2a3760ac6a5e3ef02d979c4273257ff6a4"
-    },
-    {
-      "bytes": 2608,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesCustom.xsd",
-      "sha256": "9c085407751b9061c1f996f6c39ce58451be22a8d334f09175f0e89e42736285"
-    },
-    {
-      "bytes": 3507,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd",
-      "sha256": "bc92e36ccd233722d4c5869bec71ddc7b12e2df56059942cce5a39065cc9c368"
-    },
-    {
-      "bytes": 7507,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesVariantTypes.xsd",
-      "sha256": "7b5b7413e2c895b1e148e82e292a117d53c7ec65b0696c992edca57b61b4a74b"
-    },
-    {
-      "bytes": 23313,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-math.xsd",
-      "sha256": "3213ef1631606250f5010b42cad7ef716f7c59426367798e33c374c0ec391d3a"
-    },
-    {
-      "bytes": 1367,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/shared-relationshipReference.xsd",
-      "sha256": "12264f3c03d738311cd9237d212f1c07479e70f0cbe1ae725d29b36539aef637"
-    },
-    {
-      "bytes": 242277,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/sml.xsd",
-      "sha256": "beffeed56945c22a77440122c8bdc426f3fcbe7f3b12ea0976c770d1f8d54578"
-    },
-    {
-      "bytes": 26148,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-main.xsd",
-      "sha256": "f5ee623b08b6a66935e5aced2f5d8ad0fc71bf9e8e833cd490150c0fa94b8763"
-    },
-    {
-      "bytes": 25279,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-officeDrawing.xsd",
-      "sha256": "585bedc1313b40888dcc544cb74cd939a105ee674f3b1d3aa1cc6d34f70ff155"
-    },
-    {
-      "bytes": 535,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-presentationDrawing.xsd",
-      "sha256": "133c9f64a5c5d573b78d0a474122b22506d8eadb5e063f67cdbbb8fa2f161d0e"
-    },
-    {
-      "bytes": 5712,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-spreadsheetDrawing.xsd",
-      "sha256": "6bdeb169c3717eb01108853bd9fc5a3750fb1fa5b82abbdd854d49855a40f519"
-    },
-    {
-      "bytes": 4010,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/vml-wordprocessingDrawing.xsd",
-      "sha256": "475dcae1e7d1ea46232db6f8481040c15e53a52a3c256831d3df204212b0e831"
-    },
-    {
-      "bytes": 171367,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/wml.xsd",
-      "sha256": "c2dd9f61f892deae6acd8d20771ea79b12018af25f3bf8d06639c8542d218cfd"
-    },
-    {
-      "bytes": 4646,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ISO-IEC29500-4_2016/xml.xsd",
-      "sha256": "a539aa2fb154fa50e0f5cc97e6ad7cbc66f8ec3e3746f61ec6a8b0d5d15ecdf2"
-    },
-    {
-      "bytes": 1963,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ecma/fourth-edition/opc-contentTypes.xsd",
-      "sha256": "9e0b7209fc69ab11987900404540969976000c5ebe4d4f58c43dc3842886bf3a"
-    },
-    {
-      "bytes": 2515,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ecma/fourth-edition/opc-coreProperties.xsd",
-      "sha256": "451958454e8588dfc7cd945981ada142ca06ff3307937f5700df059c2b307fa8"
-    },
-    {
-      "bytes": 2856,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ecma/fourth-edition/opc-digSig.xsd",
-      "sha256": "6de111e11403f7cd49027400755bae0ea1cabef2815f09bd40a24f0017613b24"
-    },
-    {
-      "bytes": 1344,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/ecma/fourth-edition/opc-relationships.xsd",
-      "sha256": "f565adfef5a502044abc3a9153e157edc25af78304d335994afb958874b15e26"
-    },
-    {
-      "bytes": 3127,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/mce/mc.xsd",
-      "sha256": "3a37e461ecf5a8670fdec34029703401f8728ab9c96ec1739a6ae58d55212413"
-    },
-    {
-      "bytes": 26549,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-2010.xsd",
-      "sha256": "568b26ee156cb9549aa439ca2158965f77b7c1602b7e0316f40ac6cf586e35f2"
-    },
-    {
-      "bytes": 3745,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-2012.xsd",
-      "sha256": "0fa75578a000439a7988ba0c59fdc69f774bbd416cbacc14d07125b3f686cb74"
-    },
-    {
-      "bytes": 901,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-2018.xsd",
-      "sha256": "be0ff793a22dd31384650c3a4da14c2fa8062751c2e97b0e5ee852bda13c60ad"
-    },
-    {
-      "bytes": 1778,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-cex-2018.xsd",
-      "sha256": "fddc2b880cabb9005aebbc7e783e53c19fec1c03df7d0e2f2076a33a0fdfd081"
-    },
-    {
-      "bytes": 1002,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-cid-2016.xsd",
-      "sha256": "127ca209fa73d7cb708449cb355c871867948a96e4a74f7bf5811ef62d17991d"
-    },
-    {
-      "bytes": 600,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-sdtdatahash-2020.xsd",
-      "sha256": "842e7163409c8d74f4d7088a8bc99500d80bc75332681a0980055b08f374a604"
-    },
-    {
-      "bytes": 745,
-      "path": "profiles/writing/skills/productivity/powerpoint/scripts/office/schemas/microsoft/wml-symex-2015.xsd",
-      "sha256": "16f6f8072249f431370723c2cd8974672e0d9c897e00e97dd918079df934871b"
+      "bytes": 21956,
+      "path": "profiles/writing/skills/productivity/xlsx/tests/test_xlsx_skill.py",
+      "sha256": "b842edca940a1daf30aa141d4240fe815c85e37638d6784e7b1c539fa1665797"
     },
     {
       "bytes": 20059,
@@ -4822,6 +5152,36 @@
       "sha256": "a7bc842330a491de5f73cd63e87521e53724d94d4f53949bfa2171beb8200e18"
     },
     {
+      "bytes": 4619,
+      "path": "profiles/writing/skills/research/competitor-news-monitor/SKILL.md",
+      "sha256": "d8fd2a3a26ff45455709595132a092825a48f6c9dd3bcc98b06c1a43eaa7fcca"
+    },
+    {
+      "bytes": 12652,
+      "path": "profiles/writing/skills/research/grounded-citations/SKILL.md",
+      "sha256": "19fba3a4ceedf768af6851e094b268a66b62af750d4d0689c5d62d5d50c032b6"
+    },
+    {
+      "bytes": 2418,
+      "path": "profiles/writing/skills/research/grounded-citations/references/citation-formats.md",
+      "sha256": "209312a46dd9516e44e78f617589f789e07d54660e347b6b3882e8ac60097d04"
+    },
+    {
+      "bytes": 3127,
+      "path": "profiles/writing/skills/research/grounded-citations/references/grounding-rationale.md",
+      "sha256": "2835754857ea05a1c801e88a50d4c2b4cc6ebd52cc4cc1f5741dba05f5af73c1"
+    },
+    {
+      "bytes": 836,
+      "path": "profiles/writing/skills/research/grounded-citations/scripts/_hermes_home.py",
+      "sha256": "4bfa31ce48ffaca3ae3fdd2ba5f093a2bedc34b057eec22a38f46e2d68b333d4"
+    },
+    {
+      "bytes": 25808,
+      "path": "profiles/writing/skills/research/grounded-citations/scripts/sources.py",
+      "sha256": "a867ae6ba99166b4114bfef1c15b57036e286fe22c48534caec28cc8335bde0c"
+    },
+    {
       "bytes": 3362,
       "path": "profiles/writing/skills/research/research-tools/SKILL.md",
       "sha256": "ceeeb2bae94c69d5793fa1e2dc769b23c668bfdee753849c04e6fa9aff81b278"
@@ -4847,6 +5207,111 @@
       "sha256": "6d2621b70c566de6c8b1519b37743ae58f42c324c0731faf0fe099890a7c14cc"
     },
     {
+      "bytes": 6324,
+      "path": "profiles/writing/skills/software-development/dogfood/SKILL.md",
+      "sha256": "1b2793734493dbc624a1d1f1c0667cb510e191fa79b1c740d866706550190560"
+    },
+    {
+      "bytes": 3682,
+      "path": "profiles/writing/skills/software-development/dogfood/references/issue-taxonomy.md",
+      "sha256": "b90546fab5b59494ebea35b957ccc1d98bab8eaeaaa3529a142b15ea96df2b31"
+    },
+    {
+      "bytes": 1528,
+      "path": "profiles/writing/skills/software-development/dogfood/templates/dogfood-report-template.md",
+      "sha256": "6db9127715d3d1482542e48dd2d71fcb25238e614b1e5739ec193fa143962a26"
+    },
+    {
+      "bytes": 2446,
+      "path": "profiles/writing/skills/software-development/github/SKILL.md",
+      "sha256": "9d70e7c842fe7db75b5a50526552a69862f5bcfc1e59aa93785241649a09d5a3"
+    },
+    {
+      "bytes": 11586,
+      "path": "profiles/writing/skills/software-development/github/references/auth.md",
+      "sha256": "eba9d0edf896036718612bb557ec7a6432532a9395bd66277c3b7417d8960a37"
+    },
+    {
+      "bytes": 4879,
+      "path": "profiles/writing/skills/software-development/github/references/ci-troubleshooting.md",
+      "sha256": "c72b2301e9b85c545c4960722dbd4c0d49c5d883e6d86438e932bd47b1d8eee0"
+    },
+    {
+      "bytes": 13295,
+      "path": "profiles/writing/skills/software-development/github/references/code-review.md",
+      "sha256": "11ad06e6d49bcfc3433530b40f95b72f568cae0a2d7ca6e2450b22d3e0626d7b"
+    },
+    {
+      "bytes": 2417,
+      "path": "profiles/writing/skills/software-development/github/references/conventional-commits.md",
+      "sha256": "2d71a3b701b08c2e5ed5248d17928eb11e27d7b357f9e2dca27caee9cc017aab"
+    },
+    {
+      "bytes": 6092,
+      "path": "profiles/writing/skills/software-development/github/references/github-api-cheatsheet.md",
+      "sha256": "a9081d4a108b67b4edd3c92c73d823fd1730e37e23be6f069d9bd67dd3b32486"
+    },
+    {
+      "bytes": 5638,
+      "path": "profiles/writing/skills/software-development/github/references/issue-to-pr.md",
+      "sha256": "9fc6de82f9b8e65a1611a5e3eee9f6f35cc9118a90a9df3de547cb65f2766dab"
+    },
+    {
+      "bytes": 8981,
+      "path": "profiles/writing/skills/software-development/github/references/issues.md",
+      "sha256": "86cf4a98232ee6362cd7893e76bed6ed25c21eb660e878432c6df3286c02d6d8"
+    },
+    {
+      "bytes": 9708,
+      "path": "profiles/writing/skills/software-development/github/references/pr-workflow.md",
+      "sha256": "0be42677bf500fe292c221468c2f9c48b4c8326dad508b8ef3287c010364adc8"
+    },
+    {
+      "bytes": 13378,
+      "path": "profiles/writing/skills/software-development/github/references/repo-management.md",
+      "sha256": "c74500946263f6bdb4925d4de96aa09dcd49146c9e918bf73863f0b6186e0543"
+    },
+    {
+      "bytes": 2465,
+      "path": "profiles/writing/skills/software-development/github/references/review-output-template.md",
+      "sha256": "4560662913e8f89d558c7ba4f34daf77a35a88367c2d480ad86de7085cbcaf34"
+    },
+    {
+      "bytes": 2556,
+      "path": "profiles/writing/skills/software-development/github/scripts/gh-env.sh",
+      "sha256": "eb04179d859635b56cdd0da71da59cd5d94d7a69c9a856f9f562d1cd5cb9412f"
+    },
+    {
+      "bytes": 1788,
+      "path": "profiles/writing/skills/software-development/github/scripts/git-credential-token.py",
+      "sha256": "4c0f3dfdc75df9043fe7b62b0807e7b4392c59ee81082d2fcc8d39b75c593efb"
+    },
+    {
+      "bytes": 469,
+      "path": "profiles/writing/skills/software-development/github/templates/bug-report.md",
+      "sha256": "4b3144ccf47a85dcec889c7610d6b739a7ae6f19aa8d4709942112ef09e11a5b"
+    },
+    {
+      "bytes": 598,
+      "path": "profiles/writing/skills/software-development/github/templates/feature-request.md",
+      "sha256": "43962f5a398b4badeeb94280299ba4511940ad0e32afcfce5f2a6e1afd21c7a8"
+    },
+    {
+      "bytes": 513,
+      "path": "profiles/writing/skills/software-development/github/templates/pr-body-bugfix.md",
+      "sha256": "e8c31915b87dba0454d7520a3aa45ef8650fd0e50e48e277db855ff919e6251a"
+    },
+    {
+      "bytes": 580,
+      "path": "profiles/writing/skills/software-development/github/templates/pr-body-feature.md",
+      "sha256": "875e815da6e0e3df2763a85c9c2a56a776461da39d4181a1487333c0bf5b9276"
+    },
+    {
+      "bytes": 6204,
+      "path": "profiles/writing/skills/software-development/inspecting-hermes-desktop-dom/SKILL.md",
+      "sha256": "a78a5f8d277a1d6d39fccd5ecf1e76ce519a1ace831f06078dfcc91cb54a3399"
+    },
+    {
       "bytes": 10841,
       "path": "profiles/writing/skills/software-development/simplify-code/SKILL.md",
       "sha256": "acafe6b1b02d3f58f7a19e089df6f13c319493e6df771f14cdedd0d5a6764f7f"
@@ -4855,6 +5320,21 @@
       "bytes": 4581,
       "path": "profiles/writing/skills/software-development/software-development-practices/SKILL.md",
       "sha256": "82d1938173a7dbb724a4214437a3a06baead5c25c1d7664f752619fe7b94912d"
+    },
+    {
+      "bytes": 137,
+      "path": "profiles/writing/skills/web/DESCRIPTION.md",
+      "sha256": "1cee33fe7aaddc9d8ce9319f4452dc9a357952feba049810e392a8ecf67ea28e"
+    },
+    {
+      "bytes": 5156,
+      "path": "profiles/writing/skills/web/blocked-page-recovery/SKILL.md",
+      "sha256": "7f7d321f177399ca928e11ab38942cfa76d6e931a82d887671c50661fb411d51"
+    },
+    {
+      "bytes": 8481,
+      "path": "profiles/writing/skills/web/blocked-page-recovery/scripts/recover_page.py",
+      "sha256": "22b996996ae2bf252b31cfd2636231f08936729a381dce7ba8bfa4afb8ffe8c6"
     },
     {
       "bytes": 10134,
@@ -4977,9 +5457,9 @@
       "sha256": "b3b8b24ea583ccf4875cc9156dd8fb3765ef13950a1f0ccc845800479a949860"
     },
     {
-      "bytes": 3877,
+      "bytes": 2727,
       "path": "skills/.bundled_manifest",
-      "sha256": "28b8289618e4243ff91df26089514d334b201cddccae83afe09c8284e5d607e0"
+      "sha256": "e7cc4d24ba088033452ceb1dec6cfa7137b180d31d7dd3a87726ad3e6e9b1037"
     },
     {
       "bytes": 1233,
@@ -5047,9 +5527,9 @@
       "sha256": "3ed457c2b8d5d9c33ab3817cea9753cbcf7f165105eb9da488633a624216d51f"
     },
     {
-      "bytes": 18603,
+      "bytes": 15819,
       "path": "skills/autonomous-ai-agents/computer-use/SKILL.md",
-      "sha256": "89e2eddc61cf893784279f27448f75ef214aa5cbd96ef2441a28df0ed7dab2f9"
+      "sha256": "e3d11184959bd06106fa73f315dfde9721502e9542621d62c398024de27eb4cd"
     },
     {
       "bytes": 9726,
@@ -6777,11 +7257,6 @@
       "sha256": "51c160e23661890049042988073695110b1c1c88d00389f1abf05f5842b19ca4"
     },
     {
-      "bytes": 3628,
-      "path": "skills/github/codebase-inspection/SKILL.md",
-      "sha256": "87ddc0578d9bcbc80addb34ca045e4263689873ce02b1b73e3d57275ec6315c6"
-    },
-    {
       "bytes": 11949,
       "path": "skills/github/github-auth/SKILL.md",
       "sha256": "83d908a495c34477a88e7a11bdba80179483e71d070278d23323586cc0883ff0"
@@ -7627,9 +8102,9 @@
       "sha256": "c39cf9fd6a15a9a6004ca63884c5e8009f5ed8836b0ba2be817ff70fe9fdeacd"
     },
     {
-      "bytes": 3966,
+      "bytes": 3910,
       "path": "skills/productivity/document-to-action-items/SKILL.md",
-      "sha256": "f114af652272b56c8736172eab8ee870bd8c1004965b698d4ae5c705d8b6e554"
+      "sha256": "8a7556754aca2a7d04d38847131fb4db8d6705fa2106fcb154279e26117b41ee"
     },
     {
       "bytes": 1070,
@@ -7712,9 +8187,9 @@
       "sha256": "340b78000fba67b9c5373978185446eb549a474870decf8c439edb03b3883bc5"
     },
     {
-      "bytes": 1630,
+      "bytes": 1636,
       "path": "skills/productivity/google-workspace/scripts/_hermes_home.py",
-      "sha256": "a8861702cefda8684e1bec353044dafc0c52dbdd85cf02bc21454126b596baf5"
+      "sha256": "4d0f4393059688353bf8a3cca8118f08548edbae6f3c6ed477ff9f2d1205cff0"
     },
     {
       "bytes": 43553,
@@ -7722,9 +8197,9 @@
       "sha256": "d3822ef5cbdfad1d280fb619b9d85f2bdc0f8d8756398eb0189a126e8a6fbf89"
     },
     {
-      "bytes": 3682,
+      "bytes": 4368,
       "path": "skills/productivity/google-workspace/scripts/gws_bridge.py",
-      "sha256": "a7ccbac610f504c3b42c7f7282e86dd6d726d3fb0dcd92ef14dea45be83efd9e"
+      "sha256": "6bba56ab6d49ddab3cd16c2e189950633cbf1a9f4907cb7db5225ebe28313aee"
     },
     {
       "bytes": 20231,
@@ -7842,9 +8317,9 @@
       "sha256": "8aa3c7717d57a68490c31eef4b57b6887e892f0566ff866078ebd76113d357e2"
     },
     {
-      "bytes": 12244,
+      "bytes": 12489,
       "path": "skills/productivity/pdf/SKILL.md",
-      "sha256": "14e1be6e302bc1a9d66cdf3220d636a5acaa500b78c365f5a453f55dc3217934"
+      "sha256": "c16b9c159a3a0b49353bfcd10c498b02aef3d319207b1019aa7dc8db129d06ab"
     },
     {
       "bytes": 3950,
@@ -7852,9 +8327,29 @@
       "sha256": "471517e0b154fb765d04416f089b7e999103804b964a84675af49e2d53ee8da0"
     },
     {
+      "bytes": 1342,
+      "path": "skills/productivity/pdf/references/nano-pdf-editing.md",
+      "sha256": "2f0b15bd1ebbd45cf37ed257723ad63aa70b623b97f5242c886c14f8968cd773"
+    },
+    {
+      "bytes": 5612,
+      "path": "skills/productivity/pdf/references/ocr-extraction.md",
+      "sha256": "611f03bc3fdf7f29283bf609ee46362cef6bcbea91b965a74f37ddd8c513cd1e"
+    },
+    {
       "bytes": 2614,
       "path": "skills/productivity/pdf/scripts/_raster.py",
       "sha256": "17ecfb8dd78b006e904d0f29e28172ce308a34588db99ec80b0f085d2a37b518"
+    },
+    {
+      "bytes": 3458,
+      "path": "skills/productivity/pdf/scripts/extract_marker.py",
+      "sha256": "a115ee1da5b88f7ab61c480ef9efb2b371350bed8f1cface7668898ba80aae38"
+    },
+    {
+      "bytes": 3671,
+      "path": "skills/productivity/pdf/scripts/extract_pymupdf.py",
+      "sha256": "784d233ee9849ce78cddc8253c87172c06a0b62c41aff7215fd97b77766babc8"
     },
     {
       "bytes": 4562,
@@ -7887,14 +8382,14 @@
       "sha256": "989c2564bb31d8b20abd53a4d7f86a603c930bd868e0201ad4cdec92d5487460"
     },
     {
-      "bytes": 3570,
+      "bytes": 3589,
       "path": "skills/productivity/pdf/scripts/pdf_page_image.py",
-      "sha256": "28eb89bed7d59e832d60f5b4eb44c0882253bbb33bbd39c1d2a8256b425d6460"
+      "sha256": "40ad843fd50bd6bd91af1fd53de1cff1faf885921294afd304d0abf0fe93e4e2"
     },
     {
-      "bytes": 5876,
+      "bytes": 5895,
       "path": "skills/productivity/pdf/scripts/pdf_read.py",
-      "sha256": "43583df68417578c84dc559d9fff352db6392dce61ffeadebf8bdcc54a6c7914"
+      "sha256": "7d623cbbb6319f9f161dd769972250b08c426c291ed0af1a8304bec20437bfb2"
     },
     {
       "bytes": 2679,
@@ -8012,9 +8507,9 @@
       "sha256": "9da2d0ba82b771ae83560965ffaa910db01e76bba8c1d914133a0d8c6957f2ba"
     },
     {
-      "bytes": 6953,
+      "bytes": 7206,
       "path": "skills/productivity/teams-meeting-pipeline/SKILL.md",
-      "sha256": "2ffe32a3a55fb81a98da10fe0d87cfc10d9d3ef68ec38ff4df6922fb51d88325"
+      "sha256": "ae1b08f044d7dfd9abb01c643cac3b69e4a3a1cbe7fd5782dd17785964cdc441"
     },
     {
       "bytes": 2932,
@@ -8137,9 +8632,9 @@
       "sha256": "a7bc842330a491de5f73cd63e87521e53724d94d4f53949bfa2171beb8200e18"
     },
     {
-      "bytes": 10075,
+      "bytes": 10061,
       "path": "skills/research/arxiv/SKILL.md",
-      "sha256": "9a04b8535ab5fb9485fa230b7d9e0fe3688b49be0ab85095f3a916f832a3782c"
+      "sha256": "9b41877bcb64166dc2355a43aedd3198c3e5214af67f09e1d1b717a989d92f72"
     },
     {
       "bytes": 4272,
@@ -8147,34 +8642,24 @@
       "sha256": "68f0bcc09ef1f59ecd9be8a7693e47239fd99b19d62cecb80a92b8c476cca371"
     },
     {
-      "bytes": 5152,
-      "path": "skills/research/blocked-page-recovery/SKILL.md",
-      "sha256": "1a7a44534277c3ce367cb9a9dde07b1aa0925d3e5e8cb4e887307568b7a46052"
-    },
-    {
-      "bytes": 8481,
-      "path": "skills/research/blocked-page-recovery/scripts/recover_page.py",
-      "sha256": "22b996996ae2bf252b31cfd2636231f08936729a381dce7ba8bfa4afb8ffe8c6"
-    },
-    {
       "bytes": 5111,
       "path": "skills/research/blogwatcher/SKILL.md",
       "sha256": "b85be5a9b86b90287266dd142a0ae9740be926298fbcb772f56b8a4d6451bb12"
     },
     {
-      "bytes": 4501,
+      "bytes": 4619,
       "path": "skills/research/competitor-news-monitor/SKILL.md",
-      "sha256": "bcc92cdcb4811ec2a8b6b13527b952552fccfc2a749837dfee24a8b561415cef"
+      "sha256": "d8fd2a3a26ff45455709595132a092825a48f6c9dd3bcc98b06c1a43eaa7fcca"
     },
     {
-      "bytes": 11231,
+      "bytes": 12652,
       "path": "skills/research/grounded-citations/SKILL.md",
-      "sha256": "825b4a7967dea260bb7093758aa906f8cd49ec84007e0decf983ab948e19e0b4"
+      "sha256": "19fba3a4ceedf768af6851e094b268a66b62af750d4d0689c5d62d5d50c032b6"
     },
     {
-      "bytes": 2422,
+      "bytes": 2418,
       "path": "skills/research/grounded-citations/references/citation-formats.md",
-      "sha256": "774d0b068df0a628d5f8f3136ec5960520aa0eab1affc618880735aa735c62a2"
+      "sha256": "209312a46dd9516e44e78f617589f789e07d54660e347b6b3882e8ac60097d04"
     },
     {
       "bytes": 3127,
@@ -8537,6 +9022,11 @@
       "sha256": "aa4b886dd701ca74a31f1cdca304879d26e7c34ab93397b41c8fb0e56d331b9d"
     },
     {
+      "bytes": 3612,
+      "path": "skills/software-development/codebase-inspection/SKILL.md",
+      "sha256": "d62554263461919dff7d77c3c0c284c2190c894f312a84d7a770a030dab642dc"
+    },
+    {
       "bytes": 7910,
       "path": "skills/software-development/debugging-hermes-tui-commands/SKILL.md",
       "sha256": "55d5811c0b2d872dc59d87432720a113150dbbce2872524a36b3860a8967095d"
@@ -8560,6 +9050,91 @@
       "bytes": 1528,
       "path": "skills/software-development/dogfood/templates/dogfood-report-template.md",
       "sha256": "6db9127715d3d1482542e48dd2d71fcb25238e614b1e5739ec193fa143962a26"
+    },
+    {
+      "bytes": 2446,
+      "path": "skills/software-development/github/SKILL.md",
+      "sha256": "9d70e7c842fe7db75b5a50526552a69862f5bcfc1e59aa93785241649a09d5a3"
+    },
+    {
+      "bytes": 11586,
+      "path": "skills/software-development/github/references/auth.md",
+      "sha256": "eba9d0edf896036718612bb557ec7a6432532a9395bd66277c3b7417d8960a37"
+    },
+    {
+      "bytes": 4879,
+      "path": "skills/software-development/github/references/ci-troubleshooting.md",
+      "sha256": "c72b2301e9b85c545c4960722dbd4c0d49c5d883e6d86438e932bd47b1d8eee0"
+    },
+    {
+      "bytes": 13295,
+      "path": "skills/software-development/github/references/code-review.md",
+      "sha256": "11ad06e6d49bcfc3433530b40f95b72f568cae0a2d7ca6e2450b22d3e0626d7b"
+    },
+    {
+      "bytes": 2417,
+      "path": "skills/software-development/github/references/conventional-commits.md",
+      "sha256": "2d71a3b701b08c2e5ed5248d17928eb11e27d7b357f9e2dca27caee9cc017aab"
+    },
+    {
+      "bytes": 6092,
+      "path": "skills/software-development/github/references/github-api-cheatsheet.md",
+      "sha256": "a9081d4a108b67b4edd3c92c73d823fd1730e37e23be6f069d9bd67dd3b32486"
+    },
+    {
+      "bytes": 5638,
+      "path": "skills/software-development/github/references/issue-to-pr.md",
+      "sha256": "9fc6de82f9b8e65a1611a5e3eee9f6f35cc9118a90a9df3de547cb65f2766dab"
+    },
+    {
+      "bytes": 8981,
+      "path": "skills/software-development/github/references/issues.md",
+      "sha256": "86cf4a98232ee6362cd7893e76bed6ed25c21eb660e878432c6df3286c02d6d8"
+    },
+    {
+      "bytes": 9708,
+      "path": "skills/software-development/github/references/pr-workflow.md",
+      "sha256": "0be42677bf500fe292c221468c2f9c48b4c8326dad508b8ef3287c010364adc8"
+    },
+    {
+      "bytes": 13378,
+      "path": "skills/software-development/github/references/repo-management.md",
+      "sha256": "c74500946263f6bdb4925d4de96aa09dcd49146c9e918bf73863f0b6186e0543"
+    },
+    {
+      "bytes": 2465,
+      "path": "skills/software-development/github/references/review-output-template.md",
+      "sha256": "4560662913e8f89d558c7ba4f34daf77a35a88367c2d480ad86de7085cbcaf34"
+    },
+    {
+      "bytes": 2556,
+      "path": "skills/software-development/github/scripts/gh-env.sh",
+      "sha256": "eb04179d859635b56cdd0da71da59cd5d94d7a69c9a856f9f562d1cd5cb9412f"
+    },
+    {
+      "bytes": 1788,
+      "path": "skills/software-development/github/scripts/git-credential-token.py",
+      "sha256": "4c0f3dfdc75df9043fe7b62b0807e7b4392c59ee81082d2fcc8d39b75c593efb"
+    },
+    {
+      "bytes": 469,
+      "path": "skills/software-development/github/templates/bug-report.md",
+      "sha256": "4b3144ccf47a85dcec889c7610d6b739a7ae6f19aa8d4709942112ef09e11a5b"
+    },
+    {
+      "bytes": 598,
+      "path": "skills/software-development/github/templates/feature-request.md",
+      "sha256": "43962f5a398b4badeeb94280299ba4511940ad0e32afcfce5f2a6e1afd21c7a8"
+    },
+    {
+      "bytes": 513,
+      "path": "skills/software-development/github/templates/pr-body-bugfix.md",
+      "sha256": "e8c31915b87dba0454d7520a3aa45ef8650fd0e50e48e277db855ff919e6251a"
+    },
+    {
+      "bytes": 580,
+      "path": "skills/software-development/github/templates/pr-body-feature.md",
+      "sha256": "875e815da6e0e3df2763a85c9c2a56a776461da39d4181a1487333c0bf5b9276"
     },
     {
       "bytes": 11410,
@@ -8657,13 +9232,28 @@
       "sha256": "45a62d9d9759a0718a0b8a4f7d80fd1f00ac12de8817477368256d815f6f1834"
     },
     {
+      "bytes": 137,
+      "path": "skills/web/DESCRIPTION.md",
+      "sha256": "1cee33fe7aaddc9d8ce9319f4452dc9a357952feba049810e392a8ecf67ea28e"
+    },
+    {
+      "bytes": 5156,
+      "path": "skills/web/blocked-page-recovery/SKILL.md",
+      "sha256": "7f7d321f177399ca928e11ab38942cfa76d6e931a82d887671c50661fb411d51"
+    },
+    {
+      "bytes": 8481,
+      "path": "skills/web/blocked-page-recovery/scripts/recover_page.py",
+      "sha256": "22b996996ae2bf252b31cfd2636231f08936729a381dce7ba8bfa4afb8ffe8c6"
+    },
+    {
       "bytes": 3795,
       "path": "skills/yuanbao/SKILL.md",
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260909T170702Z",
+  "generated_at": "20260912T212407Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
-  "source_home": "/Users/anichols/code/ai-configs/_hermes/default"
+  "source_home": "/Users/anichols/.hermes"
 }

@@ -1,8 +1,9 @@
 model:
-  default: deepseek-ai/DeepSeek-V4-Flash-0731
-  provider: deepinfra
-  base_url: https://api.deepinfra.com/v1/openai
+  default: grok-4.6
+  provider: xai-oauth
+  base_url: https://api.x.ai/v1
   api_key: ''
+  api_mode: ''
 fallback_providers: []
 toolsets:
 - hermes-cli
@@ -172,12 +173,6 @@ auxiliary:
     model: gpt-5.6-terra
     timeout: 30
     download_timeout: 30
-  web_extract:
-    provider: auto
-    model: ''
-    base_url: ''
-    api_key: ''
-    timeout: 360
   compression:
     provider: custom
     model: gpt-5.4-mini
@@ -248,6 +243,12 @@ auxiliary:
     base_url: ''
     api_key: ''
     timeout: 60
+  web_extract:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 360
   session_search:
     provider: auto
     model: ''
@@ -265,7 +266,7 @@ auxiliary:
     extra_body: {}
 display:
   compact: false
-  personality: kawaii
+  personality: ''
   resume_display: full
   resume_exchanges: 10
   resume_max_user_chars: 300
@@ -279,6 +280,7 @@ display:
   bell_on_complete: false
   show_reasoning: false
   memory_notifications: true
+  background_process_notifications: concise
   streaming: true
   timestamps: false
   final_response_markdown: strip
@@ -316,7 +318,6 @@ display:
     - cwd
   copy_shortcut: auto
   tool_progress: all
-  background_process_notifications: all
 dashboard:
   theme: mono
   show_token_analytics: '[REDACTED: managed outside ai-configs]'
@@ -365,7 +366,6 @@ tts:
   use_gateway: false
 stt:
   enabled: true
-  provider: local
   local:
     model: base
     language: ''
@@ -378,6 +378,7 @@ stt:
     language_code: ''
     tag_audio_events: false
     diarize: false
+  provider: local
 voice:
   record_key: ctrl+b
   max_recording_seconds: 120
@@ -397,8 +398,8 @@ memory:
   write_approval: false
   memory_char_limit: 2200
   user_char_limit: 1375
-  provider: ''
   nudge_interval: 10
+  provider: ''
   flush_min_turns: 6
 delegation:
   model: ''
@@ -407,10 +408,10 @@ delegation:
   api_key: ''
   api_mode: ''
   inherit_mcp_toolsets: true
-  max_iterations: 50
+  max_iterations: 250
   child_timeout_seconds: 600
   reasoning_effort: ''
-  max_concurrent_children: 3
+  max_concurrent_children: 10
   max_spawn_depth: 1
   orchestrator_enabled: true
   subagent_auto_approve: false
@@ -433,8 +434,8 @@ curator:
   enabled: true
   interval_hours: 168
   min_idle_hours: 2
-  stale_after_days: 30
-  archive_after_days: 90
+  stale_after_days: 14
+  archive_after_days: 30
   consolidate: false
   prune_builtins: true
   backup:
@@ -499,6 +500,17 @@ command_allowlist:
 - delete in root path
 - recursive delete
 - hermes update (restarts gateway, kills running agents)
+plugins:
+  enabled:
+  - disk-cleanup
+  - herdr-agent-state
+  - moshi-hooks
+  - orca-status
+  - pi-tmux-event-bridge
+  - pi_rpc_discord
+  disabled:
+  - google_meet
+  - spotify
 hooks:
   pre_llm_call:
   - command: sh -c '[ -n "$AOE_INSTANCE_ID" ] || exit 0; case "$AOE_INSTANCE_ID" in
@@ -584,7 +596,6 @@ logging:
 model_catalog:
   enabled: true
   url: https://hermes-agent.nousresearch.com/docs/api/model-catalog.json
-  ttl_hours: 1
 network:
   force_ipv4: false
 gateway:
@@ -638,7 +649,7 @@ secrets:
 paste_collapse_threshold: 5
 paste_collapse_threshold_fallback: 5
 paste_collapse_char_threshold: 2000
-_config_version: 33
+_config_version: 44
 smart_model_routing:
   enabled: false
   max_simple_chars: 160
@@ -724,45 +735,48 @@ custom_providers:
   base_url: http://localhost:8318/v1
   model: gpt-5.6-sol
   models:
-  - gpt-5.4
-  - gpt-image-2
-  - grok-imagine-video
-  - gpt-5.3-codex-spark
-  - grok-4.20-0309-reasoning
-  - grok-4.20-multi-agent-0309
-  - claude-opus-5
-  - claude-opus-4-5-20251101
-  - claude-sonnet-4-20250514
-  - grok-4.3
-  - gpt-5.5
-  - gpt-5.6-luna
-  - codex-auto-review
-  - grok-build-0.1
-  - grok-imagine-image
-  - grok-imagine-video-1.5-preview
-  - claude-3-7-sonnet-20250219
-  - claude-haiku-4-5-20251001
-  - claude-sonnet-4-5-20250929
-  - claude-opus-4-1-20250805
-  - claude-opus-4-20250514
-  - grok-3-mini-fast
-  - grok-imagine-image-quality
-  - claude-sonnet-4-6
-  - claude-opus-4-6
-  - claude-opus-4-8
-  - claude-3-5-haiku-20241022
-  - grok-4.6
-  - gpt-5.4-mini
-  - claude-opus-4-7
-  - gpt-5.6-sol
-  - grok-4.5
-  - grok-4.20-0309-non-reasoning
-  - claude-sonnet-5
-  - gpt-5.6-terra
-  - gpt-image-1.5
-  - grok-3-mini
-  - grok-composer-2.5-fast
-  - claude-fable-5
+    grok-4.5: {}
+    grok-4.3: {}
+    grok-3-mini: {}
+    claude-fable-5-1: {}
+    claude-sonnet-4-5-20250929: {}
+    claude-opus-4-6: {}
+    claude-opus-4-7: {}
+    claude-opus-4-8: {}
+    claude-opus-4-20250514: {}
+    grok-4.6: {}
+    grok-imagine-image-quality: {}
+    claude-haiku-4-5-20251001: {}
+    claude-opus-5: {}
+    claude-3-7-sonnet-20250219: {}
+    grok-imagine-image-2.0: {}
+    grok-imagine-video: {}
+    gpt-5.6-sol: {}
+    gpt-5.6-terra: {}
+    codex-auto-review: {}
+    gpt-image-2: {}
+    grok-4.20-0309-reasoning: {}
+    grok-4.20-0309-non-reasoning: {}
+    grok-imagine-image: {}
+    claude-fable-5: {}
+    claude-sonnet-4-20250514: {}
+    grok-imagine-video-1.5-preview: {}
+    claude-sonnet-4-6: {}
+    claude-opus-4-1-20250805: {}
+    claude-3-5-haiku-20241022: {}
+    grok-3-mini-fast: {}
+    gpt-5.6-luna: {}
+    claude-sonnet-5: {}
+    grok-composer-2.5-fast: {}
+    gpt-5.3-codex-spark: {}
+    gpt-5.5: {}
+    claude-opus-4-5-20251101: {}
+    grok-build-0.1: {}
+    grok-4.20-multi-agent-0309: {}
+    grok-imagine-video-1.5: {}
+    gpt-6-astra: {}
+    gpt-image-1.5: {}
+  models_discovered: true
 platforms:
   webhook:
     enabled: true
@@ -825,16 +839,6 @@ platforms:
             - If the note is malformed or unreadable, say so clearly.
 
             '
-plugins:
-  enabled:
-  - moshi-hooks
-  - disk-cleanup
-  - herdr-agent-state
-  - pi-tmux-event-bridge
-  - pi_rpc_discord
-  disabled:
-  - google_meet
-  - spotify
 known_plugin_toolsets:
   cli:
   - pi_rpc
@@ -856,7 +860,6 @@ image_gen:
       enabled: false
 known_builtin_toolsets:
   cli:
-  - bfl
   - browser
   - clarify
   - code_execution
@@ -884,7 +887,6 @@ known_builtin_toolsets:
   - x_search
   - yuanbao
   telegram:
-  - bfl
   - browser
   - clarify
   - code_execution
@@ -912,7 +914,6 @@ known_builtin_toolsets:
   - x_search
   - yuanbao
   discord:
-  - bfl
   - browser
   - clarify
   - code_execution
