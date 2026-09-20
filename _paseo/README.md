@@ -7,11 +7,13 @@ installed everywhere instead of drifting per host.
 ## Current bundle
 
 - `config.json` — managed keys for `~/.paseo/config.json`: agent profiles,
-  provider definitions and enablement, `agents.skills.selection`, CORS, relay,
+  provider definitions and enablement, `agents.skills.selection`, CORS,
   and feature flags. `agents.providers.omp.additionalModels` marks `@default`
   as the default model so launches without a profile resolve OMP's configured
   `modelRoles.default` (Paseo passes the model through unvalidated and OMP
-  resolves the `@default` role sentinel itself).
+  resolves the `@default` role sentinel itself). `daemon.relay` is deliberately
+  not managed: it is per-host state set by `paseo onboard`, and managing it
+  here re-disabled relay on every sync and broke mobile clients.
 - `merge_config.py` — deep-merge installer for the daemon config. Managed keys
   win; `daemon.agentProfiles` merges by `name` so locally added profiles
   survive; unmanaged keys (auth state, host-local tweaks, future daemon keys)

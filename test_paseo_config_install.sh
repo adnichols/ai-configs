@@ -31,8 +31,8 @@ printf 'stale extra\n' > "$SKILLS_A/paseo/EXTRA.md"
 
 run_install
 
-# Managed keys applied
-test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['relay']['enabled']")" = "False"
+# Managed keys applied; daemon.relay is host-local and must be preserved
+test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['relay']['enabled']")" = "True"
 test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['agentProfiles'][0]['name']")" = "omp"
 test "$(json_get "$PASEO_HOME/config.json" "d['agents']['providers']['omp']['additionalModels'][0]['isDefault']")" = "True"
 test "$(json_get "$PASEO_HOME/config.json" "d['agents']['providers']['omp']['additionalModels'][0]['id']")" = "@default"

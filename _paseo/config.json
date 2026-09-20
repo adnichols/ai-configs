@@ -28,9 +28,6 @@
       "allowedOrigins": [
         "https://app.paseo.sh"
       ]
-    },
-    "relay": {
-      "enabled": false
     }
   },
   "app": {
