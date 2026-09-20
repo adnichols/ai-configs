@@ -1,28 +1,23 @@
 # Paseo configuration in ai-configs
 
-This tree captures the managed parts of the Paseo daemon configuration so
-profiles, provider definitions, and tuned skills are reviewed here and
-installed everywhere instead of drifting per host.
+This tree owns the `paseo*` skills. It does not override live Paseo daemon
+configuration: profiles, providers, relay, listen, CORS, and feature flags
+stay on each host.
 
 ## Current bundle
 
-- `config.json` — managed keys for `~/.paseo/config.json`: agent profiles,
-  provider definitions and enablement, `agents.skills.selection`, CORS,
-  and feature flags. `agents.providers.omp.additionalModels` marks `@default`
-  as the default model so launches without a profile resolve OMP's configured
-  `modelRoles.default` (Paseo passes the model through unvalidated and OMP
-  resolves the `@default` role sentinel itself). `daemon.relay` is deliberately
-  not managed: it is per-host state set by `paseo onboard`, and managing it
-  here re-disabled relay on every sync and broke mobile clients.
-- `merge_config.py` — deep-merge installer for the daemon config. Managed keys
-  win; `daemon.agentProfiles` merges by `name` so locally added profiles
-  survive; unmanaged keys (auth state, host-local tweaks, future daemon keys)
-  are preserved.
+- `config.json` — the only managed daemon key is `agents.skills.selection`
+  (`custom`, empty list). That stops the daemon from rewriting the repo-owned
+  `paseo*` skill directories at startup. Everything else in `~/.paseo/config.json`
+  is host-local. Shipping profiles, providers, or `daemon.relay` from here
+  reset host `omp` profiles and disabled mobile relay.
+- `merge_config.py` — deep-merge installer. Keys named in the managed file
+  win; keys absent from it are preserved.
 - `skills/` — repo-owned copies of the `paseo*` skills. Seeded from the
   `@getpaseo/server` bundle; tune them here.
-- `install.sh` — merges the config, syncs `skills/` into `~/.agents/skills`,
-  `~/.claude/skills`, and `~/.codex/skills`, then runs `paseo reload` when a
-  daemon is reachable.
+- `install.sh` — merges that one skills-selection key, syncs `skills/` into
+  `~/.agents/skills`, `~/.claude/skills`, and `~/.codex/skills`, then runs
+  `paseo reload` when a daemon is reachable.
 
 ## Why skills are managed here
 

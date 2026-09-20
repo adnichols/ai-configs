@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
-# Installs the tracked Paseo daemon config and repo-managed Paseo skills.
-#
-# The daemon config is deep-merged into ~/.paseo/config.json so host-local
-# keys survive; managed keys are authoritative. The bundled Paseo skills are
-# deselected via agents.skills.selection (mode "custom", empty list) because
-# the daemon rewrites managed skill files from its npm bundle at startup —
-# repo-tuned copies under the same names would be reverted. This installer
-# owns the paseo* skill directories in each runtime skills root instead.
+# Installs repo-managed Paseo skills. The only daemon config this writes is
+# agents.skills.selection (custom, empty) so the daemon does not revert those
+# skill directories. Host profiles, providers, relay, and other daemon keys
+# are left alone.
 set -euo pipefail
 
 SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added shared `completeness` skill so `skill://completeness` resolves and OMP can launch request-bound `@completeness` review instead of failing on a missing skill.
 - Restored Herdr Option/Alt+`[` / `]` tab switching over mosh by having Kitty inject complete xterm modifyOtherKeys sequences (`CSI 27;3;91/93 ~`). Bare `ESC [` / `ESC ]` never complete as alt-bracket events in Herdr's legacy framer, and Kitty `send_key` does not survive mosh.
-- Stopped managing `daemon.relay` in `_paseo/config.json`. That key is per-host state from `paseo onboard`; shipping `enabled: false` re-disabled relay on every sync and broke mobile clients.
+- Stopped overlaying live Paseo daemon config from `_paseo/config.json`. Profiles, providers, relay, listen, CORS, and feature flags are host-local; the installer only writes `agents.skills.selection` so repo-owned `paseo*` skills are not reverted, and no longer resets host `omp` profiles or disables mobile relay.
 
 ### Changed
 
