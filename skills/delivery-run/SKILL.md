@@ -175,7 +175,7 @@ in this skill.
    limit, and record the current request/evidence. Do not enter
    `IMPLEMENTING` until the CLI accepts `EXECUTION_READY`.
 5. Implement directly in the driving OMP session, whose configured default is
-   `devin/swe-2:high`. Run implementation, scoped review, and
+   `xai-oauth/grok-4.6:high`. Run implementation, scoped review, and
    PM outcome review there; use `openai-codex/gpt-5.6-terra:high` when correctness
    depends materially on technical judgment; run the configured OMP `@reviewer` pre-PR review
    and verification; record each result with `delivery record`.
@@ -201,7 +201,7 @@ for the current exact next-step and evidence contract.
 - Most stage transitions succeed even with advisory evidence gaps.
 - `delivery check` always exits 0, even when evidence is missing.
 - A broken optional integration such as Herdr labels must never force the operator to disable the whole workflow. Explicit readiness and implementation-entry boundaries fail closed and report a retry command. Pi Full additionally enforces its plan-review and implementation-profile boundaries.
-- Runtime-specific worker skills remain authoritative: OMP uses the configured `@planner` and `@reviewer` contracts plus direct driving-session implementation on `devin/swe-2:high`; Pi Full uses `reviewed-html-plan`, `run-plan`, `autoreview`, and PM review. `@completeness` / the visible Grok reviewer run only when the operator asks for a plan walk.
+- Runtime-specific worker skills remain authoritative: OMP uses the configured `@planner` and `@reviewer` contracts plus direct driving-session implementation on `xai-oauth/grok-4.6:high`; Pi Full uses `reviewed-html-plan`, `run-plan`, `autoreview`, and PM review. `@completeness` / the visible Grok reviewer run only when the operator asks for a plan walk.
 - Completeness is on-request, not an exception to advisory quality evidence. Do not refuse a later PR because completeness did not run. `delivery stage MERGE_READY` does not require a completeness artifact.
 - Firmness is limited to explicit readiness authorization and the selected runtime/profile; the rest of the ledger optimizes for visibility, resumability, and honest status.
 - Pi Full implementation runs cannot enter `DONE` until current implementation, scoped review, PM outcome, pre-PR review, verification, PR, customer-impact/completion, and adversarial-QA disposition evidence is recorded. OMP Lite cannot enter `PR_OPEN` or `MERGE_READY` without `implPm` and `autoreview`, and cannot enter `DONE` without those plus `verify`, `pr`, and `prUrl`. Planning-only runs that never entered `IMPLEMENTING` may still finish without a PR.

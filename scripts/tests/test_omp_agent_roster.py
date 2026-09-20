@@ -67,11 +67,11 @@ class OmpAgentRosterTest(unittest.TestCase):
             "PLAN_EXECUTION_READY",
             "CWD",
             "REVIEW_ROOT",
-            "devin/swe-2:high",
+            "xai-oauth/grok-4.6:high",
         ):
             self.assertIn(required, body)
         # Planner never recommends a model: implementation stays on the driving
-        # OMP session default (devin/swe-2:high). Terra is not used as a
+        # OMP session default (xai-oauth/grok-4.6:high). Terra is not used as a
         # planner or executor pick.
         self.assertNotIn("terra-high", body)
         self.assertNotIn("IMPLEMENTATION:", body)
@@ -80,7 +80,7 @@ class OmpAgentRosterTest(unittest.TestCase):
         config = (OMP / "config.yml").read_text()
         metadata, body = split_frontmatter(AGENTS / "completeness.md")
 
-        self.assertIn("default: devin/swe-2:high", config)
+        self.assertIn("default: xai-oauth/grok-4.6:high", config)
         self.assertIn("smol: synthetic/hf:zai-org/GLM-5.3-Flash:max", config)
         self.assertIn("advisor: devin/swe-2:high", config)
         self.assertIn("Oracle: openai-codex/gpt-6-astra:medium", config)
@@ -159,7 +159,7 @@ class OmpAgentRosterTest(unittest.TestCase):
             "workflowProfile: omp-lite",
             "current OMP agent as owner",
             "delivery bootstrap --runtime omp",
-            "devin/swe-2:high",
+            "xai-oauth/grok-4.6:high",
             "xai/grok-4.5:high",
             "exact seven-line envelope",
             "acceptCommand",

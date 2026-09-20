@@ -41,7 +41,7 @@ modelRoles:
   advisor: devin/swe-2:high
   Oracle: openai-codex/gpt-6-astra:medium
   reviewer: cursor/cursor-grok-4.6:high
-  default: devin/swe-2:high
+  default: xai-oauth/grok-4.6:high
   completeness: xai-oauth/grok-4.6:high
   architect-grok: cursor/cursor-grok-4.6:high
   architect-kimi: devin/swe-2:max

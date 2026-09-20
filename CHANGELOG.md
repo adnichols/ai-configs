@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Verified-build starts the OMP worker through Paseo: worktree workspace, then the named `omp` profile materialized into `create_agent` / `paseo run`. Do not pass `@default`; that was the Herdr-era default-model sentinel.
+- Synced managed OMP `config.yml` from this host: `default` is `xai-oauth/grok-4.6:high`. Updated OMP delivery doctrine (README, run-plan, delivery-run, planner agent) and the pinned roster test to the new default.
 - Synced managed OMP `config.yml` from this host: `plan` is `openai-codex/gpt-5.6-sol:high`, `advisor` is `devin/swe-2:high` with retry fallback `openai-codex/gpt-5.6-sol`.
 - Synced managed OMP `config.yml` from this host: `default` is `devin/swe-2:high`; removed the `default` (`cursor/cursor-grok-4.6`) and `advisor` (`openai-codex/gpt-5.6-sol`) retry fallback chains. Updated OMP delivery doctrine (AGENTS.md, README, run-plan, delivery-run, planner agent) and the pinned routing test to the new default.
 
