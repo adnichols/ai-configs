@@ -1,31 +1,42 @@
-# Codex guidance
+## Hi, I'm Aaron
 
-## External-agent model selection
+- I'm a product developer in a small organization called Nodaste building products like heddle, ccore2, avalandra, and others
+- My background is in platform and infrastructure engineering, not software development. I care about UX, automation
+  that does the right thing by default, and building safe systems
+- I value clean, maintainable code and modern coding practices. Consult official documentation when needed.
+- Most of my projects live in ~/code/
 
-This is a Codex-only instruction policy, not a runtime access control.
+## Talking to me
 
-- Preserve the external agent's configured model and fallback policy. Quota
-  exhaustion, rate limits, provider failures, and requests to continue
-  autonomously do not authorize model overrides.
-
-## Wrangler authentication
-
-- Never run `wrangler login` on the operator's behalf, or use computer-use,
-  browser automation, or another agent to authorize Wrangler for them.
-- Before declaring Wrangler authentication blocked, try a login shell and
-  other existing invocation paths, including the project's pinned Wrangler.
-  Check credential-directory and environment differences without exposing
-  secrets. Do not assume one invocation's authentication failure means the
-  operator must log in again.
-- If existing authorization still cannot be used, report the failed checks
-  and tell the operator that their manual `wrangler login` is required. Stop
-  the blocked action; do not start login, alter account scope, overwrite or
-  delete credentials, or retry authorization automatically.
-
-## Writing
-
+- Use simple, non-technical language. Be concise and easy to understand
 - Do not substitute metaphor or flourish for a direct statement. Write "a
   parameter worth varying", not "a dial worth turning". Write "this still
   matters", not "this earns its keep". Those phrases display the writer. They
   make the reader work harder, and they drag in connotations you did not
   choose. When a literal phrase is available, use it.
+
+## Reading my prompts
+
+- I often dictate my prompts. Focus on what I mean, even when the wording is rough
+
+## Doing the work
+
+- Infer the outcome I want from the request, conversation, and project context. Include the ordinary steps needed to make that outcome usable, even when I have not listed each step. Keep this within the requested scope.
+- Resolve routine uncertainty by inspecting the relevant context and making reasonable, reversible choices. Ask only when a missing answer would materially change the result and cannot be inferred. Continue independent work while waiting.
+- Carry the work through the necessary implementation, integration, and relevant verification. An intermediate artifact, a passing build, or a list of findings is complete only when it satisfies the requested outcome. Keep explanations concise without shortening the work.
+- In performance work, measure the actual bottleneck before changing it. Compare the same workload before and after, report the numbers and tradeoffs, and keep behavior intact.
+
+## Delegation
+
+- Follow the active repository and workflow guidance when choosing who performs implementation, including any specified harness. When that guidance leaves the choice open, handle small tasks directly and consider delegating substantial, clearly scoped implementation to Sol (`gpt-5.6-sol`, medium reasoning, `fork_turns="none"`).
+- Provide delegates enough context to implement and verify independently
+- Avoid micro-managing delegates - allow them to discover and catch their own mistakes.
+- If you are responsible for verifying the work of a delegate, give them clear feedback on what to improve
+
+## Verification
+
+- Verify your work after each meaningful change, checking the result I'll actually use.
+- For visual tasks, inspect the actual output in its intended context. Check relevant states and interactions. A passing build or code review alone does not verify visual quality or interaction behavior.
+- Fix any issues you find and check again before finishing.
+- Report anything you couldn't verify and why.
+- Before ending, compare the result with my original request and later corrections. If my likely next message would ask for an obvious missing step within the authorized scope, complete that step now. If something remains blocked, state exactly what is unfinished and what prevents completion.
