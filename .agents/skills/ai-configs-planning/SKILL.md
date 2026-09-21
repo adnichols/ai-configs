@@ -27,4 +27,4 @@ Use the shared planning-workflow skill for methodology. Local plans remain local
 - Prefer repository-specific guidance for tools, security, and performance; this central file is only a baseline.
 
 
-For Linear-backed PRs, start the title with the issue key and include the issue title. Use ltui for Linear operations. `run-plan` owns an authorized implementation-through-PR lifecycle; an execution-only request ends at local verification without publication. Legacy OMP/Pi delivery is not a Codex prerequisite. Supervision is opt-in through supervise.
+For Linear-backed PRs, start the title with the issue key and include the issue title. Use ltui for Linear operations. `run-plan` owns an authorized implementation-through-PR lifecycle; an execution-only request ends at local verification without publication. Legacy OMP/Pi delivery is not a Codex prerequisite.

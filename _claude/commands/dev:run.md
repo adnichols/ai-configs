@@ -34,10 +34,6 @@ Unresolvable decision examples:
 - A security/billing/production-risk choice that materially changes behavior and is not specified.
 - Multiple viable interpretations that change external behavior and cannot be resolved by existing code patterns.
 
-### 0.5) Optional Supervision
-
-Do **not** launch a supervisor for `/dev:run`. Supervision is opt-in: only when the operator explicitly asks to supervise this run, follow `skills/supervise/SKILL.md`.
-
 ### 1) Resolve Plan Path
 
 Resolve to:

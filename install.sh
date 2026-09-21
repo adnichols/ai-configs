@@ -46,6 +46,7 @@ DEPRECATED_SHARED_SKILLS=(
     herdr-reviewers
     claude-code-review
     claude-review-partner
+    supervise
 )
 # Retire the legacy, session-detail-backed todo extension in favor of the
 # package-managed @juicesharp/rpiv-todo extension.

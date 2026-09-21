@@ -1644,8 +1644,6 @@ test_docs_use_labeled_tabs_not_pane_splits() {
   local corpus=(
     "$ROOT/skills/delivery-run/SKILL.md"
     "$ROOT/skills/run-plan/SKILL.md"
-    "$ROOT/skills/supervise/SKILL.md"
-    "$ROOT/skills/supervise/supervisor-prompt.md"
     "$ROOT/_pi/prompts/delivery:run.md"
     "$ROOT/_pi/prompts/delivery:bootstrap.md"
     "$ROOT/AGENTS.md"
@@ -1656,7 +1654,6 @@ test_docs_use_labeled_tabs_not_pane_splits() {
   done
   ! rg -n "visible adjacent|adjacent visible|splits an adjacent|[Ss]plits the driving pane|adjacent Herdr pane|adjacent pane|pane[[:space:]]+split" "${corpus[@]}" || return 1
   rg -q "labeled.*tab|tab create" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q "labeled.*tab|tab create" "$ROOT/skills/supervise/SKILL.md" || return 1
   help="$($DELIVERY completion-review --help)"
   printf '%s' "$help" | rg -q "tab-create/start/prompt" || return 1
   ! printf '%s' "$help" | rg -q "split[/]start[/]prompt" || return 1

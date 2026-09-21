@@ -241,10 +241,6 @@
       "source": "_adn/skills/show-me-your-work",
       "profile": "default"
     },
-    "supervise": {
-      "source": "skills/supervise",
-      "profile": "default"
-    },
     "swarm": {
       "source": "_adn/skills/swarm",
       "profile": "default"

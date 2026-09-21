@@ -163,11 +163,7 @@ An operator ship or stop directive ends this budget immediately wherever it stan
 
 ## Workflow
 
-### 0. Optional Supervision
-
-Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: only when the operator explicitly asks to supervise this run, follow `skills/supervise/SKILL.md`. Otherwise, continue without supervisor checkpoints, phase pings, or expansion-log entries.
-
-### 0b. Delivery ledger
+### 0. Delivery ledger
 
 Use the delivery ledger only when delivery was explicitly armed for this run
 (an active `.delivery/ledger.json` created by `/delivery`, `delivery arm`,
