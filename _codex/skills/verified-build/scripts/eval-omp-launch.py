@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Launch OMP the way verified-build pins: Paseo profile named omp in a worktree.
+"""Launch OMP through the Paseo profile named omp in a worktree.
 
 create_workspace (worktree) then paseo run with the omp row materialized.
-Asserts provider, profile model, profile mode, and Paseo worktree cwd.
+Asserts provider, profile mode, and Paseo worktree cwd without policing OMP's model.
 Cleans up the workspace unless --keep is set.
 """
 from __future__ import annotations
@@ -26,10 +26,6 @@ def must_ok(proc: subprocess.CompletedProcess[str], what: str) -> str:
         sys.stderr.write(f"{what} failed ({proc.returncode})\n{proc.stderr}\n")
         raise SystemExit(1)
     return proc.stdout
-
-
-def normalize_model(value: str) -> str:
-    return (value or "").split(":", 1)[0]
 
 
 def named_omp_profile() -> dict:
@@ -147,8 +143,6 @@ def main() -> int:
         failures: list[str] = []
         if provider != "omp":
             failures.append(f"provider {provider!r} != 'omp'")
-        if normalize_model(str(model or "")) != normalize_model(expected_model):
-            failures.append(f"model {model!r} != omp profile {expected_model!r}")
         if mode != expected_mode:
             failures.append(f"mode {mode!r} != omp profile {expected_mode!r}")
         if not str(inspect_cwd or "").startswith(worktree_root):

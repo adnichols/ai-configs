@@ -48,7 +48,7 @@ A request to generate or review UI prototypes with this skill includes publishin
 
 ## Prepare the run
 
-1. Read the repository guidance, lab/deploy instructions, and any project-local `verify-*` skill. Load the app-appropriate verification skill and the `paseo` skill. Load `safe-git-index` when Git mutations are needed. Do not load `herdr` or `herdr-agent-handoff`.
+1. Read the repository guidance, lab/deploy instructions, and any project-local `verify-*` skill. Load the app-appropriate verification skill and the `paseo` skill. Load `safe-git-index` when Git mutations are needed.
 2. Resolve the target lab, repository, base branch, authenticated browser or client profile, and evidence location from repo guidance. Ask only for a missing value that cannot be discovered and changes the run.
 3. Use the repository's existing lab claim or lease mechanism. Record the lab, claim identity, owner, owning host/worktree, expiry if applicable, and release procedure. For CCore labs, load `lab-manager`; its claims do not expire. Keep the claim through review and handoff. For expiring leases, arrange supported renewal through review; report any retention limit rather than promising a reservation that will lapse. If the lab is already claimed, use another authorized lab or stop. Never invent a lock by convention.
 4. Verify which source SHA the lab serves. The baseline must match the intended base SHA. If it does not, deploy the intended base only when the request authorizes lab deployment. Otherwise stop with the mismatch.
@@ -84,13 +84,13 @@ For exploration:
 
 ## Send confirmed build work to OMP
 
-Use Paseo, not Herdr. Load the `paseo` skill for CLI and tool syntax only. Do not follow `paseo-handoff`. That skill picks a profile by notes. If `paseo` is missing or the daemon is unreachable, record `BLOCKED` and stop. Do not fall back to Herdr.
+Use Paseo. OMP is responsible for managing model selection, not the orchestrator; allow OMP to choose the appropriate model and do not interfere with its selection. Load the `paseo` skill for CLI and tool syntax only. Do not follow `paseo-handoff`. That skill picks a profile by notes. If `paseo` is missing or the daemon is unreachable, record `BLOCKED` and stop.
 
 The OMP worker lives in a Paseo worktree workspace at the exact recorded base SHA. That worktree is separate from the Codex run checkout under `~/.codex/worktrees/` and from the operator's primary checkout. Never start OMP in a `local` workspace of either. One workstream is the default. Split work only when evidence proves distinct independently mergeable root causes or an existing PR already owns a dependency.
 
-The launch profile is named `omp`. That is the Paseo bundle for this worker. Do not invent a model. Do not pass `@default`. That sentinel was how Herdr reached OMP's configured default. Paseo already has the `omp` profile.
+The launch profile is named `omp`. That is the Paseo bundle for this worker.
 
-1. Call `list_profiles`, or on the CLI read the `omp` row in `daemon.agentProfiles` on the target host. Take the row whose `name` is exactly `omp`. Do not pick by notes. Do not call `list_models` or `inspect_provider`.
+1. Call `list_profiles`, or on the CLI read the `omp` row in `daemon.agentProfiles` on the target host. Take the row whose `name` is exactly `omp`. Do not pick by notes.
 2. Create the workspace with `create_workspace`: `isolation: "worktree"`, `mode: "branch-off"`, `baseBranch` the recorded SHA, a short `branchName`, `path` the target repository.
 3. Start the worker with `create_agent` in that `workspaceId`. Materialize the `omp` row only:
    - `provider`: `omp/<model>`
@@ -118,11 +118,9 @@ paseo run -d --json \
   "<OMP prompt>"
 ```
 
-Pass `--thinking` only when the profile has `thinkingOptionId`. Do not pass `--provider omp` without the profile model. Do not pass `--provider omp/@default`. Do not start `codex`, `Devin`, `orchestrator`, or `Research`. Do not edit OMP's model configuration or instruct OMP to change it unless the operator explicitly authorizes that in the current request. Requesting ADN mode does not authorize a model change.
+Pass `--thinking` only when the profile has `thinkingOptionId`. Do not edit OMP's model configuration or instruct OMP to change it unless the operator explicitly authorizes that in the current request. Requesting ADN mode does not authorize a model change.
 
-After start, inspect the worker (`paseo inspect --json <id>` or `get_agent_status`). Confirm `Provider` is `omp`, `Model` matches the `omp` profile, `Mode` matches the profile `modeId`, and `Cwd` is under `~/.paseo/worktrees/`. Record those values in `run.md`. Then check the observed model against the external-agent restrictions in the Codex instructions, including aliases and reasoning variants. Using the `omp` profile does not skip this check. Neither the parent Codex model nor a model picker authorizes the OMP model.
-
-Repeat this check after launch, resume, restart, or an observed model/fallback change, and before each follow-up work assignment. If the model is unknown, inspect before dispatch. If it is prohibited, withhold work; interrupt an active worker owned by this run and report the model and policy mismatch as `BLOCKED`. Preserve its context and configuration. Quota exhaustion, provider errors, and requests to continue autonomously do not authorize a substitute model or fallback edit. Apply only explicitly authorized exceptions for their stated use; an Oracle exception does not permit an implementation worker.
+After start, inspect the worker (`paseo inspect --json <id>` or `get_agent_status`). Confirm `Provider` is `omp`, `Mode` matches the profile `modeId`, and `Cwd` is under `~/.paseo/worktrees/`. Record those values and the observed model in `run.md`.
 
 Prompt OMP to use ADN mode and include:
 
