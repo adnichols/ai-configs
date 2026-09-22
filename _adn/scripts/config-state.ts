@@ -5,8 +5,8 @@ import { spawnSync } from "node:child_process";
 
 export const ADN_ROLES = {
   "architect-grok": "cursor/cursor-grok-4.6:high",
-  "architect-kimi": "cursor/kimi-k3-max:max",
-  "reviewer-kimi": "cursor/kimi-k3-max:high",
+  "architect-kimi": "devin/swe-2:max",
+  "reviewer-kimi": "devin/swe-2:max",
 } as const;
 
 export function resolveProfile(opts: { cwd?: string; env?: NodeJS.ProcessEnv; agentRoot?: string } = {}): string {

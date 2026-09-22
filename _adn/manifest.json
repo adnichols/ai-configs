@@ -9,8 +9,8 @@
   },
   "roles": {
     "architect-grok": "cursor/cursor-grok-4.6:high",
-    "architect-kimi": "cursor/kimi-k3-max:max",
-    "reviewer-kimi": "cursor/kimi-k3-max:high"
+    "architect-kimi": "devin/swe-2:max",
+    "reviewer-kimi": "devin/swe-2:max"
   },
   "assets": [
     {

@@ -36,8 +36,8 @@ describe.skipIf(!RUN)("config-state", () => {
     expect(next.reviewer).toBe("keep");
     expect(next.default).toBe("xai");
     expect(next["architect-grok"]).toBe("cursor/cursor-grok-4.6:high");
-    expect(next["architect-kimi"]).toBe("cursor/kimi-k3-max:max");
-    expect(next["reviewer-kimi"]).toBe("cursor/kimi-k3-max:high");
+    expect(next["architect-kimi"]).toBe("devin/swe-2:max");
+    expect(next["reviewer-kimi"]).toBe("devin/swe-2:max");
   });
 
   test("neutral cwd profile matches omp config path", () => {

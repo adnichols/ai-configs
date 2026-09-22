@@ -182,8 +182,8 @@ describe("ADN manifest", () => {
     expect(manifest.upstream.license).toBe("MIT");
     expect(manifest.upstream.url).toContain("cursor/plugins");
     expect(manifest.roles["architect-grok"]).toBe("cursor/cursor-grok-4.6:high");
-    expect(manifest.roles["architect-kimi"]).toBe("cursor/kimi-k3-max:max");
-    expect(manifest.roles["reviewer-kimi"]).toBe("cursor/kimi-k3-max:high");
+    expect(manifest.roles["architect-kimi"]).toBe("devin/swe-2:max");
+    expect(manifest.roles["reviewer-kimi"]).toBe("devin/swe-2:max");
 
     const ids = manifest.assets.map((row) => row.id);
     expect(new Set(ids).size).toBe(ids.length);
