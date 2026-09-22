@@ -1,5 +1,3 @@
-providers:
-  tts: xai
 disabledProviders:
   - claude
 extensions:
@@ -31,9 +29,9 @@ checkpoint:
 plan:
   enabled: false
 modelRoles:
-  smol: synthetic/hf:zai-org/GLM-5.3-Flash:max
+  smol: synthetic/hf:zai-org/GLM-5.3-Flash:high
   slow: openai-codex/gpt-5.6-sol:high
-  vision: openai-codex/gpt-5.6-luna:xhigh
+  vision: openai-codex/gpt-5.6-sol:high
   plan: openai-codex/gpt-5.6-sol:high
   designer: openai-codex/gpt-5.6-sol:xhigh
   commit: openai-codex/gpt-5.6-luna:xhigh
@@ -47,6 +45,7 @@ modelRoles:
   architect-kimi: devin/swe-2:max
   reviewer-kimi: devin/swe-2:max
   task: xai-oauth/grok-4.6:medium
+  speech: xai/grok-tts
 defaultThinkingLevel: auto
 compaction:
   thresholdPercent: -1
@@ -110,6 +109,8 @@ retry:
       - cursor/cursor-grok-4.6
     reviewer:
       - xai-oauth/grok-4.6
+    speech:
+      []
 extendedContext: false
 prewalk:
   enabled: false
