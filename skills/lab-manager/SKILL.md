@@ -27,8 +27,10 @@ pnpm --filter @ccore/lab-manager run lab -- list --all
 pnpm --filter @ccore/lab-manager run lab -- inspect <lab>
 ```
 
-Choose an unclaimed provisioned lab within the user's authorized scope. If a
-new lab is needed, register its `labNNN` name and let the manager provision it:
+A request to use verified-build authorizes choosing and claiming an isolated
+lab without separate checkout permission. Choose an unclaimed provisioned lab
+within the user's authorized scope. If a new lab is needed, register its
+`labNNN` name and let the manager provision it:
 
 ```sh
 pnpm --filter @ccore/lab-manager run lab -- register <lab>
@@ -48,6 +50,10 @@ when authorized, and use the explicit claim-ID replacement only after resolving
 ownership. Do not steal in-use labs or delete another session's resources.
 
 ## Deploy and verify
+
+Lab checkout alone does not authorize deployment or fixture mutations. Resolve
+those actions from the requested task and existing session authorization; do
+not ask again for actions already authorized.
 
 ```sh
 pnpm run deploy -- --hub <lab>

@@ -7,7 +7,7 @@ description: "Codex-only lab workflow for bug fixes, feature changes, and live p
 
 Codex owns the lab, test design, evidence, and final verdict. OMP owns planning, product code, tests, review, Git history, and the pull request. Codex may inspect source and the PR to diagnose a result, but it does not edit the implementation.
 
-Confirm that the current user request authorizes lab use, PR creation, and PR evidence updates before doing them. Run only the authorized portion when it does not. This workflow never implies permission for production deployment, merging, destructive fixture cleanup, or unrelated changes.
+When the user requests verified-build, request and claim a manager-assigned isolated lab without asking for separate lab-checkout permission. Lab checkout alone does not authorize deployment, fixture mutations, PR creation, or PR evidence updates; resolve those actions from the requested task and existing session authorization. Do not ask again for actions already authorized. This workflow never implies permission for production deployment, merging, destructive fixture cleanup, or unrelated changes.
 
 ## Route the request
 
