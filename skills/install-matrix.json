@@ -707,6 +707,18 @@
       "notes": "Repo-owned local skill retained in ai-configs.",
       "sourceType": "repo"
     },
+    "session-cleanup": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "canonicalSource": "skills/session-cleanup",
+      "notes": "Ordered teardown for finished sessions: release lab claims and published clickable-prototype demos before removing worktrees, retire child workspaces and agents, archive the Paseo session last.",
+      "sourceType": "repo"
+    },
     "setup-matt-pocock-skills": {
       "class": "universal-installable",
       "allowedConsumers": [
