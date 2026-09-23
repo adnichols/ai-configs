@@ -607,6 +607,18 @@
       "notes": "Existing canonical skill retained.",
       "sourceType": "repo"
     },
+    "product-evals": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "canonicalSource": "skills/product-evals",
+      "notes": "Original product eval workflow informed by the Husain and Shankar error discovery article and the Ava agent pilot; upstream eval skills are not vendored.",
+      "sourceType": "repo"
+    },
     "prototype": {
       "class": "universal-installable",
       "allowedConsumers": [
