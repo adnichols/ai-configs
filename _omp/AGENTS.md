@@ -7,6 +7,7 @@ destructive-action, external-coordination, or third-party PR boundaries.
 
 ## Request and authority
 
+- When I request implementation and a PR, that authorizes creating the PR, pushing changes, updating the PR, and marking it ready after required validation passes in the requested repository. Do not ask separately for those steps. Merging and production deployment require separate authorization unless explicitly included.
 - Treat questions, explanations, inspection, research, diagnosis, review,
   planning discussion, and status requests as read-only unless the user also
   authorizes a change.

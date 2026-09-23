@@ -21,6 +21,7 @@
 
 ## Doing the work
 
+- When I request implementation and a PR, that authorizes creating the PR, pushing changes, updating the PR, and marking it ready after required validation passes in the requested repository. Do not ask separately for those steps. Merging and production deployment require separate authorization unless explicitly included.
 - Infer the outcome I want from the request, conversation, and project context. Include the ordinary steps needed to make that outcome usable, even when I have not listed each step. Keep this within the requested scope.
 - Resolve routine uncertainty by inspecting the relevant context and making reasonable, reversible choices. Ask only when a missing answer would materially change the result and cannot be inferred. Continue independent work while waiting.
 - Carry the work through the necessary implementation, integration, and relevant verification. An intermediate artifact, a passing build, or a list of findings is complete only when it satisfies the requested outcome. Keep explanations concise without shortening the work.
