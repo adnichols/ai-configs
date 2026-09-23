@@ -106,10 +106,13 @@ Claude commands and default settings. The repository no longer ships a Claude re
 Codex prompt files plus config templates. Global Codex prompt discovery is handled by the installer.
 
 ### `_devin/`
-Canonical Devin CLI global configuration: cross-repository guidance installed
-to `~/.config/devin/AGENTS.md` and the custom subagent profiles `oracle`,
-`planner`, `reviewer`, and `completeness` installed to `~/.config/devin/agents/`
-(`reviewer`/`planner` pin `sonnet`; `oracle`/`completeness` pin `opus`).
+Canonical Devin CLI global configuration. Devin's global instructions are
+maintained in [`_devin/AGENTS.md`](_devin/AGENTS.md) and installed to
+`~/.config/devin/AGENTS.md` by default. `DEVIN_CONFIG_TARGET` overrides the
+install root. The custom subagent profiles `oracle`,
+`planner`, `reviewer`, and `completeness` are installed to
+`~/.config/devin/agents/` (`reviewer`/`planner` pin `sonnet`;
+`oracle`/`completeness` pin `opus`).
 `_devin/install.sh` preserves the first differing managed file as
 `<name>.before-ai-configs`, never touches CLI-owned `config.json`, and prunes
 dangling links in `~/.config/devin/skills/` into a timestamped backup root.
