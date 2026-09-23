@@ -105,6 +105,10 @@ Claude commands and default settings. The repository no longer ships a Claude re
 ### `_codex/`
 Codex prompt files plus config templates. Global Codex prompt discovery is handled by the installer.
 
+Codex's global instructions are maintained in [`_codex/AGENTS.md`](_codex/AGENTS.md)
+and installed by `install.sh --codex` to `~/.codex/AGENTS.md` by default, or
+to `$CODEX_HOME/AGENTS.md` when `CODEX_HOME` is set.
+
 ### `_devin/`
 Canonical Devin CLI global configuration: cross-repository guidance installed
 to `~/.config/devin/AGENTS.md` and the custom subagent profiles `oracle`,
