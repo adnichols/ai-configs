@@ -10,8 +10,8 @@ Current Pi subagent roster and Claude/Codex execution boundaries defined in this
 ## Pi Subagents (Exact Five-Agent Roster)
 Located under `_pi/agents/` and invoked through Pi's subagent system:
 
-- `oracle` (GPT-5.6 Sol, high; `_pi/agents/oracle.md`) — inherited-context, read-only decision support for risky, ambiguous, drifting, or non-converging choices; it advises while the driving agent keeps decision and implementation authority.
-- `planner` (GPT-5.6 Sol, medium; `_pi/agents/planner.md`) — planning and independent plan-readiness-review authority; it may write only a caller-named plan artifact and otherwise returns review findings without edits.
+- `oracle` (GPT-6 Sol, high; `_pi/agents/oracle.md`) — inherited-context, read-only decision support for risky, ambiguous, drifting, or non-converging choices; it advises while the driving agent keeps decision and implementation authority.
+- `planner` (GPT-6 Sol, medium; `_pi/agents/planner.md`) — planning and independent plan-readiness-review authority; it may write only a caller-named plan artifact and otherwise returns review findings without edits.
 - `reviewer` (GPT-5.6 Terra, medium; `_pi/agents/reviewer.md`) — read-only materiality-focused review authority, except for an explicitly named review artifact when the caller authorizes comments or output there.
 - `scout` (GPT-5.6 Terra, low; `_pi/agents/scout.md`) — bounded read-only local/web discovery and evidence gathering.
 - `imaging` (GPT-5.6 Luna, xhigh; `_pi/agents/imaging.md`) — read-only visual analysis for non-vision models; it inspects image paths or URLs and returns what the caller cannot see.
@@ -28,7 +28,7 @@ Imaging launch contract (Pi): call `Agent` with only `subagent_type: "imaging"`,
 
 ### Pi Subagent Reasoning-Effort Policy
 
-- Agent frontmatter is authoritative: Oracle decision support uses GPT-5.6 Sol high with inherited context and live-checkout `isolation: none`; planning and independent plan-readiness review use GPT-5.6 Sol medium; implementation/code review uses GPT-5.6 Terra medium; scout uses GPT-5.6 Terra low; imaging uses GPT-5.6 Luna xhigh with live-checkout `isolation: none`. Do not pass caller-side model, thinking, `inherit_context`, or `isolation` overrides on Oracle, planner, reviewer, or imaging launches.
+- Agent frontmatter is authoritative: Oracle decision support uses GPT-6 Sol high with inherited context and live-checkout `isolation: none`; planning and independent plan-readiness review use GPT-6 Sol medium; implementation/code review uses GPT-5.6 Terra medium; scout uses GPT-5.6 Terra low; imaging uses GPT-5.6 Luna xhigh with live-checkout `isolation: none`. Do not pass caller-side model, thinking, `inherit_context`, or `isolation` overrides on Oracle, planner, reviewer, or imaging launches.
 - In Pi delivery runs, the Sol-medium readiness reviewer recommends the dedicated implementation runtime. Use `openai-codex/gpt-5.6-luna` at xhigh by default. Use `openai-codex/gpt-5.6-terra` at high when correctness depends materially on critical technical judgment. Escalate unresolved consequential choices to Oracle rather than routing implementation through Sol. This is a default, not a prohibition: a deliberate manual model/reasoning choice is allowed when the delivery ledger records the override and reason.
 - Do not pass caller-side reasoning overrides merely because a task appears difficult.
 - Development stays in the driving session. Do not route code-writing, tests, fixes, or repository operations through any Pi persona; use subagents only for bounded planning, read-only discovery, read-only decision support, read-only review, or read-only visual analysis.

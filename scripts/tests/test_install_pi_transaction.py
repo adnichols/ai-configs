@@ -96,6 +96,7 @@ class InstallTransactionTest(unittest.TestCase):
                 'openai-codex':{'localField':'keep','models':[
                     {'id':'gpt-5.4','name':'GPT-5.4 (CLI Proxy API)'},
                     {'id':'gpt-5.4-mini','name':'GPT-5.4 mini (CLI Proxy API)'},
+                    {'id':'gpt-5.6-sol','name':'GPT-5.6 Sol (CLI Proxy API)'},
                     {'id':'caller-custom','name':'Caller Custom (CLI Proxy API)','customField':'keep'},
                 ]},
                 'caller-owned':{'baseUrl':'https://caller.invalid/v1','api':'custom-api','apiKey':'secret','models':[{'id':'gpt-5.4','name':'Unrelated same ID'}]},
@@ -111,7 +112,7 @@ class InstallTransactionTest(unittest.TestCase):
             env=self.review_env(home)
             subprocess.run(['bash','install.sh','--pi-review-stack'],cwd=ROOT,env=env,check=True,stdout=subprocess.DEVNULL)
             installed=json.loads(models.read_text());providers=installed['providers'];codex=providers['openai-codex'];ids={model['id'] for model in codex['models']}
-            self.assertNotIn('gpt-5.4',ids);self.assertNotIn('gpt-5.4-mini',ids);self.assertIn('caller-custom',ids);custom=next(model for model in codex['models'] if model['id']=='caller-custom');self.assertEqual(custom['name'],'Caller Custom (CLI Proxy API)');self.assertEqual(custom['customField'],'keep');self.assertEqual(codex['localField'],'keep')
+            self.assertNotIn('gpt-5.4',ids);self.assertNotIn('gpt-5.4-mini',ids);self.assertNotIn('gpt-5.6-sol',ids);self.assertIn('gpt-6-sol',ids);self.assertIn('caller-custom',ids);custom=next(model for model in codex['models'] if model['id']=='caller-custom');self.assertEqual(custom['name'],'Caller Custom (CLI Proxy API)');self.assertEqual(custom['customField'],'keep');self.assertEqual(codex['localField'],'keep')
             self.assertEqual(providers['caller-owned'],{'baseUrl':'https://caller.invalid/v1','api':'custom-api','apiKey':'secret','models':[{'id':'gpt-5.4','name':'Unrelated same ID'}]})
             self.assertNotIn('glm-5.2',providers.get('opencode',{}).get('modelOverrides',{}));self.assertNotIn('opencode-go',providers)
             configured=json.loads(settings.read_text());self.assertEqual(configured['callerSetting'],'keep');self.assertEqual(configured['enabledModels'],['caller-owned/gpt-5.4','openai-codex/caller-custom',42])
@@ -157,8 +158,8 @@ class InstallTransactionTest(unittest.TestCase):
                 'cursor': {'modelOverrides': {'grok-4.5': {'contextWindow': 256000}}},
             }}))
             settings = agent / 'settings.json'
-            settings.write_text(json.dumps({'enabledModels': [
-                'grok/grok-4.5', 'grok/grok-composer-2.5-fast', 'grok-4.3', 'openai-codex/grok-4.5', 'opencode/grok-4.5', 'cursor/grok-4.5', 'openai-codex/gpt-5.6-sol',
+            settings.write_text(json.dumps({'modelThinkingLevels': {'openai-codex/gpt-5.6-sol': 'high'}, 'enabledModels': [
+                'grok/grok-4.5', 'grok/grok-composer-2.5-fast', 'grok-4.3', 'openai-codex/grok-4.5', 'opencode/grok-4.5', 'cursor/grok-4.5', 'openai-codex/gpt-6-sol',
             ]}))
             # Reproduce the deployed PR #54 layout: a non-factory helper left in
             # extensions/ must be removed before Pi's next auto-discovered launch.
@@ -171,6 +172,8 @@ class InstallTransactionTest(unittest.TestCase):
             self.assertNotIn('enabledModels', configured_data)
             self.assertEqual(configured_data['defaultProvider'],'deepinfra')
             self.assertEqual(configured_data['defaultModel'],'deepseek-ai/DeepSeek-V4-Flash-0731')
+            self.assertEqual(configured_data['modelThinkingLevels']['openai-codex/gpt-6-sol'],'high')
+            self.assertNotIn('openai-codex/gpt-5.6-sol',configured_data['modelThinkingLevels'])
             self.assertFalse((agent / 'extensions/model-allowlist.ts').exists())
             installed_models=json.loads(models.read_text())['providers']
             self.assertEqual(installed_models['xai'], json.loads((ROOT / '_pi/models.json').read_text())['providers']['xai'])

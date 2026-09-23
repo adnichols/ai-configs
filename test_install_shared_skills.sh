@@ -65,8 +65,8 @@ settings_path="$HOME/.pi/agent/settings.json"
 case "${1:-}" in
   --list-models)
     case "${2:-}" in
-      openai-codex/gpt-5.6-sol)
-        printf 'openai-codex gpt-5.6-sol\n'
+      openai-codex/gpt-6-sol)
+        printf 'openai-codex gpt-6-sol\n'
         ;;
       opencode/glm-5.2)
         printf 'opencode glm-5.2\n'
@@ -941,7 +941,7 @@ test_agent_extension_installs_preserve_or_manage_herdr_extensions() {
 {"providers":{"ollama":{"baseUrl":"https://ollama.com/v1","api":"openai-completions","apiKey":"local-test-key","models":[{"id":"gemma4:latest"},{"id":"kimi-k2.5:cloud"}]},"grok":{"name":"Grok (local CLI Proxy API)","baseUrl":"http://127.0.0.1:8318/v1","api":"openai-completions","apiKey":"local-cliproxyapi","models":[{"id":"grok-4.5","name":"Grok 4.5 (CLI Proxy API)"}]}}}
 EOF
   cat > "$home/.pi/agent/settings.json" <<'EOF'
-{"defaultProvider":"grok","defaultModel":"grok-composer-2.5-fast","enabledModels":["grok/grok-4.5","grok/grok-composer-2.5-fast","openai-codex/gpt-5.6-sol"],"extensions":[".pi/agent/extensions/pi-prd-mode","npm:caller-owned"],"packages":["npm:@tintinweb/pi-tasks"]}
+{"defaultProvider":"grok","defaultModel":"grok-composer-2.5-fast","enabledModels":["grok/grok-4.5","grok/grok-composer-2.5-fast","openai-codex/gpt-6-sol"],"extensions":[".pi/agent/extensions/pi-prd-mode","npm:caller-owned"],"packages":["npm:@tintinweb/pi-tasks"]}
 EOF
   printf '{"taskScope":"session"}\n' > "$home/.pi/agent/tasks-config.json"
 
@@ -973,7 +973,7 @@ EOF
   [[ ! -e "$home/.pi/agent/agents/researcher.md" ]] || return 1
   [[ -f "$home/.pi/agent/agents/planner.md" ]] || return 1
   assert_file_contains "$home/.pi/agent/agents/planner.md" 'name: planner' || return 1
-  assert_file_contains "$home/.pi/agent/agents/planner.md" 'model: openai-codex/gpt-5.6-sol' || return 1
+  assert_file_contains "$home/.pi/agent/agents/planner.md" 'model: openai-codex/gpt-6-sol' || return 1
   assert_file_contains "$home/.pi/agent/agents/planner.md" 'reasoningEffort: medium' || return 1
   assert_file_contains "$home/.pi/agent/agents/planner.md" 'independently review an existing plan' || return 1
   assert_file_contains "$home/.pi/agent/agents/scout.md" 'model: openai-codex/gpt-5.6-terra' || return 1

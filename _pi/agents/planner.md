@@ -3,7 +3,7 @@ name: planner
 description: Produces and independently reviews evidence-backed implementation plans from bounded task packets
 mode: subagent
 tools: read, grep, find, ls, bash, write
-model: openai-codex/gpt-5.6-sol
+model: openai-codex/gpt-6-sol
 reasoningEffort: medium
 isolation: none
 ---

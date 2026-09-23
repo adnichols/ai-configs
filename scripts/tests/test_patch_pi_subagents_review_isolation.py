@@ -153,7 +153,7 @@ class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
             agents = agent_dir / "agents"
             agents.mkdir()
             (agents / "planner.md").write_text(
-                "---\nname: planner\nmodel: openai-codex/gpt-5.6-sol\nreasoningEffort: medium\nisolation: none\n---\n"
+                "---\nname: planner\nmodel: openai-codex/gpt-6-sol\nreasoningEffort: medium\nisolation: none\n---\n"
             )
             (agents / "reviewer.md").write_text(
                 "---\nname: reviewer\nmodel: openai-codex/gpt-5.6-terra\nreasoningEffort: medium\nisolation: none\n---\n"
@@ -169,7 +169,7 @@ class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
             self.assertEqual("pass", payload["status"])
             self.assertEqual(str(Path(temp).resolve()), payload["targetCheckout"])
             self.assertEqual("none", payload["profiles"]["reviewer"]["effectiveIsolation"])
-            self.assertEqual("openai-codex/gpt-5.6-sol", payload["profiles"]["planner"]["model"])
+            self.assertEqual("openai-codex/gpt-6-sol", payload["profiles"]["planner"]["model"])
 
     def test_accepts_current_off_veto_package(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -227,7 +227,7 @@ class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
             agents = agent_dir / "agents"
             agents.mkdir()
             (agents / "planner.md").write_text(
-                "---\nname: planner\nmodel: openai-codex/gpt-5.6-sol\nreasoningEffort: medium\nisolation: none\n---\n"
+                "---\nname: planner\nmodel: openai-codex/gpt-6-sol\nreasoningEffort: medium\nisolation: none\n---\n"
             )
             (agents / "reviewer.md").write_text(
                 "---\nname: reviewer\nmodel: openai-codex/gpt-5.6-terra\nreasoningEffort: medium\nisolation: none\n---\n"
@@ -253,7 +253,7 @@ class PatchPiSubagentsReviewIsolationTest(unittest.TestCase):
                 target.write_text("isolation: params.isolation ?? agentConfig?.isolation,\n")
             agents = agent_dir / "agents"
             agents.mkdir()
-            for name, model in (("planner", "openai-codex/gpt-5.6-sol"), ("reviewer", "openai-codex/gpt-5.6-terra")):
+            for name, model in (("planner", "openai-codex/gpt-6-sol"), ("reviewer", "openai-codex/gpt-5.6-terra")):
                 (agents / f"{name}.md").write_text(
                     f"---\nname: {name}\nmodel: {model}\nreasoningEffort: medium\nisolation: none\n---\n"
                 )

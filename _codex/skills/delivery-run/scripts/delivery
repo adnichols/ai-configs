@@ -31,7 +31,7 @@ IMPLEMENTATION_LAUNCH_LOCK_REL = Path(".delivery") / "implementation-launch.lock
 HERDR_WORKTREES = Path.home() / ".herdr" / "worktrees"
 
 PLAN_REVIEW_AGENT = "planner"
-PLAN_REVIEW_MODEL = "openai-codex/gpt-5.6-sol"
+PLAN_REVIEW_MODEL = "openai-codex/gpt-6-sol"
 PLAN_REVIEW_REASONING = "medium"
 # Dual-plan hydrate trial: launch starts on Luna xhigh; planner profile is the executor.
 HYDRATE_PROFILE_NAME = "luna-xhigh"
@@ -199,7 +199,7 @@ STAGE_NEXT_SKILL = {
     ),
     "PLAN_TECH_REVIEW": (
         "After planReadinessRequest is recorded, run the independent planner subagent on "
-        "openai-codex/gpt-5.6-sol at medium reasoning and record its current-plan verdict"
+        "openai-codex/gpt-6-sol at medium reasoning and record its current-plan verdict"
     ),
     "EXECUTION_READY": (
         "Automatically authorize the reviewed plan and launch the dedicated planner-selected implementation "
@@ -5435,7 +5435,7 @@ While the stage is `PLAN_BROWSER_REVIEW`:
   --status pass --summary "Doct execution-ready review request"`, then move to
   `PLAN_PM_REVIEW`. `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW`
   reject a missing request record. `EXECUTION_READY` additionally requires a
-  current independent planner artifact from `openai-codex/gpt-5.6-sol` at medium
+  current independent planner artifact from `openai-codex/gpt-6-sol` at medium
   with `VERDICT: PLAN_EXECUTION_READY`. The same review should select `luna-xhigh`
   by default, and `terra-high` when correctness depends materially on technical judgment.
   These are authorization boundaries.
@@ -5507,7 +5507,7 @@ delivery bootstrap --refresh                    # rewrite this brief
 ## Soft quality inserts (recommended, never required)
 
 - `delivery record planReadinessRequest --status pass --summary "Doct execution-ready review request"`
-- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY --implementation-profile luna-xhigh|terra-high --implementation-rationale "..."`
+- `delivery record planTech --status pass --artifact thoughts/validation/<slug>-plan-review.md --reviewer planner --model openai-codex/gpt-6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY --implementation-profile luna-xhigh|terra-high --implementation-rationale "..."`
 - `delivery record completionEval --status pass|gap --summary "..."`
 - `delivery record customerImpact --status pass --summary "..." --promised "..." --observed "..."`
 - `delivery record adversarialQa --status pass|na --summary "..."`

@@ -137,9 +137,7 @@ def analyze(session_path: Path, require_disposition: bool = True) -> dict:
         model = args.get("model")
         if model not in (None, ""):
             model_s = str(model)
-            if model_s not in ("openai-codex/gpt-5.6-sol", "gpt-5.6-sol") and not model_s.endswith(
-                "/gpt-5.6-sol"
-            ):
+            if model_s != "gpt-6-sol" and not model_s.endswith("/gpt-6-sol"):
                 call_errors.append("line %s: oracle call overrode model=%r" % (line_no, model))
         if args.get("thinking") not in (None, "", "high"):
             call_errors.append(

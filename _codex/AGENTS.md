@@ -29,7 +29,7 @@
 
 ## Delegation
 
-- Follow the active repository and workflow guidance when choosing who performs implementation, including any specified harness. When that guidance leaves the choice open, handle small tasks directly and consider delegating substantial, clearly scoped implementation to Sol (`gpt-5.6-sol`, medium reasoning, `fork_turns="none"`).
+- Follow the active repository and workflow guidance when choosing who performs implementation, including any specified harness. When that guidance leaves the choice open, handle small tasks directly and consider delegating substantial, clearly scoped implementation to Sol (`gpt-6-sol`, medium reasoning, `fork_turns="none"`).
 - Provide delegates enough context to implement and verify independently
 - Avoid micro-managing delegates - allow them to discover and catch their own mistakes.
 - If you are responsible for verifying the work of a delegate, give them clear feedback on what to improve

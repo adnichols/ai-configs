@@ -94,7 +94,7 @@ Match the call shape to the harness. `adn` is not a valid `subagent_type` anywhe
 
 Use the Pi `Agent` tool with an explicit `subagent_type`. Do not call the OMP `task` tool or Cursor `Task`.
 
-The repo-owned Pi roster is pinned by agent frontmatter: `oracle` (`openai-codex/gpt-5.6-sol` high), `planner` (`openai-codex/gpt-5.6-sol` medium), `reviewer` (`openai-codex/gpt-5.6-terra` medium), `scout` (`openai-codex/gpt-5.6-terra` low), and `imaging` (`openai-codex/gpt-5.6-luna` xhigh). Launch them with `subagent_type: "<role>"` and do not pass caller-side `model`, `thinking`, `inherit_context`, or `isolation` overrides.
+The repo-owned Pi roster is pinned by agent frontmatter: `oracle` (`openai-codex/gpt-6-sol` high), `planner` (`openai-codex/gpt-6-sol` medium), `reviewer` (`openai-codex/gpt-5.6-terra` medium), `scout` (`openai-codex/gpt-5.6-terra` low), and `imaging` (`openai-codex/gpt-5.6-luna` xhigh). Launch them with `subagent_type: "<role>"` and do not pass caller-side `model`, `thinking`, `inherit_context`, or `isolation` overrides.
 
 The ADN council roles have no pinned Pi roster agent. Spawn them as `general-purpose` with an explicit `model` so every role stays on the same model family as the manifest:
 

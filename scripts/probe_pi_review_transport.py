@@ -9,7 +9,7 @@ from pathlib import Path
 
 PROFILES = ("planner", "reviewer")
 EXPECTED = {
-    "planner": ("openai-codex/gpt-5.6-sol", "medium"),
+    "planner": ("openai-codex/gpt-6-sol", "medium"),
     "reviewer": ("openai-codex/gpt-5.6-terra", "medium"),
 }
 

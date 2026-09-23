@@ -960,12 +960,12 @@ test_readiness_review_requires_explicit_request() {
   code=$?
   set -e
   [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "requires model openai-codex/gpt-5.6-sol" || return 1
+  printf '%s' "$out" | rg -q "requires model openai-codex/gpt-6-sol" || return 1
 
   set +e
   out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/plan-review.md --summary "missing profile decision" \
-    --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
+    --reviewer planner --model openai-codex/gpt-6-sol --reasoning-level medium \
     --verdict PLAN_EXECUTION_READY 2>&1)"
   code=$?
   set -e
@@ -974,7 +974,7 @@ test_readiness_review_requires_explicit_request() {
 
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/plan-review.md --summary "independent Sol medium plan review" \
-    --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
+    --reviewer planner --model openai-codex/gpt-6-sol --reasoning-level medium \
     --verdict PLAN_EXECUTION_READY --implementation-profile terra-high \
     --implementation-rationale "deterministic tests strongly validate this plan" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
@@ -983,7 +983,7 @@ import json,sys
 review=json.load(open(sys.argv[1]))["evidence"]["planTech"]
 assert review["status"] == "pass"
 assert review["reviewer"] == "planner"
-assert review["model"] == "openai-codex/gpt-5.6-sol"
+assert review["model"] == "openai-codex/gpt-6-sol"
 assert review["reasoningLevel"] == "medium"
 assert review["verdict"] == "PLAN_EXECUTION_READY"
 assert review["implementationProfile"] == "terra-high"
@@ -1122,7 +1122,7 @@ SH
     --summary "Doct execution-ready review request" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary "independent Sol medium plan review" \
-    --reviewer planner --model openai-codex/gpt-5.6-sol --reasoning-level medium \
+    --reviewer planner --model openai-codex/gpt-6-sol --reasoning-level medium \
     --verdict PLAN_EXECUTION_READY --implementation-profile luna-xhigh \
     --implementation-rationale "Luna xhigh is the default implementation profile" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
@@ -1225,7 +1225,7 @@ PY
   printf '%s' "$out" | rg -q "current Herdr pane does not match" || return 1
 
   set +e
-  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p2 \
+  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w1:p2 \
     DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage IMPLEMENTING 2>&1)"
   code=$?
   set -e
@@ -1314,7 +1314,7 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary "testable work" --reviewer planner \
-    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --model openai-codex/gpt-6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
     --implementation-profile luna-xhigh \
     --implementation-rationale "deterministic tests support the default Luna implementation" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
@@ -1342,7 +1342,7 @@ assert profile["reasoningLevel"] == "xhigh"
 PY
 
   set +e
-  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-5.6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w-deep:p2 \
+  out="$(PI_PROVIDER=openai-codex PI_MODEL=gpt-6-sol PI_REASONING_LEVEL=medium HERDR_PANE_ID=w-deep:p2 \
     DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" verify-implementation-profile 2>&1)"
   code=$?
   set -e
@@ -1400,7 +1400,7 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
-    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --model openai-codex/gpt-6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
     --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
 
   PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-auto HERDR_PANE_ID=w-auto:p1 \
@@ -1444,7 +1444,7 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
-    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --model openai-codex/gpt-6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
     --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
   PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-race HERDR_PANE_ID=w-race:p1 \
@@ -1563,7 +1563,7 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
-    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --model openai-codex/gpt-6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
     --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
 
@@ -1692,7 +1692,7 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/plan-review.md --summary ready --reviewer planner \
-    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --model openai-codex/gpt-6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
     --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
 
   PATH="$env_path" ATTENTION_LOG="$attention_log" HERDR_PANE_ID=w-attn:p1 \
@@ -1758,7 +1758,7 @@ test_skill_doctrine_wording() {
     "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "approve-implementation" "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q "plan-reviewer-execution-ready" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
-  rg -q "openai-codex/gpt-5.6-sol" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
+  rg -q "openai-codex/gpt-6-sol" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "single Doct-reviewed" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   ! rg -q "agentic companion|planSync" "$ROOT/skills/reviewed-html-plan/SKILL.md" || return 1
   rg -q "HTML-only" "$ROOT/skills/delivery-run/SKILL.md" || return 1
@@ -1944,7 +1944,7 @@ SH
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planReadinessRequest --status pass --summary ready >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/x-plan-review.md --summary ready --reviewer planner \
-    --model openai-codex/gpt-5.6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
+    --model openai-codex/gpt-6-sol --reasoning-level medium --verdict PLAN_EXECUTION_READY \
     --implementation-profile terra-high --implementation-rationale "tests strongly validate the change" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage EXECUTION_READY >/dev/null
 
@@ -2272,7 +2272,7 @@ test_dual_plan_sync_gate_blocks_execution_ready() {
     --summary "explicit" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record planTech --status pass \
     --artifact thoughts/validation/sync-plan-review.md \
-    --summary "ok" --reviewer planner --model openai-codex/gpt-5.6-sol \
+    --summary "ok" --reviewer planner --model openai-codex/gpt-6-sol \
     --reasoning-level medium --verdict PLAN_EXECUTION_READY \
     --implementation-profile terra-high \
     --implementation-rationale "deterministic tests cover the changed CLI behavior" >/dev/null
@@ -2310,7 +2310,7 @@ test_dual_plan_sync_gate_blocks_execution_ready() {
     --summary "explicit" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$legacy" record planTech --status pass \
     --artifact thoughts/validation/solo-plan-review.md \
-    --summary "ok" --reviewer planner --model openai-codex/gpt-5.6-sol \
+    --summary "ok" --reviewer planner --model openai-codex/gpt-6-sol \
     --reasoning-level medium --verdict PLAN_EXECUTION_READY \
     --implementation-profile terra-high \
     --implementation-rationale "deterministic tests cover the changed CLI behavior" >/dev/null
@@ -2402,7 +2402,7 @@ same["evidence"] = copy.deepcopy(same.get("evidence") or {})
 same["evidence"]["planReadinessRequest"] = {"status": "pass", "planSha256": None}
 same["evidence"]["planTech"] = {
     "status": "pass", "artifact": "thoughts/validation/review.md", "reviewer": "planner",
-    "model": "openai-codex/gpt-5.6-sol", "reasoningLevel": "medium",
+    "model": "openai-codex/gpt-6-sol", "reasoningLevel": "medium",
     "verdict": "PLAN_EXECUTION_READY", "implementationProfile": "luna-xhigh",
     "implementationRationale": "same-model verification test", "planSha256": None,
 }

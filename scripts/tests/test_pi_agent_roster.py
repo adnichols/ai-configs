@@ -7,8 +7,8 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENTS = ROOT / "_pi" / "agents"
 EXPECTED_FILES = {"Explore.md", "imaging.md", "oracle.md", "planner.md", "reviewer.md", "scout.md"}
 EXPECTED_ROUTES = {
-    "oracle": ("openai-codex/gpt-5.6-sol", "high"),
-    "planner": ("openai-codex/gpt-5.6-sol", "medium"),
+    "oracle": ("openai-codex/gpt-6-sol", "high"),
+    "planner": ("openai-codex/gpt-6-sol", "medium"),
     "reviewer": ("openai-codex/gpt-5.6-terra", "medium"),
     "scout": ("openai-codex/gpt-5.6-terra", "low"),
     "imaging": ("openai-codex/gpt-5.6-luna", "xhigh"),
@@ -70,7 +70,11 @@ class PiAgentRosterTest(unittest.TestCase):
         deepinfra_ids = {item["id"] for item in models["providers"]["deepinfra"]["models"]}
         self.assertIn("moonshotai/Kimi-K3", deepinfra_ids)
         managed_ids = {item["id"] for item in models["providers"]["openai-codex"]["models"]}
-        self.assertIn("gpt-5.6-sol", managed_ids)
+        self.assertIn("gpt-6-sol", managed_ids)
+        self.assertNotIn("gpt-5.6-sol", managed_ids)
+        sol = next(item for item in models["providers"]["openai-codex"]["models"] if item["id"] == "gpt-6-sol")
+        self.assertEqual(1050000, sol["contextWindow"])
+        self.assertEqual({"input": 2, "output": 10, "cacheRead": 0.2, "cacheWrite": 2.5}, sol["cost"])
         self.assertIn("gpt-5.6-terra", managed_ids)
         self.assertNotIn("grok-4.5", managed_ids)
         grok_46 = next(item for item in models["providers"]["xai"]["models"] if item["id"] == "grok-4.6")

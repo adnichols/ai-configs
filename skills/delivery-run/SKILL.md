@@ -249,7 +249,7 @@ delivery record planPm --status pass --artifact thoughts/validation/foo-pm.md --
 delivery record planTech --status pass \
   --artifact thoughts/validation/foo-plan-review.md \
   --summary "independent Sol medium review" --reviewer planner \
-  --model openai-codex/gpt-5.6-sol --reasoning-level medium \
+  --model openai-codex/gpt-6-sol --reasoning-level medium \
   --verdict PLAN_EXECUTION_READY \
   --implementation-profile luna-xhigh \
   --implementation-rationale "deterministic tests support the default Luna implementation"
@@ -339,7 +339,7 @@ delivery check -v
 | `PLAN_DRAFT` | `$dev-plan` / `$reviewed-html-plan` — pick one canonical title and write it everywhere before register: HTML both `<title>` and `<h1>`, and `doct-agent plans register --title`. Doct document/tree name and in-content chrome must be identical; HTML without `<title>`/`<h1>` shows **Untitled Plan**. |
 | `PLAN_BROWSER_REVIEW` | `doct-document-ops` listener; integrate feedback and wait for the explicit execution-ready review request. `delivery check` warns with `PLAN_TITLE` if titles are missing, HTML `<title>`/`<h1>` disagree, or an explicitly recorded Doct title (`delivery set --doct-title` after `documents get`) drifts from content — fix all sides before review handoff. |
 | `PLAN_PM_REVIEW` | after that request, `/dev:pm-review <plan> plan` |
-| `PLAN_TECH_REVIEW` | after that request, independent `planner` pinned to `openai-codex/gpt-5.6-sol` at medium |
+| `PLAN_TECH_REVIEW` | after that request, independent `planner` pinned to `openai-codex/gpt-6-sol` at medium |
 | `EXECUTION_READY` | automatically authorize the reviewed plan and launch the dedicated planner-selected implementation agent |
 
 #### Browser-feedback escalation rule
@@ -366,7 +366,7 @@ delivery record planReadinessRequest --status pass \
 delivery stage PLAN_PM_REVIEW
 ```
 
-This is an authorization boundary: `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW` reject a missing or stale `planReadinessRequest=pass` record. `EXECUTION_READY` additionally requires a current `PLAN_EXECUTION_READY` artifact from the independent `planner` subagent with model `openai-codex/gpt-5.6-sol` and medium reasoning. That planner chooses `luna-xhigh` by default, or `terra-high` when correctness depends materially on technical judgment beyond the available deterministic tests, and records a concise rationale. Both records are tied to the current plan content, so a changed plan requires a fresh explicit request and fresh Sol-medium review. Plans are HTML-only; the dual-plan agentic-companion trial is deferred and not part of the active path. Other delivery evidence remains advisory.
+This is an authorization boundary: `delivery stage PLAN_PM_REVIEW` and `PLAN_TECH_REVIEW` reject a missing or stale `planReadinessRequest=pass` record. `EXECUTION_READY` additionally requires a current `PLAN_EXECUTION_READY` artifact from the independent `planner` subagent with model `openai-codex/gpt-6-sol` and medium reasoning. That planner chooses `luna-xhigh` by default, or `terra-high` when correctness depends materially on technical judgment beyond the available deterministic tests, and records a concise rationale. Both records are tied to the current plan content, so a changed plan requires a fresh explicit request and fresh Sol-medium review. Plans are HTML-only; the dual-plan agentic-companion trial is deferred and not part of the active path. Other delivery evidence remains advisory.
 
 After each meaningful step:
 

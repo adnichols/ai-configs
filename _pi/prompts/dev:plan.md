@@ -13,7 +13,7 @@ If repo guidance does not define the active plan artifact format/path and the us
 
 ## Model routing
 
-GPT-5.6 Sol medium is the normal repository-owned Pi route for planning and coding-plan work.
+GPT-6 Sol medium is the normal repository-owned Pi route for planning and coding-plan work.
 
 Use `scout` for bounded, read-only broad repository discovery before asking implementation agents to reason over files.
 

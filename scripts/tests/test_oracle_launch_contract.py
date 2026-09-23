@@ -90,6 +90,14 @@ class OracleLaunchContractTest(unittest.TestCase):
             good_result = analyze(good_path)
             self.assertEqual("pass", good_result["status"], good_result)
             self.assertEqual(1, good_result["oracleCallCount"])
+            good["content"][0]["arguments"]["model"] = "openai-codex/gpt-6-sol"
+            good_path.write_text(json.dumps(good) + "\n", encoding="utf-8")
+            self.assertEqual("pass", analyze(good_path)["status"])
+            good["content"][0]["arguments"]["model"] = "openai-codex/gpt-5.6-sol"
+            good_path.write_text(json.dumps(good) + "\n", encoding="utf-8")
+            old_model_result = analyze(good_path)
+            self.assertEqual("fail", old_model_result["status"])
+            self.assertTrue(any("overrode model" in error for error in old_model_result["errors"]))
             bad_result = analyze(bad_path)
             self.assertEqual("fail", bad_result["status"])
             joined = " ".join(bad_result["errors"] + bad_result.get("warnings", []))

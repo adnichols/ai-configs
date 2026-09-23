@@ -6,7 +6,7 @@ This is a synthetic checkout for Oracle proactive-trigger validation.
 
 Use the host Pi roster. In particular:
 
-- `oracle` — GPT-5.6 Sol high, inherited context, live checkout. Proactively
+- `oracle` — GPT-6 Sol high, inherited context, live checkout. Proactively
   consult once when targeted inspection leaves competing architecture/ownership
   options, a hard-to-reverse contract choice, or conflict with a locked plan
   decision. Launch with only `subagent_type: "oracle"`, a short description, and

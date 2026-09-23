@@ -1,6 +1,6 @@
 ---
 name: oracle
-description: Read-only GPT-5.6 Sol decision support for risky or ambiguous choices
+description: Read-only decision support for risky or ambiguous choices
 model: "@Oracle"
 tools: read, grep, glob
 ---

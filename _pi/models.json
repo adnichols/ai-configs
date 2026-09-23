@@ -79,8 +79,8 @@
           "maxTokens": 128000
         },
         {
-          "id": "gpt-5.6-sol",
-          "name": "GPT-5.6 Sol (CLI Proxy API)",
+          "id": "gpt-6-sol",
+          "name": "GPT-6 Sol (CLI Proxy API)",
           "reasoning": true,
           "thinkingLevelMap": {
             "minimal": "low",
@@ -92,12 +92,12 @@
             "image"
           ],
           "cost": {
-            "input": 5,
-            "output": 30,
-            "cacheRead": 0.5,
-            "cacheWrite": 6.25
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.2,
+            "cacheWrite": 2.5
           },
-          "contextWindow": 272000,
+          "contextWindow": 1050000,
           "maxTokens": 128000
         },
         {

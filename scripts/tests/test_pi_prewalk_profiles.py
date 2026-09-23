@@ -125,7 +125,7 @@ async function main() {
   process.env.DELIVERY_HYDRATE_RECEIPT = path.join(tmp, "hydrate-transition.json");
   const written = writeHydrateTransitionReceipt({
     fromProvider: "openai-codex",
-    fromModel: "gpt-5.6-sol",
+    fromModel: "gpt-6-sol",
     toProvider: "openai-codex",
     toModel: "gpt-5.6-terra",
     thinkingLevel: "high",

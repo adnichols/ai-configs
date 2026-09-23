@@ -13,7 +13,7 @@ import re
 import sys
 from pathlib import Path
 
-EXPECTED_MODEL = "openai-codex/gpt-5.6-sol"
+EXPECTED_MODEL = "openai-codex/gpt-6-sol"
 EXPECTED_REASONING = "high"
 EXPECTED_THINKING = "high"
 

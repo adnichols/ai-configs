@@ -1,9 +1,9 @@
 ---
 name: oracle
-description: Provides read-only GPT-5.6 Sol decision support for risky, ambiguous, or non-converging choices
+description: Provides read-only GPT-6 Sol decision support for risky, ambiguous, or non-converging choices
 mode: subagent
 tools: read, grep, find, ls, bash
-model: openai-codex/gpt-5.6-sol
+model: openai-codex/gpt-6-sol
 reasoningEffort: high
 thinking: high
 defaultContext: fork
@@ -73,7 +73,7 @@ Do not include an execution prompt unless the caller explicitly requests one. Do
 Callers must launch Oracle with this exact shape and no extras that fight frontmatter:
 
 - `Agent` with `subagent_type: "oracle"`, a short 3–5 word `description`, and one bounded decision `prompt`.
-- **Omit** caller-side `model`, `thinking`, `reasoningEffort`, `inherit_context`, and `isolation`. This persona already pins GPT-5.6 Sol high, inherited/forked parent context, and the live checkout (`isolation: none`).
+- **Omit** caller-side `model`, `thinking`, `reasoningEffort`, `inherit_context`, and `isolation`. This persona already pins GPT-6 Sol high, inherited/forked parent context, and the live checkout (`isolation: none`).
 - Setting `inherit_context: false` or `isolation: "worktree"` is a workflow violation. Inspect the final tool arguments before launch and remove those properties if present.
 - Packet contents (required): the decision; established/inherited constraints; concrete evidence and file paths; credible options; the driving agent's current recommendation and uncertainty; **one narrow question that ends with `?`**.
 - After return, the driving agent verifies material claims, records disposition (`accepted` / `partially-accepted` / `rejected` / `escalated`) with a one-line why, then acts. Oracle advice is never implementation or scope authority.

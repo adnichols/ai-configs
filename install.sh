@@ -2247,7 +2247,7 @@ target_providers = updated_data.setdefault("providers", {})
 
 # Retire only exact model IDs previously managed by ai-configs. Display names
 # are not an ownership boundary: callers may keep custom CLI Proxy API models.
-RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini", "grok-4.5"}
+RETIRED_OPENAI_CODEX_MODEL_IDS = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.6-sol", "grok-4.5"}
 NATIVE_XAI_GROK_MODEL_IDS = {"grok-4.6", "grok-4.5", "grok-4.3", "grok-build-0.1"}
 MANAGED_XAI_PROXY_ONLY_MODEL_IDS = {
     "grok-4.20-0309-reasoning", "grok-4.20-0309-non-reasoning",
@@ -2444,6 +2444,11 @@ if settings_path.exists():
     settings = json.loads(settings_path.read_text())
     if not isinstance(settings, dict):
         raise SystemExit("settings.json must be a JSON object")
+    thinking_levels = settings.get("modelThinkingLevels")
+    if isinstance(thinking_levels, dict) and "openai-codex/gpt-5.6-sol" in thinking_levels:
+        old_level = thinking_levels.pop("openai-codex/gpt-5.6-sol")
+        thinking_levels.setdefault("openai-codex/gpt-6-sol", old_level)
+        settings_changed = True
     enabled_models = settings.get("enabledModels")
     if enabled_models is not None and not isinstance(enabled_models, list):
         raise SystemExit("settings enabledModels must be a list when present")
