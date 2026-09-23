@@ -147,6 +147,12 @@ from the process environment.
 `AGENTS.md`, custom agents, and extensions are installed alongside it. The OMP-discoverable
 DeepInfra requests use `DEEPINFRA_API_KEY` when present; otherwise authenticate
 the provider through OMP's provider login flow.
+
+OMP's global cross-repository instructions are maintained in
+[`_omp/AGENTS.md`](_omp/AGENTS.md) and installed to
+`~/.omp/agent/AGENTS.md` by `_omp/install.sh` (also run via
+`install.sh --tools` or `--all`).
+
 The managed config disables OMP's `claude` provider, so OMP does not load
 skills, commands, hooks, settings, prompts, or other capability data from
 `~/.claude` or project `.claude/` directories.
