@@ -23,6 +23,7 @@ SOURCE_EXTENSIONS=(
   "$SOURCE_DIR/extensions/deepinfra.ts"
   "$SOURCE_DIR/extensions/herdr-omp-agent-state.ts"
   "$SOURCE_DIR/extensions/orca-agent-status.ts"
+  "$SOURCE_DIR/extensions/paseo-terminal-status.ts"
   "$SOURCE_DIR/extensions/orca-prefill.ts"
   "$SOURCE_DIR/extensions/orca-titlebar-spinner.ts"
   "$SOURCE_DIR/extensions/thinking-shortcuts.ts"

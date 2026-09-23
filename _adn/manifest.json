@@ -75,7 +75,7 @@
       "retainedBehavior": "ponytail-removed",
       "failureBehavior": "negative-assertion",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "c26aba7c0edf1d6dda42453eb0964658b4e36a13390fed69d074c84f3d792fb6",
+      "checksum": "f7940446e33eea4ae0583165328cd79e45b49e0ee6d7965f017c20f0102155b0",
       "sourceSha": "local",
       "triggerClass": "install",
       "sourcePath": "ai-configs/_omp/install.sh",
