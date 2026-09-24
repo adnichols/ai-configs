@@ -1,39 +1,43 @@
 ---
-name: verified-build
-description: "Codex-only lab workflow for bug fixes, feature changes, and live product exploration. Use when Codex should publish clickable UI prototypes on demos.keramos.tech for approval, claim a shared lab, send confirmed build work to OMP, validate the exact PR head, and publish visual evidence. Do not invoke from OMP (use omp-verified-build there) or for changes that have no user-facing behavior to exercise."
+name: omp-verified-build
+description: "OMP lab workflow for bug fixes, feature changes, and live product exploration. Use when OMP should publish clickable UI prototypes on demos.keramos.tech for approval, claim a shared lab, send confirmed build work to a second OMP instance through Paseo, validate the exact PR head, and publish visual evidence. Do not invoke from Codex (use verified-build there) or for changes that have no user-facing behavior to exercise."
 ---
 
-# Verified build
+# OMP verified build
 
-Codex owns the lab, test design, evidence, and final verdict. OMP handles planning, product code, tests, review, Git history, and PR mechanics. Codex remains accountable for the task's PRs through verification and final disposition, including PRs opened by replacement workers, unless ownership is explicitly handed off. Codex may inspect source and the PR to diagnose a result, but it does not edit the implementation.
+The driving OMP session owns the lab, test design, evidence, and final verdict. A second OMP instance — the implementer, launched through Paseo in its own worktree — handles planning, product code, tests, review, Git history, and PR mechanics. The driving session remains accountable for the task's PRs through verification and final disposition, including PRs opened by replacement workers, unless ownership is explicitly handed off. The driving session may inspect source and the PR to diagnose a result, but it does not edit the implementation.
 
-When the user requests verified-build, request and claim a manager-assigned isolated lab without asking for separate lab-checkout permission. Lab checkout alone does not authorize deployment, fixture mutations, PR creation, or PR evidence updates; resolve those actions from the requested task and existing session authorization. Do not ask again for actions already authorized. This workflow never implies permission for production deployment, merging, destructive fixture cleanup, or unrelated changes.
+The implementer must be a separate Paseo-launched OMP agent, not a `task` subagent of the driving session. Subagents share the driving session's checkout and lifecycle; this workflow requires an independent worker with its own worktree so implementation and lab validation stay separated.
+
+When the user requests omp-verified-build, request and claim a manager-assigned isolated lab without asking for separate lab-checkout permission. Lab checkout alone does not authorize deployment, fixture mutations, PR creation, or PR evidence updates; resolve those actions from the requested task and existing session authorization. Do not ask again for actions already authorized. This workflow never implies permission for production deployment, merging, destructive fixture cleanup, or unrelated changes.
 
 ## Route the request
 
 Choose one mode without asking when the request is clear:
 
-- `BUG_FIX`: the user describes current behavior as wrong and supplies or implies the expected behavior. The baseline must reproduce the defect before OMP starts.
+- `BUG_FIX`: the user describes current behavior as wrong and supplies or implies the expected behavior. The baseline must reproduce the defect before the implementer starts.
 - `FEATURE_CHANGE`: the user asks for new or changed behavior and may supply prose, an image, or a clickable prototype. The baseline records the current flow and the desired reference defines the target.
-- `EXPLORATION`: the user asks whether the live product matches a description. Stay read-only apart from isolated test fixtures. Report confirmed gaps, but do not start OMP unless the user also asked to fix findings.
+- `EXPLORATION`: the user asks whether the live product matches a description. Stay read-only apart from isolated test fixtures. Report confirmed gaps, but do not start the implementer unless the user also asked to fix findings.
 
 If a request mixes exploration and authorized fixes, explore first. Route each confirmed failure through `BUG_FIX`. Do not treat an unexpected result as a defect until a clean retry rules out operator error, stale state, and an unsubmitted action.
 
 ## Run from a dedicated worktree
 
-Never run this workflow in the operator's primary repository checkout. Before any step that reads or writes repository files — prototype staging, evidence capture, `run.md`, research or plan notes, commits, rebases, deploys — establish the run checkout: a Codex-owned worktree of the target repository under `~/.codex/worktrees/`, created at the intended base SHA (the default branch head when the base is not yet known). Reuse an existing Codex-owned worktree only when it is clean and on the intended base; otherwise create a fresh one. Run every subsequent command with the run checkout as the working directory. When the run produces reviewable commits, create a branch in the worktree; a detached HEAD suffices for lab-only runs. Keep uncommitted evidence in the worktree until the run finishes, then record its path in `run.md`.
+Never run this workflow in the operator's primary repository checkout. Before any step that reads or writes repository files — prototype staging, evidence capture, `run.md`, research or plan notes, commits, rebases, deploys — establish the run checkout. Reuse the current workspace only when it is already a clean Paseo- or Herdr-managed worktree of the target repository on the intended base (the default branch head when the base is not yet known). Otherwise create a dedicated Paseo worktree workspace for the run checkout with `create_workspace`: `isolation: "worktree"`, `mode: "branch-off"`, `baseBranch` the intended base SHA, `path` the target repository. Run every subsequent command with the run checkout as the working directory. When the run produces reviewable commits, create a branch in the worktree; a detached HEAD suffices for lab-only runs. Keep uncommitted evidence in the worktree until the run finishes, then record its path in `run.md`.
+
+The run checkout is the driving session's lab checkout. It is separate from the implementer's Paseo worktree and from the operator's primary checkout.
 
 ## Preview UI changes before build
 
-For a build mode that changes UI, produce a clickable prototype before starting OMP and publish it on Cloudflare at a unique hostname under `demos.keramos.tech`. The same hosting requirement applies to prototype-only requests. Localhost URLs, downloadable HTML, screenshots alone, and workers.dev URLs do not satisfy prototype delivery. An explicit operator skip is the only exception.
+For a build mode that changes UI, produce a clickable prototype before starting the implementer and publish it on Cloudflare at a unique hostname under `demos.keramos.tech`. The same hosting requirement applies to prototype-only requests. Localhost URLs, downloadable HTML, screenshots alone, and workers.dev URLs do not satisfy prototype delivery. An explicit operator skip is the only exception.
 
 1. Perform only the read-only discovery needed to understand the current UI and design question. Reuse supplied references and the real app shell, components, density, and representative data when available.
-2. Load the `prototype` skill. Use one faithful proposal when the requested direction is specific. Use its variant process when meaningful design choices remain. Keep prototype code throwaway and separate from the OMP implementation worktree; stage it in the run checkout or a scratch directory outside the primary checkout.
+2. Load the `prototype` skill. Use one faithful proposal when the requested direction is specific. Use its variant process when meaningful design choices remain. Keep prototype code throwaway and separate from the implementer's worktree; stage it in the run checkout or a scratch directory outside the primary checkout.
 3. Publish the clickable prototype using the demo hosting procedure below. Show full-UI screenshots of the proposed result for the known affected states and return the HTTPS demo URL. For a workflow change, also provide a short walkthrough video when practical. If video is unavailable, provide an ordered screenshot storyboard.
-4. Ask the operator to approve or revise the proposal. When approved, record the selected prototype version, approval, screenshots, video or prototype URL, and observable behavior in a prototype note. Copy that note into `run.md` when the build run begins. These become the target for OMP and later lab validation.
+4. Ask the operator to approve or revise the proposal. When approved, record the selected prototype version, approval, screenshots, video or prototype URL, and observable behavior in a prototype note. Copy that note into `run.md` when the build run begins. These become the target for the implementer and later lab validation.
 5. If the prototype cannot be produced or its demo URL cannot be deployed and verified after a bounded attempt, record `PROTOTYPE_UNAVAILABLE` with the reason. Finish the independent discovery and written acceptance criteria, then report the blocker; do not start the UI build or claim the prototype is delivered. If the operator explicitly asks to skip or proceed without it, record `PROTOTYPE_SKIPPED` and continue. Never claim approval that was not given.
 
-Do not start OMP while an available prototype is awaiting operator review. Keep any lab claim open while waiting for feedback, including claims used to inspect the current UI. Reuse that claim for the build run after approval or a recorded skip.
+Do not start the implementer while an available prototype is awaiting operator review. Keep any lab claim open while waiting for feedback, including claims used to inspect the current UI. Reuse that claim for the build run after approval or a recorded skip.
 
 ## Publish clickable prototypes on Cloudflare
 
@@ -68,7 +72,7 @@ For a bug fix:
 1. Reproduce the reported steps on the claimed lab at the recorded baseline identity.
 2. Capture a baseline image for every visual coverage row, including the state that proves the defect.
 3. Repeat from a clean navigation or fresh fixture. Verify persistence after reload and cross-client or cross-tab effects when they are part of the behavior.
-4. If the clean retry passes, inspect the interaction and source as needed. Record `NOT_REPRODUCED` or `EXPECTED_BEHAVIOR` and stop without creating an OMP worktree or PR.
+4. If the clean retry passes, inspect the interaction and source as needed. Record `NOT_REPRODUCED` or `EXPECTED_BEHAVIOR` and stop without creating an implementer worktree or PR.
 
 For a feature change:
 
@@ -82,11 +86,11 @@ For exploration:
 2. Exercise every scenario in the live lab. Record `PASS`, `FAIL`, `SKIP`, or `BLOCKED`, with steps, expected state, actual state, and a screenshot.
 3. Retry failures once from a clean state. Keep the claim and review fixtures available when handing off the findings. Remove only this run's fixtures during agreed cleanup. Do not open a PR.
 
-## Send confirmed build work to OMP
+## Send confirmed build work to the implementer
 
-Use Paseo. OMP is responsible for managing model selection, not the orchestrator; allow OMP to choose the appropriate model and do not interfere with its selection. Load the `paseo` skill for CLI and tool syntax only. Do not follow `paseo-handoff`. That skill picks a profile by notes. If `paseo` is missing or the daemon is unreachable, record `BLOCKED` and stop.
+Use Paseo. The implementer is responsible for managing model selection, not the orchestrator; allow OMP to choose the appropriate model and do not interfere with its selection. Load the `paseo` skill for CLI and tool syntax only. Do not follow `paseo-handoff`. That skill picks a profile by notes. If `paseo` is missing or the daemon is unreachable, record `BLOCKED` and stop.
 
-The OMP worker lives in a Paseo worktree workspace at the exact recorded base SHA. That worktree is separate from the Codex run checkout under `~/.codex/worktrees/` and from the operator's primary checkout. Never start OMP in a `local` workspace of either. One workstream is the default. Split work only when evidence proves distinct independently mergeable root causes or an existing PR already owns a dependency.
+The implementer lives in a Paseo worktree workspace at the exact recorded base SHA. That worktree is separate from the driving session's run checkout and from the operator's primary checkout. Never start the implementer in a `local` workspace of either. One workstream is the default. Split work only when evidence proves distinct independently mergeable root causes or an existing PR already owns a dependency.
 
 The launch profile is named `omp`. That is the Paseo bundle for this worker.
 
@@ -98,7 +102,7 @@ The launch profile is named `omp`. That is the Paseo bundle for this worker.
    - `settings.thinkingOptionId`: the profile `thinkingOptionId` when present
    - omit absent fields
 
-Codex has no managed Paseo MCP. Same launch on the CLI:
+Leave `notifyOnFinish` at its default `true` so the driving session is notified when the implementer finishes, errors, or needs permission. Same launch on the CLI:
 
 ```
 paseo workspace create --json \
@@ -115,14 +119,14 @@ paseo run -d --json \
   --provider omp/<omp.model> \
   --mode <omp.modeId> \
   --thinking <omp.thinkingOptionId> \
-  "<OMP prompt>"
+  "<implementer prompt>"
 ```
 
-Pass `--thinking` only when the profile has `thinkingOptionId`. Do not edit OMP's model configuration or instruct OMP to change it unless the operator explicitly authorizes that in the current request. Requesting ADN mode does not authorize a model change.
+Pass `--thinking` only when the profile has `thinkingOptionId`. Do not edit the implementer's model configuration or instruct it to change models unless the operator explicitly authorizes that in the current request. Requesting ADN mode does not authorize a model change.
 
-After start, inspect the worker (`paseo inspect --json <id>` or `get_agent_status`). Confirm `Provider` is `omp`, `Mode` matches the profile `modeId`, and `Cwd` is under `~/.paseo/worktrees/`. Record those values and the observed model in `run.md`.
+After start, inspect the worker (`get_agent_status` or `paseo inspect --json <id>`). Confirm `Provider` is `omp`, `Mode` matches the profile `modeId`, and `Cwd` is under `~/.paseo/worktrees/`. Record those values and the observed model in `run.md`.
 
-Prompt OMP to use ADN mode and include:
+Prompt the implementer to use ADN mode and include:
 
 - mode, requested outcome, and non-goals;
 - exact baseline SHA and lab deployment identity;
@@ -136,29 +140,29 @@ Prompt OMP to use ADN mode and include:
 - a prohibition on lab deployment, production deployment, merge, and changes outside the requested outcome; and
 - a completion receipt containing the PR URL, exact head SHA, changed files, checks, review verdict, and remaining risks.
 
-Monitor with `paseo inspect`, `paseo wait`, and `paseo send`. Send follow-ups only when new lab evidence, a concrete scope correction, or a verified review problem requires one. A timeout means inspect state; it does not mean the agent failed.
+Monitor through the finish notification, `get_agent_status`, `send_agent_prompt`, and the `paseo inspect` / `paseo send` CLI equivalents. Send follow-ups only when new lab evidence, a concrete scope correction, or a verified review problem requires one. A timeout means inspect state; it does not mean the agent failed.
 
 ## Validate the PR head in the lab
 
-After OMP reports a locally verified PR:
+After the implementer reports a locally verified PR:
 
 1. Confirm the PR diff and exact head SHA. Reject stale receipts or unrelated commits.
 2. Confirm the lab claim is still valid.
-3. Build and deploy that exact head with the repository's documented lab command from the run checkout. The run checkout is the Codex-owned lab checkout; the operator's primary checkout is never a deploy source. Record deployment output and independently verify the lab is serving the candidate identity.
+3. Build and deploy that exact head with the repository's documented lab command from the run checkout. The run checkout is the driving session's lab checkout; the operator's primary checkout is never a deploy source. Record deployment output and independently verify the lab is serving the candidate identity.
 4. Recreate the baseline scenario with equivalent fixtures, account, viewport, and starting state.
-5. Capture a candidate image for every visual coverage row at the same viewport and meaningful point as its baseline image. Add states discovered from the PR diff or OMP's receipt. For a new state with no direct baseline equivalent, use the closest pre-change entry state and label the comparison.
+5. Capture a candidate image for every visual coverage row at the same viewport and meaningful point as its baseline image. Add states discovered from the PR diff or the implementer's receipt. For a new state with no direct baseline equivalent, use the closest pre-change entry state and label the comparison.
 6. Record `flow.webm` or `flow.mp4` from a clean start through the changed behavior and its persisted result. Use the selected verification skill's recorder. For web flows, a small Playwright test with video enabled is acceptable when it exercises the real lab and authenticated user path.
 7. Check the requested outcome, the reproduced failure path, any directly affected guardrail, persistence after reload, and required cross-tab or cross-client updates. Do not substitute unit tests, DOM state, or a final screenshot for the user flow.
 
-When an approved prototype exists, compare the candidate against that exact version and record any difference. A material difference requires operator approval or another OMP revision. When no prototype exists, validate against the recorded written acceptance criteria.
+When an approved prototype exists, compare the candidate against that exact version and record any difference. A material difference requires operator approval or another implementer revision. When no prototype exists, validate against the recorded written acceptance criteria.
 
-If validation fails, retry once from a clean state. For a confirmed candidate failure, add the exact candidate SHA, steps, expected result, actual result, and evidence paths to `run.md`, then send that packet to the same OMP agent. OMP updates the same PR. Repeat exact-head deployment and validation after each new SHA.
+If validation fails, retry once from a clean state. For a confirmed candidate failure, add the exact candidate SHA, steps, expected result, actual result, and evidence paths to `run.md`, then send that packet to the same implementer agent. The implementer updates the same PR. Repeat exact-head deployment and validation after each new SHA.
 
 Stop and ask the user when the same failure survives two materially different fixes, the required fix expands product scope, the lab claim is lost, the environment cannot prove which build is running, or safe validation would destroy data. Record infrastructure failures as `BLOCKED`, not product failures.
 
 ## Add visual evidence to the PR
 
-After the exact PR head passes lab validation, update the PR through the repository's existing PR evidence process. Load `cmd-create-pr` before Codex performs a PR mutation. Add a visual evidence table with one row per surface and state, containing the surface, state, baseline image, candidate image, and a short description of the result. Include the approved prototype screenshots and walkthrough video when they exist, clearly labeled as design references rather than build evidence.
+After the exact PR head passes lab validation, update the PR through the repository's existing PR evidence process. Load `cmd-create-pr` before the driving session performs a PR mutation. Add a visual evidence table with one row per surface and state, containing the surface, state, baseline image, candidate image, and a short description of the result. Include the approved prototype screenshots and walkthrough video when they exist, clearly labeled as design references rather than build evidence.
 
 Use GitHub PR attachments for screenshots and videos by default. Prefer repeated `--attach` flags on `gh pr create`, `gh pr edit`, or `gh pr comment` when the installed GitHub CLI supports them; otherwise upload through an authenticated GitHub PR editor or comment. Keep the source media local and untracked. Do not commit media to the product branch, a dedicated evidence branch, a tag, or Git LFS merely to publish reviewer-visible URLs. A repository-defined non-Git artifact host is an acceptable alternative when it is already the established evidence process.
 

@@ -27,9 +27,10 @@ pnpm --filter @ccore/lab-manager run lab -- list --all
 pnpm --filter @ccore/lab-manager run lab -- inspect <lab>
 ```
 
-A request to use verified-build authorizes choosing and claiming an isolated
-lab without separate checkout permission. Choose an unclaimed provisioned lab
-within the user's authorized scope. If a new lab is needed, register its
+A request to use verified-build or omp-verified-build authorizes choosing and
+claiming an isolated lab without separate checkout permission. Choose an
+unclaimed provisioned lab within the user's authorized scope. If a new lab is
+needed, register its
 `labNNN` name and let the manager provision it:
 
 ```sh

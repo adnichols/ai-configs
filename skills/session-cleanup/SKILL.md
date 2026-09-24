@@ -68,9 +68,9 @@ not delete the claim file by hand.
 ### Published clickable prototypes
 
 A cleanup request is the operator-requested removal that `verified-build`
-requires before deleting a published demo — but only for demos this session
-published. `verified-build` is Codex-only and documents publishing, not
-removal, so the teardown steps live here.
+(Codex) and `omp-verified-build` (OMP) require before deleting a published
+demo — but only for demos this session published. Those skills document
+publishing, not removal, so the teardown steps live here.
 
 For each demo recorded in `run.md` or the prototype note:
 
