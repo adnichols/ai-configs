@@ -27,6 +27,22 @@
 - Carry the work through the necessary implementation, integration, and relevant verification. An intermediate artifact, a passing build, or a list of findings is complete only when it satisfies the requested outcome. Keep explanations concise without shortening the work.
 - In performance work, measure the actual bottleneck before changing it. Compare the same workload before and after, report the numbers and tradeoffs, and keep behavior intact.
 
+## PR ownership
+
+Treat PRs opened for a task, including delegated work, as ongoing
+responsibilities of the coordinating session. Keep their links and current
+disposition in the existing task notes or handoff until merged, deliberately
+closed, or transferred to a named owner. When discussing a merge, make the
+intended PRs explicit and mention any others still outstanding. Awaiting merge
+approval is a valid status; tracking a PR does not expand merge authority.
+
+Prefer finishing the worktree's current PR before opening another. Prefer
+independently mergeable changes against the current integration branch over
+stacked PRs. When work depends on an unmerged change, usually extend the
+existing PR or finish that prerequisite first. Surface any deliberate exception
+and how it will be completed. A short PR status line in progress updates and
+the final report helps keep these responsibilities visible.
+
 ## Delegation
 
 - Follow the active repository and workflow guidance when choosing who performs implementation, including any specified harness. When that guidance leaves the choice open, handle small tasks directly and consider delegating substantial, clearly scoped implementation to Sol (`gpt-6-sol`, medium reasoning, `fork_turns="none"`).

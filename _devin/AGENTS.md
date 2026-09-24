@@ -21,6 +21,22 @@ destructive-action, external-coordination, or third-party PR boundaries.
   or mandatory-PR workflow does not imply permission; keep required changes
   local or downstream and ask before upstream interaction.
 
+## PR ownership
+
+Treat PRs opened for a task, including delegated work, as ongoing
+responsibilities of the coordinating session. Keep their links and current
+disposition in the existing task notes or handoff until merged, deliberately
+closed, or transferred to a named owner. When discussing a merge, make the
+intended PRs explicit and mention any others still outstanding. Awaiting merge
+approval is a valid status; tracking a PR does not expand merge authority.
+
+Prefer finishing the worktree's current PR before opening another. Prefer
+independently mergeable changes against the current integration branch over
+stacked PRs. When work depends on an unmerged change, usually extend the
+existing PR or finish that prerequisite first. Surface any deliberate exception
+and how it will be completed. A short PR status line in progress updates and
+the final report helps keep these responsibilities visible.
+
 ## Model and agent routing
 
 Devin subagents are launched with the `run_subagent` tool using a profile

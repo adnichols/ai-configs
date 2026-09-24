@@ -40,6 +40,13 @@ git rev-parse --verify "${base_ref}^{commit}"
 
 ### 2) Check for Existing PR
 
+Check the task's existing PRs, including child work and earlier branches.
+Prefer updating the current PR or completing it before opening another.
+Check that the proposed change works against the current integration branch
+without unpublished fixes from another branch. If a combined verification
+branch needed a repair, bring it back to the affected PR before calling that
+PR independently mergeable.
+
 ```bash
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 EXISTING_NUMBER="$(gh pr list --head "$BRANCH" --json number --jq '.[0].number // empty')"

@@ -28,6 +28,12 @@ arbitrary — each step depends on state the previous step leaves intact:
 
 Before deleting anything, enumerate what this session actually owns:
 
+- PRs: include unresolved PRs owned by this session and its children, even
+  when their original branch or worktree is gone. Use existing task notes,
+  handoffs, and GitHub state as well as the current branch. Highlight each
+  remaining PR's URL, status, next step, and owner before archival; usually
+  retain the session or leave an explicit handoff while that work remains.
+  Cleanup alone does not authorize merging or closing those PRs.
 - Lab claims: `.ccore/lab-claim.json` in this worktree and in each child
   worktree (`git worktree list` for unmanaged children).
 - Published demos: `run.md` and prototype notes under the worktree's evidence
@@ -117,7 +123,8 @@ Distinguish who is being cleaned up:
 
 ## Report
 
-End with a short accounting: labs released (or preserved and why), demos
+End with a short accounting: unresolved owned PRs and their next steps/owners,
+labs released (or preserved and why), demos
 removed, worktrees and agents removed, schedules deleted, anything dirty or
 unreachable that was left in place, and the workspace ID awaiting archival if
 self-archival was not requested.
