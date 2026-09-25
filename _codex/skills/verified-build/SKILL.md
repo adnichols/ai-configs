@@ -19,11 +19,11 @@ Choose one mode without asking when the request is clear:
 
 If a request mixes exploration and authorized fixes, explore first. Route each confirmed failure through `BUG_FIX`. Do not treat an unexpected result as a defect until a clean retry rules out operator error, stale state, and an unsubmitted action.
 
-## Run from a dedicated worktree
+## Use the orchestrator's current worktree
 
-Never run this workflow in the operator's primary repository checkout. Before any step that reads or writes repository files — prototype staging, evidence capture, `run.md`, research or plan notes, commits, rebases, deploys — establish the run checkout: a Codex-owned worktree of the target repository under `~/.codex/worktrees/`, created at the intended base SHA (the default branch head when the base is not yet known). Reuse an existing Codex-owned worktree only when it is clean and on the intended base; otherwise create a fresh one. Run every subsequent command with the run checkout as the working directory. When the run produces reviewable commits, create a branch in the worktree; a detached HEAD suffices for lab-only runs. Keep uncommitted evidence in the worktree until the run finishes, then record its path in `run.md`.
+The run checkout is the orchestrator's current worktree of the target repository, including a Paseo- or Herdr-managed worktree. Resolve its path and intended base SHA before prototype staging, evidence capture, or build work. Preserve existing changes and record any difference from the intended base. Do not require a clean checkout or a path under `~/.codex/worktrees/`, and do not create another worktree or workspace for this workflow. If the current directory is the operator's primary checkout or belongs to a different repository, report `BLOCKED` and ask the operator to start the workflow in the intended worktree.
 
-The run checkout is both the Codex-owned lab checkout and the OMP worker's working checkout — the worker joins it as an adjacent tab in the hosting Paseo workspace. It is separate from the operator's primary checkout.
+Run subsequent commands from this checkout. The OMP worker joins the orchestrator as another tab in the same Paseo workspace and shares this exact checkout. Keep uncommitted evidence in the checkout's evidence area and record its path in `run.md`.
 
 ## Preview UI changes before build
 
@@ -88,12 +88,12 @@ For exploration:
 
 Use Paseo. OMP is responsible for managing model selection, not the orchestrator; allow OMP to choose the appropriate model and do not interfere with its selection. Load the `paseo` skill for CLI and tool syntax only. Do not follow `paseo-handoff`. That skill picks a profile by notes. If `paseo` is missing or the daemon is unreachable, record `BLOCKED` and stop.
 
-The OMP worker runs in the same worktree as the run checkout, as an adjacent tab in the Paseo workspace that hosts that checkout — never a separate worktree workspace. If the run checkout is not already inside a Paseo workspace, create one over it with `create_workspace`: `isolation: "local"`, `path` the run checkout. Never start OMP in a workspace of the operator's primary checkout. One workstream is the default. Split work only when evidence proves distinct independently mergeable root causes or an existing PR already owns a dependency.
+Use the orchestrator's existing Paseo workspace ID and verify that its path resolves to the run checkout. Never create a workspace or worktree to launch the worker. If the orchestrator's workspace cannot be identified, record `BLOCKED` and resolve that placement before launching OMP. One workstream is the default. Split work only when evidence proves distinct independently mergeable root causes or an existing PR already owns a dependency. Any additional or replacement workers use this same workspace ID.
 
 The launch profile is named `omp`. That is the Paseo bundle for this worker.
 
 1. Call `list_profiles`, or on the CLI read the `omp` row in `daemon.agentProfiles` on the target host. Take the row whose `name` is exactly `omp`. Do not pick by notes.
-2. Ensure the run checkout has a hosting Paseo workspace: reuse the workspace the driving session already occupies when its path is the run checkout, otherwise `create_workspace` with `isolation: "local"` and `path` the run checkout.
+2. Identify the workspace the orchestrator already occupies using `list_workspaces` or `paseo workspace ls --json`. Confirm its path resolves to the run checkout and retain its `workspaceId`.
 3. Start the worker with `create_agent` in that `workspaceId` — the same workspace, so the worker appears as an adjacent tab in the same worktree. Materialize the `omp` row only:
    - `provider`: `omp/<model>`
    - `settings.modeId`: the profile `modeId`
@@ -103,13 +103,6 @@ The launch profile is named `omp`. That is the Paseo bundle for this worker.
 Codex has no managed Paseo MCP. Same launch on the CLI:
 
 ```
-# Only when the run checkout is not already inside a Paseo workspace:
-paseo workspace create --json \
-  --isolation local \
-  --path <run-checkout> \
-  --title <short-run-title>
-
-
 paseo run -d --json \
   --workspace <workspaceId> \
   --title <short-run-title> \
@@ -121,7 +114,7 @@ paseo run -d --json \
 
 Pass `--thinking` only when the profile has `thinkingOptionId`. Do not edit OMP's model configuration or instruct OMP to change it unless the operator explicitly authorizes that in the current request. Requesting ADN mode does not authorize a model change.
 
-After start, inspect the worker (`paseo inspect --json <id>` or `get_agent_status`). Confirm `Provider` is `omp`, `Mode` matches the profile `modeId`, and `Cwd` equals the run checkout path. Record those values and the observed model in `run.md`.
+After start, inspect the worker (`paseo inspect --json <id>` or `get_agent_status`). Confirm `Provider` is `omp`, `Mode` matches the profile `modeId`, `Cwd` resolves to the orchestrator's run checkout, and the worker's workspace ID equals the orchestrator's workspace ID. If placement differs, stop the worker before implementation and correct the launch. Record those values and the observed model in `run.md`.
 
 Prompt OMP to use ADN mode and include:
 
