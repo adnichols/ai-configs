@@ -92,3 +92,12 @@ the final report helps keep these responsibilities visible.
   matters", not "this earns its keep". Those phrases display the writer. They
   make the reader work harder, and they drag in connotations you did not
   choose. When a literal phrase is available, use it.
+
+## ADN runtime routing
+
+When ADN / pstack mode or one of its skills is active, read
+`skill://adn-mode/references/omp-runtime.md`. That contract governs retained
+Cursor examples throughout its leaf skills and playbooks. Cleanup uses the
+managed `deslop` skill and the `comment-sicko` agent through `no-comments`;
+neither requires an OMP plugin.
+

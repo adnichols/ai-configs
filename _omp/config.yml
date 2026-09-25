@@ -22,28 +22,28 @@ astGrep:
 computer:
   enabled: false
 eval:
-  py: false
-  js: false
+  py: true
+  js: true
 checkpoint:
   enabled: false
 plan:
   enabled: false
 modelRoles:
   smol: synthetic/hf:zai-org/GLM-5.3-Flash:high
-  slow: openai-codex/gpt-6-sol:high
-  plan: openai-codex/gpt-6-sol:high
-  designer: openai-codex/gpt-6-sol:xhigh
-  commit: openai-codex/gpt-6-luna:xhigh
-  tiny: openai-codex/gpt-6-luna:low
+  slow: openai-codex/gpt-5.6-sol:high
+  plan: openai-codex/gpt-5.6-sol:xhigh
+  designer: openai-codex/gpt-5.6-sol:xhigh
+  commit: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash:high
+  tiny: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash:low
   advisor: devin/swe-2:high
   Oracle: openai-codex/gpt-6-astra:medium
-  reviewer: cursor/cursor-grok-4.6:high
-  default: xai-oauth/grok-4.6:high
-  completeness: xai-oauth/grok-4.6:high
-  architect-grok: cursor/cursor-grok-4.6:high
+  reviewer: xai-oauth/grok-4.7:high
+  default: devin/swe-2:high
+  completeness: xai-oauth/grok-4.7:high
+  architect-grok: xai-oauth/grok-4.7:high
   architect-kimi: devin/swe-2:max
   reviewer-kimi: devin/swe-2:max
-  task: xai-oauth/grok-4.6:medium
+  task: devin/swe-2:medium
   speech: xai/grok-tts
   vision: openai-codex/gpt-6-sol:medium
 defaultThinkingLevel: auto
@@ -103,8 +103,6 @@ ask:
   enabled: false
 retry:
   fallbackChains:
-    architect-grok:
-      - xai-oauth/grok-4.6
     completeness:
       - cursor/cursor-grok-4.6
     reviewer:
@@ -116,3 +114,5 @@ prewalk:
   enabled: false
 todo:
   enabled: true
+codexResets:
+  autoRedeem: "no"
