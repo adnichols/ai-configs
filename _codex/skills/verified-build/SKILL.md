@@ -1,6 +1,6 @@
 ---
 name: verified-build
-description: "Codex-only lab workflow for bug fixes, feature changes, and live product exploration. Use when Codex should publish clickable UI prototypes on demos.keramos.tech for approval, claim a shared lab, send confirmed build work to OMP in the same worktree, validate the exact PR head, and publish visual evidence. Do not invoke from OMP (use omp-verified-build there) or for changes that have no user-facing behavior to exercise."
+description: "Codex-only lab workflow for bug fixes, feature changes, and live product exploration. Use when Codex should publish clickable UI prototypes on demos.keramos.tech for approval, claim a shared lab, send confirmed build work to OMP in the same worktree, validate the exact PR head, and publish visual evidence. Do not invoke from OMP (the shared verified-build skill serves OMP) or for changes that have no user-facing behavior to exercise."
 ---
 
 # Verified build

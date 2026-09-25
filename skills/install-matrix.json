@@ -518,13 +518,6 @@
       "notes": "Conditional proactive Oracle caller contract for consequential unresolved choices.",
       "sourceType": "repo"
     },
-    "omp-verified-build": {
-      "class": "consumer-specific-installable",
-      "allowedConsumers": [],
-      "canonicalSource": "skills/omp-verified-build",
-      "notes": "OMP-only: orchestrates the verified-build lifecycle from an OMP session, delegating implementation to a second Paseo-launched OMP agent as an adjacent tab in the same worktree. Installs into shared discovery only; OMP reads ~/.agents/skills directly and no consumer compatibility links are created.",
-      "sourceType": "repo"
-    },
     "packaging-notarization": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -959,6 +952,13 @@
       "notes": "Fetched via `npx skills add vercel-labs/agent-skills`.",
       "sourceType": "external-package",
       "packageSource": "vercel-labs/agent-skills"
+    },
+    "verified-build": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [],
+      "canonicalSource": "skills/verified-build",
+      "notes": "OMP-only: orchestrates the verified-build lifecycle from an OMP session, delegating implementation to a second Paseo-launched OMP agent as an adjacent tab in the same worktree. Installs into shared discovery only; OMP reads ~/.agents/skills directly and no consumer compatibility links are created. Codex keeps its own verified-build via _codex/skills override, which disables this shared path for Codex.",
+      "sourceType": "repo"
     },
     "view-refactor": {
       "class": "universal-installable",

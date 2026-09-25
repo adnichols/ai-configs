@@ -1,6 +1,6 @@
 ---
-name: omp-verified-build
-description: "OMP lab workflow for bug fixes, feature changes, and live product exploration. Use when OMP should publish clickable UI prototypes on demos.keramos.tech for approval, claim a shared lab, send confirmed build work to a second OMP instance through Paseo in the same worktree, validate the exact PR head, and publish visual evidence. Do not invoke from Codex (use verified-build there) or for changes that have no user-facing behavior to exercise."
+name: verified-build
+description: "OMP lab workflow for bug fixes, feature changes, and live product exploration. Use when OMP should publish clickable UI prototypes on demos.keramos.tech for approval, claim a shared lab, send confirmed build work to a second OMP instance through Paseo in the same worktree, validate the exact PR head, and publish visual evidence. Do not invoke from Codex (Codex has its own verified-build override) or for changes that have no user-facing behavior to exercise."
 ---
 
 # OMP verified build
@@ -9,7 +9,7 @@ The driving OMP session owns the lab, test design, evidence, and final verdict. 
 
 The implementer must be a separate Paseo-launched OMP agent, not a `task` subagent of the driving session. Subagents share the driving session's lifecycle and tool surface; this workflow requires an independent worker with its own conversation, model selection, and agent identity, even though both share the run checkout's worktree.
 
-When the user requests omp-verified-build, request and claim a manager-assigned isolated lab without asking for separate lab-checkout permission. Lab checkout alone does not authorize deployment, fixture mutations, PR creation, or PR evidence updates; resolve those actions from the requested task and existing session authorization. Do not ask again for actions already authorized. This workflow never implies permission for production deployment, merging, destructive fixture cleanup, or unrelated changes.
+When the user requests verified-build, request and claim a manager-assigned isolated lab without asking for separate lab-checkout permission. Lab checkout alone does not authorize deployment, fixture mutations, PR creation, or PR evidence updates; resolve those actions from the requested task and existing session authorization. Do not ask again for actions already authorized. This workflow never implies permission for production deployment, merging, destructive fixture cleanup, or unrelated changes.
 
 ## Route the request
 
