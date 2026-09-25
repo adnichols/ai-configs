@@ -522,7 +522,7 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [],
       "canonicalSource": "skills/omp-verified-build",
-      "notes": "OMP-only: orchestrates the verified-build lifecycle from an OMP session, delegating implementation to a second Paseo-launched OMP agent in its own worktree. Installs into shared discovery only; OMP reads ~/.agents/skills directly and no consumer compatibility links are created.",
+      "notes": "OMP-only: orchestrates the verified-build lifecycle from an OMP session, delegating implementation to a second Paseo-launched OMP agent as an adjacent tab in the same worktree. Installs into shared discovery only; OMP reads ~/.agents/skills directly and no consumer compatibility links are created.",
       "sourceType": "repo"
     },
     "packaging-notarization": {

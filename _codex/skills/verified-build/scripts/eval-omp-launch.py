@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Launch OMP through the Paseo profile named omp in a worktree.
+"""Launch OMP through the Paseo profile named omp in the run checkout's workspace.
 
-create_workspace (worktree) then paseo run with the omp row materialized.
-Asserts provider, profile mode, and Paseo worktree cwd without policing OMP's model.
+Creates a local Paseo workspace over a scratch repo (standing in for the run
+checkout), then paseo run with the omp row materialized into that same
+workspace — the adjacent-tab contract. Asserts provider, profile mode, and
+that the agent cwd is the workspace path without policing OMP's model.
 Cleans up the workspace unless --keep is set.
 """
 from __future__ import annotations
@@ -59,10 +61,10 @@ def workspace_id_from_create(payload: dict) -> str:
         value = payload.get(key)
         if isinstance(value, str) and value:
             return value
-    nested = payload.get("workspace")
-    if isinstance(nested, dict):
+    workspace = payload.get("workspace")
+    if isinstance(workspace, dict):
         for key in ("workspaceId", "id", "Id"):
-            value = nested.get(key)
+            value = workspace.get(key)
             if isinstance(value, str) and value:
                 return value
     raise SystemExit(f"workspace create missing id: {payload}")
@@ -77,8 +79,7 @@ def main() -> int:
     expected_model = str(profile["model"])
     expected_mode = str(profile["modeId"])
     thinking = profile.get("thinkingOptionId")
-    repo, sha = make_repo()
-    branch = "vb-omp-eval"
+    repo, _sha = make_repo()
     prompt = "Reply with only the word PONG and stop. Do not edit files."
     workspace_id = None
     agent_id = None
@@ -92,13 +93,7 @@ def main() -> int:
                         "create",
                         "--json",
                         "--isolation",
-                        "worktree",
-                        "--mode",
-                        "branch-off",
-                        "--base",
-                        sha,
-                        "--new-branch",
-                        branch,
+                        "local",
                         "--path",
                         str(repo),
                         "--title",
@@ -137,7 +132,6 @@ def main() -> int:
         model = inspect.get("Model")
         mode = inspect.get("Mode")
         inspect_cwd = inspect.get("Cwd") or launched.get("cwd")
-        worktree_root = str(Path.home() / ".paseo" / "worktrees")
         listing = json.loads(must_ok(run(["paseo", "workspace", "ls", "--json"]), "workspace ls"))
         ws = next((item for item in listing if item.get("workspaceId") == workspace_id), None)
         failures: list[str] = []
@@ -145,10 +139,10 @@ def main() -> int:
             failures.append(f"provider {provider!r} != 'omp'")
         if mode != expected_mode:
             failures.append(f"mode {mode!r} != omp profile {expected_mode!r}")
-        if not str(inspect_cwd or "").startswith(worktree_root):
-            failures.append(f"cwd {inspect_cwd!r} is not a Paseo worktree")
-        if ws is not None and ws.get("isolation") != "worktree":
-            failures.append(f"workspace isolation {ws.get('isolation')!r} != 'worktree'")
+        if Path(str(inspect_cwd or "")).resolve() != repo.resolve():
+            failures.append(f"cwd {inspect_cwd!r} is not the run checkout {repo}")
+        if ws is not None and ws.get("isolation") != "local":
+            failures.append(f"workspace isolation {ws.get('isolation')!r} != 'local'")
         report = {
             "agentId": agent_id,
             "workspaceId": workspace_id,
