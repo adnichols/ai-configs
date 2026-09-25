@@ -72,6 +72,14 @@ the final report helps keep these responsibilities visible.
   operator to arm delivery first.
 
 
+## ADN runtime routing
+
+When ADN / pstack mode or one of its skills is active, read
+`skill://adn-mode/references/omp-runtime.md`. That contract governs retained
+Cursor examples throughout its leaf skills and playbooks. Cleanup uses the
+managed `deslop` skill and the `comment-sicko` agent through `no-comments`;
+neither requires an OMP plugin.
+
 ## Tool routing
 
 - `eval` backends are disabled. Do not call `eval`. Use `read`, `grep`, and

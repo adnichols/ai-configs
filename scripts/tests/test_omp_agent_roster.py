@@ -43,6 +43,7 @@ class OmpAgentRosterTest(unittest.TestCase):
                 "deepinfra.ts",
                 "herdr-omp-agent-state.ts",
                 "orca-agent-status.ts",
+                "paseo-terminal-status.ts",
                 "orca-prefill.ts",
                 "orca-titlebar-spinner.ts",
                 "thinking-shortcuts.ts",
@@ -210,6 +211,7 @@ class OmpAgentRosterTest(unittest.TestCase):
                     "architect-grok.md",
                     "architect-kimi.md",
                     "reviewer-kimi.md",
+                    "comment-sicko.md",
                 },
                 {path.name for path in installed.glob("*.md")},
             )
@@ -218,6 +220,7 @@ class OmpAgentRosterTest(unittest.TestCase):
                     "deepinfra.ts",
                     "herdr-omp-agent-state.ts",
                     "orca-agent-status.ts",
+                "paseo-terminal-status.ts",
                     "orca-prefill.ts",
                     "orca-titlebar-spinner.ts",
                     "thinking-shortcuts.ts",

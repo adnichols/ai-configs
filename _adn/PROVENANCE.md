@@ -9,3 +9,5 @@ ADN translates pstack behavior into OMP. It does not copy Cursor runtime, Graphi
 Post-pin upstream changes, including `make-bot-ui`, require explicit `adopt-skill` adoption. Installed source is pinned; do not silently refresh it.
 
 OMP adaptation policy: retain named outcomes; replace only declared runtime dependencies; fail closed on missing required sources or roles.
+
+Local OMP adaptations include the runtime contract, managed deslop skill, and read-only Comment Sicko agent. These replace missing plugin and Cursor runtime dependencies without refreshing upstream.

@@ -7,6 +7,8 @@ ADN_RUNTIME_MARKER:adn-mode:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
 
 # Poteto mode
 
+On OMP, read [the OMP runtime contract](references/omp-runtime.md) first. It governs every routed leaf skill and playbook, including retained Cursor examples.
+
 ## Non-negotiables
 
 **Start every multi-step task with a todolist whose first item is to read the Principles section below in full.** The principles ground every trigger here. In every reply, name each principle that shaped a decision and the specific choice it changed. This is a standing per-reply obligation, not a todo to mark complete. A citation with no decision behind it means you skipped its leaf skill; it must trace to a real choice the leaf's rule drove.
@@ -21,13 +23,13 @@ Remaining triggers:
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
 - Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
-- Claimed fix, "this change is necessary", or handing a fix to another agent, worktree, or PR → the **adversarial-fix-review** skill. A second model family must prove the claim from artifacts. Interrogate does not cover this. It does not challenge whether the intent is true.
+- Claimed fix, "this change is necessary", or handing a fix to another agent, worktree, or PR → the independent adversarial fix review packet in `references/omp-runtime.md` on OMP; the **adversarial-fix-review** skill on other runtimes. A second model family must prove the claim from artifacts. Interrogate does not cover this. It does not challenge whether the intent is true.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
-- Any prose surface → the **unslop** skill. Your reply is a prose surface; write it per **Writing the reply** every single time, regardless of todo state. Agent-facing prose also follows the **create-skill** skill (Cursor's built-in for authoring SKILL.md files).
+- Any prose surface → the **unslop** skill. Your reply is a prose surface; write it per **Writing the reply** every single time, regardless of todo state. Agent-facing prose also follows the Authoring or modifying a skill playbook on OMP, or the **create-skill** skill on Cursor.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
-- Before commit → the `deslop` skill from the `OMP` plugin (`/deslop`).
+- Before commit → the managed ADN `deslop` skill (`skill://deslop`).
 - Before review → the **no-comments** skill (`/no-comments`).
-- Shipping UI / IDE / CLI → the matching control skill. `OMP` publishes `control-cli` (CLIs and TUIs) and `control-ui` (browser / Electron / web UIs). For bug fixes, reproduce first on the same surface yourself; hand to the user only under the narrow Bug fix step 1 exception.
+- Shipping UI / IDE / CLI → the matching control skill. Use native CLI, terminal, browser, or computer-use tools as specified in `references/omp-runtime.md`; `control-cli` and `control-ui` are retained Cursor skill names. For bug fixes, reproduce first on the same surface yourself; hand to the user only under the narrow Bug fix step 1 exception.
 - Any PR-status request → the **Babysit** playbook (`playbooks/babysit.md`), and not Cursor's built-in babysit skill, whose description matches the same words. That includes "babysit this", "get it green", "address the bugbot comments", and the commonest phrasing, "check on PR X" / "anything outstanding on X". Never triggered by merely opening a PR. Declare its mode before polling; the playbook's step 1 owns the request-to-mode mapping. Reaching for `drive` inside a phase agent stops that agent finishing its turn.
 - Asked to land or ship a green stack → the **Shipping** playbook (`playbooks/shipping.md`). Green is not safe. Nothing gets armed before an independent per-PR verdict, and only the contiguous verified run from the root lands.
 - Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`.
@@ -93,11 +95,9 @@ Match the call shape to the harness. `adn` is not a valid `subagent_type` anywhe
 
 Use the OMP `task` tool. Do not call Cursor `Task({ subagent_type })`.
 
-Named role agents are `architect-grok`, `architect-kimi`, `reviewer-kimi`, `scout`, `reviewer`, `completeness`, `oracle`, and `planner`. Launch them with `agent: "<role>"`. Their models are pinned in agent frontmatter and `modelRoles`. Do not pass a per-call `model` on a named role.
+Named role agents are `architect-grok`, `architect-kimi`, `reviewer-kimi`, `comment-sicko`, `reviewer`, `completeness`, `oracle`, and `planner`. Launch them with `agent: "<role>"`. Their models are pinned in agent frontmatter and `modelRoles`. Do not pass a per-call `model` on a named role.
 
-Implementation slices (edits, tests, multi-file code) that are not a named role omit `agent` so the spawn-policy default `task` runs. Those calls MUST set `model: "@default"`. Omitting `model` inherits the parent runtime model, including a temporary Fireworks or DeepInfra pick. Parent `/model` does not retarget a running child.
-
-If a child tool-loops or reports production bugs instead of finishing, `hub cancel` that job and respawn with `model: "@default"`. Do not keep messaging it.
+The driving OMP session implements, tests, fixes, and manages Git. Read-only general investigation may use the installed `task` agent with `model: "@default"`. Use the native task completion and cancellation contract.
 
 ### Cursor
 
