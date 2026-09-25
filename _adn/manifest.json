@@ -39,7 +39,7 @@
       "retainedBehavior": "pin-and-no-refresh-policy",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "94ab3976ac2de2d5d32ffaa142fbcbf400bb6c5ce4be4d6300cb9b5bdd8df5af",
+      "checksum": "03b1bfc52d02c2264738210170cbfcd85e5a8871ba7b35fa06294a20b04f5c39",
       "sourceSha": "local",
       "triggerClass": "install",
       "sourcePath": "local",
@@ -545,12 +545,15 @@
     {
       "requiredRoles": [],
       "requiredTools": [],
-      "requiredSkills": [],
+      "requiredSkills": [
+        "deslop",
+        "no-comments"
+      ],
       "ompAdapter": "none",
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "33515ebe32b73bbeea93c6838fbe2035789ee0af1fc3baefbecdd513ff039cd9",
+      "checksum": "fd7bc393773327a18a1629439bddb57a2c9826fbbb74de036541eb905b2ae5c5",
       "sourceSha": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
       "triggerClass": "explicit-then-automatic",
       "sourcePath": "pstack/skills/poteto-mode/SKILL.md",
@@ -813,14 +816,18 @@
       "phase": 3
     },
     {
-      "requiredRoles": [],
-      "requiredTools": [],
+      "requiredRoles": [
+        "comment-sicko"
+      ],
+      "requiredTools": [
+        "task"
+      ],
       "requiredSkills": [],
-      "ompAdapter": "none",
-      "retainedBehavior": "translated-from-pstack",
+      "ompAdapter": "native-omp",
+      "retainedBehavior": "independent-read-only-comment-review",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "bcfcdbaf32704220f1be3974c7582233d8687f6674f6bbc58f598606f87008f3",
+      "checksum": "4984c39e506923041e201766788a004267c4e5a2d29b1bcb5e23e5cb75532d99",
       "sourceSha": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
       "triggerClass": "automatic-cleanup",
       "sourcePath": "pstack/skills/no-comments/SKILL.md",
@@ -1324,7 +1331,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "292b458c40d69c765d6402307c6bccefda3207cdc931f0b6d4027fb1a7b67cbb",
+      "checksum": "6435d216703977058f470f2f0f5e5f71738312e7f344576a791d90bc5148251a",
       "sourceSha": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
       "triggerClass": "playbook",
       "sourcePath": "pstack/skills/poteto-mode/playbooks/autopilot-full.md",
@@ -1342,7 +1349,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "6131b792d83c3987e5a64066ff17d450d02c2c76d2e40ba2fbd7a0763f38ba0a",
+      "checksum": "e9ea406f306df6779e78b60235c6a3b1504747d4d9a77123565f58b1c004c8f2",
       "sourceSha": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
       "triggerClass": "playbook",
       "sourcePath": "pstack/skills/poteto-mode/playbooks/autopilot-stack.md",
@@ -1432,7 +1439,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "90ff090fcfe6ffb2aeb63a8eaa28f4e1eb5da7d39436fbe6fbbda6ea19b03571",
+      "checksum": "e4e487a902211d69da277897a2aecdc05b88c30e99ccdbdf07641c2918b94a59",
       "sourceSha": "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
       "triggerClass": "playbook",
       "sourcePath": "local",
@@ -1459,6 +1466,64 @@
       "checksum": "25bef85e78844a2574560384883613b02e332c1bbd268e611dc18d9cd73cabbf",
       "targetPath": "scripts/config-state.ts",
       "runtimeMarker": "fail-closed"
+    },
+    {
+      "id": "deslop",
+      "kind": "skill",
+      "phase": 8,
+      "sourcePath": "local",
+      "sourceSha": "local",
+      "triggerClass": "review",
+      "requiredRoles": [],
+      "requiredTools": [],
+      "requiredSkills": [],
+      "ompAdapter": "native-omp",
+      "retainedBehavior": "local-runtime-adaptation",
+      "failureBehavior": "fail-closed",
+      "runtimeMarker": "ADN_RUNTIME_MARKER:deslop:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
+      "provingTest": "tests/omp-runtime.test.ts",
+      "targetPath": "skills/deslop/SKILL.md",
+      "checksum": "dcec95ec3f14bb32e362aff2d0d5072baca8937a9c38c2f1a99f61e518311d26"
+    },
+    {
+      "id": "comment-sicko",
+      "kind": "agent",
+      "phase": 8,
+      "sourcePath": "local",
+      "sourceSha": "local",
+      "triggerClass": "review",
+      "requiredRoles": [
+        "reviewer"
+      ],
+      "requiredTools": [
+        "task"
+      ],
+      "requiredSkills": [],
+      "ompAdapter": "native-omp",
+      "retainedBehavior": "local-runtime-adaptation",
+      "failureBehavior": "fail-closed",
+      "runtimeMarker": "ADN_RUNTIME_MARKER:comment-sicko:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c",
+      "provingTest": "tests/omp-runtime.test.ts",
+      "targetPath": "agents/comment-sicko.md",
+      "checksum": "71f259721c8a844e0e685146e57c94a12249c63388d61bb37057341880d4a193"
+    },
+    {
+      "id": "omp-runtime",
+      "kind": "reference",
+      "phase": 8,
+      "sourcePath": "local",
+      "sourceSha": "local",
+      "triggerClass": "runtime",
+      "requiredRoles": [],
+      "requiredTools": [],
+      "requiredSkills": [],
+      "ompAdapter": "native-omp",
+      "retainedBehavior": "local-runtime-adaptation",
+      "failureBehavior": "fail-closed",
+      "runtimeMarker": "# OMP runtime contract",
+      "provingTest": "tests/omp-runtime.test.ts",
+      "targetPath": "skills/adn-mode/references/omp-runtime.md",
+      "checksum": "3926d98e2b1045aa4582795bf50062ea1af4c4c835ae0172b8d8fcecb3ea8249"
     }
   ]
 }
