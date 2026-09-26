@@ -716,7 +716,7 @@
       "legacySources": [
         "_pi/skills/sentry-cli"
       ],
-      "notes": "Repo-owned local skill retained in ai-configs.",
+      "notes": "Repo-owned skill based on the `sentry` CLI 0.45.0 agent skill. Binary is `sentry`, not `sentry-cli`.",
       "sourceType": "repo"
     },
     "session-cleanup": {

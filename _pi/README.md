@@ -253,7 +253,7 @@ Callers must supply the artifact or allowed surfaces, specialized lens, output d
 - `dev:pm-review` — adversarial PM review that reshapes plans against intended outcomes, product principles, and early-stage scope fit
 - `cmd-graduate`
 - `doct-document-ops` — doct document operations, including publishing coding plans under personal `Coding Plans`
-- `sentry-cli` — investigate Sentry orgs, projects, issues, and recent events; optionally mute/resolve/unresolve issues after confirmation
+- `sentry-cli` — investigate Sentry with the `sentry` CLI (issues, events, traces, logs); optionally resolve/unresolve/archive issues after confirmation
 
 ### Context / review
 - `cmd-create-handoff`
