@@ -751,7 +751,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "29658e1d684efdfd95315bf12789e4e8c06c44411a8e12171ebcf13bd051583f",
+      "checksum": "4ff78d98081fd8dfceeee4e560b9406eea069df807b615fe957f1ff6d1597fcc",
       "sourceSha": "ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
       "triggerClass": "explicit",
       "sourcePath": "pstack/skills/arena/SKILL.md",
