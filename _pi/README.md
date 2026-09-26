@@ -29,7 +29,7 @@ Plan review and execution use the maintained `reviewed-html-plan` and `run-plan`
 
 ```bash
 ./install.sh --pi      # Install Pi prompt templates + read-only/planning subagents + extensions and sync shared skills
-./install.sh --all     # Install everything, including Pi
+./install.sh --all     # Install every surface except Pi
 ./install.sh --pi --update  # Update skills.sh-managed global skills first, then install Pi resources
 ```
 

@@ -369,7 +369,7 @@ class PiAgentRosterTest(unittest.TestCase):
         self.assertIn("probe_pi_review_transport.py", preflight)
         self.assertIn("pi-review-stack-managed-surfaces.json", review_stack)
         self.assertIn('"$contract" list', review_stack)
-        self.assertGreaterEqual(installer.count("install_pi_review_stack full"), 3)
+        self.assertIn("install_pi_review_stack full", installer)
         self.assertNotIn("for skill in autoreview", review_stack)
         self.assertIn("return 1", review_stack[patch_index:first_mutation])
         readme = (ROOT / "_pi" / "README.md").read_text()

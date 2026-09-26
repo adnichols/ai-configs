@@ -88,12 +88,12 @@ class WorkflowReliabilityContractTest(unittest.TestCase):
     def test_full_and_bounded_pi_routes_reconcile_from_manifest(self):
         installer = (ROOT / "install.sh").read_text()
         self.assertIn('local manifest_scope="${1:-pi-review-stack}"', installer)
-        preflight = installer.index('case "$INSTALL_MODE" in\n    --default|--pi|--all) preflight_pi_review_stack_contract true')
+        preflight = installer.index('case "$INSTALL_MODE" in\n    --pi) preflight_pi_review_stack_contract true')
         first_full_mutation = installer.index('cleanup_retired_runtime_surfaces "$TARGET_DIR"', preflight)
         self.assertLess(preflight, first_full_mutation)
         self.assertIn('npm install --prefix "$preflight_agent/npm"', installer)
         self.assertNotIn("transport package absent before full-install bootstrap", installer)
-        self.assertGreaterEqual(installer.count("install_pi_review_stack full"), 3)
+        self.assertIn("install_pi_review_stack full", installer)
         self.assertIn('--scope "$manifest_scope"', installer)
         self.assertIn('"$contract" verify', installer)
 

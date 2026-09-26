@@ -90,12 +90,12 @@ print_usage() {
     echo "  --pi-review-stack  Mutation-bounded Pi config plus maintained review and conditional safety skills; no packages/global cleanup"
     echo "  --tools     Install/update managed Herdr/Amp/WezTerm config, remote workflows, and CLI tools"
     echo "  --skills    Sync repo-owned and package-managed shared skills into ~/.agents/skills"
-    echo "  --all       Install Claude, Codex, Pi, tools, and shared skills"
+    echo "  --all       Install Claude, Codex, Devin, tools, and shared skills (not Pi; use --pi)"
     echo "  --update    Update globally installed skills tracked by skills.sh before shared-skill sync"
     echo "  --summary-json <path>  Atomically write an install-summary-v1 receipt (mode 0600)"
     echo ""
     echo "Default behavior (no args):"
-    echo "  Installs Claude, Codex, Pi, and shared skills (no tools)."
+    echo "  Installs Claude, Codex, and shared skills (no tools, no Pi)."
     echo ""
     echo "Notes:"
     echo "  - Default shared skills are declared in skills/install-matrix.json and synced into ~/.agents/skills"
@@ -103,9 +103,9 @@ print_usage() {
     echo "  - Codex discovers shared default-profile skills directly from ~/.agents/skills"
     echo "  - Devin discovers shared default-profile skills directly from ~/.agents/skills; --devin adds global guidance and oracle/planner/reviewer subagent profiles under ~/.config/devin"
     echo "  - Claude consumes compatible shared skills via per-skill links into ~/.agents/skills"
-    echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
+    echo "  - When using --pi, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"
-    echo "  - When using --pi or --all, shared browser CDP skills install into ~/.agents/skills"
+    echo "  - Shared browser CDP skills install into ~/.agents/skills with the shared-skill sync"
     echo "  - Package-managed Pi installs DO appear in 'pi list': @tintinweb/pi-subagents, @juicesharp/rpiv-todo, @aliou/pi-processes, @aliou/pi-synthetic, @narumitw/pi-goal, @narumitw/pi-btw, pi-web-access, pi-no-soft-cursor, @tmustier/pi-files-widget, @tmustier/pi-raw-paste, @pi-kaush/pi-inline-skill-identifier, @howaboua/pi-explore-subagents, pi-extensible-workflows, pi-deepinfra, pi-updater, pi-clarify, vendored pi-prewalk (named execution profiles) from the stable ~/.pi/agent/local-packages/ai-configs/pi-prewalk mirror, vendored pi-cursor-sdk (with its question bridge disabled by default) from the stable ~/.pi/agent/local-packages/ai-configs/pi-cursor-sdk mirror, and vendored pi-vcc from the stable ~/.pi/agent/local-packages/ai-configs/pi-vcc mirror"
     echo "  - The repo-managed vent extension writes one shared feedback log to ~/.pi/VENT.md"
     echo "  - Use Herdr to launch and manage visible interactive agent sessions"
@@ -121,7 +121,7 @@ print_usage() {
     echo "  - In non-interactive mode, existing configs are preserved automatically"
     echo ""
     echo "Examples:"
-    echo "  $0                               # Default: install Claude + Codex + Pi + shared skills"
+    echo "  $0                               # Default: install Claude + Codex + shared skills"
     echo "  $0 --claude                      # Install Claude to current directory"
     echo "  $0 --codex                       # Sync global Codex resources"
     echo "  $0 --devin                       # Install Devin CLI global guidance and subagent profiles, then refresh shared skills"
@@ -131,7 +131,7 @@ print_usage() {
     echo "  $0 --tools                       # Install/update managed Herdr/Amp config, Kitty workflow, and CLI tools"
     echo "  $0 --skills                      # Sync repo-owned and package-managed shared skills into ~/.agents/skills"
     echo "  $0 --skills --update             # Update skills.sh-managed global skills, then sync shared skills"
-    echo "  $0 --all                         # Install all maintained surfaces and tools"
+    echo "  $0 --all                         # Install all maintained surfaces and tools except Pi"
 }
 
 write_install_summary_on_exit() {
@@ -3799,7 +3799,7 @@ trap write_install_summary_on_exit EXIT
 # that transport is bootstrapped by the full installer and probed again by the
 # final manifest reconciliation.
 case "$INSTALL_MODE" in
-    --default|--pi|--all) preflight_pi_review_stack_contract true ;;
+    --pi) preflight_pi_review_stack_contract true ;;
 esac
 
 # The review-stack transaction treats the complete ~/.pi tree as one snapshot
@@ -3823,11 +3823,7 @@ case "$INSTALL_MODE" in
         echo ""
         install_codex "$TARGET_DIR"
         echo ""
-        install_pi
-        echo ""
         sync_shared_skills claude
-        echo ""
-        install_pi_review_stack full
         echo ""
         enforce_central_project_skills "$TARGET_DIR"
         ;;
@@ -3878,13 +3874,9 @@ case "$INSTALL_MODE" in
         echo ""
         install_devin_config
         echo ""
-        install_pi
-        echo ""
         install_tools
         echo ""
         sync_shared_skills claude
-        echo ""
-        install_pi_review_stack full
         echo ""
         enforce_central_project_skills "$TARGET_DIR"
         ;;

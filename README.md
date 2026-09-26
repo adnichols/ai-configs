@@ -84,8 +84,8 @@ bash ~/ai-configs/install.sh --all ~
 - refreshes Codex-discoverable shared skills in `~/.agents/skills`
 - with `--devin` or `--all`, installs Devin CLI global guidance to `~/.config/devin/AGENTS.md` and the oracle/planner/reviewer custom subagent profiles to `~/.config/devin/agents/`, pruning dangling skill links with backup; Devin discovers shared skills directly from `~/.agents/skills`, so no per-skill links are installed
 - mirrors shared helper scripts into the runtime locations that need them
-- installs Pi to `~/.pi/agent/`
-- copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@juicesharp/rpiv-todo`
+- with `--pi` only, installs Pi to `~/.pi/agent/`; the default and `--all` routes skip Pi
+- with `--pi`, copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@juicesharp/rpiv-todo`
 - with `--tools` or `--all`, installs Oh My Pi configuration, cross-repository guidance, custom agents, non-credential extensions, the canonical Herdr and Amp configuration, terminal-scoped Hammerspoon image-paste workflow, and managed Kitty screenshot/Herdr workflow locally; remote OMP deployment is a separate Git pull/install workflow
 - removes positively identified managed deprecated shared-skill entries (including `omp-review-partner`), while preserving ambiguous Gemini, OMP, OpenCode, and Pi plan-mode runtime files for explicit manual cleanup
 - syncs shared skills into `~/.agents/skills` from `skills/install-matrix.json`
