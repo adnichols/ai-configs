@@ -16,7 +16,7 @@ This is a Claude Code, Codex, Devin, and Pi configuration repository containing:
   - `mcp-servers.toml` - Reference-only MCP server definitions
 - **_devin/**: Devin CLI global configuration
   - `AGENTS.md` - Global cross-repo guidance installed to `~/.config/devin/AGENTS.md`
-  - `agents/` - Custom subagent profiles (oracle, planner, reviewer, completeness) installed to `~/.config/devin/agents/`
+  - `agents/` - Custom subagent profiles (oracle, planner, reviewer) installed to `~/.config/devin/agents/`
   - `install.sh` - Managed installer with `.before-ai-configs` backups; never touches CLI-owned `config.json`
 - **scripts/**: Shared helper scripts fanned out into installed runtime locations
 

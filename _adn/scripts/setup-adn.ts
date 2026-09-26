@@ -5,7 +5,14 @@ import { readRoles, resolveProfile } from "./config-state.ts";
 
 const SKILLS = join(ADN_ROOT, "skills");
 const AGENTS = join(ADN_ROOT, "agents");
-const RETIRED = ["extensions/adn-mode.ts", "extensions/adn-mode.generated.ts", "adn/generation.json"];
+const RETIRED = [
+  "extensions/adn-mode.ts",
+  "extensions/adn-mode.generated.ts",
+  "adn/generation.json",
+  "agents/architect-grok.md",
+  "agents/architect-kimi.md",
+  "agents/reviewer-kimi.md",
+];
 const RETIRED_SKILLS = ["adn-audit"];
 
 function skillRootFor(root: string) {

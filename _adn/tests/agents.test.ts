@@ -14,11 +14,13 @@ const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
 const ROOT = join(homedir(), ".agents", "adn", "agents");
 
 describe.skipIf(!RUN)("adn council agents", () => {
-  test("three role-backed agents exist with markers and verdicts", () => {
+  test("role-backed agents exist with markers and verdicts", () => {
     for (const [id, alias, verdict] of [
-      ["architect-grok", "@architect-grok", "DIVERGE"],
-      ["architect-kimi", "@architect-kimi", "CONVERGE"],
-      ["reviewer-kimi", "@reviewer-kimi", "BLOCK"],
+      ["arch-one", "@arch-one", "DIVERGE"],
+      ["arch-two", "@arch-two", "DIVERGE"],
+      ["arch-three", "@arch-three", "DIVERGE"],
+      ["reviewer-two", "@reviewer-two", "BLOCK"],
+      ["reviewer-three", "@reviewer-three", "BLOCK"],
     ] as const) {
       const path = join(ROOT, `${id}.md`);
       expect(existsSync(path)).toBe(true);

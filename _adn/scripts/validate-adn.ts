@@ -33,9 +33,7 @@ if (cmd === "live" || cmd === "live-smokes") {
   const files = [
     join(homedir(), ".agents/adn/skills/principle-laziness-protocol/SKILL.md"),
     join(homedir(), ".agents/adn/skills/adn-mode/SKILL.md"),
-    join(root, "agents/architect-grok.md"),
-    join(root, "agents/architect-kimi.md"),
-    join(root, "agents/reviewer-kimi.md"),
+    ...["arch-one", "arch-two", "arch-three", "reviewer-two", "reviewer-three"].map((id) => join(root, `agents/${id}.md`)),
   ];
   for (const path of files) {
     if (!existsSync(path)) missing.push(path);

@@ -119,7 +119,7 @@ const PLAYBOOK_IDS = [
   "playbook-opening-a-pr",
 ] as const;
 
-const AGENT_IDS = ["architect-grok", "architect-kimi", "reviewer-kimi"] as const;
+const AGENT_IDS = ["arch-one", "arch-two", "arch-three", "reviewer-two", "reviewer-three"] as const;
 
 type ManifestRow = {
   id: string;

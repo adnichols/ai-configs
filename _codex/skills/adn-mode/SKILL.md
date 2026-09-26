@@ -29,7 +29,7 @@ For a multi-step task, keep a short task list, read the applicable principle fil
 - Disk cleanup: `playbooks/worktree-cleanup.md`.
 - PR creation, when included in the task: `playbooks/opening-a-pr.md`.
 
-Read only the selected playbook and dependencies required by it. `run-plan` owns lifecycle when explicitly invoked. Completeness is on request. Do not turn an ordinary change into a delivery run, mandatory stack, TDD exercise, or extra PR.
+Read only the selected playbook and dependencies required by it. `run-plan` owns lifecycle when explicitly invoked. Do not turn an ordinary change into a delivery run, mandatory stack, TDD exercise, or extra PR.
 
 ## Engineering guidance
 

@@ -48,7 +48,7 @@ class WorkflowReliabilityContractTest(unittest.TestCase):
             and isinstance(node.args[0], ast.Constant)
         }
         read_only = {"path", "show", "verify-implementation-profile", "check", "board", "status", "stages"}
-        writers = {"init", "stage", "approve-implementation", "start-implementation", "revoke-implementation-approval", "note", "set", "record", "record-receipt", "completion-review", "blocker", "reflect", "spawn", "bootstrap"}
+        writers = {"init", "stage", "approve-implementation", "start-implementation", "revoke-implementation-approval", "note", "set", "record", "record-receipt", "blocker", "reflect", "spawn", "bootstrap"}
         self.assertEqual(commands, read_only | writers)
 
         functions = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
@@ -59,7 +59,7 @@ class WorkflowReliabilityContractTest(unittest.TestCase):
         writer_functions = {
             "cmd_init", "cmd_stage", "cmd_approve_implementation", "cmd_start_implementation",
             "cmd_revoke_implementation_approval", "cmd_note", "cmd_set", "cmd_record",
-            "cmd_record_receipt", "cmd_completion_review", "cmd_blocker", "cmd_reflect", "cmd_spawn", "cmd_bootstrap",
+            "cmd_record_receipt", "cmd_blocker", "cmd_reflect", "cmd_spawn", "cmd_bootstrap",
         }
 
         def reaches_locked_writer(name):

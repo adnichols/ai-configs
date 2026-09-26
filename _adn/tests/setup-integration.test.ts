@@ -26,7 +26,7 @@ describe.skipIf(!RUN)("setup-adn", () => {
       expect(apply.status).toBe(0);
       const tx = JSON.parse(readFileSync(result, "utf8")).transactionId;
       expect(tx).toBeTruthy();
-      expect(existsSync(join(root, "agents", "architect-grok.md"))).toBe(true);
+      expect(existsSync(join(root, "agents", "arch-one.md"))).toBe(true);
       expect(existsSync(join(root, "extensions", "adn-mode.ts"))).toBe(false);
       expect(existsSync(join(root, "extensions", "adn-mode.generated.ts"))).toBe(false);
       expect(existsSync(join(root, "adn", "generation.json"))).toBe(false);
@@ -45,13 +45,13 @@ describe.skipIf(!RUN)("setup-adn", () => {
     const root = mkdtempSync(join(tmpdir(), "adn-setup-roles-"));
     try {
       const config = join(root, "config.yml");
-      writeFileSync(config, "modelRoles:\n  architect-grok: a\n  architect-kimi: b\n");
+      writeFileSync(config, "modelRoles:\n  arch-one: a\n  arch-two: b\n");
       const refused = spawnSync("bun", [SCRIPT, "apply", "--agent-root", root], { encoding: "utf8" });
       expect(refused.status).not.toBe(0);
       expect(refused.stderr).toContain("undefined-role");
-      expect(existsSync(join(root, "agents", "architect-grok.md"))).toBe(false);
+      expect(existsSync(join(root, "agents", "arch-one.md"))).toBe(false);
 
-      const complete = "modelRoles:\n  architect-grok: a\n  architect-kimi: b\n  reviewer-kimi: c\n  reviewer: d\n";
+      const complete = "modelRoles:\n  arch-one: a\n  arch-two: b\n  arch-three: c\n  reviewer: d\n  reviewer-two: e\n  reviewer-three: f\n";
       writeFileSync(config, complete);
       const apply = spawnSync("bun", [SCRIPT, "apply", "--agent-root", root], { encoding: "utf8" });
       expect(apply.status, apply.stderr).toBe(0);
@@ -62,12 +62,14 @@ describe.skipIf(!RUN)("setup-adn", () => {
     }
   });
 
-  test("apply deletes leftover adn-mode wrappers", () => {
+  test("apply deletes leftover adn-mode wrappers and renamed agents", () => {
     const root = mkdtempSync(join(tmpdir(), "adn-setup-retire-"));
     try {
       mkdirSync(join(root, "extensions"), { recursive: true });
       mkdirSync(join(root, "adn"), { recursive: true });
       mkdirSync(join(root, "skills"), { recursive: true });
+      mkdirSync(join(root, "agents"), { recursive: true });
+      writeFileSync(join(root, "agents", "architect-grok.md"), "leftover\n");
       writeFileSync(join(root, "extensions", "adn-mode.ts"), "leftover\n");
       writeFileSync(join(root, "extensions", "adn-mode.generated.ts"), "leftover\n");
       writeFileSync(join(root, "adn", "generation.json"), "{}\n");
@@ -78,6 +80,7 @@ describe.skipIf(!RUN)("setup-adn", () => {
       expect(existsSync(join(root, "extensions", "adn-mode.generated.ts"))).toBe(false);
       expect(existsSync(join(root, "adn", "generation.json"))).toBe(false);
       expect(() => lstatSync(join(root, "skills", "adn-audit"))).toThrow();
+      expect(existsSync(join(root, "agents", "architect-grok.md"))).toBe(false);
       expect(existsSync(join(root, "skills", "audit-adn"))).toBe(true);
       const check = spawnSync("bun", [SCRIPT, "check", "--agent-root", root], { encoding: "utf8" });
       expect(check.status).toBe(0);

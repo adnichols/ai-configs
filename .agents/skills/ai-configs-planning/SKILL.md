@@ -5,7 +5,7 @@ description: Apply ai-configs plan, review, and execution conventions when worki
 
 # ai-configs planning
 
-Use the shared planning-workflow skill for methodology. Local plans remain local unless the user requests Doct publication. Active browser-reviewed plans are semantic HTML at `thoughts/plans/<slug>.html`, with no Markdown companion. Use doct-document-ops for registration, title consistency, comment listeners, and lifecycle state. Completeness is on request, not a required gate.
+Use the shared planning-workflow skill for methodology. Local plans remain local unless the user requests Doct publication. Active browser-reviewed plans are semantic HTML at `thoughts/plans/<slug>.html`, with no Markdown companion. Use doct-document-ops for registration, title consistency, comment listeners, and lifecycle state.
 
 ### Execution
 

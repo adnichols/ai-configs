@@ -26,6 +26,7 @@ printf 'old-guidance\n' > "$TARGET_ROOT/AGENTS.md"
 printf 'old-oracle\n' > "$TARGET_ROOT/agents/oracle.md"
 printf 'old-deepinfra\n' > "$TARGET_ROOT/extensions/deepinfra.ts"
 printf 'user-owned\n' > "$TARGET_ROOT/agents/custom.md"
+printf 'retired\n' > "$TARGET_ROOT/agents/completeness.md"
 printf 'user-owned\n' > "$TARGET_ROOT/extensions/custom.ts"
 
 OMP_CONFIG_TARGET="$TARGET_ROOT" OMP_SHARED_TARGET="$SHARED_TARGET" OMP_BIN_TARGET="$BIN_TARGET" \
@@ -82,9 +83,9 @@ if grep -qi 'ponytail' "$PLUGIN_LOG"; then
   exit 1
 fi
 cmp -s "$REPO_ROOT/_adn/manifest.json" "$SHARED_TARGET/adn/manifest.json"
-cmp -s "$REPO_ROOT/_adn/agents/architect-grok.md" "$TARGET_ROOT/agents/architect-grok.md"
-cmp -s "$REPO_ROOT/_adn/agents/architect-kimi.md" "$TARGET_ROOT/agents/architect-kimi.md"
-cmp -s "$REPO_ROOT/_adn/agents/reviewer-kimi.md" "$TARGET_ROOT/agents/reviewer-kimi.md"
+for agent in arch-one arch-two arch-three reviewer-two reviewer-three; do
+  cmp -s "$REPO_ROOT/_adn/agents/$agent.md" "$TARGET_ROOT/agents/$agent.md"
+done
 cmp -s "$REPO_ROOT/_adn/agents/comment-sicko.md" "$TARGET_ROOT/agents/comment-sicko.md"
 cmp -s "$REPO_ROOT/_adn/skills/deslop/SKILL.md" "$TARGET_ROOT/skills/deslop/SKILL.md"
 cmp -s "$REPO_ROOT/_adn/skills/no-comments/SKILL.md" "$TARGET_ROOT/skills/no-comments/SKILL.md"
@@ -93,6 +94,7 @@ test ! -e "$TARGET_ROOT/extensions/adn-mode.ts"
 test ! -e "$TARGET_ROOT/extensions/adn-mode.generated.ts"
 test ! -e "$TARGET_ROOT/adn/generation.json"
 test ! -e "$TARGET_ROOT/modelRoles.json"
+test ! -e "$TARGET_ROOT/agents/completeness.md"
 test -L "$TARGET_ROOT/skills/principle-laziness-protocol"
 cmp -s "$REPO_ROOT/_adn/pstack-models.mdc" "$CURSOR_RULES_TARGET/pstack-models.mdc"
 cmp -s "$OLD_PSTACK" "$CURSOR_RULES_TARGET/pstack-models.mdc.before-ai-configs"

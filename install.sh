@@ -47,6 +47,7 @@ DEPRECATED_SHARED_SKILLS=(
     claude-code-review
     claude-review-partner
     supervise
+    completeness
 )
 # Retire the legacy, session-detail-backed todo extension in favor of the
 # package-managed @juicesharp/rpiv-todo extension.
@@ -100,7 +101,7 @@ print_usage() {
     echo "  - Default shared skills are declared in skills/install-matrix.json and synced into ~/.agents/skills"
     echo "  - Shared review runtime installs at ~/.agents/scripts/review_orchestration.py"
     echo "  - Codex discovers shared default-profile skills directly from ~/.agents/skills"
-    echo "  - Devin discovers shared default-profile skills directly from ~/.agents/skills; --devin adds global guidance and oracle/planner/reviewer/completeness subagent profiles under ~/.config/devin"
+    echo "  - Devin discovers shared default-profile skills directly from ~/.agents/skills; --devin adds global guidance and oracle/planner/reviewer subagent profiles under ~/.config/devin"
     echo "  - Claude consumes compatible shared skills via per-skill links into ~/.agents/skills"
     echo "  - When using --pi or --all, Pi prompt templates, read-only/planning subagents, and repo-managed extensions are copied to ~/.pi/agent"
     echo "  - Repo-managed Pi extensions live under ~/.pi/agent/extensions and do NOT appear in 'pi list'"

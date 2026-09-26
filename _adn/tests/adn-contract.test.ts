@@ -22,9 +22,6 @@ describe("adn-mode contract", () => {
   test("adn-mode does not prescribe an impossible subagent type", () => {
     expect(skill).not.toContain('subagent_type: "adn"');
     expect(skill).not.toContain('subagent_type: "poteto-agent"');
-    expect(skill).toContain("architect-grok");
-    expect(skill).toContain("architect-kimi");
-    expect(skill).toContain("reviewer-kimi");
   });
 
   test("adn-mode points to the right setup skill", () => {

@@ -147,7 +147,6 @@ assert d["doctrine"]=="guidance-not-gates"
 assert "planPm" in d["evidence"]
 assert "planTech" in d["evidence"]
 assert d["evidence"]["planTech"]["status"] == "pending"
-assert "completenessReview" in d["evidence"]
 assert d["plan"]=="thoughts/plans/x.html"
 PY
 }
@@ -221,8 +220,6 @@ test_record_and_show() {
     --summary "disposition=none reason=fixture" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record completionEval --status gap \
     --gap "BDD missing" --summary "thin" >/dev/null
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record completenessReview --status pass \
-    --artifact thoughts/validation/x-completeness.md --summary "visible reviewer agrees AC1-AC4 are complete" >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record customerImpact --status pass \
     --summary "operators unblocked" --promised "honest status" --observed "status axes" >/dev/null
   python3 - "$repo/.delivery/ledger.json" <<'PY'
@@ -233,291 +230,12 @@ assert d["evidence"]["permanentDocs"]["status"]=="pass"
 assert "disposition=none" in d["evidence"]["permanentDocs"]["summary"]
 assert d["completionEval"]["status"]=="gap"
 assert "BDD missing" in d["completionEval"]["gaps"]
-assert d["evidence"]["completenessReview"]["status"]=="pass"
 assert d["customerImpact"]["summary"]=="operators unblocked"
 assert "honest status" in d["customerImpact"]["promised"]
 PY
   out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" show)"
   printf '%s' "$out" | rg -q "NOD-4" || return 1
   printf '%s' "$out" | rg -q "autoreview: pass" || return 1
-}
-
-test_completion_review_dry_run_uses_tab_create() {
-  local repo="$TMP_ROOT/completion-review-repo"
-  make_repo "$repo"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-5 --plan thoughts/plans/x.html >/dev/null
-  json="$(HERDR_WORKSPACE_ID=w1 DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --dry-run --pane w1:p1)"
-  python3 -c 'import json,sys
-from pathlib import Path
-p=json.loads(sys.argv[1])
-assert p["model"]=="xai/grok-4.6:high", p
-assert p["sourcePane"]=="w1:p1", p
-assert p["reviewerName"].startswith("completeness-"), p
-assert p["startCommand"][-2:]==["--model", "xai/grok-4.6:high"], p
-cmd=p["tabCreateCommand"]
-assert cmd[:7]==["herdr", "tab", "create", "--workspace", "w1", "--cwd", str(Path(sys.argv[2]).resolve())], p
-assert cmd[7]=="--label" and cmd[8].startswith("complete · ") and cmd[9]=="--no-focus", p
-assert ("split" + "Command") not in p, p
-assert "VERDICT: COMPLETE" in p["prompt"], p
-assert "acceptance criterion" in p["prompt"].lower(), p
-' "$json" "$repo"
-}
-
-prepare_completion_review_repo() {
-  local repo="$1"
-  make_repo "$repo"
-  mkdir -p "$repo/thoughts/plans"
-  printf '<article data-plan>completion tabs</article>\n' >"$repo/thoughts/plans/x.html"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-5 --plan thoughts/plans/x.html >/dev/null
-}
-
-test_completion_review_launch_creates_labeled_tab() {
-  local repo="$TMP_ROOT/completion-tab-launch-repo"
-  local fake_bin="$TMP_ROOT/fake-herdr-completion-tab"
-  local herdr_log="$TMP_ROOT/fake-herdr-completion-tab.log"
-  prepare_completion_review_repo "$repo"
-  mkdir -p "$fake_bin"
-  cat >"$fake_bin/herdr" <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
-if [[ "$1" == "tab" && "$2" == "create" ]]; then
-  printf '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{"pane_id":"w1:p9"}}}\n'
-fi
-exit 0
-SH
-  chmod +x "$fake_bin/herdr"
-  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-    "$DELIVERY" --cwd "$repo" completion-review >/dev/null
-  rg -q "tab create --workspace w1 --cwd .*completion-tab-launch-repo --label complete · .* --no-focus" "$herdr_log" || return 1
-  rg -q "agent start completeness-.* --kind pi --pane w1:p9" "$herdr_log" || return 1
-  rg -q "agent prompt completeness-" "$herdr_log" || return 1
-  ! rg -q "pane[[:space:]]+split" "$herdr_log" || return 1
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-d=json.load(open(sys.argv[1])); review=d["completenessReview"]
-assert review["agentName"].startswith("completeness-")
-assert review["paneId"] == "w1:p9"
-assert review["tabId"] == "w1:t9"
-assert review["tabLabel"].startswith("complete · ")
-PY
-}
-
-test_completion_review_rerun_reuses_tab() {
-  local repo="$TMP_ROOT/completion-tab-rerun-repo"
-  local fake_bin="$TMP_ROOT/fake-herdr-completion-rerun"
-  local herdr_log="$TMP_ROOT/fake-herdr-completion-rerun.log"
-  prepare_completion_review_repo "$repo"
-  mkdir -p "$fake_bin"
-  cat >"$fake_bin/herdr" <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
-if [[ "$1" == "tab" && "$2" == "create" ]]; then
-  printf '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{"pane_id":"w1:p9"}}}\n'
-fi
-exit 0
-SH
-  chmod +x "$fake_bin/herdr"
-  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-    "$DELIVERY" --cwd "$repo" completion-review >/dev/null
-  : >"$herdr_log"
-  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-    "$DELIVERY" --cwd "$repo" completion-review --rerun >/dev/null
-  ! rg -q "tab create|agent start" "$herdr_log" || return 1
-  rg -q "agent prompt completeness-" "$herdr_log" || return 1
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-r=json.load(open(sys.argv[1]))["completenessReview"]
-assert r["round"] == 2
-assert r["paneId"] == "w1:p9"
-assert r["tabId"] == "w1:t9"
-PY
-}
-
-test_completion_review_rerun_rejects_legacy_record_without_tab() {
-  local repo="$TMP_ROOT/completion-tab-legacy-rerun-repo"
-  local fake_bin="$TMP_ROOT/fake-herdr-completion-legacy-rerun"
-  local herdr_log="$TMP_ROOT/fake-herdr-completion-legacy-rerun.log"
-  local out code
-  prepare_completion_review_repo "$repo"
-  mkdir -p "$fake_bin"
-  cat >"$fake_bin/herdr" <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
-exit 0
-SH
-  chmod +x "$fake_bin/herdr"
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-path=sys.argv[1]
-d=json.load(open(path))
-d["completenessReview"]={
-    "status":"pending",
-    "agentName":"completeness-legacy",
-    "paneId":"w1:p9",
-    "requestId":"legacy-request",
-    "round":1,
-}
-json.dump(d,open(path,"w"),indent=2)
-PY
-  set +e
-  out="$(PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w1 HERDR_PANE_ID=w1:p1 \
-    "$DELIVERY" --cwd "$repo" completion-review --rerun 2>&1)"
-  code=$?
-  set -e
-  [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "no tab metadata.*without --rerun.*fresh labeled tab" || return 1
-  [[ ! -s "$herdr_log" ]] || return 1
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-r=json.load(open(sys.argv[1]))["completenessReview"]
-assert r["requestId"] == "legacy-request"
-assert r["round"] == 1
-assert "tabId" not in r
-PY
-}
-
- test_agent_tab_create_failure_paths() {
-  local repo="$TMP_ROOT/agent-tab-failure-repo"
-  local fake_bin="$TMP_ROOT/fake-herdr-agent-tab-failure"
-  local mode_file="$TMP_ROOT/fake-herdr-agent-tab-mode"
-  local herdr_log="$TMP_ROOT/fake-herdr-agent-tab-failure.log"
-  prepare_completion_review_repo "$repo"
-  mkdir -p "$fake_bin"
-  cat >"$fake_bin/herdr" <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
-mode="$(cat "$FAKE_HERDR_MODE")"
-if [[ "$1" == "pane" && "$2" == "get" ]]; then
-  case "$mode" in
-    missing-workspace) printf '{"result":{"pane":{"pane_id":"w1:p1"}}}\n' ;;
-    pane-non-json) printf 'not-json\n' ;;
-    pane-non-object) printf '[]\n' ;;
-    *) printf '{"result":{"pane":{"workspace_id":"w1"}}}\n' ;;
-  esac
-elif [[ "$1" == "tab" && "$2" == "create" ]]; then
-  case "$mode" in
-    tab-non-json) printf 'not-json\n' ;;
-    tab-non-object) printf '[]\n' ;;
-    missing-root-pane) printf '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{}}}\n' ;;
-    missing-tab-id) printf '{"result":{"tab":{},"root_pane":{"pane_id":"w1:p9"}}}\n' ;;
-    *) printf '{"result":{"tab":{"tab_id":"w1:t9"},"root_pane":{"pane_id":"w1:p9"}}}\n' ;;
-  esac
-fi
-exit 0
-SH
-  chmod +x "$fake_bin/herdr"
-  local mode out code
-  for mode in missing-workspace pane-non-json pane-non-object tab-non-json tab-non-object missing-root-pane missing-tab-id; do
-    printf '%s\n' "$mode" >"$mode_file"
-    : >"$herdr_log"
-    set +e
-    out="$(env -u HERDR_WORKSPACE_ID PATH="$fake_bin:$PATH" FAKE_HERDR_MODE="$mode_file" \
-      FAKE_HERDR_LOG="$herdr_log" HERDR_PANE_ID=w1:p1 \
-      "$DELIVERY" --cwd "$repo" completion-review 2>&1)"
-    code=$?
-    set -e
-    [[ "$code" -ne 0 ]] || return 1
-    printf '%s' "$out" | rg -qi "workspace discovery|tab creation" || return 1
-    printf '%s' "$out" | rg -qi "tried|attempted" || return 1
-    printf '%s' "$out" | rg -qi "next action" || return 1
-    ! rg -q "pane[[:space:]]+split|agent start" "$herdr_log" || return 1
-  done
-}
-
-test_merge_ready_does_not_require_completeness_review() {
-  local repo="$TMP_ROOT/completeness-gate-repo"
-  make_repo "$repo"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-6 --plan thoughts/plans/x.html >/dev/null
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY >/dev/null
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-d=json.load(open(sys.argv[1]))
-assert d["stage"]=="MERGE_READY", d
-PY
-}
-
-test_stale_completeness_review_does_not_block_merge_ready() {
-  local repo="$TMP_ROOT/completeness-accept-repo"
-  local fake_bin="$TMP_ROOT/fake-herdr"
-  make_repo "$repo"
-  mkdir -p "$repo/thoughts/plans" "$fake_bin"
-  printf '<html>plan</html>\n' >"$repo/thoughts/plans/x.html"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-7 --plan thoughts/plans/x.html >/dev/null
-  python3 - "$repo/.delivery/ledger.json" "$DELIVERY" "$repo" <<'PY'
-import json,runpy,sys
-path,delivery,root=sys.argv[1:];m=runpy.run_path(delivery);d=json.load(open(path));request="1"*32
-d["completenessReview"]={"status":"pending","agentName":"completeness-nod-7","paneId":"w1:p2","requestId":request,"requestLedgerRevision":d["ledgerRevision"],"planSha256":m["plan_sha256"](d,m["Path"](root)),"worktreeFingerprint":m["working_tree_fingerprint"](m["Path"](root)),"round":1}
-json.dump(d,open(path,"w"),indent=2)
-PY
-  cat >"$fake_bin/herdr" <<'SH'
-#!/usr/bin/env bash
-if [[ "$1" == "agent" && "$2" == "read" ]]; then
-  printf 'COMPLETENESS_REVIEW_RESPONSE_ID: 11111111111111111111111111111111\nVERDICT: COMPLETE\nAll criteria are evidenced.\n'
-  exit 0
-fi
-exit 64
-SH
-  chmod +x "$fake_bin/herdr"
-  PATH="$fake_bin:$PATH" DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept >/dev/null
-  git -C "$repo" add -A
-  git -C "$repo" commit -qm "reviewed implementation"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY >/dev/null
-  [[ -f "$repo/thoughts/validation/delivery-completeness.md" ]] || return 1
-  printf '\nchanged after review\n' >>"$repo/thoughts/plans/x.html"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY >/dev/null
-}
-
-test_completion_review_rejects_prior_round_verdict() {
-  local repo="$TMP_ROOT/completeness-old-verdict-repo"
-  local fake_bin="$TMP_ROOT/fake-herdr-old-verdict"
-  make_repo "$repo"
-  mkdir -p "$repo/thoughts/plans" "$fake_bin"
-  printf '<html>plan</html>\n' >"$repo/thoughts/plans/x.html"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --issue NOD-8 --plan thoughts/plans/x.html >/dev/null
-  python3 - "$repo/.delivery/ledger.json" "$DELIVERY" "$repo" <<'PY'
-import json,runpy,sys
-path,delivery,root=sys.argv[1:];m=runpy.run_path(delivery);d=json.load(open(path));request="2"*32
-d["completenessReview"]={"status":"pending","agentName":"completeness-nod-8","paneId":"w1:p2","requestId":request,"requestLedgerRevision":d["ledgerRevision"],"planSha256":m["plan_sha256"](d,m["Path"](root)),"worktreeFingerprint":m["working_tree_fingerprint"](m["Path"](root)),"round":2}
-json.dump(d,open(path,"w"),indent=2)
-PY
-  cat >"$fake_bin/herdr" <<'SH'
-#!/usr/bin/env bash
-if [[ "$1" == "agent" && "$2" == "read" ]]; then
-  printf 'COMPLETENESS_REVIEW_RESPONSE_ID: 33333333333333333333333333333333\nVERDICT: COMPLETE\nAn older response.\n'
-  exit 0
-fi
-exit 64
-SH
-  chmod +x "$fake_bin/herdr"
-  set +e
-  out="$(PATH="$fake_bin:$PATH" DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept 2>&1)"
-  code=$?
-  set -e
-  [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "current response ID.*missing.*visible IDs" || return 1
-}
-
-test_completeness_parser_reports_wrapped_duplicate_malformed_and_truncated() {
-  python3 - "$DELIVERY" <<'PY'
-import json,runpy,sys,tempfile
-from pathlib import Path
-module=runpy.run_path(sys.argv[1]);parse=module["parse_completeness_transcript"];rid="a"*32;old="b"*32
-assert len(module["completeness_reviewer_name"]({"id":"delivery/"+"very-long-identity-"*5})) <= 32
-exact=parse(f"COMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: COMPLETE\n",rid);assert exact["accepted"]
-wrapped=parse(f"COMPLETENESS_REVIEW_RESPONSE_ID:\n\n{rid}\nnotes\nVERDICT:\nCOMPLETE\n",rid);assert wrapped["accepted"]
-duplicate=parse(f"COMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: COMPLETE\nCOMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: FINDINGS_TO_RESOLVE\n",rid);assert not duplicate["accepted"] and duplicate["verdict"]=="FINDINGS_TO_RESOLVE" and duplicate["duplicateCount"]==2
-malformed=parse(f"COMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: COMPLETE\nVERDICT: COMPLETE\n",rid);assert not malformed["accepted"] and "2 parsed verdicts" in malformed["diagnostic"]
-missing=parse(f"VERDICT: COMPLETE\nCOMPLETENESS_REVIEW_RESPONSE_ID: {old}\nVERDICT: COMPLETE\n",rid);assert not missing["accepted"] and missing["likelyTruncated"] and old in missing["visibleIds"]
-with tempfile.TemporaryDirectory() as temp:
-    session=Path(temp)/"session.jsonl"
-    event={"type":"message","message":{"role":"assistant","content":[{"type":"text","text":f"COMPLETENESS_REVIEW_RESPONSE_ID: {rid}\nVERDICT: COMPLETE\n"}]}}
-    session.write_text(json.dumps(event)+"\n")
-    extracted=module["pi_session_transcript"](session);assert parse(extracted,rid)["accepted"]
-PY
 }
 
 test_ledger_lock_serializes_and_rejects_stale_writer() {
@@ -823,7 +541,7 @@ assert p["agent"]["prompted"] is True, p
   rg -q "agent start .* --kind omp --pane wOmp:p1" "$log" || return 1
   rg -Fq "Continue in this same OMP session" "$log" || return 1
   rg -Fq "Never launch Pi or hand implementation to another agent" "$log" || return 1
-  ! rg -q "Sol-medium profile decision|Grok completeness|dedicated implementation agent" "$log" || return 1
+  ! rg -q "Sol-medium profile decision|dedicated implementation agent" "$log" || return 1
   python3 - "$worktree/.delivery/ledger.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
@@ -1494,7 +1212,6 @@ for key in ("implementation","scopedReview","implPm","completionEval","customerI
     d["evidence"][key]["status"]="pass"
 d["evidence"]["adversarialQa"]["status"]="na"
 d["prUrl"]="https://example.test/pull/1"
-d["completenessReview"]={"status":"waived","summary":"explicit test waiver"}
 json.dump(d,open(path,"w"),indent=2)
 PY
   DELIVERY_SKIP_HERDR=1 HOME="$pi_home" "$DELIVERY" --cwd "$repo" reflect \
@@ -1654,9 +1371,6 @@ test_docs_use_labeled_tabs_not_pane_splits() {
   done
   ! rg -n "visible adjacent|adjacent visible|splits an adjacent|[Ss]plits the driving pane|adjacent Herdr pane|adjacent pane|pane[[:space:]]+split" "${corpus[@]}" || return 1
   rg -q "labeled.*tab|tab create" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  help="$($DELIVERY completion-review --help)"
-  printf '%s' "$help" | rg -q "tab-create/start/prompt" || return 1
-  ! printf '%s' "$help" | rg -q "split[/]start[/]prompt" || return 1
 }
 
 test_operator_attention_reconciles_delivery_state() {
@@ -1778,9 +1492,6 @@ test_skill_doctrine_wording() {
   ! rg -q 'deepseek-v4-flash' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q '"sol-medium"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
   rg -q 'DEFAULT_IMPLEMENTATION_PROFILE = "luna-xhigh"' "$ROOT/skills/delivery-run/scripts/delivery" || return 1
-  rg -q "COMPLETENESS_REVIEW" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q "xai/grok-4.6:high" "$ROOT/skills/run-plan/SKILL.md" || return 1
-  rg -q "completion-review" "$ROOT/_pi/prompts/delivery:run.md" || return 1
   rg -q "automatically authorizes the exact reviewed plan" "$ROOT/_pi/prompts/dev:reviewed-html-plan.md" || return 1
   rg -q 'delivery stage EXECUTION_READY' "$ROOT/_pi/prompts/delivery:run.md" || return 1
   rg -q 'continues through PR creation' "$ROOT/_pi/prompts/delivery:bootstrap.md" || return 1
@@ -1801,20 +1512,12 @@ test_delivery_skill_explicit_opt_in() {
   rg -q "not a required recitation" "$ROOT/skills/delivery-run/SKILL.md" || return 1
   rg -q "late-attach authorization" "$ROOT/skills/delivery-run/SKILL.md" || return 1
   rg -q "Do not ask them to repeat a trigger phrase" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q "Do not refuse" "$ROOT/skills/completeness/SKILL.md" || return 1
-  rg -q "This is not a run-plan or delivery gate" "$ROOT/skills/completeness/SKILL.md" || return 1
-  ! rg -q "must run this gate after autoreview" "$ROOT/skills/completeness/SKILL.md" || return 1
-  rg -q "it is not a pre-PR gate" "$ROOT/skills/run-plan/SKILL.md" || return 1
-  rg -q "Completeness is on-request" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  ! rg -q "Completeness is the exception to advisory" "$ROOT/skills/delivery-run/SKILL.md" || return 1
-  rg -q "recite a trigger phrase" "$ROOT/skills/completeness/SKILL.md" || return 1
   rg -q "explicitly armed for this run" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "Do not initialize a delivery ledger" "$ROOT/skills/run-plan/SKILL.md" || return 1
   rg -q "explicit opt-in only" "$ROOT/_omp/AGENTS.md" || return 1
   rg -q "prewalk" "$ROOT/_omp/AGENTS.md" || return 1
   rg -qi "never arm" "$ROOT/_omp/AGENTS.md" || return 1
   rg -q "late-attach authorization" "$ROOT/_omp/AGENTS.md" || return 1
-  rg -q "Do not refuse" "$ROOT/_omp/AGENTS.md" || return 1
   rg -q "EXPLICIT OPT-IN ONLY" "$ROOT/AGENTS.md" || return 1
   rg -q "the operator explicitly asked to" "$ROOT/_pi/prompts/cmd:start-linear-issue.md" || return 1
   rg -q "Do \*\*not\*\* arm or initialize the delivery workflow" "$ROOT/_pi/prompts/cmd:start-linear-issue.md" || return 1
@@ -1918,7 +1621,7 @@ EOF
 }
 
 
-test_workspace_owner_handoff_and_witness_close() {
+test_workspace_owner_handoff() {
   local repo="$TMP_ROOT/owner-handoff-repo"
   local fake_bin="$TMP_ROOT/fake-herdr-owner-handoff"
   local herdr_log="$TMP_ROOT/fake-herdr-owner-handoff.log"
@@ -1931,11 +1634,7 @@ test_workspace_owner_handoff_and_witness_close() {
 set -euo pipefail
 printf '%s\n' "$*" >>"$FAKE_HERDR_LOG"
 if [[ "$1" == "tab" && "$2" == "create" ]]; then
-  if rg -q "complete ·" <<<"$*"; then
-    printf '{"result":{"tab":{"tab_id":"w-own:t-complete"},"root_pane":{"pane_id":"w-own:p-complete"}}}\n'
-  else
-    printf '{"result":{"tab":{"tab_id":"w-own:t-impl"},"root_pane":{"pane_id":"w-own:p-impl"}}}\n'
-  fi
+  printf '{"result":{"tab":{"tab_id":"w-own:t-impl"},"root_pane":{"pane_id":"w-own:p-impl"}}}\n'
 fi
 exit 0
 SH
@@ -1971,18 +1670,6 @@ import json,sys
 d=json.load(open(sys.argv[1])); assert d.get("tabsToRetire") in (None, [])
 PY
 
-  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-own HERDR_PANE_ID=w-own:p-impl \
-    "$DELIVERY" --cwd "$repo" completion-review >/dev/null
-  : >"$herdr_log"
-  PATH="$fake_bin:$PATH" FAKE_HERDR_LOG="$herdr_log" HERDR_WORKSPACE_ID=w-own HERDR_TAB_ID=w-own:t-impl HERDR_PANE_ID=w-own:p-impl \
-    "$DELIVERY" --cwd "$repo" completion-review --waive --summary "test waiver closes witness" >/dev/null
-  rg -q "tab close w-own:t-complete" "$herdr_log" || return 1
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-d=json.load(open(sys.argv[1]))
-assert d["completenessReview"]["status"]=="waived"
-assert d["workspaceOwner"]["tabId"]=="w-own:t-impl"
-PY
 }
 
 test_omp_runtime_profile_detection_and_legacy_backfill() {
@@ -2017,7 +1704,6 @@ PY
   printf '%s' "$stages_out" | rg -q "IMPLEMENTING.*I" || return 1
   printf '%s' "$stages_out" | rg -q "SCOPED_REVIEW.*R" || return 1
   printf '%s' "$stages_out" | rg -q "AUTOREVIEW.*R" || return 1
-  printf '%s' "$stages_out" | rg -q "COMPLETENESS_REVIEW.*R" || return 1
   printf '%s' "$stages_out" | rg -q "MERGE_READY.*PR" || return 1
   ! printf '%s' "$stages_out" | rg -q "ADVERSARIAL_QA|REFLECT" || return 1
   board_out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$omp_repo" board --root "$omp_repo")"
@@ -2053,111 +1739,6 @@ PY
   [[ ! -e "$ambiguous_repo/.delivery/ledger.json" ]]
 }
 
-test_omp_completion_review_uses_bound_envelope() {
-  local repo="$TMP_ROOT/omp-completion-repo"
-  make_repo "$repo"
-  mkdir -p "$repo/thoughts/plans"
-  printf '<article data-plan>omp completion</article>\n' >"$repo/thoughts/plans/x.html"
-  OMPCODE=1 DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" init --plan thoughts/plans/x.html >/dev/null
-  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare)"
-  python3 - "$packet" "$repo" <<'PY'
-import json,sys
-packet=json.loads(sys.argv[1]); root=sys.argv[2]
-assert packet["runtime"] == "omp", packet
-assert packet["reviewer"] == "omp-completeness-grok-4.5-high", packet
-assert len(packet["responseId"]) == 32, packet
-path=f"{root}/{packet['artifact']}"
-import os
-os.makedirs(os.path.dirname(path), exist_ok=True)
-with open(path,"w") as f:
-    f.write("\n".join(packet["requiredEnvelope"]).replace("VERDICT: COMPLETE", "VERDICT: INCOMPLETE") + "\n")
-with open(f"{root}/thoughts/validation/alternate.md","w") as f:
-    f.write("\n".join(packet["requiredEnvelope"]) + "\n")
-PY
-  set +e
-  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --artifact thoughts/validation/alternate.md --response-id "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pendingCompletenessReview"]["responseId"])' "$repo/.delivery/ledger.json")" 2>&1)"
-  code=$?
-  set -e
-  [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "artifact does not match the pending request" || return 1
-  rm "$repo/thoughts/validation/alternate.md"
-  set +e
-  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --response-id "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pendingCompletenessReview"]["responseId"])' "$repo/.delivery/ledger.json")" 2>&1)"
-  code=$?
-  set -e
-  [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "does not match" || return 1
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-assert "pendingCompletenessReview" in json.load(open(sys.argv[1]))
-PY
-  old_response_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pendingCompletenessReview"]["responseId"])' "$repo/.delivery/ledger.json")"
-  set +e
-  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare --reviewer-identity reviewer.one 2>&1)"
-  code=$?
-  set -e
-  [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "omp-completeness-grok-4.5-high" || return 1
-  packet="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --prepare)"
-  response_id="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["responseId"])' <<<"$packet")"
-  [[ "$response_id" != "$old_response_id" ]] || return 1
-  set +e
-  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --response-id "$old_response_id" 2>&1)"
-  code=$?
-  set -e
-  [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "does not match the pending request" || return 1
-  python3 - "$repo/.delivery/ledger.json" "$repo" <<'PY'
-import json,sys
-d=json.load(open(sys.argv[1])); p=d["pendingCompletenessReview"]
-path=f"{sys.argv[2]}/{p['artifact']}"
-lines=[
-    "<!-- OMP_COMPLETENESS_RESPONSE -->",
-    f"COMPLETENESS_REVIEW_RESPONSE_ID: {p['responseId']}",
-    f"REVIEWER_IDENTITY: {p['reviewerIdentity']}",
-    f"PLAN_SHA256: {p['planSha256']}",
-    f"WORKTREE_FINGERPRINT: {p['worktreeFingerprint']}",
-    "VERDICT: COMPLETE",
-    "<!-- /OMP_COMPLETENESS_RESPONSE -->",
-]
-open(path,"w").write("\n".join(lines)+"\n")
-PY
-  response_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["pendingCompletenessReview"]["responseId"])' "$repo/.delivery/ledger.json")"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --response-id "$response_id" >/dev/null
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-d=json.load(open(sys.argv[1]))
-assert "pendingCompletenessReview" not in d
-assert d["completenessReview"]["status"] == "complete"
-assert len(d["completenessReview"]["artifactSha256"]) == 64
-assert d["evidence"]["completenessReview"]["status"] == "pass"
-PY
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record implPm --status pass --summary outcome >/dev/null
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record autoreview --status pass --summary reviewed >/dev/null
-  artifact="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["completenessReview"]["artifact"])' "$repo/.delivery/ledger.json")"
-  cp "$repo/$artifact" "$repo/$artifact.accepted"
-  printf 'tampered after acceptance\n' >>"$repo/$artifact"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY >/dev/null
-  mv "$repo/$artifact.accepted" "$repo/$artifact"
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage MERGE_READY >/dev/null
-  set +e
-  out="$(DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" completion-review --accept --response-id "$response_id" 2>&1)"
-  code=$?
-  set -e
-  [[ "$code" -ne 0 ]] || return 1
-  printf '%s' "$out" | rg -q "no OMP completeness request is pending" || return 1
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record verify --status pass --summary verified >/dev/null
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record pr --status pass --summary opened >/dev/null
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" set --pr-url https://example.test/pr/1 >/dev/null
-  DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" stage DONE >/dev/null
-  python3 - "$repo/.delivery/ledger.json" <<'PY'
-import json,sys
-d=json.load(open(sys.argv[1]))
-assert d["stage"] == "DONE", d
-assert (d["evidence"].get("adversarialQa") or {}).get("status") != "pass", d["evidence"]
-PY
-}
-
 
 test_omp_delivery_transitions_require_current_review_and_closeout_evidence() {
   local repo="$TMP_ROOT/omp-transition-gates"
@@ -2175,7 +1756,6 @@ test_omp_delivery_transitions_require_current_review_and_closeout_evidence() {
   set -e
   [[ "$code" -ne 0 ]] || return 1
   printf '%s' "$out" | rg -q "implPm.*autoreview" || return 1
-  ! printf '%s' "$out" | rg -q "completenessReview" || return 1
 
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record implPm --status pass --summary outcome >/dev/null
   DELIVERY_SKIP_HERDR=1 "$DELIVERY" --cwd "$repo" record autoreview --status pass --summary reviewed >/dev/null
@@ -2452,10 +2032,9 @@ json.dump(ledger, open(root / ".delivery" / "ledger.json", "w"), indent=2)
 PY
 }
 
-run_test test_workspace_owner_handoff_and_witness_close
+run_test test_workspace_owner_handoff
 run_test test_plan_title_extraction_and_advisory
 run_test test_omp_runtime_profile_detection_and_legacy_backfill
-run_test test_omp_completion_review_uses_bound_envelope
 run_test test_omp_delivery_transitions_require_current_review_and_closeout_evidence
 run_test test_arm_is_single_entrypoint_and_late_join
 run_test test_arm_refuses_live_prewalk_and_ignores_stale
@@ -2465,15 +2044,6 @@ run_test test_record_receipts_coexist_and_validate
 run_test test_unprotected_stage_moves_without_gates
 run_test test_check_exit_zero_with_gaps
 run_test test_record_and_show
-run_test test_completion_review_dry_run_uses_tab_create
-run_test test_completion_review_launch_creates_labeled_tab
-run_test test_completion_review_rerun_reuses_tab
-run_test test_completion_review_rerun_rejects_legacy_record_without_tab
-run_test test_agent_tab_create_failure_paths
-run_test test_merge_ready_does_not_require_completeness_review
-run_test test_stale_completeness_review_does_not_block_merge_ready
-run_test test_completion_review_rejects_prior_round_verdict
-run_test test_completeness_parser_reports_wrapped_duplicate_malformed_and_truncated
 run_test test_ledger_lock_serializes_and_rejects_stale_writer
 run_test test_ledger_lock_timeout_reports_holder_metadata
 run_test test_force_reinitialization_uses_locked_replace_semantics

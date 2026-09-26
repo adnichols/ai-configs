@@ -37,8 +37,8 @@ Imaging launch contract (Pi): call `Agent` with only `subagent_type: "imaging"`,
 ## Claude and Codex Execution Model
 
 - Claude's driving session performs discovery, planning, implementation, testing, documentation, review, and repository management directly with native tools. The repository no longer ships a Claude subagent.
-- Devin's driving session likewise implements directly with native tools. Its repository-owned custom subagent profiles live in `_devin/agents/` and install to `~/.config/devin/agents/`: `reviewer` and `planner` (sonnet), `oracle` and `completeness` (opus). Invoke them by profile name via `run_subagent` only for bounded planning, decision support, or read-only review. The shared delivery ledger supports only the `omp`/`pi` runtimes; Devin sessions use `run-plan` with the standalone `completeness` packet instead of arming delivery.
-- Required code reviews run through the active harness's configured `reviewer` subagent. Completeness is an on-request plan walk, not a merge-readiness gate. Do not make Codex or Claude Code a required review transport.
+- Devin's driving session likewise implements directly with native tools. Its repository-owned custom subagent profiles live in `_devin/agents/` and install to `~/.config/devin/agents/`: `reviewer` and `planner` (sonnet), and `oracle` (opus). Invoke them by profile name via `run_subagent` only for bounded planning, decision support, or read-only review. The shared delivery ledger supports only the `omp`/`pi` runtimes; Devin sessions use `run-plan` instead of arming delivery.
+- Required code reviews run through the active harness's configured `reviewer` subagent. Do not make Codex or Claude Code a required review transport.
 - On Cursor Grok or Composer parents, launch required reviewers with `run_in_background: true` and join via `get_subagent_result` (`wait: true`). The vendored `pi-cursor-sdk` bridge also forces background for `Agent` on those models.
 - Codex driving agents likewise implement authorized changes directly with their native repository tools.
 

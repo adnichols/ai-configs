@@ -1,7 +1,7 @@
 # Sync rule for ADN subagent profiles
 
 These agent profiles are the source of truth for the ADN custom subagent
-profiles (`completeness`, `oracle`, `planner`, `reviewer`) used across
+profiles (`oracle`, `planner`, `reviewer`) used across
 Nodaste tooling.
 
 When you edit any file in this directory, treat the change as a cross-repo

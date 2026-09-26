@@ -17,7 +17,6 @@ SOURCE_AGENTS=(
   "$SOURCE_DIR/agents/oracle.md"
   "$SOURCE_DIR/agents/planner.md"
   "$SOURCE_DIR/agents/reviewer.md"
-  "$SOURCE_DIR/agents/completeness.md"
 )
 SOURCE_EXTENSIONS=(
   "$SOURCE_DIR/extensions/deepinfra.ts"
@@ -146,6 +145,7 @@ done
 for source in "${SOURCE_EXTENSIONS[@]}"; do
   install_managed_file "$source" "$TARGET_ROOT/extensions/$(basename -- "$source")" 0644 "OMP extension"
 done
+rm -f -- "$TARGET_ROOT/agents/completeness.md"
 
 install_managed_file "$SOURCE_DELIVERY_SKILL" "$SHARED_TARGET/skills/delivery-run/SKILL.md" 0644 "OMP delivery skill"
 install_managed_file "$SOURCE_DELIVERY_CLI" "$SHARED_TARGET/scripts/delivery" 0755 "delivery CLI"

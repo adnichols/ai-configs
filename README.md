@@ -82,7 +82,7 @@ bash ~/ai-configs/install.sh --all ~
 - mirrors Codex prompts into `~/.codex/prompts`
 - keeps Codex prompt availability aligned with Pi, using Pi-delegating wrappers for Pi-only multi-model/subagent commands
 - refreshes Codex-discoverable shared skills in `~/.agents/skills`
-- with `--devin` or `--all`, installs Devin CLI global guidance to `~/.config/devin/AGENTS.md` and the oracle/planner/reviewer/completeness custom subagent profiles to `~/.config/devin/agents/`, pruning dangling skill links with backup; Devin discovers shared skills directly from `~/.agents/skills`, so no per-skill links are installed
+- with `--devin` or `--all`, installs Devin CLI global guidance to `~/.config/devin/AGENTS.md` and the oracle/planner/reviewer custom subagent profiles to `~/.config/devin/agents/`, pruning dangling skill links with backup; Devin discovers shared skills directly from `~/.agents/skills`, so no per-skill links are installed
 - mirrors shared helper scripts into the runtime locations that need them
 - installs Pi to `~/.pi/agent/`
 - copies repo-managed Pi extensions into `~/.pi/agent/extensions/` (these do not appear in `pi list`) and registers the managed npm Pi package set, including `@juicesharp/rpiv-todo`
@@ -108,8 +108,8 @@ Codex prompt files plus config templates. Global Codex prompt discovery is handl
 ### `_devin/`
 Canonical Devin CLI global configuration: cross-repository guidance installed
 to `~/.config/devin/AGENTS.md` and the custom subagent profiles `oracle`,
-`planner`, `reviewer`, and `completeness` installed to `~/.config/devin/agents/`
-(`reviewer`/`planner` pin `sonnet`; `oracle`/`completeness` pin `opus`).
+`planner`, and `reviewer` installed to `~/.config/devin/agents/`
+(`reviewer`/`planner` pin `sonnet`; `oracle` pins `opus`).
 `_devin/install.sh` preserves the first differing managed file as
 `<name>.before-ai-configs`, never touches CLI-owned `config.json`, and prunes
 dangling links in `~/.config/devin/skills/` into a timestamped backup root.
@@ -118,8 +118,7 @@ installer does not link skills into `~/.config/devin/skills/`. Run
 `bash _devin/install.sh` for a Devin-only install, or `install.sh --devin` to
 also refresh shared skills. Isolated installer tests set `DEVIN_CONFIG_TARGET`.
 The shared delivery ledger supports only the `omp`/`pi` runtimes; Devin
-sessions run plan execution through `run-plan` with the standalone
-`completeness` packet instead of arming delivery.
+sessions run plan execution through `run-plan` instead of arming delivery.
 
 ### `_pi/`
 Pi prompts, subagents, repo-managed extensions copied into `~/.pi/agent/extensions/`, and Pi package baseline documentation for the separate `pi list`-visible package set. Notable reviewed-plan commands include `/dev:plan`, `/dev:pm-review`, `/review:plan`, `/cmd:execute-plan`, and `/run-plan`.
@@ -157,8 +156,7 @@ through `~/.local/bin/delivery`. It preserves the first differing managed file a
 
 OMP delivery uses the persisted `omp-lite` profile: normal-mode planning,
 same-session `default`-role implementation/scoped/PM review, bounded OMP
-planner/reviewer agents, `completeness`-role request-bound completeness acceptance,
-verification, and PR handoff. It never launches Pi or enables OMP native plan
+planner/reviewer agents, verification, and PR handoff. It never launches Pi or enables OMP native plan
 mode. Start from OMP with
 `delivery spawn --runtime omp -- "<goal>"`, or bootstrap the current worktree
 with `delivery bootstrap --runtime omp --slug <slug> --goal "<goal>"`.

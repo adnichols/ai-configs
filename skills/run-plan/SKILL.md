@@ -13,9 +13,9 @@ On OMP, load the installed `adn-mode` skill before any other run-plan step and k
 
 Do not load or emulate `adn-mode` on another harness. ADN is the OMP adaptation of poteto mode. Non-OMP runtimes continue with their native run-plan contracts.
 
-On OMP, the `task` tool takes no per-call model. Implementation `task` workers run the `task` role, and named agents (`scout`, `reviewer`, `completeness`, `architect-*`) run the role in their frontmatter. If a child tool-loops or reports production bugs instead of finishing, cancel it and respawn it.
+On OMP, the `task` tool takes no per-call model. Implementation `task` workers run the `task` role, and named agents (`scout`, `reviewer`, `architect-*`) run the role in their frontmatter. If a child tool-loops or reports production bugs instead of finishing, cancel it and respawn it.
 
-When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before applying runtime-specific instructions. `omp / omp-lite` keeps implementation, scoped review, and PM outcome review in the current OMP session on its `default` role; use `openai-codex/gpt-5.6-terra:high` when correctness depends materially on technical judgment. It does not require a dedicated Pi pane, Pi model-profile verification, Pi slash commands, or a Grok tab. `pi / pi-full` retains the dedicated implementation pane and planner-selected profile. Completeness is on-request, not part of this default path. Never convert an existing ledger between profiles.
+When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before applying runtime-specific instructions. `omp / omp-lite` keeps implementation, scoped review, and PM outcome review in the current OMP session on its `default` role; use `openai-codex/gpt-5.6-terra:high` when correctness depends materially on technical judgment. It does not require a dedicated Pi pane, Pi model-profile verification, Pi slash commands. `pi / pi-full` retains the dedicated implementation pane and planner-selected profile. Never convert an existing ledger between profiles.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
@@ -27,7 +27,7 @@ PR creation is not hostage to deployment. Never wait for preview, staging, canar
 
 PR creation is not hostage to testing or review coverage. If the operator explicitly says to open, create, or publish the PR regardless of verification or review status, open it without further testing or review delay. That one instruction overrides remaining review gates — including autoreview — plus verification. Preserve the requested draft/ready state and disclose the real verification and gate status, skipped or failing checks, missing coverage, infrastructure failures, and unresolved findings in the PR body. Do not claim passing verification, clean review consensus, or local merge readiness when it has not been established.
 
-The active-harness reviewer pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. Do not insert a completeness review unless the operator asked for a plan walk. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
+The active-harness reviewer pre-PR gate is not a terminal phase. Once implementation is complete, verification is passing, and reviewer consensus says there are no unresolved blocking in-scope P1/P2 findings, the next mandatory action is to commit, push, and open the PR in this same scoped run. A "ready for PR" closeout without a PR URL is incomplete unless a concrete blocker prevented PR creation.
 
 This skill is runtime-state-backed. A scoped plan run is not complete at PR creation; it remains active until the implementation has local merge-readiness consensus: final verification is passing, all applicable review agents agree by substance that there are no unresolved blocking in-scope findings, the branch is current enough to merge, the PR exists, and the latest PR snapshot has no actionable feedback already present. Do not wait for a PR-hosted Codex approval, thumbs-up, or any other explicit external approval after local review-agent consensus is clean. In Pi, back this with the goal extension as the durable run state, plus the `todo` tool's `create`/`update` actions and explicit working notes for phase progress. In Codex, back this with Codex goal/task state and the installed Codex prompts so the readiness obligation survives normal turn-to-turn execution. In Devin, back this with the `todo_write` task list and explicit working notes; keep the readiness obligations in the task list so they survive normal turn-to-turn execution.
 
@@ -54,14 +54,14 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Verification convergence is budgeted. When the Verification Convergence Budget is exhausted and every residual failure classifies as inherited or infra/cosmetic with targeted verification green, opening the draft PR with disclosure and stopping on the ship/keep-fixing question is the required next action, not a policy violation.
 - Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
 - Do not create a PR until the active-harness reviewer-subagent pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
-- Do not stop after the reviewer-subagent pre-PR gate passes; that gate returns `OPEN_PR_READY`. Continue through final verification, commit, push, PR creation, and monitoring. Run completeness only when the operator asked for a plan walk; it is not a pre-PR gate.
+- Do not stop after the reviewer-subagent pre-PR gate passes; that gate returns `OPEN_PR_READY`. Continue through final verification, commit, push, PR creation, and monitoring.
 - Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
 - Never delay PR creation for deployment or post-merge operational evidence, even when an older plan places that evidence in a phase or completion checklist. Reclassify it as a non-blocking delivery obligation and preserve it in the PR body/plan deviation log.
 - Do not mark the active run state complete just because the implementation PR exists.
 - Do not mark the active run state complete until local merge-readiness consensus is established: final verification passed, applicable review agents agree by substance that there are no unresolved blocking in-scope findings, scoped PR feedback already present has been addressed, and the PR is mergeable with the destination branch or has no known merge conflict when GitHub cannot provide a final mergeability value.
 - Treat actionable PR feedback that is already present after local reviews as a review escape: the earlier review cycle missed something, so the next local review cycle must become scope-bound adversarial review instead of only patching the commented issue.
 - Do not wait for slow or absent PR feedback, a Codex PR thumbs-up, `APPROVED` reviewDecision, or any other explicit external approval once local review-agent consensus and merge-readiness evidence are clean.
-- On Heddle (detect `.agents/skills/heddle-permanent-docs/SKILL.md`, `docs/DEV_DOCUMENTATION_ARCHIVE.md`, or `changelog/unreleased/README.md`), do not start scoped quality review, implementation-stage PM review, autoreview, or completeness until permanent-document disposition and any required permanent-doc capture are recorded per `heddle-permanent-docs`. Do not open a PR until that disposition is still true, claimed paths are present for path-bearing dispositions, and the PR body includes the Permanent documentation section—unless the operator explicitly waives permanent docs with disclosure. Non-Heddle repos are unchanged unless a repo-local `*-permanent-docs` skill exists.
+- On Heddle (detect `.agents/skills/heddle-permanent-docs/SKILL.md`, `docs/DEV_DOCUMENTATION_ARCHIVE.md`, or `changelog/unreleased/README.md`), do not start scoped quality review, implementation-stage PM review, or autoreview until permanent-document disposition and any required permanent-doc capture are recorded per `heddle-permanent-docs`. Do not open a PR until that disposition is still true, claimed paths are present for path-bearing dispositions, and the PR body includes the Permanent documentation section—unless the operator explicitly waives permanent docs with disclosure. Non-Heddle repos are unchanged unless a repo-local `*-permanent-docs` skill exists.
 
 ## Scope Contract
 
@@ -181,8 +181,7 @@ first `edit`/`write`. Skip the rest of this subsection.
 
 When a ledger is already active, keep it current as soft progress tracking.
 The implementation authorization remains mandatory before code work.
-Completeness is on-request. Do not run it before PR unless the operator asked
-for a plan walk. Other ledger evidence remains advisory.
+Other ledger evidence remains advisory.
 
 ```bash
 # Only when `.delivery/ledger.json` already exists. Do not create one here.
@@ -197,15 +196,11 @@ delivery verify-implementation-profile
 delivery verify-implementation-profile --adopt-current-runtime --reason "manual choice for this run"
 delivery stage IMPLEMENTING
 delivery stage SCOPED_REVIEW|IMPL_PM_OUTCOME|AUTOREVIEW|PR_OPEN|MERGE_READY|DONE
-# Completeness only if the operator asked for a plan walk:
-# delivery stage COMPLETENESS_REVIEW
-# Pi Full: delivery completion-review && delivery completion-review --accept
-# OMP Lite: delivery completion-review --prepare --reviewer-identity omp-completeness-grok-4.5-high
 delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
 delivery check -v   # advisories only; always exit 0
 ```
 
-Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization is different: it stops pre-code execution **when a delivery ledger is already active**. When a ledger is already active, Pi Full additionally requires its independent Sol-medium plan review, Luna/Terra implementation-profile recommendation, automatic workflow authorization, dedicated-agent launch, recorded Herdr-pane identity, and live recorded-runtime evidence. A Pi Full model mismatch is recoverable: switch to the recorded model, or deliberately adopt the current model in the same implementation pane with `--adopt-current-runtime --reason`. Retry a failed Pi Full launch with `delivery start-implementation`; delivery first reconciles an expected live Pi agent in the recorded pane. OMP Lite has no dedicated-agent launch or implementation-profile requirement and intentionally plans and implements in one coordinating session. For any delivery run, a missing validated completeness result after implementation prevents a local merge-readiness claim unless the operator explicitly waives it: Pi Full uses the visible labeled-tab review; OMP Lite uses the exact request-bound acceptance envelope. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
+Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization is different: it stops pre-code execution **when a delivery ledger is already active**. When a ledger is already active, Pi Full additionally requires its independent Sol-medium plan review, Luna/Terra implementation-profile recommendation, automatic workflow authorization, dedicated-agent launch, recorded Herdr-pane identity, and live recorded-runtime evidence. A Pi Full model mismatch is recoverable: switch to the recorded model, or deliberately adopt the current model in the same implementation pane with `--adopt-current-runtime --reason`. Retry a failed Pi Full launch with `delivery start-implementation`; delivery first reconciles an expected live Pi agent in the recorded pane. OMP Lite has no dedicated-agent launch or implementation-profile requirement and intentionally plans and implements in one coordinating session. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
 
 When the scoped run reaches local merge-readiness or a durable stop (DONE/blocked handoff), best-effort log a process reflection outside the worktree:
 
@@ -280,13 +275,13 @@ After PR-reviewable implementation stabilizes and **before** Self Scope Audit an
 
 1. If the worktree is Heddle (or another repo with a local permanent-docs skill), load `.agents/skills/heddle-permanent-docs/SKILL.md` (or the local equivalent).
 2. Record exactly one disposition: `none` | `patch <paths>` | `new-record <path>` | `ADR <path>` | `deferred-to-final-plan-slice` (deferred must name final slice/issue and interim source of truth).
-3. Capture any required permanent docs into the candidate now so scoped review, PM, autoreview, and completeness all see them.
+3. Capture any required permanent docs into the candidate now so scoped review, PM, and autoreview all see them.
 4. Reject hollow stubs (empty templates, TODO bodies, “see plan” only) for `patch` / `new-record` / `ADR`.
 5. When a delivery ledger exists: `delivery record permanentDocs --status pass|skip|gap --summary "disposition=..."`.
 6. For in-flight authorized plans that lack a disposition phase, record disposition externally (ledger + later PR body); do not mutate the authorized plan solely to inject the phase.
 7. Include disposition, paths, and hollow-doc notes in every subsequent review packet.
 
-Final pre-PR step is **assertion only** (disposition still accurate; claimed paths present; changelog fragment/exemption intact). If permanent docs change materially after a review pass, rerun targeted review/completeness—do not treat final verification as doc-quality review. Plan archive and CCore packages remain post-merge and non-blocking.
+Final pre-PR step is **assertion only** (disposition still accurate; claimed paths present; changelog fragment/exemption intact). If permanent docs change materially after a review pass, rerun targeted review—do not treat final verification as doc-quality review. Plan archive and CCore packages remain post-merge and non-blocking.
 
 ### 4. Self Scope Audit
 
@@ -411,7 +406,7 @@ After phase implementation and the runtime-native scoped quality-review loop has
 
 Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native reviewer pass already ran after the last code change, used the current base/comparison range, covered the current changed files, and has no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. Run `$autoreview <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff. Follow the canonical autoreview policy, including its pre-review scope baseline, concrete blocker evidence, smallest-fix ownership boundary, behavioral-verification separation, dependency evidence, known-blocker overflow, and release freeze discipline; do not duplicate or weaken those rules here.
 
-Run exactly one bounded, static inspection with the active harness's configured `reviewer` subagent. In Pi it is GPT-5.6 Terra at medium reasoning effort; in Claude Code it is Sonnet 5 at high effort; in OpenCode it is GPT-5.6 Terra at medium reasoning effort. Do not create separate Codex or Claude Code review legs. This code-review gate itself does not use Herdr. Completeness is on-request and is not required before PR creation. Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewer must classify findings by P1/P2/P3 severity and by the normal scope categories. It must not execute tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks.
+Run exactly one bounded, static inspection with the active harness's configured `reviewer` subagent. In Pi it is GPT-5.6 Terra at medium reasoning effort; in Claude Code it is Sonnet 5 at high effort; in OpenCode it is GPT-5.6 Terra at medium reasoning effort. Do not create separate Codex or Claude Code review legs. This code-review gate itself does not use Herdr. Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewer must classify findings by P1/P2/P3 severity and by the normal scope categories. It must not execute tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks.
 
 **Launch in the live checkout:** follow the autoreview candidate-visibility contract for every run-plan reviewer launch (scoped quality review, pre-PR gate, targeted rereview, and adversarial pass). In Pi, omit the `isolation` property entirely from every reviewer `Agent` call; requesting `isolation: "worktree"` is a workflow violation. Every packet must still name the absolute `TARGET_CHECKOUT` as a safety fallback; if the harness itself isolates despite omission, the reviewer inspects that target directly. Never turn a visible-code review into an infrastructure failure solely because of CWD or worktree state. If a dirty portion is genuinely unavailable, preserve the findings over visible code and run at most one targeted follow-up over the missing patch/paths.
 
@@ -419,55 +414,9 @@ Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. 
 
 If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If the active-harness reviewer is unavailable, stop unless the user explicitly waives this pre-PR gate or explicitly directs opening the PR regardless; in the latter case, open it and disclose the infrastructure failure and missing coverage.
 
-When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue to final verification, commit, push, and PR creation. Run completeness only if the operator asked for a plan walk. Do not return a final run-plan response at this point.
+When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
 Record the reviewer model/effort, verdict, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
-
-### 10a. On-request Completeness Review
-
-Skip this section unless the operator asked for a completeness check or plan walk. Autoreview `OPEN_PR_READY` is permission to continue to PR without it.
-
-This is a second review of **whether the implementation completes the plan**, not a replacement for the active-harness code reviewer. Load `skill://completeness` and follow it. If no ledger exists after implementation, that request is late-attach authorization: run `delivery arm --from existing-implementation` silently. Do not ask them to recite a phrase.
-
-When `.delivery/ledger.json` already exists, use that runtime's completion-review transport:
-
-For Pi Full, start the visible labeled-tab review from the driving agent's pane:
-
-```bash
-delivery stage COMPLETENESS_REVIEW
-delivery completion-review
-```
-
-`delivery completion-review` creates a short-lived labeled **witness** tab in the same Herdr workspace (not the workspace owner), starts a new interactive Pi on that tab's root pane in the same live worktree with `--model xai/grok-4.6:high`, and sends its full visible review prompt. The reviewer may read the plan, current diff, status, and validation artifacts but must not edit files or execute verification. Workspace ownership stays on the implementation tab; after `--accept` or `--waive`, delivery closes the witness tab. Closed TUIs are not evidence—use the written completeness artifact and ledger thereafter.
-
-While the completeness tab is live, the driving agent must read its verdict. For every `FINDINGS_TO_RESOLVE` item that is `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`, make the smallest in-scope correction, run invalidated verification, and request the same named reviewer's next round:
-
-```bash
-delivery completion-review --rerun
-```
-
-Repeat until it returns `VERDICT: COMPLETE`, with an AC/BDD coverage table and `Not examined:` disclosure. Capture the visible response in `thoughts/validation/<slug>-completeness.md` and record it:
-
-```bash
-delivery completion-review --accept
-```
-
-For OMP Lite, stay in the coordinating OMP session:
-
-```bash
-delivery stage COMPLETENESS_REVIEW
-delivery completion-review --prepare --reviewer-identity omp-completeness-grok-4.5-high
-# Send the emitted packet unchanged to @completeness (the `completeness` role).
-# Save exactly one seven-line response envelope to the requested artifact.
-delivery completion-review --accept --artifact <artifact> --response-id <id>
-```
-
-OMP Lite acceptance is request-bound. The response ID, reviewer identity, plan SHA-256, worktree fingerprint, and exact `VERDICT: COMPLETE` envelope must match the pending request; stale, replayed, interrupted, malformed, Pi-origin, or `INCOMPLETE` artifacts are rejected without partial ledger mutation. Fix in-plan findings and prepare a fresh request rather than reusing an accepted or invalid artifact.
-
-When no ledger exists, use the completeness skill standalone path: write a packet JSON with `artifact`, `requiredEnvelope`, and `requiredIncompleteVerdict`; launch `@completeness` (the `completeness` role) with `TARGET_CHECKOUT`, the plan, and the packet path. Do not call `delivery completion-review`. If the completeness reviewer is unavailable after the operator asked for it, disclose the miss and continue to PR unless they instructed otherwise.
-
-This loop is separate from the active-harness reviewer-cycle budget because it checks plan completion rather than re-running the same code-review gate. If the same plan-completeness disagreement remains unresolved after three correction/rereview rounds, stop with the concrete criterion and smallest required operator decision; do not fabricate consensus. A missing or incomplete completeness walk does not block PR creation.
-
 ## Final Verification
 
 Establish passing final-verification evidence after the latest verification-relevant change and before PR creation. This is pre-merge verification only: it may prove buildability, deployability, migration definitions, configuration, dry-run behavior, and artifact integrity, but must not require an actual environment deployment, promotion, merge-dependent smoke check, or production observation. Reuse the latest passing results when the same commands already ran against the current code, tests, dependencies, configuration, generated artifacts, and base context, and no intervening action invalidated them. A read-only reviewer-subagent review does not invalidate passing verification and is never, by itself, a reason to rerun it. Record reused commands, outcomes, and the unchanged-state basis in the run notes and PR body.
@@ -506,7 +455,7 @@ Immediately before PR creation, after the final scoped commit and any rebase:
 
 ## Commit, Push, and PR
 
-When implementation, scoped reviews, implementation-stage PM review, the applicable reviewer-subagent pre-PR gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run. Completeness is not required. An explicit operator instruction to open the PR regardless of testing or review status bypasses only those testing/review gates and requires truthful disclosure; it does not turn skipped or failing evidence into a passing or merge-ready result.
+When implementation, scoped reviews, implementation-stage PM review, the applicable reviewer-subagent pre-PR gate status, final verification, and base freshness pass or are ready to complete immediately after the scoped commit, PR creation is mandatory in the same run. An explicit operator instruction to open the PR regardless of testing or review status bypasses only those testing/review gates and requires truthful disclosure; it does not turn skipped or failing evidence into a passing or merge-ready result.
 
 1. Review `git diff --stat` and `git diff --name-only`.
 2. Commit only the scoped changes.
@@ -525,7 +474,6 @@ The PR body must include:
 - second scoped quality-review verdict,
 - implementation-stage PM review verdict, artifact/notes location, any plan/Doct updates, and any PM-triggered rerun requirements,
 - reviewer-subagent pre-PR review verdict and artifact path, or explicit waived/not-run status,
-- completeness-review verdict/artifact when the operator asked for a plan walk, otherwise omit,
 - **Permanent documentation** section when the Heddle/local permanent-docs gate applies (disposition, paths/reason/final slice, changelog fragment, plan source retained, archive post-merge only)—or explicit waiver disclosure,
 - base freshness and mergeability/rebase status before PR creation,
 - documented out-of-scope follow-ups with evidence and tracking destination,
@@ -799,7 +747,6 @@ Report:
 - runtime-native scoped quality-review verdicts,
 - implementation-stage PM review verdict,
 - reviewer-subagent pre-PR review verdict or waived/not-run status,
-- completeness-review verdict/artifact when one ran, otherwise omit,
 - base freshness and rebase status,
 - PR feedback snapshot result,
 - PR mergeability or base-freshness result,

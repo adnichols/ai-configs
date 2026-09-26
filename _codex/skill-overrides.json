@@ -61,10 +61,6 @@
       "source": "skills/codex-review-partner",
       "profile": "default"
     },
-    "completeness": {
-      "source": "skills/completeness",
-      "profile": "default"
-    },
     "create-verification-skill": {
       "source": "_adn/skills/create-verification-skill",
       "profile": "default"

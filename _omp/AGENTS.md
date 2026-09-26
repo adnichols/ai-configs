@@ -62,14 +62,11 @@ the final report helps keep these responsibilities visible.
   build requests. Never arm for `/prewalk` or `/run-plan`. Enter a full cycle
   when the operator says "arm our delivery workflow", invokes `/delivery` or `delivery arm`,
   or invokes `/delivery:spawn` or `delivery spawn`. After a
-  non-delivery implementation, a request to run completeness, PM review, or
+  non-delivery implementation, a request to run PM review or
   pre-PR is late-attach authorization; do that paperwork silently and do not
   require a spoken phrase.
 - Once explicitly invoked, MUST read `skill://delivery-run` before changing
   delivery state. The skill is authoritative for all workflow details.
-- For a completeness check, read `skill://completeness` and launch
-  `@completeness`. Do not invent a packet. Do not refuse. Do not ask the
-  operator to arm delivery first.
 
 
 ## ADN runtime routing

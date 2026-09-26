@@ -135,7 +135,7 @@ The managed `herdr-agent-state.ts` integration reports **interactive Pi TUI** li
 
 The repo-owned `codex-review` Pi extension is temporarily disabled and retained under `_pi/disabled-extensions/` for comparison and possible rollback. `install.sh --pi` removes any stale installed copies from `~/.pi/agent/extensions/`, so the `codex_review` tool is unavailable after a fresh Pi session starts. The `claude-review` extension and the Claude reviewer skills were removed entirely; no Pi workflow calls Claude for review.
 
-Required Pi plan and code reviews use the repository-owned `reviewer` Pi subagent (`openai-codex/gpt-5.6-terra`, medium reasoning). The coordinating Pi session gives it a bounded, read-only review packet and captures its result in the normal review artifact. A Herdr delivery run also opens a visible adjacent Pi session on `xai/grok-4.6:high` for the separate plan-completeness loop: the driving agent addresses its in-plan findings and requests rereview until it returns `COMPLETE`. That visible reviewer is read-only and does not replace the active-harness code-review gate. Separate Codex or Claude Code sessions remain unnecessary.
+Required Pi plan and code reviews use the repository-owned `reviewer` Pi subagent (`openai-codex/gpt-5.6-terra`, medium reasoning). The coordinating Pi session gives it a bounded, read-only review packet and captures its result in the normal review artifact. Separate Codex or Claude Code sessions remain unnecessary.
 
 This repo also ships `simple-multi-status.ts`, a lightweight multi-line status widget that auto-loads on install and shows:
 

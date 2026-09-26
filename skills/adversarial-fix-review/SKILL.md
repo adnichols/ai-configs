@@ -47,7 +47,7 @@ Do not give:
 
 Read-only. Different model family from the implementer.
 
-- **OMP.** If the implementer is Grok, spawn `reviewer-kimi`. If the implementer is Kimi, spawn `reviewer` (Terra). Do not spawn the implementer's model.
+- **OMP.** Spawn whichever of `reviewer`, `reviewer-two`, or `reviewer-three` has a configured model family different from the implementer. Check with `omp config get modelRoles --json`. Do not spawn a reviewer on the implementer's family.
 - **Pi.** Spawn the repository `reviewer` subagent when the implementer is not Terra. If the implementer is Terra, ask Oracle only the necessity question. Oracle is advisory and cannot rubber-stamp.
 - **Cursor.** Same family split: Kimi reviewer for Grok parents, Terra or Grok for Kimi parents.
 

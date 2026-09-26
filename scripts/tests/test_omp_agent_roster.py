@@ -14,7 +14,6 @@ AGENTS = OMP / "agents"
 EXTENSIONS = OMP / "extensions"
 DELIVERY_SKILL = ROOT / "skills" / "delivery-run" / "SKILL.md"
 DELIVERY_CLI = ROOT / "skills" / "delivery-run" / "scripts" / "delivery"
-COMPLETENESS_SKILL = ROOT / "skills" / "completeness" / "SKILL.md"
 
 
 
@@ -33,7 +32,7 @@ def split_frontmatter(path: Path) -> tuple[dict[str, str], str]:
 class OmpAgentRosterTest(unittest.TestCase):
     def test_source_roster_includes_planner(self):
         self.assertEqual(
-            {"oracle.md", "planner.md", "reviewer.md", "completeness.md"},
+            {"oracle.md", "planner.md", "reviewer.md"},
             {path.name for path in AGENTS.glob("*.md")},
         )
 
@@ -90,10 +89,6 @@ class OmpAgentRosterTest(unittest.TestCase):
             self.assertTrue(model.startswith("@"), f"{path.name} pins a model instead of a role: {model}")
             self.assertIn(model[1:], roles, f"{path.name} names undefined role {model}")
 
-        metadata, body = split_frontmatter(AGENTS / "completeness.md")
-        self.assertIn("request-bound artifact", metadata.get("description", ""))
-        self.assertIn("requiredEnvelope", body)
-
     def test_omp_eval_backends_are_disabled(self):
         config = (OMP / "config.yml").read_text()
         guidance = (OMP / "AGENTS.md").read_text()
@@ -108,17 +103,6 @@ class OmpAgentRosterTest(unittest.TestCase):
         self.assertIn("a dial worth turning", guidance)
 
 
-    def test_completeness_skill_resolves_for_omp(self):
-        metadata, body = split_frontmatter(COMPLETENESS_SKILL)
-        matrix = json.loads((ROOT / "skills" / "install-matrix.json").read_text())
-
-        self.assertEqual("completeness", metadata.get("name"))
-        self.assertIn("skill://completeness", metadata.get("description", ""))
-        self.assertIn("@completeness", body)
-        self.assertIn("completion-review --prepare", body)
-        self.assertIn("requiredEnvelope", body)
-        self.assertIn("completeness", matrix["installableSkills"])
-
     def test_omp_guidance_only_bootstraps_delivery_skill(self):
         guidance = (OMP / "AGENTS.md").read_text()
         skill = DELIVERY_SKILL.read_text()
@@ -130,10 +114,8 @@ class OmpAgentRosterTest(unittest.TestCase):
             "invokes `/delivery` or `delivery arm`",
             "`/delivery:spawn` or `delivery spawn`",
             "skill://delivery-run",
-            "skill://completeness",
             "authoritative for all workflow details",
             "late-attach authorization",
-            "Do not refuse",
         ):
             self.assertIn(required, guidance)
 
@@ -157,9 +139,6 @@ class OmpAgentRosterTest(unittest.TestCase):
             "current OMP agent as owner",
             "delivery bootstrap --runtime omp",
             "`default` role",
-            "`@completeness`",
-            "exact seven-line envelope",
-            "acceptCommand",
         ):
             self.assertIn(required, skill)
 
@@ -203,10 +182,11 @@ class OmpAgentRosterTest(unittest.TestCase):
                     "oracle.md",
                     "planner.md",
                     "reviewer.md",
-                    "completeness.md",
-                    "architect-grok.md",
-                    "architect-kimi.md",
-                    "reviewer-kimi.md",
+                    "arch-one.md",
+                    "arch-two.md",
+                    "arch-three.md",
+                    "reviewer-two.md",
+                    "reviewer-three.md",
                     "comment-sicko.md",
                 },
                 {path.name for path in installed.glob("*.md")},
@@ -237,10 +217,6 @@ class OmpAgentRosterTest(unittest.TestCase):
             self.assertEqual(
                 (AGENTS / "planner.md").read_text(),
                 (installed / "planner.md").read_text(),
-            )
-            self.assertEqual(
-                (AGENTS / "completeness.md").read_text(),
-                (installed / "completeness.md").read_text(),
             )
             self.assertEqual(
                 (OMP / "config.yml").read_text(),

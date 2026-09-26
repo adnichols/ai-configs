@@ -228,18 +228,6 @@
       "notes": "Vendored from `mattpocock/skills` at `9c9f36ccd3995266cd675468af71639c8dde1ec5`; deep-module vocabulary and interface-design examples used by architecture workflows.",
       "sourceType": "repo"
     },
-    "completeness": {
-      "class": "universal-installable",
-      "allowedConsumers": [
-        "codex",
-        "claude",
-        "pi",
-        "devin"
-      ],
-      "canonicalSource": "skills/completeness",
-      "notes": "OMP driver for request-bound @completeness review. Resolves skill://completeness so sessions do not fail looking for a missing skill.",
-      "sourceType": "repo"
-    },
     "computer-use": {
       "class": "universal-installable",
       "allowedConsumers": [

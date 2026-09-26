@@ -1,6 +1,6 @@
 ---
 name: delivery-run
-description: Shared delivery workflow for OMP or Pi. Arm a full cycle when the operator invokes /delivery or delivery arm, invokes delivery spawn / /delivery:spawn, or says "arm our delivery workflow". After a non-delivery implementation, a request to run completeness, PM review, or pre-PR is late-attach authorization: run delivery arm --from existing-implementation silently and do not ask them to recite a phrase. Do not trigger for generic planning, implementation, execute, run-plan, PR, Linear, worktree, autonomous-build, or continuation requests, or for another named workflow such as prewalk.
+description: Shared delivery workflow for OMP or Pi. Arm a full cycle when the operator invokes /delivery or delivery arm, invokes delivery spawn / /delivery:spawn, or says "arm our delivery workflow". After a non-delivery implementation, a request to run PM review or pre-PR is late-attach authorization: run delivery arm --from existing-implementation silently and do not ask them to recite a phrase. Do not trigger for generic planning, implementation, execute, run-plan, PR, Linear, worktree, autonomous-build, or continuation requests, or for another named workflow such as prewalk.
 ---
 
 # Delivery Run
@@ -13,8 +13,8 @@ invokes `/delivery` or `delivery arm`, invokes `delivery spawn` /
 "arm our delivery workflow". That phrase is one valid trigger, not a required recitation.
 Never refuse a later check because they did not say it.
 
-After a non-delivery implementation, a request to run completeness, PM
-review, or pre-PR is the authorization. Run
+After a non-delivery implementation, a request to run PM review or
+pre-PR is the authorization. Run
 `delivery arm --from existing-implementation` silently. Do not launch an
 implementation pane. Do not ask them to repeat a trigger phrase.
 
@@ -95,7 +95,7 @@ Workspace/tab title format: `CODE: base title`
 |---|---|
 | `PL` | intake + planning through execution-ready |
 | `I` | implementing |
-| `R` | scoped review, PM outcome, autoreview, optional completeness walk, verify, adversarial QA |
+| `R` | scoped review, PM outcome, autoreview, verify, adversarial QA |
 | `PR` | PR open / merge-ready |
 | `RF` | reflect |
 | `D` | done |
@@ -157,7 +157,7 @@ For Pi, use `/delivery:bootstrap` and the Pi Full cycle instead.
 ## OMP Lite path
 
 When the current runtime is OMP, this section overrides every Pi-specific
-launch, model-profile, slash-command, and visible-Grok instruction elsewhere
+launch, model-profile, and slash-command instruction elsewhere
 in this skill.
 
 1. Arm the current worktree with
@@ -179,13 +179,7 @@ in this skill.
    PM outcome review there; use `openai-codex/gpt-5.6-terra:high` when correctness
    depends materially on technical judgment; run the configured OMP `@reviewer` pre-PR review
    and verification; record each result with `delivery record`.
-6. Completeness is on-request. If the operator asked for a plan walk, run
-   `delivery completion-review --prepare --reviewer-identity
-   omp-completeness-grok-4.5-high`, give the packet to `@completeness` (the `completeness`
-   role), write the exact seven-line envelope to the packet
-   artifact, and accept only with the emitted `acceptCommand`.
-   Otherwise skip it and continue.
-7. Stage `VERIFY_FRESHNESS`, create the PR with repository conventions, record
+6. Stage `VERIFY_FRESHNESS`, create the PR with repository conventions, record
    the PR URL, then stage `PR_OPEN` and `MERGE_READY`. `ADVERSARIAL_QA` and
    `REFLECT` are optional OMP actions recorded without exposing extra OMP
    phases; finish at `DONE`.
@@ -201,8 +195,7 @@ for the current exact next-step and evidence contract.
 - Most stage transitions succeed even with advisory evidence gaps.
 - `delivery check` always exits 0, even when evidence is missing.
 - A broken optional integration such as Herdr labels must never force the operator to disable the whole workflow. Explicit readiness and implementation-entry boundaries fail closed and report a retry command. Pi Full additionally enforces its plan-review and implementation-profile boundaries.
-- Runtime-specific worker skills remain authoritative: OMP uses the configured `@planner` and `@reviewer` contracts plus direct driving-session implementation on the `default` role; Pi Full uses `reviewed-html-plan`, `run-plan`, `autoreview`, and PM review. `@completeness` / the visible Grok reviewer run only when the operator asks for a plan walk.
-- Completeness is on-request, not an exception to advisory quality evidence. Do not refuse a later PR because completeness did not run. `delivery stage MERGE_READY` does not require a completeness artifact.
+- Runtime-specific worker skills remain authoritative: OMP uses the configured `@planner` and `@reviewer` contracts plus direct driving-session implementation on the `default` role; Pi Full uses `reviewed-html-plan`, `run-plan`, `autoreview`, and PM review.
 - Firmness is limited to explicit readiness authorization and the selected runtime/profile; the rest of the ledger optimizes for visibility, resumability, and honest status.
 - Pi Full implementation runs cannot enter `DONE` until current implementation, scoped review, PM outcome, pre-PR review, verification, PR, customer-impact/completion, and adversarial-QA disposition evidence is recorded. OMP Lite cannot enter `PR_OPEN` or `MERGE_READY` without `implPm` and `autoreview`, and cannot enter `DONE` without those plus `verify`, `pr`, and `prUrl`. Planning-only runs that never entered `IMPLEMENTING` may still finish without a PR.
 - Planning readiness has a three-cycle convergence budget. Every `planTech=gap` consumes one cycle; after three gaps, stop with a blocker or explicit operator decision rather than launching another ordinary review.
@@ -216,7 +209,7 @@ Installed as `delivery` (from `skills/delivery-run/scripts/delivery`).
 ```bash
 # Single operator entrypoint. Creates the ledger. Never call this from run-plan/prewalk.
 delivery arm [--plan thoughts/plans/foo.html] [--issue NOD-123] [--slug my-feature]
-# Late attach after a non-delivery implementation (review / completeness / PR only):
+# Late attach after a non-delivery implementation (review / PR only):
 delivery arm --from existing-implementation --plan thoughts/plans/foo.html
 
 # Linear/issue is optional at start — attach anytime later
@@ -269,12 +262,6 @@ delivery verify-implementation-profile
 delivery verify-implementation-profile --adopt-current-runtime \
   --reason "manual choice for this run"
 delivery stage IMPLEMENTING --note "starting run-plan"
-# Opens a visible labeled Herdr tab running Pi on xai/grok-4.6:high.
-delivery completion-review
-# After the driving agent fixes its findings, ask that same named reviewer again in its existing tab.
-delivery completion-review --rerun
-# Captures the completeness tab's latest COMPLETE verdict, writes its artifact, and validates freshness.
-delivery completion-review --accept
 delivery record completionEval --status gap --gap "BDD3 not evidenced" --summary "one scenario missing"
 delivery record permanentDocs --status pass|skip|gap --summary "disposition=... paths=..."
 delivery record customerImpact --status pass --summary "Operators see honest sync status" \
@@ -288,7 +275,7 @@ delivery path
 Ledger path: `<worktree>/.delivery/ledger.json`  
 Board scan: cwd + `~/.herdr/worktrees/*/*/.delivery/ledger.json`
 
-Delivery reconciles operator attention from the resulting ledger after every write. Routine `EXECUTION_READY` handoff is automatic and does not request operator attention. An explicit `BLOCKED` stage uses the latest blocker text; stage exit or blocker clear derives and publishes the next state rather than relying on paired events. `DELIVERY_SKIP_HERDR=1` disables both attention and labels. Completeness review and advisory gaps are agent-owned work and never set operator-blocked attention.
+Delivery reconciles operator attention from the resulting ledger after every write. Routine `EXECUTION_READY` handoff is automatic and does not request operator attention. An explicit `BLOCKED` stage uses the latest blocker text; stage exit or blocker clear derives and publishes the next state rather than relying on paired events. `DELIVERY_SKIP_HERDR=1` disables both attention and labels. Advisory gaps are agent-owned work and never set operator-blocked attention.
 
 ## Stages
 
@@ -303,7 +290,6 @@ IMPLEMENTING
 SCOPED_REVIEW
 IMPL_PM_OUTCOME
 AUTOREVIEW
-COMPLETENESS_REVIEW
 VERIFY_FRESHNESS
 PR_OPEN
 MERGE_READY
@@ -379,11 +365,11 @@ delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "...
 
 Load `oracle-consultation` and invoke Oracle proactively when targeted evidence leaves one consequential technical choice or drift from locked decisions unresolved. Record the verified disposition in the plan decisions/deviations log or delivery coverage ledger when it affects the run.
 
-Oracle cannot authorize product-changing expansion, replace Doct or operator decisions, satisfy readiness or implementation review gates, substitute for completeness review, or add review cycles.
+Oracle cannot authorize product-changing expansion, replace Doct or operator decisions, satisfy readiness or implementation review gates, or add review cycles.
 
 ### 2b. Automatic execution-ready handoff
 
-`EXECUTION_READY` is the automatic handoff from reviewed planning to implementation. In a Herdr delivery run, entering this stage records workflow authorization for the exact reviewed plan, creates a labeled **implementation owner** tab, starts the planner-selected implementation runtime, claims ledger `workspaceOwner` for that tab, and prompts it to continue through implementation, verification, bounded reviews, and PR creation. Completeness is on-request, not part of this default path. The planning agent stops after the handoff; it does not ask for another routine approval. The planning tab is enqueued for retirement and is closed when the implementation agent runs `delivery verify-implementation-profile` (never self-closed mid-launch). Workspace chrome follows `workspaceOwner`, not ambient `HERDR_*`.
+`EXECUTION_READY` is the automatic handoff from reviewed planning to implementation. In a Herdr delivery run, entering this stage records workflow authorization for the exact reviewed plan, creates a labeled **implementation owner** tab, starts the planner-selected implementation runtime, claims ledger `workspaceOwner` for that tab, and prompts it to continue through implementation, verification, bounded reviews, and PR creation. The planning agent stops after the handoff; it does not ask for another routine approval. The planning tab is enqueued for retirement and is closed when the implementation agent runs `delivery verify-implementation-profile` (never self-closed mid-launch). Workspace chrome follows `workspaceOwner`, not ambient `HERDR_*`.
 
 On the standard Pi Full path, that owner tab launches on the planner-selected implementation profile (`luna-xhigh` by default, or `terra-high`) and continues through implementation reviews. Generic `/prewalk` outside delivery remains a separate named workflow and does not arm delivery.
 
@@ -416,31 +402,13 @@ A fresh explicit **Request execution-ready review** action and fresh readiness r
 | `SCOPED_REVIEW` | run-plan scoped quality review |
 | `IMPL_PM_OUTCOME` | `/dev:pm-review <plan> implementation` |
 | `AUTOREVIEW` | `$autoreview` |
-| `COMPLETENESS_REVIEW` | visible labeled-tab Pi/Grok 4.6 reviewer; resolve feedback and rereview until `COMPLETE` |
 | `VERIFY_FRESHNESS` | final verify + base freshness inside run-plan |
 | `PR_OPEN` | run-plan / `$cmd-create-pr` |
 | `MERGE_READY` | run-plan local merge-readiness |
 
 ### 4. Soft quality inserts
 
-These are **recommended evidence**, not blockers. `permanentDocs` is recommended visibility for Heddle/local permanent-doc disposition (`pass|skip|gap`). Completeness is an optional plan walk, not a stage reject.
-
-**Visible completeness review** only when the operator asks for a plan walk:
-
-```bash
-delivery stage COMPLETENESS_REVIEW
-# Creates a short-lived completeness witness tab (not workspace owner); closed after --accept/--waive.
-delivery completion-review
-
-# Read the labeled completeness tab. Fix every in-plan finding, then ask the same named agent
-# to inspect the updated live worktree. Repeat until it returns VERDICT: COMPLETE.
-delivery completion-review --rerun
-# Captures the current COMPLETE verdict and artifact.
-delivery completion-review --accept
-delivery record completionEval --status pass --summary "AC1-AC4 evidenced; BDD green"
-```
-
-The reviewer is read-only. Skip this insert when the operator did not ask. A missing completeness artifact does not block PR creation or merge readiness.
+These are **recommended evidence**, not blockers. `permanentDocs` is recommended visibility for Heddle/local permanent-doc disposition (`pass|skip|gap`).
 
 **Customer impact** at plan PM and implementation PM:
 
@@ -498,14 +466,13 @@ Prefer process-shaped notes (friction, retries, unclear guidance, handoff gaps),
 2. When invoking a worker skill, set the matching stage first when practical.
 3. After a worker skill finishes, `delivery record` what happened and `delivery check -v`.
 4. Treat check advisories as a to-do list, not a red light.
-5. Do not stop the operator solely because recommended evidence is `pending` or `gap`. Completeness is not a merge-readiness reject.
-6. If the operator asked for completeness, or the ledger is already at `COMPLETENESS_REVIEW`, run `delivery completion-review`; while the witness tab is live, read the labeled Grok 4.6 tab, fix its in-plan findings, and call `delivery completion-review --rerun` until it returns `VERDICT: COMPLETE`. Run `delivery completion-review --accept` to capture the artifact and retire the witness tab. After accept, the artifact is authoritative—do not require the closed TUI. Otherwise skip this step.
-7. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
-8. Treat execution-ready as automatic implementation authorization for a delivery-managed run: `delivery stage EXECUTION_READY` launches the recommended profile on a new owner tab and the planning agent stops. Do not wait for another routine approval. Use `--hold` only when the operator explicitly requests a pause or a real external dependency blocks execution; invalidate authorization and launch evidence if material feedback changes the plan. After handoff, do not keep or inspect the planning tab—use the plan path, ledger, and validation artifacts.
-9. The implementation agent must run `delivery verify-implementation-profile` before entering `IMPLEMENTING`; the stage gate independently checks the live Pi provider/model/reasoning environment.
-10. Do not reimplement run-plan/autoreview/reviewed-html-plan here.
-11. If something is truly stuck on a human decision, `delivery blocker "..." --mark-blocked` and say what is needed — still leave the workflow usable.
-12. Before finishing (`DONE` / hand-off), run `delivery reflect` (or Pi `delivery_reflect`) so friction/rework/improvements land in `~/.pi` outside the worktree.
+5. Do not stop the operator solely because recommended evidence is `pending` or `gap`.
+6. Treat generic browser feedback as plan iteration; wait for the explicit execution-ready review action before PM or technical readiness review. Record that request before trying to move out of browser review; the stage command enforces it.
+7. Treat execution-ready as automatic implementation authorization for a delivery-managed run: `delivery stage EXECUTION_READY` launches the recommended profile on a new owner tab and the planning agent stops. Do not wait for another routine approval. Use `--hold` only when the operator explicitly requests a pause or a real external dependency blocks execution; invalidate authorization and launch evidence if material feedback changes the plan. After handoff, do not keep or inspect the planning tab—use the plan path, ledger, and validation artifacts.
+8. The implementation agent must run `delivery verify-implementation-profile` before entering `IMPLEMENTING`; the stage gate independently checks the live Pi provider/model/reasoning environment.
+9. Do not reimplement run-plan/autoreview/reviewed-html-plan here.
+10. If something is truly stuck on a human decision, `delivery blocker "..." --mark-blocked` and say what is needed — still leave the workflow usable.
+11. Before finishing (`DONE` / hand-off), run `delivery reflect` (or Pi `delivery_reflect`) so friction/rework/improvements land in `~/.pi` outside the worktree.
 
 ## Invocation
 
@@ -522,9 +489,8 @@ When used as the primary controller for a change:
 2. Follow `delivery check` next-step guidance
 3. Call the named existing skill
 4. Record evidence and advance stage
-5. Completeness only if the operator asked: run the visible labeled-tab Grok reviewer to `COMPLETE`, then `delivery completion-review --accept`
-6. Repeat until ready to finish
-7. `delivery reflect ... --mark-done` (logs to `~/.pi`, not the git tree)
+5. Repeat until ready to finish
+6. `delivery reflect ... --mark-done` (logs to `~/.pi`, not the git tree)
 
 ## Non-goals
 

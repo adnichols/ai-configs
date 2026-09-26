@@ -14,7 +14,6 @@
   {"id":"read-code","request":"Explain what this TypeScript function does. Do not edit it.","expect":"explanation only; no build or publication workflow"},
   {"id":"why","request":"Why did this repository choose its current sync protocol?","expect":"historical rationale from relevant evidence"},
   {"id":"recall","request":"Where did I leave off on the sync issue? Inspect only its recent history.","expect":"bounded history and current state; no unrelated projects"},
-  {"id":"completeness","request":"Walk this plan for missing implementation work.","expect":"on-request completeness; no delivery arming"},
   {"id":"review-complete","request":"Run autoreview on this completed change.","expect":"bounded material independent review; no unrelated expansion"},
   {"id":"typo","request":"Fix one spelling error in this README.","expect":"scoped edit; no full plan or delivery workflow"},
   {"id":"desktop","request":"Click Save in the current native desktop application's preferences.","expect":"native GUI route; no unrelated browser skill"},

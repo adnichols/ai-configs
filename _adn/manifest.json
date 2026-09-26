@@ -101,7 +101,7 @@
     },
     {
       "requiredRoles": [
-        "architect-grok"
+        "arch-one"
       ],
       "requiredTools": [],
       "requiredSkills": [],
@@ -109,19 +109,19 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "cc080550f7e2933b87b157076f03a08b759d1277c592edbb08b9b3ed88ebdc95",
+      "checksum": "d3632ec3d1cc404cdcca30148173e6423c4162ad530ed1ed8c1d75c7c6429464",
       "sourceSha": "local",
       "triggerClass": "role",
       "sourcePath": "local",
-      "targetPath": "agents/architect-grok.md",
-      "runtimeMarker": "ADN_RUNTIME_MARKER:architect-grok:ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
-      "id": "architect-grok",
+      "targetPath": "agents/arch-one.md",
+      "runtimeMarker": "ADN_RUNTIME_MARKER:arch-one:ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
+      "id": "arch-one",
       "kind": "agent",
       "phase": 2
     },
     {
       "requiredRoles": [
-        "architect-kimi"
+        "arch-two"
       ],
       "requiredTools": [],
       "requiredSkills": [],
@@ -129,19 +129,19 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "422bae6f0b2091457fe0caf912b62e072b90a5a78210a2b55a882780ec70048c",
+      "checksum": "080dd01636337db2aecba148bbe715e0c749fb95b2a24b4dc51b7458389221cc",
       "sourceSha": "local",
       "triggerClass": "role",
       "sourcePath": "local",
-      "targetPath": "agents/architect-kimi.md",
-      "runtimeMarker": "ADN_RUNTIME_MARKER:architect-kimi:ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
-      "id": "architect-kimi",
+      "targetPath": "agents/arch-two.md",
+      "runtimeMarker": "ADN_RUNTIME_MARKER:arch-two:ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
+      "id": "arch-two",
       "kind": "agent",
       "phase": 2
     },
     {
       "requiredRoles": [
-        "reviewer-kimi"
+        "arch-three"
       ],
       "requiredTools": [],
       "requiredSkills": [],
@@ -149,13 +149,53 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "34c62de59d9a63e9bc53f5358d3170881d6c0cc342e18ed1349b9c96d84b8429",
+      "checksum": "028f7070e973da142173a5af5fc127c29b19a3e88ff86ae2c40e238311fcfbce",
       "sourceSha": "local",
       "triggerClass": "role",
       "sourcePath": "local",
-      "targetPath": "agents/reviewer-kimi.md",
-      "runtimeMarker": "ADN_RUNTIME_MARKER:reviewer-kimi:ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
-      "id": "reviewer-kimi",
+      "targetPath": "agents/arch-three.md",
+      "runtimeMarker": "ADN_RUNTIME_MARKER:arch-three:ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
+      "id": "arch-three",
+      "kind": "agent",
+      "phase": 2
+    },
+    {
+      "requiredRoles": [
+        "reviewer-two"
+      ],
+      "requiredTools": [],
+      "requiredSkills": [],
+      "ompAdapter": "none",
+      "retainedBehavior": "translated-from-pstack",
+      "failureBehavior": "fail-closed",
+      "provingTest": "tests/manifest.test.ts",
+      "checksum": "3458b39a7ede080b3e3881654fa04b45d6439dace915c9672391aff80679724c",
+      "sourceSha": "local",
+      "triggerClass": "role",
+      "sourcePath": "local",
+      "targetPath": "agents/reviewer-two.md",
+      "runtimeMarker": "ADN_RUNTIME_MARKER:reviewer-two:ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
+      "id": "reviewer-two",
+      "kind": "agent",
+      "phase": 2
+    },
+    {
+      "requiredRoles": [
+        "reviewer-three"
+      ],
+      "requiredTools": [],
+      "requiredSkills": [],
+      "ompAdapter": "none",
+      "retainedBehavior": "translated-from-pstack",
+      "failureBehavior": "fail-closed",
+      "provingTest": "tests/manifest.test.ts",
+      "checksum": "4a04ff40f8870ec9fd02e3ba4491b2b84d6fb753dac56b4247daa47408e286e3",
+      "sourceSha": "local",
+      "triggerClass": "role",
+      "sourcePath": "local",
+      "targetPath": "agents/reviewer-three.md",
+      "runtimeMarker": "ADN_RUNTIME_MARKER:reviewer-three:ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
+      "id": "reviewer-three",
       "kind": "agent",
       "phase": 2
     },
@@ -584,7 +624,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "891ae19dafd449178795fc8e03fb74302b453cbd9b84aa462732635c4a014ec7",
+      "checksum": "d12fb61dd90909e62de4f086a28bf18d50f3a5c5ec2695311f10e35875d22495",
       "sourceSha": "ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
       "triggerClass": "explicit-then-automatic",
       "sourcePath": "pstack/skills/poteto-mode/SKILL.md",
@@ -1554,7 +1594,7 @@
       "runtimeMarker": "# OMP runtime contract",
       "provingTest": "tests/omp-runtime.test.ts",
       "targetPath": "skills/adn-mode/references/omp-runtime.md",
-      "checksum": "e2983538ae18314cbdea9003f89f4a0b2563d170b82ce3cb4fee95604887de61"
+      "checksum": "48abe42b44373e5270b3e5866458c760a84e2859b5767fac9820f067f7db2d9a"
     }
   ]
 }

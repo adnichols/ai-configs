@@ -14,13 +14,12 @@ Use OMP `task` with the installed agent name. Give exact allowed paths, the ques
 
 | Requested work | OMP agent |
 | --- | --- |
-| Architecture alternatives and convergence | `architect-grok`, `architect-kimi` |
+| Architecture alternatives and convergence | `arch-one`, `arch-two`, `arch-three` |
 | Material implementation review | `reviewer` |
-| Independent adversarial fix review | `reviewer-kimi` or `reviewer`, selecting a different configured model family from the driver |
+| Independent adversarial fix review | `reviewer`, `reviewer-two`, or `reviewer-three`, selecting a configured model family different from the implementer |
 | Comment Sicko | `comment-sicko` |
 | Planning | `planner` |
 | Consequential decision support | `oracle` |
-| Requested completeness walk | `completeness` |
 
 Named agents use their frontmatter and configured model roles. Do not override their models. For investigation or synthesis, use the installed general `task` agent with a bounded read-only packet if delegation is useful. Do not assume a `scout` persona is installed. Multi-agent playbooks use these native agents within available capacity; cloud ownership and Graphite are not prerequisites. Git and GitHub CLI operations remain subject to task authorization.
 
@@ -35,8 +34,8 @@ OMP owns every model choice through `modelRoles`. ADN agents name a role in fron
 | `feature`, `refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `swarm workers`, `reflect tooling` | `task` (`@task`) |
 | `how explorer`, `why investigators`, `judgment and prose`, `how explainer`, `why synthesizer`, `reflect judgment, divergent, synthesizer` | `task` (`@task`), or the driving session (`@default`) when no delegation is needed |
 | `hardest tasks` | `oracle` (`@Oracle`) for a bounded decision packet |
-| `architect runners` | `architect-grok`, `architect-kimi` |
-| `arena runners`, `arena cross-judge pool`, `interrogate reviewers` | One read-only agent per distinct model family, chosen from `architect-grok`, `architect-kimi`, `reviewer`, `reviewer-kimi`, and `oracle` |
+| `architect runners` | `arch-one`, `arch-two`, `arch-three` |
+| `arena runners`, `arena cross-judge pool`, `interrogate reviewers` | One read-only agent per distinct model family, chosen from `arch-one`, `arch-two`, `arch-three`, `reviewer`, `reviewer-two`, `reviewer-three`, and `oracle` |
 
 A panel's value is family diversity. Read `omp config get modelRoles --json`, group the candidate agents' roles by model family, and run one agent per family. If fewer families are configured than the panel asks for, run the families you have and say so.
 

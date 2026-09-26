@@ -5,7 +5,7 @@ description: Execute an existing implementation plan persistently through code c
 
 # Run Plan
 
-Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates, active-harness reviewer-subagent pre-PR review gate, while preventing reviewer-driven scope creep. Completeness is on-request, not part of this default path.
+Use this skill when the user has a plan file and wants it implemented all the way to a pull request with the runtime's scoped quality-review gates, active-harness reviewer-subagent pre-PR review gate, while preventing reviewer-driven scope creep.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
@@ -41,7 +41,6 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Verification convergence is budgeted. When the Verification Convergence Budget is exhausted and every residual failure classifies as inherited or infra/cosmetic with targeted verification green, opening the draft PR with disclosure and stopping on the ship/keep-fixing question is the required next action, not a policy violation.
 - Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
 - Do not create a PR until the active-harness reviewer-subagent pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
-- Completeness is on-request. Do not claim local merge readiness depends on a completeness artifact unless the operator asked for a plan walk.
 - Do not stop after the reviewer-subagent pre-PR gate passes; that gate returns `OPEN_PR_READY`, and the scoped run must continue through final verification, commit, push, PR creation, and monitoring.
 - Do not create a PR until base freshness and mergeability risk have been checked against the target branch; fetch, rebase safely, and rerun invalidated verification/reviews before PR creation when the branch is stale.
 - Never delay PR creation for deployment or post-merge operational evidence, even when an older plan places that evidence in a phase or completion checklist. Reclassify it as a non-blocking delivery obligation and preserve it in the PR body/plan deviation log.
@@ -154,9 +153,9 @@ An operator ship or stop directive ends this budget immediately wherever it stan
 
 Do **not** launch a supervisor as part of `run-plan`. Supervision is opt-in: only when the operator explicitly asks to supervise this run, follow `skills/supervise/SKILL.md`. Otherwise, continue without supervisor checkpoints, phase pings, or expansion-log entries.
 
-### 0b. Delivery ledger and visible completeness review
+### 0b. Delivery ledger
 
-When the `delivery` CLI or `delivery-run` skill is available, keep the per-worktree ledger current as soft progress tracking. The implementation authorization remains mandatory before code work. Completeness is on-request. Do not run it before PR unless the operator asked for a plan walk. Other ledger evidence remains advisory.
+When the `delivery` CLI or `delivery-run` skill is available, keep the per-worktree ledger current as soft progress tracking. The implementation authorization remains mandatory before code work. Other ledger evidence remains advisory.
 
 ```bash
 delivery init --plan <plan-path>                 # issue optional at start
@@ -169,16 +168,11 @@ delivery approve-implementation --source chat|doct --summary "Operator received 
 delivery verify-implementation-profile
 delivery stage IMPLEMENTING
 delivery stage SCOPED_REVIEW|IMPL_PM_OUTCOME|AUTOREVIEW|PR_OPEN|MERGE_READY|DONE
-# Before final verification/local merge readiness in Herdr:
-delivery stage COMPLETENESS_REVIEW
-delivery completion-review
-delivery completion-review --rerun  # after in-plan fixes, until VERDICT: COMPLETE
-delivery completion-review --accept  # captures artifact and validates plan/worktree freshness
 delivery record <key> --status pass|skip|gap|na --artifact <path> --summary "..."
 delivery check -v   # advisories only; always exit 0
 ```
 
-Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization, Sol-medium plan review, operator approval, dedicated-agent launch, recorded Herdr-pane identity, or live Sol-medium runtime evidence is different: it stops pre-code execution. A failed launch is retried with `delivery start-implementation`; the planning agent does not take over implementation. For a Herdr delivery run, a missing validated `delivery completion-review --accept` result after implementation also prevents a local merge-readiness claim unless the operator explicitly waives that review. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
+Missing ledger quality evidence must not block run-plan. Do not stop solely because `delivery check` reports gaps. Missing, stale, or invalid readiness authorization, Sol-medium plan review, operator approval, dedicated-agent launch, recorded Herdr-pane identity, or live Sol-medium runtime evidence is different: it stops pre-code execution. A failed launch is retried with `delivery start-implementation`; the planning agent does not take over implementation. If material Doct feedback arrives before code changes, update the plan, run `delivery revoke-implementation-approval --reason "material plan feedback"`, and return to browser review for a fresh readiness request.
 
 When the scoped run reaches local merge-readiness or a durable stop (DONE/blocked handoff), best-effort log a process reflection outside the worktree:
 
@@ -369,7 +363,7 @@ After phase implementation and the runtime-native scoped quality-review loop has
 
 Do not run redundant full reviewer gates over an unchanged diff. If the latest runtime-native reviewer pass already ran after the last code change, used the current base/comparison range, covered the current changed files, and has no unresolved blocking in-scope P1/P2 findings, record that evidence as the pre-PR gate result and continue. Run `$autoreview <plan path>` only when current reviewer evidence is missing, stale, incomplete, or materially narrower than the PR diff. Follow the canonical autoreview policy, including its pre-review scope baseline, concrete blocker evidence, smallest-fix ownership boundary, behavioral-verification separation, dependency evidence, known-blocker overflow, and release freeze discipline; do not duplicate or weaken those rules here.
 
-Run exactly one bounded, static inspection with the active harness's configured `reviewer` subagent. In Pi it is GPT-5.6 Terra at medium reasoning effort; in Claude Code it is Sonnet 5 at high effort; in OpenCode it is GPT-5.6 Terra at medium reasoning effort. Do not create separate Codex or Claude Code review legs. This code-review gate itself does not use Herdr; the separate visible completeness review below is required only for a Herdr delivery run. Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewer must classify findings by P1/P2/P3 severity and by the normal scope categories. It must not execute tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. The coordinating agent exclusively owns that execution.
+Run exactly one bounded, static inspection with the active harness's configured `reviewer` subagent. In Pi it is GPT-5.6 Terra at medium reasoning effort; in Claude Code it is Sonnet 5 at high effort; in OpenCode it is GPT-5.6 Terra at medium reasoning effort. Do not create separate Codex or Claude Code review legs. This code-review gate itself does not use Herdr. Pass the plan path, base/comparison range, changed files, scope contract, and latest verification results. The reviewer must classify findings by P1/P2/P3 severity and by the normal scope categories. It must not execute tests, builds, linters, typechecks, benchmarks, verification scripts, validation commands, or other executable behavior checks. The coordinating agent exclusively owns that execution.
 
 **Launch in the live checkout:** follow the autoreview candidate-visibility contract for every run-plan reviewer launch (scoped quality review, pre-PR gate, targeted rereview, and adversarial pass). In Pi, omit the `isolation` property entirely from every reviewer `Agent` call; requesting `isolation: "worktree"` is a workflow violation. Every packet must still name the absolute `TARGET_CHECKOUT` as a safety fallback; if the harness itself isolates despite omission, the reviewer inspects that target directly. Never turn a visible-code review into an infrastructure failure solely because of CWD or worktree state. If a dirty portion is genuinely unavailable, preserve the findings over visible code and run at most one targeted follow-up over the missing patch/paths.
 
@@ -377,35 +371,9 @@ Treat every in-scope P1/P2 finding as blocking a clean ready-for-PR conclusion. 
 
 If the gate applies fixes after final verification has already run, rerun final verification before commit/PR. If the active-harness reviewer is unavailable, stop unless the user explicitly waives this pre-PR gate or explicitly directs opening the PR regardless; in the latter case, open it and disclose the infrastructure failure and missing coverage.
 
-When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue to final verification, commit, push, and PR creation. Run completeness only if the operator asked for a plan walk. Do not return a final run-plan response at this point.
+When the gate reports `OPEN_PR_READY` or equivalent clean consensus, continue to final verification, commit, push, and PR creation. Do not return a final run-plan response at this point.
 
 Record the reviewer model/effort, verdict, artifact path, waived/not-run status, and any documented non-blocking follow-ups for the PR body.
-
-### 10a. Visible Completeness Review (Herdr delivery runs)
-
-This is a second, operator-visible review of **whether the implementation completes the plan**, not a replacement for the active-harness code reviewer. It applies when this run is in a delivery-managed Herdr worktree. Start it from the driving agent's pane:
-
-```bash
-delivery stage COMPLETENESS_REVIEW
-delivery completion-review
-```
-
-`delivery completion-review` splits the driving pane to the right without moving operator focus, starts a new interactive Pi in that same live worktree with `--model xai/grok-4.6:high`, and sends its full visible review prompt. The reviewer may read the plan, current diff, status, and validation artifacts but must not edit files or execute verification.
-
-The driving agent must read the adjacent pane's verdict. For every `FINDINGS_TO_RESOLVE` item that is `IN_PLAN`, `PLAN_PREREQUISITE`, or `REGRESSION_FROM_THIS_DIFF`, make the smallest in-scope correction, run invalidated verification, and request the same reviewer's next round:
-
-```bash
-delivery completion-review --rerun
-```
-
-Repeat until it returns `VERDICT: COMPLETE`, with an AC/BDD coverage table and `Not examined:` disclosure. Capture the visible response in `thoughts/validation/<slug>-completeness.md` and record it:
-
-```bash
-delivery completion-review --accept
-```
-
-This loop is separate from the active-harness reviewer-cycle budget because it checks plan completion rather than re-running the same code-review gate. If the same plan-completeness disagreement remains unresolved after three correction/rereview rounds, stop with the concrete criterion and smallest required operator decision; do not fabricate consensus. An explicit operator waiver may permit PR creation, but record it as waived/missing completeness coverage and never claim local merge readiness as clean.
-
 ## Final Verification
 
 Establish passing final-verification evidence after the latest verification-relevant change and before PR creation. This is pre-merge verification only: it may prove buildability, deployability, migration definitions, configuration, dry-run behavior, and artifact integrity, but must not require an actual environment deployment, promotion, merge-dependent smoke check, or production observation. Reuse the latest passing results when the same commands already ran against the current code, tests, dependencies, configuration, generated artifacts, and base context, and no intervening action invalidated them. A read-only reviewer-subagent review does not invalidate passing verification and is never, by itself, a reason to rerun it. Record reused commands, outcomes, and the unchanged-state basis in the run notes and PR body.
@@ -462,7 +430,6 @@ The PR body must include:
 - second scoped quality-review verdict,
 - implementation-stage PM review verdict, artifact/notes location, any plan/Doct updates, and any PM-triggered rerun requirements,
 - reviewer-subagent pre-PR review verdict and artifact path, or explicit waived/not-run status,
-- completeness-review verdict/artifact when the operator asked for a plan walk, otherwise omit,
 - base freshness and mergeability/rebase status before PR creation,
 - documented out-of-scope follow-ups with evidence and tracking destination,
 - known residual risks,
@@ -480,7 +447,6 @@ The run state can be marked complete only when all of these are true:
 
 - Final verification for the touched surfaces has passed after the latest code change, or the Verification Convergence Budget disposition applies: targeted verification is green, every residual failure is classified inherited or infra/cosmetic with evidence, and the classification is disclosed in the PR body. In the draft-PR disposition the run state does not complete — it is blocked-on-operator with the ship/keep-fixing question until the operator answers.
 - Runtime-native scoped quality review, implementation-stage PM review, and the reviewer-subagent pre-PR gate all agree by substance that the current diff has no unresolved blocking in-scope findings; skipped/waived gates are recorded truthfully.
-- Completeness is on-request. A missing completeness artifact does not block PR creation or merge readiness.
 - All actionable PR feedback already present in the latest snapshot has been addressed.
 - If PR feedback required code changes, the applicable review agents have rerun over the current PR diff and cleared any in-scope findings.
 - The branch has been rebased or otherwise updated against the destination branch as needed, with affected verification rerun after the update.

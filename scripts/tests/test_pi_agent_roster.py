@@ -417,7 +417,7 @@ class PiAgentRosterTest(unittest.TestCase):
         for required in (
             "NOT PROVEN",
             "UNNECESSARY",
-            "reviewer-kimi",
+            "reviewer-two",
             "Do not use **interrogate**",
             "The implementer's summary",
         ):

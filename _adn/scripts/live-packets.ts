@@ -268,7 +268,7 @@ For each line print CASE <id> AUTHORITY: <result> exactly:
 ${listed}
 Then spawn two disjoint writers for src/a.ts and src/b.ts. Print FANOUT: disjoint
 Then reject overlapping writers on src/a.ts. Print FANOUT: rejected
-Print ROLE: architect-grok ROLE: architect-kimi ROLE: reviewer-kimi if those agents are available.
+Print ROLE: arch-one ROLE: arch-two ROLE: arch-three ROLE: reviewer-two ROLE: reviewer-three if those agents are available.
 Do not edit files. Do not arm Delivery.`,
     cwd,
   );
@@ -296,7 +296,7 @@ Do not edit files. Do not arm Delivery.`,
     ownership: { writer: "parent", targets: ["authority"] },
     todos: ["authority-cases"],
     skips: [],
-    roles: ["architect-grok", "architect-kimi", "reviewer-kimi"].filter((r) => body.includes(r)),
+    roles: ["arch-one", "arch-two", "arch-three", "reviewer-two", "reviewer-three"].filter((r) => body.includes(r)),
   };
 }
 
@@ -305,13 +305,13 @@ function council01() {
   const body = ompAdn(
     `Read skill://architect and skill://arena.
 For a local rename print SKIP: architect
-Spawn Task architect-grok and Task architect-kimi independently for a novel costly design. Print ROLE: architect-grok and ROLE: architect-kimi and COUNCIL: true
+Spawn Task arch-one, Task arch-two, and Task arch-three independently for a novel costly design. Print ROLE: arch-one and ROLE: arch-two and ROLE: arch-three and COUNCIL: true
 For Arena print ARENA: true
 Do not implement. Do not arm Delivery.`,
     cwd,
   );
   if (!/SKIP:\s*architect/i.test(body)) throw new Error("fail-closed: architect skip");
-  if (!body.includes("architect-grok") || !body.includes("architect-kimi")) {
+  if (!["arch-one", "arch-two", "arch-three"].every((role) => body.includes(role))) {
     throw new Error("fail-closed: council roles");
   }
   if (!/COUNCIL:\s*true/i.test(body)) throw new Error("fail-closed: council");
@@ -322,7 +322,7 @@ Do not implement. Do not arm Delivery.`,
     skip: true,
     council: true,
     arena: /ARENA:\s*true/i.test(body),
-    roles: ["architect-grok", "architect-kimi"],
+    roles: ["arch-one", "arch-two", "arch-three"],
     deliveryArmed: false,
     marker: "ADN_RUNTIME_MARKER:adn-mode",
     ownership: { writer: "parent", targets: ["architect"] },
@@ -333,30 +333,30 @@ function dual01() {
   const dir = join(homedir(), ".omp", "agent", "adn", "evaluations", "private", "B03");
   const diff = readFileSync(join(dir, "diff.patch"), "utf8");
   const hash = sha256(diff);
-  const grok = ompAdn(
-    `You are the Grok reviewer in a fresh context. Echo HASH=${hash}
+  const first = ompAdn(
+    `You are the reviewer in a fresh context. Echo HASH=${hash}
 Read skill://interrogate. Review this complete diff. VERDICT: PASS or FINDINGS_TO_RESOLVE.
 Diff:\n${diff}`,
     dir,
   );
-  const kimi = ompAdn(
-    `You are reviewer-kimi in a fresh independent context. Echo HASH=${hash}
+  const second = ompAdn(
+    `You are reviewer-two in a fresh independent context. Echo HASH=${hash}
 Read skill://interrogate. Review this complete diff. VERDICT: PASS or FINDINGS_TO_RESOLVE.
 Diff:\n${diff}`,
     dir,
   );
-  if (!grok.includes(hash) || !kimi.includes(hash)) throw new Error("fail-closed: dual hash");
-  if (!/VERDICT:\s*(PASS|FINDINGS_TO_RESOLVE)/.test(grok) || !/VERDICT:\s*(PASS|FINDINGS_TO_RESOLVE)/.test(kimi)) {
+  if (!first.includes(hash) || !second.includes(hash)) throw new Error("fail-closed: dual hash");
+  if (!/VERDICT:\s*(PASS|FINDINGS_TO_RESOLVE)/.test(first) || !/VERDICT:\s*(PASS|FINDINGS_TO_RESOLVE)/.test(second)) {
     throw new Error("fail-closed: dual verdict");
   }
   return {
     id: "DUAL-01",
     ok: true,
     hash,
-    grokContext: sha256(grok),
-    kimiContext: sha256(kimi),
-    independent: sha256(grok) !== sha256(kimi),
-    roles: ["reviewer", "reviewer-kimi"],
+    firstContext: sha256(first),
+    secondContext: sha256(second),
+    independent: sha256(first) !== sha256(second),
+    roles: ["reviewer", "reviewer-two"],
     deliveryArmed: false,
   };
 }

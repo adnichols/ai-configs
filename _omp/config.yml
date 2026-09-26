@@ -39,13 +39,14 @@ modelRoles:
   Oracle: openai-codex/gpt-6-astra:medium
   reviewer: devin/swe-2:medium
   default: anthropic/claude-opus-5-5:medium
-  completeness: xai-oauth/grok-4.7:medium
-  architect-grok: xai-oauth/grok-4.7:high
-  architect-kimi: devin/swe-2:max
-  reviewer-kimi: devin/swe-2:max
   task: xai-oauth/grok-4.7:high
   speech: xai/grok-tts
   vision: openai-codex/gpt-6-sol:medium
+  reviewer-two: openai-codex/gpt-5.6-sol:medium
+  reviewer-three: anthropic/claude-opus-5-5:medium
+  arch-one: anthropic/claude-opus-5-5:auto
+  arch-two: xai-oauth/grok-4.7:auto
+  arch-three: openai-codex/gpt-5.6-sol:auto
 defaultThinkingLevel: auto
 compaction:
   thresholdPercent: -1

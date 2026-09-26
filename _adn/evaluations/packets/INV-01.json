@@ -7,5 +7,5 @@
   "surface": "omp config get modelRoles --json",
   "artifacts": ["evaluations/live-smoke.jsonl"],
   "cleanup": "none",
-  "expected": "value envelope with architect-grok, architect-kimi, reviewer-kimi"
+  "expected": "value envelope with every role named by an ADN agent"
 }

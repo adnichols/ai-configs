@@ -91,7 +91,6 @@ STAGES = [
     "SCOPED_REVIEW",
     "IMPL_PM_OUTCOME",
     "AUTOREVIEW",
-    "COMPLETENESS_REVIEW",
     "VERIFY_FRESHNESS",
     "PR_OPEN",
     "MERGE_READY",
@@ -130,11 +129,10 @@ RECOMMENDED_EVIDENCE = {
     "implementation": ["IMPLEMENTING", "SCOPED_REVIEW", "IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN"],
     "scopedReview": ["SCOPED_REVIEW", "AUTOREVIEW", "PR_OPEN"],
     "implPm": ["IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
-    "completenessReview": ["COMPLETENESS_REVIEW", "VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
-    "completionEval": ["COMPLETENESS_REVIEW", "VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
+    "completionEval": ["VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
     "customerImpact": ["PLAN_PM_REVIEW", "IMPL_PM_OUTCOME", "PR_OPEN", "MERGE_READY"],
     "autoreview": ["AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
-    "permanentDocs": ["SCOPED_REVIEW", "IMPL_PM_OUTCOME", "AUTOREVIEW", "COMPLETENESS_REVIEW", "PR_OPEN", "MERGE_READY"],
+    "permanentDocs": ["SCOPED_REVIEW", "IMPL_PM_OUTCOME", "AUTOREVIEW", "PR_OPEN", "MERGE_READY"],
     "verify": ["VERIFY_FRESHNESS", "PR_OPEN", "MERGE_READY"],
     "pr": ["PR_OPEN", "MERGE_READY", "DONE"],
     "adversarialQa": ["ADVERSARIAL_QA", "MERGE_READY", "DONE"],
@@ -163,7 +161,6 @@ STAGE_PHASE_CODE = {
     "SCOPED_REVIEW": "R",
     "IMPL_PM_OUTCOME": "R",
     "AUTOREVIEW": "R",
-    "COMPLETENESS_REVIEW": "R",
     "VERIFY_FRESHNESS": "R",
     "ADVERSARIAL_QA": "R",
     "PR_OPEN": "PR",
@@ -210,7 +207,6 @@ STAGE_NEXT_SKILL = {
     "SCOPED_REVIEW": "Run scoped quality review (run-plan section) with live-worktree reviewer",
     "IMPL_PM_OUTCOME": "Run /dev:pm-review <plan> implementation + fill customerImpact/completionEval",
     "AUTOREVIEW": "Use /skill:autoreview <plan>; record verdict artifact",
-    "COMPLETENESS_REVIEW": "Launch the visible labeled-tab Pi reviewer with `delivery completion-review`, address its plan-completeness findings (including permanent-doc disposition coverage when Heddle/local permanent-docs applies), request a rereview, then run `delivery completion-review --accept` only after it returns COMPLETE",
     "VERIFY_FRESHNESS": "Final verification + base freshness; record verify evidence",
     "PR_OPEN": "Open/update PR via cmd-create-pr / run-plan PR section; record prUrl",
     "MERGE_READY": "Confirm local merge-readiness; optional adversarial QA if customer-visible",
@@ -242,7 +238,6 @@ def next_step_for(stage: str, workflow_profile: str | None = None) -> str:
         "SCOPED_REVIEW": "Run the bounded scoped implementation review",
         "IMPL_PM_OUTCOME": "Check the implemented product outcome and record customer impact",
         "AUTOREVIEW": "Run the configured OMP autoreview and resolve blocking findings",
-        "COMPLETENESS_REVIEW": "Prepare the OMP completion packet, run the read-only reviewer, then accept its exact response envelope",
         "VERIFY_FRESHNESS": "Run final verification and check base freshness",
         "PR_OPEN": "Open or update the PR and record its URL",
         "MERGE_READY": "Confirm local merge readiness",
@@ -2314,7 +2309,7 @@ def arm_from_existing_implementation(
         print(f"ledger: {path}")
         print(f"brief:  {brief_path}")
         print(f"stage:  {ledger.get('stage')}")
-        print("next:   review / completeness / PR (no implementation pane)")
+        print("next:   review / PR (no implementation pane)")
     return 0
 
 
@@ -2524,10 +2519,6 @@ def cmd_stage(args: argparse.Namespace) -> int:
                 agent_name=owner.get("agentName") or profile.get("agentName"),
                 focus=False,
             )
-        review = ledger.get("completenessReview") or {}
-        witness = review.get("tabId")
-        if witness and str(witness) != str(done_tab or ""):
-            enqueue_tab_retire(ledger, str(witness), "completeness-fulfilled")
         retire_pending_tabs(ledger, caller_tab=caller_tab_id())
     else:
         maybe_herdr_label(ledger)
@@ -2622,7 +2613,7 @@ Do this now:
 3. Hydrate this session from the agentic plan (delivery-hydrate prewalk should already be armed with `--delivery-hydrate --prewalk-into {prewalk_into}` targeting the authorized executor). Materialize 5–9 execution todos, note remaining risks/verification, and continue. Do not reopen product decisions; revoke readiness if the contract contradicts the repo.
 4. Under D1-A, the hydrate model may perform the first successful edit/write; prewalk then transitions in-session to the authorized executor and writes `.delivery/hydrate-transition.json`. After the live runtime matches the executor, run `delivery verify-implementation-profile` again to reach executor-verified (receipt required; do not use `adopt-current-runtime` as the happy path).
 5. Run `delivery stage IMPLEMENTING` only after executor-verified.
-6. Execute `/skill:run-plan {plan}` through implementation, verification, reviews, completeness, and PR readiness.
+6. Execute `/skill:run-plan {plan}` through implementation, verification, reviews, and PR readiness.
 
 Do not treat `adopt-current-runtime` as the happy-path switch; that remains for out-of-pair manual overrides only. Do not re-plan beyond the reviewed dual-plan contract."""
 
@@ -2638,7 +2629,7 @@ Do this now:
 1. Read the full plan. Read `.delivery/AGENT_BRIEF.md` when present; if it is absent, continue from the ledger and plan rather than blocking (`delivery bootstrap --refresh` may recreate it).
 2. Run `delivery show` and `delivery verify-implementation-profile` (this retires the previous planning owner tab). If the launch is still being finalized, retry verification once it reports ready. If this pane was deliberately switched to another model, run `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` to record that manual choice.
 3. Run `delivery stage IMPLEMENTING` from this pinned Pi runtime.
-4. Execute `/skill:run-plan {plan}` through implementation, verification, Terra code review, the visible Grok completeness review, and PR readiness.
+4. Execute `/skill:run-plan {plan}` through implementation, verification, Terra code review, and PR readiness.
 
 GPT-5.6 Luna at xhigh reasoning is the normal implementation profile. Use GPT-5.6 Terra at high reasoning when correctness depends materially on technical judgment beyond the available deterministic tests. The recommendation is not a prohibition: if this recorded implementation pane is deliberately switched to another model, record it with `delivery verify-implementation-profile --adopt-current-runtime --reason "..."` before code work.
 
@@ -3582,225 +3573,6 @@ def cmd_record(args: argparse.Namespace) -> int:
     return 0
 
 
-COMPLETENESS_REVIEW_MODEL = "xai/grok-4.6:high"
-
-
-def completeness_reviewer_name(ledger: dict[str, Any]) -> str:
-    identity = str(ledger.get("issue") or ledger.get("slug") or ledger.get("id") or "delivery")
-    return f"completeness-{slugify(identity, max_len=19, keep_issue_keys=True)}"
-
-def completeness_review_prompt(ledger: dict[str, Any], root: Path, *, rerun: bool, request_id: str) -> str:
-    plan = str(ledger.get("plan") or "(no plan path recorded)")
-    round_text = "This is a rereview after the driving agent addressed prior findings." if rerun else "This is the initial completeness review."
-    return f"""You are the visible, read-only plan-completeness reviewer for this delivery run.
-
-{round_text}
-Worktree: {root}
-Plan: {plan}
-Delivery stage: {ledger.get('stage')}
-Completeness-review request ID: {request_id}
-
-Inspect the current live worktree, including committed, staged, unstaged, and untracked changes. Read the plan, diff, plan-progress/validation artifacts, and the driving agent's stated verification evidence. Do not edit files. Do not run tests, builds, linters, or other executable verification.
-
-Check whether the implementation is complete according to the plan: every acceptance criterion and BDD scenario, required producer/consumer or cross-surface wiring, real post-mutation UI states, stated non-goals, and truthful verification. Do not accept a green helper/unit test as proof that the user-visible completion state works.
-
-When the worktree is Heddle or has a local permanent-docs skill, also require a durable-outcome coverage row:
-
-| Durable outcome in this PR slice | Disposition (`none`/`patch`/`new-record`/`ADR`/`deferred-to-final-plan-slice`) | Permanent home | In diff? |
-
-Reject hollow permanent docs (empty templates, TODO-only bodies, or “see plan” stubs) for `patch` / `new-record` / `ADR`. Do not require CCore archive packages or plan-source deletion. Missing or false disposition is FINDINGS_TO_RESOLVE unless an explicit operator waiver is disclosed.
-
-Start your response with `COMPLETENESS_REVIEW_RESPONSE_ID: {request_id}`, immediately followed by your verdict. Return exactly one verdict:
-- VERDICT: FINDINGS_TO_RESOLVE — for an in-plan gap, with criterion/BDD reference, concrete evidence, user impact, and smallest correction.
-- VERDICT: COMPLETE — only when the plan is complete by substance. Include an AC/BDD coverage table and a `Not examined:` line.
-- VERDICT: BLOCKED_BY_QUESTION — only for a real plan or product decision.
-
-The driving agent will read your visible response, make in-scope corrections, and ask you to rereview until the implementation and this review agree it is complete."""
-
-
-def _fingerprint_paths(root: Path, paths: list[str], digest: Any, exclude_paths: set[str] | None = None) -> None:
-    for raw in sorted(paths):
-        if raw == ".delivery" or raw.startswith(".delivery/") or raw in (exclude_paths or set()):
-            continue
-        candidate = root / raw
-        digest.update(raw.encode("utf-8") + b"\0")
-        if candidate.is_file():
-            digest.update(candidate.read_bytes())
-        else:
-            digest.update(b"<missing>")
-
-
-def working_tree_fingerprint(root: Path, *, exclude_paths: set[str] | None = None) -> str:
-    """Fingerprint worktree content independently of whether it has been committed."""
-    digest = hashlib.sha256()
-    tracked = run_cmd(["git", "ls-files", "-z"], cwd=root)
-    if tracked.returncode != 0:
-        die("cannot list tracked files for completeness review")
-    untracked = run_cmd(["git", "ls-files", "--others", "--exclude-standard", "-z"], cwd=root)
-    if untracked.returncode != 0:
-        die("cannot list untracked files for completeness review")
-    _fingerprint_paths(
-        root,
-        [part for part in tracked.stdout.split("\0") if part]
-        + [part for part in untracked.stdout.split("\0") if part],
-        digest,
-        exclude_paths,
-    )
-    return digest.hexdigest()
-
-
-def completeness_review_problem(ledger: dict[str, Any], root: Path) -> str | None:
-    review = ledger.get("completenessReview") or {}
-    if review.get("status") == "waived" and review.get("summary"):
-        return None
-    if review.get("status") != "complete":
-        return "visible completeness review has not been accepted"
-    if review.get("verdict") != "COMPLETE":
-        return "visible completeness review did not return VERDICT: COMPLETE"
-    artifact = review.get("artifact")
-    if not isinstance(artifact, str) or not (root / artifact).is_file():
-        return "visible completeness review artifact is missing"
-    if is_omp_lite(ledger):
-        try:
-            artifact_path = (root / artifact).resolve()
-            artifact_path.relative_to(root.resolve())
-            artifact_bytes = artifact_path.read_bytes()
-            values = parse_omp_completeness_artifact(artifact_bytes.decode("ascii"))
-        except (OSError, UnicodeDecodeError, ValueError):
-            return "OMP completeness review artifact is malformed"
-        if review.get("artifactSha256") != hashlib.sha256(artifact_bytes).hexdigest():
-            return "OMP completeness review artifact has changed since acceptance"
-        expected_envelope = {
-            "COMPLETENESS_REVIEW_RESPONSE_ID": review.get("responseId"),
-            "REVIEWER_IDENTITY": review.get("reviewerIdentity"),
-            "PLAN_SHA256": review.get("planSha256"),
-            "WORKTREE_FINGERPRINT": review.get("worktreeFingerprint"),
-            "VERDICT": "COMPLETE",
-        }
-        if any(values.get(key) != value for key, value in expected_envelope.items()):
-            return "OMP completeness review artifact does not match the accepted response"
-    plan_fingerprint = plan_sha256(ledger, root)
-    if not plan_fingerprint or review.get("planSha256") != plan_fingerprint:
-        return "visible completeness review is stale for the current plan"
-    excluded = {artifact} if review.get("responseId") else None
-    if review.get("worktreeFingerprint") != working_tree_fingerprint(root, exclude_paths=excluded):
-        return "visible completeness review is stale for the current worktree"
-    return None
-
-
-def completion_artifact_path(root: Path, ledger: dict[str, Any], requested: str | None) -> tuple[Path, str]:
-    slug = slugify(str(ledger.get("slug") or ledger.get("issue") or "delivery"))
-    raw = Path(requested or f"thoughts/validation/{slug}-completeness.md")
-    candidate = raw if raw.is_absolute() else root / raw
-    try:
-        resolved = candidate.resolve()
-        relative = resolved.relative_to(root.resolve())
-    except ValueError:
-        die("completeness review artifact must be inside the worktree")
-    return resolved, relative.as_posix()
-
-
-def pi_session_transcript(path: Path, *, max_lines: int = 500) -> str:
-    """Extract bounded assistant text from a Pi JSONL session without terminal wrapping."""
-    messages: list[str] = []
-    with path.open(encoding="utf-8") as handle:
-        for raw in handle:
-            try:
-                event = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            message = event.get("message") if event.get("type") == "message" else None
-            if not isinstance(message, dict) or message.get("role") != "assistant":
-                continue
-            content = message.get("content")
-            if not isinstance(content, list):
-                continue
-            text = "\n".join(
-                item.get("text", "")
-                for item in content
-                if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str)
-            )
-            if text:
-                messages.append(text)
-    return "\n".join("\n".join(messages).splitlines()[-max_lines:]) + "\n"
-
-
-def read_completeness_transcript(reviewer_name: str, root: Path, request_id: str) -> str:
-    rendered = run_cmd(["herdr", "agent", "read", reviewer_name, "--source", "recent-unwrapped", "--lines", "500"], cwd=root)
-    if rendered.returncode != 0:
-        die(f"could not read visible completeness reviewer: {(rendered.stderr or rendered.stdout).strip()}")
-    if request_id in rendered.stdout:
-        return rendered.stdout
-    details = run_cmd(["herdr", "agent", "get", reviewer_name], cwd=root)
-    if details.returncode != 0:
-        return rendered.stdout
-    try:
-        payload = json.loads(details.stdout)
-        result = payload.get("result") if isinstance(payload.get("result"), dict) else payload
-        agent = result.get("agent") if isinstance(result.get("agent"), dict) else result
-        session = agent.get("agent_session") if isinstance(agent, dict) else None
-        raw_path = session.get("value") if isinstance(session, dict) and session.get("agent") == "pi" else None
-        if not isinstance(raw_path, str):
-            return rendered.stdout
-        session_path = Path(raw_path).expanduser().resolve()
-        sessions_root = (Path(os.environ.get("PI_CODING_AGENT_DIR", Path.home() / ".pi" / "agent")) / "sessions").resolve()
-        session_path.relative_to(sessions_root)
-        if not session_path.is_file():
-            return rendered.stdout
-        exact = pi_session_transcript(session_path)
-        return exact if request_id in exact else rendered.stdout
-    except (OSError, ValueError, json.JSONDecodeError, AttributeError):
-        return rendered.stdout
-
-
-def parse_completeness_transcript(text: str, request_id: str) -> dict[str, Any]:
-    lines = text.splitlines()
-    id_label = re.compile(r"^\s*COMPLETENESS_REVIEW_RESPONSE_ID:\s*(.*?)\s*$")
-    verdict_label = re.compile(r"^\s*VERDICT:\s*(.*?)\s*$")
-    valid_id = re.compile(r"^[0-9a-f]{32}$")
-    allowed = {"FINDINGS_TO_RESOLVE", "COMPLETE", "BLOCKED_BY_QUESTION"}
-    starts = [index for index, line in enumerate(lines) if id_label.match(line)]
-    blocks: list[dict[str, Any]] = []
-    for position, start in enumerate(starts):
-        end = starts[position + 1] if position + 1 < len(starts) else len(lines)
-        match = id_label.match(lines[start]); raw_id = (match.group(1) if match else "").strip()
-        id_line = start
-        if not raw_id:
-            cursor = start + 1
-            while cursor < end and not lines[cursor].strip(): cursor += 1
-            if cursor < end: raw_id = lines[cursor].strip(); id_line = cursor
-        verdicts = []
-        for cursor in range(id_line + 1, end):
-            verdict_match = verdict_label.match(lines[cursor])
-            if not verdict_match: continue
-            raw_verdict = verdict_match.group(1).strip()
-            if not raw_verdict:
-                following = cursor + 1
-                while following < end and not lines[following].strip(): following += 1
-                if following < end: raw_verdict = lines[following].strip()
-            verdicts.append(raw_verdict if raw_verdict in allowed else "INVALID:" + raw_verdict)
-        blocks.append({"id": raw_id if valid_id.fullmatch(raw_id) else None, "rawId": raw_id, "startLine": start + 1, "endLine": end, "verdicts": verdicts})
-    current = [block for block in blocks if block["id"] == request_id]
-    visible = [block["id"] or block["rawId"] for block in blocks]
-    first_nonempty = next((line.strip() for line in lines if line.strip()), "")
-    likely_truncated = bool(first_nonempty and not id_label.match(first_nonempty) and ("VERDICT:" in first_nonempty or bool(starts)))
-    result = {"blocks": blocks, "currentBlocks": current, "visibleIds": visible, "likelyTruncated": likely_truncated, "accepted": False, "verdict": None, "diagnostic": ""}
-    if not current:
-        result["diagnostic"] = f"current response ID {request_id} missing; visible IDs={visible or ['none']}; likelyTruncated={likely_truncated}"
-        return result
-    latest = current[-1]; result["selectedRange"] = [latest["startLine"], latest["endLine"]]; result["duplicateCount"] = len(current)
-    if len(latest["verdicts"]) != 1:
-        result["diagnostic"] = f"current response block lines {latest['startLine']}-{latest['endLine']} has {len(latest['verdicts'])} parsed verdicts; duplicateBlocks={len(current)}; likelyTruncated={likely_truncated}"
-        return result
-    verdict = latest["verdicts"][0]; result["verdict"] = verdict
-    if verdict != "COMPLETE":
-        result["diagnostic"] = f"latest current response block lines {latest['startLine']}-{latest['endLine']} verdict={verdict}; duplicateBlocks={len(current)}"
-        return result
-    result["accepted"] = True
-    result["diagnostic"] = f"accepted latest current response block lines {latest['startLine']}-{latest['endLine']}; duplicateBlocks={len(current)}"
-    return result
-
-
 def cmd_record_receipt(args: argparse.Namespace) -> int:
     path, ledger, root = load_ledger_for(args)
     artifact = Path(args.artifact).expanduser()
@@ -3839,344 +3611,6 @@ def cmd_record_receipt(args: argparse.Namespace) -> int:
     else:
         print(f"recorded receipt: {artifact} ({reference['status']})")
     return 0
-OMP_COMPLETENESS_OPEN = "<!-- OMP_COMPLETENESS_RESPONSE -->"
-OMP_COMPLETENESS_CLOSE = "<!-- /OMP_COMPLETENESS_RESPONSE -->"
-OMP_COMPLETENESS_REVIEWER_IDENTITY = "omp-completeness-grok-4.5-high"
-OMP_COMPLETENESS_FIELDS = (
-    "COMPLETENESS_REVIEW_RESPONSE_ID",
-    "REVIEWER_IDENTITY",
-    "PLAN_SHA256",
-    "WORKTREE_FINGERPRINT",
-    "VERDICT",
-)
-
-
-def omp_completion_artifact_path(root: Path, ledger: dict[str, Any], requested: str | None) -> tuple[Path, str]:
-    slug = slugify(str(ledger.get("slug") or ledger.get("issue") or "delivery"))
-    raw = Path(requested or f"thoughts/validation/{slug}-completeness-review.md")
-    candidate = raw if raw.is_absolute() else root / raw
-    try:
-        resolved = candidate.resolve()
-        relative = resolved.relative_to(root.resolve())
-    except ValueError:
-        die("completeness review artifact must be inside the worktree")
-    return resolved, relative.as_posix()
-
-
-def parse_omp_completeness_artifact(text: str) -> dict[str, str]:
-    if not text.isascii():
-        raise ValueError("OMP completeness artifact must be ASCII")
-    lines = text.splitlines(keepends=True)
-    if len(lines) < 7 or any(not line.endswith("\n") or line.endswith("\r\n") for line in lines[:7]):
-        raise ValueError("OMP completeness artifact must begin with exactly seven LF-terminated envelope lines")
-    envelope = [line[:-1] for line in lines[:7]]
-    patterns = (
-        re.compile(r"^COMPLETENESS_REVIEW_RESPONSE_ID: ([0-9a-f]{32})$"),
-        re.compile(r"^REVIEWER_IDENTITY: ([A-Za-z0-9._-]+)$"),
-        re.compile(r"^PLAN_SHA256: ([0-9a-f]{64})$"),
-        re.compile(r"^WORKTREE_FINGERPRINT: ([0-9a-f]{64})$"),
-        re.compile(r"^VERDICT: (COMPLETE|INCOMPLETE)$"),
-    )
-    if envelope[0] != OMP_COMPLETENESS_OPEN or envelope[6] != OMP_COMPLETENESS_CLOSE:
-        raise ValueError("OMP completeness artifact has an invalid envelope delimiter")
-    values: dict[str, str] = {}
-    for label, line, pattern in zip(OMP_COMPLETENESS_FIELDS, envelope[1:6], patterns):
-        match = pattern.fullmatch(line)
-        if not match:
-            raise ValueError(f"OMP completeness artifact has invalid {label} line")
-        values[label] = match.group(1)
-    for field in OMP_COMPLETENESS_FIELDS:
-        if text.count(field) != 1:
-            raise ValueError(f"OMP completeness artifact must contain {field} exactly once in its opening envelope")
-    return values
-
-
-def cmd_omp_completion_review(args: argparse.Namespace, path: Path, ledger: dict[str, Any], root: Path) -> int:
-    if args.waive or args.rerun:
-        die("OMP Lite completeness uses --prepare and --accept; Pi reviewer controls are unavailable")
-    if args.prepare:
-        prior_pending = ledger.get("pendingCompletenessReview")
-        plan_fingerprint = plan_sha256(ledger, root)
-        if not plan_fingerprint:
-            die("OMP completeness review requires a readable plan inside the worktree")
-        if (
-            args.reviewer_identity is not None
-            and args.reviewer_identity != OMP_COMPLETENESS_REVIEWER_IDENTITY
-        ):
-            die(
-                "OMP completeness reviewer identity must be "
-                f"`{OMP_COMPLETENESS_REVIEWER_IDENTITY}`"
-            )
-        reviewer = OMP_COMPLETENESS_REVIEWER_IDENTITY
-        request_id = uuid.uuid4().hex
-        artifact_path, artifact_rel = omp_completion_artifact_path(root, ledger, args.artifact)
-        pending = {
-            "responseId": request_id,
-            "reviewerIdentity": reviewer,
-            "planSha256": plan_fingerprint,
-            "worktreeFingerprint": working_tree_fingerprint(root, exclude_paths={artifact_rel}),
-            "artifact": artifact_rel,
-            "requestedAt": utc_now(),
-        }
-        ledger["pendingCompletenessReview"] = pending
-        ledger.setdefault("evidence", {}).setdefault("completenessReview", {}).update(
-            {"status": "pending", "updatedAt": utc_now()}
-        )
-        if isinstance(prior_pending, dict):
-            append_history(
-                ledger,
-                "completeness_review",
-                "superseded pending OMP reviewer packet",
-                responseId=prior_pending.get("responseId"),
-            )
-        append_history(ledger, "completeness_review", "OMP reviewer packet prepared", responseId=request_id)
-        refresh_git_fields(ledger, root)
-        write_json(path, ledger)
-        packet = {
-            "runtime": "omp",
-            "reviewer": reviewer,
-            "responseId": request_id,
-            "artifact": artifact_rel,
-            "acceptCommand": f"delivery completion-review --accept --response-id {request_id}",
-            "requiredEnvelope": [
-                OMP_COMPLETENESS_OPEN,
-                f"COMPLETENESS_REVIEW_RESPONSE_ID: {request_id}",
-                f"REVIEWER_IDENTITY: {reviewer}",
-                f"PLAN_SHA256: {plan_fingerprint}",
-                f"WORKTREE_FINGERPRINT: {pending['worktreeFingerprint']}",
-                "VERDICT: COMPLETE",
-                OMP_COMPLETENESS_CLOSE,
-            ],
-        }
-        print(json.dumps(packet, indent=2))
-        return 0
-    if not args.accept:
-        die("OMP Lite completeness requires --prepare or --accept")
-    pending = ledger.get("pendingCompletenessReview")
-    if not isinstance(pending, dict):
-        die("no OMP completeness request is pending; run `delivery completion-review --prepare`")
-    if args.response_id != pending.get("responseId"):
-        die("OMP completeness response ID does not match the pending request; rerun `delivery completion-review --prepare`")
-    artifact_path, artifact_rel = omp_completion_artifact_path(root, ledger, pending.get("artifact"))
-    if args.artifact is not None:
-        _, requested_rel = omp_completion_artifact_path(root, ledger, args.artifact)
-        if requested_rel != artifact_rel:
-            die("OMP completeness artifact does not match the pending request; rerun `delivery completion-review --prepare`")
-    try:
-        artifact_bytes = artifact_path.read_bytes()
-        values = parse_omp_completeness_artifact(artifact_bytes.decode("ascii"))
-    except FileNotFoundError:
-        die("OMP completeness artifact is missing; rerun the OMP reviewer")
-    except (UnicodeDecodeError, ValueError) as exc:
-        die(str(exc))
-    expected = {
-        "COMPLETENESS_REVIEW_RESPONSE_ID": pending.get("responseId"),
-        "REVIEWER_IDENTITY": pending.get("reviewerIdentity"),
-        "PLAN_SHA256": plan_sha256(ledger, root),
-        "WORKTREE_FINGERPRINT": working_tree_fingerprint(root, exclude_paths={artifact_rel}),
-    }
-    if any(values.get(key) != value for key, value in expected.items()) or values["VERDICT"] != "COMPLETE":
-        die("OMP completeness artifact does not match the pending current request; rerun `delivery completion-review --prepare`")
-    del ledger["pendingCompletenessReview"]
-    ledger["completenessReview"] = {
-        "status": "complete",
-        "verdict": "COMPLETE",
-        "artifact": artifact_rel,
-        "artifactSha256": hashlib.sha256(artifact_bytes).hexdigest(),
-        "responseId": values["COMPLETENESS_REVIEW_RESPONSE_ID"],
-        "reviewerIdentity": values["REVIEWER_IDENTITY"],
-        "planSha256": values["PLAN_SHA256"],
-        "worktreeFingerprint": values["WORKTREE_FINGERPRINT"],
-        "acceptedAt": utc_now(),
-    }
-    ledger.setdefault("evidence", {}).setdefault("completenessReview", {}).update(
-        {"status": "pass", "artifact": artifact_rel, "summary": "OMP reviewer returned COMPLETE", "updatedAt": utc_now()}
-    )
-    append_history(ledger, "completeness_review", "OMP completeness review accepted", artifact=artifact_rel)
-    refresh_git_fields(ledger, root)
-    write_json(path, ledger)
-    print(f"OMP completeness review accepted -> {artifact_rel}")
-    return 0
-
-
-def cmd_completion_review(args: argparse.Namespace) -> int:
-    """Launch, rerequest, or accept the visible labeled-tab Pi completeness review."""
-    path, ledger, root = load_ledger_for(args)
-    if is_omp_lite(ledger):
-        return cmd_omp_completion_review(args, path, ledger, root)
-    labels = ledger.get("labels") or {}
-    review = ledger.get("completenessReview") or {}
-    source_pane = args.pane or os.environ.get("HERDR_PANE_ID") or labels.get("herdrPaneId")
-    reviewer_name = args.agent_name or review.get("agentName") or completeness_reviewer_name(ledger)
-
-    if args.waive:
-        if not args.summary:
-            die("completion-review --waive requires --summary describing the direct operator waiver")
-        witness_tab = review.get("tabId")
-        ledger["completenessReview"] = {"status": "waived", "summary": args.summary, "waivedAt": utc_now()}
-        append_history(ledger, "completeness_review", "operator waived visible completeness review")
-        if witness_tab:
-            enqueue_tab_retire(ledger, str(witness_tab), "completeness-waived")
-            retire_pending_tabs(ledger, caller_tab=caller_tab_id())
-        refresh_git_fields(ledger, root)
-        write_json(path, ledger)
-        print("visible completeness review waived")
-        return 0
-
-    if args.accept:
-        reviewer_pane = review.get("paneId")
-        if not reviewer_pane:
-            die("no visible completeness reviewer is recorded; run `delivery completion-review` first")
-        plan_fingerprint = plan_sha256(ledger, root)
-        if not plan_fingerprint:
-            die("cannot accept completeness review: recorded plan is missing, outside this worktree, or unreadable")
-        if review.get("planSha256") != plan_fingerprint or review.get("worktreeFingerprint") != working_tree_fingerprint(root):
-            die("cannot accept completeness review: request is stale for the current plan or worktree; run `delivery completion-review --rerun`")
-        request_id = review.get("requestId")
-        if not isinstance(request_id, str) or not request_id:
-            die("recorded completeness review has no request ID; run `delivery completion-review --rerun`")
-        transcript = read_completeness_transcript(reviewer_name, root, request_id)
-        parsed = parse_completeness_transcript(transcript, request_id)
-        verdict = parsed.get("verdict")
-        if not parsed.get("accepted"):
-            die("visible reviewer completeness response rejected: " + str(parsed.get("diagnostic")) + "; address findings and run `delivery completion-review --rerun`")
-        artifact_path, artifact_rel = completion_artifact_path(root, ledger, args.artifact)
-        artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        artifact_transcript = "\n".join(line.rstrip() for line in transcript.splitlines()) + "\n"
-        artifact_path.write_text(
-            f"# Visible completeness review\n\n- Reviewer: {reviewer_name}\n- Model: {COMPLETENESS_REVIEW_MODEL}\n- Accepted: {utc_now()}\n\n## Transcript\n\n{artifact_transcript}",
-            encoding="utf-8",
-        )
-        witness_tab = review.get("tabId")
-        ledger["completenessReview"] = {
-            **review,
-            "status": "complete",
-            "verdict": verdict,
-            "artifact": artifact_rel,
-            "planSha256": plan_fingerprint,
-            "worktreeFingerprint": working_tree_fingerprint(root),
-            "acceptedAt": utc_now(),
-        }
-        ev = ledger.setdefault("evidence", {}).setdefault("completenessReview", {})
-        ev.update({"status": "pass", "artifact": artifact_rel, "summary": "Visible Grok 4.6 reviewer returned COMPLETE", "updatedAt": utc_now()})
-        append_history(ledger, "completeness_review", "visible Grok 4.6 review accepted", agent=reviewer_name, paneId=str(reviewer_pane), artifact=artifact_rel)
-        if witness_tab:
-            enqueue_tab_retire(ledger, str(witness_tab), "completeness-accepted")
-            retire_pending_tabs(ledger, caller_tab=caller_tab_id())
-        refresh_git_fields(ledger, root)
-        write_json(path, ledger)
-        print(f"visible completeness review accepted -> {artifact_rel}")
-        return 0
-
-    if not source_pane:
-        die("completion-review needs --pane, HERDR_PANE_ID, or a delivery spawn pane")
-    request_id = uuid.uuid4().hex
-    prompt = completeness_review_prompt(ledger, root, rerun=bool(args.rerun), request_id=request_id)
-    start_command = [
-        "herdr", "agent", "start", reviewer_name, "--kind", "pi", "--pane", "<reviewer-pane>",
-        "--timeout", str(args.timeout_ms), "--", "--model", COMPLETENESS_REVIEW_MODEL,
-    ]
-
-    if args.dry_run:
-        workspace_id = resolve_workspace_id(ledger, str(source_pane))
-        label = agent_tab_label("complete", ledger)
-        print(json.dumps({
-            "sourcePane": source_pane,
-            "reviewerName": reviewer_name,
-            "model": COMPLETENESS_REVIEW_MODEL,
-            "rerun": bool(args.rerun),
-            "tabCreateCommand": ["herdr", *build_tab_create_command(workspace_id, root, label)],
-            "startCommand": start_command,
-            "prompt": prompt,
-        }, indent=2))
-        return 0
-
-    if args.rerun:
-        reviewer_pane = review.get("paneId")
-        if not reviewer_pane:
-            die("no visible completeness reviewer is recorded; run `delivery completion-review` first")
-        reviewer_tab = review.get("tabId")
-        if not reviewer_tab:
-            die(
-                "recorded completeness reviewer has no tab metadata; run `delivery completion-review` "
-                "without --rerun to create a fresh labeled tab"
-            )
-        agent_tab = {
-            "paneId": str(reviewer_pane),
-            "tabId": str(reviewer_tab),
-            "label": str(review.get("tabLabel") or agent_tab_label("complete", ledger)),
-        }
-    else:
-        agent_tab = create_labeled_agent_tab(
-            ledger=ledger,
-            root=root,
-            source_pane=str(source_pane),
-            role="complete",
-        )
-        reviewer_pane = agent_tab["paneId"]
-        started = start_agent_on_pane(
-            root=root,
-            agent_name=reviewer_name,
-            pane_id=str(reviewer_pane),
-            timeout_ms=int(args.timeout_ms),
-            extra_args=["--", "--model", COMPLETENESS_REVIEW_MODEL],
-        )
-        if started.returncode != 0:
-            detail = (started.stderr or started.stdout).strip()
-            close_status = retire_tab(
-                agent_tab["tabId"],
-                "completeness-start-failed",
-                caller_tab=caller_tab_id(),
-            )
-            if close_status == "closed":
-                append_history(
-                    ledger,
-                    "tab_retired",
-                    "completeness-start-failed",
-                    tabId=agent_tab["tabId"],
-                )
-                write_json(path, ledger)
-            die(f"could not start visible completeness reviewer: {detail}")
-
-    requested = run_cmd(["herdr", "agent", "prompt", reviewer_name, prompt], cwd=root)
-    if requested.returncode != 0:
-        die(f"could not prompt visible completeness reviewer: {(requested.stderr or requested.stdout).strip()}")
-
-    ledger["completenessReview"] = {
-        "status": "pending",
-        "agentName": reviewer_name,
-        "paneId": str(reviewer_pane),
-        "tabId": agent_tab["tabId"],
-        "tabLabel": agent_tab["label"],
-        "model": COMPLETENESS_REVIEW_MODEL,
-        "requestId": request_id,
-        "requestLedgerRevision": int(ledger.get("ledgerRevision") or 0),
-        "planSha256": plan_sha256(ledger, root),
-        "worktreeFingerprint": working_tree_fingerprint(root),
-        "lastRequestedAt": utc_now(),
-        "round": int(review.get("round") or 0) + 1,
-    }
-    ledger.setdefault("evidence", {}).setdefault("completenessReview", {}).update({"status": "pending", "updatedAt": utc_now()})
-    append_history(
-        ledger,
-        "completeness_review",
-        "visible Grok 4.6 review requested",
-        agent=reviewer_name,
-        paneId=str(reviewer_pane),
-        tabId=agent_tab["tabId"],
-        tabLabel=agent_tab["label"],
-        rerun=bool(args.rerun),
-    )
-    refresh_git_fields(ledger, root)
-    write_json(path, ledger)
-    print(
-        f"visible completeness reviewer: {reviewer_name} in tab {agent_tab['tabId']} "
-        f"({agent_tab['label']}) / pane {reviewer_pane}"
-    )
-    print("next: read the reviewer response, fix any in-plan findings, then run `delivery completion-review --rerun`; after COMPLETE run `delivery completion-review --accept`")
-    return 0
-
-
 def cmd_blocker(args: argparse.Namespace) -> int:
     path, ledger, root = load_ledger_for(args)
     text = " ".join(args.text).strip()
@@ -4639,12 +4073,8 @@ def agent_start_prompt(
     if workflow_profile == "omp-lite":
         route = (
             "3. Continue in this same OMP session through normal-mode planning, implementation, "
-            "PM outcome review, autoreview, OMP completeness review, verification, and PR.\n"
-            "   Never launch Pi or hand implementation to another agent. At completeness, run "
-            "`delivery completion-review --prepare --reviewer-identity "
-            "omp-completeness-grok-4.5-high`, send its packet to `@completeness` "
-            "(xai/grok-4.5:high), write the exact response artifact, then run "
-            "`delivery completion-review --accept`.\n"
+            "PM outcome review, autoreview, verification, and PR.\n"
+            "   Never launch Pi or hand implementation to another agent.\n"
             "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
             "5. Reflection and adversarial QA are optional and never gate OMP completion.\n"
         )
@@ -4652,7 +4082,7 @@ def agent_start_prompt(
         route = (
             "3. Continue from the current state's recommended next step using existing worker skills\n"
             "   (reviewed-html-plan / dev-plan → Luna-xhigh/Terra-high profile decision → GPT-5.6 Luna at xhigh "
-            "or Terra high for judgment-heavy work → Terra autoreview → Grok completeness → PR).\n"
+            "or Terra high for judgment-heavy work → Terra autoreview → PR).\n"
             "   During `PLAN_BROWSER_REVIEW`, integrate ordinary feedback but wait for Doct's explicit\n"
             "   `Request execution-ready review` action before PM or technical readiness review.\n"
             "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
@@ -5313,21 +4743,9 @@ implementation to another process. The ledger is the shared scoreboard, not the 
 3. Record material progress with `delivery stage` and `delivery record`.
 4. Refresh this brief after material progress with `delivery bootstrap --refresh`.
 
-## OMP completeness
-
-Only if the operator asked for a plan walk: at `COMPLETENESS_REVIEW`, run
-`delivery completion-review --prepare --reviewer-identity
-omp-completeness-grok-4.5-high`. Send the emitted packet unchanged to
-`@completeness` on `xai/grok-4.5:high`. Write its exact seven-line response
-envelope to the packet's artifact path, then run
-`delivery completion-review --accept --response-id <id>`. Fix an `INCOMPLETE`
-result and prepare a fresh request; never reuse a response ID. Skip this
-section when they did not ask.
-
 PM outcome review, autoreview, final verification, and PR evidence remain
-required. Completeness is on-request and never gates OMP completion.
-Reflection and adversarial QA are optional and never gate OMP completion or
-change the visible OMP phase.
+required. Reflection and adversarial QA are optional and never gate OMP
+completion or change the visible OMP phase.
 
 ## Current advisories
 
@@ -5379,8 +4797,8 @@ def render_agent_brief(ledger: dict[str, Any], path: Path) -> str:
 
     return f"""# Delivery agent brief
 
-Generated: {utc_now()}\x20\x20
-Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization, independent Sol-medium plan review, a recorded single-writer implementation handoff, and completeness evidence are explicit boundaries. Luna xhigh is the default implementation profile; Terra high is for judgment-heavy correctness, and unresolved consequential choices may escalate to Oracle. The recommended model may be overridden manually with a recorded reason.
+Generated: {utc_now()}  
+Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization, independent Sol-medium plan review, and a recorded single-writer implementation handoff are explicit boundaries. Luna xhigh is the default implementation profile; Terra high is for judgment-heavy correctness, and unresolved consequential choices may escalate to Oracle. The recommended model may be overridden manually with a recorded reason.
 
 ## This worktree
 
@@ -5404,7 +4822,7 @@ Doctrine: **guidance, not gates** for advisory evidence. Readiness authorization
 Keep this worktree moving through:
 
 ```text
-plan ↔ Sol-medium planner decision → GPT-5.6 Luna at xhigh by default or Terra high for judgment-heavy work → Terra autoreview → Grok completeness → PR
+plan ↔ Sol-medium planner decision → GPT-5.6 Luna at xhigh by default or Terra high for judgment-heavy work → Terra autoreview → PR
 ```
 
 You are the planning/driving agent through reviewed-plan readiness. Use existing worker skills for real work.
@@ -5454,7 +4872,7 @@ Use `delivery stage EXECUTION_READY --hold` only when the operator explicitly re
 
 The new agent runs `delivery verify-implementation-profile` (which retires the previous owner tab) and then `delivery stage IMPLEMENTING`; the stage rejects missing/stale authorization, launch evidence, plan review, or a runtime that does not match the recorded profile. If launch failed, delivery closes the failed shell tab; retry with `delivery start-implementation`. Delivery reconciles the expected live Pi agent after a shell-readiness race. If material Doct feedback changes the contract before implementation, update the plan, revoke authorization, and return to `PLAN_BROWSER_REVIEW` for a fresh readiness cycle.
 
-**Workspace owner chrome:** labels and focus follow ledger `workspaceOwner`, not ambient `HERDR_TAB_ID`. Completeness review uses a short-lived witness tab that is closed after `--accept` or `--waive`. After a tab is closed, evidence is ledger + artifacts + Pi session transcripts—not the retired TUI.
+**Workspace owner chrome:** labels and focus follow ledger `workspaceOwner`, not ambient `HERDR_TAB_ID`. After a tab is closed, evidence is ledger + artifacts + Pi session transcripts—not the retired TUI.
 
 ## Recommended next step
 
@@ -5532,7 +4950,7 @@ Skip only if there is truly nothing process-shaped to capture; prefer a short ho
 ## Rules of the road
 
 - Do **not** reimplement run-plan / reviewed-html-plan / autoreview inside ad-hoc prose.
-- Do **not** hard-block the operator on advisory delivery evidence. Enforce explicit readiness, Sol-medium plan review, one recorded implementation pane/runtime, and completeness boundaries. Recommend Luna xhigh by default or Terra high for judgment-heavy work; allow deliberate manual model/reasoning choices when recorded with a reason.
+- Do **not** hard-block the operator on advisory delivery evidence. Enforce explicit readiness, Sol-medium plan review, and one recorded implementation pane/runtime. Recommend Luna xhigh by default or Terra high for judgment-heavy work; allow deliberate manual model/reasoning choices when recorded with a reason.
 - Do **not** require a Linear issue to start; attach it when it exists.
 - Treat generic browser feedback as plan iteration, not an implied execution-ready review request.
 - `execution-ready` requires the current independent Sol-medium planner verdict and automatically authorizes the exact reviewed plan for implementation in delivery-managed Herdr runs.
@@ -5720,7 +5138,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--from",
         dest="from_existing_implementation",
         choices=("existing-implementation",),
-        help="Attach at SCOPED_REVIEW after a non-delivery implementation (review/completeness/PR only)",
+        help="Attach at SCOPED_REVIEW after a non-delivery implementation (review/PR only)",
     )
     p_arm.add_argument("--issue", help="Linear/issue key if known")
     p_arm.add_argument("--slug", help="Feature slug when no issue yet")
@@ -5918,25 +5336,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_receipt.add_argument("artifact", help="Receipt JSON path")
     p_receipt.add_argument("--command", choices=["install", "transaction", "remote-hosts"], help="Require this receipt command")
     p_receipt.set_defaults(func=cmd_record_receipt)
-
-    p_completion = sub.add_parser(
-        "completion-review",
-        help="Prepare, launch, or accept the runtime-specific plan-completeness reviewer",
-    )
-    add_json_flag(p_completion)
-    p_completion.add_argument("--pane", help="Driving agent's Herdr pane id (defaults to HERDR_PANE_ID or delivery spawn pane)")
-    p_completion.add_argument("--agent-name", help="Override the generated completeness reviewer name")
-    p_completion.add_argument("--rerun", action="store_true", help="Prompt the existing reviewer after the driving agent addresses findings")
-    p_completion.add_argument("--accept", action="store_true", help="Capture the latest visible COMPLETE verdict and record it")
-    p_completion.add_argument("--prepare", action="store_true", help="Prepare an OMP reviewer packet and response envelope")
-    p_completion.add_argument("--response-id", help="OMP response ID required by --accept")
-    p_completion.add_argument("--reviewer-identity", help="OMP reviewer identity recorded in the response envelope")
-    p_completion.add_argument("--waive", action="store_true", help="Record a direct operator waiver instead of a clean completeness verdict")
-    p_completion.add_argument("--summary", help="Required with --waive; records the direct operator waiver")
-    p_completion.add_argument("--artifact", help="Artifact path for --accept (default thoughts/validation/<slug>-completeness.md)")
-    p_completion.add_argument("--dry-run", action="store_true", help="Print the tab-create/start/prompt contract without changing Herdr")
-    p_completion.add_argument("--timeout-ms", type=int, default=60000, help="Reviewer Pi startup timeout (default 60000)")
-    p_completion.set_defaults(func=cmd_completion_review)
 
     p_block = sub.add_parser("blocker", help="Add or clear blocker notes")
     p_block.add_argument("text", nargs="*")

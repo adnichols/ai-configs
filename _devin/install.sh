@@ -9,7 +9,6 @@ SOURCE_AGENTS=(
   "$SOURCE_DIR/agents/oracle.md"
   "$SOURCE_DIR/agents/planner.md"
   "$SOURCE_DIR/agents/reviewer.md"
-  "$SOURCE_DIR/agents/completeness.md"
 )
 
 for source in "$SOURCE_GUIDANCE" "${SOURCE_AGENTS[@]}"; do
@@ -68,5 +67,6 @@ install_managed_file "$SOURCE_GUIDANCE" "$TARGET_ROOT/AGENTS.md" 0644 "Devin gui
 for source in "${SOURCE_AGENTS[@]}"; do
   install_managed_file "$source" "$TARGET_ROOT/agents/$(basename -- "$source")" 0644 "Devin agent"
 done
+rm -f -- "$TARGET_ROOT/agents/completeness.md"
 
 echo "Devin CLI global configuration installed"

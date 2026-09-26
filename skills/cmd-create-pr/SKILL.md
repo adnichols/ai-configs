@@ -230,7 +230,6 @@ PR: <url>
 ### Gates completed
 - Implementation-stage PM: pass, waived, or not-run
 - Autoreview: pass, waived, or operator-override. Artifact and reviewer model if present. `not-run` is only valid when the operator explicitly overrode the gate.
-- Completeness: COMPLETE, waived, or not-run. Artifact if present.
 - Verification: commands and result, or not-run
 - Base freshness: current, rebased, or not-run
 - Permanent docs: the recorded disposition, n/a, or not-run
@@ -238,7 +237,7 @@ PR: <url>
 ```
 
 Include every row. `not-run` is a valid value for Implementation-stage PM,
-Completeness, Verification, Base freshness, Permanent docs, and PR snapshot.
+Verification, Base freshness, Permanent docs, and PR snapshot.
 Autoreview is the exception: it must be `pass`, `waived`, or
 `operator-override`; `not-run` means step 5b was skipped and the PR should not
 have been created. An ad-hoc PR that skipped run-plan still uses this list
