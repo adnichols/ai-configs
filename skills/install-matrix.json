@@ -687,7 +687,7 @@
         "devin"
       ],
       "canonicalSource": "skills/reviewed-html-plan",
-      "notes": "Creates and gates HTML plans through Doct browser feedback, PM review, and an independent Pi planner-subagent review pinned to GPT-5.6 Sol medium; that planner selects GPT-5.6 Luna xhigh by default or GPT-5.6 Terra high when correctness depends materially on technical judgment, and delivery launches the selected dedicated agent.",
+      "notes": "Creates and gates HTML plans through Doct browser feedback, PM review, and an independent Pi planner-subagent review pinned to GPT-6 Sol medium; that planner selects GPT-5.6 Luna xhigh by default or GPT-5.6 Terra high when correctness depends materially on technical judgment, and delivery launches the selected dedicated agent.",
       "sourceType": "repo"
     },
     "rust-engineer": {
