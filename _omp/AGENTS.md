@@ -69,19 +69,12 @@ the final report helps keep these responsibilities visible.
   delivery state. The skill is authoritative for all workflow details.
 
 
-## ADN runtime routing
-
-When ADN / pstack mode or one of its skills is active, read
-`skill://adn-mode/references/omp-runtime.md`. That contract governs retained
-Cursor examples throughout its leaf skills and playbooks. Cleanup uses the
-managed `deslop` skill and the `comment-sicko` agent through `no-comments`;
-neither requires an OMP plugin.
-
 ## Tool routing
 
-- `eval` backends are disabled. Do not call `eval`. Use `read`, `grep`, and
-  `bash` for inspection; `edit` for existing files; `write` for new files;
-  `bash` for a committed lever.
+- `eval` Python and JS backends are enabled for computation, data shaping,
+  and scratch work. `eval` never writes tracked files; the
+  `eval-no-file-writes` extension blocks that. Use `edit` for existing files,
+  `write` for new files, and `bash` for a committed lever.
 - The adn-mode **Eval** playbook (blind skill A/B tests) is not the `eval`
   tool.
 

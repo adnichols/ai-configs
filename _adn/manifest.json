@@ -624,7 +624,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "d12fb61dd90909e62de4f086a28bf18d50f3a5c5ec2695311f10e35875d22495",
+      "checksum": "296a0f848d31b3899888f8b72c8a78d7298a80e699a4611863f3dac3d8afb28d",
       "sourceSha": "ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
       "triggerClass": "explicit-then-automatic",
       "sourcePath": "pstack/skills/poteto-mode/SKILL.md",
@@ -1594,7 +1594,7 @@
       "runtimeMarker": "# OMP runtime contract",
       "provingTest": "tests/omp-runtime.test.ts",
       "targetPath": "skills/adn-mode/references/omp-runtime.md",
-      "checksum": "48abe42b44373e5270b3e5866458c760a84e2859b5767fac9820f067f7db2d9a"
+      "checksum": "595ab4534e749b391f2b47d5f1284837ae5bdfb6e9d4b2248113fbbca54c1506"
     }
   ]
 }

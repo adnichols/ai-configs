@@ -6,7 +6,7 @@ Read this contract when using ADN or any of its routed skills in OMP. It takes p
 
 The driving session owns implementation, tests, fixes, Git, and external actions. Repository and user instructions govern scope and authorization. Mode activation does not authorize publishing a PR, merging, messaging others, deploying, changing branches, or editing another repository. A broken skill does not authorize a separate PR. Delivery stays explicit opt-in under the OMP guidance.
 
-Use `read`, `grep`, `glob`, and `bash` for inspection, `edit` and `write` for changes, and the native todo tool for task tracking. OMP `eval` is disabled. Read the actual tool schemas before calling tools; Cursor `Task`, `Agent`, `AskQuestion`, Plan Mode, cloud workers, `computerUse`, and `hub` are not OMP requirements.
+Use `read`, `grep`, `glob`, and `bash` for inspection, `edit` and `write` for changes, and the native todo tool for task tracking. OMP `eval` (Python and JS) is available for computation and scratch work; it never writes tracked files. Read the actual tool schemas before calling tools; Cursor `Task`, `Agent`, `AskQuestion`, Plan Mode, cloud workers, `computerUse`, and `hub` are not OMP requirements.
 
 ## Independent agents
 
