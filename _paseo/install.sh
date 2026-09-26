@@ -32,11 +32,33 @@ install_skill_dir() {
   local target="$2"
   local name
   name="$(basename -- "$source")"
-  local backup="${target}.before-ai-configs"
+  local skill_root
+  skill_root="$(dirname -- "$target")"
+  local backup_root
+  backup_root="$(dirname -- "$skill_root")/.paseo-skill-backups"
+  local backup="$backup_root/$name"
+  local legacy_backup="${target}.before-ai-configs"
+
+  # Older installers preserved replaced skills beside the active skill. Skill
+  # discovery treated that backup as another skill with the same frontmatter
+  # name, so move it outside the discovery root before installing anything.
+  if [[ -e "$legacy_backup" ]]; then
+    mkdir -p "$backup_root"
+    if [[ ! -e "$backup" ]]; then
+      mv "$legacy_backup" "$backup"
+    elif diff -r -q "$legacy_backup" "$backup" >/dev/null 2>&1; then
+      rm -rf -- "$legacy_backup"
+    else
+      echo "Conflicting Paseo skill backups at $legacy_backup and $backup; refusing to discard either" >&2
+      exit 1
+    fi
+    echo "Moved previous Paseo skill $name outside the skill discovery root to $backup"
+  fi
 
   mkdir -p "$(dirname -- "$target")"
   if [[ -d "$target" ]] && ! diff -r -q --exclude='.paseo-managed-files.json' "$source" "$target" >/dev/null 2>&1; then
     if [[ ! -e "$backup" ]]; then
+      mkdir -p "$backup_root"
       cp -a "$target" "$backup"
       echo "Preserved previous Paseo skill $name at $backup"
     fi

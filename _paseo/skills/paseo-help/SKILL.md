@@ -1,6 +1,6 @@
 ---
 name: paseo-help
-description: Answer questions about the Paseo product and app, including setup, configuration, connectivity, providers, workspaces, updates, logs, and troubleshooting. Use when a user inside Paseo asks how Paseo works, how to configure it, or why something is broken; use the paseo skill instead to operate agents and workspaces through MCP or the CLI.
+description: Troubleshoot the Paseo product itself, including setup, daemon connectivity, providers, configuration, updates, and Paseo-owned logs. Do not use for errors from commands merely running inside a Paseo terminal; inspect those with the paseo CLI and diagnose the underlying command.
 ---
 
 # Paseo Help
@@ -8,6 +8,12 @@ description: Answer questions about the Paseo product and app, including setup, 
 You are helping a user understand, configure, or troubleshoot Paseo itself. Answer their question directly, verify the answer against the current public documentation, and include the relevant documentation link. Do not send the user away to read the docs in place of helping them.
 
 **User's question:** $ARGUMENTS
+
+## Routing boundary
+
+Use this skill only when Paseo itself is the subject of the problem. An error from Wrangler, a build, a test, or another command shown in a Paseo terminal is not a Paseo product problem. Use the `paseo` skill and CLI to capture the terminal output, then diagnose the command and its owning repository.
+
+For Paseo diagnostics, use the CLI or dedicated Paseo MCP tools. Never use computer-use, CUA, screenshots, or desktop automation to control or inspect Paseo, even when the user refers to a tab or UI element. If those tools cannot perform the action, state the limitation.
 
 ## Use current documentation
 
@@ -33,7 +39,7 @@ Establish two facts:
    - direct LAN, VPN, or Tailscale connection
    - daemon-served web UI
 
-Use **Settings → About** to compare the app version with each connected host. For the affected host, open **Settings → your host → Overview → Full status**. On the daemon machine, `paseo daemon status --json` reports facts such as server ID, hostname, version, home, listen address, process owner, log path, and whether the daemon is desktop-managed.
+Start with `paseo daemon status --json` on the affected daemon machine. It reports facts such as server ID, hostname, version, home, listen address, process owner, log path, and whether the daemon is desktop-managed. Use **Settings → About** and **Settings → your host → Overview → Full status** only when the user explicitly wants the UI path or the CLI is unavailable.
 
 Record which host the user is viewing and which machine or container runs it. A local `paseo daemon status` describes the daemon for that CLI's local `PASEO_HOME`; it may not be the remote host visible in the app.
 
@@ -59,7 +65,7 @@ paseo provider diagnostic <provider> --json
 
 Use the status-reported home, listen address, and log path for further checks. Probe `http://127.0.0.1:6767/api/health` or read `~/.paseo/daemon.log` only when those values match the affected daemon. Do not restart the daemon, edit config, update software, or expose a network listener without the user's explicit permission. A daemon restart can interrupt the agent doing the diagnosis.
 
-For a missing provider or `command not found`, run `paseo provider diagnostic <provider>` against the affected host, or open **Settings → your host → Providers → provider → Diagnostic**. Compare its resolved binary, daemon `PATH`, and provider version with a brand-new login shell. Shell aliases and functions are not executable paths.
+For a missing provider or `command not found`, run `paseo provider diagnostic <provider>` against the affected host. If the user explicitly wants the UI path, the equivalent is **Settings → your host → Providers → provider → Diagnostic**. Compare its resolved binary, daemon `PATH`, and provider version with a brand-new login shell. Shell aliases and functions are not executable paths.
 
 ## Logs and local files
 

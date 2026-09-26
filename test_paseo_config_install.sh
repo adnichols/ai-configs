@@ -28,6 +28,8 @@ mkdir -p "$SKILLS_A/paseo"
 printf 'locally tuned\n' > "$SKILLS_A/paseo/SKILL.md"
 printf '{"files":{}}\n' > "$SKILLS_A/paseo/.paseo-managed-files.json"
 printf 'stale extra\n' > "$SKILLS_A/paseo/EXTRA.md"
+mkdir -p "$SKILLS_B/paseo.before-ai-configs"
+printf 'legacy backup\n' > "$SKILLS_B/paseo.before-ai-configs/SKILL.md"
 
 run_install
 
@@ -48,8 +50,18 @@ for root in "$SKILLS_A" "$SKILLS_B" "$SKILLS_C"; do
     cmp -s "$REPO_ROOT/_paseo/skills/$skill/SKILL.md" "$root/$skill/SKILL.md"
     test ! -e "$root/$skill/.paseo-managed-files.json"
   done
+  test -z "$(find "$root" -mindepth 1 -maxdepth 1 -type d -name '*.before-ai-configs' -print -quit)"
 done
 test ! -e "$SKILLS_A/paseo/EXTRA.md"
+grep -q 'locally tuned' "$TMP_ROOT/home/.agents/.paseo-skill-backups/paseo/SKILL.md"
+grep -q 'stale extra' "$TMP_ROOT/home/.agents/.paseo-skill-backups/paseo/EXTRA.md"
+grep -q 'legacy backup' "$TMP_ROOT/home/.claude/.paseo-skill-backups/paseo/SKILL.md"
+
+# The vendored routing contract keeps semantic Paseo state off computer-use.
+grep -q 'Use the `paseo` CLI first' "$REPO_ROOT/_paseo/skills/paseo/SKILL.md"
+grep -q 'Never use CUA, computer-use, screenshots, or desktop automation to control or inspect Paseo' "$REPO_ROOT/_paseo/skills/paseo/SKILL.md"
+grep -q 'Never use computer-use, CUA, screenshots, or desktop automation to control or inspect Paseo' "$REPO_ROOT/_paseo/skills/paseo-help/SKILL.md"
+grep -q 'An error from Wrangler, a build, a test, or another command shown in a Paseo terminal is not a Paseo product problem' "$REPO_ROOT/_paseo/skills/paseo-help/SKILL.md"
 
 # --- Second install still does not clobber a host profile edit ---
 python3 - "$PASEO_HOME/config.json" <<'EOF'

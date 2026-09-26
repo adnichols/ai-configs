@@ -14,7 +14,9 @@ stay on each host.
 - `merge_config.py` — deep-merge installer. Keys named in the managed file
   win; keys absent from it are preserved.
 - `skills/` — repo-owned copies of the `paseo*` skills. Seeded from the
-  `@getpaseo/server` bundle; tune them here.
+  `@getpaseo/server` bundle; tune and evaluate them here. The `paseo` and
+  `paseo-help` overrides route state, logs, and terminal output through the
+  CLI before any UI automation.
 - `install.sh` — merges that one skills-selection key, syncs `skills/` into
   `~/.agents/skills`, `~/.claude/skills`, and `~/.codex/skills`, then runs
   `paseo reload` when a daemon is reachable.
@@ -31,6 +33,10 @@ directories, and this installer owns them instead. Consequences:
   Decline, or rerun `bash _paseo/install.sh` to restore the repo copies.
 - New bundled skills in a Paseo release are not auto-installed; add them to
   `_paseo/skills/` deliberately.
+- Replaced skill copies are preserved under the runtime parent directory's
+  `.paseo-skill-backups/`, outside active skill discovery roots. The installer
+  migrates legacy `*.before-ai-configs` backups out of those roots so stale
+  copies cannot compete with the repo-owned skills.
 
 ## Normal workflow
 

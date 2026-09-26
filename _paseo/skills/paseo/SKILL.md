@@ -1,9 +1,34 @@
 ---
 name: paseo
-description: Paseo reference for managing projects, workspaces, workspace scripts, agents, schedules, and heartbeats.
+description: Inspect and manage Paseo projects, workspaces, terminals, agents, scripts, schedules, and heartbeats. Use the Paseo CLI or dedicated MCP tools; never use CUA or computer-use to control Paseo.
 ---
 
-Paseo is a remote daemon that manages coding agents, terminals. Control it through MCP tools or the CLI.
+Paseo is a remote daemon that manages coding agents and terminals. Treat its CLI and dedicated MCP tools as the source of truth.
+
+## Tool routing
+
+For Paseo status, agents, workspaces, terminals, logs, and command output:
+
+1. Use the `paseo` CLI first.
+2. Use dedicated Paseo MCP tools when they are available and provide a more precise structured operation.
+
+Never use CUA, computer-use, screenshots, or desktop automation to control or inspect Paseo. If the CLI and dedicated Paseo MCP tools do not expose an action, state that limitation; do not substitute a GUI action or claim the operation succeeded. This includes pinning a session. Resolve "tab", "adjacent tab", and "other tab" through workspace, agent, and terminal state.
+
+## Status, agents, and terminals
+
+Use read-only CLI inspection to identify the target workspace and capture its output:
+
+```bash
+paseo workspace ls --json
+paseo ls --json
+paseo terminal ls --cwd <path> --json
+paseo terminal ls --workspace <workspace-id> --json
+paseo terminal capture <terminal-id> --scrollback
+paseo inspect <agent-id>
+paseo logs <agent-id>
+```
+
+Match the requested tab by workspace, working directory, agent title, or terminal name. Capture the exact terminal or agent output rather than reading it from rendered pixels.
 
 ## Projects
 
