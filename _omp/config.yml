@@ -37,7 +37,7 @@ modelRoles:
   tiny: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash:low
   advisor: devin/swe-2:medium
   Oracle: openai-codex/gpt-6-astra:medium
-  reviewer: xai-oauth/grok-4.7:medium
+  reviewer: devin/swe-2:medium
   default: anthropic/claude-opus-5-5:medium
   completeness: xai-oauth/grok-4.7:medium
   architect-grok: xai-oauth/grok-4.7:high
