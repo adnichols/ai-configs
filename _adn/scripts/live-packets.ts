@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { ADN_ROOT, OWNED_ROLES, atomicWrite, flag, parseArgs, sha256 } from "./lib.ts";
+import { ADN_ROOT, agentRoles, atomicWrite, flag, parseArgs, sha256 } from "./lib.ts";
 import { routeRequest } from "./route-request.ts";
 import { disjointWrite, evaluateAuthority, type AuthorityCase } from "./authority.ts";
 
@@ -79,16 +79,15 @@ function inv01() {
     cwd,
     "INV-01",
     "investigation",
-    "Investigate read-only: run `omp config get modelRoles --json` and report whether architect-grok, architect-kimi, and reviewer-kimi appear. Do not edit files.",
+    "Investigate read-only: run `omp config get modelRoles --json` and report whether every role named by an ADN agent appears. Do not edit files.",
   );
   const marks = markers(body, "investigation");
   const out = spawnSync("omp", ["config", "get", "modelRoles", "--json"], { encoding: "utf8" });
   if (out.status !== 0 || !out.stdout.trim()) throw new Error("fail-closed: modelRoles");
   const parsed = JSON.parse(out.stdout);
   if (parsed?.value == null) throw new Error("fail-closed: modelRoles value envelope");
-  const blob = JSON.stringify(parsed.value);
-  for (const role of OWNED_ROLES) {
-    if (!blob.includes(role)) throw new Error(`fail-closed: missing role ${role}`);
+  for (const role of agentRoles()) {
+    if (!parsed.value[role]) throw new Error(`fail-closed: missing role ${role}`);
   }
   return wrap("INV-01", { ok: true, hash: sha256(out.stdout), cleanup: false, ...marks, todos: ["how", "cite"], skips: [] });
 }

@@ -51,7 +51,7 @@ prompt. Do not call `delivery completion-review`.
 
 Launch the reviewer with the active harness's native subagent mechanism:
 
-- **OMP:** `task agent=completeness` on `xai/grok-4.5:high`.
+- **OMP:** `task agent=completeness`; its model comes from the `completeness` role.
 - **Devin:** `run_subagent` with the `completeness` profile
   (`~/.config/devin/agents/completeness.md`); it pins its own model. Run it
   in the foreground, or in the background and join via `read_subagent` with

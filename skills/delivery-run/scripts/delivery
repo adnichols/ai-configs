@@ -4643,7 +4643,7 @@ def agent_start_prompt(
             "   Never launch Pi or hand implementation to another agent. At completeness, run "
             "`delivery completion-review --prepare --reviewer-identity "
             "omp-completeness-grok-4.5-high`, send its packet to `@completeness` "
-            "(xai/grok-4.5:high), write the exact response artifact, then run "
+            "(the `completeness` role), write the exact response artifact, then run "
             "`delivery completion-review --accept`.\n"
             "4. Keep the delivery ledger current with `delivery stage` / `delivery record`.\n"
             "5. Reflection and adversarial QA are optional and never gate OMP completion.\n"
@@ -5318,7 +5318,7 @@ implementation to another process. The ledger is the shared scoreboard, not the 
 Only if the operator asked for a plan walk: at `COMPLETENESS_REVIEW`, run
 `delivery completion-review --prepare --reviewer-identity
 omp-completeness-grok-4.5-high`. Send the emitted packet unchanged to
-`@completeness` on `xai/grok-4.5:high`. Write its exact seven-line response
+`@completeness` (the `completeness` role). Write its exact seven-line response
 envelope to the packet's artifact path, then run
 `delivery completion-review --accept --response-id <id>`. Fix an `INCOMPLETE`
 result and prepare a fresh request; never reuse a response ID. Skip this

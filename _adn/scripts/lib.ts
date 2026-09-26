@@ -1,11 +1,20 @@
 import { createHash } from "node:crypto";
-import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
 export const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
 export const ADN_ROOT = process.env.ADN_ROOT ?? join(homedir(), ".agents", "adn");
-export const OWNED_ROLES = ["architect-grok", "architect-kimi", "reviewer-kimi"] as const;
+// Roles ADN agents resolve through `model: "@<role>"` frontmatter. The models behind them live in OMP config.
+export function agentRoles(agentsDir = join(ADN_ROOT, "agents")): string[] {
+  const roles = new Set<string>();
+  for (const name of readdirSync(agentsDir)) {
+    const match = readFileSync(join(agentsDir, name), "utf8").match(/^model:\s*"?@([\w-]+)"?\s*$/m);
+    if (!match) throw new Error(`fail-closed: ${name} must use model: "@<role>"`);
+    roles.add(match[1]);
+  }
+  return [...roles].sort();
+}
 export const FORBIDDEN = [
   "prompt",
   "message",

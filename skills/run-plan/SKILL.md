@@ -13,9 +13,9 @@ On OMP, load the installed `adn-mode` skill before any other run-plan step and k
 
 Do not load or emulate `adn-mode` on another harness. ADN is the OMP adaptation of poteto mode. Non-OMP runtimes continue with their native run-plan contracts.
 
-On OMP, implementation `task` workers MUST set `model: "@default"`. Named agents (`scout`, `reviewer`, `completeness`, `architect-*`) keep frontmatter models. If a child tool-loops or reports production bugs instead of finishing, `hub cancel` and respawn with that pin.
+On OMP, the `task` tool takes no per-call model. Implementation `task` workers run the `task` role, and named agents (`scout`, `reviewer`, `completeness`, `architect-*`) run the role in their frontmatter. If a child tool-loops or reports production bugs instead of finishing, cancel it and respawn it.
 
-When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before applying runtime-specific instructions. `omp / omp-lite` keeps implementation, scoped review, and PM outcome review in the current `xai-oauth/grok-4.6:high` OMP session; use `openai-codex/gpt-5.6-terra:high` when correctness depends materially on technical judgment. It does not require a dedicated Pi pane, Pi model-profile verification, Pi slash commands, or a Grok tab. `pi / pi-full` retains the dedicated implementation pane and planner-selected profile. Completeness is on-request, not part of this default path. Never convert an existing ledger between profiles.
+When `.delivery/ledger.json` exists, read `runtime` and `workflowProfile` before applying runtime-specific instructions. `omp / omp-lite` keeps implementation, scoped review, and PM outcome review in the current OMP session on its `default` role; use `openai-codex/gpt-5.6-terra:high` when correctness depends materially on technical judgment. It does not require a dedicated Pi pane, Pi model-profile verification, Pi slash commands, or a Grok tab. `pi / pi-full` retains the dedicated implementation pane and planner-selected profile. Completeness is on-request, not part of this default path. Never convert an existing ledger between profiles.
 
 The plan is the contract. Reviews can reveal adjacent problems, but they do not expand the contract unless the user explicitly approves that expansion.
 
@@ -457,14 +457,14 @@ For OMP Lite, stay in the coordinating OMP session:
 ```bash
 delivery stage COMPLETENESS_REVIEW
 delivery completion-review --prepare --reviewer-identity omp-completeness-grok-4.5-high
-# Send the emitted packet unchanged to @completeness (xai/grok-4.5:high).
+# Send the emitted packet unchanged to @completeness (the `completeness` role).
 # Save exactly one seven-line response envelope to the requested artifact.
 delivery completion-review --accept --artifact <artifact> --response-id <id>
 ```
 
 OMP Lite acceptance is request-bound. The response ID, reviewer identity, plan SHA-256, worktree fingerprint, and exact `VERDICT: COMPLETE` envelope must match the pending request; stale, replayed, interrupted, malformed, Pi-origin, or `INCOMPLETE` artifacts are rejected without partial ledger mutation. Fix in-plan findings and prepare a fresh request rather than reusing an accepted or invalid artifact.
 
-When no ledger exists, use the completeness skill standalone path: write a packet JSON with `artifact`, `requiredEnvelope`, and `requiredIncompleteVerdict`; launch `@completeness` on `xai/grok-4.5:high` with `TARGET_CHECKOUT`, the plan, and the packet path. Do not call `delivery completion-review`. If the completeness reviewer is unavailable after the operator asked for it, disclose the miss and continue to PR unless they instructed otherwise.
+When no ledger exists, use the completeness skill standalone path: write a packet JSON with `artifact`, `requiredEnvelope`, and `requiredIncompleteVerdict`; launch `@completeness` (the `completeness` role) with `TARGET_CHECKOUT`, the plan, and the packet path. Do not call `delivery completion-review`. If the completeness reviewer is unavailable after the operator asked for it, disclose the miss and continue to PR unless they instructed otherwise.
 
 This loop is separate from the active-harness reviewer-cycle budget because it checks plan completion rather than re-running the same code-review gate. If the same plan-completeness disagreement remains unresolved after three correction/rereview rounds, stop with the concrete criterion and smallest required operator decision; do not fabricate consensus. A missing or incomplete completeness walk does not block PR creation.
 

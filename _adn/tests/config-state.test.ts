@@ -1,15 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import {
-  ADN_ROLES,
-  mergeRoles,
-  parseRolesEnvelope,
-  resolveProfile,
-  withLock,
-  applyRoleMerge,
-} from "../scripts/config-state.ts";
+import { parseRolesEnvelope, readRoles, resolveProfile } from "../scripts/config-state.ts";
 
 function throughPhase(): number {
   const i = process.argv.indexOf("--through");
@@ -31,39 +24,21 @@ describe.skipIf(!RUN)("config-state", () => {
     expect(() => parseRolesEnvelope(JSON.stringify({ key: "modelRoles", type: "record" }))).toThrow(/fail-closed/);
   });
 
-  test("merge preserves unrelated keys", () => {
-    const next = mergeRoles({ reviewer: "keep", default: "xai" }, ADN_ROLES);
-    expect(next.reviewer).toBe("keep");
-    expect(next.default).toBe("xai");
-    expect(next["architect-grok"]).toBe("xai-oauth/grok-4.7:high");
-    expect(next["architect-kimi"]).toBe("devin/swe-2:max");
-    expect(next["reviewer-kimi"]).toBe("devin/swe-2:max");
-  });
-
   test("neutral cwd profile matches omp config path", () => {
     const profile = resolveProfile({ cwd: "/tmp", env: { ...process.env, PI_CONFIG_FILES: "should-not-win" } });
     expect(profile).toBe("/Users/anichols/.omp/agent");
   });
 
-  test("agent-root never writes live settings", () => {
-    const root = mkdtempSync(join(tmpdir(), "adn-agent-"));
+  test("agent root reads modelRoles from its config.yml and fails closed without the key", () => {
+    const root = mkdtempSync(join(tmpdir(), "adn-roles-"));
     try {
-      const result = applyRoleMerge({ agentRoot: root });
-      expect(result.profile).toBe(root);
-      expect(result.roles["architect-grok"]).toBe(ADN_ROLES["architect-grok"]);
+      expect(readRoles({ agentRoot: root })).toBeNull();
+      writeFileSync(join(root, "config.yml"), "modelRoles:\n  reviewer: devin/swe-2:high\n");
+      expect(readRoles({ agentRoot: root })).toEqual({ reviewer: "devin/swe-2:high" });
+      writeFileSync(join(root, "config.yml"), "theme: dark\n");
+      expect(() => readRoles({ agentRoot: root })).toThrow(/fail-closed/);
     } finally {
       rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  test("lock is exclusive", () => {
-    const dir = mkdtempSync(join(tmpdir(), "adn-lock-"));
-    const lock = join(dir, "config.lock");
-    mkdirSync(lock);
-    try {
-      expect(() => withLock(lock, () => 1)).toThrow(/lock held/);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

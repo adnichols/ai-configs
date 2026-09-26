@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { flag, parseArgs } from "./lib.ts";
+import { agentRoles, flag, parseArgs } from "./lib.ts";
 
 const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
 const { cmd, flags } = parseArgs();
@@ -45,7 +45,7 @@ if (cmd === "live" || cmd === "live-smokes") {
   }
   const roles = spawnSync("omp", ["config", "get", "modelRoles", "--json"], { encoding: "utf8" });
   const value = JSON.parse(roles.stdout).value ?? {};
-  for (const key of ["architect-grok", "architect-kimi", "reviewer-kimi"]) {
+  for (const key of agentRoles()) {
     if (!value[key]) missing.push(`role:${key}`);
   }
   const plugins = spawnSync("omp", ["plugin", "list", "--json"], { encoding: "utf8" });

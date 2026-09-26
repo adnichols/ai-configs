@@ -150,7 +150,6 @@ type Manifest = {
     license: string;
     reviewDate: string;
   };
-  roles: Record<string, string>;
   assets: ManifestRow[];
 };
 
@@ -183,9 +182,6 @@ describe("ADN manifest", () => {
     expect(manifest.upstream.pin).toBe(PIN);
     expect(manifest.upstream.license).toBe("MIT");
     expect(manifest.upstream.url).toContain("cursor/plugins");
-    expect(manifest.roles["architect-grok"]).toBe("xai-oauth/grok-4.7:high");
-    expect(manifest.roles["architect-kimi"]).toBe("devin/swe-2:max");
-    expect(manifest.roles["reviewer-kimi"]).toBe("devin/swe-2:max");
 
     const ids = manifest.assets.map((row) => row.id);
     expect(new Set(ids).size).toBe(ids.length);

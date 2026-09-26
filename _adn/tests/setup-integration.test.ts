@@ -41,6 +41,27 @@ describe.skipIf(!RUN)("setup-adn", () => {
     }
   });
 
+  test("apply requires every agent role in OMP config and never rewrites it", () => {
+    const root = mkdtempSync(join(tmpdir(), "adn-setup-roles-"));
+    try {
+      const config = join(root, "config.yml");
+      writeFileSync(config, "modelRoles:\n  architect-grok: a\n  architect-kimi: b\n");
+      const refused = spawnSync("bun", [SCRIPT, "apply", "--agent-root", root], { encoding: "utf8" });
+      expect(refused.status).not.toBe(0);
+      expect(refused.stderr).toContain("undefined-role");
+      expect(existsSync(join(root, "agents", "architect-grok.md"))).toBe(false);
+
+      const complete = "modelRoles:\n  architect-grok: a\n  architect-kimi: b\n  reviewer-kimi: c\n  reviewer: d\n";
+      writeFileSync(config, complete);
+      const apply = spawnSync("bun", [SCRIPT, "apply", "--agent-root", root], { encoding: "utf8" });
+      expect(apply.status, apply.stderr).toBe(0);
+      expect(readFileSync(config, "utf8")).toBe(complete);
+      expect(spawnSync("bun", [SCRIPT, "check", "--agent-root", root], { encoding: "utf8" }).status).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("apply deletes leftover adn-mode wrappers", () => {
     const root = mkdtempSync(join(tmpdir(), "adn-setup-retire-"));
     try {

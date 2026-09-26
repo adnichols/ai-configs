@@ -156,8 +156,8 @@ through `~/.local/bin/delivery`. It preserves the first differing managed file a
 `<name>.before-ai-configs`.
 
 OMP delivery uses the persisted `omp-lite` profile: normal-mode planning,
-same-session `xai-oauth/grok-4.6:high` implementation/scoped/PM review, bounded OMP
-planner/reviewer agents, Grok-high request-bound completeness acceptance,
+same-session `default`-role implementation/scoped/PM review, bounded OMP
+planner/reviewer agents, `completeness`-role request-bound completeness acceptance,
 verification, and PR handoff. It never launches Pi or enables OMP native plan
 mode. Start from OMP with
 `delivery spawn --runtime omp -- "<goal>"`, or bootstrap the current worktree

@@ -7,11 +7,6 @@
     "license": "MIT",
     "reviewDate": "2026-09-26"
   },
-  "roles": {
-    "architect-grok": "xai-oauth/grok-4.7:high",
-    "architect-kimi": "devin/swe-2:max",
-    "reviewer-kimi": "devin/swe-2:max"
-  },
   "assets": [
     {
       "requiredRoles": [],
@@ -589,7 +584,7 @@
       "retainedBehavior": "translated-from-pstack",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/manifest.test.ts",
-      "checksum": "4796a6a0f787beeab85c8b46c6fb9dce62d247e029067f34e6f38fc7aab56a4c",
+      "checksum": "891ae19dafd449178795fc8e03fb74302b453cbd9b84aa462732635c4a014ec7",
       "sourceSha": "ecc249f1e306fc64ddf83c7bed16cacf7c2239db",
       "triggerClass": "explicit-then-automatic",
       "sourcePath": "pstack/skills/poteto-mode/SKILL.md",
@@ -1499,7 +1494,7 @@
       "retainedBehavior": "role-merge-lock",
       "failureBehavior": "fail-closed",
       "provingTest": "tests/config-state.test.ts",
-      "checksum": "3dffbecb33a6f6863f120f12aa97e600d0b79ce1bf366a73b89b2a0455bedbc4",
+      "checksum": "cdc89ebdc87b5909a485c887ecd193519d0e3db1cd8adc0160c5dd777c05a852",
       "targetPath": "scripts/config-state.ts",
       "runtimeMarker": "fail-closed"
     },
@@ -1559,7 +1554,7 @@
       "runtimeMarker": "# OMP runtime contract",
       "provingTest": "tests/omp-runtime.test.ts",
       "targetPath": "skills/adn-mode/references/omp-runtime.md",
-      "checksum": "3926d98e2b1045aa4582795bf50062ea1af4c4c835ae0172b8d8fcecb3ea8249"
+      "checksum": "e2983538ae18314cbdea9003f89f4a0b2563d170b82ce3cb4fee95604887de61"
     }
   ]
 }

@@ -1,8 +1,7 @@
-import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { ADN_ROOT, OWNED_ROLES, atomicWrite, fileSha, flag, parseArgs, withDirLock } from "./lib.ts";
-import { ADN_ROLES, applyRoleMerge, resolveProfile } from "./config-state.ts";
+import { ADN_ROOT, agentRoles, atomicWrite, fileSha, flag, parseArgs, withDirLock } from "./lib.ts";
+import { readRoles, resolveProfile } from "./config-state.ts";
 
 const SKILLS = join(ADN_ROOT, "skills");
 const AGENTS = join(ADN_ROOT, "agents");
@@ -88,9 +87,17 @@ function applyTargets(root: string) {
     records.push({ ...t, pre, post: fingerprint(t.dest) });
   }
   records.push(...retireLeftovers(root));
+  return { targets: records };
+}
+
+// ADN agents name OMP roles. Every named role must be defined; ADN never chooses its model.
+function undefinedRoles(root: string) {
   const isolated = process.argv.includes("--agent-root");
-  const roles = applyRoleMerge(isolated ? { agentRoot: root } : {});
-  return { targets: records, roles: roles.roles };
+  const roles = readRoles(isolated ? { agentRoot: root } : {});
+  if (roles === null) return [];
+  return agentRoles(AGENTS)
+    .filter((role) => !roles[role])
+    .map((role) => ({ target: `role:${role}`, reason: "undefined-role" }));
 }
 
 function checkTargets(root: string) {
@@ -101,30 +108,8 @@ function checkTargets(root: string) {
   for (const dest of [...RETIRED.map((rel) => join(root, rel)), ...RETIRED_SKILLS.map((name) => join(skillRootFor(root), name))]) {
     if (present(dest)) drift.push({ target: dest, reason: "retired" });
   }
-  const isolated = process.argv.includes("--agent-root");
-  const store = join(root, "modelRoles.json");
-  let roles: Record<string, string> = {};
-  if (isolated && existsSync(store)) {
-    roles = JSON.parse(readFileSync(store, "utf8"));
-  } else if (!isolated) {
-    const got = spawnSync("omp", ["config", "get", "modelRoles", "--json"], { encoding: "utf8" });
-    if (got.status !== 0) {
-      drift.push({ target: "modelRoles", reason: "missing" });
-      return drift;
-    }
-    roles = JSON.parse(got.stdout).value ?? {};
-  } else if (!flagProcessExpect()) {
-    drift.push({ target: "modelRoles.json", reason: "missing" });
-    return drift;
-  }
-  for (const key of OWNED_ROLES) {
-    if (roles[key] !== ADN_ROLES[key]) drift.push({ target: `role:${key}`, reason: "owned-role-drift" });
-  }
+  drift.push(...undefinedRoles(root));
   return drift;
-}
-
-function flagProcessExpect() {
-  return process.argv.includes("--expect-owned-role-drift");
 }
 
 function rollback(root: string, tx: string) {
@@ -140,9 +125,6 @@ function rollback(root: string, tx: string) {
     } else {
       cpSync(t.src, t.dest);
     }
-  }
-  if (journal.priorRoles) {
-    atomicWrite(join(root, "modelRoles.json"), JSON.stringify(journal.priorRoles, null, 2) + "\n");
   }
 }
 
@@ -160,17 +142,15 @@ if (agentRoot) process.env.PI_CODING_AGENT_DIR = agentRoot;
 
 const out = withDirLock(root, () => {
   if (cmd === "apply") {
+    const missingRoles = undefinedRoles(root);
+    if (missingRoles.length) throw new Error(`fail-closed: ${JSON.stringify(missingRoles)}`);
     const id = crypto.randomUUID();
-    const priorRoles = existsSync(join(root, "modelRoles.json"))
-      ? JSON.parse(readFileSync(join(root, "modelRoles.json"), "utf8"))
-      : {};
     const applied = applyTargets(root);
     const journal = {
       schemaVersion: 1,
       transactionId: id,
       utc: new Date().toISOString(),
       profile: root,
-      priorRoles,
       ...applied,
     };
     atomicWrite(journalPath(root, id), JSON.stringify(journal, null, 2) + "\n");
@@ -180,10 +160,6 @@ const out = withDirLock(root, () => {
   }
   if (cmd === "check") {
     const drift = checkTargets(root);
-    if (process.argv.includes("--expect-owned-role-drift")) {
-      if (!drift.some((d) => d.reason === "owned-role-drift")) throw new Error("expected owned-role-drift");
-      return { ok: true, drift };
-    }
     if (drift.length) throw new Error(`fail-closed: ${JSON.stringify(drift)}`);
     return { ok: true, drift: [] };
   }

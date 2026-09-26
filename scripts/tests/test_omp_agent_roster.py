@@ -68,33 +68,29 @@ class OmpAgentRosterTest(unittest.TestCase):
             "PLAN_EXECUTION_READY",
             "CWD",
             "REVIEW_ROOT",
-            "xai-oauth/grok-4.6:high",
         ):
             self.assertIn(required, body)
         # Planner never recommends a model: implementation stays on the driving
-        # OMP session default (xai-oauth/grok-4.6:high). Terra is not used as a
-        # planner or executor pick.
+        # OMP session's `default` role. Terra is not a planner or executor pick.
         self.assertNotIn("terra-high", body)
         self.assertNotIn("IMPLEMENTATION:", body)
 
-    def test_omp_delivery_model_routing_is_pinned(self):
+    def test_every_managed_agent_resolves_a_configured_role(self):
         config = (OMP / "config.yml").read_text()
-        metadata, body = split_frontmatter(AGENTS / "completeness.md")
+        block = config.split("\nmodelRoles:\n", 1)[1]
+        roles = set()
+        for line in block.splitlines():
+            if not line.startswith("  "):
+                break
+            roles.add(line.strip().split(":", 1)[0])
 
-        self.assertIn("default: xai-oauth/grok-4.6:high", config)
-        self.assertIn("smol: synthetic/hf:zai-org/GLM-5.3-Flash:high", config)
-        self.assertIn("advisor: devin/swe-2:high", config)
-        self.assertIn("Oracle: openai-codex/gpt-6-astra:medium", config)
-        self.assertIn("slow: openai-codex/gpt-6-sol:high", config)
-        self.assertIn("vision: openai-codex/gpt-6-sol:medium", config)
-        self.assertIn("task: xai-oauth/grok-4.6:medium", config)
-        self.assertIn("plan: openai-codex/gpt-6-sol:high", config)
-        self.assertIn("completeness: xai-oauth/grok-4.6:high", config)
-        self.assertIn("reviewer: cursor/cursor-grok-4.6:high", config)
-        self.assertIn("architect-grok: cursor/cursor-grok-4.6:high", config)
-        self.assertNotIn("advisor: none", config.split("tier:", 1)[0])
-        self.assertEqual("completeness", metadata.get("name"))
-        self.assertEqual("xai/grok-4.5:high", metadata.get("model"))
+        for path in sorted(AGENTS.glob("*.md")) + sorted((ROOT / "_adn" / "agents").glob("*.md")):
+            metadata, _ = split_frontmatter(path)
+            model = metadata.get("model", "")
+            self.assertTrue(model.startswith("@"), f"{path.name} pins a model instead of a role: {model}")
+            self.assertIn(model[1:], roles, f"{path.name} names undefined role {model}")
+
+        metadata, body = split_frontmatter(AGENTS / "completeness.md")
         self.assertIn("request-bound artifact", metadata.get("description", ""))
         self.assertIn("requiredEnvelope", body)
 
@@ -160,8 +156,8 @@ class OmpAgentRosterTest(unittest.TestCase):
             "workflowProfile: omp-lite",
             "current OMP agent as owner",
             "delivery bootstrap --runtime omp",
-            "xai-oauth/grok-4.6:high",
-            "xai/grok-4.5:high",
+            "`default` role",
+            "`@completeness`",
             "exact seven-line envelope",
             "acceptCommand",
         ):

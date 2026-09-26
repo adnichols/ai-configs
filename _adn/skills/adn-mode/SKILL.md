@@ -97,20 +97,18 @@ Match the call shape to the harness. `adn` is not a valid `subagent_type` anywhe
 
 Use the OMP `task` tool. Do not call Cursor `Task({ subagent_type })`.
 
-Named role agents are `architect-grok`, `architect-kimi`, `reviewer-kimi`, `comment-sicko`, `reviewer`, `completeness`, `oracle`, and `planner`. Launch them with `agent: "<role>"`. Their models are pinned in agent frontmatter and `modelRoles`. Do not pass a per-call `model` on a named role.
+Named role agents are `architect-grok`, `architect-kimi`, `reviewer-kimi`, `comment-sicko`, `reviewer`, `completeness`, `oracle`, and `planner`. Launch them with `agent: "<role>"`. Each agent's frontmatter names an OMP role (`model: "@<role>"`), and OMP `modelRoles` maps that role to a model. ADN never pins a model. The `task` tool takes no per-call `model`; choose the agent whose role fits the work, per `references/omp-runtime.md`.
 
-The driving OMP session implements, tests, fixes, and manages Git. Read-only general investigation may use the installed `task` agent with `model: "@default"`. Use the native task completion and cancellation contract.
+The driving OMP session implements, tests, fixes, and manages Git. Read-only general investigation may use the installed `task` agent, which runs the `task` role. Use the native task completion and cancellation contract.
 
 ### Cursor
 
-Cursor has no role-backed ADN agents. Use Cursor's native subagent types and map models through `/setup-adn` (`~/.cursor/rules/pstack-models.mdc`) so every role stays on the same model family as the manifest:
+Cursor has no role-backed ADN agents. Use Cursor's native subagent types and map models through `/setup-adn` (`~/.cursor/rules/pstack-models.mdc`). The model slugs in that file and in leaf-skill defaults apply only to Cursor:
 
 - Code or implementation: `subagent_type: "code"` with the `feature`, `refactoring`, or `bug-fix` model.
 - Design exploration or architecture: `subagent_type: "explore"` with the `architect runners` model.
-- Pre-PR review: `subagent_type: "reviewer"` with the `reviewer-kimi` model.
+- Pre-PR review: `subagent_type: "reviewer"` with a model from the `interrogate reviewers` line.
 - General investigation or synthesis: `subagent_type: "generalPurpose"` with the `judgment and prose` model.
-
-The manifest pins `xai-oauth/grok-4.7:high` for the Grok role and `devin/swe-2:max` for the Kimi roles. The default code model is `grok-4.6:high` and the default prose and judgment model is `kimi-k3-max`.
 
 Run subagents synchronously unless the task is intentionally fire-and-forget. Cursor's background notification channel drops directives; only use background with the end-turn-to-receive pattern.
 

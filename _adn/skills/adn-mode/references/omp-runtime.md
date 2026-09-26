@@ -26,6 +26,20 @@ Named agents use their frontmatter and configured model roles. Do not override t
 
 For the retained `adversarial-fix-review` trigger, give the independent reviewer the original reported behavior, the candidate diff, reproduction evidence, and a request to disprove the claimed cause and fix. Require PASS / BLOCK / INCOMPLETE with concrete evidence. Verify the configured family differs from the driver. If no different family is available, report that exact limitation instead of counting same-family review as cross-family proof. The retired standalone skill is not required.
 
+## Model roles
+
+OMP owns every model choice through `modelRoles`. ADN agents name a role in frontmatter (`model: "@<role>"`), and the OMP `task` tool takes no per-call model. Ignore the Cursor model slugs in leaf skills, playbooks, and `pstack-models.mdc`; pick the agent whose role fits the work instead.
+
+| Leaf-skill model line | OMP agent (role) |
+| --- | --- |
+| `feature`, `refactoring`, `bug-fix`, `perf-issue`, `hillclimb`, `swarm workers`, `reflect tooling` | `task` (`@task`) |
+| `how explorer`, `why investigators`, `judgment and prose`, `how explainer`, `why synthesizer`, `reflect judgment, divergent, synthesizer` | `task` (`@task`), or the driving session (`@default`) when no delegation is needed |
+| `hardest tasks` | `oracle` (`@Oracle`) for a bounded decision packet |
+| `architect runners` | `architect-grok`, `architect-kimi` |
+| `arena runners`, `arena cross-judge pool`, `interrogate reviewers` | One read-only agent per distinct model family, chosen from `architect-grok`, `architect-kimi`, `reviewer`, `reviewer-kimi`, and `oracle` |
+
+A panel's value is family diversity. Read `omp config get modelRoles --json`, group the candidate agents' roles by model family, and run one agent per family. If fewer families are configured than the panel asks for, run the families you have and say so.
+
 ## Skills and verification
 
 - `deslop` is the managed ADN skill at `skill://deslop`. No plugin installation is required.
