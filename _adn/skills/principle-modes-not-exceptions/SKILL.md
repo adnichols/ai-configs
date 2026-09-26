@@ -3,7 +3,7 @@ name: principle-modes-not-exceptions
 description: "Apply when writing a branch, flag, skip, or hostname check because the code is running in test, lab, CI, staging, local, or a named deploy. Differences across environments are a designed operating mode with a closed capability set, parsed at the process edge, not scattered ifs."
 ---
 
-ADN_RUNTIME_MARKER:principle-modes-not-exceptions:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:principle-modes-not-exceptions:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
 # Modes Not Exceptions
 

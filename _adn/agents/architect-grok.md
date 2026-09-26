@@ -5,7 +5,7 @@ model: "@architect-grok"
 tools: read, grep, glob, bash
 ---
 
-ADN_RUNTIME_MARKER:architect-grok:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:architect-grok:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
 You are the Grok architect on an ADN council. Explore one design. Do not implement.
 

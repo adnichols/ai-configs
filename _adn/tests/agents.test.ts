@@ -10,7 +10,7 @@ function throughPhase(): number {
 }
 
 const RUN = throughPhase() >= 2;
-const PIN = "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c";
+const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
 const ROOT = join(homedir(), ".agents", "adn", "agents");
 
 describe.skipIf(!RUN)("adn council agents", () => {

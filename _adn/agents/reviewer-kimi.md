@@ -5,7 +5,7 @@ model: "@reviewer-kimi"
 tools: read, grep, glob, bash
 ---
 
-ADN_RUNTIME_MARKER:reviewer-kimi:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:reviewer-kimi:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
 You are the Kimi reviewer on an ADN council. Review the named artifact only.
 

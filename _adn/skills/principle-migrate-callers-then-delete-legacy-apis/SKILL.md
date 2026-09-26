@@ -3,14 +3,14 @@ name: principle-migrate-callers-then-delete-legacy-apis
 description: "Apply when introducing a new internal API while old callers still exist. Migrate callers and delete the old API in the same wave instead of preserving compatibility layers."
 ---
 
-ADN_RUNTIME_MARKER:principle-migrate-callers-then-delete-legacy-apis:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:principle-migrate-callers-then-delete-legacy-apis:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
 # Migrate Callers Then Delete Legacy APIs
 
 When we decide a new API is the right design, migrate callers and remove the old API in the same refactor wave instead of preserving compatibility layers.
 
 **Rule:**
-- Do not keep legacy API paths alive only because internal callers still exist
+- Do not keep legacy API paths only because internal callers still exist
 - Inventory callers, migrate them, and delete the old API immediately
 - Treat temporary adapters as exceptional and time-boxed, not default architecture
 - Update tests to assert the new contract, and delete tests that only protect pre-refactor implementation details

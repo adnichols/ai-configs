@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 
-const PIN = "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c";
+const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
 const ADN_ROOT = join(homedir(), ".agents", "adn");
 const SHARED_SKILLS = join(homedir(), ".agents", "skills");
 const AI_CONFIGS = "/Users/anichols/code/ai-configs";
@@ -59,6 +59,8 @@ const PRINCIPLE_IDS = [
   "principle-guard-the-context-window",
   "principle-never-block-on-the-human",
   "principle-encode-lessons-in-structure",
+  "principle-attack-the-premise",
+  "principle-test-behavior-not-implementation",
 ] as const;
 
 const OPERATIONAL_IDS = [
@@ -181,7 +183,7 @@ describe("ADN manifest", () => {
     expect(manifest.upstream.pin).toBe(PIN);
     expect(manifest.upstream.license).toBe("MIT");
     expect(manifest.upstream.url).toContain("cursor/plugins");
-    expect(manifest.roles["architect-grok"]).toBe("cursor/cursor-grok-4.6:high");
+    expect(manifest.roles["architect-grok"]).toBe("xai-oauth/grok-4.7:high");
     expect(manifest.roles["architect-kimi"]).toBe("devin/swe-2:max");
     expect(manifest.roles["reviewer-kimi"]).toBe("devin/swe-2:max");
 

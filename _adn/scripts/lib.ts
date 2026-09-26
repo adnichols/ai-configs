@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync }
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
-export const PIN = "46756f89270d7e7dcb8c28c90fd0f957ade4ce2c";
+export const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
 export const ADN_ROOT = process.env.ADN_ROOT ?? join(homedir(), ".agents", "adn");
 export const OWNED_ROLES = ["architect-grok", "architect-kimi", "reviewer-kimi"] as const;
 export const FORBIDDEN = [

@@ -3,7 +3,7 @@ name: principle-outcome-oriented-execution
 description: "Apply during planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture; don't preserve smooth intermediate states with throwaway compatibility code."
 ---
 
-ADN_RUNTIME_MARKER:principle-outcome-oriented-execution:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:principle-outcome-oriented-execution:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
 # Outcome-Oriented Execution
 
@@ -14,7 +14,6 @@ Optimize for the intended, verifiable end state rather than preserving smooth in
 **Core rule:**
 - Prioritize end-state integrity over transitional stability
 - Intermediate breakage is acceptable when it is planned, scoped, and reversible
-- Always run final verification before declaring done
 
 **Guardrails:**
 - Use this for planned rewrites and migrations with explicit phase boundaries

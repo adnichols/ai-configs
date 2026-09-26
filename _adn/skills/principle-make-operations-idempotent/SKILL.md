@@ -3,7 +3,7 @@ name: principle-make-operations-idempotent
 description: "Apply when designing commands, lifecycle steps, or processing loops that run amid crashes, restarts, and retries. Converge to the same end state regardless of partial prior runs."
 ---
 
-ADN_RUNTIME_MARKER:principle-make-operations-idempotent:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:principle-make-operations-idempotent:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
 # Make Operations Idempotent
 

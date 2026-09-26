@@ -1,15 +1,15 @@
 ---
 name: principle-subtract-before-you-add
-description: "Apply when sequencing an addition, refactor, or rewrite. Remove dead weight, redundant validators, and stub references first, then build on the simpler base."
+description: "Apply when sequencing an addition, refactor, or rewrite. Remove dead code, redundant validators, and stub references first, then build on the simpler base."
 ---
 
-ADN_RUNTIME_MARKER:principle-subtract-before-you-add:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:principle-subtract-before-you-add:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
 # Subtract Before You Add
 
-When evolving a system, remove complexity first, then build. Deletion gives you a simpler base, which makes the next addition smaller and less brittle.
+When evolving a system, remove complexity first, then build.
 
-**Why:** Adding to a complex system compounds complexity. Removing first cuts the surface area, reveals the essential structure, and usually makes the next design obvious. Default to subtraction.
+**Why:** Adding to a complex system compounds complexity. Removing first leaves less code, reveals the essential structure, and usually makes the next design obvious. Default to subtraction.
 
 Make simplification a continual investment. Leave the design slightly simpler and more capable behind the same or smaller surface than you found it.
 
@@ -18,6 +18,5 @@ Make simplification a continual investment. Leave the design slightly simpler an
 - Cut before you polish (get to the minimum before investing in quality)
 - Design for observed usage, not speculative edge cases
 - No speculative validators, parsers, or guards beyond what the spec demands
-- Out-of-spec features drag validators behind them. Persistence, retry-on-startup, and schema migration each need guards to defend their inputs.
 - Simplify prompts (remove redundant instructions, excessive templates)
 - When a reference has no novel content, delete it rather than leaving a stub

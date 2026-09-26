@@ -1,13 +1,13 @@
-ADN_RUNTIME_MARKER:playbook-investigation:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:playbook-investigation:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
 ### Investigation
 
 **You own the answer. Plan, route, write.**
 
-Read-only requests: "how does X work?", "why was Y built this way?", "are we sure about Z?", "should we do X or Y?". They produce a cited explanation or a recommendation, not a code change.
+Investigation requests are read-only. They produce a cited explanation or a recommendation, not a code change.
 
 <!-- source-step:investigation:1 -->
-1. Route through the **how** skill (Explain mode for narrow questions, Critique mode for "are we sure?"). For motivation questions, also route through the **why** skill.
+1. Route through the **how** skill. Route "are we sure?" questions through the **interrogate** skill. For motivation questions, also route through the **why** skill.
 <!-- source-step:investigation:2 -->
 2. Produce the `how`-shaped output (Overview / Key Concepts / How It Works / Where Things Live / Gotchas), or a recommendation with a tradeoffs table if the request is a decision between alternatives.
 <!-- source-step:investigation:3 -->

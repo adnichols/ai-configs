@@ -5,11 +5,11 @@ description: Apply when refactoring, evaluating diff size, or tempted to add abs
 
 # Laziness Protocol
 
-ADN_RUNTIME_MARKER:principle-laziness-protocol:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
-Source: cursor/plugins pstack @ 46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:principle-laziness-protocol:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+Source: cursor/plugins pstack @ ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 License: MIT (Lauren Tan). See ~/.agents/adn/LICENSE.pstack
 
-Writing code is cheap for you, which makes over-engineering easy. Counter it by borrowing a human maintainer's fatigue. Aim for the most result with the least code and complexity.
+Aim for the most result with the least code and complexity.
 
 - **Prefer deletion.** When asked to refactor or improve, look for removals before additions.
 - **Maintain a flat call hierarchy.** Avoid deep call chains. A rich interface that hides substantial work is not a deep call chain. If answering a question requires tracing through more than 3 files or layers, flatten it.
@@ -18,4 +18,4 @@ Writing code is cheap for you, which makes over-engineering easy. Counter it by 
 - **Question the threading.** If a task asks you to pass a new signal through types, schemas, pipelines, or similar layers, stop and look for a more direct path.
 - **Sweat the small leaks.** Remove tiny pass-throughs, representation leaks, and duplicated choices before they spread. Small leaks compound into permanent coordination costs.
 
-**Prime directive:** If a human developer would find the code exhausting to maintain, it is a bad solution. Be lazy. Stay simple.
+**The test:** If a human developer would find the code exhausting to maintain, it is a bad solution.

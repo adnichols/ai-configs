@@ -3,7 +3,7 @@ name: adopt-skill
 description: Explicitly adopt a post-pin upstream skill after review. Never silently refresh the pin.
 ---
 
-ADN_RUNTIME_MARKER:adopt-skill:46756f89270d7e7dcb8c28c90fd0f957ade4ce2c
+ADN_RUNTIME_MARKER:adopt-skill:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
 Adoption is explicit. Diff the pinned source against the candidate, record the new pin only after review, and refuse a silent refresh. Fail closed if the license or required source is missing.
 
