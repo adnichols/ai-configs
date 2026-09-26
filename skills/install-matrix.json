@@ -957,7 +957,7 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [],
       "canonicalSource": "skills/verified-build",
-      "notes": "OMP-only: orchestrates the verified-build lifecycle from an OMP session, delegating implementation to a second Paseo-launched OMP agent as an adjacent tab in the same worktree. Installs into shared discovery only; OMP reads ~/.agents/skills directly and no consumer compatibility links are created. Codex keeps its own verified-build via _codex/skills override, which disables this shared path for Codex.",
+      "notes": "OMP-only: orchestrates the verified-build lifecycle from an OMP session. Build work is implemented directly by the driving session or delegated to a second Paseo-launched OMP agent in the same worktree, per the skill's implementation-mode criteria. Installs into shared discovery only; OMP reads ~/.agents/skills directly and no consumer compatibility links are created. Codex keeps its own verified-build via _codex/skills override, which disables this shared path for Codex.",
       "sourceType": "repo"
     },
     "view-refactor": {
