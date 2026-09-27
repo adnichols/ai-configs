@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Stopped overlaying live Paseo daemon config from `_paseo/config.json`. Profiles, providers, relay, listen, CORS, and feature flags are host-local; the installer only writes `agents.skills.selection` so repo-owned `paseo*` skills are not reverted, and no longer resets host `omp` profiles or disables mobile relay.
 
 ### Changed
+- Synced managed OMP `config.yml` from this host: `advisor.enabled` is now `false`, disabling the advisor tier. Also captures `theme.dark: dark`, `spelling.autocomplete: "off"`, and `tui.hyperlinks: auto`.
 
 - `install.sh` with no arguments and `install.sh --all` no longer install Pi. They skip the Pi prompts, agents, extensions, config, npm packages, and review-stack reconciliation. Run `install.sh --pi` to install Pi.
 - Captured the live OMP setup as authoritative: `config.yml` (with `eval` `py`/`js` enabled), `AGENTS.md`, and the Herdr (`HERDR_INTEGRATION_VERSION=9`, skips `willContinue` turn ends) and Orca (bounded hook-post retries) status extensions. OMP guidance and ADN `adn-mode` now allow `eval` for computation and scratch work and still forbid it from writing tracked files, which `eval-no-file-writes` enforces.

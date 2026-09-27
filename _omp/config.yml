@@ -6,7 +6,7 @@ extensions:
   - ~/.omp/agent/extensions/eval-no-file-writes.ts
 symbolPreset: nerd
 theme:
-  dark: titanium
+  dark: dark
 setupVersion: 2
 steeringMode: all
 followUpMode: all
@@ -70,7 +70,7 @@ cycleOrder:
   - slow
   - Oracle
 advisor:
-  enabled: true
+  enabled: false
 dev:
   autoqaConsent: granted
   autoqa: false
@@ -96,7 +96,7 @@ statusLine:
   preset: default
   sessionAccent: false
 spelling:
-  autocomplete: false
+  autocomplete: "off"
   autocorrect: false
   typoDetection: false
 emojiAutocomplete: false
@@ -113,3 +113,5 @@ todo:
   enabled: true
 codexResets:
   autoRedeem: "no"
+tui:
+  hyperlinks: auto
