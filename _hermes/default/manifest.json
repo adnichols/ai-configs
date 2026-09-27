@@ -22,14 +22,14 @@
       "sha256": "a93c32a9b5cde349a0983140281f1054228aa9958894c8c152fba4055bd0182e"
     },
     {
-      "bytes": 22678,
+      "bytes": 22633,
       "path": "config/config.yaml",
-      "sha256": "38b3610880534cd45ab7584854eede09870fea8d1c33effb109833e51df4a108"
+      "sha256": "2c446475d6ecc51547fa3021551ead1b2c0ee21b76d8f8e5a7fbb2643c64e84f"
     },
     {
-      "bytes": 14673,
+      "bytes": 15457,
       "path": "cron/jobs.json",
-      "sha256": "bb9131841a011328d7d448e393b3b130085ed02ca131e5c2dbf3f6f07a61f9b0"
+      "sha256": "2e4edd4168584fefc1df632f5433ed311abddba7a243b4fb1bb333cc68cdb9af"
     },
     {
       "bytes": 508,
@@ -62,9 +62,9 @@
       "sha256": "60c6e9921babeb100a8ff2434a63c91aaf7e7be0902dd38b22d47186438e74d1"
     },
     {
-      "bytes": 2462,
+      "bytes": 2031,
       "path": "plugins/herdr-agent-state/__init__.py",
-      "sha256": "97af1be8908c42a335bc377c17ad567284ea35880a22911e25b5b62cfde1bbe1"
+      "sha256": "62884f3e0f714f78bfc42722cddef3dd32a0a184502864d79d113329563deed2"
     },
     {
       "bytes": 103,
@@ -127,14 +127,14 @@
       "sha256": "36c1f5a2e92cd1d018311eaf4c8f1e8886672eae78212e033c681d0e3d5d506f"
     },
     {
-      "bytes": 13570,
+      "bytes": 13618,
       "path": "profiles/nerd/config/config.yaml",
-      "sha256": "d0478762404f772e49337210766ce43049d26742400a405b8408b23b756298b1"
+      "sha256": "76d0b5fb3bf03e3765811b8ef302e8983a573efa8d8d407c974522983a6502f9"
     },
     {
-      "bytes": 1386,
+      "bytes": 1627,
       "path": "profiles/nerd/cron/jobs.json",
-      "sha256": "c9da90cb3ee693c39ef5707b88548df47c56410ff64db5eeb8c6decbbb6f1bff"
+      "sha256": "5f38edbf8c63c93a0b1dc584cb8de407b6fdfb2ad7730c021e85bb3279e55a3b"
     },
     {
       "bytes": 2280,
@@ -164,7 +164,7 @@
     {
       "bytes": 2727,
       "path": "profiles/nerd/skills/.bundled_manifest",
-      "sha256": "14f72ac268ee78730474a221b0ece43213ee8ccc1fd1b279914fde875ebc63f9"
+      "sha256": "49ba44ec15c7d0463e0dcc6f7d43f95a962f1bc8cdac76919d3701d72a3bee09"
     },
     {
       "bytes": 152,
@@ -182,9 +182,9 @@
       "sha256": "ee5084f2d7ec196488bef2c74248fb3d8328d1b2e3277ddda3f0de9da6fc7131"
     },
     {
-      "bytes": 3709,
+      "bytes": 3823,
       "path": "profiles/nerd/skills/apple/findmy/SKILL.md",
-      "sha256": "19ec56e3b7f9f0be13c26d99948ed5684d8fb1f9c478da078c19356b5df63f57"
+      "sha256": "e35d4d165daadfd066661df59a202a4159c5df41b77642884d3656830054d6bc"
     },
     {
       "bytes": 2442,
@@ -217,9 +217,9 @@
       "sha256": "bff5dccc28b0adef48c54560e1706e67510172bd77669680f4c14473510dfc63"
     },
     {
-      "bytes": 15819,
+      "bytes": 18054,
       "path": "profiles/nerd/skills/autonomous-ai-agents/computer-use/SKILL.md",
-      "sha256": "e3d11184959bd06106fa73f315dfde9721502e9542621d62c398024de27eb4cd"
+      "sha256": "778833ecfea4385cab79ec4dda0ffe956e3f4bf9231eb80e52c5d113ee4e6cdf"
     },
     {
       "bytes": 5131,
@@ -1332,19 +1332,19 @@
       "sha256": "b1de46c977c9edfcc71fc045422f78722f12744c4f8b3d80e0fa6b2681a1dd05"
     },
     {
-      "bytes": 2911,
+      "bytes": 2919,
       "path": "profiles/nerd/skills/creative/p5js/scripts/render.sh",
-      "sha256": "10a5e45d1a9d3dc867fbd7cea3b744f8d335ec03bf85a77d3a1852f315adf9e2"
+      "sha256": "76aeb8a5036b3927869f18e03742e591cb7ff3f9984c65d7ba6f63428b9fe0c8"
     },
     {
-      "bytes": 833,
+      "bytes": 841,
       "path": "profiles/nerd/skills/creative/p5js/scripts/serve.sh",
-      "sha256": "65c28a2bff1dbf74f86fe027ead37eaa02da02a146c33cef4af36bc0b51c9917"
+      "sha256": "e8107c5344e674198a0e4a4ec98777815856c37e51b69f193dedfd1b6b553a36"
     },
     {
-      "bytes": 2475,
+      "bytes": 2483,
       "path": "profiles/nerd/skills/creative/p5js/scripts/setup.sh",
-      "sha256": "27750af377cec00485ffa26fcc7bd2452167bdf73f15d4997bda49a8f4b780c3"
+      "sha256": "890e0470b339e73dc095337b286accf660d27f912fc684e8cf86a99aa5695d17"
     },
     {
       "bytes": 10858,
@@ -1857,9 +1857,9 @@
       "sha256": "2c40e123f597ebbb4db9edf5fe8e5d63a1aacf8f00b59eca1b5af0748062ac24"
     },
     {
-      "bytes": 4057,
+      "bytes": 5447,
       "path": "profiles/nerd/skills/email/email-inbox-triage/SKILL.md",
-      "sha256": "cd57ccc9d563b5186012b41d6bbf52e96c2837c5b8e79d524e8e5e6a44af6021"
+      "sha256": "deeade1bb70f8835b2f3158980030b8aa41bb1ea6f798631451c89cfd632bcc8"
     },
     {
       "bytes": 7272,
@@ -2072,9 +2072,9 @@
       "sha256": "84b4c86e75f082882188bff3591eca78d222c0b337ef421a762e1a36139b66eb"
     },
     {
-      "bytes": 3538,
+      "bytes": 4377,
       "path": "profiles/nerd/skills/media/youtube-content/SKILL.md",
-      "sha256": "52349e30ac74a3c2693c43588e9392a53236526b4b7d92769a64045a9782308e"
+      "sha256": "b556a0d2a220b46b80eb011619f0c951404f4d6e2edcc8b4847faec512b55132"
     },
     {
       "bytes": 1259,
@@ -2082,9 +2082,9 @@
       "sha256": "f24e6939b47511a7dfc1257f3087c9dafd027fe7836d0e65b0feb3214f598cd1"
     },
     {
-      "bytes": 4054,
+      "bytes": 4100,
       "path": "profiles/nerd/skills/media/youtube-content/scripts/fetch_transcript.py",
-      "sha256": "462f96320f641d3372fb54dd34d5e4892c185cb48096f9c5e97b05a77ac02467"
+      "sha256": "ab8e2dc5dee31a7d22c78e9c942dfaf5e2b2b1c78670dc56254b4c6e390287fd"
     },
     {
       "bytes": 162,
@@ -2722,9 +2722,9 @@
       "sha256": "145552fc47b6960d2f4275511bdaafe07865281f8018272384bca391a4f8039a"
     },
     {
-      "bytes": 13670,
+      "bytes": 14241,
       "path": "profiles/nerd/skills/productivity/google-workspace/SKILL.md",
-      "sha256": "5bdca0d898744fbf4d66df611116b5c776b1297b964fbcfd86b3004c20e46fd7"
+      "sha256": "4ab062fe5131d123a6c4f1297e58c7f75b8d517fd282b68547da7ebfabb2a0b9"
     },
     {
       "bytes": 3217,
@@ -2742,9 +2742,9 @@
       "sha256": "4d0f4393059688353bf8a3cca8118f08548edbae6f3c6ed477ff9f2d1205cff0"
     },
     {
-      "bytes": 43553,
+      "bytes": 47061,
       "path": "profiles/nerd/skills/productivity/google-workspace/scripts/google_api.py",
-      "sha256": "d3822ef5cbdfad1d280fb619b9d85f2bdc0f8d8756398eb0189a126e8a6fbf89"
+      "sha256": "a8f7f55db105155a8a5beda1558ede39e27c649150e2a412c31c78c203e832a6"
     },
     {
       "bytes": 4368,
@@ -2752,9 +2752,9 @@
       "sha256": "6bba56ab6d49ddab3cd16c2e189950633cbf1a9f4907cb7db5225ebe28313aee"
     },
     {
-      "bytes": 20231,
+      "bytes": 17414,
       "path": "profiles/nerd/skills/productivity/google-workspace/scripts/setup.py",
-      "sha256": "ace45d12de9bbc408f03b88e78b8d5ed2a37f36e992164bcbe9708c5ba49883d"
+      "sha256": "a5ba2941cca7e90d452ec08fb5ab8f5ed4bc5b50111f94acb7f56c6452c33f67"
     },
     {
       "bytes": 8525,
@@ -2837,9 +2837,9 @@
       "sha256": "4243b329789c6d7fcea95749438228e5f8cbc0234cd44d2d72cd86f837bf1f35"
     },
     {
-      "bytes": 14629,
+      "bytes": 14621,
       "path": "profiles/nerd/skills/productivity/notion/SKILL.md",
-      "sha256": "798ad178ead72ad3056f5301e83b447fce3407de07d5ff8b0209b134b4eae866"
+      "sha256": "e5aaf194f2688223890cb2eb6cf5ce866e6390082f1dff845c9e37a25fe0bfee"
     },
     {
       "bytes": 3021,
@@ -2907,9 +2907,9 @@
       "sha256": "2f0b15bd1ebbd45cf37ed257723ad63aa70b623b97f5242c886c14f8968cd773"
     },
     {
-      "bytes": 5612,
+      "bytes": 5615,
       "path": "profiles/nerd/skills/productivity/pdf/references/ocr-extraction.md",
-      "sha256": "611f03bc3fdf7f29283bf609ee46362cef6bcbea91b965a74f37ddd8c513cd1e"
+      "sha256": "1bba1451fbaa50842890e7b75a1ad226dfe9791619cb4df3d705e2a38b606da6"
     },
     {
       "bytes": 2614,
@@ -3607,9 +3607,9 @@
       "sha256": "eba9d0edf896036718612bb557ec7a6432532a9395bd66277c3b7417d8960a37"
     },
     {
-      "bytes": 4879,
+      "bytes": 4936,
       "path": "profiles/nerd/skills/software-development/github/references/ci-troubleshooting.md",
-      "sha256": "c72b2301e9b85c545c4960722dbd4c0d49c5d883e6d86438e932bd47b1d8eee0"
+      "sha256": "ada022d91c8abff55a15505fe630ba02abdece5afa3751433fa4014a33defa23"
     },
     {
       "bytes": 13295,
@@ -3637,14 +3637,14 @@
       "sha256": "86cf4a98232ee6362cd7893e76bed6ed25c21eb660e878432c6df3286c02d6d8"
     },
     {
-      "bytes": 9708,
+      "bytes": 9746,
       "path": "profiles/nerd/skills/software-development/github/references/pr-workflow.md",
-      "sha256": "0be42677bf500fe292c221468c2f9c48b4c8326dad508b8ef3287c010364adc8"
+      "sha256": "f75f8cc23266a3675a67c8d06385c561befab23a8e6a9683b5418c8b656bb2b5"
     },
     {
-      "bytes": 13378,
+      "bytes": 13416,
       "path": "profiles/nerd/skills/software-development/github/references/repo-management.md",
-      "sha256": "c74500946263f6bdb4925d4de96aa09dcd49146c9e918bf73863f0b6186e0543"
+      "sha256": "e5b92a6d2edf1dc317ed4d4ba1b37734b78f391438d58f3f86139df398996301"
     },
     {
       "bytes": 2465,
@@ -3682,9 +3682,9 @@
       "sha256": "875e815da6e0e3df2763a85c9c2a56a776461da39d4181a1487333c0bf5b9276"
     },
     {
-      "bytes": 14432,
+      "bytes": 14537,
       "path": "profiles/nerd/skills/software-development/hermes-agent-skill-authoring/SKILL.md",
-      "sha256": "3a274d5b42fa0a958f48bcc4eb0691712e0a1dcf3d7b99d09ec9029c4499ef3b"
+      "sha256": "be5bce268e7fa2b186e309156fc4a62eeedb151f8cc490ce9232847e2868e717"
     },
     {
       "bytes": 11474,
@@ -3692,14 +3692,14 @@
       "sha256": "14d42314746571421ff7ca90cbc2cb34b428a09a6d4424fa942bc2ff79e344f2"
     },
     {
-      "bytes": 6204,
+      "bytes": 6250,
       "path": "profiles/nerd/skills/software-development/inspecting-hermes-desktop-dom/SKILL.md",
-      "sha256": "a78a5f8d277a1d6d39fccd5ecf1e76ce519a1ace831f06078dfcc91cb54a3399"
+      "sha256": "8dfdcf2fe3797beec4297ce629e62395d7a69ec2691fc00ef25bc6273139cbc4"
     },
     {
-      "bytes": 10894,
+      "bytes": 11065,
       "path": "profiles/nerd/skills/software-development/node-inspect-debugger/SKILL.md",
-      "sha256": "bc89942b76387834272b6bf3bbf99caad72400c41338ab0420a740b7abe77d02"
+      "sha256": "422eed9a0997182c5b197a8879ab194647799d69e573000e53b65b8708cf3a77"
     },
     {
       "bytes": 3903,
@@ -3712,9 +3712,9 @@
       "sha256": "0256a75486160c61a95965270a8674a7f7f3b7594c5e5face18112152220c6d5"
     },
     {
-      "bytes": 13347,
+      "bytes": 14984,
       "path": "profiles/nerd/skills/software-development/python-debugpy/SKILL.md",
-      "sha256": "24258d93eb080e7bbf89a81ba3e614b09d5d09637cdceaafac487f4df07f3f53"
+      "sha256": "cb1b8b0795a56fa0fd79f80f3363f1ad79d404a6757d6cf547971cf89f21155e"
     },
     {
       "bytes": 8835,
@@ -3752,9 +3752,9 @@
       "sha256": "1cee33fe7aaddc9d8ce9319f4452dc9a357952feba049810e392a8ecf67ea28e"
     },
     {
-      "bytes": 5156,
+      "bytes": 5175,
       "path": "profiles/nerd/skills/web/blocked-page-recovery/SKILL.md",
-      "sha256": "7f7d321f177399ca928e11ab38942cfa76d6e931a82d887671c50661fb411d51"
+      "sha256": "b71179e82ff27c002e6593e792d9a64dad9a444901b8938f30204fa115592061"
     },
     {
       "bytes": 8481,
@@ -3772,9 +3772,9 @@
       "sha256": "36c1f5a2e92cd1d018311eaf4c8f1e8886672eae78212e033c681d0e3d5d506f"
     },
     {
-      "bytes": 11786,
+      "bytes": 11834,
       "path": "profiles/writing/config/config.yaml",
-      "sha256": "30b20488d8807db17de81352cb74e5fbf07de876e01bc62f4afb2a18031f8ca9"
+      "sha256": "d2840696246052b62d909041e0e1ac3c7f2902b4ffae9c42c7989c3f038b83c0"
     },
     {
       "bytes": 505,
@@ -4124,7 +4124,7 @@
     {
       "bytes": 2727,
       "path": "profiles/writing/skills/.bundled_manifest",
-      "sha256": "3170a9c54dc150750b55f76dc5912dfd227651650274a12cb08395960e4746e3"
+      "sha256": "1ef5e1b5e94539d1de9d44ba5908ab54f4ff2714f5072997858a32c9d8f316d5"
     },
     {
       "bytes": 152,
@@ -4147,9 +4147,9 @@
       "sha256": "789708800868d54b15dc22e7c70504dd338e1cd9591589863c739c7bd3674fdb"
     },
     {
-      "bytes": 15819,
+      "bytes": 18054,
       "path": "profiles/writing/skills/autonomous-ai-agents/computer-use/SKILL.md",
-      "sha256": "e3d11184959bd06106fa73f315dfde9721502e9542621d62c398024de27eb4cd"
+      "sha256": "778833ecfea4385cab79ec4dda0ffe956e3f4bf9231eb80e52c5d113ee4e6cdf"
     },
     {
       "bytes": 50687,
@@ -4457,9 +4457,9 @@
       "sha256": "2c40e123f597ebbb4db9edf5fe8e5d63a1aacf8f00b59eca1b5af0748062ac24"
     },
     {
-      "bytes": 4057,
+      "bytes": 5447,
       "path": "profiles/writing/skills/email/email-inbox-triage/SKILL.md",
-      "sha256": "cd57ccc9d563b5186012b41d6bbf52e96c2837c5b8e79d524e8e5e6a44af6021"
+      "sha256": "deeade1bb70f8835b2f3158980030b8aa41bb1ea6f798631451c89cfd632bcc8"
     },
     {
       "bytes": 115,
@@ -4832,9 +4832,9 @@
       "sha256": "a6e5ef3595d2168b15a655c366dcebbcc3e2ced73a0e2e5f741c626148c8566d"
     },
     {
-      "bytes": 13670,
+      "bytes": 14241,
       "path": "profiles/writing/skills/productivity/google-workspace/SKILL.md",
-      "sha256": "5bdca0d898744fbf4d66df611116b5c776b1297b964fbcfd86b3004c20e46fd7"
+      "sha256": "4ab062fe5131d123a6c4f1297e58c7f75b8d517fd282b68547da7ebfabb2a0b9"
     },
     {
       "bytes": 3217,
@@ -4852,9 +4852,9 @@
       "sha256": "4d0f4393059688353bf8a3cca8118f08548edbae6f3c6ed477ff9f2d1205cff0"
     },
     {
-      "bytes": 43553,
+      "bytes": 47061,
       "path": "profiles/writing/skills/productivity/google-workspace/scripts/google_api.py",
-      "sha256": "d3822ef5cbdfad1d280fb619b9d85f2bdc0f8d8756398eb0189a126e8a6fbf89"
+      "sha256": "a8f7f55db105155a8a5beda1558ede39e27c649150e2a412c31c78c203e832a6"
     },
     {
       "bytes": 4368,
@@ -4862,9 +4862,9 @@
       "sha256": "6bba56ab6d49ddab3cd16c2e189950633cbf1a9f4907cb7db5225ebe28313aee"
     },
     {
-      "bytes": 20231,
+      "bytes": 17414,
       "path": "profiles/writing/skills/productivity/google-workspace/scripts/setup.py",
-      "sha256": "ace45d12de9bbc408f03b88e78b8d5ed2a37f36e992164bcbe9708c5ba49883d"
+      "sha256": "a5ba2941cca7e90d452ec08fb5ab8f5ed4bc5b50111f94acb7f56c6452c33f67"
     },
     {
       "bytes": 6705,
@@ -4907,9 +4907,9 @@
       "sha256": "2f0b15bd1ebbd45cf37ed257723ad63aa70b623b97f5242c886c14f8968cd773"
     },
     {
-      "bytes": 5612,
+      "bytes": 5615,
       "path": "profiles/writing/skills/productivity/pdf/references/ocr-extraction.md",
-      "sha256": "611f03bc3fdf7f29283bf609ee46362cef6bcbea91b965a74f37ddd8c513cd1e"
+      "sha256": "1bba1451fbaa50842890e7b75a1ad226dfe9791619cb4df3d705e2a38b606da6"
     },
     {
       "bytes": 2614,
@@ -5232,9 +5232,9 @@
       "sha256": "eba9d0edf896036718612bb557ec7a6432532a9395bd66277c3b7417d8960a37"
     },
     {
-      "bytes": 4879,
+      "bytes": 4936,
       "path": "profiles/writing/skills/software-development/github/references/ci-troubleshooting.md",
-      "sha256": "c72b2301e9b85c545c4960722dbd4c0d49c5d883e6d86438e932bd47b1d8eee0"
+      "sha256": "ada022d91c8abff55a15505fe630ba02abdece5afa3751433fa4014a33defa23"
     },
     {
       "bytes": 13295,
@@ -5262,14 +5262,14 @@
       "sha256": "86cf4a98232ee6362cd7893e76bed6ed25c21eb660e878432c6df3286c02d6d8"
     },
     {
-      "bytes": 9708,
+      "bytes": 9746,
       "path": "profiles/writing/skills/software-development/github/references/pr-workflow.md",
-      "sha256": "0be42677bf500fe292c221468c2f9c48b4c8326dad508b8ef3287c010364adc8"
+      "sha256": "f75f8cc23266a3675a67c8d06385c561befab23a8e6a9683b5418c8b656bb2b5"
     },
     {
-      "bytes": 13378,
+      "bytes": 13416,
       "path": "profiles/writing/skills/software-development/github/references/repo-management.md",
-      "sha256": "c74500946263f6bdb4925d4de96aa09dcd49146c9e918bf73863f0b6186e0543"
+      "sha256": "e5b92a6d2edf1dc317ed4d4ba1b37734b78f391438d58f3f86139df398996301"
     },
     {
       "bytes": 2465,
@@ -5307,9 +5307,9 @@
       "sha256": "875e815da6e0e3df2763a85c9c2a56a776461da39d4181a1487333c0bf5b9276"
     },
     {
-      "bytes": 6204,
+      "bytes": 6250,
       "path": "profiles/writing/skills/software-development/inspecting-hermes-desktop-dom/SKILL.md",
-      "sha256": "a78a5f8d277a1d6d39fccd5ecf1e76ce519a1ace831f06078dfcc91cb54a3399"
+      "sha256": "8dfdcf2fe3797beec4297ce629e62395d7a69ec2691fc00ef25bc6273139cbc4"
     },
     {
       "bytes": 10841,
@@ -5327,9 +5327,9 @@
       "sha256": "1cee33fe7aaddc9d8ce9319f4452dc9a357952feba049810e392a8ecf67ea28e"
     },
     {
-      "bytes": 5156,
+      "bytes": 5175,
       "path": "profiles/writing/skills/web/blocked-page-recovery/SKILL.md",
-      "sha256": "7f7d321f177399ca928e11ab38942cfa76d6e931a82d887671c50661fb411d51"
+      "sha256": "b71179e82ff27c002e6593e792d9a64dad9a444901b8938f30204fa115592061"
     },
     {
       "bytes": 8481,
@@ -5459,7 +5459,7 @@
     {
       "bytes": 2727,
       "path": "skills/.bundled_manifest",
-      "sha256": "e7cc4d24ba088033452ceb1dec6cfa7137b180d31d7dd3a87726ad3e6e9b1037"
+      "sha256": "2ebbe58f3f689da146525ae9f7cfc7743e0e4ed3ac3d018aa02c7a275510505f"
     },
     {
       "bytes": 1233,
@@ -5482,9 +5482,9 @@
       "sha256": "ee5084f2d7ec196488bef2c74248fb3d8328d1b2e3277ddda3f0de9da6fc7131"
     },
     {
-      "bytes": 3709,
+      "bytes": 3823,
       "path": "skills/apple/findmy/SKILL.md",
-      "sha256": "19ec56e3b7f9f0be13c26d99948ed5684d8fb1f9c478da078c19356b5df63f57"
+      "sha256": "e35d4d165daadfd066661df59a202a4159c5df41b77642884d3656830054d6bc"
     },
     {
       "bytes": 2442,
@@ -5517,19 +5517,19 @@
       "sha256": "1daae1c3bf8be61dfbefa1e24221942001e3dc42acb42ee286a7c437072d8ebd"
     },
     {
-      "bytes": 34281,
+      "bytes": 35175,
       "path": "skills/autonomous-ai-agents/claude-code/SKILL.md",
-      "sha256": "3fd7c81f2c6c19f8ce77303f76d1407cf88f8f43add0f811cb6d467eef5eaca6"
+      "sha256": "ec92e627db1f449ea038e2b756ebbaa067880dd673a35497ea64b7e6391cf519"
     },
     {
-      "bytes": 5738,
+      "bytes": 5852,
       "path": "skills/autonomous-ai-agents/codex/SKILL.md",
-      "sha256": "3ed457c2b8d5d9c33ab3817cea9753cbcf7f165105eb9da488633a624216d51f"
+      "sha256": "1b15b57bcaba128b83ebe9f050b6873958198a1570bc801d4ca0406fb7e3271d"
     },
     {
-      "bytes": 15819,
+      "bytes": 18054,
       "path": "skills/autonomous-ai-agents/computer-use/SKILL.md",
-      "sha256": "e3d11184959bd06106fa73f315dfde9721502e9542621d62c398024de27eb4cd"
+      "sha256": "778833ecfea4385cab79ec4dda0ffe956e3f4bf9231eb80e52c5d113ee4e6cdf"
     },
     {
       "bytes": 9726,
@@ -5602,9 +5602,9 @@
       "sha256": "24ffd1be973b0e884876fe0db9f49783fffe6a2337a4e74a83cdd895cb6fce23"
     },
     {
-      "bytes": 7259,
+      "bytes": 7297,
       "path": "skills/autonomous-ai-agents/opencode/SKILL.md",
-      "sha256": "afb3ea1f1b4300705f4a44f41ef2bb6f36c45e474b677dcb3c0aa4e6b3740595"
+      "sha256": "885582e6f2d5b88f431c5a0bc3b69b88f5aab701774f91572487a6f4e4679a0b"
     },
     {
       "bytes": 4824,
@@ -6657,19 +6657,19 @@
       "sha256": "b1de46c977c9edfcc71fc045422f78722f12744c4f8b3d80e0fa6b2681a1dd05"
     },
     {
-      "bytes": 2911,
+      "bytes": 2919,
       "path": "skills/creative/p5js/scripts/render.sh",
-      "sha256": "10a5e45d1a9d3dc867fbd7cea3b744f8d335ec03bf85a77d3a1852f315adf9e2"
+      "sha256": "76aeb8a5036b3927869f18e03742e591cb7ff3f9984c65d7ba6f63428b9fe0c8"
     },
     {
-      "bytes": 833,
+      "bytes": 841,
       "path": "skills/creative/p5js/scripts/serve.sh",
-      "sha256": "65c28a2bff1dbf74f86fe027ead37eaa02da02a146c33cef4af36bc0b51c9917"
+      "sha256": "e8107c5344e674198a0e4a4ec98777815856c37e51b69f193dedfd1b6b553a36"
     },
     {
-      "bytes": 2475,
+      "bytes": 2483,
       "path": "skills/creative/p5js/scripts/setup.sh",
-      "sha256": "27750af377cec00485ffa26fcc7bd2452167bdf73f15d4997bda49a8f4b780c3"
+      "sha256": "890e0470b339e73dc095337b286accf660d27f912fc684e8cf86a99aa5695d17"
     },
     {
       "bytes": 10858,
@@ -7207,9 +7207,9 @@
       "sha256": "2c40e123f597ebbb4db9edf5fe8e5d63a1aacf8f00b59eca1b5af0748062ac24"
     },
     {
-      "bytes": 4057,
+      "bytes": 5447,
       "path": "skills/email/email-inbox-triage/SKILL.md",
-      "sha256": "cd57ccc9d563b5186012b41d6bbf52e96c2837c5b8e79d524e8e5e6a44af6021"
+      "sha256": "deeade1bb70f8835b2f3158980030b8aa41bb1ea6f798631451c89cfd632bcc8"
     },
     {
       "bytes": 7272,
@@ -7417,9 +7417,9 @@
       "sha256": "84b4c86e75f082882188bff3591eca78d222c0b337ef421a762e1a36139b66eb"
     },
     {
-      "bytes": 3538,
+      "bytes": 4377,
       "path": "skills/media/youtube-content/SKILL.md",
-      "sha256": "52349e30ac74a3c2693c43588e9392a53236526b4b7d92769a64045a9782308e"
+      "sha256": "b556a0d2a220b46b80eb011619f0c951404f4d6e2edcc8b4847faec512b55132"
     },
     {
       "bytes": 1259,
@@ -7427,9 +7427,9 @@
       "sha256": "f24e6939b47511a7dfc1257f3087c9dafd027fe7836d0e65b0feb3214f598cd1"
     },
     {
-      "bytes": 4054,
+      "bytes": 4100,
       "path": "skills/media/youtube-content/scripts/fetch_transcript.py",
-      "sha256": "462f96320f641d3372fb54dd34d5e4892c185cb48096f9c5e97b05a77ac02467"
+      "sha256": "ab8e2dc5dee31a7d22c78e9c942dfaf5e2b2b1c78670dc56254b4c6e390287fd"
     },
     {
       "bytes": 162,
@@ -8172,9 +8172,9 @@
       "sha256": "145552fc47b6960d2f4275511bdaafe07865281f8018272384bca391a4f8039a"
     },
     {
-      "bytes": 13670,
+      "bytes": 14241,
       "path": "skills/productivity/google-workspace/SKILL.md",
-      "sha256": "5bdca0d898744fbf4d66df611116b5c776b1297b964fbcfd86b3004c20e46fd7"
+      "sha256": "4ab062fe5131d123a6c4f1297e58c7f75b8d517fd282b68547da7ebfabb2a0b9"
     },
     {
       "bytes": 3217,
@@ -8192,9 +8192,9 @@
       "sha256": "4d0f4393059688353bf8a3cca8118f08548edbae6f3c6ed477ff9f2d1205cff0"
     },
     {
-      "bytes": 43553,
+      "bytes": 47061,
       "path": "skills/productivity/google-workspace/scripts/google_api.py",
-      "sha256": "d3822ef5cbdfad1d280fb619b9d85f2bdc0f8d8756398eb0189a126e8a6fbf89"
+      "sha256": "a8f7f55db105155a8a5beda1558ede39e27c649150e2a412c31c78c203e832a6"
     },
     {
       "bytes": 4368,
@@ -8202,9 +8202,9 @@
       "sha256": "6bba56ab6d49ddab3cd16c2e189950633cbf1a9f4907cb7db5225ebe28313aee"
     },
     {
-      "bytes": 20231,
+      "bytes": 17414,
       "path": "skills/productivity/google-workspace/scripts/setup.py",
-      "sha256": "ace45d12de9bbc408f03b88e78b8d5ed2a37f36e992164bcbe9708c5ba49883d"
+      "sha256": "a5ba2941cca7e90d452ec08fb5ab8f5ed4bc5b50111f94acb7f56c6452c33f67"
     },
     {
       "bytes": 9514,
@@ -8282,9 +8282,9 @@
       "sha256": "e0bdce5fe2d2c8f657f520337cc1cd8d26b13edb60decaafdd9865d4567289ea"
     },
     {
-      "bytes": 14629,
+      "bytes": 14621,
       "path": "skills/productivity/notion/SKILL.md",
-      "sha256": "798ad178ead72ad3056f5301e83b447fce3407de07d5ff8b0209b134b4eae866"
+      "sha256": "e5aaf194f2688223890cb2eb6cf5ce866e6390082f1dff845c9e37a25fe0bfee"
     },
     {
       "bytes": 3021,
@@ -8332,9 +8332,9 @@
       "sha256": "2f0b15bd1ebbd45cf37ed257723ad63aa70b623b97f5242c886c14f8968cd773"
     },
     {
-      "bytes": 5612,
+      "bytes": 5615,
       "path": "skills/productivity/pdf/references/ocr-extraction.md",
-      "sha256": "611f03bc3fdf7f29283bf609ee46362cef6bcbea91b965a74f37ddd8c513cd1e"
+      "sha256": "1bba1451fbaa50842890e7b75a1ad226dfe9791619cb4df3d705e2a38b606da6"
     },
     {
       "bytes": 2614,
@@ -9062,9 +9062,9 @@
       "sha256": "eba9d0edf896036718612bb557ec7a6432532a9395bd66277c3b7417d8960a37"
     },
     {
-      "bytes": 4879,
+      "bytes": 4936,
       "path": "skills/software-development/github/references/ci-troubleshooting.md",
-      "sha256": "c72b2301e9b85c545c4960722dbd4c0d49c5d883e6d86438e932bd47b1d8eee0"
+      "sha256": "ada022d91c8abff55a15505fe630ba02abdece5afa3751433fa4014a33defa23"
     },
     {
       "bytes": 13295,
@@ -9092,14 +9092,14 @@
       "sha256": "86cf4a98232ee6362cd7893e76bed6ed25c21eb660e878432c6df3286c02d6d8"
     },
     {
-      "bytes": 9708,
+      "bytes": 9746,
       "path": "skills/software-development/github/references/pr-workflow.md",
-      "sha256": "0be42677bf500fe292c221468c2f9c48b4c8326dad508b8ef3287c010364adc8"
+      "sha256": "f75f8cc23266a3675a67c8d06385c561befab23a8e6a9683b5418c8b656bb2b5"
     },
     {
-      "bytes": 13378,
+      "bytes": 13416,
       "path": "skills/software-development/github/references/repo-management.md",
-      "sha256": "c74500946263f6bdb4925d4de96aa09dcd49146c9e918bf73863f0b6186e0543"
+      "sha256": "e5b92a6d2edf1dc317ed4d4ba1b37734b78f391438d58f3f86139df398996301"
     },
     {
       "bytes": 2465,
@@ -9162,14 +9162,14 @@
       "sha256": "e26eba557ceba1628fd26b5579d1a147d0fa97e0718496a692c7354ad74e4b20"
     },
     {
-      "bytes": 6204,
+      "bytes": 6250,
       "path": "skills/software-development/inspecting-hermes-desktop-dom/SKILL.md",
-      "sha256": "a78a5f8d277a1d6d39fccd5ecf1e76ce519a1ace831f06078dfcc91cb54a3399"
+      "sha256": "8dfdcf2fe3797beec4297ce629e62395d7a69ec2691fc00ef25bc6273139cbc4"
     },
     {
-      "bytes": 10894,
+      "bytes": 11065,
       "path": "skills/software-development/node-inspect-debugger/SKILL.md",
-      "sha256": "bc89942b76387834272b6bf3bbf99caad72400c41338ab0420a740b7abe77d02"
+      "sha256": "422eed9a0997182c5b197a8879ab194647799d69e573000e53b65b8708cf3a77"
     },
     {
       "bytes": 3903,
@@ -9187,9 +9187,9 @@
       "sha256": "de44701c1454d3d31b0c8d1bef048a2b39e279e26f399de66f8ab29b8069299a"
     },
     {
-      "bytes": 13347,
+      "bytes": 14984,
       "path": "skills/software-development/python-debugpy/SKILL.md",
-      "sha256": "24258d93eb080e7bbf89a81ba3e614b09d5d09637cdceaafac487f4df07f3f53"
+      "sha256": "cb1b8b0795a56fa0fd79f80f3363f1ad79d404a6757d6cf547971cf89f21155e"
     },
     {
       "bytes": 8504,
@@ -9237,9 +9237,9 @@
       "sha256": "1cee33fe7aaddc9d8ce9319f4452dc9a357952feba049810e392a8ecf67ea28e"
     },
     {
-      "bytes": 5156,
+      "bytes": 5175,
       "path": "skills/web/blocked-page-recovery/SKILL.md",
-      "sha256": "7f7d321f177399ca928e11ab38942cfa76d6e931a82d887671c50661fb411d51"
+      "sha256": "b71179e82ff27c002e6593e792d9a64dad9a444901b8938f30204fa115592061"
     },
     {
       "bytes": 8481,
@@ -9252,7 +9252,7 @@
       "sha256": "239e4875f511124fab06e94ff21511fd8f857554c6ffd82dfb796ed275b4ff32"
     }
   ],
-  "generated_at": "20260912T212407Z",
+  "generated_at": "20260927T022542Z",
   "redaction_marker": "[REDACTED: managed outside ai-configs]",
   "schema": "ai-configs.hermes-managed-export.v1",
   "source_home": "/Users/anichols/.hermes"

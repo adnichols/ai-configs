@@ -1,9 +1,7 @@
 model:
-  default: grok-4.6
-  provider: xai-oauth
-  base_url: https://api.x.ai/v1
-  api_key: ''
-  api_mode: ''
+  default: gpt-5.6-sol
+  provider: openai-codex
+  base_url: https://chatgpt.com/backend-api/codex
 fallback_providers: []
 toolsets:
 - hermes-cli
@@ -27,7 +25,7 @@ agent:
   image_input_mode: auto
   disabled_toolsets: []
   verbose: false
-  reasoning_effort: xhigh
+  reasoning_effort: high
   personalities:
     helpful: You are a helpful, friendly AI assistant.
     concise: You are a concise assistant. Keep responses brief and to the point.
@@ -199,7 +197,7 @@ auxiliary:
     timeout: 30
   title_generation:
     provider: custom
-    model: gpt-5.4-mini
+    model: gpt-5.6-luna
     base_url: http://localhost:8318/v1
     api_key: ''
     timeout: 30
@@ -649,7 +647,7 @@ secrets:
 paste_collapse_threshold: 5
 paste_collapse_threshold_fallback: 5
 paste_collapse_char_threshold: 2000
-_config_version: 44
+_config_version: 46
 smart_model_routing:
   enabled: false
   max_simple_chars: 160
@@ -665,6 +663,7 @@ platform_toolsets:
   - browser
   - clarify
   - code_execution
+  - connections
   - cronjob
   - delegation
   - file
@@ -686,6 +685,7 @@ platform_toolsets:
   - browser
   - clarify
   - code_execution
+  - connections
   - cronjob
   - delegation
   - file
@@ -703,6 +703,7 @@ platform_toolsets:
   - browser
   - clarify
   - code_execution
+  - connections
   - cronjob
   - delegation
   - file
@@ -735,47 +736,43 @@ custom_providers:
   base_url: http://localhost:8318/v1
   model: gpt-5.6-sol
   models:
-    grok-4.5: {}
-    grok-4.3: {}
-    grok-3-mini: {}
-    claude-fable-5-1: {}
-    claude-sonnet-4-5-20250929: {}
-    claude-opus-4-6: {}
-    claude-opus-4-7: {}
-    claude-opus-4-8: {}
-    claude-opus-4-20250514: {}
-    grok-4.6: {}
-    grok-imagine-image-quality: {}
-    claude-haiku-4-5-20251001: {}
-    claude-opus-5: {}
-    claude-3-7-sonnet-20250219: {}
-    grok-imagine-image-2.0: {}
-    grok-imagine-video: {}
-    gpt-5.6-sol: {}
-    gpt-5.6-terra: {}
-    codex-auto-review: {}
-    gpt-image-2: {}
-    grok-4.20-0309-reasoning: {}
-    grok-4.20-0309-non-reasoning: {}
-    grok-imagine-image: {}
-    claude-fable-5: {}
-    claude-sonnet-4-20250514: {}
-    grok-imagine-video-1.5-preview: {}
-    claude-sonnet-4-6: {}
-    claude-opus-4-1-20250805: {}
-    claude-3-5-haiku-20241022: {}
-    grok-3-mini-fast: {}
-    gpt-5.6-luna: {}
-    claude-sonnet-5: {}
-    grok-composer-2.5-fast: {}
-    gpt-5.3-codex-spark: {}
-    gpt-5.5: {}
-    claude-opus-4-5-20251101: {}
-    grok-build-0.1: {}
-    grok-4.20-multi-agent-0309: {}
-    grok-imagine-video-1.5: {}
+    gpt-6-luna: {}
+    grok-4.7-build-fast: {}
     gpt-6-astra: {}
-    gpt-image-1.5: {}
+    claude-sonnet-4-5-20250929: {}
+    claude-sonnet-5: {}
+    claude-opus-4-1-20250805: {}
+    claude-opus-4-20250514: {}
+    grok-4.3: {}
+    gpt-6-sol: {}
+    claude-opus-4-8: {}
+    claude-3-7-sonnet-20250219: {}
+    grok-3-mini-fast: {}
+    codex-auto-review: {}
+    claude-3-5-haiku-20241022: {}
+    grok-4.20-0309-reasoning: {}
+    grok-3-mini: {}
+    grok-composer-2.5-fast: {}
+    claude-opus-5-5: {}
+    gpt-5.6-luna: {}
+    claude-fable-5-1: {}
+    grok-4.6: {}
+    grok-4.20-0309-non-reasoning: {}
+    gpt-5.5: {}
+    claude-opus-5: {}
+    claude-opus-4-5-20251101: {}
+    claude-sonnet-4-20250514: {}
+    grok-build-0.1: {}
+    gpt-5.6-sol: {}
+    claude-opus-4-7: {}
+    grok-4.5: {}
+    grok-4.20-multi-agent-0309: {}
+    grok-4.7: {}
+    gpt-5.6-terra: {}
+    claude-haiku-4-5-20251001: {}
+    claude-sonnet-4-6: {}
+    claude-opus-4-6: {}
+    claude-fable-5: {}
   models_discovered: true
 platforms:
   webhook:
@@ -841,6 +838,7 @@ platforms:
             '
 known_plugin_toolsets:
   cli:
+  - a2a
   - pi_rpc
   - pi_tmux
   telegram:
@@ -864,6 +862,7 @@ known_builtin_toolsets:
   - clarify
   - code_execution
   - computer_use
+  - connections
   - context_engine
   - cronjob
   - delegation
@@ -872,6 +871,7 @@ known_builtin_toolsets:
   - file
   - homeassistant
   - image_gen
+  - kanban
   - memory
   - session_search
   - skills
@@ -891,6 +891,7 @@ known_builtin_toolsets:
   - clarify
   - code_execution
   - computer_use
+  - connections
   - context_engine
   - cronjob
   - delegation
@@ -918,6 +919,7 @@ known_builtin_toolsets:
   - clarify
   - code_execution
   - computer_use
+  - connections
   - context_engine
   - cronjob
   - delegation

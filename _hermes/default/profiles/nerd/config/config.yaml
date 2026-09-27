@@ -397,7 +397,7 @@ onboarding:
 updates:
   pre_update_backup: false
   backup_keep: 5
-_config_version: 44
+_config_version: 46
 smart_model_routing:
   enabled: false
   max_simple_chars: 160
@@ -415,6 +415,7 @@ platform_toolsets:
   - browser
   - clarify
   - code_execution
+  - connections
   - cronjob
   - delegation
   - file
@@ -434,6 +435,7 @@ platform_toolsets:
   - browser
   - clarify
   - code_execution
+  - connections
   - cronjob
   - delegation
   - file
@@ -451,6 +453,7 @@ platform_toolsets:
   - browser
   - clarify
   - code_execution
+  - connections
   - cronjob
   - delegation
   - file
