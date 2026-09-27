@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Restored Herdr Option/Alt+`[` / `]` tab switching over mosh by having Kitty inject complete xterm modifyOtherKeys sequences (`CSI 27;3;91/93 ~`). Bare `ESC [` / `ESC ]` never complete as alt-bracket events in Herdr's legacy framer, and Kitty `send_key` does not survive mosh.
 - Stopped overlaying live Paseo daemon config from `_paseo/config.json`. Profiles, providers, relay, listen, CORS, and feature flags are host-local; the installer only writes `agents.skills.selection` so repo-owned `paseo*` skills are not reverted, and no longer resets host `omp` profiles or disables mobile relay.
+- Fixed remote OMP installs failing on hosts where bun was installed but not on the non-interactive PATH: `scripts/install-omp-remote-hosts.sh` now prepends `~/.bun/bin` (the bun.sh install location) to PATH inside the remote shell.
 
 ### Changed
 - Synced managed OMP `config.yml` from this host: `advisor.enabled` is now `false`, disabling the advisor tier. Also captures `theme.dark: dark`, `spelling.autocomplete: "off"`, and `tui.hyperlinks: auto`.

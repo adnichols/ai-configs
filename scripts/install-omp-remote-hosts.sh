@@ -66,6 +66,10 @@ for host in "${hosts[@]}"; do
     env "OMP_REMOTE_BRANCH=$REMOTE_BRANCH" "OMP_REMOTE_REPO_PATH=$REMOTE_REPO_PATH" bash -s <<'REMOTE_INSTALL'
 set -euo pipefail
 
+# bun.sh installs to ~/.bun/bin, which non-interactive shells never pick up
+# from shell rc files.
+export PATH="$HOME/.bun/bin:$PATH"
+
 repo_path="${OMP_REMOTE_REPO_PATH:-$HOME/code/ai-configs}"
 cd -- "$repo_path"
 
