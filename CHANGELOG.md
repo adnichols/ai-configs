@@ -118,6 +118,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
+- Retired the shared `lab-manager` skill: it now lives in the ccore2 repo at `.agents/skills/lab-manager`, versioned with the Lab Manager contract it documents. Installers delete the managed `~/.agents/skills/lab-manager` copy and its consumer links with a backup. `verified-build` and `session-cleanup` point to the repo-local skill.
 - Removed the plan-completeness review: the shared and Codex `completeness` skills, the OMP and Devin `completeness` agents, the delivery `COMPLETENESS_REVIEW` stage and `completion-review` command, and the routing text that sent work there. Installers delete the retired skill and agent copies.
 - Removed leftover Gemini CLI surfaces: root `GEMINI.md`, `_claude/commands/review:change-gemini.md`, and `scripts/gemini-review.sh`.
 - Retired the Pi model-picker allowlist: install no longer ships `model-allowlist.ts` and clears `enabledModels` so Pi shows the live catalog. The default execution route remains DeepSeek Flash.

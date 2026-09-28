@@ -52,7 +52,8 @@ Before deleting anything, enumerate what this session actually owns:
 
 ## Step 1 — Release lab claims and demos
 
-Follow the `lab-manager` skill's release conditions and release command
+For CCore labs, follow the release conditions and release command in the
+ccore2 repo-local `lab-manager` skill (`.agents/skills/lab-manager`)
 verbatim: release only after all PRs using the lab have merged and the
 operator has explicitly agreed the work is complete, or after an explicit
 instruction to abandon the work. A generic cleanup request that arrives while
@@ -60,10 +61,10 @@ a lab is still awaiting review does not authorize release — preserve the
 claim, record its identity, and report it instead of releasing.
 
 Run the release from the worktree that holds the claim, before that worktree
-is removed. The manager removes `.ccore/lab-claim.json` only after confirming
-the release. If the manager is unreachable, report the unreleased claim and
-continue with worktree cleanup — do not claim the release succeeded, and do
-not delete the claim file by hand.
+is removed. The CLI removes `.ccore/lab-claim.json` only after the manager
+confirms the release. If the manager is unreachable, report the unreleased
+claim and continue with worktree cleanup — do not claim the release
+succeeded, and do not delete the claim file by hand.
 
 ### Published clickable prototypes
 
