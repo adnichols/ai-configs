@@ -41,7 +41,7 @@ grep -q '^  - ~/.omp/agent/extensions/thinking-shortcuts.ts$' "$TARGET_ROOT/conf
 grep -q '^  - ~/.omp/agent/extensions/eval-no-file-writes.ts$' "$TARGET_ROOT/config.yml"
 grep -q '^  - claude$' "$TARGET_ROOT/config.yml"
 grep -q '^advisor:$' "$TARGET_ROOT/config.yml"
-grep -A1 '^advisor:$' "$TARGET_ROOT/config.yml" | grep -q '^  enabled: true$'
+grep -A1 '^advisor:$' "$TARGET_ROOT/config.yml" | grep -q '^  enabled: false$'
 grep -q '^todo:$' "$TARGET_ROOT/config.yml"
 grep -A1 '^todo:$' "$TARGET_ROOT/config.yml" | grep -q '^  enabled: true$'
 

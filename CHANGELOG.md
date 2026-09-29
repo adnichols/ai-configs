@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fixed remote OMP installs failing on hosts where bun was installed but not on the non-interactive PATH: `scripts/install-omp-remote-hosts.sh` now prepends `~/.bun/bin` (the bun.sh install location) to PATH inside the remote shell.
 
 ### Changed
+- Synced managed OMP `modelRoles` from this host: `designer` moves to `anthropic/claude-sonnet-5-5:high`, `reviewer` to `synthetic/hf:moonshotai/Kimi-K3:high`, and `task` to `anthropic/claude-sonnet-5-5:medium`; the unused `advisor` role is removed. The OMP installer test now expects `advisor.enabled: false`.
 - Synced managed OMP `config.yml` from this host: `advisor.enabled` is now `false`, disabling the advisor tier. Also captures `theme.dark: dark`, `spelling.autocomplete: "off"`, and `tui.hyperlinks: auto`.
 
 - `install.sh` with no arguments and `install.sh --all` no longer install Pi. They skip the Pi prompts, agents, extensions, config, npm packages, and review-stack reconciliation. Run `install.sh --pi` to install Pi.
