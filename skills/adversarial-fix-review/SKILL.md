@@ -1,12 +1,12 @@
 ---
 name: adversarial-fix-review
-description: Use when adn-mode or the bug-fix playbook requires a second-model review of a claimed fix. Spawn a different-family reviewer who must prove the claim from artifacts, not the implementer's summary.
+description: Use when adn-mode or the bug-fix playbook requires an independent check of a claimed fix. The reviewer must prove the claim from artifacts, not the implementer's summary.
 disable-model-invocation: true
 ---
 
 # Adversarial fix review
 
-A claimed fix is not done until a second reviewer, on a different model family, independently proves three things:
+A claimed fix is not done until a reviewer other than the implementer independently proves three things:
 
 1. The bug still exists without this change.
 2. This change is necessary.
@@ -16,7 +16,7 @@ The implementer's summary, brief, ticket comment, or self-written test is the cl
 
 Do not use **interrogate** for this. Interrogate checks whether the code matches the stated intent. It does not check whether the intent is true.
 
-Do not use **autoreview** for this. Autoreview is static code review of a diff.
+This is not an extra reviewer beside **autoreview**. When a PR review is also due, put the packet below in the one `autoreview` reviewer's packet and take both verdicts from that single pass. A completed review over the same unchanged diff that answered these questions satisfies both.
 
 ## When
 
@@ -45,9 +45,9 @@ Do not give:
 
 ## Reviewer
 
-Read-only. Different model family from the implementer.
+Read-only. A reviewer other than the implementer, never the implementer's own session. Prefer a different model family when one is configured. If none is, run the review anyway and record the limitation. Exactly one reviewer per change.
 
-- **OMP.** Spawn whichever of `reviewer`, `reviewer-two`, or `reviewer-three` has a configured model family different from the implementer. Check with `omp config get modelRoles --json`. Do not spawn a reviewer on the implementer's family.
+- **OMP.** Use the single required review's role, chosen by complexity: `reviewer` for routine work, `reviewer-two` or `reviewer-three` for complex or high-risk work. Prefer a role whose configured family differs from the implementer's (`omp config get modelRoles --json`). Do not gate on a resolved model name.
 - **Pi.** Spawn the repository `reviewer` subagent when the implementer is not Terra. If the implementer is Terra, ask Oracle only the necessity question. Oracle is advisory and cannot rubber-stamp.
 - **Cursor.** Same family split: Kimi reviewer for Grok parents, Terra or Grok for Kimi parents.
 

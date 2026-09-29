@@ -33,3 +33,7 @@ Declined:
 - The plugin logo, `plugin.json`, and README changes. ADN installs skills, not the Cursor plugin package.
 
 Local deviations: "are we sure?" routes to `interrogate`, because the `how` skill no longer has a critique mode. In `autopilot-full`, merge authority comes from the operator's explicit request to run the queue to merged, not from a full-autonomy grant alone.
+
+## Local deviations: one required review
+
+Every required review is exactly one reviewer other than the driver. `adversarial-fix-review`, `autoreview`, and any "independent" or "final" verdict are the same review and share one pass, not stacked passes. The reviewer role is chosen by the complexity and risk of the work. Different model family is preferred, and same-family is a recorded note, not a blocker. The rule lives in `skills/adn-mode/references/omp-runtime.md` (Required reviews) and takes precedence over the retained upstream wording. Local edits also reword `adn-mode` (trigger line and role paragraph), `bug-fix` step 6, `opening-a-pr`, `show-me-your-work`, and the five council agent prompts. `interrogate`, `arena`, and architect councils stay multi-agent panels.

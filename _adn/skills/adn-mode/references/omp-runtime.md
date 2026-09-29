@@ -15,15 +15,22 @@ Use OMP `task` with the installed agent name. Give exact allowed paths, the ques
 | Requested work | OMP agent |
 | --- | --- |
 | Architecture alternatives and convergence | `arch-one`, `arch-two`, `arch-three` |
-| Material implementation review | `reviewer` |
-| Independent adversarial fix review | `reviewer`, `reviewer-two`, or `reviewer-three`, selecting a configured model family different from the implementer |
+| Required review (exactly one per cycle) | `reviewer` for routine work; `reviewer-two` or `reviewer-three` for complex or high-risk work |
 | Comment Sicko | `comment-sicko` |
 | Planning | `planner` |
 | Consequential decision support | `oracle` |
 
 Named agents use their frontmatter and configured model roles. Do not override their models. For investigation or synthesis, use the installed general `task` agent with a bounded read-only packet if delegation is useful. Do not assume a `scout` persona is installed. Multi-agent playbooks use these native agents within available capacity; cloud ownership and Graphite are not prerequisites. Git and GitHub CLI operations remain subject to task authorization.
 
-For the retained `adversarial-fix-review` trigger, give the independent reviewer the original reported behavior, the candidate diff, reproduction evidence, and a request to disprove the claimed cause and fix. Require PASS / BLOCK / INCOMPLETE with concrete evidence. Verify the configured family differs from the driver. If no different family is available, report that exact limitation instead of counting same-family review as cross-family proof. The retired standalone skill is not required.
+## Required reviews
+
+A required review is exactly one read-only reviewer agent per review cycle. It is never the driving session. Adversarial fix review, `autoreview`, and any "final" or "independent" verdict are the same review and are satisfied by one agent. Do not run a second reviewer, a confirmation pass, or a separate verdict pass over the same unchanged candidate. Another pass is warranted only by a material change to the candidate or by the review-budget rules in `autoreview` and `run-plan`. A completed review over the same unchanged diff that answered the required questions satisfies every gate that asks for one.
+
+Choose the role by the complexity and risk of the work. Routine changes use `reviewer`. Data loss, auth or security, concurrency, migrations, cross-boundary contracts, and other hard-to-verify work use `reviewer-two` or `reviewer-three`. Prefer a role whose configured model family differs from the driving session's; read `omp config get modelRoles --json` for that purpose only. If no configured role differs, run the best-fit role anyway and record the same-family limitation in the review record. Same-family is a note, not a blocker.
+
+Roles define coverage, not models. Never compare a role's resolved model to a name in a brief, reject a review because a role resolves to an unexpected model, or invalidate a review because a role's model was reconfigured. If a role fails to launch, report its exact error; the coordinator may pick another reviewer role and records the substitution as a note.
+
+For a claimed fix or necessity claim, add the original reported behavior, the candidate diff, reproduction evidence, and a request to disprove the claimed cause and fix to that one reviewer's packet. The reviewer says whether the bug exists without the change, whether the change is necessary, and whether the fix works. Require PASS / BLOCK / INCOMPLETE with concrete evidence. The retired standalone skill is not required.
 
 ## Model roles
 
@@ -38,6 +45,8 @@ OMP owns every model choice through `modelRoles`. ADN agents name a role in fron
 | `arena runners`, `arena cross-judge pool`, `interrogate reviewers` | One read-only agent per distinct model family, chosen from `arch-one`, `arch-two`, `arch-three`, `reviewer`, `reviewer-two`, `reviewer-three`, and `oracle` |
 
 A panel's value is family diversity. Read `omp config get modelRoles --json`, group the candidate agents' roles by model family, and run one agent per family. If fewer families are configured than the panel asks for, run the families you have and say so.
+
+That rule is for panels (`interrogate`, `arena`, architect councils). It does not apply to required reviews above.
 
 ## Skills and verification
 

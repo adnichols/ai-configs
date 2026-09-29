@@ -129,7 +129,7 @@ Use this scope baseline and ledger for every slice, triage decision, fix, and re
 
 ### 2. Run the active-harness reviewer
 
-Run exactly one bounded, read-only `reviewer` subagent pass for every review cycle. This replaces the former Codex-primary and conditional-Claude dual-review policy, including for high-risk changes. Give the reviewer a compact packet with the plan or scope, base/comparison range, changed files, diff summary, verification already run, touched surfaces, and the specific failure families to inspect.
+Run exactly one bounded, read-only `reviewer` subagent pass for every review cycle. This replaces the former Codex-primary and conditional-Claude dual-review policy, including for high-risk changes. Where the harness offers more than one reviewer role, choose the role by the complexity and risk of the change; never run two. That one pass also satisfies any adversarial fix review or independent verdict the change would otherwise require, when its packet asks the fix-necessity questions. Give the reviewer a compact packet with the plan or scope, base/comparison range, changed files, diff summary, verification already run, touched surfaces, and the specific failure families to inspect.
 
 Use the native subagent mechanism for the current harness:
 
@@ -137,6 +137,7 @@ Use the native subagent mechanism for the current harness:
 - **Claude Code:** invoke the repository-owned `reviewer` subagent; it is `claude-sonnet-5` at high effort.
 - **OpenCode:** invoke the configured `reviewer` subagent; it is `cliproxyapi/gpt-5.6-terra` at medium reasoning effort.
 - **Devin:** invoke the repository-owned `reviewer` custom subagent profile (`~/.config/devin/agents/reviewer.md`) via `run_subagent`; it pins its own model. Run it in the foreground, or in the background and join via `read_subagent` with `block: true`.
+- **OMP:** invoke the `reviewer` agent for routine work. For complex or high-risk work (data loss, auth or security, concurrency, migrations, cross-boundary contracts), invoke `reviewer-two` or `reviewer-three` instead, preferring a role whose configured model family differs from the driving session's. If none differs, run the best-fit role and record the same-family limitation as a note. Roles define coverage; never gate on a resolved model name.
 
 #### Candidate visibility contract (mandatory)
 

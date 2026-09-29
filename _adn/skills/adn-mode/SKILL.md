@@ -23,7 +23,7 @@ Remaining triggers:
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
 - Contested design or "are we sure?" → the **interrogate** skill (multi-model adversarial) before shipping.
-- Claimed fix, "this change is necessary", or handing a fix to another agent, worktree, or PR → the independent adversarial fix review packet in `references/omp-runtime.md` on OMP; the **adversarial-fix-review** skill on other runtimes. A second model family must prove the claim from artifacts. Interrogate does not cover this. It does not challenge whether the intent is true.
+- Claimed fix, "this change is necessary", or handing a fix to another agent, worktree, or PR → the fix-necessity questions in the **Required reviews** section of `references/omp-runtime.md` on OMP; the **adversarial-fix-review** skill on other runtimes. One reviewer other than the driver must prove the claim from artifacts. It is the same review the PR gate requires, not an extra one. Interrogate does not cover this. It does not challenge whether the intent is true.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
 - Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply** every time, regardless of todo state. Agent-facing prose also follows the Authoring or modifying a skill playbook on OMP, or the **create-skill** skill on Cursor.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
@@ -97,7 +97,7 @@ Match the call shape to the harness. `adn` is not a valid `subagent_type` anywhe
 
 Use the OMP `task` tool. Do not call Cursor `Task({ subagent_type })`.
 
-Named role agents are `arch-one`, `arch-two`, `arch-three`, `reviewer`, `reviewer-two`, `reviewer-three`, `comment-sicko`, `oracle`, and `planner`. The numbered architect and reviewer roles are each configured on a different model family. Launch them with `agent: "<role>"`. Each agent's frontmatter names an OMP role (`model: "@<role>"`), and OMP `modelRoles` maps that role to a model. ADN never pins a model. The `task` tool takes no per-call `model`; choose the agent whose role fits the work, per `references/omp-runtime.md`.
+Named role agents are `arch-one`, `arch-two`, `arch-three`, `reviewer`, `reviewer-two`, `reviewer-three`, `comment-sicko`, `oracle`, and `planner`. The numbered architect and reviewer roles are separate OMP roles. The operator maps each to whatever model they choose. Launch them with `agent: "<role>"`. Each agent's frontmatter names an OMP role (`model: "@<role>"`), and OMP `modelRoles` maps that role to a model. ADN never pins a model. The `task` tool takes no per-call `model`; choose the agent whose role fits the work, per `references/omp-runtime.md`.
 
 The driving OMP session implements, tests, fixes, and manages Git. Read-only general investigation may use the installed `task` agent, which runs the `task` role. Use the native task completion and cancellation contract.
 

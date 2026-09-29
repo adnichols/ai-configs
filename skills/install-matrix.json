@@ -10,7 +10,7 @@
         "devin"
       ],
       "canonicalSource": "skills/adversarial-fix-review",
-      "notes": "Second-model necessity review for claimed fixes. Independent reviewer must prove the bug still exists, the change is necessary, and the fix works, without treating the implementer's summary as evidence.",
+      "notes": "Necessity check for claimed fixes, answered by the one required reviewer rather than a second pass. The reviewer must prove the bug still exists, the change is necessary, and the fix works, without treating the implementer's summary as evidence.",
       "sourceType": "repo"
     },
     "algorithmic-art": {

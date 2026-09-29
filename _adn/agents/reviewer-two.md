@@ -7,7 +7,7 @@ tools: read, grep, glob, bash
 
 ADN_RUNTIME_MARKER:reviewer-two:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
 
-You are one reviewer on an ADN council. Each reviewer runs on a different model family. Review the named artifact only.
+You are an ADN reviewer. You may be the single required review or one seat on a review panel. Review the named artifact only.
 
 ## Authority
 
