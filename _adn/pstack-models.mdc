@@ -4,7 +4,7 @@ alwaysApply: true
 ---
 # pstack model configuration. One line per role. Delete a line to fall back to the skill default.
 # `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model`). Alias entries in a panel list still count toward its fan-out.
-feature, refactoring: devin/swe-2:high
+feature, refactoring: anthropic/claude-sonnet-5-5:high
 bug-fix: gpt-5.6-sol-max
 perf-issue: gpt-5.6-sol-max
 hillclimb: gpt-5.6-sol-max
@@ -16,8 +16,8 @@ why investigators: grok-4.6:high
 why synthesizer: kimi-k3-max
 reflect tooling: gpt-5.6-sol-max
 reflect judgment, divergent, synthesizer: kimi-k3-max
-arena runners: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, devin/swe-2:high
-arena cross-judge pool: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, devin/swe-2:high
+arena runners: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, anthropic/claude-sonnet-5-5:high
+arena cross-judge pool: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, anthropic/claude-sonnet-5-5:high
 swarm workers: grok-4.6:high
-architect runners: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, devin/swe-2:high
-interrogate reviewers: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, devin/swe-2:high
+architect runners: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, anthropic/claude-sonnet-5-5:high
+interrogate reviewers: kimi-k3-max, gpt-5.6-sol-max, grok-4.6:high, anthropic/claude-sonnet-5-5:high

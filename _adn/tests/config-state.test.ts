@@ -33,8 +33,8 @@ describe.skipIf(!RUN)("config-state", () => {
     const root = mkdtempSync(join(tmpdir(), "adn-roles-"));
     try {
       expect(readRoles({ agentRoot: root })).toBeNull();
-      writeFileSync(join(root, "config.yml"), "modelRoles:\n  reviewer: devin/swe-2:high\n");
-      expect(readRoles({ agentRoot: root })).toEqual({ reviewer: "devin/swe-2:high" });
+      writeFileSync(join(root, "config.yml"), "modelRoles:\n  reviewer: anthropic/claude-sonnet-5-5:high\n");
+      expect(readRoles({ agentRoot: root })).toEqual({ reviewer: "anthropic/claude-sonnet-5-5:high" });
       writeFileSync(join(root, "config.yml"), "theme: dark\n");
       expect(() => readRoles({ agentRoot: root })).toThrow(/fail-closed/);
     } finally {
