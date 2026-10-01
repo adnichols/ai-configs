@@ -96,11 +96,12 @@ The launch profile is named `omp`. That is the Paseo bundle for this worker.
 2. Identify the workspace the orchestrator already occupies using `list_workspaces` or `paseo workspace ls --json`. Confirm its path resolves to the run checkout and retain its `workspaceId`.
 3. Start the worker with `create_agent` in that `workspaceId` — the same workspace, so the worker appears as an adjacent tab in the same worktree. Materialize the `omp` row only:
    - `provider`: `omp/<model>`
+   - `notifyOnFinish`: `true`
    - `settings.modeId`: the profile `modeId`
    - `settings.thinkingOptionId`: the profile `thinkingOptionId` when present
    - omit absent fields
 
-Codex has no managed Paseo MCP. Same launch on the CLI:
+When dedicated Paseo tools are unavailable, use the same launch on the CLI:
 
 ```
 paseo run -d --json \
@@ -130,7 +131,20 @@ Prompt OMP to use ADN mode and include:
 - a prohibition on lab deployment, production deployment, merge, and changes outside the requested outcome; and
 - a completion receipt containing the PR URL, exact head SHA, changed files, checks, review verdict, and remaining risks.
 
-Monitor with `paseo inspect`, `paseo wait`, and `paseo send`. Send follow-ups only when new lab evidence, a concrete scope correction, or a verified review problem requires one. A timeout means inspect state; it does not mean the agent failed.
+### Wait through Paseo
+
+After the initial placement check, let the worker own its implementation process. Use completion and attention events for routine monitoring; avoid repeatedly reading output, checking status, or sending reminders merely to watch progress. Ten to thirty minutes without a message is normal.
+
+This is a default for routine waiting, not a restriction on investigation or oversight. Read as much output as needed, including the full transcript line by line, when it helps verify claims, understand a blocker, investigate suspected scope drift, answer the user, recover a handoff, or resolve conflicting evidence. Intervene when the task needs it, including while the worker is active. Choose the depth of inspection from the question being resolved and return to event-based waiting when it is resolved.
+
+Use Paseo's event path instead:
+
+1. Keep `notifyOnFinish: true` when the tool exposes it. Paseo will notify the parent when the worker finishes, errors, or needs permission. Continue Codex-owned baseline, lab, and verification preparation while the worker runs.
+2. When no independent Codex work remains, yield and let the notification resume the session. With CLI-only Paseo, prefer `paseo wait <agent-id>` over repeated short status checks. Use the execution environment's supported background or yielding mechanism so a long wait does not prevent user interaction.
+3. On a completion or attention notification, inspect the status and receipt, then read supporting output as needed. A short relevant tail is a useful starting point; expand the read whenever necessary to establish what actually happened.
+4. Bundle related follow-up requests where practical. State the evidence or decision needed and the desired outcome, give the worker room to choose its approach, and return to event-based waiting. Avoid directing each step or the worker's subagents unless a concrete coordination need warrants it.
+
+A wait timeout or lack of recent output alone is not evidence of failure. Use judgment about deadlines, missing notifications, stalled operations, and other signs of trouble to decide when inspection or intervention is useful; do not require a reported error before investigating.
 
 ## Validate the PR head in the lab
 
