@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Removed
+
+- Retired the AI-configs-managed `ava` skill. The Ava CLI owns and reconciles `~/.agents/skills/ava`, `~/.claude/skills/ava`, and `~/.ava/SKILL.md`; `skills/ava` and its install-matrix entry are removed and `ava` joins `DEPRECATED_SHARED_SKILLS`, which removes only copies carrying the ai-configs marker and preserves Ava-owned (`managed-by: ava`) or unmarked skills.
+
 ### Added
 
 - Added a managed Paseo runtime surface under `_paseo/`: the daemon config deep-merges into `~/.paseo/config.json` (agent profiles merge by name, unmanaged keys preserved, first differing file backed up), `agents.providers.omp.additionalModels` pins `@default` as the default model so profile-less launches resolve OMP's configured `modelRoles.default`, and `agents.skills.selection` is set to `custom`/empty so the daemon stops reverting repo-owned `paseo*` skills at startup. `_paseo/skills/` holds the tuned skill copies installed to `~/.agents`, `~/.claude`, and `~/.codex` skills roots. `install.sh --tools`/`--all` installs locally and streams the bundle to `mbp`/`dever`/`thump` via `scripts/install-paseo-remote-hosts.sh`.
