@@ -83,6 +83,13 @@
       "defaultInstall": false,
       "profile": "ops-browser"
     },
+    "bugbash": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [],
+      "canonicalSource": "skills/bugbash",
+      "notes": "Conversation-driven bug bash: collects rapid-fire bug and feature reports with screenshots, enriches them with background research, hands each to its own Paseo worktree running OMP (the `omp` profile) with verified-build and ADN mode, then orchestrates every item to an operator-approved merged PR and cleaned-up worktree. Installs into shared discovery only, so OMP and Codex orchestrator sessions both see it; no consumer compatibility links are created.",
+      "sourceType": "repo"
+    },
     "canvas-design": {
       "class": "universal-installable",
       "allowedConsumers": [
