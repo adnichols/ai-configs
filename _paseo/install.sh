@@ -80,6 +80,14 @@ for skill_source in "$SOURCE_SKILLS_DIR"/*/; do
     install_skill_dir "$skill_source" "$root/$skill_name"
   done
 done
+# The paseo-bots plugin reads its skills from its own data directory, not from
+# the agent skill roots. Install them only on hosts where the plugin has run.
+BOT_DATA="$TARGET_ROOT/plugin-data/paseo-bots"
+if [[ -d "$BOT_DATA" ]]; then
+  for skill_source in "$SOURCE_DIR/bots/skills"/*/; do
+    install_skill_dir "$skill_source" "$BOT_DATA/library/skills/$(basename -- "$skill_source")"
+  done
+fi
 shopt -u nullglob
 
 # Apply the merged config to a running daemon without a restart. A restart

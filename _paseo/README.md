@@ -20,6 +20,14 @@ stay on each host.
 - `install.sh` — merges that one skills-selection key, syncs `skills/` into
   `~/.agents/skills`, `~/.claude/skills`, and `~/.codex/skills`, then runs
   `paseo reload` when a daemon is reachable.
+- `bots/skills/` — skills for the `paseo-bots` plugin, which reads them from
+  `~/.paseo/plugin-data/paseo-bots/library/skills/`, not from the agent skill
+  roots. `pr-merge-gates` holds the ccore2 merge monitor's gate order,
+  `gate-check.py` (receipts against a PR head), and `ruling-check.py` (every
+  operator ruling in `journal/aaron-decisions.md` is encoded in a rule, skill,
+  or check, or is marked transient). The installer writes them only when that
+  data directory exists. The journal, bot memory, and proposals are plugin
+  runtime state and stay out of this repo.
 
 ## Why skills are managed here
 

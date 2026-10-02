@@ -56,6 +56,8 @@ test ! -e "$SKILLS_A/paseo/EXTRA.md"
 grep -q 'locally tuned' "$TMP_ROOT/home/.agents/.paseo-skill-backups/paseo/SKILL.md"
 grep -q 'stale extra' "$TMP_ROOT/home/.agents/.paseo-skill-backups/paseo/EXTRA.md"
 grep -q 'legacy backup' "$TMP_ROOT/home/.claude/.paseo-skill-backups/paseo/SKILL.md"
+# Bot skills are not installed on a host where paseo-bots has never run.
+test ! -e "$PASEO_HOME/plugin-data"
 
 # The vendored routing contract keeps semantic Paseo state off computer-use.
 grep -q 'Use the `paseo` CLI first' "$REPO_ROOT/_paseo/skills/paseo/SKILL.md"
@@ -77,6 +79,23 @@ run_install
 
 test "$(json_get "$PASEO_HOME/config.json" "d['daemon']['agentProfiles'][0]['model']")" = "still-host-owned"
 test "$(json_get "$PASEO_HOME/config.json" "[p['name'] for p in d['daemon']['agentProfiles']]")" = "['omp', 'local-only']"
+
+# --- Bot skills install into the paseo-bots library once the plugin has run ---
+BOT_SKILL="$PASEO_HOME/plugin-data/paseo-bots/library/skills/pr-merge-gates"
+mkdir -p "$BOT_SKILL" "$PASEO_HOME/plugin-data/paseo-bots/journal"
+printf 'bot-edited\n' > "$BOT_SKILL/SKILL.md"
+printf -- '- 2026-10-01 | q | "w" | transient: x\n' > "$PASEO_HOME/plugin-data/paseo-bots/journal/aaron-decisions.md"
+run_install
+for file in SKILL.md gate-check.py ruling-check.py; do
+  cmp -s "$REPO_ROOT/_paseo/bots/skills/pr-merge-gates/$file" "$BOT_SKILL/$file"
+done
+test -x "$BOT_SKILL/ruling-check.py"
+test -x "$BOT_SKILL/gate-check.py"
+grep -q 'bot-edited' "$PASEO_HOME/plugin-data/paseo-bots/library/.paseo-skill-backups/pr-merge-gates/SKILL.md"
+# The journal is bot runtime state; the installer never writes it.
+grep -q 'transient: x' "$PASEO_HOME/plugin-data/paseo-bots/journal/aaron-decisions.md"
+# The installed checker resolves the journal beside the library.
+python3 "$BOT_SKILL/ruling-check.py" | grep -q '1 ruling(s), 0 not processed'
 
 # --- Idempotent: second run reports current, original backup untouched ---
 output="$(PASEO_CONFIG_TARGET="$PASEO_HOME" PASEO_SKILL_TARGETS="$SKILLS_A" PASEO_SKIP_RELOAD=1 bash "$REPO_ROOT/_paseo/install.sh")"
