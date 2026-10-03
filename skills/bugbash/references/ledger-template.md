@@ -34,6 +34,7 @@ bullet each, with its links. Remove it when answered.
 - BB-09 question: <exact question>
 
 ## Operator decisions
+Newest first; the dashboard shows the first eight.
 - <time> | BB-NN | "<verbatim quote>" | <how it was applied>
 
 ## Cleanup

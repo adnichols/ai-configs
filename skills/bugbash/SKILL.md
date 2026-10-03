@@ -400,12 +400,12 @@ remains. Then:
 2. Post the final report: one row per issue (ID, title, outcome, PR link),
    operator decisions worth keeping, follow-ups the operator deferred, and
    anything left in place with its reason.
-3. Set the ledger mode to `CONCLUDED`, clear `## Waiting on you`, and run
-   `scripts/dashboard.py` so the dashboard ends on its final state. Read the
-   dashboard's comments one last time and answer or log anything open. Then
-   delete both heartbeats (the status heartbeat and the dashboard
+3. Read the dashboard's comments one last time and answer or log anything
+   open. Delete both heartbeats (the status heartbeat and the dashboard
    heartbeat) and any schedule this session created, and record that in the
-   ledger. The document stays in Ava as the record.
+   ledger. Then, as the last ledger edit, set the mode to `CONCLUDED`, clear
+   `## Waiting on you`, and run `scripts/dashboard.py` so the dashboard ends
+   on its final state. The document stays in Ava as the record.
 4. Report the driver's own workspace as ready to archive. Archive it only if
    the operator asks.
 
