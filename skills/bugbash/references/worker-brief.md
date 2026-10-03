@@ -33,13 +33,16 @@ before editing.
 Reproducing or validating a user-facing issue means driving the operator's
 reported interaction in a real browser the way a user would (click, type,
 select, navigate) and observing what each step does. The operator's rule:
-"You didn't open the UI. You didn't click on the highlight to see if it
+"So you looked at a screenshot that showed that there were highlights. You
+didn't open the UI. You didn't click on the highlight to see if it
 highlighted the comment. You didn't check to see if any of the user
 experience was working. That's not an acceptable way to check."
 
 Record every reproduction and every validation as an interaction table in
-your evidence and in the PR: step, expected, observed, evidence path. Each
-step gets before and after screenshots, or the whole run gets a short video.
+your evidence and in the PR, with columns step, expected, observed, evidence
+path. It supplements verified-build's visual evidence table and does not
+replace it. Each step gets before and after screenshots, or the whole run
+gets a short video.
 Cover the operator's exact reported interaction, including the part they
 said was wrong (for example, whether clicking a highlight selects its
 comment). DOM counts, render checks, API or data checks, and static
