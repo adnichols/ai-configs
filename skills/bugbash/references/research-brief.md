@@ -21,8 +21,10 @@ Find, citing file paths and line ranges:
 3. Recent commits or merged PRs touching this area (`git log` on the paths;
    `gh pr list --state all --search <terms>`), and open PRs or issues that
    already address it.
-4. Concrete reproduction steps a lab tester could follow (route, account
-   role, fixture data), marking each guessed step.
+4. Reproduction steps written as user interactions, each with the expected
+   observation (route, account role, fixture data, then "click X, expect
+   Y"), marking each guessed step. The worker inherits these as its
+   interaction checklist, so a data or render check is not a step.
 5. Whether the change affects UI, which needs a verified-build prototype, and
    which UI states it could affect.
 6. Overlap with the other bugbash issues listed above (same surface or root

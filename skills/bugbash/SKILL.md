@@ -232,9 +232,22 @@ again. A rebase whose `git patch-id --stable` matches the approved patch
 keeps the approval. Rejections and change requests go back to the same
 worker verbatim; the worker updates the same PR and revalidates.
 
-`NOT_REPRODUCED` or `EXPECTED_BEHAVIOR` goes to the operator with the
-worker's evidence. The operator chooses whether to supply more detail
-(the worker retries), close the issue, or turn it into a feature request.
+`NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, and `VALIDATED` need interaction
+evidence before they count. Open the worker's interaction table and look at
+its screenshots or video yourself. Bounce the report back to the worker,
+citing the gap, unless the evidence shows the operator's exact reported
+interaction performed in a real browser and its observed outcome. The
+operator's words are the rationale: "You looked at a screenshot that showed
+that there were highlights. You didn't open the UI. You didn't click on the
+highlight to see if it highlighted the comment." DOM counts, render checks,
+data checks, and static screenshots fail the gate, and so does your own read
+of a worker's summary. Never tell the operator something does or doesn't
+reproduce on that basis.
+
+A `NOT_REPRODUCED` or `EXPECTED_BEHAVIOR` that passes the gate goes to the
+operator with the worker's evidence. The operator chooses whether to supply
+more detail (the worker retries), close the issue, or turn it into a feature
+request.
 
 ### Merge authority
 
