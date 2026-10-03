@@ -34,6 +34,9 @@ restarted driver can resume from files alone:
   ledger.md           # mode, defaults, status board, decisions, waiting-on-you queue
   issues/BB-NN-<slug>.md
   images/             # exported screenshots + manifest.jsonl
+  dashboard.json      # Ava publish state (written by scripts/dashboard.py)
+  dashboard.html      # last rendered dashboard
+  dashboard-template.html  # only when dashboard feedback changed this bugbash's layout
 ```
 
 After any compaction, or whenever you are unsure of state, re-read
@@ -53,10 +56,78 @@ When triggered:
    conversation, the current checkout, and recent Paseo workspaces. Ask once,
    in one short message, only for what you cannot infer. Individual issues
    may override the default target.
-3. Tell the operator, in two or three lines: the bugbash ID and ledger path,
-   that you are in intake mode, that they can paste issues freely, and that
-   they should say "done" when finished. Also state the approval rule from
-   [Merge authority](#merge-authority) so it is agreed up front.
+3. Create the dashboard and its comment heartbeat per [Dashboard](#dashboard).
+   If the operator has not said which Ava Space to use and it is not obvious
+   from the conversation or an earlier bugbash, ask once, in the same short
+   message as step 2.
+4. Tell the operator, in two or three lines: the bugbash ID and ledger path,
+   the dashboard link, that you are in intake mode, that they can paste
+   issues freely, and that they should say "done" when finished. Also state
+   the approval rule from [Merge authority](#merge-authority) so it is agreed
+   up front.
+
+## Dashboard
+
+The operator watches the bugbash, and answers you, in an Ava HTML document.
+The ledger stays the single source of truth; `scripts/dashboard.py` only
+renders it, so the dashboard can never say something the ledger does not.
+
+```
+python3 <skill-dir>/scripts/dashboard.py <bugbash-dir> [--space spc_...] [--title ...]
+```
+
+The first run registers the document, then writes `Ava space:` and
+`Dashboard: <web_url>` into the ledger header. Later runs edit the same
+document in place and read its source back to confirm it matches. A run with
+no ledger change prints `unchanged`. Pick the Space with
+`ava space list --json`; the operator's `kind: personal` Space is the default
+when they have no preference.
+
+**Start.** Run the script, confirm the ledger has the `Dashboard:` line, then
+create a heartbeat (`create_heartbeat`, every 10 minutes) whose prompt says:
+`bugbash <id> dashboard comments: run ava document comment list <document-id>
+--space <space-id> --json, treat each thread the operator opened or replied to
+since the last pass as an operator message (apply it as feedback, an answer,
+or a new report), reply in the thread with what you did, and resolve it.`
+Record its ID in the ledger as `Dashboard heartbeat: <id>`. This is the
+operator's channel on the document; it is separate from the 20-minute status
+heartbeat that Orchestration creates.
+
+**Every ledger change.** Run the script in the same step as the ledger edit.
+Whenever you ask the operator for something in chat (a question, a prototype
+review, an approval, a decision), add the same ask to `## Waiting on you` in
+that step so it appears in the dashboard's Needs you panel with its link, and
+remove it when it is answered. The ask in chat and the ask in the dashboard
+are the same text, so the operator can answer from either place.
+
+**If it fails.** The script exits non-zero with a message when `ava` is
+missing, unauthenticated, or the publish does not verify. Tell the operator
+that message in chat right away and keep working from the ledger. Never skip
+the dashboard silently, and never claim it is current when the last run
+failed.
+
+**Feedback on the dashboard.** When the operator comments on or asks for a
+change to the dashboard's content or format, do both in the same step:
+
+1. Apply it to the live dashboard now. Layout, wording, and styling changes go
+   in `<bugbash-dir>/dashboard-template.html` (copy
+   `references/dashboard-template.html` there first; the script prefers it).
+   Changes the template cannot express (a new column, a different grouping)
+   go in a copy of `scripts/dashboard.py` kept in the bugbash directory and
+   run from there. Republish and confirm it with the operator.
+2. Log it as a skill follow-up: its own bugbash issue (`BB-NN`, repo
+   ai-configs, target `skills/bugbash`) with the operator's words verbatim and
+   what you changed live. A worker then folds it into
+   `references/dashboard-template.html` or `scripts/dashboard.py`, so the next
+   bugbash starts with the improved standard format. Do not edit the skill
+   from the driver session.
+
+**Standard format.** `references/dashboard-template.html` owns the layout:
+title and mode line, one chip per state group with counts, Needs you first
+(from `## Waiting on you`, links clickable), the issue table (ID, issue, state,
+waiting on, PR), then recent operator decisions. It follows the viewer's
+light or dark setting and drops the Waiting on column on narrow screens.
+Update the template and script together when the standard changes.
 
 ## Intake
 
@@ -161,7 +232,8 @@ worker brief), update the issue and ledger, and act:
 
 - `IN_PROGRESS`: no operator action needed; record it.
 - `PROTOTYPE_REVIEW` or `NEEDS_OPERATOR`: add the item to the ledger's
-  "Waiting on you" queue and append the queue, one line per item, to your
+  "Waiting on you" queue (and republish the dashboard, per
+  [Dashboard](#dashboard)) and append the queue, one line per item, to your
   next acknowledgment whenever it changed. Do not derail intake; the
   operator may answer between dumps or later. A worker waiting on prototype
   review cannot implement and is still holding a lab, so keep those items at
@@ -323,14 +395,19 @@ Done
 The bugbash is complete when every issue is `CLEANED` and no worker workspace
 remains. Then:
 
-1. Delete the heartbeat and any schedule this session created.
-2. Run the `session-cleanup` inventory over the session's children to
+1. Run the `session-cleanup` inventory over the session's children to
    confirm that no workspace, lab claim, or demo remains.
-3. Post the final report: one row per issue (ID, title, outcome, PR link),
+2. Post the final report: one row per issue (ID, title, outcome, PR link),
    operator decisions worth keeping, follow-ups the operator deferred, and
    anything left in place with its reason.
-4. Set the ledger mode to `CONCLUDED`. Report the driver's own workspace as
-   ready to archive. Archive it only if the operator asks.
+3. Set the ledger mode to `CONCLUDED`, clear `## Waiting on you`, and run
+   `scripts/dashboard.py` so the dashboard ends on its final state. Read the
+   dashboard's comments one last time and answer or log anything open. Then
+   delete both heartbeats (the status heartbeat and the dashboard
+   heartbeat) and any schedule this session created, and record that in the
+   ledger. The document stays in Ava as the record.
+4. Report the driver's own workspace as ready to archive. Archive it only if
+   the operator asks.
 
 ## Boundaries
 
