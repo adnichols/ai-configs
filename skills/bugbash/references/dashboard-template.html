@@ -17,9 +17,12 @@ h1 { font-size:24px; margin:0 0 4px; overflow-wrap:anywhere; } h2 { font-size:17
 .blocked { --c:var(--blocked); --cb:var(--blocked-bg); } .done { --c:var(--done); --cb:var(--done-bg); }
 .chip, .pill { color:var(--c); background:var(--cb); }
 .pill { display:inline-block; border-radius:12px; }
-.panel { border:1px solid var(--line); border-left:4px solid var(--needs); background:var(--card); border-radius:8px; padding:6px 18px; }
-.panel ul { padding-left:20px; } .panel li { margin:8px 0; overflow-wrap:anywhere; }
-.panel li.empty { color:var(--mute); list-style:none; margin-left:-20px; }
+.ask { border:1px solid var(--line); border-left:4px solid var(--needs); background:var(--card); border-radius:8px; padding:4px 18px 10px; margin:0 0 14px; }
+.ask h3 { font-size:16px; margin:12px 0 6px; overflow-wrap:anywhere; }
+.ask .f { margin:8px 0; } .ask .k { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--mute); }
+.ask p, .ask ul, .ask ol { margin:2px 0; } .ask ul, .ask ol { padding-left:20px; } .ask li { margin:3px 0; overflow-wrap:anywhere; } .ask p { overflow-wrap:anywhere; }
+.ask .decide { background:var(--needs-bg); border-radius:6px; padding:6px 10px; } .ask .decide .k { color:var(--needs); }
+.empty { color:var(--mute); }
 .scroll { overflow-x:auto; }
 table { width:100%; border-collapse:collapse; } th, td { text-align:left; vertical-align:top; padding:10px 8px; border-bottom:1px solid var(--line); }
 th { font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
@@ -39,7 +42,7 @@ code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(-
 <div class="meta">{{meta}}</div>
 <div class="chips">{{chips}}</div>
 <h2>Needs you</h2>
-<div class="panel"><ul>{{needs}}</ul></div>
+{{needs}}
 <h2>All issues</h2>
 <div class="scroll"><table><thead><tr><th>ID</th><th>Issue</th><th>State</th><th>Waiting on</th><th>PR</th></tr></thead>
 <tbody>{{issues}}</tbody></table></div>

@@ -31,6 +31,8 @@ STATE_GROUPS = [  # (css class, label, state prefixes)
     ("done", "Done", ("DONE", "MERGED", "CLEANED", "CLOSED")),
 ]
 DECISIONS_SHOWN = 8
+DEFAULT_SPACE = "spc_1f5c81f7d66e4603bc37a2192790fba5"  # Nodaste: the operator's standard Space
+FOLDER_PATH = ("Coding Work", "Bug Bash")  # known Nodaste ids: d572e5fd-53da-479d-830c-21066f4dc3ca, a2741958-6cc9-480f-8a2a-429a5337a810
 
 
 class Fail(Exception):
@@ -95,6 +97,53 @@ def pr_cell(pr):
     return inline(pr) if pr not in ("—", "") else "—"
 
 
+ASK_FIELDS = (("Broken", "What's broken"), ("Fix", "Proposed fix"), ("Decide", "Your call"), ("Links", "Look at"))
+
+
+def asks(body):
+    """`## Waiting on you` items as (title, {field: [lines]}).
+
+    Standard item: `### <ID>: <what's broken> → <what we're fixing>` followed by `Broken:`, `Fix:`,
+    `Decide:` and `Links:` fields; a field may continue on following lines, including `- ` or `1.` lists.
+    A section with no `###` blocks falls back to one title-only card per top-level `- ` bullet, so
+    an old-style item is shown rather than dropped.
+    """
+    blocks = re.split(r"^### ", body, flags=re.M)[1:]
+    if not blocks:
+        return [(b, {}) for b in bullets(body)]
+    out = []
+    for block in blocks:
+        title, _, rest = block.partition("\n")
+        fields, key = {}, None
+        for line in rest.splitlines():
+            m = re.match(r"^(Broken|Fix|Decide|Links):\s*(.*)$", line)
+            if m:
+                key = m.group(1)
+                fields[key] = [m.group(2)] if m.group(2) else []
+            elif key and line.strip():
+                fields[key].append(line.strip())
+        out.append((title.strip(), fields))
+    return out
+
+
+def ask_card(title, fields):
+    parts = [f'<article class="ask"><h3>{inline(title)}</h3>']
+    for key, label in ASK_FIELDS:
+        lines = fields.get(key)
+        if not lines:
+            continue
+        cls = " decide" if key == "Decide" else ""
+        if len(lines) > 1 or re.match(r"(- |\d+\. )", lines[0]):
+            items = "".join(f"<li>{inline(re.sub(r'^(- |[0-9]+[.] )', '', l))}</li>" for l in lines)
+            tag = "ol" if lines[0][:1].isdigit() else "ul"
+            body = f"<{tag}>{items}</{tag}>"
+        else:
+            body = f"<p>{inline(lines[0])}</p>"
+        parts.append(f'<div class="f{cls}"><div class="k">{label}</div>{body}</div>')
+    parts.append("</article>")
+    return "".join(parts)
+
+
 def inline(s):
     s = html.escape(s)
     s = re.sub(r"(https?://[^\s<)`]+)", r'<a href="\1" target="_blank" rel="noopener">\1</a>', s)
@@ -104,7 +153,7 @@ def inline(s):
 def render(text, title, template, updated):
     mode = header(text, "Mode") or "UNKNOWN"
     rows = issue_rows(text)
-    waiting = bullets(section(text, "Waiting on you"))
+    waiting = asks(section(text, "Waiting on you"))
     decisions = bullets(section(text, "Operator decisions"))[:DECISIONS_SHOWN]
 
     counts = {}
@@ -113,7 +162,7 @@ def render(text, title, template, updated):
         counts[label] = counts.get(label, 0) + 1
     chips = "".join(
         f'<span class="chip {c}">{html.escape(l)} · {counts.get(l, 0)}</span>' for c, l, _ in STATE_GROUPS)
-    needs = "".join(f"<li>{inline(w)}</li>" for w in waiting) or '<li class="empty">Nothing needs you right now.</li>'
+    needs = "".join(ask_card(t, f) for t, f in waiting) or '<p class="empty">Nothing needs you right now.</p>'
 
     trs = []
     for r in rows:
@@ -127,7 +176,8 @@ def render(text, title, template, updated):
             f'<td>{inline(r.get("waiting on", ""))}</td>'
             f'<td class="pr">{pr_cell(pr)}</td></tr>')
 
-    meta = f"Mode: {html.escape(mode)} · updated {html.escape(updated)} · comment on this document to talk to the driver"
+    meta = (f"Mode: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
+            "document and acknowledges each one in its thread within about 30 seconds")
     out = template
     for key, val in {
         "title": html.escape(title), "meta": meta, "chips": chips, "needs": needs,
@@ -182,18 +232,74 @@ def digest(s):
     return hashlib.sha256(s.encode()).hexdigest()
 
 
-def publish(source, unstamped_digest, title, space, state_path, ledger_path, ledger, force):
+def tree(space):
+    return ava("document", "tree", "--space", space)["documents"]
+
+
+def folders(docs, title, parent):
+    return [d for d in docs if d.get("kind") == "folder" and d.get("title") == title and d.get("parent_id") == parent]
+
+
+def resolve_folder(space, path, known_id):
+    """Id of the folder at `path` (titles from the Space root), creating missing levels.
+
+    A known id wins when it still resolves to a folder titled like the leaf. Otherwise each level is
+    found by title under the previous one. Creation happens only for a level that is absent, and a
+    root folder named like the leaf is never adopted: it is reported instead of duplicated.
+    """
+    docs = tree(space)
+    leaf = path[-1]
+    if known_id and any(d["document_id"] == known_id and d.get("kind") == "folder" and d.get("title") == leaf
+                        and (len(path) == 1 or d.get("parent_id")) for d in docs):
+        return known_id
+    chain, parent = [], None
+    for title in path:
+        found = folders(docs, title, parent)
+        if not found:
+            break
+        parent = found[0]["document_id"]
+        chain.append(parent)
+    if len(chain) == len(path):
+        return parent
+    stray = folders(docs, leaf, None) if len(path) > 1 else []
+    if stray:  # check before creating anything, so a refusal leaves the Space untouched
+        raise Fail(2, f'found a root folder "{leaf}" ({stray[0]["document_id"]}) outside "{"/".join(path[:-1])}". '
+                      "Report it to the operator; not creating a second one.")
+    parent = chain[-1] if chain else None
+    for title in path[len(chain):]:
+        body = {"space_id": space, "title": title, "kind": "folder"}
+        if parent:
+            body["parent_id"] = parent
+        parent = pick(ava("document", "create", "--space", space, "--idempotency-key", uuid.uuid4().hex, data=body),
+                      "document_id", "resource_id")
+    return parent
+
+
+def place(space, plan_id, folder):
+    def parent_of():
+        return next((d.get("parent_id") for d in tree(space) if d["document_id"] == plan_id), None)
+    if parent_of() == folder:
+        return
+    ava("document", "move", plan_id, "--space", space, "--idempotency-key", uuid.uuid4().hex,
+        data={"parent_id": folder})
+    if parent_of() != folder:
+        raise Fail(3, f"dashboard {plan_id} is not under folder {folder} after the move")
+
+
+def publish(source, unstamped_digest, title, space, state_path, ledger_path, ledger, force, folder_path):
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     plan_id = state.get("plan_id")
     if not plan_id:  # state file lost but the ledger still names the document: adopt it
         m = re.search(r"/d/([0-9a-f-]{36})", header(ledger, "Dashboard"))
         plan_id = m.group(1) if m else None
 
-    if plan_id and not force and state.get("digest") == unstamped_digest and state.get("plan_id") == plan_id:
+    if plan_id and not force and state.get("folder_id") and state.get("digest") == unstamped_digest \
+            and state.get("plan_id") == plan_id:
         print(f"unchanged: {state.get('web_url')}")
         return
     sha = digest(source)[:16]
     published = None
+    folder = resolve_folder(space, folder_path, state.get("folder_id") or header(ledger, "Dashboard folder"))
     if not plan_id:
         # A retry after a lost response must send the identical request, so the
         # first register's key and body are saved before the call.
@@ -218,10 +324,13 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
         raise Fail(3, "published source does not match the rendered dashboard; not marking it published")
     if not state.get("web_url"):
         state["web_url"] = ava("document", "get", plan_id, "--space", space).get("web_url")
+    place(space, plan_id, folder)
+    state["folder_id"] = folder
     state["digest"] = unstamped_digest
     state_path.write_text(json.dumps(state, indent=2) + "\n")
 
-    updated = set_header(set_header(ledger, "Ava space", space), "Dashboard", state["web_url"])
+    updated = set_header(set_header(set_header(ledger, "Ava space", space), "Dashboard", state["web_url"]),
+                         "Dashboard folder", folder)
     if updated != ledger:
         ledger_path.write_text(updated)
     print(f"published: {state['web_url']} (revision {state['revision_id']})")
@@ -230,7 +339,8 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
 def main():
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     ap.add_argument("bugbash_dir", type=Path)
-    ap.add_argument("--space", help="Ava Space ID (spc_...); default: dashboard.json, then the ledger `Ava space:` line")
+    ap.add_argument("--space", help=f"Ava Space ID (spc_...); default: dashboard.json, the ledger, then {DEFAULT_SPACE} (Nodaste, the operator's standard)")
+    ap.add_argument("--folder-path", default="/".join(FOLDER_PATH), help="folder titles from the Space root, joined by '/'; default: Coding Work/Bug Bash")
     ap.add_argument("--title", help="document title; default: ledger heading + ' — status'")
     ap.add_argument("--force", action="store_true", help="republish even when the ledger content is unchanged")
     ap.add_argument("--render-only", action="store_true", help="write dashboard.html and skip Ava")
@@ -259,10 +369,11 @@ def main():
         raise Fail(2, f"this bugbash's dashboard already lives in {state['space_id']}; "
                       "remove dashboard.json to publish a new one elsewhere")
     ledger_space = header(ledger, "Ava space")
-    space = args.space or state.get("space_id") or (ledger_space if ledger_space.startswith("spc_") else "")
-    if not space:
-        raise Fail(2, "no Ava Space: pass --space spc_... (ask the operator which Space; `ava space list --json`)")
-    publish(source, digest(unstamped), title, space, state_path, ledger_path, ledger, args.force)
+    space = args.space or state.get("space_id") or (ledger_space if ledger_space.startswith("spc_") else DEFAULT_SPACE)
+    folder_path = tuple(p.strip() for p in args.folder_path.split("/") if p.strip())
+    if not folder_path:
+        raise Fail(2, "--folder-path is empty")
+    publish(source, digest(unstamped), title, space, state_path, ledger_path, ledger, args.force, folder_path)
 
 
 if __name__ == "__main__":

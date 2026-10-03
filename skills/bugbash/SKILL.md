@@ -34,9 +34,11 @@ restarted driver can resume from files alone:
   ledger.md           # mode, defaults, status board, decisions, waiting-on-you queue
   issues/BB-NN-<slug>.md
   images/             # exported screenshots + manifest.jsonl
-  dashboard.json      # Ava publish state (written by scripts/dashboard.py)
+  dashboard.json      # Ava publish state, incl. folder id (written by scripts/dashboard.py)
   dashboard.html      # last rendered dashboard
   dashboard-template.html  # only when dashboard feedback changed this bugbash's layout
+  listener.json       # comment listener state: pid, seen message ids, last_poll, last_error
+  listener.log        # listener output
 ```
 
 After any compaction, or whenever you are unsure of state, re-read
@@ -56,10 +58,10 @@ When triggered:
    conversation, the current checkout, and recent Paseo workspaces. Ask once,
    in one short message, only for what you cannot infer. Individual issues
    may override the default target.
-3. Create the dashboard and its comment heartbeat per [Dashboard](#dashboard).
-   If the operator has not said which Ava Space to use and it is not obvious
-   from the conversation or an earlier bugbash, ask once, in the same short
-   message as step 2.
+3. Create the dashboard and start its comment listener per
+   [Dashboard](#dashboard). The Space defaults to Nodaste, the operator's
+   standard; ask once, in the same short message as step 2, only if they have
+   named another or the conversation points elsewhere.
 4. Tell the operator, in two or three lines: the bugbash ID and ledger path,
    the dashboard link, that you are in intake mode, that they can paste
    issues freely, and that they should say "done" when finished. Also state
@@ -76,29 +78,86 @@ renders it, so the dashboard can never say something the ledger does not.
 python3 <skill-dir>/scripts/dashboard.py <bugbash-dir> [--space spc_...] [--title ...]
 ```
 
-The first run registers the document, then writes `Ava space:` and
-`Dashboard: <web_url>` into the ledger header. Later runs edit the same
-document in place and read its source back to confirm it matches. A run with
-no ledger change prints `unchanged`. Pick the Space with
-`ava space list --json`; the operator's `kind: personal` Space is the default
-when they have no preference.
+The first run registers the document, moves it into its folder, then writes
+`Ava space:`, `Dashboard:` and `Dashboard folder:` into the ledger header.
+Later runs edit the same document in place and read its source back to
+confirm it matches. A run with no ledger change prints `unchanged`.
 
-**Start.** Run the script, confirm the ledger has the `Dashboard:` line, then
-create a heartbeat (`create_heartbeat`, every 10 minutes) whose prompt says:
-`bugbash <id> dashboard comments: run ava document comment list <document-id>
---space <space-id> --json, treat each thread the operator opened or replied to
-since the last pass as an operator message (apply it as feedback, an answer,
-or a new report), reply in the thread with what you did, and resolve it.`
-Record its ID in the ledger as `Dashboard heartbeat: <id>`. This is the
-operator's channel on the document; it is separate from the 20-minute status
-heartbeat that Orchestration creates.
+**Where it lives.** Every dashboard sits at the path `Coding Work / Bug Bash`
+in its Space: the root folder "Coding Work", then its child folder "Bug Bash".
+That is the operator's standard, and the default Space is Nodaste
+(`spc_1f5c81f7d66e4603bc37a2192790fba5`; Coding Work
+`d572e5fd-53da-479d-830c-21066f4dc3ca`, Bug Bash
+`a2741958-6cc9-480f-8a2a-429a5337a810`). The script finds the folder in this
+order and the ids above are only a convenience, so a changed id never breaks
+it:
+
+1. the folder id in `dashboard.json` or the ledger's `Dashboard folder:` line,
+   if it still resolves to a folder titled "Bug Bash" under a parent;
+2. otherwise the path by title through `ava document tree`: "Coding Work" at
+   the root, then "Bug Bash" inside it;
+3. a missing level is created under the right parent. Reruns reuse what they
+   find, so a second "Bug Bash" is never created.
+
+If a "Bug Bash" folder exists at the Space root instead, the script stops
+with exit 2 and names it. Tell the operator; do not use it or create another.
+Each run also confirms the document is in the folder and moves it back if
+not. To use another Space, pass `--space`; the same path is resolved or
+created there. `--folder-path` overrides the path and exists for tests.
+
+**Start.** Run the script and confirm the ledger has the `Dashboard:` line.
+Then start the listener as a persistent background service named
+`bugbash-<id>-listener`, using the runtime's long-lived service facility (in
+OMP, a `bash` call with `name` and a `ready` log pattern), or `nohup` with a
+log file when there is none:
+
+```
+python3 <skill-dir>/scripts/listener.py <bugbash-dir> "$PASEO_AGENT_ID"
+```
+
+The second argument is the driver's own Paseo agent id (`$PASEO_AGENT_ID`;
+otherwise `paseo ls`, matching this session's cwd). The listener polls the
+dashboard's comment threads every 30 seconds. For each new message not written
+by this agent's own Ava actor (read from `ava whoami`), it replies in the
+thread at once ("Received. The bugbash driver is working on this and will
+reply here.") and sends the comment to you with `paseo send --no-wait`, so the
+operator can see it is being listened to. Each relayed comment arrives as an
+operator message: apply it as feedback, an answer, or a new report, reply in
+the thread with what you did, log it in the ledger, and republish. Record
+`Listener: <service name>, pid <pid>, log <path>` in the ledger. Never use
+`ava agent listen` for this: its review-request scope is the whole Space, so it
+claims routed comments on other documents.
+
+`listener.json` has `last_poll` and `last_error`. After a compaction or
+restart, read it: when the pid is dead or `last_poll` is older than two
+minutes, restart the listener with the same command. It refuses to start
+twice, and a restart skips comments it already handled and retries one whose
+relay failed. The dashboard header tells the operator a listener is watching.
 
 **Every ledger change.** Run the script in the same step as the ledger edit.
 Whenever you ask the operator for something in chat (a question, a prototype
 review, an approval, a decision), add the same ask to `## Waiting on you` in
-that step so it appears in the dashboard's Needs you panel with its link, and
-remove it when it is answered. The ask in chat and the ask in the dashboard
-are the same text, so the operator can answer from either place.
+that step and remove it when it is answered. The ask in chat and the ask in
+the dashboard say the same thing, so the operator can answer from either
+place.
+
+**Writing a Needs-you item.** Each item is a `###` block, one per issue:
+
+```
+### BB-10: link clicks open the comment box → restore the link exemption
+Broken: what the operator or a user sees go wrong, in one or two sentences.
+Fix: what we will change and what it touches.
+Decide: the choice they must make, as short options (a `- ` or `1.` list is fine).
+Links: prototype, PR, or lab URLs.
+```
+
+The title names the bug and the fix, so the operator can tell the items apart
+without opening them. Write the body in technical-founder language: concrete
+and short, the user-visible symptom before the mechanism, one sentence on the
+cause, and a name for each decision. Do not leave internal jargon (state
+names, ledger terms, repo-private abbreviations, commit hashes standing in for
+an explanation) unexplained. Omit a field rather than pad it. Mirror the same
+text in chat.
 
 **If it fails.** The script exits non-zero with a message when `ava` is
 missing, unauthenticated, or the publish does not verify. Tell the operator
@@ -123,11 +182,14 @@ change to the dashboard's content or format, do both in the same step:
    from the driver session.
 
 **Standard format.** `references/dashboard-template.html` owns the layout:
-title and mode line, one chip per state group with counts, Needs you first
-(from `## Waiting on you`, links clickable), the issue table (ID, issue, state,
-waiting on, PR), then recent operator decisions. It follows the viewer's
-light or dark setting and drops the Waiting on column on narrow screens.
-Update the template and script together when the standard changes.
+title and mode line (which says a listener is watching comments), one chip
+per state group with counts, Needs you first as one card per `###` item
+(title, What's broken, Proposed fix, Your call highlighted, Look at links),
+the issue table (ID, issue, state, waiting on, PR), then the latest eight
+operator decisions. `## Operator decisions` is newest first, so the dashboard
+shows the first eight. It follows the viewer's light or dark setting and drops
+the Waiting on column on narrow screens. Update the template and script
+together when the standard changes.
 
 ## Intake
 
@@ -401,9 +463,10 @@ remains. Then:
    operator decisions worth keeping, follow-ups the operator deferred, and
    anything left in place with its reason.
 3. Read the dashboard's comments one last time and answer or log anything
-   open. Delete both heartbeats (the status heartbeat and the dashboard
-   heartbeat) and any schedule this session created, and record that in the
-   ledger. Then, as the last ledger edit, set the mode to `CONCLUDED`, clear
+   open. Stop the listener (end its background service, or kill the pid in
+   `listener.json`; it clears the pid on exit), delete the status heartbeat and
+   any schedule this session created, and record that in the ledger. Then, as
+   the last ledger edit, set the mode to `CONCLUDED`, clear
    `## Waiting on you`, and run `scripts/dashboard.py` so the dashboard ends
    on its final state. The document stays in Ava as the record.
 4. Report the driver's own workspace as ready to archive. Archive it only if
