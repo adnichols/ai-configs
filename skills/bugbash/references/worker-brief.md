@@ -29,6 +29,27 @@ Facts marked [INFERRED] came from research, not the operator. Verify them;
 do not trust them blindly. Find the shared root cause and check every caller
 before editing.
 
+# Reproduction and validation
+Reproducing or validating a user-facing issue means driving the operator's
+reported interaction in a real browser the way a user would (click, type,
+select, navigate) and observing what each step does. The operator's rule:
+"So you looked at a screenshot that showed that there were highlights. You
+didn't open the UI. You didn't click on the highlight to see if it
+highlighted the comment. You didn't check to see if any of the user
+experience was working. That's not an acceptable way to check."
+
+Record every reproduction and every validation as an interaction table in
+your evidence and in the PR, with columns step, expected, observed, evidence
+path. It supplements verified-build's visual evidence table and does not
+replace it. Each step gets before and after screenshots, or the whole run
+gets a short video.
+Cover the operator's exact reported interaction, including the part they
+said was wrong (for example, whether clicking a highlight selects its
+comment). DOM counts, render checks, API or data checks, and static
+screenshots are not reproduction. They may supplement the table and never
+replace it. A bug you could not trigger by interaction is `NOT_REPRODUCED`
+only with a table showing the interaction you tried.
+
 # Authorization
 - Claim a lab, publish clickable prototypes on demos.keramos.tech, push the
   branch, open and update one PR for this issue, and post PR evidence.
@@ -59,5 +80,6 @@ review: <reviewer and verdict, or none>
 risks: <remaining risks, or none>
 
 Report VALIDATED only when the exact current PR head has passed lab
-validation and the PR contains the complete visual evidence table.
+validation and the PR contains the complete visual evidence table and the
+interaction table for the operator's reported interaction.
 ```
