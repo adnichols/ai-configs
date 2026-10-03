@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{title}}</title>
+<style>
+:root { color-scheme: light dark; --bg:#fff; --fg:#1b1f24; --mute:#5c6570; --line:#dde1e6; --card:#f6f7f9; --link:#1d4ed8;
+  --needs:#b45309; --needs-bg:#fef3c7; --work:#1d4ed8; --work-bg:#dbeafe; --blocked:#b91c1c; --blocked-bg:#fee2e2; --done:#15803d; --done-bg:#dcfce7; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14161a; --fg:#e6e8eb; --mute:#9aa3ad; --line:#2a2f36; --card:#1b1e23; --link:#93c5fd;
+  --needs:#fbbf24; --needs-bg:#3a2a0a; --work:#93c5fd; --work-bg:#16233d; --blocked:#fca5a5; --blocked-bg:#3b1414; --done:#86efac; --done-bg:#0f2a1a; } }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif; }
+main { max-width:1040px; margin:0 auto; padding:28px 24px 48px; }
+h1 { font-size:24px; margin:0 0 4px; overflow-wrap:anywhere; } h2 { font-size:17px; margin:28px 0 10px; }
+.meta { color:var(--mute); font-size:13px; }
+.chips { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 0; }
+.chip, .pill { border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600; }
+.chip { white-space:nowrap; }
+.needs { --c:var(--needs); --cb:var(--needs-bg); } .work { --c:var(--work); --cb:var(--work-bg); }
+.blocked { --c:var(--blocked); --cb:var(--blocked-bg); } .done { --c:var(--done); --cb:var(--done-bg); }
+.chip, .pill { color:var(--c); background:var(--cb); }
+.pill { display:inline-block; border-radius:12px; }
+.ask { border:1px solid var(--line); border-left:4px solid var(--needs); background:var(--card); border-radius:8px; padding:4px 18px 10px; margin:0 0 14px; }
+.ask h3 { font-size:16px; margin:12px 0 6px; overflow-wrap:anywhere; }
+.ask .f { margin:8px 0; } .ask .k { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--mute); }
+.ask p, .ask ul, .ask ol { margin:2px 0; } .ask ul, .ask ol { padding-left:20px; } .ask li { margin:3px 0; overflow-wrap:anywhere; } .ask p { overflow-wrap:anywhere; }
+.ask .decide { background:var(--needs-bg); border-radius:6px; padding:6px 10px; } .ask .decide .k { color:var(--needs); }
+.empty { color:var(--mute); }
+.scroll { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; } th, td { text-align:left; vertical-align:top; padding:10px 8px; border-bottom:1px solid var(--line); }
+th { font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
+td.pr { white-space:nowrap; } td.pr a { overflow-wrap:normal; }
+td.id { font-weight:700; white-space:nowrap; } .t { font-weight:500; } .sub { color:var(--mute); font-size:12px; }
+tr.done td { opacity:.7; }
+a { color:var(--link); overflow-wrap:anywhere; }
+code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+.decisions { padding-left:20px; } .decisions li { margin:6px 0; color:var(--mute); font-size:13px; overflow-wrap:anywhere; }
+@media (max-width: 640px) {
+  main { padding:20px 14px 40px; }
+  th:nth-child(4), td:nth-child(4) { display:none; }
+}
+</style></head>
+<body><main>
+<h1>{{title}}</h1>
+<div class="meta">{{meta}}</div>
+<div class="chips">{{chips}}</div>
+<h2>Needs you</h2>
+{{needs}}
+<h2>All issues</h2>
+<div class="scroll"><table><thead><tr><th>ID</th><th>Issue</th><th>State</th><th>Waiting on</th><th>PR</th></tr></thead>
+<tbody>{{issues}}</tbody></table></div>
+<h2>Recent decisions</h2>
+<ul class="decisions">{{decisions}}</ul>
+</main></body></html>
