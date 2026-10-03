@@ -80,5 +80,6 @@ review: <reviewer and verdict, or none>
 risks: <remaining risks, or none>
 
 Report VALIDATED only when the exact current PR head has passed lab
-validation and the PR contains the complete visual evidence table.
+validation and the PR contains the complete visual evidence table and the
+interaction table for the operator's reported interaction.
 ```
