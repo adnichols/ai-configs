@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - `verified-build` (OMP and Codex) now requires UI prototypes to look and behave like the target product. Before building one, the worker finds the repository's own prototype template or clickable demo (`AGENTS.md`, `thoughts/prototypes/`, `prototypes/`, template README) and builds from it, reusing its components, tokens, icons, menus, and publish conventions. Only without a template does it build from the product's real DOM and CSS captured from the lab baseline. Screenshots must read as the same product as the lab baseline before publishing, and the prototype note and `run.md` record the template path and commit or why none applied.
 
+- `bugbash` dashboard now fills the full viewport width by default. `references/dashboard-template.html` drops the `max-width:1040px` centered column on `main` and keeps its padding and the 640px mobile rules. The issue table spans the width and long URLs still wrap.
+
 ### Removed
 
 - Retired the AI-configs-managed `ava` skill. The Ava CLI owns and reconciles `~/.agents/skills/ava`, `~/.claude/skills/ava`, and `~/.ava/SKILL.md`; `skills/ava` and its install-matrix entry are removed and `ava` joins `DEPRECATED_SHARED_SKILLS`, which removes only copies carrying the ai-configs marker and preserves Ava-owned (`managed-by: ava`) or unmarked skills.
