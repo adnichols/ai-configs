@@ -3,7 +3,7 @@ name: principle-outcome-oriented-execution
 description: "Apply during planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture; don't preserve smooth intermediate states with throwaway compatibility code."
 ---
 
-ADN_RUNTIME_MARKER:principle-outcome-oriented-execution:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-outcome-oriented-execution:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Outcome-Oriented Execution
 

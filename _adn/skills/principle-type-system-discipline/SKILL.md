@@ -3,7 +3,7 @@ name: principle-type-system-discipline
 description: "Apply when designing types, reviewing a function signature, or writing code in any statically-typed language. Make illegal states unrepresentable, brand semantic primitives, parse external data at boundaries, refuse to lie to the compiler, exhaust variants, derive from authoritative schemas."
 ---
 
-ADN_RUNTIME_MARKER:principle-type-system-discipline:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-type-system-discipline:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Type System Discipline
 

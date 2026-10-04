@@ -3,7 +3,7 @@ name: principle-boundary-discipline
 description: "Apply when wiring validation, error handling, or framework adapters. Concentrate guards at system boundaries (CLI, config, network, external APIs); trust internal types and keep business logic in pure functions."
 ---
 
-ADN_RUNTIME_MARKER:principle-boundary-discipline:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-boundary-discipline:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Boundary Discipline
 

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- ADN re-pins to cursor/plugins pstack `e43c7ee` (0.15.9). New skills: `correct` finds the mistakes agents keep repeating, including corrections in OMP and Paseo session history, and removes each class with architecture, types, a lint, or a test; `benchmark-checklist` vets a measured perf number and picks Linux or macOS tools by `uname -s`; `principle-explain-the-number` requires a named limiter and ruled-out alternatives before trusting a number. `architect` screens designs for agent contributors and adds four red flags. `perf-issue` uses ordered performance mantras, and `hillclimb` vets its harness with the checklist. Declined items are listed in `_adn/PROVENANCE.md`.
+
 - `verified-build` (OMP and Codex) now requires UI prototypes to look and behave like the target product. Before building one, the worker finds the repository's own prototype template or clickable demo (`AGENTS.md`, `thoughts/prototypes/`, `prototypes/`, template README) and builds from it, reusing its components, tokens, icons, menus, and publish conventions. Only without a template does it build from the product's real DOM and CSS captured from the lab baseline. Screenshots must read as the same product as the lab baseline before publishing, and the prototype note and `run.md` record the template path and commit or why none applied.
 
 - `bugbash` dashboard now fills the full viewport width by default. `references/dashboard-template.html` drops the `max-width:1040px` centered column on `main` and keeps its padding and the 640px mobile rules. The issue table spans the width and long URLs still wrap.

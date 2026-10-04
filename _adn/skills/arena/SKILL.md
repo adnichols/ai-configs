@@ -3,7 +3,7 @@ name: arena
 description: "Spawn N parallel candidates at the same task, pick a base, graft the strongest parts of the losers into it. Use for /arena, 'arena this', 'throw it in the arena', or when one attempt at a non-trivial artifact would lock in the wrong shape."
 ---
 
-ADN_RUNTIME_MARKER:arena:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:arena:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Arena
 

@@ -4,7 +4,7 @@ description: TypeScript best practices. Use when reading or editing any .ts or .
 paths: ["**/*.ts", "**/*.tsx"]
 ---
 
-ADN_RUNTIME_MARKER:typescript-best-practices:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:typescript-best-practices:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # TypeScript best practices
 

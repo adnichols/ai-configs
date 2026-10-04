@@ -3,7 +3,7 @@ name: principle-exhaust-the-design-space
 description: "Apply when facing a novel UI interaction or architectural decision with no precedent in the codebase. Build 2-3 competing prototypes and compare side by side before committing."
 ---
 
-ADN_RUNTIME_MARKER:principle-exhaust-the-design-space:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-exhaust-the-design-space:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Exhaust the Design Space
 

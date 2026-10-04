@@ -3,7 +3,7 @@ name: principle-encode-lessons-in-structure
 description: "Apply when you catch yourself writing the same instruction a second time, or notice a recurring correction. Encode the rule as a lint, metadata flag, runtime check, or script instead of more text."
 ---
 
-ADN_RUNTIME_MARKER:principle-encode-lessons-in-structure:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-encode-lessons-in-structure:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Encode Lessons in Structure
 
@@ -20,6 +20,8 @@ When you catch yourself writing the same instruction a second time:
 **Pick the strongest mechanism.** When more than one mechanism would work, choose the strongest the situation allows (an unrepresentable state that cannot compile, then a lint or banned API that fails CI, then a canonical helper, then a runtime check), because agents copy whatever the surrounding code already does and a weaker guard becomes the next template.
 
 **Corollary:** If the fix is structural, only use the structural fix. The instruction is the symptom.
+
+**Repeated classes:** when the same correction keeps coming back across sessions, run the **correct** skill to find every repeated class and fix each at the highest level.
 
 **Feedback loop:**
 - **Capture every correction.** When the human intervenes or tests fail, decide if it's a one-off or a pattern.

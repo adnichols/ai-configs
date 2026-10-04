@@ -3,7 +3,7 @@ name: principle-guard-the-context-window
 description: "Apply when context is filling up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents; keep summaries in the main thread, not raw payloads."
 ---
 
-ADN_RUNTIME_MARKER:principle-guard-the-context-window:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-guard-the-context-window:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Guard the Context Window
 

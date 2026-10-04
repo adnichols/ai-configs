@@ -3,7 +3,7 @@ name: maintain-verification-skill
 description: "Periodic pass that keeps a project's verification skill and feature map honest: parallel source readers per feature, one live session driving every feature, at most one PR of proven corrections. Use for /maintain-verification-skill or \"audit the verify skill\"."
 ---
 
-ADN_RUNTIME_MARKER:maintain-verification-skill:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:maintain-verification-skill:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Maintain a verification skill
 

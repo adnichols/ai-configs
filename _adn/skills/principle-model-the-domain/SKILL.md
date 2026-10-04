@@ -3,7 +3,7 @@ name: principle-model-the-domain
 description: "Apply when writing stateful logic, or when code branches a lot or repeats a shape assumption across files. Encode the domain in a structure instead of scattered conditionals."
 ---
 
-ADN_RUNTIME_MARKER:principle-model-the-domain:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-model-the-domain:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Model the Domain
 

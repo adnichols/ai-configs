@@ -3,7 +3,7 @@ name: principle-prove-it-works
 description: "Apply after completing a task, before declaring done. Verify against the real artifact (run the feature, read the actual value, inspect the diff), not a proxy, self-report, or 'it compiles.'"
 ---
 
-ADN_RUNTIME_MARKER:principle-prove-it-works:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-prove-it-works:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Prove It Works
 

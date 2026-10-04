@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, wr
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
-export const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
+export const PIN = "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a";
 export const ADN_ROOT = process.env.ADN_ROOT ?? join(homedir(), ".agents", "adn");
 // Roles ADN agents resolve through `model: "@<role>"` frontmatter. The models behind them live in OMP config.
 export function agentRoles(agentsDir = join(ADN_ROOT, "agents")): string[] {

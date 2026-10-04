@@ -3,7 +3,7 @@ name: figure-it-out
 description: "Design an auditable playbook when no narrower one fits: a large migration, an ambitious multi-part change, or work a human reviews after stepping away. Scales rigor to the task, runs a hypothesis loop, and logs decisions via show-me-your-work. Use for /figure-it-out, 'figure it out', a large migration, or when no narrower playbook applies."
 ---
 
-ADN_RUNTIME_MARKER:figure-it-out:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:figure-it-out:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Figure it out
 

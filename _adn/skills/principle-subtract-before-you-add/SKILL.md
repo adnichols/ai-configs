@@ -3,7 +3,7 @@ name: principle-subtract-before-you-add
 description: "Apply when sequencing an addition, refactor, or rewrite. Remove dead code, redundant validators, and stub references first, then build on the simpler base."
 ---
 
-ADN_RUNTIME_MARKER:principle-subtract-before-you-add:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-subtract-before-you-add:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Subtract Before You Add
 

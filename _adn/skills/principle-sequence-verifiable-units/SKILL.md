@@ -3,7 +3,7 @@ name: principle-sequence-verifiable-units
 description: "Apply to multi-step work (sweeps, migrations, runs of similar edits) and to how you stack commits and PRs. Break work into small units that each end in a verifiable state, check each before the next, and order delivery so the sequence proves itself to a reviewer."
 ---
 
-ADN_RUNTIME_MARKER:principle-sequence-verifiable-units:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-sequence-verifiable-units:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Sequence work into verifiable units
 

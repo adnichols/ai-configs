@@ -3,7 +3,7 @@ name: principle-experience-first
 description: "Apply when product, UX, or feature-scope tradeoffs come up. Choose user delight over implementation convenience; ship fewer polished features over more rough ones."
 ---
 
-ADN_RUNTIME_MARKER:principle-experience-first:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-experience-first:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Experience First
 

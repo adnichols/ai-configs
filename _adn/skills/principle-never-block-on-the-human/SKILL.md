@@ -3,7 +3,7 @@ name: principle-never-block-on-the-human
 description: "Apply when tempted to ask 'should I do X?' on reversible work. Proceed, present the result, let the human course-correct after the fact; reserve confirmation for irreversible actions."
 ---
 
-ADN_RUNTIME_MARKER:principle-never-block-on-the-human:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-never-block-on-the-human:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Never Block on the Human
 

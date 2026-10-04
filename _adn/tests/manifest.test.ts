@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 
-const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
+const PIN = "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a";
 const ADN_ROOT = join(homedir(), ".agents", "adn");
 const SHARED_SKILLS = join(homedir(), ".agents", "skills");
 const AI_CONFIGS = "/Users/anichols/code/ai-configs";
@@ -61,6 +61,7 @@ const PRINCIPLE_IDS = [
   "principle-encode-lessons-in-structure",
   "principle-attack-the-premise",
   "principle-test-behavior-not-implementation",
+  "principle-explain-the-number",
 ] as const;
 
 const OPERATIONAL_IDS = [
@@ -91,6 +92,8 @@ const OPERATIONAL_IDS = [
   "poteto-mode",
   "setup-pstack",
   "tdd",
+  "benchmark-checklist",
+  "correct",
 ] as const;
 
 const PLAYBOOK_IDS = [

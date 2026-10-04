@@ -5,8 +5,8 @@ description: Apply when refactoring, evaluating diff size, or tempted to add abs
 
 # Laziness Protocol
 
-ADN_RUNTIME_MARKER:principle-laziness-protocol:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
-Source: cursor/plugins pstack @ ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-laziness-protocol:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
+Source: cursor/plugins pstack @ e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 License: MIT (Lauren Tan). See ~/.agents/adn/LICENSE.pstack
 
 Aim for the most result with the least code and complexity.

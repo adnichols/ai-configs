@@ -3,7 +3,7 @@ name: reflect
 description: Spawn three parallel review subagents over the active transcript, surface learnings, and route each to a concrete edit on an existing skill. Use when the user says reflect.
 ---
 
-ADN_RUNTIME_MARKER:reflect:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:reflect:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Reflect
 

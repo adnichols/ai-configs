@@ -3,7 +3,7 @@ name: principle-test-behavior-not-implementation
 description: "Apply when you write, change, or keep a test. Call the code the way its users do and assert the result they observe against a literal expected value. If the test would still pass when every imported function returns undefined, rewrite the assertion or delete the test."
 ---
 
-ADN_RUNTIME_MARKER:principle-test-behavior-not-implementation:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-test-behavior-not-implementation:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Test Behavior, Not Implementation
 

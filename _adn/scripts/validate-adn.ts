@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { agentRoles, flag, parseArgs } from "./lib.ts";
 
-const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
+const PIN = "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a";
 const { cmd, flags } = parseArgs();
 const root = flag(flags, "agent-root") ?? join(homedir(), ".omp", "agent");
 

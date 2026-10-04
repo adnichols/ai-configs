@@ -3,7 +3,7 @@ name: deslop
 description: Remove unnecessary code and generated clutter from the current diff before commit.
 ---
 
-ADN_RUNTIME_MARKER:deslop:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:deslop:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Deslop
 

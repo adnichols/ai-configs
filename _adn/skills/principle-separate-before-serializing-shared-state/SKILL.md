@@ -3,7 +3,7 @@ name: principle-separate-before-serializing-shared-state
 description: "Apply when concurrent actors might write to the same file, branch, key, or state object. Eliminate the sharing first; serialize structurally only when one shared writer is a real invariant."
 ---
 
-ADN_RUNTIME_MARKER:principle-separate-before-serializing-shared-state:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-separate-before-serializing-shared-state:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Separate Before Serializing Shared State
 

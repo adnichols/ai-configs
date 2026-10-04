@@ -3,7 +3,7 @@ name: principle-fix-root-causes
 description: "Apply when debugging. Trace each symptom to its root cause and fix it there; reproduce first, ask why until you reach it, resist nil-check guards that silence crashes."
 ---
 
-ADN_RUNTIME_MARKER:principle-fix-root-causes:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-fix-root-causes:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Fix Root Causes
 

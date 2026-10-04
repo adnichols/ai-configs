@@ -3,7 +3,7 @@ name: tdd
 description: "Use only when the user explicitly asks for TDD, a failing test, or a regression test, OR when the bug has an obvious cheap local test target. Skip when the test path is unclear, expensive, integration-heavy, or not requested."
 ---
 
-ADN_RUNTIME_MARKER:tdd:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:tdd:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # TDD Bug Fix
 

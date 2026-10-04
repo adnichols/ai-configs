@@ -3,7 +3,7 @@ name: principle-foundational-thinking
 description: "Apply before writing logic: choosing core types and data structures, sequencing scaffold-vs-feature work, asking what concurrent actors share. Get the data structures right so downstream code becomes obvious."
 ---
 
-ADN_RUNTIME_MARKER:principle-foundational-thinking:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-foundational-thinking:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Foundational Thinking
 

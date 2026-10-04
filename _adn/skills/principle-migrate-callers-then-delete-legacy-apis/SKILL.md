@@ -3,7 +3,7 @@ name: principle-migrate-callers-then-delete-legacy-apis
 description: "Apply when introducing a new internal API while old callers still exist. Migrate callers and delete the old API in the same wave instead of preserving compatibility layers."
 ---
 
-ADN_RUNTIME_MARKER:principle-migrate-callers-then-delete-legacy-apis:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-migrate-callers-then-delete-legacy-apis:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Migrate Callers Then Delete Legacy APIs
 

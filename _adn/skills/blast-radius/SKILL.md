@@ -3,7 +3,7 @@ name: blast-radius
 description: "Find what a change could break somewhere else before it ships, beyond the diff, and prove the one fact it's safe because of by running real code instead of writing it up. Use for 'blast radius of X', 'what could this break', or reviewing a small diff you don't trust."
 ---
 
-ADN_RUNTIME_MARKER:blast-radius:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:blast-radius:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Blast radius
 

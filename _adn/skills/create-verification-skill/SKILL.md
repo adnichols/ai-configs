@@ -3,7 +3,7 @@ name: create-verification-skill
 description: "Generate a project-local verification skill that drives your app the way a user does — any language, framework, or platform. Use for /create-verification-skill, \"make a control skill for this repo\", or when a project has no scripted way to prove UI/CLI/service behavior."
 ---
 
-ADN_RUNTIME_MARKER:create-verification-skill:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:create-verification-skill:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Create a verification skill
 

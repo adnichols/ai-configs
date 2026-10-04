@@ -3,7 +3,7 @@ name: principle-build-the-lever
 description: "Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks. Build the tool that does it or proves it (codemod, script, generator, or a skill your subagents follow) instead of working by hand. The tool is the artifact a reviewer can rerun."
 ---
 
-ADN_RUNTIME_MARKER:principle-build-the-lever:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-build-the-lever:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 # Build the Lever
 
 When the work isn't trivial, build the tool that does it instead of doing it by hand.

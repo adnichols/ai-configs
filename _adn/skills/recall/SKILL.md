@@ -3,7 +3,7 @@ name: recall
 description: "Reconstruct your recent working context from your own chat history, live state, and the shared record (user reports, prior fixes, incidents), then hand back a tight current-state brief. Use for 'recall my work on X', 'catch me up', 'what have I been working on', 'where did I leave off', before starting or resuming work."
 ---
 
-ADN_RUNTIME_MARKER:recall:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:recall:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Recall
 

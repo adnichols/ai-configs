@@ -3,7 +3,7 @@ name: show-me-your-work
 description: "Keep a reviewable decision trail for long-running or unattended work: a TSV log with one row per decision (what, why, evidence, result). Local by default; commit it when a reviewer needs the trail to trust the result. Use for /show-me-your-work, autonomous or multi-phase runs, or work a human reviews after stepping away."
 ---
 
-ADN_RUNTIME_MARKER:show-me-your-work:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:show-me-your-work:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Show me your work
 

@@ -3,7 +3,7 @@ name: technical-writing
 description: "Layered technical-writing standard: Diátaxis structure, Google developer style sentences, STE instruction rules, Global English syntax. Use for /technical-writing or when writing or reviewing docs, RFCs, readmes, PR descriptions, or commit messages."
 ---
 
-ADN_RUNTIME_MARKER:technical-writing:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:technical-writing:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Technical writing
 

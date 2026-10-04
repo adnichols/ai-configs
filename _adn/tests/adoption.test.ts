@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { describe, expect, test } from "bun:test";
 
-const PIN = "ecc249f1e306fc64ddf83c7bed16cacf7c2239db";
+const PIN = "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a";
 const ROOT = join(import.meta.dir, "..");
 const RUN = (process.env.ADN_THROUGH ? Number(String(process.env.ADN_THROUGH).replace(/^p/, "")) : 8) >= 5;
 

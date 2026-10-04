@@ -3,7 +3,7 @@ name: principle-minimize-reader-load
 description: "Apply when reviewing or shaping code that's hard to trace. Count layers between question and answer, and hidden state in the reader's head; collapse one-caller wrappers and shrink mutable scope."
 ---
 
-ADN_RUNTIME_MARKER:principle-minimize-reader-load:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:principle-minimize-reader-load:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Minimize Reader Load
 

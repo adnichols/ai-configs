@@ -3,7 +3,7 @@ name: teach
 description: "Explain a body of work plainly so a person actually understands it. Runs the `how` and `why` skills and weaves what they find into one clear explanation. Use for 'teach me this', 'help me really understand X', 'explain this change or subsystem to me'."
 ---
 
-ADN_RUNTIME_MARKER:teach:ecc249f1e306fc64ddf83c7bed16cacf7c2239db
+ADN_RUNTIME_MARKER:teach:e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a
 
 # Teach
 
