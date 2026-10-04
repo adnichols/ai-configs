@@ -191,6 +191,15 @@ shows the first eight. It follows the viewer's light or dark setting and drops
 the Waiting on column on narrow screens. Update the template and script
 together when the standard changes.
 
+**Styling follows Weft.** The template's corner radii are the Weft tokens
+(`@nodaste-lab/weft` `css/weft.css`), declared in its `:root` as
+`--weft-radius-chip: 2px` and `--weft-radius-card: 4px`. State chips, state
+pills and inline `code` use the chip radius; cards use the card radius. Never
+use `--weft-radius-pill` (`999px`) or an invented radius such as `8px` or
+`12px` for a status label: Weft reserves the pill for CTAs, switches and
+progress tracks, and its own `.weft-badge` uses the chip radius. When the
+standard changes, take new values from `css/weft.css`, not from memory.
+
 ## Intake
 
 Each operator message may contain zero, one, or several issues, follow-up

@@ -131,6 +131,7 @@ When writing or updating a handcrafted HTML plan:
 5. Prefer semantic HTML: `section`, `article`, `figure`, `figcaption`, headings, lists, tables, and code blocks.
 6. Keep plan-authored scripts, event handlers, forms, and active embeds out of the artifact; Doct owns review interactivity.
 7. Keep images as relative repo assets when possible, with useful `alt`, `width`, and `height` attributes.
+8. Use the Weft radius tokens (`@nodaste-lab/weft` `css/weft.css`) for every corner: `--weft-radius-chip: 2px` for status chips, badges, pills, tags, `code` and inline highlights; `--weft-radius-card: 4px` for cards, panels and callouts; `0` for page sections and layout containers. Declare the tokens in `:root` with those literal values, since a plan has no Weft stylesheet. Do not use `999px`/`--weft-radius-pill` on status labels (it is for CTAs, switches and progress tracks only) or other radii such as `6px`, `8px` or `12px`. Ava's `ava-design-system` skill is Ava-owned and replaced on every install, so it cannot carry this rule; this contract does.
 
 Reviewer-friendly structure:
 
