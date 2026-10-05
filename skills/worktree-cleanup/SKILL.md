@@ -18,11 +18,11 @@ Stdout is one JSON report. Stderr is progress. Re-running is always safe: each s
 
 ## Order
 
-1. **preflight.** Refuses, with exit 2 and nothing changed, on uncommitted changes (untracked files included, ignored files not), a branch whose head is not the head of a merged PR, any other PR named in the lab claim that is not merged, a running agent in the worktree, a detached HEAD, the default branch, a locked worktree, or the main checkout. It also records what only the worktree knows (claim id and lab, never the credential; demo identities) in `~/.local/state/worktree-cleanup/` so a re-run can finish after the worktree is gone.
+1. **preflight.** Refuses, with exit 2 and nothing changed, on uncommitted changes (untracked files included, ignored files not), a branch whose head is not the head of a merged PR (or is also the head of an open PR), any other PR named in the lab claim that is not merged, a running agent in the worktree, a detached HEAD, the default branch, a locked worktree, or the main checkout. It also records what only the worktree knows (claim id and lab, never the credential; demo identities) in `~/.local/state/worktree-cleanup/` so a re-run can finish after the worktree is gone.
 2. **lab.** Runs the repo's own `lab -- release` from the worktree, then confirms the claim is gone from the manager. A failed release stops everything and keeps the claim file. A release the manager reports as accounting only (`deprovisioning: false`) succeeds and is listed in `remaining` for the operator; agents do not run `lab deprovision`.
 3. **demos.** Deletes each worker and `<run>-feedback` D1 database listed in `artifacts/verified-build/*/demos.json`, in the Nodaste Labs account only. It exports the D1 database first. An entry written by another worktree or branch, with a mismatched name, or a `*.demos.keramos.tech` URL in a run note with no manifest entry is reported in `remaining`, never guessed at.
 4. **workspace.** Archives the Paseo workspace, or runs `git worktree remove` (never `--force` unless abandoning) when none owns the path. Inside the target worktree it defers this step instead, because archiving ends the calling session.
-5. **remote_branch.** Deletes `origin/<branch>` with a lease on the recorded head. It keeps the branch and reports it when the remote tip moved, or an open PR is based on or still comes from it. The local branch is never deleted.
+5. **remote_branch.** Deletes `origin/<branch>` with a lease on the recorded head. It keeps the branch and reports it when the remote tip moved, an open PR is based on or still comes from it, or the PR never merged (`--abandon`), since the branch is then the only copy of that work. The local branch is never deleted.
 
 ## Exit codes
 

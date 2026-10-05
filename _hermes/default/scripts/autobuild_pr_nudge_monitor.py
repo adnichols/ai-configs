@@ -536,7 +536,7 @@ def merge_pr(monitor: Monitor, pr: dict[str, Any], ready_sources: list[dict[str,
         combined = (cp.stdout + cp.stderr).strip()
     if cp.returncode == 0:
         mstate["events"][key] = utc_now()
-        outputs.append(f"✅ {monitor.name}: merge/auto-merge set for PR #{pr_number} after Codex 👍: {pr.get('url')}")
+        outputs.append(f"✅ {monitor.name}: merge/auto-merge set for PR #{pr_number} after Codex 👍: {pr.get('url')}. Branch and worktree teardown is not automatic: once it merges, the owning session runs worktree-cleanup.")
     else:
         outputs.append(f"⚠️ {monitor.name}: PR #{pr_number} has Codex 👍 but merge failed: {combined[:700]} {pr.get('url')}")
 

@@ -153,7 +153,7 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.f.fake(prs=prs)
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual((code, report["status"]), (2, "refused"))
-        self.assertIn("not merged", report["error"])
+        self.assertIn("still open", report["error"])
         self.assertTrue(self.f.wt.exists())
 
     def test_commits_beyond_the_merged_pr_head_are_refused(self):
@@ -162,7 +162,7 @@ class WorktreeCleanupTest(unittest.TestCase):
         git(self.f.wt, "commit", "-qm", "after merge")
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual(code, 2)
-        self.assertIn("not the head of any PR", report["error"])
+        self.assertIn("not the head of a merged PR", report["error"])
 
     def test_abandon_preserves_work_then_removes_everything(self):
         prs = json.loads(self.f.fake_state.read_text())["prs"]
@@ -192,17 +192,74 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(code, 0, report)
         self.assertFalse(self.f.wt.exists())
 
-    def test_running_inside_the_target_defers_the_archive_and_gives_a_resume_command(self):
+    def test_running_inside_the_target_defers_archive_and_branch_deletion_and_gives_a_resume_command(self):
         code, report = self.f.run(cwd=self.f.wt)
         self.assertEqual((code, report["status"]), (4, "deferred"))
         self.assertTrue(self.f.wt.exists())
-        self.assertFalse(self.f.remote_has_branch())
+        self.assertTrue(self.f.remote_has_branch())
         (item,) = report["remaining"]
         self.assertEqual(item["owner"], "orchestrator")
         self.assertEqual(item["command"], report["resume"])
 
         code, report = self.f.run("--workspace", "wks_1", cwd=self.f.main)
         self.assertEqual((code, report["status"]), (0, "complete"), report)
+        self.assertFalse(self.f.wt.exists())
+        self.assertFalse(self.f.remote_has_branch())
+
+    def test_abandon_started_inside_the_target_resumes_with_abandon(self):
+        (self.f.wt / "wip.txt").write_text("keep me\n")
+        code, report = self.f.run("--abandon", "dropped", cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        self.assertTrue(self.f.remote_has_branch())
+        self.assertIn("--abandon dropped", report["resume"])
+        resume = report["resume"].split()[1:]
+        code, report = self.f.run(*resume, cwd=self.f.main)
+        self.assertEqual(code, 0, report)
+        self.assertFalse(self.f.wt.exists())
+
+    def test_release_the_manager_still_holds_stops_everything_and_never_proceeds_on_rerun(self):
+        self.f.claim()
+        self.f.fake(release_noop=True)
+        for _ in range(2):
+            code, report = self.f.run("--path", str(self.f.wt))
+            self.assertEqual((code, report["status"]), (3, "failed"), report)
+            self.assertIn("still holds", report["error"])
+            self.assertTrue(self.f.wt.exists())
+            self.assertTrue(self.f.remote_has_branch())
+
+    def test_unverifiable_release_stops_and_a_rerun_verifies_before_removing(self):
+        self.f.claim()
+        self.f.fake(inspect_fails_after_release=True)
+        for _ in range(2):
+            code, report = self.f.run("--path", str(self.f.wt))
+            self.assertEqual((code, report["status"]), (3, "failed"), report)
+            self.assertIn("cannot confirm", report["error"])
+            self.assertTrue(self.f.wt.exists())
+            self.assertTrue(self.f.remote_has_branch())
+        self.assertEqual(self.f.calls(), ["release"])
+
+        self.f.fake(inspect_fails_after_release=False)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 0, report)
+        self.assertEqual(self.f.calls(), ["release", "archive wks_1"])
+        self.assertFalse(self.f.wt.exists())
+
+    def test_open_pr_at_the_same_head_is_refused_even_when_another_pr_merged(self):
+        prs = json.loads(self.f.fake_state.read_text())["prs"]
+        prs.append({**prs[0], "number": 8, "url": "https://github.com/acme/widgets/pull/8", "state": "OPEN", "baseRefName": "release"})
+        self.f.fake(prs=prs)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 2, report)
+        self.assertIn("still open", report["error"])
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_abandon_never_deletes_a_remote_branch_holding_unmerged_work(self):
+        prs = json.loads(self.f.fake_state.read_text())["prs"]
+        prs[0]["state"] = "OPEN"
+        self.f.fake(prs=prs)
+        code, report = self.f.run("--path", str(self.f.wt), "--abandon", "dropped")
+        self.assertEqual(code, 4, report)
+        self.assertTrue(self.f.remote_has_branch())
         self.assertFalse(self.f.wt.exists())
 
     def test_accounting_only_release_leaves_the_deprovision_to_the_operator(self):

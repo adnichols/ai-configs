@@ -287,13 +287,12 @@ curl -s -X PUT \
     \"commit_title\": \"feat: add user authentication (#$PR_NUMBER)\"
   }"
 
-# Delete the remote branch after merge
-BRANCH=$(git branch --show-current)
-git push origin --delete $BRANCH
-
-# Switch back to main locally
+# Leave branch deletion to worktree cleanup. Deleting the branch here can remove
+# a checked-out worktree and its lab claim before the lab is released.
+# If this branch has a Paseo or aoe worktree and the worktree-cleanup skill is
+# installed, run it from outside that worktree after the merge:
+#   python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --path <worktree>
 git checkout main && git pull origin main
-git branch -d $BRANCH
 ```
 
 Merge methods: `"merge"` (merge commit), `"squash"`, `"rebase"`

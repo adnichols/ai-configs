@@ -20,10 +20,12 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -153,6 +155,7 @@ class Cleanup:
         self.snap: Snapshot
         self.exists = False
         self.self_mode = False
+        self.archive_pending = False
 
     # ---- reporting -------------------------------------------------------
 
@@ -165,8 +168,9 @@ class Cleanup:
 
     def resume_command(self) -> str:
         script = os.path.abspath(__file__)
-        target = f"--workspace {self.snap.workspace_id}" if self.snap.workspace_id else f"--path {self.snap.path}"
-        return f"{script} {target}"
+        target = f"--workspace {self.snap.workspace_id}" if self.snap.workspace_id else f"--path {shlex.quote(self.snap.path)}"
+        abandon = f" --abandon {shlex.quote(self.snap.abandon)}" if self.snap.abandon else ""
+        return f"{script} {target}{abandon}"
 
     def report(self, status: str, exit_code: int, error: str | None = None) -> dict:
         snap = getattr(self, "snap", None)
@@ -319,16 +323,18 @@ class Cleanup:
                 owner = snap.repo.split("/")[0].lower()
                 mine = [p for p in json.loads(prs.out) if (p.get("headRepositoryOwner") or {}).get("login", "").lower() == owner]
                 exact = [p for p in mine if p["headRefOid"] == snap.head]
-                if not exact:
-                    relaxable.append(
-                        f"HEAD {snap.head[:9]} is not the head of any PR for {snap.branch}; push it and merge the PR"
-                        if mine
-                        else f"no PR exists for {snap.branch}; commits may be unpushed"
-                    )
+                opened = [p for p in exact if p["state"] == "OPEN"]
+                merged = [p for p in exact if p["state"] == "MERGED"]
+                if opened:
+                    relaxable.append(f"PR #{opened[0]['number']} from {snap.branch} at this head is still open")
+                elif merged:
+                    snap.pr = merged[0]
+                elif exact:
+                    relaxable.append(f"PR #{exact[0]['number']} was closed without merging")
+                elif mine:
+                    relaxable.append(f"HEAD {snap.head[:9]} is not the head of a merged PR for {snap.branch}; push it and merge the PR")
                 else:
-                    pr = snap.pr = exact[0]
-                    if pr["state"] != "MERGED":
-                        relaxable.append(f"PR #{pr['number']} is {pr['state'].lower()}, not merged")
+                    relaxable.append(f"no PR exists for {snap.branch}; commits may be unpushed")
 
         claim = self.read_claim()
         if claim:
@@ -360,8 +366,7 @@ class Cleanup:
 
     def preserve_abandoned(self, discarded: list[str]) -> None:
         snap = self.snap
-        out = state_dir() / f"abandon-{key_for(snap.path)}-{int(time.time())}"
-        out.mkdir()
+        out = Path(tempfile.mkdtemp(prefix=f"abandon-{key_for(snap.path)}-", dir=state_dir()))
         git = self.git
         (out / "reason.txt").write_text(f"{snap.abandon}\n" + "\n".join(discarded) + "\n")
         (out / "status.txt").write_text(git("status", "--porcelain").out)
@@ -414,6 +419,21 @@ class Cleanup:
 
     # ---- lab -------------------------------------------------------------
 
+    def confirm_released(self, claim: dict) -> str | None:
+        """Ask the manager whether the claim is still held. Only a clean answer marks it released."""
+        check = self.lab("inspect", claim["lab"])
+        if not check.ok:
+            raise StepFailed(f"cannot confirm the release of claim {claim['claim_id']} on {claim['lab']}; run again once the manager is reachable: {check.tail}")
+        now = parse_json(check.out)
+        held = now.get("claim") or {}
+        if held.get("claim_id") == claim["claim_id"] and not held.get("released_at") and held.get("status") != "released":
+            raise StepFailed(f"manager still holds claim {claim['claim_id']} on {claim['lab']}; nothing was removed")
+        for c in self.snap.claims:
+            if c["claim_id"] == claim["claim_id"]:
+                c["released"] = True
+        self.snap.save()
+        return now.get("state")
+
     def step_lab(self) -> None:
         snap = self.snap
         claim = self.read_claim() if self.exists else None
@@ -425,29 +445,23 @@ class Cleanup:
             if (Path(snap.path) / CLAIM_FILE).exists():
                 raise StepFailed("lab release exited 0 but the claim file is still present")
             receipt = next((r for r in parse_json(rel.out).get("released", []) if r.get("claim_id") == claim["claim_id"]), None)
-            for c in snap.claims:
-                if c["claim_id"] == claim["claim_id"]:
-                    c["released"] = True
-            snap.save()
-            verified, lab_state = "receipt", None
-            check = self.lab("inspect", claim["lab"])
-            if check.ok:
-                now = parse_json(check.out)
-                held = now.get("claim") or {}
-                if held.get("claim_id") == claim["claim_id"] and held.get("status") == "active":
-                    raise StepFailed(f"manager still reports claim {claim['claim_id']} active on {claim['lab']}")
-                verified, lab_state = "inspect", now.get("state")
-            if receipt and receipt.get("deprovisioning") is False and lab_state in (None, "provisioned"):
+            lab_state = self.confirm_released(claim)
+            if receipt and receipt.get("deprovisioning") is False and lab_state == "provisioned":
                 self.defer(
                     "operator",
                     f"claim released as accounting only; lab {claim['lab']} is still provisioned (agents do not run lab deprovision)",
                     f"pnpm --filter @ccore/lab-manager run lab -- deprovision {claim['lab']} --wait",
                 )
-            self.record("lab", "done", claim=claim, verified=verified, lab_state=lab_state, deprovisioning=receipt and receipt.get("deprovisioning"))
+            self.record("lab", "done", claim=claim, lab_state=lab_state, deprovisioning=receipt and receipt.get("deprovisioning"))
             return
         pending = [c for c in snap.claims if not c["released"]]
+        if pending and self.exists:
+            for c in pending:
+                self.confirm_released(c)
+            self.record("lab", "done", note="claim file was already gone; manager confirms the release", claims=pending)
+            return
         for c in pending:
-            self.defer("operator", f"claim {c['claim_id']} on {c['lab']} was never released and its claim file is gone", f"release claim {c['claim_id']} from the lab manager")
+            self.defer("operator", f"claim {c['claim_id']} on {c['lab']} was never confirmed released and its claim file is gone", f"confirm claim {c['claim_id']} is released in the lab manager")
         if pending:
             self.record("lab", "deferred", note="claim file missing before release", claims=pending)
         elif snap.claims:
@@ -512,6 +526,7 @@ class Cleanup:
         if self.exists and self.self_mode:
             self.defer("orchestrator", "this process runs inside the worktree; archiving it would end the session", self.resume_command())
             self.record("workspace", "deferred", note="running inside the target")
+            self.archive_pending = True
             return
         if self.exists and not self.args.abandon and self.git("status", "--porcelain").out.strip():
             raise StepFailed("worktree became dirty after preflight; not removing it")
@@ -527,6 +542,7 @@ class Cleanup:
             if os.path.isdir(snap.path):
                 self.defer("orchestrator", "workspace archived but the worktree is still on disk; another workspace may reference it", None)
                 self.record("workspace", "deferred", workspace_id=snap.workspace_id, note="path remains after archive")
+                self.archive_pending = True
                 return
             self.record("workspace", "done", workspace_id=workspace_id)
         elif os.path.isdir(snap.path):
@@ -550,6 +566,9 @@ class Cleanup:
 
     def step_branch(self) -> None:
         snap = self.snap
+        if self.archive_pending:
+            self.record("remote_branch", "deferred", note="runs after the workspace archive")
+            return
         if not snap.branch:
             self.record("remote_branch", "skipped", note="detached HEAD")
             return
@@ -563,10 +582,19 @@ class Cleanup:
             self.defer("operator", f"origin/{snap.branch} is at {tip[:9]}, not the recorded head {snap.head[:9]}; it has commits this cleanup did not check", None)
             self.record("remote_branch", "deferred", branch=snap.branch, remote_tip=tip)
             return
-        open_prs = sh(["gh", "pr", "list", "--repo", snap.repo, "--state", "open", "--json", "number,headRefName,baseRefName", "--limit", "100"])
+        if not (snap.pr and snap.pr.get("state") == "MERGED"):
+            self.defer("operator", f"origin/{snap.branch} kept: it holds work that never merged and the bundle only covers unpushed commits", None)
+            self.record("remote_branch", "deferred", branch=snap.branch, note="unmerged work")
+            return
+        open_prs = sh(["gh", "pr", "list", "--repo", snap.repo, "--state", "open", "--json", "number,headRefName,baseRefName,headRepositoryOwner", "--limit", "100"])
         if not open_prs.ok:
             raise StepFailed(f"cannot list open PRs: {open_prs.tail}")
-        blocking = [p for p in json.loads(open_prs.out) if p["baseRefName"] == snap.branch or (snap.abandon and p["headRefName"] == snap.branch)]
+        owner = snap.repo.split("/")[0].lower()
+        blocking = [
+            p
+            for p in json.loads(open_prs.out)
+            if p["baseRefName"] == snap.branch or (p["headRefName"] == snap.branch and (p.get("headRepositoryOwner") or {}).get("login", "").lower() == owner)
+        ]
         if blocking:
             self.defer("operator", f"open PR(s) #{', #'.join(str(p['number']) for p in blocking)} depend on {snap.branch}; deleting it would close or retarget them", None)
             self.record("remote_branch", "deferred", branch=snap.branch, open_prs=[p["number"] for p in blocking])
