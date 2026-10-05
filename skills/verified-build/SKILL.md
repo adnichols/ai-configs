@@ -61,6 +61,8 @@ A request to generate or review UI prototypes with this skill includes publishin
 
 Do not expose credentials, session cookies, API keys, personal data, or unrelated customer data in evidence. Use disposable records or a repo-defined QA account. Only remove data created by this run.
 
+Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
+
 ## Establish the baseline
 
 Drive the real user path with the selected verification skill. Use stable accessible selectors or commands, not coordinates, when the tool supports them.

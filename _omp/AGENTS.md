@@ -78,6 +78,10 @@ the final report helps keep these responsibilities visible.
 - The adn-mode **Eval** playbook (blind skill A/B tests) is not the `eval`
   tool.
 
+## Browser routing
+
+- Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
+
 ## Safety
 
 - Do not expose secrets, credentials, private keys, or sensitive user data in

@@ -392,6 +392,9 @@ check." DOM counts, render checks, data checks, and static screenshots fail
 the gate, and so does your own read of a worker's summary. Never tell the
 operator something does or doesn't reproduce on that basis.
 
+Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
+Interaction evidence gathered there fails the gate.
+
 A `NOT_REPRODUCED` or `EXPECTED_BEHAVIOR` that passes the gate goes to the
 operator with the worker's evidence. The operator chooses whether to supply
 more detail (the worker retries), close the issue, or turn it into a feature
