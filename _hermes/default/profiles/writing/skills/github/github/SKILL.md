@@ -119,6 +119,7 @@ gh pr checks --watch           # Poll until finish
 
 ### Merge
 ```bash
+# Never add --delete-branch. If the branch has a worktree, run worktree-cleanup from outside it after the merge.
 gh pr merge --squash
 gh pr merge --auto --squash   # Auto-merge when green
 ```

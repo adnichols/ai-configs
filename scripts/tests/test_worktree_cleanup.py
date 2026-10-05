@@ -244,6 +244,47 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.assertEqual(self.f.calls(), ["release", "archive wks_1"])
         self.assertFalse(self.f.wt.exists())
 
+    def test_unconfirmed_release_blocks_demos_and_branch_even_after_the_worktree_is_gone(self):
+        self.f.claim()
+        self.f.demo()
+        self.f.fake(inspect_fails_after_release=True)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 3, report)
+        git(self.f.main, "worktree", "remove", "--force", str(self.f.wt))
+        self.f.fake(workspaces=[])
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (3, "failed"), report)
+        self.assertEqual([c for c in self.f.calls() if "delete" in c], [])
+        self.assertTrue(self.f.remote_has_branch())
+
+        self.f.fake(inspect_fails_after_release=False)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 0, report)
+        self.assertFalse(self.f.remote_has_branch())
+
+    def test_merged_pr_of_an_earlier_head_does_not_authorize_deleting_a_newer_remote_head(self):
+        self.f.fake(release_fails=True)
+        self.f.claim()
+        code, _ = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 3)
+        (self.f.wt / "newer.txt").write_text("pushed after the merged head\n")
+        git(self.f.wt, "add", ".")
+        git(self.f.wt, "commit", "-qm", "newer")
+        git(self.f.wt, "push", "-q", "origin", "feat")
+        self.f.fake(release_fails=False)
+        code, report = self.f.run("--path", str(self.f.wt), "--abandon", "dropped")
+        self.assertEqual(code, 4, report)
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_branch_is_kept_while_an_open_pr_is_based_on_it(self):
+        prs = json.loads(self.f.fake_state.read_text())["prs"]
+        prs.append({"number": 9, "url": "https://github.com/acme/widgets/pull/9", "state": "OPEN", "headRefName": "child", "baseRefName": "feat", "headRefOid": "0" * 40, "headRepositoryOwner": {"login": "acme"}})
+        self.f.fake(prs=prs)
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual(code, 4, report)
+        self.assertTrue(self.f.remote_has_branch())
+        self.assertIn("#9", report["remaining"][0]["reason"])
+
     def test_open_pr_at_the_same_head_is_refused_even_when_another_pr_merged(self):
         prs = json.loads(self.f.fake_state.read_text())["prs"]
         prs.append({**prs[0], "number": 8, "url": "https://github.com/acme/widgets/pull/8", "state": "OPEN", "baseRefName": "release"})

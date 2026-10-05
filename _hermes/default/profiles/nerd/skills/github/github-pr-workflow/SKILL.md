@@ -357,7 +357,7 @@ When asked to "check the PR for feedback" and update it:
 **With gh:**
 
 ```bash
-# Squash merge (branch deletion is left to worktree cleanup)
+# Squash merge. Branch deletion belongs to worktree-cleanup: after the merge, run it from outside the branch's worktree (if it has one)
 gh pr merge --squash
 
 # Enable auto-merge (merges when all checks pass)

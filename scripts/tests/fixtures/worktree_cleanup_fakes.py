@@ -40,8 +40,8 @@ def gh(state, args):
     if args[:2] == ["repo", "view"]:
         return out({"nameWithOwner": "acme/widgets", "defaultBranchRef": {"name": "main"}})
     if args[:2] == ["pr", "list"]:
-        head, listed = flag(args, "--head"), flag(args, "--state")
-        prs = [p for p in state["prs"] if head is None or p["headRefName"] == head]
+        head, base, listed = flag(args, "--head"), flag(args, "--base"), flag(args, "--state")
+        prs = [p for p in state["prs"] if (head is None or p["headRefName"] == head) and (base is None or p["baseRefName"] == base)]
         if listed == "open":
             prs = [p for p in prs if p["state"] == "OPEN"]
         return out(prs)

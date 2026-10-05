@@ -272,7 +272,6 @@ class Cleanup:
         previous = Snapshot.load(path)
         if previous and (previous.repo, previous.branch) == (snap.repo, snap.branch):
             snap.claims = previous.claims
-            snap.pr = previous.pr
         return snap
 
     # ---- preflight -------------------------------------------------------
@@ -290,8 +289,15 @@ class Cleanup:
     def git(self, *args: str) -> Proc:
         return sh(["git", "-C", self.snap.path, *args])
 
-    def lab(self, *args: str) -> Proc:
-        return sh([*LAB_CLI, *args], cwd=self.snap.path)
+    def lab(self, *args: str, cwd: str | None = None) -> Proc:
+        return sh([*LAB_CLI, *args], cwd=cwd or self.snap.path)
+
+    def lab_cwd(self) -> str | None:
+        """A checkout that can run the lab CLI: the worktree, else the repo's main checkout."""
+        if self.exists:
+            return self.snap.path
+        main = Path(self.snap.common_dir).parent
+        return str(main) if (main / ".git").is_dir() else None
 
     def pr_state(self, ref: str) -> str | None:
         p = sh(["gh", "pr", "view", ref, "--repo", self.snap.repo, "--json", "state", "-q", ".state"])
@@ -421,7 +427,10 @@ class Cleanup:
 
     def confirm_released(self, claim: dict) -> str | None:
         """Ask the manager whether the claim is still held. Only a clean answer marks it released."""
-        check = self.lab("inspect", claim["lab"])
+        cwd = self.lab_cwd()
+        if cwd is None:
+            raise StepFailed(f"cannot confirm the release of claim {claim['claim_id']} on {claim['lab']}: no checkout is left to run the lab CLI from")
+        check = self.lab("inspect", claim["lab"], cwd=cwd)
         if not check.ok:
             raise StepFailed(f"cannot confirm the release of claim {claim['claim_id']} on {claim['lab']}; run again once the manager is reachable: {check.tail}")
         now = parse_json(check.out)
@@ -437,6 +446,7 @@ class Cleanup:
     def step_lab(self) -> None:
         snap = self.snap
         claim = self.read_claim() if self.exists else None
+        receipt = None
         if claim:
             say(f"releasing lab claim {claim['claim_id']} on {claim['lab']}")
             rel = self.lab("release")
@@ -445,27 +455,21 @@ class Cleanup:
             if (Path(snap.path) / CLAIM_FILE).exists():
                 raise StepFailed("lab release exited 0 but the claim file is still present")
             receipt = next((r for r in parse_json(rel.out).get("released", []) if r.get("claim_id") == claim["claim_id"]), None)
-            lab_state = self.confirm_released(claim)
-            if receipt and receipt.get("deprovisioning") is False and lab_state == "provisioned":
-                self.defer(
-                    "operator",
-                    f"claim released as accounting only; lab {claim['lab']} is still provisioned (agents do not run lab deprovision)",
-                    f"pnpm --filter @ccore/lab-manager run lab -- deprovision {claim['lab']} --wait",
-                )
-            self.record("lab", "done", claim=claim, lab_state=lab_state, deprovisioning=receipt and receipt.get("deprovisioning"))
-            return
-        pending = [c for c in snap.claims if not c["released"]]
-        if pending and self.exists:
-            for c in pending:
-                self.confirm_released(c)
-            self.record("lab", "done", note="claim file was already gone; manager confirms the release", claims=pending)
-            return
-        for c in pending:
-            self.defer("operator", f"claim {c['claim_id']} on {c['lab']} was never confirmed released and its claim file is gone", f"confirm claim {c['claim_id']} is released in the lab manager")
-        if pending:
-            self.record("lab", "deferred", note="claim file missing before release", claims=pending)
+        confirmed: list[dict] = []
+        states: dict[str, str | None] = {}
+        for c in [c for c in snap.claims if not c["released"]]:
+            states[c["claim_id"]] = self.confirm_released(c)
+            confirmed.append({"claim_id": c["claim_id"], "lab": c["lab"]})
+        if claim and receipt and receipt.get("deprovisioning") is False and states.get(claim["claim_id"]) == "provisioned":
+            self.defer(
+                "operator",
+                f"claim released as accounting only; lab {claim['lab']} is still provisioned (agents do not run lab deprovision)",
+                f"pnpm --filter @ccore/lab-manager run lab -- deprovision {claim['lab']} --wait",
+            )
+        if confirmed:
+            self.record("lab", "done", claims=confirmed, lab_states=states, deprovisioning=receipt and receipt.get("deprovisioning"))
         elif snap.claims:
-            self.record("lab", "already_done", claims=snap.claims)
+            self.record("lab", "already_done", claims=[{"claim_id": c["claim_id"], "lab": c["lab"]} for c in snap.claims])
         else:
             self.record("lab", "skipped", note="no lab claim")
 
@@ -586,15 +590,13 @@ class Cleanup:
             self.defer("operator", f"origin/{snap.branch} kept: it holds work that never merged and the bundle only covers unpushed commits", None)
             self.record("remote_branch", "deferred", branch=snap.branch, note="unmerged work")
             return
-        open_prs = sh(["gh", "pr", "list", "--repo", snap.repo, "--state", "open", "--json", "number,headRefName,baseRefName,headRepositoryOwner", "--limit", "100"])
-        if not open_prs.ok:
-            raise StepFailed(f"cannot list open PRs: {open_prs.tail}")
         owner = snap.repo.split("/")[0].lower()
-        blocking = [
-            p
-            for p in json.loads(open_prs.out)
-            if p["baseRefName"] == snap.branch or (p["headRefName"] == snap.branch and (p.get("headRepositoryOwner") or {}).get("login", "").lower() == owner)
-        ]
+        blocking: list[dict] = []
+        for side in ("--base", "--head"):
+            found = sh(["gh", "pr", "list", "--repo", snap.repo, "--state", "open", side, snap.branch, "--limit", "1000", "--json", "number,headRepositoryOwner"])
+            if not found.ok:
+                raise StepFailed(f"cannot list open PRs {side} {snap.branch}: {found.tail}")
+            blocking += [p for p in json.loads(found.out) if side == "--base" or (p.get("headRepositoryOwner") or {}).get("login", "").lower() == owner]
         if blocking:
             self.defer("operator", f"open PR(s) #{', #'.join(str(p['number']) for p in blocking)} depend on {snap.branch}; deleting it would close or retarget them", None)
             self.record("remote_branch", "deferred", branch=snap.branch, open_prs=[p["number"] for p in blocking])
