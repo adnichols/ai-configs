@@ -65,5 +65,5 @@ lab or an overlapping issue) → `HANDED_OFF` → `PROTOTYPE_REVIEW` /
 
 Terminal states other than `CLEANED` require the operator's decision:
 `DUPLICATE` (name the surviving issue), `NOT_REPRODUCED`, `WONT_FIX`, and
-`DEFERRED`. Every terminal issue still gets worker cleanup before the
-bugbash concludes.
+`DEFERRED`. Every terminal issue still gets `worktree-cleanup` run on its
+workspace before the bugbash concludes.

@@ -56,7 +56,10 @@ only with a table showing the interaction you tried.
 - Claim a lab, publish clickable prototypes on demos.keramos.tech, push the
   branch, open and update one PR for this issue, and post PR evidence.
 - Do not merge, deploy to production, release the lab claim, or change
-  anything outside this issue. If the right fix expands scope, stop and ask.
+  anything outside this issue. Never run `worktree-cleanup`, `lab release`,
+  or `gh pr merge --delete-branch`; the driver does cleanup after the merge.
+  Write `demos.json` for every prototype you publish, as `verified-build`
+  describes. If the right fix expands scope, stop and ask.
 - Do not change your model configuration.
 
 # Reporting

@@ -119,8 +119,8 @@ gh pr checks --watch           # Poll until finish
 
 ### Merge
 ```bash
-gh pr merge --squash --delete-branch
-gh pr merge --auto --squash --delete-branch   # Auto-merge when green
+gh pr merge --squash
+gh pr merge --auto --squash   # Auto-merge when green
 ```
 
 ## Code Review

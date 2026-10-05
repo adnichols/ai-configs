@@ -704,7 +704,7 @@
         "devin"
       ],
       "canonicalSource": "skills/session-cleanup",
-      "notes": "Ordered teardown for finished sessions: release lab claims and published clickable-prototype demos before removing worktrees, retire child workspaces and agents, archive the Paseo session last.",
+      "notes": "Session teardown inventory: owned PRs, child workspaces, schedules, and agents. Delegates worktree, lab, demo, and branch teardown to worktree-cleanup.",
       "sourceType": "repo"
     },
     "setup-matt-pocock-skills": {
@@ -1027,6 +1027,18 @@
       "sourceType": "repo",
       "defaultInstall": false,
       "profile": "macos"
+    },
+    "worktree-cleanup": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "canonicalSource": "skills/worktree-cleanup",
+      "notes": "Idempotent script that tears down a finished worktree in a fixed order: preflight, lab claim release, published demos, Paseo workspace, remote branch. Every merge flow calls it instead of gh pr merge --delete-branch.",
+      "sourceType": "repo"
     },
     "xlsx": {
       "class": "universal-installable",

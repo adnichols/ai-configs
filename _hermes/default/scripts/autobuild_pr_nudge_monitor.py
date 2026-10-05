@@ -529,10 +529,10 @@ def merge_pr(monitor: Monitor, pr: dict[str, Any], ready_sources: list[dict[str,
     if DRY_RUN:
         outputs.append(f"[dry-run] {monitor.name}: would merge PR #{pr_number}: {pr.get('url')}")
         return
-    cp = run(["gh", "pr", "merge", str(pr_number), "--repo", monitor.repo, "--squash", "--delete-branch", "--auto"], cwd=monitor.repo_dir, check=False)
+    cp = run(["gh", "pr", "merge", str(pr_number), "--repo", monitor.repo, "--squash", "--auto"], cwd=monitor.repo_dir, check=False)
     combined = (cp.stdout + cp.stderr).strip()
     if cp.returncode != 0 and ("not supported" in combined.lower() or "GraphQL" in combined or "Pull request is in clean status" in combined):
-        cp = run(["gh", "pr", "merge", str(pr_number), "--repo", monitor.repo, "--squash", "--delete-branch"], cwd=monitor.repo_dir, check=False)
+        cp = run(["gh", "pr", "merge", str(pr_number), "--repo", monitor.repo, "--squash"], cwd=monitor.repo_dir, check=False)
         combined = (cp.stdout + cp.stderr).strip()
     if cp.returncode == 0:
         mstate["events"][key] = utc_now()

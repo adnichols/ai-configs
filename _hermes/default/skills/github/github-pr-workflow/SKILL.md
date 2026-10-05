@@ -303,11 +303,11 @@ When asked to auto-fix CI, follow this loop:
 **With gh:**
 
 ```bash
-# Squash merge + delete branch (cleanest for feature branches)
-gh pr merge --squash --delete-branch
+# Squash merge (branch deletion is left to worktree cleanup)
+gh pr merge --squash
 
 # Enable auto-merge (merges when all checks pass)
-gh pr merge --auto --squash --delete-branch
+gh pr merge --auto --squash
 ```
 
 **With git + curl:**
