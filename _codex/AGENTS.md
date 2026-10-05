@@ -28,6 +28,10 @@
 - Carry the work through the necessary implementation, integration, and relevant verification. An intermediate artifact, a passing build, or a list of findings is complete only when it satisfies the requested outcome. Keep explanations concise without shortening the work.
 - In performance work, measure the actual bottleneck before changing it. Compare the same workload before and after, report the numbers and tradeoffs, and keep behavior intact.
 
+## Browser routing
+
+- Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
+
 ## PR ownership
 
 Treat PRs opened for a task, including delegated work, as ongoing

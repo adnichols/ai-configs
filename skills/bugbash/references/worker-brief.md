@@ -38,6 +38,8 @@ didn't open the UI. You didn't click on the highlight to see if it
 highlighted the comment. You didn't check to see if any of the user
 experience was working. That's not an acceptable way to check."
 
+Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
+
 Record every reproduction and every validation as an interaction table in
 your evidence and in the PR, with columns step, expected, observed, evidence
 path. It supplements verified-build's visual evidence table and does not

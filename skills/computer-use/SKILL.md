@@ -29,3 +29,7 @@ cua-driver <tool-name> '<JSON-args>'
 If the cua-driver skill pack is missing, run `cua-driver skills install` and
 then follow the `cua-driver` skill. If the binary is missing, report that and
 stop. Do not fall through to `orca`, `orca-dev`, or `orca-ide`.
+
+## Browser work
+
+- Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
