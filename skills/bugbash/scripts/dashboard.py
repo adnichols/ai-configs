@@ -68,7 +68,7 @@ def issue_rows(text):
     for line in section(text, "Status").splitlines():
         if not line.startswith("|"):
             continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        cells = [c.strip().replace(r"\|", "|") for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
         if cols is None:
             cols = [c.lower() for c in cells]
         elif not set("".join(cells)) <= set("-: "):
@@ -89,12 +89,28 @@ def group_of(state):
 
 # ---- rendering ------------------------------------------------------------
 
-def pr_cell(pr):
-    """GitHub PR URLs become `repo#N` so the column stays narrow; the href keeps the full URL."""
-    m = re.fullmatch(r"https://github\.com/[^/\s]+/([^/\s]+)/pull/(\d+)", pr)
-    if m:
-        return f'<a href="{html.escape(pr)}" target="_blank" rel="noopener">{html.escape(m.group(1))}#{m.group(2)}</a>'
-    return inline(pr) if pr not in ("—", "") else "—"
+PR_URL = re.compile(r"https://github\.com/[^/\s]+/[^/\s]+/pull/(\d+)")
+
+
+def pr_cell(issue_id, pr):
+    """The PR column shows `#N` linked to the PR. The ledger must hold the full GitHub PR URL."""
+    if pr in ("—", "-", "", "none"):
+        return "—"
+    m = PR_URL.fullmatch(pr)
+    if not m:
+        raise Fail(2, f"{issue_id}: PR cell {pr!r} must be a full GitHub PR URL "
+                      "(https://github.com/<owner>/<repo>/pull/<N>) or —")
+    return f'<a href="{html.escape(pr)}" target="_blank" rel="noopener">#{m.group(1)}</a>'
+
+
+def worker_cell(cell):
+    """`<workspace id> / <agent id>` from the ledger, labeled so the IDs read as Paseo workspace and agent."""
+    parts = [p.strip() for p in cell.split("/")] if cell not in ("—", "") else []
+    if not parts:
+        return "—"
+    labels = ("Paseo workspace", "agent")
+    return "<br>".join(
+        f'<span class="sub">{label}</span> <code>{html.escape(p)}</code>' for label, p in zip(labels, parts))
 
 
 ASK_FIELDS = (("Broken", "What's broken"), ("Fix", "Proposed fix"), ("Decide", "Your call"), ("Links", "Look at"))
@@ -174,7 +190,8 @@ def render(text, title, template, updated):
             f'<div class="sub">{html.escape(r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
             f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>'
             f'<td>{inline(r.get("waiting on", ""))}</td>'
-            f'<td class="pr">{pr_cell(pr)}</td></tr>')
+            f'<td class="pr">{pr_cell(r.get("id", ""), pr)}</td>'
+            f'<td class="worker">{worker_cell(r.get("workspace / agent", ""))}</td></tr>')
 
     meta = (f"Mode: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
             "document and acknowledges each one in its thread within about 30 seconds")

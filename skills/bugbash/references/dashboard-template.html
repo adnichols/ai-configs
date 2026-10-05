@@ -27,6 +27,7 @@ h1 { font-size:24px; margin:0 0 4px; overflow-wrap:anywhere; } h2 { font-size:17
 table { width:100%; border-collapse:collapse; } th, td { text-align:left; vertical-align:top; padding:10px 8px; border-bottom:1px solid var(--line); }
 th { font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
 td.pr { white-space:nowrap; } td.pr a { overflow-wrap:normal; }
+td.worker { white-space:nowrap; font-size:12px; } td.worker code { font-size:11px; }
 td.id { font-weight:700; white-space:nowrap; } .t { font-weight:500; } .sub { color:var(--mute); font-size:12px; }
 tr.done td { opacity:.7; }
 a { color:var(--link); overflow-wrap:anywhere; }
@@ -44,7 +45,7 @@ code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(-
 <h2>Needs you</h2>
 {{needs}}
 <h2>All issues</h2>
-<div class="scroll"><table><thead><tr><th>ID</th><th>Issue</th><th>State</th><th>Waiting on</th><th>PR</th></tr></thead>
+<div class="scroll"><table><thead><tr><th>ID</th><th>Issue</th><th>State</th><th>Waiting on</th><th>PR</th><th>Worker</th></tr></thead>
 <tbody>{{issues}}</tbody></table></div>
 <h2>Recent decisions</h2>
 <ul class="decisions">{{decisions}}</ul>

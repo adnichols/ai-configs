@@ -141,6 +141,11 @@ that step and remove it when it is answered. The ask in chat and the ask in
 the dashboard say the same thing, so the operator can answer from either
 place.
 
+**PR column.** Write the full GitHub PR URL into the ledger's `PR` cell (or
+`—`). The dashboard shows it as the PR number linked to GitHub, plus a
+labeled Paseo workspace / agent column. It exits 2 on any other PR form, so
+fix the ledger cell rather than the script.
+
 **Writing a Needs-you item.** Each item is a `###` block, one per issue:
 
 ```

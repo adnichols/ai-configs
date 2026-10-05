@@ -27,7 +27,13 @@ Approval rule: "approve BB-NN" authorizes merging that PR at the approved patch,
 ## Status
 | ID | Type | Title | Repo | State | Workspace / agent | PR | Waiting on |
 |----|------|-------|------|-------|-------------------|----|------------|
-| BB-01 | BUG | ... | ava | HANDED_OFF | ws_... / ag_... | — | worker |
+| BB-01 | BUG | ... | ava | HANDED_OFF | wks_... / <agent id> | — | worker |
+| BB-02 | BUG | ... | ava | VALIDATED | wks_... / <agent id> | https://github.com/<owner>/<repo>/pull/640 | you |
+
+`Workspace / agent` is the Paseo workspace ID and the worker agent ID; the
+dashboard labels them. `PR` is `—` or the full GitHub PR URL, never `#N` or a
+bare number. The dashboard renders it as `#N` linked to the PR and refuses to
+publish any other form.
 
 ## Waiting on you
 Every ask made to the operator in chat appears here in the same step, one
