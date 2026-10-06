@@ -147,6 +147,14 @@ class SpecDiffTest(unittest.TestCase):
         self.assertEqual([c.path for c in found], ["spec/adr-1.md"])
         self.assertIn("Only line endings or the final newline differ", page)
 
+    def test_publishing_without_a_dashboard_document_fails_clearly(self):
+        bugbash = Path(self.tmp.name) / "bugbash"
+        bugbash.mkdir()
+        with self.assertRaisesRegex(spec_diff.Fail, "no dashboard plan_id"):
+            spec_diff.dashboard_of(bugbash)
+        (bugbash / "dashboard.json").write_text(json.dumps({"space_id": "spc_1", "plan_id": "doc-1"}))
+        self.assertEqual(spec_diff.dashboard_of(bugbash), ("spc_1", "doc-1"))
+
 
 if __name__ == "__main__":
     unittest.main()

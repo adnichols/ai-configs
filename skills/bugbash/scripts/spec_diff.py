@@ -3,7 +3,7 @@
 
   spec_diff.py REPO --base REF --path spec [--path ...] --title TITLE
                [--head REF] [--summary-file FILE] [--reply TEXT] [--out DIR]
-               [--publish [--bugbash-dir DIR] [--space spc_...] [--folder-path A/B]]
+               [--publish --bugbash-dir DIR]
   spec_diff.py REPO --check DIR/manifest.json [--head REF]
 
 Input is git content, never retyped text: the base is the merge base of --base and the head, and the head is
@@ -594,14 +594,24 @@ def manifest(src: Source, found: list[Change]) -> dict:
 
 # ---- publish --------------------------------------------------------------
 
-def publish(source: str, title: str, space: str, folder, state_path: Path) -> dict:
-    """Register the page, or edit the document recorded in state_path, then verify what Ava stored."""
+def dashboard_of(bugbash_dir: Path) -> tuple[str, str]:
+    """(space id, dashboard document id) recorded by dashboard.py, which every page this bugbash makes hangs under."""
+    f = bugbash_dir / "dashboard.json"
+    state = json.loads(f.read_text()) if f.exists() else {}
+    if not state.get("plan_id") or not state.get("space_id"):
+        raise Fail(2, f"{f} has no dashboard plan_id; run dashboard.py {bugbash_dir} first so this page can be filed under it")
+    return state["space_id"], state["plan_id"]
+
+
+def publish(source: str, title: str, space: str, parent: str, state_path: Path) -> dict:
+    """Register the page under the dashboard document, or edit the one recorded in state_path, then verify the
+    stored source and the parent. A create that ignored parent_id is moved and checked again."""
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     sha = dashboard.digest(source)[:16]
     plan_id = state.get("plan_id")
     if not plan_id:
         r = dashboard.ava("document", "register", "--space", space, "--idempotency-key", f"spec-diff-register-{sha}",
-                          data={"title": title, "source": source, "source_format": "html"})
+                          data={"title": title, "source": source, "source_format": "html", "parent_id": parent})
         plan_id = dashboard.pick(r, "plan_id", "document_id")
         state = {"space_id": space, "plan_id": plan_id, "web_url": r.get("web_url") or r.get("document_url"),
                  "digest": sha}
@@ -612,7 +622,7 @@ def publish(source: str, title: str, space: str, folder, state_path: Path) -> di
                       "--expected-revision", rev, data={"source": source, "title": title})
     if dashboard.ava("document", "plan-source", plan_id, "--space", space).get("source") != source:
         raise Fail(3, "published source does not match the rendered page; not reporting it as published")
-    dashboard.place(space, plan_id, folder)
+    dashboard.place(space, plan_id, parent)
     if not state.get("web_url"):
         state["web_url"] = dashboard.ava("document", "get", plan_id, "--space", space).get("web_url")
     state["digest"] = sha
@@ -645,10 +655,8 @@ def main() -> int:
     ap.add_argument("--repo-url", help="https://github.com/OWNER/REPO for links; default: derived from origin")
     ap.add_argument("--full-lines", type=int, default=FULL_LINES, help="files up to this many lines render whole")
     ap.add_argument("--out", type=Path, help="output directory; default: <bugbash-dir>/spec-diffs/<title slug>")
-    ap.add_argument("--publish", action="store_true", help="publish or update the page in the bugbash Ava folder")
-    ap.add_argument("--bugbash-dir", type=Path, help="supplies the Space and folder from dashboard.json")
-    ap.add_argument("--space")
-    ap.add_argument("--folder-path", default="/".join(dashboard.FOLDER_PATH))
+    ap.add_argument("--publish", action="store_true", help="publish or update the page under the bugbash's dashboard document")
+    ap.add_argument("--bugbash-dir", type=Path, help="holds dashboard.json; the page is filed under its dashboard document")
     ap.add_argument("--check", type=Path, metavar="MANIFEST", help="compare the files at the head with manifest.json and exit")
     args = ap.parse_args()
     root = args.repo.expanduser().resolve()
@@ -657,6 +665,9 @@ def main() -> int:
         return check(args.check, root, args.head)
     if not (args.base and args.path and args.title):
         raise Fail(2, "--base, --path and --title are required")
+    if args.publish and not args.bugbash_dir:
+        raise Fail(2, "--publish needs --bugbash-dir so the page is filed under that bugbash's dashboard document")
+    space, parent = dashboard_of(args.bugbash_dir.expanduser()) if args.publish else ("", "")
     if not shutil.which("pandoc"):
         raise Fail(3, "pandoc is not on PATH. Install it (for example `brew install pandoc`); it renders the Markdown.")
     out = args.out
@@ -681,14 +692,10 @@ def main() -> int:
         return 0
 
     dashboard.preflight()
-    dstate = json.loads((args.bugbash_dir / "dashboard.json").read_text()) if args.bugbash_dir and (args.bugbash_dir / "dashboard.json").exists() else {}
-    space = args.space or dstate.get("space_id") or dashboard.DEFAULT_SPACE
-    path = tuple(p.strip() for p in args.folder_path.split("/") if p.strip())
-    if not path:
-        raise Fail(2, "--folder-path is empty")
-    folder = dashboard.resolve_folder(space, path, dstate.get("folder_id"))
-    state = publish(source, args.title, space, folder, out / "ava.json")
+    state = publish(source, args.title, space, parent, out / "ava.json")
+    verified = next((d.get("parent_id") for d in dashboard.tree(space) if d["document_id"] == state["plan_id"]), None)
     print(f"published: {state['web_url']}")
+    print(f"parent_id: {verified} (dashboard {parent})")
     for w in state["warnings"]:
         print(f"ava warning {w.get('code')}: {w.get('message')}", file=sys.stderr)
     print(f"ava warnings: {len(state['warnings'])}")
