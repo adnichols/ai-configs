@@ -408,6 +408,8 @@ request.
 
 ### Spec and ADR changes
 
+ADR numbers are not part of any approval. Allocate the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask the operator about a number or list it in `## Waiting on you`. The agent may merge a PR whose only purpose is resolving ADR number collisions once repo checks pass.
+
 Any change under `spec/` or an ADR directory reaches the operator as a
 rendered diff page, never as wording in chat or the ledger. The worker writes
 the edit uncommitted in its worktree and runs

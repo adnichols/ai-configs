@@ -53,6 +53,8 @@ replace it. A bug you could not trigger by interaction is `NOT_REPRODUCED`
 only with a table showing the interaction you tried.
 
 # Spec and ADR changes
+ADR numbers are mechanical: take the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask about a number. Do not put a number in an approval question.
+
 Do not quote spec or ADR wording in a status block. When the fix needs a
 change under `spec/` or an ADR directory, write the edit uncommitted in this
 worktree and run `python3 <skill-dir>/scripts/spec_diff.py <worktree> --base

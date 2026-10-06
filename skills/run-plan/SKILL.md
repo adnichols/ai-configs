@@ -275,6 +275,7 @@ After PR-reviewable implementation stabilizes and **before** Self Scope Audit an
 
 1. If the worktree is Heddle (or another repo with a local permanent-docs skill), load `.agents/skills/heddle-permanent-docs/SKILL.md` (or the local equivalent).
 2. Record exactly one disposition: `none` | `patch <paths>` | `new-record <path>` | `ADR <path>` | `deferred-to-final-plan-slice` (deferred must name final slice/issue and interim source of truth).
+   ADR numbers are mechanical: take the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask the operator or list a number as "waiting on you". A numbering-only collision-fix PR may be merged by the agent once repo checks pass.
 3. Capture any required permanent docs into the candidate now so scoped review, PM, and autoreview all see them.
 4. Reject hollow stubs (empty templates, TODO bodies, “see plan” only) for `patch` / `new-record` / `ADR`.
 5. When a delivery ledger exists: `delivery record permanentDocs --status pass|skip|gap --summary "disposition=..."`.
