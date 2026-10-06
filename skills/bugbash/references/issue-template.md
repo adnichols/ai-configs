@@ -60,8 +60,7 @@ Workspace: <id>   Worktree: <path>   Branch: <branch>   Agent: <id>   Launched: 
 
 `INTAKE` → `RESEARCHING` → `NEEDS_INFO` → `READY` → `QUEUED` (waiting for a
 lab or an overlapping issue) → `HANDED_OFF` → `PROTOTYPE_REVIEW` /
-`NEEDS_OPERATOR` / `BLOCKED` → `VALIDATED` → `APPROVED` → `MERGED` →
-`CLEANED`.
+`NEEDS_OPERATOR` / `BLOCKED` → `VALIDATED` → `MERGED` → `CLEANED`.
 
 Terminal states other than `CLEANED` require the operator's decision:
 `DUPLICATE` (name the surviving issue), `NOT_REPRODUCED`, `WONT_FIX`, and

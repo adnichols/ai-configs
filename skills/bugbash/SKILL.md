@@ -1,6 +1,6 @@
 ---
 name: bugbash
-description: Run a bug bash from one conversation. The operator rapid-fires bug reports, feature requests, and screenshots; you log each one, enrich it with background research into a complete report, and hand every ready item to its own Paseo worktree running OMP with verified-build and ADN mode. When the operator says they are done, switch to orchestration and drive every item to a validated, operator-approved, merged PR with its worktree cleaned up. Use when the operator says "bugbash", "bug bash", "I'm going to dump bugs/issues on you", "collect these as I send them", or starts pasting a batch of bugs and feature requests meant to be fixed in parallel. For a single bug the operator wants fixed in the current worktree, use verified-build directly instead.
+description: Run a bug bash from one conversation. The operator rapid-fires bug reports, feature requests, and screenshots; you log each one, enrich it with background research into a complete report, and hand every ready item to its own Paseo worktree running OMP with verified-build and ADN mode. When the operator says they are done, switch to orchestration and drive every item to a validated, merged PR with its worktree cleaned up; the driver merges a PR itself once it is validated, every operator decision on it is answered, and every gate passes. Use when the operator says "bugbash", "bug bash", "I'm going to dump bugs/issues on you", "collect these as I send them", or starts pasting a batch of bugs and feature requests meant to be fixed in parallel. For a single bug the operator wants fixed in the current worktree, use verified-build directly instead.
 ---
 
 # Bugbash
@@ -65,8 +65,8 @@ When triggered:
 4. Tell the operator, in two or three lines: the bugbash ID and ledger path,
    the dashboard link, that you are in intake mode, that they can paste
    issues freely, and that they should say "done" when finished. Also state
-   the approval rule from [Merge authority](#merge-authority) so it is agreed
-   up front.
+   the rule from [Merge authority](#merge-authority): you merge each PR
+   yourself once it passes every gate and every decision on it is answered.
 
 ## Dashboard
 
@@ -360,28 +360,39 @@ continue.
   operator as `BLOCKED` with the cause and options (retry, relaunch, narrow
   scope, or drop).
 
-### Review and approval
+### Review and merge
 
-When a worker reports `VALIDATED`, verify the receipt before bothering the
-operator: the PR exists, its head SHA equals the validated SHA, CI is green
-or pending only on known-slow checks, the PR shows the visual evidence
-table, and the PR carries the interaction table that passes the gate below.
-Then present one review packet:
+When a worker reports `VALIDATED`, verify the receipt yourself: the PR
+exists, its head SHA equals the validated SHA, CI is green (or the
+repository has no CI), GitHub reports it mergeable, the PR shows the visual
+evidence table, and the PR carries the interaction table that passes the
+gate below. Open at least one of its screenshots or videos.
+
+If the receipt passes and every operator decision on the issue is answered
+(prototype approval, spec or ADR diff approval, product and scope choices),
+merge it per [Merge authority](#merge-authority) without asking. Do not send
+the operator an "approve?" packet: the worker and the gates have the
+information, and asking the operator to confirm a passing PR only asks them
+to rubber-stamp it. After merging, tell the operator in one short notice:
 
 ```
-BB-07 ready for your review — Signals acknowledge error (bug)
-PR: <url>   head: <sha>   lab: <lab>   demo: <url or n/a>
+BB-07 merged — Signals acknowledge error (bug)
+PR: <url>   squash: <sha>   validated head: <sha>   lab: <lab>
 What changed: <one or two sentences>
 Evidence: <baseline vs candidate summary; PR evidence table link>
-Checks: <CI + local checks>   Review: <reviewer verdict>
 Risks / not covered: <list or none>
-Reply "approve BB-07" to merge and clean up, or tell me what to change.
 ```
 
-Approval covers that PR at that patch. If the code changes afterwards, ask
-again. A rebase whose `git patch-id --stable` matches the approved patch
-keeps the approval. Rejections and change requests go back to the same
-worker verbatim; the worker updates the same PR and revalidates.
+Ask the operator only for what the gates cannot settle: an open product
+decision, a spec or ADR diff, a prototype review, a scope change, a known
+gap the worker could not verify (an untestable platform, a step that needs
+the operator's hands), or a risk the operator has not already accepted. Put
+that ask in `## Waiting on you` as usual. Once it is answered and the gates
+pass, merge.
+
+Change requests and post-merge feedback go back to the same worker
+verbatim; the worker updates its PR (or opens a follow-up PR) and
+revalidates.
 
 `NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, and `VALIDATED` for a user-facing
 issue need interaction evidence before they count. Open the worker's
@@ -433,30 +444,40 @@ same `--out` to update the page, and ask again.
 
 ### Merge authority
 
-The operator's approval of a review packet ("approve BB-NN") authorizes
-merging that PR and then the per-issue cleanup below: releasing that
-issue's lab claim, removing its demos, and archiving its worktree. The
-kickoff message states this rule so the operator agrees to it before the
-first approval. Approval does not authorize production deploys, merging
-other PRs, or force-pushing. If the operator approves a merge but asks to
-keep the lab or worktree, preserve them and record why.
+The operator's standing rule (2026-10-06): "any PR that we do a bug bash on,
+that is validated, where all decisions are approved, and it's passing all of
+our gates, you don't need to ask for my approval to merge it. You just need
+to merge it." So the driver merges a bugbash PR, then runs the per-issue
+cleanup below (lab claim, demos, worktree), when all of these hold:
 
-To merge an approved PR:
+- the worker reported `VALIDATED` for the exact head being merged;
+- the receipt in [Review and merge](#review-and-merge) passes, including the
+  interaction-evidence gate;
+- every operator decision the issue raised has an answer in the decisions
+  log, and any spec or ADR change matches the approved diff page;
+- the target repository's merge policy is met.
+
+The rule does not authorize production deploys, force-pushing, merging a
+head that was not validated, or merging PRs that are not this bugbash's. If
+the operator asks to hold a PR, or to keep its lab or worktree, do so and
+record why.
+
+To merge:
 
 1. Follow the target repository's merge policy (its AGENTS.md, merge-gate
    skills, required checks, and up-to-date-branch rules). If the repository
    designates a different merger, such as a merge bot, bring the PR to that
    process's ready state and track it until it merges.
-2. Merge one PR at a time. If the base moved and the repository requires an
-   up-to-date branch, or the PR now conflicts, ask the worker to rebase.
-   A changed head needs lab revalidation per verified-build; a changed patch
-   needs re-approval.
-3. Otherwise merge with the repository's merge method (default
-   `gh pr merge <n> --squash`) and confirm GitHub reports it merged. Never
-   pass `--delete-branch`: it also removes the worker's checked-out
-   worktree, and the lab claim file with it, before the lab can be released.
-   Branch, lab, demo, and worktree teardown belong to the
-   `worktree-cleanup` script below.
+2. Merge one PR at a time. If the base moved, check whether anything merged
+   since the validated base touches the PR's files, migrations, or ADR
+   numbers. If it does, the repository requires an up-to-date branch, or the
+   PR now conflicts, ask the worker to rebase and revalidate the new head.
+3. Otherwise merge at the validated head with the repository's merge method
+   (default `gh pr merge <n> --squash --match-head-commit <sha>`) and confirm
+   GitHub reports it merged. Never pass `--delete-branch`: it also removes the
+   worker's checked-out worktree, and the lab claim file with it, before the
+   lab can be released. Branch, lab, demo, and worktree teardown belong to
+   the `worktree-cleanup` script below.
 4. After each merge, tell workers whose open PRs touch the same files that
    the base moved.
 
@@ -465,8 +486,7 @@ To merge an approved PR:
 Once an issue's PR is merged:
 
 1. Run the script from the driver's own checkout, against the worker's
-   workspace. The operator's approval of the merged PR is the agreement that
-   the work is complete:
+   workspace. The merge is the agreement that the work is complete:
    `python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>`.
    It releases the lab claim, removes the demos, archives the workspace
    (which also archives the worker's agent), and deletes the remote branch.
@@ -491,10 +511,10 @@ Post this whenever you are asked for status, after the done signal, and when
 something material changes during orchestration. Keep each line short:
 
 ```
-Bugbash <id> — 9 issues: 3 merged, 2 awaiting your review, 3 in progress, 1 blocked
+Bugbash <id> — 9 issues: 3 merged, 2 need you, 3 in progress, 1 blocked
 
 Needs you
-  BB-07 approve? <PR url> (packet above)
+  BB-07 spec diff: <page url>
   BB-04 prototype review: <demo url>
   BB-09 question: should acknowledged signals also hide from the bell?
 Blocked

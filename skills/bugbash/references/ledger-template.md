@@ -22,7 +22,7 @@ Ava space: <spc_... or none>
 Dashboard: <web_url or none>
 Dashboard folder: <folder id of Coding Work / Bug Bash, or none>
 Listener: <service name, pid, log path, or none>
-Approval rule: "approve BB-NN" authorizes merging that PR at the approved patch, then releasing its lab, removing its demos, and archiving its worktree.
+Merge rule: the driver merges each PR at its validated head once every gate passes and every operator decision on the issue is answered, then releases its lab, removes its demos, and archives its worktree.
 
 ## Status
 | ID | Type | Title | Repo | State | Workspace / agent | PR | Waiting on |
