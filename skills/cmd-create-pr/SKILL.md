@@ -120,6 +120,8 @@ When the repo has `.agents/skills/heddle-permanent-docs/SKILL.md`, `docs/DEV_DOC
 
 Do not require CCore archive package creation or plan-source deletion. Changelog fragment rules remain the separate existing gate.
 
+ADR numbers are mechanical. Take the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask the operator about a number. A PR whose only purpose is resolving ADR number collisions may be merged by the agent once repo checks pass.
+
 ### 5) Squash to one commit
 
 GitHub merge-button squash is not a substitute. Reviewers read the branch.

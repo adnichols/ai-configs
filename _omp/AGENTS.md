@@ -8,6 +8,7 @@ destructive-action, external-coordination, or third-party PR boundaries.
 ## Request and authority
 
 - When I request implementation and a PR, that authorizes creating the PR, pushing changes, updating the PR, and marking it ready after required validation passes in the requested repository. Do not ask separately for those steps. Merging and production deployment require separate authorization unless explicitly included.
+- ADR numbers are mechanical and never need operator approval. When creating or landing an ADR, take the next free number from the repository's tool, or max+1 across origin/main and open branches. On any collision, renumber and update every reference. Merge a PR whose only purpose is resolving ADR number collisions once repository checks pass, without asking. Never list ADR numbering as an operator question or a "waiting on you" item.
 - Treat questions, explanations, inspection, research, diagnosis, review,
   planning discussion, and status requests as read-only unless the user also
   authorizes a change.
