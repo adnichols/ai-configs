@@ -141,6 +141,12 @@ that step and remove it when it is answered. The ask in chat and the ask in
 the dashboard say the same thing, so the operator can answer from either
 place.
 
+**Subdocuments only.** Every Ava document a bugbash creates (spec diffs,
+review pages, anything derived from it) is created as a subdocument of that
+bugbash's dashboard document, never as a sibling in the folder. Use the
+dashboard's `plan_id` from `dashboard.json` as `parent_id`, then read the
+document tree to verify the parent, and move it when the create ignored it.
+
 **Writing a Needs-you item.** Each item is a `###` block, one per issue:
 
 ```
@@ -399,6 +405,29 @@ A `NOT_REPRODUCED` or `EXPECTED_BEHAVIOR` that passes the gate goes to the
 operator with the worker's evidence. The operator chooses whether to supply
 more detail (the worker retries), close the issue, or turn it into a feature
 request.
+
+### Spec and ADR changes
+
+Any change under `spec/` or an ADR directory reaches the operator as a
+rendered diff page, never as wording in chat or the ledger. The worker writes
+the edit uncommitted in its worktree and runs
+`python3 <skill-dir>/scripts/spec_diff.py <worktree> --base <base branch> --path spec --title "<what changes>" --summary-file <plain-terms note> --reply "<how to answer>" --bugbash-dir <bugbash-dir> --publish`
+(one `--path` per spec directory; `--head <ref>` renders a commit instead of
+the working tree). The script needs only Python and pandoc, reads the text
+from git, and publishes one Ava page as a subdocument of this bugbash's
+dashboard (`parent_id` is `plan_id` from `<bugbash-dir>/dashboard.json`; it
+fails when that file has no `plan_id`, and it moves and rechecks a page whose
+create ignored the parent). The page shows
+each changed file as before and after lines plus the whole file with the
+change marked. `manifest.json` next to it fingerprints the proposed files.
+
+Put a `Links:` entry to the page in the issue's `## Waiting on you` card and
+leave the wording out of it. The operator's approval covers exactly the
+rendered diff. After approval the worker commits those bytes unchanged and
+runs
+`python3 <skill-dir>/scripts/spec_diff.py <worktree> --check <out>/manifest.json --head HEAD`
+before pushing. Changed text is a new proposal: rerun the script with the
+same `--out` to update the page, and ask again.
 
 ### Merge authority
 

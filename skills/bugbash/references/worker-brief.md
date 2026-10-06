@@ -52,6 +52,21 @@ screenshots are not reproduction. They may supplement the table and never
 replace it. A bug you could not trigger by interaction is `NOT_REPRODUCED`
 only with a table showing the interaction you tried.
 
+# Spec and ADR changes
+Do not quote spec or ADR wording in a status block. When the fix needs a
+change under `spec/` or an ADR directory, write the edit uncommitted in this
+worktree and run `python3 <skill-dir>/scripts/spec_diff.py <worktree> --base
+<base branch> --path spec --title "<what changes>" --summary-file <note>
+--reply "<how to answer>" --bugbash-dir <bugbash-dir> --publish`. Put the
+page URL in `demo:` and end the turn with the approval question. Approval
+covers exactly the rendered diff. After approval, commit those bytes
+unchanged and run the script with `--check <out>/manifest.json --head HEAD`
+before pushing. If the text changes, rerun the script and ask again. The
+summary note says what changes, why, and what it costs, in plain terms.
+Every Ava page you create for this bugbash is a subdocument of its dashboard
+document, never a sibling. `spec_diff.py` does this from `<bugbash-dir>/dashboard.json`
+and fails when that file has no `plan_id`; do the same for any other page.
+
 # Authorization
 - Claim a lab, publish clickable prototypes on demos.keramos.tech, push the
   branch, open and update one PR for this issue, and post PR evidence.
