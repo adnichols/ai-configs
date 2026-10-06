@@ -49,5 +49,5 @@ Newest first; the dashboard shows the first eight.
 - <time> | BB-NN | "<verbatim quote>" | <how it was applied>
 
 ## Cleanup
-- BB-01: lab <released | retained: reason>, demos <removed | none>, workspace <archived>
+- BB-01: worktree-cleanup exit <0|4>; lab <released | retained: reason>, demos <removed | none>, workspace <archived>, branch <deleted | kept: reason>
 ```

@@ -18,8 +18,8 @@ The session has three modes, recorded in the ledger:
 3. `CONCLUDED`: every item is merged or explicitly closed, and every worker
    worktree is cleaned up.
 
-Read the `paseo` skill now for tool and CLI syntax. Read `session-cleanup`
-before the first cleanup. Do not read `verified-build` or `adn-mode` to do
+Read the `paseo` skill now for tool and CLI syntax. Read `worktree-cleanup`
+before the first merge. Do not read `verified-build` or `adn-mode` to do
 the work yourself; the workers load them. You only need enough of
 `verified-build` to understand worker states and evidence.
 
@@ -421,8 +421,11 @@ To merge an approved PR:
    A changed head needs lab revalidation per verified-build; a changed patch
    needs re-approval.
 3. Otherwise merge with the repository's merge method (default
-   `gh pr merge <n> --squash --delete-branch`) and confirm GitHub reports it
-   merged.
+   `gh pr merge <n> --squash`) and confirm GitHub reports it merged. Never
+   pass `--delete-branch`: it also removes the worker's checked-out
+   worktree, and the lab claim file with it, before the lab can be released.
+   Branch, lab, demo, and worktree teardown belong to the
+   `worktree-cleanup` script below.
 4. After each merge, tell workers whose open PRs touch the same files that
    the base moved.
 
@@ -430,16 +433,22 @@ To merge an approved PR:
 
 Once an issue's PR is merged:
 
-1. Tell its worker: the PR merged, the operator explicitly agreed the work is
-   complete (quote the approval), and it should release its lab claim and
-   remove the demos it published, following `session-cleanup` step 1. Ask
-   it to report the results and not to archive itself.
-2. When it confirms, archive its workspace with `archive_workspace`. This
-   also archives its agent and removes the Paseo-managed worktree. Never
-   archive a workspace with uncommitted work or an unmerged PR without
-   surfacing it to the operator first.
-3. Set the issue to `CLEANED` and record the lab release, demo removal, and
-   archive results.
+1. Run the script from the driver's own checkout, against the worker's
+   workspace. The operator's approval of the merged PR is the agreement that
+   the work is complete:
+   `python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>`.
+   It releases the lab claim, removes the demos, archives the workspace
+   (which also archives the worker's agent), and deletes the remote branch.
+   Do not do any of those by hand, and do not ask the worker to.
+2. Act on the exit code. Exit 2 or 3: read `error`, fix the cause (a worker
+   that is still running, an unreachable lab manager, uncommitted work) or
+   take it to the operator, then run the same command again. Exit 4: run
+   each `remaining[].command` that names the orchestrator, and report the
+   operator's items. Never use `--abandon` without the operator's explicit
+   instruction to discard the work.
+3. Set the issue to `CLEANED` only when the script reports exit 0, or exit 4
+   with nothing owned by you. Record the lab release, demo removal, and
+   archive results from its report.
 
 An issue the operator closes without merging (duplicate, won't fix,
 deferred) gets the same cleanup. Closing its PR or deleting its branch
@@ -471,7 +480,9 @@ The bugbash is complete when every issue is `CLEANED` and no worker workspace
 remains. Then:
 
 1. Run the `session-cleanup` inventory over the session's children to
-   confirm that no workspace, lab claim, or demo remains.
+   confirm that no workspace, lab claim, or demo remains. Re-running
+   `worktree-cleanup --workspace <id>` on a cleaned issue is a no-op that
+   confirms it.
 2. Post the final report: one row per issue (ID, title, outcome, PR link),
    operator decisions worth keeping, follow-ups the operator deferred, and
    anything left in place with its reason.
@@ -489,6 +500,7 @@ remains. Then:
 
 - The driver does not implement fixes, edit worker worktrees, or run Git
   mutations in them. Diagnose by reading; correct by messaging the worker.
+  The `worktree-cleanup` script is the one sanctioned exception.
 - Workers never merge and never deploy to production; the brief says so.
 - Do not expose credentials, claim tokens, or customer data in issue files,
   briefs, or messages.
