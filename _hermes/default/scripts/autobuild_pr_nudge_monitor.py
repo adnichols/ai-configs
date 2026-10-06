@@ -521,12 +521,18 @@ def mark_rework(monitor: Monitor, issue: str, issue_meta: dict[str, Any], pr: di
 CLEANUP_SCRIPT = Path(os.environ.get("WORKTREE_CLEANUP_SCRIPT", "~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py")).expanduser()
 
 
-def linked_worktrees_on_branch(repo_dir: Path, branch: str) -> list[str]:
+def linked_worktrees_on_branch(repo_dir: Path, branch: str, head: str) -> list[str]:
+    """Linked worktrees that have `branch` checked out at exactly the merged PR head, never a reused branch name."""
     cp = run(["git", "-C", str(repo_dir), "worktree", "list", "--porcelain"], check=False)
     if cp.returncode != 0:
         return []
     blocks = [b.splitlines() for b in cp.stdout.split("\n\n") if b.strip()]
-    return [b[0].removeprefix("worktree ") for b in blocks[1:] if f"branch refs/heads/{branch}" in b]
+    return [b[0].removeprefix("worktree ") for b in blocks[1:] if f"branch refs/heads/{branch}" in b and f"HEAD {head}" in b]
+
+
+def repo_dir_is(monitor: Monitor) -> bool:
+    cp = run(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"], cwd=monitor.repo_dir, check=False)
+    return cp.returncode == 0 and cp.stdout.strip().lower() == monitor.repo.lower()
 
 
 def cleanup_merged(monitor: Monitor, mstate: dict[str, Any], outputs: list[str]) -> None:
@@ -535,7 +541,7 @@ def cleanup_merged(monitor: Monitor, mstate: dict[str, Any], outputs: list[str])
     for number, item in list(pending.items()):
         label = f"{monitor.name}: PR #{number}"
         try:
-            view = json_cmd(["gh", "pr", "view", number, "--repo", monitor.repo, "--json", "state,url"], cwd=monitor.repo_dir)
+            view = json_cmd(["gh", "pr", "view", number, "--repo", monitor.repo, "--json", "state,url,headRefOid"], cwd=monitor.repo_dir)
         except subprocess.CalledProcessError as e:
             log(f"{label}: gh pr view failed, retrying next tick: {(e.stderr or '')[:300]}")
             continue
@@ -551,11 +557,16 @@ def cleanup_merged(monitor: Monitor, mstate: dict[str, Any], outputs: list[str])
                 mstate["events"][f"cleanup-blocked:{number}"] = utc_now()
                 outputs.append(f"⚠️ {label} merged but worktree-cleanup cannot run ({note}); the owning session must run it for branch {item['branch']}. {view.get('url')}")
             continue
-        targets = linked_worktrees_on_branch(monitor.repo_dir, item["branch"])
+        if not repo_dir_is(monitor):
+            if f"cleanup-blocked:{number}" not in mstate["events"]:
+                mstate["events"][f"cleanup-blocked:{number}"] = utc_now()
+                outputs.append(f"⚠️ {label} merged but repo_dir {monitor.repo_dir} is not a checkout of {monitor.repo}; the owning session must run worktree-cleanup. {view.get('url')}")
+            continue
+        targets = linked_worktrees_on_branch(monitor.repo_dir, item["branch"], view["headRefOid"])
         if len(targets) != 1:
             if not targets:
                 del pending[number]
-                outputs.append(f"ℹ️ {label} merged; no local worktree has {item['branch']} checked out, so nothing to tear down. Remote branch left in place. {view.get('url')}")
+                outputs.append(f"ℹ️ {label} merged; no local worktree has {item['branch']} checked out at the merged head, so nothing to tear down. Remote branch left in place. {view.get('url')}")
             else:
                 outputs.append(f"⚠️ {label} merged but {len(targets)} worktrees have {item['branch']} checked out; the owning session must pick one and run worktree-cleanup. {view.get('url')}")
             continue
@@ -599,7 +610,7 @@ def merge_pr(monitor: Monitor, pr: dict[str, Any], ready_sources: list[dict[str,
         combined = (cp.stdout + cp.stderr).strip()
     if cp.returncode == 0:
         mstate["events"][key] = utc_now()
-        mstate.setdefault("pending_cleanup", {})[str(pr_number)] = {"branch": pr["headRefName"], "head": head}
+        mstate.setdefault("pending_cleanup", {})[str(pr_number)] = {"branch": pr["headRefName"]}
         outputs.append(f"✅ {monitor.name}: merge/auto-merge set for PR #{pr_number} after Codex 👍: {pr.get('url')}. worktree-cleanup runs once it merges.")
     else:
         outputs.append(f"⚠️ {monitor.name}: PR #{pr_number} has Codex 👍 but merge failed: {combined[:700]} {pr.get('url')}")
