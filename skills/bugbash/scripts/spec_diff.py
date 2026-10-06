@@ -197,7 +197,7 @@ def md(markdown: str, refdefs: str = "", links: Links | None = None, path: str =
     if lines and all(REFDEF.match(l) for l in lines):
         return f"<pre>{esc(markdown)}</pre>"
     out = pandoc(markdown + ("\n\n" + refdefs if refdefs else ""))
-    out = re.sub(r'\sid="[^"]*"', "", out)  # heading ids would collide with this page's own anchors
+    out = re.sub(r'\sid="[^"]*"', "", out)  # pandoc repeats heading ids when several files share one page
     out = out.replace("<table>", '<div style="overflow-x:auto"><table>').replace("</table>", "</table></div>")
     return links.rewrite(out, path) if links else out
 
@@ -337,7 +337,7 @@ def segments(old: str, new: str) -> list[tuple[str, list[Unit]]]:
 
 @dataclass(frozen=True)
 class Piece:
-    kind: str  # eq | add | rm | skip
+    kind: str  # eq | add | rm | mod | skip
     units: tuple[Unit, ...] = ()
     skipped: int = 0  # unchanged blocks a skip stands for
 
@@ -382,7 +382,7 @@ def pieces(segs: list[tuple[str, list[Unit]]], whole: bool) -> list[Piece]:
 
 
 def table_html(unit: Unit, refdefs: str, links: Links | None, path: str) -> str:
-    """A table holding rows of both sides, each body row tagged for its green or red background."""
+    """A table holding rows of both sides, each body row tagged with its diff status (eq, add or rm)."""
     marks = iter(unit.marks)
     head, sep, body = md(unit.text, refdefs, links, path).partition("<tbody>")
     return head + sep + re.sub(r'<tr(?: class="[^"]*")?>', lambda _: f'<tr class="row-{next(marks, "eq")}">', body)
