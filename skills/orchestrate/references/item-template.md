@@ -1,13 +1,13 @@
-# Issue file template
+# Item file template
 
-One file per issue at `issues/BB-NN-<slug>.md`. IDs are sequential and never
-reused. Keep the operator's words verbatim; mark anything you or a research
-agent concluded as `[INFERRED]`.
+One file per work item at `items/WI-NN-<slug>.md`. IDs are sequential within
+the tracker and never reused. Keep the operator's words verbatim; mark anything
+you or a research agent concluded as `[INFERRED]`.
 
 ```markdown
-# BB-NN: <short title>
+# WI-NN: <short title>
 
-Type: BUG | FEATURE        Mode: BUG_FIX | FEATURE_CHANGE
+Kind: BUG | FEATURE | REFACTOR | PERF | OTHER   (your read; the worker's ADN routing decides the playbook)
 State: <state>             Repo: <checkout path> @ <base branch>
 Surface: <product area, e.g. Ava Signals › Requested by me>
 Source: operator | secondhand (<who / meeting>)
@@ -20,7 +20,7 @@ Source: operator | secondhand (<who / meeting>)
 - `<absolute image path>`: <what it shows: surface, state, what is wrong>
 - <pasted errors or logs, verbatim>
 
-## Observed / expected            (features: Current / desired)
+## Observed / expected            (features and other changes: Current / desired)
 - Observed: ...
 - Expected: ...
 
@@ -47,7 +47,7 @@ Source: operator | secondhand (<who / meeting>)
 - Non-blocking: ...
 
 ## Related
-- <BB-MM: duplicate of | overlaps | blocked by>
+- <WI-MM: duplicate of | overlaps | blocked by>
 
 ## Handoff
 Workspace: <id>   Worktree: <path>   Branch: <branch>   Agent: <id>   Launched: <time>
@@ -59,10 +59,10 @@ Workspace: <id>   Worktree: <path>   Branch: <branch>   Agent: <id>   Launched: 
 ## States
 
 `INTAKE` → `RESEARCHING` → `NEEDS_INFO` → `READY` → `QUEUED` (waiting for a
-lab or an overlapping issue) → `HANDED_OFF` → `PROTOTYPE_REVIEW` /
+lab or an overlapping item) → `HANDED_OFF` → `PROTOTYPE_REVIEW` /
 `NEEDS_OPERATOR` / `BLOCKED` → `VALIDATED` → `MERGED` → `CLEANED`.
 
 Terminal states other than `CLEANED` require the operator's decision:
-`DUPLICATE` (name the surviving issue), `NOT_REPRODUCED`, `WONT_FIX`, and
-`DEFERRED`. Every terminal issue still gets `worktree-cleanup` run on its
-workspace before the bugbash concludes.
+`DUPLICATE` (name the surviving item), `NOT_REPRODUCED`, `WONT_FIX`, and
+`DEFERRED`. Every terminal item still gets `worktree-cleanup` run on its
+workspace before the tracker concludes.

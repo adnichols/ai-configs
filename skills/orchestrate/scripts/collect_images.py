@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Copy images the operator pasted into this conversation into a bugbash evidence directory.
+"""Copy images the operator pasted into this conversation into an orchestrator tracker's evidence directory.
 
 Pasted screenshots live only inside the driving session's transcript. Worker agents in
-other worktrees cannot see them, so the bugbash driver exports them to files and passes
+other worktrees cannot see them, so the orchestrator exports them to files and passes
 absolute paths in each handoff.
 
 Supports OMP sessions (~/.omp/agent/sessions, images stored as blob:sha256 refs in
@@ -112,7 +112,7 @@ def read_blob(sha: str) -> bytes | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--out", required=True, type=Path, help="bugbash images directory")
+    parser.add_argument("--out", required=True, type=Path, help="tracker images directory")
     parser.add_argument("--session", type=Path, help="session file; default: newest session for --cwd")
     parser.add_argument("--cwd", default=os.getcwd(), help="driving session cwd (default: current directory)")
     parser.add_argument("--since", help="only export images from messages at or after this ISO timestamp")

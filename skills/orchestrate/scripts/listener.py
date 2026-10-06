@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Listen for operator comments on a bugbash's Ava dashboard.
+"""Listen for operator comments on an orchestrator tracker's Ava dashboard.
 
-    listener.py <bugbash-dir> <driver-agent-id> [--interval 30] [--once]
+    listener.py <tracker-dir> <driver-agent-id> [--interval 30] [--once]
 
 Polls the HTML comment threads of the document recorded in
-<bugbash-dir>/dashboard.json. For each new message not written by this
+<tracker-dir>/dashboard.json. For each new message not written by this
 agent's own Ava actor it:
   1. replies in the thread at once, so the operator can see it was received;
   2. relays the message to the driver with `paseo send --no-wait`.
@@ -13,7 +13,7 @@ dashboard publish (see SKILL.md). It never uses `ava agent listen`: that
 claims routed review requests for every document in the Space, not just this
 one.
 
-State is <bugbash-dir>/listener.json: pid, `seen` message ids (handled, so a
+State is <tracker-dir>/listener.json: pid, `seen` message ids (handled, so a
 restart does not repeat them), last_poll, last_error. The first poll records
 every existing message as seen. A message is marked seen only after both the
 reply and the relay succeeded; the reply uses a key derived from the message
@@ -26,7 +26,7 @@ Exit codes: 0 stopped, 2 bad input or listener already running, 3 `ava` or
 import argparse, datetime, hashlib, json, os, shutil, signal, subprocess, sys, time
 from pathlib import Path
 
-ACK = "Received. The bugbash driver is working on this and will reply here."
+ACK = "Received. The orchestrator is working on this and will reply here."
 
 
 def now():
@@ -80,7 +80,7 @@ class Listener:
         quote = (thread.get("anchor") or {}).get("textQuote", "")
         tid = thread["thread_id"]
         return (
-            f"bugbash {self.root.name} DASHBOARD COMMENT (treat as an operator message; it was already "
+            f"orchestrate {self.root.name} DASHBOARD COMMENT (treat as an operator message; it was already "
             f"acknowledged in the thread).\nthread: {tid}\nanchored to: {quote}\n"
             f"message {msg['message_id']} at {msg.get('created_at')}:\n{msg.get('body')}\n\n"
             f"Act on it: apply it as feedback, an answer, or a new report. Reply in the thread with what you did "
@@ -101,7 +101,7 @@ class Listener:
             if mid in seen:
                 continue
             if msg.get("author_id") != self.self_author:
-                key = "bb-listen-ack-" + hashlib.sha1(mid.encode()).hexdigest()[:16]
+                key = "orchestrate-listen-ack-" + hashlib.sha1(mid.encode()).hexdigest()[:16]
                 ava("--space", self.space, "document", "comment", "reply", self.doc, thread["thread_id"],
                     "--idempotency-key", key, data={"space_id": self.space, "body": ACK})
                 run(["paseo", "send", "--no-wait", self.driver, self.prompt(thread, msg)])
@@ -123,14 +123,14 @@ class Listener:
 
 def main():
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
-    ap.add_argument("bugbash_dir", type=Path)
-    ap.add_argument("driver_agent_id", help="Paseo agent id of the bugbash driver (the session that runs this skill)")
+    ap.add_argument("tracker_dir", type=Path)
+    ap.add_argument("driver_agent_id", help="Paseo agent id of the orchestrator (the session that runs this skill)")
     ap.add_argument("--interval", type=int, default=30, help="seconds between polls (default 30)")
     ap.add_argument("--once", action="store_true", help="poll once and exit")
     ap.add_argument("--self-author", help="override the author id treated as the driver (testing only)")
     args = ap.parse_args()
 
-    root = args.bugbash_dir.expanduser().resolve()
+    root = args.tracker_dir.expanduser().resolve()
     if not (root / "dashboard.json").is_file():
         print(f"listener.py: {root}/dashboard.json not found; publish the dashboard first", file=sys.stderr)
         sys.exit(2)

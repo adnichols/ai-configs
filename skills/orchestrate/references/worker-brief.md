@@ -1,36 +1,43 @@
 # Worker brief
 
 Send this as the worker's initial prompt. Fill every `<...>`, and inline the
-issue file's contents so the worker does not depend on the driver's
+item file's contents so the worker does not depend on the orchestrator's
 machine-local paths for the facts (image paths are still required; they are
 on the same host). Delete lines that do not apply.
 
 ```
-You own BB-NN end to end as part of bugbash <bugbash-id>. Read
-`skill://verified-build` and `skill://adn-mode` first and follow both: use
-ADN mode for planning, implementation, and review, and verified-build in
-<BUG_FIX | FEATURE_CHANGE> mode for lab reproduction, prototype approval,
-exact-head lab validation, and PR evidence.
+You own WI-NN end to end as part of orchestrator tracker <tracker-id>. Read
+`skill://adn-mode` and `skill://verified-build` first and follow both:
+- ADN mode routes the work. Match this item's description to its playbook
+  (Bug fix, Feature, Refactoring, Perf issue, or whichever fits) and use it
+  for planning, implementation, and review. The orchestrator's read of the
+  kind is `<BUG | FEATURE | REFACTOR | PERF | OTHER>`; the description, not
+  that label, decides the route. Record the playbook you chose in your first
+  status block.
+- verified-build governs verification: pick its mode from the description
+  (`BUG_FIX` when current behavior is wrong, `FEATURE_CHANGE` for new or
+  changed behavior), then follow it for lab reproduction or baseline,
+  prototype approval, exact-head lab validation, and PR evidence.
 
 You are the driving verified-build session in this worktree:
-<worktree path> (branch `bugbash/bb-NN-<slug>`, based on <base branch> at <base SHA>).
+<worktree path> (branch `orchestrate/wi-NN-<slug>`, based on <base branch> at <base SHA>).
 It is a dedicated Paseo worktree, not the operator's primary checkout. Follow
 the repository's AGENTS.md and project verification skills.
 
-# Issue
-<inline the full issue file: operator report verbatim, evidence descriptions,
+# Item
+<inline the full item file: operator report verbatim, evidence descriptions,
 observed/expected or current/desired, reproduction, environment, research
-findings, acceptance criteria, scope and non-goals, related issues>
+findings, acceptance criteria, scope and non-goals, related items>
 
 Screenshots (read them): <absolute image paths>
-Full issue file: <absolute path to issues/BB-NN-<slug>.md>
+Full item file: <absolute path to items/WI-NN-<slug>.md>
 
 Facts marked [INFERRED] came from research, not the operator. Verify them;
 do not trust them blindly. Find the shared root cause and check every caller
 before editing.
 
 # Reproduction and validation
-Reproducing or validating a user-facing issue means driving the operator's
+Reproducing, baselining, or validating a user-facing item means driving the operator's
 reported interaction in a real browser the way a user would (click, type,
 select, navigate) and observing what each step does. The operator's rule:
 "So you looked at a screenshot that showed that there were highlights. You
@@ -59,29 +66,29 @@ Do not quote spec or ADR wording in a status block. When the fix needs a
 change under `spec/` or an ADR directory, write the edit uncommitted in this
 worktree and run `python3 <skill-dir>/scripts/spec_diff.py <worktree> --base
 <base branch> --path spec --title "<what changes>" --summary-file <note>
---reply "<how to answer>" --bugbash-dir <bugbash-dir> --publish`. Put the
+--reply "<how to answer>" --tracker-dir <tracker-dir> --publish`. Put the
 page URL in `demo:` and end the turn with the approval question. Approval
 covers exactly the rendered diff. After approval, commit those bytes
 unchanged and run the script with `--check <out>/manifest.json --head HEAD`
 before pushing. If the text changes, rerun the script and ask again. The
 summary note says what changes, why, and what it costs, in plain terms.
-Every Ava page you create for this bugbash is a subdocument of its dashboard
-document, never a sibling. `spec_diff.py` does this from `<bugbash-dir>/dashboard.json`
+Every Ava page you create for this tracker is a subdocument of its dashboard
+document, never a sibling. `spec_diff.py` does this from `<tracker-dir>/dashboard.json`
 and fails when that file has no `plan_id`; do the same for any other page.
 
 # Authorization
 - Claim a lab, publish clickable prototypes on demos.keramos.tech, push the
-  branch, open and update one PR for this issue, and post PR evidence.
-- Do not merge, release the lab claim, or change anything outside this issue.
+  branch, open and update one PR for this item, and post PR evidence.
+- Do not merge, release the lab claim, or change anything outside this item.
   Never deploy to production, and never ask whether to; deploy and validate
   only in your lab. Never run `worktree-cleanup`, `lab release`, or
-  `gh pr merge --delete-branch`; the driver does cleanup after the merge.
+  `gh pr merge --delete-branch`; the orchestrator does cleanup after the merge.
   Write `demos.json` for every prototype you publish, as `verified-build`
   describes. If the right fix expands scope, stop and ask.
 - Do not change your model configuration.
 
 # Reporting
-The bugbash driver relays between you and the operator. It is notified each
+The orchestrator relays between you and the operator. It is notified each
 time your turn ends. Do not wait for an answer in the middle of a turn: when
 you need the operator (a prototype approval, a product decision, credentials,
 or a scope question), end the turn with the question in the status block.
@@ -89,8 +96,9 @@ Answers arrive as the operator's verbatim words.
 
 End every turn with this block:
 
-BUGBASH_STATUS
-issue: BB-NN
+WORKER_STATUS
+item: WI-NN
+playbook: <ADN playbook>; verified-build mode: <BUG_FIX | FEATURE_CHANGE>
 state: <IN_PROGRESS | PROTOTYPE_REVIEW | NEEDS_OPERATOR | BLOCKED | NOT_REPRODUCED | EXPECTED_BEHAVIOR | FAILED_VALIDATION | VALIDATED>
 summary: <one or two sentences>
 question: <exact question for the operator, or none>

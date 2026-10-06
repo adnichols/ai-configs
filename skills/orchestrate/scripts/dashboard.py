@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Render a bugbash ledger as an HTML dashboard and publish it to Ava.
+"""Render an orchestrator tracker's ledger as an HTML dashboard and publish it to Ava.
 
-    dashboard.py <bugbash-dir> [--space SPACE_ID] [--title TITLE] [--force]
-    dashboard.py <bugbash-dir> --render-only
+    dashboard.py <tracker-dir> [--space SPACE_ID] [--title TITLE] [--force]
+    dashboard.py <tracker-dir> --render-only
 
-The ledger (<bugbash-dir>/ledger.md) is the only input. The first run
+The ledger (<tracker-dir>/ledger.md) is the only input. The first run
 registers an Ava HTML document and records `Dashboard:` and `Ava space:` in
 the ledger header; later runs replace the document in place, then read the
-source back and compare it. Publish state is kept in <bugbash-dir>/dashboard.json.
+source back and compare it. Publish state is kept in <tracker-dir>/dashboard.json.
 
 The layout comes from ../references/dashboard-template.html, or from
-<bugbash-dir>/dashboard-template.html when the operator's feedback has been
-applied to this bugbash's copy first.
+<tracker-dir>/dashboard-template.html when the operator's feedback has been
+applied to this tracker's copy first.
 
 Exit codes: 0 published (or unchanged), 2 bad input or ledger, 3 Ava
 unavailable, unauthenticated, or the publish failed. On 3 the driver must tell
@@ -31,8 +31,8 @@ STATE_GROUPS = [  # (css class, label, state prefixes)
     ("done", "Done", ("DONE", "MERGED", "CLEANED", "CLOSED")),
 ]
 DECISIONS_SHOWN = 8
-DEFAULT_SPACE = "spc_1f5c81f7d66e4603bc37a2192790fba5"  # Nodaste: the operator's standard Space
-FOLDER_PATH = ("Coding Work", "Bug Bash")  # known Nodaste ids: d572e5fd-53da-479d-830c-21066f4dc3ca, a2741958-6cc9-480f-8a2a-429a5337a810
+DEFAULT_SPACE = "spc_16ef6d824e21402b9a42560b13436034"  # Development: the operator's standard Space for work trackers
+FOLDER_PATH = ("Coding Work",)  # each tracker is a document directly inside this root folder
 
 
 class Fail(Exception):
@@ -97,14 +97,15 @@ def pr_cell(pr):
     return inline(pr) if pr not in ("—", "") else "—"
 
 
-ASK_FIELDS = (("Broken", "What's broken"), ("Fix", "Proposed fix"), ("Decide", "Your call"), ("Links", "Look at"))
+ASK_FIELDS = (("Problem", "Problem"), ("Fix", "Proposed change"), ("Decide", "Your call"), ("Links", "Look at"))
 
 
 def asks(body):
     """`## Waiting on you` items as (title, {field: [lines]}).
 
-    Standard item: `### <ID>: <what's broken> → <what we're fixing>` followed by `Broken:`, `Fix:`,
+    Standard item: `### <ID>: <the problem or gap> → <what we're changing>` followed by `Problem:`, `Fix:`,
     `Decide:` and `Links:` fields; a field may continue on following lines, including `- ` or `1.` lists.
+    `Broken:` (the bugbash name for `Problem:`) is read as `Problem:`.
     A section with no `###` blocks falls back to one title-only card per top-level `- ` bullet, so
     an old-style item is shown rather than dropped.
     """
@@ -116,9 +117,9 @@ def asks(body):
         title, _, rest = block.partition("\n")
         fields, key = {}, None
         for line in rest.splitlines():
-            m = re.match(r"^(Broken|Fix|Decide|Links):\s*(.*)$", line)
+            m = re.match(r"^(Problem|Broken|Fix|Decide|Links):\s*(.*)$", line)
             if m:
-                key = m.group(1)
+                key = "Problem" if m.group(1) == "Broken" else m.group(1)
                 fields[key] = [m.group(2)] if m.group(2) else []
             elif key and line.strip():
                 fields[key].append(line.strip())
@@ -171,7 +172,7 @@ def render(text, title, template, updated):
         trs.append(
             f'<tr class="{cls}"><td class="id">{html.escape(r.get("id", ""))}</td>'
             f'<td><div class="t">{inline(r.get("title", ""))}</div>'
-            f'<div class="sub">{html.escape(r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
+            f'<div class="sub">{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
             f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>'
             f'<td>{inline(r.get("waiting on", ""))}</td>'
             f'<td class="pr">{pr_cell(pr)}</td></tr>')
@@ -306,7 +307,7 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
         pending = state.get("pending_register") or {"key": uuid.uuid4().hex, "title": title, "source": source}
         state.update(space_id=space, pending_register=pending)
         state_path.write_text(json.dumps(state, indent=2) + "\n")
-        r = ava("document", "register", "--space", space, "--idempotency-key", f"bugbash-dashboard-{pending['key']}",
+        r = ava("document", "register", "--space", space, "--idempotency-key", f"orchestrate-dashboard-{pending['key']}",
                 data={"title": pending["title"], "source": pending["source"], "source_format": "html"})
         plan_id, web_url = pick(r, "plan_id", "document_id"), r.get("web_url") or r.get("document_url")
         state = {"space_id": space, "plan_id": plan_id, "web_url": web_url, "revision_id": revision_of(r)}
@@ -315,7 +316,7 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
     if published != source:
         cur = ava("document", "status", plan_id, "--space", space)
         rev = revision_of(cur)
-        r = ava("document", "edit", plan_id, "--space", space, "--idempotency-key", f"bugbash-dashboard-{rev}-{sha}",
+        r = ava("document", "edit", plan_id, "--space", space, "--idempotency-key", f"orchestrate-dashboard-{rev}-{sha}",
                 "--expected-revision", rev, data={"source": source, "title": title})
         state.update(space_id=space, plan_id=plan_id, revision_id=revision_of(r))
         state.setdefault("web_url", None)
@@ -338,21 +339,21 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
 
 def main():
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
-    ap.add_argument("bugbash_dir", type=Path)
-    ap.add_argument("--space", help=f"Ava Space ID (spc_...); default: dashboard.json, the ledger, then {DEFAULT_SPACE} (Nodaste, the operator's standard)")
-    ap.add_argument("--folder-path", default="/".join(FOLDER_PATH), help="folder titles from the Space root, joined by '/'; default: Coding Work/Bug Bash")
-    ap.add_argument("--title", help="document title; default: ledger heading + ' — status'")
+    ap.add_argument("tracker_dir", type=Path)
+    ap.add_argument("--space", help=f"Ava Space ID (spc_...); default: dashboard.json, the ledger, then {DEFAULT_SPACE} (Development, the operator's standard)")
+    ap.add_argument("--folder-path", default="/".join(FOLDER_PATH), help="folder titles from the Space root, joined by '/'; default: Coding Work")
+    ap.add_argument("--title", help="document title; default: the ledger's `# ` heading (the tracker title)")
     ap.add_argument("--force", action="store_true", help="republish even when the ledger content is unchanged")
     ap.add_argument("--render-only", action="store_true", help="write dashboard.html and skip Ava")
     args = ap.parse_args()
 
-    root = args.bugbash_dir.expanduser().resolve()
+    root = args.tracker_dir.expanduser().resolve()
     ledger_path = root / "ledger.md"
     if not ledger_path.is_file():
         raise Fail(2, f"{ledger_path} not found")
     ledger = ledger_path.read_text()
     heading = re.search(r"^# (.+)$", ledger, re.M)
-    title = args.title or (f"{heading.group(1).strip()} — status" if heading else f"{root.name} — status")
+    title = args.title or (heading.group(1).strip() if heading else root.name)
     template = (root / LOCAL_TEMPLATE if (root / LOCAL_TEMPLATE).is_file() else TEMPLATE).read_text()
 
     unstamped = render(ledger, title, template, "")
@@ -366,7 +367,7 @@ def main():
     state_path = root / "dashboard.json"
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     if args.space and state.get("space_id") and args.space != state["space_id"]:
-        raise Fail(2, f"this bugbash's dashboard already lives in {state['space_id']}; "
+        raise Fail(2, f"this tracker's dashboard already lives in {state['space_id']}; "
                       "remove dashboard.json to publish a new one elsewhere")
     ledger_space = header(ledger, "Ava space")
     space = args.space or state.get("space_id") or (ledger_space if ledger_space.startswith("spc_") else DEFAULT_SPACE)

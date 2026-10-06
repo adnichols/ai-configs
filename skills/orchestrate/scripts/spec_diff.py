@@ -3,7 +3,7 @@
 
   spec_diff.py REPO --base REF --path spec [--path ...] --title TITLE
                [--head REF] [--summary-file FILE] [--reply TEXT] [--out DIR]
-               [--publish --bugbash-dir DIR]
+               [--publish --tracker-dir DIR]
   spec_diff.py REPO --check DIR/manifest.json [--head REF]
 
 Input is git content, never retyped text: the base is the merge base of --base and the head, and the head is
@@ -594,12 +594,12 @@ def manifest(src: Source, found: list[Change]) -> dict:
 
 # ---- publish --------------------------------------------------------------
 
-def dashboard_of(bugbash_dir: Path) -> tuple[str, str]:
-    """(space id, dashboard document id) recorded by dashboard.py, which every page this bugbash makes hangs under."""
-    f = bugbash_dir / "dashboard.json"
+def dashboard_of(tracker_dir: Path) -> tuple[str, str]:
+    """(space id, dashboard document id) recorded by dashboard.py, which every page this tracker makes hangs under."""
+    f = tracker_dir / "dashboard.json"
     state = json.loads(f.read_text()) if f.exists() else {}
     if not state.get("plan_id") or not state.get("space_id"):
-        raise Fail(2, f"{f} has no dashboard plan_id; run dashboard.py {bugbash_dir} first so this page can be filed under it")
+        raise Fail(2, f"{f} has no dashboard plan_id; run dashboard.py {tracker_dir} first so this page can be filed under it")
     return state["space_id"], state["plan_id"]
 
 
@@ -654,9 +654,10 @@ def main() -> int:
     ap.add_argument("--reply", default="", help="plain sentence telling the operator how to answer on the dashboard")
     ap.add_argument("--repo-url", help="https://github.com/OWNER/REPO for links; default: derived from origin")
     ap.add_argument("--full-lines", type=int, default=FULL_LINES, help="files up to this many lines render whole")
-    ap.add_argument("--out", type=Path, help="output directory; default: <bugbash-dir>/spec-diffs/<title slug>")
-    ap.add_argument("--publish", action="store_true", help="publish or update the page under the bugbash's dashboard document")
-    ap.add_argument("--bugbash-dir", type=Path, help="holds dashboard.json; the page is filed under its dashboard document")
+    ap.add_argument("--out", type=Path, help="output directory; default: <tracker-dir>/spec-diffs/<title slug>")
+    ap.add_argument("--publish", action="store_true", help="publish or update the page under the tracker's dashboard document")
+    ap.add_argument("--tracker-dir", "--bugbash-dir", dest="tracker_dir", type=Path,
+                    help="holds dashboard.json; the page is filed under its dashboard document")
     ap.add_argument("--check", type=Path, metavar="MANIFEST", help="compare the files at the head with manifest.json and exit")
     args = ap.parse_args()
     root = args.repo.expanduser().resolve()
@@ -665,16 +666,16 @@ def main() -> int:
         return check(args.check, root, args.head)
     if not (args.base and args.path and args.title):
         raise Fail(2, "--base, --path and --title are required")
-    if args.publish and not args.bugbash_dir:
-        raise Fail(2, "--publish needs --bugbash-dir so the page is filed under that bugbash's dashboard document")
-    space, parent = dashboard_of(args.bugbash_dir.expanduser()) if args.publish else ("", "")
+    if args.publish and not args.tracker_dir:
+        raise Fail(2, "--publish needs --tracker-dir so the page is filed under that tracker's dashboard document")
+    space, parent = dashboard_of(args.tracker_dir.expanduser()) if args.publish else ("", "")
     if not shutil.which("pandoc"):
         raise Fail(3, "pandoc is not on PATH. Install it (for example `brew install pandoc`); it renders the Markdown.")
     out = args.out
     if not out:
-        if not args.bugbash_dir:
-            raise Fail(2, "pass --out DIR, or --bugbash-dir to use <bugbash-dir>/spec-diffs/<title slug>")
-        out = args.bugbash_dir.expanduser() / "spec-diffs" / (re.sub(r"[^a-z0-9]+", "-", args.title.lower()).strip("-") or "proposal")
+        if not args.tracker_dir:
+            raise Fail(2, "pass --out DIR, or --tracker-dir to use <tracker-dir>/spec-diffs/<title slug>")
+        out = args.tracker_dir.expanduser() / "spec-diffs" / (re.sub(r"[^a-z0-9]+", "-", args.title.lower()).strip("-") or "proposal")
     src = resolve(root, args.base, args.head)
     found = changes(src, args.path)
     if not found:
