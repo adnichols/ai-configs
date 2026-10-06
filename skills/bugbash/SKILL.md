@@ -373,7 +373,9 @@ If the receipt passes and every operator decision on the issue is answered
 merge it per [Merge authority](#merge-authority) without asking. Do not send
 the operator an "approve?" packet: the worker and the gates have the
 information, and asking the operator to confirm a passing PR only asks them
-to rubber-stamp it. After merging, tell the operator in one short notice:
+to rubber-stamp it. After merging, tell the operator in one short notice that
+the fix is merged and that production deploy is a human operator action. Do
+not ask whether to deploy and do not offer to:
 
 ```
 BB-07 merged — Signals acknowledge error (bug)
@@ -457,10 +459,14 @@ cleanup below (lab claim, demos, worktree), when all of these hold:
   log, and any spec or ADR change matches the approved diff page;
 - the target repository's merge policy is met.
 
-The rule does not authorize production deploys, force-pushing, merging a
-head that was not validated, or merging PRs that are not this bugbash's. If
-the operator asks to hold a PR, or to keep its lab or worktree, do so and
-record why.
+The rule does not authorize force-pushing, merging a head that was not
+validated, or merging PRs that are not this bugbash's. If the operator asks
+to hold a PR, or to keep its lab or worktree, do so and record why.
+
+Nobody in a bugbash deploys to production: not the driver, not a worker, and
+not on request. Do not ask the operator whether to, offer to, or list it as a
+next step. Validation happens in a lab. "Shipped" for an agent means merged.
+Production deploy is a human operator action that happens outside the bugbash.
 
 To merge:
 
@@ -552,7 +558,8 @@ remains. Then:
 - The driver does not implement fixes, edit worker worktrees, or run Git
   mutations in them. Diagnose by reading; correct by messaging the worker.
   The `worktree-cleanup` script is the one sanctioned exception.
-- Workers never merge and never deploy to production; the brief says so.
+- No agent deploys to production, asks about it, or offers to. The worker
+  brief says so.
 - Do not expose credentials, claim tokens, or customer data in issue files,
   briefs, or messages.
 - Never mark an issue merged, validated, or cleaned without observing it

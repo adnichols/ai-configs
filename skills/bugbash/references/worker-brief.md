@@ -72,9 +72,10 @@ and fails when that file has no `plan_id`; do the same for any other page.
 # Authorization
 - Claim a lab, publish clickable prototypes on demos.keramos.tech, push the
   branch, open and update one PR for this issue, and post PR evidence.
-- Do not merge, deploy to production, release the lab claim, or change
-  anything outside this issue. Never run `worktree-cleanup`, `lab release`,
-  or `gh pr merge --delete-branch`; the driver does cleanup after the merge.
+- Do not merge, release the lab claim, or change anything outside this issue.
+  Never deploy to production, and never ask whether to; deploy and validate
+  only in your lab. Never run `worktree-cleanup`, `lab release`, or
+  `gh pr merge --delete-branch`; the driver does cleanup after the merge.
   Write `demos.json` for every prototype you publish, as `verified-build`
   describes. If the right fix expands scope, stop and ask.
 - Do not change your model configuration.

@@ -9,7 +9,9 @@ The driving OMP session owns the lab, test design, evidence, and final verdict. 
 
 A separate implementer must be a Paseo-launched OMP agent, not a `task` subagent of the driving session. Subagents share the driving session's lifecycle and tool surface; a delegated worker keeps its own conversation, model selection, and agent identity, even though both share the run checkout's worktree. When no separate implementer is needed, the driving session implements in place and the launch steps below are skipped.
 
-When the user requests verified-build, request and claim a manager-assigned isolated lab without asking for separate lab-checkout permission. Lab checkout alone does not authorize deployment, fixture mutations, PR creation, or PR evidence updates; resolve those actions from the requested task and existing session authorization. Do not ask again for actions already authorized. This workflow never implies permission for production deployment, merging, destructive fixture cleanup, or unrelated changes.
+When the user requests verified-build, request and claim a manager-assigned isolated lab without asking for separate lab-checkout permission. Lab checkout alone does not authorize deployment, fixture mutations, PR creation, or PR evidence updates; resolve those actions from the requested task and existing session authorization. Do not ask again for actions already authorized. This workflow never implies permission for merging, destructive fixture cleanup, or unrelated changes.
+
+The lab is the only deploy target for product code. Never deploy to production, and never ask or offer to. After a merge, report that production deploy is a human operator action.
 
 ## Route the request
 
@@ -41,7 +43,7 @@ Do not start implementation work while an available prototype is awaiting operat
 
 ## Publish clickable prototypes on Cloudflare
 
-A request to generate or review UI prototypes with this skill includes publishing their disposable demo artifacts. This standing operator preference authorizes that demo publication only; it does not authorize production or product-lab deployment.
+A request to generate or review UI prototypes with this skill includes publishing their disposable demo artifacts. This standing operator preference authorizes that demo publication only; it does not authorize product-lab deployment.
 
 - Use the Nodaste Labs account `e6d3e575b97001f8ad1a7e98e497afa5`. Load `wrangler`; confirm account and domain ownership before deployment. Keep demo configuration separate from product deployables.
 - Choose a unique run name such as `<feature>-<YYYYMMDD>-<random-8-hex>`. Publish at `https://<run-name>.demos.keramos.tech` using a Cloudflare custom domain. Use a new name for a new proposal; reuse only this run's hostname for corrections. Never replace another demo or the parent domain. Immediately after each publish, record it in `artifacts/verified-build/<run-id>/demos.json` in this worktree, in the format `worktree-cleanup` documents (run, worker, D1 database or `null`, account, URL, this worktree's absolute path, branch). Cleanup deletes only what that manifest lists.
@@ -149,7 +151,7 @@ Prompt the implementer to use ADN mode and include:
 - applicable repo guidance and project verification skill paths;
 - a requirement to find the shared root cause and check every caller before editing;
 - a requirement to plan, implement, add proportional regression coverage, run repo checks, complete bounded review, and create or update one PR for lab validation;
-- a prohibition on lab deployment, production deployment, merge, and changes outside the requested outcome; and
+- a prohibition on lab deployment, merge, and changes outside the requested outcome, and a statement that production is never a deploy target and is never to be asked about; and
 - a completion receipt containing the PR URL, exact head SHA, changed files, checks, review verdict, and remaining risks.
 
 Monitor through the finish notification, `get_agent_status`, `send_agent_prompt`, and the `paseo inspect` / `paseo send` CLI equivalents. Send follow-ups only when new lab evidence, a concrete scope correction, or a verified review problem requires one. A timeout means inspect state; it does not mean the agent failed.
