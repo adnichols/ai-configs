@@ -87,7 +87,7 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [],
       "canonicalSource": "skills/bugbash",
-      "notes": "Conversation-driven bug bash: collects rapid-fire bug and feature reports with screenshots, enriches them with background research, hands each to its own Paseo worktree running OMP (the `omp` profile) with verified-build and ADN mode, then orchestrates every item to a merged PR and cleaned-up worktree, merging each PR itself once it is validated, every operator decision on it is answered, and every gate passes. Installs into shared discovery only, so OMP and Codex orchestrator sessions both see it; no consumer compatibility links are created.",
+      "notes": "Conversation-driven bug bash: collects rapid-fire bug and feature reports with screenshots, enriches them with background research, hands each to its own Paseo worktree running OMP (the `omp` profile) with verified-build and ADN mode, then orchestrates every item to a merged PR and cleaned-up worktree, merging each PR itself once it is validated, every operator decision on it is answered, and every gate passes. No agent deploys to production, asks about it, or offers to; validation happens in a lab. Installs into shared discovery only, so OMP and Codex orchestrator sessions both see it; no consumer compatibility links are created.",
       "sourceType": "repo"
     },
     "canvas-design": {
