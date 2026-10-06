@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Every merging skill stops passing `--delete-branch` to `gh pr merge`: `bugbash`, the Paseo `pr-merge-gates` bot skill, the Hermes autobuild PR monitor, and the Hermes GitHub PR docs. `bugbash` and `pr-merge-gates` run `worktree-cleanup` after the merge instead of messaging the worker. `session-cleanup` keeps the PR, schedule, and agent inventory and delegates worktree teardown to the script. `verified-build` (OMP and Codex) writes `demos.json` for each published prototype.
+- Every merging skill stops passing `--delete-branch` to `gh pr merge`: `bugbash`, the Paseo `pr-merge-gates` bot skill, the Hermes autobuild PR monitor, and the Hermes GitHub PR docs. `bugbash` and `pr-merge-gates` run `worktree-cleanup` after the merge instead of messaging the worker. `session-cleanup` keeps the PR, schedule, and agent inventory and delegates worktree teardown to the script. `verified-build` (OMP and Codex) writes `demos.json` for each published prototype. The Hermes autobuild PR monitor records each PR it merges or auto-merges and runs `worktree-cleanup` on the one local worktree that has the branch checked out once GitHub reports the PR merged, retrying each tick and reporting refusals.
 
 - Agents are told not to use Paseo's built-in browser (the `browser_*` tools) for browser work. The same one-line rule is in the OMP and Codex `AGENTS.md`, the `paseo` and `computer-use` skills (shared and Codex), `verified-build` (OMP and Codex), `prototype`, and the `bugbash` validation gate and worker brief. A gate failure for interaction evidence gathered in Paseo's browser is added to `bugbash`. `_adn` is pinned and unchanged.
 
