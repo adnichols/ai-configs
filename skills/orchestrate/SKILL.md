@@ -285,6 +285,14 @@ For every message:
    behavior is wrong), `FEATURE` (new or changed behavior), or `REFACTOR`,
    `PERF`, `OTHER`. It labels the dashboard and informs research; the worker
    routes from the description.
+   When the item comes from an Ava document (a bug report, a design, a case
+   study, or another source doc), also record its URL and author in the item
+   file (`Source doc:` and `Doc author:`). Run `ava document status <doc>
+   --json` and take the creator or last editor agent from
+   `contributor_actor_ids` or `actors`. Add the human principal behind that
+   agent when the doc or the agent's name identifies one (a "(KD)" suffix, or
+   `principal_id_at_commit` in `ava document revisions <doc>`). Read
+   `~/.agents/skills/ava/SKILL.md` first. The closeout needs these.
 4. **Research in the background.** Start a read-only research agent per new
    item (OMP: `task` with the `scout` agent; elsewhere, the runtime's
    background subagent). Use the packet in `references/research-brief.md`.
@@ -587,6 +595,41 @@ To merge:
 4. After each merge, tell workers whose open PRs touch the same files that
    the base moved, including workers on other trackers when you know of them.
 
+### Close out the source doc
+
+When an item has a `Source doc:`, update the doc once the item's PR is
+merged and before the item is `CLEANED`. The author asked for the issue to be
+reported, so they must learn it is fixed. The driver does this, not the worker.
+
+1. **Check whether it is live.** Run `pnpm rollout` in the ccore2 repo and
+   compare the hub's deployed source commit with the merge commit. Never
+   deploy, and never offer to.
+2. **Add a short status section to the doc.** Say what changed, give the PR
+   link and merge commit, and say whether it is live.
+   - HTML doc: `ava document edit <doc> --file <html> --expected-revision
+     <rev> --idempotency-key <key>`, using the revision from a fresh read.
+     Keep its standing and check the render `warnings`.
+   - Text doc: append the section to the current body and run `ava document
+     replace-body <doc> --file <md> --idempotency-key <key>`.
+3. **Comment on that section and mention the author.** An `@Name` in the
+   body alone mentions nobody. Take `actorId` (as `targetId`) and `kind` (as
+   `targetKind`) from `ava comment mention-suggestions`.
+   - HTML doc: `ava document comment create <doc>` with a `dom` anchor on the
+     new section and `mentions: [{"token":"@Name","targetKind":"human"|"agent","targetId":"act_..."}]`.
+   - Text doc: `ava document text-comment create <doc>` with a unique `quote`
+     from the new section and `mentions: [{"token":"@Name","targetId":"act_..."}]`.
+   Mention the human principal and the reporting agent when both are known.
+   Read the comment back (`ava document comment list <doc>` or `ava document
+   text-comment list <doc>`) and confirm the mentions are stored.
+4. **Skip the mention for your own identity.** A self-mention notifies
+   nobody. When another agent owns the doc (for example perf-explorer for its
+   inventory), hand the doc update to it with the PR link and merge commit.
+5. **A design doc with several items** is updated once, after all its items
+   land. If the operator asks, note partial progress after each item instead.
+
+Record the section and comment links in the item's timeline. An item with no
+`Source doc:`, or one concluded without a merge, skips this step.
+
 ### Cleanup per item
 
 Once an item's PR is merged:
@@ -606,8 +649,9 @@ Once an item's PR is merged:
    only for work concluded without a merge, never to get past an open PR or a
    pending prototype review.
 3. Set the item to `CLEANED` only when the script reports exit 0, or exit 4
-   with nothing owned by you. Record the lab release, demo removal, and
-   archive results from its report.
+   with nothing owned by you, and the item's source doc is closed out (see
+   [Close out the source doc](#close-out-the-source-doc)) or it has none.
+   Record the lab release, demo removal, and archive results from its report.
 
 An item concluded without a merge gets the same cleanup, with `--abandon
 <reason>`, as soon as the worker reports `NOT_REPRODUCED` or
@@ -649,7 +693,8 @@ remains. Then:
    `worktree-cleanup --workspace <id>` on a cleaned item is a no-op that
    confirms it.
 2. Post the final report: one row per item (ID, kind, title, outcome, PR
-   link), operator decisions worth keeping, follow-ups the operator deferred,
+   link, and for a source-doc item the doc link and who was mentioned),
+   operator decisions worth keeping, follow-ups the operator deferred,
    and anything left in place with its reason.
 3. Read the dashboard's comments one last time and answer or log anything
    open. Stop the listener (end its background service, or kill the pid in
