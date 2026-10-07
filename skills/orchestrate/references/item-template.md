@@ -64,7 +64,7 @@ lab or an overlapping item) → `HANDED_OFF` → `PROTOTYPE_REVIEW` /
 
 Terminal states other than `CLEANED` need a recorded decision. The driver
 decides `DUPLICATE` (name the surviving item), consulting the oracle when
-unsure. `NOT_REPRODUCED`, `WONT_FIX`, and `DEFERRED` are the operator's when
-they turn on product behavior (expected or wanted); otherwise the driver
-decides. Every terminal item still gets `worktree-cleanup` run on its
+unsure. `NOT_REPRODUCED`, `WONT_FIX`, and `DEFERRED` are the operator's, via a
+card, because each turns on whether the behavior is expected or wanted. Every
+terminal item still gets `worktree-cleanup` run on its
 workspace before the tracker concludes.
