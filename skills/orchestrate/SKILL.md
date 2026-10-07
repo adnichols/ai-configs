@@ -220,7 +220,11 @@ title and mode line (which says a listener is watching comments), one chip
 per state group with counts, Needs you first as one card per `###` item
 (title, Problem, Proposed change if given, Your call highlighted, Look at links), the
 item table (ID, item, state, waiting on, PR), then the latest eight operator
-decisions. `## Operator decisions` is newest first, so the dashboard shows the
+decisions. The table is in three tiers, by ID within each tier: items waiting
+on the operator first (a Needs you state, or a `waiting on` starting with
+`operator`), then items in progress or blocked, then done items. `dashboard.py`
+sorts the rows itself, so the ledger's row order does not change the dashboard.
+`## Operator decisions` is newest first, so the dashboard shows the
 first eight. It follows the viewer's light or dark setting and drops the
 Waiting on column on narrow screens. Update the template and script together
 when the standard changes.

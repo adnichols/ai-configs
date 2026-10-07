@@ -88,6 +88,24 @@ def group_of(state):
     return "work", "Worker active"
 
 
+def natural(s):
+    return [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", s)]
+
+
+def tier_of(row):
+    """0 waiting on the operator, 1 in progress or blocked, 2 done. A done state wins over a stale `waiting on`."""
+    cls, _ = group_of(row.get("state", ""))
+    if cls == "done":
+        return 2
+    if cls == "needs" or row.get("waiting on", "").lower().startswith("operator"):
+        return 0
+    return 1
+
+
+def ordered(rows):
+    return sorted(rows, key=lambda r: (tier_of(r), natural(r.get("id", ""))))
+
+
 # ---- rendering ------------------------------------------------------------
 
 def pr_cell(pr):
@@ -168,7 +186,7 @@ def inline(s):
 
 def render(text, title, template, updated):
     mode = header(text, "Mode") or "UNKNOWN"
-    rows = issue_rows(text)
+    rows = ordered(issue_rows(text))
     waiting = asks(section(text, "Waiting on you"))
     decisions = bullets(section(text, "Operator decisions"))[:DECISIONS_SHOWN]
 

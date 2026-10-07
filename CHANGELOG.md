@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- `orchestrate` dashboards sort the "All items" table into three tiers, by ID within each: waiting on the operator (a Needs you state, or `waiting on` starting with `operator`), then in progress or blocked, then done. `dashboard.py` sorts the rows itself, so ledger order no longer matters; the chips keep their existing order, which already matches the tiers. `SKILL.md` and the ledger template state the order, and the template tells orchestrators to keep the ledger table in it.
+
 - `orchestrate` Needs-you asks must be `###` cards. `dashboard.py` drops the fallback that rendered top-level bullets as title-only cards and exits 2, naming the card format, when `## Waiting on you` holds anything but `###` cards, a card has no `Problem:` (or `Broken:`) or no `Decide:`, or a card uses bold. The ledger template and `SKILL.md` state the rule: the heading names the problem and the change, `Problem:` is plain technical-founder language, `Decide:` says exactly what the operator must do or choose.
 
 - Work tracker dashboards publish to the Ava Development Space (`spc_16ef6d824e21402b9a42560b13436034`), which holds development tracking, instead of Nodaste. An open tracker is a document directly inside the root folder `Coding Work`; when the ledger's mode is `CONCLUDED`, `dashboard.py` moves it into `Archive / Coding Work`, creating the folders when missing. A remembered folder id is reused only while it is still a folder at that exact path, and the refusal to use a root folder outside the old `Coding Work / Bug Bash` path is removed.

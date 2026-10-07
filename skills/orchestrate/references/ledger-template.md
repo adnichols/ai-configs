@@ -10,6 +10,13 @@ decisions`. Republish it in the same step as every edit here. `Ava space:`,
 publish; `Listener:` is the comment listener's service name, pid and log,
 written by the orchestrator; `Heartbeat:` is the 20-minute status pass.
 
+**Status table order.** `dashboard.py` shows the table in three tiers, by ID
+within each tier: waiting on the operator (a Needs you state, or `Waiting on`
+starting with `operator`), then in progress or blocked, then done. Keep the
+ledger's table in the same order whenever you edit it, so the ledger and the
+dashboard read alike. A done state stays in the bottom tier even if `Waiting
+on` still says operator.
+
 The heading is the tracker title: the weekday and date the tracker started
 (`Tuesday, October 6, 2026`), or the theme the operator gave for it
 (`Signals polish — Tuesday, October 6, 2026`).
