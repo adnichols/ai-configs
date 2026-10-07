@@ -95,10 +95,23 @@ and fails when that file has no `plan_id`; do the same for any other page.
 
 # Reporting
 The orchestrator relays between you and the operator. It is notified each
-time your turn ends. Do not wait for an answer in the middle of a turn: when
-you need the operator (a prototype approval, a product decision, credentials,
-or a scope question), end the turn with the question in the status block.
-Answers arrive as the operator's verbatim words.
+time your turn ends. Do not wait for an answer in the middle of a turn.
+
+The operator decides only product behavior: what users experience or what the
+product does. Send everything else to the oracle first (the `oracle` task
+agent, with the packet format in the global AGENTS.md "Model and agent
+routing" section), or decide it yourself with tools. That covers technical
+choices, design trade-offs inside a settled product direction, where to file
+findings, lab and access chores, tooling and process questions, and risk calls
+on internal infrastructure. Record the oracle's answer, say whether you
+accepted it, and act on it.
+
+Before you end a turn with `NEEDS_OPERATOR`, consult the oracle. Use
+`NEEDS_OPERATOR` only for a product behavior decision, or for an action that is
+irreversible or explicitly reserved to the operator: merge authority beyond the
+standing rule, production deploys (never offered), and repo rules that name the
+operator. Put the oracle's recommendation in `question:` and say why this is a
+product decision. Answers arrive as the operator's verbatim words.
 
 End every turn with this block:
 
