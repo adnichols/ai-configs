@@ -158,9 +158,12 @@ twice, and a restart skips comments it already handled and retries one whose
 relay failed. The dashboard header tells the operator a listener is watching.
 
 **Every ledger change.** Run the script in the same step as the ledger edit.
-Whenever you ask the operator for something in chat (a question, a prototype
-review, an approval, a decision), add the same ask to `## Waiting on you` in
-that step and remove it when it is answered. The ask in chat and the ask in
+Whenever you ask the operator for something in chat (a product decision, a
+prototype review, a spec or ADR diff approval), add the same ask to `## Waiting on you` in
+that step and remove it when it is answered. A card's `Problem:` states why
+this is a product decision, and its `Decide:` carries the oracle's
+recommendation when there is one. The card format is unchanged. The ask in
+chat and the ask in
 the dashboard say the same thing, so the operator can answer from either
 place.
 
@@ -346,7 +349,9 @@ worker brief), update the item and ledger, and act:
 
 - `IN_PROGRESS`: no operator action needed; record it, including the ADN
   playbook and verified-build mode the worker chose.
-- `PROTOTYPE_REVIEW` or `NEEDS_OPERATOR`: add the item to the ledger's
+- `PROTOTYPE_REVIEW` or `NEEDS_OPERATOR`: for `NEEDS_OPERATOR`, first screen
+  the question per [Asking the operator](#asking-the-operator); a non-product
+  ask goes to the oracle, not the queue. Otherwise add the item to the ledger's
   "Waiting on you" queue (and republish the dashboard, per
   [Dashboard](#dashboard)) and append the queue, one line per item, to your
   next acknowledgment whenever it changed. Do not derail intake; the
@@ -387,8 +392,9 @@ continue.
   operator verbatim and label your own reading as interpretation. Log each
   decision verbatim in the ledger's decisions section.
 - Answer worker questions yourself when the answer is already in the
-  operator's words, the item file, or the repository. Escalate only product
-  intent, scope expansion, approvals, credentials, and irreversible actions.
+  operator's words, the item file, or the repository. Send everything else
+  that is not a product behavior decision to the oracle
+  ([Asking the operator](#asking-the-operator)).
 - Send follow-ups to a worker only for new evidence, an operator answer, a
   concrete scope correction, or a verified problem. Do not prompt a worker
   that is running.
@@ -396,6 +402,41 @@ continue.
   Nudge it once with the specific gap. If it is still stuck, report it to the
   operator as `BLOCKED` with the cause and options (retry, relaunch, narrow
   scope, or drop).
+
+### Asking the operator
+
+The operator decides product behavior only: what users experience or what the
+product does. Nothing else blocks on them. Send every other question to the
+oracle first (OMP: `task` with the `oracle` agent; packet per the global
+AGENTS.md "Model and agent routing" section: the decision, constraints,
+evidence and paths, credible options, your recommendation and uncertainty,
+and one narrow question ending in `?`), or decide it yourself with tools.
+That covers technical choices, design trade-offs inside a settled product
+direction, where to file findings, lab and access chores, tooling and process
+questions, and risk calls on internal infrastructure. Record the oracle's
+answer in the ledger's decisions section with whether you accepted it, and
+act on it.
+
+Use the operator only for a product behavior decision, or for an action that
+is irreversible or explicitly reserved to them: merge authority beyond the
+standing rule, production deploys (never offered), and repo rules that name
+the operator when no operator ruling already decides the matter (the oracle
+checks; see below). Also use them when the oracle confirms the only way forward is
+something only they can supply, such as a credential; the card's `Problem:`
+says so. Whether a reported behavior is expected or a feature is wanted
+(`NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, `WONT_FIX`, `DEFERRED`) is a product
+call and stays theirs.
+
+When an operator ruling already decides the matter, even though a repo rule
+names the operator, do not ask. Cite the ruling as the authority, make the
+change, and disclose it in the PR description so the operator can veto at
+review.
+
+Workers consult the oracle before ending a turn with `NEEDS_OPERATOR`. Screen
+every `NEEDS_OPERATOR` again before posting a card. When the question is not
+a product decision, take it to the oracle yourself, send the worker the
+answer, and post nothing. When it is, keep the worker's oracle recommendation
+in the card.
 
 ### Review and merge
 
@@ -406,7 +447,7 @@ evidence table, and the PR carries the interaction table that passes the
 gate below. Open at least one of its screenshots or videos.
 
 If the receipt passes and every operator decision on the item is answered
-(prototype approval, spec or ADR diff approval, product and scope choices),
+(prototype approval, spec or ADR diff approval, product behavior choices),
 merge it per [Merge authority](#merge-authority) without asking. Do not send
 the operator an "approve?" packet: the worker and the gates have the
 information, and asking the operator to confirm a passing PR only asks them
@@ -422,12 +463,15 @@ Evidence: <baseline vs candidate summary; PR evidence table link>
 Risks / not covered: <list or none>
 ```
 
-Ask the operator only for what the gates cannot settle: an open product
-decision, a spec or ADR diff, a prototype review, a scope change, a known
-gap the worker could not verify (an untestable platform, a step that needs
-the operator's hands), or a risk the operator has not already accepted. Put
-that ask in `## Waiting on you` as usual. Once it is answered and the gates
-pass, merge.
+Ask the operator only for what the gates cannot settle and the oracle cannot
+answer: an open product behavior decision, a spec or ADR diff that changes
+product behavior, a prototype review, a scope change that alters product
+behavior, or an irreversible action reserved to the operator. A known gap the
+worker could not verify, a step that needs hands, and risk calls on internal
+infrastructure go to the oracle first or to the driver's own tools. Send
+technical and process questions to the oracle first
+([Asking the operator](#asking-the-operator)). Put the ask in
+`## Waiting on you` as usual. Once it is answered and the gates pass, merge.
 
 Change requests and post-merge feedback go back to the same worker
 verbatim; the worker updates its PR (or opens a follow-up PR) and
