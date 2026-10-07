@@ -110,8 +110,10 @@ Before you end a turn with `NEEDS_OPERATOR`, consult the oracle. Use
 `NEEDS_OPERATOR` only for a product behavior decision, or for an action that is
 irreversible or explicitly reserved to the operator: merge authority beyond the
 standing rule, production deploys (never offered), and repo rules that name the
-operator. Put the oracle's recommendation in `question:` and say why this is a
-product decision. Answers arrive as the operator's verbatim words.
+operator, or when the oracle confirms that only the operator can supply the way
+forward, such as a credential. Put the oracle's recommendation in `question:`
+and say why only the operator can answer it. Answers arrive as the operator's
+verbatim words.
 
 End every turn with this block:
 

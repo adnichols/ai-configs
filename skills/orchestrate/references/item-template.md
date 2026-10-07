@@ -62,8 +62,9 @@ Workspace: <id>   Worktree: <path>   Branch: <branch>   Agent: <id>   Launched: 
 lab or an overlapping item) → `HANDED_OFF` → `PROTOTYPE_REVIEW` /
 `NEEDS_OPERATOR` / `BLOCKED` → `VALIDATED` → `MERGED` → `CLEANED`.
 
-Terminal states other than `CLEANED` need a recorded decision. `WONT_FIX` and
-`DEFERRED` are the operator's when they turn on product behavior; the driver
-decides `DUPLICATE` (name the surviving item) and `NOT_REPRODUCED`, consulting
-the oracle when unsure. Every terminal item still gets `worktree-cleanup` run on its
+Terminal states other than `CLEANED` need a recorded decision. The driver
+decides `DUPLICATE` (name the surviving item), consulting the oracle when
+unsure. `NOT_REPRODUCED`, `WONT_FIX`, and `DEFERRED` are the operator's when
+they turn on product behavior (expected or wanted); otherwise the driver
+decides. Every terminal item still gets `worktree-cleanup` run on its
 workspace before the tracker concludes.

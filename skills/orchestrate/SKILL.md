@@ -420,7 +420,11 @@ act on it.
 Use the operator only for a product behavior decision, or for an action that
 is irreversible or explicitly reserved to them: merge authority beyond the
 standing rule, production deploys (never offered), and repo rules that name
-the operator.
+the operator. Also use them when the oracle confirms the only way forward is
+something only they can supply, such as a credential; the card's `Problem:`
+says so. Whether a reported behavior is expected or a feature is wanted
+(`NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, `WONT_FIX`, `DEFERRED`) is a product
+call and stays theirs.
 
 Workers consult the oracle before ending a turn with `NEEDS_OPERATOR`. Screen
 every `NEEDS_OPERATOR` again before posting a card. When the question is not
