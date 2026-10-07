@@ -272,6 +272,10 @@
     "why": {
       "source": "_adn/skills/why",
       "profile": "default"
+    },
+    "perf-explorer": {
+      "source": "_codex/skills/perf-explorer",
+      "profile": "default"
     }
   }
 }

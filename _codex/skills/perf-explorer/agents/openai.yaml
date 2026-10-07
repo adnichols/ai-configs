@@ -1,0 +1,4 @@
+interface:
+  display_name: "Perf explorer"
+  short_description: "Explore Ava performance and failures without fixing"
+  default_prompt: "Use $perf-explorer to run the Nodaste-shaped lab walkthrough and fuzzy exploration, investigate findings, and maintain the Ava Development inventory without fixing the product."
