@@ -11,6 +11,7 @@ Kind: BUG | FEATURE | REFACTOR | PERF | OTHER   (your read; the worker's ADN rou
 State: <state>             Repo: <checkout path> @ <base branch>
 Surface: <product area, e.g. Ava Signals › Requested by me>
 Source: operator | secondhand (<who / meeting>)
+Source doc: <Ava document URL, or none>   Doc author: <agent actor id and name; human principal when known>   (only when the item came from a document)
 
 ## Operator report
 > <verbatim message text> (<timestamp>)
@@ -60,7 +61,7 @@ Workspace: <id>   Worktree: <path>   Branch: <branch>   Agent: <id>   Launched: 
 
 `INTAKE` → `RESEARCHING` → `NEEDS_INFO` → `READY` → `QUEUED` (waiting for a
 lab or an overlapping item) → `HANDED_OFF` → `PROTOTYPE_REVIEW` /
-`NEEDS_OPERATOR` / `BLOCKED` → `VALIDATED` → `MERGED` → `CLEANED`.
+`NEEDS_OPERATOR` / `BLOCKED` → `VALIDATED` → `MERGED` → (source doc closed out, when there is one) → `CLEANED`.
 
 Terminal states other than `CLEANED` need a recorded decision. The driver
 decides `DUPLICATE` (name the surviving item), consulting the oracle when
