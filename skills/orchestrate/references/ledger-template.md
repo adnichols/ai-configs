@@ -26,6 +26,9 @@ The heading is the tracker title: the weekday and date the tracker started
 section: no bullet asks, no bold. `dashboard.py` exits 2 on either, and on a
 card with no `Problem:` or no `Decide:`.
 
+Post a card only for a product behavior decision or an irreversible action
+reserved to the operator, and say in `Problem:` why it is one.
+
 - The heading names the problem and the change: `### <ID>: <problem> → <change>`.
 - `Problem:` explains the issue in plain technical-founder language: what goes
   wrong or is missing, one sentence on the cause, no unexplained internal jargon.

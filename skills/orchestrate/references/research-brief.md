@@ -30,7 +30,7 @@ Find, citing file paths and line ranges:
    which UI states it could affect.
 6. Overlap with the other items listed above (same surface or root cause).
 7. Facts still missing to write observable acceptance criteria, phrased as
-   questions the operator could answer in one line.
+   product behavior questions the operator could answer in one line.
 
 Return at most 400 words. Separate verified facts from inference.
 ```
