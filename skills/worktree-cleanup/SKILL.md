@@ -29,7 +29,7 @@ Stdout is one JSON report. Stderr is progress. Re-running is always safe: each s
 | Code | Meaning | What to do |
 | --- | --- | --- |
 | 0 | Complete. | Nothing. |
-| 2 | Refused; nothing changed. | Read `error`. Fix the cause or ask the operator. |
+| 2 | Refused; nothing changed. | Read `error`. Fix the cause and run it again. Do not ask the operator to release the lab. |
 | 3 | A step failed; later steps did not run. | Read `error`, fix, run the same command again. |
 | 4 | Done with what this process may do; `remaining` lists work for others. | Run each `remaining[].command` whose `owner` is you. Report the rest. |
 
@@ -37,7 +37,7 @@ Stdout is one JSON report. Stderr is progress. Re-running is always safe: each s
 
 ## Authority
 
-Running the script releases the lab claim, so run it only when the lab-manager release conditions hold: every PR using the lab has merged and the operator agreed the work is complete, or the operator told you to abandon it. A request to clean up a worktree whose PR is still under review is not that agreement, and the script refuses it anyway. `--abandon <reason>` overrides the dirty, unpushed, and unmerged checks and nothing else. Use it only on an explicit operator instruction to discard the work. It saves a patch, untracked files, and a bundle of unpushed commits under the state directory first and lists them in `preserved`.
+Running the script releases the lab claim. Run it as soon as the work using the lab is done: every PR using the lab has merged, or the work is abandoned or concluded without a merge. No operator agreement is needed and no agent asks for it. Keep the lab while a PR using it is open or a prototype review is pending; the script refuses an open PR on its own. `--abandon <reason>` marks work concluded without a merge (`NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, duplicate, won't fix, superseded, or abandoned). It overrides the dirty, unpushed, and unmerged checks and nothing else, so never use it to get past an open PR or a pending prototype review. It saves a patch, untracked files, and a bundle of unpushed commits under the state directory first and lists them in `preserved`. If the claim file is lost, release your own orphaned claim through the lab-manager's agent release path (see the ccore2 lab-manager skill), not through the operator.
 
 ## Demo manifest
 

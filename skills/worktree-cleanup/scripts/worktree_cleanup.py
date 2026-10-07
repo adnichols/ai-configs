@@ -284,7 +284,7 @@ class Cleanup:
             data = json.loads(file.read_text())
             return {"claim_id": str(data["claim_id"]), "lab": str(data["lab"])}
         except (ValueError, KeyError):
-            raise Refused(f"{file} is malformed; ask the operator to release the claim")
+            raise Refused(f"{file} is malformed; release your own orphaned claim through the lab-manager's agent release path (see the ccore2 lab-manager skill)")
 
     def git(self, *args: str) -> Proc:
         return sh(["git", "-C", self.snap.path, *args])
@@ -362,7 +362,7 @@ class Cleanup:
 
         if hard or (relaxable and not snap.abandon):
             problems = hard + relaxable
-            hint = "" if hard or snap.abandon else " Pass --abandon <reason> only when the operator explicitly abandons this work."
+            hint = "" if hard or snap.abandon else " Pass --abandon <reason> when the work is abandoned or concluded without a merge; keep the lab while a PR using it is open or a prototype review is pending."
             raise Refused("; ".join(problems) + "." + hint)
         if relaxable:
             self.preserve_abandoned(relaxable)
@@ -637,7 +637,7 @@ def main(argv: list[str]) -> int:
     target = ap.add_mutually_exclusive_group()
     target.add_argument("--path", help="worktree path (default: the worktree containing the current directory)")
     target.add_argument("--workspace", help="Paseo workspace id")
-    ap.add_argument("--abandon", metavar="REASON", help="discard unmerged or uncommitted work; only on the operator's explicit instruction")
+    ap.add_argument("--abandon", metavar="REASON", help="work abandoned or concluded without a merge: discard unmerged or uncommitted work (a snapshot is preserved) and release the lab; never to get past an open PR or a pending prototype review")
     args = ap.parse_args(argv)
     if args.abandon is not None and not args.abandon.strip():
         ap.error("--abandon needs a reason")
