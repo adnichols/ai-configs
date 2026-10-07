@@ -14,6 +14,19 @@ The heading is the tracker title: the weekday and date the tracker started
 (`Tuesday, October 6, 2026`), or the theme the operator gave for it
 (`Signals polish — Tuesday, October 6, 2026`).
 
+**Waiting on you.** Every ask made to the operator in chat appears in `## Waiting on you` in the same step, one
+`###` card each, and is removed when answered. Nothing else goes in this
+section: no bullet asks, no bold. `dashboard.py` exits 2 on either, and on a
+card with no `Problem:` or no `Decide:`.
+
+- The heading names the problem and the change: `### <ID>: <problem> → <change>`.
+- `Problem:` explains the issue in plain technical-founder language: what goes
+  wrong or is missing, one sentence on the cause, no unexplained internal jargon.
+- `Decide:` says exactly what the operator needs to do or choose. Use a `- ` or
+  `1.` list for options and recommend one.
+- `Fix:` (the proposed change) and `Links:` (prototype, PR or lab URLs) are
+  optional; omit a field rather than pad it.
+
 ```markdown
 # <tracker title>
 
@@ -35,18 +48,12 @@ Merge rule: the orchestrator merges each PR at its validated head once every gat
 | WI-01 | BUG | ... | ava | HANDED_OFF | ws_... / ag_... | — | worker |
 
 ## Waiting on you
-Every ask made to the operator in chat appears here in the same step, one
-`###` block each. Remove it when answered. Write it in technical-founder
-language: concrete, short, problem first, no unexplained internal jargon. The
-title names the problem and the change. `Decide:` may be a `- ` or `1.` list;
-`Links:` holds the prototype, PR or lab URLs. Omit a field rather than pad it.
-
 ### WI-04: nav "+" cannot create folders → add an inline folder name field
-Problem: Clicking "+" offers no way to create a folder, so a new folder needs a trip through a dialog.
-Fix: Add an inline name field at the space root; no auto-expand.
+Problem: Clicking "+" offers no way to create a folder, so making one takes a trip through a separate dialog. The menu only has a Document entry.
+Fix: Add an inline name field at the space root, with no auto-expand.
 Decide:
-- Inline field or dialog?
-- Labels "Folder" and "Document"?
+- Choose inline field or dialog. I recommend the inline field.
+- Confirm the menu labels "Folder" and "Document".
 Links: <prototype url>
 
 ## Operator decisions

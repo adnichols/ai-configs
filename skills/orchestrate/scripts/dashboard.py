@@ -101,30 +101,44 @@ def pr_cell(pr):
 ASK_FIELDS = (("Problem", "Problem"), ("Fix", "Proposed change"), ("Decide", "Your call"), ("Links", "Look at"))
 
 
+CARD_RULE = ("each ask is one `### <ID>: <the problem> → <the change>` card with `Problem:` (what is wrong, in plain "
+             "technical-founder language) and `Decide:` (exactly what the operator must do or choose); no bold, no bullet asks. "
+             "See references/ledger-template.md")
+
+
 def asks(body):
     """`## Waiting on you` items as (title, {field: [lines]}).
 
-    Standard item: `### <ID>: <the problem or gap> → <what we're changing>` followed by `Problem:`, `Fix:`,
-    `Decide:` and `Links:` fields; a field may continue on following lines, including `- ` or `1.` lists.
+    Item: `### <ID>: <the problem or gap> → <what we're changing>` followed by `Problem:`, `Fix:`, `Decide:`
+    and `Links:` fields; a field may continue on following lines, including `- ` or `1.` lists.
     `Broken:` (the bugbash name for `Problem:`) is read as `Problem:`.
-    A section with no `###` blocks falls back to one title-only card per top-level `- ` bullet, so
-    an old-style item is shown rather than dropped.
+    Anything else is a ledger error (exit 2): the card format is the only accepted format.
     """
-    blocks = re.split(r"^### ", body, flags=re.M)[1:]
-    if not blocks:
-        return [(b, {}) for b in bullets(body)]
+    if not body:
+        return []
+    head, *blocks = re.split(r"^### ", body, flags=re.M)
+    if head.strip():
+        raise Fail(2, f"## Waiting on you has content outside a `###` card ({head.strip().splitlines()[0][:80]!r}); {CARD_RULE}")
     out = []
     for block in blocks:
         title, _, rest = block.partition("\n")
+        title = title.strip()
         fields, key = {}, None
         for line in rest.splitlines():
             m = re.match(r"^(Problem|Broken|Fix|Decide|Links):\s*(.*)$", line)
             if m:
                 key = "Problem" if m.group(1) == "Broken" else m.group(1)
                 fields[key] = [m.group(2)] if m.group(2) else []
-            elif key and line.strip():
+            elif line.strip() and key is None:
+                raise Fail(2, f"Waiting on you card {title!r} has text before any field ({line.strip()[:80]!r}); {CARD_RULE}")
+            elif line.strip():
                 fields[key].append(line.strip())
-        out.append((title.strip(), fields))
+        if "**" in title or any("**" in l for ls in fields.values() for l in ls):
+            raise Fail(2, f"Waiting on you card {title!r} uses bold (`**`); {CARD_RULE}")
+        for need in ("Problem", "Decide"):
+            if not fields.get(need):
+                raise Fail(2, f"Waiting on you card {title!r} has no `{need}:` text; {CARD_RULE}")
+        out.append((title, fields))
     return out
 
 

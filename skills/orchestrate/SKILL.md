@@ -181,12 +181,17 @@ Links: prototype, PR, or lab URLs.
 ```
 
 The title names the problem and the change, so the operator can tell the
-items apart without opening them. Write the body in technical-founder
-language: concrete and short, the user-visible problem before the mechanism,
-one sentence on the cause, and a name for each decision. Do not leave
+items apart without opening them. `Problem:` explains the issue in plain
+technical-founder language: concrete and short, the user-visible problem
+before the mechanism, one sentence on the cause. `Decide:` says exactly what
+the operator needs to do or choose, with a name for each option. Do not leave
 internal jargon (state names, ledger terms, repo-private abbreviations, commit
-hashes standing in for an explanation) unexplained. Omit a field rather than
-pad it. Mirror the same text in chat.
+hashes standing in for an explanation) unexplained. Omit `Fix:` or `Links:`
+rather than pad it. Never use bold (`**`) or bullet-style asks such as
+`- **WI-10: ...** prose`. `scripts/dashboard.py` exits 2 with the card rule
+when `## Waiting on you` holds anything but `###` cards, a card lacks
+`Problem:` (or its `Broken:` alias) or `Decide:`, or a card uses bold; fix the
+ledger and rerun. Mirror the same text in chat.
 
 **If it fails.** The script exits non-zero with a message when `ava` is
 missing, unauthenticated, or the publish does not verify. Tell the operator
@@ -213,7 +218,7 @@ change to the dashboard's content or format, do both in the same step:
 **Standard format.** `references/dashboard-template.html` owns the layout:
 title and mode line (which says a listener is watching comments), one chip
 per state group with counts, Needs you first as one card per `###` item
-(title, Problem, Proposed change, Your call highlighted, Look at links), the
+(title, Problem, Proposed change if given, Your call highlighted, Look at links), the
 item table (ID, item, state, waiting on, PR), then the latest eight operator
 decisions. `## Operator decisions` is newest first, so the dashboard shows the
 first eight. It follows the viewer's light or dark setting and drops the
