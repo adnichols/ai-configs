@@ -197,8 +197,10 @@ then a priority table, architectural groups, detailed individual findings,
 coverage and retained reproduction resources. Keep it usable throughout the run.
 Include: "This live inventory body is maintained exclusively by the run's
 orchestrator. Please add contributions as comments while the run is active."
-This ownership protocol is required because current text body replacement
-does not offer compare-and-swap; it is not a claim of server-enforced locking.
+Keep the single writer even with HTML revision guards; ownership is a coordination
+protocol, not server-enforced locking. Read [the HTML dashboard contract](html-dashboard.md)
+for layout, registration, revision-safe edits and verification. The published
+view is always real HTML; Markdown/JSON ledgers may remain local evidence inputs.
 
 For each issue capture:
 

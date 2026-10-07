@@ -122,10 +122,50 @@ def install(home, codex):
             'retired_backup': str(retired_backup) if retired_backup else None}
 
 
+def refresh_only(home, codex, names):
+    """Refresh already-managed selected skills; leave config, AGENTS and other skills alone."""
+    state_path = codex / 'ai-configs-skills.json'
+    previous = json.loads(state_path.read_text())
+    declared = json.loads((ROOT / 'skill-overrides.json').read_text())['skills']
+    for name in names:
+        if name not in declared or name not in previous['skills']:
+            raise ValueError(f'Scoped refresh requires an existing managed skill: {name}')
+        dest = codex / 'skills' / name
+        actual = {str(p.relative_to(codex)): hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in dest.rglob('*') if p.is_file()}
+        expected = {p: h for p, h in previous.get('files', {}).items() if p.startswith(f'skills/{name}/')}
+        if dest.is_symlink() or any(p.is_symlink() for p in dest.rglob('*')) or not expected or actual != expected:
+            raise ValueError(f'Local changes or missing provenance; preserve and reconcile {dest}')
+        if not (ROOT / 'skills' / name / 'SKILL.md').is_file():
+            raise ValueError(f'Missing source: {name}')
+    for name in names:
+        dest = codex / 'skills' / name
+        with tempfile.TemporaryDirectory(prefix='.ai-configs-', dir=dest.parent) as staging:
+            payload = Path(staging) / name
+            shutil.copytree(ROOT / 'skills' / name, payload)
+            backup = Path(staging) / 'previous'
+            dest.rename(backup)
+            try:
+                payload.rename(dest)
+            except Exception:
+                backup.rename(dest)
+                raise
+        previous['files'] = {p: h for p, h in previous.get('files', {}).items()
+                             if not p.startswith(f'skills/{name}/')}
+        previous['files'].update({str(p.relative_to(codex)): hashlib.sha256(p.read_bytes()).hexdigest()
+                                  for p in dest.rglob('*') if p.is_file()})
+        temporary = state_path.with_suffix('.tmp')
+        temporary.write_text(json.dumps(previous, indent=2) + '\n')
+        temporary.chmod(0o600)
+        temporary.replace(state_path)
+    return {'refreshed': names, 'codex_home': str(codex), 'config_unchanged': True}
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--home', type=Path, default=Path.home())
     parser.add_argument('--codex-home', type=Path)
+    parser.add_argument('--only', nargs='+', help='Refresh only named, already-managed unmodified skills')
     args = parser.parse_args()
     target = args.codex_home or Path(os.environ.get('CODEX_HOME', str(args.home / '.codex')))
-    print(json.dumps(install(args.home.resolve(), target.resolve())))
+    print(json.dumps(refresh_only(args.home.resolve(), target.resolve(), args.only) if args.only else install(args.home.resolve(), target.resolve())))

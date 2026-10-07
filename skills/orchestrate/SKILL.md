@@ -47,7 +47,7 @@ restarted orchestrator can resume from files alone:
   ledger.md           # tracker title, mode, defaults, status board, decisions, waiting-on-you queue
   items/WI-NN-<slug>.md
   images/             # exported screenshots + manifest.jsonl
-  dashboard.json      # Ava publish state, incl. folder id (written by scripts/dashboard.py)
+  dashboard.json      # Ava draft synchronization state, incl. folder id (written by scripts/dashboard.py)
   dashboard.html      # last rendered dashboard
   dashboard-template.html  # only when dashboard feedback changed this tracker's layout
   listener.json       # comment listener state: pid, seen message ids, last_poll, last_error
@@ -95,7 +95,14 @@ When triggered:
 
 ## Dashboard
 
-The operator watches the tracker, and answers you, in an Ava HTML document.
+The operator watches the tracker, and answers you, in a real Ava HTML document.
+Load the installed `ava` and `ava-design-system` before authoring or editing;
+never copy their managed skills. Register with `source_format: "html"`; use
+revision-guarded `document edit`, never text create/replace-body for a dashboard.
+Local Markdown ledgers remain inputs, not the user-facing format. Keep the
+orchestrator as sole body writer; retain comments, stable operation keys and
+existing sessions. A conflict or unexpected source drift requires reconciliation,
+not a forced write or a second dashboard.
 The ledger stays the single source of truth; `scripts/dashboard.py` only
 renders it, so the dashboard can never say something the ledger does not.
 
@@ -106,7 +113,9 @@ python3 <skill-dir>/scripts/dashboard.py <tracker-dir> [--space spc_...] [--titl
 The document title is the ledger's `# ` heading. The first run registers the
 document, moves it into its folder, then writes `Ava space:`, `Dashboard:` and
 `Dashboard folder:` into the ledger header. Later runs edit the same document
-in place and read its source back to confirm it matches. A run with no ledger
+in place with the current revision guard and read source, render and warnings
+back to confirm the saved HTML. Draft standing is sufficient; submit/promote
+only when separately authorized by the workflow. A run with no ledger
 change prints `unchanged`.
 
 **Where it lives.** The Development Space
@@ -128,6 +137,12 @@ created there. `--folder-path` overrides `Coding Work` (a concluded tracker
 then goes to `Archive/<that path>`) and exists for tests.
 
 **Start.** Run the script and confirm the ledger has the `Dashboard:` line.
+Use authorized native CUA on the assigned session to inspect the actual Ava render
+in light/dark and narrow/wide views at creation and after layout changes. Check
+priority order, summary, links, wrapping and collapsible history. Never operate
+another agent's browser or bypass foreground/capture consent. If unavailable,
+record visual verification pending separately from successful source/readback;
+do not report a visual pass. Do not start live publication during skill validation.
 Then start the listener as a persistent background service named
 `orchestrate-<tracker>-listener`, using the runtime's long-lived service
 facility (in OMP, a `bash` call with `name` and a `ready` log pattern), or
@@ -146,7 +161,7 @@ and will reply here.") and sends the comment to you with
 `paseo send --no-wait`, so the operator can see it is being listened to. Each
 relayed comment arrives as an operator message: apply it as feedback, an
 answer, or a new report, reply in the thread with what you did, log it in the
-ledger, and republish. Record `Listener: <service name>, pid <pid>, log
+ledger, and save the dashboard again. Record `Listener: <service name>, pid <pid>, log
 <path>` in the ledger. Never use `ava agent listen` for this: its
 review-request scope is the whole Space, so it claims routed comments on other
 documents, including other trackers' dashboards.
@@ -194,7 +209,7 @@ when `## Waiting on you` holds anything but `###` cards, a card lacks
 ledger and rerun. Mirror the same text in chat.
 
 **If it fails.** The script exits non-zero with a message when `ava` is
-missing, unauthenticated, or the publish does not verify. Tell the operator
+missing, unauthenticated, or the saved draft does not verify. Tell the operator
 that message in chat right away and keep working from the ledger. Never skip
 the dashboard silently, and never claim it is current when the last run
 failed.
@@ -207,7 +222,7 @@ change to the dashboard's content or format, do both in the same step:
    `references/dashboard-template.html` there first; the script prefers it).
    Changes the template cannot express (a new column, a different grouping)
    go in a copy of `scripts/dashboard.py` kept in the tracker directory and
-   run from there. Republish and confirm it with the operator.
+   run from there. Save the dashboard again and confirm it with the operator.
 2. Log it as a skill follow-up: its own work item (`WI-NN`, repo ai-configs,
    target `skills/orchestrate`) with the operator's words verbatim and what
    you changed live. A worker then folds it into
@@ -215,19 +230,20 @@ change to the dashboard's content or format, do both in the same step:
    tracker starts with the improved standard format. Do not edit the skill
    from the orchestrator session.
 
-**Standard format.** `references/dashboard-template.html` owns the layout:
-title and mode line (which says a listener is watching comments), one chip
-per state group with counts, Needs you first as one card per `###` item
-(title, Problem, Proposed change if given, Your call highlighted, Look at links), the
-item table (ID, item, state, waiting on, PR), then the latest eight operator
-decisions. The table is in three tiers, by ID within each tier: items waiting
-on the operator first (a Needs you state, or a `waiting on` starting with
-`operator`), then items in progress or blocked, then done items. `dashboard.py`
-sorts the rows itself, so the ledger's row order does not change the dashboard.
-`## Operator decisions` is newest first, so the dashboard shows the
-first eight. It follows the viewer's light or dark setting and drops the
-Waiting on column on narrow screens. Update the template and script together
-when the standard changes.
+**Standard format.** `references/dashboard-template.html` owns the HTML layout:
+top status/mode, updated time and tracker identity, counts, urgent decisions,
+then prioritized items. Record Priority, Owner, Impact, Evidence, Next action and
+Confidence in the ledger's Status table; show explicit unknown/unassigned values
+for legacy rows rather than inventing them. Distinguish confirmed from suspected
+or inconclusive findings. Keep operator-needed work first, then active/blocked,
+then completed; within each tier sort by explicit priority before ID. Completed
+items and decision history are collapsible. Preserve evidence URLs and original
+occurrences in the ledger/item files. Every field remains reachable at narrow
+widths; use overflow scrolling rather than hiding ownership or next actions.
+Legacy tracker-local templates must be reconciled with the maintained template
+when the renderer rejects their older layout; preserve customizations and never
+delete the live tracker or start a replacement session. Use Ava theme variables with fallbacks; no OS-only dark-mode media query or
+fixed theme overrides inside Ava. Update script and template together.
 
 **Styling follows Weft.** The template's corner radii are the Weft tokens
 (`@nodaste-lab/weft` `css/weft.css`), declared in its `:root` as
@@ -347,7 +363,7 @@ worker brief), update the item and ledger, and act:
 - `IN_PROGRESS`: no operator action needed; record it, including the ADN
   playbook and verified-build mode the worker chose.
 - `PROTOTYPE_REVIEW` or `NEEDS_OPERATOR`: add the item to the ledger's
-  "Waiting on you" queue (and republish the dashboard, per
+  "Waiting on you" queue (and save the dashboard again the dashboard, per
   [Dashboard](#dashboard)) and append the queue, one line per item, to your
   next acknowledgment whenever it changed. Do not derail intake; the
   operator may answer between dumps or later. A worker waiting on prototype
@@ -467,7 +483,7 @@ the edit uncommitted in its worktree and runs
 `python3 <skill-dir>/scripts/spec_diff.py <worktree> --base <base branch> --path spec --title "<what changes>" --summary-file <plain-terms note> --reply "<how to answer>" --tracker-dir <tracker-dir> --publish`
 (one `--path` per spec directory; `--head <ref>` renders a commit instead of
 the working tree). The script needs only Python and pandoc, reads the text
-from git, and publishes one Ava page as a subdocument of this tracker's
+from git, and saves one draft Ava page as a subdocument of this tracker's
 dashboard (`parent_id` is `plan_id` from `<tracker-dir>/dashboard.json`; it
 fails when that file has no `plan_id`, and it moves and rechecks a page whose
 create ignored the parent). The page shows

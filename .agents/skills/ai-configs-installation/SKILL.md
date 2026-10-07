@@ -9,7 +9,11 @@ Repository-managed configuration uses Git as its source of truth. Shared skills 
 
 Before changing an install, identify its source, consumer, managed marker or manifest, and local modifications. Preserve unrelated configuration, system-owned plugin caches, and unmanaged skills. Back up retired managed files. A missing optional-profile skill is not installation drift. Validate a disposable install and a repeated install before refreshing the live destination.
 
-Codex prompts use `_codex/install-prompts.py` with hashes in `ai-configs-prompts.json`. Legacy hashes are migration evidence, not permission to delete edited files. Codex skills use `_codex/install-skills.py`; disabled shared paths affect Codex only. Start a fresh Codex session to inspect the new catalog.
+Codex prompts use `_codex/install-prompts.py` with hashes in `ai-configs-prompts.json`. Legacy hashes are migration evidence, not permission to delete edited files. Codex skills use `_codex/install-skills.py`; disabled shared paths affect Codex only.
+For a bounded refresh of already-managed skills use `python3 _codex/install-skills.py --only NAME...`
+or `bash install.sh --repo-skill NAME` for one repo-owned shared skill. These
+scoped modes refuse local edits and leave unrelated skills/configuration alone.
+Use the full installer for initial installs; do not bypass a provenance refusal. Start a fresh Codex session to inspect the new catalog.
 
 Use `bash install.sh --retire-skills <name>...` only for names in the deprecated list. This uses managed markers and recoverable backups. Do not remove same-name custom content by inference.
 

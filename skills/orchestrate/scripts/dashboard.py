@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render an orchestrator tracker's ledger as an HTML dashboard and publish it to Ava.
+"""Render an orchestrator tracker's ledger as an HTML dashboard and save it as an Ava draft.
 
     dashboard.py <tracker-dir> [--space SPACE_ID] [--title TITLE] [--force]
     dashboard.py <tracker-dir> --render-only
@@ -13,11 +13,12 @@ The layout comes from ../references/dashboard-template.html, or from
 <tracker-dir>/dashboard-template.html when the operator's feedback has been
 applied to this tracker's copy first.
 
-Exit codes: 0 published (or unchanged), 2 bad input or ledger, 3 Ava
-unavailable, unauthenticated, or the publish failed. On 3 the driver must tell
+Exit codes: 0 saved and verified (or unchanged), 2 bad input or ledger, 3 Ava
+unavailable, unauthenticated, or saving or verification failed. On 3 the driver must tell
 the operator; the dashboard is never skipped silently.
 """
 import argparse, hashlib, html, json, re, shutil, subprocess, sys, uuid
+from html.parser import HTMLParser
 from datetime import datetime
 from pathlib import Path
 
@@ -103,7 +104,10 @@ def tier_of(row):
 
 
 def ordered(rows):
-    return sorted(rows, key=lambda r: (tier_of(r), natural(r.get("id", ""))))
+    def priority(row):
+        value = row.get("priority", "").upper()
+        return {"P0": 0, "CRITICAL": 0, "P1": 1, "HIGH": 1, "P2": 2, "NORMAL": 2, "P3": 3, "LOW": 3}.get(value, 4)
+    return sorted(rows, key=lambda r: (tier_of(r), priority(r), natural(r.get("id", ""))))
 
 
 # ---- rendering ------------------------------------------------------------
@@ -185,6 +189,8 @@ def inline(s):
 
 
 def render(text, title, template, updated):
+    if "{{completed}}" not in template:
+        raise Fail(2, "dashboard template predates current/history layout; preserve local customizations and update it from the maintained HTML template")
     mode = header(text, "Mode") or "UNKNOWN"
     rows = ordered(issue_rows(text))
     waiting = asks(section(text, "Waiting on you"))
@@ -198,24 +204,28 @@ def render(text, title, template, updated):
         f'<span class="chip {c}">{html.escape(l)} · {counts.get(l, 0)}</span>' for c, l, _ in STATE_GROUPS)
     needs = "".join(ask_card(t, f) for t, f in waiting) or '<p class="empty">Nothing needs you right now.</p>'
 
-    trs = []
+    trs, completed = [], []
     for r in rows:
         cls, _ = group_of(r.get("state", ""))
         pr = r.get("pr", "")
-        trs.append(
-            f'<tr class="{cls}"><td class="id">{html.escape(r.get("id", ""))}</td>'
+        (completed if cls == "done" else trs).append(
+            f'<tr class="{cls}"><td class="id">{html.escape(r.get("id", ""))}<div class="sub">{html.escape(r.get("priority") or "Unprioritized")}</div></td>'
             f'<td><div class="t">{inline(r.get("title", ""))}</div>'
             f'<div class="sub">{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
             f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>'
             f'<td>{inline(r.get("waiting on", ""))}</td>'
-            f'<td class="pr">{pr_cell(pr)}</td></tr>')
+            f'<td class="pr">{pr_cell(pr)}</td>'
+            + ''.join(f'<td>{inline(r.get(key) or fallback)}</td>' for key, fallback in [
+                ("owner", "Unassigned"), ("impact", "Not recorded"),
+                ("confidence", "Unclassified"), ("evidence", "Not recorded"), ("next action", "Not recorded")])
+            + '</tr>')
 
-    meta = (f"Mode: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
+    meta = (f"Tracker: {html.escape(header(text, 'Tracker') or title)} · Status: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
             "document and acknowledges each one in its thread within about 30 seconds")
     out = template
     for key, val in {
         "title": html.escape(title), "meta": meta, "chips": chips, "needs": needs,
-        "issues": "".join(trs), "decisions": "".join(f"<li>{inline(d)}</li>" for d in decisions),
+        "issues": "".join(trs), "completed": "".join(completed), "decisions": "".join(f"<li>{inline(d)}</li>" for d in decisions),
     }.items():
         out = out.replace("{{" + key + "}}", val)
     return out
@@ -239,7 +249,7 @@ def ava(*args, data=None):
 def preflight():
     if not shutil.which("ava"):
         raise Fail(3, "the `ava` CLI is not on PATH. Report this to the operator: install it with the "
-                      "bootstrap command from Ava Settings. The dashboard was NOT published.")
+                      "bootstrap command from Ava Settings. The dashboard was NOT saved and verified.")
     p = subprocess.run(["ava", "auth", "status", "--json"], capture_output=True, text=True)
     try:
         status = json.loads(p.stdout)
@@ -248,7 +258,7 @@ def preflight():
     if p.returncode != 0 or not status.get("registered"):
         raise Fail(3, "the `ava` CLI is not authenticated "
                       f"({(p.stderr or p.stdout).strip()[:200] or 'not registered'}). Report this to the operator: "
-                      "run `ava auth renew` or enroll with an enrollment code. The dashboard was NOT published.")
+                      "run `ava auth renew` or enroll with an enrollment code. The dashboard was NOT saved and verified.")
 
 
 def pick(resp, *keys):
@@ -323,6 +333,41 @@ def place(space, plan_id, folder):
         raise Fail(3, f"dashboard {plan_id} is not under folder {folder} after the move")
 
 
+class VisibleHTML(HTMLParser):
+    def __init__(self, source):
+        super().__init__()
+        self.skip = 0
+        self.parts = []
+        self.links = []
+        self.feed(source)
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("style", "script", "title"):
+            self.skip += 1
+        if tag == "a":
+            self.links.extend(v for k, v in attrs if k == "href")
+
+    def handle_endtag(self, tag):
+        if tag in ("style", "script", "title"):
+            self.skip = max(0, self.skip - 1)
+
+    def handle_data(self, data):
+        if not self.skip:
+            self.parts.extend(data.split())
+
+
+def verify_html(source, saved, rendered, status, revision):
+    if saved.get("source") != source or status.get("source_format") != "html":
+        raise Fail(3, "dashboard source/HTML format did not verify")
+    if any(revision_of(x) != revision for x in (saved, rendered, status)):
+        raise Fail(3, "dashboard readback revisions differ; not verified")
+    if rendered.get("warnings") != []:
+        raise Fail(3, "dashboard sanitizer warnings need review; not marking it verified")
+    intended, actual = VisibleHTML(source), VisibleHTML(rendered.get("html", ""))
+    if not actual.parts or intended.parts != actual.parts or intended.links != actual.links:
+        raise Fail(3, "dashboard rendered content or evidence links differ; not verified")
+
+
 def publish(source, unstamped_digest, title, space, state_path, ledger_path, ledger, force, folder_path):
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     plan_id = state.get("plan_id")
@@ -351,14 +396,52 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
         published = pending["source"]
     if published != source:
         cur = ava("document", "status", plan_id, "--space", space)
+        if cur.get("source_format") != "html":
+            raise Fail(3, "dashboard is not HTML; preserve it and arrange an authorized migration")
         rev = revision_of(cur)
-        r = ava("document", "edit", plan_id, "--space", space, "--idempotency-key", f"orchestrate-dashboard-{rev}-{sha}",
-                "--expected-revision", rev, data={"source": source, "title": title})
-        state.update(space_id=space, plan_id=plan_id, revision_id=revision_of(r))
+        current_source = ava("document", "plan-source", plan_id, "--space", space)
+        if revision_of(current_source) != rev:
+            raise Fail(3, "dashboard changed during read; reread before editing")
+        pending = state.get("pending_edit")
+        if pending:
+            if current_source.get("source") == pending["source"] and rev != pending["base_revision"]:
+                # A lost reply/readback can leave our exact intended source committed.
+                state.update(revision_id=rev, source_digest=digest(pending["source"]))
+            elif rev == pending["base_revision"] and digest(current_source.get("source", "")) == pending["base_digest"]:
+                r = ava("document", "edit", plan_id, "--space", space, "--idempotency-key", pending["key"],
+                        "--expected-revision", pending["base_revision"],
+                        data={"source": pending["source"], "title": pending["title"]})
+                rev = revision_of(r)
+                current_source = {"source": pending["source"], "revision_id": rev}
+                state.update(revision_id=rev, source_digest=digest(pending["source"]))
+            else:
+                raise Fail(3, "pending dashboard edit conflicts with current source; reconcile before editing")
+            state.pop("pending_edit")
+            state_path.write_text(json.dumps(state, indent=2) + "\n")
+        if state.get("source_digest") and digest(current_source.get("source", "")) != state["source_digest"]:
+            raise Fail(3, "dashboard source changed outside this writer; reconcile before editing")
+        if current_source.get("source") != source:
+            pending = {"base_revision": rev, "base_digest": digest(current_source.get("source", "")),
+                       "source": source, "title": title, "key": f"orchestrate-dashboard-{rev}-{sha}"}
+            state["pending_edit"] = pending
+            state_path.write_text(json.dumps(state, indent=2) + "\n")
+            r = ava("document", "edit", plan_id, "--space", space, "--idempotency-key", pending["key"],
+                    "--expected-revision", rev, data={"source": source, "title": title})
+            state.update(space_id=space, plan_id=plan_id, revision_id=revision_of(r), source_digest=digest(source))
+            state.pop("pending_edit")
+        else:
+            state["revision_id"] = rev
         state.setdefault("web_url", None)
+        state_path.write_text(json.dumps(state, indent=2) + "\n")
     got = ava("document", "plan-source", plan_id, "--space", space)
     if got.get("source") != source:
-        raise Fail(3, "published source does not match the rendered dashboard; not marking it published")
+        raise Fail(3, "saved source does not match the rendered dashboard; not marking it verified")
+    status = ava("document", "status", plan_id, "--space", space)
+    rendered = ava("document", "render", plan_id, "--space", space)
+    verify_html(source, got, rendered, status, state["revision_id"])
+    state["source_digest"] = digest(source)
+    state["warnings"] = rendered.get("warnings", [])
+    state["visual_verification"] = "pending native CUA; agent must record actual review"
     if not state.get("web_url"):
         state["web_url"] = ava("document", "get", plan_id, "--space", space).get("web_url")
     place(space, plan_id, folder)
@@ -370,7 +453,7 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
                          "Dashboard folder", folder)
     if updated != ledger:
         ledger_path.write_text(updated)
-    print(f"published: {state['web_url']} (revision {state['revision_id']})")
+    print(f"saved draft: {state['web_url']} (revision {state['revision_id']})")
 
 
 def main():
@@ -381,7 +464,7 @@ def main():
                     help=f"folder titles from the Space root, joined by '/'; default: Coding Work. "
                          f"When the ledger's Mode is CONCLUDED the dashboard goes to {ARCHIVE}/<folder path>")
     ap.add_argument("--title", help="document title; default: the ledger's `# ` heading (the tracker title)")
-    ap.add_argument("--force", action="store_true", help="republish even when the ledger content is unchanged")
+    ap.add_argument("--force", action="store_true", help="save and verify even when the ledger content is unchanged")
     ap.add_argument("--render-only", action="store_true", help="write dashboard.html and skip Ava")
     args = ap.parse_args()
 
@@ -406,7 +489,7 @@ def main():
     state = json.loads(state_path.read_text()) if state_path.exists() else {}
     if args.space and state.get("space_id") and args.space != state["space_id"]:
         raise Fail(2, f"this tracker's dashboard already lives in {state['space_id']}; "
-                      "remove dashboard.json to publish a new one elsewhere")
+                      "use an explicitly authorized migration or a separate tracker for another Space")
     ledger_space = header(ledger, "Ava space")
     space = args.space or state.get("space_id") or (ledger_space if ledger_space.startswith("spc_") else DEFAULT_SPACE)
     folder_path = tuple(p.strip() for p in args.folder_path.split("/") if p.strip())
