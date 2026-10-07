@@ -25,7 +25,7 @@ Default target: <checkout path> @ <base branch>; labs: <lab system>, capacity <N
 Heartbeat: <id or none>
 Ava space: <spc_... or none>
 Dashboard: <web_url or none>
-Dashboard folder: <folder id of Coding Work, or none>
+Dashboard folder: <folder id of Coding Work (Archive / Coding Work once concluded), or none>
 Listener: <service name, pid, log path, or none>
 Merge rule: the orchestrator merges each PR at its validated head once every gate passes and every operator decision on the item is answered, then releases its lab, removes its demos, and archives its worktree.
 

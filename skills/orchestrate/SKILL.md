@@ -109,21 +109,23 @@ document, moves it into its folder, then writes `Ava space:`, `Dashboard:` and
 in place and read its source back to confirm it matches. A run with no ledger
 change prints `unchanged`.
 
-**Where it lives.** Every tracker is a document directly inside the root
-folder "Coding Work" of its Space. That is the operator's standard, and the
-default Space is Development (`spc_16ef6d824e21402b9a42560b13436034`). The
-script finds the folder in this order:
+**Where it lives.** The Development Space
+(`spc_16ef6d824e21402b9a42560b13436034`) holds development tracking, and it
+is the default. Every open tracker is a document directly inside its root
+folder "Coding Work". A concluded tracker's dashboard moves to
+`Archive / Coding Work`. The script picks the path from the ledger's `Mode:`
+and finds the folder in this order:
 
 1. the folder id in `dashboard.json` or the ledger's `Dashboard folder:` line,
-   if it still resolves to a folder titled "Coding Work";
-2. otherwise "Coding Work" at the Space root, by title, through
-   `ava document tree`;
-3. when it is missing, it is created at the root. Reruns reuse what they
-   find, so a second "Coding Work" is never created.
+   if it is still a folder at that exact path;
+2. otherwise the path by title through `ava document tree`, from the root;
+3. a missing level is created under the right parent. Reruns reuse what they
+   find, so no folder is created twice.
 
 Each run also confirms the document is in the folder and moves it back if
-not. To use another Space, pass `--space`; the same folder is resolved or
-created there. `--folder-path` overrides the path and exists for tests.
+not. To use another Space, pass `--space`; the same folders are resolved or
+created there. `--folder-path` overrides `Coding Work` (a concluded tracker
+then goes to `Archive/<that path>`) and exists for tests.
 
 **Start.** Run the script and confirm the ledger has the `Dashboard:` line.
 Then start the listener as a persistent background service named
@@ -576,7 +578,9 @@ remains. Then:
    any schedule this session created, and record that in the ledger. Then, as
    the last ledger edit, set the mode to `CONCLUDED`, clear
    `## Waiting on you`, and run `scripts/dashboard.py` so the dashboard ends
-   on its final state. The document stays in Ava as the record.
+   on its final state. Because the mode is `CONCLUDED`, that run moves the
+   dashboard into `Archive / Coding Work`, creating the folders if needed;
+   confirm the move in its output. The document stays in Ava as the record.
 4. Report the orchestrator's own workspace as ready to archive. Archive it
    only if the operator asks.
 

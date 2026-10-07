@@ -33,6 +33,7 @@ STATE_GROUPS = [  # (css class, label, state prefixes)
 DECISIONS_SHOWN = 8
 DEFAULT_SPACE = "spc_16ef6d824e21402b9a42560b13436034"  # Development: the operator's standard Space for work trackers
 FOLDER_PATH = ("Coding Work",)  # each tracker is a document directly inside this root folder
+ARCHIVE = "Archive"  # a CONCLUDED tracker's dashboard moves to Archive/<folder path>
 
 
 class Fail(Exception):
@@ -241,17 +242,24 @@ def folders(docs, title, parent):
     return [d for d in docs if d.get("kind") == "folder" and d.get("title") == title and d.get("parent_id") == parent]
 
 
+def title_path(docs, doc_id):
+    by_id = {d["document_id"]: d for d in docs}
+    titles, doc = [], by_id.get(doc_id)
+    while doc:
+        titles.append(doc.get("title"))
+        doc = by_id.get(doc.get("parent_id"))
+    return tuple(reversed(titles))
+
+
 def resolve_folder(space, path, known_id):
     """Id of the folder at `path` (titles from the Space root), creating missing levels.
 
-    A known id wins when it still resolves to a folder titled like the leaf. Otherwise each level is
-    found by title under the previous one. Creation happens only for a level that is absent, and a
-    root folder named like the leaf is never adopted: it is reported instead of duplicated.
+    A known id wins when it is still a folder at exactly that title path. Otherwise each level is
+    found by title under the previous one, and only absent levels are created.
     """
     docs = tree(space)
-    leaf = path[-1]
-    if known_id and any(d["document_id"] == known_id and d.get("kind") == "folder" and d.get("title") == leaf
-                        and (len(path) == 1 or d.get("parent_id")) for d in docs):
+    if known_id and any(d["document_id"] == known_id and d.get("kind") == "folder" for d in docs) \
+            and title_path(docs, known_id) == path:
         return known_id
     chain, parent = [], None
     for title in path:
@@ -262,10 +270,6 @@ def resolve_folder(space, path, known_id):
         chain.append(parent)
     if len(chain) == len(path):
         return parent
-    stray = folders(docs, leaf, None) if len(path) > 1 else []
-    if stray:  # check before creating anything, so a refusal leaves the Space untouched
-        raise Fail(2, f'found a root folder "{leaf}" ({stray[0]["document_id"]}) outside "{"/".join(path[:-1])}". '
-                      "Report it to the operator; not creating a second one.")
     parent = chain[-1] if chain else None
     for title in path[len(chain):]:
         body = {"space_id": space, "title": title, "kind": "folder"}
@@ -341,7 +345,9 @@ def main():
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     ap.add_argument("tracker_dir", type=Path)
     ap.add_argument("--space", help=f"Ava Space ID (spc_...); default: dashboard.json, the ledger, then {DEFAULT_SPACE} (Development, the operator's standard)")
-    ap.add_argument("--folder-path", default="/".join(FOLDER_PATH), help="folder titles from the Space root, joined by '/'; default: Coding Work")
+    ap.add_argument("--folder-path", default="/".join(FOLDER_PATH),
+                    help=f"folder titles from the Space root, joined by '/'; default: Coding Work. "
+                         f"When the ledger's Mode is CONCLUDED the dashboard goes to {ARCHIVE}/<folder path>")
     ap.add_argument("--title", help="document title; default: the ledger's `# ` heading (the tracker title)")
     ap.add_argument("--force", action="store_true", help="republish even when the ledger content is unchanged")
     ap.add_argument("--render-only", action="store_true", help="write dashboard.html and skip Ava")
@@ -374,6 +380,8 @@ def main():
     folder_path = tuple(p.strip() for p in args.folder_path.split("/") if p.strip())
     if not folder_path:
         raise Fail(2, "--folder-path is empty")
+    if header(ledger, "Mode").upper().startswith("CONCLUDED") and folder_path[0] != ARCHIVE:
+        folder_path = (ARCHIVE,) + folder_path
     publish(source, digest(unstamped), title, space, state_path, ledger_path, ledger, args.force, folder_path)
 
 
