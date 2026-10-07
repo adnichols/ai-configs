@@ -32,8 +32,8 @@ Enumerate what this session owns before running anything:
 
 ## Step 1 — Run the script per worktree
 
-For each worktree whose PR has merged, or that the operator told you to
-abandon, run `worktree-cleanup` (`skill://worktree-cleanup`):
+For each worktree whose PR has merged, or whose work is abandoned or concluded
+without a merge, run `worktree-cleanup` (`skill://worktree-cleanup`):
 
 ```sh
 python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <child-workspace-id>
@@ -41,12 +41,12 @@ python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspac
 
 Use `--path <dir>` for an unmanaged worktree. The script releases the lab
 claim, removes the demos, archives the workspace, and deletes the remote
-branch. Releasing a lab needs the lab-manager release conditions: merge plus
-the operator's agreement that the work is complete, or an explicit instruction
-to abandon. A generic cleanup request for a PR still under review does not
-meet them, and the script refuses it. Report that PR and its preserved lab
-claim instead. Pass `--abandon <reason>` only on an explicit operator
-instruction to discard the work.
+branch. Release the lab as soon as the work using it is done. Do not wait for
+the operator's agreement and do not ask for it. Keep the lab only while a PR
+using it is open or a prototype review is pending, and report that PR and its
+preserved claim. Pass `--abandon <reason>` for work concluded without a merge.
+If a claim file is lost, release your own orphaned claim through the
+lab-manager's agent release path (see the ccore2 lab-manager skill).
 
 Act on the exit code as `worktree-cleanup` documents it. Exit 4 from inside
 this session's own worktree means the archive is deferred: finish Step 2,

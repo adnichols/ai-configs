@@ -79,10 +79,16 @@ and fails when that file has no `plan_id`; do the same for any other page.
 # Authorization
 - Claim a lab, publish clickable prototypes on demos.keramos.tech, push the
   branch, open and update one PR for this item, and post PR evidence.
-- Do not merge, release the lab claim, or change anything outside this item.
+- Do not merge or change anything outside this item.
   Never deploy to production, and never ask whether to; deploy and validate
   only in your lab. Never run `worktree-cleanup`, `lab release`, or
-  `gh pr merge --delete-branch`; the orchestrator does cleanup after the merge.
+  `gh pr merge --delete-branch`; the orchestrator releases your lab claim as
+  soon as the PR merges or you report the item concluded (`NOT_REPRODUCED`,
+  `EXPECTED_BEHAVIOR`), with no operator step. Keep the claim while your PR is
+  open or a prototype review is pending. Never ask the operator to release a
+  lab or resolve a stale claim from your own work. If your claim file is lost,
+  release your own orphaned claim through the lab-manager's agent release path
+  (see the ccore2 lab-manager skill).
   Write `demos.json` for every prototype you publish, as `verified-build`
   describes. If the right fix expands scope, stop and ask.
 - Do not change your model configuration.

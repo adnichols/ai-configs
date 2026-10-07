@@ -325,8 +325,10 @@ For each `READY` item, launch its worker without waiting for the operator:
 5. Record workspace ID, worktree path, branch, and agent ID in the item file
    and ledger, and set the item to `HANDED_OFF`.
 
-Each worker claims its own lab through verified-build, and keeps it while
-waiting for prototype review. Cap concurrent workers per lab system at the
+Each worker claims its own lab through verified-build, and keeps it while its
+PR is open or a prototype review is pending. The orchestrator releases it as
+soon as the work is done (see [Cleanup per item](#cleanup-per-item)); it never
+asks the operator to. Cap concurrent workers per lab system at the
 capacity recorded in the ledger. When capacity is unknown and a worker
 reports that no lab is available, record the observed capacity, stop
 launching for that lab system, and queue the remaining `READY` items as
@@ -526,24 +528,32 @@ To merge:
 Once an item's PR is merged:
 
 1. Run the script from the orchestrator's own checkout, against the worker's
-   workspace. The merge is the agreement that the work is complete:
+   workspace, as soon as the PR is merged. The merge is the completion of the
+   work; no operator agreement is needed or requested:
    `python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>`.
    It releases the lab claim, removes the demos, archives the workspace
    (which also archives the worker's agent), and deletes the remote branch.
    Do not do any of those by hand, and do not ask the worker to.
 2. Act on the exit code. Exit 2 or 3: read `error`, fix the cause (a worker
    that is still running, an unreachable lab manager, uncommitted work) or
-   take it to the operator, then run the same command again. Exit 4: run
-   each `remaining[].command` that names the orchestrator, and report the
-   operator's items. Never use `--abandon` without the operator's explicit
-   instruction to discard the work.
+   take it to the operator, then run the same command again. Never take a
+   lab release to the operator. Exit 4: run each `remaining[].command` that
+   names the orchestrator, and report the operator's items. Use `--abandon`
+   only for work concluded without a merge, never to get past an open PR or a
+   pending prototype review.
 3. Set the item to `CLEANED` only when the script reports exit 0, or exit 4
    with nothing owned by you. Record the lab release, demo removal, and
    archive results from its report.
 
-An item the operator closes without merging (duplicate, won't fix,
-deferred) gets the same cleanup. Closing its PR or deleting its branch
-requires the operator's explicit instruction.
+An item concluded without a merge gets the same cleanup, with `--abandon
+<reason>`, as soon as the worker reports `NOT_REPRODUCED` or
+`EXPECTED_BEHAVIOR`, or the item is closed (duplicate, won't fix, deferred,
+superseded). Do not hold the lab for the operator's answer. Keep the lab only
+while a PR using it is open or a prototype review is pending, or when the
+operator asks to keep it. Closing its PR or deleting its branch requires the
+operator's explicit instruction. A lost claim file is the orchestrator's to
+resolve: release the orphaned claim through the lab-manager's agent release
+path (see the ccore2 lab-manager skill) and never queue it for the operator.
 
 ### Status board
 
