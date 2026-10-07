@@ -50,9 +50,9 @@ Listener: <service name, pid, log path, or none>
 Merge rule: the orchestrator merges each PR at its validated head once every gate passes and every operator decision on the item is answered, then releases its lab, removes its demos, and archives its worktree.
 
 ## Status
-| ID | Kind | Title | Repo | State | Workspace / agent | PR | Waiting on | Priority | Owner | Impact | Evidence | Next action | Confidence |
-|----|------|-------|------|-------|-------------------|----|------------|----------|-------|--------|----------|-------------|------------|
-| WI-01 | BUG | ... | ava | HANDED_OFF | ws_... / ag_... | — | worker | P1 | ag_... | Customer effect | https://evidence.example/item | Verify reproduction | suspected |
+| ID | Kind | Title | Repo | State | Workspace / agent | PR | Waiting on | Priority |
+|----|------|-------|------|-------|-------------------|----|------------|----------|
+| WI-01 | BUG | ... | ava | HANDED_OFF | ws_... / ag_... | — | worker | P1 |
 
 ## Waiting on you
 ### WI-04: nav "+" cannot create folders → add an inline folder name field

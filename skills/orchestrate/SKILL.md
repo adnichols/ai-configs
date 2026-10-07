@@ -232,14 +232,14 @@ change to the dashboard's content or format, do both in the same step:
 
 **Standard format.** `references/dashboard-template.html` owns the HTML layout:
 top status/mode, updated time and tracker identity, counts, urgent decisions,
-then prioritized items. Record Priority, Owner, Impact, Evidence, Next action and
-Confidence in the ledger's Status table; show explicit unknown/unassigned values
-for legacy rows rather than inventing them. Distinguish confirmed from suspected
+then prioritized items. Record Priority in the ledger's Status table; the
+dashboard shows ID and priority, item, state, waiting on, and PR. Ledger columns
+it does not render are ignored. Distinguish confirmed from suspected
 or inconclusive findings. Keep operator-needed work first, then active/blocked,
 then completed; within each tier sort by explicit priority before ID. Completed
 items and decision history are collapsible. Preserve evidence URLs and original
 occurrences in the ledger/item files. Every field remains reachable at narrow
-widths; use overflow scrolling rather than hiding ownership or next actions.
+widths; use overflow scrolling rather than hiding columns.
 Legacy tracker-local templates must be reconciled with the maintained template
 when the renderer rejects their older layout; preserve customizations and never
 delete the live tracker or start a replacement session. Use Ava theme variables with fallbacks; no OS-only dark-mode media query or

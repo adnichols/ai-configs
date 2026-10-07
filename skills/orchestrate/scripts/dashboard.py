@@ -214,11 +214,7 @@ def render(text, title, template, updated):
             f'<div class="sub">{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
             f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>'
             f'<td>{inline(r.get("waiting on", ""))}</td>'
-            f'<td class="pr">{pr_cell(pr)}</td>'
-            + ''.join(f'<td>{inline(r.get(key) or fallback)}</td>' for key, fallback in [
-                ("owner", "Unassigned"), ("impact", "Not recorded"),
-                ("confidence", "Unclassified"), ("evidence", "Not recorded"), ("next action", "Not recorded")])
-            + '</tr>')
+            f'<td class="pr">{pr_cell(pr)}</td></tr>')
 
     meta = (f"Tracker: {html.escape(header(text, 'Tracker') or title)} · Status: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
             "document and acknowledges each one in its thread within about 30 seconds")

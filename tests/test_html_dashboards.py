@@ -36,8 +36,11 @@ Mode: INTAKE
         out = dashboard.render(ledger, 'Demo', dashboard.TEMPLATE.read_text(), '2026-10-07')
         self.assertLess(out.index('WI-2'), out.index('WI-1'))
         self.assertLess(out.index('Completed items'), out.index('WI-3'))
-        for text in ['test-run', '2026-10-07', 'Unassigned', 'Unclassified', 'Cannot sign in', 'Recover', 'https://example.test/b', 'Decision history']:
+        for text in ['test-run', '2026-10-07', 'Decision history']:
             self.assertIn(text, out)
+        for removed in ['<th>Owner</th>', '<th>Impact</th>', '<th>Confidence</th>', '<th>Evidence</th>', '<th>Next action</th>',
+                        'Unassigned', 'Not recorded', 'Unclassified', 'Cannot sign in', 'Recover', 'https://example.test/b']:
+            self.assertNotIn(removed, out)
         self.assertNotIn('{{', out)
         self.assertNotIn('prefers-color-scheme', out)
         self.assertNotIn('display:none', out)
