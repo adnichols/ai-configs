@@ -25,7 +25,7 @@ bounded validation rather than silently starting the full overnight run.
 Read the current repository's `AGENTS.md` and these installed skills:
 
 - `lab-manager` and `verify-ccore` from the CCore repository.
-- `ava`, `paseo`, `computer-use`, and `cua-driver`, including the host OS and
+- `ava` and `ava-design-system` for the HTML inventory; `paseo`, `computer-use`, and `cua-driver`, including the host OS and
   browser references. CUA is required for the explorers' UI actions.
 - `adn-mode`, its performance investigation playbook, `zero-tech-debt`, and
   the measurement guidance from `principle-explain-the-number`.
@@ -161,11 +161,13 @@ returned IDs and verified receipts immediately. Never persist secret inputs.
 5. Resolve the inventory's Development Space by `ava space list --json` on
    the user's existing Ava installation. Preserve this inventory context
    separately from every lab `AVA_HOME`, origin and Organization. Create a
-   text document titled `Performance exploration inventory - <run-id>` using
-   `ava document create`, save its initial Markdown with `replace-body`, and
-   verify exact body readback with `document get --live --json`, requiring
-   `unsnapshotted: false`. Use stable separate idempotency keys for each
-   logical mutation. Copy `web_url` verbatim. Draft standing is sufficient.
+   real HTML document titled `Performance exploration inventory - <run-id>`.
+   Load `ava` and `ava-design-system`, then follow
+   [the HTML dashboard contract](references/html-dashboard.md). Register a JSON
+   payload with `source_format: "html"` through `ava document register`; never
+   put HTML in a text document or use `document create` / `replace-body` for
+   this dashboard. Preserve the local HTML source, exact source/render readbacks,
+   warnings, revision and returned `web_url`. Draft standing is sufficient.
    This new document's body is exclusively owned by the run's orchestrator.
    State that ownership in its opening note and direct contributions to
    comments. Do not take over a preexisting collaboratively edited document.
@@ -238,16 +240,16 @@ above comparable isolated findings; severe data loss or access failures still
 take precedence. Keep individual reproductions and original evidence intact.
 Unproven common causes remain hypotheses and standalone issues remain standalone.
 
-Use current revision controls where supported. `replace-body` has no
-expected-revision guard in the current CLI, so use it only on the newly created,
-exclusively run-owned body. Compare its current body with the last verified
-body before every replacement and verify exact readback afterward. If another
-writer appears, stop replacements and preserve both versions plus pending
-updates locally. Resume only with an established single writer or a supported
-atomic mutation. Read–merge–replace cannot guarantee safety against simultaneous
-edits, and readback cannot detect an overwritten intervening edit. If Ava is
-unavailable, continue independent lab work and retry boundedly. Never report
-inventory synchronization as complete until its final readback succeeds.
+Maintain the same HTML dashboard using `document edit` with the exact current
+`--expected-revision` and one stable idempotency key per identical mutation.
+Keep the orchestrator as sole body writer; comments are contributions, not
+permission to overwrite another writer. On conflict or unexpected source drift,
+preserve the current and pending sources, reread and reconcile before retrying.
+Do not force a replacement or create another dashboard to bypass the conflict.
+Follow the HTML dashboard contract for source/render/warnings and native visual
+verification. If Ava is unavailable, preserve pending HTML locally, continue
+independent lab work and retry boundedly. Never report synchronization or visual
+verification as complete without the corresponding evidence.
 
 ## Finish only with accounted-for coverage
 
