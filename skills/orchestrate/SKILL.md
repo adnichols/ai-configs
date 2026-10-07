@@ -159,7 +159,7 @@ relay failed. The dashboard header tells the operator a listener is watching.
 
 **Every ledger change.** Run the script in the same step as the ledger edit.
 Whenever you ask the operator for something in chat (a product decision, a
-prototype review, an approval), add the same ask to `## Waiting on you` in
+prototype review, a spec or ADR diff approval), add the same ask to `## Waiting on you` in
 that step and remove it when it is answered. A card's `Problem:` states why
 this is a product decision, and its `Decide:` carries the oracle's
 recommendation when there is one. The card format is unchanged. The ask in
@@ -437,7 +437,7 @@ evidence table, and the PR carries the interaction table that passes the
 gate below. Open at least one of its screenshots or videos.
 
 If the receipt passes and every operator decision on the item is answered
-(prototype approval, spec or ADR diff approval, product and scope choices),
+(prototype approval, spec or ADR diff approval, product behavior choices),
 merge it per [Merge authority](#merge-authority) without asking. Do not send
 the operator an "approve?" packet: the worker and the gates have the
 information, and asking the operator to confirm a passing PR only asks them
@@ -455,10 +455,11 @@ Risks / not covered: <list or none>
 
 Ask the operator only for what the gates cannot settle and the oracle cannot
 answer: an open product behavior decision, a spec or ADR diff that changes
-product behavior, a prototype review, a scope change, a known gap the worker
-could not verify (an untestable platform, a step that needs the operator's
-hands), or an irreversible action reserved to the operator. Send technical,
-process, and risk questions to the oracle first
+product behavior, a prototype review, a scope change that alters product
+behavior, or an irreversible action reserved to the operator. A known gap the
+worker could not verify, a step that needs hands, and risk calls on internal
+infrastructure go to the oracle first or to the driver's own tools. Send
+technical and process questions to the oracle first
 ([Asking the operator](#asking-the-operator)). Put the ask in
 `## Waiting on you` as usual. Once it is answered and the gates pass, merge.
 
