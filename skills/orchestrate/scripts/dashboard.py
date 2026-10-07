@@ -357,7 +357,7 @@ def verify_html(source, saved, rendered, status, revision):
         raise Fail(3, "dashboard source/HTML format did not verify")
     if any(revision_of(x) != revision for x in (saved, rendered, status)):
         raise Fail(3, "dashboard readback revisions differ; not verified")
-    if rendered.get("warnings") != []:
+    if (rendered.get("warnings") or []) != []:
         raise Fail(3, "dashboard sanitizer warnings need review; not marking it verified")
     intended, actual = VisibleHTML(source), VisibleHTML(rendered.get("html", ""))
     if not actual.parts or intended.parts != actual.parts or intended.links != actual.links:
