@@ -33,3 +33,9 @@ stop. Do not fall through to `orca`, `orca-dev`, or `orca-ide`.
 ## Browser work
 
 - Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
+- On Linux, `browser_prepare` with `strategy: existing_profile` brings the target window to the foreground and injects global input (XTest) to open the remote-debugging setup page. It does this on a reconnect that then fails, and its schema has no background-only option. Never use it in a background-only or unattended workflow.
+- Prefer an isolated driver-owned profile (`isolated_new` or `isolated_named`) or the native background action ladder.
+- Use existing-profile attachment only when the user has explicitly authorized foreground takeover.
+- Never retry a failed `browser_prepare` on the user's desktop.
+- `route: global_input` on a native click is a transport label, not proof of foreground. Take a fresh state and screenshot to verify the effect. An unverifiable effect is not success.
+- Typed browser grants can disappear about 5 minutes after preparation (cause unconfirmed, possibly session idle cleanup). Re-check the binding before each typed action. Do not recover by rerunning `browser_prepare`.
