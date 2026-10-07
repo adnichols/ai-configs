@@ -13,6 +13,8 @@ Supply concrete values, not an instruction to rediscover the run:
 - Inventory URL for context only; agents return findings to its sole writer.
 - Allowed lab mutations, prohibited global mutations, and current concurrency.
 - Output shape below, no-fix boundary, stopping condition and blocker channel.
+- The skill's recoverable-obstacle policy, permitted recovery actions, shared
+  setup owner and requirement to continue independent work after reporting.
 
 Agents may read relevant source/specs and collect runtime evidence. Allowed
 writes are their own evidence and assigned disposable lab records. No product,
@@ -42,8 +44,11 @@ surfaces are explicitly unavailable; never invent a UI for a CLI-only action.
 Inspect screenshots in context as well as semantic state.
 
 After every feature, save `coverage.md` and send new findings to the orchestrator.
-Continue to the next independent feature when one is blocked. Stop when every
-reachable operation and its applicable variants has a result, and return the
+Try bounded recovery within your lab assignment before marking a path blocked.
+Preserve the original failure and workaround separately. Send shared setup
+recovery to the orchestrator and continue independent features while it works.
+Stop when every reachable operation and its applicable variants has a result,
+and return the
 unresolved coverage rows. Continue if the orchestrator supplies missing rows.
 
 ### Fuzzy
@@ -179,7 +184,10 @@ steps/evidence, expected behavior and exact timing boundary. It must:
    work, broad reads, repeated subscriptions, serialized requests, redundant
    materialization and unclear responsibility only where evidence supports them.
    Name related findings and supporting evidence, without merging them itself.
-6. Return `reproduced`, `intermittent`, `not-reproduced`, or `blocked`, confidence,
+6. Attempt permitted recovery from reproduction obstacles; escalate shared lab
+   setup to the orchestrator and continue independent source/evidence analysis.
+   Include attempted remedies and their results for any remaining blocker.
+7. Return `reproduced`, `intermittent`, `not-reproduced`, or `blocked`, confidence,
    findings file and evidence paths. Stop without implementing anything.
 
 ## Inventory and coverage shape
@@ -229,7 +237,9 @@ fuzzy frontier meets its saturation condition, every distinct finding has an
 investigation disposition, and the final inventory is read back successfully.
 Give explicit exceptions for provider credentials, role restrictions, exhausted
 one-shot fixtures, unsupported surfaces and unmeasurable timing. Say coverage
-is partial when these prevent the claimed full run.
+is partial when these prevent the claimed full run. Reporting a blocker alone
+is not exhaustion: attempt or rule out plausible permitted remedies with
+evidence and finish independent work before ending for that blocker.
 
 Keep the orchestrator active through delegated work. Use notifications and
 bounded waits; no new cron, heartbeat or scheduler is required. If interrupted,

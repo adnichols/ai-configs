@@ -40,6 +40,40 @@ Follow its Groma discovery and Backlog guidance. A missing tracking CLI is a
 reported setup limitation, not permission to hand-edit its records. No product
 source changes are needed for this workflow.
 
+## Work through recoverable obstacles
+
+A problem report is not a stopping condition. The orchestrator, explorers and
+investigators must make a reasonable effort to recover within the claimed lab
+and their assigned authority, then continue. Preserve the original failure and
+its evidence before trying a workaround; successful recovery does not erase a
+finding or turn the original path into a pass.
+
+Diagnose the immediate cause, inspect current help and operating contracts, and
+try bounded, evidence-driven recovery. Examples include locating an installed
+CLI outside PATH, correcting invocation or lab context, renewing an assigned
+fixture login through supported access, reconnecting an owned CUA session,
+retrying a transient failure, and using another supported product path. Use
+reversible lab setup or disposable test-data changes when permitted. Keep
+scratch helpers in the run's private directory; make no permanent code changes,
+product patches, commits, or implementation PRs.
+
+Stay inside lab claims, access controls, fixture ownership and browser rules.
+Do not obtain privileged internal credentials, weaken permission checks, write
+to production beyond the authorized inventory, or reset another agent's state.
+Explorers and investigators recover
+within their own assignments; send shared setup and lifecycle recovery to the
+orchestrator, which must attempt permitted remedies rather than merely relay
+the blocker. Coordinate changes that affect another agent. Preserve the same
+build and corpus for comparable measurements; label changed conditions and
+retain the original reproduction.
+
+If recovery fails, record the attempts, results, remaining constraint and next
+feasible action. Continue every independent coverage or investigation path and
+revisit the blocked path when its prerequisite changes. End the run for a
+blocker only when no useful authorized work remains and plausible permitted
+remedies have been tried or ruled out with evidence. Do not repeat ineffective
+attempts indefinitely or wait on the user while independent work is available.
+
 ## Establish one resumable run
 
 Create a unique run ID and private evidence directory, normally
@@ -117,9 +151,11 @@ returned IDs and verified receipts immediately. Never persist secret inputs.
    Require provisioning to grant the standard fixture credentials their
    intended access, available through normal manager-owned fixture access.
    Prove the standard admin and a second permitted user reach imported data,
-   and an outsider is denied. If this contract is missing, report a setup
-   blocker; do not manually bootstrap memberships, extract the manager's
-   import agent key, or add a product/fixture patch to make the run start.
+   and an outsider is denied. If this path fails, inspect current supported
+   fixture-access and login mechanisms and attempt permitted lab recovery
+   before declaring it blocked. Do not manually bootstrap memberships, extract
+   the manager's import agent key, or add a product/fixture patch. Record any
+   remaining access gap and continue independent setup and reachable coverage.
    Reserve isolated fixtures for role, onboarding, and destructive checks and
    label their dataset separately. Leave space-free Organizations space-free.
 5. Resolve the inventory's Development Space by `ava space list --json` on
@@ -217,8 +253,10 @@ inventory synchronization as complete until its final readback succeeds.
 
 Use the run contract's exhaustion criteria. Ask explorers for missing areas
 and targeted follow-ups. Drain investigation work and perform a final causal
-grouping review. A deadline, unavailable provider, lost desktop, or failed lab
-ends with explicit incomplete coverage, never a claim that everything passed.
+grouping review. Attempt permitted recovery from unavailable providers, lost
+sessions and lab failures before ending. If a deadline or an unrecoverable
+prerequisite ends the run, report explicit incomplete coverage and recovery
+attempts, never a claim that everything passed.
 
 Write the final coverage matrix, prioritized inventory, unresolved hypotheses,
 blocked paths, same-lab reproduction instructions, and run identity to Ava.
