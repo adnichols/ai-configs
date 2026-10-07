@@ -88,7 +88,7 @@ For exploration:
 
 1. Convert the supplied product description into a short checklist of observable scenarios.
 2. Exercise every scenario in the live lab. Record `PASS`, `FAIL`, `SKIP`, or `BLOCKED`, with steps, expected state, actual state, and a screenshot.
-3. Retry failures once from a clean state. Keep the claim and review fixtures available when handing off the findings. Remove only this run's fixtures during agreed cleanup. Do not open a PR.
+3. Retry failures once from a clean state. Keep the claim and review fixtures available while handing off the findings. Once the exploration is concluded, remove only this run's fixtures and release the claim as described in Release when the work is done. Do not open a PR.
 
 ## Choose the implementation mode
 
