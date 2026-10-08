@@ -100,6 +100,14 @@ Mode: INTAKE
                 with self.assertRaises(dashboard.Fail): dashboard.publish('<p>Next</p>','next','Demo','space',state,ledger,'# Demo',True,('Coding Work',))
                 self.assertEqual(len(edits),1)
 
+    def test_inline_links_keep_trailing_punctuation_outside_href(self):
+        def a(href, text): return f'<a href="{href}" target="_blank" rel="noopener">{text}</a>'
+        u = 'https://e.test/d/abc'
+        self.assertEqual(dashboard.inline(f'see {u}, then'), f'see {a(u, u)}, then')
+        self.assertEqual(dashboard.inline(f'at {u}.'), f'at {a(u, u)}.')
+        self.assertEqual(dashboard.inline(f'[the doc]({u}) ok'), f'{a(u, "the doc")} ok')
+        self.assertEqual(dashboard.inline('run `ls -l` now'), 'run <code>ls -l</code> now')
+
 
 class ScopedInstall(unittest.TestCase):
     def test_codex_selected_repeat_and_preserve_local_edits(self):
