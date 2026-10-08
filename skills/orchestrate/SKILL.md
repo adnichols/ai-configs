@@ -335,11 +335,14 @@ soon as the bar is met.
 
 ### Handoff
 
-**Never build on a prototype branch.** NEVER base an item on a branch, or its
-commits or code, that was used to build a prototype, whether someone else's
-or ours. Implementation ALWAYS starts from a fresh branch off the base branch.
-The only exception is the operator explicitly saying to use that branch. If
-reusing it looks useful, ask the operator first. NEVER do it silently.
+**Only build on code made through this workflow.** Development on any branch
+follows this workflow: a tracker item, a worker in its own worktree with ADN
+mode routing the work and verified-build verifying it. Only code built that
+way may be the base for an item or be reused in it. A branch built some other
+way, for example a branch a handoff or design document points to, does not
+qualify: use it only as a description of what to build, and implement from
+the base branch. A branch built through this workflow, including a prototype
+built for the item, qualifies: keep building on it.
 
 For each `READY` item, launch its worker without waiting for the operator:
 
