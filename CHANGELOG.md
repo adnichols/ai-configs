@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- `orchestrate` publishing no longer fails with "Argument list too long" on large pages: `dashboard.py` `ava()` sends the JSON body on stdin (`--file -`) instead of `--data`, which covers dashboard and spec diff publishes. Spec diff pages show bare `<tag>` text in a spec (for example `/assets/<rev>/`) as written instead of dropping it as raw HTML (`spec_diff.py` renders through `raw_html_as_text.lua`, because `pandoc -f gfm-raw_html` does not stop the passthrough).
+
 - `orchestrate` spec diff pages (`spec_diff.py`) show each change as one inline diff instead of a Before and After table. A similar changed line is one line with `<del>` and `<ins>` words, unrelated lines are removed and added rows, and the "change in place" view is collapsed for modified files. `SKILL.md` describes the new page.
 
 - `computer-use` (shared and Codex) gains cua-driver browser rules. On Linux, `browser_prepare` with `existing_profile` foregrounds the target window and injects global input, so agents must not use it in background-only or unattended work, must prefer `isolated_new` or `isolated_named` or the native background action ladder, and must never retry a failed `browser_prepare` on the user's desktop. `route: global_input` on a native click is a transport label, verified with a fresh state and screenshot. Typed grants can end about 5 minutes after preparation (cause unconfirmed), so agents re-check binding before typed actions instead of rerunning `browser_prepare`.

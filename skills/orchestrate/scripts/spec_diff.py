@@ -183,8 +183,11 @@ class Links:
         return IMG_TAG.sub(image, A_TAG.sub(anchor, fragment))
 
 
+RAW_HTML_FILTER = Path(__file__).with_name("raw_html_as_text.lua")
+
+
 def pandoc(markdown: str) -> str:
-    p = subprocess.run(["pandoc", "-f", "gfm", "-t", "html", "--wrap=none"], input=markdown, capture_output=True, text=True)
+    p = subprocess.run(["pandoc", "-f", "gfm", "-t", "html", "--wrap=none", "--lua-filter", str(RAW_HTML_FILTER)], input=markdown, capture_output=True, text=True)
     if p.returncode:
         raise Fail(3, f"pandoc failed: {p.stderr.strip()}")
     return p.stdout
