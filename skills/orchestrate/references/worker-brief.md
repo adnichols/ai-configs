@@ -92,9 +92,10 @@ and fails when that file has no `plan_id`; do the same for any other page.
   Write `demos.json` for every prototype you publish, as `verified-build`
   describes. If the right fix expands scope, stop and ask.
 - Do not change your model configuration.
-- If a source document points to a branch someone else built and this brief
-  does not tell you to use it, do not base on it or port from it; stop and
-  ask. The branch this brief puts you on is yours to build on.
+- Only build on or reuse code made through this workflow: the branch this
+  brief puts you on, or another item's workflow branch the brief names. Do not
+  base on or port from any other branch, such as one a source document points
+  to.
 
 # Reporting
 The orchestrator relays between you and the operator. It is notified each

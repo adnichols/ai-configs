@@ -335,14 +335,14 @@ soon as the bar is met.
 
 ### Handoff
 
-**A branch named only in a source document: ask before using it.** When the
-operator hands you a document (a handoff, design or spec) and that document
-points to a branch someone else built, do not base the item on that branch
-or reuse its commits, code or spec edits until the operator says to. Ask
-once, at intake. This applies only to a branch you learned about from a
-document. A worktree or branch the operator started you in, or a prototype
-branch built for the item, is the item's branch: keep building on it without
-asking.
+**Only build on code made through this workflow.** Development on any branch
+follows this workflow: a tracker item, a worker in its own worktree with ADN
+mode routing the work and verified-build verifying it. Only code built that
+way may be the base for an item or be reused in it. A branch built some other
+way, for example a branch a handoff or design document points to, does not
+qualify: use it only as a description of what to build, and implement from
+the base branch. A branch built through this workflow, including a prototype
+built for the item, qualifies: keep building on it.
 
 For each `READY` item, launch its worker without waiting for the operator:
 
