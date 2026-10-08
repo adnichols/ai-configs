@@ -548,7 +548,8 @@ from git, and saves one draft Ava page as a subdocument of this tracker's
 dashboard (`parent_id` is `plan_id` from `<tracker-dir>/dashboard.json`; it
 fails when that file has no `plan_id`, and it moves and rechecks a page whose
 create ignored the parent). The page shows
-each changed file as before and after lines plus the whole file with the
+each changed file as one inline diff, with removed words struck through and
+added words marked in place, plus a collapsed view of the whole file with the
 change marked. `manifest.json` next to it fingerprints the proposed files.
 
 Put a `Links:` entry to the page in the item's `## Waiting on you` card and

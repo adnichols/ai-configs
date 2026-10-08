@@ -8,8 +8,8 @@
 
 Input is git content, never retyped text: the base is the merge base of --base and the head, and the head is
 either --head REF or, when absent, the uncommitted edits in the working tree (untracked files included).
-Every changed file under the --path pathspecs becomes a section with a change list, side-by-side
-Before | After hunks, and the file rendered in place with additions green and removals red.
+Every changed file under the --path pathspecs becomes a section with a change list, inline diff hunks (one
+line per similar changed pair, with removed and added words marked), and the file rendered in place.
 
 --out DIR receives page.html, manifest.json (sha256 of each proposed file) and, when published, ava.json
 (the document id, so a rerun updates the same document). --check compares the files now at the head with
@@ -423,28 +423,33 @@ def headings(lines: list[str]) -> tuple[list[int], list[str]]:
     return at, titles
 
 
-def words(a: str, b: str) -> tuple[str, str]:
-    """Word-level highlight of one changed line pair; unrelated lines get none."""
+def words(a: str, b: str) -> str | None:
+    """One line showing a changed pair with <del> and <ins> words, or None when the lines are unrelated."""
     ta, tb = re.split(r"(\s+)", a), re.split(r"(\s+)", b)
+    if difflib.SequenceMatcher(None, a.split(), b.split(), autojunk=False).ratio() < SIMILAR:
+        return None
     sm = difflib.SequenceMatcher(None, ta, tb, autojunk=False)
-    if sm.ratio() < SIMILAR:
-        return esc(a), esc(b)
-    sa, sb = [], []
+    out = []
     for op, i1, i2, j1, j2 in sm.get_opcodes():
         x, y = esc("".join(ta[i1:i2])), esc("".join(tb[j1:j2]))
         if op == "equal":
-            sa.append(x)
-            sb.append(y)
+            out.append(x)
         else:
             if x:
-                sa.append(f"<del>{x}</del>")
+                out.append(f"<del>{x}</del>")
             if y:
-                sb.append(f"<ins>{y}</ins>")
-    return "".join(sa), "".join(sb)
+                out.append(f"<ins>{y}</ins>")
+    return "".join(out)
+
+
+def row(n: int | str, text: str, cls: str = "") -> str:
+    attr = f' class="{cls}"' if cls else ""
+    return f'<tr><td class="n">{n}</td><td{attr}>{text}</td></tr>'
 
 
 def hunks(old: str, new: str) -> list[tuple[str, str]]:
-    """(enclosing section title, table rows) for each group of changes, with CONTEXT lines around it."""
+    """(enclosing section title, inline diff rows) for each group of changes, with CONTEXT lines around it.
+    Line numbers are the proposed file's, except on removed rows, which carry the old file's."""
     al, bl = old.splitlines(), new.splitlines()
     heads_a, titles_a = headings(al)
     heads_b, titles_b = headings(bl)
@@ -456,23 +461,15 @@ def hunks(old: str, new: str) -> list[tuple[str, str]]:
         rows = []
         for op, i1, i2, j1, j2 in group:
             if op == "equal":
-                for k in range(i2 - i1):
-                    t = esc(al[i1 + k])
-                    rows.append(f'<tr class="ctx"><td class="n">{i1 + k + 1}</td><td>{t}</td><td class="n">{j1 + k + 1}</td><td>{t}</td></tr>')
+                rows += [row(j1 + k + 1, esc(al[i1 + k]), "ctx") for k in range(i2 - i1)]
                 continue
-            for k in range(max(i2 - i1, j2 - j1)):
-                left = al[i1 + k] if i1 + k < i2 else None
-                right = bl[j1 + k] if j1 + k < j2 else None
-                if left is not None and right is not None:
-                    lh, rh = words(left, right)
-                else:
-                    lh = esc(left) if left is not None else ""
-                    rh = esc(right) if right is not None else ""
-                rows.append(
-                    f'<tr><td class="n">{i1 + k + 1 if left is not None else ""}</td>'
-                    f'<td class="{"rm" if left is not None else "gap"}">{lh}</td>'
-                    f'<td class="n">{j1 + k + 1 if right is not None else ""}</td>'
-                    f'<td class="{"add" if right is not None else "gap"}">{rh}</td></tr>')
+            paired = min(i2 - i1, j2 - j1)
+            merged = [words(al[i1 + k], bl[j1 + k]) for k in range(paired)]
+            if None in merged:  # a rewritten block reads as all removed lines, then all added lines
+                merged = []
+            rows += [row(j1 + k + 1, m) for k, m in enumerate(merged)]
+            rows += [row(i1 + k + 1, esc(al[i1 + k]), "rm") for k in range(len(merged), i2 - i1)]
+            rows += [row(j1 + k + 1, esc(bl[j1 + k]), "add") for k in range(len(merged), j2 - j1)]
         out.append((titles[n] if n >= 0 else "", "".join(rows)))
     return out
 
@@ -489,13 +486,12 @@ CSS = """<style>
 .dv .tag{font:600 12px var(--ava-font-sans,sans-serif);text-transform:uppercase;letter-spacing:.04em;color:var(--ava-muted,light-dark(#57606a,#9aa4b0));text-decoration:none}
 .dv .skip{text-align:center;color:var(--ava-muted,light-dark(#57606a,#9aa4b0));font-style:italic}
 .dv .card{background:var(--ava-surface,light-dark(#fff,#1b1b1b));border:1px solid var(--ava-rule,light-dark(#d0d7de,#3a3f45));border-radius:var(--ava-radius,6px);padding:12px 16px;margin:12px 0}
-.dv table.sbs{border-collapse:collapse;width:100%;min-width:520px;font:13px/1.45 var(--ava-font-mono,monospace)}
-.dv table.sbs td{vertical-align:top;padding:2px 6px;white-space:pre-wrap;word-break:break-word;border:0}
-.dv table.sbs th{font:600 12px var(--ava-font-sans,sans-serif);text-align:left;padding:4px 6px}
-.dv table.sbs td.n{color:var(--ava-muted,light-dark(#57606a,#9aa4b0));text-align:right;user-select:none;width:3em}
-.dv table.sbs td.rm{background:light-dark(#fdecec,#2a1414)}
-.dv table.sbs td.add{background:light-dark(#e9f7ec,#13281a)}
-.dv table.sbs tr.ctx td{color:var(--ava-muted,light-dark(#57606a,#9aa4b0))}
+.dv table.inl{border-collapse:collapse;width:100%;font:13px/1.45 var(--ava-font-mono,monospace)}
+.dv table.inl td{vertical-align:top;padding:2px 6px;white-space:pre-wrap;word-break:break-word;border:0}
+.dv table.inl td.n{color:var(--ava-muted,light-dark(#57606a,#9aa4b0));text-align:right;user-select:none;width:3em}
+.dv table.inl td.rm{background:light-dark(#fdecec,#2a1414);text-decoration:line-through}
+.dv table.inl td.add{background:light-dark(#e9f7ec,#13281a)}
+.dv table.inl td.ctx{color:var(--ava-muted,light-dark(#57606a,#9aa4b0))}
 .dv .mod{margin:8px 0}
 .dv pre{overflow-x:auto;max-width:100%}
 .dv code{overflow-wrap:anywhere}
@@ -545,7 +541,7 @@ def section(src: Source, links: Links, ch: Change, n: int, opts: Options) -> tup
     total = max(len(old.splitlines()), len(new.splitlines()))
     whole = total <= opts.full_lines
     if not markdown:
-        note = " This is not a Markdown file, so only the before and after lines are shown."
+        note = " This is not a Markdown file, so only the changed lines are shown."
     elif ch.status != "modified":
         note = f" The whole file is {ch.status}."
     else:
@@ -557,12 +553,13 @@ def section(src: Source, links: Links, ch: Change, n: int, opts: Options) -> tup
             cid = f"{fid}-c{k}"
             where = f": § {esc(sect)}" if sect else ""
             sub.append(f'<li><a href="#{cid}">Change {k}{where}</a></li>')
-            parts.append(f'<h3 id="{cid}">Change {k}{where}, before and after</h3><div style="overflow-x:auto">'
-                         f'<table class="sbs"><tr><th></th><th>Before ({esc(src.base_ref)})</th><th></th><th>After (proposed)</th></tr>'
-                         f"{rows}</table></div>")
+            parts.append(f'<h3 id="{cid}">Change {k}{where}</h3><div style="overflow-x:auto">'
+                         f'<table class="inl">{rows}</table></div>')
     if markdown:
         label = "Read the whole file with the change in place" if whole else "Read the changed sections with the change in place"
-        parts.append(f'<details open><summary><strong>{label}</strong></summary>'
+        # An added or deleted file has no hunks, so its in-place view is the only one and stays open.
+        opened = "" if ch.status == "modified" else " open"
+        parts.append(f'<details{opened}><summary><strong>{label}</strong></summary>'
                      f'<div class="card">{in_place(old, new, whole, links, ch.path)}</div></details>')
     item = f'<li><a href="#{fid}">{name}</a> {stat}' + (f"<ul>{''.join(sub)}</ul>" if sub else "") + "</li>"
     return item, "".join(parts)

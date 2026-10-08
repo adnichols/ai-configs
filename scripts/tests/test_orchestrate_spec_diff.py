@@ -1,3 +1,4 @@
+import re
 import json
 import shutil
 import subprocess
@@ -70,7 +71,7 @@ class SpecDiffTest(unittest.TestCase):
         src, found, page = self.render()
         self.assertEqual([(c.path, c.status) for c in found], [("spec/adr-2.md", "added")])
         self.assertIn("The whole file is added.", page)
-        self.assertNotIn('<table class="sbs">', page)
+        self.assertNotIn('<table class="inl">', page)
         self.assertEqual(spec_diff.manifest(src, found)["files"]["spec/adr-2.md"], spec_diff.sha256(data))
 
     def test_deleted_file_shows_every_line_as_removed(self):
@@ -83,11 +84,41 @@ class SpecDiffTest(unittest.TestCase):
         self.assertNotIn('<div class="add">', page)
         self.assertIn("<li><code>spec/adr-1.md</code> removed</li>", page)
 
-    def test_deleted_lines_inside_a_modified_file_keep_both_sides(self):
+    def test_similar_changed_line_is_one_inline_line_and_unrelated_lines_are_separate_rows(self):
+        text = TABLE.replace("| Create | `POST /a` | Create one. |", "| Create | `POST /a` | Create one and return it. |")
+        (self.root / "spec" / "contract.md").write_text(text)
+        hunk = spec_diff.hunks(TABLE, text)[0][1]
+        self.assertIn("<del>one.</del><ins>one and return it.</ins>", hunk)
+        self.assertEqual(hunk.count('<td class="rm">'), 0)
+        self.assertEqual(hunk.count('<td class="add">'), 0)
+        old = "# T\n\nalpha\n"
+        rows = spec_diff.hunks(old, "# T\n\nzzz yyy xxx www\n")[0][1]
+        self.assertIn('<td class="rm">alpha</td>', rows)
+        self.assertIn('<td class="add">zzz yyy xxx www</td>', rows)
+        self.assertNotIn("<del>", rows)
+
+    def test_pair_sharing_only_spaces_and_a_word_is_two_rows_not_a_merged_line(self):
+        old = "# T\n\nthe job walks every Organization, including idle ones\n"
+        new = "# T\n\nIt runs automatically in the background after a deploy, and the operator\n"
+        rows = spec_diff.hunks(old, new)[0][1]
+        self.assertEqual(rows.count('<td class="rm">'), 1)
+        self.assertEqual(rows.count('<td class="add">'), 1)
+        self.assertNotIn("<del>", rows)
+
+    def test_rewritten_block_is_all_removed_rows_then_all_added_rows(self):
+        old = "# T\n\none two three four\nfive six seven eight\nnine ten\n"
+        new = "# T\n\nzzz yyy\nxxx www vvv\nuuu ttt sss rrr\n"
+        rows = spec_diff.hunks(old, new)[0][1]
+        kinds = re.findall(r'<td class="(rm|add)">', rows)
+        self.assertEqual(kinds, ["rm"] * 3 + ["add"] * 3)
+        self.assertNotIn("<del>", rows)
+
+    def test_deleted_lines_inside_a_modified_file_are_removed_rows(self):
         (self.root / "spec" / "contract.md").write_text(TABLE.replace("| Remove | `DELETE /a/{id}` | Remove one. |\n", ""))
         _, _, page = self.render()
         self.assertIn('<td class="rm">| Remove | `DELETE /a/{id}` | Remove one. |</td>', page)
-        self.assertIn('<td class="gap"></td>', page)
+        self.assertNotIn("before and after", page)
+        self.assertIn("<details><summary>", page)
 
     def test_files_without_changes_are_skipped(self):
         (self.root / "spec" / "adr-1.md").write_text("# ADR 1\n\nDecision text, revised.\n")
