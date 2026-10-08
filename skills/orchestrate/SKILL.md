@@ -335,6 +335,12 @@ soon as the bar is met.
 
 ### Handoff
 
+**Never build on a prototype branch.** NEVER base an item on a branch, or its
+commits or code, that was used to build a prototype, whether someone else's
+or ours. Implementation ALWAYS starts from a fresh branch off the base branch.
+The only exception is the operator explicitly saying to use that branch. If
+reusing it looks useful, ask the operator first. NEVER do it silently.
+
 For each `READY` item, launch its worker without waiting for the operator:
 
 1. Create a worktree workspace: `create_workspace` with

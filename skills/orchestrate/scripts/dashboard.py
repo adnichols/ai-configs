@@ -183,9 +183,18 @@ def ask_card(title, fields):
 
 
 def inline(s):
+    """Escape, then link `[text](url)` and bare URLs; trailing sentence punctuation stays outside the href."""
     s = html.escape(s)
-    s = re.sub(r"(https?://[^\s<)`]+)", r'<a href="\1" target="_blank" rel="noopener">\1</a>', s)
-    return re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    links = []
+
+    def stash(href, text):
+        links.append(f'<a href="{href}" target="_blank" rel="noopener">{text}</a>')
+        return f"\x00{len(links) - 1}\x00"
+
+    s = re.sub(r"\[([^\]]+)\]\((https?://[^\s)]+)\)", lambda m: stash(m.group(2), m.group(1)), s)
+    s = re.sub(r"https?://[^\s<)`\x00]*[^\s<)`\x00.,;:!?'\"]", lambda m: stash(m.group(0), m.group(0)), s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    return re.sub(r"\x00(\d+)\x00", lambda m: links[int(m.group(1))], s)
 
 
 def render(text, title, template, updated):
