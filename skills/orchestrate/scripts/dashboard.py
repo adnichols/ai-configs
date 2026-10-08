@@ -103,11 +103,21 @@ def tier_of(row):
     return 1
 
 
+MERGED_AT = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}Z")
+
+
 def ordered(rows):
+    """Open tiers by explicit Priority then ID; done items newest merge first, unmerged ones last by ID."""
     def priority(row):
         value = row.get("priority", "").upper()
         return {"P0": 0, "CRITICAL": 0, "P1": 1, "HIGH": 1, "P2": 2, "NORMAL": 2, "P3": 3, "LOW": 3}.get(value, 4)
-    return sorted(rows, key=lambda r: (tier_of(r), priority(r), natural(r.get("id", ""))))
+    def merged(row):
+        m = MERGED_AT.match(row.get("merged", ""))
+        return m.group(0) if m else ""
+    open_rows = sorted((r for r in rows if tier_of(r) < 2), key=lambda r: (tier_of(r), priority(r), natural(r.get("id", ""))))
+    done = sorted((r for r in rows if tier_of(r) == 2), key=lambda r: natural(r.get("id", "")))
+    done.sort(key=merged, reverse=True)
+    return open_rows + done
 
 
 # ---- rendering ------------------------------------------------------------
@@ -217,13 +227,15 @@ def render(text, title, template, updated):
     for r in rows:
         cls, _ = group_of(r.get("state", ""))
         pr = r.get("pr", "")
-        (completed if cls == "done" else trs).append(
-            f'<tr class="{cls}"><td class="id">{html.escape(r.get("id", ""))}<div class="sub">{html.escape(r.get("priority") or "Unprioritized")}</div></td>'
-            f'<td><div class="t">{inline(r.get("title", ""))}</div>'
-            f'<div class="sub">{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
-            f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>'
-            f'<td>{inline(r.get("waiting on", ""))}</td>'
-            f'<td class="pr">{pr_cell(pr)}</td></tr>')
+        lead = (f'<tr class="{cls}"><td class="id">{html.escape(r.get("id", ""))}<div class="sub">{html.escape(r.get("priority") or "Unprioritized")}</div></td>'
+                f'<td><div class="t">{inline(r.get("title", ""))}</div>'
+                f'<div class="sub">{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
+                f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>')
+        if cls == "done":
+            completed.append(f'{lead}<td>{inline(r.get("merged") or "—")}</td><td>{inline(r.get("deployed") or "—")}</td>'
+                             f'<td class="pr">{pr_cell(pr)}</td></tr>')
+        else:
+            trs.append(f'{lead}<td>{inline(r.get("waiting on", ""))}</td><td class="pr">{pr_cell(pr)}</td></tr>')
 
     meta = (f"Tracker: {html.escape(header(text, 'Tracker') or title)} · Status: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
             "document and acknowledges each one in its thread within about 30 seconds")

@@ -598,7 +598,9 @@ To merge:
    PR now conflicts, ask the worker to rebase and revalidate the new head.
 3. Otherwise merge at the validated head with the repository's merge method
    (default `gh pr merge <n> --squash --match-head-commit <sha>`) and confirm
-   GitHub reports it merged. Never pass `--delete-branch`: it also removes the
+   GitHub reports it merged. Record the merge time and commit in the row's
+   `Merged` column (`references/ledger-template.md` § Merged and Deployed).
+   Never pass `--delete-branch`: it also removes the
    worker's checked-out worktree, and the lab claim file with it, before the
    lab can be released. Branch, lab, demo, and worktree teardown belong to
    the `worktree-cleanup` script below.
