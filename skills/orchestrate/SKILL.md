@@ -337,6 +337,12 @@ soon as the bar is met.
 
 For each `READY` item, launch its worker without waiting for the operator:
 
+**Never build on a prototype branch.** NEVER base an item on a branch, or its
+commits or code, that was used to build a prototype, whether someone else's
+or ours. Implementation ALWAYS starts from a fresh branch off the base branch.
+The only exception is the operator explicitly saying to use that branch. If
+reusing it looks useful, ask the operator first. NEVER do it silently.
+
 1. Create a worktree workspace: `create_workspace` with
    `isolation: "worktree"`, `mode: "branch-off"`, `path` set to the target
    checkout, `baseBranch` from the item, and
