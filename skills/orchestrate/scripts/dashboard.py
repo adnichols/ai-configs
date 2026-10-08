@@ -112,12 +112,24 @@ def ordered(rows):
 
 # ---- rendering ------------------------------------------------------------
 
+PR_URL = re.compile(r"https://github\.com/[^/\s]+/([^/\s]+)/pull/(\d+)")
+
+
 def pr_cell(pr):
-    """GitHub PR URLs become `repo#N` so the column stays narrow; the href keeps the full URL."""
-    m = re.fullmatch(r"https://github\.com/[^/\s]+/([^/\s]+)/pull/(\d+)", pr)
-    if m:
-        return f'<a href="{html.escape(pr)}" target="_blank" rel="noopener">{html.escape(m.group(1))}#{m.group(2)}</a>'
-    return inline(pr) if pr not in ("—", "") else "—"
+    """Each GitHub PR URL becomes a `repo#N` link; other text (a merge SHA, a note) stays plain.
+
+    A PR named without its URL (`#12`, `repo#12`) cannot be linked, so it fails the render."""
+    if pr in ("—", ""):
+        return "—"
+    if re.search(r"#\d+", PR_URL.sub("", pr)):
+        raise Fail(2, f"PR column must use full PR URLs (https://github.com/<owner>/<repo>/pull/<n>), got: {pr}")
+    parts, last = [], 0
+    for m in PR_URL.finditer(pr):
+        parts.append(inline(pr[last:m.start()]))
+        parts.append(f'<a href="{html.escape(m.group(0))}" target="_blank" rel="noopener">{html.escape(m.group(1))}#{m.group(2)}</a>')
+        last = m.end()
+    parts.append(inline(pr[last:]))
+    return "".join(parts)
 
 
 ASK_FIELDS = (("Problem", "Problem"), ("Fix", "Proposed change"), ("Decide", "Your call"), ("Links", "Look at"))

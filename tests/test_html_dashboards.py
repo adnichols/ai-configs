@@ -108,6 +108,16 @@ Mode: INTAKE
         self.assertEqual(dashboard.inline(f'[the doc]({u}) ok'), f'{a(u, "the doc")} ok')
         self.assertEqual(dashboard.inline('run `ls -l` now'), 'run <code>ls -l</code> now')
 
+    def test_pr_column_links_every_pr_and_rejects_bare_numbers(self):
+        u1, u2 = 'https://github.com/o/ccore2/pull/1', 'https://github.com/o/tools/pull/2'
+        cell = dashboard.pr_cell(f'{u1}, {u2} → abc123')
+        self.assertIn(f'<a href="{u1}" target="_blank" rel="noopener">ccore2#1</a>', cell)
+        self.assertIn(f'<a href="{u2}" target="_blank" rel="noopener">tools#2</a>', cell)
+        self.assertTrue(cell.endswith(' → abc123'))
+        self.assertEqual(dashboard.pr_cell('—'), '—')
+        for bare in ('#12', 'tools#12', f'{u1}, #13'):
+            with self.assertRaises(dashboard.Fail): dashboard.pr_cell(bare)
+
 
 class ScopedInstall(unittest.TestCase):
     def test_codex_selected_repeat_and_preserve_local_edits(self):

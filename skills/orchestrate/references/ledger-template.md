@@ -17,6 +17,12 @@ ledger's table in the same order whenever you edit it, so the ledger and the
 dashboard read alike. A done state stays in the bottom tier even if `Waiting
 on` still says operator.
 
+**PR column.** Write every PR as its full URL
+(`https://github.com/<owner>/<repo>/pull/<n>`), never `#N` or `repo#N`, so the
+dashboard renders each one as a link. Several PRs are comma-separated; a note
+such as `→ <merge sha>` may follow. `dashboard.py` refuses to render a PR
+number without its URL.
+
 The heading is the tracker title: the weekday and date the tracker started
 (`Tuesday, October 6, 2026`), or the theme the operator gave for it
 (`Signals polish — Tuesday, October 6, 2026`).
