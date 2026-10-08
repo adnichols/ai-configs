@@ -50,7 +50,7 @@ code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(-
 <h2>Active priorities</h2>
 <div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Waiting on</th><th>PR</th></tr></thead>
 <tbody>{{issues}}</tbody></table></div>
-<details><summary>Completed items</summary><div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Waiting on</th><th>PR</th></tr></thead><tbody>{{completed}}</tbody></table></div></details>
+<details open><summary>Completed items, newest merge first</summary><div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Merged</th><th>Deployed</th><th>PR</th></tr></thead><tbody>{{completed}}</tbody></table></div></details>
 <details><summary>Decision history</summary>
 <ul class="decisions">{{decisions}}</ul></details>
 </main></body></html>

@@ -10,12 +10,24 @@ decisions`. Republish it in the same step as every edit here. `Ava space:`,
 publish; `Listener:` is the comment listener's service name, pid and log,
 written by the orchestrator; `Heartbeat:` is the 20-minute status pass.
 
-**Status table order.** `dashboard.py` shows the table in three tiers, by explicit Priority then ID
-within each tier: waiting on the operator (a Needs you state, or `Waiting on`
-starting with `operator`), then in progress or blocked, then done. Keep the
-ledger's table in the same order whenever you edit it, so the ledger and the
-dashboard read alike. A done state stays in the bottom tier even if `Waiting
-on` still says operator.
+**Status table order.** `dashboard.py` shows the table in three tiers: waiting
+on the operator (a Needs you state, or `Waiting on` starting with `operator`),
+then in progress or blocked, each by explicit Priority then ID, then done items
+newest merge first (unmerged done items last, by ID). Keep the ledger's table in
+the same order whenever you edit it, so the ledger and the dashboard read alike.
+A done state stays in the bottom tier even if `Waiting on` still says operator.
+
+**Merged and Deployed.** The dashboard's completed table shows both columns so
+the operator can see what landed most recently and whether it is live. On each
+merge, write `Merged` as `YYYY-MM-DD HH:MMZ <merge sha>`. At least once a day,
+and when the operator asks, read each deploy target's current commit with the
+repository's read-only status command (ccore2: `pnpm rollout`, which never
+deploys without a hub argument), then run
+`scripts/deploy_status.py <tracker-dir> --repo <checkout> --target <name>=<commit> ...`
+and republish. It fills any missing `Merged` cells from GitHub and writes
+`Deployed` as `yes, all N`, `partly, K of N; not yet: <names>`, or `no, 0 of N`,
+with the check time. Checking deployment never means deploying: the orchestrator does not
+run rollout or deploy commands for production.
 
 The heading is the tracker title: the weekday and date the tracker started
 (`Tuesday, October 6, 2026`), or the theme the operator gave for it
@@ -53,9 +65,10 @@ Listener: <service name, pid, log path, or none>
 Merge rule: the orchestrator merges each PR at its validated head once every gate passes and every operator decision on the item is answered, then releases its lab, removes its demos, and archives its worktree.
 
 ## Status
-| ID | Kind | Title | Repo | State | Workspace / agent | PR | Waiting on | Priority |
-|----|------|-------|------|-------|-------------------|----|------------|----------|
-| WI-01 | BUG | ... | ava | HANDED_OFF | ws_... / ag_... | — | worker | P1 |
+| ID | Kind | Title | Repo | State | Workspace / agent | PR | Waiting on | Priority | Merged | Deployed |
+|----|------|-------|------|-------|-------------------|----|------------|----------|--------|----------|
+| WI-01 | BUG | ... | ava | HANDED_OFF | ws_... / ag_... | — | worker | P1 | — | — |
+| WI-02 | BUG | ... | ava | CLEANED | — | https://github.com/<owner>/ava/pull/12 | — | P2 | 2026-10-08 19:42Z 562a1a890 | partly, 7 of 8; not yet: mycelios (checked 10-08 20:10Z) |
 
 ## Waiting on you
 ### WI-04: nav "+" cannot create folders → add an inline folder name field
