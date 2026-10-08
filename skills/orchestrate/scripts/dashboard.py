@@ -241,8 +241,8 @@ def render(text, title, template, updated):
 def ava(*args, data=None):
     cmd = ["ava", *args, "--json"]
     if data is not None:
-        cmd += ["--data", json.dumps(data)]
-    p = subprocess.run(cmd, capture_output=True, text=True)
+        cmd += ["--file", "-"]  # stdin: a large page body overflows the argument-list limit
+    p = subprocess.run(cmd, input=json.dumps(data) if data is not None else None, capture_output=True, text=True)
     if p.returncode != 0:
         raise Fail(3, f"`ava {' '.join(args[:3])}` failed (exit {p.returncode}): {(p.stderr or p.stdout).strip()}")
     try:

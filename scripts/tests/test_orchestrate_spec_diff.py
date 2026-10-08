@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "skills" / "orchestrate" / "scripts"))
@@ -119,6 +120,22 @@ class SpecDiffTest(unittest.TestCase):
         self.assertIn('<td class="rm">| Remove | `DELETE /a/{id}` | Remove one. |</td>', page)
         self.assertNotIn("before and after", page)
         self.assertIn("<details><summary>", page)
+
+    def test_bare_angle_bracket_text_in_a_spec_renders_as_text(self):
+        (self.root / "spec" / "adr-1.md").write_text("# ADR 1\n\nServe from /assets/<rev>/ only.\n")
+        _, _, page = self.render()
+        self.assertIn("/assets/&lt;rev&gt;/", page)
+        self.assertNotIn("<rev>", page)
+
+    def test_ava_sends_a_large_body_on_stdin(self):
+        import dashboard
+        fake = Path(self.tmp.name) / "bin"
+        fake.mkdir()
+        (fake / "ava").write_text("#!/bin/sh\ncat\n")
+        (fake / "ava").chmod(0o755)
+        body = {"source": "x" * 5_000_000}
+        with unittest.mock.patch.dict("os.environ", {"PATH": f"{fake}:/usr/bin:/bin"}):
+            self.assertEqual(dashboard.ava("document", "edit", "id", data=body), body)
 
     def test_files_without_changes_are_skipped(self):
         (self.root / "spec" / "adr-1.md").write_text("# ADR 1\n\nDecision text, revised.\n")
