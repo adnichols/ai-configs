@@ -335,11 +335,14 @@ soon as the bar is met.
 
 ### Handoff
 
-**Never build on a prototype branch.** NEVER base an item on a branch, or its
-commits or code, that was used to build a prototype, whether someone else's
-or ours. Implementation ALWAYS starts from a fresh branch off the base branch.
-The only exception is the operator explicitly saying to use that branch. If
-reusing it looks useful, ask the operator first. NEVER do it silently.
+**A branch named only in a source document: ask before using it.** When the
+operator hands you a document (a handoff, design or spec) and that document
+points to a branch someone else built, do not base the item on that branch
+or reuse its commits, code or spec edits until the operator says to. Ask
+once, at intake. This applies only to a branch you learned about from a
+document. A worktree or branch the operator started you in, or a prototype
+branch built for the item, is the item's branch: keep building on it without
+asking.
 
 For each `READY` item, launch its worker without waiting for the operator:
 
