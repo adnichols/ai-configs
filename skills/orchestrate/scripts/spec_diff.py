@@ -463,17 +463,13 @@ def hunks(old: str, new: str) -> list[tuple[str, str]]:
             if op == "equal":
                 rows += [row(j1 + k + 1, esc(al[i1 + k]), "ctx") for k in range(i2 - i1)]
                 continue
-            for k in range(max(i2 - i1, j2 - j1)):
-                left = al[i1 + k] if i1 + k < i2 else None
-                right = bl[j1 + k] if j1 + k < j2 else None
-                merged = words(left, right) if left is not None and right is not None else None
-                if merged is not None:
-                    rows.append(row(j1 + k + 1, merged))
-                    continue
-                if left is not None:
-                    rows.append(row(i1 + k + 1, esc(left), "rm"))
-                if right is not None:
-                    rows.append(row(j1 + k + 1, esc(right), "add"))
+            paired = min(i2 - i1, j2 - j1)
+            merged = [words(al[i1 + k], bl[j1 + k]) for k in range(paired)]
+            if None in merged:  # a rewritten block reads as all removed lines, then all added lines
+                merged = []
+            rows += [row(j1 + k + 1, m) for k, m in enumerate(merged)]
+            rows += [row(i1 + k + 1, esc(al[i1 + k]), "rm") for k in range(len(merged), i2 - i1)]
+            rows += [row(j1 + k + 1, esc(bl[j1 + k]), "add") for k in range(len(merged), j2 - j1)]
         out.append((titles[n] if n >= 0 else "", "".join(rows)))
     return out
 

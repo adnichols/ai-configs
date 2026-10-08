@@ -1,3 +1,4 @@
+import re
 import json
 import shutil
 import subprocess
@@ -102,6 +103,14 @@ class SpecDiffTest(unittest.TestCase):
         rows = spec_diff.hunks(old, new)[0][1]
         self.assertEqual(rows.count('<td class="rm">'), 1)
         self.assertEqual(rows.count('<td class="add">'), 1)
+        self.assertNotIn("<del>", rows)
+
+    def test_rewritten_block_is_all_removed_rows_then_all_added_rows(self):
+        old = "# T\n\none two three four\nfive six seven eight\nnine ten\n"
+        new = "# T\n\nzzz yyy\nxxx www vvv\nuuu ttt sss rrr\n"
+        rows = spec_diff.hunks(old, new)[0][1]
+        kinds = re.findall(r'<td class="(rm|add)">', rows)
+        self.assertEqual(kinds, ["rm"] * 3 + ["add"] * 3)
         self.assertNotIn("<del>", rows)
 
     def test_deleted_lines_inside_a_modified_file_are_removed_rows(self):
