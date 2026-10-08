@@ -96,6 +96,14 @@ class SpecDiffTest(unittest.TestCase):
         self.assertIn('<td class="add">zzz yyy xxx www</td>', rows)
         self.assertNotIn("<del>", rows)
 
+    def test_pair_sharing_only_spaces_and_a_word_is_two_rows_not_a_merged_line(self):
+        old = "# T\n\nthe job walks every Organization, including idle ones\n"
+        new = "# T\n\nIt runs automatically in the background after a deploy, and the operator\n"
+        rows = spec_diff.hunks(old, new)[0][1]
+        self.assertEqual(rows.count('<td class="rm">'), 1)
+        self.assertEqual(rows.count('<td class="add">'), 1)
+        self.assertNotIn("<del>", rows)
+
     def test_deleted_lines_inside_a_modified_file_are_removed_rows(self):
         (self.root / "spec" / "contract.md").write_text(TABLE.replace("| Remove | `DELETE /a/{id}` | Remove one. |\n", ""))
         _, _, page = self.render()

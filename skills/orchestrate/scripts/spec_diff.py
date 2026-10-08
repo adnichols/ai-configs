@@ -426,9 +426,9 @@ def headings(lines: list[str]) -> tuple[list[int], list[str]]:
 def words(a: str, b: str) -> str | None:
     """One line showing a changed pair with <del> and <ins> words, or None when the lines are unrelated."""
     ta, tb = re.split(r"(\s+)", a), re.split(r"(\s+)", b)
-    sm = difflib.SequenceMatcher(None, ta, tb, autojunk=False)
-    if sm.ratio() < SIMILAR:
+    if difflib.SequenceMatcher(None, a.split(), b.split(), autojunk=False).ratio() < SIMILAR:
         return None
+    sm = difflib.SequenceMatcher(None, ta, tb, autojunk=False)
     out = []
     for op, i1, i2, j1, j2 in sm.get_opcodes():
         x, y = esc("".join(ta[i1:i2])), esc("".join(tb[j1:j2]))
