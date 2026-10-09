@@ -30,7 +30,7 @@ h1 { font-size:24px; margin:0 0 4px; overflow-wrap:anywhere; } h2 { font-size:17
 .scroll { overflow-x:auto; }
 table { width:100%; border-collapse:collapse; } th, td { text-align:left; vertical-align:top; padding:10px 8px; border-bottom:1px solid var(--line); }
 th { font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
-td.pr { white-space:nowrap; } td.pr a { overflow-wrap:normal; }
+td.pr, th.pr { width:7.5rem; min-width:7.5rem; max-width:7.5rem; overflow-wrap:anywhere; } td.pr a { white-space:nowrap; }
 td.id { font-weight:700; white-space:nowrap; } .t { font-weight:500; } .sub { color:var(--mute); font-size:12px; }
 tr.done td { opacity:.7; }
 a { color:var(--link); overflow-wrap:anywhere; }
@@ -48,9 +48,9 @@ code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(-
 <h2>Needs you</h2>
 {{needs}}
 <h2>Active priorities</h2>
-<div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Waiting on</th><th>PR</th></tr></thead>
+<div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Waiting on</th><th class="pr">PR</th></tr></thead>
 <tbody>{{issues}}</tbody></table></div>
-<details open><summary>Completed items, newest merge first</summary><div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Merged</th><th>Deployed</th><th>PR</th></tr></thead><tbody>{{completed}}</tbody></table></div></details>
+<details open><summary>Completed items, newest merge first</summary><div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Merged</th><th>Deployed</th><th class="pr">PR</th></tr></thead><tbody>{{completed}}</tbody></table></div></details>
 <details><summary>Decision history</summary>
 <ul class="decisions">{{decisions}}</ul></details>
 </main></body></html>
