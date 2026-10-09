@@ -122,12 +122,17 @@ def ordered(rows):
 
 # ---- rendering ------------------------------------------------------------
 
+PR_URL = re.compile(r"https://github\.com/[^/\s]+/([^/\s]+)/pull/(\d+)")
+
+
 def pr_cell(pr):
-    """GitHub PR URLs become `repo#N` so the column stays narrow; the href keeps the full URL."""
-    m = re.fullmatch(r"https://github\.com/[^/\s]+/([^/\s]+)/pull/(\d+)", pr)
-    if m:
-        return f'<a href="{html.escape(pr)}" target="_blank" rel="noopener">{html.escape(m.group(1))}#{m.group(2)}</a>'
-    return inline(pr) if pr not in ("—", "") else "—"
+    """Every GitHub PR URL becomes `repo#N` on its own line so the column stays narrow; the href keeps the full URL."""
+    if pr in ("—", ""):
+        return "—"
+    links = [f'<a href="{html.escape(m.group(0))}" target="_blank" rel="noopener">{html.escape(m.group(1))}#{m.group(2)}</a>'
+             for m in PR_URL.finditer(pr)]
+    rest = PR_URL.sub("", pr).strip(" ,;")
+    return "<br>".join(links + ([inline(rest)] if rest else []))
 
 
 ASK_FIELDS = (("Problem", "Problem"), ("Fix", "Proposed change"), ("Decide", "Your call"), ("Links", "Look at"))
