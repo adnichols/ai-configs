@@ -103,11 +103,21 @@ def tier_of(row):
     return 1
 
 
+MERGED_AT = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}Z")
+
+
 def ordered(rows):
+    """Open tiers by explicit Priority then ID; done items newest merge first, unmerged ones last by ID."""
     def priority(row):
         value = row.get("priority", "").upper()
         return {"P0": 0, "CRITICAL": 0, "P1": 1, "HIGH": 1, "P2": 2, "NORMAL": 2, "P3": 3, "LOW": 3}.get(value, 4)
-    return sorted(rows, key=lambda r: (tier_of(r), priority(r), natural(r.get("id", ""))))
+    def merged(row):
+        m = MERGED_AT.match(row.get("merged", ""))
+        return m.group(0) if m else ""
+    open_rows = sorted((r for r in rows if tier_of(r) < 2), key=lambda r: (tier_of(r), priority(r), natural(r.get("id", ""))))
+    done = sorted((r for r in rows if tier_of(r) == 2), key=lambda r: natural(r.get("id", "")))
+    done.sort(key=merged, reverse=True)
+    return open_rows + done
 
 
 # ---- rendering ------------------------------------------------------------
@@ -116,20 +126,20 @@ PR_URL = re.compile(r"https://github\.com/[^/\s]+/([^/\s]+)/pull/(\d+)")
 
 
 def pr_cell(pr):
-    """Each GitHub PR URL becomes a `repo#N` link; other text (a merge SHA, a note) stays plain.
+    """Every GitHub PR URL becomes a `repo#N` link on its own line so the column stays narrow; the href keeps the
+    full URL. Other text (a merge SHA, a note) follows the links as plain text.
 
     A PR named without its URL (`#12`, `repo#12`) cannot be linked, so it fails the render."""
     if pr in ("—", ""):
         return "—"
-    if re.search(r"#\d+", PR_URL.sub("", pr)):
+    rest = PR_URL.sub("", pr).strip(" ,;")
+    if re.search(r"#\d+", rest):
         raise Fail(2, f"PR column must use full PR URLs (https://github.com/<owner>/<repo>/pull/<n>), got: {pr}")
-    parts, last = [], 0
-    for m in PR_URL.finditer(pr):
-        parts.append(inline(pr[last:m.start()]))
-        parts.append(f'<a href="{html.escape(m.group(0))}" target="_blank" rel="noopener">{html.escape(m.group(1))}#{m.group(2)}</a>')
-        last = m.end()
-    parts.append(inline(pr[last:]))
-    return "".join(parts)
+    links = "<br>".join(f'<a href="{html.escape(m.group(0))}" target="_blank" rel="noopener">{html.escape(m.group(1))}#{m.group(2)}</a>'
+                        for m in PR_URL.finditer(pr))
+    if not rest:
+        return links
+    return f"{links} {inline(rest)}" if links else inline(rest)
 
 
 ASK_FIELDS = (("Problem", "Problem"), ("Fix", "Proposed change"), ("Decide", "Your call"), ("Links", "Look at"))
@@ -229,13 +239,15 @@ def render(text, title, template, updated):
     for r in rows:
         cls, _ = group_of(r.get("state", ""))
         pr = r.get("pr", "")
-        (completed if cls == "done" else trs).append(
-            f'<tr class="{cls}"><td class="id">{html.escape(r.get("id", ""))}<div class="sub">{html.escape(r.get("priority") or "Unprioritized")}</div></td>'
-            f'<td><div class="t">{inline(r.get("title", ""))}</div>'
-            f'<div class="sub">{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
-            f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>'
-            f'<td>{inline(r.get("waiting on", ""))}</td>'
-            f'<td class="pr">{pr_cell(pr)}</td></tr>')
+        lead = (f'<tr class="{cls}"><td class="id">{html.escape(r.get("id", ""))}<div class="sub">{html.escape(r.get("priority") or "Unprioritized")}</div></td>'
+                f'<td><div class="t">{inline(r.get("title", ""))}</div>'
+                f'<div class="sub">{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
+                f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>')
+        if cls == "done":
+            completed.append(f'{lead}<td>{inline(r.get("merged") or "—")}</td><td>{inline(r.get("deployed") or "—")}</td>'
+                             f'<td class="pr">{pr_cell(pr)}</td></tr>')
+        else:
+            trs.append(f'{lead}<td>{inline(r.get("waiting on", ""))}</td><td class="pr">{pr_cell(pr)}</td></tr>')
 
     meta = (f"Tracker: {html.escape(header(text, 'Tracker') or title)} · Status: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
             "document and acknowledges each one in its thread within about 30 seconds")
@@ -253,8 +265,8 @@ def render(text, title, template, updated):
 def ava(*args, data=None):
     cmd = ["ava", *args, "--json"]
     if data is not None:
-        cmd += ["--data", json.dumps(data)]
-    p = subprocess.run(cmd, capture_output=True, text=True)
+        cmd += ["--file", "-"]  # stdin: a large page body overflows the argument-list limit
+    p = subprocess.run(cmd, input=json.dumps(data) if data is not None else None, capture_output=True, text=True)
     if p.returncode != 0:
         raise Fail(3, f"`ava {' '.join(args[:3])}` failed (exit {p.returncode}): {(p.stderr or p.stdout).strip()}")
     try:

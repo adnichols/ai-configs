@@ -20,13 +20,24 @@ reply and the relay succeeded; the reply uses a key derived from the message
 id and the relay is retried on the next poll, so a crash never loses a comment
 and never double-posts an acknowledgement.
 
+Remote workers: if the hosts file ($ORCHESTRATE_HOSTS or
+~/.config/orchestrate/hosts.json) exists, each poll also lists the agents
+labelled `tracker=<tracker dir name>` on every host that is not this machine
+(`paseo ls -g --json --label ... --host <target>`) and relays a turn ending
+(running/initializing -> idle/error/closed, or a new agent already idle/error/
+closed) as WORKER_TURN_ENDED. Last seen statuses live in listener.json
+`remote_agents`; a host's first successful poll only seeds them. A failed
+relay is retried next poll; an unreachable host is recorded in last_error.
+
 Exit codes: 0 stopped, 2 bad input or listener already running, 3 `ava` or
 `paseo` unavailable at start.
 """
-import argparse, datetime, hashlib, json, os, shutil, signal, subprocess, sys, time
+import argparse, datetime, hashlib, json, os, shutil, signal, socket, subprocess, sys, time
 from pathlib import Path
 
 ACK = "Received. The orchestrator is working on this and will reply here."
+BUSY = ("running", "initializing")
+ENDED = ("idle", "error", "closed")
 
 
 def now():
@@ -55,6 +66,20 @@ def alive(pid):
         return False
     except PermissionError:
         return True
+
+
+def hosts_path():
+    return Path(os.environ.get("ORCHESTRATE_HOSTS") or "~/.config/orchestrate/hosts.json").expanduser()
+
+
+def remote_hosts():
+    """Hosts from the hosts file other than this machine; [] when the file is absent (single-host setup)."""
+    path = hosts_path()
+    if not path.is_file():
+        return []
+    me = socket.gethostname().lower().split(".")[0]
+    return [h for h in json.loads(path.read_text())["hosts"] if me not in [n.lower() for n in h.get("hostnames", [])]]
+
 
 
 class Listener:
@@ -110,13 +135,54 @@ class Listener:
             self.state["seen"].append(mid)
             self.save()
 
+    def poll_remote(self):
+        """Relay turn endings of workers on remote hosts (see hosts file); returns per-host error strings."""
+        errors = []
+        slug = self.root.name
+        known = self.state.setdefault("remote_agents", {})
+        for host in remote_hosts():
+            name = host["name"]
+            try:
+                agents = run(["paseo", "ls", "-g", "--json", "--label", f"tracker={slug}", "--host", host["target"]], timeout=20)
+                if not isinstance(agents, list):
+                    raise RuntimeError("paseo ls did not return a JSON array")
+            except Exception as exc:
+                errors.append(f"{now()} host {name}: {exc}")
+                continue
+            if name not in known:  # first successful poll only seeds
+                known[name] = {a["id"]: a["status"] for a in agents}
+                self.save()
+                continue
+            last = known[name]
+            for agent in agents:
+                aid, status = agent["id"], agent["status"]
+                prev = last.get(aid)
+                if status != prev and status in ENDED and (prev is None or prev in BUSY):
+                    msg = (f"WORKER_TURN_ENDED host={name} agent={aid} status={status} name={agent.get('name')}. "
+                           f"Read its WORKER_STATUS: paseo logs --host {host['target']} {aid}")
+                    try:
+                        run(["paseo", "send", "--no-wait", self.driver, msg])
+                    except Exception as exc:  # status stays unrecorded so the next poll retries
+                        errors.append(f"{now()} host {name}: relay for {aid} failed: {exc}")
+                        continue
+                    print(f"{now()} relayed worker turn end {aid} on {name} ({status})", flush=True)
+                last[aid] = status
+                self.save()
+        return errors
+
     def tick(self):
+        errors = []
         try:
             self.poll()
-            self.state["last_error"] = None
         except Exception as exc:  # keep listening; the driver reads last_error
-            self.state["last_error"] = f"{now()} {exc}"
-            print(self.state["last_error"], flush=True)
+            errors.append(f"{now()} {exc}")
+        try:
+            errors += self.poll_remote()
+        except Exception as exc:
+            errors.append(f"{now()} remote workers: {exc}")
+        self.state["last_error"] = " | ".join(errors) or None
+        for err in errors:
+            print(err, flush=True)
         self.state["last_poll"] = now()
         self.save()
 

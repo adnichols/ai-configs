@@ -45,6 +45,36 @@ Mode: INTAKE
         self.assertNotIn('prefers-color-scheme', out)
         self.assertNotIn('display:none', out)
 
+    def test_completed_items_newest_merge_first_with_merged_and_deployed(self):
+        ledger = '''# Demo
+Mode: ORCHESTRATION
+## Status
+| ID | Title | State | PR | Waiting on | Merged | Deployed |
+|---|---|---|---|---|---|---|
+| WI-1 | Oldest | CLEANED | — | — | 2026-10-06 09:00Z aaa111111 | yes, all 8 (checked 10-08 20:00Z) |
+| WI-2 | Unmerged | CLOSED | — | — | — | — |
+| WI-3 | Newest | CLEANED | — | — | 2026-10-08 19:42Z bbb222222 | no, 0 of 8 (checked 10-08 20:00Z) |
+| WI-4 | Middle | CLEANED | — | — | 2026-10-07 12:00Z ccc333333 | partly, 2 of 8; not yet: c (checked 10-08 20:00Z) |
+| WI-5 | Open | BUILDING | — | worker | — | — |
+'''
+        out = dashboard.render(ledger, 'Demo', dashboard.TEMPLATE.read_text(), '2026-10-08')
+        order = [out.index(f'>{i}<') for i in ('WI-5', 'WI-3', 'WI-4', 'WI-1', 'WI-2')]
+        self.assertEqual(order, sorted(order))
+        for text in ['<th>Merged</th>', '<th>Deployed</th>', '2026-10-08 19:42Z bbb222222', 'partly, 2 of 8; not yet: c']:
+            self.assertIn(text, out)
+
+    def test_pr_column_shortens_every_pr_url_in_a_cell(self):
+        ledger = '''# Demo
+Mode: ORCHESTRATION
+## Status
+| ID | Title | State | PR | Waiting on | Merged | Deployed |
+|---|---|---|---|---|---|---|
+| WI-1 | Two parts | CLEANED | https://github.com/o/repo/pull/723, https://github.com/o/repo/pull/734 | — | 2026-10-08 20:59Z aaa111111 | — |
+'''
+        out = dashboard.render(ledger, 'Demo', dashboard.TEMPLATE.read_text(), '2026-10-08')
+        self.assertIn('>repo#723</a><br><a href="https://github.com/o/repo/pull/734"', out)
+        self.assertNotIn('>https://github.com/o/repo/pull/', out)
+
     def test_saved_render_contract_rejects_content_loss_warning_and_stale_revision(self):
         source = '<style>p{color:var(--ava-fg,#222)}</style><p>Confirmed issue <a href="https://e.test/x">evidence</a></p>'
         saved = {'source': source, 'revision_id': 'r1'}
