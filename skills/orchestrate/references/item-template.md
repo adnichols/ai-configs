@@ -51,6 +51,7 @@ Source doc: <Ava document URL, or none>   Doc author: <agent actor id and name; 
 - <WI-MM: duplicate of | overlaps | blocked by>
 
 ## Handoff
+Host: <name from the hosts file, local or remote; omit when there is no hosts file>
 Workspace: <id>   Worktree: <path>   Branch: <branch>   Agent: <id>   Launched: <time>
 
 ## Timeline
@@ -60,7 +61,7 @@ Workspace: <id>   Worktree: <path>   Branch: <branch>   Agent: <id>   Launched: 
 ## States
 
 `INTAKE` → `RESEARCHING` → `NEEDS_INFO` → `READY` → `QUEUED` (waiting for a
-lab or an overlapping item) → `HANDED_OFF` → `PROTOTYPE_REVIEW` /
+lab, a host with capacity, or an overlapping item) → `HANDED_OFF` → `PROTOTYPE_REVIEW` /
 `NEEDS_OPERATOR` / `BLOCKED` → `VALIDATED` → `MERGED` → (source doc closed out, when there is one) → `CLEANED`.
 
 Terminal states other than `CLEANED` need a recorded decision. The driver
