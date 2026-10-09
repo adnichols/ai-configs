@@ -12,7 +12,8 @@ written by the orchestrator; `Hosts:` lists the eligible worker hosts and
 their limits from the hosts file (see SKILL.md § Hosts), written once at
 tracker start and `none` when no hosts file exists; `Heartbeat:` is the
 20-minute status pass. In the Status table, `Workspace / agent` is
-`<host>: <workspace> / <agent>` (for example `devor: ws_... / ag_...`).
+`<host>: <workspace> / <agent>` (for example `devor: ws_... / ag_...`). The dashboard shows it in a Worker column
+with each part labeled. Escape a literal pipe in any cell as `\|`.
 
 **Status table order.** `dashboard.py` shows the table in three tiers: waiting
 on the operator (a Needs you state, or `Waiting on` starting with `operator`),

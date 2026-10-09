@@ -138,6 +138,21 @@ Mode: ORCHESTRATION
         self.assertEqual(dashboard.inline(f'[the doc]({u}) ok'), f'{a(u, "the doc")} ok')
         self.assertEqual(dashboard.inline('run `ls -l` now'), 'run <code>ls -l</code> now')
 
+    def test_worker_column_labels_host_workspace_and_agent_and_escaped_pipes_stay_in_cell(self):
+        ledger = r'''# Demo
+Mode: ORCHESTRATION
+## Status
+| ID | Title | State | Workspace / agent | PR | Waiting on |
+|---|---|---|---|---|---|
+| WI-1 | Uses a \| pipe | BUILDING | devor: wks_1 / ag_2 | https://github.com/o/repo/pull/9 | worker |
+'''
+        out = dashboard.render(ledger, 'Demo', dashboard.TEMPLATE.read_text(), '2026-10-09')
+        self.assertIn('Uses a | pipe', out)
+        self.assertIn('>repo#9</a>', out)
+        for text in ['<span class="sub">host</span> <code>devor</code>', '<span class="sub">Paseo workspace</span> <code>wks_1</code>',
+                     '<span class="sub">agent</span> <code>ag_2</code>']:
+            self.assertIn(text, out)
+
     def test_pr_column_links_every_pr_and_rejects_bare_numbers(self):
         u1, u2 = 'https://github.com/o/ccore2/pull/1', 'https://github.com/o/tools/pull/2'
         cell = dashboard.pr_cell(f'{u1}, {u2} → abc123')

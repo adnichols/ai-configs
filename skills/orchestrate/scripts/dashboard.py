@@ -70,7 +70,7 @@ def issue_rows(text):
     for line in section(text, "Status").splitlines():
         if not line.startswith("|"):
             continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        cells = [c.strip().replace(r"\|", "|") for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
         if cols is None:
             cols = [c.lower() for c in cells]
         elif not set("".join(cells)) <= set("-: "):
@@ -141,6 +141,30 @@ def pr_cell(pr):
         return links
     return f"{links} {inline(rest)}" if links else inline(rest)
 
+
+
+def worker_cell(cell):
+    """The ledger's `Workspace / agent` cell with each ID labeled by its shape (host, Paseo workspace, agent, lab).
+
+    The ledger form is `<host>: <workspace> / <agent>`; `·` also separates parts, and other notes stay plain."""
+    if cell in ("—", ""):
+        return "—"
+    m = re.match(r"([A-Za-z][\w.-]*):\s+(.*)", cell)
+    host, rest = (m.group(1), m.group(2)) if m else ("", cell)
+    parts = [p.strip() for p in re.split(r"\s+[/·]\s+", rest) if p.strip()]
+    out = [("host", host)] if host else []
+    for i, part in enumerate(parts):
+        if re.fullmatch(r"wk?s_[0-9a-f]+", part):
+            out.append(("Paseo workspace", part))
+        elif re.fullmatch(r"ag_\w+|[0-9a-f]{8}(-[0-9a-f-]{4,})?", part):
+            out.append(("agent", part[:8] if "-" in part else part))
+        elif re.fullmatch(r"lab\d+\b.*", part):
+            out.append(("lab", part))
+        elif i == 0 and not host and re.fullmatch(r"[a-z][\w-]*", part):
+            out.append(("host", part))
+        else:
+            out.append(("", part))
+    return "<br>".join((f'<span class="sub">{label}</span> ' if label else "") + f"<code>{html.escape(v)}</code>" for label, v in out)
 
 ASK_FIELDS = (("Problem", "Problem"), ("Fix", "Proposed change"), ("Decide", "Your call"), ("Links", "Look at"))
 
@@ -247,7 +271,8 @@ def render(text, title, template, updated):
             completed.append(f'{lead}<td>{inline(r.get("merged") or "—")}</td><td>{inline(r.get("deployed") or "—")}</td>'
                              f'<td class="pr">{pr_cell(pr)}</td></tr>')
         else:
-            trs.append(f'{lead}<td>{inline(r.get("waiting on", ""))}</td><td class="pr">{pr_cell(pr)}</td></tr>')
+            trs.append(f'{lead}<td>{inline(r.get("waiting on", ""))}</td><td class="pr">{pr_cell(pr)}</td>'
+                       f'<td class="worker">{worker_cell(r.get("workspace / agent", ""))}</td></tr>')
 
     meta = (f"Tracker: {html.escape(header(text, 'Tracker') or title)} · Status: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
             "document and acknowledges each one in its thread within about 30 seconds")
