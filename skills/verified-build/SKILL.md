@@ -65,6 +65,15 @@ Do not expose credentials, session cookies, API keys, personal data, or unrelate
 
 Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
 
+## Watch review documents for comments
+
+When the run publishes documents for operator review, such as a progress document in Ava, and the operator asks for comments to be watched, keep one watch set for the run:
+
+- The watch set contains every review document the run publishes, and every document the run creates and links from a document already in the set or from a reply the run posts on one of its threads. Documents linked from a child are covered the same way. When you publish a link to a new document, add it to the watch set in the same step and restart the watcher before yielding. Never wait for the operator to ask.
+- The watcher is one background job (the runtime's long-running job or service facility, no command deadline) that polls each document in the set about once a minute (for Ava, `ava document comment list <id>`). It exits with the new messages when it sees a message not written by this agent's own actor. Do not run a Space-wide listener such as `ava agent listen`, because it claims routed comments on other documents.
+- Keep the seen message IDs for every document in `<run-dir>/listener-seen.txt`. Only add to this file, never replace it with one poll's result. If any document's poll fails, discard that whole poll, so a transient error cannot erase the seen set and replay old comments. Before acting on an event, add every current message ID in the set to it, so known threads do not fire again after a restart. Reply on each thread, then restart the watcher with the current set.
+- Record the watch set and each document's URL in `run.md`. Stop watching a document only when the operator closes its review or the run is released.
+
 ## Establish the baseline
 
 Drive the real user path with the selected verification skill. Use stable accessible selectors or commands, not coordinates, when the tool supports them.
