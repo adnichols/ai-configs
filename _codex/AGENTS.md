@@ -21,12 +21,18 @@
 
 ## Doing the work
 
-- When I request implementation and a PR, that authorizes creating the PR, pushing changes, updating the PR, and marking it ready after required validation passes in the requested repository. Do not ask separately for those steps. Merging and production deployment require separate authorization unless explicitly included.
+- When I request implementation and a PR, that authorizes creating the PR, pushing changes, updating the PR, and marking it ready after required validation passes in the requested repository. Do not ask separately for those steps. Merging requires separate authorization unless explicitly included.
+- Never deploy to production, and never ask or offer to. Deploy and verify only in a lab. A merged PR is the end of an agent's work: say the change is merged and that production deploy is a human operator action. Do not list a production deploy as a next step.
+- ADR numbers are mechanical and never need operator approval. When creating or landing an ADR, take the next free number from the repository's tool, or max+1 across origin/main and open branches. On any collision, renumber and update every reference. Merge a PR whose only purpose is resolving ADR number collisions once repository checks pass, without asking. Never list ADR numbering as an operator question or a "waiting on you" item.
 - Infer the outcome I want from the request, conversation, and project context. Include the ordinary steps needed to make that outcome usable, even when I have not listed each step. Keep this within the requested scope.
 - Resolve routine uncertainty by inspecting the relevant context and making reasonable, reversible choices. Ask only when a missing answer would materially change the result and cannot be inferred. Continue independent work while waiting.
 - Before opening an app's UI, check whether its CLI, API, or connector can achieve the requested result, even when the action appears as a UI control. Use CUA for requested GUI interaction or when no semantic interface covers the result. If I specify a CLI, stay with it and report any unavailable action.
 - Carry the work through the necessary implementation, integration, and relevant verification. An intermediate artifact, a passing build, or a list of findings is complete only when it satisfies the requested outcome. Keep explanations concise without shortening the work.
 - In performance work, measure the actual bottleneck before changing it. Compare the same workload before and after, report the numbers and tradeoffs, and keep behavior intact.
+
+## Browser routing
+
+- Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
 
 ## PR ownership
 

@@ -9,7 +9,9 @@ The driving OMP session owns the lab, test design, evidence, and final verdict. 
 
 A separate implementer must be a Paseo-launched OMP agent, not a `task` subagent of the driving session. Subagents share the driving session's lifecycle and tool surface; a delegated worker keeps its own conversation, model selection, and agent identity, even though both share the run checkout's worktree. When no separate implementer is needed, the driving session implements in place and the launch steps below are skipped.
 
-When the user requests verified-build, request and claim a manager-assigned isolated lab without asking for separate lab-checkout permission. Lab checkout alone does not authorize deployment, fixture mutations, PR creation, or PR evidence updates; resolve those actions from the requested task and existing session authorization. Do not ask again for actions already authorized. This workflow never implies permission for production deployment, merging, destructive fixture cleanup, or unrelated changes.
+When the user requests verified-build, request and claim a manager-assigned isolated lab without asking for separate lab-checkout permission. Lab checkout alone does not authorize deployment, fixture mutations, PR creation, or PR evidence updates; resolve those actions from the requested task and existing session authorization. Do not ask again for actions already authorized. This workflow never implies permission for merging, destructive fixture cleanup, or unrelated changes.
+
+The lab is the only deploy target for product code. Never deploy to production, and never ask or offer to. After a merge, report that production deploy is a human operator action.
 
 ## Route the request
 
@@ -41,25 +43,36 @@ Do not start implementation work while an available prototype is awaiting operat
 
 ## Publish clickable prototypes on Cloudflare
 
-A request to generate or review UI prototypes with this skill includes publishing their disposable demo artifacts. This standing operator preference authorizes that demo publication only; it does not authorize production or product-lab deployment.
+A request to generate or review UI prototypes with this skill includes publishing their disposable demo artifacts. This standing operator preference authorizes that demo publication only; it does not authorize product-lab deployment.
 
 - Use the Nodaste Labs account `e6d3e575b97001f8ad1a7e98e497afa5`. Load `wrangler`; confirm account and domain ownership before deployment. Keep demo configuration separate from product deployables.
-- Choose a unique run name such as `<feature>-<YYYYMMDD>-<random-8-hex>`. Publish at `https://<run-name>.demos.keramos.tech` using a Cloudflare custom domain. Use a new name for a new proposal; reuse only this run's hostname for corrections. Never replace another demo or the parent domain.
+- Choose a unique run name such as `<feature>-<YYYYMMDD>-<random-8-hex>`. Publish at `https://<run-name>.demos.keramos.tech` using a Cloudflare custom domain. Use a new name for a new proposal; reuse only this run's hostname for corrections. Never replace another demo or the parent domain. Immediately after each publish, record it in `artifacts/verified-build/<run-id>/demos.json` in this worktree, in the format `worktree-cleanup` documents (run, worker, D1 database or `null`, account, URL, this worktree's absolute path, branch). Cleanup deletes only what that manifest lists.
 - Reuse existing demo hosting when it can preserve other demos; otherwise prefer Workers Static Assets for an HTML/JS prototype. Stage an explicit allowlist of public prototype files, screenshots, and walkthrough media. Keep credentials, session state, internal run logs, claim-owner details, and unrelated records out of uploaded assets. Use invented or disposable representative data; keep prototype mutations in memory or an isolated demo store.
 - Preserve existing Cloudflare Access protection; verify through an authorized login when required and mention that requirement with the returned URL. Open the hosted HTTPS URL in a fresh browser. Exercise its main interactions, direct state/variant links, reload behavior, responsive forms, and linked screenshots/media. Verify the custom domain serves this prototype; a successful upload or workers.dev response alone is insufficient.
 - Record the unique name, account, public URL, deployment version, public asset manifest, and browser verification in the prototype note and `run.md`. Return the clickable demo URL in the final response and use its stable media URLs for approved prototype references in a PR.
-- Release any product-lab claim after baseline capture. Keep the published demo available for review; remove it only when the operator requests cleanup. Demo hosting remains required even when no implementation or PR is authorized.
+- Release any product-lab claim after baseline capture once no prototype review is pending and no build run follows. Keep the published demo available for review; remove it only when the operator requests cleanup, or when `worktree-cleanup` runs. Demo hosting remains required even when no implementation or PR is authorized.
 
 ## Prepare the run
 
 1. Read the repository guidance, lab/deploy instructions, and any project-local `verify-*` skill. Load the app-appropriate verification skill and the `paseo` skill. Load `safe-git-index` when Git mutations are needed.
 2. Resolve the target lab, repository, base branch, authenticated browser or client profile, and evidence location from repo guidance. Ask only for a missing value that cannot be discovered and changes the run.
-3. Use the repository's existing lab claim or lease mechanism. Record the lab, claim identity, owner, owning host/worktree, expiry if applicable, and release procedure. For CCore labs, load the ccore2 repo-local `lab-manager` skill (`.agents/skills/lab-manager`); its claims do not expire. Keep the claim through review and handoff. For expiring leases, arrange supported renewal through review; report any retention limit rather than promising a reservation that will lapse. If the lab is already claimed, use another authorized lab or stop. Never invent a lock by convention.
+3. Use the repository's existing lab claim or lease mechanism. Record the lab, claim identity, owner, owning host/worktree, expiry if applicable, and release procedure. For CCore labs, load the ccore2 repo-local `lab-manager` skill (`.agents/skills/lab-manager`); its claims do not expire. Keep the claim while a PR using it is open or a prototype review is pending, and release it as soon as the work is done (see Release when the work is done). For expiring leases, arrange supported renewal while the claim is kept; report any retention limit rather than promising a reservation that will lapse. If the lab is already claimed, use another authorized lab or stop. Never invent a lock by convention.
 4. Verify which source SHA the lab serves. The baseline must match the intended base SHA. If it does not, deploy the intended base only when the request authorizes lab deployment. Otherwise stop with the mismatch.
 5. Create one run directory in the run checkout's evidence area. If none exists, use `artifacts/verified-build/<run-id>/`. Keep screenshot and video evidence untracked and out of every Git ref. A repository-defined external artifact store is acceptable, but a source branch, dedicated evidence branch, tag, or Git LFS is not a substitute for PR attachments unless the operator explicitly requests repository storage. When repository storage is explicitly required, commit and push from the run checkout — never from the operator's primary checkout.
 6. Start `run.md` with the mode, user request, desired references, prototype status, template, and approval record, lab URL, claim details, baseline deployment identity, browser/client profile, fixture identifiers, visual coverage matrix, and cleanup obligations.
 
 Do not expose credentials, session cookies, API keys, personal data, or unrelated customer data in evidence. Use disposable records or a repo-defined QA account. Only remove data created by this run.
+
+Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
+
+## Watch review documents for comments
+
+When the run publishes documents for operator review, such as a progress document in Ava, and the operator asks for comments to be watched, keep one watch set for the run:
+
+- The watch set contains every review document the run publishes, and every document the run creates and links from a document already in the set or from a reply the run posts on one of its threads. Documents linked from a child are covered the same way. When you publish a link to a new document, add it to the watch set in the same step and restart the watcher before yielding. Never wait for the operator to ask.
+- The watcher is one background job (the runtime's long-running job or service facility, no command deadline) that polls each document in the set about once a minute (for Ava, `ava document comment list <id>`). It exits with the new messages when it sees a message not written by this agent's own actor. Do not run a Space-wide listener such as `ava agent listen`, because it claims routed comments on other documents.
+- Keep the seen message IDs for every document in `<run-dir>/listener-seen.txt`. Only add to this file, never replace it with one poll's result. If any document's poll fails, discard that whole poll, so a transient error cannot erase the seen set and replay old comments. Before acting on an event, add every current message ID in the set to it, so known threads do not fire again after a restart. Reply on each thread, then restart the watcher with the current set.
+- Record the watch set and each document's URL in `run.md`. Stop watching a document only when the operator closes its review or the run is released.
 
 ## Establish the baseline
 
@@ -84,7 +97,7 @@ For exploration:
 
 1. Convert the supplied product description into a short checklist of observable scenarios.
 2. Exercise every scenario in the live lab. Record `PASS`, `FAIL`, `SKIP`, or `BLOCKED`, with steps, expected state, actual state, and a screenshot.
-3. Retry failures once from a clean state. Keep the claim and review fixtures available when handing off the findings. Remove only this run's fixtures during agreed cleanup. Do not open a PR.
+3. Retry failures once from a clean state. Keep the claim and review fixtures available while handing off the findings. Once the exploration is concluded, remove only this run's fixtures and release the claim as described in Release when the work is done. Do not open a PR.
 
 ## Choose the implementation mode
 
@@ -147,7 +160,7 @@ Prompt the implementer to use ADN mode and include:
 - applicable repo guidance and project verification skill paths;
 - a requirement to find the shared root cause and check every caller before editing;
 - a requirement to plan, implement, add proportional regression coverage, run repo checks, complete bounded review, and create or update one PR for lab validation;
-- a prohibition on lab deployment, production deployment, merge, and changes outside the requested outcome; and
+- a prohibition on lab deployment, merge, and changes outside the requested outcome, and a statement that production is never a deploy target and is never to be asked about; and
 - a completion receipt containing the PR URL, exact head SHA, changed files, checks, review verdict, and remaining risks.
 
 Monitor through the finish notification, `get_agent_status`, `send_agent_prompt`, and the `paseo inspect` / `paseo send` CLI equivalents. Send follow-ups only when new lab evidence, a concrete scope correction, or a verified review problem requires one. A timeout means inspect state; it does not mean the agent failed.
@@ -171,7 +184,7 @@ When an approved prototype exists, compare the candidate against that exact vers
 
 If validation fails, retry once from a clean state. For a confirmed candidate failure, add the exact candidate SHA, steps, expected result, actual result, and evidence paths to `run.md`. In delegated mode send that packet to the same implementer agent, which updates the same PR; in direct mode the driving session makes the fix and updates the PR. Repeat exact-head deployment and validation after each new SHA.
 
-Stop and ask the user when the same failure survives two materially different fixes, the required fix expands product scope, the lab claim is lost, the environment cannot prove which build is running, or safe validation would destroy data. Record infrastructure failures as `BLOCKED`, not product failures.
+Stop and ask the user when the same failure survives two materially different fixes, the required fix expands product scope, the environment cannot prove which build is running, or safe validation would destroy data. If the lab claim is lost, release your own orphaned claim through the lab-manager's agent release path (see the ccore2 lab-manager skill) and claim a lab again; do not ask the operator. Record infrastructure failures as `BLOCKED`, not product failures.
 
 ## Add visual evidence to the PR
 
@@ -200,8 +213,10 @@ Before finishing, make `run.md` contain:
 - fixture cleanup performed and anything intentionally left in the lab; and
 - open blockers or follow-ups that were not added to the PR.
 
-For a prototype-only request, finish after the public demo passes browser verification and its evidence is recorded; approval may remain pending and no PR is required. For a build run, finish only when the evidence files exist, the manifest points to them, and the PR contains the complete visual evidence table with reviewer-accessible images. A build result is `VALIDATED` only when the exact current PR head passed in the claimed lab. Otherwise report `NOT_REPRODUCED`, `BLOCKED`, or `FAILED_VALIDATION` truthfully. Keep the lab claimed and the validated deployment and review fixtures available for the operator. Report the retained claim and cleanup requirements in the final handoff. Agent completion, successful validation, a blocker, or waiting for feedback does not authorize release. Do not merge the PR.
+For a prototype-only request, finish after the public demo passes browser verification and its evidence is recorded; approval may remain pending and no PR is required. For a build run, finish only when the evidence files exist, the manifest points to them, and the PR contains the complete visual evidence table with reviewer-accessible images. A build result is `VALIDATED` only when the exact current PR head passed in the claimed lab. Otherwise report `NOT_REPRODUCED`, `BLOCKED`, or `FAILED_VALIDATION` truthfully. Keep the lab claimed and the validated deployment and review fixtures available while the PR is open. Report the claim and its release status in the final handoff. Agent completion, successful validation, a blocker, or waiting for feedback does not release the claim by itself; a merge or concluded work does. Do not merge the PR.
 
-## Release during agreed cleanup
+## Release when the work is done
 
-Release only this work's claim, using the recorded procedure, after all PRs using the lab have merged and the operator has explicitly agreed the work is complete. Merge alone or acceptance before merge is insufficient. For exploration or work without a PR, wait for the operator's explicit completion and cleanup agreement. An explicit operator instruction to abandon the work and release its lab also authorizes cleanup without merge. Until then, preserve the claim even if the agent stops or the work is idle. Record the agreement and merge status before release, and verify and record the release result. Never infer that an old claim is unused.
+Release this work's claim, using the recorded procedure, as soon as the work using the lab is done. The work is done when every PR using the lab has merged, or when the work is abandoned or concluded without a merge (`NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, duplicate, won't fix, superseded). Do not wait for the operator's agreement and never ask the operator to release a lab or to resolve a stale claim from your own work. Keep the claim while a PR using it is open or a prototype review is pending. Do not infer that someone else's old claim is unused. Record the merge status and the release result.
+
+Do not release the claim, delete the demo, or remove the worktree by hand. Run `skill://worktree-cleanup`, which releases the claim, verifies it, removes the demos in `demos.json`, archives the workspace, and deletes the remote branch. A delegated worker, or a session cleaned up by an orchestrator, leaves this to the orchestrator, which runs it immediately after the merge or conclusion. Work concluded without a merge maps to its `--abandon <reason>` flag. If the claim file is lost, release the orphaned claim through the lab-manager's agent release path for your own claim (see the ccore2 lab-manager skill), not through the operator. Do not merge with `--delete-branch`: it deletes the worktree and the claim file before the lab can be released.

@@ -87,7 +87,7 @@
       "class": "consumer-specific-installable",
       "allowedConsumers": [],
       "canonicalSource": "skills/bugbash",
-      "notes": "Conversation-driven bug bash: collects rapid-fire bug and feature reports with screenshots, enriches them with background research, hands each to its own Paseo worktree running OMP (the `omp` profile) with verified-build and ADN mode, then orchestrates every item to an operator-approved merged PR and cleaned-up worktree. Installs into shared discovery only, so OMP and Codex orchestrator sessions both see it; no consumer compatibility links are created.",
+      "notes": "Indefinite alias for orchestrate: `/bugbash` and `/orchestrate` start the same work tracker. `scripts/` and `references/` are links to the orchestrate copies, so commands in existing bug bash ledgers keep working. Installs into shared discovery only, alongside orchestrate.",
       "sourceType": "repo"
     },
     "canvas-design": {
@@ -494,6 +494,13 @@
       "notes": "Conditional proactive Oracle caller contract for consequential unresolved choices.",
       "sourceType": "repo"
     },
+    "orchestrate": {
+      "class": "consumer-specific-installable",
+      "allowedConsumers": [],
+      "canonicalSource": "skills/orchestrate",
+      "notes": "Conversation-driven work orchestrator (`/orchestrate`, alias `bugbash`): collects rapid-fire bug, feature, and other change reports with screenshots onto a tracker named for the day or the operator's theme, enriches them with background research, hands each to its own Paseo worktree running OMP (the `omp` profile) where ADN mode routes it by description and verified-build verifies it, then orchestrates every item to a merged PR and cleaned-up worktree, merging each PR itself once it is validated, every operator decision on it is answered, and every gate passes. No agent deploys to production, asks about it, or offers to; validation happens in a lab. Publishes a live dashboard per tracker in Ava Development › Coding Work; trackers may run in parallel. Installs into shared discovery only, so OMP and Codex orchestrator sessions both see it; no consumer compatibility links are created.",
+      "sourceType": "repo"
+    },
     "packaging-notarization": {
       "class": "universal-installable",
       "allowedConsumers": [
@@ -704,7 +711,7 @@
         "devin"
       ],
       "canonicalSource": "skills/session-cleanup",
-      "notes": "Ordered teardown for finished sessions: release lab claims and published clickable-prototype demos before removing worktrees, retire child workspaces and agents, archive the Paseo session last.",
+      "notes": "Session teardown inventory: owned PRs, child workspaces, schedules, and agents. Delegates worktree, lab, demo, and branch teardown to worktree-cleanup.",
       "sourceType": "repo"
     },
     "setup-matt-pocock-skills": {
@@ -1027,6 +1034,18 @@
       "sourceType": "repo",
       "defaultInstall": false,
       "profile": "macos"
+    },
+    "worktree-cleanup": {
+      "class": "universal-installable",
+      "allowedConsumers": [
+        "codex",
+        "claude",
+        "pi",
+        "devin"
+      ],
+      "canonicalSource": "skills/worktree-cleanup",
+      "notes": "Idempotent script that tears down a finished worktree in a fixed order: preflight, lab claim release, published demos, Paseo workspace, remote branch. Every merge flow calls it instead of gh pr merge --delete-branch.",
+      "sourceType": "repo"
     },
     "xlsx": {
       "class": "universal-installable",

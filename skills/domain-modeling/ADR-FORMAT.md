@@ -24,7 +24,7 @@ Only include these when they add genuine value. Most ADRs won't need them.
 
 ## Numbering
 
-Scan `docs/adr/` for the highest existing number and increment by one.
+Scan `docs/adr/` for the highest existing number and increment by one. Include open branches and origin/main. On a collision, renumber and update every reference. ADR numbers never need operator approval.
 
 ## When to offer an ADR
 

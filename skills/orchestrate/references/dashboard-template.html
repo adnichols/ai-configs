@@ -2,11 +2,15 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{title}}</title>
 <style>
-:root { color-scheme: light dark; --weft-radius-chip:2px; --weft-radius-card:4px; --bg:#fff; --fg:#1b1f24; --mute:#5c6570; --line:#dde1e6; --card:#f6f7f9; --link:#1d4ed8;
-  --needs:#b45309; --needs-bg:#fef3c7; --work:#1d4ed8; --work-bg:#dbeafe; --blocked:#b91c1c; --blocked-bg:#fee2e2; --done:#15803d; --done-bg:#dcfce7; }
-@media (prefers-color-scheme: dark) { :root { --bg:#14161a; --fg:#e6e8eb; --mute:#9aa3ad; --line:#2a2f36; --card:#1b1e23; --link:#93c5fd;
-  --needs:#fbbf24; --needs-bg:#3a2a0a; --work:#93c5fd; --work-bg:#16233d; --blocked:#fca5a5; --blocked-bg:#3b1414; --done:#86efac; --done-bg:#0f2a1a; } }
-body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif; }
+:root { --weft-radius-chip:2px; --weft-radius-card:4px;
+  --bg:var(--ava-bg, light-dark(#fff,#14161a)); --fg:var(--ava-fg, light-dark(#1b1f24,#e6e8eb));
+  --mute:var(--ava-muted, light-dark(#5c6570,#aeb7c2)); --line:var(--ava-rule, light-dark(#dde1e6,#444b55));
+  --card:var(--ava-surface, light-dark(#f6f7f9,#1b1e23)); --link:var(--ava-link, light-dark(#1d4ed8,#93c5fd));
+  --needs:var(--ava-warn, light-dark(#92400e,#fbbf24)); --needs-bg:light-dark(#fef3c7,#3a2a0a);
+  --work:var(--ava-accent, light-dark(#1d4ed8,#93c5fd)); --work-bg:light-dark(#dbeafe,#16233d);
+  --blocked:var(--ava-danger, light-dark(#b91c1c,#fca5a5)); --blocked-bg:light-dark(#fee2e2,#3b1414);
+  --done:var(--ava-ok, light-dark(#15803d,#86efac)); --done-bg:light-dark(#dcfce7,#0f2a1a); }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 var(--ava-font-sans, system-ui,sans-serif); }
 main { padding:28px 24px 48px; }
 h1 { font-size:24px; margin:0 0 4px; overflow-wrap:anywhere; } h2 { font-size:17px; margin:28px 0 10px; }
 .meta { color:var(--mute); font-size:13px; }
@@ -26,7 +30,7 @@ h1 { font-size:24px; margin:0 0 4px; overflow-wrap:anywhere; } h2 { font-size:17
 .scroll { overflow-x:auto; }
 table { width:100%; border-collapse:collapse; } th, td { text-align:left; vertical-align:top; padding:10px 8px; border-bottom:1px solid var(--line); }
 th { font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
-td.pr { white-space:nowrap; } td.pr a { overflow-wrap:normal; }
+td.pr, th.pr { width:7.5rem; min-width:7.5rem; max-width:7.5rem; overflow-wrap:anywhere; } td.pr a { white-space:nowrap; }
 td.worker { white-space:nowrap; font-size:12px; } td.worker code { font-size:11px; }
 td.id { font-weight:700; white-space:nowrap; } .t { font-weight:500; } .sub { color:var(--mute); font-size:12px; }
 tr.done td { opacity:.7; }
@@ -35,7 +39,7 @@ code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(-
 .decisions { padding-left:20px; } .decisions li { margin:6px 0; color:var(--mute); font-size:13px; overflow-wrap:anywhere; }
 @media (max-width: 640px) {
   main { padding:20px 14px 40px; }
-  th:nth-child(4), td:nth-child(4) { display:none; }
+  th, td { padding:8px 6px; }
 }
 </style></head>
 <body><main>
@@ -44,9 +48,10 @@ code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(-
 <div class="chips">{{chips}}</div>
 <h2>Needs you</h2>
 {{needs}}
-<h2>All issues</h2>
-<div class="scroll"><table><thead><tr><th>ID</th><th>Issue</th><th>State</th><th>Waiting on</th><th>PR</th><th>Worker</th></tr></thead>
+<h2>Active priorities</h2>
+<div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Waiting on</th><th class="pr">PR</th><th>Worker</th></tr></thead>
 <tbody>{{issues}}</tbody></table></div>
-<h2>Recent decisions</h2>
-<ul class="decisions">{{decisions}}</ul>
+<details open><summary>Completed items, newest merge first</summary><div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Merged</th><th>Deployed</th><th class="pr">PR</th></tr></thead><tbody>{{completed}}</tbody></table></div></details>
+<details><summary>Decision history</summary>
+<ul class="decisions">{{decisions}}</ul></details>
 </main></body></html>

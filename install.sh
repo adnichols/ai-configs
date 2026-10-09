@@ -3736,6 +3736,40 @@ install_pi_npm_packages() {
 
 # Argument parsing. The scoped pi-vcc mode intentionally accepts no other
 # installer options or target directory so it cannot fan out into unrelated work.
+# Bounded source-backed refresh: no package fetches, consumer links or unrelated surfaces.
+if [ "${1:-}" = "--repo-skill" ]; then
+    [ "$#" -eq 2 ] || { echo "usage: install.sh --repo-skill NAME" >&2; exit 2; }
+    skill_name="$2"
+    source_rel="$(iterate_repo_installable_skills | awk -F '\t' -v name="$skill_name" '$1 == name { print $2 }')"
+    [ -n "$source_rel" ] || { echo "Unknown repo-managed shared skill: $skill_name" >&2; exit 2; }
+    python3 - "$REPO_ROOT" "$HOME/.agents/skills/$skill_name" "$source_rel" <<'PYSCOPED'
+import hashlib, json, subprocess, sys
+from pathlib import Path
+repo, dest, source = map(Path, sys.argv[1:])
+marker = json.loads((dest / '.ai-configs-managed.json').read_text())
+if dest.is_symlink() or marker.get('repo') != 'ai-configs' or marker.get('source') != str(source) or not marker.get('managed'):
+    raise SystemExit('Scoped refresh requires an existing managed skill')
+commit = marker['commit']
+paths = subprocess.check_output(['git', '-C', str(repo), 'ls-tree', '-r', '--name-only', commit, '--', str(source)], text=True).splitlines()
+expected = {str(Path(p).relative_to(source)): subprocess.check_output(['git', '-C', str(repo), 'show', f'{commit}:{p}']) for p in paths}
+actual = {str(p.relative_to(dest)): p.read_bytes() for p in dest.rglob('*') if p.is_file() and p.name != '.ai-configs-managed.json'}
+matches = ({p: hashlib.sha256(b).hexdigest() for p, b in actual.items()} == marker['files']) if 'files' in marker else actual == expected
+if not expected or not matches or any(p.is_symlink() for p in dest.rglob('*')):
+    raise SystemExit('Local changes or missing provenance; preserve and reconcile the selected skill')
+PYSCOPED
+    install_shared_skill "$skill_name" "$source_rel" "$HOME/.agents/skills"
+    python3 - "$HOME/.agents/skills/$skill_name" <<'PYMARKER'
+import hashlib, json, sys
+from pathlib import Path
+dest = Path(sys.argv[1]); path = dest / '.ai-configs-managed.json'
+marker = json.loads(path.read_text())
+marker['files'] = {str(p.relative_to(dest)): hashlib.sha256(p.read_bytes()).hexdigest()
+                   for p in dest.rglob('*') if p.is_file() and p != path}
+path.write_text(json.dumps(marker, indent=2) + '\n')
+PYMARKER
+    exit 0
+fi
+
 if [ "${1:-}" = "--retire-skills" ]; then
     shift
     for name in "$@"; do

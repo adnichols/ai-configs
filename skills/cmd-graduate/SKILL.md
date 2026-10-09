@@ -31,6 +31,7 @@ Graduated features move to:
 - `spec/architecture/[feature].md` - Feature architecture documents
 - `spec/architecture/README.md` - Architecture index (updated)
 - `spec/adr-log.md` - Architectural decision records (if applicable)
+  (ADR numbers are mechanical: next free number, renumber on collision, never ask the operator)
 - `CHANGELOG.md` - Implementation summaries appended
 
 ## Process

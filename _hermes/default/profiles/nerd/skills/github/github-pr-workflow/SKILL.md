@@ -357,11 +357,11 @@ When asked to "check the PR for feedback" and update it:
 **With gh:**
 
 ```bash
-# Squash merge + delete branch (cleanest for feature branches)
-gh pr merge --squash --delete-branch
+# Squash merge. Branch deletion belongs to worktree-cleanup: after the merge, run it from outside the branch's worktree (if it has one)
+gh pr merge --squash
 
 # Enable auto-merge (merges when all checks pass)
-gh pr merge --auto --squash --delete-branch
+gh pr merge --auto --squash
 ```
 
 **With git + curl:**
@@ -378,13 +378,12 @@ curl -s -X PUT \
     \"commit_title\": \"feat: add user authentication (#$PR_NUMBER)\"
   }"
 
-# Delete the remote branch after merge
-BRANCH=$(git branch --show-current)
-git push origin --delete $BRANCH
-
-# Switch back to main locally
+# Leave branch deletion to worktree cleanup. Deleting the branch here can remove
+# a checked-out worktree and its lab claim before the lab is released.
+# If this branch has a Paseo or aoe worktree and the worktree-cleanup skill is
+# installed, run it from outside that worktree after the merge:
+#   python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --path <worktree>
 git checkout main && git pull origin main
-git branch -d $BRANCH
 ```
 
 Merge methods: `"merge"` (merge commit), `"squash"`, `"rebase"`

@@ -14,6 +14,10 @@ For Paseo status, agents, workspaces, terminals, logs, and command output:
 
 Never use CUA, computer-use, screenshots, or desktop automation to control or inspect Paseo. If the CLI and dedicated Paseo MCP tools do not expose an action, state that limitation; do not substitute a GUI action or claim the operation succeeded. This includes pinning a session. Resolve "tab", "adjacent tab", and "other tab" through workspace, agent, and terminal state.
 
+## Browser tools
+
+- Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
+
 ## Status, agents, and terminals
 
 Use read-only CLI inspection to identify the target workspace and capture its output:

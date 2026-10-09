@@ -2118,6 +2118,10 @@ test_herdr_agent_handoff_contract() {
   python3 -m unittest scripts/tests/test_herdr_agent_handoff.py
 }
 
+test_worktree_cleanup_script_contract() {
+  python3 -m unittest scripts/tests/test_worktree_cleanup.py
+}
+
 test_hermes_config_sync_preserves_cron_runtime_state() {
   python3 -m unittest scripts/test_hermes_config_sync.py
 }
@@ -2163,6 +2167,7 @@ main() {
   run_test test_review_guidance_is_bounded_and_scope_safe
   run_test test_active_agent_configuration_has_no_kimi
   run_test test_herdr_agent_handoff_contract
+  run_test test_worktree_cleanup_script_contract
   run_test test_hermes_config_sync_preserves_cron_runtime_state
 
   printf '\nTests run: %s\n' "$TESTS_RUN"
