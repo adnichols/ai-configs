@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- `orchestrate` runs workers on more than one host. A machine-level hosts file (`~/.config/orchestrate/hosts.json`) lists each host's Paseo target, checkouts and admission limits. `scripts/pick_host.py` probes every host's running agents, available memory, swap and load and picks the one with the most room, or exits 3 so the item is `QUEUED`. Remote workers are launched and managed with `paseo --host`, the listener relays their turn endings as `WORKER_TURN_ENDED`, and cleanup runs `worktree_cleanup.py` over ssh. With no hosts file the single-host flow is unchanged.
+
 - `orchestrate` publishing no longer fails with "Argument list too long" on large pages: `dashboard.py` `ava()` sends the JSON body on stdin (`--file -`) instead of `--data`, which covers dashboard and spec diff publishes. Spec diff pages show bare `<tag>` text in a spec (for example `/assets/<rev>/`) as written instead of dropping it as raw HTML (`spec_diff.py` renders through `raw_html_as_text.lua`, because `pandoc -f gfm-raw_html` does not stop the passthrough).
 
 - `orchestrate` spec diff pages (`spec_diff.py`) show each change as one inline diff instead of a Before and After table. A similar changed line is one line with `<del>` and `<ins>` words, unrelated lines are removed and added rows, and the "change in place" view is collapsed for modified files. `SKILL.md` describes the new page.

@@ -74,7 +74,8 @@ When triggered:
    Do not ask for a theme; use the date when none is given.
 2. Create the tracker directory and ledger, with the title as the ledger's
    `# ` heading. Record the orchestrator's cwd, session file, and Paseo
-   workspace ID (`list_workspaces`, match the path).
+   workspace ID (`list_workspaces`, match the path). When a hosts file exists
+   ([Hosts](#hosts)), also record its `Hosts:` line.
 3. Resolve the default target: repository checkout path, base branch, and
    lab system, plus how many labs this tracker may hold at once when that is
    knowable from the lab manager or repo guidance. Infer these from the
@@ -92,6 +93,64 @@ When triggered:
    finished. Also state the rule from [Merge authority](#merge-authority): you
    merge each PR yourself once it passes every gate and every decision on it
    is answered.
+
+## Hosts
+
+Workers may run on more than one machine. Which machines are eligible is set
+by a hosts file: `$ORCHESTRATE_HOSTS` when set, otherwise
+`~/.config/orchestrate/hosts.json`. The file is the same on every machine.
+**When no hosts file exists, every worker runs on the orchestrator's own
+machine exactly as the Handoff steps without a host describe, and everything
+in this section is skipped.**
+
+```json
+{ "hosts": [
+  { "name": "mbp", "target": "ssh://mbp", "hostnames": ["aarons-macbook-pro"],
+    "max_workers": 16, "min_available_gb": 4, "max_swap_gb": 4, "max_load_per_core": 2.0, "per_worker_gb": 2,
+    "checkouts": { "ccore2": "/Users/anichols/code/ccore2" } },
+  { "name": "devor", "target": "ssh://dever", "hostnames": ["dever", "devor"],
+    "max_workers": 12, "min_available_gb": 6, "max_swap_gb": 4, "max_load_per_core": 1.5, "per_worker_gb": 2,
+    "checkouts": { "ccore2": "/home/anichols/code/ccore2" } } ] }
+```
+
+- `name`: the host's name in the ledger and item files.
+- `target`: the `--host` value for the `paseo` CLI; the ssh alias is the
+  target without `ssh://`. The alias is the one the *orchestrator's* machine
+  uses (the Mac reaches Devor as `dever`; Devor reaches the Mac as `mbp`).
+- `hostnames`: lowercase short hostnames of the machine. A host is **local**
+  when the orchestrator's lowercase short `socket.gethostname()` (without
+  `.local` or any domain) is in this list. A local host is probed and driven
+  without ssh or `--host`, and its workers use the Paseo MCP tools.
+- `checkouts`: repo key to the checkout path on that host; the script returns
+  the chosen host's path as `checkout`.
+- Limits, all optional: `max_workers` (default 12), `min_available_gb` (6),
+  `max_swap_gb` (4), `max_load_per_core` (1.5), `per_worker_gb` (2).
+  `pick_host.py` probes each host's running agents, available memory, swap,
+  and load, and reports a host as eligible only while it is within these
+  limits and has room for one more worker; each host's `reason` says why not.
+  Swap counts only while available memory is under twice
+  `min_available_gb + per_worker_gb`, because Linux keeps pages in swap long
+  after memory pressure ends. `mbp` is used only for agents, so its limits are
+  looser. Tune limits in the hosts file, not per tracker.
+
+The Paseo MCP tools reach only the orchestrator's own daemon. Each host runs
+its own Paseo daemon, and the `paseo` CLI with `--host <target>` reaches a
+remote one. So a worker on a remote host is launched, messaged, inspected, and
+cleaned up with the CLI, and it sends no native finish notification (see
+[Worker notifications](#worker-notifications-during-intake)).
+
+Every host needs the same one-time setup, not per item: the ai-configs skills
+installed (`~/.agents/skills`), `gh` authenticated, `ava` authenticated,
+lab-manager credentials, and the `omp` Paseo profile. If a remote worker
+reports a missing tool or credential, fix that host once and record it.
+
+Labs are cloud labs shared by every host, so a host's admission is not lab
+capacity. The per-lab-system cap in [Handoff](#handoff) still applies across
+all hosts together.
+
+At tracker start, record `Hosts: <name> (local|remote) max <N> workers, avail
+>= <G> GB, swap <= <S> GB, load <= <L>/core; ...` in the ledger, one entry per
+host in the file, from the file's values with defaults filled in.
 
 ## Dashboard
 
@@ -346,30 +405,69 @@ built for the item, qualifies: keep building on it.
 
 For each `READY` item, launch its worker without waiting for the operator:
 
-1. Create a worktree workspace: `create_workspace` with
-   `isolation: "worktree"`, `mode: "branch-off"`, `path` set to the target
-   checkout, `baseBranch` from the item, and
-   `branchName: "orchestrate/wi-NN-<slug>"`.
+0. Choose the host. Skip this step when no hosts file exists
+   ([Hosts](#hosts)); use the item's checkout path and go to step 1 (local).
+   Otherwise run `python3 <skill-dir>/scripts/pick_host.py --repo <repo>`,
+   where `<repo>` is the item's repo key in the hosts file's `checkouts`
+   (`ccore2`). It prints one JSON object.
+   - Exit 0: `host`, `local`, `target`, and `checkout` name the host to use;
+     `hosts` has every host's `running`, `available_gb`, `swap_used_gb`,
+     `load5`, `free_slots`, `eligible`, and `reason`. Use `checkout` as the
+     target checkout path in the steps below, and record `host` on the item.
+   - Exit 3 (`host` is null): no host can take a worker. Set the item to
+     `QUEUED`, record each host's `reason` in its timeline, and run step 0
+     again whenever a worker finishes, an item is cleaned, or the heartbeat
+     fires. Do not launch on a host that is not eligible.
+   - Exit 2: the hosts file is invalid; read stderr and fix the file.
+
+   Steps 1 to 4 have a local form (the host is local, or there is no hosts
+   file) and a remote form (`local` is false).
+
+1. Create a worktree workspace.
+   - Local: `create_workspace` with `isolation: "worktree"`,
+     `mode: "branch-off"`, `path` set to the target checkout, `baseBranch`
+     from the item, and `branchName: "orchestrate/wi-NN-<slug>"`.
+   - Remote: `paseo workspace create --host <target> --isolation worktree
+     --mode branch-off --path <checkout> --base <base> --new-branch
+     orchestrate/wi-NN-<slug> --json`. Take the workspace ID from the JSON.
 2. Read the launch profile with `list_profiles` and take the row whose name
    is exactly `omp`; do not choose by notes. Materialize it: `provider` is
    `omp/<model>` (normally `omp/@default`, which resolves OMP's configured
    default model), `settings.modeId` is its `modeId`, and
    `settings.thinkingOptionId` is set only if present. Do not choose or
-   override the model.
-3. `create_agent` in the new `workspaceId`, titled `[WI-NN] <short title>`,
-   with the brief from `references/worker-brief.md`, and leave
-   `notifyOnFinish` at its default of true.
-4. Verify placement with `get_agent_status`: provider `omp`, the profile's
-   mode, and a cwd equal to the new worktree. If the worker landed elsewhere,
-   archive it and relaunch before it edits anything.
-5. Record workspace ID, worktree path, branch, and agent ID in the item file
-   and ledger, and set the item to `HANDED_OFF`.
+   override the model. This is the same for either host: read the profile on
+   the orchestrator's daemon and pass its values to the remote CLI.
+3. Start the agent in the new workspace, titled `[WI-NN] <short title>`, with
+   the brief from `references/worker-brief.md`.
+   - Local: `create_agent` in the new `workspaceId`, leaving `notifyOnFinish`
+     at its default of true.
+   - Remote: `paseo run --host <target> --workspace <id> --background --json
+     --title "[WI-NN] <short title>" --provider omp/<model> --mode <modeId>
+     [--thinking <thinkingOptionId>] --label tracker=<tracker slug> --label
+     wi=WI-NN --env VITEST_MAX_WORKERS=2 "<brief>"`. `<tracker slug>` is the
+     basename of the tracker directory. `paseo run` waits for the agent to
+     finish by default; `--background` returns once it starts, and a launch
+     without it blocks your turn. The prompt is the positional argument, so
+     save the brief to a temporary file and pass `"$(cat <file>)"`. Take the
+     agent ID from the JSON. The `tracker` label is how the listener finds
+     this worker; never omit it.
+4. Verify placement: provider `omp`, the profile's mode, and a cwd equal to
+   the new worktree.
+   - Local: `get_agent_status`.
+   - Remote: `paseo inspect --host <target> <agent-id>`.
+
+   If the worker landed elsewhere, archive it (remote:
+   `paseo archive --host <target> --force <agent-id>`) and relaunch before it
+   edits anything.
+5. Record host, workspace ID, worktree path, branch, and agent ID in the item
+   file and ledger, and set the item to `HANDED_OFF`.
 
 Each worker claims its own lab through verified-build, and keeps it while its
 PR is open or a prototype review is pending. The orchestrator releases it as
 soon as the work is done (see [Cleanup per item](#cleanup-per-item)); it never
 asks the operator to. Cap concurrent workers per lab system at the
-capacity recorded in the ledger. When capacity is unknown and a worker
+capacity recorded in the ledger, counting workers on every host. When
+capacity is unknown and a worker
 reports that no lab is available, record the observed capacity, stop
 launching for that lab system, and queue the remaining `READY` items as
 `QUEUED`. Launch the next one when a lab frees up.
@@ -398,7 +496,21 @@ worker brief), update the item and ledger, and act:
   evidence, wrong target, lab capacity). Otherwise queue it for the operator.
 
 A notification with no status block, or a timeout, means inspect the agent
-(`get_agent_status`, `paseo logs <id>`). It does not mean the worker failed.
+(`get_agent_status`, `paseo logs <id>`; for a remote worker
+`paseo inspect --host <target> <id>` and `paseo logs --host <target> <id>`).
+It does not mean the worker failed.
+
+**Remote workers.** A worker on a remote host sends no `notifyOnFinish`
+notification, because the Paseo MCP tools reach only the local daemon. The
+listener ([Dashboard](#dashboard)) finds remote workers by their
+`tracker=<tracker slug>` label and sends you
+`WORKER_TURN_ENDED host=<name> agent=<id> status=<status> name=<agent name>.
+Read its WORKER_STATUS: paseo logs --host <target> <id>` with
+`paseo send --no-wait` whenever one finishes a turn. Treat that message as a
+notification: run the `paseo logs --host <target> <id>` it names, read the
+final `WORKER_STATUS` block, and handle it exactly as above. A
+`WORKER_TURN_ENDED` whose logs hold no status block is the "no status
+block" case: inspect the agent.
 
 ## Orchestration
 
@@ -412,7 +524,11 @@ ledger mode to `ORCHESTRATION` and:
    says: `orchestrate <tracker> status pass: re-read <ledger path>, inspect
    every active worker, act on changes, and report only changes or
    blockers.` It catches stuck workers that send no notification and
-   re-anchors the session after compaction. Record its ID in the ledger.
+   re-anchors the session after compaction. On every pass, inspect each
+   active worker on its own host (`get_agent_status` for local items,
+   `paseo inspect --host <target> <id>` or `paseo ls -g --json --host <target>
+   --label tracker=<tracker slug>` for remote ones), and retry any `QUEUED`
+   item through Handoff step 0. Record the heartbeat's ID in the ledger.
 3. Post the status board (format below), then drive each item through its
    states as notifications, heartbeats, and operator answers arrive.
 
@@ -421,9 +537,12 @@ continue.
 
 ### Relaying between operator and workers
 
-- Relay operator answers to the worker with `send_agent_prompt`. Quote the
+- Relay operator answers to the worker with `send_agent_prompt`, or for a
+  remote item `paseo send --host <target> --no-wait <agent-id> "<message>"`.
+  Quote the
   operator verbatim and label your own reading as interpretation. Log each
-  decision verbatim in the ledger's decisions section.
+  decision verbatim in the ledger's decisions section. Every later action on
+  a worker (relay, inspect, logs, archive) uses the host recorded on its item.
 - Answer worker questions yourself when the answer is already in the
   operator's words, the item file, or the repository. Send everything else
   that is not a product behavior decision to the oracle
@@ -431,8 +550,9 @@ continue.
 - Send follow-ups to a worker only for new evidence, an operator answer, a
   concrete scope correction, or a verified problem. Do not prompt a worker
   that is running.
-- If a worker has not progressed across two heartbeats, inspect its logs.
-  Nudge it once with the specific gap. If it is still stuck, report it to the
+- If a worker has not progressed across two heartbeats, inspect its logs
+  (`paseo logs`, with `--host <target>` for a remote item). Nudge it once
+  with the specific gap. If it is still stuck, report it to the
   operator as `BLOCKED` with the cause and options (retry, relaunch, narrow
   scope, or drop).
 
@@ -646,10 +766,15 @@ Record the section and comment links in the item's timeline. An item with no
 
 Once an item's PR is merged:
 
-1. Run the script from the orchestrator's own checkout, against the worker's
-   workspace, as soon as the PR is merged. The merge is the completion of the
-   work; no operator agreement is needed or requested:
-   `python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>`.
+1. Run the script against the worker's workspace, as soon as the PR is
+   merged. The merge is the completion of the work; no operator agreement is
+   needed or requested. The script reads the Paseo daemon and the worktree of
+   the machine it runs on, so run it on the item's host:
+   - Local item (or no hosts file), from the orchestrator's own checkout:
+     `python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>`.
+   - Remote item: `ssh <alias> 'python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>'`,
+     where `<alias>` is the host's target without `ssh://`. Keep the single
+     quotes so `~` expands on the remote host.
    It releases the lab claim, removes the demos, archives the workspace
    (which also archives the worker's agent), and deletes the remote branch.
    Do not do any of those by hand, and do not ask the worker to.
@@ -657,7 +782,8 @@ Once an item's PR is merged:
    that is still running, an unreachable lab manager, uncommitted work) or
    take it to the operator, then run the same command again. Never take a
    lab release to the operator. Exit 4: run each `remaining[].command` that
-   names the orchestrator, and report the operator's items. Use `--abandon`
+   names the orchestrator (over ssh for a remote item, as above), and report
+   the operator's items. Use `--abandon`
    only for work concluded without a merge, never to get past an open PR or a
    pending prototype review.
 3. Set the item to `CLEANED` only when the script reports exit 0, or exit 4
@@ -703,7 +829,8 @@ remains. Then:
 1. Run the `session-cleanup` inventory over the session's children to
    confirm that no workspace, lab claim, or demo remains. Re-running
    `worktree-cleanup --workspace <id>` on a cleaned item is a no-op that
-   confirms it.
+   confirms it. For remote items, run it over ssh as in
+   [Cleanup per item](#cleanup-per-item).
 2. Post the final report: one row per item (ID, kind, title, outcome, PR
    link, and for a source-doc item the doc link and who was mentioned),
    operator decisions worth keeping, follow-ups the operator deferred,

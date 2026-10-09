@@ -8,7 +8,11 @@ heading (which becomes the Ava document title), `Mode:`, the `## Status` table
 decisions`. Republish it in the same step as every edit here. `Ava space:`,
 `Dashboard:` and `Dashboard folder:` are written by `dashboard.py` on first
 publish; `Listener:` is the comment listener's service name, pid and log,
-written by the orchestrator; `Heartbeat:` is the 20-minute status pass.
+written by the orchestrator; `Hosts:` lists the eligible worker hosts and
+their limits from the hosts file (see SKILL.md § Hosts), written once at
+tracker start and `none` when no hosts file exists; `Heartbeat:` is the
+20-minute status pass. In the Status table, `Workspace / agent` is
+`<host>: <workspace> / <agent>` (for example `devor: ws_... / ag_...`).
 
 **Status table order.** `dashboard.py` shows the table in three tiers: waiting
 on the operator (a Needs you state, or `Waiting on` starting with `operator`),
@@ -57,6 +61,7 @@ Mode: INTAKE | ORCHESTRATION | CONCLUDED
 Started: <time>    Done signal: <time or pending>
 Driver: cwd <path>, session <session file>, workspace <id>
 Default target: <checkout path> @ <base branch>; labs: <lab system>, capacity <N or unknown>
+Hosts: <name (local|remote) max N workers, avail >= G GB, swap <= S GB, load <= L/core; ...; or none>
 Heartbeat: <id or none>
 Ava space: <spc_... or none>
 Dashboard: <web_url or none>
