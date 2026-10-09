@@ -270,6 +270,26 @@ when `## Waiting on you` holds anything but `###` cards, a card lacks
 `Problem:` (or its `Broken:` alias) or `Decide:`, or a card uses bold; fix the
 ledger and rerun. Mirror the same text in chat.
 
+**Before posting a card.** The driver must have the oracle challenge every
+Needs-you card before posting it in the dashboard or chat, including product
+decisions and credential or access asks. Send the draft card and evidence, and
+ask whether the premise holds and operator input is needed under 'Asking the
+operator'. A worker's earlier consultation does not replace this check. For a
+claimed blocker, test the failing operation through the worker's actual launch
+path, account, session, and environment, not just a separate diagnostic shell.
+Give the oracle the result or, if the test cannot run, the reason. Resolve
+factual objections before posting. The oracle challenges the evidence and need
+to escalate; the operator still decides product behavior. In Decide:, record
+the oracle's verdict on the premise and need for operator input, followed by
+the operator's choice or action. In Links:, cite the consultation and
+supporting evidence. Before asking the operator to approve or judge text that
+quotes product behavior, such as an error message, label, status code, or CLI
+output, check each quoted string against product source in apps/, packages/,
+or spec/ and, when a deployed lab is available, against the live response.
+Never use a prototype, demo boilerplate, worker summary, or memory as the
+source. Cite the source file:line and any lab transcript next to the quote. If
+the text cannot be checked, say so in Problem: instead of asking for approval.
+
 **If it fails.** The script exits non-zero with a message when `ava` is
 missing, unauthenticated, or the saved draft does not verify. Tell the operator
 that message in chat right away and keep working from the ledger. Never skip
@@ -586,10 +606,8 @@ change, and disclose it in the PR description so the operator can veto at
 review.
 
 Workers consult the oracle before ending a turn with `NEEDS_OPERATOR`. Screen
-every `NEEDS_OPERATOR` again before posting a card. When the question is not
-a product decision, take it to the oracle yourself, send the worker the
-answer, and post nothing. When it is, keep the worker's oracle recommendation
-in the card.
+every `NEEDS_OPERATOR` again before posting a card. When it is, keep the
+worker's oracle recommendation in the card.
 
 ### Review and merge
 

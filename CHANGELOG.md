@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- `orchestrate` requires the driver to have the oracle challenge every Needs-you card before posting it, including product decisions and credential or access asks. A claimed blocker is re-tested through the worker's actual launch path and session, not a separate diagnostic shell, and `Decide:` records the oracle's verdict. Quoted product text in an approval ask is checked against `apps/`, `packages/` or `spec/` (and a live lab when available), never a prototype, and cited by file:line. "Asking the operator" drops the sentence telling the driver to post nothing for non-product questions. Operator-approved text (2026-10-09, dashboard thread 32a009ff).
+
 - `orchestrate` dashboards show a Worker column in the active table, labeling the ledger's `Workspace / agent` cell as host, Paseo workspace and agent. The status-table parser no longer splits on an escaped pipe (`\|`) inside a cell, which used to shift cells so the workspace landed in the PR column (from #78, ported from the old `bugbash` copy).
 
 - `orchestrate` dashboards hold the PR column at a fixed 7.5rem width. `dashboard.py` shortens every GitHub PR URL in a cell to `repo#N`, one per line, instead of only a cell holding exactly one URL; a cell with two PR URLs used to print both in full and squeeze the other columns.
