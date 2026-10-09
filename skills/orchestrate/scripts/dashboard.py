@@ -144,16 +144,27 @@ def pr_cell(pr):
 
 
 def worker_cell(cell):
-    """`<host>: <workspace> / <agent>` from the ledger, labeled so the IDs read as host, Paseo workspace and agent."""
+    """The ledger's `Workspace / agent` cell with each ID labeled by its shape (host, Paseo workspace, agent, lab).
+
+    The ledger form is `<host>: <workspace> / <agent>`; `·` also separates parts, and other notes stay plain."""
     if cell in ("—", ""):
         return "—"
-    host, _, rest = cell.rpartition(":") if re.match(r"[\w.-]+:\s", cell) else ("", "", cell)
-    parts = [p.strip() for p in re.split(r"\s+[/·]\s+", rest.strip()) if p.strip()]
-    if not host and len(parts) == 3:
-        host, parts = parts[0], parts[1:]
-    labels = [("host", host)] if host else []
-    labels += list(zip(("Paseo workspace", "agent"), parts))
-    return "<br>".join(f'<span class="sub">{label}</span> <code>{html.escape(v)}</code>' for label, v in labels)
+    m = re.match(r"([A-Za-z][\w.-]*):\s+(.*)", cell)
+    host, rest = (m.group(1), m.group(2)) if m else ("", cell)
+    parts = [p.strip() for p in re.split(r"\s+[/·]\s+", rest) if p.strip()]
+    out = [("host", host)] if host else []
+    for i, part in enumerate(parts):
+        if re.fullmatch(r"wk?s_[0-9a-f]+", part):
+            out.append(("Paseo workspace", part))
+        elif re.fullmatch(r"ag_\w+|[0-9a-f]{8}(-[0-9a-f-]{4,})?", part):
+            out.append(("agent", part[:8] if "-" in part else part))
+        elif re.fullmatch(r"lab\d+\b.*", part):
+            out.append(("lab", part))
+        elif i == 0 and not host and re.fullmatch(r"[a-z][\w-]*", part):
+            out.append(("host", part))
+        else:
+            out.append(("", part))
+    return "<br>".join((f'<span class="sub">{label}</span> ' if label else "") + f"<code>{html.escape(v)}</code>" for label, v in out)
 
 ASK_FIELDS = (("Problem", "Problem"), ("Fix", "Proposed change"), ("Decide", "Your call"), ("Links", "Look at"))
 
