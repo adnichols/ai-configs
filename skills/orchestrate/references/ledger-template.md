@@ -12,8 +12,16 @@ written by the orchestrator; `Hosts:` lists the eligible worker hosts and
 their limits from the hosts file (see SKILL.md § Hosts), written once at
 tracker start and `none` when no hosts file exists; `Heartbeat:` is the
 20-minute status pass. In the Status table, `Workspace / agent` is
-`<host>: <workspace> / <agent>` (for example `devor: ws_... / ag_...`). The dashboard shows it in a Worker column
+`<host>: <workspace> / <agent>` (for example `dever: ws_... / ag_...`). The dashboard shows it in a Worker column
 with each part labeled. Escape a literal pipe in any cell as `\|`.
+
+**Landing queue.** `## Landing queue` sits directly after `## Status` and is
+owned by the driver (SKILL.md § Landing queue). Each line is
+`<n>. #<pr> <ID> validated <sha9> — <LANDING|ON_DECK|WAITING> <short note>`,
+numbered from 1 in landing order. With no entries the section holds the single
+line `Empty.`. A queued row's State stays `READY_TO_MERGE`. `scripts/landing_queue.py`
+reads this section and the dashboard shows it as a short ordered list near the
+top; trackers without the section still publish.
 
 **Status table order.** `dashboard.py` shows the table in three tiers: waiting
 on the operator (a Needs you state, or `Waiting on` starting with `operator`),
@@ -74,13 +82,18 @@ Ava space: <spc_... or none>
 Dashboard: <web_url or none>
 Dashboard folder: <folder id of Coding Work (Archive / Coding Work once concluded), or none>
 Listener: <service name, pid, log path, or none>
-Merge rule: the orchestrator merges each PR at its validated head once every gate passes and every operator decision on the item is answered, then releases its lab, removes its demos, and archives its worktree.
+Merge rule: the orchestrator merges each PR at its validated head once every gate passes and every operator decision on the item is answered and the PR reaches position 1 of the landing queue, then releases its lab, removes its demos, and archives its worktree.
 
 ## Status
 | ID | Kind | Title | Repo | State | Workspace / agent | PR | Waiting on | Priority | Merged | Deployed |
 |----|------|-------|------|-------|-------------------|----|------------|----------|--------|----------|
 | WI-01 | BUG | ... | ava | HANDED_OFF | ws_... / ag_... | — | worker | P1 | — | — |
 | WI-02 | BUG | ... | ava | CLEANED | — | https://github.com/<owner>/ava/pull/12 | — | P2 | 2026-10-08 19:42Z 562a1a890 | partly, 7 of 8; not yet: mycelios (checked 10-08 20:10Z) |
+
+## Landing queue
+1. #812 WI-02 validated 562a1a890 — LANDING merge as-is
+2. #815 WI-06 validated 9f3c2d1e0 — ON_DECK overlaps docs/repo-structure.md
+3. #818 WI-09 validated 04b7aa6c1 — WAITING rewrites prototype parity hash
 
 ## Waiting on you
 ### WI-04: nav "+" cannot create folders → add an inline folder name field

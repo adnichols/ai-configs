@@ -44,7 +44,7 @@ restarted orchestrator can resume from files alone:
 
 ```
 ~/.local/state/orchestrate/<YYYYMMDD>-<slug>/
-  ledger.md           # tracker title, mode, defaults, status board, decisions, waiting-on-you queue
+  ledger.md           # tracker title, mode, defaults, status board, landing queue, decisions, waiting-on-you queue
   items/WI-NN-<slug>.md
   images/             # exported screenshots + manifest.jsonl
   dashboard.json      # Ava draft synchronization state, incl. folder id (written by scripts/dashboard.py)
@@ -108,7 +108,7 @@ in this section is skipped.**
   { "name": "mbp", "target": "ssh://mbp", "hostnames": ["aarons-macbook-pro"],
     "max_workers": 16, "min_available_gb": 4, "max_swap_gb": 4, "max_load_per_core": 2.0, "per_worker_gb": 2,
     "checkouts": { "ccore2": "/Users/anichols/code/ccore2" } },
-  { "name": "devor", "target": "ssh://dever", "hostnames": ["dever", "devor"],
+  { "name": "dever", "target": "ssh://dever", "hostnames": ["dever"],
     "max_workers": 12, "min_available_gb": 6, "max_swap_gb": 4, "max_load_per_core": 1.5, "per_worker_gb": 2,
     "checkouts": { "ccore2": "/home/anichols/code/ccore2" } } ] }
 ```
@@ -116,7 +116,7 @@ in this section is skipped.**
 - `name`: the host's name in the ledger and item files.
 - `target`: the `--host` value for the `paseo` CLI; the ssh alias is the
   target without `ssh://`. The alias is the one the *orchestrator's* machine
-  uses (the Mac reaches Devor as `dever`; Devor reaches the Mac as `mbp`).
+  uses (the Mac reaches Dever as `dever`; Dever reaches the Mac as `mbp`).
 - `hostnames`: lowercase short hostnames of the machine. A host is **local**
   when the orchestrator's lowercase short `socket.gethostname()` (without
   `.local` or any domain) is in this list. A local host is probed and driven
@@ -263,7 +263,18 @@ technical-founder language: concrete and short, the user-visible problem
 before the mechanism, one sentence on the cause. `Decide:` says exactly what
 the operator needs to do or choose, with a name for each option. Do not leave
 internal jargon (state names, ledger terms, repo-private abbreviations, commit
-hashes standing in for an explanation) unexplained. Omit `Fix:` or `Links:`
+hashes standing in for an explanation) unexplained. A card holds what the
+operator needs to make the decision and nothing more: at most about 150 words,
+`Fix:` one plain paragraph saying what will be different and what approving
+lets the agents do, and `Decide:` the exact question with named options. Never
+quote spec text, before-and-after wording, evidence, test results, or limits in
+a card (operator ruling 2026-10-09 19:30Z). Put them in a details subdocument
+published with `scripts/card_details.py <tracker> <details.md> --title "<ID>
+details" --out <tracker>/card-details/<id>.json`, and link it first in
+`Links:`. Spec wording stays on its rendered diff page. When the operator asks
+a question in a comment, put the answer in the card itself, not only in the
+thread, and never point to a comment for content: the dashboard collects
+hundreds of comments (operator ruling 2026-10-09). Omit `Fix:` or `Links:`
 rather than pad it. Never use bold (`**`) or bullet-style asks such as
 `- **WI-10: ...** prose`. `scripts/dashboard.py` exits 2 with the card rule
 when `## Waiting on you` holds anything but `###` cards, a card lacks
@@ -274,7 +285,10 @@ ledger and rerun. Mirror the same text in chat.
 Needs-you card before posting it in the dashboard or chat, including product
 decisions and credential or access asks. Send the draft card and evidence, and
 ask whether the premise holds and operator input is needed under 'Asking the
-operator'. A worker's earlier consultation does not replace this check. For a
+operator', and whether the card is the shortest one that still lets the
+operator decide. Reject an oracle revision that adds quoted text or evidence to
+the card; that content goes in the details subdocument. A worker's earlier
+consultation does not replace this check. For a
 claimed blocker, test the failing operation through the worker's actual launch
 path, account, session, and environment, not just a separate diagnostic shell.
 Give the oracle the result or, if the test cannot run, the reason. Resolve
@@ -619,10 +633,13 @@ gate below. Open at least one of its screenshots or videos.
 
 If the receipt passes and every operator decision on the item is answered
 (prototype approval, spec or ADR diff approval, product behavior choices),
-merge it per [Merge authority](#merge-authority) without asking. Do not send
+it enters the [landing queue](#landing-queue) without asking, and merges when
+it reaches position 1 under [Merge authority](#merge-authority). Do not send
 the operator an "approve?" packet: the worker and the gates have the
 information, and asking the operator to confirm a passing PR only asks them
-to rubber-stamp it. After merging, tell the operator in one short notice that
+to rubber-stamp it. A passing receipt does not merge the PR immediately: the
+queue sets the order so PRs do not rebase on each other repeatedly. After
+merging, tell the operator in one short notice that
 the change is merged and that production deploy is a human operator action. Do
 not ask whether to deploy and do not offer to:
 
@@ -718,6 +735,17 @@ The rule does not authorize force-pushing, merging a head that was not
 validated, or merging PRs that are not this tracker's. If the operator asks
 to hold a PR, or to keep its lab or worktree, do so and record why.
 
+Do not create approval gates the repository does not have. Skill docs and
+agent instruction text, such as a verify-ccore `features/*.md` entry or an
+`AGENTS.md` pointer, are reversible repository docs. When the text is checked
+against the code and scenarios on main, it ships in the item's PR, or in a
+docs PR that the orchestrator merges once the gate passes. It never goes on an
+operator card (operator ruling 2026-10-09: "If you have a verify ccore skill
+update and it makes it more accurate, then you need to merge that"). Before
+writing any card, apply never-block-on-the-human: card only what the
+repository's rules or the operator reserve, such as `spec/` and ADR text,
+production actions, credentials, product choices and prototype approval.
+
 Nobody in a tracker deploys to production: not the orchestrator, not a
 worker, and not on request. Do not ask the operator whether to, offer to, or
 list it as a next step. Validation happens in a lab. "Shipped" for an agent
@@ -730,11 +758,12 @@ To merge:
    skills, required checks, and up-to-date-branch rules). If the repository
    designates a different merger, such as a merge bot, bring the PR to that
    process's ready state and track it until it merges.
-2. Merge one PR at a time. If the base moved, check whether anything merged
-   since the validated base touches the PR's files, migrations, or ADR
-   numbers. If it does, the repository requires an up-to-date branch, or the
-   PR now conflicts, ask the worker to rebase and revalidate the new head.
-3. Otherwise merge at the validated head with the repository's merge method
+2. Merge through the [landing queue](#landing-queue), one PR at a time. A
+   PR whose receipt passes enters the queue; the driver merges only the PR at
+   position 1, and only when `scripts/landing_queue.py` reports `MERGE` for it.
+   Do not broadcast base moves or ask a worker to rebase.
+3. When the verdict is `MERGE`, merge at the validated head with the
+   repository's merge method
    (default `gh pr merge <n> --squash --match-head-commit <sha>`) and confirm
    GitHub reports it merged. Record the merge time and commit in the row's
    `Merged` column (`references/ledger-template.md` § Merged and Deployed).
@@ -742,8 +771,92 @@ To merge:
    worker's checked-out worktree, and the lab claim file with it, before the
    lab can be released. Branch, lab, demo, and worktree teardown belong to
    the `worktree-cleanup` script below.
-4. After each merge, tell workers whose open PRs touch the same files that
-   the base moved, including workers on other trackers when you know of them.
+4. After each merge, remove the PR from the queue and run the queue protocol
+   again for the new positions 1 and 2.
+
+### Landing queue
+
+The operator's ruling (2026-10-10): merges must not thrash. Four PRs that
+rebase on each other, with the fourth rebasing and rerunning its tests four
+times, waste work. The orchestrator decides the merge order; PRs take a slot
+in line. The PR next in line prepares to merge after the one in front of it
+merges, and a PR fifth in line waits until it is first.
+
+**The queue.** `## Landing queue` in the ledger, directly after `## Status`,
+is an ordered list the driver owns, one line per PR:
+`1. #<pr> <ID> validated <sha9> — <LANDING|ON_DECK|WAITING> <short note>`.
+With no entries it holds the single line `Empty.`. A PR enters only when it
+would be mergeable under [Merge authority](#merge-authority): its receipt
+passes and every operator decision on the item is answered. Its row State
+stays `READY_TO_MERGE`. When a PR enters, send its worker one line: "you are
+#N in the landing queue; stay idle; do not merge main or push until I tell
+you that you are first."
+
+**Order.** Append new entries at the end, then reorder by these rules, in
+order:
+
+1. Operator-requested priority.
+2. PRs the script says merge as-is (no conflict, no overlap) go before PRs
+   that need an update.
+3. Smaller blast radius goes before larger.
+4. PRs that rewrite shared generated files go after PRs that don't, such as
+   prototype parity hashes, architecture-map records, CLI version files, and
+   ADR or spec indexes.
+
+Record the reason for any reorder in one line. Only position 1 may change its
+branch to land. Position 2 prepares without pushing. Positions 3 and later do
+nothing.
+
+**The script.** After every merge, and on each status pass, run
+`python3 <skill-dir>/scripts/landing_queue.py <tracker-dir> --repo <local clone> [--remote origin] [--base main] [--json]`
+and act only on positions 1 and 2. It fetches the base and each PR head into
+`refs/landing-queue/` and reports, per entry, the head against the validated
+sha, PR state, conflict files, and overlap files (changed on the base since
+the merge-base and also changed by the PR). Exit 2 means a bad ledger, 3 a
+git or gh failure. The repository's merge policy wins: when the base branch
+requires up-to-date branches, `MERGE` becomes `UPDATE`.
+
+- **Position 1, `MERGE`:** merge at the validated head
+  (`gh pr merge <n> --squash --match-head-commit <sha>`). The worker does
+  nothing.
+- **Position 1, `UPDATE`:** tell the worker to merge the base once with a
+  normal merge commit (no rebase, no force-push). It resolves the listed
+  files, reruns the PR's gating checks plus the checks that cover the
+  overlapping files, pushes, and reports `VALIDATED` with the new head. Verify
+  the receipt again, update the validated sha in the queue, and rerun the
+  script. A base that moved again with new overlap means another update;
+  otherwise merge.
+- **Position 1, `REVALIDATE` or `BLOCKED`:** ask the worker why. If it cannot
+  land within one turn, move it out of the queue (State back to
+  `IN_PROGRESS`) and advance.
+- **Position 2, `ON_DECK`:** send one message with the script's prep preview
+  (its conflicts and overlap against position 1 merged as-is). The worker may
+  read position 1's diff, dry-run the merge locally, and plan its resolution
+  and its rerun list. It must not push, merge the base into its branch,
+  redeploy a lab, or rerun the full suite.
+- **Positions 3 and later, `WAIT`:** send nothing beyond the slot line. A
+  `MOVED` flag means the worker pushed while waiting; ask it to stop.
+
+**Workers outside the queue** (still building or validating): do not tell
+them the base moved and do not ask them to merge main. A worker merges the
+base before it is queued only when it needs code from main or a conflict
+blocks its own work. It validates on its own base, and the queue handles
+freshness.
+
+**Merges from outside the tracker** (humans, other trackers): send no
+broadcast. The script reports them as overlap for whichever PR reaches
+position 1.
+
+**One merge in flight at a time.** Never ask two workers to update at once.
+
+**Lab claims while waiting.** A queued worker keeps its lab claim only when it
+is position 1 or 2 and its PR changes deployed code. Otherwise it releases the
+claim and re-claims when it reaches position 2. The driver may waive this when
+labs are free.
+
+If the repository designates a different merger, such as a merge bot, the
+queue orders the PRs and position 1 is the PR you bring to that process's
+ready state.
 
 ### Close out the source doc
 

@@ -27,19 +27,21 @@ h1 { font-size:24px; margin:0 0 4px; overflow-wrap:anywhere; } h2 { font-size:17
 .ask p, .ask ul, .ask ol { margin:2px 0; } .ask ul, .ask ol { padding-left:20px; } .ask li { margin:3px 0; overflow-wrap:anywhere; } .ask p { overflow-wrap:anywhere; }
 .ask .decide { background:var(--needs-bg); border-radius:var(--weft-radius-chip); padding:6px 10px; } .ask .decide .k { color:var(--needs); }
 .empty { color:var(--mute); }
-.scroll { overflow-x:auto; }
-table { width:100%; border-collapse:collapse; } th, td { text-align:left; vertical-align:top; padding:10px 8px; border-bottom:1px solid var(--line); }
-th { font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
-td.pr, th.pr { width:7.5rem; min-width:7.5rem; max-width:7.5rem; overflow-wrap:anywhere; } td.pr a { white-space:nowrap; }
-td.worker, th.worker { width:11rem; min-width:11rem; max-width:11rem; font-size:12px; overflow-wrap:anywhere; } td.worker code { font-size:11px; }
-td.id { font-weight:700; white-space:nowrap; } .t { font-weight:500; } .sub { color:var(--mute); font-size:12px; }
-tr.done td { opacity:.7; }
+.item { border:1px solid var(--line); border-left:4px solid var(--c); background:var(--card); border-radius:var(--weft-radius-card); padding:10px 16px 12px; margin:0 0 12px; }
+.item.done { opacity:.8; }
+.ih { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.iid { font-weight:700; white-space:nowrap; } .t { font-weight:500; margin:4px 0 2px; overflow-wrap:anywhere; } .sub { color:var(--mute); font-size:12px; }
+.item .f { margin:8px 0 0; } .item .k { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--mute); }
+.item .v { overflow-wrap:anywhere; } .item .notes .v { white-space:pre-line; }
+.item .row { display:flex; flex-wrap:wrap; gap:4px 28px; } .item .row .f { min-width:10rem; }
+.item .row .v { font-size:13px; } .item .row code { font-size:11px; }
 a { color:var(--link); overflow-wrap:anywhere; }
 code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:var(--weft-radius-chip); padding:0 4px; }
+.queue { padding-left:24px; } .queue li { margin:6px 0; overflow-wrap:anywhere; } .queue .sub { margin-left:4px; }
 .decisions { padding-left:20px; } .decisions li { margin:6px 0; color:var(--mute); font-size:13px; overflow-wrap:anywhere; }
 @media (max-width: 640px) {
   main { padding:20px 14px 40px; }
-  th, td { padding:8px 6px; }
+  .item { padding:8px 12px 10px; }
 }
 </style></head>
 <body><main>
@@ -48,10 +50,10 @@ code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(-
 <div class="chips">{{chips}}</div>
 <h2>Needs you</h2>
 {{needs}}
+{{queue}}
 <h2>Active priorities</h2>
-<div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Waiting on</th><th class="pr">PR</th><th class="worker">Worker</th></tr></thead>
-<tbody>{{issues}}</tbody></table></div>
-<details open><summary>Completed items, newest merge first</summary><div class="scroll"><table><thead><tr><th>ID / priority</th><th>Item</th><th>State</th><th>Merged</th><th>Deployed</th><th class="pr">PR</th></tr></thead><tbody>{{completed}}</tbody></table></div></details>
+{{issues}}
+<details open><summary>Completed items, newest merge first</summary>{{completed}}</details>
 <details><summary>Decision history</summary>
 <ul class="decisions">{{decisions}}</ul></details>
 </main></body></html>

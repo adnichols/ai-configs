@@ -243,6 +243,29 @@ def inline(s):
     return re.sub(r"\x00(\d+)\x00", lambda m: links[int(m.group(1))], s)
 
 
+QUEUE_ENTRY = re.compile(r"^\d+\. #(\d+) (\S+) validated ([0-9a-f]{7,40})\b\s*(?:[—–-]\s*)?(LANDING|ON_DECK|WAITING)?\s*(.*)$")
+QUEUE_PILL = {"LANDING": "done", "ON_DECK": "work", "WAITING": "needs"}
+
+
+def queue_block(text, rows):
+    """`## Landing queue` as a short ordered list. A missing section, or `Empty.`, renders nothing."""
+    lines = [l.strip() for l in section(text, "Landing queue").splitlines() if l.strip()]
+    if not lines or lines == ["Empty."]:
+        return ""
+    pr_of = {r.get("id", ""): pr_cell(r.get("pr", "")) for r in rows}
+    items = []
+    for line in lines:
+        m = QUEUE_ENTRY.match(line)
+        if not m:
+            items.append(f"<li>{inline(re.sub(r'^[0-9]+[.] ', '', line))}</li>")
+            continue
+        number, item, sha, slot, note = m.groups()
+        pill = f'<span class="pill {QUEUE_PILL[slot]}">{slot}</span> ' if slot else ""
+        items.append(f'<li><span class="iid">{html.escape(item)}</span> {pr_of.get(item, "—") if pr_of.get(item, "—") != "—" else "#" + number} {pill}'
+                     f'<span class="sub">validated {html.escape(sha)}{" · " + inline(note) if note else ""}</span></li>')
+    return f'<h2>Landing queue</h2><ol class="queue">{"".join(items)}</ol>'
+
+
 def render(text, title, template, updated):
     if "{{completed}}" not in template:
         raise Fail(2, "dashboard template predates current/history layout; preserve local customizations and update it from the maintained HTML template")
@@ -259,27 +282,34 @@ def render(text, title, template, updated):
         f'<span class="chip {c}">{html.escape(l)} · {counts.get(l, 0)}</span>' for c, l, _ in STATE_GROUPS)
     needs = "".join(ask_card(t, f) for t, f in waiting) or '<p class="empty">Nothing needs you right now.</p>'
 
-    trs, completed = [], []
+    # Each item is a full-width card whose fields stack vertically, so long notes grow down the page instead of
+    # being squeezed into a narrow table column (operator feedback 2026-10-09, thread 93b4fad9).
+    def field(label, value, cls=""):
+        return f'<div class="f{(" " + cls) if cls else ""}"><div class="k">{label}</div><div class="v">{value}</div></div>'
+
+    items, completed = [], []
     for r in rows:
         cls, _ = group_of(r.get("state", ""))
-        pr = r.get("pr", "")
-        lead = (f'<tr class="{cls}"><td class="id">{html.escape(r.get("id", ""))}<div class="sub">{html.escape(r.get("priority") or "Unprioritized")}</div></td>'
-                f'<td><div class="t">{inline(r.get("title", ""))}</div>'
-                f'<div class="sub">{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
-                f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>')
+        head = (f'<div class="item {cls}"><div class="ih"><span class="iid">{html.escape(r.get("id", ""))}</span>'
+                f'<span class="pill {cls}">{html.escape(r.get("state", ""))}</span>'
+                f'<span class="sub">{html.escape(r.get("priority") or "Unprioritized")} · '
+                f'{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</span></div>'
+                f'<div class="t">{inline(r.get("title", ""))}</div>')
+        pr = field("PR", pr_cell(r.get("pr", "")))
         if cls == "done":
-            completed.append(f'{lead}<td>{inline(r.get("merged") or "—")}</td><td>{inline(r.get("deployed") or "—")}</td>'
-                             f'<td class="pr">{pr_cell(pr)}</td></tr>')
+            completed.append(f'{head}<div class="row">{field("Merged", inline(r.get("merged") or "—"))}'
+                             f'{field("Deployed", inline(r.get("deployed") or "—"))}{pr}</div></div>')
         else:
-            trs.append(f'{lead}<td>{inline(r.get("waiting on", ""))}</td><td class="pr">{pr_cell(pr)}</td>'
-                       f'<td class="worker">{worker_cell(r.get("workspace / agent", ""))}</td></tr>')
+            items.append(f'{head}{field("Waiting on", inline(r.get("waiting on", "") or "—"), "notes")}'
+                         f'<div class="row">{pr}{field("Worker", worker_cell(r.get("workspace / agent", "")))}</div></div>')
 
     meta = (f"Tracker: {html.escape(header(text, 'Tracker') or title)} · Status: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
             "document and acknowledges each one in its thread within about 30 seconds")
     out = template
     for key, val in {
         "title": html.escape(title), "meta": meta, "chips": chips, "needs": needs,
-        "issues": "".join(trs), "completed": "".join(completed), "decisions": "".join(f"<li>{inline(d)}</li>" for d in decisions),
+        "queue": queue_block(text, rows),
+        "issues": "".join(items) or '<p class="empty">No open items.</p>', "completed": "".join(completed), "decisions": "".join(f"<li>{inline(d)}</li>" for d in decisions),
     }.items():
         out = out.replace("{{" + key + "}}", val)
     return out
