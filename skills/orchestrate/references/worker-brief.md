@@ -62,12 +62,17 @@ only with a table showing the interaction you tried.
 # Spec and ADR changes
 ADR numbers are mechanical: take the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask about a number. Do not put a number in an approval question.
 
-Do not quote spec or ADR wording in a status block. When the fix needs a
-change under `spec/` or an ADR directory, write the edit uncommitted in this
+Do not quote spec or ADR wording in a status block. When a spec or ADR edit
+only records a design or decision the operator already approved (named in
+this brief or relayed by me), that approval covers the text. Write it
+uncommitted, publish it with the script below, report `IN_PROGRESS` with the
+page URL, and wait for me to check it; do not ask the operator. Only when the
+change adds a product choice nobody has approved, write the edit uncommitted in this
 worktree and run `python3 <skill-dir>/scripts/spec_diff.py <worktree> --base
 <base branch> --path spec --title "<what changes>" --summary-file <note>
 --reply "<how to answer>" --tracker-dir <tracker-dir> --publish`. Put the
-page URL in `demo:` and end the turn with the approval question. Approval
+page URL in `demo:` and end the turn with the approval question, naming only
+the new choice. Approval
 covers exactly the rendered diff. After approval, commit those bytes
 unchanged and run the script with `--check <out>/manifest.json --head HEAD`
 before pushing. If the text changes, rerun the script and ask again. The

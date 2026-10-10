@@ -693,6 +693,17 @@ request.
 
 ADR numbers are not part of any approval. Allocate the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask the operator about a number or list it in `## Waiting on you`. The agent may merge a PR whose only purpose is resolving ADR number collisions once repo checks pass.
 
+**Approval covers the text that records it** (operator ruling 2026-10-10
+23:04Z). When the operator approves a design, template, prototype, or
+decision, that approval also covers the spec and ADR text that only records
+it, including amendments to earlier ADRs that the design reverses. Never send
+that text back as a second approval card. The driver checks the text against
+the approved design and rulings, using the oracle for anything doubtful, then
+tells the worker to commit it. Wording problems go back to the worker, not to
+the operator. Card spec text only when it adds a product choice the operator
+has not made. The card then names only that choice. A worker that deviates
+from clear spec text is told to conform; it is not carded.
+
 Any change under `spec/` or an ADR directory reaches the operator as a
 rendered diff page, never as wording in chat or the ledger. The worker writes
 the edit uncommitted in its worktree and runs
