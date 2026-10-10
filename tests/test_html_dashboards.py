@@ -63,6 +63,18 @@ Mode: ORCHESTRATION
         for text in ['<th>Merged</th>', '<th>Deployed</th>', '2026-10-08 19:42Z bbb222222', 'partly, 2 of 8; not yet: c']:
             self.assertIn(text, out)
 
+    def test_pr_column_shortens_every_pr_url_in_a_cell(self):
+        ledger = '''# Demo
+Mode: ORCHESTRATION
+## Status
+| ID | Title | State | PR | Waiting on | Merged | Deployed |
+|---|---|---|---|---|---|---|
+| WI-1 | Two parts | CLEANED | https://github.com/o/repo/pull/723, https://github.com/o/repo/pull/734 | — | 2026-10-08 20:59Z aaa111111 | — |
+'''
+        out = dashboard.render(ledger, 'Demo', dashboard.TEMPLATE.read_text(), '2026-10-08')
+        self.assertIn('>repo#723</a><br><a href="https://github.com/o/repo/pull/734"', out)
+        self.assertNotIn('>https://github.com/o/repo/pull/', out)
+
     def test_saved_render_contract_rejects_content_loss_warning_and_stale_revision(self):
         source = '<style>p{color:var(--ava-fg,#222)}</style><p>Confirmed issue <a href="https://e.test/x">evidence</a></p>'
         saved = {'source': source, 'revision_id': 'r1'}
@@ -125,6 +137,31 @@ Mode: ORCHESTRATION
         self.assertEqual(dashboard.inline(f'at {u}.'), f'at {a(u, u)}.')
         self.assertEqual(dashboard.inline(f'[the doc]({u}) ok'), f'{a(u, "the doc")} ok')
         self.assertEqual(dashboard.inline('run `ls -l` now'), 'run <code>ls -l</code> now')
+
+    def test_worker_column_labels_host_workspace_and_agent_and_escaped_pipes_stay_in_cell(self):
+        ledger = r'''# Demo
+Mode: ORCHESTRATION
+## Status
+| ID | Title | State | Workspace / agent | PR | Waiting on |
+|---|---|---|---|---|---|
+| WI-1 | Uses a \| pipe | BUILDING | devor: wks_1 / ag_2 | https://github.com/o/repo/pull/9 | worker |
+'''
+        out = dashboard.render(ledger, 'Demo', dashboard.TEMPLATE.read_text(), '2026-10-09')
+        self.assertIn('Uses a | pipe', out)
+        self.assertIn('>repo#9</a>', out)
+        for text in ['<span class="sub">host</span> <code>devor</code>', '<span class="sub">Paseo workspace</span> <code>wks_1</code>',
+                     '<span class="sub">agent</span> <code>ag_2</code>']:
+            self.assertIn(text, out)
+
+    def test_pr_column_links_every_pr_and_rejects_bare_numbers(self):
+        u1, u2 = 'https://github.com/o/ccore2/pull/1', 'https://github.com/o/tools/pull/2'
+        cell = dashboard.pr_cell(f'{u1}, {u2} → abc123')
+        self.assertIn(f'<a href="{u1}" target="_blank" rel="noopener">ccore2#1</a>', cell)
+        self.assertIn(f'<a href="{u2}" target="_blank" rel="noopener">tools#2</a>', cell)
+        self.assertTrue(cell.endswith(' → abc123'))
+        self.assertEqual(dashboard.pr_cell('—'), '—')
+        for bare in ('#12', 'tools#12', f'{u1}, #13'):
+            with self.assertRaises(dashboard.Fail): dashboard.pr_cell(bare)
 
 
 class ScopedInstall(unittest.TestCase):

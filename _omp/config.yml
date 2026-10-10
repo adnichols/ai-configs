@@ -29,14 +29,14 @@ checkpoint:
 plan:
   enabled: false
 modelRoles:
-  smol: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash:auto
+  smol: anthropic/claude-haiku-5-5:auto
   slow: openai-codex/gpt-5.6-sol:high
   plan: openai-codex/gpt-5.6-sol:xhigh
   designer: anthropic/claude-sonnet-5-5:auto
-  commit: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash:auto
+  commit: anthropic/claude-haiku-5-5:auto
   tiny: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash:auto
   Oracle: openai-codex/gpt-6-astra:medium
-  reviewer: synthetic/hf:moonshotai/Kimi-K3:auto
+  reviewer: synthetic/hf:zai-org/GLM-5.3:auto
   default: anthropic/claude-sonnet-5-5
   speech: xai/grok-tts
   vision: openai-codex/gpt-6-sol:medium

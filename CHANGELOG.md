@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- `orchestrate` requires the driver to have the oracle challenge every Needs-you card before posting it, including product decisions and credential or access asks. A claimed blocker is re-tested through the worker's actual launch path and session, not a separate diagnostic shell, and `Decide:` records the oracle's verdict. Quoted product text in an approval ask is checked against `apps/`, `packages/` or `spec/` (and a live lab when available), never a prototype, and cited by file:line. "Asking the operator" drops the sentence telling the driver to post nothing for non-product questions. Operator-approved text (2026-10-09, dashboard thread 32a009ff).
+
+- `orchestrate` dashboards show a Worker column in the active table, labeling the ledger's `Workspace / agent` cell as host, Paseo workspace and agent. The status-table parser no longer splits on an escaped pipe (`\|`) inside a cell, which used to shift cells so the workspace landed in the PR column (from #78, ported from the old `bugbash` copy).
+
+- `orchestrate` dashboards hold the PR column at a fixed 7.5rem width. `dashboard.py` shortens every GitHub PR URL in a cell to `repo#N`, one per line, instead of only a cell holding exactly one URL; a cell with two PR URLs used to print both in full and squeeze the other columns.
+
 - `orchestrate` runs workers on more than one host. A machine-level hosts file (`~/.config/orchestrate/hosts.json`) lists each host's Paseo target, checkouts and admission limits. `scripts/pick_host.py` probes every host's running agents, available memory, swap and load and picks the one with the most room, or exits 3 so the item is `QUEUED`. Remote workers are launched and managed with `paseo --host`, the listener relays their turn endings as `WORKER_TURN_ENDED`, and cleanup runs `worktree_cleanup.py` over ssh. With no hosts file the single-host flow is unchanged.
 
 - `orchestrate` publishing no longer fails with "Argument list too long" on large pages: `dashboard.py` `ava()` sends the JSON body on stdin (`--file -`) instead of `--data`, which covers dashboard and spec diff publishes. Spec diff pages show bare `<tag>` text in a spec (for example `/assets/<rev>/`) as written instead of dropping it as raw HTML (`spec_diff.py` renders through `raw_html_as_text.lua`, because `pandoc -f gfm-raw_html` does not stop the passthrough).
