@@ -1,6 +1,6 @@
 ---
 name: cmd-create-pr
-description: Use when running any gh pr create, reopen, update, comment, or similar mutating PR action, including forks.
+description: Use when running any gh pr create, reopen, update, comment, or similar mutating PR action, including forks, in a repository without its own PR skill. When guidance routes PR work to a repository-specific PR skill, use that skill instead.
 ---
 
 # Create Pull Request
@@ -10,6 +10,10 @@ Create a GitHub PR for the current branch using `gh`.
 ## Authority boundary
 
 PR authority is repository-bound. This skill may create a PR only for the current task repository against its owner-approved integration remote. Never use it to create, reopen, update, comment on, or coordinate a PR against a third-party repository from a fork unless the operator explicitly authorizes that exact repository and action. A local checkout, fork remote, authenticated account, dependency patch, or another workflow's mandatory-PR instruction is not authorization. If repository ownership or target authority is uncertain, stop before any `gh` mutation and ask.
+
+## Repository PR skill takes precedence
+
+Before using this skill, check whether the current repository has its own PR skill. If any guidance routes PR work in this repository to a repository-specific skill, load that skill and follow it instead of this one for the whole PR. The routing can come from an instruction file, a repo-local skill, a plan or handoff, the operator, or any other guidance in the session. Do not merge the two. Only the authority boundary above still applies. Use this skill only when no repository-specific PR skill exists.
 
 ## Usage
 
