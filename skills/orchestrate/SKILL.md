@@ -556,13 +556,21 @@ ledger mode to `ORCHESTRATION` and:
    blocking questions in one numbered message.
 2. Create a heartbeat (`create_heartbeat`, every 20 minutes) whose prompt
    says: `orchestrate <tracker> status pass: re-read <ledger path>, inspect
-   every active worker, act on changes, and report only changes or
-   blockers.` It catches stuck workers that send no notification and
-   re-anchors the session after compaction. On every pass, inspect each
-   active worker on its own host (`get_agent_status` for local items,
-   `paseo inspect --host <target> <id>` or `paseo ls -g --json --host <target>
-   --label tracker=<tracker slug>` for remote ones), and retry any `QUEUED`
-   item through Handoff step 0. Record the heartbeat's ID in the ledger.
+   every active worker, re-check every QUEUED, BLOCKED and MERGED row, act on
+   changes, and report only changes or blockers.` It catches stuck workers
+   that send no notification and re-anchors the session after compaction. On
+   every pass, inspect each active worker on its own host (`get_agent_status`
+   for local items, `paseo inspect --host <target> <id>` or `paseo ls -g
+   --json --host <target> --label tracker=<tracker slug>` for remote ones).
+   Then walk every row that has no live worker. Retry each `QUEUED` item
+   through Handoff step 0, and re-test the named gate of each `BLOCKED` or
+   waiting item (a dependency merged, a rollout happened, an answer arrived).
+   Finish cleanup for each `MERGED` row. An item whose gate has cleared is
+   launched or closed out in the same pass, never left for a later one.
+   Every `QUEUED` or `BLOCKED` row names its gate in its notes so this check
+   is mechanical (operator question 2026-10-10: four items sat QUEUED for
+   one to two days after their gates cleared, because the status pass looked
+   only at live workers). Record the heartbeat's ID in the ledger.
 3. Post the status board (format below), then drive each item through its
    states as notifications, heartbeats, and operator answers arrive.
 
