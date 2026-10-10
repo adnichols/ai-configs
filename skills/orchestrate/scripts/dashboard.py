@@ -243,6 +243,29 @@ def inline(s):
     return re.sub(r"\x00(\d+)\x00", lambda m: links[int(m.group(1))], s)
 
 
+QUEUE_ENTRY = re.compile(r"^\d+\. #(\d+) (\S+) validated ([0-9a-f]{7,40})\b\s*(?:[—–-]\s*)?(LANDING|ON_DECK|WAITING)?\s*(.*)$")
+QUEUE_PILL = {"LANDING": "done", "ON_DECK": "work", "WAITING": "needs"}
+
+
+def queue_block(text, rows):
+    """`## Landing queue` as a short ordered list. A missing section, or `Empty.`, renders nothing."""
+    lines = [l.strip() for l in section(text, "Landing queue").splitlines() if l.strip()]
+    if not lines or lines == ["Empty."]:
+        return ""
+    pr_of = {r.get("id", ""): pr_cell(r.get("pr", "")) for r in rows}
+    items = []
+    for line in lines:
+        m = QUEUE_ENTRY.match(line)
+        if not m:
+            items.append(f"<li>{inline(re.sub(r'^[0-9]+[.] ', '', line))}</li>")
+            continue
+        number, item, sha, slot, note = m.groups()
+        pill = f'<span class="pill {QUEUE_PILL[slot]}">{slot}</span> ' if slot else ""
+        items.append(f'<li><span class="iid">{html.escape(item)}</span> {pr_of.get(item, "—") if pr_of.get(item, "—") != "—" else "#" + number} {pill}'
+                     f'<span class="sub">validated {html.escape(sha)}{" · " + inline(note) if note else ""}</span></li>')
+    return f'<h2>Landing queue</h2><ol class="queue">{"".join(items)}</ol>'
+
+
 def render(text, title, template, updated):
     if "{{completed}}" not in template:
         raise Fail(2, "dashboard template predates current/history layout; preserve local customizations and update it from the maintained HTML template")
@@ -285,6 +308,7 @@ def render(text, title, template, updated):
     out = template
     for key, val in {
         "title": html.escape(title), "meta": meta, "chips": chips, "needs": needs,
+        "queue": queue_block(text, rows),
         "issues": "".join(items) or '<p class="empty">No open items.</p>', "completed": "".join(completed), "decisions": "".join(f"<li>{inline(d)}</li>" for d in decisions),
     }.items():
         out = out.replace("{{" + key + "}}", val)

@@ -97,6 +97,17 @@ and fails when that file has no `plan_id`; do the same for any other page.
   base on or port from any other branch, such as one a source document points
   to.
 
+# Landing
+Validate on your own base. Do not merge main into your branch to stay current;
+merge it only when you need code from main or a conflict blocks your own work.
+After you report VALIDATED, stay idle: the orchestrator puts the PR in a
+landing queue and merges it at the validated head when it reaches position 1.
+Push nothing to the PR branch until the orchestrator says it is your turn. If
+you get an UPDATE message, merge the base once with a normal merge commit (no
+rebase, no force-push), resolve the listed files, rerun the checks it names,
+push, and report VALIDATED with the new head. If you get an ON_DECK message,
+read the preview and plan, but do not push, redeploy, or rerun the full suite.
+
 # Reporting
 The orchestrator relays between you and the operator. It is notified each
 time your turn ends. Do not wait for an answer in the middle of a turn.

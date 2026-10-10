@@ -37,6 +37,7 @@ h1 { font-size:24px; margin:0 0 4px; overflow-wrap:anywhere; } h2 { font-size:17
 .item .row .v { font-size:13px; } .item .row code { font-size:11px; }
 a { color:var(--link); overflow-wrap:anywhere; }
 code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:var(--weft-radius-chip); padding:0 4px; }
+.queue { padding-left:24px; } .queue li { margin:6px 0; overflow-wrap:anywhere; } .queue .sub { margin-left:4px; }
 .decisions { padding-left:20px; } .decisions li { margin:6px 0; color:var(--mute); font-size:13px; overflow-wrap:anywhere; }
 @media (max-width: 640px) {
   main { padding:20px 14px 40px; }
@@ -49,6 +50,7 @@ code { font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace; background:var(-
 <div class="chips">{{chips}}</div>
 <h2>Needs you</h2>
 {{needs}}
+{{queue}}
 <h2>Active priorities</h2>
 {{issues}}
 <details open><summary>Completed items, newest merge first</summary>{{completed}}</details>
