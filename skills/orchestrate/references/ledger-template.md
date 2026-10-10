@@ -12,7 +12,8 @@ written by the orchestrator; `Hosts:` lists the eligible worker hosts and
 their limits from the hosts file (see SKILL.md § Hosts), written once at
 tracker start and `none` when no hosts file exists; `Heartbeat:` is the
 20-minute status pass. In the Status table, `Workspace / agent` is
-`<host>: <workspace> / <agent>` (for example `devor: ws_... / ag_...`).
+`<host>: <workspace> / <agent>` (for example `dever: ws_... / ag_...`). The dashboard shows it in a Worker column
+with each part labeled. Escape a literal pipe in any cell as `\|`.
 
 **Status table order.** `dashboard.py` shows the table in three tiers: waiting
 on the operator (a Needs you state, or `Waiting on` starting with `operator`),
@@ -32,6 +33,12 @@ and republish. It fills any missing `Merged` cells from GitHub and writes
 `Deployed` as `yes, all N`, `partly, K of N; not yet: <names>`, or `no, 0 of N`,
 with the check time. Checking deployment never means deploying: the orchestrator does not
 run rollout or deploy commands for production.
+
+**PR column.** Write every PR as its full URL
+(`https://github.com/<owner>/<repo>/pull/<n>`), never `#N` or `repo#N`, so the
+dashboard renders each one as a link. Several PRs are comma-separated; a note
+such as `→ <merge sha>` may follow. `dashboard.py` refuses to render a PR
+number without its URL.
 
 The heading is the tracker title: the weekday and date the tracker started
 (`Tuesday, October 6, 2026`), or the theme the operator gave for it

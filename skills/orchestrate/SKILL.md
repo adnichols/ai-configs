@@ -108,7 +108,7 @@ in this section is skipped.**
   { "name": "mbp", "target": "ssh://mbp", "hostnames": ["aarons-macbook-pro"],
     "max_workers": 16, "min_available_gb": 4, "max_swap_gb": 4, "max_load_per_core": 2.0, "per_worker_gb": 2,
     "checkouts": { "ccore2": "/Users/anichols/code/ccore2" } },
-  { "name": "devor", "target": "ssh://dever", "hostnames": ["dever", "devor"],
+  { "name": "dever", "target": "ssh://dever", "hostnames": ["dever"],
     "max_workers": 12, "min_available_gb": 6, "max_swap_gb": 4, "max_load_per_core": 1.5, "per_worker_gb": 2,
     "checkouts": { "ccore2": "/home/anichols/code/ccore2" } } ] }
 ```
@@ -116,7 +116,7 @@ in this section is skipped.**
 - `name`: the host's name in the ledger and item files.
 - `target`: the `--host` value for the `paseo` CLI; the ssh alias is the
   target without `ssh://`. The alias is the one the *orchestrator's* machine
-  uses (the Mac reaches Devor as `dever`; Devor reaches the Mac as `mbp`).
+  uses (the Mac reaches Dever as `dever`; Dever reaches the Mac as `mbp`).
 - `hostnames`: lowercase short hostnames of the machine. A host is **local**
   when the orchestrator's lowercase short `socket.gethostname()` (without
   `.local` or any domain) is in this list. A local host is probed and driven
@@ -263,12 +263,46 @@ technical-founder language: concrete and short, the user-visible problem
 before the mechanism, one sentence on the cause. `Decide:` says exactly what
 the operator needs to do or choose, with a name for each option. Do not leave
 internal jargon (state names, ledger terms, repo-private abbreviations, commit
-hashes standing in for an explanation) unexplained. Omit `Fix:` or `Links:`
+hashes standing in for an explanation) unexplained. A card holds what the
+operator needs to make the decision and nothing more: at most about 150 words,
+`Fix:` one plain paragraph saying what will be different and what approving
+lets the agents do, and `Decide:` the exact question with named options. Never
+quote spec text, before-and-after wording, evidence, test results, or limits in
+a card (operator ruling 2026-10-09 19:30Z). Put them in a details subdocument
+published with `scripts/card_details.py <tracker> <details.md> --title "<ID>
+details" --out <tracker>/card-details/<id>.json`, and link it first in
+`Links:`. Spec wording stays on its rendered diff page. When the operator asks
+a question in a comment, put the answer in the card itself, not only in the
+thread, and never point to a comment for content: the dashboard collects
+hundreds of comments (operator ruling 2026-10-09). Omit `Fix:` or `Links:`
 rather than pad it. Never use bold (`**`) or bullet-style asks such as
 `- **WI-10: ...** prose`. `scripts/dashboard.py` exits 2 with the card rule
 when `## Waiting on you` holds anything but `###` cards, a card lacks
 `Problem:` (or its `Broken:` alias) or `Decide:`, or a card uses bold; fix the
 ledger and rerun. Mirror the same text in chat.
+
+**Before posting a card.** The driver must have the oracle challenge every
+Needs-you card before posting it in the dashboard or chat, including product
+decisions and credential or access asks. Send the draft card and evidence, and
+ask whether the premise holds and operator input is needed under 'Asking the
+operator', and whether the card is the shortest one that still lets the
+operator decide. Reject an oracle revision that adds quoted text or evidence to
+the card; that content goes in the details subdocument. A worker's earlier
+consultation does not replace this check. For a
+claimed blocker, test the failing operation through the worker's actual launch
+path, account, session, and environment, not just a separate diagnostic shell.
+Give the oracle the result or, if the test cannot run, the reason. Resolve
+factual objections before posting. The oracle challenges the evidence and need
+to escalate; the operator still decides product behavior. In Decide:, record
+the oracle's verdict on the premise and need for operator input, followed by
+the operator's choice or action. In Links:, cite the consultation and
+supporting evidence. Before asking the operator to approve or judge text that
+quotes product behavior, such as an error message, label, status code, or CLI
+output, check each quoted string against product source in apps/, packages/,
+or spec/ and, when a deployed lab is available, against the live response.
+Never use a prototype, demo boilerplate, worker summary, or memory as the
+source. Cite the source file:line and any lab transcript next to the quote. If
+the text cannot be checked, say so in Problem: instead of asking for approval.
 
 **If it fails.** The script exits non-zero with a message when `ava` is
 missing, unauthenticated, or the saved draft does not verify. Tell the operator
@@ -586,10 +620,8 @@ change, and disclose it in the PR description so the operator can veto at
 review.
 
 Workers consult the oracle before ending a turn with `NEEDS_OPERATOR`. Screen
-every `NEEDS_OPERATOR` again before posting a card. When the question is not
-a product decision, take it to the oracle yourself, send the worker the
-answer, and post nothing. When it is, keep the worker's oracle recommendation
-in the card.
+every `NEEDS_OPERATOR` again before posting a card. When it is, keep the
+worker's oracle recommendation in the card.
 
 ### Review and merge
 
@@ -699,6 +731,17 @@ cleanup below (lab claim, demos, worktree), when all of these hold:
 The rule does not authorize force-pushing, merging a head that was not
 validated, or merging PRs that are not this tracker's. If the operator asks
 to hold a PR, or to keep its lab or worktree, do so and record why.
+
+Do not create approval gates the repository does not have. Skill docs and
+agent instruction text, such as a verify-ccore `features/*.md` entry or an
+`AGENTS.md` pointer, are reversible repository docs. When the text is checked
+against the code and scenarios on main, it ships in the item's PR, or in a
+docs PR that the orchestrator merges once the gate passes. It never goes on an
+operator card (operator ruling 2026-10-09: "If you have a verify ccore skill
+update and it makes it more accurate, then you need to merge that"). Before
+writing any card, apply never-block-on-the-human: card only what the
+repository's rules or the operator reserve, such as `spec/` and ADR text,
+production actions, credentials, product choices and prototype approval.
 
 Nobody in a tracker deploys to production: not the orchestrator, not a
 worker, and not on request. Do not ask the operator whether to, offer to, or

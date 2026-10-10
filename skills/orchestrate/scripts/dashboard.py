@@ -70,7 +70,7 @@ def issue_rows(text):
     for line in section(text, "Status").splitlines():
         if not line.startswith("|"):
             continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        cells = [c.strip().replace(r"\|", "|") for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
         if cols is None:
             cols = [c.lower() for c in cells]
         elif not set("".join(cells)) <= set("-: "):
@@ -122,13 +122,49 @@ def ordered(rows):
 
 # ---- rendering ------------------------------------------------------------
 
-def pr_cell(pr):
-    """GitHub PR URLs become `repo#N` so the column stays narrow; the href keeps the full URL."""
-    m = re.fullmatch(r"https://github\.com/[^/\s]+/([^/\s]+)/pull/(\d+)", pr)
-    if m:
-        return f'<a href="{html.escape(pr)}" target="_blank" rel="noopener">{html.escape(m.group(1))}#{m.group(2)}</a>'
-    return inline(pr) if pr not in ("—", "") else "—"
+PR_URL = re.compile(r"https://github\.com/[^/\s]+/([^/\s]+)/pull/(\d+)")
 
+
+def pr_cell(pr):
+    """Every GitHub PR URL becomes a `repo#N` link on its own line so the column stays narrow; the href keeps the
+    full URL. Other text (a merge SHA, a note) follows the links as plain text.
+
+    A PR named without its URL (`#12`, `repo#12`) cannot be linked, so it fails the render."""
+    if pr in ("—", ""):
+        return "—"
+    rest = PR_URL.sub("", pr).strip(" ,;")
+    if re.search(r"#\d+", rest):
+        raise Fail(2, f"PR column must use full PR URLs (https://github.com/<owner>/<repo>/pull/<n>), got: {pr}")
+    links = "<br>".join(f'<a href="{html.escape(m.group(0))}" target="_blank" rel="noopener">{html.escape(m.group(1))}#{m.group(2)}</a>'
+                        for m in PR_URL.finditer(pr))
+    if not rest:
+        return links
+    return f"{links} {inline(rest)}" if links else inline(rest)
+
+
+
+def worker_cell(cell):
+    """The ledger's `Workspace / agent` cell with each ID labeled by its shape (host, Paseo workspace, agent, lab).
+
+    The ledger form is `<host>: <workspace> / <agent>`; `·` also separates parts, and other notes stay plain."""
+    if cell in ("—", ""):
+        return "—"
+    m = re.match(r"([A-Za-z][\w.-]*):\s+(.*)", cell)
+    host, rest = (m.group(1), m.group(2)) if m else ("", cell)
+    parts = [p.strip() for p in re.split(r"\s+[/·]\s+", rest) if p.strip()]
+    out = [("host", host)] if host else []
+    for i, part in enumerate(parts):
+        if re.fullmatch(r"wk?s_[0-9a-f]+", part):
+            out.append(("Paseo workspace", part))
+        elif re.fullmatch(r"ag_\w+|[0-9a-f]{8}(-[0-9a-f-]{4,})?", part):
+            out.append(("agent", part[:8] if "-" in part else part))
+        elif re.fullmatch(r"lab\d+\b.*", part):
+            out.append(("lab", part))
+        elif i == 0 and not host and re.fullmatch(r"[a-z][\w-]*", part):
+            out.append(("host", part))
+        else:
+            out.append(("", part))
+    return "<br>".join((f'<span class="sub">{label}</span> ' if label else "") + f"<code>{html.escape(v)}</code>" for label, v in out)
 
 ASK_FIELDS = (("Problem", "Problem"), ("Fix", "Proposed change"), ("Decide", "Your call"), ("Links", "Look at"))
 
@@ -223,26 +259,33 @@ def render(text, title, template, updated):
         f'<span class="chip {c}">{html.escape(l)} · {counts.get(l, 0)}</span>' for c, l, _ in STATE_GROUPS)
     needs = "".join(ask_card(t, f) for t, f in waiting) or '<p class="empty">Nothing needs you right now.</p>'
 
-    trs, completed = [], []
+    # Each item is a full-width card whose fields stack vertically, so long notes grow down the page instead of
+    # being squeezed into a narrow table column (operator feedback 2026-10-09, thread 93b4fad9).
+    def field(label, value, cls=""):
+        return f'<div class="f{(" " + cls) if cls else ""}"><div class="k">{label}</div><div class="v">{value}</div></div>'
+
+    items, completed = [], []
     for r in rows:
         cls, _ = group_of(r.get("state", ""))
-        pr = r.get("pr", "")
-        lead = (f'<tr class="{cls}"><td class="id">{html.escape(r.get("id", ""))}<div class="sub">{html.escape(r.get("priority") or "Unprioritized")}</div></td>'
-                f'<td><div class="t">{inline(r.get("title", ""))}</div>'
-                f'<div class="sub">{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</div></td>'
-                f'<td><span class="pill {cls}">{html.escape(r.get("state", ""))}</span></td>')
+        head = (f'<div class="item {cls}"><div class="ih"><span class="iid">{html.escape(r.get("id", ""))}</span>'
+                f'<span class="pill {cls}">{html.escape(r.get("state", ""))}</span>'
+                f'<span class="sub">{html.escape(r.get("priority") or "Unprioritized")} · '
+                f'{html.escape(r.get("kind") or r.get("type", ""))} · {html.escape(r.get("repo", ""))}</span></div>'
+                f'<div class="t">{inline(r.get("title", ""))}</div>')
+        pr = field("PR", pr_cell(r.get("pr", "")))
         if cls == "done":
-            completed.append(f'{lead}<td>{inline(r.get("merged") or "—")}</td><td>{inline(r.get("deployed") or "—")}</td>'
-                             f'<td class="pr">{pr_cell(pr)}</td></tr>')
+            completed.append(f'{head}<div class="row">{field("Merged", inline(r.get("merged") or "—"))}'
+                             f'{field("Deployed", inline(r.get("deployed") or "—"))}{pr}</div></div>')
         else:
-            trs.append(f'{lead}<td>{inline(r.get("waiting on", ""))}</td><td class="pr">{pr_cell(pr)}</td></tr>')
+            items.append(f'{head}{field("Waiting on", inline(r.get("waiting on", "") or "—"), "notes")}'
+                         f'<div class="row">{pr}{field("Worker", worker_cell(r.get("workspace / agent", "")))}</div></div>')
 
     meta = (f"Tracker: {html.escape(header(text, 'Tracker') or title)} · Status: {html.escape(mode)} · updated {html.escape(updated)} · a listener watches comments on this "
             "document and acknowledges each one in its thread within about 30 seconds")
     out = template
     for key, val in {
         "title": html.escape(title), "meta": meta, "chips": chips, "needs": needs,
-        "issues": "".join(trs), "completed": "".join(completed), "decisions": "".join(f"<li>{inline(d)}</li>" for d in decisions),
+        "issues": "".join(items) or '<p class="empty">No open items.</p>', "completed": "".join(completed), "decisions": "".join(f"<li>{inline(d)}</li>" for d in decisions),
     }.items():
         out = out.replace("{{" + key + "}}", val)
     return out
