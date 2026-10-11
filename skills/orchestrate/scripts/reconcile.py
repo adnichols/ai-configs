@@ -100,15 +100,21 @@ def item_file(tracker, row_id):
     return None
 
 
-def last_movement(path):
-    """Newest timestamp in the item's Timeline (or Log), else the item file's mtime, else None. Returns (time, source)."""
+FUTURE_SLACK = timedelta(minutes=10)
+
+
+def last_movement(path, now):
+    """Newest timestamp in the item's Timeline (or Log) that is not in the future, else the item file's mtime, else None.
+    Returns (time, source). Entries later than `now` are a skewed clock or a guessed time; counting them would
+    pin the age at zero and hide a stuck row."""
     stamps = []
     if path:
         text = path.read_text()
         m = re.search(r"^## (?:Timeline|Log)\n(.*?)(?=^## |\Z)", text, re.S | re.M)
         stamps = [t for l in (m.group(1).splitlines() if m else []) if (e := ENTRY.match(l)) and (t := parse_time(e.group(1)))]
-        if stamps:
-            return max(stamps), "timeline"
+        past = [t for t in stamps if t <= now + FUTURE_SLACK]
+        if past:
+            return max(past), "timeline" + (" (future-dated entries ignored)" if len(past) < len(stamps) else "")
         return datetime.fromtimestamp(path.stat().st_mtime, timezone.utc), "file mtime"
     return None, "no item file"
 
@@ -126,10 +132,11 @@ def gate_tokens(waiting):
 
 
 def pr_merged(url):
-    p = subprocess.run(["gh", "pr", "view", url, "--json", "state"], capture_output=True, text=True)
-    if p.returncode != 0:
+    try:
+        p = subprocess.run(["gh", "pr", "view", url, "--json", "state"], capture_output=True, text=True, timeout=30, check=False)
+        return json.loads(p.stdout)["state"] == "MERGED" if p.returncode == 0 else None
+    except (OSError, subprocess.TimeoutExpired, ValueError, KeyError):
         return None
-    return json.loads(p.stdout)["state"] == "MERGED"
 
 
 def eval_gate(tokens, by_id, net):
@@ -230,9 +237,9 @@ def judge(row, by_id, now, bounds, net, probe):
     state, waiting = state_word(row.get("state", "")), row.get("waiting on", "")
     out = {"id": row["id"], "state": row.get("state", ""), "title": row.get("title", ""), "gate": "none"}
     path = item_file(row["_tracker"], row["id"])
-    moved, source = last_movement(path)
+    moved, source = last_movement(path, now)
     age = now - moved if moved else None
-    out.update(last_movement=moved.strftime("%Y-%m-%d %H:%MZ") if moved else None, age=human(age) if age else "unknown", age_source=source, _age=age)
+    out.update(last_movement=moved.strftime("%Y-%m-%d %H:%MZ") if moved else None, age=human(age) if age is not None else "unknown", age_source=source, _age=age)
 
     def verdict(v, why):
         out.update(verdict=v, why=why)
@@ -258,7 +265,7 @@ def judge(row, by_id, now, bounds, net, probe):
             return verdict("CHECK", f"cannot judge gate: {', '.join(unknown)} (not in this ledger, or PR state unavailable)")
         if open_:
             out["gate"] = f"waiting on {', '.join(open_)}"
-            return verdict("STALE" if over("stale") else "WAIT", f"gate open: {', '.join(open_)}" + (f"; no movement for {out['age']}" if over("stale") else ""))
+            return verdict("STALE" if over("stale") else "WAIT", f"gate open: {', '.join(open_)}")
         out["gate"] = f"cleared ({', '.join(tokens)})"
     if state in PRELAUNCH:
         if park:
@@ -268,11 +275,11 @@ def judge(row, by_id, now, bounds, net, probe):
     if state in WORKER:
         return judge_worker(out, now, bounds, probe, verdict)
     if state in OPERATOR or operator:
-        return verdict("ASK" if over("operator") else "WAIT_OPERATOR", f"waiting on the operator for {out['age']}")
+        return verdict("ASK" if over("operator") else "WAIT_OPERATOR", "waiting on the operator")
     if state in MERGEWAIT:
         return verdict("LAND", "validated and no operator wait: advance the landing queue")
     if state in RESEARCH | {"BLOCKED"}:
-        return verdict("STALE" if over("stale") else "WAIT", f"{state.lower()} with no movement for {out['age']}")
+        return verdict("STALE" if over("stale") else "WAIT", f"{state.lower()} with no movement past the stale bound")
     return verdict("CHECK", f"unknown state {row.get('state', '')!r}")
 
 
@@ -290,10 +297,10 @@ def judge_worker(out, now, bounds, probe, verdict):
         since = live["updated"]
         out["live"] = f"{live['status']}, updated {since.strftime('%Y-%m-%d %H:%MZ') if since else 'unknown'}"
         if since and now - since > bounds["worker"]:
-            return verdict("CHASE", f"worker {live['status']} with no activity for {human(now - since)}")
+            return verdict("CHASE", f"worker {live['status']} with no activity past the worker bound")
         return verdict("OK", f"worker {live['status']}")
     if out["_age"] is not None and out["_age"] > bounds["worker"]:
-        return verdict("CHASE", f"no timeline entry for {out['age']} and no live check")
+        return verdict("CHASE", "no timeline entry within the worker bound and no live check")
     return verdict("OK", "worker active; live check unavailable" if probe else "worker active (live check off)")
 
 

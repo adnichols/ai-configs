@@ -154,6 +154,15 @@ class ReconcileTests(unittest.TestCase):
         self.assertIn("running 45m", rows["WI-4"]["why"])
         self.assertIn("not found", rows["WI-5"]["why"])
 
+    def test_missing_gh_or_future_dated_entries_do_not_hide_or_break_rows(self):
+        tracker_dir(self.tracker, [("WI-1", "QUEUED", "gate: https://github.com/o/r/pull/9", None), ("WI-2", "BLOCKED", "lab", None)],
+                    {"WI-2": [ago(hours=30), "2026-10-12T20:00Z"]})
+        self.env["PATH"] = str(self.bin)
+        code, out, err = self.run_reconcile(None, "--no-live")
+        rows = {r["id"]: r for r in out["rows"]}
+        self.assertEqual((code, rows["WI-1"]["verdict"], rows["WI-2"]["verdict"]), (10, "CHECK", "STALE"), err)
+        self.assertIn("future-dated entries ignored", rows["WI-2"]["age_source"])
+
     def test_worker_row_without_live_check_falls_back_to_timeline_age(self):
         tracker_dir(self.tracker, [("WI-1", "HANDED_OFF", "worker", f"dever: ws / {AGENT}"), ("WI-2", "HANDED_OFF", "worker", "—")],
                     {"WI-1": [ago(minutes=20)], "WI-2": [ago(hours=3)]})
@@ -179,6 +188,16 @@ class ReconcileTests(unittest.TestCase):
         self.assertRegex(page, r"WI-1</span> <span class=\"pill blocked\">LAUNCH</span>")
         self.assertNotIn(">WAIT_OPERATOR<", page)
         self.assertIn("last movement 2026-10-12 11:00Z", page)
+
+    def test_dashboard_text_does_not_change_while_a_verdict_holds(self):
+        sys.path.insert(0, str(SCRIPTS))
+        import dashboard
+        tracker_dir(self.tracker, [("WI-1", "BLOCKED", "lab", None)], {"WI-1": [ago(hours=30)]})
+        template = (ROOT / "skills/orchestrate/references/dashboard-template.html").read_text()
+        ledger = (self.tracker / "ledger.md").read_text()
+        at = lambda hours: dashboard.render(ledger, "t", template, "", self.tracker, datetime(2026, 10, 12, 12 + hours, 0, tzinfo=timezone.utc))
+        self.assertIn("STALE", at(0))
+        self.assertEqual(at(0), at(3))
 
 
 if __name__ == "__main__":
