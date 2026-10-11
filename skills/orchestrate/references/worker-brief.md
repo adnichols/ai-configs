@@ -103,16 +103,35 @@ and fails when that file has no `plan_id`; do the same for any other page.
   base on or port from any other branch, such as one a source document points
   to.
 
+# Clean branch
+Keep your branch clean as you go. After each slice, run the repo's landing
+gate, or the gate's checks for the packages you touched, and fix every failure
+and warning before moving on. Once main is clean, any failure on your branch
+belongs to your branch. Never call a failure pre-existing, inherited,
+unrelated, or flaky to justify reporting VALIDATED; fix it. If main itself
+fails the landing gate, report `BLOCKED: MAIN_RED <check>` and stop: the
+orchestrator owns the repair. A repo with no landing gate script gets the
+check list from its AGENTS.md and package scripts, under the same
+zero-failure, zero-warning rule.
+
 # Landing
-Validate on your own base. Do not merge main into your branch to stay current;
-merge it only when you need code from main or a conflict blocks your own work.
+Work on your own base while you build; merge main only when you need code from
+it or a conflict blocks your own work. Before you report VALIDATED, merge
+current main (a normal merge commit, no rebase, no force-push) and run the
+full landing gate on the result. Your `checks:` line then reads
+`landing-gate CLEAN @ <base>..<head>, log <path>`.
 After you report VALIDATED, stay idle: the orchestrator puts the PR in a
-landing queue and merges it at the validated head when it reaches position 1.
+landing queue and, at position 1, builds main + your PR in a landing worktree,
+runs the gate there, and merges at the validated head when it is CLEAN.
 Push nothing to the PR branch until the orchestrator says it is your turn. If
 you get an UPDATE message, merge the base once with a normal merge commit (no
-rebase, no force-push), resolve the listed files, rerun the checks it names,
-push, and report VALIDATED with the new head. If you get an ON_DECK message,
-read the preview and plan, but do not push, redeploy, or rerun the full suite.
+rebase, no force-push), resolve the listed files, run the full landing gate
+(you do not pick which checks to run), push, and report VALIDATED with the new
+head. If you get an ON_DECK message, read the preview and plan, but do not
+push, merge the base into your branch, or redeploy a lab. When the
+orchestrator tells you that you are first, run the landing gate on the current
+combined tree (current main merged into a scratch worktree of your head; push
+nothing).
 
 # Reporting
 The orchestrator relays between you and the operator. It is notified each
@@ -151,11 +170,12 @@ demo: <prototype URL, or none>
 pr: <URL, or none>
 head: <exact PR head SHA, or none>
 lab: <lab name and claim identity, or none>
-checks: <repo checks run and results, or none>
+checks: <`landing-gate CLEAN @ <base>..<head>, log <path>` before VALIDATED; otherwise the checks run and results, or none>
 review: <reviewer and verdict, or none>
 risks: <remaining risks, or none>
 
 Report VALIDATED only when the exact current PR head has passed lab
-validation and the PR contains the complete visual evidence table and the
+validation, the landing gate is CLEAN on that head merged with current main,
+and the PR contains the complete visual evidence table and the
 interaction table for the operator's reported interaction.
 ```

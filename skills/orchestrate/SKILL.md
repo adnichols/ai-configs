@@ -626,10 +626,16 @@ worker's oracle recommendation in the card.
 ### Review and merge
 
 When a worker reports `VALIDATED`, verify the receipt yourself: the PR
-exists, its head SHA equals the validated SHA, CI is green (or the
-repository has no CI), GitHub reports it mergeable, the PR shows the visual
-evidence table, and the PR carries the interaction table that passes the
-gate below. Open at least one of its screenshots or videos.
+exists, its head SHA equals the validated SHA, the worker's `checks:` line
+reads `landing-gate CLEAN @ <base>..<head>, log <path>` (the repo's landing
+gate reports CLEAN at the validated head merged with the current base, with
+the log path recorded; a repo with no landing gate script gets the full
+check list from its own AGENTS.md and package scripts, under the same
+zero-failure, zero-warning rule), GitHub reports it mergeable, the PR shows
+the visual evidence table, and the PR carries the interaction table that
+passes the gate below. Open at least one of its screenshots or videos. A
+worker that calls any failure pre-existing, inherited, unrelated, or flaky
+to justify `VALIDATED` fails the receipt.
 
 If the receipt passes and every operator decision on the item is answered
 (prototype approval, spec or ADR diff approval, product behavior choices),
@@ -727,6 +733,9 @@ cleanup below (lab claim, demos, worktree), when all of these hold:
 - the worker reported `VALIDATED` for the exact head being merged;
 - the receipt in [Review and merge](#review-and-merge) passes, including the
   interaction-evidence gate;
+- the landing gate is CLEAN on the exact tree being merged (main plus the
+  PR, built in the landing worktree). Nothing is exempt as pre-existing,
+  inherited, unrelated, or flaky;
 - every operator decision the item raised has an answer in the decisions
   log, and any spec or ADR change matches the approved diff page;
 - the target repository's merge policy is met.
@@ -766,7 +775,13 @@ To merge:
    repository's merge method
    (default `gh pr merge <n> --squash --match-head-commit <sha>`) and confirm
    GitHub reports it merged. Record the merge time and commit in the row's
-   `Merged` column (`references/ledger-template.md` § Merged and Deployed).
+   `Merged` column (`references/ledger-template.md` § Merged and Deployed),
+   then, only if the squash commit's first parent equals the `base` sha of
+   the CLEAN `pr` record (main did not move between the gate run and the
+   merge), record the squash commit in `gates.jsonl` as the new main gate
+   (same log: the squash produces the tree the gate ran on) and update the
+   ledger's `Last CLEAN main:` line. Otherwise record nothing: the script
+   reports `MAIN_RED` and main is gated again.
    Never pass `--delete-branch`: it also removes the
    worker's checked-out worktree, and the lab claim file with it, before the
    lab can be released. Branch, lab, demo, and worktree teardown belong to
@@ -796,8 +811,9 @@ you that you are first."
 order:
 
 1. Operator-requested priority.
-2. PRs the script says merge as-is (no conflict, no overlap) go before PRs
-   that need an update.
+2. PRs without a conflict go before PRs that conflict with the base; among
+   them, PRs with no overlap go first, since the combined gate is least
+   likely to fail for them.
 3. Smaller blast radius goes before larger.
 4. PRs that rewrite shared generated files go after PRs that don't, such as
    prototype parity hashes, architecture-map records, CLI version files, and
@@ -807,45 +823,89 @@ Record the reason for any reorder in one line. Only position 1 may change its
 branch to land. Position 2 prepares without pushing. Positions 3 and later do
 nothing.
 
+**Gate records.** The orchestrator owns `<tracker-dir>/gates.jsonl`, an
+append-only file with one JSON object per gate run. `landing_queue.py` reads
+it; the last matching record wins, and a malformed record is exit 2:
+
+```
+{"kind":"main","sha":"<main sha>","result":"CLEAN|FAILED","log":"<path>"}
+{"kind":"pr","pr":<n>,"base":"<main sha>","head":"<PR head sha>","result":"CLEAN|FAILED","log":"<path>"}
+```
+
+A `main` record says the landing gate ran on that main commit. A `pr` record
+says it ran on `base` + `head` (the tree the squash will produce) in the
+landing worktree. Shas are full or at least 7 characters. A `CLEAN` record
+without a log path is invalid. The ledger also carries
+`Last CLEAN main: <sha> (log <path>)` in its header, which you update with each
+new CLEAN `main` record. After a merge, append a `main` record for the squash
+commit with the log of the `pr` run that produced that tree. A main that
+moved by a merge from outside the tracker has no record: gate it before
+anything lands.
+
 **The script.** After every merge, and on each status pass, run
 `python3 <skill-dir>/scripts/landing_queue.py <tracker-dir> --repo <local clone> [--remote origin] [--base main] [--json]`
 and act only on positions 1 and 2. It fetches the base and each PR head into
 `refs/landing-queue/` and reports, per entry, the head against the validated
 sha, PR state, conflict files, and overlap files (changed on the base since
-the merge-base and also changed by the PR). Exit 2 means a bad ledger, 3 a
-git or gh failure. The repository's merge policy wins: when the base branch
-requires up-to-date branches, `MERGE` becomes `UPDATE`.
+the merge-base and also changed by the PR; informational, the gate decides),
+then matches `gates.jsonl` against the fetched base and head. Exit 2 means a
+bad ledger or bad gate record, 3 a git or gh failure. The repository's merge
+policy wins: when the base branch requires up-to-date branches, the entry gets
+`UPDATE` instead of `MERGE`.
 
-- **Position 1, `MERGE`:** merge at the validated head
+- **`MAIN_RED` (any position-1 entry):** the current main sha has no CLEAN
+  `main` record. Nothing lands. Run the gate on main in the landing worktree
+  and record it. If it fails, open a main-repair item: you own opening it. It
+  takes position 1, marked by a note starting with `REPAIR` (for example
+  `1. #820 WI-90 validated 04b7aa6c1 — LANDING REPAIR fix main`), and passes
+  the same combined-tree gate; the script lets only that position-1 entry
+  past `MAIN_RED`. Tell queued workers only that merges are held.
+- **Position 1, `GATE`:** build main + the PR (the tree the squash will
+  produce) in a dedicated landing worktree: `git worktree add --detach
+  <path> <main sha>`, then `git merge --no-commit --no-ff <pr head sha>` in
+  it, and run the repo's landing gate there. Append the `pr` record (CLEAN or
+  FAILED, with the log path), then rerun the script. The worker's own
+  position-1 gate run is an early signal; only your landing-worktree run is
+  recorded. A conflict, or a gate failure caused by the combination, goes back
+  to the worker as `UPDATE`.
+- **Position 1, `MERGE`:** the gate is CLEAN on this base and head. Fetch the
+  base again immediately before merging; if main moved since the gate run,
+  rerun the script (it reports `GATE`) and run the gate again. Otherwise
+  merge at the validated head
   (`gh pr merge <n> --squash --match-head-commit <sha>`). The worker does
-  nothing.
+  nothing. Overlap without a conflict never forces `UPDATE`; the gate decides.
 - **Position 1, `UPDATE`:** tell the worker to merge the base once with a
-  normal merge commit (no rebase, no force-push). It resolves the listed
-  files, reruns the PR's gating checks plus the checks that cover the
-  overlapping files, pushes, and reports `VALIDATED` with the new head. Verify
-  the receipt again, update the validated sha in the queue, and rerun the
-  script. A base that moved again with new overlap means another update;
-  otherwise merge.
+  normal merge commit (no rebase, no force-push), resolve the listed files,
+  and run the full landing gate (it does not pick which checks to run). It
+  pushes and reports `VALIDATED` with the new head. Verify the receipt again,
+  update the validated sha in the queue, and rerun the script, which asks for
+  a fresh `GATE` run on the new head.
 - **Position 1, `REVALIDATE` or `BLOCKED`:** ask the worker why. If it cannot
   land within one turn, move it out of the queue (State back to
   `IN_PROGRESS`) and advance.
 - **Position 2, `ON_DECK`:** send one message with the script's prep preview
   (its conflicts and overlap against position 1 merged as-is). The worker may
-  read position 1's diff, dry-run the merge locally, and plan its resolution
-  and its rerun list. It must not push, merge the base into its branch,
-  redeploy a lab, or rerun the full suite.
+  read position 1's diff, dry-run the merge locally, and plan its resolution.
+  It must not push, merge the base into its branch, or redeploy a lab. When
+  it reaches position 1 it runs the landing gate on the current combined
+  tree.
 - **Positions 3 and later, `WAIT`:** send nothing beyond the slot line. A
   `MOVED` flag means the worker pushed while waiting; ask it to stop.
 
+A merge hold is recorded in the ledger's `Merge rule:` line. During a hold,
+mark every queue entry as held in its note, and merge only a main-repair PR
+whose gate is CLEAN on its combined tree.
+
 **Workers outside the queue** (still building or validating): do not tell
 them the base moved and do not ask them to merge main. A worker merges the
-base before it is queued only when it needs code from main or a conflict
-blocks its own work. It validates on its own base, and the queue handles
-freshness.
+base before it is queued when it needs code from main or a conflict blocks its
+own work, and always before it reports `VALIDATED`, so its gate run covers
+current main. The queue handles freshness after that.
 
 **Merges from outside the tracker** (humans, other trackers): send no
 broadcast. The script reports them as overlap for whichever PR reaches
-position 1.
+position 1, and the changed main sha needs a new gate record before anything
+lands.
 
 **One merge in flight at a time.** Never ask two workers to update at once.
 

@@ -1,6 +1,5 @@
 {
   "distribution": { "bug": 3, "feature": 3, "refactor": 2, "plan": 2 },
-  "repo": "/Users/anichols/code/ai-configs",
   "candidates": [
     {"id":"B01","category":"bug","source":"replay","commit":"f34696787a9502ed4d32bbcc65577b2ad24562f0","parent":"a9fde3b","intent":"pi-subagents isolation off-veto"},
     {"id":"B02","category":"bug","source":"replay","commit":"65dc88b4ebb9b7415c302ebe4ec75bc080fcc1ba","parent":"c50232f","intent":"completeness skill resolution"},

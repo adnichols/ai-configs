@@ -21,7 +21,10 @@ owned by the driver (SKILL.md § Landing queue). Each line is
 numbered from 1 in landing order. With no entries the section holds the single
 line `Empty.`. A queued row's State stays `READY_TO_MERGE`. `scripts/landing_queue.py`
 reads this section and the dashboard shows it as a short ordered list near the
-top; trackers without the section still publish.
+top; trackers without the section still publish. The script also reads
+`gates.jsonl` beside `ledger.md` (the gate run records, SKILL.md § Landing
+queue); the header's `Last CLEAN main:` line names the newest main sha with a
+CLEAN gate record and its log path, or `none`.
 
 **Status table order.** `dashboard.py` shows the table in three tiers: waiting
 on the operator (a Needs you state, or `Waiting on` starting with `operator`),
@@ -82,7 +85,8 @@ Ava space: <spc_... or none>
 Dashboard: <web_url or none>
 Dashboard folder: <folder id of Coding Work (Archive / Coding Work once concluded), or none>
 Listener: <service name, pid, log path, or none>
-Merge rule: the orchestrator merges each PR at its validated head once every gate passes and every operator decision on the item is answered and the PR reaches position 1 of the landing queue, then releases its lab, removes its demos, and archives its worktree.
+Merge rule: the orchestrator merges each PR at its validated head once every gate passes (the landing gate is CLEAN on main plus the PR, with the log recorded in `gates.jsonl`) and every operator decision on the item is answered and the PR reaches position 1 of the landing queue, then releases its lab, removes its demos, and archives its worktree. Nothing is exempt as pre-existing, inherited, unrelated, or flaky.
+Last CLEAN main: <sha> (log <path>) or none
 
 ## Status
 | ID | Kind | Title | Repo | State | Workspace / agent | PR | Waiting on | Priority | Merged | Deployed |

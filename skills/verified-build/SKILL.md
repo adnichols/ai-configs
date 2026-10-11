@@ -160,9 +160,10 @@ Prompt the implementer to use ADN mode and include:
 - observable acceptance criteria, including persistence and cross-client behavior;
 - applicable repo guidance and project verification skill paths;
 - a requirement to find the shared root cause and check every caller before editing;
-- a requirement to plan, implement, add proportional regression coverage, run repo checks, complete bounded review, and create or update one PR for lab validation;
-- a prohibition on lab deployment, merge, and changes outside the requested outcome, and a statement that production is never a deploy target and is never to be asked about; and
-- a completion receipt containing the PR URL, exact head SHA, changed files, checks, review verdict, and remaining risks.
+- a requirement to plan, implement, add proportional regression coverage, run repo checks after each slice, fix every failure and warning before moving on (once main is clean, any failure on the branch belongs to the branch), complete bounded review, and create or update one PR for lab validation;
+- a prohibition on lab deployment, merge, and changes outside the requested outcome, and a statement that production is never a deploy target and is never to be asked about;
+- a prohibition on calling any failure pre-existing, inherited, unrelated, or flaky to justify reporting `VALIDATED`; the implementer reports `BLOCKED: MAIN_RED <check>` and stops when main itself fails the repo's landing gate, and the driver owns the repair; and
+- a completion receipt containing the PR URL, exact head SHA, changed files, checks (before reporting `VALIDATED`, the implementer merges current main and runs the full landing gate, so the line reads `landing-gate CLEAN @ <base>..<head>, log <path>`), review verdict, and remaining risks.
 
 Monitor through the finish notification, `get_agent_status`, `send_agent_prompt`, and the `paseo inspect` / `paseo send` CLI equivalents. Send follow-ups only when new lab evidence, a concrete scope correction, or a verified review problem requires one. A timeout means inspect state; it does not mean the agent failed.
 

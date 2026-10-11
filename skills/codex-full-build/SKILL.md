@@ -207,7 +207,7 @@ If `$run-plan` stops with a blocker, handle only blockers that are part of this 
 - If the blocker is plan ambiguity, return to plan clarification/review.
 - If the blocker is reviewer/tool unavailability, remediate using the relevant skill.
 - If the blocker is implementation scope expansion, ask the user before expanding scope.
-- If the blocker is a failing verification outside this plan, report it as residual/pre-existing unless the scoped runner classifies it as a regression from this diff.
+- If the blocker is a failing check or warning outside this plan, it blocks the PR from becoming merge-ready: report it as a blocker with a repair item, never as residual or pre-existing, whatever its origin.
 
 ### 7. Final Response
 
