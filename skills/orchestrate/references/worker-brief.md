@@ -90,7 +90,13 @@ and fails when that file has no `plan_id`; do the same for any other page.
   release your own orphaned claim through the lab-manager's agent release path
   (see the ccore2 lab-manager skill).
   Write `demos.json` for every prototype you publish, as `verified-build`
-  describes. If the right fix expands scope, stop and ask.
+  describes. Before you put a URL in `demo:`, open the hosted demo yourself
+  with the demos service token through `verified-build`'s `demo-access.mjs`
+  and click through every variant. A local preview does not count. Never ask
+  the operator to sign in to Cloudflare Access for you. If the token file is
+  missing or Access rejects it, report `PROTOTYPE_UNAVAILABLE` with the
+  helper's error instead of a demo URL. If the right fix expands scope, stop
+  and ask.
 - Do not change your model configuration.
 - Only build on or reuse code made through this workflow: the branch this
   brief puts you on, or another item's workflow branch the brief names. Do not
