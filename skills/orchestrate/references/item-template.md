@@ -55,7 +55,8 @@ Host: <name from the hosts file, local or remote; omit when there is no hosts fi
 Workspace: <id>   Worktree: <path>   Branch: <branch>   Agent: <id>   Launched: <time>
 
 ## Timeline
-- <time> <state change, PR URL, head SHA, verdict, operator decision>
+- <YYYY-MM-DD ~HH:MMZ> <state change, PR URL, head SHA, verdict, operator decision, launch attempt, chase>
+  (start every entry with the date and time: `scripts/reconcile.py` measures a row's age from the newest one)
 ```
 
 ## States

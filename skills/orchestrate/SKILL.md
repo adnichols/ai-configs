@@ -317,8 +317,9 @@ change to the dashboard's content or format, do both in the same step:
    in `<tracker-dir>/dashboard-template.html` (copy
    `references/dashboard-template.html` there first; the script prefers it).
    Changes the template cannot express (a new column, a different grouping)
-   go in a copy of `scripts/dashboard.py` kept in the tracker directory and
-   run from there. Save the dashboard again and confirm it with the operator.
+   go in a copy of `scripts/dashboard.py` kept in the tracker directory
+   (with `ledger.py` and `reconcile.py`, which it imports) and run from
+   there. Save the dashboard again and confirm it with the operator.
 2. Log it as a skill follow-up: its own work item (`WI-NN`, repo ai-configs,
    target `skills/orchestrate`) with the operator's words verbatim and what
    you changed live. A worker then folds it into
@@ -494,7 +495,9 @@ For each `READY` item, launch its worker without waiting for the operator:
    `paseo archive --host <target> --force <agent-id>`) and relaunch before it
    edits anything.
 5. Record host, workspace ID, worktree path, branch, and agent ID in the item
-   file and ledger, and set the item to `HANDED_OFF`.
+   file and ledger, and set the item to `HANDED_OFF`. After the first
+   handoff of a tracker, create the status heartbeat if none exists
+   ([Reconciliation](#reconciliation)); do not wait for the done signal.
 
 Each worker claims its own lab through verified-build, and keeps it while its
 PR is open or a prototype review is pending. The orchestrator releases it as
@@ -554,20 +557,81 @@ ledger mode to `ORCHESTRATION` and:
 1. Finish intake: export any final images, merge pending research, and hand
    off every item that can reach `READY`. For the rest, ask all remaining
    blocking questions in one numbered message.
-2. Create a heartbeat (`create_heartbeat`, every 20 minutes) whose prompt
-   says: `orchestrate <tracker> status pass: re-read <ledger path>, inspect
-   every active worker, act on changes, and report only changes or
+2. Create the status heartbeat if the first handoff did not already
+   (`create_heartbeat`, every 20 minutes) whose prompt
+   says: `orchestrate <tracker> status pass: re-read <ledger path>, run
+   scripts/reconcile.py and act on every verdict, and report only changes or
    blockers.` It catches stuck workers that send no notification and
-   re-anchors the session after compaction. On every pass, inspect each
-   active worker on its own host (`get_agent_status` for local items,
-   `paseo inspect --host <target> <id>` or `paseo ls -g --json --host <target>
-   --label tracker=<tracker slug>` for remote ones), and retry any `QUEUED`
-   item through Handoff step 0. Record the heartbeat's ID in the ledger.
+   re-anchors the session after compaction. Each pass is the
+   [Reconciliation](#reconciliation) below, which inspects each active
+   worker on its own host and retries every `QUEUED` item through Handoff
+   step 0. Record the heartbeat's ID in the ledger.
 3. Post the status board (format below), then drive each item through its
    states as notifications, heartbeats, and operator answers arrive.
 
 Late reports during orchestration are normal: log them through intake and
 continue.
+
+### Reconciliation
+
+The operator's ruling (2026-10-10, BB-180): queued and waiting work must be
+checked regularly, not only live workers. Items whose gate cleared sat
+`QUEUED` for one to two days, a driver read "log it, don't fix it" as "don't
+launch the items", and review subagents ran 40 to 60 minutes unchecked. So
+the check is a script, not driver memory. Run it on every status pass,
+every heartbeat, every status request, when the tracker enters
+`ORCHESTRATION`, and before posting the status board:
+
+```
+python3 <skill-dir>/scripts/reconcile.py <tracker-dir>
+```
+
+It is read-only. For each row that is not terminal it prints the state, the
+gate, the last timeline entry and its age, and a verdict, then a summary line
+(`RECONCILE <tracker>: ... actions=N`). Exit 0 means nothing to do, 10 means
+at least one starred verdict, 2 a bad ledger. It inspects each worker row's
+agent and the running review subagents with `paseo inspect` and `paseo ls`
+(read-only, with `--host` for remote items) and reads PR gates with `gh pr
+view`. When those are unavailable the row falls back to its timeline age;
+`--no-live` and `--no-net` skip them.
+
+**Stating a gate.** A row's `Waiting on` cell says `gate: WI-05, WI-07` (item
+IDs in the same ledger, cleared when the row is `MERGED`, `CLEANED`, `DONE`
+or `CLOSED`) or a PR URL (cleared when merged). The gate blocks launch only;
+a dependency that matters at merge time belongs in the landing queue order.
+A deliberate hold reads `park: <reason>`. A `READY`, `QUEUED` or `BACKLOG`
+row with neither is launchable, whatever its title says.
+
+| Verdict | Action |
+|---|---|
+| `LAUNCH`* | Handoff step 0 now. If no host or lab has room, add a timeline entry with each host's `reason`, keep it `QUEUED`, and tell the operator why in the next status line. A ruling to log or defer something never stops a launch: to hold an item write `park:` and tell the operator. |
+| `CHASE`* | Read the worker's logs. Nudge it once with the specific gap. A review subagent past its bound: read its logs, then have its worker cancel and rerun it, or take the review over. Still `CHASE` on the next pass: `BLOCKED` card per [Relaying](#relaying-between-operator-and-workers). |
+| `STALE`* | The row shows on the dashboard. Chase whoever owns the open gate, drop a gate that no longer applies, or tell the operator what the row is waiting for. |
+| `ASK`* | Remind the operator in chat with how long the ask has waited and what answering unblocks. Keep its card. |
+| `LAND`* | Enter or advance it in the [landing queue](#landing-queue). |
+| `CLEANUP`* | Run [Cleanup per item](#cleanup-per-item). |
+| `CHECK`* | Fix the row now: a gate naming an unknown ID, an unparsable `gate:`, or an unknown state. |
+| `WAIT`, `WAIT_OPERATOR`, `PARKED`, `OK` | Nothing yet. |
+
+**Time bounds.** The script measures from the newest `## Timeline` entry in
+the item file (`- 2026-10-11 ~16:20Z ...`), so append one for every launch
+attempt, chase, nudge and operator reminder; that is what restarts a row's
+clock. Defaults: `worker` 60m (a worker idle or silent that long),
+`review` 30m (a running review subagent), `stale` 24h (a row waiting on a
+gate, research, a block or a park), `operator` 24h (an unanswered ask). A
+tracker overrides them with a header line, for example
+`Reconcile: worker=45m review=20m stale=12h operator=24h`; `--bound
+name=duration` overrides it for one run. `LAUNCH` has no bound: a launchable
+row is actionable the moment it appears.
+
+**Dashboard.** `scripts/dashboard.py` runs the same check from the ledger and
+item timelines alone and shows `LAUNCH`, `CHASE`, `STALE`, `ASK` and `CHECK`
+rows in a "Needs attention: stale or unlaunched" block (the template's
+`{{attention}}` slot; a tracker-local template without it shows none). Run
+`dashboard.py` after a pass that changed a verdict.
+
+Report to the operator only what changed or what you could not act on, with
+the reason.
 
 ### Relaying between operator and workers
 
