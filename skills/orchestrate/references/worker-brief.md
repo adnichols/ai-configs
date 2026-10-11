@@ -98,6 +98,11 @@ and fails when that file has no `plan_id`; do the same for any other page.
   helper's error instead of a demo URL. If the right fix expands scope, stop
   and ask.
 - Do not change your model configuration.
+- Never run `pkill`, `killall` or `kill $(pgrep …)` with a broad pattern
+  (vitest, test-slot, workerd, wrangler, vite, node, pnpm). Kill only a PID you
+  started, or its process group (`kill -- -<pgid>`). The host is shared: a
+  broad `pkill -f vitest` once killed three other agents' test runs, including
+  a landing-gate run. If you cannot find your PID, ask the orchestrator.
 - Only build on or reuse code made through this workflow: the branch this
   brief puts you on, or another item's workflow branch the brief names. Do not
   base on or port from any other branch, such as one a source document points
