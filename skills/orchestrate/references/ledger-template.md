@@ -92,7 +92,7 @@ Ava space: <spc_... or none>
 Dashboard: <web_url or none>
 Dashboard folder: <folder id of Coding Work (Archive / Coding Work once concluded), or none>
 Listener: <service name, pid, log path, or none>
-Merge rule: the orchestrator merges each PR at its validated head once every gate passes (the landing gate is CLEAN on main plus the PR, with the log recorded in `gates.jsonl`) and every operator decision on the item is answered and the PR reaches position 1 of the landing queue, then releases its lab, removes its demos, and archives its worktree. Nothing is exempt as pre-existing, inherited, unrelated, or flaky.
+Merge rule: the orchestrator merges each PR at its validated head once every gate passes (the landing gate is CLEAN on main plus the PR, with the log recorded in `gates.jsonl`; failures block, warnings never do, SKILL.md § What blocks a landing) and every operator decision on the item is answered and the PR reaches position 1 of the landing queue, then releases its lab, removes its demos, and archives its worktree.
 Last CLEAN main: <sha> (log <path>) or none
 
 ## Status

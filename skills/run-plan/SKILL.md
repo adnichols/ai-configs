@@ -51,7 +51,7 @@ Accept either a plan path or a slug. For a slug, resolve using repo-local active
 - Do not treat deployment, promotion, merge-dependent smoke checks, production observation, or rollback execution as part of the PR-reviewable promised slice. Pending post-merge delivery work must be disclosed and handed off, never used to block PR creation.
 - If the PR-reviewable outcome cannot be completed safely, stop and resize it to a smaller independently useful complete slice rather than shipping a partial skeleton.
 - Do not create a PR until verification appropriate to the touched surfaces has run or a blocker is clearly reported, unless the operator explicitly instructs the agent to open the PR regardless of testing status. That explicit instruction is controlling: stop retrying or waiting on verification, open the PR, and disclose skipped, incomplete, unavailable, or failing checks without calling them passing.
-- Verification convergence is budgeted. When the Verification Convergence Budget is exhausted, any residual failure or warning, whatever its origin, is a blocker: stop with a blocker naming the failure and its repair item. Do not open the PR as ready or as a draft to ship around it.
+- Verification convergence is budgeted. When the Verification Convergence Budget is exhausted, any residual failure, whatever its origin, is a blocker: stop with a blocker naming the failure and its repair item. Do not open the PR as ready or as a draft to ship around it. Warnings never block (see Flake and warning disposition).
 - Do not create a PR until an implementation-stage PM review has checked the implemented outcome against the plan's product intent, a concrete blocker prevents that review, or the operator explicitly instructs the agent to open the PR regardless of review status.
 - Do not create a PR until the active-harness reviewer-subagent pre-PR implementation review gate has passed with no unresolved blocking in-scope P1/P2 findings, or the operator explicitly instructs the agent to open the PR regardless. That explicit instruction is controlling: stop retrying review coverage, open the PR, and disclose the non-clean gate state without calling it approval.
 - Do not stop after the reviewer-subagent pre-PR gate passes; that gate returns `OPEN_PR_READY`. Continue through final verification, commit, push, PR creation, and monitoring.
@@ -107,7 +107,7 @@ Classify every requested change and every reviewer finding:
 - `IN_PLAN`: directly required by the plan's acceptance criteria, phase work, or verification.
 - `PLAN_PREREQUISITE`: not named in the plan, but the plan cannot work or verify without it.
 - `REGRESSION_FROM_THIS_DIFF`: caused or newly exposed by the current implementation, including correctness across a domain this change newly makes reachable; fix it before PR.
-- `OUT_OF_SCOPE_FOLLOW_UP`: a defect this change merely discovers and does not cause or newly expose; capture it as a finding with its tracking destination and keep going. A failing check or warning is never a follow-up: it blocks landing whatever its origin.
+- `OUT_OF_SCOPE_FOLLOW_UP`: a defect this change merely discovers and does not cause or newly expose; capture it as a finding with its tracking destination and keep going. A failing check is never a follow-up: it blocks landing whatever its origin. A warning is never a blocker: report it, and do not refactor or add checks to silence it.
 - `QUESTION`: requires user/product decision before implementation.
 
 Fix `IN_PLAN`, `PLAN_PREREQUISITE`, and `REGRESSION_FROM_THIS_DIFF`. Treat BDD gaps, verification gaps, implicit-only coverage, misleading evidence, or any finding tied to a plan acceptance criterion as in-scope until proven otherwise. Actual environment deployment and post-merge observation are not implementation findings; preserve them as delivery obligations without making them PR gates.
@@ -127,7 +127,7 @@ The three-cycle implementation-review limit is global to the scoped change, not 
 - Direct feedback fixes and targeted verification do not themselves consume a review cycle; the subsequent reviewer pass does. Track cycle number, triggering diff/fix, verdicts, and remaining budget in the coverage ledger.
 - When the ordinary budget is exhausted, do not launch a renamed, post-PR, “final clean,” adversarial, or alternate-reviewer cycle to continue review. No fourth or renamed pass is allowed except the single explicitly consultation-authorized bounded pass and its existing one pass-after-fixes allowance. After the applicable one-per-stable-family consultation route is consumed without clearing the risk or authorizing that exception, report the convergence/review-budget blocker and request the smallest user decision (accept disclosed residual review risk, narrow/revert the unstable slice, or revise scope). PR existence must not influence consultation eligibility or authorize any extra pass.
 
-Apply the disposition rule in the Scope Classification section to each finding: a regression this change causes or newly exposes, including newly reachable-domain correctness, is in scope; a defect this change merely discovers is captured as a finding and does not block, except a failing check or warning, which always blocks.
+Apply the disposition rule in the Scope Classification section to each finding: a regression this change causes or newly exposes, including newly reachable-domain correctness, is in scope; a defect this change merely discovers is captured as a finding and does not block, except a failing check, which always blocks.
 
 ## Strict-suite preflight and bounded failure inventory
 
@@ -150,6 +150,8 @@ Classify each residual failure on two axes, with evidence. The classification ro
 
 - **Introduced** (caused or newly exposed by this branch) vs. **inherited** (reproducible at the merge-base or on the target branch). Inherited requires reproduction evidence at the merge-base or on the target branch, not inference from the failure's age — and the disposition rule still governs: a failure in a domain this change newly makes reachable is introduced regardless of where the defect predates the branch.
 - **Functional** (customer-visible behavior wrong) vs. **infra/cosmetic** (harness contention, environment flake, rendering deltas within an approved tolerance). Where no approved tolerance exists, the delta is not classifiable as cosmetic — it is a `QUESTION`.
+
+**Flake and warning disposition:** a check that fails and then passes on one rerun of that same check is a flake. It does not block: record it in the PR body's residual risks with a tracking item to fix that test. A check that fails twice is a failure. Warnings (console output from tests, lint warnings, build and bundle-size warnings, file-length targets) never block landing and are never grounds for a refactor; report them.
 
 Disposition when the budget is exhausted:
 
@@ -420,9 +422,9 @@ Record the reviewer model/effort, verdict, artifact path, waived/not-run status,
 
 Establish passing final-verification evidence after the latest verification-relevant change and before PR creation. This is pre-merge verification only: it may prove buildability, deployability, migration definitions, configuration, dry-run behavior, and artifact integrity, but must not require an actual environment deployment, promotion, merge-dependent smoke check, or production observation. Reuse the latest passing results when the same commands already ran against the current code, tests, dependencies, configuration, generated artifacts, and base context, and no intervening action invalidated them. A read-only reviewer-subagent review does not invalidate passing verification and is never, by itself, a reason to rerun it. Record reused commands, outcomes, and the unchanged-state basis in the run notes and PR body.
 
-Rerun only checks invalidated by an implementation or review fix, dependency/configuration/generated-artifact change, rebase or conflict resolution that changed the content identity, relevant environment change, prior failure, or an explicit plan requirement that demands a fresh run at this point. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect. Full-gate reruns are governed by the Verification Convergence Budget; a failure with an already-classified root cause never by itself requires another full run. A green targeted verification never stands in for a red gate: an exhausted convergence budget with any residual failure or warning is a blocker, not a passing final verification. If the operator explicitly directs opening the PR regardless of testing status, do not delay PR creation for further verification; record exactly which checks passed, failed, were skipped, or could not run.
+Rerun only checks invalidated by an implementation or review fix, dependency/configuration/generated-artifact change, rebase or conflict resolution that changed the content identity, relevant environment change, prior failure, or an explicit plan requirement that demands a fresh run at this point. If the plan does not specify enough verification, run the smallest repo-appropriate gate for the changed surfaces and report the gap as a plan defect. Full-gate reruns are governed by the Verification Convergence Budget; a failure with an already-classified root cause never by itself requires another full run. A green targeted verification never stands in for a red gate: an exhausted convergence budget with any residual failure is a blocker, not a passing final verification. If the operator explicitly directs opening the PR regardless of testing status, do not delay PR creation for further verification; record exactly which checks passed, failed, were skipped, or could not run.
 
-Do not hide failures. Fix every failure and warning the gate reports, whatever its origin; "pre-existing", "inherited", "unrelated", and "flaky" are never reasons to proceed. Fix them, or stop with a blocker naming the failure and the repair item.
+Do not hide failures. Fix every failure the gate reports, whatever its origin; "pre-existing", "inherited", and "unrelated" are never reasons to proceed. Fix them, or stop with a blocker naming the failure and the repair item. Flakes and warnings follow the Flake and warning disposition.
 
 ## Base Freshness and Mergeability Gate
 
@@ -489,7 +491,7 @@ After the PR is open, keep the active runtime task state active only until the l
 
 The run state can be marked complete only when all of these are true:
 
-- Final verification for the touched surfaces has passed after the latest code change with zero failures and zero warnings. A Verification Convergence Budget that is exhausted with any residual failure leaves the run blocked, never complete.
+- Final verification for the touched surfaces has passed after the latest code change with zero failures (flakes and warnings follow the Flake and warning disposition). A Verification Convergence Budget that is exhausted with any residual failure leaves the run blocked, never complete.
 - Runtime-native scoped quality review, implementation-stage PM review, and the reviewer-subagent pre-PR gate all agree by substance that the current diff has no unresolved blocking in-scope findings; skipped/waived gates are recorded truthfully.
 - When the Heddle/local permanent-docs gate applies, permanent-document disposition is satisfied or explicitly waived with disclosure, and the PR body Permanent documentation section matches the candidate.
 - All actionable PR feedback already present in the latest snapshot has been addressed.
@@ -684,7 +686,7 @@ Classify every finding as exactly one of:
 - QUESTION
 
 Stay within the assigned bounded scope rather than auditing the whole product; investigating and reporting adjacent problems you find is never out of bounds.
-Apply the disposition rule: a regression this diff causes or newly exposes — including through a primitive it extends, a domain it newly makes reachable, or a fail-closed path reachable by valid input — is in scope even if the affected code predates the branch. A defect this diff merely discovers goes under `OUT_OF_SCOPE_FOLLOW_UP` with the reason and tracking destination, except a failing check or warning, which always blocks.
+Apply the disposition rule: a regression this diff causes or newly exposes — including through a primitive it extends, a domain it newly makes reachable, or a fail-closed path reachable by valid input — is in scope even if the affected code predates the branch. A defect this diff merely discovers goes under `OUT_OF_SCOPE_FOLLOW_UP` with the reason and tracking destination, except a failing check, which always blocks.
 Do not put IN_PLAN, PLAN_PREREQUISITE, REGRESSION_FROM_THIS_DIFF, QUESTION, BDD gaps, verification gaps, implicit-only coverage, or plan-required work in a deferred/out-of-scope section.
 
 Return one verdict:

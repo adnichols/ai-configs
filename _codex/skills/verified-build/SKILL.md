@@ -132,9 +132,9 @@ Prompt OMP to use ADN mode and include:
 - observable acceptance criteria, including persistence and cross-client behavior;
 - applicable repo guidance and project verification skill paths;
 - a requirement to find the shared root cause and check every caller before editing;
-- a requirement to plan, implement, add proportional regression coverage, run repo checks after each slice, fix every failure and warning before moving on (once main is clean, any failure on the branch belongs to the branch), complete bounded review, and create or update one PR for lab validation;
+- a requirement to plan, implement, add proportional regression coverage, run repo checks after each slice, fix every failure before moving on (once main is clean, any failure on the branch belongs to the branch; warnings never block and are never grounds for a refactor), complete bounded review, and create or update one PR for lab validation;
 - a prohibition on lab deployment, merge, and changes outside the requested outcome, and a statement that production is never a deploy target and is never to be asked about;
-- a prohibition on calling any failure pre-existing, inherited, unrelated, or flaky to justify reporting `VALIDATED`; the implementer reports `BLOCKED: MAIN_RED <check>` and stops when main itself fails the repo's landing gate, and the driver owns the repair; and
+- a prohibition on calling any failure pre-existing, inherited, or unrelated to justify reporting `VALIDATED` (a check that fails and then passes on one rerun is a flake, reported under risks, not a blocker); the implementer reports `BLOCKED: MAIN_RED <check>` and stops when main itself fails the repo's landing gate, and the driver owns the repair; and
 - a completion receipt containing the PR URL, exact head SHA, changed files, checks (before reporting `VALIDATED`, the implementer merges current main and runs the full landing gate, so the line reads `landing-gate CLEAN @ <base>..<head>, log <path>`), review verdict, and remaining risks.
 
 ### Wait through Paseo

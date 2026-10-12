@@ -653,19 +653,41 @@ every such escalation again before posting a card. When it is a product
 decision, keep the
 worker's oracle recommendation in the card.
 
+### What blocks a landing
+
+The landing gate exists so that main passes its full test suite. It blocks
+on failures only:
+
+- a failing or erroring test, a failing build, a product type error, or a
+  lint error blocks;
+- warnings never block, and no rule may make them block: console output from
+  tests (including React `act()` and expected errors), lint warnings, build,
+  chunk and bundle-size warnings, and file-length targets are reported in the
+  receipt and may become their own work item, never a landing criterion and
+  never a reason to hold the queue;
+- a check that fails and then passes on one rerun is a flake: it does not
+  block. Record it and open a work item to fix that test. A check that fails
+  twice is a failure;
+- a failure is never accepted because it is pre-existing, inherited, or
+  unrelated. It gets a repair PR that fixes only that failure; never bundle
+  refactors, file splits, hygiene, or new checks into a repair.
+
+Making the gate stricter (a new check, or turning a warning into a failure)
+is an operator decision, proposed on its own and never folded into a repair.
+
 ### Review and merge
 
 When a worker reports `VALIDATED`, verify the receipt yourself: the PR
 exists, its head SHA equals the validated SHA, the worker's `checks:` line
 reads `landing-gate CLEAN @ <base>..<head>, log <path>` (the repo's landing
 gate reports CLEAN at the validated head merged with the current base, with
-the log path recorded; a repo with no landing gate script gets the full
-check list from its own AGENTS.md and package scripts, under the same
-zero-failure, zero-warning rule), GitHub reports it mergeable, the PR shows
-the visual evidence table, and the PR carries the interaction table that
-passes the gate below. Open at least one of its screenshots or videos. A
-worker that calls any failure pre-existing, inherited, unrelated, or flaky
-to justify `VALIDATED` fails the receipt.
+the log path recorded; a repo with no landing gate script runs its full test
+suite and builds from its AGENTS.md and package scripts, under
+[What blocks a landing](#what-blocks-a-landing)), GitHub reports it
+mergeable, the PR shows the visual evidence table, and the PR carries the
+interaction table that passes the gate below. Open at least one of its
+screenshots or videos. A worker that calls a failure pre-existing,
+inherited, or unrelated to justify `VALIDATED` fails the receipt.
 
 If the receipt passes and every operator decision on the item is answered
 (prototype review, behavior-changing spec diff, product behavior choices),
@@ -784,8 +806,8 @@ cleanup below (lab claim, demos, worktree), when all of these hold:
 - the receipt in [Review and merge](#review-and-merge) passes, including the
   interaction-evidence gate;
 - the landing gate is CLEAN on the exact tree being merged (main plus the
-  PR, built in the landing worktree). Nothing is exempt as pre-existing,
-  inherited, unrelated, or flaky;
+  PR, built in the landing worktree), as defined in
+  [What blocks a landing](#what-blocks-a-landing);
 - every operator decision the item raised has an answer in the decisions
   log, and any spec or ADR change either matches the approved diff page or
   is internal-only with an Oracle verdict and PR disclosure;
@@ -907,10 +929,14 @@ policy wins: when the base branch requires up-to-date branches, the entry gets
 - **`MAIN_RED` (any position-1 entry):** the current main sha has no CLEAN
   `main` record. Nothing lands. Run the gate on main in the landing worktree
   and record it. If it fails, open a main-repair item: you own opening it. It
-  takes position 1, marked by a note starting with `REPAIR` (for example
+  fixes only the failing checks, as small PRs that land independently; it
+  never accumulates other work. It takes position 1, marked by a note
+  starting with `REPAIR` (for example
   `1. #820 WI-90 validated 04b7aa6c1 — LANDING REPAIR fix main`), and passes
   the same combined-tree gate; the script lets only that position-1 entry
-  past `MAIN_RED`. Tell queued workers only that merges are held.
+  past `MAIN_RED`. Tell queued workers only that merges are held. If main
+  stays red for more than 2 hours, tell the operator which checks fail and
+  what the repair is doing.
 - **Position 1, `GATE`:** build main + the PR (the tree the squash will
   produce) in a dedicated landing worktree: `git worktree add --detach
   <path> <main sha>`, then `git merge --no-commit --no-ff <pr head sha>` in

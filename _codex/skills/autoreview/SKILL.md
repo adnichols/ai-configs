@@ -7,7 +7,7 @@ Read [the Codex runtime contract](../adn-mode/references/codex-runtime.md) befor
 
 # Bounded implementation review
 
-Review the user's completed candidate against its requirements and verification evidence. The gate concerns material in-scope correctness and regressions, not optional polish or unrelated issues in code the diff does not touch. Review scope stays limited to the diff, but a failing check or warning is never out of scope for landing, whatever its origin: it blocks, with a repair item. Do not require PR-hosted approval or use an external client as the default review transport.
+Review the user's completed candidate against its requirements and verification evidence. The gate concerns material in-scope correctness and regressions, not optional polish or unrelated issues in code the diff does not touch. Review scope stays limited to the diff, but a failing check is never out of scope for landing, whatever its origin: it blocks, with a repair item. Warnings never block. Do not require PR-hosted approval or use an external client as the default review transport.
 
 Record the target checkout, HEAD, comparison base, dirty/staged/untracked files, changed surfaces, acceptance criteria, exclusions, and actual verification results. A dirty or isolated checkout is provenance, not a reason to refuse review. The reviewer reads the explicitly named candidate paths.
 

@@ -51,7 +51,7 @@ Also classify every finding with the run-plan labels when a plan is present:
 - `OUT_OF_SCOPE_FOLLOW_UP`
 - `QUESTION`
 
-When no plan is present, treat issues introduced by the current diff as in scope. Review scope stays limited to the diff, and you are not required to fix unrelated pre-existing issues in code the diff does not touch; capture them as findings unless the user explicitly expands scope. A failing check or warning is never out of scope for landing, whatever its origin: report it as a blocker with a repair item, never as an `OUT_OF_SCOPE_FOLLOW_UP`.
+When no plan is present, treat issues introduced by the current diff as in scope. Review scope stays limited to the diff, and you are not required to fix unrelated pre-existing issues in code the diff does not touch; capture them as findings unless the user explicitly expands scope. A failing check is never out of scope for landing, whatever its origin: report it as a blocker with a repair item, never as an `OUT_OF_SCOPE_FOLLOW_UP`. Warnings never block.
 
 ### What "out of scope" may not hide
 

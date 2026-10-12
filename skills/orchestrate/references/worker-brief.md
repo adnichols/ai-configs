@@ -120,15 +120,17 @@ and fails when that file has no `plan_id`; do the same for any other page.
   to.
 
 # Clean branch
-Keep your branch clean as you go. After each slice, run the repo's landing
-gate, or the gate's checks for the packages you touched, and fix every failure
-and warning before moving on. Once main is clean, any failure on your branch
-belongs to your branch. Never call a failure pre-existing, inherited,
-unrelated, or flaky to justify reporting VALIDATED; fix it. If main itself
-fails the landing gate, report `BLOCKED: MAIN_RED <check>` and stop: the
-orchestrator owns the repair. A repo with no landing gate script gets the
-check list from its AGENTS.md and package scripts, under the same
-zero-failure, zero-warning rule.
+Keep your branch passing as you go. After each slice, run the tests for the
+packages you touched and fix every failure before moving on. Once main is
+clean, any failure on your branch belongs to your branch. Never call a failure
+pre-existing, inherited, or unrelated to justify reporting VALIDATED; fix it.
+Warnings never block and are not yours to chase: do not refactor, split files,
+or add checks to silence them. A check that fails and then passes on one rerun
+is a flake: report it in `risks:` and carry on; a check that fails twice is a
+failure. If main itself fails the landing gate, report
+`BLOCKED: MAIN_RED <check>` and stop: the orchestrator owns the repair. A repo
+with no landing gate script runs its full test suite and builds from its
+AGENTS.md and package scripts.
 
 # Landing
 Work on your own base while you build; merge main only when you need code from
