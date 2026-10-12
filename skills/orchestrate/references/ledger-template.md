@@ -26,6 +26,13 @@ top; trackers without the section still publish. The script also reads
 queue); the header's `Last CLEAN main:` line names the newest main sha with a
 CLEAN gate record and its log path, or `none`.
 
+**Gates, parks and time bounds.** `scripts/reconcile.py` (SKILL.md § Reconciliation)
+reads each non-terminal row's `Waiting on` cell. `gate: WI-05, WI-07` (item IDs in this
+ledger, or PR URLs) blocks launch until each is `MERGED`, `CLEANED`, `DONE` or `CLOSED`
+(PRs: merged). `park: <reason>` holds a `READY`, `QUEUED` or `BACKLOG` row on purpose.
+Without either, such a row is launchable. An optional `Reconcile: worker=60m review=30m
+stale=24h operator=24h` header line sets the time bounds.
+
 **Status table order.** `dashboard.py` shows the table in three tiers: waiting
 on the operator (a Needs you state, or `Waiting on` starting with `operator`),
 then in progress or blocked, each by explicit Priority then ID, then done items
@@ -88,6 +95,7 @@ Driver: cwd <path>, session <session file>, workspace <id>
 Default target: <checkout path> @ <base branch>; labs: <lab system>, capacity <N or unknown>
 Hosts: <name (local|remote) max N workers, avail >= G GB, swap <= S GB, load <= L/core; ...; or none>
 Heartbeat: <id or none>
+Reconcile: <optional: worker=60m review=30m stale=24h operator=24h>
 Ava space: <spc_... or none>
 Dashboard: <web_url or none>
 Dashboard folder: <folder id of Coding Work (Archive / Coding Work once concluded), or none>

@@ -22,6 +22,9 @@ from html.parser import HTMLParser
 from datetime import datetime
 from pathlib import Path
 
+from ledger import header, issue_rows, natural, section, set_header
+from reconcile import Fail as ReconcileFail, reconcile
+
 TEMPLATE = Path(__file__).resolve().parent.parent / "references" / "dashboard-template.html"
 LOCAL_TEMPLATE = "dashboard-template.html"
 
@@ -45,39 +48,6 @@ class Fail(Exception):
 
 # ---- ledger parsing -------------------------------------------------------
 
-def section(text, name):
-    m = re.search(rf"^## {re.escape(name)}\n(.*?)(?=^## |\Z)", text, re.S | re.M)
-    return m.group(1).strip() if m else ""
-
-
-def header(text, key):
-    m = re.search(rf"^{re.escape(key)}:[ \t]*(.*)$", text, re.M)
-    return m.group(1).strip() if m else ""
-
-
-def set_header(text, key, value):
-    line = f"{key}: {value}"
-    if re.search(rf"^{re.escape(key)}:", text, re.M):
-        return re.sub(rf"^{re.escape(key)}:.*$", lambda _: line, text, count=1, flags=re.M)
-    m = re.search(r"^## ", text, re.M)
-    at = m.start() if m else len(text)
-    return text[:at].rstrip("\n") + f"\n{line}\n\n" + text[at:]
-
-
-def issue_rows(text):
-    """Status table rows keyed by lowercased header cell, so column order is free."""
-    cols, out = None, []
-    for line in section(text, "Status").splitlines():
-        if not line.startswith("|"):
-            continue
-        cells = [c.strip().replace(r"\|", "|") for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
-        if cols is None:
-            cols = [c.lower() for c in cells]
-        elif not set("".join(cells)) <= set("-: "):
-            out.append(dict(zip(cols, cells)))
-    return out
-
-
 def bullets(body):
     return [l[2:].strip() for l in body.splitlines() if l.startswith("- ")]
 
@@ -87,10 +57,6 @@ def group_of(state):
         if state.upper().startswith(prefixes):
             return cls, label
     return "work", "Worker active"
-
-
-def natural(s):
-    return [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", s)]
 
 
 def tier_of(row):
@@ -280,7 +246,29 @@ def queue_block(text, rows):
     return f'<h2>Landing queue</h2><ol class="queue">{"".join(items)}</ol>'
 
 
-def render(text, title, template, updated):
+ATTENTION = {"LAUNCH", "CHASE", "STALE", "ASK", "DECIDE", "CHECK"}
+
+
+def attention_block(tracker, now=None):
+    """Rows `reconcile.py` flags from the ledger and item timelines alone (no live or network checks), so the
+    dashboard says nothing the tracker files do not. Absolute times keep the rendered text stable between runs."""
+    if tracker is None:
+        return ""
+    try:
+        results, _ = reconcile(tracker, now, live=False, net=False)
+    except ReconcileFail:
+        return ""
+    flagged = [r for r in results if r["verdict"] in ATTENTION]
+    if not flagged:
+        return ""
+    items = "".join(
+        f'<li><span class="iid">{html.escape(r["id"])}</span> <span class="pill blocked">{r["verdict"]}</span> '
+        f'{html.escape(r["title"][:90])}<br><span class="sub">{html.escape(r["state"])} · last movement '
+        f'{html.escape(r["last_movement"] or "none recorded")} · {html.escape(r["why"])}</span></li>' for r in flagged)
+    return f'<h2>Needs attention: stale or unlaunched</h2><ul class="attention">{items}</ul>'
+
+
+def render(text, title, template, updated, tracker=None, now=None):
     if "{{completed}}" not in template:
         raise Fail(2, "dashboard template predates current/history layout; preserve local customizations and update it from the maintained HTML template")
     mode = header(text, "Mode") or "UNKNOWN"
@@ -322,7 +310,7 @@ def render(text, title, template, updated):
     out = template
     for key, val in {
         "title": html.escape(title), "meta": meta, "chips": chips, "needs": needs,
-        "queue": queue_block(text, rows),
+        "queue": queue_block(text, rows), "attention": attention_block(tracker, now),
         "issues": "".join(items) or '<p class="empty">No open items.</p>', "completed": "".join(completed), "decisions": "".join(f"<li>{inline(d)}</li>" for d in decisions),
     }.items():
         out = out.replace("{{" + key + "}}", val)
@@ -575,8 +563,8 @@ def main():
     title = args.title or (heading.group(1).strip() if heading else root.name)
     template = (root / LOCAL_TEMPLATE if (root / LOCAL_TEMPLATE).is_file() else TEMPLATE).read_text()
 
-    unstamped = render(ledger, title, template, "")
-    source = render(ledger, title, template, datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z"))
+    unstamped = render(ledger, title, template, "", root)
+    source = render(ledger, title, template, datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z"), root)
     (root / "dashboard.html").write_text(source)
     if args.render_only:
         print(root / "dashboard.html")
