@@ -1,5 +1,5 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { parseRolesEnvelope, readRoles, resolveProfile } from "../scripts/config-state.ts";
@@ -26,7 +26,7 @@ describe.skipIf(!RUN)("config-state", () => {
 
   test("neutral cwd profile matches omp config path", () => {
     const profile = resolveProfile({ cwd: "/tmp", env: { ...process.env, PI_CONFIG_FILES: "should-not-win" } });
-    expect(profile).toBe("/Users/anichols/.omp/agent");
+    expect(profile).toBe(join(homedir(), ".omp", "agent"));
   });
 
   test("agent root reads modelRoles from its config.yml and fails closed without the key", () => {

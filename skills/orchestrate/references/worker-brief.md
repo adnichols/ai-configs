@@ -17,7 +17,7 @@ You own WI-NN end to end as part of orchestrator tracker <tracker-id>. Read
 - verified-build governs verification: pick its mode from the description
   (`BUG_FIX` when current behavior is wrong, `FEATURE_CHANGE` for new or
   changed behavior), then follow it for lab reproduction or baseline,
-  prototype approval, exact-head lab validation, and PR evidence.
+  prototype review, exact-head lab validation, and PR evidence.
 
 You are the driving verified-build session in this worktree:
 <worktree path> (branch `orchestrate/wi-NN-<slug>`, based on <base branch> at <base SHA>).
@@ -60,15 +60,26 @@ replace it. A bug you could not trigger by interaction is `NOT_REPRODUCED`
 only with a table showing the interaction you tried.
 
 # Spec and ADR changes
-ADR numbers are mechanical: take the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask about a number. Do not put a number in an approval question.
+ADR numbers are mechanical: take the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask about a number.
 
-Do not quote spec or ADR wording in a status block. When the fix needs a
-change under `spec/` or an ADR directory, write the edit uncommitted in this
+Draft spec and ADR changes alongside the code; they never block building.
+Do not quote spec or ADR wording in a status block.
+
+Internal-only changes (no change to functionality, user experience, customer
+expectations or a documented API contract: an additive field, an internal
+index, a storage layout): get an Oracle check, commit them with the code, and
+disclose them in the PR description. Do not ask for approval.
+
+Changes that alter user-visible behavior: write the edit uncommitted in this
 worktree and run `python3 <skill-dir>/scripts/spec_diff.py <worktree> --base
 <base branch> --path spec --title "<what changes>" --summary-file <note>
 --reply "<how to answer>" --tracker-dir <tracker-dir> --publish`. Put the
-page URL in `demo:` and end the turn with the approval question. Approval
-covers exactly the rendered diff. After approval, commit those bytes
+page URL in `demo:` and end the turn with `NEEDS_ORCHESTRATOR`, stating what
+the user would see differently and your recommendation. If an existing
+operator ruling or an approved prototype already decides the behavior, skip
+the page: have the Oracle check that the spec matches it, commit, and cite
+that authority in the PR description. The operator's decision covers exactly
+the rendered diff. After it, commit those bytes
 unchanged and run the script with `--check <out>/manifest.json --head HEAD`
 before pushing. If the text changes, rerun the script and ask again. The
 summary note says what changes, why, and what it costs, in plain terms.
@@ -90,23 +101,55 @@ and fails when that file has no `plan_id`; do the same for any other page.
   release your own orphaned claim through the lab-manager's agent release path
   (see the ccore2 lab-manager skill).
   Write `demos.json` for every prototype you publish, as `verified-build`
-  describes. If the right fix expands scope, stop and ask.
+  describes. Before you put a URL in `demo:`, open the hosted demo yourself
+  with the demos service token through `verified-build`'s `demo-access.mjs`
+  and click through every variant. A local preview does not count. Never ask
+  the operator to sign in to Cloudflare Access for you. If the token file is
+  missing or Access rejects it, report `PROTOTYPE_UNAVAILABLE` with the
+  helper's error instead of a demo URL. If the right fix expands scope, stop
+  and ask.
 - Do not change your model configuration.
+- Never run `pkill`, `killall` or `kill $(pgrep …)` with a broad pattern
+  (vitest, test-slot, workerd, wrangler, vite, node, pnpm). Kill only a PID you
+  started, or its process group (`kill -- -<pgid>`). The host is shared: a
+  broad `pkill -f vitest` once killed three other agents' test runs, including
+  a landing-gate run. If you cannot find your PID, ask the orchestrator.
 - Only build on or reuse code made through this workflow: the branch this
   brief puts you on, or another item's workflow branch the brief names. Do not
   base on or port from any other branch, such as one a source document points
   to.
 
+# Clean branch
+Keep your branch passing as you go. After each slice, run the tests for the
+packages you touched and fix every failure before moving on. Once main is
+clean, any failure on your branch belongs to your branch. Never call a failure
+pre-existing, inherited, or unrelated to justify reporting VALIDATED; fix it.
+Warnings never block and are not yours to chase: do not refactor, split files,
+or add checks to silence them. A check that fails and then passes on one rerun
+is a flake: report it in `risks:` and carry on; a check that fails twice is a
+failure. If main itself fails the landing gate, report
+`BLOCKED: MAIN_RED <check>` and stop: the orchestrator owns the repair. A repo
+with no landing gate script runs its full test suite and builds from its
+AGENTS.md and package scripts.
+
 # Landing
-Validate on your own base. Do not merge main into your branch to stay current;
-merge it only when you need code from main or a conflict blocks your own work.
+Work on your own base while you build; merge main only when you need code from
+it or a conflict blocks your own work. Before you report VALIDATED, merge
+current main (a normal merge commit, no rebase, no force-push) and run the
+full landing gate on the result. Your `checks:` line then reads
+`landing-gate CLEAN @ <base>..<head>, log <path>`.
 After you report VALIDATED, stay idle: the orchestrator puts the PR in a
-landing queue and merges it at the validated head when it reaches position 1.
+landing queue and, at position 1, builds main + your PR in a landing worktree,
+runs the gate there, and merges at the validated head when it is CLEAN.
 Push nothing to the PR branch until the orchestrator says it is your turn. If
 you get an UPDATE message, merge the base once with a normal merge commit (no
-rebase, no force-push), resolve the listed files, rerun the checks it names,
-push, and report VALIDATED with the new head. If you get an ON_DECK message,
-read the preview and plan, but do not push, redeploy, or rerun the full suite.
+rebase, no force-push), resolve the listed files, run the full landing gate
+(you do not pick which checks to run), push, and report VALIDATED with the new
+head. If you get an ON_DECK message, read the preview and plan, but do not
+push, merge the base into your branch, or redeploy a lab. When the
+orchestrator tells you that you are first, run the landing gate on the current
+combined tree (current main merged into a scratch worktree of your head; push
+nothing).
 
 # Reporting
 The orchestrator relays between you and the operator. It is notified each
@@ -121,35 +164,44 @@ findings, lab and access chores, tooling and process questions, and risk calls
 on internal infrastructure. Record the oracle's answer, say whether you
 accepted it, and act on it.
 
-Before you end a turn with `NEEDS_OPERATOR`, consult the oracle. Use
-`NEEDS_OPERATOR` only for a product behavior decision, or for an action that is
-irreversible or explicitly reserved to the operator: merge authority beyond the
-standing rule, production deploys (never offered), and repo rules that name the
-operator when no operator ruling already decides the matter, or when the oracle confirms that only the operator can supply the way
-forward, such as a credential. Ask the oracle whether a ruling covers it; if
-one does, cite it, make the change, and disclose it in the PR description
-instead of ending the turn with `NEEDS_OPERATOR`. Otherwise put
-the oracle's recommendation in `question:`
-and say why only the operator can answer it. Answers arrive as the operator's
-verbatim words.
+Engineering decisions are yours: performance, cost, robustness, refactors,
+ops and preconditions, rollout mechanics, hostnames, which tenants first.
+For a consequential one, consult the oracle, record its verdict and
+implement (operator ruling 2026-10-12: "Do not ask the operator to approve
+engineering decisions."). Never stop to ask permission to build; when the
+operator asked for the work, build it.
+
+End a turn with `NEEDS_ORCHESTRATOR` or `NEEDS_OPERATOR` only for a decision
+that changes functionality, customer expectations, user experience or a
+documented API contract, a prototype review, or an action that is
+irreversible or explicitly reserved to the operator (merge authority beyond
+the standing rule, production deploys (never offered), repo rules that name
+the operator when no operator ruling already decides the matter), or when
+the oracle confirms only the operator can supply the way forward, such as a
+credential. Consult the oracle first and ask it whether a ruling or approved
+prototype covers it; if one does, cite it, make the change, and disclose it
+in the PR description. Otherwise put in `question:` exactly what the user
+would see differently, your recommendation, and the oracle's view.
+Answers arrive as the operator's verbatim words.
 
 End every turn with this block:
 
 WORKER_STATUS
 item: WI-NN
 playbook: <ADN playbook>; verified-build mode: <BUG_FIX | FEATURE_CHANGE>
-state: <IN_PROGRESS | PROTOTYPE_REVIEW | NEEDS_OPERATOR | BLOCKED | NOT_REPRODUCED | EXPECTED_BEHAVIOR | FAILED_VALIDATION | VALIDATED>
+state: <IN_PROGRESS | PROTOTYPE_REVIEW | NEEDS_ORCHESTRATOR | NEEDS_OPERATOR | BLOCKED | NOT_REPRODUCED | EXPECTED_BEHAVIOR | FAILED_VALIDATION | VALIDATED>
 summary: <one or two sentences>
 question: <exact question for the operator, or none>
 demo: <prototype URL, or none>
 pr: <URL, or none>
 head: <exact PR head SHA, or none>
 lab: <lab name and claim identity, or none>
-checks: <repo checks run and results, or none>
+checks: <`landing-gate CLEAN @ <base>..<head>, log <path>` before VALIDATED; otherwise the checks run and results, or none>
 review: <reviewer and verdict, or none>
 risks: <remaining risks, or none>
 
 Report VALIDATED only when the exact current PR head has passed lab
-validation and the PR contains the complete visual evidence table and the
+validation, the landing gate is CLEAN on that head merged with current main,
+and the PR contains the complete visual evidence table and the
 interaction table for the operator's reported interaction.
 ```

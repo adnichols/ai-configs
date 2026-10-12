@@ -74,7 +74,7 @@
       "sourceSha": "local",
       "triggerClass": "install",
       "sourcePath": "ai-configs/_omp/install.sh",
-      "targetPath": "/Users/anichols/code/ai-configs/_omp/install.sh",
+      "targetPath": "~/code/ai-configs/_omp/install.sh",
       "runtimeMarker": "No managed OMP plugins",
       "id": "ai-configs-ponytail-cutover",
       "kind": "installer",

@@ -5,16 +5,25 @@
 
 Reads `## Landing queue` in <tracker-dir>/ledger.md: an ordered list, one entry per line,
 `1. #<pr> <ID> validated <sha> — <LANDING|ON_DECK|WAITING> <note>`, or the single line `Empty.`.
+Reads <tracker-dir>/gates.jsonl, the gate records the orchestrator writes, one JSON object per line:
+  main gate:  {"kind":"main","sha":"<main sha>","result":"CLEAN|FAILED","log":"<path>"}
+  PR gate:    {"kind":"pr","pr":<n>,"base":"<main sha>","head":"<PR head sha>","result":"CLEAN|FAILED","log":"<path>"}
+A PR gate record describes the landing gate run on main + PR in a landing worktree. A CLEAN record needs a log path.
 Fetches the base and each `pull/<n>/head` into refs/landing-queue/ (fork-safe), then reports per entry:
 head versus validated sha, PR state, conflict files, and overlap files (changed on the base since the
-merge-base and also changed by the PR). Verdicts:
-  position 1   MERGE (merge now at the validated head), UPDATE (conflict, overlap or strict branch policy),
+merge-base and also changed by the PR; informational, the gate decides). Verdicts:
+  position 1   MAIN_RED (no CLEAN gate record for the current base sha; nothing lands, repair main first; a position-1
+               entry whose note starts with `REPAIR` is the main-repair item and skips this check, since it must pass
+               the same combined-tree gate to fix main),
+               MERGE (gate CLEAN on this base and head; merge now at the validated head),
+               GATE (no gate record for this base and head; build base + PR in a landing worktree, run the gate, record it),
+               UPDATE (conflict, a failed gate on the combination, or strict branch policy),
                REVALIDATE (head moved), BLOCKED (closed, draft, or GitHub and git disagree on a conflict)
   position 2   ON_DECK, with a preview of its conflicts and overlap as if position 1 had merged as-is
   later        WAIT; MOVED when the head differs from the validated sha
 Nothing in the working tree or branches changes; only refs/landing-queue/* and loose git objects are written.
 
-Exit codes: 0 reported, 2 bad ledger or arguments, 3 git or gh failed.
+Exit codes: 0 reported, 2 bad ledger, gate records or arguments, 3 git or gh failed.
 """
 import argparse, json, os, re, subprocess, sys
 from pathlib import Path
@@ -44,7 +53,8 @@ def parse(tracker):
         e = ENTRY.match(line)
         if not e or int(e.group(1)) != n:
             raise Fail(2, f"landing queue line {n} is not `{n}. #<pr> <ID> validated <sha> — <LANDING|ON_DECK|WAITING> <note>`: {line!r}")
-        out.append({"position": n, "pr": int(e.group(2)), "id": e.group(3), "validated": e.group(4), "note": e.group(6)})
+        note = e.group(6)
+        out.append({"position": n, "pr": int(e.group(2)), "id": e.group(3), "validated": e.group(4), "note": note, "repair": re.match(r"REPAIR\b", note) is not None})
     if not out:
         raise Fail(2, "`## Landing queue` is empty; write `Empty.` when nothing is queued")
     return out
@@ -95,29 +105,75 @@ def collect(entries, repo, remote, base):
     return base_sha
 
 
-def judge(entries, repo, base_sha, strict):
+def read_gates(tracker):
+    path = Path(tracker) / "gates.jsonl"
+    if not path.is_file():
+        return []
+    out = []
+    for n, line in enumerate(path.read_text().splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            g = json.loads(line)
+        except ValueError:
+            raise Fail(2, f"{path} line {n} is not JSON")
+        main = isinstance(g, dict) and g.get("kind") == "main"
+        need = ("sha",) if main else ("pr", "base", "head")
+        if not isinstance(g, dict) or g.get("kind") not in ("main", "pr") or g.get("result") not in ("CLEAN", "FAILED") or any(k not in g for k in need):
+            raise Fail(2, f"{path} line {n} is not a gate record (kind main|pr, result CLEAN|FAILED, {'/'.join(need)}, log)")
+        if g["result"] == "CLEAN" and not g.get("log"):
+            raise Fail(2, f"{path} line {n}: a CLEAN gate record needs a log path")
+        out.append(g)
+    return out
+
+
+def same_sha(a, b):
+    a, b = str(a), str(b)
+    return len(a) >= 7 and len(b) >= 7 and (a.startswith(b) or b.startswith(a))
+
+
+def gate_for(gates, kind, pr=None, **shas):
+    """Last record of `kind` for the PR (when given) whose shas match the wanted ones."""
+    hit = None
+    for g in gates:
+        if g["kind"] == kind and (pr is None or g["pr"] == pr) and all(same_sha(g.get(k, ""), v) for k, v in shas.items()):
+            hit = g
+    return hit
+
+
+def judge(entries, repo, base_sha, strict, gates=()):
     first = entries[0]
     flags = lambda e: [f for f, on in (("MOVED", e["moved"]), ("DRAFT", e["draft"]), ("CLOSED", e["state"] != "OPEN")) if on]
     for e in entries:
         e["flags"] = flags(e)
     reasons = []
-    if first["state"] != "OPEN" or first["draft"]:
+    main_gate = gate_for(gates, "main", sha=base_sha)
+    pr_gate = gate_for(gates, "pr", pr=first["pr"], base=base_sha, head=first["head"])
+    if (not main_gate or main_gate["result"] != "CLEAN") and not first["repair"]:
+        first["verdict"] = "MAIN_RED"
+        reasons = [f"main @ {base_sha[:9]} has a FAILED gate record (log {main_gate.get('log', 'none')})" if main_gate
+                   else f"main @ {base_sha[:9]} has no CLEAN gate record; run the gate on main, or open a main-repair item"]
+    elif first["state"] != "OPEN" or first["draft"]:
         first["verdict"], reasons = "BLOCKED", ["PR is a draft" if first["state"] == "OPEN" else f"PR is {first['state'].lower()}"]
     elif first["mergeable"] == "CONFLICTING" and not first["conflicts"]:
         first["verdict"], reasons = "BLOCKED", ["GitHub reports CONFLICTING but a local merge is clean; check the PR"]
     elif first["moved"]:
         first["verdict"], reasons = "REVALIDATE", [f"head {first['head'][:9]} is not the validated {first['validated']}"]
-    elif first["conflicts"] or first["overlap"]:
-        first["verdict"] = "UPDATE"
-        reasons = (["conflicts with the base"] if first["conflicts"] else []) + (["base changed files this PR also changes"] if first["overlap"] else [])
+    elif first["conflicts"]:
+        first["verdict"], reasons = "UPDATE", ["conflicts with the base"]
+    elif pr_gate and pr_gate["result"] == "FAILED":
+        first["verdict"], reasons = "UPDATE", [f"landing gate failed on base {base_sha[:9]} + head {first['head'][:9]} (log {pr_gate.get('log', 'none')})"]
     elif strict:
         first["verdict"], reasons = "UPDATE", ["repository requires up-to-date branch"]
+    elif not pr_gate:
+        first["verdict"], reasons = "GATE", [f"no gate record for base {base_sha[:9]} + head {first['head'][:9]}"]
     else:
         first["verdict"] = "MERGE"
-    first["reasons"] = reasons
+        first["gate"] = {"base": base_sha, "head": first["head"], "result": "CLEAN", "log": pr_gate["log"]}
+    first["reasons"], first["base"] = reasons, base_sha
     if len(entries) > 1:
         second, target, against = entries[1], base_sha, "base"
-        if first["verdict"] in ("MERGE", "UPDATE") and not first["conflicts"]:
+        if first["verdict"] in ("MERGE", "GATE", "UPDATE") and not first["conflicts"]:
             tree = git(repo, "merge-tree", "--write-tree", base_sha, first["head"]).stdout.split()[0]
             target = git(repo, "commit-tree", tree, "-p", base_sha, "-p", first["head"], "-m", "landing-queue preview", env=IDENT).stdout.strip()
             against = f"base + #{first['pr']} merged as-is"
@@ -139,7 +195,11 @@ def show(e):
     if "preview" in e:
         p = e["preview"]
         out += [f"   prep preview against {p['against']}:", f"     conflicts: {files(p['conflicts'])}", f"     overlap: {files(p['overlap'])}"]
+    if e["verdict"] == "GATE":
+        out.append(f"   next: run the landing gate on base + #{e['pr']} in a landing worktree, then append to gates.jsonl: "
+                   f"{json.dumps({'kind': 'pr', 'pr': e['pr'], 'base': e['base'], 'head': e['head'], 'result': 'CLEAN|FAILED', 'log': '<path>'})}")
     if e["verdict"] == "MERGE":
+        out.append(f"   gate: CLEAN, log {e['gate']['log']}")
         out.append(f"   next: gh pr merge {e['pr']} --squash --match-head-commit {e['head']}")
     return "\n".join(out)
 
@@ -154,12 +214,13 @@ def main():
     a = ap.parse_args()
     try:
         entries = parse(a.tracker_dir)
+        gates = read_gates(a.tracker_dir)
         if not entries:
             print("[]" if a.json else "Landing queue is empty.")
             return 0
         base_sha = collect(entries, a.repo, a.remote, a.base)
         strict = strict_policy(a.repo, a.base)
-        judge(entries, a.repo, base_sha, strict)
+        judge(entries, a.repo, base_sha, strict, gates)
     except Fail as f:
         print(f"landing_queue: {f}", file=sys.stderr)
         return f.code

@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 const PIN = "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a";
 const ADN_ROOT = join(homedir(), ".agents", "adn");
 const SHARED_SKILLS = join(homedir(), ".agents", "skills");
-const AI_CONFIGS = "/Users/anichols/code/ai-configs";
+const AI_CONFIGS = resolve(import.meta.dir, "..", "..");
 const MARKER_PREFIX = "ADN_RUNTIME_MARKER:";
 
 const REQUIRED_FIELDS = [
@@ -171,7 +171,7 @@ function sha256(path: string): string {
 }
 
 function loadManifest(): Manifest {
-  const path = join(ADN_ROOT, "manifest.json");
+  const path = join(import.meta.dir, "..", "manifest.json");
   expect(existsSync(path)).toBe(true);
   return JSON.parse(readFileSync(path, "utf8")) as Manifest;
 }

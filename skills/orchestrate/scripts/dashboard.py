@@ -132,6 +132,19 @@ def worker_cell(cell):
             out.append(("", part))
     return "<br>".join((f'<span class="sub">{label}</span> ' if label else "") + f"<code>{html.escape(v)}</code>" for label, v in out)
 
+APPROVAL_ONLY_ASKS = ("approve to proceed", "approve the adr", "approve the spec", "may i build", "approve building", "permission to build")
+
+
+def check_decide(title, decide):
+    """A `Decide:` must carry a recommendation and must not be an approval-only ask (exit 2)."""
+    text = decide.lower()
+    if "recommend" not in text:
+        raise Fail(2, f"Waiting on you card {title!r} has a `Decide:` with no recommendation (say 'I recommend X' and what users would see differently); {CARD_RULE}")
+    banned = next((p for p in APPROVAL_ONLY_ASKS if p in text), None)
+    if banned:
+        raise Fail(2, f"Waiting on you card {title!r} has an approval-only `Decide:` ({banned!r}); engineering and build approvals are never operator asks; {CARD_RULE}")
+
+
 ASK_FIELDS = (("Problem", "Problem"), ("Fix", "Proposed change"), ("Decide", "Your call"), ("Links", "Look at"))
 
 
@@ -172,6 +185,7 @@ def asks(body):
         for need in ("Problem", "Decide"):
             if not fields.get(need):
                 raise Fail(2, f"Waiting on you card {title!r} has no `{need}:` text; {CARD_RULE}")
+        check_decide(title, " ".join(fields["Decide"]))
         out.append((title, fields))
     return out
 

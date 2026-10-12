@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ADN_ROOT, atomicWrite, flag, parseArgs, sha256 } from "./lib.ts";
 import { resolveProfile } from "./config-state.ts";
@@ -19,7 +19,7 @@ if (cmd !== "register") throw new Error("fail-closed: register required");
 const manifestPath = flag(flags, "manifest");
 if (!manifestPath) throw new Error("fail-closed: --manifest required");
 const agentRoot = flag(flags, "agent-root") ?? resolveProfile();
-const repo = "/Users/anichols/code/ai-configs";
+const repo = resolve(import.meta.dir, "..", "..");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { candidates: Candidate[] };
 const ledger: unknown[] = [];
 
