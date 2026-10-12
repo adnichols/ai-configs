@@ -9,10 +9,10 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "skills/orchestrate/scripts"
+SCRIPTS = Path(__file__).resolve().parent
+SKILL = SCRIPTS.parent
 RECONCILE = SCRIPTS / "reconcile.py"
-FIXTURE = ROOT / "tests/fixtures/orchestrate-reconcile/week-of-oct-5"
+FIXTURE = SCRIPTS / "fixtures/week-of-oct-5"
 NOW = "2026-10-12T12:00Z"
 AGENT = "11111111-2222-3333-4444-555555555555"
 
@@ -120,7 +120,7 @@ class ReconcileTests(unittest.TestCase):
         self.assertEqual(rows["WI-1"]["verdict"], "STALE")
 
     def test_operator_wait_reports_age_and_asks_after_the_bound(self):
-        tracker_dir(self.tracker, [("WI-1", "NEEDS_OPERATOR", "operator: card", None), ("WI-2", "VALIDATED", "operator: merge hold", None),
+        tracker_dir(self.tracker, [("WI-1", "NEEDS_OPERATOR", "operator: card", None), ("WI-2", "VALIDATED", "operator: card", None),
                                    ("WI-3", "VALIDATED", "—", None)],
                     {"WI-1": [ago(hours=30)], "WI-2": [ago(hours=2)], "WI-3": [ago(hours=2)]})
         _, rows = self.verdicts("--no-live")
@@ -132,6 +132,12 @@ class ReconcileTests(unittest.TestCase):
                                    ("WI-4", "DEFERRED", "—", None)])
         _, rows = self.verdicts("--no-live")
         self.assertEqual({i: r["verdict"] for i, r in rows.items()}, {"WI-1": "CLEANUP"})
+
+    def test_merge_hold_is_held_and_worker_questions_are_the_drivers(self):
+        tracker_dir(self.tracker, [("WI-1", "VALIDATED", "operator: merge hold", None), ("WI-2", "NEEDS_ORCHESTRATOR", "driver: oracle", None)],
+                    {"WI-1": [ago(hours=40)]})
+        code, rows = self.verdicts("--no-live")
+        self.assertEqual((code, rows["WI-1"]["verdict"], rows["WI-2"]["verdict"]), (10, "HELD", "DECIDE"))
 
     def test_nothing_to_act_on_exits_zero(self):
         tracker_dir(self.tracker, [("WI-1", "NEEDS_OPERATOR", "operator: card", None)])
@@ -181,7 +187,7 @@ class ReconcileTests(unittest.TestCase):
         sys.path.insert(0, str(SCRIPTS))
         import dashboard
         tracker_dir(self.tracker, [("WI-1", "QUEUED", "—", None), ("WI-2", "NEEDS_OPERATOR", "operator: card", None)])
-        template = (ROOT / "skills/orchestrate/references/dashboard-template.html").read_text()
+        template = (SKILL / "references/dashboard-template.html").read_text()
         ledger = (self.tracker / "ledger.md").read_text()
         page = dashboard.render(ledger, "t", template, "", self.tracker, datetime(2026, 10, 12, 12, 0, tzinfo=timezone.utc))
         self.assertIn("Needs attention: stale or unlaunched", page)
@@ -193,7 +199,7 @@ class ReconcileTests(unittest.TestCase):
         sys.path.insert(0, str(SCRIPTS))
         import dashboard
         tracker_dir(self.tracker, [("WI-1", "BLOCKED", "lab", None)], {"WI-1": [ago(hours=30)]})
-        template = (ROOT / "skills/orchestrate/references/dashboard-template.html").read_text()
+        template = (SKILL / "references/dashboard-template.html").read_text()
         ledger = (self.tracker / "ledger.md").read_text()
         at = lambda hours: dashboard.render(ledger, "t", template, "", self.tracker, datetime(2026, 10, 12, 12 + hours, 0, tzinfo=timezone.utc))
         self.assertIn("STALE", at(0))

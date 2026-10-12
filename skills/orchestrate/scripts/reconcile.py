@@ -11,7 +11,7 @@ timeline entry, and a verdict. Nothing is written and nothing is launched.
 A row states its launch gate in its `Waiting on` cell: `gate: WI-05, WI-07, https://github.com/o/r/pull/9`.
 A gate token is an item ID in the same ledger (cleared when that row is MERGED, CLEANED, DONE or CLOSED)
 or a GitHub PR URL (cleared when the PR is merged). A deliberate hold reads `park: <reason>`.
-Operator waits are recognised by a state of NEEDS_OPERATOR or PROTOTYPE_REVIEW, or by `operator` in the cell.
+Operator waits are recognised by a state of NEEDS_OPERATOR or PROTOTYPE_REVIEW, or by `operator` in the cell; `merge hold` in the cell of a VALIDATED row marks a held merge, not an ask.
 
 Verdicts (the driver's action; * = counted in the exit status)
   LAUNCH*   READY, QUEUED or BACKLOG with no open gate and no park: run Handoff step 0 and launch now, or
@@ -21,8 +21,9 @@ Verdicts (the driver's action; * = counted in the exit status)
   ASK*      a row waiting on the operator is older than the operator bound: remind them, or tell them why not.
   LAND*     VALIDATED with no operator wait: advance it through the landing queue.
   CLEANUP*  MERGED but not CLEANED: run cleanup per item.
+  DECIDE*   NEEDS_ORCHESTRATOR: a worker's question is the driver's to answer (oracle first), now.
   CHECK*    the script cannot judge the row (unknown state, unknown gate target, unparsable gate).
-  WAIT, WAIT_OPERATOR, PARKED, OK   nothing to do yet.
+  WAIT, WAIT_OPERATOR, HELD, PARKED, OK   nothing to do yet. HELD is a VALIDATED row under the tracker's merge hold.
 
 Time bounds (defaults; override with a `Reconcile: worker=60m review=30m stale=24h operator=24h` line in the
 ledger header, or `--bound`): worker 60m (a worker idle or silent that long), review 30m (a running review
@@ -45,12 +46,12 @@ UNITS = {"m": 60, "h": 3600, "d": 86400}
 
 PRELAUNCH = {"READY", "QUEUED", "BACKLOG"}
 RESEARCH = {"INTAKE", "RESEARCHING", "NEEDS_INFO"}
-WORKER = {"HANDED_OFF", "BUILDING", "REWORK", "IN_PROGRESS", "VALIDATING", "FAILED_VALIDATION", "CLOSING"}
+WORKER = {"HANDED_OFF", "BUILDING", "REWORK", "IN_PROGRESS", "VALIDATING", "FAILED_VALIDATION", "CLOSING", "PR_OPEN"}
 OPERATOR = {"PROTOTYPE_REVIEW", "NEEDS_OPERATOR", "NOT_REPRODUCED", "EXPECTED_BEHAVIOR"}
 MERGEWAIT = {"VALIDATED", "READY_TO_MERGE"}
-TERMINAL = {"CLEANED", "CLOSED", "DONE", "DEFERRED", "DUPLICATE", "WONT_FIX", "SUPERSEDED", "CONCLUDED"}
+TERMINAL = {"CLEANED", "CLOSED", "DONE", "DEFERRED", "DUPLICATE", "WONT_FIX", "SUPERSEDED", "CONCLUDED", "DROPPED"}
 CLEARS_A_GATE = {"MERGED", "CLEANED", "DONE", "CLOSED"}
-ACTIONABLE = {"LAUNCH", "CHASE", "STALE", "ASK", "LAND", "CLEANUP", "CHECK"}
+ACTIONABLE = {"LAUNCH", "CHASE", "STALE", "ASK", "LAND", "CLEANUP", "DECIDE", "CHECK"}
 
 STAMP = re.compile(r"(\d{4})-(\d{2})-(\d{2})(?:[T ]\s*~?(\d{2}):(\d{2}))?\s*(Z|[+-]\d{2}:\d{2})?")
 ENTRY = re.compile(r"^- (\d{4}-\d{2}-\d{2}.*)$")
@@ -274,6 +275,10 @@ def judge(row, by_id, now, bounds, net, probe):
         return verdict("LAUNCH", f"nothing gates it{since}; launch it, or record why not")
     if state in WORKER:
         return judge_worker(out, now, bounds, probe, verdict)
+    if state in MERGEWAIT and re.search(r"merge hold", waiting, re.I):
+        return verdict("HELD", "merge hold: lands when the hold is lifted")
+    if state == "NEEDS_ORCHESTRATOR":
+        return verdict("DECIDE", "worker question for the driver: oracle first, answer it now")
     if state in OPERATOR or operator:
         return verdict("ASK" if over("operator") else "WAIT_OPERATOR", "waiting on the operator")
     if state in MERGEWAIT:
@@ -329,7 +334,7 @@ def reconcile(tracker, now=None, bounds_override=(), live=True, net=True):
 
 
 def summary(tracker, results):
-    counts = {v: sum(1 for r in results if r["verdict"] == v) for v in ("LAUNCH", "CHASE", "STALE", "ASK", "LAND", "CLEANUP", "CHECK")}
+    counts = {v: sum(1 for r in results if r["verdict"] == v) for v in ("LAUNCH", "CHASE", "STALE", "ASK", "LAND", "CLEANUP", "DECIDE", "CHECK")}
     actions = sum(counts.values())
     return f"RECONCILE {Path(tracker).name}: {len(results)} open rows; " + " ".join(f"{k.lower()}={n}" for k, n in counts.items()) + f"; actions={actions}", actions
 

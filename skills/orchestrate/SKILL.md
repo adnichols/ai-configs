@@ -605,13 +605,14 @@ row with neither is launchable, whatever its title says.
 | Verdict | Action |
 |---|---|
 | `LAUNCH`* | Handoff step 0 now. If no host or lab has room, add a timeline entry with each host's `reason`, keep it `QUEUED`, and tell the operator why in the next status line. A ruling to log or defer something never stops a launch: to hold an item write `park:` and tell the operator. |
-| `CHASE`* | Read the worker's logs. Nudge it once with the specific gap. A review subagent past its bound: read its logs, then have its worker cancel and rerun it, or take the review over. Still `CHASE` on the next pass: `BLOCKED` card per [Relaying](#relaying-between-operator-and-workers). |
+| `CHASE`* | Read the worker's logs. Nudge it once with the specific gap. A review subagent past its bound: read its logs, then have its worker cancel and rerun it, or take the review over. Still `CHASE` on the next pass: relaunch or narrow its scope yourself, and report it `BLOCKED` to the operator only when the way forward is a user-visible choice ([Relaying](#relaying-between-operator-and-workers)). |
 | `STALE`* | The row shows on the dashboard. Chase whoever owns the open gate, drop a gate that no longer applies, or tell the operator what the row is waiting for. |
-| `ASK`* | Remind the operator in chat with how long the ask has waited and what answering unblocks. Keep its card. |
-| `LAND`* | Enter or advance it in the [landing queue](#landing-queue). |
+| `ASK`* | Remind the operator in chat with how long the ask has waited, what the user would see differently, and your recommendation. A row waiting on the operator for an engineering-internal decision is a driver error: send it to the oracle, decide it, and clear the card ([Asking the operator](#asking-the-operator)). |
+| `DECIDE`* | A `NEEDS_ORCHESTRATOR` worker question: screen it, ask the oracle when it is consequential, and answer the worker now. |
+| `LAND`* | Verify the receipt (`landing-gate CLEAN @ <base>..<head>`; a failure is never pre-existing or unrelated, and a flake is one failure that passes on one rerun, per [What blocks a landing](#what-blocks-a-landing)), then enter or advance it in the [landing queue](#landing-queue). |
 | `CLEANUP`* | Run [Cleanup per item](#cleanup-per-item). |
 | `CHECK`* | Fix the row now: a gate naming an unknown ID, an unparsable `gate:`, or an unknown state. |
-| `WAIT`, `WAIT_OPERATOR`, `PARKED`, `OK` | Nothing yet. |
+| `WAIT`, `WAIT_OPERATOR`, `HELD`, `PARKED`, `OK` | Nothing yet. `HELD` is a `VALIDATED` row whose `Waiting on` says `merge hold`, the tracker's recorded merge hold; it lands when the hold lifts. |
 
 **Time bounds.** The script measures from the newest `## Timeline` entry in
 the item file (`- 2026-10-11 ~16:20Z ...`), so append one for every launch
@@ -625,7 +626,7 @@ name=duration` overrides it for one run. `LAUNCH` has no bound: a launchable
 row is actionable the moment it appears.
 
 **Dashboard.** `scripts/dashboard.py` runs the same check from the ledger and
-item timelines alone and shows `LAUNCH`, `CHASE`, `STALE`, `ASK` and `CHECK`
+item timelines alone and shows `LAUNCH`, `CHASE`, `STALE`, `ASK`, `DECIDE` and `CHECK`
 rows in a "Needs attention: stale or unlaunched" block (the template's
 `{{attention}}` slot; a tracker-local template without it shows none). Run
 `dashboard.py` after a pass that changed a verdict.

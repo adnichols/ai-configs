@@ -246,7 +246,7 @@ def queue_block(text, rows):
     return f'<h2>Landing queue</h2><ol class="queue">{"".join(items)}</ol>'
 
 
-ATTENTION = {"LAUNCH", "CHASE", "STALE", "ASK", "CHECK"}
+ATTENTION = {"LAUNCH", "CHASE", "STALE", "ASK", "DECIDE", "CHECK"}
 
 
 def attention_block(tracker, now=None):
