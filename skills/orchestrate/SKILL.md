@@ -216,11 +216,14 @@ The second argument is the orchestrator's own Paseo agent id
 listener polls the dashboard's comment threads every 30 seconds. For each new
 message not written by this agent's own Ava actor (read from `ava whoami`), it
 replies in the thread at once ("Received. The orchestrator is working on this
-and will reply here.") and sends the comment to you with
+and will answer in the dashboard itself.") and sends the comment to you with
 `paseo send --no-wait`, so the operator can see it is being listened to. Each
 relayed comment arrives as an operator message: apply it as feedback, an
-answer, or a new report, reply in the thread with what you did, log it in the
-ledger, and save the dashboard again. Record `Listener: <service name>, pid <pid>, log
+answer, or a new report. Answer in the document, never only in the comment
+thread: rewrite the card, row or section the comment is about so the
+dashboard itself answers the question in plain language, log it in the ledger,
+and save the dashboard again. Then reply in the thread with one line saying
+where the document now answers it. Record `Listener: <service name>, pid <pid>, log
 <path>` in the ledger. Never use `ava agent listen` for this: its
 review-request scope is the whole Space, so it claims routed comments on other
 documents, including other trackers' dashboards.
