@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- `orchestrate` dashboard chips (operator feedback, 2026-10-12): the Needs you chip counts the cards in the Needs you section, so the number and the section always agree. `VALIDATED` and `READY_TO_MERGE` rows move to a new Ready to land chip and pill, because the orchestrator merges them; they no longer count as needing the operator or sort into the operator tier.
+
 - `orchestrate` dashboard comments are answered in the document (operator ruling, 2026-10-12): the orchestrator rewrites the card, row or section a comment is about so the dashboard itself answers it in plain language, then replies in the thread with one line pointing there. The listener's acknowledgement and relay prompt say the same.
 
 - Landing policy narrowed (operator ruling, 2026-10-12): the landing gate blocks on failures only. Warnings (test console output, lint warnings, build and bundle warnings, file-length targets) never block and are never grounds for a refactor. A check that fails and then passes on one rerun is a flake: it does not block and gets a tracking item. Pre-existing, inherited, or unrelated failures still block and get a small repair PR that fixes only that failure, never bundled with other work. `orchestrate` gains § What blocks a landing; run-plan, codex-full-build, autoreview, verified-build and repo-agents-bootstrap follow it. `skills/orchestrate/scripts/test_landing_policy.py` fails if any skill makes warnings block again.
