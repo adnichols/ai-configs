@@ -28,8 +28,9 @@ from reconcile import Fail as ReconcileFail, reconcile
 TEMPLATE = Path(__file__).resolve().parent.parent / "references" / "dashboard-template.html"
 LOCAL_TEMPLATE = "dashboard-template.html"
 
-STATE_GROUPS = [  # (css class, label, state prefixes)
-    ("needs", "Needs you", ("PROTOTYPE_REVIEW", "NEEDS_OPERATOR", "VALIDATED", "NOT_REPRODUCED", "EXPECTED_BEHAVIOR")),
+STATE_GROUPS = [  # (css class, label, state prefixes); `land` precedes `work` so READY_TO_MERGE is not read as READY
+    ("needs", "Needs you", ("PROTOTYPE_REVIEW", "NEEDS_OPERATOR", "NOT_REPRODUCED", "EXPECTED_BEHAVIOR")),
+    ("land", "Ready to land", ("VALIDATED", "READY_TO_MERGE")),
     ("work", "Worker active", ("READY", "QUEUED", "HANDED_OFF", "BUILDING", "REWORK", "IN_PROGRESS", "VALIDATING", "FAILED_VALIDATION", "CLOSING")),
     ("blocked", "Blocked", ("BLOCKED",)),
     ("done", "Done", ("DONE", "MERGED", "CLEANED", "CLOSED")),
@@ -280,6 +281,9 @@ def render(text, title, template, updated, tracker=None, now=None):
     for r in rows:
         label = group_of(r.get("state", ""))[1]
         counts[label] = counts.get(label, 0) + 1
+    # The Needs you chip counts the cards in the Needs you section, so the number and the section always agree
+    # (operator feedback 2026-10-12, thread 1a39421e: "14 that need me" with no cards shown).
+    counts["Needs you"] = len(waiting)
     chips = "".join(
         f'<span class="chip {c}">{html.escape(l)} · {counts.get(l, 0)}</span>' for c, l, _ in STATE_GROUPS)
     needs = "".join(ask_card(t, f) for t, f in waiting) or '<p class="empty">Nothing needs you right now.</p>'
