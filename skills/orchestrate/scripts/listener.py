@@ -35,7 +35,7 @@ Exit codes: 0 stopped, 2 bad input or listener already running, 3 `ava` or
 import argparse, datetime, hashlib, json, os, shutil, signal, socket, subprocess, sys, time
 from pathlib import Path
 
-ACK = "Received. The orchestrator is working on this and will reply here."
+ACK = "Received. The orchestrator is working on this and will answer in the dashboard itself."
 BUSY = ("running", "initializing")
 ENDED = ("idle", "error", "closed")
 
@@ -108,10 +108,12 @@ class Listener:
             f"orchestrate {self.root.name} DASHBOARD COMMENT (treat as an operator message; it was already "
             f"acknowledged in the thread).\nthread: {tid}\nanchored to: {quote}\n"
             f"message {msg['message_id']} at {msg.get('created_at')}:\n{msg.get('body')}\n\n"
-            f"Act on it: apply it as feedback, an answer, or a new report. Reply in the thread with what you did "
+            f"Act on it: apply it as feedback, an answer, or a new report. Put the answer IN THE DOCUMENT, never "
+            f"only in the comment: rewrite the card or section the comment is about so it answers the question "
+            f"in plain language, and log it in the ledger. Then run `python3 <skill-dir>/scripts/dashboard.py "
+            f"{self.root}` and reply in the thread with one line pointing to where the document now answers it "
             f"(`ava --space {self.space} document comment reply {self.doc} {tid} --idempotency-key <new key> "
-            f"--data '{{\"space_id\":\"{self.space}\",\"body\":\"...\"}}'`), log it in the ledger, and run "
-            f"`python3 <skill-dir>/scripts/dashboard.py {self.root}`."
+            f"--data '{{\"space_id\":\"{self.space}\",\"body\":\"...\"}}'`)."
         )
 
     def poll(self):
