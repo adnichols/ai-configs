@@ -612,7 +612,7 @@ row with neither is launchable, whatever its title says.
 | `LAND`* | Verify the receipt (`landing-gate CLEAN @ <base>..<head>`; a failure is never pre-existing or unrelated, and a flake is one failure that passes on one rerun, per [What blocks a landing](#what-blocks-a-landing)), then enter or advance it in the [landing queue](#landing-queue). |
 | `CLEANUP`* | Run [Cleanup per item](#cleanup-per-item). |
 | `CHECK`* | Fix the row now: a gate naming an unknown ID, an unparsable `gate:`, or an unknown state. |
-| `WAIT`, `WAIT_OPERATOR`, `HELD`, `PARKED`, `OK` | Nothing yet. `HELD` is a `VALIDATED` row whose `Waiting on` says `merge hold`, the tracker's recorded merge hold; it lands when the hold lifts. |
+| `WAIT`, `WAIT_OPERATOR`, `HELD`, `PARKED`, `OK` | Nothing yet. `HELD` is a `VALIDATED` or `READY_TO_MERGE` row whose `Waiting on` says `merge hold`, the tracker's recorded merge hold; it lands when the hold lifts. |
 
 **Time bounds.** The script measures from the newest `## Timeline` entry in
 the item file (`- 2026-10-11 ~16:20Z ...`), so append one for every launch
@@ -1035,7 +1035,7 @@ policy wins: when the base branch requires up-to-date branches, the entry gets
   `MOVED` flag means the worker pushed while waiting; ask it to stop.
 
 A merge hold is recorded in the ledger's `Merge rule:` line. During a hold,
-mark every queue entry as held in its note, and merge only a main-repair PR
+mark every queue entry as held in its note, write `merge hold` in each held row's `Waiting on` (so `reconcile.py` reports it `HELD`, not `LAND`), and merge only a main-repair PR
 whose gate is CLEAN on its combined tree.
 
 **Workers outside the queue** (still building or validating): do not tell

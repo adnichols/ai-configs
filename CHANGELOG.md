@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `orchestrate` reconciliation (BB-180): `scripts/reconcile.py` checks every non-terminal ledger row on each status pass, heartbeat and ORCHESTRATION pass and gives a verdict (`LAUNCH`, `CHASE`, `STALE`, `ASK`, `DECIDE`, `LAND`, `CLEANUP`, `CHECK`, or nothing to do) with explicit time bounds. Gates are written `gate: ID` or a PR URL, holds `park: <reason>`. The dashboard shows stale and unlaunched rows. Ledger parsing moved to `scripts/ledger.py`.
+
 ### Changed
 
 - Landing policy narrowed (operator ruling, 2026-10-12): the landing gate blocks on failures only. Warnings (test console output, lint warnings, build and bundle warnings, file-length targets) never block and are never grounds for a refactor. A check that fails and then passes on one rerun is a flake: it does not block and gets a tracking item. Pre-existing, inherited, or unrelated failures still block and get a small repair PR that fixes only that failure, never bundled with other work. `orchestrate` gains § What blocks a landing; run-plan, codex-full-build, autoreview, verified-build and repo-agents-bootstrap follow it. `skills/orchestrate/scripts/test_landing_policy.py` fails if any skill makes warnings block again.
