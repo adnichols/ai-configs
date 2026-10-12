@@ -233,10 +233,10 @@ relay failed. The dashboard header tells the operator a listener is watching.
 
 **Every ledger change.** Run the script in the same step as the ledger edit.
 Whenever you ask the operator for something in chat (a product decision, a
-prototype review, a spec or ADR diff approval), add the same ask to `## Waiting on you` in
+prototype review, or a behavior-changing spec diff), add the same ask to `## Waiting on you` in
 that step and remove it when it is answered. A card's `Problem:` states why
-this is a product decision, and its `Decide:` carries the oracle's
-recommendation when there is one. The card format is unchanged. The ask in
+this is a product decision, and its `Decide:` states your recommendation and
+exactly what users would see differently. The card format is unchanged. The ask in
 chat and the ask in
 the dashboard say the same thing, so the operator can answer from either
 place.
@@ -619,8 +619,38 @@ names the operator, do not ask. Cite the ruling as the authority, make the
 change, and disclose it in the PR description so the operator can veto at
 review.
 
-Workers consult the oracle before ending a turn with `NEEDS_OPERATOR`. Screen
-every `NEEDS_OPERATOR` again before posting a card. When it is, keep the
+**Standing ruling (operator, 2026-10-12).** "Do not ask the operator to
+approve engineering decisions. If a change makes the system faster or cheaper
+and preserves customer functionality and existing user behavior, decide it.
+Use the Oracle for consequential choices, then implement." The operator's
+words: "you need to rely on your sources and come to me with a fucking
+recommendation instead of these banal questions." So:
+
+- When the operator asks for work, build it. Never ask permission to build and
+  never offer a spec instead; spec or ADR work is drafted alongside the code.
+- Engineering-internal decisions are yours, with the Oracle for consequential
+  ones: performance, cost, robustness, refactors, ops and preconditions,
+  rollout mechanics, hostnames, which tenants first, internal-only spec or ADR
+  changes. Record the Oracle verdict and implement.
+- A card goes to the operator only for a functionality, UX, customer
+  expectation or documented-API decision, a prototype review, or a reserved
+  irreversible action. Its `Decide:` states your recommendation and exactly
+  what the user would see differently. Never an approval-only ask such as
+  "approve to proceed", "approve the ADR", "may I build", or "will an operator
+  run X" (`scripts/dashboard.py` rejects these).
+- A prototype returns to the operator after their feedback only once it is
+  redesigned, with a plain "What's different" list ("It needs you. You were
+  supposed to redesign the prototype."). Until then it is not a card.
+- A feature is designed for any customer behind a runtime toggle, not a
+  curated scope ("Think through it fully. As if it could be turned on for any
+  organization."). Preconditions it needs, such as a census, are built in as
+  automatic preflight that runs when it is turned on, never a manual operator
+  step.
+
+Workers consult the oracle before ending a turn with `NEEDS_ORCHESTRATOR` or
+`NEEDS_OPERATOR`. Screen
+every such escalation again before posting a card. When it is a product
+decision, keep the
 worker's oracle recommendation in the card.
 
 ### Review and merge
@@ -638,7 +668,7 @@ worker that calls any failure pre-existing, inherited, unrelated, or flaky
 to justify `VALIDATED` fails the receipt.
 
 If the receipt passes and every operator decision on the item is answered
-(prototype approval, spec or ADR diff approval, product behavior choices),
+(prototype review, behavior-changing spec diff, product behavior choices),
 it enters the [landing queue](#landing-queue) without asking, and merges when
 it reaches position 1 under [Merge authority](#merge-authority). Do not send
 the operator an "approve?" packet: the worker and the gates have the
@@ -659,9 +689,11 @@ Risks / not covered: <list or none>
 
 Ask the operator only for what the gates cannot settle and the oracle cannot
 answer: an open product behavior decision, a spec or ADR diff that changes
-product behavior, a prototype review, a scope change that alters product
+user-visible behavior (see [Spec and ADR changes](#spec-and-adr-changes)), a
+prototype review, a scope change that alters product
 behavior, or an irreversible action reserved to the operator. A known gap the
-worker could not verify, a step that needs hands, and risk calls on internal
+worker could not verify, a step that needs hands, internal-only spec or ADR
+changes, and risk calls on internal
 infrastructure go to the oracle first or to the driver's own tools. Send
 technical and process questions to the oracle first
 ([Asking the operator](#asking-the-operator)). Put the ask in
@@ -699,8 +731,26 @@ request.
 
 ADR numbers are not part of any approval. Allocate the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask the operator about a number or list it in `## Waiting on you`. The agent may merge a PR whose only purpose is resolving ADR number collisions once repo checks pass.
 
-Any change under `spec/` or an ADR directory reaches the operator as a
-rendered diff page, never as wording in chat or the ledger. The worker writes
+Spec or ADR work is drafted alongside the code and never blocks building
+(operator ruling 2026-10-12: "I asked you to do the work. Why would I fucking
+not approve building it? Why do I want a spec? It's useless to me."). Sort
+every change by its effect.
+
+**Internal-only** (no change to functionality, user experience, customer
+expectations or a documented API contract: an additive field, an internal
+index, a storage layout). The Oracle checks the change, it is committed with
+the code, and the PR description discloses it. No operator page, no card, no
+diff approval.
+
+**Behavior-changing** (it changes what users see or a documented API
+contract). The rendered diff page still goes to the operator, never wording
+in chat or the ledger, with the card stating what the user would see
+differently and a recommendation. Exception: when an existing operator
+ruling or an approved prototype already decides the behavior, the Oracle
+checks that the spec matches it and the change ships citing that authority,
+disclosed in the PR; do not ask.
+
+Mechanics for the behavior-changing path. The worker writes
 the edit uncommitted in its worktree and runs
 `python3 <skill-dir>/scripts/spec_diff.py <worktree> --base <base branch> --path spec --title "<what changes>" --summary-file <plain-terms note> --reply "<how to answer>" --tracker-dir <tracker-dir> --publish`
 (one `--path` per spec directory; `--head <ref>` renders a commit instead of
@@ -714,8 +764,8 @@ added words marked in place, plus a collapsed view of the whole file with the
 change marked. `manifest.json` next to it fingerprints the proposed files.
 
 Put a `Links:` entry to the page in the item's `## Waiting on you` card and
-leave the wording out of it. The operator's approval covers exactly the
-rendered diff. After approval the worker commits those bytes unchanged and
+leave the wording out of it. The operator's decision covers exactly the
+rendered diff. After the decision the worker commits those bytes unchanged and
 runs
 `python3 <skill-dir>/scripts/spec_diff.py <worktree> --check <out>/manifest.json --head HEAD`
 before pushing. Changed text is a new proposal: rerun the script with the
@@ -737,7 +787,8 @@ cleanup below (lab claim, demos, worktree), when all of these hold:
   PR, built in the landing worktree). Nothing is exempt as pre-existing,
   inherited, unrelated, or flaky;
 - every operator decision the item raised has an answer in the decisions
-  log, and any spec or ADR change matches the approved diff page;
+  log, and any spec or ADR change either matches the approved diff page or
+  is internal-only with an Oracle verdict and PR disclosure;
 - the target repository's merge policy is met.
 
 The rule does not authorize force-pushing, merging a head that was not
@@ -752,8 +803,8 @@ docs PR that the orchestrator merges once the gate passes. It never goes on an
 operator card (operator ruling 2026-10-09: "If you have a verify ccore skill
 update and it makes it more accurate, then you need to merge that"). Before
 writing any card, apply never-block-on-the-human: card only what the
-repository's rules or the operator reserve, such as `spec/` and ADR text,
-production actions, credentials, product choices and prototype approval.
+operator reserves: user-visible spec changes, production actions,
+credentials, product choices and prototype review.
 
 Nobody in a tracker deploys to production: not the orchestrator, not a
 worker, and not on request. Do not ask the operator whether to, offer to, or

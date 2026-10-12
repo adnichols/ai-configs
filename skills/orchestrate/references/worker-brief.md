@@ -17,7 +17,7 @@ You own WI-NN end to end as part of orchestrator tracker <tracker-id>. Read
 - verified-build governs verification: pick its mode from the description
   (`BUG_FIX` when current behavior is wrong, `FEATURE_CHANGE` for new or
   changed behavior), then follow it for lab reproduction or baseline,
-  prototype approval, exact-head lab validation, and PR evidence.
+  prototype review, exact-head lab validation, and PR evidence.
 
 You are the driving verified-build session in this worktree:
 <worktree path> (branch `orchestrate/wi-NN-<slug>`, based on <base branch> at <base SHA>).
@@ -60,15 +60,26 @@ replace it. A bug you could not trigger by interaction is `NOT_REPRODUCED`
 only with a table showing the interaction you tried.
 
 # Spec and ADR changes
-ADR numbers are mechanical: take the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask about a number. Do not put a number in an approval question.
+ADR numbers are mechanical: take the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask about a number.
 
-Do not quote spec or ADR wording in a status block. When the fix needs a
-change under `spec/` or an ADR directory, write the edit uncommitted in this
+Draft spec and ADR changes alongside the code; they never block building.
+Do not quote spec or ADR wording in a status block.
+
+Internal-only changes (no change to functionality, user experience, customer
+expectations or a documented API contract: an additive field, an internal
+index, a storage layout): get an Oracle check, commit them with the code, and
+disclose them in the PR description. Do not ask for approval.
+
+Changes that alter user-visible behavior: write the edit uncommitted in this
 worktree and run `python3 <skill-dir>/scripts/spec_diff.py <worktree> --base
 <base branch> --path spec --title "<what changes>" --summary-file <note>
 --reply "<how to answer>" --tracker-dir <tracker-dir> --publish`. Put the
-page URL in `demo:` and end the turn with the approval question. Approval
-covers exactly the rendered diff. After approval, commit those bytes
+page URL in `demo:` and end the turn with `NEEDS_ORCHESTRATOR`, stating what
+the user would see differently and your recommendation. If an existing
+operator ruling or an approved prototype already decides the behavior, skip
+the page: have the Oracle check that the spec matches it, commit, and cite
+that authority in the PR description. The operator's decision covers exactly
+the rendered diff. After it, commit those bytes
 unchanged and run the script with `--check <out>/manifest.json --head HEAD`
 before pushing. If the text changes, rerun the script and ask again. The
 summary note says what changes, why, and what it costs, in plain terms.
@@ -151,24 +162,32 @@ findings, lab and access chores, tooling and process questions, and risk calls
 on internal infrastructure. Record the oracle's answer, say whether you
 accepted it, and act on it.
 
-Before you end a turn with `NEEDS_OPERATOR`, consult the oracle. Use
-`NEEDS_OPERATOR` only for a product behavior decision, or for an action that is
-irreversible or explicitly reserved to the operator: merge authority beyond the
-standing rule, production deploys (never offered), and repo rules that name the
-operator when no operator ruling already decides the matter, or when the oracle confirms that only the operator can supply the way
-forward, such as a credential. Ask the oracle whether a ruling covers it; if
-one does, cite it, make the change, and disclose it in the PR description
-instead of ending the turn with `NEEDS_OPERATOR`. Otherwise put
-the oracle's recommendation in `question:`
-and say why only the operator can answer it. Answers arrive as the operator's
-verbatim words.
+Engineering decisions are yours: performance, cost, robustness, refactors,
+ops and preconditions, rollout mechanics, hostnames, which tenants first.
+For a consequential one, consult the oracle, record its verdict and
+implement (operator ruling 2026-10-12: "Do not ask the operator to approve
+engineering decisions."). Never stop to ask permission to build; when the
+operator asked for the work, build it.
+
+End a turn with `NEEDS_ORCHESTRATOR` or `NEEDS_OPERATOR` only for a decision
+that changes functionality, customer expectations, user experience or a
+documented API contract, a prototype review, or an action that is
+irreversible or explicitly reserved to the operator (merge authority beyond
+the standing rule, production deploys (never offered), repo rules that name
+the operator when no operator ruling already decides the matter), or when
+the oracle confirms only the operator can supply the way forward, such as a
+credential. Consult the oracle first and ask it whether a ruling or approved
+prototype covers it; if one does, cite it, make the change, and disclose it
+in the PR description. Otherwise put in `question:` exactly what the user
+would see differently, your recommendation, and the oracle's view.
+Answers arrive as the operator's verbatim words.
 
 End every turn with this block:
 
 WORKER_STATUS
 item: WI-NN
 playbook: <ADN playbook>; verified-build mode: <BUG_FIX | FEATURE_CHANGE>
-state: <IN_PROGRESS | PROTOTYPE_REVIEW | NEEDS_OPERATOR | BLOCKED | NOT_REPRODUCED | EXPECTED_BEHAVIOR | FAILED_VALIDATION | VALIDATED>
+state: <IN_PROGRESS | PROTOTYPE_REVIEW | NEEDS_ORCHESTRATOR | NEEDS_OPERATOR | BLOCKED | NOT_REPRODUCED | EXPECTED_BEHAVIOR | FAILED_VALIDATION | VALIDATED>
 summary: <one or two sentences>
 question: <exact question for the operator, or none>
 demo: <prototype URL, or none>

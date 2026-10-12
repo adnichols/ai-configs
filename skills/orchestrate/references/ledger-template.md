@@ -60,14 +60,21 @@ The heading is the tracker title: the weekday and date the tracker started
 section: no bullet asks, no bold. `dashboard.py` exits 2 on either, and on a
 card with no `Problem:` or no `Decide:`.
 
-Post a card only for a product behavior decision or an irreversible action
-reserved to the operator, and say in `Problem:` why it is one.
+Post a card only for a functionality, UX, customer-expectation or
+documented-API decision, a prototype review (only once redesigned after
+feedback, with a "What's different" list), or an irreversible action reserved
+to the operator, and say in `Problem:` why it is one.
 
 - The heading names the problem and the change: `### <ID>: <problem> → <change>`.
 - `Problem:` explains the issue in plain technical-founder language: what goes
   wrong or is missing, one sentence on the cause, no unexplained internal jargon.
-- `Decide:` says exactly what the operator needs to do or choose. Use a `- ` or
-  `1.` list for options and recommend one.
+- `Decide:` states your recommendation (the word "recommend" must appear) and
+  a plain statement of what users would see differently; use a `- ` or `1.`
+  list for options. Never an approval-only ask such as "approve to proceed",
+  "approve the ADR", "approve the spec", "may I build", "approve building",
+  "permission to build" or "will an operator run X". `dashboard.py` exits 2
+  on a `Decide:` with no recommendation or containing one of the quoted
+  phrases.
 - `Fix:` (the proposed change) and `Links:` (prototype, PR or lab URLs) are
   optional; omit a field rather than pad it.
 
