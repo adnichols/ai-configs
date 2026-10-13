@@ -674,7 +674,7 @@ judges every entry against the current base, and prints the main gate status
 
 | Verdict | Meaning | Action |
 |---|---|---|
-| `MERGE` | open, head = validated, no conflict, main has not touched this PR's files since its last main merge, no earlier `MERGE`/`UPDATE`/`WAIT` entry shares its files (a `REVALIDATE` or `BLOCKED` entry ahead never holds it) | `gh pr merge <n> --squash --match-head-commit <sha>` (or the repo's method); rerun the script after each merge, since the base moved |
+| `MERGE` | open and marked ready (never merge a draft), head = validated, no conflict, main has not touched this PR's files since its last main merge, no earlier `MERGE`/`UPDATE`/`WAIT` entry shares its files (a `REVALIDATE` or `BLOCKED` entry ahead never holds it) | `gh pr merge <n> --squash --match-head-commit <sha>` (or the repo's method); rerun the script after each merge, since the base moved |
 | `UPDATE` | conflict, main changed files this PR changes, or the repo requires up-to-date branches | send UPDATE once (below); several workers may update at once |
 | `WAIT` | shares changed files with an earlier `MERGE`/`UPDATE`/`WAIT` entry | nothing; it updates after that one lands |
 | `REVALIDATE` | head moved from the validated sha | ask the worker why |
