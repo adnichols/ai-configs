@@ -114,6 +114,11 @@ and fails when that file has no `plan_id`; do the same for any other page.
   started, or its process group (`kill -- -<pgid>`). The host is shared: a
   broad `pkill -f vitest` once killed three other agents' test runs, including
   a landing-gate run. If you cannot find your PID, ask the orchestrator.
+- Run every test run and every script that launches a browser (Playwright,
+  crawls, screenshot capture) through the repo's host-wide test-slot wrapper
+  when it has one (ccore2: `scripts/test-slot.ts`, weighted as its AGENTS.md
+  says). Unslotted browser runs once used about 7 of dever's 16 cores while
+  the test queue showed it half empty.
 - Only build on or reuse code made through this workflow: the branch this
   brief puts you on, or another item's workflow branch the brief names. Do not
   base on or port from any other branch, such as one a source document points
