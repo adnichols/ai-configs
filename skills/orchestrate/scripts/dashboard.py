@@ -23,18 +23,21 @@ from datetime import datetime
 from pathlib import Path
 
 from ledger import header, issue_rows, natural, section, set_header
-from reconcile import Fail as ReconcileFail, reconcile
+from reconcile import (MERGEWAIT, OPERATOR, PRELAUNCH, RESEARCH, TERMINAL, WORKER, Fail as ReconcileFail,
+                       reconcile)
 
 TEMPLATE = Path(__file__).resolve().parent.parent / "references" / "dashboard-template.html"
 LOCAL_TEMPLATE = "dashboard-template.html"
 
-STATE_GROUPS = [  # (css class, label, state prefixes); `land` precedes `work` so READY_TO_MERGE is not read as READY
-    ("needs", "Needs you", ("PROTOTYPE_REVIEW", "NEEDS_OPERATOR", "NOT_REPRODUCED", "EXPECTED_BEHAVIOR")),
-    ("land", "Ready to land", ("VALIDATED", "READY_TO_MERGE")),
-    ("work", "Worker active", ("READY", "QUEUED", "HANDED_OFF", "BUILDING", "REWORK", "IN_PROGRESS", "VALIDATING", "FAILED_VALIDATION", "CLOSING")),
+STATE_GROUPS = [  # (css class, label, state prefixes); `land` precedes `queued` so READY_TO_MERGE is not read as READY
+    ("needs", "Needs you", tuple(OPERATOR)),
+    ("land", "Ready to land", tuple(MERGEWAIT)),
+    ("work", "Worker active", tuple(WORKER | {"NEEDS_ORCHESTRATOR"})),
+    ("queued", "Not started", tuple(PRELAUNCH | RESEARCH)),
     ("blocked", "Blocked", ("BLOCKED",)),
-    ("done", "Done", ("DONE", "MERGED", "CLEANED", "CLOSED")),
+    ("done", "Done", tuple(TERMINAL | {"MERGED"})),
 ]
+UNRECOGNIZED = ("blocked", "Unrecognized state")
 DECISIONS_SHOWN = 8
 DEFAULT_SPACE = "spc_16ef6d824e21402b9a42560b13436034"  # Development: the operator's standard Space for work trackers
 FOLDER_PATH = ("Coding Work",)  # each tracker is a document directly inside this root folder
@@ -57,7 +60,7 @@ def group_of(state):
     for cls, label, prefixes in STATE_GROUPS:
         if state.upper().startswith(prefixes):
             return cls, label
-    return "work", "Worker active"
+    return UNRECOGNIZED
 
 
 def tier_of(row):
@@ -312,8 +315,8 @@ def render(text, title, template, updated, tracker=None, now=None):
     # The Needs you chip counts the cards in the Needs you section, so the number and the section always agree
     # (operator feedback 2026-10-12, thread 1a39421e: "14 that need me" with no cards shown).
     counts["Needs you"] = len(waiting)
-    chips = "".join(
-        f'<span class="chip {c}">{html.escape(l)} · {counts.get(l, 0)}</span>' for c, l, _ in STATE_GROUPS)
+    shown = [(c, l) for c, l, _ in STATE_GROUPS] + ([UNRECOGNIZED] if counts.get(UNRECOGNIZED[1]) else [])
+    chips = "".join(f'<span class="chip {c}">{html.escape(l)} · {counts.get(l, 0)}</span>' for c, l in shown)
     needs = "".join(ask_card(t, f) for t, f in waiting) or '<p class="empty">Nothing needs you right now.</p>'
 
     # Each item is a full-width card whose fields stack vertically, so long notes grow down the page instead of

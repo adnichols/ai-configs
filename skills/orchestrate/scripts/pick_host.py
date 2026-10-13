@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pick the worker host with the most spare capacity for a new orchestrate worker.
+"""Pick the worker host with the largest share of its own worker slots free for a new orchestrate worker.
 
 Usage: pick_host.py --repo <repo-key> [--hosts <path>]
 
@@ -181,6 +181,7 @@ def evaluate(host: dict, repo: str, local: bool) -> dict:
     max_load = limit["max_load_per_core"] * facts["cores"]
     memory_slots = math.floor((facts["available_gb"] - limit["min_available_gb"]) / limit["per_worker_gb"])
     report["free_slots"] = max(0, min(limit["max_workers"] - facts["running"], memory_slots))
+    report["max_workers"] = limit["max_workers"]
     if repo not in host.get("checkouts", {}):
         report["reason"] = f"no checkout for {repo}"
     elif facts["running"] >= limit["max_workers"]:
@@ -217,7 +218,9 @@ def main(argv: list[str] | None = None) -> int:
     if not eligible:
         print(json.dumps({"host": None, "hosts": reports}))
         return 3
-    best = max(eligible, key=lambda i: (reports[i]["free_slots"], -i))
+    # Rank by the share of each host's own limit that is free, so a smaller host takes its proportion of
+    # work instead of only the larger host's overflow; then absolute free slots, then config order.
+    best = max(eligible, key=lambda i: (reports[i]["free_slots"] / reports[i]["max_workers"], reports[i]["free_slots"], -i))
     host = hosts[best]
     print(json.dumps({
         "host": host["name"], "local": flags[best], "target": host["target"],

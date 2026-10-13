@@ -282,8 +282,9 @@ For each `READY` item, launch without waiting for the operator:
    local form). `python3 <skill-dir>/scripts/pick_host.py --repo <repo>`
    (`<repo>` = key in `checkouts`, e.g. `ccore2`) prints one JSON object.
    - Exit 0: use `host`, `local`, `target`, `checkout`; record `host` on the
-     item. `hosts` lists each host's `running`, `available_gb`,
-     `swap_used_gb`, `load5`, `free_slots`, `eligible`, `reason`.
+     item. It picks the eligible host with the largest share of its own
+     `max_workers` free. `hosts` lists each host's `running`, `available_gb`,
+     `swap_used_gb`, `load5`, `free_slots`, `max_workers`, `eligible`, `reason`.
    - Exit 3 (`host` null): set `QUEUED`, record each host's `reason` in the
      timeline, retry step 0 when a worker finishes, an item is cleaned, or the
      heartbeat fires. Never launch on an ineligible host.
