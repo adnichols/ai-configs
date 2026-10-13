@@ -1,27 +1,34 @@
 #!/usr/bin/env python3
 """Fill the ledger Status table's Merged and Deployed columns.
 
-usage: deploy_status.py <tracker-dir> --repo <checkout> (--target <name>=<commit> ... | --from-rollout) [--dry-run]
+usage: deploy_status.py <tracker-dir> --repo <checkout>
+       (--from-history-doc <space>:<document-id> | --target <name>=<commit> ... | --from-rollout) [--dry-run]
 
 Merged: every done row whose PR column holds GitHub PR URLs and whose Merged cell is empty gets
 the latest merge time and that merge commit from `gh pr view`, as `2026-10-08 19:42Z 562a1a890`.
 
-Deployed: with --target or --from-rollout, every merged row whose PRs belong to the --repo checkout's
-repository, and is not already deployed everywhere, gets how many targets run a commit that contains
-its merge commit, plus the check time. --from-rollout reads the targets itself by running the
-read-only `pnpm rollout` overview (production hubs only, no hub argument) in --repo: one target per
-production hub, the platform Worker's source commit. It fails loudly on output it cannot parse.
+Deployed: with --from-history-doc, --target or --from-rollout, every merged row whose PRs belong to the
+--repo checkout's repository, and is not already deployed everywhere, gets how many targets run a commit
+that contains its merge commit, plus the check time.
+--from-history-doc is the default way to fill Deployed. It fetches the operator-maintained 'Production
+deploy history' Ava document (`ava document source`; no Cloudflare access needed) and derives the targets
+from it: the hubs of the newest `rollout --all` entry plus any hub named by a newer entry, each at the
+commit of the newest entry naming it. It raises on a document it cannot parse.
+--from-rollout reads the targets by running the read-only `pnpm rollout` overview (production hubs only,
+no hub argument) in --repo: one target per production hub, the platform Worker's source commit. It needs
+Cloudflare credentials that agents do not have, so use --from-history-doc instead. It fails loudly on
+output it cannot parse.
 --dry-run prints the targets and the cells it would write, and leaves ledger.md untouched.
 This script never deploys anything.
 
 Missing Merged and Deployed columns are added. Republish the dashboard afterwards.
 """
-import argparse, json, re, subprocess, sys
+import argparse, html, json, re, subprocess, sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dashboard import MERGED_AT, group_of  # noqa: E402
+from dashboard import MERGED_AT, Fail, ava, group_of  # noqa: E402
 
 PR_URL = re.compile(r"https://github\.com/[^/\s]+/([^/\s]+)/pull/\d+")
 
@@ -84,6 +91,64 @@ def parse_rollout(text):
     return list(targets.items())
 
 
+HISTORY_HUBS = re.compile(r"<strong>Hubs:</strong>\s*([^<]*)")
+HISTORY_COMMIT = re.compile(r"<strong>Commit:</strong>\s*(?:<a\b[^>]*>\s*<code>([^<]+)</code>\s*</a>|([^<\s]+))")
+HISTORY_SMALL = re.compile(r"<small>(.*?)</small>", re.S)
+
+
+def parse_deploy_history(doc_html):
+    """[(hub, commit)] from the 'Production deploy history' document (entries newest first, one
+    `<h2>` each). Targets are the hubs of the newest `rollout --all` entry plus every hub named by a
+    newer entry, each at the commit of the newest entry naming it. The literal hub `none` (a failed
+    deploy) is ignored; a commit of `unknown` is kept. Raises ValueError otherwise."""
+    sections = re.split(r"(?=<h2\b)", doc_html)[1:]
+    if not sections:
+        raise ValueError("no deploy entries found")
+    entries = []
+    for sec in sections:
+        title = re.match(r"<h2\b[^>]*>(.*?)</h2>", sec, re.S).group(1).strip()
+        hubs, commit, small = HISTORY_HUBS.search(sec), HISTORY_COMMIT.search(sec), HISTORY_SMALL.search(sec)
+        parts = html.unescape(small.group(1)).split(" · ") if small else []
+        command = parts[1].strip() if len(parts) > 1 else ""
+        entries.append((title, hubs, commit, command))
+        if command == "rollout --all":
+            break
+    else:
+        raise ValueError("no `rollout --all` entry found")
+    commits, order = {}, []
+    for title, hubs, commit, command in entries:
+        if hubs is None:
+            raise ValueError(f"deploy entry {title!r} has no Hubs line")
+        if commit is None:
+            raise ValueError(f"deploy entry {title!r} has no Commit line")
+        for hub in (h.strip() for h in hubs.group(1).split(",")):
+            if hub and hub != "none" and hub not in commits:
+                commits[hub] = (commit.group(1) or commit.group(2)).strip()
+                order.append(hub)
+    if not commits:
+        raise ValueError("the newest `rollout --all` entry names no hubs")
+    rollout_hubs = [h.strip() for h in entries[-1][1].group(1).split(",")]
+    order.sort(key=lambda h: (h not in rollout_hubs, rollout_hubs.index(h) if h in rollout_hubs else 0))
+    return [(h, commits[h]) for h in order]
+
+
+def history_doc_targets(spec):
+    """Production deploy targets from the Ava deploy-history document `<space>:<document-id>`."""
+    space, _, doc = spec.partition(":")
+    if not space or not doc:
+        raise SystemExit("--from-history-doc takes <space>:<document-id>")
+    try:
+        source = ava("document", "source", doc, "--space", space).get("source")
+    except Fail as e:
+        raise SystemExit(str(e))
+    if not isinstance(source, str):
+        raise SystemExit(f"ava document source {doc} returned no `source` string")
+    try:
+        return parse_deploy_history(source)
+    except ValueError as e:
+        raise SystemExit(f"deploy history document {doc} in {space}: {e}")
+
+
 def rollout_targets(repo):
     """Production deploy targets from the read-only `pnpm rollout` overview in `repo`."""
     proc = run("pnpm", "rollout", cwd=repo)
@@ -133,15 +198,20 @@ def main():
     ap.add_argument("tracker")
     ap.add_argument("--repo", required=True, help="checkout of the repository whose merges are checked")
     ap.add_argument("--target", action="append", default=[], metavar="NAME=COMMIT")
-    ap.add_argument("--from-rollout", action="store_true", help="read targets from `pnpm rollout` in --repo")
+    ap.add_argument("--from-history-doc", metavar="SPACE:DOCUMENT_ID",
+                    help="read targets from the Production deploy history Ava document (default source)")
+    ap.add_argument("--from-rollout", action="store_true",
+                    help="read targets from `pnpm rollout` in --repo (needs Cloudflare credentials)")
     ap.add_argument("--dry-run", action="store_true", help="print targets and cells; do not write ledger.md")
     args = ap.parse_args()
-    if args.target and args.from_rollout:
-        ap.error("--target and --from-rollout are mutually exclusive")
+    if sum(map(bool, (args.target, args.from_rollout, args.from_history_doc))) > 1:
+        ap.error("--target, --from-rollout and --from-history-doc are mutually exclusive")
     targets = [tuple(t.split("=", 1)) for t in args.target]
     if any(len(t) != 2 or not t[1] for t in targets):
         ap.error("--target takes NAME=COMMIT")
     raw = ""
+    if args.from_history_doc:
+        targets = history_doc_targets(args.from_history_doc)
     if args.from_rollout:
         targets, raw = rollout_targets(args.repo)
     if targets:

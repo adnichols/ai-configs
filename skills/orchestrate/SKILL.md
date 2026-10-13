@@ -756,8 +756,10 @@ last CLEAN main commit is the deploy candidate.
 ### Close out the source doc
 
 An item with a `Source doc:` is closed out after merge and before `CLEANED`,
-by you, not the worker: check whether it is live (`pnpm rollout`, never
-deploy), add a status section to the doc, and comment on it mentioning the
+by you, not the worker: check whether it is live (`deploy_status.py
+--from-history-doc <space>:<document-id>`, the operator-maintained deploy
+history document; never `pnpm rollout`, never deploy; agents have no Cloudflare
+access; the ledger-template names the document for this tracker family), add a status section to the doc, and comment on it mentioning the
 author. Steps: `references/source-doc-closeout.md`.
 
 ### Cleanup per item

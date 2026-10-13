@@ -4,8 +4,10 @@ For an item with a `Source doc:`, after its PR merges and before `CLEANED`.
 The author asked for the report, so they must learn it is fixed. The driver
 does this, not the worker. Read `~/.agents/skills/ava/SKILL.md` first.
 
-1. **Live?** Run `pnpm rollout` in the ccore2 repo and compare the hub's
-   deployed source commit with the merge commit. Never deploy or offer to.
+1. **Live?** Run `scripts/deploy_status.py <tracker-dir> --repo <checkout>
+   --from-history-doc <space>:<document-id>` (it reads the operator-maintained
+   Production deploy history document) and read the item's Deployed cell.
+   Never run `pnpm rollout`, never deploy, never offer to.
 2. **Add a short status section** to the doc: what changed, PR link, merge
    commit, live or not.
    - HTML doc: `ava document edit <doc> --file <html> --expected-revision
