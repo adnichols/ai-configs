@@ -1,0 +1,20 @@
+┌─────────┬─────────────┬───────────────────────────┬───────────────────┬───────────────────┬───────────────┬─────────────────────┐
+│ (index) │ Hub         │ Worker                    │ Deployment status │ Worker version ID │ Source commit │ Commits behind main │
+├─────────┼─────────────┼───────────────────────────┼───────────────────┼───────────────────┼───────────────┼─────────────────────┤
+│ 0       │ 'nodaste'   │ 'nodaste-ccore2'          │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 1       │ 'nodaste'   │ 'nodaste-ccore2-collab'   │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 2       │ 'thelords'  │ 'thelords-ccore2'         │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 3       │ 'thelords'  │ 'thelords-ccore2-collab'  │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 4       │ 'adntest'   │ 'adntest-ccore2'          │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 5       │ 'adntest'   │ 'adntest-ccore2-collab'   │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 6       │ 'tmne'      │ 'tmne-ccore2'             │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 7       │ 'tmne'      │ 'tmne-ccore2-collab'      │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 8       │ 'navi'      │ 'navi-ccore2'             │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 9       │ 'navi'      │ 'navi-ccore2-collab'      │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 10      │ 'monsoonvc' │ 'monsoonvc-ccore2'        │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 11      │ 'monsoonvc' │ 'monsoonvc-ccore2-collab' │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 12      │ 'plantista' │ 'plantista-ccore2'        │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 13      │ 'plantista' │ 'plantista-ccore2-collab' │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 14      │ 'mycelios'  │ 'mycelios-ccore2'         │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+│ 15      │ 'mycelios'  │ 'mycelios-ccore2-collab'  │ 'query failed'    │ '-'               │ 'unknown'     │ 'unknown'           │
+└─────────┴─────────────┴───────────────────────────┴───────────────────┴───────────────────┴───────────────┴─────────────────────┘

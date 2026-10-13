@@ -47,11 +47,13 @@ A done state stays in the bottom tier even if `Waiting on` still says operator.
 **Merged and Deployed.** The dashboard's completed table shows both columns so
 the operator can see what landed most recently and whether it is live. On each
 merge, write `Merged` as `YYYY-MM-DD HH:MMZ <merge sha>`. At least once a day,
-and when the operator asks, read each deploy target's current commit with the
-repository's read-only status command (ccore2: `pnpm rollout`, which never
-deploys without a hub argument), then run
-`scripts/deploy_status.py <tracker-dir> --repo <checkout> --target <name>=<commit> ...`
-and republish. It fills any missing `Merged` cells from GitHub and writes
+and when the operator asks, run
+`scripts/deploy_status.py <tracker-dir> --repo <checkout> --from-rollout`
+(add `--dry-run` to preview the targets and `Deployed` cells without writing),
+then republish. `--from-rollout` runs the read-only `pnpm rollout` overview in
+the checkout (ccore2; production hubs only, never deploys) and takes each hub's
+platform Worker source commit; for another repository pass
+`--target <name>=<commit> ...` instead (the two are mutually exclusive). It fills any missing `Merged` cells from GitHub and writes
 `Deployed` as `yes, all N`, `partly, K of N; not yet: <names>`, or `no, 0 of N`,
 with the check time. Checking deployment never means deploying: the orchestrator does not
 run rollout or deploy commands for production.

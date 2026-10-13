@@ -819,6 +819,24 @@ changes to `packages/weft/**`), every merge notice and status board names
 each merged or open PR of ours that changes them, with one line on what
 changed: `Weft: #940 (WI-97) Button quiet variant; 3 files`.
 
+### Document build status
+
+An item that builds from a design, plan or audit document lists it on one line
+of its item file: `Source docs: <url>[, <url>...]`. Only that line maps an item
+to a document; other links in the file do not. Add it when you launch the item.
+
+```
+python3 <skill-dir>/scripts/doc_status.py <tracker-dir> [--dry-run] [--doc <uuid>]
+```
+
+It puts one "Build status" row at the top of each mapped HTML document: a
+segment per item with its stage (Planned, Building, In review, Merged,
+Deployed, Partly deployed, Blocked, Closed), PR links (draft marked), and the
+merge date. Reruns replace the row in place and write nothing when it is
+unchanged. Run it after `deploy_status.py` fills `Merged` and `Deployed`, so
+the stages are current, and on the twice-daily reconcile; also after an item's
+state or PR changes materially. Non-HTML documents are reported and skipped.
+
 ## Conclude
 
 Complete when every item is `CLEANED` and no worker workspace remains:
