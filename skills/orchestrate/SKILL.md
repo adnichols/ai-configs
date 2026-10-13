@@ -726,8 +726,13 @@ last CLEAN main commit is the deploy candidate.
 
   Lines of any other kind are ignored. On CLEAN, update the ledger's `Last
   CLEAN main: <sha> (log <path>)`: the deploy candidate, stated in the status
-  board and merge notices. Production deploys are human; you only report the
-  candidate.
+  board and merge notices. A repo whose full gate publishes a shared record
+  (ccore2: origin branch `tested`, pushed forward by a full-mode CLEAN
+  `landing-gate.mjs`; production deploys default to it) is the source of
+  truth: read it with `git ls-remote origin refs/heads/tested`, and when the
+  ledger disagrees, fix the ledger. A CLEAN run that prints `tested-record
+  not published` is reported to the operator with its reason. Production
+  deploys are human; you only report the candidate.
 - **FLAKY** checks on main are CLEAN for the candidate; open a work item for
   each flaky test.
 - **FAILED:** identify the failing checks and the merges since the last CLEAN
