@@ -250,13 +250,36 @@ def queue_block(text, rows):
 ATTENTION = {"LAUNCH", "CHASE", "STALE", "ASK", "DECIDE", "CHECK"}
 
 
+def span(delta):
+    minutes = int(delta.total_seconds() // 60)
+    return f"{minutes // 60} hours" if minutes >= 120 and minutes % 60 == 0 else f"{minutes} minutes"
+
+
+def attention_meaning(verdict, bounds):
+    """One plain sentence per pill: what the flag says about the row, then what the orchestrator does next."""
+    return {
+        "LAUNCH": "no worker has started on this item and nothing blocks it. Next: the orchestrator starts a worker, "
+                  "or writes down why it is on hold.",
+        "CHASE": f"a worker owns this item, but its item file records no progress in the last {span(bounds['worker'])}. "
+                 "The worker may be fine and just unlogged. Next: the orchestrator reads its log and either nudges it "
+                 "or records that it is moving.",
+        "STALE": f"this item has waited more than {span(bounds['stale'])} on a dependency, a block or a hold. Next: the "
+                 "orchestrator chases what it waits on, or drops the wait if it no longer applies.",
+        "ASK": f"a question to the operator has gone unanswered for more than {span(bounds['operator'])}. "
+               "Next: the orchestrator reminds you.",
+        "DECIDE": "a worker asked the orchestrator a question. Next: the orchestrator answers it.",
+        "CHECK": "the ledger row is malformed (an unknown state, or a dependency naming an unknown item). "
+                 "Next: the orchestrator fixes the row.",
+    }[verdict]
+
+
 def attention_block(tracker, now=None):
     """Rows `reconcile.py` flags from the ledger and item timelines alone (no live or network checks), so the
     dashboard says nothing the tracker files do not. Absolute times keep the rendered text stable between runs."""
     if tracker is None:
         return ""
     try:
-        results, _ = reconcile(tracker, now, live=False, net=False)
+        results, bounds = reconcile(tracker, now, live=False, net=False)
     except ReconcileFail:
         return ""
     flagged = [r for r in results if r["verdict"] in ATTENTION]
@@ -266,7 +289,12 @@ def attention_block(tracker, now=None):
         f'<li><span class="iid">{html.escape(r["id"])}</span> <span class="pill blocked">{r["verdict"]}</span> '
         f'{html.escape(r["title"][:90])}<br><span class="sub">{html.escape(r["state"])} · last movement '
         f'{html.escape(r["last_movement"] or "none recorded")} · {html.escape(r["why"])}</span></li>' for r in flagged)
-    return f'<h2>Needs attention: stale or unlaunched</h2><ul class="attention">{items}</ul>'
+    present = [v for v in ("LAUNCH", "CHASE", "STALE", "ASK", "DECIDE", "CHECK") if any(r["verdict"] == v for r in flagged)]
+    legend = "".join(f'<li><span class="pill blocked">{v}</span> {html.escape(attention_meaning(v, bounds))}</li>' for v in present)
+    waits = ("Only ASK items wait on you." if "ASK" in present
+             else "Nothing here waits on you; your asks are under Waiting on you.")
+    intro = f"<p>The orchestrator's own to-do list, computed from the ledger and item files. {waits} Each item carries one label:</p>"
+    return f'<h2>Needs attention: stale or unlaunched</h2>{intro}<ul class="attention">{legend}</ul><ul class="attention">{items}</ul>'
 
 
 def render(text, title, template, updated, tracker=None, now=None):

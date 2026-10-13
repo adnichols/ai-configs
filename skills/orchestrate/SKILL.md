@@ -411,8 +411,9 @@ python3 <skill-dir>/scripts/reconcile.py <tracker-dir>
   bound.
 - `dashboard.py` runs the same check and shows `LAUNCH`, `CHASE`, `STALE`,
   `ASK`, `DECIDE`, `CHECK` rows in "Needs attention: stale or unlaunched" (the
-  template's `{{attention}}` slot). Republish after a pass that changed a
-  verdict.
+  template's `{{attention}}` slot), opening with one plain-language line per
+  label present: what it means for the item and what you do next. Republish
+  after a pass that changed a verdict.
 - Report to the operator only changes and what you could not act on, with
   the reason.
 
