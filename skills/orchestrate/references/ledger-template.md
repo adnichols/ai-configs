@@ -17,14 +17,18 @@ with each part labeled. Escape a literal pipe in any cell as `\|`.
 
 **Landing queue.** `## Landing queue` sits directly after `## Status` and is
 owned by the driver (SKILL.md § Landing queue). Each line is
-`<n>. #<pr> <ID> validated <sha9> — <LANDING|ON_DECK|WAITING> <short note>`,
-numbered from 1 in landing order. With no entries the section holds the single
-line `Empty.`. A queued row's State stays `READY_TO_MERGE`. `scripts/landing_queue.py`
-reads this section and the dashboard shows it as a short ordered list near the
-top; trackers without the section still publish. The script also reads
-`gates.jsonl` beside `ledger.md` (the gate run records, SKILL.md § Landing
-queue); the header's `Last CLEAN main:` line names the newest main sha with a
-CLEAN gate record and its log path, or `none`.
+`<n>. #<pr> <ID> validated <sha9> — <short note>`, numbered from 1 in landing
+order. With no entries the section holds the single line `Empty.`. A queued
+row's State stays `READY_TO_MERGE`. `scripts/landing_queue.py` reads this
+section and prints each entry's verdict (MERGE, UPDATE, WAIT, REVALIDATE,
+BLOCKED); the dashboard shows it as a short ordered list near the top;
+trackers without the section still publish. The script also reads
+`gates.jsonl` beside `ledger.md`: main gate records only,
+`{"kind":"main","sha":...,"result":"RUNNING|CLEAN|FAILED","log":...}`. The
+header's `Last CLEAN main:` names the newest main sha with a CLEAN record and
+its log, or `none`; that sha is the deploy candidate. `Gates:` names the
+repo's receipt and main gate commands; `Generated paths:` lists globs for
+files every PR regenerates (overlap there never forces an update), or `none`.
 
 **Gates, parks and time bounds.** `scripts/reconcile.py` (SKILL.md § Reconciliation)
 reads each non-terminal row's `Waiting on` cell. `gate: WI-05, WI-07` (item IDs in this
@@ -100,7 +104,9 @@ Ava space: <spc_... or none>
 Dashboard: <web_url or none>
 Dashboard folder: <folder id of Coding Work (Archive / Coding Work once concluded), or none>
 Listener: <service name, pid, log path, or none>
-Merge rule: the orchestrator merges each PR at its validated head once every gate passes (the landing gate is CLEAN on main plus the PR, with the log recorded in `gates.jsonl`; failures block, warnings never do, SKILL.md § What blocks a landing) and every operator decision on the item is answered and the PR reaches position 1 of the landing queue, then releases its lab, removes its demos, and archives its worktree.
+Gates: receipt <command run by the worker on its head merged with main>; main <full gate command run by the driver on the main tip>
+Generated paths: <comma-separated globs, for example groma/*, or none>
+Merge rule: the orchestrator merges each PR at its validated head once its receipt is CLEAN on that head merged with current main, a reviewer approved that head, every operator decision on the item is answered, and `landing_queue.py` says MERGE (failures block, warnings never do, SKILL.md § What fails a gate); the main gate runs continuously on the main tip and never blocks a merge. Then it releases the lab, removes demos, and archives the worktree.
 Last CLEAN main: <sha> (log <path>) or none
 
 ## Status
@@ -110,9 +116,9 @@ Last CLEAN main: <sha> (log <path>) or none
 | WI-02 | BUG | ... | ava | CLEANED | — | https://github.com/<owner>/ava/pull/12 | — | P2 | 2026-10-08 19:42Z 562a1a890 | partly, 7 of 8; not yet: mycelios (checked 10-08 20:10Z) |
 
 ## Landing queue
-1. #812 WI-02 validated 562a1a890 — LANDING merge as-is
-2. #815 WI-06 validated 9f3c2d1e0 — ON_DECK overlaps docs/repo-structure.md
-3. #818 WI-09 validated 04b7aa6c1 — WAITING rewrites prototype parity hash
+1. #812 WI-02 validated 562a1a890 — merge as-is
+2. #815 WI-06 validated 9f3c2d1e0 — shares docs/repo-structure.md with #812
+3. #818 WI-09 validated 04b7aa6c1 — rewrites prototype parity hash
 
 ## Waiting on you
 ### WI-04: nav "+" cannot create folders → add an inline folder name field

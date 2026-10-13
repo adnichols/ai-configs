@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tests for landing_queue.py against real temporary git repositories. Run: python3 test_landing_queue.py"""
-import io, json, subprocess, sys, tempfile, unittest
+import io, json, os, subprocess, sys, tempfile, unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
@@ -13,11 +13,11 @@ LONG = "".join(f"line {i}\n" for i in range(40))
 
 
 def sh(cwd, *cmd):
-    return subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True, env={**__import__("os").environ, **ENV}).stdout.strip()
+    return subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True, env={**os.environ, **ENV}).stdout.strip()
 
 
 class Fixture:
-    """origin with main and PR 1 (edits line 35 of shared.txt); the clone is the --repo."""
+    """origin with main; PR n is a branch off main pushed to refs/pull/<n>/head. The clone is the --repo."""
 
     def __init__(self, tmp):
         self.tmp = Path(tmp)
@@ -26,164 +26,180 @@ class Fixture:
         sh(self.tmp, "git", "clone", "-q", str(origin), str(self.repo))
         (self.repo / "shared.txt").write_text(LONG)
         sh(self.repo, "git", "add", "."), sh(self.repo, "git", "commit", "-qm", "base"), sh(self.repo, "git", "push", "-q", "origin", "HEAD:main")
-        sh(self.repo, "git", "checkout", "-qb", "pr")
-        (self.repo / "shared.txt").write_text(LONG.replace("line 35", "line 35 pr"))
-        sh(self.repo, "git", "commit", "-qam", "pr")
-        self.head = sh(self.repo, "git", "rev-parse", "HEAD")
-        sh(self.repo, "git", "push", "-q", "origin", "HEAD:refs/pull/1/head")
-        sh(self.repo, "git", "checkout", "-q", "main")
+        self.heads = {}
+        self.pr(1, {"shared.txt": LONG.replace("line 35", "line 35 pr")})
         self.tracker.mkdir()
-        self.queue(f"1. #1 WI-01 validated {self.head[:9]} — LANDING note")
+        self.header = ""
+        self.queue(f"1. #1 WI-01 validated {self.heads[1][:9]} — note")
+
+    def pr(self, n, files):
+        sh(self.repo, "git", "checkout", "-q", "-b", f"pr{n}", "origin/main")
+        for name, text in files.items():
+            (self.repo / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.repo / name).write_text(text)
+        sh(self.repo, "git", "add", "."), sh(self.repo, "git", "commit", "-qm", f"pr {n}")
+        self.heads[n] = sh(self.repo, "git", "rev-parse", "HEAD")
+        sh(self.repo, "git", "push", "-q", "origin", f"HEAD:refs/pull/{n}/head")
+        sh(self.repo, "git", "checkout", "-q", "main")
+        return self.heads[n]
 
     def queue(self, body):
-        (self.tracker / "ledger.md").write_text(f"## Status\n\n## Landing queue\n{body}\n\n## Waiting on you\n")
+        (self.tracker / "ledger.md").write_text(f"# T\n{self.header}\n## Status\n\n## Landing queue\n{body}\n\n## Waiting on you\n")
 
-    def push_main(self, text, name="shared.txt"):
-        (self.repo / name).write_text(text)
+    def push_main(self, files):
+        sh(self.repo, "git", "pull", "-q", "origin", "main")
+        for name, text in files.items():
+            (self.repo / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.repo / name).write_text(text)
         sh(self.repo, "git", "add", "."), sh(self.repo, "git", "commit", "-qm", "main moves"), sh(self.repo, "git", "push", "-q", "origin", "HEAD:main")
         return sh(self.repo, "git", "rev-parse", "HEAD")
 
     def main_sha(self):
-        return sh(self.repo, "git", "rev-parse", "HEAD")
+        sh(self.repo, "git", "fetch", "-q", "origin")
+        return sh(self.repo, "git", "rev-parse", "origin/main")
 
     def gates(self, *records):
-        (self.tracker / "gates.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records))
+        (self.tracker / "gates.jsonl").write_text("".join((r if isinstance(r, str) else json.dumps(r)) + "\n" for r in records))
 
-    def verdict(self, strict=False, state="OPEN", draft=False, mergeable="MERGEABLE"):
-        view = {"state": state, "isDraft": draft, "mergeable": mergeable, "headRefOid": self.head}
+    def report(self, strict=False, state="OPEN", draft=False, mergeable="MERGEABLE"):
+        def fake(cmd, cwd, *a, **k):
+            if cmd[0] == "gh":
+                return mock.Mock(stdout=json.dumps({"state": state, "isDraft": draft, "mergeable": mergeable, "headRefOid": self.heads[int(cmd[3])]}))
+            return real(cmd, cwd, *a, **k)
         real = lq.run
-        fake = lambda cmd, cwd, *a, **k: mock.Mock(stdout=json.dumps(view)) if cmd[0] == "gh" else real(cmd, cwd, *a, **k)
         out = io.StringIO()
         with mock.patch.object(lq, "run", fake), mock.patch.object(lq, "strict_policy", return_value=strict), \
                 mock.patch.object(sys, "argv", ["lq", str(self.tracker), "--repo", str(self.repo), "--json"]), redirect_stdout(out):
             self.rc = lq.main()
-        return json.loads(out.getvalue())[0]
+        return json.loads(out.getvalue())
 
-    def main_gate(self, sha=None, result="CLEAN"):
-        return {"kind": "main", "sha": sha or self.main_sha(), "result": result, "log": "/logs/main.log"}
+    def verdicts(self, **kw):
+        return [e["verdict"] for e in self.report(**kw)["entries"]]
 
-    def pr_gate(self, base=None, result="CLEAN", log="/logs/pr1.log"):
-        return {"kind": "pr", "pr": 1, "base": base or self.main_sha(), "head": self.head, "result": result, "log": log}
+    def exit_code(self):
+        with mock.patch.object(sys, "stderr", io.StringIO()), mock.patch.object(sys, "argv", ["lq", str(self.tracker), "--repo", str(self.repo)]):
+            return lq.main()
 
 
-class LandingQueue(unittest.TestCase):
+class Verdicts(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.f = Fixture(self._tmp.name)
 
-    def test_no_gate_records_means_main_red(self):
-        e = self.f.verdict()
-        self.assertEqual(e["verdict"], "MAIN_RED")
-        self.assertIn("no CLEAN gate record", e["reasons"][0])
+    def test_validated_pr_on_current_main_merges_without_any_gate_record(self):
+        self.assertEqual(self.f.verdicts(), ["MERGE"])
 
-    def test_failed_main_gate_means_main_red_even_with_a_clean_pr_gate(self):
-        self.f.gates(self.f.main_gate(result="FAILED"), self.f.pr_gate())
-        self.assertEqual(self.f.verdict()["verdict"], "MAIN_RED")
+    def test_main_moving_in_other_files_still_merges(self):
+        self.f.push_main({"other.txt": "x\n"})
+        e = self.f.report()["entries"][0]
+        self.assertEqual((e["verdict"], e["overlap"]), ("MERGE", []))
 
-    def test_clean_main_without_pr_gate_asks_for_gate_run(self):
-        self.f.gates(self.f.main_gate())
-        e = self.f.verdict()
-        self.assertEqual(e["verdict"], "GATE")
-        self.assertEqual(e["base"], self.f.main_sha())
+    def test_main_changing_a_file_the_pr_changes_sends_update_even_without_conflict(self):
+        self.f.push_main({"shared.txt": LONG.replace("line 2\n", "line 2 main\n")})
+        e = self.f.report()["entries"][0]
+        self.assertEqual((e["verdict"], e["conflicts"], e["overlap"]), ("UPDATE", [], ["shared.txt"]))
 
-    def test_merge_requires_pr_gate_on_this_base_and_head(self):
-        self.f.gates(self.f.main_gate(), self.f.pr_gate())
-        e = self.f.verdict()
-        self.assertEqual((e["verdict"], e["gate"]["log"]), ("MERGE", "/logs/pr1.log"))
-
-    def test_overlap_without_conflict_merges_when_gate_clean_on_combined_tree(self):
-        sha = self.f.push_main(LONG.replace("line 2\n", "line 2 main\n"))
-        self.f.gates(self.f.main_gate(sha), self.f.pr_gate(sha))
-        e = self.f.verdict()
-        self.assertEqual(e["overlap"], ["shared.txt"])
-        self.assertEqual((e["conflicts"], e["verdict"]), ([], "MERGE"))
-
-    def test_overlap_without_conflict_still_needs_a_gate_run(self):
-        sha = self.f.push_main(LONG.replace("line 2\n", "line 2 main\n"))
-        self.f.gates(self.f.main_gate(sha))
-        self.assertEqual(self.f.verdict()["verdict"], "GATE")
-
-    def test_gate_record_for_an_older_base_does_not_authorize_merge(self):
-        old = self.f.main_sha()
-        sha = self.f.push_main(LONG.replace("line 2\n", "line 2 main\n"))
-        self.f.gates(self.f.main_gate(sha), self.f.pr_gate(old))
-        self.assertEqual(self.f.verdict()["verdict"], "GATE")
-
-    def test_failed_combined_gate_sends_update(self):
-        self.f.gates(self.f.main_gate(), self.f.pr_gate(result="FAILED", log="/logs/bad.log"))
-        e = self.f.verdict()
-        self.assertEqual(e["verdict"], "UPDATE")
-        self.assertIn("/logs/bad.log", e["reasons"][0])
-
-    def test_conflict_sends_update_despite_clean_records(self):
-        sha = self.f.push_main(LONG.replace("line 35", "line 35 main"))
-        self.f.gates(self.f.main_gate(sha), self.f.pr_gate(sha))
-        e = self.f.verdict()
+    def test_conflict_sends_update(self):
+        self.f.push_main({"shared.txt": LONG.replace("line 35", "line 35 main")})
+        e = self.f.report()["entries"][0]
         self.assertEqual((e["verdict"], e["conflicts"]), ("UPDATE", ["shared.txt"]))
 
+    def test_overlap_only_in_generated_paths_merges_but_a_conflict_there_updates(self):
+        self.f.pr(2, {"groma/map.md": "pr\n", "b.txt": "b\n"})
+        self.f.header = "Generated paths: groma/*\n"
+        self.f.queue(f"1. #2 WI-02 validated {self.f.heads[2][:9]} — note")
+        self.f.push_main({"groma/other.md": "main\n"})
+        self.assertEqual(self.f.verdicts(), ["MERGE"])
+        self.f.push_main({"groma/map.md": "main\n"})
+        self.assertEqual(self.f.verdicts(), ["UPDATE"])
+
+    def test_later_pr_sharing_files_with_an_earlier_landing_pr_waits(self):
+        self.f.pr(2, {"shared.txt": LONG.replace("line 5\n", "line 5 two\n")})
+        self.f.pr(3, {"c.txt": "c\n"})
+        self.f.queue("\n".join(f"{i}. #{n} WI-0{n} validated {self.f.heads[n][:9]} — note" for i, n in enumerate((1, 2, 3), 1)))
+        self.assertEqual(self.f.verdicts(), ["MERGE", "WAIT", "MERGE"])
+
+    def test_a_pr_that_cannot_land_does_not_hold_later_prs(self):
+        self.f.pr(2, {"shared.txt": LONG.replace("line 5\n", "line 5 two\n")})
+        self.f.queue(f"1. #1 WI-01 validated deadbeef1 — note\n2. #2 WI-02 validated {self.f.heads[2][:9]} — note")
+        self.assertEqual(self.f.verdicts(), ["REVALIDATE", "MERGE"])
+
     def test_moved_head_revalidates(self):
-        self.f.gates(self.f.main_gate(), self.f.pr_gate())
-        self.f.queue("1. #1 WI-01 validated deadbeef1 — LANDING note")
-        self.assertEqual(self.f.verdict()["verdict"], "REVALIDATE")
+        self.f.queue("1. #1 WI-01 validated deadbeef1 — note")
+        self.assertEqual(self.f.verdicts(), ["REVALIDATE"])
 
-    def test_strict_branch_policy_sends_update_despite_clean_gate(self):
-        self.f.gates(self.f.main_gate(), self.f.pr_gate())
-        self.assertEqual(self.f.verdict(strict=True)["verdict"], "UPDATE")
+    def test_strict_branch_policy_sends_update(self):
+        self.assertEqual(self.f.verdicts(strict=True), ["UPDATE"])
 
-    def test_draft_pr_is_blocked(self):
-        self.f.gates(self.f.main_gate(), self.f.pr_gate())
-        self.assertEqual(self.f.verdict(draft=True)["verdict"], "BLOCKED")
+    def test_draft_closed_and_github_only_conflicts_are_blocked(self):
+        self.assertEqual(self.f.verdicts(draft=True), ["BLOCKED"])
+        self.assertEqual(self.f.verdicts(state="CLOSED"), ["BLOCKED"])
+        self.assertEqual(self.f.verdicts(mergeable="CONFLICTING"), ["BLOCKED"])
 
-    def test_github_conflicting_with_clean_local_merge_is_blocked(self):
-        self.f.gates(self.f.main_gate(), self.f.pr_gate())
-        self.assertEqual(self.f.verdict(mergeable="CONFLICTING")["verdict"], "BLOCKED")
+    def test_legacy_state_words_in_queue_lines_still_parse(self):
+        self.f.queue(f"1. #1 WI-01 validated {self.f.heads[1][:9]} — LANDING merge as-is")
+        e = self.f.report()["entries"][0]
+        self.assertEqual((e["verdict"], e["note"]), ("MERGE", "merge as-is"))
 
-    def test_main_red_outranks_a_conflict(self):
-        self.f.push_main(LONG.replace("line 35", "line 35 main"))
-        self.assertEqual(self.f.verdict()["verdict"], "MAIN_RED")
 
-    def test_main_record_for_an_older_sha_does_not_clear_a_moved_main(self):
+class MainGate(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.f = Fixture(self._tmp.name)
+
+    def rec(self, sha, result, log="/logs/main.log"):
+        return {"kind": "main", "sha": sha, "result": result, **({"log": log} if log else {})}
+
+    def test_failed_main_gate_never_blocks_a_merge(self):
+        self.f.gates(self.rec(self.f.main_sha(), "FAILED"))
+        r = self.f.report()
+        self.assertEqual([e["verdict"] for e in r["entries"]], ["MERGE"])
+        self.assertEqual(r["main_gate"]["record"]["result"], "FAILED")
+
+    def test_run_is_due_when_main_tip_has_no_record_and_nothing_runs(self):
+        self.assertTrue(self.f.report()["main_gate"]["due"])
+        self.f.gates(self.rec(self.f.main_sha(), "RUNNING", log=None))
+        self.assertFalse(self.f.report()["main_gate"]["due"])
+
+    def test_a_run_in_progress_on_an_older_main_defers_the_next_run(self):
         old = self.f.main_sha()
-        self.f.push_main(LONG.replace("line 2\n", "line 2 main\n"))
-        self.f.gates(self.f.main_gate(old), self.f.pr_gate(old))
-        self.assertEqual(self.f.verdict()["verdict"], "MAIN_RED")
+        self.f.push_main({"other.txt": "x\n"})
+        self.f.gates(self.rec(old, "RUNNING", log=None))
+        m = self.f.report()["main_gate"]
+        self.assertEqual((m["record"], m["due"], m["running"]["sha"]), (None, False, old))
 
-    def test_last_record_for_the_same_tree_wins(self):
-        self.f.gates(self.f.pr_gate(result="FAILED"), self.f.main_gate(), self.f.pr_gate())
-        self.assertEqual(self.f.verdict()["verdict"], "MERGE")
-        self.f.gates(self.f.main_gate(), self.f.pr_gate(), self.f.pr_gate(result="FAILED"))
-        self.assertEqual(self.f.verdict()["verdict"], "UPDATE")
+    def test_deploy_candidate_is_the_newest_clean_main_not_the_tip(self):
+        old = self.f.main_sha()
+        tip = self.f.push_main({"other.txt": "x\n"})
+        self.f.gates(self.rec(old, "RUNNING", log=None), self.rec(old, "CLEAN", "/logs/old.log"), self.rec(tip, "FAILED"))
+        m = self.f.report()["main_gate"]
+        self.assertEqual((m["candidate"]["sha"], m["record"]["result"], m["due"]), (old, "FAILED", False))
 
-    def test_abbreviated_shas_in_records_match(self):
-        rec = self.f.pr_gate()
-        rec["base"], rec["head"] = rec["base"][:9], rec["head"][:9]
-        self.f.gates({**self.f.main_gate(), "sha": self.f.main_sha()[:9]}, rec)
-        self.assertEqual(self.f.verdict()["verdict"], "MERGE")
+    def test_a_later_failed_record_for_the_same_sha_withdraws_it_as_candidate(self):
+        sha = self.f.main_sha()
+        self.f.gates(self.rec(sha, "CLEAN"), self.rec(sha, "FAILED"))
+        self.assertIsNone(self.f.report()["main_gate"]["candidate"])
 
-    def test_repair_item_at_position_1_lands_on_a_red_main_through_the_same_gate(self):
-        self.f.queue(f"1. #1 WI-90 validated {self.f.head[:9]} — LANDING REPAIR fix main")
-        self.f.gates(self.f.main_gate(result="FAILED"))
-        self.assertEqual(self.f.verdict()["verdict"], "GATE")
-        self.f.gates(self.f.main_gate(result="FAILED"), self.f.pr_gate(result="FAILED"))
-        self.assertEqual(self.f.verdict()["verdict"], "UPDATE")
-        self.f.gates(self.f.main_gate(result="FAILED"), self.f.pr_gate())
-        self.assertEqual(self.f.verdict()["verdict"], "MERGE")
+    def test_abbreviated_sha_matches_the_base(self):
+        self.f.gates(self.rec(self.f.main_sha()[:9], "CLEAN"))
+        self.assertEqual(self.f.report()["main_gate"]["record"]["result"], "CLEAN")
 
-    def test_ordinary_entry_stays_main_red_when_note_merely_mentions_repair(self):
-        self.f.queue(f"1. #1 WI-01 validated {self.f.head[:9]} — LANDING needs REPAIR first")
-        self.f.gates(self.f.main_gate(result="FAILED"), self.f.pr_gate())
-        self.assertEqual(self.f.verdict()["verdict"], "MAIN_RED")
+    def test_records_of_other_kinds_are_ignored(self):
+        self.f.gates({"kind": "pr", "pr": 1, "base": "x", "head": "y", "result": "CLEAN", "log": "/l"}, {"at": "2026-10-12", "verdict": "CLEAN"})
+        self.assertEqual(self.f.report()["main_gate"]["record"], None)
 
-    def test_clean_record_needs_a_log_path(self):
-        self.f.gates(self.f.main_gate(), self.f.pr_gate(log=""))
-        with mock.patch.object(sys, "stderr", io.StringIO()), mock.patch.object(sys, "argv", ["lq", str(self.f.tracker), "--repo", str(self.f.repo)]):
-            self.assertEqual(lq.main(), 2)
+    def test_finished_main_record_needs_a_log_and_garbage_exits_2(self):
+        self.f.gates(self.rec(self.f.main_sha(), "CLEAN", log=None))
+        self.assertEqual(self.f.exit_code(), 2)
+        self.f.gates("not json")
+        self.assertEqual(self.f.exit_code(), 2)
 
-    def test_malformed_gate_line_exits_2(self):
-        (self.f.tracker / "gates.jsonl").write_text("not json\n")
-        with mock.patch.object(sys, "stderr", io.StringIO()), mock.patch.object(sys, "argv", ["lq", str(self.f.tracker), "--repo", str(self.f.repo)]):
-            self.assertEqual(lq.main(), 2)
+    def test_empty_queue_still_reports_main_gate(self):
+        self.f.queue("Empty.")
+        r = self.f.report()
+        self.assertEqual((r["entries"], r["main_gate"]["due"]), ([], True))
 
 
 if __name__ == "__main__":

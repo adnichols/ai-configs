@@ -1,256 +1,159 @@
 ---
 name: orchestrate
-description: Start a work orchestrator (/orchestrate). The operator rapid-fires bugs, feature requests, and other changes with screenshots; you log each as a work item on a tracker, enrich it with background research, and hand each ready item to its own Paseo worktree running OMP, where ADN mode routes it by its description and verified-build verifies it. When the operator says done, drive every item to a validated, merged PR and a cleaned-up worktree, merging each PR yourself once it is validated, its decisions are answered, and every gate passes. The tracker is a live Ava dashboard in Development › Coding Work, named for the day or the operator's theme; trackers may run in parallel. Use for "/orchestrate", "start an orchestrator", "new work tracker", "bug bash", or "I'm going to dump bugs/features on you". Not ADN's Orchestrate playbook (one standing project). For one item in the current worktree, use verified-build directly.
+description: Start a work orchestrator (/orchestrate). The operator rapid-fires bugs, feature requests, and other changes with screenshots; you log each as a work item on a tracker, enrich it with background research, and hand each ready item to its own Paseo worktree running OMP, where ADN mode routes it by its description and verified-build verifies it. When the operator says done, drive every item to a validated, merged PR and a cleaned-up worktree, merging each PR yourself once it is validated, its decisions are answered, and its PR receipt passes; the full suite runs on main afterward and picks the deploy candidate. The tracker is a live Ava dashboard in Development › Coding Work, named for the day or the operator's theme; trackers may run in parallel. Use for "/orchestrate", "start an orchestrator", "new work tracker", "bug bash", or "I'm going to dump bugs/features on you". Not ADN's Orchestrate playbook (one standing project). For one item in the current worktree, use verified-build directly.
 ---
 
 # Orchestrate
 
-This conversation becomes the orchestrator for one work tracker. It owns the
-ledger, the item reports, the worker launches, the operator conversation, and
-every PR the workers open until each is merged or the operator closes it.
-Workers own routing, reproduction or baseline, implementation, lab validation,
-and their PRs.
+You are the driver of one work tracker. You own the ledger, item files, worker
+launches, the operator conversation, and every worker PR until it is merged or
+the operator closes it. Workers own routing, reproduction or baseline,
+implementation, lab validation, and their PRs.
 
-A tracker runs until the operator says they are done with it, whether that is
-the end of a day or of a week. The operator may start another tracker in
-another conversation at any time; trackers run in parallel and never share
-items, state directories, or dashboards.
+- A tracker runs until the operator says they are done (end of a day or a
+  week). Trackers in other conversations run in parallel and never share
+  items, state directories, or dashboards.
+- Every item takes one path: log → research → worker → verified-build →
+  merge. The kind you record is your read; the worker's ADN mode routes from
+  the description; verified-build picks `BUG_FIX` or `FEATURE_CHANGE`.
+- Modes, recorded in the ledger: `INTAKE` (log, enrich, hand off) →
+  `ORCHESTRATION` (operator said done; drive everything to merge) →
+  `CONCLUDED` (every item merged or closed, every worker worktree cleaned).
+- Read `paseo` now and `worktree-cleanup` before the first merge. Do not read
+  `verified-build` or `adn-mode` to do the work yourself; know only enough of
+  verified-build to read worker states and evidence.
 
-Every item takes the same path regardless of kind. Bugs, features, and other
-changes are all logged, researched, handed to a worker, verified through
-verified-build, and merged under the same gates. The kind you record is your
-read of the report; the worker's ADN mode routes the item from its
-description, and verified-build picks its own mode (`BUG_FIX` or
-`FEATURE_CHANGE`).
+## State on disk
 
-The session has three modes, recorded in the ledger:
-
-1. `INTAKE`: the operator sends reports; you log, enrich, and hand off.
-2. `ORCHESTRATION`: starts when the operator says they are done; you drive
-   everything to merge.
-3. `CONCLUDED`: every item is merged or explicitly closed, and every worker
-   worktree is cleaned up.
-
-Read the `paseo` skill now for tool and CLI syntax. Read `worktree-cleanup`
-before the first merge. Do not read `verified-build` or `adn-mode` to do
-the work yourself; the workers load them. You only need enough of
-`verified-build` to understand worker states and evidence.
-
-## State lives on disk
-
-The operator's messages arrive faster than you can finish each one, and the
-session will compact. Keep all state in a tracker directory so a compacted or
-restarted orchestrator can resume from files alone:
+The session compacts and messages outpace you. Resume from files alone.
 
 ```
 ~/.local/state/orchestrate/<YYYYMMDD>-<slug>/
-  ledger.md           # tracker title, mode, defaults, status board, landing queue, decisions, waiting-on-you queue
+  ledger.md            # title, mode, defaults, status, landing queue, decisions, waiting on you
   items/WI-NN-<slug>.md
-  images/             # exported screenshots + manifest.jsonl
-  dashboard.json      # Ava draft synchronization state, incl. folder id (written by scripts/dashboard.py)
-  dashboard.html      # last rendered dashboard
+  images/              # exported screenshots + manifest.jsonl
+  gates.jsonl          # main gate runs (§ Main gate)
+  dashboard.json       # Ava sync state incl. folder id (dashboard.py writes it)
+  dashboard.html       # last render
   dashboard-template.html  # only when dashboard feedback changed this tracker's layout
-  listener.json       # comment listener state: pid, seen message ids, last_poll, last_error
-  listener.log        # listener output
+  listener.json        # listener pid, seen ids, last_poll, last_error
+  listener.log
 ```
 
-The slug distinguishes parallel trackers started the same day (the theme, or
-the weekday when there is none). After any compaction, or whenever you are
-unsure of state, re-read `ledger.md` before acting. Update the ledger and the
-item file in the same step as each state change, not later. Templates are in
-`references/ledger-template.md` and `references/item-template.md`.
-
-Item IDs are `WI-NN`, sequential within the tracker and never reused. Use the
-same ID in the item file, branch name, worker title, status blocks, and
-dashboard.
+- Slug: the theme, else the weekday. Re-read `ledger.md` after any compaction
+  or whenever unsure. Update the ledger and item file in the same step as each
+  state change. Templates: `references/ledger-template.md`,
+  `references/item-template.md`.
+- IDs are `WI-NN`, sequential, never reused, and identical in item file,
+  branch, worker title, status blocks, and dashboard.
 
 ## Start
 
-When triggered:
-
-1. Name the tracker. Its title is the weekday and date
-   (`Tuesday, October 6, 2026`). When the operator says what the tracker is
-   for, lead with that theme (`Signals polish — Tuesday, October 6, 2026`).
-   Do not ask for a theme; use the date when none is given.
-2. Create the tracker directory and ledger, with the title as the ledger's
-   `# ` heading. Record the orchestrator's cwd, session file, and Paseo
-   workspace ID (`list_workspaces`, match the path). When a hosts file exists
-   ([Hosts](#hosts)), also record its `Hosts:` line.
-3. Resolve the default target: repository checkout path, base branch, and
-   lab system, plus how many labs this tracker may hold at once when that is
-   knowable from the lab manager or repo guidance. Infer these from the
-   conversation, the current checkout, and recent Paseo workspaces. Ask once,
-   in one short message, only for what you cannot infer. Individual items
-   may override the default target. Parallel trackers share lab capacity, so
-   check the lab manager's free count rather than assuming it is yours.
-4. Create the dashboard and start its comment listener per
-   [Dashboard](#dashboard). The Space defaults to Development, the operator's
-   standard; ask once, in the same short message as step 3, only if they have
-   named another or the conversation points elsewhere.
-5. Tell the operator, in two or three lines: the tracker title and ledger
-   path, the dashboard link, that you are in intake mode, that they can paste
-   bugs and feature requests freely, and that they should say "done" when
-   finished. Also state the rule from [Merge authority](#merge-authority): you
-   merge each PR yourself once it passes every gate and every decision on it
-   is answered.
+1. Title: weekday and date (`Tuesday, October 6, 2026`), led by the
+   operator's theme when given (`Signals polish — Tuesday, October 6, 2026`).
+   Never ask for a theme.
+2. Create the tracker dir and ledger (title as `# ` heading). Record the
+   orchestrator's cwd, session file, Paseo workspace ID (`list_workspaces`,
+   match the path), and the `Hosts:` line when a hosts file exists.
+3. Resolve the default target: checkout path, base branch, lab system, lab
+   capacity (lab manager or repo guidance; parallel trackers share labs, so
+   read the free count), the repo's receipt and full-gate commands (`Gates:`
+   line), and its generated paths (`Generated paths:` line, § Landing queue).
+   Infer from the conversation, the checkout, and recent Paseo workspaces. Ask
+   once, in one short message, only for what you cannot infer. Items may
+   override the target.
+4. Create the dashboard and start its listener (§ Dashboard). Space defaults
+   to Development; ask in the same message as step 3 only if the operator
+   named another.
+5. Tell the operator in two or three lines: title and ledger path, dashboard
+   link, intake mode, paste reports freely, say "done" when finished, and the
+   § Merge authority rule (you merge each PR once its receipt is CLEAN and
+   every decision on it is answered; the full suite runs on main afterward
+   and never holds a merge).
 
 ## Hosts
 
-Workers may run on more than one machine. Which machines are eligible is set
-by a hosts file: `$ORCHESTRATE_HOSTS` when set, otherwise
-`~/.config/orchestrate/hosts.json`. The file is the same on every machine.
-**When no hosts file exists, every worker runs on the orchestrator's own
-machine exactly as the Handoff steps without a host describe, and everything
-in this section is skipped.**
-
-```json
-{ "hosts": [
-  { "name": "mbp", "target": "ssh://mbp", "hostnames": ["aarons-macbook-pro"],
-    "max_workers": 16, "min_available_gb": 4, "max_swap_gb": 4, "max_load_per_core": 2.0, "per_worker_gb": 2,
-    "checkouts": { "ccore2": "/Users/anichols/code/ccore2" } },
-  { "name": "dever", "target": "ssh://dever", "hostnames": ["dever"],
-    "max_workers": 12, "min_available_gb": 6, "max_swap_gb": 4, "max_load_per_core": 1.5, "per_worker_gb": 2,
-    "checkouts": { "ccore2": "/home/anichols/code/ccore2" } } ] }
-```
-
-- `name`: the host's name in the ledger and item files.
-- `target`: the `--host` value for the `paseo` CLI; the ssh alias is the
-  target without `ssh://`. The alias is the one the *orchestrator's* machine
-  uses (the Mac reaches Dever as `dever`; Dever reaches the Mac as `mbp`).
-- `hostnames`: lowercase short hostnames of the machine. A host is **local**
-  when the orchestrator's lowercase short `socket.gethostname()` (without
-  `.local` or any domain) is in this list. A local host is probed and driven
-  without ssh or `--host`, and its workers use the Paseo MCP tools.
-- `checkouts`: repo key to the checkout path on that host; the script returns
-  the chosen host's path as `checkout`.
-- Limits, all optional: `max_workers` (default 12), `min_available_gb` (6),
-  `max_swap_gb` (4), `max_load_per_core` (1.5), `per_worker_gb` (2).
-  `pick_host.py` probes each host's running agents, available memory, swap,
-  and load, and reports a host as eligible only while it is within these
-  limits and has room for one more worker; each host's `reason` says why not.
-  Swap counts only while available memory is under twice
-  `min_available_gb + per_worker_gb`, because Linux keeps pages in swap long
-  after memory pressure ends. `mbp` is used only for agents, so its limits are
-  looser. Tune limits in the hosts file, not per tracker.
-
-The Paseo MCP tools reach only the orchestrator's own daemon. Each host runs
-its own Paseo daemon, and the `paseo` CLI with `--host <target>` reaches a
-remote one. So a worker on a remote host is launched, messaged, inspected, and
-cleaned up with the CLI, and it sends no native finish notification (see
-[Worker notifications](#worker-notifications-during-intake)).
-
-Every host needs the same one-time setup, not per item: the ai-configs skills
-installed (`~/.agents/skills`), `gh` authenticated, `ava` authenticated,
-lab-manager credentials, and the `omp` Paseo profile. If a remote worker
-reports a missing tool or credential, fix that host once and record it.
-
-Labs are cloud labs shared by every host, so a host's admission is not lab
-capacity. The per-lab-system cap in [Handoff](#handoff) still applies across
-all hosts together.
-
-At tracker start, record `Hosts: <name> (local|remote) max <N> workers, avail
->= <G> GB, swap <= <S> GB, load <= <L>/core; ...` in the ledger, one entry per
-host in the file, from the file's values with defaults filled in.
+Hosts file: `$ORCHESTRATE_HOSTS`, else `~/.config/orchestrate/hosts.json`.
+**No hosts file: every worker runs locally; skip all host steps.** Schema,
+limits, `local` detection, one-time host setup, and the ledger `Hosts:` line:
+`references/hosts.md`. Remote workers are driven with the `paseo` CLI and
+`--host <target>` (MCP tools reach only the local daemon) and send no finish
+notification. Labs are shared across hosts; the per-lab-system cap counts
+workers on every host.
 
 ## Dashboard
 
-The operator watches the tracker, and answers you, in a real Ava HTML document.
-Load the installed `ava` and `ava-design-system` before authoring or editing;
-never copy their managed skills. Register with `source_format: "html"`; use
-revision-guarded `document edit`, never text create/replace-body for a dashboard.
-Local Markdown ledgers remain inputs, not the user-facing format. Keep the
-orchestrator as sole body writer; retain comments, stable operation keys and
-existing sessions. A conflict or unexpected source drift requires reconciliation,
-not a forced write or a second dashboard.
-The ledger stays the single source of truth; `scripts/dashboard.py` only
-renders it, so the dashboard can never say something the ledger does not.
+The operator watches and answers you in a real Ava HTML document.
+
+- Load the installed `ava` and `ava-design-system` before authoring or
+  editing; never copy their managed skills. `source_format: "html"`;
+  revision-guarded `document edit` only, never text create or replace-body.
+  You are the sole body writer; keep comments, stable operation keys, and
+  existing sessions. A conflict or unexpected source drift means reconcile,
+  never a forced write or a second dashboard.
+- The ledger is the single source of truth; `scripts/dashboard.py` only
+  renders it.
 
 ```
 python3 <skill-dir>/scripts/dashboard.py <tracker-dir> [--space spc_...] [--title ...]
 ```
 
-The document title is the ledger's `# ` heading. The first run registers the
-document, moves it into its folder, then writes `Ava space:`, `Dashboard:` and
-`Dashboard folder:` into the ledger header. Later runs edit the same document
-in place with the current revision guard and read source, render and warnings
-back to confirm the saved HTML. Draft standing is sufficient; submit/promote
-only when separately authorized by the workflow. A run with no ledger
-change prints `unchanged`.
+- First run registers the document, files it under Development › Coding Work
+  (concluded: `Archive / Coding Work`), and writes `Ava space:`, `Dashboard:`,
+  `Dashboard folder:` into the ledger. Later runs edit in place and read back;
+  no change prints `unchanged`. Runs, folder lookup, `--space`,
+  `--folder-path`, the visual check, layout format, and Weft styling:
+  `references/dashboard.md`.
+- If the script exits non-zero (`ava` missing or unauthenticated, saved draft
+  does not verify): tell the operator the message in chat at once and keep
+  working from the ledger. Never skip the dashboard silently or call it
+  current after a failed run.
+- **Start:** run it, confirm the `Dashboard:` line, do the visual check, start
+  the listener.
 
-**Where it lives.** The Development Space
-(`spc_16ef6d824e21402b9a42560b13436034`) holds development tracking, and it
-is the default. Every open tracker is a document directly inside its root
-folder "Coding Work". A concluded tracker's dashboard moves to
-`Archive / Coding Work`. The script picks the path from the ledger's `Mode:`
-and finds the folder in this order:
-
-1. the folder id in `dashboard.json` or the ledger's `Dashboard folder:` line,
-   if it is still a folder at that exact path;
-2. otherwise the path by title through `ava document tree`, from the root;
-3. a missing level is created under the right parent. Reruns reuse what they
-   find, so no folder is created twice.
-
-Each run also confirms the document is in the folder and moves it back if
-not. To use another Space, pass `--space`; the same folders are resolved or
-created there. `--folder-path` overrides `Coding Work` (a concluded tracker
-then goes to `Archive/<that path>`) and exists for tests.
-
-**Start.** Run the script and confirm the ledger has the `Dashboard:` line.
-Use authorized native CUA on the assigned session to inspect the actual Ava render
-in light/dark and narrow/wide views at creation and after layout changes. Check
-priority order, summary, links, wrapping and collapsible history. Never operate
-another agent's browser or bypass foreground/capture consent. If unavailable,
-record visual verification pending separately from successful source/readback;
-do not report a visual pass. Do not start live publication during skill validation.
-Then start the listener as a persistent background service named
-`orchestrate-<tracker>-listener`, using the runtime's long-lived service
-facility (in OMP, a `bash` call with `name` and a `ready` log pattern), or
-`nohup` with a log file when there is none:
+**Listener.** Start as a persistent background service named
+`orchestrate-<tracker>-listener` (OMP: `bash` with `name` and a `ready` log
+pattern; else `nohup` with a log file):
 
 ```
 python3 <skill-dir>/scripts/listener.py <tracker-dir> "$PASEO_AGENT_ID"
 ```
 
-The second argument is the orchestrator's own Paseo agent id
-(`$PASEO_AGENT_ID`; otherwise `paseo ls`, matching this session's cwd). The
-listener polls the dashboard's comment threads every 30 seconds. For each new
-message not written by this agent's own Ava actor (read from `ava whoami`), it
-replies in the thread at once ("Received. The orchestrator is working on this
-and will answer in the dashboard itself.") and sends the comment to you with
-`paseo send --no-wait`, so the operator can see it is being listened to. Each
-relayed comment arrives as an operator message: apply it as feedback, an
-answer, or a new report. Answer in the document, never only in the comment
-thread: rewrite the card, row or section the comment is about so the
-dashboard itself answers the question in plain language, log it in the ledger,
-and save the dashboard again. Then reply in the thread with one line saying
-where the document now answers it. Record `Listener: <service name>, pid <pid>, log
-<path>` in the ledger. Never use `ava agent listen` for this: its
-review-request scope is the whole Space, so it claims routed comments on other
-documents, including other trackers' dashboards.
+- Arg 2 is your Paseo agent id (`$PASEO_AGENT_ID`, else `paseo ls` matching
+  your cwd). It polls comment threads every 30 s. For each new message not by
+  your own Ava actor (`ava whoami`), it replies in the thread ("Received. The
+  orchestrator is working on this and will answer in the dashboard itself.")
+  and relays it to you with `paseo send --no-wait`.
+- A relayed comment is an operator message: feedback, an answer, or a new
+  report. Answer in the document, never only in the thread: rewrite the card,
+  row, or section so the dashboard answers it in plain language, log it in the
+  ledger, save the dashboard, then reply in the thread with one line saying
+  where the document now answers it.
+- Record `Listener: <service name>, pid <pid>, log <path>`. Never use `ava
+  agent listen`: its scope is the whole Space and claims comments on other
+  documents, including other trackers' dashboards.
+- After compaction or restart, check `listener.json`; pid dead or `last_poll`
+  older than 2 min → restart with the same command (it refuses to start
+  twice and skips handled comments).
 
-`listener.json` has `last_poll` and `last_error`. After a compaction or
-restart, read it: when the pid is dead or `last_poll` is older than two
-minutes, restart the listener with the same command. It refuses to start
-twice, and a restart skips comments it already handled and retries one whose
-relay failed. The dashboard header tells the operator a listener is watching.
-
-**Every ledger change.** Run the script in the same step as the ledger edit.
-Whenever you ask the operator for something in chat (a product decision, a
-prototype review, or a behavior-changing spec diff), add the same ask to `## Waiting on you` in
-that step and remove it when it is answered. A card's `Problem:` states why
-this is a product decision, and its `Decide:` states your recommendation and
-exactly what users would see differently. The card format is unchanged. The ask in
-chat and the ask in
-the dashboard say the same thing, so the operator can answer from either
-place.
+**Every ledger change.** Run the script in the same step. Every ask you make
+in chat (product decision, prototype review, behavior-changing spec diff)
+goes into `## Waiting on you` in the same step and leaves when answered. Chat
+and dashboard say the same thing, so the operator can answer from either.
 
 **Subdocuments only.** Every Ava document a tracker creates (spec diffs,
-review pages, anything derived from it) is created as a subdocument of that
-tracker's dashboard document, never as a sibling in the folder. Use the
-dashboard's `plan_id` from `dashboard.json` as `parent_id`, then read the
-document tree to verify the parent, and move it when the create ignored it.
+review pages, details pages) is a subdocument of the dashboard: `parent_id` =
+`plan_id` from `dashboard.json`; read the tree to verify; move it if the
+create ignored the parent.
 
-**Writing a Needs-you item.** Each item is a `###` block, one per work item:
+**Feedback on the dashboard** (content or format): apply it live and log a
+skill follow-up `WI-NN` (repo ai-configs, target `skills/orchestrate`) with
+the operator's words, in the same step; how: `references/dashboard.md`. Never
+edit the skill from the orchestrator session.
+
+### Needs-you cards
+
+One `###` block per item in `## Waiting on you`:
 
 ```
 ### WI-10: link clicks open the comment box → restore the link exemption
@@ -260,514 +163,398 @@ Decide: the choice they must make, as short options (a `- ` or `1.` list is fine
 Links: prototype, PR, or lab URLs.
 ```
 
-The title names the problem and the change, so the operator can tell the
-items apart without opening them. `Problem:` explains the issue in plain
-technical-founder language: concrete and short, the user-visible problem
-before the mechanism, one sentence on the cause. `Decide:` says exactly what
-the operator needs to do or choose, with a name for each option. Do not leave
-internal jargon (state names, ledger terms, repo-private abbreviations, commit
-hashes standing in for an explanation) unexplained. A card holds what the
-operator needs to make the decision and nothing more: at most about 150 words,
-`Fix:` one plain paragraph saying what will be different and what approving
-lets the agents do, and `Decide:` the exact question with named options. Never
-quote spec text, before-and-after wording, evidence, test results, or limits in
-a card (operator ruling 2026-10-09 19:30Z). Put them in a details subdocument
-published with `scripts/card_details.py <tracker> <details.md> --title "<ID>
-details" --out <tracker>/card-details/<id>.json`, and link it first in
-`Links:`. Spec wording stays on its rendered diff page. When the operator asks
-a question in a comment, put the answer in the card itself, not only in the
-thread, and never point to a comment for content: the dashboard collects
-hundreds of comments (operator ruling 2026-10-09). Omit `Fix:` or `Links:`
-rather than pad it. Never use bold (`**`) or bullet-style asks such as
-`- **WI-10: ...** prose`. `scripts/dashboard.py` exits 2 with the card rule
-when `## Waiting on you` holds anything but `###` cards, a card lacks
-`Problem:` (or its `Broken:` alias) or `Decide:`, or a card uses bold; fix the
-ledger and rerun. Mirror the same text in chat.
+- Title names the problem and the change.
+- `Problem:` plain technical-founder language, user-visible problem before
+  mechanism, one sentence on cause, and why this is a product decision.
+- `Fix:` one plain paragraph: what will be different and what approving lets
+  the agents do.
+- `Decide:` the exact question, named options, your recommendation, and
+  exactly what users would see differently.
+- At most ~150 words. No unexplained jargon (state names, ledger terms,
+  repo-private abbreviations, hashes standing in for an explanation). Omit
+  `Fix:` or `Links:` rather than pad. No bold, no bullet-style asks
+  (`- **WI-10: ...** prose`).
+- Never quote spec text, before/after wording, evidence, test results, or
+  limits in a card (ruling 2026-10-09 19:30Z). Put them in a details
+  subdocument, linked first in `Links:`: `scripts/card_details.py <tracker>
+  <details.md> --title "<ID> details" --out
+  <tracker>/card-details/<id>.json`. Spec wording stays on its diff page.
+- An operator's comment question is answered in the card itself; never point
+  to a comment for content (ruling 2026-10-09: the dashboard collects hundreds
+  of comments).
+- `dashboard.py` exits 2 when `## Waiting on you` holds anything but `###`
+  cards, a card lacks `Problem:` (alias `Broken:`) or `Decide:`, a card uses
+  bold, or a card is an approval-only ask. Fix the ledger and rerun. Mirror
+  the card text in chat.
 
-**Before posting a card.** The driver must have the oracle challenge every
-Needs-you card before posting it in the dashboard or chat, including product
-decisions and credential or access asks. Send the draft card and evidence, and
-ask whether the premise holds and operator input is needed under 'Asking the
-operator', and whether the card is the shortest one that still lets the
-operator decide. Reject an oracle revision that adds quoted text or evidence to
-the card; that content goes in the details subdocument. A worker's earlier
-consultation does not replace this check. For a
-claimed blocker, test the failing operation through the worker's actual launch
-path, account, session, and environment, not just a separate diagnostic shell.
-Give the oracle the result or, if the test cannot run, the reason. Resolve
-factual objections before posting. The oracle challenges the evidence and need
-to escalate; the operator still decides product behavior. In Decide:, record
-the oracle's verdict on the premise and need for operator input, followed by
-the operator's choice or action. In Links:, cite the consultation and
-supporting evidence. Before asking the operator to approve or judge text that
-quotes product behavior, such as an error message, label, status code, or CLI
-output, check each quoted string against product source in apps/, packages/,
-or spec/ and, when a deployed lab is available, against the live response.
-Never use a prototype, demo boilerplate, worker summary, or memory as the
-source. Cite the source file:line and any lab transcript next to the quote. If
-the text cannot be checked, say so in Problem: instead of asking for approval.
+**Before posting any card** (product decisions, credential and access asks
+included), the oracle challenges it:
 
-**If it fails.** The script exits non-zero with a message when `ava` is
-missing, unauthenticated, or the saved draft does not verify. Tell the operator
-that message in chat right away and keep working from the ledger. Never skip
-the dashboard silently, and never claim it is current when the last run
-failed.
-
-**Feedback on the dashboard.** When the operator comments on or asks for a
-change to the dashboard's content or format, do both in the same step:
-
-1. Apply it to the live dashboard now. Layout, wording, and styling changes go
-   in `<tracker-dir>/dashboard-template.html` (copy
-   `references/dashboard-template.html` there first; the script prefers it).
-   Changes the template cannot express (a new column, a different grouping)
-   go in a copy of `scripts/dashboard.py` kept in the tracker directory
-   (with `ledger.py` and `reconcile.py`, which it imports) and run from
-   there. Save the dashboard again and confirm it with the operator.
-2. Log it as a skill follow-up: its own work item (`WI-NN`, repo ai-configs,
-   target `skills/orchestrate`) with the operator's words verbatim and what
-   you changed live. A worker then folds it into
-   `references/dashboard-template.html` or `scripts/dashboard.py`, so the next
-   tracker starts with the improved standard format. Do not edit the skill
-   from the orchestrator session.
-
-**Standard format.** `references/dashboard-template.html` owns the HTML layout:
-top status/mode, updated time and tracker identity, counts, urgent decisions,
-then prioritized items. Record Priority in the ledger's Status table; the
-dashboard shows ID and priority, item, state, waiting on, and PR. Ledger columns
-it does not render are ignored. Distinguish confirmed from suspected
-or inconclusive findings. Keep operator-needed work first, then active/blocked,
-then completed; within each tier sort by explicit priority before ID. Completed
-items and decision history are collapsible. Preserve evidence URLs and original
-occurrences in the ledger/item files. Every field remains reachable at narrow
-widths; use overflow scrolling rather than hiding columns.
-Legacy tracker-local templates must be reconciled with the maintained template
-when the renderer rejects their older layout; preserve customizations and never
-delete the live tracker or start a replacement session. Use Ava theme variables with fallbacks; no OS-only dark-mode media query or
-fixed theme overrides inside Ava. Update script and template together.
-
-**Styling follows Weft.** The template's corner radii are the Weft tokens
-(`@nodaste-lab/weft` `css/weft.css`), declared in its `:root` as
-`--weft-radius-chip: 2px` and `--weft-radius-card: 4px`. State chips, state
-pills and inline `code` use the chip radius; cards use the card radius. Never
-use `--weft-radius-pill` (`999px`) or an invented radius such as `8px` or
-`12px` for a status label: Weft's own `.weft-badge` (including `.is-status`)
-uses the chip radius, and the pill is kept for oblong controls and
-announcements such as switches and progress tracks. When the
-standard changes, take new values from `css/weft.css`, not from memory.
+- Send the draft card and evidence; ask whether the premise holds, whether
+  operator input is needed under § Asking the operator, and whether this is
+  the shortest card that still lets the operator decide. Reject an oracle
+  revision that adds quoted text or evidence; that goes in the details page.
+  A worker's earlier consultation does not replace this.
+- For a claimed blocker, test the failing operation through the worker's
+  actual launch path, account, session, and environment, not a separate
+  diagnostic shell; give the oracle the result or why it cannot run. Resolve
+  factual objections before posting.
+- In `Decide:` record the oracle's verdict on the premise and need for
+  operator input, then the operator's choice. In `Links:` cite the
+  consultation and evidence.
+- Before asking the operator to approve or judge quoted product text (error
+  message, label, status code, CLI output), check each string against product
+  source in `apps/`, `packages/`, or `spec/`, and the live lab response when a
+  deployed lab exists; cite file:line and any lab transcript beside the quote.
+  Never source it from a prototype, demo boilerplate, worker summary, or
+  memory. If it cannot be checked, say so in `Problem:` instead of asking for
+  approval.
 
 ## Intake
 
-Each operator message may contain zero, one, or several items, follow-up
-detail for an existing item, or answers to your questions. Process each
-message quickly and return control so the operator can keep typing.
+Each operator message may hold zero or more items, follow-up detail, or
+answers. Process quickly and return control so the operator keeps typing.
 
-For every message:
-
-1. **Capture evidence first.** Run
-   `python3 <skill-dir>/scripts/collect_images.py --out <tracker-dir>/images`.
-   It exports newly pasted images from this session's transcript (OMP blobs
-   or Codex data URLs), skips images already exported, and prints one JSON
-   line per new image with the message text it arrived with. Copy any image
-   path cited in the text (for example `~/.cache/clipssh/...png`) into
-   `images/` too. Workers in other worktrees cannot see this conversation;
-   an image that is not on disk does not exist for them.
-2. **Split and match.** Split the message into distinct items. Match each
-   against existing items: same surface and same request means a follow-up
-   or duplicate, not a new ID. When unsure, log it as new and note the
-   suspected relation.
+1. **Capture evidence.** `python3 <skill-dir>/scripts/collect_images.py --out
+   <tracker-dir>/images` exports newly pasted images from this session's
+   transcript (OMP blobs or Codex data URLs), skips exported ones, and prints
+   one JSON line per new image with its message text. Copy any image path
+   cited in text (e.g. `~/.cache/clipssh/...png`) into `images/`. Workers
+   cannot see this conversation; an image not on disk does not exist for them.
+2. **Split and match.** Same surface and same request = follow-up or
+   duplicate, not a new ID. Unsure → new item noting the suspected relation.
 3. **Log.** Create or update the item file. Quote the operator verbatim.
-   Describe each screenshot in words in the Evidence section (what surface,
-   what state, what is wrong or wanted) so a worker that cannot render images
-   still has the content. Record your read of the kind: `BUG` (current
-   behavior is wrong), `FEATURE` (new or changed behavior), or `REFACTOR`,
-   `PERF`, `OTHER`. It labels the dashboard and informs research; the worker
-   routes from the description.
-   When the item comes from an Ava document (a bug report, a design, a case
-   study, or another source doc), also record its URL and author in the item
-   file (`Source doc:` and `Doc author:`). Run `ava document status <doc>
-   --json` and take the creator or last editor agent from
-   `contributor_actor_ids` or `actors`. Add the human principal behind that
-   agent when the doc or the agent's name identifies one (a "(KD)" suffix, or
-   `principal_id_at_commit` in `ava document revisions <doc>`). Read
-   `~/.agents/skills/ava/SKILL.md` first. The closeout needs these.
-4. **Research in the background.** Start a read-only research agent per new
-   item (OMP: `task` with the `scout` agent; elsewhere, the runtime's
-   background subagent). Use the packet in `references/research-brief.md`.
-   Never wait on it inside the intake turn. Merge its findings into the item
-   file when it returns, marking inferences as `[INFERRED]`.
-5. **Acknowledge.** Reply with one line per item:
-   `WI-07 logged — bug, Ava Signals: acknowledge throws in nodaste space. 1 screenshot. Researching.`
-   Add at most one or two blocking questions, only when research cannot
-   answer them. Batch non-blocking questions for later.
+   Describe each screenshot in words in Evidence (surface, state, what is
+   wrong or wanted). Kind: `BUG` (current behavior wrong), `FEATURE` (new or
+   changed behavior), `REFACTOR`, `PERF`, `OTHER`; it labels the dashboard and
+   informs research only. An item from an Ava document (bug report, design,
+   case study) also records `Source doc:` (URL) and `Doc author:`: read
+   `~/.agents/skills/ava/SKILL.md`, run `ava document status <doc> --json`,
+   take the creator or last-editor agent from `contributor_actor_ids` or
+   `actors`, and add the human principal behind it when the doc or agent name
+   identifies one (a "(KD)" suffix, or `principal_id_at_commit` in `ava
+   document revisions <doc>`).
+4. **Research in the background.** One read-only research agent per new item
+   (OMP: `task` with `scout`) using `references/research-brief.md`. Never wait
+   on it in the intake turn. Merge findings into the item file when it
+   returns, marking inferences `[INFERRED]`.
+5. **Acknowledge,** one line per item: `WI-07 logged — bug, Ava Signals:
+   acknowledge throws in nodaste space. 1 screenshot. Researching.` Add at
+   most one or two blocking questions research cannot answer; batch the rest.
 
-The operator reports tersely: usually one or two sentences naming a UI
-surface ("signals", "the left navbar", "requested by me"), the desired
-behavior, and a screenshot of the current state. Structured repro steps,
-environment, account, and URL are usually missing. Recover them through
-research and the conversation's defaults before asking. Reports may also be
-secondhand (a meeting recap, someone else's observation); record the source
-and whose words they are.
+Reports are terse: a surface ("signals", "the left navbar", "requested by
+me"), the desired behavior, a screenshot. Repro steps, environment, account,
+and URL are usually missing; recover them through research and the tracker
+defaults before asking. Secondhand reports (meeting recap, someone else's
+observation): record the source and whose words they are.
 
 ### Readiness
 
-An item is `READY` when a fresh agent could begin reproducing or baselining
-it without asking the operator anything. That requires:
+`READY` = a fresh agent could start reproducing or baselining without asking
+the operator anything:
 
 - target repository and base branch;
-- for bugs, observed and expected behavior; for features and other changes,
-  current and desired behavior, both grounded in the operator's words rather
-  than your inference;
-- the product surface located in code or in the running product;
-- a reproduction path or precise trigger, with inferred steps marked;
+- bugs: observed and expected behavior; others: current and desired behavior;
+  both grounded in the operator's words, not your inference;
+- product surface located in code or the running product;
+- reproduction path or precise trigger, inferred steps marked;
 - observable acceptance criteria;
 - scope and non-goals, including anything the operator ruled out;
-- no unresolved product decision; and
-- overlap resolved: an item touching the same surface and root cause as an
-  in-flight item joins that workstream or waits for it, so two workers do
-  not edit the same code in parallel.
+- no unresolved product decision;
+- overlap resolved: an item on the same surface and root cause as an
+  in-flight item joins that workstream or waits, so two workers never edit
+  the same code in parallel.
 
-Do not over-gather. The worker reproduces or baselines the behavior itself
-and verified-build obtains prototype approval for UI changes. Hand off as
-soon as the bar is met.
+Do not over-gather; the worker reproduces, and verified-build gets prototype
+approval for UI changes. Hand off as soon as the bar is met.
 
 ### Handoff
 
-**Only build on code made through this workflow.** Development on any branch
-follows this workflow: a tracker item, a worker in its own worktree with ADN
-mode routing the work and verified-build verifying it. Only code built that
-way may be the base for an item or be reused in it. A branch built some other
-way, for example a branch a handoff or design document points to, does not
-qualify: use it only as a description of what to build, and implement from
-the base branch. A branch built through this workflow, including a prototype
-built for the item, qualifies: keep building on it.
+**Only build on code made through this workflow** (a tracker item, a worker
+in its own worktree, ADN routing, verified-build verification), including a
+prototype built for the item. Any other branch, such as one a handoff or
+design doc points to, is only a description of what to build: implement from
+the base branch.
 
-For each `READY` item, launch its worker without waiting for the operator:
+For each `READY` item, launch without waiting for the operator:
 
-0. Choose the host. Skip this step when no hosts file exists
-   ([Hosts](#hosts)); use the item's checkout path and go to step 1 (local).
-   Otherwise run `python3 <skill-dir>/scripts/pick_host.py --repo <repo>`,
-   where `<repo>` is the item's repo key in the hosts file's `checkouts`
-   (`ccore2`). It prints one JSON object.
-   - Exit 0: `host`, `local`, `target`, and `checkout` name the host to use;
-     `hosts` has every host's `running`, `available_gb`, `swap_used_gb`,
-     `load5`, `free_slots`, `eligible`, and `reason`. Use `checkout` as the
-     target checkout path in the steps below, and record `host` on the item.
-   - Exit 3 (`host` is null): no host can take a worker. Set the item to
-     `QUEUED`, record each host's `reason` in its timeline, and run step 0
-     again whenever a worker finishes, an item is cleaned, or the heartbeat
-     fires. Do not launch on a host that is not eligible.
-   - Exit 2: the hosts file is invalid; read stderr and fix the file.
-
-   Steps 1 to 4 have a local form (the host is local, or there is no hosts
-   file) and a remote form (`local` is false).
-
-1. Create a worktree workspace.
-   - Local: `create_workspace` with `isolation: "worktree"`,
-     `mode: "branch-off"`, `path` set to the target checkout, `baseBranch`
-     from the item, and `branchName: "orchestrate/wi-NN-<slug>"`.
+0. **Choose the host** (skip with no hosts file: use the item's checkout,
+   local form). `python3 <skill-dir>/scripts/pick_host.py --repo <repo>`
+   (`<repo>` = key in `checkouts`, e.g. `ccore2`) prints one JSON object.
+   - Exit 0: use `host`, `local`, `target`, `checkout`; record `host` on the
+     item. `hosts` lists each host's `running`, `available_gb`,
+     `swap_used_gb`, `load5`, `free_slots`, `eligible`, `reason`.
+   - Exit 3 (`host` null): set `QUEUED`, record each host's `reason` in the
+     timeline, retry step 0 when a worker finishes, an item is cleaned, or the
+     heartbeat fires. Never launch on an ineligible host.
+   - Exit 2: invalid hosts file; read stderr and fix it.
+1. **Worktree workspace.**
+   - Local: `create_workspace` with `isolation: "worktree"`, `mode:
+     "branch-off"`, `path` = target checkout, `baseBranch` from the item,
+     `branchName: "orchestrate/wi-NN-<slug>"`.
    - Remote: `paseo workspace create --host <target> --isolation worktree
      --mode branch-off --path <checkout> --base <base> --new-branch
-     orchestrate/wi-NN-<slug> --json`. Take the workspace ID from the JSON.
-2. Read the launch profile with `list_profiles` and take the row whose name
-   is exactly `omp`; do not choose by notes. Materialize it: `provider` is
-   `omp/<model>` (normally `omp/@default`, which resolves OMP's configured
-   default model), `settings.modeId` is its `modeId`, and
-   `settings.thinkingOptionId` is set only if present. Do not choose or
-   override the model. This is the same for either host: read the profile on
-   the orchestrator's daemon and pass its values to the remote CLI.
-3. Start the agent in the new workspace, titled `[WI-NN] <short title>`, with
-   the brief from `references/worker-brief.md`.
-   - Local: `create_agent` in the new `workspaceId`, leaving `notifyOnFinish`
-     at its default of true.
+     orchestrate/wi-NN-<slug> --json`; take the workspace ID.
+2. **Profile.** `list_profiles`, row named exactly `omp` (never choose by
+   notes): `provider` = `omp/<model>` (normally `omp/@default`),
+   `settings.modeId` = its `modeId`, `settings.thinkingOptionId` only if
+   present. Never choose or override the model. Read it on your daemon for
+   either host.
+3. **Start the agent**, titled `[WI-NN] <short title>`, with the brief from
+   `references/worker-brief.md`.
+   - Local: `create_agent` in the new `workspaceId`, `notifyOnFinish` left at
+     default true.
    - Remote: `paseo run --host <target> --workspace <id> --background --json
      --title "[WI-NN] <short title>" --provider omp/<model> --mode <modeId>
      [--thinking <thinkingOptionId>] --label tracker=<tracker slug> --label
-     wi=WI-NN --env VITEST_MAX_WORKERS=2 "<brief>"`. `<tracker slug>` is the
-     basename of the tracker directory. `paseo run` waits for the agent to
-     finish by default; `--background` returns once it starts, and a launch
-     without it blocks your turn. The prompt is the positional argument, so
-     save the brief to a temporary file and pass `"$(cat <file>)"`. Take the
-     agent ID from the JSON. The `tracker` label is how the listener finds
-     this worker; never omit it.
-4. Verify placement: provider `omp`, the profile's mode, and a cwd equal to
-   the new worktree.
-   - Local: `get_agent_status`.
-   - Remote: `paseo inspect --host <target> <agent-id>`.
+     wi=WI-NN --env VITEST_MAX_WORKERS=2 "$(cat <brief file>)"`. Tracker slug
+     = tracker dir basename. Without `--background` the call blocks your turn.
+     The `tracker` label is how the listener finds the worker; never omit it.
+4. **Verify placement:** provider `omp`, the profile's mode, cwd = the new
+   worktree (local `get_agent_status`; remote `paseo inspect --host <target>
+   <agent-id>`). Wrong placement → archive (remote `paseo archive --host
+   <target> --force <agent-id>`) and relaunch before it edits anything.
+5. **Record** host, workspace ID, worktree path, branch, agent ID in item and
+   ledger; set `HANDED_OFF`. After the tracker's first handoff, create the
+   status heartbeat if none exists (§ Reconciliation).
 
-   If the worker landed elsewhere, archive it (remote:
-   `paseo archive --host <target> --force <agent-id>`) and relaunch before it
-   edits anything.
-5. Record host, workspace ID, worktree path, branch, and agent ID in the item
-   file and ledger, and set the item to `HANDED_OFF`. After the first
-   handoff of a tracker, create the status heartbeat if none exists
-   ([Reconciliation](#reconciliation)); do not wait for the done signal.
+Labs: each worker claims its own lab through verified-build and keeps it
+while its PR is open or a prototype review is pending; you release it when
+the work is done (§ Cleanup per item), never the operator. Cap concurrent
+workers per lab system at the ledger's capacity, counting all hosts. Capacity
+unknown and a worker reports no lab free: record the observed capacity, stop
+launching for that lab system, queue remaining `READY` items as `QUEUED`, and
+launch the next when a lab frees.
 
-Each worker claims its own lab through verified-build, and keeps it while its
-PR is open or a prototype review is pending. The orchestrator releases it as
-soon as the work is done (see [Cleanup per item](#cleanup-per-item)); it never
-asks the operator to. Cap concurrent workers per lab system at the
-capacity recorded in the ledger, counting workers on every host. When
-capacity is unknown and a worker
-reports that no lab is available, record the observed capacity, stop
-launching for that lab system, and queue the remaining `READY` items as
-`QUEUED`. Launch the next one when a lab frees up.
+### Worker notifications
 
-### Worker notifications during intake
+On each notification read the worker's final `WORKER_STATUS` block (worker
+brief), update item and ledger, and act:
 
-Workers finish turns while the operator is still typing. On each
-notification, read the worker's final `WORKER_STATUS` block (defined in the
-worker brief), update the item and ledger, and act:
+| State | Action |
+|---|---|
+| `IN_PROGRESS` | Record it, with the ADN playbook and verified-build mode. |
+| `NEEDS_OPERATOR`, `PROTOTYPE_REVIEW` | Screen `NEEDS_OPERATOR` per § Asking the operator (non-product → oracle, not the queue). Otherwise add to `## Waiting on you`, republish, and append the queue (one line per item) to your next acknowledgment when it changed. Don't derail intake. Prototype reviews hold a lab and block implementation: keep them at the top. |
+| `NEEDS_ORCHESTRATOR` | Screen, oracle if consequential, answer the worker now. |
+| `FAILED_VALIDATION` | Record; worker iterates on the same PR. Escalate only when the same failure survives two materially different fixes. |
+| `BLOCKED` | Resolve it yourself when the cause is yours (missing evidence, wrong target, lab capacity, `MAIN_RED` → § Main gate). Otherwise queue it for the operator. |
+| `VALIDATED` | § Review and merge. |
+| `NOT_REPRODUCED`, `EXPECTED_BEHAVIOR` | Interaction-evidence gate (§ Review and merge), then to the operator. |
 
-- `IN_PROGRESS`: no operator action needed; record it, including the ADN
-  playbook and verified-build mode the worker chose.
-- `PROTOTYPE_REVIEW` or `NEEDS_OPERATOR`: for `NEEDS_OPERATOR`, first screen
-  the question per [Asking the operator](#asking-the-operator); a non-product
-  ask goes to the oracle, not the queue. Otherwise add the item to the ledger's
-  "Waiting on you" queue (and republish the dashboard, per
-  [Dashboard](#dashboard)) and append the queue, one line per item, to your
-  next acknowledgment whenever it changed. Do not derail intake; the
-  operator may answer between dumps or later. A worker waiting on prototype
-  review cannot implement and is still holding a lab, so keep those items at
-  the top of the queue.
-- `FAILED_VALIDATION`: record it and let the worker iterate on the same PR.
-  Escalate only when the worker reports the same failure surviving two
-  materially different fixes, as verified-build requires.
-- `BLOCKED`: resolve it yourself when the cause is in your control (missing
-  evidence, wrong target, lab capacity). Otherwise queue it for the operator.
+No status block or a timeout means inspect (`get_agent_status`, `paseo logs
+<id>`; remote: `paseo inspect --host <target> <id>`, `paseo logs --host
+<target> <id>`), not failure.
 
-A notification with no status block, or a timeout, means inspect the agent
-(`get_agent_status`, `paseo logs <id>`; for a remote worker
-`paseo inspect --host <target> <id>` and `paseo logs --host <target> <id>`).
-It does not mean the worker failed.
-
-**Remote workers.** A worker on a remote host sends no `notifyOnFinish`
-notification, because the Paseo MCP tools reach only the local daemon. The
-listener ([Dashboard](#dashboard)) finds remote workers by their
-`tracker=<tracker slug>` label and sends you
-`WORKER_TURN_ENDED host=<name> agent=<id> status=<status> name=<agent name>.
-Read its WORKER_STATUS: paseo logs --host <target> <id>` with
-`paseo send --no-wait` whenever one finishes a turn. Treat that message as a
-notification: run the `paseo logs --host <target> <id>` it names, read the
-final `WORKER_STATUS` block, and handle it exactly as above. A
-`WORKER_TURN_ENDED` whose logs hold no status block is the "no status
-block" case: inspect the agent.
+**Remote workers** send no `notifyOnFinish`. The listener finds them by the
+`tracker=<slug>` label and sends you `WORKER_TURN_ENDED host=<name>
+agent=<id> status=<status> name=<agent name>. Read its WORKER_STATUS: paseo
+logs --host <target> <id>`. Treat it as a notification: run the named logs
+command and handle the status block as above; no block = inspect.
 
 ## Orchestration
 
-When the operator says they are done ("done", "that's all", "go"), set the
-ledger mode to `ORCHESTRATION` and:
+When the operator says done ("done", "that's all", "go"), set mode
+`ORCHESTRATION` and:
 
-1. Finish intake: export any final images, merge pending research, and hand
-   off every item that can reach `READY`. For the rest, ask all remaining
-   blocking questions in one numbered message.
-2. Create the status heartbeat if the first handoff did not already
-   (`create_heartbeat`, every 20 minutes) whose prompt
-   says: `orchestrate <tracker> status pass: re-read <ledger path>, run
-   scripts/reconcile.py and act on every verdict, and report only changes or
-   blockers.` It catches stuck workers that send no notification and
-   re-anchors the session after compaction. Each pass is the
-   [Reconciliation](#reconciliation) below, which inspects each active
-   worker on its own host and retries every `QUEUED` item through Handoff
-   step 0. Record the heartbeat's ID in the ledger.
-3. Post the status board (format below), then drive each item through its
-   states as notifications, heartbeats, and operator answers arrive.
-
-Late reports during orchestration are normal: log them through intake and
-continue.
+1. Finish intake: export final images, merge pending research, hand off every
+   item that can reach `READY`; ask all remaining blocking questions in one
+   numbered message.
+2. Create the status heartbeat if missing (`create_heartbeat`, every 20 min),
+   prompt: `orchestrate <tracker> status pass: re-read <ledger path>, run
+   scripts/reconcile.py and scripts/landing_queue.py and act on every verdict,
+   and report only changes or blockers.` Record its ID in the ledger.
+3. Post the status board, then drive items as notifications, heartbeats, and
+   answers arrive. Late reports go through intake as usual.
 
 ### Reconciliation
 
-The operator's ruling (2026-10-10, BB-180): queued and waiting work must be
-checked regularly, not only live workers. Items whose gate cleared sat
-`QUEUED` for one to two days, a driver read "log it, don't fix it" as "don't
-launch the items", and review subagents ran 40 to 60 minutes unchecked. So
-the check is a script, not driver memory. Run it on every status pass,
-every heartbeat, every status request, when the tracker enters
-`ORCHESTRATION`, and before posting the status board:
+Operator ruling (2026-10-10, BB-180): queued and waiting work is checked
+regularly, not only live workers (cleared items sat `QUEUED` for days; "log
+it, don't fix it" was misread as "don't launch"; review subagents ran 40–60
+min unchecked). The check is a script, not memory. Run it on every status
+pass, heartbeat, status request, entry to `ORCHESTRATION`, and before posting
+the status board:
 
 ```
 python3 <skill-dir>/scripts/reconcile.py <tracker-dir>
 ```
 
-It is read-only. For each row that is not terminal it prints the state, the
-gate, the last timeline entry and its age, and a verdict, then a summary line
-(`RECONCILE <tracker>: ... actions=N`). Exit 0 means nothing to do, 10 means
-at least one starred verdict, 2 a bad ledger. It inspects each worker row's
-agent and the running review subagents with `paseo inspect` and `paseo ls`
-(read-only, with `--host` for remote items) and reads PR gates with `gh pr
-view`. When those are unavailable the row falls back to its timeline age;
-`--no-live` and `--no-net` skip them.
-
-**Stating a gate.** A row's `Waiting on` cell says `gate: WI-05, WI-07` (item
-IDs in the same ledger, cleared when the row is `MERGED`, `CLEANED`, `DONE`
-or `CLOSED`) or a PR URL (cleared when merged). The gate blocks launch only;
-a dependency that matters at merge time belongs in the landing queue order.
-A deliberate hold reads `park: <reason>`. A `READY`, `QUEUED` or `BACKLOG`
-row with neither is launchable, whatever its title says.
+- Read-only. Per non-terminal row: state, gate, last timeline entry and age,
+  verdict; then `RECONCILE <tracker>: ... actions=N`. Exit 0 nothing to do, 10
+  at least one starred verdict, 2 bad ledger. Inspects worker agents and
+  running review subagents (`paseo inspect`, `paseo ls`, `--host` for remote)
+  and PR state (`gh pr view`); unavailable → timeline age. `--no-live`,
+  `--no-net` skip those.
+- **Gate syntax** in `Waiting on`: `gate: WI-05, WI-07` (cleared when those
+  rows are `MERGED`, `CLEANED`, `DONE`, `CLOSED`) or a PR URL (cleared when
+  merged). Gates block launch only; merge-time dependencies belong in landing
+  queue order. `park: <reason>` is a deliberate hold. A `READY`, `QUEUED`, or
+  `BACKLOG` row with neither is launchable, whatever its title says.
 
 | Verdict | Action |
 |---|---|
-| `LAUNCH`* | Handoff step 0 now. If no host or lab has room, add a timeline entry with each host's `reason`, keep it `QUEUED`, and tell the operator why in the next status line. A ruling to log or defer something never stops a launch: to hold an item write `park:` and tell the operator. |
-| `CHASE`* | Read the worker's logs. Nudge it once with the specific gap. A review subagent past its bound: read its logs, then have its worker cancel and rerun it, or take the review over. Still `CHASE` on the next pass: relaunch or narrow its scope yourself, and report it `BLOCKED` to the operator only when the way forward is a user-visible choice ([Relaying](#relaying-between-operator-and-workers)). |
-| `STALE`* | The row shows on the dashboard. Chase whoever owns the open gate, drop a gate that no longer applies, or tell the operator what the row is waiting for. |
-| `ASK`* | Remind the operator in chat with how long the ask has waited, what the user would see differently, and your recommendation. A row waiting on the operator for an engineering-internal decision is a driver error: send it to the oracle, decide it, and clear the card ([Asking the operator](#asking-the-operator)). |
-| `DECIDE`* | A `NEEDS_ORCHESTRATOR` worker question: screen it, ask the oracle when it is consequential, and answer the worker now. |
-| `LAND`* | Verify the receipt (`landing-gate CLEAN @ <base>..<head>`; a failure is never pre-existing or unrelated, and a flake is one failure that passes on one rerun, per [What blocks a landing](#what-blocks-a-landing)), then enter or advance it in the [landing queue](#landing-queue). |
-| `CLEANUP`* | Run [Cleanup per item](#cleanup-per-item). |
-| `CHECK`* | Fix the row now: a gate naming an unknown ID, an unparsable `gate:`, or an unknown state. |
-| `WAIT`, `WAIT_OPERATOR`, `HELD`, `PARKED`, `OK` | Nothing yet. `HELD` is a `VALIDATED` or `READY_TO_MERGE` row whose `Waiting on` says `merge hold`, the tracker's recorded merge hold; it lands when the hold lifts. |
+| `LAUNCH`* | Handoff step 0 now. No host or lab room: timeline entry with each host's `reason`, keep `QUEUED`, tell the operator why in the next status line. A ruling to log or defer never stops a launch; to hold, write `park:` and tell the operator. |
+| `CHASE`* | Read the worker's logs; nudge once with the specific gap. Review subagent past its bound: read its logs, have its worker cancel and rerun it, or take the review over. Still `CHASE` next pass: relaunch or narrow scope yourself; report `BLOCKED` to the operator only when the way forward is a user-visible choice. |
+| `STALE`* | Chase the owner of the open gate, drop a gate that no longer applies, or tell the operator what the row waits for. |
+| `ASK`* | Remind the operator: how long it waited, what users would see differently, your recommendation. A row waiting on the operator for an engineering-internal decision is your error: oracle, decide, clear the card. |
+| `DECIDE`* | Answer the `NEEDS_ORCHESTRATOR` question now (oracle when consequential). |
+| `LAND`* | Verify the receipt (§ Review and merge), then queue it (§ Landing queue). |
+| `CLEANUP`* | § Cleanup per item. |
+| `CHECK`* | Fix the row: unknown gate ID, unparsable `gate:`, unknown state. |
+| `WAIT`, `WAIT_OPERATOR`, `HELD`, `PARKED`, `OK` | Nothing. `HELD` = `VALIDATED`/`READY_TO_MERGE` row whose `Waiting on` says `merge hold`; it lands when the hold lifts. |
 
-**Time bounds.** The script measures from the newest `## Timeline` entry in
-the item file (`- 2026-10-11 ~16:20Z ...`), so append one for every launch
-attempt, chase, nudge and operator reminder; that is what restarts a row's
-clock. Defaults: `worker` 60m (a worker idle or silent that long),
-`review` 30m (a running review subagent), `stale` 24h (a row waiting on a
-gate, research, a block or a park), `operator` 24h (an unanswered ask). A
-tracker overrides them with a header line, for example
-`Reconcile: worker=45m review=20m stale=12h operator=24h`; `--bound
-name=duration` overrides it for one run. `LAUNCH` has no bound: a launchable
-row is actionable the moment it appears.
+- **Time bounds** measure from the newest `## Timeline` entry in the item file
+  (`- 2026-10-11 ~16:20Z ...`): append one for every launch attempt, chase,
+  nudge, and operator reminder. Defaults `worker` 60m, `review` 30m, `stale`
+  24h, `operator` 24h. Header override: `Reconcile: worker=45m review=20m
+  stale=12h operator=24h`; one run: `--bound name=duration`. `LAUNCH` has no
+  bound.
+- `dashboard.py` runs the same check and shows `LAUNCH`, `CHASE`, `STALE`,
+  `ASK`, `DECIDE`, `CHECK` rows in "Needs attention: stale or unlaunched" (the
+  template's `{{attention}}` slot). Republish after a pass that changed a
+  verdict.
+- Report to the operator only changes and what you could not act on, with
+  the reason.
 
-**Dashboard.** `scripts/dashboard.py` runs the same check from the ledger and
-item timelines alone and shows `LAUNCH`, `CHASE`, `STALE`, `ASK`, `DECIDE` and `CHECK`
-rows in a "Needs attention: stale or unlaunched" block (the template's
-`{{attention}}` slot; a tracker-local template without it shows none). Run
-`dashboard.py` after a pass that changed a verdict.
+### Relaying
 
-Report to the operator only what changed or what you could not act on, with
-the reason.
-
-### Relaying between operator and workers
-
-- Relay operator answers to the worker with `send_agent_prompt`, or for a
-  remote item `paseo send --host <target> --no-wait <agent-id> "<message>"`.
-  Quote the
-  operator verbatim and label your own reading as interpretation. Log each
-  decision verbatim in the ledger's decisions section. Every later action on
-  a worker (relay, inspect, logs, archive) uses the host recorded on its item.
-- Answer worker questions yourself when the answer is already in the
-  operator's words, the item file, or the repository. Send everything else
-  that is not a product behavior decision to the oracle
-  ([Asking the operator](#asking-the-operator)).
-- Send follow-ups to a worker only for new evidence, an operator answer, a
-  concrete scope correction, or a verified problem. Do not prompt a worker
-  that is running.
-- If a worker has not progressed across two heartbeats, inspect its logs
-  (`paseo logs`, with `--host <target>` for a remote item). Nudge it once
-  with the specific gap. If it is still stuck, report it to the
-  operator as `BLOCKED` with the cause and options (retry, relaunch, narrow
-  scope, or drop).
+- Operator answers → worker via `send_agent_prompt` (remote: `paseo send
+  --host <target> --no-wait <agent-id> "<message>"`). Quote the operator
+  verbatim; label your reading as interpretation. Log each decision verbatim
+  in the ledger's decisions section. Every later action on a worker uses the
+  host on its item.
+- Answer worker questions yourself when the operator's words, the item file,
+  or the repo already answer them; everything else that is not product
+  behavior goes to the oracle.
+- Message a worker only for new evidence, an operator answer, a concrete
+  scope correction, or a verified problem. Never prompt a running worker.
+- No progress across two heartbeats: read its logs, nudge once with the gap;
+  still stuck → report `BLOCKED` to the operator with cause and options
+  (retry, relaunch, narrow scope, drop).
 
 ### Asking the operator
 
 The operator decides product behavior only: what users experience or what the
-product does. Nothing else blocks on them. Send every other question to the
-oracle first (OMP: `task` with the `oracle` agent; packet per the global
-AGENTS.md "Model and agent routing" section: the decision, constraints,
-evidence and paths, credible options, your recommendation and uncertainty,
-and one narrow question ending in `?`), or decide it yourself with tools.
-That covers technical choices, design trade-offs inside a settled product
-direction, where to file findings, lab and access chores, tooling and process
-questions, and risk calls on internal infrastructure. Record the oracle's
-answer in the ledger's decisions section with whether you accepted it, and
-act on it.
+product does. Everything else goes to the oracle first (OMP: `task` with
+`oracle`; packet per global AGENTS.md "Model and agent routing": decision,
+constraints, evidence and paths, options, your recommendation and
+uncertainty, one narrow question ending in `?`) or you decide it with tools:
+technical choices, trade-offs inside a settled direction, where to file
+findings, lab and access chores, tooling and process, risk calls on internal
+infrastructure. Record the oracle's answer and whether you accepted it in the
+decisions section; act on it.
 
-Use the operator only for a product behavior decision, or for an action that
-is irreversible or explicitly reserved to them: merge authority beyond the
-standing rule, production deploys (never offered), and repo rules that name
-the operator when no operator ruling already decides the matter (the oracle
-checks; see below). Also use them when the oracle confirms the only way forward is
-something only they can supply, such as a credential; the card's `Problem:`
-says so. Whether a reported behavior is expected or a feature is wanted
-(`NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, `WONT_FIX`, `DEFERRED`) is a product
-call and stays theirs.
+Operator only for:
 
-When an operator ruling already decides the matter, even though a repo rule
-names the operator, do not ask. Cite the ruling as the authority, make the
-change, and disclose it in the PR description so the operator can veto at
-review.
+- a product behavior decision, including whether a behavior is expected or a
+  feature wanted (`NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, `WONT_FIX`,
+  `DEFERRED`);
+- a prototype review;
+- an irreversible or reserved action: merge authority beyond the standing
+  rule, production deploys (never offered), repo rules naming the operator
+  when no operator ruling decides the matter (the oracle checks);
+- something only they can supply, such as a credential, confirmed by the
+  oracle (the card's `Problem:` says so).
 
-**Standing ruling (operator, 2026-10-12).** "Do not ask the operator to
-approve engineering decisions. If a change makes the system faster or cheaper
-and preserves customer functionality and existing user behavior, decide it.
-Use the Oracle for consequential choices, then implement." The operator's
-words: "you need to rely on your sources and come to me with a fucking
-recommendation instead of these banal questions." So:
+When an operator ruling already decides the matter, even if a repo rule names
+the operator, do not ask: cite the ruling, make the change, disclose it in the
+PR description so the operator can veto at review.
 
-- When the operator asks for work, build it. Never ask permission to build and
-  never offer a spec instead; spec or ADR work is drafted alongside the code.
-- Engineering-internal decisions are yours, with the Oracle for consequential
-  ones: performance, cost, robustness, refactors, ops and preconditions,
-  rollout mechanics, hostnames, which tenants first, internal-only spec or ADR
-  changes. Record the Oracle verdict and implement.
-- A card goes to the operator only for a functionality, UX, customer
-  expectation or documented-API decision, a prototype review, or a reserved
-  irreversible action. Its `Decide:` states your recommendation and exactly
-  what the user would see differently. Never an approval-only ask such as
-  "approve to proceed", "approve the ADR", "may I build", or "will an operator
-  run X" (`scripts/dashboard.py` rejects these).
-- A prototype returns to the operator after their feedback only once it is
-  redesigned, with a plain "What's different" list ("It needs you. You were
-  supposed to redesign the prototype."). Until then it is not a card.
-- A feature is designed for any customer behind a runtime toggle, not a
+**Standing ruling (2026-10-12).** "Do not ask the operator to approve
+engineering decisions. If a change makes the system faster or cheaper and
+preserves customer functionality and existing user behavior, decide it. Use
+the Oracle for consequential choices, then implement." Also: "you need to
+rely on your sources and come to me with a fucking recommendation instead of
+these banal questions."
+
+- When the operator asks for work, build it. Never ask permission to build or
+  offer a spec instead; spec/ADR work is drafted alongside the code.
+- Engineering-internal decisions are yours (oracle for consequential ones):
+  performance, cost, robustness, refactors, ops and preconditions, rollout
+  mechanics, hostnames, which tenants first, internal-only spec/ADR changes.
+- Cards only for a functionality, UX, customer-expectation, or documented-API
+  decision, a prototype review, or a reserved irreversible action, with your
+  recommendation and what users would see differently. Never approval-only
+  asks ("approve to proceed", "approve the ADR", "may I build", "will an
+  operator run X"); `dashboard.py` rejects them.
+- A prototype returns to the operator after feedback only once redesigned,
+  with a plain "What's different" list ("It needs you. You were supposed to
+  redesign the prototype."). Until then it is not a card.
+- Features are designed for any customer behind a runtime toggle, not a
   curated scope ("Think through it fully. As if it could be turned on for any
-  organization."). Preconditions it needs, such as a census, are built in as
-  automatic preflight that runs when it is turned on, never a manual operator
-  step.
+  organization."). Preconditions (e.g. a census) are automatic preflight when
+  turned on, never a manual operator step.
 
-Workers consult the oracle before ending a turn with `NEEDS_ORCHESTRATOR` or
-`NEEDS_OPERATOR`. Screen
-every such escalation again before posting a card. When it is a product
-decision, keep the
-worker's oracle recommendation in the card.
+Workers consult the oracle before ending a turn `NEEDS_ORCHESTRATOR` or
+`NEEDS_OPERATOR`. Screen every escalation again before posting a card; for a
+product decision keep the worker's oracle recommendation in the card.
 
-### What blocks a landing
+## Landing
 
-The landing gate exists so that main passes its full test suite. It blocks
-on failures only:
+Operator rulings:
 
-- a failing or erroring test, a failing build, a product type error, or a
-  lint error blocks;
-- warnings never block, and no rule may make them block: console output from
-  tests (including React `act()` and expected errors), lint warnings, build,
-  chunk and bundle-size warnings, and file-length targets are reported in the
-  receipt and may become their own work item, never a landing criterion and
-  never a reason to hold the queue;
-- a check that fails and then passes on one rerun is a flake: it does not
-  block. Record it and open a work item to fix that test. A check that fails
-  twice is a failure;
-- a failure is never accepted because it is pre-existing, inherited, or
-  unrelated. It gets a repair PR that fixes only that failure; never bundle
-  refactors, file splits, hygiene, or new checks into a repair.
+- 2026-10-06, merge authority (§ Merge authority).
+- 2026-10-10: merges must not thrash (PRs rebasing on each other and rerunning
+  tests repeatedly waste work). The driver sets merge order.
+- 2026-10-12 22:00Z: "if the PR is functionally working and passing tests on
+  the PR - MERGE IT and then we will run a final pre-deploy on main." The
+  operator will not wait on the ~2 h full suite before merging.
 
-Making the gate stricter (a new check, or turning a warning into a failure)
-is an operator decision, proposed on its own and never folded into a repair.
+Two gates:
+
+| Gate | Tree | Run by | Blocks | Target |
+|---|---|---|---|---|
+| Receipt | PR head merged with current main | worker, before `VALIDATED` | the merge | ≤ 15 min |
+| Main gate | main tip | driver, continuously | nothing; selects the deploy candidate | full suite |
+
+- Receipt = the repo's PR receipt command (ccore2: `node
+  scripts/landing-gate.mjs --changed origin/main`: lint, typecheck, builds,
+  and the tests affected by the PR's changes). Repo without one: lint,
+  typecheck, builds, and the test suites of the packages the PR changes (its
+  AGENTS.md and package scripts). Commands live on the ledger's `Gates:` line.
+- Main gate = the repo's full gate (ccore2: `node scripts/landing-gate.mjs`).
+- Never run the same suite twice on the same tree. Never rerun a whole lane
+  to retry one failed file. You never rerun a worker's receipt.
+
+### What fails a gate
+
+Failures only:
+
+- a failing or erroring test, failing build, product type error, or lint
+  error fails;
+- warnings never fail, and no rule may make them fail: test console output
+  (React `act()`, expected errors), lint warnings, build, chunk, and
+  bundle-size warnings, file-length targets. They are reported and may become
+  their own work item, never a landing criterion or a reason to hold the
+  queue;
+- a check that fails, then passes on one rerun, is a flake: it does not fail;
+  record it and open a work item for that test. Fails twice = failure;
+- a failure is never accepted as pre-existing, inherited, or unrelated. It
+  gets a repair PR that fixes only that failure; never bundle refactors, file
+  splits, hygiene, or new checks into a repair.
+
+Making a gate stricter (a new check, a warning turned failure) is an operator
+decision, proposed on its own, never folded into a repair.
 
 ### Review and merge
 
-When a worker reports `VALIDATED`, verify the receipt yourself: the PR
-exists, its head SHA equals the validated SHA, the worker's `checks:` line
-reads `landing-gate CLEAN @ <base>..<head>, log <path>` (the repo's landing
-gate reports CLEAN at the validated head merged with the current base, with
-the log path recorded; a repo with no landing gate script runs its full test
-suite and builds from its AGENTS.md and package scripts, under
-[What blocks a landing](#what-blocks-a-landing)), GitHub reports it
-mergeable, the PR shows the visual evidence table, and the PR carries the
-interaction table that passes the gate below. Open at least one of its
-screenshots or videos. A worker that calls a failure pre-existing,
-inherited, or unrelated to justify `VALIDATED` fails the receipt.
+On `VALIDATED`, verify the receipt yourself:
 
-If the receipt passes and every operator decision on the item is answered
-(prototype review, behavior-changing spec diff, product behavior choices),
-it enters the [landing queue](#landing-queue) without asking, and merges when
-it reaches position 1 under [Merge authority](#merge-authority). Do not send
-the operator an "approve?" packet: the worker and the gates have the
-information, and asking the operator to confirm a passing PR only asks them
-to rubber-stamp it. A passing receipt does not merge the PR immediately: the
-queue sets the order so PRs do not rebase on each other repeatedly. After
-merging, tell the operator in one short notice that
-the change is merged and that production deploy is a human operator action. Do
-not ask whether to deploy and do not offer to:
+- the PR exists and its head equals the validated SHA;
+- `checks:` reads `receipt CLEAN @ <base>..<head>: <command>, log <path>`,
+  where `<base>` is a main commit merged into the head;
+- `review:` shows a reviewer approving that exact head;
+- GitHub reports it mergeable;
+- the PR has the visual evidence table and an interaction table that passes
+  the interaction-evidence gate below; open at least one screenshot or video;
+- a worker calling a failure pre-existing, inherited, or unrelated fails the
+  receipt.
+
+Receipt passes and every operator decision on the item is answered (prototype
+review, behavior-changing spec diff, product choices) → it enters the landing
+queue without asking. Never send an "approve?" packet: asking the operator to
+confirm a passing PR only asks for a rubber stamp. After each merge, one short
+notice; production deploy is a human operator action; never ask or offer:
 
 ```
 WI-07 merged — Signals acknowledge error (bug)
@@ -775,375 +562,233 @@ PR: <url>   squash: <sha>   validated head: <sha>   lab: <lab>
 What changed: <one or two sentences>
 Evidence: <baseline vs candidate summary; PR evidence table link>
 Risks / not covered: <list or none>
+Deploy candidate: <Last CLEAN main sha, or "main gate running on <sha>">
 ```
 
-Ask the operator only for what the gates cannot settle and the oracle cannot
-answer: an open product behavior decision, a spec or ADR diff that changes
-user-visible behavior (see [Spec and ADR changes](#spec-and-adr-changes)), a
-prototype review, a scope change that alters product
-behavior, or an irreversible action reserved to the operator. A known gap the
-worker could not verify, a step that needs hands, internal-only spec or ADR
-changes, and risk calls on internal
-infrastructure go to the oracle first or to the driver's own tools. Send
-technical and process questions to the oracle first
-([Asking the operator](#asking-the-operator)). Put the ask in
-`## Waiting on you` as usual. Once it is answered and the gates pass, merge.
+What the gates and the oracle cannot settle goes to the operator as a card
+(§ Asking the operator); once answered and the receipt passes, merge. Change requests
+and post-merge feedback go to the same worker verbatim; it updates its PR (or
+opens a follow-up) and revalidates.
 
-Change requests and post-merge feedback go back to the same worker
-verbatim; the worker updates its PR (or opens a follow-up PR) and
-revalidates.
-
-`NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, and `VALIDATED` for a user-facing
-item need interaction evidence before they count. Open the worker's
-interaction table and look at its screenshots or video yourself. Bounce the
-report back to the worker, citing the gap, unless the evidence shows the
+**Interaction-evidence gate.** `NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, and
+`VALIDATED` for a user-facing item count only with evidence of the
 operator's exact reported interaction (for a feature, the desired
-interaction) performed in a real browser and its observed outcome. For an
-item with no UI (CLI, API, job), the same gate applies to the exact command or
-call the operator reported. The operator's words are the rationale: "So you
-looked at a screenshot that showed that there were highlights. You didn't
-open the UI. You didn't click on the highlight to see if it highlighted the
-comment. You didn't check to see if any of the user experience was working.
-That's not an acceptable way to check." DOM counts, render checks, data
-checks, and static screenshots fail the gate, and so does your own read of a
-worker's summary. Never tell the operator something does or doesn't
-reproduce, or does or doesn't work, on that basis.
-
-Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
-Interaction evidence gathered there fails the gate.
-
-A `NOT_REPRODUCED` or `EXPECTED_BEHAVIOR` that passes the gate goes to the
-operator with the worker's evidence. The operator chooses whether to supply
-more detail (the worker retries), close the item, or turn it into a feature
-request.
+interaction) performed in a real browser, with its observed outcome. No-UI
+items (CLI, API, job): the exact command or call reported. Open the
+interaction table and its screenshots or video yourself; bounce gaps back to
+the worker. DOM counts, render checks, data checks, static screenshots, and
+your read of a worker summary fail. The operator: "So you looked at a
+screenshot that showed that there were highlights. You didn't open the UI.
+You didn't click on the highlight to see if it highlighted the comment. You
+didn't check to see if any of the user experience was working. That's not an
+acceptable way to check." Never tell the operator something does or doesn't
+reproduce or work on lesser evidence. Paseo's built-in browser (`browser_*`
+tools) is not used; evidence from it fails. A passing `NOT_REPRODUCED` or
+`EXPECTED_BEHAVIOR` goes to the operator with the evidence: they supply more
+detail (worker retries), close it, or turn it into a feature request.
 
 ### Spec and ADR changes
 
-ADR numbers are not part of any approval. Allocate the next free number from the repo's tool (or max+1 across origin/main and open branches), renumber on any collision, and never ask the operator about a number or list it in `## Waiting on you`. The agent may merge a PR whose only purpose is resolving ADR number collisions once repo checks pass.
-
-Spec or ADR work is drafted alongside the code and never blocks building
-(operator ruling 2026-10-12: "I asked you to do the work. Why would I fucking
-not approve building it? Why do I want a spec? It's useless to me."). Sort
-every change by its effect.
-
-**Internal-only** (no change to functionality, user experience, customer
-expectations or a documented API contract: an additive field, an internal
-index, a storage layout). The Oracle checks the change, it is committed with
-the code, and the PR description discloses it. No operator page, no card, no
-diff approval.
-
-**Behavior-changing** (it changes what users see or a documented API
-contract). The rendered diff page still goes to the operator, never wording
-in chat or the ledger, with the card stating what the user would see
-differently and a recommendation. Exception: when an existing operator
-ruling or an approved prototype already decides the behavior, the Oracle
-checks that the spec matches it and the change ships citing that authority,
-disclosed in the PR; do not ask.
-
-Mechanics for the behavior-changing path. The worker writes
-the edit uncommitted in its worktree and runs
-`python3 <skill-dir>/scripts/spec_diff.py <worktree> --base <base branch> --path spec --title "<what changes>" --summary-file <plain-terms note> --reply "<how to answer>" --tracker-dir <tracker-dir> --publish`
-(one `--path` per spec directory; `--head <ref>` renders a commit instead of
-the working tree). The script needs only Python and pandoc, reads the text
-from git, and saves one draft Ava page as a subdocument of this tracker's
-dashboard (`parent_id` is `plan_id` from `<tracker-dir>/dashboard.json`; it
-fails when that file has no `plan_id`, and it moves and rechecks a page whose
-create ignored the parent). The page shows
-each changed file as one inline diff, with removed words struck through and
-added words marked in place, plus a collapsed view of the whole file with the
-change marked. `manifest.json` next to it fingerprints the proposed files.
-
-Put a `Links:` entry to the page in the item's `## Waiting on you` card and
-leave the wording out of it. The operator's decision covers exactly the
-rendered diff. After the decision the worker commits those bytes unchanged and
-runs
-`python3 <skill-dir>/scripts/spec_diff.py <worktree> --check <out>/manifest.json --head HEAD`
-before pushing. Changed text is a new proposal: rerun the script with the
-same `--out` to update the page, and ask again.
+- ADR numbers are never part of an approval: next free number from the repo's
+  tool (or max+1 across origin/main and open branches), renumber on
+  collision, never ask or list it in `## Waiting on you`. You may merge a PR
+  whose only purpose is resolving ADR number collisions once repo checks pass.
+- Spec/ADR work is drafted alongside the code and never blocks building
+  (ruling 2026-10-12: "I asked you to do the work. Why would I fucking not
+  approve building it? Why do I want a spec? It's useless to me.").
+- **Internal-only** (no change to functionality, UX, customer expectations,
+  or a documented API: additive field, internal index, storage layout): the
+  oracle checks it, it is committed with the code, the PR discloses it. No
+  page, card, or approval.
+- **Behavior-changing** (what users see, or a documented API): the rendered
+  diff page goes to the operator, never wording in chat or the ledger; the
+  card states what users would see differently and your recommendation.
+  Exception: when an operator ruling or approved prototype already decides
+  the behavior, the oracle checks the spec matches it and it ships citing
+  that authority, disclosed in the PR.
+- Behavior-changing mechanics (worker runs `scripts/spec_diff.py`, the page
+  is a dashboard subdocument, the decision covers exactly the rendered diff,
+  committed bytes are checked against its manifest):
+  `references/spec-diff.md`.
 
 ### Merge authority
 
-The operator's standing rule (2026-10-06), given for bug bashes and carried
-over to every orchestrator tracker: "any PR that we do a bug bash on, that is
-validated, where all decisions are approved, and it's passing all of our
-gates, you don't need to ask for my approval to merge it. You just need to
-merge it." So the orchestrator merges a tracker's PR, then runs the per-item
-cleanup below (lab claim, demos, worktree), when all of these hold:
+Standing rule (2026-10-06), carried to every tracker: "any PR that we do a bug
+bash on, that is validated, where all decisions are approved, and it's passing
+all of our gates, you don't need to ask for my approval to merge it. You just
+need to merge it." You merge a tracker PR, then run § Cleanup per item, when:
 
 - the worker reported `VALIDATED` for the exact head being merged;
-- the receipt in [Review and merge](#review-and-merge) passes, including the
-  interaction-evidence gate;
-- the landing gate is CLEAN on the exact tree being merged (main plus the
-  PR, built in the landing worktree), as defined in
-  [What blocks a landing](#what-blocks-a-landing);
-- every operator decision the item raised has an answer in the decisions
-  log, and any spec or ADR change either matches the approved diff page or
-  is internal-only with an Oracle verdict and PR disclosure;
-- the target repository's merge policy is met.
+- the receipt passes (§ Review and merge), including interaction evidence;
+- `landing_queue.py` reports `MERGE` for it;
+- every operator decision it raised is answered in the decisions log, and any
+  spec/ADR change matches the approved diff page or is internal-only with an
+  oracle verdict and PR disclosure;
+- the repository's merge policy is met.
 
-The rule does not authorize force-pushing, merging a head that was not
-validated, or merging PRs that are not this tracker's. If the operator asks
-to hold a PR, or to keep its lab or worktree, do so and record why.
-
-Do not create approval gates the repository does not have. Skill docs and
-agent instruction text, such as a verify-ccore `features/*.md` entry or an
-`AGENTS.md` pointer, are reversible repository docs. When the text is checked
-against the code and scenarios on main, it ships in the item's PR, or in a
-docs PR that the orchestrator merges once the gate passes. It never goes on an
-operator card (operator ruling 2026-10-09: "If you have a verify ccore skill
-update and it makes it more accurate, then you need to merge that"). Before
-writing any card, apply never-block-on-the-human: card only what the
-operator reserves: user-visible spec changes, production actions,
-credentials, product choices and prototype review.
-
-Nobody in a tracker deploys to production: not the orchestrator, not a
-worker, and not on request. Do not ask the operator whether to, offer to, or
-list it as a next step. Validation happens in a lab. "Shipped" for an agent
-means merged. Production deploy is a human operator action that happens
-outside the tracker.
-
-To merge:
-
-1. Follow the target repository's merge policy (its AGENTS.md, merge-gate
-   skills, required checks, and up-to-date-branch rules). If the repository
-   designates a different merger, such as a merge bot, bring the PR to that
-   process's ready state and track it until it merges.
-2. Merge through the [landing queue](#landing-queue), one PR at a time. A
-   PR whose receipt passes enters the queue; the driver merges only the PR at
-   position 1, and only when `scripts/landing_queue.py` reports `MERGE` for it.
-   Do not broadcast base moves or ask a worker to rebase.
-3. When the verdict is `MERGE`, merge at the validated head with the
-   repository's merge method
-   (default `gh pr merge <n> --squash --match-head-commit <sha>`) and confirm
-   GitHub reports it merged. Record the merge time and commit in the row's
-   `Merged` column (`references/ledger-template.md` § Merged and Deployed),
-   then, only if the squash commit's first parent equals the `base` sha of
-   the CLEAN `pr` record (main did not move between the gate run and the
-   merge), record the squash commit in `gates.jsonl` as the new main gate
-   (same log: the squash produces the tree the gate ran on) and update the
-   ledger's `Last CLEAN main:` line. Otherwise record nothing: the script
-   reports `MAIN_RED` and main is gated again.
-   Never pass `--delete-branch`: it also removes the
-   worker's checked-out worktree, and the lab claim file with it, before the
-   lab can be released. Branch, lab, demo, and worktree teardown belong to
-   the `worktree-cleanup` script below.
-4. After each merge, remove the PR from the queue and run the queue protocol
-   again for the new positions 1 and 2.
+- Never force-push, merge an unvalidated head, or merge another tracker's or
+  a non-tracker PR. Operator asks to hold a PR, keep a lab or worktree: do so
+  and record why.
+- Create no approval gates the repo lacks. Skill docs and agent instruction
+  text (a verify-ccore `features/*.md` entry, an `AGENTS.md` pointer) checked
+  against code and scenarios on main ship in the item's PR or a docs PR you
+  merge once its receipt passes, never on a card (ruling 2026-10-09: "If you
+  have a verify ccore skill update and it makes it more accurate, then you
+  need to merge that"). Card only what the operator reserves: user-visible
+  spec changes, production actions, credentials, product choices, prototype
+  review.
+- Nobody in a tracker deploys to production, asks about it, offers it, or
+  lists it as a next step. Validation is in a lab; "shipped" for an agent
+  means merged.
 
 ### Landing queue
 
-The operator's ruling (2026-10-10): merges must not thrash. Four PRs that
-rebase on each other, with the fourth rebasing and rerunning its tests four
-times, waste work. The orchestrator decides the merge order; PRs take a slot
-in line. The PR next in line prepares to merge after the one in front of it
-merges, and a PR fifth in line waits until it is first.
+`## Landing queue`, directly after `## Status`, is the driver's ordered merge
+priority, one line per PR: `N. #<pr> <ID> validated <sha9> — <note>`, or the
+single line `Empty.`.
 
-**The queue.** `## Landing queue` in the ledger, directly after `## Status`,
-is an ordered list the driver owns, one line per PR:
-`1. #<pr> <ID> validated <sha9> — <LANDING|ON_DECK|WAITING> <short note>`.
-With no entries it holds the single line `Empty.`. A PR enters only when it
-would be mergeable under [Merge authority](#merge-authority): its receipt
-passes and every operator decision on the item is answered. Its row State
-stays `READY_TO_MERGE`. When a PR enters, send its worker one line: "you are
-#N in the landing queue; stay idle; do not merge main or push until I tell
-you that you are first."
+- A PR enters when its receipt passes and every operator decision on the item
+  is answered; its row State stays `READY_TO_MERGE`. Tell its worker once:
+  "you are #N in the landing queue; stay idle and push nothing unless I send
+  UPDATE."
+- Order, applied in turn: (1) operator priority; (2) main-repair PRs (note
+  starts `REPAIR`); (3) no conflict before conflict; (4) smaller blast radius;
+  (5) PRs rewriting shared generated files (prototype parity hashes,
+  architecture-map records, CLI version files, ADR or spec indexes) last.
+  Record one line of reason for any reorder.
+- `Generated paths:` in the ledger header lists fnmatch globs (`*` crosses
+  `/`) for files every PR regenerates, e.g. `groma/*`. Overlap there never
+  forces an update or a wait; a conflict there does.
 
-**Order.** Append new entries at the end, then reorder by these rules, in
-order:
-
-1. Operator-requested priority.
-2. PRs without a conflict go before PRs that conflict with the base; among
-   them, PRs with no overlap go first, since the combined gate is least
-   likely to fail for them.
-3. Smaller blast radius goes before larger.
-4. PRs that rewrite shared generated files go after PRs that don't, such as
-   prototype parity hashes, architecture-map records, CLI version files, and
-   ADR or spec indexes.
-
-Record the reason for any reorder in one line. Only position 1 may change its
-branch to land. Position 2 prepares without pushing. Positions 3 and later do
-nothing.
-
-**Gate records.** The orchestrator owns `<tracker-dir>/gates.jsonl`, an
-append-only file with one JSON object per gate run. `landing_queue.py` reads
-it; the last matching record wins, and a malformed record is exit 2:
+Run after every merge, on each status pass, and whenever a receipt arrives:
 
 ```
-{"kind":"main","sha":"<main sha>","result":"CLEAN|FAILED","log":"<path>"}
-{"kind":"pr","pr":<n>,"base":"<main sha>","head":"<PR head sha>","result":"CLEAN|FAILED","log":"<path>"}
+python3 <skill-dir>/scripts/landing_queue.py <tracker-dir> --repo <local clone> [--remote origin] [--base main] [--json]
 ```
 
-A `main` record says the landing gate ran on that main commit. A `pr` record
-says it ran on `base` + `head` (the tree the squash will produce) in the
-landing worktree. Shas are full or at least 7 characters. A `CLEAN` record
-without a log path is invalid. The ledger also carries
-`Last CLEAN main: <sha> (log <path>)` in its header, which you update with each
-new CLEAN `main` record. After a merge, append a `main` record for the squash
-commit with the log of the `pr` run that produced that tree. A main that
-moved by a merge from outside the tracker has no record: gate it before
-anything lands.
+It fetches the base and each `pull/<n>/head` into `refs/landing-queue/`,
+judges every entry against the current base, and prints the main gate status
+(§ Main gate). Exit 2 bad ledger or gate record, 3 git or gh failure.
 
-**The script.** After every merge, and on each status pass, run
-`python3 <skill-dir>/scripts/landing_queue.py <tracker-dir> --repo <local clone> [--remote origin] [--base main] [--json]`
-and act only on positions 1 and 2. It fetches the base and each PR head into
-`refs/landing-queue/` and reports, per entry, the head against the validated
-sha, PR state, conflict files, and overlap files (changed on the base since
-the merge-base and also changed by the PR; informational, the gate decides),
-then matches `gates.jsonl` against the fetched base and head. Exit 2 means a
-bad ledger or bad gate record, 3 a git or gh failure. The repository's merge
-policy wins: when the base branch requires up-to-date branches, the entry gets
-`UPDATE` instead of `MERGE`.
+| Verdict | Meaning | Action |
+|---|---|---|
+| `MERGE` | open, head = validated, no conflict, main has not touched this PR's files since its last main merge, no earlier `MERGE`/`UPDATE`/`WAIT` entry shares its files (a `REVALIDATE` or `BLOCKED` entry ahead never holds it) | `gh pr merge <n> --squash --match-head-commit <sha>` (or the repo's method); rerun the script after each merge, since the base moved |
+| `UPDATE` | conflict, main changed files this PR changes, or the repo requires up-to-date branches | send UPDATE once (below); several workers may update at once |
+| `WAIT` | shares changed files with an earlier `MERGE`/`UPDATE`/`WAIT` entry | nothing; it updates after that one lands |
+| `REVALIDATE` | head moved from the validated sha | ask the worker why |
+| `BLOCKED` | closed, draft, or GitHub and git disagree on a conflict | ask the worker why |
 
-- **`MAIN_RED` (any position-1 entry):** the current main sha has no CLEAN
-  `main` record. Nothing lands. Run the gate on main in the landing worktree
-  and record it. If it fails, open a main-repair item: you own opening it. It
-  fixes only the failing checks, as small PRs that land independently; it
-  never accumulates other work. It takes position 1, marked by a note
-  starting with `REPAIR` (for example
-  `1. #820 WI-90 validated 04b7aa6c1 — LANDING REPAIR fix main`), and passes
-  the same combined-tree gate; the script lets only that position-1 entry
-  past `MAIN_RED`. Tell queued workers only that merges are held. If main
-  stays red for more than 2 hours, tell the operator which checks fail and
-  what the repair is doing.
-- **Position 1, `GATE`:** build main + the PR (the tree the squash will
-  produce) in a dedicated landing worktree: `git worktree add --detach
-  <path> <main sha>`, then `git merge --no-commit --no-ff <pr head sha>` in
-  it, and run the repo's landing gate there. Append the `pr` record (CLEAN or
-  FAILED, with the log path), then rerun the script. The worker's own
-  position-1 gate run is an early signal; only your landing-worktree run is
-  recorded. A conflict, or a gate failure caused by the combination, goes back
-  to the worker as `UPDATE`.
-- **Position 1, `MERGE`:** the gate is CLEAN on this base and head. Fetch the
-  base again immediately before merging; if main moved since the gate run,
-  rerun the script (it reports `GATE`) and run the gate again. Otherwise
-  merge at the validated head
-  (`gh pr merge <n> --squash --match-head-commit <sha>`). The worker does
-  nothing. Overlap without a conflict never forces `UPDATE`; the gate decides.
-- **Position 1, `UPDATE`:** tell the worker to merge the base once with a
-  normal merge commit (no rebase, no force-push), resolve the listed files,
-  and run the full landing gate (it does not pick which checks to run). It
-  pushes and reports `VALIDATED` with the new head. Verify the receipt again,
-  update the validated sha in the queue, and rerun the script, which asks for
-  a fresh `GATE` run on the new head.
-- **Position 1, `REVALIDATE` or `BLOCKED`:** ask the worker why. If it cannot
-  land within one turn, move it out of the queue (State back to
-  `IN_PROGRESS`) and advance.
-- **Position 2, `ON_DECK`:** send one message with the script's prep preview
-  (its conflicts and overlap against position 1 merged as-is). The worker may
-  read position 1's diff, dry-run the merge locally, and plan its resolution.
-  It must not push, merge the base into its branch, or redeploy a lab. When
-  it reaches position 1 it runs the landing gate on the current combined
-  tree.
-- **Positions 3 and later, `WAIT`:** send nothing beyond the slot line. A
-  `MOVED` flag means the worker pushed while waiting; ask it to stop.
+- **UPDATE message:** merge current main once with a normal merge commit (no
+  rebase, no force-push), resolve the listed files, rerun the receipt, push,
+  report `VALIDATED` with the new head. Verify the receipt, update the queue's
+  validated sha, rerun the script.
+- `REVALIDATE`/`BLOCKED` that cannot land within one worker turn: out of the
+  queue (State `IN_PROGRESS`).
+- **Merging:** follow the repo's merge policy (AGENTS.md, merge skills,
+  required checks, up-to-date rules). A designated merger (merge bot): bring
+  the PR to its ready state and track it until merged. Confirm GitHub reports
+  it merged; record time and commit in the row's `Merged` column
+  (`references/ledger-template.md` § Merged and Deployed); remove it from the
+  queue. Never pass `--delete-branch`: it removes the worker's worktree and
+  lab claim file before the lab is released; teardown belongs to § Cleanup
+  per item.
+- **Merge hold:** recorded on the ledger's `Merge rule:` line. Mark every
+  entry held in its note and write `merge hold` in each held row's `Waiting
+  on` (reconcile reports `HELD`). Merge only main-repair PRs.
+- **Workers outside the queue:** never tell them the base moved. A worker
+  merges main when it needs code from it or a conflict blocks it, and always
+  right before its receipt.
+- **Merges from outside the tracker** (humans, other trackers): no broadcast.
+  The script sees them as base moves; the main gate covers them.
+- **Lab claims while queued:** keep the claim only when the PR changes
+  deployed code and its verdict is `MERGE` or `UPDATE`; otherwise release and
+  re-claim when needed. Waive when labs are free.
 
-A merge hold is recorded in the ledger's `Merge rule:` line. During a hold,
-mark every queue entry as held in its note, write `merge hold` in each held row's `Waiting on` (so `reconcile.py` reports it `HELD`, not `LAND`), and merge only a main-repair PR
-whose gate is CLEAN on its combined tree.
+### Main gate
 
-**Workers outside the queue** (still building or validating): do not tell
-them the base moved and do not ask them to merge main. A worker merges the
-base before it is queued when it needs code from main or a conflict blocks its
-own work, and always before it reports `VALIDATED`, so its gate run covers
-current main. The queue handles freshness after that.
+The full suite runs on main, not on each PR, and never blocks a merge. Its
+last CLEAN main commit is the deploy candidate.
 
-**Merges from outside the tracker** (humans, other trackers): send no
-broadcast. The script reports them as overlap for whichever PR reaches
-position 1, and the changed main sha needs a new gate record before anything
-lands.
+- **Run it continuously,** one run at a time, as a background job in your
+  landing worktree (`git worktree add --detach <path> <sha>` once, then
+  `git -C <path> checkout --detach <sha>` and install): whenever no run is in
+  progress and main's tip has no record, start the full gate on the tip.
+  `landing_queue.py` prints a `next:` line with the record to append when a
+  run is due.
+- **Record** in `<tracker-dir>/gates.jsonl` (append-only; last record per sha
+  wins; shas full or ≥ 7 chars):
 
-**One merge in flight at a time.** Never ask two workers to update at once.
+  ```
+  {"kind":"main","sha":"<sha>","result":"RUNNING"}                         # at start
+  {"kind":"main","sha":"<sha>","result":"CLEAN|FAILED","log":"<path>"}     # at finish; log required
+  ```
 
-**Lab claims while waiting.** A queued worker keeps its lab claim only when it
-is position 1 or 2 and its PR changes deployed code. Otherwise it releases the
-claim and re-claims when it reaches position 2. The driver may waive this when
-labs are free.
-
-If the repository designates a different merger, such as a merge bot, the
-queue orders the PRs and position 1 is the PR you bring to that process's
-ready state.
+  Lines of any other kind are ignored. On CLEAN, update the ledger's `Last
+  CLEAN main: <sha> (log <path>)`: the deploy candidate, stated in the status
+  board and merge notices. Production deploys are human; you only report the
+  candidate.
+- **FLAKY** checks on main are CLEAN for the candidate; open a work item for
+  each flaky test.
+- **FAILED:** identify the failing checks and the merges since the last CLEAN
+  run. Open a main-repair item yourself (new `WI`, new worker; brief names
+  the failing log and the suspected PRs): it fixes only the failing checks, as
+  small PRs that land independently, never accumulating other work; queue
+  note starts `REPAIR`; its receipt must include the failing tests. Other
+  merges continue; hold only a PR that changes the failing tests or the code
+  they exercise, until the repair lands. Workers whose receipts hit the same
+  failure report `BLOCKED: MAIN_RED <check>`; tell them when the repair lands.
+- Two consecutive FAILED runs, or no CLEAN main for 2 h: tell the operator
+  which checks fail, what the repair is doing, and the current deploy
+  candidate.
 
 ### Close out the source doc
 
-When an item has a `Source doc:`, update the doc once the item's PR is
-merged and before the item is `CLEANED`. The author asked for the issue to be
-reported, so they must learn it is fixed. The driver does this, not the worker.
-
-1. **Check whether it is live.** Run `pnpm rollout` in the ccore2 repo and
-   compare the hub's deployed source commit with the merge commit. Never
-   deploy, and never offer to.
-2. **Add a short status section to the doc.** Say what changed, give the PR
-   link and merge commit, and say whether it is live.
-   - HTML doc: `ava document edit <doc> --file <html> --expected-revision
-     <rev> --idempotency-key <key>`, using the revision from a fresh read.
-     Keep its standing and check the render `warnings`.
-   - Text doc: append the section to the current body and run `ava document
-     replace-body <doc> --file <md> --idempotency-key <key>`.
-3. **Comment on that section and mention the author.** An `@Name` in the
-   body alone mentions nobody. Take `actorId` (as `targetId`) and `kind` (as
-   `targetKind`) from `ava comment mention-suggestions`.
-   - HTML doc: `ava document comment create <doc>` with a `dom` anchor on the
-     new section and `mentions: [{"token":"@Name","targetKind":"human"|"agent","targetId":"act_..."}]`.
-   - Text doc: `ava document text-comment create <doc>` with a unique `quote`
-     from the new section and `mentions: [{"token":"@Name","targetId":"act_..."}]`.
-   Mention the human principal and the reporting agent when both are known.
-   Read the comment back (`ava document comment list <doc>` or `ava document
-   text-comment list <doc>`) and confirm the mentions are stored.
-4. **Skip the mention for your own identity.** A self-mention notifies
-   nobody. When another agent owns the doc (for example perf-explorer for its
-   inventory), hand the doc update to it with the PR link and merge commit.
-5. **A design doc with several items** is updated once, after all its items
-   land. If the operator asks, note partial progress after each item instead.
-
-Record the section and comment links in the item's timeline. An item with no
-`Source doc:`, or one concluded without a merge, skips this step.
+An item with a `Source doc:` is closed out after merge and before `CLEANED`,
+by you, not the worker: check whether it is live (`pnpm rollout`, never
+deploy), add a status section to the doc, and comment on it mentioning the
+author. Steps: `references/source-doc-closeout.md`.
 
 ### Cleanup per item
 
-Once an item's PR is merged:
+As soon as the PR merges (the merge completes the work; no operator agreement
+needed):
 
-1. Run the script against the worker's workspace, as soon as the PR is
-   merged. The merge is the completion of the work; no operator agreement is
-   needed or requested. The script reads the Paseo daemon and the worktree of
-   the machine it runs on, so run it on the item's host:
-   - Local item (or no hosts file), from the orchestrator's own checkout:
-     `python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>`.
-   - Remote item: `ssh <alias> 'python3 ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py --workspace <workspace-id>'`,
-     where `<alias>` is the host's target without `ssh://`. Keep the single
-     quotes so `~` expands on the remote host.
-   It releases the lab claim, removes the demos, archives the workspace
-   (which also archives the worker's agent), and deletes the remote branch.
-   Do not do any of those by hand, and do not ask the worker to.
-2. Act on the exit code. Exit 2 or 3: read `error`, fix the cause (a worker
-   that is still running, an unreachable lab manager, uncommitted work) or
-   take it to the operator, then run the same command again. Never take a
-   lab release to the operator. Exit 4: run each `remaining[].command` that
-   names the orchestrator (over ssh for a remote item, as above), and report
-   the operator's items. Use `--abandon`
-   only for work concluded without a merge, never to get past an open PR or a
-   pending prototype review.
-3. Set the item to `CLEANED` only when the script reports exit 0, or exit 4
-   with nothing owned by you, and the item's source doc is closed out (see
-   [Close out the source doc](#close-out-the-source-doc)) or it has none.
-   Record the lab release, demo removal, and archive results from its report.
+1. Run on the item's host (it reads that machine's daemon and worktree):
+   - Local (or no hosts file): `python3
+     ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py
+     --workspace <workspace-id>`.
+   - Remote: `ssh <alias> 'python3
+     ~/.agents/skills/worktree-cleanup/scripts/worktree_cleanup.py
+     --workspace <workspace-id>'` (single quotes so `~` expands remotely).
+   It releases the lab claim, removes demos, archives the workspace (and the
+   worker agent), and deletes the remote branch. Never do these by hand or
+   ask the worker to.
+2. Exit 2 or 3: read `error`, fix the cause (worker still running,
+   unreachable lab manager, uncommitted work) or take it to the operator, and
+   rerun. Never take a lab release to the operator. Exit 4: run each
+   `remaining[].command` naming the orchestrator (over ssh for remote) and
+   report the operator's items.
+3. `CLEANED` only on exit 0, or exit 4 with nothing of yours left, and the
+   source doc closed out (or none). Record lab release, demo removal, archive
+   results.
 
-An item concluded without a merge gets the same cleanup, with `--abandon
-<reason>`, as soon as the worker reports `NOT_REPRODUCED` or
-`EXPECTED_BEHAVIOR`, or the item is closed (duplicate, won't fix, deferred,
-superseded). Do not hold the lab for the operator's answer. Keep the lab only
-while a PR using it is open or a prototype review is pending, or when the
-operator asks to keep it. Closing its PR or deleting its branch requires the
-operator's explicit instruction. A lost claim file is the orchestrator's to
-resolve: release the orphaned claim through the lab-manager's agent release
-path (see the ccore2 lab-manager skill) and never queue it for the operator.
+Concluded without a merge (`NOT_REPRODUCED`, `EXPECTED_BEHAVIOR`, duplicate,
+won't fix, deferred, superseded): same cleanup with `--abandon <reason>` as
+soon as it is decided; never hold the lab for the operator's answer, and never
+use `--abandon` to get past an open PR or pending prototype review. Keep a lab
+only while a PR using it is open, a prototype review is pending, or the
+operator asks. Closing a PR or deleting its branch needs the operator's
+explicit instruction. A lost claim file is yours: release the orphaned claim
+through the lab-manager agent release path (ccore2 lab-manager skill), never
+the operator.
 
 ### Status board
 
-Post this whenever you are asked for status, after the done signal, and when
-something material changes during orchestration. Keep each line short:
+Post when asked, after the done signal, and on material changes:
 
 ```
 Tuesday, October 6, 2026 — 9 items: 3 merged, 2 need you, 3 in progress, 1 blocked
+Deploy candidate: a1b2c3d4e (main gate CLEAN; running on f5e6d7c8b)
 
 Needs you
   WI-07 spec diff: <page url>
@@ -1159,38 +804,32 @@ Done
 
 ## Conclude
 
-The tracker is complete when every item is `CLEANED` and no worker workspace
-remains. Then:
+Complete when every item is `CLEANED` and no worker workspace remains:
 
-1. Run the `session-cleanup` inventory over the session's children to
-   confirm that no workspace, lab claim, or demo remains. Re-running
-   `worktree-cleanup --workspace <id>` on a cleaned item is a no-op that
-   confirms it. For remote items, run it over ssh as in
-   [Cleanup per item](#cleanup-per-item).
-2. Post the final report: one row per item (ID, kind, title, outcome, PR
-   link, and for a source-doc item the doc link and who was mentioned),
-   operator decisions worth keeping, follow-ups the operator deferred,
-   and anything left in place with its reason.
-3. Read the dashboard's comments one last time and answer or log anything
-   open. Stop the listener (end its background service, or kill the pid in
-   `listener.json`; it clears the pid on exit), delete the status heartbeat and
-   any schedule this session created, and record that in the ledger. Then, as
-   the last ledger edit, set the mode to `CONCLUDED`, clear
-   `## Waiting on you`, and run `scripts/dashboard.py` so the dashboard ends
-   on its final state. Because the mode is `CONCLUDED`, that run moves the
-   dashboard into `Archive / Coding Work`, creating the folders if needed;
-   confirm the move in its output. The document stays in Ava as the record.
-4. Report the orchestrator's own workspace as ready to archive. Archive it
-   only if the operator asks.
+1. `session-cleanup` inventory over the session's children: no workspace, lab
+   claim, or demo remains. Rerunning `worktree-cleanup --workspace <id>` on a
+   cleaned item is a confirming no-op (over ssh for remote items).
+2. Final report: one row per item (ID, kind, title, outcome, PR link; source
+   doc link and who was mentioned), operator decisions worth keeping, deferred
+   follow-ups, anything left in place with its reason, and the last deploy
+   candidate.
+3. Read dashboard comments one last time; answer or log anything open. Stop
+   the listener (end its service, or kill the pid in `listener.json`), delete
+   the heartbeat and any schedule this session created, record it. Last
+   ledger edit: mode `CONCLUDED`, clear `## Waiting on you`, run
+   `dashboard.py` (moves the dashboard to `Archive / Coding Work`, creating
+   folders as needed; confirm in its output). The document stays as the
+   record.
+4. Report your own workspace as ready to archive; archive only if asked.
 
 ## Boundaries
 
-- The orchestrator does not implement changes, edit worker worktrees, or run
-  Git mutations in them. Diagnose by reading; correct by messaging the worker.
-  The `worktree-cleanup` script is the one sanctioned exception.
+- You never implement, edit worker worktrees, or run Git mutations in them;
+  diagnose by reading, correct by messaging. Exceptions: the
+  `worktree-cleanup` script and your own landing worktree.
 - No agent deploys to production, asks about it, or offers to. The worker
   brief says so.
-- Do not expose credentials, claim tokens, or customer data in item files,
-  briefs, or messages.
+- No credentials, claim tokens, or customer data in item files, briefs, or
+  messages.
 - Never mark an item merged, validated, or cleaned without observing it
-  (GitHub state, worker receipt checked against the PR, archive result).
+  (GitHub state, receipt checked against the PR, archive result).

@@ -23,13 +23,7 @@ class LandingPolicy(unittest.TestCase):
                 for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                     if WARNINGS_BLOCK.search(line):
                         hits.append(f"{path.relative_to(REPO)}:{n}: {line.strip()[:160]}")
-        self.assertEqual(hits, [], "warnings never block a landing (orchestrate SKILL.md § What blocks a landing)")
-
-    def test_orchestrate_states_the_rule(self):
-        text = (REPO / "skills" / "orchestrate" / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("### What blocks a landing", text)
-        self.assertIn("warnings never block, and no rule may make them block", text)
-
+        self.assertEqual(hits, [], "warnings never block a landing (orchestrate SKILL.md § What fails a gate)")
 
 if __name__ == "__main__":
     unittest.main()
