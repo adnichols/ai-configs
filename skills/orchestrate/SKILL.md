@@ -234,6 +234,11 @@ answers. Process quickly and return control so the operator keeps typing.
    `actors`, and add the human principal behind it when the doc or agent name
    identifies one (a "(KD)" suffix, or `principal_id_at_commit` in `ava
    document revisions <doc>`).
+   An item that is an open PR from outside this workflow follows the repo's
+   PR lane rule (ccore2: root `AGENTS.md` § External PRs: Weft files are
+   taken verbatim with the PR author kept as author, everything else is
+   re-authored from current main). With no rule, the PR is a source
+   document: rebuild it in a new PR that credits the author.
 4. **Research in the background.** One read-only research agent per new item
    (OMP: `task` with `scout`) using `references/research-brief.md`. Never wait
    on it in the intake turn. Merge findings into the item file when it
@@ -808,6 +813,11 @@ In progress
 Done
   WI-01 merged #812   WI-06 merged #815   WI-10 closed (duplicate of WI-03)
 ```
+
+When a repo names paths the operator wants to hear about (ccore2: our own
+changes to `packages/weft/**`), every merge notice and status board names
+each merged or open PR of ours that changes them, with one line on what
+changed: `Weft: #940 (WI-97) Button quiet variant; 3 files`.
 
 ## Conclude
 

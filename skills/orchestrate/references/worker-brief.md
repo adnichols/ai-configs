@@ -122,7 +122,8 @@ and fails when that file has no `plan_id`; do the same for any other page.
 - Only build on or reuse code made through this workflow: the branch this
   brief puts you on, or another item's workflow branch the brief names. Do not
   base on or port from any other branch, such as one a source document points
-  to.
+  to. The one exception is a repo's PR lane rule (ccore2: root `AGENTS.md`
+  § External PRs): copy exactly what it says to take verbatim, nothing more.
 
 # Clean branch
 Keep your branch passing as you go. After each slice, run the tests for the
