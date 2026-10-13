@@ -373,7 +373,10 @@ def preflight():
         status = json.loads(p.stdout)
     except json.JSONDecodeError:
         status = {}
-    if p.returncode != 0 or not status.get("registered"):
+    # ava 0.1.126+ reports {"enrollments": [...]}; older CLIs report "registered" at the top level.
+    enrollments = status.get("enrollments") or [status]
+    default = next((e for e in enrollments if e.get("default")), enrollments[0])
+    if p.returncode != 0 or not default.get("registered"):
         raise Fail(3, "the `ava` CLI is not authenticated "
                       f"({(p.stderr or p.stdout).strip()[:200] or 'not registered'}). Report this to the operator: "
                       "run `ava auth renew` or enroll with an enrollment code. The dashboard was NOT saved and verified.")
@@ -506,8 +509,8 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
         pending = state.get("pending_register") or {"key": uuid.uuid4().hex, "title": title, "source": source}
         state.update(space_id=space, pending_register=pending)
         state_path.write_text(json.dumps(state, indent=2) + "\n")
-        r = ava("document", "register", "--space", space, "--idempotency-key", f"orchestrate-dashboard-{pending['key']}",
-                data={"title": pending["title"], "source": pending["source"], "source_format": "html"})
+        r = ava("document", "create", "--space", space, "--idempotency-key", f"orchestrate-dashboard-{pending['key']}",
+                data={"title": pending["title"], "kind": "html", "source": pending["source"], "source_format": "html"})
         plan_id, web_url = pick(r, "plan_id", "document_id"), r.get("web_url") or r.get("document_url")
         state = {"space_id": space, "plan_id": plan_id, "web_url": web_url, "revision_id": revision_of(r)}
         state_path.write_text(json.dumps(state, indent=2) + "\n")

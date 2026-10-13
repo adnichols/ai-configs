@@ -610,8 +610,8 @@ def publish(source: str, title: str, space: str, parent: str, state_path: Path) 
     sha = dashboard.digest(source)[:16]
     plan_id = state.get("plan_id")
     if not plan_id:
-        r = dashboard.ava("document", "register", "--space", space, "--idempotency-key", f"spec-diff-register-{sha}",
-                          data={"title": title, "source": source, "source_format": "html", "parent_id": parent})
+        r = dashboard.ava("document", "create", "--space", space, "--idempotency-key", f"spec-diff-register-{sha}",
+                          data={"title": title, "kind": "html", "source": source, "source_format": "html", "parent_id": parent})
         plan_id = dashboard.pick(r, "plan_id", "document_id")
         state = {"space_id": space, "plan_id": plan_id, "web_url": r.get("web_url") or r.get("document_url"),
                  "digest": sha}
