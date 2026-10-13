@@ -620,7 +620,7 @@ def publish(source: str, title: str, space: str, parent: str, state_path: Path) 
         rev = dashboard.revision_of(dashboard.ava("document", "status", plan_id, "--space", space))
         dashboard.ava("document", "edit", plan_id, "--space", space, "--idempotency-key", f"spec-diff-{rev}-{sha}",
                       "--expected-revision", rev, data={"source": source, "title": title})
-    if dashboard.ava("document", "plan-source", plan_id, "--space", space).get("source") != source:
+    if dashboard.ava("document", "source", plan_id, "--space", space).get("source") != source:
         raise Fail(3, "published source does not match the rendered page; not reporting it as published")
     dashboard.place(space, plan_id, parent)
     if not state.get("web_url"):

@@ -517,7 +517,7 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
         if cur.get("source_format") != "html":
             raise Fail(3, "dashboard is not HTML; preserve it and arrange an authorized migration")
         rev = revision_of(cur)
-        current_source = ava("document", "plan-source", plan_id, "--space", space)
+        current_source = ava("document", "source", plan_id, "--space", space)
         if revision_of(current_source) != rev:
             raise Fail(3, "dashboard changed during read; reread before editing")
         pending = state.get("pending_edit")
@@ -551,7 +551,7 @@ def publish(source, unstamped_digest, title, space, state_path, ledger_path, led
             state["revision_id"] = rev
         state.setdefault("web_url", None)
         state_path.write_text(json.dumps(state, indent=2) + "\n")
-    got = ava("document", "plan-source", plan_id, "--space", space)
+    got = ava("document", "source", plan_id, "--space", space)
     if got.get("source") != source:
         raise Fail(3, "saved source does not match the rendered dashboard; not marking it verified")
     status = ava("document", "status", plan_id, "--space", space)

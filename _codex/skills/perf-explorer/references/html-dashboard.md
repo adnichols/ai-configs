@@ -37,7 +37,7 @@ registering. Save returned document ID, Space, revision and canonical `web_url`.
 Draft is sufficient; submit or promote only under the existing workflow's
 explicit authority. Describe draft synchronization as saved, not published. Publishing requires an explicit request.
 
-For edits, read status and plan-source, confirm HTML and the expected owned
+For edits, read status and the document source, confirm HTML and the expected owned
 source, then use `document edit` with `--expected-revision` and a stable key.
 Preserve the same document and session. Retry a lost response only with the same
 key and identical payload; reconcile unknown outcomes before changing the key.
@@ -46,7 +46,7 @@ Keep comments and all source evidence. Existing text inventories are not safely
 converted by replace-body: preserve their IDs/links and pending HTML, then use
 only a supported, authorized migration; report a format blocker if unavailable.
 
-After each save, read `document plan-source`, `document render` and status.
+After each save, read `document source`, `document render` and status.
 Require exact intended source, `source_format: html`, matching saved revision,
 expected rendered content and understood/empty sanitizer warnings. Save those
 receipts. Fix unintended removals through a guarded edit; do not mark sync

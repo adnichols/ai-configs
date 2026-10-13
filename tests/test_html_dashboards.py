@@ -95,7 +95,7 @@ Mode: ORCHESTRATION
             def ava(*args, **kwargs):
                 calls.append((args,kwargs))
                 if args[1]=='status': return {'revision_id':'r0' if len(calls)<4 else 'r1', 'source_format':'html'}
-                if args[1]=='plan-source': return {'source':'old' if len(calls)<4 else '<p>New</p>', 'revision_id':'r0' if len(calls)<4 else 'r1'}
+                if args[1]=='source': return {'source':'old' if len(calls)<4 else '<p>New</p>', 'revision_id':'r0' if len(calls)<4 else 'r1'}
                 if args[1]=='edit': return {'revision_id':'r1'}
                 if args[1]=='render': return {'revision_id':'r1','html':'<p>New</p>','warnings':[{'code':'removed'}]}
                 raise AssertionError(args)
@@ -114,7 +114,7 @@ Mode: ORCHESTRATION
             def ava(*args, **kwargs):
                 verb=args[1]
                 if verb=='status': return {'revision_id':remote['revision_id'],'source_format':'html'}
-                if verb=='plan-source': return dict(remote)
+                if verb=='source': return dict(remote)
                 if verb=='render': return {'html':remote['source'],'revision_id':remote['revision_id'],'warnings':[]}
                 if verb=='edit':
                     edits.append((args,kwargs)); remote.update(source=kwargs['data']['source'],revision_id='r1')
