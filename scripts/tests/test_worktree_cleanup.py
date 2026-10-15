@@ -4,12 +4,16 @@ Each test builds a real bare origin, a clone and a linked worktree, and puts fak
 gh/paseo/pnpm/wrangler on PATH (see fixtures/worktree_cleanup_fakes.py). Git runs for real.
 """
 
+import importlib.util
 import json
 import os
+import sys
 import subprocess
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "worktree-cleanup" / "scripts" / "worktree_cleanup.py"
@@ -231,6 +235,53 @@ class WorktreeCleanupTest(unittest.TestCase):
                 self.assertEqual((code, report["status"]), (0, "complete"), report)
                 self.assertEqual(self.f.step(report, "lab")["status"], "done")
                 self.assertEqual([p.name for p in self.stale_claim_files()], ["wt-c-1.json"])
+
+    def test_unproven_inspect_answers_fail_closed_and_keep_the_claim_file(self):
+        good = {"claim_id": "c-2", "lab": "lab007", "status": "active"}
+        answers = {
+            "empty object": {},
+            "missing claim key": {"name": "lab007", "state": "provisioned"},
+            "claim false": {"name": "lab007", "claim": False},
+            "claim empty object": {"name": "lab007", "claim": {}},
+            "outer name mismatch": {"name": "lab008", "claim": dict(good, lab="lab008")},
+            "missing outer name": {"claim": good},
+            "nested lab mismatch": {"name": "lab007", "claim": dict(good, lab="lab008")},
+            "unknown status": {"name": "lab007", "claim": dict(good, status="pending")},
+            "same claim id, weird released_at": {"name": "lab007", "claim": {"claim_id": "c-1", "lab": "lab007", "status": "active", "released_at": "2026-10-13T00:00:00Z"}},
+            "non-string claim id": {"name": "lab007", "claim": dict(good, claim_id=2)},
+        }
+        for label, answer in answers.items():
+            with self.subTest(label):
+                self.setUp()
+                self.f.claim()
+                self.f.fake(release_error=self.STALE_ERROR, inspect_answer=answer)
+                code, report = self.f.run("--path", str(self.f.wt))
+                self.assertEqual((code, report["status"]), (3, "failed"), report)
+                self.assertIn("claim file kept", report["error"])
+                self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+                self.assertEqual(self.stale_claim_files(), [])
+
+    def test_repeated_same_name_same_claim_id_archives_in_one_second_never_overwrite(self):
+        spec = importlib.util.spec_from_file_location("worktree_cleanup_under_test", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        self.addCleanup(sys.modules.pop, spec.name, None)
+        spec.loader.exec_module(module)
+        root = Path(self._tmp.name)
+        worktree = root / "wt-archive"
+        (worktree / ".ccore").mkdir(parents=True)
+        stub = types.SimpleNamespace(snap=types.SimpleNamespace(path=str(worktree)))
+        bodies = []
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(root / "xdg-archive")}), mock.patch.object(module.time, "time", return_value=1_800_000_000.0):
+            for n in range(3):
+                body = json.dumps({"lab": "lab007", "claim_id": "c-1", "credential": f"secret-{n}"})
+                bodies.append(body)
+                (worktree / ".ccore" / "lab-claim.json").write_text(body)
+                dest = module.Cleanup.move_stale_claim_aside(stub, {"claim_id": "c-1", "lab": "lab007"})
+                self.assertFalse((worktree / ".ccore" / "lab-claim.json").exists())
+                self.assertEqual(dest.read_text(), body)
+            kept = list((root / "xdg-archive" / "stale-lab-claims").glob("*.json"))
+        self.assertEqual(sorted(p.read_text() for p in kept), sorted(bodies))
 
     def test_release_rejected_as_credential_invalid_for_the_live_holder_still_fails_and_keeps_everything(self):
         self.f.claim()

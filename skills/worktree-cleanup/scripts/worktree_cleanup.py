@@ -460,14 +460,22 @@ class Cleanup:
             now = parse_json(check.out)
         except ValueError:
             return None
-        if not isinstance(now, dict) or not isinstance(now.get("claim") or {}, dict):
+        if not isinstance(now, dict) or now.get("name") != claim["lab"] or "claim" not in now:
             return None
-        held = now.get("claim") or {}
+        held = now["claim"]
+        if held is None:
+            return ""
+        if not isinstance(held, dict) or held.get("lab") != claim["lab"]:
+            return None
         holder = held.get("claim_id")
-        live = bool(holder) and not held.get("released_at") and held.get("status") != "released"
-        if live and holder == claim["claim_id"]:
+        if not isinstance(holder, str) or not holder:
             return None
-        return str(holder) if live else ""
+        status = held.get("status")
+        if status == "released":
+            return ""
+        if status == "active" and holder != claim["claim_id"]:
+            return holder
+        return None
 
     def move_stale_claim_aside(self, claim: dict) -> Path:
         """Keep the stale claim file (never delete it) under ~/.local/state/stale-lab-claims/."""
@@ -475,11 +483,17 @@ class Cleanup:
         directory = Path(os.environ.get("XDG_STATE_HOME", "~/.local/state")).expanduser() / "stale-lab-claims"
         directory.mkdir(parents=True, exist_ok=True)
         label = re.sub(r"[^A-Za-z0-9._-]", "_", claim["claim_id"]) or str(int(time.time()))
-        dest = directory / f"{Path(self.snap.path).name}-{label}.json"
-        if dest.exists():
-            dest = directory / f"{Path(self.snap.path).name}-{label}-{int(time.time())}.json"
-        shutil.move(str(source), str(dest))
-        return dest
+        for attempt in range(1000):
+            suffix = "" if attempt == 0 else f"-{int(time.time())}-{attempt}"
+            dest = directory / f"{Path(self.snap.path).name}-{label}{suffix}.json"
+            try:
+                with open(dest, "x") as out:
+                    out.write(source.read_text())
+            except FileExistsError:
+                continue
+            source.unlink()
+            return dest
+        raise StepFailed("could not choose a free name under stale-lab-claims; claim file kept")
 
     def step_lab(self) -> None:
         snap = self.snap

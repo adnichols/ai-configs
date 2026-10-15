@@ -78,6 +78,8 @@ def pnpm(state, args):
     if lab[0] == "inspect":
         if state.get("inspect_fails") or (state.get("inspect_fails_after_release") and state.get("released_once")):
             fail("manager unreachable")
+        if "inspect_answer" in state:
+            return out(state["inspect_answer"])
         claim = state["lab_claim"]
         return out({"name": lab[1], "state": state["lab_state"], "claim": claim})
     if lab[0] == "release":
