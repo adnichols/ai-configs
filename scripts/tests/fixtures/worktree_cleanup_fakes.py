@@ -76,13 +76,16 @@ def pnpm(state, args):
     claim_file = cwd / ".ccore" / "lab-claim.json"
     print("$ node --experimental-strip-types scripts/lab.ts -- " + " ".join(lab))
     if lab[0] == "inspect":
-        if state.get("inspect_fails_after_release") and state.get("released_once"):
+        if state.get("inspect_fails") or (state.get("inspect_fails_after_release") and state.get("released_once")):
             fail("manager unreachable")
         claim = state["lab_claim"]
         return out({"name": lab[1], "state": state["lab_state"], "claim": claim})
     if lab[0] == "release":
         state["calls"].append("release")
         state["released_once"] = True
+        if state.get("release_error"):
+            save(state)
+            fail(state["release_error"])
         if state.get("release_fails"):
             fail("manager unreachable")
         claim = json.loads(claim_file.read_text())
