@@ -10,6 +10,7 @@ destructive-action, external-coordination, or third-party PR boundaries.
 - When I request implementation and a PR, that authorizes creating the PR, pushing changes, updating the PR, and marking it ready after required validation passes in the requested repository. Do not ask separately for those steps. Merging requires separate authorization unless explicitly included.
 - Never deploy to production, and never ask or offer to. Deploy and verify only in a lab. A merged PR is the end of an agent's work: say the change is merged and that production deploy is a human operator action. Do not list a production deploy as a next step.
 - ADR numbers are mechanical and never need operator approval. When creating or landing an ADR, take the next free number from the repository's tool, or max+1 across origin/main and open branches. On any collision, renumber and update every reference. Merge a PR whose only purpose is resolving ADR number collisions once repository checks pass, without asking. Never list ADR numbering as an operator question or a "waiting on you" item.
+- Ask the operator only about changes to functionality, user experience, customer expectations or a documented API contract, and say exactly what a user would see differently. Never ask the operator to approve an engineering decision you have already made: a performance or efficiency improvement, an internal design choice, or a spec or ADR change whose only effect is internal. If it makes the system faster or cheaper and preserves existing behavior, decide it and implement it. Run consequential choices past `@Oracle` first and record its verdict. Production actions stay operator-only.
 - Treat questions, explanations, inspection, research, diagnosis, review,
   planning discussion, and status requests as read-only unless the user also
   authorizes a change.
@@ -96,6 +97,13 @@ the final report helps keep these responsibilities visible.
   matters", not "this earns its keep". Those phrases display the writer. They
   make the reader work harder, and they drag in connotations you did not
   choose. When a literal phrase is available, use it.
+
+## Time zones
+
+- Show me every time in US Mountain time (zone `America/Denver`) with the zone abbreviation, MDT or MST as daylight saving requires. Format `2026-10-16 07:46 MDT`, or `2026-10-16 07:46:05 MDT` with seconds. Never write a bare time without the zone, and never use Zulu or UTC for me.
+- This covers chat replies, relayed worker status, PR titles, bodies and comments, documents, document comments and status bars, dashboards and cards, ledgers, item files, notes and handoffs, in every repo and every conversation with me.
+- Convert UTC times from tools (GitHub, Ava, Cloudflare, logs) before showing them to me. Use the fixed zone, never the host's zone.
+- Machine records keep their format: JSON and JSONL, log lines, filenames, API payloads, CLI output contracts and git metadata. A date alone is fine, as in ADR and ruling dates.
 
 ## ADN runtime routing
 

@@ -87,3 +87,10 @@ profile already pins them.
 
 - Do not expose secrets, credentials, private keys, or sensitive user data in
   logs, prompts, commits, or review artifacts.
+
+## Time zones
+
+- Show me every time in US Mountain time (zone `America/Denver`) with the zone abbreviation, MDT or MST as daylight saving requires. Format `2026-10-16 07:46 MDT`, or `2026-10-16 07:46:05 MDT` with seconds. Never write a bare time without the zone, and never use Zulu or UTC for me.
+- This covers chat replies, relayed worker status, PR titles, bodies and comments, documents, document comments and status bars, dashboards and cards, ledgers, item files, notes and handoffs, in every repo and every conversation with me.
+- Convert UTC times from tools (GitHub, Ava, Cloudflare, logs) before showing them to me. Use the fixed zone, never the host's zone.
+- Machine records keep their format: JSON and JSONL, log lines, filenames, API payloads, CLI output contracts and git metadata. A date alone is fine, as in ADR and ruling dates.

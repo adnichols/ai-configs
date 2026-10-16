@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Global agent guidance (WI-279): `_omp/AGENTS.md`, `_codex/AGENTS.md` and `_devin/AGENTS.md` now tell agents to show the operator every time in US Mountain time (`America/Denver`, MDT or MST, e.g. `2026-10-16 07:46 MDT`) and to convert UTC times from tools first. Machine records keep their format. `_omp/AGENTS.md` also gains the "Ask the operator only about…" bullet that existed only in the dever install. Claude has no installed global file.
 - `orchestrate` reconciliation (BB-180): `scripts/reconcile.py` checks every non-terminal ledger row on each status pass, heartbeat and ORCHESTRATION pass and gives a verdict (`LAUNCH`, `CHASE`, `STALE`, `ASK`, `DECIDE`, `LAND`, `CLEANUP`, `CHECK`, or nothing to do) with explicit time bounds. Gates are written `gate: ID` or a PR URL, holds `park: <reason>`. The dashboard shows stale and unlaunched rows. Ledger parsing moved to `scripts/ledger.py`.
 
 ### Changed
