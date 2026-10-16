@@ -33,6 +33,7 @@ from pathlib import Path
 LABS_ACCOUNT_ID = "e6d3e575b97001f8ad1a7e98e497afa5"
 LAB_CLI = ["pnpm", "--filter", "@ccore/lab-manager", "run", "lab", "--"]
 CLAIM_FILE = ".ccore/lab-claim.json"
+CLAIM_CREDENTIAL_INVALID = "claim_credential_invalid"
 DEMO_MANIFESTS = "artifacts/verified-build/*/demos.json"
 DEMO_NOTES = "artifacts/verified-build/**/*.md"
 DEMO_URL = re.compile(r"https://([a-z0-9][a-z0-9-]*)\.demos\.keramos\.tech")
@@ -443,18 +444,80 @@ class Cleanup:
         self.snap.save()
         return now.get("state")
 
+    def stale_claim_holder(self, claim: dict) -> str | None:
+        """Current holder of the lab when the manager proves `claim` is not it ("" for no live claim), else None.
+
+        None covers a live claim, an unreachable manager and an unreadable answer: only a clean
+        answer that names someone else (or no one) may treat the claim file as stale.
+        """
+        cwd = self.lab_cwd()
+        if cwd is None:
+            return None
+        check = self.lab("inspect", claim["lab"], cwd=cwd)
+        if not check.ok:
+            return None
+        try:
+            now = parse_json(check.out)
+        except ValueError:
+            return None
+        if not isinstance(now, dict) or now.get("name") != claim["lab"] or "claim" not in now:
+            return None
+        held = now["claim"]
+        if held is None:
+            return ""
+        if not isinstance(held, dict) or held.get("lab") != claim["lab"]:
+            return None
+        holder = held.get("claim_id")
+        if not isinstance(holder, str) or not holder:
+            return None
+        status = held.get("status")
+        if status == "released":
+            return ""
+        if status == "active" and holder != claim["claim_id"]:
+            return holder
+        return None
+
+    def move_stale_claim_aside(self, claim: dict) -> Path:
+        """Keep the stale claim file (never delete it) under ~/.local/state/stale-lab-claims/."""
+        source = Path(self.snap.path) / CLAIM_FILE
+        directory = Path(os.environ.get("XDG_STATE_HOME", "~/.local/state")).expanduser() / "stale-lab-claims"
+        directory.mkdir(parents=True, exist_ok=True)
+        label = re.sub(r"[^A-Za-z0-9._-]", "_", claim["claim_id"]) or str(int(time.time()))
+        for attempt in range(1000):
+            suffix = "" if attempt == 0 else f"-{int(time.time())}-{attempt}"
+            dest = directory / f"{Path(self.snap.path).name}-{label}{suffix}.json"
+            try:
+                with open(dest, "x") as out:
+                    out.write(source.read_text())
+            except FileExistsError:
+                continue
+            source.unlink()
+            return dest
+        raise StepFailed("could not choose a free name under stale-lab-claims; claim file kept")
+
     def step_lab(self) -> None:
         snap = self.snap
         claim = self.read_claim() if self.exists else None
         receipt = None
+        stale: dict | None = None
         if claim:
             say(f"releasing lab claim {claim['claim_id']} on {claim['lab']}")
             rel = self.lab("release")
             if not rel.ok:
-                raise StepFailed(f"lab release failed, claim file kept: {rel.tail}")
-            if (Path(snap.path) / CLAIM_FILE).exists():
+                holder = self.stale_claim_holder(claim) if CLAIM_CREDENTIAL_INVALID in rel.out + rel.err else None
+                if holder is None:
+                    raise StepFailed(f"lab release failed, claim file kept: {rel.tail}")
+                moved = self.move_stale_claim_aside(claim)
+                for c in snap.claims:
+                    if c["claim_id"] == claim["claim_id"]:
+                        c["released"] = True
+                snap.save()
+                stale = {"claim_id": claim["claim_id"], "lab": claim["lab"], "current_holder": holder or None, "moved_to": str(moved)}
+                claim = None
+            elif (Path(snap.path) / CLAIM_FILE).exists():
                 raise StepFailed("lab release exited 0 but the claim file is still present")
-            receipt = next((r for r in parse_json(rel.out).get("released", []) if r.get("claim_id") == claim["claim_id"]), None)
+            else:
+                receipt = next((r for r in parse_json(rel.out).get("released", []) if r.get("claim_id") == claim["claim_id"]), None)
         confirmed: list[dict] = []
         states: dict[str, str | None] = {}
         for c in [c for c in snap.claims if not c["released"]]:
@@ -466,7 +529,11 @@ class Cleanup:
                 f"claim released as accounting only; lab {claim['lab']} is still provisioned (agents do not run lab deprovision)",
                 f"pnpm --filter @ccore/lab-manager run lab -- deprovision {claim['lab']} --wait",
             )
-        if confirmed:
+        if stale:
+            holder = stale["current_holder"] or "none"
+            note = f"stale claim file moved aside: claim {stale['claim_id']} on {stale['lab']} is not the live holder (current holder {holder}); kept at {stale['moved_to']}"
+            self.record("lab", "done", note=note, claims=confirmed + [{"claim_id": stale["claim_id"], "lab": stale["lab"]}], lab_states=states, stale_claim=stale)
+        elif confirmed:
             self.record("lab", "done", claims=confirmed, lab_states=states, deprovisioning=receipt and receipt.get("deprovisioning"))
         elif snap.claims:
             self.record("lab", "already_done", claims=[{"claim_id": c["claim_id"], "lab": c["lab"]} for c in snap.claims])

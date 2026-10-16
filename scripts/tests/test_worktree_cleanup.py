@@ -4,12 +4,16 @@ Each test builds a real bare origin, a clone and a linked worktree, and puts fak
 gh/paseo/pnpm/wrangler on PATH (see fixtures/worktree_cleanup_fakes.py). Git runs for real.
 """
 
+import importlib.util
 import json
 import os
+import sys
 import subprocess
 import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "skills" / "worktree-cleanup" / "scripts" / "worktree_cleanup.py"
@@ -90,7 +94,7 @@ class Fixture:
         self.fake(workers=[run], d1=[f"{run}-feedback"])
 
     def run(self, *args, cwd=None):
-        env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}", "FAKE_STATE": str(self.fake_state), "WORKTREE_CLEANUP_STATE_DIR": str(self.state_dir), "PASEO_HOME": str(self.tmp / "paseo")}
+        env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}", "FAKE_STATE": str(self.fake_state), "WORKTREE_CLEANUP_STATE_DIR": str(self.state_dir), "PASEO_HOME": str(self.tmp / "paseo"), "XDG_STATE_HOME": str(self.tmp / "xdg")}
         env.pop("PASEO_AGENT_ID", None)
         p = subprocess.run([str(SCRIPT), *args], cwd=cwd or self.main, env=env, capture_output=True, text=True)
         try:
@@ -191,6 +195,124 @@ class WorktreeCleanupTest(unittest.TestCase):
         code, report = self.f.run("--path", str(self.f.wt))
         self.assertEqual(code, 0, report)
         self.assertFalse(self.f.wt.exists())
+
+    STALE_ERROR = "lab release failed: claim_credential_invalid: the claim credential is no longer valid"
+
+    def stale_claim_files(self):
+        return sorted((self.f.tmp / "xdg" / "stale-lab-claims").glob("*.json"))
+
+    def test_release_rejected_as_credential_invalid_while_another_claim_holds_the_lab_moves_the_stale_file_aside_and_finishes(self):
+        self.f.claim()
+        self.f.demo()
+        original = (self.f.wt / ".ccore" / "lab-claim.json").read_text()
+        self.f.fake(release_error=self.STALE_ERROR, lab_claim={"claim_id": "c-2", "lab": "lab007", "status": "active", "pull_requests": []})
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (0, "complete"), report)
+        lab = self.f.step(report, "lab")
+        self.assertEqual(lab["status"], "done")
+        self.assertIn("stale claim file moved aside", lab["note"])
+        self.assertIn("c-1", lab["note"])
+        self.assertIn("c-2", lab["note"])
+        (moved,) = self.stale_claim_files()
+        self.assertEqual(moved.name, "wt-c-1.json")
+        self.assertEqual(moved.read_text(), original)
+        self.assertEqual(self.f.calls(), ["release", "delete worker proto-20261005-ab12cd34", "delete d1 proto-20261005-ab12cd34-feedback", "archive wks_1"])
+        self.assertFalse(self.f.wt.exists())
+        self.assertFalse(self.f.remote_has_branch())
+
+        code, again = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, again["status"]), (0, "complete"), again)
+        self.assertEqual(self.f.step(again, "lab")["status"], "already_done")
+        self.assertEqual(len(self.stale_claim_files()), 1)
+
+    def test_release_rejected_as_credential_invalid_when_the_manager_has_no_claim_or_a_released_one_is_also_stale(self):
+        for held in (None, {"claim_id": "c-1", "lab": "lab007", "status": "released", "released_at": "2026-10-13T00:00:00Z"}):
+            with self.subTest(held=held):
+                self.setUp()
+                self.f.claim()
+                self.f.fake(release_error=self.STALE_ERROR, lab_claim=held)
+                code, report = self.f.run("--path", str(self.f.wt))
+                self.assertEqual((code, report["status"]), (0, "complete"), report)
+                self.assertEqual(self.f.step(report, "lab")["status"], "done")
+                self.assertEqual([p.name for p in self.stale_claim_files()], ["wt-c-1.json"])
+
+    def test_unproven_inspect_answers_fail_closed_and_keep_the_claim_file(self):
+        good = {"claim_id": "c-2", "lab": "lab007", "status": "active"}
+        answers = {
+            "empty object": {},
+            "missing claim key": {"name": "lab007", "state": "provisioned"},
+            "claim false": {"name": "lab007", "claim": False},
+            "claim empty object": {"name": "lab007", "claim": {}},
+            "outer name mismatch": {"name": "lab008", "claim": dict(good, lab="lab008")},
+            "missing outer name": {"claim": good},
+            "nested lab mismatch": {"name": "lab007", "claim": dict(good, lab="lab008")},
+            "unknown status": {"name": "lab007", "claim": dict(good, status="pending")},
+            "same claim id, weird released_at": {"name": "lab007", "claim": {"claim_id": "c-1", "lab": "lab007", "status": "active", "released_at": "2026-10-13T00:00:00Z"}},
+            "non-string claim id": {"name": "lab007", "claim": dict(good, claim_id=2)},
+        }
+        for label, answer in answers.items():
+            with self.subTest(label):
+                self.setUp()
+                self.f.claim()
+                self.f.fake(release_error=self.STALE_ERROR, inspect_answer=answer)
+                code, report = self.f.run("--path", str(self.f.wt))
+                self.assertEqual((code, report["status"]), (3, "failed"), report)
+                self.assertIn("claim file kept", report["error"])
+                self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+                self.assertEqual(self.stale_claim_files(), [])
+
+    def test_repeated_same_name_same_claim_id_archives_in_one_second_never_overwrite(self):
+        spec = importlib.util.spec_from_file_location("worktree_cleanup_under_test", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        self.addCleanup(sys.modules.pop, spec.name, None)
+        spec.loader.exec_module(module)
+        root = Path(self._tmp.name)
+        worktree = root / "wt-archive"
+        (worktree / ".ccore").mkdir(parents=True)
+        stub = types.SimpleNamespace(snap=types.SimpleNamespace(path=str(worktree)))
+        bodies = []
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(root / "xdg-archive")}), mock.patch.object(module.time, "time", return_value=1_800_000_000.0):
+            for n in range(3):
+                body = json.dumps({"lab": "lab007", "claim_id": "c-1", "credential": f"secret-{n}"})
+                bodies.append(body)
+                (worktree / ".ccore" / "lab-claim.json").write_text(body)
+                dest = module.Cleanup.move_stale_claim_aside(stub, {"claim_id": "c-1", "lab": "lab007"})
+                self.assertFalse((worktree / ".ccore" / "lab-claim.json").exists())
+                self.assertEqual(dest.read_text(), body)
+            kept = list((root / "xdg-archive" / "stale-lab-claims").glob("*.json"))
+        self.assertEqual(sorted(p.read_text() for p in kept), sorted(bodies))
+
+    def test_release_rejected_as_credential_invalid_for_the_live_holder_still_fails_and_keeps_everything(self):
+        self.f.claim()
+        self.f.fake(release_error=self.STALE_ERROR)
+        for _ in range(2):
+            code, report = self.f.run("--path", str(self.f.wt))
+            self.assertEqual((code, report["status"]), (3, "failed"), report)
+            self.assertIn("claim file kept", report["error"])
+            self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+            self.assertEqual(self.stale_claim_files(), [])
+            self.assertTrue(self.f.wt.exists())
+            self.assertTrue(self.f.remote_has_branch())
+
+    def test_release_rejected_as_credential_invalid_with_an_unreachable_manager_still_fails_and_keeps_everything(self):
+        self.f.claim()
+        self.f.fake(release_error=self.STALE_ERROR, inspect_fails_after_release=True, lab_claim={"claim_id": "c-2", "lab": "lab007", "status": "active"})
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (3, "failed"), report)
+        self.assertIn("claim file kept", report["error"])
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+        self.assertEqual(self.stale_claim_files(), [])
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_other_release_failures_never_take_the_stale_path_even_when_another_claim_holds_the_lab(self):
+        self.f.claim()
+        self.f.fake(release_fails=True, lab_claim={"claim_id": "c-2", "lab": "lab007", "status": "active"})
+        code, report = self.f.run("--path", str(self.f.wt))
+        self.assertEqual((code, report["status"]), (3, "failed"), report)
+        self.assertTrue((self.f.wt / ".ccore" / "lab-claim.json").exists())
+        self.assertEqual(self.stale_claim_files(), [])
 
     def test_running_inside_the_target_defers_archive_and_branch_deletion_and_gives_a_resume_command(self):
         code, report = self.f.run(cwd=self.f.wt)
