@@ -171,7 +171,7 @@ checkouts and non-fast-forward pulls:
 bash scripts/install-omp-remote-hosts.sh
 ```
 
-The helper defaults to `dever` and `thump`; override with `OMP_REMOTE_HOSTS`.
+The helper defaults to `mbp`, `dever` and `thump`; override with `OMP_REMOTE_HOSTS`.
 Use `OMP_REMOTE_BRANCH` and `OMP_REMOTE_REPO_PATH` when the checkout differs
 from the local branch or the default `$HOME/code/ai-configs` path. It never
 copies source trees with tar, rsync, or scp, and never transfers `auth.json`,
