@@ -13,6 +13,7 @@
 // Re-running with an existing name updates that demo in place.
 // Never touches product deployables, the Access policy or the service token.
 import { execFileSync, spawnSync } from "node:child_process";
+import { Resolver } from "node:dns/promises";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -140,6 +141,19 @@ function deploy(configPath, stageDir) {
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
+// Probing before the record exists makes the system resolver cache NXDOMAIN for a while
+// (negative caching). Ask a public resolver until the record shows up, and only then touch the system one.
+async function waitForDns(host, deadline) {
+  const resolver = new Resolver();
+  resolver.setServers(["1.1.1.1", "8.8.8.8"]);
+  for (;;) {
+    if ((await resolver.resolve4(host).catch(() => [])).length > 0) return;
+    if (Date.now() > deadline) throw new Error(`${host} has no DNS record after the deadline.`);
+    console.error(`waiting for DNS record of ${host}`);
+    await sleep(5000);
+  }
+}
+
 // Anonymous requests must hit the Access login wall, never the demo itself.
 async function anonymousIsRefused(url) {
   const response = await fetch(url, { redirect: "manual" });
@@ -151,6 +165,7 @@ async function anonymousIsRefused(url) {
 // The custom-domain certificate takes about 5 minutes; until then fetch fails or Access answers non-200.
 async function waitUntilServing(url, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
+  await waitForDns(new URL(url).hostname, deadline);
   let last = "no response";
   for (;;) {
     try {
