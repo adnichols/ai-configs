@@ -44,20 +44,22 @@ class HerdrAgentHandoffTest(unittest.TestCase):
 
     def test_default_creates_same_host_session_and_worktree(self):
         for required in (
-            "Create a new named Herdr session on the source host.",
+            "Stay in the current Herdr session on the source host.",
             "Create a new Git worktree in that session.",
-            "herdr --session <new-session>",
+            "Do not create a new named session unless the operator asks for one.",
+            "Use `--session` only when the operator asked for a named session:",
+            "herdr --session <named-session>",
             "worktree create",
-            "Do not reuse the source session or checkout.",
+            "Do not reuse the source checkout.",
         ):
             self.assertIn(required, self.handoff)
-        self.assertNotIn("session or worktree", self.handoff.lower())
 
     def test_remote_destination_is_explicit_and_keeps_both_resources(self):
         for required in (
-            "If the operator specifies a remote host, create both the Herdr session and the worktree on that host.",
+            "If the operator specifies a remote host, create the worktree on that host in that host's current session unless they also name a session.",
             "Without an explicit remote host, use the local host.",
-            "herdr --remote <destination-ssh-target> --session <new-session>",
+            "herdr --remote <destination-ssh-target>",
+            "Add `--session <named-session>` on the remote prefix only when the operator named one.",
             "Paths in remote commands refer to the destination host.",
         ):
             self.assertIn(required, self.handoff)
@@ -65,7 +67,7 @@ class HerdrAgentHandoffTest(unittest.TestCase):
     def test_remote_destination_reuses_one_global_selector_prefix(self):
         for required in (
             "Build one reusable `<destination-herdr>` prefix",
-            "The `--remote` and `--session` selectors are global selectors before the command group.",
+            "`--remote` and `--session` are global selectors before the command group.",
             "<destination-herdr> status",
             "<destination-herdr> workspace list",
             "<destination-herdr> worktree create",

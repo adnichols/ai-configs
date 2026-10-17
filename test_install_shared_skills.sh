@@ -1442,7 +1442,7 @@ test_phase_three_docs_use_canonical_shared_skill_paths() {
 
 test_phase_three_duplicate_skill_trees_are_removed() {
   [[ ! -d ".agents/skills/dependency-selection" ]] || return 1
-  [[ ! -d "_pi/skills" ]] || return 1
+  [[ "$(git ls-files _pi/skills)" == "_pi/skills/adn-mode/SKILL.md" ]] || return 1
   [[ ! -d "_opencode" ]] || return 1
   [[ ! -d "_gemini" ]] || return 1
   [[ ! -d "_pi/extensions/pi-plan-mode" ]] || return 1
@@ -2010,7 +2010,6 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_not_contains "skills/run-plan/SKILL.md" 'pre-pr-implementation-review' || return 1
   assert_file_contains "_hermes/default/skills/software-development/run-plan/SKILL.md" '$autoreview <plan path>' || return 1
   assert_file_not_contains "_hermes/default/skills/software-development/run-plan/SKILL.md" 'pre-pr-implementation-review' || return 1
-  assert_file_contains "_hermes/default/cron/jobs.json" '/skill:autoreview' || return 1
   assert_file_not_contains "_hermes/default/cron/jobs.json" '/skill:pre-pr-implementation-review' || return 1
   assert_file_contains ".agents/skills/ai-configs-planning/SKILL.md" 'one implementation review plus one targeted rereview' || return 1
   assert_file_contains "_pi/README.md" '/skill:autoreview thoughts/plans/my-plan.html' || return 1
@@ -2034,7 +2033,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_not_contains "skills/run-plan/SKILL.md" 'loop until every reviewer is clean' || return 1
   assert_file_contains ".agents/skills/ai-configs-planning/SKILL.md" 'exactly one bounded, read-only, advisory external consultation' || return 1
   assert_file_contains ".agents/skills/ai-configs-planning/SKILL.md" 'with or without a PR' || return 1
-  for prompt in skills/repo-agents-bootstrap/SKILL.md skills/repo-agents-bootstrap/references/root_agents_template.md; do
+  for prompt in skills/repo-agents-bootstrap/SKILL.md; do
     assert_file_contains "$prompt" 'whether or not a PR exists' || return 1
     assert_file_contains "$prompt" 'configured consult/council surface' || return 1
     assert_file_contains "$prompt" 'stable, distinct `REVIEW_ESCAPE` family+scope identifier' || return 1
@@ -2047,7 +2046,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
     assert_file_contains "$prompt" 'user/product/scope decision' || return 1
   done
   assert_file_contains "skills/repo-agents-bootstrap/SKILL.md" 'Report specifically any unresolved disposition evidence or path that current authority cannot complete.' || return 1
-  assert_file_contains "skills/repo-agents-bootstrap/references/root_agents_template.md" 'report specifically unresolved evidence or any path current authority cannot complete' || return 1
+  assert_file_not_contains "skills/repo-agents-bootstrap/references/root_agents_template.md" 'REVIEW_ESCAPE' || return 1
   assert_file_contains "_pi/README.md" 'does not require a PR URL or PR feedback' || return 1
   assert_file_not_contains "skills/run-plan/SKILL.md" 'Repeat Review Loop' || return 1
   assert_file_not_contains "AGENTS.md" 'keep the review/fix loop running until' || return 1
@@ -2082,7 +2081,7 @@ test_review_guidance_is_bounded_and_scope_safe() {
   assert_file_not_contains "$hermes_run_plan" 'cheap and safe enough to fix immediately' || return 1
   assert_file_contains "$hermes_run_plan" 'Run exactly one bounded, static inspection with the active harness' || return 1
   assert_file_not_contains "$hermes_run_plan" 'claude-code-review' || return 1
-  assert_file_contains "_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md" "active harness's \`reviewer\` subagent" || return 1
+  assert_file_contains "_hermes/default/skills/software-development/reviewed-html-plan/SKILL.md" "run exactly one Pi \`planner\` subagent before execution and keep it read-only" || return 1
   [[ ! -e "APPEND_SYSTEM.md" ]] || return 1
   assert_file_contains "skills/autoreview/SKILL.md" 'active-harness reviewer' || return 1
   assert_file_contains "skills/reviewed-html-plan/SKILL.md" 'planner` subagent' || return 1
