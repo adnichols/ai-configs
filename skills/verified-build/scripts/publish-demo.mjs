@@ -87,14 +87,46 @@ function ensureLabsAccount() {
   if (!output.includes(ACCOUNT_ID)) fail(`wrangler is not logged in to the Nodaste Labs account ${ACCOUNT_ID}. Run \`wrangler login\` with an account that has it.`);
 }
 
-function ensureDatabase(name) {
-  const info = () => JSON.parse(wrangler(["d1", "info", name, "--json"]));
+function readManifest(runDir) {
+  const path = join(runDir, "demos.json");
+  return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")).demos ?? [] : [];
+}
+
+function workerExists(name) {
   try {
-    return info().uuid;
-  } catch {
-    wrangler(["d1", "create", name]);
-    return info().uuid;
+    wrangler(["deployments", "list", "--name", name]);
+    return true;
+  } catch (error) {
+    if (error.message.includes("10007")) return false;
+    throw error;
   }
+}
+
+function lookupDatabaseId(name) {
+  try {
+    return JSON.parse(wrangler(["d1", "info", name, "--json"])).uuid;
+  } catch (error) {
+    if (error.message.includes("Couldn't find DB")) return null;
+    throw error;
+  }
+}
+
+// A name is ours only if this worktree and branch recorded it. Anything else that already holds the
+// Worker or database name belongs to another demo or deployable, so stop before any migration or deploy.
+function assertNameIsOurs(runDir, runName, databaseName, owner) {
+  const recorded = readManifest(runDir).find((demo) => demo.run === runName && demo.worktree === owner.worktree && demo.branch === owner.branch);
+  if (recorded) return;
+  const taken = [workerExists(runName) && `Worker ${runName}`, databaseName && lookupDatabaseId(databaseName) && `D1 database ${databaseName}`].filter(Boolean);
+  if (taken.length > 0) {
+    fail(`${taken.join(" and ")} already exist on the Labs account and this worktree has no demos.json entry for ${runName}. Choose a new run name; reuse a name only from the worktree and branch that published it.`);
+  }
+}
+
+function ensureDatabase(name) {
+  const existing = lookupDatabaseId(name);
+  if (existing) return existing;
+  wrangler(["d1", "create", name]);
+  return lookupDatabaseId(name);
 }
 
 function stage({ runName, built, worker, migrations, runDir }, databaseId) {
@@ -194,22 +226,18 @@ async function main() {
   ensureLabsAccount();
   mkdirSync(runDir, { recursive: true });
 
-  const databaseId = options.worker ? ensureDatabase(`${runName}-feedback`) : null;
-  const { stageDir, configPath, host } = stage(options, databaseId);
-  const url = `https://${host}`;
-  if (options.worker) wrangler(["d1", "migrations", "apply", "FEEDBACK_DB", "--remote", "-c", configPath], { cwd: stageDir });
-  const version = deploy(configPath, stageDir);
-
   const git = (...args) => run("git", args).trim();
-  recordManifest(runDir, {
-    run: runName,
-    worker: runName,
-    d1: options.worker ? `${runName}-feedback` : null,
-    account: ACCOUNT_ID,
-    url,
-    worktree: git("rev-parse", "--show-toplevel"),
-    branch: git("rev-parse", "--abbrev-ref", "HEAD"),
-  });
+  const owner = { worktree: git("rev-parse", "--show-toplevel"), branch: git("rev-parse", "--abbrev-ref", "HEAD") };
+  const databaseName = options.worker ? `${runName}-feedback` : null;
+  assertNameIsOurs(runDir, runName, databaseName, owner);
+  const url = `https://${runName}.${DEMO_DOMAIN}`;
+  // Recorded before anything is created, so a run that dies midway is still cleaned up and re-runnable.
+  recordManifest(runDir, { run: runName, worker: runName, d1: databaseName, account: ACCOUNT_ID, url, ...owner });
+
+  const databaseId = databaseName ? ensureDatabase(databaseName) : null;
+  const { stageDir, configPath } = stage(options, databaseId);
+  if (databaseName) wrangler(["d1", "migrations", "apply", "FEEDBACK_DB", "--remote", "-c", configPath], { cwd: stageDir });
+  const version = deploy(configPath, stageDir);
 
   await waitUntilServing(url, options.timeoutMs);
   const anonymous = await anonymousIsRefused(url);
