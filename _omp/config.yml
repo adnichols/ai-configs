@@ -57,7 +57,8 @@ startup:
   quiet: true
   showSplash: false
 lsp:
-  enabled: true
+  enabled: false
+  diagnosticsOnWrite: false
 commands:
   enableClaudeUser: false
   enableClaudeProject: false
