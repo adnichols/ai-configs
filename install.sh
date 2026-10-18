@@ -50,6 +50,7 @@ DEPRECATED_SHARED_SKILLS=(
     completeness
     lab-manager
     ava
+    verified-build
 )
 # Retire the legacy, session-detail-backed todo extension in favor of the
 # package-managed @juicesharp/rpiv-todo extension.
