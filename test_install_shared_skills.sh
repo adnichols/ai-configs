@@ -376,6 +376,7 @@ seed_phase_two_home() {
     claude-code-review
     claude-review-partner
     lab-manager
+    verified-build
   )
 
   mkdir -p \
@@ -516,6 +517,7 @@ assert_shared_skill_install_state() {
     claude-code-review
     claude-review-partner
     lab-manager
+    verified-build
   )
   local matt_skills=(
     codebase-design
