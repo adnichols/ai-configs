@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- OMP model config (2026-10-19): `_omp/config.yml` now captures the live `modelRoles` from the primary workstation: `DeepSeek-V4.1-Flash-1017` for `smol`, `commit`, `tiny` and `reviewer-two`; `gpt-6.1-sol` for `slow`, `plan`, `Oracle`, `arch-three` and `vision`; `claude-sonnet-5-5:high` for `default`, `designer` and `task`; `claude-opus-5-5:high` for `reviewer-three` and `arch-one`; `grok-4.7:high` for `reviewer` and `arch-two`. Deployed to mbp, dever, unicorn and thump.
+
 - `worktree-cleanup` (WI-192): when `lab release` fails with `claim_credential_invalid`, the script checks the manager with `lab inspect`. If the claim id in `.ccore/lab-claim.json` is not the lab's live holder, it treats the claim as already released, moves the stale file to `~/.local/state/stale-lab-claims/` and continues. A live holder, or a manager that cannot answer, still stops the cleanup with the claim file kept.
 
 - `orchestrate` dashboard "Needs attention" block (operator feedback, 2026-10-12): it now opens with a plain-language explanation. It says the list is the orchestrator's own to-do list, and for each label present (`LAUNCH`, `CHASE`, ...) what it means for the item, using the tracker's actual time bounds, and what the orchestrator does next.

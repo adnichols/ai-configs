@@ -29,23 +29,23 @@ checkpoint:
 plan:
   enabled: false
 modelRoles:
-  smol: anthropic/claude-haiku-5-5:auto
-  slow: openai-codex/gpt-5.6-sol:high
-  plan: openai-codex/gpt-5.6-sol:xhigh
-  designer: anthropic/claude-sonnet-5-5:auto
-  commit: anthropic/claude-haiku-5-5:auto
-  tiny: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash:auto
-  Oracle: openai-codex/gpt-6-astra:medium
-  reviewer: xai-oauth/grok-4.7:auto
-  default: anthropic/claude-sonnet-5-5
+  smol: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:xhigh
+  slow: openai-codex/gpt-6.1-sol:high
+  plan: openai-codex/gpt-6.1-sol:high
+  designer: anthropic/claude-sonnet-5-5:high
+  commit: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:auto
+  tiny: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:auto
+  Oracle: openai-codex/gpt-6.1-sol:high
+  reviewer: xai-oauth/grok-4.7:high
+  default: anthropic/claude-sonnet-5-5:high
   speech: xai/grok-tts
-  vision: openai-codex/gpt-6-sol:medium
-  reviewer-two: openai-codex/gpt-5.6-sol:auto
-  reviewer-three: anthropic/claude-opus-5-5:auto
-  arch-one: anthropic/claude-opus-5-5:auto
-  arch-two: xai-oauth/grok-4.7:auto
-  arch-three: openai-codex/gpt-5.6-sol:auto
-  task: anthropic/claude-sonnet-5-5:auto
+  vision: openai-codex/gpt-6.1-sol:auto
+  reviewer-two: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:xhigh
+  reviewer-three: anthropic/claude-opus-5-5:high
+  arch-one: anthropic/claude-opus-5-5:high
+  arch-two: xai-oauth/grok-4.7:high
+  arch-three: openai-codex/gpt-6.1-sol:high
+  task: anthropic/claude-sonnet-5-5:high
 defaultThinkingLevel: auto
 compaction:
   thresholdPercent: -1
@@ -104,8 +104,7 @@ ask:
   enabled: false
 retry:
   fallbackChains:
-    speech:
-      []
+    speech: []
 extendedContext: false
 prewalk:
   enabled: false
