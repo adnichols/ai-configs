@@ -400,8 +400,6 @@ Prepend new ADR entry (after the header, before existing ADRs):
 ---
 ```
 
-Note: ADR numbers are mechanical and never need operator approval. Use the next free number (the repository's tool, or max+1 across `spec/adr-log.md`, origin/main, and open branches). On any collision, renumber and update every reference without asking.
-
 ### CHANGELOG.md
 
 Add entry (newest first, after header):

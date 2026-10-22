@@ -9,7 +9,6 @@ For browser tasks, honor the user's browser and the active session's preferred b
 
 ## Browser work
 
-- Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
 - On Linux, `browser_prepare` with `strategy: existing_profile` brings the target window to the foreground and injects global input (XTest) to open the remote-debugging setup page. It does this on a reconnect that then fails, and its schema has no background-only option. Never use it in a background-only or unattended workflow.
 - Prefer an isolated driver-owned profile (`isolated_new` or `isolated_named`) or the native background action ladder.
 - Use existing-profile attachment only when the user has explicitly authorized foreground takeover.
