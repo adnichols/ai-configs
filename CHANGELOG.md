@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- OMP model config (2026-10-22, later): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. Two roles changed: `reviewer` is now `DeepSeek-V4.1-Flash-1017:high` (was `xai-oauth/grok-4.7:high`) and `reviewer-two` is now `zai-org/GLM-5.3-Flash:high` (was `DeepSeek-V4.1-Flash-1017:xhigh`). Deployed to mbp, dever and thump.
+
 - OMP model config (2026-10-22): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. Three roles changed: `Oracle` is now `claude-opus-5-5:xhigh` (was `gpt-6.1-sol:high`), `arch-two` is now `DeepSeek-V4.1-Flash-1017:xhigh` (was `grok-4.7:high`), and `task` is now `claude-sonnet-5-5:medium` (was `:high`). Deployed to mbp, dever and thump.
 
 - OMP model config (2026-10-19): `_omp/config.yml` now captures the live `modelRoles` from the primary workstation: `DeepSeek-V4.1-Flash-1017` for `smol`, `commit`, `tiny` and `reviewer-two`; `gpt-6.1-sol` for `slow`, `plan`, `Oracle`, `arch-three` and `vision`; `claude-sonnet-5-5:high` for `default`, `designer` and `task`; `claude-opus-5-5:high` for `reviewer-three` and `arch-one`; `grok-4.7:high` for `reviewer` and `arch-two`. Deployed to mbp, dever, unicorn and thump.
