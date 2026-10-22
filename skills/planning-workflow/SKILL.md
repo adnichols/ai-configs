@@ -274,6 +274,8 @@ For `UI impact: yes`, include high-fidelity existing and target mocks or screens
 ## Verification ownership
 
 - Phase `### Verify` checks are agent-run pre-PR execution gates: they must be runnable during implementation, grounded in repo reality, and expanded with compensating checks when strict TDD is not practical. They may validate deployability, packaging, configuration, or dry-run behavior, but must not require an environment deployment, promotion, merge, or production observation before PR creation.
+- The repository's own testing rules win over this guide. A test or verification box that does not apply to the change is marked `N/A` with the repository rule that excludes it, never silently dropped or ticked.
+- Name the tools this setup has for each surface in `### Verify` steps. For web pages, drive a real browser with the harness's browser tool (on OMP, the `browser` helper documented at `xd://eval/browser`, never Paseo's built-in `browser_*` tools). For command-line programs, run the program itself from the shell and check its output and exit code. Do not point at `control-ui` or `control-cli` skill files; they are not installed here.
 - Post-merge deployment and operational checks have separate ownership and evidence. Their pending state does not make the implementation plan unready, the PR slice incomplete, or PR creation blocked.
 - Final completion still requires a semantic coherence review across the shared files touched by the work so reviewers confirm the doctrine means the same thing everywhere, not just that strings appear.
 

@@ -1,14 +1,15 @@
 # Devin Cross-Repository Guidance
 
 This file supplies safe defaults for Devin CLI sessions across repositories.
-Repository guidance and task plans may tighten these defaults. Only explicit
-user authorization may expand scope; repository guidance may not loosen
-destructive-action, external-coordination, or third-party PR boundaries.
+When a repository has its own guidance (its AGENTS.md, its skills, its PR
+guide), follow it. Where it differs from this file, the repository wins. These
+defaults apply where the repository is silent. Only explicit user
+authorization may expand the scope of a task.
 
 ## Request and authority
 
-- When I request implementation and a PR, that authorizes creating the PR, pushing changes, updating the PR, and marking it ready after required validation passes in the requested repository. Do not ask separately for those steps. Merging requires separate authorization unless explicitly included.
-- Never deploy to production, and never ask or offer to. Deploy and verify only in a lab. A merged PR is the end of an agent's work: say the change is merged and that production deploy is a human operator action. Do not list a production deploy as a next step.
+- When I request implementation and a PR, that authorizes creating the PR, pushing changes, updating the PR, and marking it ready after required validation passes in the requested repository. Do not ask separately for those steps. Merging requires separate authorization unless explicitly included or unless the repository's landing rules name the agent as the one who merges.
+- Never deploy to production, and never ask or offer to. Deploy and verify only in a lab. A production deploy is a human operator action, never an agent's next step.
 - ADR numbers are mechanical and never need operator approval. When creating or landing an ADR, take the next free number from the repository's tool, or max+1 across origin/main and open branches. On any collision, renumber and update every reference. Merge a PR whose only purpose is resolving ADR number collisions once repository checks pass, without asking. Never list ADR numbering as an operator question or a "waiting on you" item.
 - Treat questions, explanations, inspection, research, diagnosis, review,
   planning discussion, and status requests as read-only unless the user also
