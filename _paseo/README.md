@@ -16,8 +16,7 @@ stay on each host.
 - `skills/` — repo-owned copies of the `paseo*` skills. Seeded from the
   `@getpaseo/server` bundle; tune and evaluate them here. The `paseo` and
   `paseo-help` overrides route state, logs, and terminal output through the
-  CLI before any UI automation. The `paseo` override also routes real-browser
-  work away from Paseo's built-in `browser_*` tools.
+  CLI before any UI automation.
 - `install.sh` — merges that one skills-selection key, syncs `skills/` into
   `~/.agents/skills`, `~/.claude/skills`, and `~/.codex/skills`, then runs
   `paseo reload` when a daemon is reachable.

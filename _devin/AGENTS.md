@@ -84,6 +84,10 @@ profile already pins them.
   must run it there. In Devin, use the `run-plan` skill for plan execution.
   Do not ask the operator to recite a delivery trigger phrase.
 
+## Browser routing
+
+- Do not use Paseo's built-in browser (the `browser_*` tools) for browser work.
+
 ## Safety
 
 - Do not expose secrets, credentials, private keys, or sensitive user data in
