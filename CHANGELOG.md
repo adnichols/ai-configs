@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
-- Duplicate global rules (WI-762): the ADR-numbering sentence is deleted from `cmd-create-pr`, `cmd-graduate`, `run-plan`, `domain-modeling/ADR-FORMAT.md` and the three `cmd:graduate` prompt copies, and the "do not use Paseo's built-in browser" sentence from `computer-use` (shared and Codex), Codex `verified-build`, the `paseo` skill and `prototype`. Each rule keeps one statement in the OMP, Codex and Devin global `AGENTS.md` (`_devin/AGENTS.md` gains the browser rule). Claude and Pi have no installed global `AGENTS.md`, so they no longer carry the browser or ADR-numbering rule.
+- Duplicate global rules (WI-762): the ADR-numbering approval sentence is deleted from `cmd-create-pr`, `cmd-graduate`, `run-plan`, the three `cmd:graduate` prompt copies and the "never need operator approval" clause of `domain-modeling/ADR-FORMAT.md` (its numbering procedure stays, as the shared how-to). The "do not use Paseo's built-in browser" sentence is deleted from `computer-use` (shared and Codex), Codex `verified-build`, the `paseo` skill and `prototype`. Each rule keeps one statement in the OMP, Codex and Devin global `AGENTS.md` (`_devin/AGENTS.md` gains the browser rule). Claude and Pi have no installed global `AGENTS.md`, so they no longer carry the browser rule or the ADR approval rule.
 
 ### Changed
 
