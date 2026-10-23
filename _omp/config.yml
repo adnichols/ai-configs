@@ -34,13 +34,13 @@ modelRoles:
   commit: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:auto
   tiny: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:auto
   Oracle: anthropic/claude-opus-5-5:xhigh
-  reviewer: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:high
+  reviewer: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:xhigh
   default: anthropic/claude-sonnet-5-5:high
   speech: xai/grok-tts
   reviewer-two: anthropic/claude-haiku-5-5:xhigh
-  reviewer-three: anthropic/claude-opus-5-5:high
+  reviewer-three: anthropic/claude-sonnet-5-5:high
   arch-one: anthropic/claude-opus-5-5:high
-  arch-two: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:xhigh
+  arch-two: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:max
   arch-three: openai-codex/gpt-6.1-sol:high
   task: anthropic/claude-sonnet-5-5:medium
   smol: anthropic/claude-haiku-5-5:high
@@ -105,12 +105,6 @@ ask:
 retry:
   fallbackChains:
     speech: []
-    reviewer:
-      - anthropic/claude-haiku-5-5
-    commit:
-      - anthropic/claude-haiku-5-5
-    tiny:
-      - anthropic/claude-haiku-5-5
 extendedContext: false
 prewalk:
   enabled: false
