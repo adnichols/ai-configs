@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- OMP model config (2026-10-22, evening): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `reviewer-two` is now `claude-haiku-5-5:xhigh` (was `GLM-5.3-Flash:high`), `smol` is now `claude-haiku-5-5:high` (was `DeepSeek-V4.1-Flash-1017:xhigh`), `vision` is now `gpt-5.6-sol:high` (was `gpt-6.1-sol:auto`), and `slow` is now `gpt-6.1-sol:medium` (was `:high`). `retry.fallbackChains` gains `reviewer`, `commit` and `tiny` chains that fall back to `claude-haiku-5-5`. Deployed to mbp, dever and unicorn.
+
 - OMP model config (2026-10-22, later): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. Two roles changed: `reviewer` is now `DeepSeek-V4.1-Flash-1017:high` (was `xai-oauth/grok-4.7:high`) and `reviewer-two` is now `zai-org/GLM-5.3-Flash:high` (was `DeepSeek-V4.1-Flash-1017:xhigh`). Deployed to mbp, dever and thump.
 
 - OMP model config (2026-10-22): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. Three roles changed: `Oracle` is now `claude-opus-5-5:xhigh` (was `gpt-6.1-sol:high`), `arch-two` is now `DeepSeek-V4.1-Flash-1017:xhigh` (was `grok-4.7:high`), and `task` is now `claude-sonnet-5-5:medium` (was `:high`). Deployed to mbp, dever and thump.
