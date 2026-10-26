@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- OMP model config (2026-10-25, evening): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `Oracle` is now `openai-codex/gpt-6.1-sol:high` (was `anthropic/claude-opus-5-5:xhigh`) and `smol` is now `DeepSeek-V4.1-Flash-1017:max` (was `claude-haiku-5-5:high`). Deployed to mbp, dever, unicorn and thump; thump keeps its two local settings (`tui.resizeScrollback`, `display.hideToolActivity`).
+- OMP model config (2026-10-25, evening): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `Oracle` is now `openai-codex/gpt-6.1-sol:high` (was `anthropic/claude-opus-5-5:xhigh`), `smol` is now `DeepSeek-V4.1-Flash-1017:xhigh` (was `claude-haiku-5-5:high`), and `default` is now `claude-sonnet-5-5:medium` (was `:high`). Deployed to mbp, dever, unicorn and thump; thump keeps its two local settings (`tui.resizeScrollback`, `display.hideToolActivity`).
 
 - OMP model config (2026-10-22, night): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `reviewer` is now `DeepSeek-V4.1-Flash-1017:xhigh` (was `:high`), `reviewer-three` is now `claude-sonnet-5-5:high` (was `claude-opus-5-5:high`), and `arch-two` is now `DeepSeek-V4.1-Flash-1017:max` (was `:xhigh`). The `reviewer`, `commit` and `tiny` entries in `retry.fallbackChains` are removed; only `speech: []` remains. Deployed to mbp, dever and unicorn.
 
