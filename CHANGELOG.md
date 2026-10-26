@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- OMP model config (2026-10-25, evening): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `Oracle` is now `openai-codex/gpt-6.1-sol:high` (was `anthropic/claude-opus-5-5:xhigh`) and `smol` is now `DeepSeek-V4.1-Flash-1017:max` (was `claude-haiku-5-5:high`). Deployed to mbp, dever, unicorn and thump; thump keeps its two local settings (`tui.resizeScrollback`, `display.hideToolActivity`).
+
 - OMP model config (2026-10-22, night): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `reviewer` is now `DeepSeek-V4.1-Flash-1017:xhigh` (was `:high`), `reviewer-three` is now `claude-sonnet-5-5:high` (was `claude-opus-5-5:high`), and `arch-two` is now `DeepSeek-V4.1-Flash-1017:max` (was `:xhigh`). The `reviewer`, `commit` and `tiny` entries in `retry.fallbackChains` are removed; only `speech: []` remains. Deployed to mbp, dever and unicorn.
 
 - OMP model config (2026-10-22, evening): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `reviewer-two` is now `claude-haiku-5-5:xhigh` (was `GLM-5.3-Flash:high`), `smol` is now `claude-haiku-5-5:high` (was `DeepSeek-V4.1-Flash-1017:xhigh`), `vision` is now `gpt-5.6-sol:high` (was `gpt-6.1-sol:auto`), and `slow` is now `gpt-6.1-sol:medium` (was `:high`). `retry.fallbackChains` gains `reviewer`, `commit` and `tiny` chains that fall back to `claude-haiku-5-5`. Deployed to mbp, dever and unicorn.

@@ -33,7 +33,7 @@ modelRoles:
   designer: anthropic/claude-sonnet-5-5:high
   commit: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:auto
   tiny: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:auto
-  Oracle: anthropic/claude-opus-5-5:xhigh
+  Oracle: openai-codex/gpt-6.1-sol:high
   reviewer: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:xhigh
   default: anthropic/claude-sonnet-5-5:high
   speech: xai/grok-tts
@@ -43,7 +43,7 @@ modelRoles:
   arch-two: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:max
   arch-three: openai-codex/gpt-6.1-sol:high
   task: anthropic/claude-sonnet-5-5:medium
-  smol: anthropic/claude-haiku-5-5:high
+  smol: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:max
   vision: openai-codex/gpt-5.6-sol:high
   slow: openai-codex/gpt-6.1-sol:medium
 defaultThinkingLevel: auto
