@@ -34,6 +34,7 @@ Capture these behaviors as defaults:
 - The root `AGENTS.md` is short and specific: unguessable commands, non-obvious invariants, hard boundaries framed as Always / Ask first / Never, and a task-to-path map. It excludes architecture overviews, derivable conventions, and anything a linter or script enforces.
 - Instruction-file topology is part of bootstrap: canonical `AGENTS.md`; `CLAUDE.md` and `GEMINI.md` as one-line `@AGENTS.md` imports; no `.github/copilot-instructions.md`; no `llms.txt`; nested `AGENTS.md` per functional area.
 - Structure conventions are a first-class bootstrap deliverable, not an afterthought: where-to-work map, domain-vocabulary naming, file budgets, import discipline, machine-checked concept map.
+- Repositories with a JavaScript or TypeScript toolchain use pnpm as their only package manager: `package.json` pins `packageManager` to a `pnpm@<version>`, `pnpm-lock.yaml` is the only committed lockfile, and every documented command is a `pnpm` command. A `package-lock.json`, `npm-shrinkwrap.json` or `yarn.lock`, and any `npm`, `npx` or `yarn` command in guides, READMEs or scripts, is an alignment gap that bootstrap migrates (`pnpm import` converts the existing lockfile without changing resolved versions) and the structure-check lever then rejects.
 - Every convention names its enforcement (lint rule, script, CI gate) or is explicitly marked advisory. Bootstrap commits a runnable structure-check lever the day guidance lands, not later.
 - Product intent lives in the repo's canonical spec-corpus location. Default to `thoughts/specs/product_intent.md` only when the repo has no existing spec corpus; a repo with `spec/` (or equivalent) keeps intent with the corpus and root `AGENTS.md` names the real path. Never fragment an existing corpus.
 - Root-file governance: add a rule only after an observed repeated agent mistake; delete rules that tooling now enforces.
@@ -105,6 +106,7 @@ Do not make a repo-local planning overrides file the default source of truth whe
   - e2e/contract tests,
   - full quality gate command.
 - Detect repo surfaces and likely skill-routing hints (frontend, React/Next, Rust, browser automation, MCP, etc.).
+- Detect the package manager from lockfiles, the `packageManager` field, and package-manager commands in docs and scripts. Anything other than pnpm is an alignment gap.
 
 Also detect whether a repo-local planning overrides file already exists (for example `thoughts/plans/AGENTS.md`).
 Detect the repo's canonical spec or documentation corpus (for example `spec/`, `docs/specs/`): product intent lives with the corpus when one exists.
@@ -196,7 +198,7 @@ Deliver every time, with content scaled to the repo:
 - Bridges: `CLAUDE.md` and `GEMINI.md`, each containing exactly `@AGENTS.md` as its first content line (harness-specific additions below it only when needed). Do not create `.github/copilot-instructions.md` (shadows `AGENTS.md` for first-match resolvers like Zed) or `llms.txt` (a website-docs convention; no repo harness auto-reads it). Remove or replace checked-in copies of the canonical file.
 - Nested `AGENTS.md` policy: any functional area with its own commands or rules carries a short `AGENTS.md` of its own (closest to the edited file wins); the root where-to-work map links each one.
 - Structure contract (for example `docs/repo-structure.md`), sized to the repo: target layout, concept/ownership map, naming vocabulary sourced from the spec or domain corpus, file budgets, import discipline (barrels, deep imports, direction rules), per-area test layout, and an enforcement matrix (rule -> mechanism -> active date).
-- Structure-check lever: a committed, zero-dependency script (for example `scripts/check-structure.mjs`) validating bridge files, concept-map paths and spec links, nested-guide presence, budgets, and area hermeticity where applicable. It must run green on delivery day, before any package manager is installed. Tool-based enforcement (boundary lint, cycle detection) may activate later; the lever covers today.
+- Structure-check lever: a committed, zero-dependency script (for example `scripts/check-structure.mjs`) validating bridge files, concept-map paths and spec links, nested-guide presence, budgets, area hermeticity where applicable, and the pnpm-only rule (pinned `packageManager`, `pnpm-lock.yaml` present, no npm or yarn lockfile, no `npm`/`npx`/`yarn` commands in guides). It must run green on delivery day, before any package manager is installed. Tool-based enforcement (boundary lint, cycle detection) may activate later; the lever covers today.
 
 ### 4) Add repo-local planning overrides only when needed
 
@@ -227,6 +229,7 @@ Before finalizing, verify:
 - Product intent sits in the repo's canonical spec-corpus location, and root `AGENTS.md` points at it.
 - Bridge files exist, are one-line imports of the canonical file, and no shadowing or duplicated instruction files remain.
 - Every root rule names its enforcement or is marked advisory, and the structure-check lever runs green from a clean checkout.
+- JavaScript and TypeScript repos use pnpm only: pinned `packageManager`, committed `pnpm-lock.yaml`, no npm or yarn lockfile, and no `npm`, `npx` or `yarn` commands in guides, READMEs or scripts.
 - Any repo-local planning overrides reference real quality gates from root `AGENTS.md`.
 - TDD + BDD requirements are explicit and testable in the skills and plan templates the repo points at.
 - No contradictory guidance between root `AGENTS.md`, nested `AGENTS.md` files, optional planning overrides, and the shared planning workflow.

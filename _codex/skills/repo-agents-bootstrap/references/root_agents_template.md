@@ -39,6 +39,8 @@ section grows past that, move detail into a deep doc and link it.
 
 - Only commands that exist today, copy-paste-ready, with install/dev/build,
   lint/format, full + single-test invocations, and the structure/quality gate.
+- JavaScript and TypeScript commands use pnpm (`pnpm install --frozen-lockfile`,
+  `pnpm run <script>`); never npm, npx or yarn.
 - One canonical gate command (for example `pnpm quality:gates` or
   `node scripts/check-structure.mjs`) and the moment it must run.
 - If commands live in workspaces, say so once and defer to each workspace's
