@@ -29,19 +29,19 @@ checkpoint:
 plan:
   enabled: false
 modelRoles:
-  plan: openai-codex/gpt-5.6-sol:high
+  plan: anthropic/claude-opus-5-5:xhigh
   designer: anthropic/claude-sonnet-5-5:high
   commit: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:auto
   tiny: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:auto
-  Oracle: openai-codex/gpt-6.1-sol:high
+  Oracle: anthropic/claude-opus-5-5:xhigh
   reviewer: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:xhigh
   default: anthropic/claude-sonnet-5-5:high
   speech: xai/grok-tts
-  reviewer-two: anthropic/claude-haiku-5-5:xhigh
+  reviewer-two: openai-codex/gpt-6.1-terra:xhigh
   reviewer-three: anthropic/claude-sonnet-5-5:high
-  arch-one: anthropic/claude-opus-5-5:high
-  arch-two: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:max
-  arch-three: openai-codex/gpt-6.1-sol:high
+  arch-one: anthropic/claude-opus-5-5:xhigh
+  arch-two: anthropic/claude-fable-5-1:medium
+  arch-three: openai-codex/gpt-6-astra:medium
   task: anthropic/claude-sonnet-5-5:high
   smol: synthetic/hf:deepseek-ai/DeepSeek-V4.1-Flash-1017:xhigh
   vision: openai-codex/gpt-5.6-sol:high

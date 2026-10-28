@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- OMP model config (2026-10-28, morning): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `plan` and `Oracle` are now `anthropic/claude-opus-5-5:xhigh` (were `openai-codex/gpt-5.6-sol:high` and `openai-codex/gpt-6.1-sol:high`), `reviewer-two` is now `openai-codex/gpt-6.1-terra:xhigh` (was `claude-haiku-5-5:xhigh`), `arch-one` is now `claude-opus-5-5:xhigh` (was `:high`), `arch-two` is now `anthropic/claude-fable-5-1:medium` (was `DeepSeek-V4.1-Flash-1017:max`), and `arch-three` is now `openai-codex/gpt-6-astra:medium` (was `gpt-6.1-sol:high`). Deployed to mbp, thump and unicorn; OMP upgraded to 18.13.3 on all three.
+
 - OMP model config (2026-10-26, morning): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `plan` is now `openai-codex/gpt-5.6-sol:high` (was `gpt-6.1-sol:high`), `default` is now `claude-sonnet-5-5:high` (was `:medium`), `task` is now `claude-sonnet-5-5:high` (was `:medium`), and `slow` is now `claude-opus-5-5:high` (was `gpt-6.1-sol:medium`). Deployed to mbp, dever, unicorn and thump.
 
 - OMP model config (2026-10-25, evening): `_omp/config.yml` recaptures the live `modelRoles` from the primary workstation. `Oracle` is now `openai-codex/gpt-6.1-sol:high` (was `anthropic/claude-opus-5-5:xhigh`), `smol` is now `DeepSeek-V4.1-Flash-1017:xhigh` (was `claude-haiku-5-5:high`), and `default` is now `claude-sonnet-5-5:medium` (was `:high`). Deployed to mbp, dever, unicorn and thump; thump keeps its two local settings (`tui.resizeScrollback`, `display.hideToolActivity`).
