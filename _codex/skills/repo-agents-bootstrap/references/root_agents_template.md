@@ -51,6 +51,13 @@ section grows past that, move detail into a deep doc and link it.
 - Only non-obvious, repo-specific rules. Each marked `Enforced:` (lint/tool),
   `Checked:` (structure gate), or `Advisory:` (review judgment).
 - A rule without an enforcement designation does not ship.
+- When the repo has work nobody watches happen (background jobs, queues,
+  alarms, migrations, cleanups, APIs whose effect is internal), one rule:
+  such work ships with a read that tells a stall from progress and a failure
+  from completion, the read works where changes are verified with the
+  verifying agent's access, and the PR's `Observability:` line names it and
+  what to watch after deploy. Mark it `Advisory:` unless a check enforces the
+  line, and point at `principle-make-it-observable`.
 
 ## 7) Workflow routing (pointers, one line each)
 

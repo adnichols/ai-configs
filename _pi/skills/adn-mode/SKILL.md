@@ -31,6 +31,7 @@ Remaining triggers:
 - Before review → the **no-comments** skill (`/no-comments`).
 - Shipping UI / IDE / CLI → the matching control surface. On Pi, drive CLIs and TUIs directly through `bash` and use the **webapp-testing** or **playwright-skill** skills for browser and web UIs. For bug fixes, reproduce first on the same surface yourself; hand to the user only under the narrow Bug fix step 1 exception.
 - Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
+- Designing, changing, or reviewing work nobody watches happen (a background job, an alarm, a queue consumer, a migration, a cleanup, an API whose effect is internal, or a performance change) → **principle-make-it-observable**. Build the read that shows it works, and name who makes that read after it ships.
 - The operator keeps correcting agents for the same mistakes, or invokes `/correct` → the **correct** skill.
 - Any PR-status request → the **Babysit** playbook (`playbooks/babysit.md`). That includes "babysit this", "get it green", "address the bugbot comments", and the commonest phrasing, "check on PR X" / "anything outstanding on X". Never triggered by merely opening a PR. Declare its mode before polling; the playbook's step 1 owns the request-to-mode mapping.
 - Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`.
@@ -69,6 +70,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 - **Fix Root Causes** (**principle-fix-root-causes**). Debugging. Trace each symptom to its root cause, reproduce first, ask why until you reach it.
 - **Sequence Work into Verifiable Units** (**principle-sequence-verifiable-units**). Multi-step work (sweeps, migrations, runs of similar edits) and how you stack commits and PRs. Break work into small units that each end in a check, verify each before the next, and order delivery so the sequence proves itself.
 - **Explain the Number** (**principle-explain-the-number**). Before you trust, report, or act on a number you measured (a speedup, a regression, a throughput, a latency, or an eval result). Find what limits it, and rule out that it measured something other than the work you think.
+- **Make It Observable, and Observe It** (**principle-make-it-observable**). Designing, changing, or reviewing work nobody watches happen: a background job, a migration, a cleanup, an API whose effect is internal, or a performance change. Build a read that tells a stall from progress and a failure from completion, make it work where the change is verified, and make that read after it ships.
 
 **Delegation**
 

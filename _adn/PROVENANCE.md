@@ -12,6 +12,8 @@ OMP adaptation policy: retain named outcomes; replace only declared runtime depe
 
 Local OMP adaptations include the runtime contract, managed deslop skill, and read-only Comment Sicko agent. These replace missing plugin and Cursor runtime dependencies without refreshing upstream.
 
+Local doctrine principles have no upstream source: `principle-modes-not-exceptions` and `principle-make-it-observable`. Their manifest rows use `sourcePath: local` and `retainedBehavior: local-doctrine`, and an upstream adoption leaves them unchanged.
+
 ## Adoption of ecc249f to e43c7ee (pstack 0.15.9, 2026-10-03)
 
 Adopted:

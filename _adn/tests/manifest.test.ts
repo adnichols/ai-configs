@@ -62,6 +62,7 @@ const PRINCIPLE_IDS = [
   "principle-attack-the-premise",
   "principle-test-behavior-not-implementation",
   "principle-explain-the-number",
+  "principle-make-it-observable",
 ] as const;
 
 const OPERATIONAL_IDS = [

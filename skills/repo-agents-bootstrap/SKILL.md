@@ -36,6 +36,7 @@ Capture these behaviors as defaults:
 - Structure conventions are a first-class bootstrap deliverable, not an afterthought: where-to-work map, domain-vocabulary naming, file budgets, import discipline, machine-checked concept map.
 - Repositories with a JavaScript or TypeScript toolchain use pnpm as their only package manager: `package.json` pins `packageManager` to a `pnpm@<version>`, `pnpm-lock.yaml` is the only committed lockfile, and every documented command is a `pnpm` command. A `package-lock.json`, `npm-shrinkwrap.json` or `yarn.lock`, and any `npm`, `npx` or `yarn` command in guides, READMEs or scripts, is an alignment gap that bootstrap migrates (`pnpm import` converts the existing lockfile without changing resolved versions) and the structure-check lever then rejects.
 - Every convention names its enforcement (lint rule, script, CI gate) or is explicitly marked advisory. Bootstrap commits a runnable structure-check lever the day guidance lands, not later.
+- Work nobody watches happen (background or scheduled jobs, queue consumers, alarms, migrations, cleanups, APIs whose effect is internal, performance changes) follows the ADN `principle-make-it-observable` skill. Root `AGENTS.md` carries one engineering rule that points at the skill and names where the read must work: the environment where changes are verified, with the verifying agent's access. The repo's PR guidance asks for an `Observability:` line naming the read and what to watch after deploy, or `Observability: none, <reason>`. Review makes the read. The doctrine stays in the skill, not the root file.
 - Product intent lives in the repo's canonical spec-corpus location. Default to `thoughts/specs/product_intent.md` only when the repo has no existing spec corpus; a repo with `spec/` (or equivalent) keeps intent with the corpus and root `AGENTS.md` names the real path. Never fragment an existing corpus.
 - Root-file governance: add a rule only after an observed repeated agent mistake; delete rules that tooling now enforces.
 - `plan mode` is discovery-only and read-only.
@@ -107,6 +108,7 @@ Do not make a repo-local planning overrides file the default source of truth whe
   - full quality gate command.
 - Detect repo surfaces and likely skill-routing hints (frontend, React/Next, Rust, browser automation, MCP, etc.).
 - Detect the package manager from lockfiles, the `packageManager` field, and package-manager commands in docs and scripts. Anything other than pnpm is an alignment gap.
+- Detect hidden-work surfaces (cron triggers, schedulers, queues, workers, alarms, migrations, cleanup jobs) and the reads that exist for them today: status endpoints, metrics, dashboards, retained logs. Record whether the agent that verifies a change can make each read in the verification environment. A hidden-work surface with no read that agent can make is an alignment gap.
 
 Also detect whether a repo-local planning overrides file already exists (for example `thoughts/plans/AGENTS.md`).
 Detect the repo's canonical spec or documentation corpus (for example `spec/`, `docs/specs/`): product intent lives with the corpus when one exists.
@@ -158,7 +160,8 @@ Also check repo guidance for:
 - root file size within target (doctrine restatement is the usual cause of bloat),
 - instruction-file topology: bridges present and pointing at the canonical file, no shadowing duplicates, nested `AGENTS.md` where functional areas have their own rules,
 - a structure layer: task-to-path map, naming-vocabulary rule, file budget, import discipline, and every convention naming enforcement or marked advisory,
-- a committed structure-check lever that runs green today.
+- a committed structure-check lever that runs green today,
+- hidden-work surfaces routed to `principle-make-it-observable`, with an `Observability:` line in the PR guidance and a read the verifying agent can make.
 
 Produce a short gap matrix (count + file examples) and then propose migration policy:
 
@@ -180,6 +183,7 @@ Required outcomes (each a short section; the whole file targets under 200 lines)
 - `### Verify` commands validated against real repo/package/target names before execution, and stale fixtures updated when locked contracts change (state the rule in one line; the mechanics stay in the shared skill).
 - The repo's discovery-ledger destination for documented out-of-scope low-risk items (for example `thoughts/discoveries/<plan-or-feature>.md`).
 - Engineering rules that are non-obvious and specific to this repo, each marked `Enforced:` (tooling), `Checked:` (structure gate), or `Advisory:` (review judgment). A rule without an enforcement designation does not ship.
+- When the repo has hidden-work surfaces: one engineering rule pointing at `principle-make-it-observable`, marked `Advisory:` unless a check enforces the PR `Observability:` line.
 - Repo-specific skill-routing hints for likely work surfaces.
 - Rule governance: rules enter after observed repeated mistakes; tooling-enforced rules leave.
 
@@ -230,6 +234,7 @@ Before finalizing, verify:
 - Bridge files exist, are one-line imports of the canonical file, and no shadowing or duplicated instruction files remain.
 - Every root rule names its enforcement or is marked advisory, and the structure-check lever runs green from a clean checkout.
 - JavaScript and TypeScript repos use pnpm only: pinned `packageManager`, committed `pnpm-lock.yaml`, no npm or yarn lockfile, and no `npm`, `npx` or `yarn` commands in guides, READMEs or scripts.
+- Repos with hidden-work surfaces route them to `principle-make-it-observable`, their PR guidance asks for an `Observability:` line, and each surface has a read the verifying agent can make in the verification environment, or the gap is listed.
 - Any repo-local planning overrides reference real quality gates from root `AGENTS.md`.
 - TDD + BDD requirements are explicit and testable in the skills and plan templates the repo points at.
 - No contradictory guidance between root `AGENTS.md`, nested `AGENTS.md` files, optional planning overrides, and the shared planning workflow.
