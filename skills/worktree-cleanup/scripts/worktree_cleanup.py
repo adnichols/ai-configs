@@ -654,15 +654,15 @@ class Cleanup:
             raise StepFailed("worktree became dirty after preflight; not removing it")
         workspace_id = snap.workspace_id
         listing = self.workspaces(StepFailed if (workspace_id or self.args.workspace or paseo_managed(snap.path)) else None)
-        at_path = [w for w in listing if w.get("cwd") and real(w["cwd"]) == snap.path]
-        owned = next((w for w in at_path if w.get("workspaceId") == workspace_id), None)
-        others = [w for w in at_path if w is not owned]
-        stale = next((w for w in listing if workspace_id and w.get("workspaceId") == workspace_id and w not in at_path), None)
+        in_tree = [w for w in listing if w.get("cwd") and inside(real(w["cwd"]), snap.path)]
+        owned = next((w for w in in_tree if w.get("workspaceId") == workspace_id and real(w["cwd"]) == snap.path), None)
+        others = [w for w in in_tree if w is not owned]
+        stale = next((w for w in listing if workspace_id and w.get("workspaceId") == workspace_id and w is not owned), None)
         if stale:
             say(f"[workspace] {workspace_id} is listed with cwd {stale.get('cwd')}, not {snap.path}; not archiving it")
         if others and not owned and os.path.isdir(snap.path):
-            self.defer("orchestrator", f"workspace {others[0].get('workspaceId')} owns {snap.path}, not the recorded {workspace_id}; not removing a worktree another workspace uses", None)
-            self.record("workspace", "deferred", workspace_id=workspace_id, note="path owned by another workspace")
+            self.defer("orchestrator", f"workspace {others[0].get('workspaceId')} uses {others[0].get('cwd')} inside {snap.path}, and the recorded workspace is {workspace_id}; not removing a worktree another workspace uses", None)
+            self.record("workspace", "deferred", workspace_id=workspace_id, note="path used by another workspace")
             self.archive_pending = True
             return
         if owned:

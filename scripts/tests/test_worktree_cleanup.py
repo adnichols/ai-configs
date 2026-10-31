@@ -704,7 +704,7 @@ class WorktreeCleanupTest(unittest.TestCase):
         self.f.fake(ls_script=[[recorded], [moved, taker]])
         code, report = self.f.run(*report["resume"].split()[1:], cwd=self.f.main)
         self.assertEqual((code, report["status"]), (4, "deferred"), report)
-        self.assertEqual(self.f.step(report, "workspace")["note"], "path owned by another workspace")
+        self.assertEqual(self.f.step(report, "workspace")["note"], "path used by another workspace")
         self.assertTrue(self.f.wt.exists())
         self.assertTrue(self.f.remote_has_branch())
 
@@ -715,6 +715,18 @@ class WorktreeCleanupTest(unittest.TestCase):
         code, report = self.f.run("--workspace", "wks_gone", "--path", str(self.f.wt), cwd=self.f.main)
         self.assertEqual((code, report["status"]), (3, "failed"), report)
         self.assertEqual(self.f.step(report, "workspace")["status"], "failed")
+        self.assertTrue(self.f.wt.exists())
+        self.assertTrue(self.f.remote_has_branch())
+
+    def test_a_workspace_rooted_in_a_subdirectory_keeps_the_worktree_from_being_removed(self):
+        code, report = self.f.run(cwd=self.f.wt)
+        self.assertEqual(code, 4, report)
+        (self.f.wt / "sub").mkdir()
+        self.f.fake(workspaces=[{"workspaceId": "wks_1", "cwd": str(self.f.wt / "sub"), "repo": str(self.f.main)}])
+        code, report = self.f.run("--workspace", "wks_1", cwd=self.f.main)
+        self.assertEqual((code, report["status"]), (4, "deferred"), report)
+        self.assertEqual(self.f.step(report, "workspace")["note"], "path used by another workspace")
+        self.assertEqual(self.f.calls(), [])
         self.assertTrue(self.f.wt.exists())
         self.assertTrue(self.f.remote_has_branch())
 
